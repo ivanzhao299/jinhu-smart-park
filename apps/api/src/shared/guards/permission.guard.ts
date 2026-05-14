@@ -1,0 +1,46 @@
+import type { CanActivate, ExecutionContext} from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import type { Request } from "express";
+import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
+import type { JwtPrincipal } from "../types/jwt-principal";
+
+const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
+const ALL_PERMISSION = "*";
+
+@Injectable()
+export class PermissionGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      throw new ForbiddenException("Permission point is required for this endpoint");
+    }
+
+    const request = context.switchToHttp().getRequest<Request & { user?: JwtPrincipal }>();
+    const user = request.user;
+    if (!user) {
+      return false;
+    }
+
+    if (user.roles.some((role) => role.toUpperCase() === SUPER_ADMIN_ROLE) || user.permissions.includes(ALL_PERMISSION)) {
+      return true;
+    }
+
+    const granted = new Set(user.permissions);
+    return requiredPermissions.every((permission) => granted.has(permission));
+  }
+}

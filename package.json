@@ -1,0 +1,31 @@
+{
+  "name": "jinhu-smart-park",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @jinhu/web dev",
+    "dev:api": "pnpm --filter @jinhu/api start:dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm run test:e2e",
+    "test:e2e": "node scripts/e2e/s1-smoke.mjs",
+    "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "db:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "db:migrate": "sh scripts/db-migrate.sh",
+    "db:seed:dev": "sh scripts/db-seed-dev.sh",
+    "db:seed:prod": "sh scripts/db-seed-prod.sh"
+  },
+  "devDependencies": {
+    "@jinhu/config": "workspace:*",
+    "@eslint/js": "^9.16.0",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "^15.0.3",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript": "^5.7.2"
+  }
+}
