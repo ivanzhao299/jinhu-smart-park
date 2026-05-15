@@ -22,6 +22,6 @@ export class PaginationQueryDto {
   keyword?: string;
 
   @IsOptional()
-  @IsIn(["enabled", "disabled", "pending", "approved", "rejected", "archived"])
+  @IsIn(["0", "1", "2", "enabled", "disabled", "expired", "pending", "approved", "rejected", "archived"])
   status?: string;
 }

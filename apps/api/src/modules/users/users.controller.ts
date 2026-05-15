@@ -18,8 +18,8 @@ export class UsersController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_LIST)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: PaginationQueryDto) {
-    return this.usersService.list(scope, query);
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: PaginationQueryDto) {
+    return this.usersService.list(scope, query, user);
   }
 
   @Post()
@@ -37,8 +37,8 @@ export class UsersController {
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_DETAIL)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.usersService.detail(scope, id);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.usersService.detail(scope, id, user);
   }
 
   @Patch(":id")

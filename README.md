@@ -34,6 +34,16 @@ pnpm install
 
 请在 `.env` 中替换 `JWT_SECRET` 与数据库密码。不要在代码里硬编码密钥。
 
+`.env.example` 中的 TimescaleDB、Redis、MQTT、RabbitMQ、MinIO、AI 相关变量均为后续平台能力预留：
+
+- TimescaleDB：后续 IoT、能耗时序数据。
+- Redis / RabbitMQ：后续消息、异步任务、设备事件处理。
+- EMQX / MQTT：后续 IoT 设备接入。
+- MinIO：后续附件中心切换对象存储。
+- AI：后续 AI 运维助手。
+
+这些变量当前只提供占位值，请勿写入真实密钥。
+
 ## 启动数据库
 
 ```bash

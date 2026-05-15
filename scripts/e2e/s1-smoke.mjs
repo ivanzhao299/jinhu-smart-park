@@ -2,12 +2,17 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const execFileAsync = promisify(execFile);
 const apiBase = process.env.E2E_API_BASE ?? "http://127.0.0.1:3001/api/v1";
-const tenantId = process.env.E2E_TENANT_ID ?? "00000000-0000-4000-8000-000000000001";
-const parkId = process.env.E2E_PARK_ID ?? "00000000-0000-4000-8000-000000000101";
+const composeFile = process.env.COMPOSE_FILE ?? resolve(rootDir, "infra/docker/docker-compose.yml");
+const postgresUser = process.env.POSTGRES_USER ?? "jinhu";
+const postgresDb = process.env.POSTGRES_DB ?? "jinhu_smart_park";
+const tenantId = process.env.E2E_TENANT_ID ?? "10000001";
+const parkId = process.env.E2E_PARK_ID ?? "20000001";
 const adminUser = process.env.E2E_ADMIN_USERNAME ?? "admin";
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "Jinhu@123456";
 const normalUser = process.env.E2E_NORMAL_USERNAME ?? "s1_user";
@@ -35,10 +40,10 @@ async function request(path, options = {}) {
   return { response, body };
 }
 
-async function login(username, password) {
+async function login(username, password, requestId = `s1-smoke-login-${randomUUID()}`) {
   return request("/auth/login", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-request-id": requestId },
     body: JSON.stringify({ tenantId, parkId, username, password })
   });
 }
@@ -66,6 +71,49 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function assertUniformResponse(name, body) {
+  assert(body && typeof body === "object", `${name} did not return a JSON object`);
+  assert(Object.hasOwn(body, "code"), `${name} response is missing code`);
+  assert(Object.hasOwn(body, "message"), `${name} response is missing message`);
+  assert(Object.hasOwn(body, "data"), `${name} response is missing data`);
+  assert(Object.hasOwn(body, "request_id"), `${name} response is missing request_id`);
+  assert(Object.hasOwn(body, "server_time"), `${name} response is missing server_time`);
+}
+
+function sqlLiteral(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+async function dbScalar(sql) {
+  const { stdout } = await execFileAsync("docker", [
+    "compose",
+    "-f",
+    composeFile,
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    postgresUser,
+    "-d",
+    postgresDb,
+    "-t",
+    "-A",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    sql
+  ]);
+  return stdout.trim();
+}
+
+async function assertDbCount(name, sql, minimum = 1) {
+  const value = Number(await dbScalar(sql));
+  assert(Number.isFinite(value), `${name} did not return a numeric count`);
+  assert(value >= minimum, `${name} expected at least ${minimum}, got ${value}`);
+  logStep(`${name}: ${value}`);
 }
 
 async function isApiReachable() {
@@ -116,25 +164,36 @@ async function ensureApiStarted() {
 async function run() {
   await ensureApiStarted();
 
-  const adminLogin = await login(adminUser, adminPassword);
+  const adminLoginRequestId = `s1-smoke-admin-login-${randomUUID()}`;
+  const normalLoginRequestId = `s1-smoke-normal-login-${randomUUID()}`;
+  const failedLoginRequestId = `s1-smoke-failed-login-${randomUUID()}`;
+  const downloadRequestId = `s1-smoke-download-${randomUUID()}`;
+
+  const adminLogin = await login(adminUser, adminPassword, adminLoginRequestId);
   assertStatus("admin login", adminLogin.response.status, 200);
+  assertUniformResponse("admin login", adminLogin.body);
   const adminToken = adminLogin.body?.data?.accessToken;
   assert(adminToken, "admin login did not return accessToken");
   assert(adminLogin.body?.request_id, "uniform response request_id is missing");
 
-  const normalLogin = await login(normalUser, normalPassword);
+  const normalLogin = await login(normalUser, normalPassword, normalLoginRequestId);
   assertStatus("normal login", normalLogin.response.status, 200);
+  assertUniformResponse("normal login", normalLogin.body);
   const normalToken = normalLogin.body?.data?.accessToken;
   assert(normalToken, "normal login did not return accessToken");
 
-  const failedLogin = await login(adminUser, "wrong-password");
+  const failedLogin = await login(adminUser, "wrong-password", failedLoginRequestId);
   assertStatus("failed login", failedLogin.response.status, 401);
+  assertUniformResponse("failed login", failedLogin.body);
 
   const noTokenMe = await request("/users/me");
   assertStatus("users/me without token", noTokenMe.response.status, 401);
 
   const adminMe = await request("/users/me", { headers: { authorization: `Bearer ${adminToken}` } });
   assertStatus("admin users/me", adminMe.response.status, 200);
+  assertUniformResponse("admin users/me", adminMe.body);
+  assert(adminMe.body?.data?.id, "users/me id is missing");
+  assert(adminMe.body?.data?.username, "users/me username is missing");
   assert(adminMe.body?.data?.tenant_id && adminMe.body?.data?.park_id, "users/me scope is missing");
   assert(Array.isArray(adminMe.body?.data?.roles), "users/me roles are missing");
   assert(Array.isArray(adminMe.body?.data?.permissions), "users/me permissions are missing");
@@ -168,7 +227,7 @@ async function run() {
   assertStatus("normal file download denied", normalDownload.response.status, 403);
 
   const adminDownload = await request(`/files/${fileId}/download`, {
-    headers: { authorization: `Bearer ${adminToken}` }
+    headers: { authorization: `Bearer ${adminToken}`, "x-request-id": downloadRequestId }
   });
   assertStatus("admin file download", adminDownload.response.status, 200);
 
@@ -209,14 +268,16 @@ async function run() {
   });
   assertStatus("user role assignment", assignRoles.response.status, 201);
 
-  const permissions = await request("/permissions?page=1&page_size=100", {
-    headers: { authorization: `Bearer ${adminToken}` }
-  });
-  assertStatus("permission list", permissions.response.status, 200);
-  const permissionIds = (permissions.body?.data?.items ?? [])
-    .filter((permission) => ["system:user:me", "file:read"].includes(permission.code))
-    .map((permission) => permission.id);
-  assert(permissionIds.length > 0, "permission ids for role assignment are missing");
+  const permissionIds = [];
+  for (const code of ["system:user:me", "file:read"]) {
+    const permissions = await request(`/permissions?page=1&page_size=100&keyword=${encodeURIComponent(code)}`, {
+      headers: { authorization: `Bearer ${adminToken}` }
+    });
+    assertStatus(`permission list ${code}`, permissions.response.status, 200);
+    const permissionId = (permissions.body?.data?.items ?? []).find((permission) => permission.code === code)?.id;
+    assert(permissionId, `permission id for ${code} is missing`);
+    permissionIds.push(permissionId);
+  }
 
   const assignPermissions = await jsonRequest(`/roles/${roleId}/permissions`, adminToken, "POST", {
     permissionIds
@@ -234,6 +295,23 @@ async function run() {
   });
   assertStatus("login logs query", loginLogs.response.status, 200);
   assert((loginLogs.body?.data?.total ?? 0) > 0, "login logs are empty");
+
+  await assertDbCount(
+    "sys_login_log success record",
+    `SELECT count(*) FROM sys_login_log WHERE tenant_id = ${sqlLiteral(tenantId)} AND park_id = ${sqlLiteral(parkId)} AND username = ${sqlLiteral(adminUser)} AND request_id = ${sqlLiteral(adminLoginRequestId)} AND result = 'success' AND is_deleted = false`
+  );
+  await assertDbCount(
+    "sys_login_log failure record",
+    `SELECT count(*) FROM sys_login_log WHERE tenant_id = ${sqlLiteral(tenantId)} AND park_id = ${sqlLiteral(parkId)} AND username = ${sqlLiteral(adminUser)} AND request_id = ${sqlLiteral(failedLoginRequestId)} AND result = 'fail' AND is_deleted = false`
+  );
+  await assertDbCount(
+    "sys_op_log file download record",
+    `SELECT count(*) FROM sys_op_log WHERE tenant_id = ${sqlLiteral(tenantId)} AND park_id = ${sqlLiteral(parkId)} AND request_id = ${sqlLiteral(downloadRequestId)} AND resource = 'system.file' AND action = 'download' AND result = 'success' AND is_deleted = false`
+  );
+  await assertDbCount(
+    "sys_file soft delete record",
+    `SELECT count(*) FROM sys_file WHERE tenant_id = ${sqlLiteral(tenantId)} AND park_id = ${sqlLiteral(parkId)} AND id = ${sqlLiteral(fileId)}::uuid AND is_deleted = true`
+  );
 
   logStep("S1 smoke test passed");
 }

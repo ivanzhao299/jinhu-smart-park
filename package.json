@@ -11,12 +11,17 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm run test:e2e",
-    "test:e2e": "node scripts/e2e/s1-smoke.mjs",
+    "test:e2e": "node scripts/e2e/s1-smoke.mjs && node scripts/e2e/s1-rbac-std-fix-smoke.mjs && node scripts/e2e/s2b-smoke.mjs",
+    "test:e2e:s1-rbac-std-fix": "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+    "test:e2e:s2b": "node scripts/e2e/s2b-smoke.mjs",
+    "smoke:cleanup": "sh scripts/smoke-cleanup.sh",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",
     "db:migrate": "sh scripts/db-migrate.sh",
+    "db:seed": "sh scripts/db-seed-prod.sh",
     "db:seed:dev": "sh scripts/db-seed-dev.sh",
-    "db:seed:prod": "sh scripts/db-seed-prod.sh"
+    "db:seed:prod": "sh scripts/db-seed-prod.sh",
+    "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "devDependencies": {
     "@jinhu/config": "workspace:*",

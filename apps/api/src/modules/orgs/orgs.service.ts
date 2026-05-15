@@ -4,6 +4,8 @@ import type { Repository } from "typeorm";
 import { ILike } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { DataScopeService } from "../data-scopes/data-scope.service";
 import type { CreateOrgDto } from "./dto/create-org.dto";
 import type { UpdateOrgDto } from "./dto/update-org.dto";
 import { OrgEntity } from "./entities/org.entity";
@@ -12,17 +14,24 @@ import { OrgEntity } from "./entities/org.entity";
 export class OrgsService {
   constructor(
     @InjectRepository(OrgEntity)
-    private readonly orgRepository: Repository<OrgEntity>
+    private readonly orgRepository: Repository<OrgEntity>,
+    private readonly dataScopeService: DataScopeService
   ) {}
 
-  async list(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<OrgEntity>> {
-    const where = {
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      isDeleted: false,
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.keyword ? { orgName: ILike(`%${query.keyword}%`) } : {})
-    };
+  async list(scope: TenantParkScope, query: PaginationQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<OrgEntity>> {
+    const where = await this.dataScopeService.buildFindWhere<OrgEntity>(
+      scope,
+      actor,
+      "org",
+      {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        isDeleted: false,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.keyword ? { orgName: ILike(`%${query.keyword}%`) } : {})
+      },
+      { org: "id" }
+    );
     const [items, total] = await this.orgRepository.findAndCount({
       where,
       order: { sortOrder: "ASC", createTime: "DESC" },

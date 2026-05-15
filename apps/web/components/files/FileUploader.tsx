@@ -10,10 +10,11 @@ import { getAccessToken } from "../../lib/authz";
 interface FileUploaderProps {
   bizType: string;
   bizId?: string;
+  uploadPath?: string;
   onUploaded: (file: FileRecord) => void;
 }
 
-export function FileUploader({ bizType, bizId, onUploaded }: FileUploaderProps) {
+export function FileUploader({ bizType, bizId, uploadPath = "/files", onUploaded }: FileUploaderProps) {
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -28,7 +29,7 @@ export function FileUploader({ bizType, bizId, onUploaded }: FileUploaderProps) 
     }
 
     try {
-      const response = await apiFormRequest<FileRecord>("/files", {
+      const response = await apiFormRequest<FileRecord>(uploadPath, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("file-upload"),

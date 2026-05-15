@@ -8,17 +8,28 @@ import { randomUUID } from "node:crypto";
 import { AttachmentsModule } from "./modules/attachments/attachments.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { AssetsModule } from "./modules/assets/assets.module";
+import { BuildingsModule } from "./modules/buildings/buildings.module";
+import { CodeRulesModule } from "./modules/code-rules/code-rules.module";
+import { DataScopesModule } from "./modules/data-scopes/data-scopes.module";
 import { DictsModule } from "./modules/dicts/dicts.module";
+import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
+import { FloorsModule } from "./modules/floors/floors.module";
 import { OrgsModule } from "./modules/orgs/orgs.module";
+import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { RolesModule } from "./modules/roles/roles.module";
+import { SaaSModulesModule } from "./modules/saas-modules/saas-modules.module";
+import { TenantsModule } from "./modules/tenants/tenants.module";
+import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 import { AuditLogInterceptor } from "./shared/interceptors/audit-log.interceptor";
 import { ApiExceptionFilter } from "./shared/filters/api-exception.filter";
 import { IdempotencyKeyGuard } from "./shared/guards/idempotency-key.guard";
+import { ModuleGuard } from "./shared/guards/module.guard";
 import { PermissionGuard } from "./shared/guards/permission.guard";
 
 @Module({
@@ -47,9 +58,19 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
       })
     }),
     AuthModule,
+    TenantsModule,
+    AssetsModule,
+    ParksModule,
+    BuildingsModule,
+    CodeRulesModule,
+    DataScopesModule,
+    FieldPoliciesModule,
+    FloorsModule,
+    UnitsModule,
     OrgsModule,
     UsersModule,
     RolesModule,
+    SaaSModulesModule,
     PermissionsModule,
     DictsModule,
     AttachmentsModule,
@@ -68,6 +89,10 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     {
       provide: APP_GUARD,
       useClass: PermissionGuard
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ModuleGuard
     },
     {
       provide: APP_GUARD,

@@ -7,7 +7,7 @@ SEEDS_DIR="${SEEDS_DIR:-$ROOT_DIR/database/seeds}"
 POSTGRES_USER="${POSTGRES_USER:-jinhu}"
 POSTGRES_DB="${POSTGRES_DB:-jinhu_smart_park}"
 
-for file in "$SEEDS_DIR"/000001_s1_permissions.sql "$SEEDS_DIR"/000002_s1_dev_accounts.sql; do
+for file in "$SEEDS_DIR"/000001_s1_production_core.sql "$SEEDS_DIR"/000002_dev_only_s1_accounts.sql; do
   if [ ! -f "$file" ]; then
     echo "Seed file not found: $file" >&2
     exit 1

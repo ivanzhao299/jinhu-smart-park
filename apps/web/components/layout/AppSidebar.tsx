@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthUser } from "../../lib/auth-context";
 import { dashboardMenus, type MenuNode } from "../../lib/menu";
-import { hasAnyPermission, hasPermission } from "../../lib/permissions";
+import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -14,20 +14,21 @@ export function AppSidebar() {
   const menus = dashboardMenus
     .map((menu) => ({
       ...menu,
-      children: menu.children?.filter((child) => hasPermission(user, child.permission))
+      children: menu.children?.filter((child) => hasAccess(user, child.permission, child.module ?? menu.module))
     }))
     .filter(
       (menu) =>
-        (menu.href && hasPermission(user, menu.permission)) ||
-        hasAnyPermission(user, menu.children?.map((child) => child.permission ?? "") ?? []) ||
-        Boolean(menu.children?.some((child) => !child.permission))
+        hasModule(user, menu.module) &&
+        ((menu.href && hasAccess(user, menu.permission, menu.module)) ||
+          hasAnyPermission(user, menu.children?.map((child) => child.permission ?? "") ?? []) ||
+          Boolean(menu.children?.some((child) => !child.permission)))
     );
 
   return (
     <aside className="app-sidebar">
       <div className="brand">
         <span className="brand-mark"><Building2 size={20} /></span>
-        <span>金湖科创产业园</span>
+        <span>数字运营 SaaS</span>
       </div>
       <nav className="sidebar-menu">
         {menus.map((menu) => (
@@ -48,11 +49,14 @@ function MenuGroup({ menu, pathname }: { menu: MenuNode; pathname: string }) {
         <ChevronDown size={14} />
       </div>
       <div className="menu-group-items">
-        {menu.children?.map((child) => (
-          <Link className={`nav-link${pathname === child.href ? " active" : ""}`} href={(child.href ?? "/dashboard") as Route} key={child.href}>
-            {child.label}
-          </Link>
-        ))}
+        {menu.children?.map((child) => {
+          const isActive = pathname === child.href || (pathname === "/assets/rooms" && child.href === "/assets/units");
+          return (
+            <Link className={`nav-link${isActive ? " active" : ""}`} href={(child.href ?? "/dashboard") as Route} key={child.href}>
+              {child.label}
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

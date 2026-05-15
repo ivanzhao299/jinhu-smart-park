@@ -6,7 +6,7 @@ import type { UserContext } from "@jinhu/shared";
 import { AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
 import { findMenuByPath } from "../../lib/menu";
-import { hasPermission } from "../../lib/permissions";
+import { hasModule, hasPermission } from "../../lib/permissions";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
@@ -39,13 +39,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       });
   }, [router]);
 
-  const requiredPermission = useMemo(() => findMenuByPath(pathname)?.permission, [pathname]);
+  const requiredMenu = useMemo(() => findMenuByPath(pathname), [pathname]);
 
   useEffect(() => {
-    if (ready && requiredPermission && !hasPermission(user, requiredPermission)) {
+    if (ready && requiredMenu && !hasPermission(user, requiredMenu.permission)) {
       router.replace("/403");
     }
-  }, [ready, requiredPermission, router, user]);
+    if (ready && requiredMenu && hasPermission(user, requiredMenu.permission) && !hasModule(user, requiredMenu.module)) {
+      router.replace("/403?reason=module");
+    }
+  }, [ready, requiredMenu, router, user]);
 
   if (!ready) {
     return <main className="content">加载中...</main>;

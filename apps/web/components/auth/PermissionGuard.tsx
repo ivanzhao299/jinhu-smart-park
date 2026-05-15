@@ -2,17 +2,18 @@
 
 import type { ReactNode } from "react";
 import { useAuthUser } from "../../lib/auth-context";
-import { hasPermission } from "../../lib/permissions";
+import { hasAccess } from "../../lib/permissions";
 
 interface PermissionGuardProps {
   permission?: string;
+  module?: string;
   fallback?: ReactNode;
   children: ReactNode;
 }
 
-export function PermissionGuard({ permission, fallback = null, children }: PermissionGuardProps) {
+export function PermissionGuard({ permission, module, fallback = null, children }: PermissionGuardProps) {
   const user = useAuthUser();
-  if (!hasPermission(user, permission)) {
+  if (!hasAccess(user, permission, module)) {
     return <>{fallback}</>;
   }
   return <>{children}</>;

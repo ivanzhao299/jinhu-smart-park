@@ -6,4 +6,6 @@ export interface JwtPrincipal {
   parkId: string;
   roles: string[];
   permissions: string[];
+  dataScope?: string;
+  isSuper?: boolean;
 }

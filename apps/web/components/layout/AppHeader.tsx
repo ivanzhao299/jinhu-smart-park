@@ -26,12 +26,13 @@ export function AppHeader() {
   }, [theme]);
 
   const roleNames = user?.roles.map((role) => role.role_name).join(" / ") || "-";
+  const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "-";
 
   return (
     <header className="app-header">
       <div className="header-title">
-        <strong>金湖智慧园区</strong>
-        <span>园区：{user?.park_name ?? user?.park_id ?? "-"} · 角色：{roleNames}</span>
+        <strong>产业园数字运营 SaaS</strong>
+        <span>园区：{currentParkName} · 角色：{roleNames}</span>
       </div>
       <div className="header-actions">
         <button aria-label="切换主题" title="切换主题" type="button" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>

@@ -23,7 +23,7 @@ export default function DashboardPage() {
           <span className="brand-mark">
             <Building2 size={20} />
           </span>
-          <span>金湖智慧园区</span>
+          <span>数字运营 SaaS</span>
         </div>
         <ul className="nav-list">
           <li>

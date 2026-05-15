@@ -6,7 +6,6 @@ import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 import type { JwtPrincipal } from "../types/jwt-principal";
 
-const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
 const ALL_PERMISSION = "*";
 
 @Injectable()
@@ -36,7 +35,7 @@ export class PermissionGuard implements CanActivate {
       return false;
     }
 
-    if (user.roles.some((role) => role.toUpperCase() === SUPER_ADMIN_ROLE) || user.permissions.includes(ALL_PERMISSION)) {
+    if (user.isSuper || user.permissions.includes(ALL_PERMISSION)) {
       return true;
     }
 

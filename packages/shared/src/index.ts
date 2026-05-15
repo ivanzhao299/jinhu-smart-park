@@ -42,6 +42,48 @@ export interface RoleContext {
   role_name: string;
 }
 
+export interface FieldPermissionContext {
+  resource: string;
+  field_key: string;
+  access_mode: "none" | "read" | "write" | "mask";
+}
+
+export interface FieldPolicyContext {
+  module: string;
+  entity: string;
+  field_key: string;
+  field_name: string;
+  policy_type: "visible" | "masked" | "hidden" | "readonly" | "editable";
+  mask_rule?: string | null;
+}
+
+export interface UserParkContext {
+  tenant_id?: string;
+  park_id: string;
+  park_code?: string | null;
+  park_name: string;
+  is_default: boolean;
+  status: string;
+}
+
+export interface UserDataScopeContext {
+  rule_code?: string;
+  rule_name?: string;
+  dimension: string;
+  scope_type: string;
+  scope_config?: Record<string, unknown>;
+}
+
+export interface EnabledModuleContext {
+  module_code: string;
+  module_name: string;
+  module_group: string;
+  route_prefix?: string | null;
+  icon?: string | null;
+  enabled: boolean;
+  expire_time?: string | null;
+}
+
 export interface UserContext {
   id: string;
   username: string;
@@ -51,12 +93,38 @@ export interface UserContext {
   tenant_id: string;
   park_id: string;
   park_name?: string | null;
+  accessible_parks?: UserParkContext[];
+  current_park?: UserParkContext | null;
   org_id: string | null;
   org_name: string | null;
   roles: RoleContext[];
   permissions: string[];
   data_scope: string;
+  data_scopes?: UserDataScopeContext[];
+  field_permissions?: FieldPermissionContext[];
+  field_policies?: FieldPolicyContext[];
+  enabled_modules?: EnabledModuleContext[];
+  menu_tree?: UserMenuTreeNode[];
+  menus?: UserMenuTreeNode[];
   is_super: boolean;
+}
+
+export interface UserMenuTreeNode {
+  label: string;
+  href?: string;
+  permission?: string;
+  module?: string;
+  icon?: string;
+  children?: UserMenuTreeNode[];
+}
+
+export enum RoleDataScope {
+  Self = "self",
+  Org = "org",
+  Park = "park",
+  Tenant = "tenant",
+  Custom = "custom",
+  All = "all"
 }
 
 export enum SystemStatus {
@@ -84,8 +152,43 @@ export const SYSTEM_PERMISSIONS = {
   ROLE_UPDATE: "system:role:update",
   ROLE_DELETE: "system:role:delete",
   ROLE_ASSIGN_PERMISSIONS: "system:role:assign-permissions",
+  ROLE_READ: "role:read",
+  ROLE_OPEN_CREATE: "role:create",
+  ROLE_OPEN_UPDATE: "role:update",
+  ROLE_COPY: "role:copy",
+  ROLE_DISABLE: "role:disable",
+  ROLE_OPEN_DELETE: "role:delete",
+  TENANT_READ: "tenant:read",
+  TENANT_MANAGE: "tenant:manage",
   PERMISSION_LIST: "system:permission:list",
   PERMISSION_TREE: "system:permission:tree",
+  PERMISSION_CREATE: "system:permission:create",
+  PERMISSION_UPDATE: "system:permission:update",
+  PERMISSION_DELETE: "system:permission:delete",
+  PERMISSION_READ: "permission:read",
+  PERMISSION_OPEN_CREATE: "permission:create",
+  PERMISSION_OPEN_UPDATE: "permission:update",
+  PERMISSION_OPEN_DELETE: "permission:delete",
+  DATA_SCOPE_READ: "system:data-scope:read",
+  DATA_SCOPE_CREATE: "system:data-scope:create",
+  DATA_SCOPE_UPDATE: "system:data-scope:update",
+  DATA_SCOPE_DELETE: "system:data-scope:delete",
+  DATA_SCOPE_ASSIGN: "system:data-scope:assign",
+  DATA_SCOPE_OPEN_READ: "data_scope:read",
+  DATA_SCOPE_OPEN_CREATE: "data_scope:create",
+  DATA_SCOPE_OPEN_UPDATE: "data_scope:update",
+  DATA_SCOPE_OPEN_DELETE: "data_scope:delete",
+  ROLE_ASSIGN_DATA_SCOPE: "role:assign_data_scope",
+  FIELD_POLICY_READ: "system:field-policy:read",
+  FIELD_POLICY_CREATE: "system:field-policy:create",
+  FIELD_POLICY_UPDATE: "system:field-policy:update",
+  FIELD_POLICY_DELETE: "system:field-policy:delete",
+  FIELD_POLICY_ASSIGN: "system:field-policy:assign",
+  FIELD_POLICY_OPEN_READ: "field_policy:read",
+  FIELD_POLICY_OPEN_CREATE: "field_policy:create",
+  FIELD_POLICY_OPEN_UPDATE: "field_policy:update",
+  FIELD_POLICY_OPEN_DELETE: "field_policy:delete",
+  ROLE_ASSIGN_FIELD_POLICY: "role:assign_field_policy",
   DICT_TYPE_LIST: "system:dict-type:list",
   DICT_TYPE_CREATE: "system:dict-type:create",
   DICT_TYPE_DETAIL: "system:dict-type:detail",
@@ -107,7 +210,78 @@ export const SYSTEM_PERMISSIONS = {
   AUDIT_LOGIN_LOG_LIST: "system:audit:login-log:list",
   AUDIT_OP_LOG_LIST: "system:audit:op-log:list",
   AUDIT_READ: "audit:read",
-  AUDIT_EXPORT: "audit:export"
+  AUDIT_EXPORT: "audit:export",
+  PARK_READ: "park:read",
+  PARK_CREATE: "park:create",
+  PARK_UPDATE: "park:update",
+  PARK_DELETE: "park:delete",
+  BUILDING_READ: "building:read",
+  BUILDING_CREATE: "building:create",
+  BUILDING_UPDATE: "building:update",
+  BUILDING_DELETE: "building:delete",
+  FLOOR_READ: "floor:read",
+  FLOOR_CREATE: "floor:create",
+  FLOOR_UPDATE: "floor:update",
+  FLOOR_DELETE: "floor:delete",
+  FLOOR_UPLOAD_LAYOUT: "floor:upload_layout",
+  UNIT_READ: "unit:read",
+  UNIT_CREATE: "unit:create",
+  UNIT_UPDATE: "unit:update",
+  UNIT_DELETE: "unit:delete",
+  UNIT_TRANSITION_STATUS: "unit:transition_status",
+  UNIT_CHANGE_STATUS: "unit:change_status",
+  UNIT_FORCE_CHANGE_STATUS: "unit:force_change_status",
+  UNIT_STATUS_LOG: "unit:status_log",
+  UNIT_IMPORT: "unit:import",
+  UNIT_IMPORT_TEMPLATE: "unit:import_template",
+  UNIT_EXPORT: "unit:export",
+  ASSET_READ: "asset:read",
+  ASSET_STATUS_BOARD: "asset:status_board",
+  ASSET_STATISTICS: "asset:statistics",
+  ASSET_STATISTICS_READ: "asset:statistics:read",
+  ASSET_PARK_LIST: "asset:park:list",
+  ASSET_PARK_CREATE: "asset:park:create",
+  ASSET_PARK_DETAIL: "asset:park:detail",
+  ASSET_PARK_UPDATE: "asset:park:update",
+  ASSET_PARK_DELETE: "asset:park:delete",
+  ASSET_BUILDING_LIST: "asset:building:list",
+  ASSET_BUILDING_CREATE: "asset:building:create",
+  ASSET_BUILDING_DETAIL: "asset:building:detail",
+  ASSET_BUILDING_UPDATE: "asset:building:update",
+  ASSET_BUILDING_DELETE: "asset:building:delete",
+  ASSET_FLOOR_LIST: "asset:floor:list",
+  ASSET_FLOOR_CREATE: "asset:floor:create",
+  ASSET_FLOOR_DETAIL: "asset:floor:detail",
+  ASSET_FLOOR_UPDATE: "asset:floor:update",
+  ASSET_FLOOR_DELETE: "asset:floor:delete",
+  ASSET_UNIT_LIST: "asset:unit:list",
+  ASSET_UNIT_CREATE: "asset:unit:create",
+  ASSET_UNIT_DETAIL: "asset:unit:detail",
+  ASSET_UNIT_UPDATE: "asset:unit:update",
+  ASSET_UNIT_DELETE: "asset:unit:delete",
+  CODE_RULE_READ: "system:code-rule:read",
+  CODE_RULE_CREATE: "system:code-rule:create",
+  CODE_RULE_UPDATE: "system:code-rule:update",
+  CODE_RULE_DELETE: "system:code-rule:delete",
+  CODE_RULE_GENERATE: "system:code-rule:generate",
+  CODE_RULE_OPEN_READ: "code_rule:read",
+  CODE_RULE_OPEN_CREATE: "code_rule:create",
+  CODE_RULE_OPEN_UPDATE: "code_rule:update",
+  CODE_RULE_OPEN_GENERATE: "code_rule:generate",
+  MODULE_READ: "system:module:read",
+  MODULE_CREATE: "system:module:create",
+  MODULE_UPDATE: "system:module:update",
+  MODULE_OPEN_READ: "module:read",
+  MODULE_MANAGE: "module:manage",
+  PLAN_READ: "system:plan:read",
+  PLAN_CREATE: "system:plan:create",
+  PLAN_UPDATE: "system:plan:update",
+  PLAN_OPEN_READ: "plan:read",
+  PLAN_MANAGE: "plan:manage",
+  TENANT_MODULE_READ: "system:tenant-module:read",
+  TENANT_MODULE_ASSIGN: "system:tenant-module:assign",
+  TENANT_MODULE_OPEN_READ: "tenant_module:read",
+  TENANT_MODULE_MANAGE: "tenant_module:manage"
 } as const;
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[keyof typeof SYSTEM_PERMISSIONS];
@@ -139,8 +313,43 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.ROLE_UPDATE, name: "编辑角色", resource: "system.role", action: "update" },
   { code: SYSTEM_PERMISSIONS.ROLE_DELETE, name: "删除角色", resource: "system.role", action: "delete" },
   { code: SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, name: "角色授权", resource: "system.role", action: "assign-permissions" },
+  { code: SYSTEM_PERMISSIONS.ROLE_READ, name: "角色读取", resource: "system.role", action: "read" },
+  { code: SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE, name: "新建开放角色", resource: "system.role", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE, name: "编辑开放角色", resource: "system.role", action: "update" },
+  { code: SYSTEM_PERMISSIONS.ROLE_COPY, name: "复制模板角色", resource: "system.role", action: "copy" },
+  { code: SYSTEM_PERMISSIONS.ROLE_DISABLE, name: "停用启用角色", resource: "system.role", action: "disable" },
+  { code: SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE, name: "删除开放角色", resource: "system.role", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.TENANT_READ, name: "租户读取", resource: "system.tenant", action: "read" },
+  { code: SYSTEM_PERMISSIONS.TENANT_MANAGE, name: "租户管理", resource: "system.tenant", action: "manage" },
   { code: SYSTEM_PERMISSIONS.PERMISSION_LIST, name: "权限列表", resource: "system.permission", action: "list" },
   { code: SYSTEM_PERMISSIONS.PERMISSION_TREE, name: "权限树", resource: "system.permission", action: "tree" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_CREATE, name: "新增权限", resource: "system.permission", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_UPDATE, name: "编辑权限", resource: "system.permission", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_DELETE, name: "删除权限", resource: "system.permission", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_READ, name: "权限读取", resource: "system.permission", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE, name: "新增开放权限", resource: "system.permission", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_OPEN_UPDATE, name: "编辑开放权限", resource: "system.permission", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PERMISSION_OPEN_DELETE, name: "删除开放权限", resource: "system.permission", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_READ, name: "数据权限读取", resource: "system.data-scope", action: "read" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_CREATE, name: "新增数据权限", resource: "system.data-scope", action: "create" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_UPDATE, name: "编辑数据权限", resource: "system.data-scope", action: "update" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_DELETE, name: "删除数据权限", resource: "system.data-scope", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_ASSIGN, name: "角色数据权限绑定", resource: "system.data-scope", action: "assign" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_READ, name: "开放数据权限读取", resource: "system.data-scope", action: "read" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_CREATE, name: "新增开放数据权限", resource: "system.data-scope", action: "create" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_UPDATE, name: "编辑开放数据权限", resource: "system.data-scope", action: "update" },
+  { code: SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_DELETE, name: "删除开放数据权限", resource: "system.data-scope", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, name: "角色绑定数据权限", resource: "system.role", action: "assign-data-scope" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_READ, name: "字段策略读取", resource: "system.field-policy", action: "read" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_CREATE, name: "新增字段策略", resource: "system.field-policy", action: "create" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_UPDATE, name: "编辑字段策略", resource: "system.field-policy", action: "update" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_DELETE, name: "删除字段策略", resource: "system.field-policy", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_ASSIGN, name: "角色字段策略绑定", resource: "system.field-policy", action: "assign" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_READ, name: "开放字段策略读取", resource: "system.field-policy", action: "read" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_CREATE, name: "新增开放字段策略", resource: "system.field-policy", action: "create" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_UPDATE, name: "编辑开放字段策略", resource: "system.field-policy", action: "update" },
+  { code: SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_DELETE, name: "删除开放字段策略", resource: "system.field-policy", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY, name: "角色绑定字段策略", resource: "system.role", action: "assign-field-policy" },
   { code: SYSTEM_PERMISSIONS.DICT_TYPE_LIST, name: "字典类型列表", resource: "system.dict-type", action: "list" },
   { code: SYSTEM_PERMISSIONS.DICT_TYPE_CREATE, name: "新增字典类型", resource: "system.dict-type", action: "create" },
   { code: SYSTEM_PERMISSIONS.DICT_TYPE_DETAIL, name: "字典类型详情", resource: "system.dict-type", action: "detail" },
@@ -162,7 +371,78 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.AUDIT_LOGIN_LOG_LIST, name: "登录日志列表", resource: "system.audit", action: "login-log:list" },
   { code: SYSTEM_PERMISSIONS.AUDIT_OP_LOG_LIST, name: "操作日志列表", resource: "system.audit", action: "op-log:list" },
   { code: SYSTEM_PERMISSIONS.AUDIT_READ, name: "审计读取", resource: "system.audit", action: "read" },
-  { code: SYSTEM_PERMISSIONS.AUDIT_EXPORT, name: "审计导出", resource: "system.audit", action: "export" }
+  { code: SYSTEM_PERMISSIONS.AUDIT_EXPORT, name: "审计导出", resource: "system.audit", action: "export" },
+  { code: SYSTEM_PERMISSIONS.PARK_READ, name: "园区读取", resource: "biz.park", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PARK_CREATE, name: "新增园区", resource: "biz.park", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PARK_UPDATE, name: "编辑园区", resource: "biz.park", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PARK_DELETE, name: "删除园区", resource: "biz.park", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.BUILDING_READ, name: "楼栋读取", resource: "biz.building", action: "read" },
+  { code: SYSTEM_PERMISSIONS.BUILDING_CREATE, name: "新增楼栋", resource: "biz.building", action: "create" },
+  { code: SYSTEM_PERMISSIONS.BUILDING_UPDATE, name: "编辑楼栋", resource: "biz.building", action: "update" },
+  { code: SYSTEM_PERMISSIONS.BUILDING_DELETE, name: "删除楼栋", resource: "biz.building", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.FLOOR_READ, name: "楼层读取", resource: "biz.floor", action: "read" },
+  { code: SYSTEM_PERMISSIONS.FLOOR_CREATE, name: "新增楼层", resource: "biz.floor", action: "create" },
+  { code: SYSTEM_PERMISSIONS.FLOOR_UPDATE, name: "编辑楼层", resource: "biz.floor", action: "update" },
+  { code: SYSTEM_PERMISSIONS.FLOOR_DELETE, name: "删除楼层", resource: "biz.floor", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT, name: "上传楼层平面图", resource: "biz.floor", action: "upload_layout" },
+  { code: SYSTEM_PERMISSIONS.UNIT_READ, name: "房源读取", resource: "biz.unit", action: "read" },
+  { code: SYSTEM_PERMISSIONS.UNIT_CREATE, name: "新增房源", resource: "biz.unit", action: "create" },
+  { code: SYSTEM_PERMISSIONS.UNIT_UPDATE, name: "编辑房源", resource: "biz.unit", action: "update" },
+  { code: SYSTEM_PERMISSIONS.UNIT_DELETE, name: "删除房源", resource: "biz.unit", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.UNIT_TRANSITION_STATUS, name: "房源状态流转", resource: "biz.unit", action: "transition_status" },
+  { code: SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS, name: "房源状态变更", resource: "biz.unit", action: "change_status" },
+  { code: SYSTEM_PERMISSIONS.UNIT_FORCE_CHANGE_STATUS, name: "强制调整房源状态", resource: "biz.unit", action: "force_change_status" },
+  { code: SYSTEM_PERMISSIONS.UNIT_STATUS_LOG, name: "房源状态日志", resource: "biz.unit", action: "status_log" },
+  { code: SYSTEM_PERMISSIONS.UNIT_IMPORT, name: "房源导入", resource: "biz.unit", action: "import" },
+  { code: SYSTEM_PERMISSIONS.UNIT_IMPORT_TEMPLATE, name: "房源导入模板", resource: "biz.unit", action: "import_template" },
+  { code: SYSTEM_PERMISSIONS.UNIT_EXPORT, name: "房源导出", resource: "biz.unit", action: "export" },
+  { code: SYSTEM_PERMISSIONS.ASSET_READ, name: "资产读取", resource: "biz.asset", action: "read" },
+  { code: SYSTEM_PERMISSIONS.ASSET_STATUS_BOARD, name: "房源状态看板", resource: "biz.asset", action: "status_board" },
+  { code: SYSTEM_PERMISSIONS.ASSET_STATISTICS, name: "资产统计", resource: "biz.asset", action: "statistics" },
+  { code: SYSTEM_PERMISSIONS.ASSET_STATISTICS_READ, name: "资产统计读取", resource: "biz.asset", action: "statistics:read" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARK_LIST, name: "园区列表", resource: "asset.park", action: "list" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARK_CREATE, name: "新增园区", resource: "asset.park", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARK_DETAIL, name: "园区详情", resource: "asset.park", action: "detail" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARK_UPDATE, name: "编辑园区", resource: "asset.park", action: "update" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARK_DELETE, name: "删除园区", resource: "asset.park", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.ASSET_BUILDING_LIST, name: "楼栋列表", resource: "asset.building", action: "list" },
+  { code: SYSTEM_PERMISSIONS.ASSET_BUILDING_CREATE, name: "新增楼栋", resource: "asset.building", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ASSET_BUILDING_DETAIL, name: "楼栋详情", resource: "asset.building", action: "detail" },
+  { code: SYSTEM_PERMISSIONS.ASSET_BUILDING_UPDATE, name: "编辑楼栋", resource: "asset.building", action: "update" },
+  { code: SYSTEM_PERMISSIONS.ASSET_BUILDING_DELETE, name: "删除楼栋", resource: "asset.building", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.ASSET_FLOOR_LIST, name: "楼层列表", resource: "asset.floor", action: "list" },
+  { code: SYSTEM_PERMISSIONS.ASSET_FLOOR_CREATE, name: "新增楼层", resource: "asset.floor", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ASSET_FLOOR_DETAIL, name: "楼层详情", resource: "asset.floor", action: "detail" },
+  { code: SYSTEM_PERMISSIONS.ASSET_FLOOR_UPDATE, name: "编辑楼层", resource: "asset.floor", action: "update" },
+  { code: SYSTEM_PERMISSIONS.ASSET_FLOOR_DELETE, name: "删除楼层", resource: "asset.floor", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.ASSET_UNIT_LIST, name: "房源列表", resource: "asset.unit", action: "list" },
+  { code: SYSTEM_PERMISSIONS.ASSET_UNIT_CREATE, name: "新增房源", resource: "asset.unit", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ASSET_UNIT_DETAIL, name: "房源详情", resource: "asset.unit", action: "detail" },
+  { code: SYSTEM_PERMISSIONS.ASSET_UNIT_UPDATE, name: "编辑房源", resource: "asset.unit", action: "update" },
+  { code: SYSTEM_PERMISSIONS.ASSET_UNIT_DELETE, name: "删除房源", resource: "asset.unit", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_READ, name: "编码规则读取", resource: "system.code-rule", action: "read" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_CREATE, name: "新增编码规则", resource: "system.code-rule", action: "create" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_UPDATE, name: "编辑编码规则", resource: "system.code-rule", action: "update" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_DELETE, name: "删除编码规则", resource: "system.code-rule", action: "delete" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_GENERATE, name: "生成业务编码", resource: "system.code-rule", action: "generate" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_OPEN_READ, name: "开放编码规则读取", resource: "system.code-rule", action: "read" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_OPEN_CREATE, name: "新增开放编码规则", resource: "system.code-rule", action: "create" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_OPEN_UPDATE, name: "编辑开放编码规则", resource: "system.code-rule", action: "update" },
+  { code: SYSTEM_PERMISSIONS.CODE_RULE_OPEN_GENERATE, name: "开放编码生成", resource: "system.code-rule", action: "generate" },
+  { code: SYSTEM_PERMISSIONS.MODULE_READ, name: "模块读取", resource: "system.module", action: "read" },
+  { code: SYSTEM_PERMISSIONS.MODULE_CREATE, name: "新增模块", resource: "system.module", action: "create" },
+  { code: SYSTEM_PERMISSIONS.MODULE_UPDATE, name: "编辑模块", resource: "system.module", action: "update" },
+  { code: SYSTEM_PERMISSIONS.MODULE_OPEN_READ, name: "开放模块读取", resource: "system.module", action: "read" },
+  { code: SYSTEM_PERMISSIONS.MODULE_MANAGE, name: "开放模块管理", resource: "system.module", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.PLAN_READ, name: "套餐读取", resource: "system.plan", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PLAN_CREATE, name: "新增套餐", resource: "system.plan", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PLAN_UPDATE, name: "编辑套餐", resource: "system.plan", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PLAN_OPEN_READ, name: "开放套餐读取", resource: "system.plan", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PLAN_MANAGE, name: "开放套餐管理", resource: "system.plan", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.TENANT_MODULE_READ, name: "租户模块授权读取", resource: "system.tenant-module", action: "read" },
+  { code: SYSTEM_PERMISSIONS.TENANT_MODULE_ASSIGN, name: "租户模块授权", resource: "system.tenant-module", action: "assign" },
+  { code: SYSTEM_PERMISSIONS.TENANT_MODULE_OPEN_READ, name: "开放租户模块读取", resource: "system.tenant-module", action: "read" },
+  { code: SYSTEM_PERMISSIONS.TENANT_MODULE_MANAGE, name: "开放租户模块管理", resource: "system.tenant-module", action: "manage" }
 ];
 
 export interface MenuItem {
@@ -174,8 +454,8 @@ export interface MenuItem {
 export const SYSTEM_MENU_ITEMS: MenuItem[] = [
   { label: "组织管理", href: "/system/orgs", permission: SYSTEM_PERMISSIONS.ORG_LIST },
   { label: "用户管理", href: "/system/users", permission: SYSTEM_PERMISSIONS.USER_LIST },
-  { label: "角色管理", href: "/system/roles", permission: SYSTEM_PERMISSIONS.ROLE_LIST },
-  { label: "权限点", href: "/system/permissions", permission: SYSTEM_PERMISSIONS.PERMISSION_LIST },
+  { label: "角色管理", href: "/system/roles", permission: SYSTEM_PERMISSIONS.ROLE_READ },
+  { label: "权限点", href: "/system/permissions", permission: SYSTEM_PERMISSIONS.PERMISSION_READ },
   { label: "字典管理", href: "/system/dicts", permission: SYSTEM_PERMISSIONS.DICT_TYPE_LIST },
   { label: "附件中心", href: "/system/files", permission: SYSTEM_PERMISSIONS.FILE_READ },
   { label: "审计日志", href: "/system/audit/op-logs", permission: SYSTEM_PERMISSIONS.AUDIT_READ }

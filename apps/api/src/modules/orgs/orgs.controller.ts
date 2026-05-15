@@ -16,8 +16,8 @@ export class OrgsController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: PaginationQueryDto) {
-    return this.orgsService.list(scope, query);
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: PaginationQueryDto) {
+    return this.orgsService.list(scope, query, user);
   }
 
   @Post()

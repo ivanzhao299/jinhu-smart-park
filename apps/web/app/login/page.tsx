@@ -59,8 +59,8 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-panel">
-        <h1>金湖智慧园区</h1>
-        <p>使用园区统一身份登录管理后台</p>
+        <h1>产业园数字运营 SaaS 平台</h1>
+        <p>使用租户统一身份登录管理后台</p>
         <form className="form-stack" onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="tenantId">租户 ID</label>

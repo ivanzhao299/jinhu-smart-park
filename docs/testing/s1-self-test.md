@@ -4,8 +4,8 @@
 
 1. 配置 `.env`，确保 PostgreSQL 连接、JWT 密钥和本地文件存储目录可用。
 2. 启动数据库后执行 `database/migrations` 下 SQL。
-3. 执行 `database/seeds/000001_s1_permissions.sql` 初始化 S1 权限点。
-4. 本地自测可执行 `database/seeds/000002_s1_dev_accounts.sql` 初始化两个开发账号：
+3. 执行 `database/seeds/000001_s1_production_core.sql` 初始化 S1 权限点、内置角色、默认园区和基础字典。
+4. 本地自测可执行 `database/seeds/000002_dev_only_s1_accounts.sql` 初始化两个开发账号：
    - 超级管理员：`admin` / `Jinhu@123456`
    - 普通用户：`s1_user` / `Jinhu@123456`，拥有基础读取和上传权限，不拥有 `audit:read`、`file:download`。
 

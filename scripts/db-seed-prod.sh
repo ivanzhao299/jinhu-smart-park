@@ -13,7 +13,7 @@ if [ "${ALLOW_PRODUCTION_SEED:-}" != "yes" ]; then
   exit 1
 fi
 
-file="$SEEDS_DIR/000001_s1_permissions.sql"
+file="$SEEDS_DIR/000001_s1_production_core.sql"
 if [ ! -f "$file" ]; then
   echo "Seed file not found: $file" >&2
   exit 1

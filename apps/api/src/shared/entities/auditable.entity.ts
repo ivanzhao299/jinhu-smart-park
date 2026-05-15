@@ -4,10 +4,10 @@ export abstract class AuditableEntity {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
-  @Column({ name: "tenant_id", type: "uuid" })
+  @Column({ name: "tenant_id", type: "varchar", length: 64 })
   tenantId!: string;
 
-  @Column({ name: "park_id", type: "uuid" })
+  @Column({ name: "park_id", type: "varchar", length: 64 })
   parkId!: string;
 
   @Column({ name: "create_by", type: "uuid", nullable: true })

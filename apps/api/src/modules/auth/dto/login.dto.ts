@@ -1,10 +1,12 @@
-import { IsString, IsUUID, MinLength } from "class-validator";
+import { IsString, MaxLength, MinLength } from "class-validator";
 
 export class LoginDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(64)
   tenantId!: string;
 
-  @IsUUID()
+  @IsString()
+  @MaxLength(64)
   parkId!: string;
 
   @IsString()

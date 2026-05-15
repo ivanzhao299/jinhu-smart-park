@@ -34,6 +34,12 @@ ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod
 
 `pnpm test` runs `scripts/e2e/s1-smoke.mjs`.
 
+You can also run the S1 e2e directly:
+
+```bash
+pnpm test:e2e
+```
+
 The smoke test covers:
 
 - Admin login success
@@ -50,5 +56,9 @@ The smoke test covers:
 - Role permission assignment
 - Operation log query
 - Login log query
+- Direct `sys_login_log` assertion for login success
+- Direct `sys_login_log` assertion for login failure
+- Direct `sys_op_log` assertion for file download
+- Direct `sys_file` soft-delete assertion
 
 The test uses the development seed accounts and must not be pointed at production.
