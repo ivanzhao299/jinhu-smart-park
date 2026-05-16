@@ -18,14 +18,14 @@ export class ParksController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: ParkQueryDto) {
-    return this.parksService.list(scope, query);
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: ParkQueryDto) {
+    return this.parksService.list(scope, query, user);
   }
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.parksService.detail(scope, id);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.parksService.detail(scope, id, user);
   }
 
   @Post()
@@ -44,13 +44,13 @@ export class ParksController {
     @Param("id") id: string,
     @Body() dto: UpdateParkDto
   ) {
-    return this.parksService.update(scope, user.sub, id, dto);
+    return this.parksService.update(scope, user, id, dto);
   }
 
   @Delete(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_DELETE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "删除", bizType: "biz_park", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.parksService.softDelete(scope, user.sub, id);
+    return this.parksService.softDelete(scope, user, id);
   }
 }

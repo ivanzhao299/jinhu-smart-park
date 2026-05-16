@@ -99,7 +99,7 @@ export class UnitsController {
     @CurrentUser() user: JwtPrincipal,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.unitsService.importExcel(scope, user.sub, file);
+    return this.unitsService.importExcel(scope, user, file);
   }
 
   @Get(":id")
@@ -112,7 +112,7 @@ export class UnitsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_CREATE)
   @AuditLog({ module: "房源管理", resource: "biz.unit", action: "新增", bizType: "biz_unit" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateUnitDto) {
-    return this.unitsService.create(scope, user.sub, dto);
+    return this.unitsService.create(scope, user, dto);
   }
 
   @Put(":id")

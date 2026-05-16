@@ -177,11 +177,12 @@ export class FieldPolicyService {
     }
     const cloned: Record<string, unknown> = { ...(record as Record<string, unknown>) };
     for (const policy of relevant) {
-      if (!(policy.field_key in cloned)) continue;
+      const recordFieldKey = this.resolveRecordFieldKey(cloned, policy.field_key);
+      if (!recordFieldKey) continue;
       if (policy.policy_type === "hidden") {
-        delete cloned[policy.field_key];
+        delete cloned[recordFieldKey];
       } else if (policy.policy_type === "masked") {
-        cloned[policy.field_key] = this.maskValue(cloned[policy.field_key], policy.mask_rule);
+        cloned[recordFieldKey] = this.maskValue(cloned[recordFieldKey], policy.mask_rule);
       }
     }
     return cloned as T;
@@ -204,6 +205,11 @@ export class FieldPolicyService {
     switch (maskRule) {
       case "mobile":
         return raw.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+      case "email": {
+        const [name, domain] = raw.split("@");
+        if (!name || !domain) return raw.length <= 4 ? "****" : `${raw.slice(0, 2)}***${raw.slice(-2)}`;
+        return `${name.length <= 2 ? name.slice(0, 1) : name.slice(0, 2)}***@${domain}`;
+      }
       case "id_card":
         return raw.length <= 8 ? "****" : `${raw.slice(0, 4)}********${raw.slice(-4)}`;
       case "bank_account":
@@ -217,6 +223,20 @@ export class FieldPolicyService {
       default:
         return raw.length <= 2 ? "*" : `${raw.slice(0, 1)}***${raw.slice(-1)}`;
     }
+  }
+
+  private resolveRecordFieldKey(record: Record<string, unknown>, fieldKey: string): string | null {
+    return this.fieldKeyCandidates(fieldKey).find((candidate) => candidate in record) ?? null;
+  }
+
+  private fieldKeyCandidates(fieldKey: string): string[] {
+    const normalized = fieldKey.trim();
+    const leaf = normalized.split(".").filter(Boolean).at(-1) ?? normalized;
+    return [...new Set([normalized, this.toCamelCase(normalized), leaf, this.toCamelCase(leaf)])];
+  }
+
+  private toCamelCase(value: string): string {
+    return value.replace(/[_-]([a-zA-Z0-9])/g, (_match, letter: string) => letter.toUpperCase());
   }
 
   private async getPoliciesForRoles(scope: TenantParkScope, roleIds: string[]): Promise<FieldPolicyEntity[]> {

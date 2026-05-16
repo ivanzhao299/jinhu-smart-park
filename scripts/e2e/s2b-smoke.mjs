@@ -117,6 +117,10 @@ async function dbScalar(sql) {
   return stdout.trim();
 }
 
+async function dbExec(sql) {
+  await dbScalar(sql);
+}
+
 async function isApiReachable() {
   try {
     const { response } = await request("/auth/login", {
@@ -275,6 +279,270 @@ function assertExcelColumnEquals(name, arrayBuffer, columnName, expectedValue) {
   );
 }
 
+function assertExcelColumnBlank(name, arrayBuffer, columnName) {
+  const rows = readWorkbookRows(arrayBuffer);
+  const headers = rows[0] ?? [];
+  const columnIndex = headers.indexOf(columnName);
+  assert(columnIndex >= 0, `${name} missing column ${columnName}`);
+  const dataRows = rows.slice(1);
+  assert(dataRows.length > 0, `${name} has no data rows`);
+  assert(dataRows.every((row) => row[columnIndex] === ""), `${name} leaked hidden column ${columnName}`);
+}
+
+async function createScopedAssetUser(buildingId) {
+  const userId = randomUUID();
+  const roleId = randomUUID();
+  const dataScopeRuleId = randomUUID();
+  const roleDataScopeId = randomUUID();
+  const fieldPolicyId = randomUUID();
+  const roleFieldPolicyId = randomUUID();
+  const userRoleId = randomUUID();
+  const username = `s2b_scope_${stamp}`;
+  const roleCode = `s2b_scope_role_${stamp}`;
+  const ruleCode = `s2b_building_scope_${stamp}`;
+  const policyRemark = `S2-B smoke hidden ref_price ${stamp}`;
+  const permissionCodes = ["unit:read", "unit:export"];
+  const permissionGrants = permissionCodes.map((code) => ({ id: randomUUID(), code }));
+
+  await dbExec(`
+    WITH normal_password AS (
+      SELECT password_hash FROM sys_user
+      WHERE tenant_id = ${sqlLiteral(tenantId)}
+        AND park_id = ${sqlLiteral(parkId)}
+        AND username = ${sqlLiteral(normalUser)}
+        AND is_deleted = false
+      LIMIT 1
+    )
+    INSERT INTO sys_user (
+      id, tenant_id, park_id, username, display_name, password_hash, mobile, email,
+      is_enabled, status, create_by, create_time, update_by, update_time, is_deleted, version, remark
+    )
+    SELECT
+      ${sqlLiteral(userId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(username)}, 'S2B数据范围用户', password_hash, NULL, NULL,
+      true, 'enabled', NULL, now(), NULL, now(), false, 1, 'S2-B smoke data scope'
+    FROM normal_password;
+
+    INSERT INTO sys_role (
+      id, tenant_id, park_id, code, name, parent_id, role_path, role_level, level, sort_no,
+      role_type, role_scope, data_scope, data_scope_config, is_template, is_system, is_builtin,
+      is_super, editable, is_editable, is_deletable, is_enabled, status,
+      create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(roleId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleCode)}, 'S2B数据范围角色',
+      NULL, NULL, 1, 1, 0, 'custom', 'park', '60', '{}'::jsonb, false, false, false,
+      false, true, true, true, true, 'enabled',
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke data scope'
+    );
+
+    ${permissionGrants
+      .map(
+        (grant) => `
+          INSERT INTO rel_role_perm (
+            id, tenant_id, park_id, role_id, permission_id, create_by, create_time, update_by, update_time, is_deleted, version, remark
+          )
+          SELECT ${sqlLiteral(grant.id)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, id, NULL, now(), NULL, now(), false, 1, 'S2-B smoke permission'
+          FROM sys_permission
+          WHERE tenant_id = ${sqlLiteral(tenantId)}
+            AND park_id = ${sqlLiteral(parkId)}
+            AND code = ${sqlLiteral(grant.code)}
+            AND is_deleted = false
+            AND is_enabled = true;
+        `
+      )
+      .join("\n")}
+
+    INSERT INTO sys_data_scope_rule (
+      id, tenant_id, park_id, rule_code, rule_name, dimension, scope_type, scope_config, status,
+      create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(dataScopeRuleId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(ruleCode)}, 'S2B楼栋数据范围',
+      'building', 'custom', ${sqlLiteral(JSON.stringify({ buildingIds: [buildingId] }))}::jsonb, 'enabled',
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke data scope'
+    );
+
+    INSERT INTO rel_role_data_scope (
+      id, tenant_id, park_id, role_id, rule_id, create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(roleDataScopeId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, ${sqlLiteral(dataScopeRuleId)},
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke data scope'
+    );
+
+    INSERT INTO sys_field_policy (
+      id, tenant_id, park_id, module, entity, field_key, field_name, policy_type, mask_rule, status,
+      create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(fieldPolicyId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, 'asset', 'unit', 'biz_unit.ref_price', '参考租金',
+      'hidden', NULL, 'enabled', NULL, now(), NULL, now(), false, 1, ${sqlLiteral(policyRemark)}
+    );
+
+    INSERT INTO rel_role_field_policy (
+      id, tenant_id, park_id, role_id, field_policy_id, create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(roleFieldPolicyId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, ${sqlLiteral(fieldPolicyId)},
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke field policy'
+    );
+
+    INSERT INTO rel_user_role (
+      id, tenant_id, park_id, user_id, role_id, create_by, create_time, update_by, update_time, is_deleted, version, remark
+    ) VALUES (
+      ${sqlLiteral(userRoleId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(userId)}, ${sqlLiteral(roleId)},
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke user role'
+    );
+  `);
+
+  const permissionCount = Number(
+    await dbScalar(`
+      SELECT count(*) FROM rel_role_perm rp
+      JOIN sys_permission p ON p.id = rp.permission_id
+      WHERE rp.role_id = ${sqlLiteral(roleId)}
+        AND p.code IN (${permissionCodes.map(sqlLiteral).join(", ")})
+        AND rp.is_deleted = false;
+    `)
+  );
+  assert(permissionCount === permissionCodes.length, "scoped asset smoke role permissions were not created");
+
+  return { username, userId, roleId, dataScopeRuleId, fieldPolicyId };
+}
+
+async function cleanupScopedAssetUser(context) {
+  if (!context) return;
+  await dbExec(`
+    UPDATE rel_user_role SET is_deleted = true, update_time = now() WHERE user_id = ${sqlLiteral(context.userId)};
+    UPDATE rel_role_perm SET is_deleted = true, update_time = now() WHERE role_id = ${sqlLiteral(context.roleId)};
+    UPDATE rel_role_data_scope SET is_deleted = true, update_time = now() WHERE role_id = ${sqlLiteral(context.roleId)};
+    UPDATE rel_role_field_policy SET is_deleted = true, update_time = now() WHERE role_id = ${sqlLiteral(context.roleId)};
+    UPDATE sys_data_scope_rule SET is_deleted = true, update_time = now() WHERE id = ${sqlLiteral(context.dataScopeRuleId)};
+    UPDATE sys_field_policy SET is_deleted = true, update_time = now() WHERE id = ${sqlLiteral(context.fieldPolicyId)};
+    UPDATE sys_role SET is_deleted = true, update_time = now() WHERE id = ${sqlLiteral(context.roleId)};
+    UPDATE sys_user SET is_deleted = true, update_time = now() WHERE id = ${sqlLiteral(context.userId)};
+  `);
+}
+
+async function createUserForSeedRole(roleCode) {
+  const userId = randomUUID();
+  const userRoleId = randomUUID();
+  const username = `s2b_${roleCode.toLowerCase()}_${stamp}`;
+  await dbExec(`
+    WITH normal_password AS (
+      SELECT password_hash FROM sys_user
+      WHERE tenant_id = ${sqlLiteral(tenantId)}
+        AND park_id = ${sqlLiteral(parkId)}
+        AND username = ${sqlLiteral(normalUser)}
+        AND is_deleted = false
+      LIMIT 1
+    ),
+    target_role AS (
+      SELECT id FROM sys_role
+      WHERE tenant_id = ${sqlLiteral(tenantId)}
+        AND park_id = ${sqlLiteral(parkId)}
+        AND code = ${sqlLiteral(roleCode)}
+        AND is_deleted = false
+      LIMIT 1
+    ),
+    inserted_user AS (
+      INSERT INTO sys_user (
+        id, tenant_id, park_id, username, display_name, password_hash, mobile, email,
+        is_enabled, status, create_by, create_time, update_by, update_time, is_deleted, version, remark
+      )
+      SELECT
+        ${sqlLiteral(userId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(username)}, ${sqlLiteral(`S2B ${roleCode}`)}, normal_password.password_hash, NULL, NULL,
+        true, 'enabled', NULL, now(), NULL, now(), false, 1, 'S2-B smoke seed role user'
+      FROM normal_password
+      RETURNING id
+    )
+    INSERT INTO rel_user_role (
+      id, tenant_id, park_id, user_id, role_id, create_by, create_time, update_by, update_time, is_deleted, version, remark
+    )
+    SELECT
+      ${sqlLiteral(userRoleId)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, inserted_user.id, target_role.id,
+      NULL, now(), NULL, now(), false, 1, 'S2-B smoke seed role binding'
+    FROM inserted_user
+    CROSS JOIN target_role;
+  `);
+  const roleCount = Number(
+    await dbScalar(`
+      SELECT count(*)
+      FROM rel_user_role link
+      JOIN sys_role role ON role.id = link.role_id
+      WHERE link.user_id = ${sqlLiteral(userId)}
+        AND role.code = ${sqlLiteral(roleCode)}
+        AND link.is_deleted = false;
+    `)
+  );
+  assert(roleCount === 1, `${roleCode} seed role user was not created`);
+  return { userId, username };
+}
+
+async function cleanupSeedRoleUser(context) {
+  if (!context) return;
+  await dbExec(`
+    UPDATE rel_user_role SET is_deleted = true, update_time = now() WHERE user_id = ${sqlLiteral(context.userId)};
+    UPDATE sys_user SET is_deleted = true, update_time = now() WHERE id = ${sqlLiteral(context.userId)};
+  `);
+}
+
+function flattenMenuHrefs(nodes = []) {
+  return nodes.flatMap((node) => [node.href, ...flattenMenuHrefs(node.children ?? [])]).filter(Boolean);
+}
+
+async function validateSeedRoleMenusAndPermissions(adminToken) {
+  const adminMe = await request("/users/me", { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("admin users/me for asset menus", adminMe.response.status, 200);
+  assertUniformResponse("admin users/me for asset menus", adminMe.body);
+  const adminHrefs = new Set(flattenMenuHrefs(adminMe.body.data?.menu_tree ?? adminMe.body.data?.menus ?? []));
+  for (const href of ["/assets/parks", "/assets/buildings", "/assets/floors", "/assets/units", "/assets/unit-status-board", "/assets/statistics"]) {
+    assert(adminHrefs.has(href), `super admin asset menu missing ${href}`);
+  }
+
+  const roleChecks = [
+    {
+      roleCode: "EXECUTIVE",
+      expectedPermissions: ["asset:read", "asset:statistics", "asset:status_board", "unit:read", "unit:status_log"],
+      forbiddenPermissions: ["unit:create", "unit:import", "unit:export"],
+      expectedMenus: ["/assets/unit-status-board", "/assets/statistics"]
+    },
+    {
+      roleCode: "OPERATIONS_OWNER",
+      expectedPermissions: ["unit:change_status", "unit:force_change_status", "unit:import", "unit:import_template", "unit:export", "asset:statistics", "asset:status_board"],
+      forbiddenPermissions: [],
+      expectedMenus: ["/assets/parks", "/assets/buildings", "/assets/floors", "/assets/units", "/assets/unit-status-board", "/assets/statistics"]
+    },
+    {
+      roleCode: "INVEST_SPECIALIST",
+      expectedPermissions: ["unit:read", "asset:status_board"],
+      forbiddenPermissions: ["unit:import", "unit:import_template", "unit:export"],
+      expectedMenus: ["/assets/unit-status-board"]
+    }
+  ];
+
+  for (const check of roleChecks) {
+    const context = await createUserForSeedRole(check.roleCode);
+    try {
+      const roleLogin = await login(context.username, normalPassword);
+      assertStatus(`${check.roleCode} login`, roleLogin.response.status, 200);
+      const roleToken = roleLogin.body?.data?.accessToken;
+      assert(roleToken, `${check.roleCode} login did not return accessToken`);
+      const me = await request("/users/me", { headers: { authorization: `Bearer ${roleToken}` } });
+      assertStatus(`${check.roleCode} users/me`, me.response.status, 200);
+      assertUniformResponse(`${check.roleCode} users/me`, me.body);
+      const permissions = new Set(me.body.data?.permissions ?? []);
+      for (const permission of check.expectedPermissions) {
+        assert(permissions.has(permission), `${check.roleCode} missing permission ${permission}`);
+      }
+      for (const permission of check.forbiddenPermissions) {
+        assert(!permissions.has(permission), `${check.roleCode} unexpectedly has permission ${permission}`);
+      }
+      const hrefs = new Set(flattenMenuHrefs(me.body.data?.menu_tree ?? me.body.data?.menus ?? []));
+      for (const href of check.expectedMenus) {
+        assert(hrefs.has(href), `${check.roleCode} asset menu missing ${href}`);
+      }
+    } finally {
+      await cleanupSeedRoleUser(context);
+    }
+  }
+  logStep("seed role permissions and asset menus verified");
+}
+
 async function run() {
   await ensureApiStarted();
 
@@ -288,6 +556,8 @@ async function run() {
   assertStatus("normal login", normalLogin.response.status, 200);
   const normalToken = normalLogin.body?.data?.accessToken;
   assert(normalToken, "normal login did not return accessToken");
+
+  await validateSeedRoleMenusAndPermissions(adminToken);
 
   const { building, floor, mismatchFloor } = await getFirstBuildingAndFloors(adminToken);
   const unit = await createUnit(adminToken, building.id, floor.id, 10);
@@ -400,6 +670,40 @@ async function run() {
   const normalExport = await jsonRequest("/park-units/export", normalToken, "POST", { building_id: building.id });
   assertStatus("normal export denied", normalExport.response.status, 403);
 
+  const scopedContext = await createScopedAssetUser(building.id);
+  try {
+    const scopedLogin = await login(scopedContext.username, normalPassword);
+    assertStatus("scoped asset user login", scopedLogin.response.status, 200);
+    const scopedToken = scopedLogin.body?.data?.accessToken;
+    assert(scopedToken, "scoped asset user login did not return accessToken");
+
+    const scopedUnits = await request(`/park-units?building_id=${building.id}&page=1&page_size=20`, {
+      headers: { authorization: `Bearer ${scopedToken}` }
+    });
+    assertStatus("scoped user list allowed building units", scopedUnits.response.status, 200);
+    assertUniformResponse("scoped user list allowed building units", scopedUnits.body);
+    assert(dataItems(scopedUnits.body).length > 0, "scoped user did not see allowed building units");
+    assert(dataItems(scopedUnits.body).every((item) => item.buildingId === building.id), "scoped user list leaked another building");
+    assert(
+      dataItems(scopedUnits.body).every((item) => !Object.hasOwn(item, "refPrice") || item.refPrice === null),
+      "hidden ref_price field leaked in unit list"
+    );
+
+    const scopedDeniedBuilding = await request(`/park-units?building_id=${mismatchFloor.buildingId}&page=1&page_size=20`, {
+      headers: { authorization: `Bearer ${scopedToken}` }
+    });
+    assertStatus("scoped user list denied building units", scopedDeniedBuilding.response.status, 200);
+    assertUniformResponse("scoped user list denied building units", scopedDeniedBuilding.body);
+    assert(dataItems(scopedDeniedBuilding.body).length === 0, "building data scope restriction leaked denied building units");
+
+    const scopedExport = await jsonRequest("/park-units/export", scopedToken, "POST", { building_id: building.id });
+    assertStatus("scoped export hidden ref price", scopedExport.response.status, 201);
+    assert(scopedExport.body instanceof ArrayBuffer && scopedExport.body.byteLength > 0, "scoped unit export file is empty");
+    assertExcelColumnBlank("scoped export hidden ref price", scopedExport.body, "参考租金");
+  } finally {
+    await cleanupScopedAssetUser(scopedContext);
+  }
+
   const stats = await request(`/assets/statistics?building_id=${building.id}`, { headers: { authorization: `Bearer ${adminToken}` } });
   assertStatus("asset statistics", stats.response.status, 200);
   assertUniformResponse("asset statistics", stats.body);
@@ -438,6 +742,19 @@ async function run() {
   assertUniformResponse("unit status board", board.body);
   assert(Array.isArray(board.body?.data?.buildings), "unit status board buildings missing");
   assert(board.body.data.buildings.some((item) => Array.isArray(item.floors)), "unit status board floor tree missing");
+  assert(board.body.data.buildings.every((item) => item.building_id === building.id), "unit status board building filter leaked other buildings");
+  const boardUnits = board.body.data.buildings.flatMap((item) => item.floors.flatMap((floor) => floor.units));
+  assert(boardUnits.length > 0, "unit status board units missing");
+  assert(boardUnits.every((item) => item.code && item.unit_code && item.rental_status_name && item.usage_type_name), "unit status board unit fields missing");
+
+  const boardByStatus = await request(`/assets/unit-status-board?rental_status=10`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("unit status board by rental status", boardByStatus.response.status, 200);
+  assertUniformResponse("unit status board by rental status", boardByStatus.body);
+  const boardByStatusUnits = boardByStatus.body.data.buildings.flatMap((item) => item.floors.flatMap((floor) => floor.units));
+  assert(boardByStatusUnits.every((item) => item.rental_status === 10), "unit status board rental status filter leaked other statuses");
+
+  const normalBoard = await request(`/assets/unit-status-board?building_id=${building.id}`, { headers: { authorization: `Bearer ${normalToken}` } });
+  assertStatus("normal unit status board denied", normalBoard.response.status, 403);
 
   const mismatchCreate = await jsonRequest("/park-units", adminToken, "POST", {
     unitCode: `JH-B01-F01-R${String(1000 + Math.floor(Math.random() * 9000))}`,

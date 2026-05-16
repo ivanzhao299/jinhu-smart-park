@@ -5,7 +5,6 @@ import * as XLSX from "xlsx";
 import {
   Between,
   Brackets,
-  ILike,
   In,
   LessThanOrEqual,
   MoreThanOrEqual,
@@ -137,6 +136,7 @@ type AssetStatisticsFilterQuery = Pick<AssetStatisticsQueryDto, "building_id" | 
 
 export interface UnitStatusBoardUnit {
   unit_id: string;
+  code: string;
   unit_code: string;
   unit_name: string;
   unit_area: number;
@@ -144,7 +144,7 @@ export interface UnitStatusBoardUnit {
   rental_status_name: string;
   usage_type: number;
   usage_type_name: string;
-  ref_price: number;
+  ref_price?: number | string | null;
 }
 
 export interface UnitStatusBoardFloor {
@@ -186,27 +186,16 @@ export class UnitsService {
   ) {}
 
   async list(scope: TenantParkScope, query: UnitQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<UnitEntity>> {
-    const baseWhere = await this.dataScopeService.buildFindWhere<UnitEntity>(
-      scope,
-      actor,
-      "unit",
-      this.findWhere(scope, query),
-      { unit: "id", building: "buildingId", floor: "floorId" }
-    );
-    const keyword = query.keyword?.trim();
-    const where = keyword
-      ? [
-          { ...baseWhere, unitCode: ILike(`%${keyword}%`) },
-          { ...baseWhere, unitName: ILike(`%${keyword}%`) }
-        ]
-      : baseWhere;
-    const [items, total] = await this.unitsRepository.findAndCount({
-      where,
-      relations: { building: true, floor: true },
-      order: this.resolveOrder(query.sort),
-      skip: (query.page - 1) * query.page_size,
-      take: query.page_size
-    });
+    const builder = this.scopedBuilder(scope)
+      .leftJoinAndSelect("unit.building", "building")
+      .leftJoinAndSelect("unit.floor", "floor");
+    await this.applyUnitDataScope(builder, scope, actor);
+    this.applyQuery(builder, query);
+    this.applyListSort(builder, query.sort);
+    const [items, total] = await builder
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
     const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "asset", "unit", items);
     return { items: securedItems, total, page: query.page, page_size: query.page_size };
   }
@@ -230,9 +219,9 @@ export class UnitsService {
     return entity;
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateUnitDto): Promise<UnitEntity> {
-    const relation = await this.mustMatchBuildingAndFloor(scope, dto.buildingId, dto.floorId);
-    const unitCode = await this.resolveUnitCode(scope, actorId, dto.unitCode);
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateUnitDto): Promise<UnitEntity> {
+    const relation = await this.mustMatchBuildingAndFloor(scope, dto.buildingId, dto.floorId, actor);
+    const unitCode = await this.resolveUnitCode(scope, actor.sub, dto.unitCode);
     await this.assertUnitCodeAvailable(scope, unitCode);
     await this.assertFiles(scope, dto.photoFileIds);
     await this.assertFile(scope, dto.floorplanFileId);
@@ -258,8 +247,8 @@ export class UnitsService {
       availableDate: dto.availableDate ?? null,
       status: dto.status ?? 1,
       remark: this.emptyToNull(dto.remark),
-      createBy: actorId,
-      updateBy: actorId
+      createBy: actor.sub,
+      updateBy: actor.sub
     });
     return this.unitsRepository.save(entity);
   }
@@ -269,7 +258,7 @@ export class UnitsService {
     const nextBuildingId = dto.buildingId ?? entity.buildingId;
     const nextFloorId = dto.floorId ?? entity.floorId;
     if (dto.buildingId || dto.floorId) {
-      const relation = await this.mustMatchBuildingAndFloor(scope, nextBuildingId, nextFloorId);
+      const relation = await this.mustMatchBuildingAndFloor(scope, nextBuildingId, nextFloorId, actor);
       entity.buildingId = relation.building.id;
       entity.floorId = relation.floor.id;
     }
@@ -417,7 +406,7 @@ export class UnitsService {
 
   async importExcel(
     scope: TenantParkScope,
-    actorId: string,
+    actor: JwtPrincipal,
     file: UploadedFilePayload | undefined
   ): Promise<UnitImportResult> {
     if (!file) {
@@ -428,7 +417,7 @@ export class UnitsService {
     }
 
     const records = this.readImportWorkbook(file.buffer);
-    const context = await this.loadImportContext(scope, records.map(({ record }) => this.resolveImportProvidedCode(record)));
+    const context = await this.loadImportContext(scope, records.map(({ record }) => this.resolveImportProvidedCode(record)), actor);
     const seenUnitCodes = new Set<string>();
     const result: UnitImportResult = { total: records.length, success_count: 0, fail_count: 0, rows: [] };
 
@@ -445,7 +434,7 @@ export class UnitsService {
         continue;
       }
 
-      const resolvedCode = await this.resolveImportUnitCode(scope, actorId, validation.data, seenUnitCodes);
+      const resolvedCode = await this.resolveImportUnitCode(scope, actor.sub, validation.data, seenUnitCodes);
       if (resolvedCode.errors.length > 0) {
         result.fail_count += 1;
         result.rows.push({ row_no: rowNo, success: false, unit_code: resolvedCode.unitCode, id: null, errors: resolvedCode.errors });
@@ -469,8 +458,8 @@ export class UnitsService {
         availableDate: validation.data.availableDate ?? null,
         status: 1,
         remark: this.emptyToNull(validation.data.remark),
-        createBy: actorId,
-        updateBy: actorId
+        createBy: actor.sub,
+        updateBy: actor.sub
       });
       try {
         const saved = await this.unitsRepository.save(entity);
@@ -882,8 +871,9 @@ export class UnitsService {
         buildingNode.floors.push(floorNode);
       }
 
-      floorNode.units.push({
+      const unitPayload = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", {
         unit_id: unit.id,
+        code: unit.code ?? unit.unitCode,
         unit_code: unit.unitCode,
         unit_name: unit.unitName,
         unit_area: this.rawNumber(unit.unitArea),
@@ -893,6 +883,7 @@ export class UnitsService {
         usage_type_name: labels.usageTypes.get(unit.usageType) ?? String(unit.usageType),
         ref_price: this.rawNumber(unit.refPrice)
       });
+      floorNode.units.push(unitPayload);
     }
 
     return { buildings: [...buildings.values()] };
@@ -1004,40 +995,105 @@ export class UnitsService {
       return builder;
     }
     const filters = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
       this.dataScopeService.buildScopeFilter(actor, "building"),
       this.dataScopeService.buildScopeFilter(actor, "floor"),
       this.dataScopeService.buildScopeFilter(actor, "unit")
     ]);
     const columns = {
+      park: "park_id",
       building: "building_id",
       floor: "floor_id",
       unit: "id"
     } as const;
     for (const filter of filters) {
-      if (filter.unrestricted || filter.allowed_ids.length === 0) {
+      if (filter.unrestricted) {
+        continue;
+      }
+      const column = columns[filter.dimension as keyof typeof columns];
+      if (!column) continue;
+      if (filter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
         continue;
       }
       const parameterName = `unitDataScope${filter.dimension.replace(/_/g, "")}Ids`;
-      builder.andWhere(`unit.${columns[filter.dimension as keyof typeof columns]} IN (:...${parameterName})`, {
+      builder.andWhere(`unit.${column} IN (:...${parameterName})`, {
         [parameterName]: filter.allowed_ids
       });
     }
     return builder;
   }
 
+  private async applyBuildingLookupDataScope(builder: SelectQueryBuilder<BuildingEntity>, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    const [parkFilter, buildingFilter] = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "building")
+    ]);
+    if (!parkFilter.unrestricted) {
+      if (parkFilter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+      } else {
+        builder.andWhere("building.park_id IN (:...unitBuildingParkScopeIds)", { unitBuildingParkScopeIds: parkFilter.allowed_ids });
+      }
+    }
+    if (!buildingFilter.unrestricted) {
+      if (buildingFilter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+      } else {
+        builder.andWhere("building.id IN (:...unitBuildingDataScopeIds)", { unitBuildingDataScopeIds: buildingFilter.allowed_ids });
+      }
+    }
+  }
+
+  private async applyFloorLookupDataScope(builder: SelectQueryBuilder<FloorEntity>, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    const filters = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "building"),
+      this.dataScopeService.buildScopeFilter(actor, "floor")
+    ]);
+    const columns = { park: "park_id", building: "building_id", floor: "id" } as const;
+    for (const filter of filters) {
+      if (filter.unrestricted) continue;
+      const column = columns[filter.dimension as keyof typeof columns];
+      if (!column) continue;
+      if (filter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+        continue;
+      }
+      const parameterName = `unitFloorScope${filter.dimension.replace(/_/g, "")}Ids`;
+      builder.andWhere(`floor.${column} IN (:...${parameterName})`, { [parameterName]: filter.allowed_ids });
+    }
+  }
+
   private async mustMatchBuildingAndFloor(
     scope: TenantParkScope,
     buildingId: string,
-    floorId: string
+    floorId: string,
+    actor?: JwtPrincipal
   ): Promise<{ building: BuildingEntity; floor: FloorEntity }> {
-    const [building, floor] = await Promise.all([
-      this.buildingsRepository.findOne({
-        where: { id: buildingId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      }),
-      this.floorsRepository.findOne({
-        where: { id: floorId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      })
+    const buildingBuilder = this.buildingsRepository
+      .createQueryBuilder("building")
+      .where("building.id = :buildingId", { buildingId })
+      .andWhere("building.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("building.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("building.is_deleted = false");
+    const floorBuilder = this.floorsRepository
+      .createQueryBuilder("floor")
+      .where("floor.id = :floorId", { floorId })
+      .andWhere("floor.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("floor.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("floor.is_deleted = false");
+    await Promise.all([
+      this.applyBuildingLookupDataScope(buildingBuilder, actor),
+      this.applyFloorLookupDataScope(floorBuilder, actor)
     ]);
+    const [building, floor] = await Promise.all([buildingBuilder.getOne(), floorBuilder.getOne()]);
     if (!building) {
       throw new BadRequestException("Building not found");
     }
@@ -1163,21 +1219,25 @@ export class UnitsService {
     }
   }
 
-  private async loadImportContext(scope: TenantParkScope, unitCodes: string[]): Promise<UnitImportContext> {
+  private async loadImportContext(scope: TenantParkScope, unitCodes: string[], actor?: JwtPrincipal): Promise<UnitImportContext> {
     const distinctUnitCodes = [...new Set(unitCodes.filter(Boolean))];
+    const buildingBuilder = this.buildingsRepository
+      .createQueryBuilder("building")
+      .where("building.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("building.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("building.is_deleted = false");
+    const floorBuilder = this.floorsRepository
+      .createQueryBuilder("floor")
+      .where("floor.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("floor.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("floor.is_deleted = false");
+    await Promise.all([
+      this.applyBuildingLookupDataScope(buildingBuilder, actor),
+      this.applyFloorLookupDataScope(floorBuilder, actor)
+    ]);
     const [buildings, floors, dictTypes, existingUnits] = await Promise.all([
-      this.buildingsRepository
-        .createQueryBuilder("building")
-        .where("building.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("building.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("building.is_deleted = false")
-        .getMany(),
-      this.floorsRepository
-        .createQueryBuilder("floor")
-        .where("floor.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("floor.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("floor.is_deleted = false")
-        .getMany(),
+      buildingBuilder.getMany(),
+      floorBuilder.getMany(),
       this.dictTypesRepository
         .createQueryBuilder("dictType")
         .where("dictType.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -1511,6 +1571,20 @@ export class UnitsService {
       return { updateTime: "DESC", createTime: "DESC" };
     }
     return { [field]: direction } as FindOptionsOrder<UnitEntity>;
+  }
+
+  private applyListSort(builder: SelectQueryBuilder<UnitEntity>, sort?: string): void {
+    const raw = sort?.trim();
+    if (!raw) {
+      builder.orderBy("unit.updateTime", "DESC").addOrderBy("unit.createTime", "DESC");
+      return;
+    }
+    const [field, direction] = raw.startsWith("-") ? [raw.slice(1), "DESC" as const] : [raw, "ASC" as const];
+    if (!SORT_COLUMNS.has(field)) {
+      builder.orderBy("unit.updateTime", "DESC").addOrderBy("unit.createTime", "DESC");
+      return;
+    }
+    builder.orderBy(`unit.${field}`, direction);
   }
 
   private toCsv(rows: Array<Array<string | number>>): string {

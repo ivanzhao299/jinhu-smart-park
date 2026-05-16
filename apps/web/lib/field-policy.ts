@@ -1,7 +1,10 @@
 import type { FieldPolicyContext, UserContext } from "@jinhu/shared";
 
 function findPolicy(user: UserContext | null, moduleName: string, entityName: string, fieldKey: string): FieldPolicyContext | undefined {
-  return user?.field_policies?.find((policy) => policy.module === moduleName && policy.entity === entityName && policy.field_key === fieldKey);
+  const candidates = fieldKeyCandidates(fieldKey);
+  return user?.field_policies?.find(
+    (policy) => policy.module === moduleName && policy.entity === entityName && intersects(candidates, fieldKeyCandidates(policy.field_key))
+  );
 }
 
 export function canViewField(user: UserContext | null, moduleName: string, entityName: string, fieldKey: string): boolean {
@@ -16,7 +19,7 @@ export function canEditField(user: UserContext | null, moduleName: string, entit
     return true;
   }
   const policy = findPolicy(user, moduleName, entityName, fieldKey);
-  return policy ? policy.policy_type === "editable" : true;
+  return policy ? !["hidden", "masked", "readonly"].includes(policy.policy_type) : true;
 }
 
 export function maskField(user: UserContext | null, moduleName: string, entityName: string, fieldKey: string, value: unknown): unknown {
@@ -33,6 +36,21 @@ export function maskField(user: UserContext | null, moduleName: string, entityNa
   return maskValue(value, policy.mask_rule);
 }
 
+function fieldKeyCandidates(fieldKey: string): string[] {
+  const normalized = fieldKey.trim();
+  const leaf = normalized.split(".").filter(Boolean).at(-1) ?? normalized;
+  return [...new Set([normalized, toCamelCase(normalized), leaf, toCamelCase(leaf)])];
+}
+
+function toCamelCase(value: string): string {
+  return value.replace(/[_-]([a-zA-Z0-9])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+function intersects(left: string[], right: string[]): boolean {
+  const rightSet = new Set(right);
+  return left.some((item) => rightSet.has(item));
+}
+
 function maskValue(value: unknown, maskRule?: string | null): unknown {
   if (value === null || value === undefined) return value;
   const raw = String(value);
@@ -40,6 +58,11 @@ function maskValue(value: unknown, maskRule?: string | null): unknown {
   switch (maskRule) {
     case "mobile":
       return raw.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+    case "email": {
+      const [name, domain] = raw.split("@");
+      if (!name || !domain) return raw.length <= 4 ? "****" : `${raw.slice(0, 2)}***${raw.slice(-2)}`;
+      return `${name.length <= 2 ? name.slice(0, 1) : name.slice(0, 2)}***@${domain}`;
+    }
     case "id_card":
       return raw.length <= 8 ? "****" : `${raw.slice(0, 4)}********${raw.slice(-4)}`;
     case "bank_account":

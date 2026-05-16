@@ -8,7 +8,9 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 
 type FloorStatus = 0 | 1;
 
@@ -67,7 +69,10 @@ const statusOptions: Array<{ value: FloorStatus; label: string }> = [
   { value: 0, label: "停用" }
 ];
 
+const FLOOR_FIELD_LAYOUT_URL = "layout_url";
+
 export default function FloorsPage() {
+  const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<FloorRow>>(emptyPage);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [buildingId, setBuildingId] = useState("");
@@ -80,6 +85,8 @@ export default function FloorsPage() {
   const [layoutTarget, setLayoutTarget] = useState<FloorRow | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const canViewLayoutUrl = canViewField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
+  const canEditLayoutUrl = canEditField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -242,7 +249,9 @@ export default function FloorsPage() {
                   <td>{row.floorNo}</td>
                   <td>{formatArea(row.floorArea)}</td>
                   <td>
-                    {row.layoutFileId ? (
+                    {!canViewLayoutUrl ? (
+                      <span className="status-pill status-muted">无权限</span>
+                    ) : row.layoutFileId ? (
                       <button type="button" onClick={() => setLayoutTarget(row)}>查看</button>
                     ) : (
                       <span className="status-pill status-muted">未上传</span>
@@ -255,9 +264,11 @@ export default function FloorsPage() {
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FLOOR_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
                       <Edit3 size={16} />
                     </PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} title="上传平面图" type="button" onClick={() => setLayoutTarget(row)}>
-                      <FileUp size={16} />
-                    </PermissionButton>
+                    {canEditLayoutUrl ? (
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} title="上传平面图" type="button" onClick={() => setLayoutTarget(row)}>
+                        <FileUp size={16} />
+                      </PermissionButton>
+                    ) : null}
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FLOOR_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
                       <Trash2 size={16} />
                     </PermissionButton>
@@ -338,15 +349,17 @@ export default function FloorsPage() {
               <h2 className="panel-title">{layoutTarget.floorName} 平面图</h2>
               <button type="button" title="关闭" onClick={() => setLayoutTarget(null)}><X size={16} /></button>
             </div>
-            <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT}>
-              <FileUploader
-                bizType="floorplan"
-                bizId={layoutTarget.id}
-                uploadPath={`/floors/${layoutTarget.id}/layout`}
-                onUploaded={handleLayoutUploaded}
-              />
-            </PermissionGuard>
-            <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} />
+            {canEditLayoutUrl ? (
+              <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT}>
+                <FileUploader
+                  bizType="floorplan"
+                  bizId={layoutTarget.id}
+                  uploadPath={`/floors/${layoutTarget.id}/layout`}
+                  onUploaded={handleLayoutUploaded}
+                />
+              </PermissionGuard>
+            ) : null}
+            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} /> : null}
           </section>
         ) : null}
 
@@ -362,7 +375,12 @@ export default function FloorsPage() {
               <DetailItem label="楼层名称" value={detail.floorName} />
               <DetailItem label="楼层号" value={detail.floorNo} />
               <DetailItem label="面积" value={formatArea(detail.floorArea)} />
-              <DetailItem label="平面图" value={detail.layoutFileId ? "已上传" : "未上传"} />
+              {canViewLayoutUrl ? (
+                <DetailItem
+                  label="平面图"
+                  value={detail.layoutUrl ? fieldText(maskField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL, detail.layoutUrl)) : detail.layoutFileId ? "已上传" : "未上传"}
+                />
+              ) : null}
               <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
               <DetailItem label="备注" value={detail.remark ?? "-"} />
             </div>
@@ -442,6 +460,10 @@ function StatusBadge({ status }: { status: FloorStatus }) {
 
 function formatArea(value: string): string {
   return `${Number(value || 0).toLocaleString("zh-CN", { maximumFractionDigits: 2 })} ㎡`;
+}
+
+function fieldText(value: unknown): string {
+  return value === null || value === undefined || value === "" ? "-" : String(value);
 }
 
 function ForbiddenInline() {

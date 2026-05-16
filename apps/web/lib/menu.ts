@@ -49,6 +49,7 @@ export const dashboardMenus: MenuNode[] = [
     icon: FileText,
     module: "leasing",
     children: [
+      { label: "租户企业档案", href: "/leasing/tenants", permission: "park_tenant:read", module: "leasing" },
       { label: "招商线索", href: "/invest/leads", permission: "invest:read", module: "leasing" },
       { label: "公海池", href: "/invest/lead-pool", permission: "invest:read", module: "leasing" },
       { label: "招商漏斗", href: "/invest/funnel", permission: "invest:read", module: "leasing" },

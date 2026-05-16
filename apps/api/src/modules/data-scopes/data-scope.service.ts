@@ -215,8 +215,11 @@ export class DataScopeService {
     }
     const ids = await this.resolveAllowedIds(scope, user, dimension);
     const column = this.resolveFindColumn(dimension, mapping);
-    if (!ids || ids.length === 0 || !column) {
+    if (!ids || !column) {
       return baseWhere;
+    }
+    if (ids.length === 0) {
+      return { ...baseWhere, [column]: In([]) } as FindOptionsWhere<T>;
     }
     return { ...baseWhere, [column]: In(ids) } as FindOptionsWhere<T>;
   }
@@ -234,8 +237,11 @@ export class DataScopeService {
     }
     const ids = await this.resolveAllowedIds(scope, user, dimension);
     const column = this.resolveDatabaseColumn(dimension, mapping);
-    if (!ids || ids.length === 0 || !column) {
+    if (!ids || !column) {
       return builder;
+    }
+    if (ids.length === 0) {
+      return builder.andWhere("1 = 0");
     }
     return builder.andWhere(`${alias}.${column} IN (:...dataScopeIds)`, { dataScopeIds: ids });
   }
@@ -243,20 +249,28 @@ export class DataScopeService {
   private async resolveAllowedIds(scope: TenantParkScope, user: JwtPrincipal, dimension: DataScopeDimension): Promise<string[] | null> {
     const roleIds = await this.resolveUserRoleIds(scope, user);
     if (roleIds.length === 0) {
-      return [];
+      return this.resolveFallbackAllowedIds(user, dimension);
     }
     const links = await this.roleDataScopeRepository.find({
       where: { tenantId: scope.tenantId, roleId: In(roleIds), isDeleted: false },
       relations: { rule: true }
     });
-    const rules = links
+    const enabledRules = links
       .map((link) => link.rule)
-      .filter((rule) => rule && !rule.isDeleted && rule.status === "enabled" && (rule.dimension === dimension || rule.dimension === "tenant" || rule.dimension === "park"));
+      .filter((rule) => rule && !rule.isDeleted && rule.status === "enabled");
+    const rules = enabledRules.filter((rule) => rule.dimension === dimension || rule.dimension === "tenant" || rule.dimension === "park");
     if (rules.some((rule) => rule.scopeType === "all" || rule.scopeType === "tenant" || rule.scopeType === "park")) {
       return null;
     }
+    if (rules.length === 0) {
+      return enabledRules.length > 0 ? null : this.resolveFallbackAllowedIds(user, dimension);
+    }
+    const dimensionRules = rules.filter((rule) => rule.dimension === dimension || this.idsForDimension(dimension, rule.scopeConfig).length > 0 || rule.scopeType === "self");
+    if (dimensionRules.length === 0) {
+      return null;
+    }
     const ids = new Set<string>();
-    for (const rule of rules) {
+    for (const rule of dimensionRules) {
       if (rule.scopeType === "self") {
         ids.add(user.sub);
       }
@@ -265,6 +279,17 @@ export class DataScopeService {
       }
     }
     return [...ids];
+  }
+
+  private resolveFallbackAllowedIds(user: JwtPrincipal, dimension: DataScopeDimension): string[] | null {
+    const fallback = this.normalizeScopeType(user.dataScope ?? "tenant");
+    if (fallback === "all" || fallback === "tenant" || fallback === "park") {
+      return null;
+    }
+    if (fallback === "self" && ["customer_owner", "contract_owner", "workorder_handler"].includes(dimension)) {
+      return [user.sub];
+    }
+    return [];
   }
 
   private async resolveUserRoleIds(scope: TenantParkScope, user: JwtPrincipal): Promise<string[]> {
@@ -319,10 +344,12 @@ export class DataScopeService {
   }
 
   private resolveRoleFallbackScope(scopes: string[]): string {
-    const normalize = (scope: string): string =>
-      ({ "10": "self", "20": "org", "30": "org_and_children", "40": "park", "50": "tenant", "60": "custom" })[scope] ?? scope;
     const rank: Record<string, number> = { self: 1, org: 2, org_and_children: 3, park: 4, tenant: 5, custom: 6, all: 7 };
-    return scopes.map(normalize).reduce((current, scope) => ((rank[scope] ?? 0) > (rank[current] ?? 0) ? scope : current), "tenant");
+    return scopes.map((scope) => this.normalizeScopeType(scope)).reduce((current, scope) => ((rank[scope] ?? 0) > (rank[current] ?? 0) ? scope : current), "tenant");
+  }
+
+  private normalizeScopeType(scope: string): string {
+    return ({ "10": "self", "20": "org", "30": "org_and_children", "40": "park", "50": "tenant", "60": "custom" })[scope] ?? scope;
   }
 
   private idsForDimension(dimension: DataScopeDimension, config: DataScopeConfig): string[] {

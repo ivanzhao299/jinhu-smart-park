@@ -18,14 +18,14 @@ export class BuildingsController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: BuildingQueryDto) {
-    return this.buildingsService.list(scope, query);
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: BuildingQueryDto) {
+    return this.buildingsService.list(scope, query, user);
   }
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_READ)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.buildingsService.detail(scope, id);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.buildingsService.detail(scope, id, user);
   }
 
   @Post()
@@ -44,13 +44,13 @@ export class BuildingsController {
     @Param("id") id: string,
     @Body() dto: UpdateBuildingDto
   ) {
-    return this.buildingsService.update(scope, user.sub, id, dto);
+    return this.buildingsService.update(scope, user, id, dto);
   }
 
   @Delete(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_DELETE)
   @AuditLog({ module: "楼栋管理", resource: "biz.building", action: "删除", bizType: "biz_building", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.buildingsService.softDelete(scope, user.sub, id);
+    return this.buildingsService.softDelete(scope, user, id);
   }
 }

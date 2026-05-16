@@ -17,6 +17,7 @@ import { FieldPoliciesModule } from "./modules/field-policies/field-policies.mod
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
 import { OrgsModule } from "./modules/orgs/orgs.module";
+import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { RolesModule } from "./modules/roles/roles.module";
@@ -67,6 +68,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     FieldPoliciesModule,
     FloorsModule,
     UnitsModule,
+    ParkTenantsModule,
     OrgsModule,
     UsersModule,
     RolesModule,

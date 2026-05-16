@@ -2,6 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { Brackets, type SelectQueryBuilder, type Repository } from "typeorm";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreateParkDto } from "./dto/create-park.dto";
 import type { ParkQueryDto } from "./dto/park-query.dto";
 import type { UpdateParkDto } from "./dto/update-park.dto";
@@ -13,11 +15,13 @@ const SORT_COLUMNS = new Set(["parkCode", "parkName", "status", "createTime", "u
 export class ParksService {
   constructor(
     @InjectRepository(ParkEntity)
-    private readonly parksRepository: Repository<ParkEntity>
+    private readonly parksRepository: Repository<ParkEntity>,
+    private readonly dataScopeService: DataScopeService
   ) {}
 
-  async list(scope: TenantParkScope, query: ParkQueryDto): Promise<PaginatedResult<ParkEntity>> {
+  async list(scope: TenantParkScope, query: ParkQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkEntity>> {
     const builder = this.scopedBuilder(scope);
+    await this.applyParkDataScope(builder, actor);
 
     if (query.status !== undefined) {
       builder.andWhere("park.status = :status", { status: query.status });
@@ -42,8 +46,10 @@ export class ParksService {
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
-  async detail(scope: TenantParkScope, id: string): Promise<ParkEntity> {
-    const entity = await this.scopedBuilder(scope).andWhere("park.id = :id", { id }).getOne();
+  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<ParkEntity> {
+    const builder = this.scopedBuilder(scope).andWhere("park.id = :id", { id });
+    await this.applyParkDataScope(builder, actor);
+    const entity = await builder.getOne();
     if (!entity) {
       throw new NotFoundException("Park not found");
     }
@@ -74,8 +80,8 @@ export class ParksService {
     return this.parksRepository.save(entity);
   }
 
-  async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
-    const entity = await this.detail(scope, id);
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
+    const entity = await this.detail(scope, id, actor);
     const nextCode = dto.parkCode?.trim();
     if (nextCode && nextCode !== entity.parkCode) {
       await this.assertParkCodeAvailable(nextCode, id);
@@ -93,15 +99,15 @@ export class ParksService {
     if (dto.landArea !== undefined) entity.landArea = this.numberToDecimal(dto.landArea) ?? "0";
     if (dto.status !== undefined) entity.status = dto.status;
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
-    entity.updateBy = actorId;
+    entity.updateBy = actor.sub;
 
     return this.parksRepository.save(entity);
   }
 
-  async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
-    const entity = await this.detail(scope, id);
+  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
+    const entity = await this.detail(scope, id, actor);
     entity.isDeleted = true;
-    entity.updateBy = actorId;
+    entity.updateBy = actor.sub;
     await this.parksRepository.save(entity);
     return { id };
   }
@@ -112,6 +118,21 @@ export class ParksService {
       .where("park.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("park.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("park.is_deleted = false");
+  }
+
+  private async applyParkDataScope(builder: SelectQueryBuilder<ParkEntity>, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    const filter = await this.dataScopeService.buildScopeFilter(actor, "park");
+    if (filter.unrestricted) {
+      return;
+    }
+    if (filter.allowed_ids.length === 0) {
+      builder.andWhere("1 = 0");
+      return;
+    }
+    builder.andWhere("park.park_id IN (:...parkDataScopeIds)", { parkDataScopeIds: filter.allowed_ids });
   }
 
   private applySort(builder: SelectQueryBuilder<ParkEntity>, sort?: string): void {

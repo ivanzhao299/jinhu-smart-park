@@ -194,6 +194,21 @@ leaf_permissions(code, name, resource, action) AS (
     ('asset:unit:detail', '房源详情', 'asset.unit', 'detail'),
     ('asset:unit:update', '编辑房源', 'asset.unit', 'update'),
     ('asset:unit:delete', '删除房源', 'asset.unit', 'delete'),
+    ('park_tenant:read', '租户企业读取', 'biz.park_tenant', 'read'),
+    ('park_tenant:360', '租户企业 360 视图', 'biz.park_tenant', '360'),
+    ('park_tenant:create', '新增租户企业', 'biz.park_tenant', 'create'),
+    ('park_tenant:update', '编辑租户企业', 'biz.park_tenant', 'update'),
+    ('park_tenant:delete', '删除租户企业', 'biz.park_tenant', 'delete'),
+    ('park_tenant:risk_update', '租户企业风险调整', 'biz.park_tenant', 'risk_update'),
+    ('park_tenant:risk_log', '租户企业风险日志', 'biz.park_tenant_risk_log', 'risk_log'),
+    ('park_tenant_contact:read', '租户企业联系人读取', 'biz.park_tenant_contact', 'read'),
+    ('park_tenant_contact:create', '新增租户企业联系人', 'biz.park_tenant_contact', 'create'),
+    ('park_tenant_contact:update', '编辑租户企业联系人', 'biz.park_tenant_contact', 'update'),
+    ('park_tenant_contact:delete', '删除租户企业联系人', 'biz.park_tenant_contact', 'delete'),
+    ('park_tenant_qualification:read', '租户企业资质读取', 'biz.park_tenant_qualification', 'read'),
+    ('park_tenant_qualification:create', '新增租户企业资质', 'biz.park_tenant_qualification', 'create'),
+    ('park_tenant_qualification:update', '编辑租户企业资质', 'biz.park_tenant_qualification', 'update'),
+    ('park_tenant_qualification:delete', '删除租户企业资质', 'biz.park_tenant_qualification', 'delete'),
     ('invest:read', '招商租赁读取', 'leasing', 'read'),
     ('contract:read', '合同读取', 'leasing.contract', 'read'),
     ('ar:read', '应收读取', 'leasing.receivable', 'read'),
@@ -221,16 +236,18 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('system:dict-item', '字典项', 'system:dict-type', 'system.dict-item', 'page', 'page', 20, 100),
     ('system:file', '附件中心', 'system', 'system.file', 'page', 'page', 20, 110),
     ('system:audit', '审计日志', 'system', 'system.audit', 'page', 'page', 20, 120),
-    ('asset', '资产经营', NULL, 'asset', 'menu', 'menu', 10, 20),
+    ('asset', '资产管理', NULL, 'asset', 'menu', 'menu', 10, 20),
     ('asset:park', '园区管理', 'asset', 'asset.park', 'page', 'page', 20, 10),
     ('asset:building', '楼栋管理', 'asset', 'asset.building', 'page', 'page', 20, 20),
     ('asset:floor', '楼层管理', 'asset', 'asset.floor', 'page', 'page', 20, 30),
-    ('asset:unit', '房源管理', 'asset', 'asset.unit', 'page', 'page', 20, 40),
-    ('asset:dashboard', '资产统计与看板', 'asset', 'asset.dashboard', 'page', 'page', 20, 50),
+    ('asset:unit', '房间/房源管理', 'asset', 'asset.unit', 'page', 'page', 20, 40),
+    ('asset:unit-status-board', '房源状态看板', 'asset', 'asset.status-board', 'page', 'page', 20, 50),
+    ('asset:statistics-page', '资产统计', 'asset', 'asset.statistics', 'page', 'page', 20, 60),
     ('leasing', '招商租赁', NULL, 'leasing', 'menu', 'menu', 10, 30),
-    ('leasing:invest', '招商运营', 'leasing', 'leasing.invest', 'page', 'page', 20, 10),
-    ('leasing:contract', '合同管理', 'leasing', 'leasing.contract', 'page', 'page', 20, 20),
-    ('leasing:receivable', '应收账单', 'leasing', 'leasing.receivable', 'page', 'page', 20, 30),
+    ('leasing:tenant', '租户企业档案', 'leasing', 'leasing.tenant', 'page', 'page', 20, 10),
+    ('leasing:invest', '招商运营', 'leasing', 'leasing.invest', 'page', 'page', 20, 20),
+    ('leasing:contract', '合同管理', 'leasing', 'leasing.contract', 'page', 'page', 20, 30),
+    ('leasing:receivable', '应收账单', 'leasing', 'leasing.receivable', 'page', 'page', 20, 40),
     ('workorder', '工单管理', NULL, 'workorder', 'menu', 'menu', 10, 40),
     ('workorder:center', '工单中心', 'workorder', 'workorder.center', 'page', 'page', 20, 10),
     ('iot', 'IoT 平台', NULL, 'iot', 'menu', 'menu', 10, 50),
@@ -288,7 +305,10 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code LIKE 'asset:floor:%' THEN 'asset:floor'
       WHEN leaf_permissions.code LIKE 'unit:%' THEN 'asset:unit'
       WHEN leaf_permissions.code LIKE 'asset:unit:%' THEN 'asset:unit'
-      WHEN leaf_permissions.code IN ('asset:read', 'asset:status_board', 'asset:statistics', 'asset:statistics:read') THEN 'asset:dashboard'
+      WHEN leaf_permissions.code = 'asset:status_board' THEN 'asset:unit-status-board'
+      WHEN leaf_permissions.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
+      WHEN leaf_permissions.code = 'asset:read' THEN 'asset'
+      WHEN leaf_permissions.code LIKE 'park_tenant:%' OR leaf_permissions.code LIKE 'park_tenant_contact:%' OR leaf_permissions.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
       WHEN leaf_permissions.code = 'invest:read' THEN 'leasing:invest'
       WHEN leaf_permissions.code = 'contract:read' THEN 'leasing:contract'
       WHEN leaf_permissions.code = 'ar:read' THEN 'leasing:receivable'
@@ -404,7 +424,9 @@ upsert_permissions AS (
       WHEN 'asset:building' THEN '/assets/buildings'
       WHEN 'asset:floor' THEN '/assets/floors'
       WHEN 'asset:unit' THEN '/assets/units'
-      WHEN 'asset:dashboard' THEN '/assets/statistics'
+      WHEN 'asset:unit-status-board' THEN '/assets/unit-status-board'
+      WHEN 'asset:statistics-page' THEN '/assets/statistics'
+      WHEN 'leasing:tenant' THEN '/leasing/tenants'
       WHEN 'leasing:invest' THEN '/invest/leads'
       WHEN 'leasing:contract' THEN '/contracts'
       WHEN 'leasing:receivable' THEN '/finance/receivables'
@@ -492,8 +514,8 @@ permission_parent_map AS (
       WHEN child.code IN ('system', 'asset', 'leasing', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:module', 'system:dict-type', 'system:file', 'system:audit') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
-      WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:dashboard') THEN 'asset'
-      WHEN child.code IN ('leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
+      WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
+      WHEN child.code IN ('leasing:tenant', 'leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
       WHEN child.code = 'workorder:center' THEN 'workorder'
       WHEN child.code = 'iot:overview' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
@@ -534,7 +556,10 @@ permission_parent_map AS (
       WHEN child.code LIKE 'asset:floor:%' THEN 'asset:floor'
       WHEN child.code LIKE 'unit:%' THEN 'asset:unit'
       WHEN child.code LIKE 'asset:unit:%' THEN 'asset:unit'
-      WHEN child.code IN ('asset:read', 'asset:status_board', 'asset:statistics', 'asset:statistics:read') THEN 'asset:dashboard'
+      WHEN child.code = 'asset:status_board' THEN 'asset:unit-status-board'
+      WHEN child.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
+      WHEN child.code = 'asset:read' THEN 'asset'
+      WHEN child.code LIKE 'park_tenant:%' OR child.code LIKE 'park_tenant_contact:%' OR child.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
       WHEN child.code = 'invest:read' THEN 'leasing:invest'
       WHEN child.code = 'contract:read' THEN 'leasing:contract'
       WHEN child.code = 'ar:read' THEN 'leasing:receivable'
@@ -601,6 +626,18 @@ ON CONFLICT (tenant_id, rule_code) WHERE is_deleted = false DO UPDATE SET
   is_deleted = false,
   update_time = now();
 
+UPDATE sys_field_policy
+SET is_deleted = true,
+    status = 'disabled',
+    update_time = now()
+WHERE tenant_id = '10000001'
+  AND module = 'leasing'
+  AND is_deleted = false
+  AND (
+    (entity = 'park_tenant' AND field_key IN ('contactMobile', 'legalPersonId'))
+    OR (entity = 'park_tenant_qualification' AND field_key IN ('certificateNo', 'fileId'))
+  );
+
 WITH seed_scope AS (
   SELECT
     '10000001' AS tenant_id,
@@ -625,7 +662,13 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('system', 'sys_file', 'file_url', '文件访问地址', 'masked', 'custom', 'sys_file.file_url default field policy'),
     ('asset', 'unit', 'refPrice', '房源参考租金', 'masked', 'amount', 'asset unit reference price default field policy'),
     ('asset', 'unit', 'floorplanUrl', '房源平面图地址', 'masked', 'custom', 'asset unit floorplan url default field policy'),
-    ('asset', 'floor', 'layoutUrl', '楼层平面图地址', 'masked', 'custom', 'asset floor layout url default field policy')
+    ('asset', 'floor', 'layoutUrl', '楼层平面图地址', 'masked', 'custom', 'asset floor layout url default field policy'),
+    ('leasing', 'park_tenant', 'contact_mobile', '企业联系人手机号', 'masked', 'mobile', 'park tenant contact mobile default field policy'),
+    ('leasing', 'park_tenant', 'legal_person_id', '法人身份证号', 'masked', 'id_card', 'park tenant legal person id default field policy'),
+    ('leasing', 'park_tenant_contact', 'mobile', '租户企业联系人手机号', 'masked', 'mobile', 'park tenant contact mobile default field policy'),
+    ('leasing', 'park_tenant_contact', 'email', '租户企业联系人邮箱', 'visible', NULL, 'park tenant contact email default visible field policy'),
+    ('leasing', 'park_tenant_qualification', 'certificate_no', '租户企业资质证书编号', 'masked', 'custom', 'park tenant qualification certificate number default field policy'),
+    ('leasing', 'park_tenant_qualification', 'file_id', '租户企业资质附件 ID', 'masked', 'custom', 'park tenant qualification file id default field policy')
 )
 INSERT INTO sys_field_policy (
   tenant_id,
@@ -671,7 +714,9 @@ WITH seed_scope AS (
     '00000000-0000-4000-8000-000000002101'::uuid AS operations_owner_role_id,
     '00000000-0000-4000-8000-000000002102'::uuid AS executive_role_id,
     '00000000-0000-4000-8000-000000002103'::uuid AS invest_manager_role_id,
-    '00000000-0000-4000-8000-000000002104'::uuid AS invest_specialist_role_id
+    '00000000-0000-4000-8000-000000002104'::uuid AS invest_specialist_role_id,
+    '00000000-0000-4000-8000-000000002105'::uuid AS safety_manager_role_id,
+    '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id
 ),
 default_park AS (
   INSERT INTO sys_org (
@@ -725,6 +770,12 @@ roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, rema
   FROM seed_scope
   UNION ALL
   SELECT invest_specialist_role_id, 'INVEST_SPECIALIST', '招商专员', 'park', 'park', 'self', false, 70, 'Default investment specialist role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT safety_manager_role_id, 'SAFETY_MANAGER', '安全主管', 'park', 'park', 'park', false, 80, 'Default safety manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT property_manager_role_id, 'PROPERTY_MANAGER', '物业主管', 'park', 'park', 'park', false, 90, 'Default property manager role template.'
   FROM seed_scope
 )
 INSERT INTO sys_role (
@@ -815,7 +866,9 @@ role_rule_codes(role_code, rule_code) AS (
     ('OPERATIONS_OWNER', 'current_park'),
     ('EXECUTIVE', 'current_park'),
     ('INVEST_MANAGER', 'self_only'),
-    ('INVEST_SPECIALIST', 'self_only')
+    ('INVEST_SPECIALIST', 'self_only'),
+    ('SAFETY_MANAGER', 'current_park'),
+    ('PROPERTY_MANAGER', 'current_park')
 ),
 role_data_scope_links AS (
   SELECT
@@ -894,6 +947,110 @@ WHERE relation.tenant_id = role.tenant_id
   AND relation.role_id = role.id
   AND relation.permission_id = permission.id
   AND relation.is_deleted = false;
+
+WITH seed_scope AS (
+  SELECT
+    '10000001' AS tenant_id,
+    '20000001' AS park_id
+),
+managed_roles(role_code) AS (
+  VALUES
+    ('EXECUTIVE'),
+    ('OPERATIONS_OWNER'),
+    ('INVEST_MANAGER'),
+    ('INVEST_SPECIALIST'),
+    ('SAFETY_MANAGER'),
+    ('PROPERTY_MANAGER')
+),
+s3a_permissions(permission_code) AS (
+  VALUES
+    ('park_tenant:read'),
+    ('park_tenant:create'),
+    ('park_tenant:update'),
+    ('park_tenant:delete'),
+    ('park_tenant:360'),
+    ('park_tenant_contact:read'),
+    ('park_tenant_contact:create'),
+    ('park_tenant_contact:update'),
+    ('park_tenant_contact:delete'),
+    ('park_tenant_qualification:read'),
+    ('park_tenant_qualification:create'),
+    ('park_tenant_qualification:update'),
+    ('park_tenant_qualification:delete'),
+    ('park_tenant:risk_update'),
+    ('park_tenant:risk_log')
+),
+desired_role_permissions(role_code, permission_code) AS (
+  VALUES
+    ('EXECUTIVE', 'park_tenant:read'),
+    ('EXECUTIVE', 'park_tenant:360'),
+    ('EXECUTIVE', 'park_tenant:risk_log'),
+    ('OPERATIONS_OWNER', 'park_tenant:read'),
+    ('OPERATIONS_OWNER', 'park_tenant:create'),
+    ('OPERATIONS_OWNER', 'park_tenant:update'),
+    ('OPERATIONS_OWNER', 'park_tenant:delete'),
+    ('OPERATIONS_OWNER', 'park_tenant:360'),
+    ('OPERATIONS_OWNER', 'park_tenant_contact:read'),
+    ('OPERATIONS_OWNER', 'park_tenant_contact:create'),
+    ('OPERATIONS_OWNER', 'park_tenant_contact:update'),
+    ('OPERATIONS_OWNER', 'park_tenant_contact:delete'),
+    ('OPERATIONS_OWNER', 'park_tenant_qualification:read'),
+    ('OPERATIONS_OWNER', 'park_tenant_qualification:create'),
+    ('OPERATIONS_OWNER', 'park_tenant_qualification:update'),
+    ('OPERATIONS_OWNER', 'park_tenant_qualification:delete'),
+    ('OPERATIONS_OWNER', 'park_tenant:risk_update'),
+    ('OPERATIONS_OWNER', 'park_tenant:risk_log'),
+    ('INVEST_MANAGER', 'park_tenant:read'),
+    ('INVEST_MANAGER', 'park_tenant:create'),
+    ('INVEST_MANAGER', 'park_tenant:update'),
+    ('INVEST_MANAGER', 'park_tenant:360'),
+    ('INVEST_MANAGER', 'park_tenant_contact:read'),
+    ('INVEST_MANAGER', 'park_tenant_contact:create'),
+    ('INVEST_MANAGER', 'park_tenant_contact:update'),
+    ('INVEST_MANAGER', 'park_tenant_qualification:read'),
+    ('INVEST_MANAGER', 'park_tenant:risk_log'),
+    ('INVEST_SPECIALIST', 'park_tenant:read'),
+    ('INVEST_SPECIALIST', 'park_tenant:create'),
+    ('INVEST_SPECIALIST', 'park_tenant:update'),
+    ('INVEST_SPECIALIST', 'park_tenant:360'),
+    ('INVEST_SPECIALIST', 'park_tenant_contact:read'),
+    ('INVEST_SPECIALIST', 'park_tenant_contact:create'),
+    ('INVEST_SPECIALIST', 'park_tenant_contact:update'),
+    ('INVEST_SPECIALIST', 'park_tenant_qualification:read'),
+    ('SAFETY_MANAGER', 'park_tenant:read'),
+    ('SAFETY_MANAGER', 'park_tenant:360'),
+    ('SAFETY_MANAGER', 'park_tenant:risk_update'),
+    ('SAFETY_MANAGER', 'park_tenant:risk_log'),
+    ('SAFETY_MANAGER', 'park_tenant_contact:read'),
+    ('SAFETY_MANAGER', 'park_tenant_qualification:read'),
+    ('PROPERTY_MANAGER', 'park_tenant:read'),
+    ('PROPERTY_MANAGER', 'park_tenant:360'),
+    ('PROPERTY_MANAGER', 'park_tenant_contact:read')
+)
+UPDATE rel_role_perm relation
+SET is_deleted = true,
+    update_time = now()
+FROM sys_role role
+JOIN seed_scope
+  ON seed_scope.tenant_id = role.tenant_id
+ AND seed_scope.park_id = role.park_id
+JOIN managed_roles ON managed_roles.role_code = role.code
+JOIN sys_permission permission
+  ON permission.tenant_id = role.tenant_id
+ AND permission.park_id = role.park_id
+ AND permission.is_deleted = false
+JOIN s3a_permissions ON s3a_permissions.permission_code = permission.code
+WHERE relation.tenant_id = role.tenant_id
+  AND relation.park_id = role.park_id
+  AND relation.role_id = role.id
+  AND relation.permission_id = permission.id
+  AND relation.is_deleted = false
+  AND NOT EXISTS (
+    SELECT 1
+    FROM desired_role_permissions desired
+    WHERE desired.role_code = role.code
+      AND desired.permission_code = permission.code
+  );
 
 WITH seed_scope AS (
   SELECT
@@ -982,6 +1139,21 @@ role_permissions AS (
       'unit:import',
       'unit:import_template',
       'unit:export',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant:create',
+      'park_tenant:update',
+      'park_tenant:delete',
+      'park_tenant:risk_update',
+      'park_tenant:risk_log',
+      'park_tenant_contact:read',
+      'park_tenant_contact:create',
+      'park_tenant_contact:update',
+      'park_tenant_contact:delete',
+      'park_tenant_qualification:read',
+      'park_tenant_qualification:create',
+      'park_tenant_qualification:update',
+      'park_tenant_qualification:delete',
       'asset:read',
       'asset:status_board',
       'asset:statistics'
@@ -1006,7 +1178,12 @@ role_permissions AS (
       'asset:status_board',
       'asset:statistics',
       'unit:read',
-      'unit:status_log'
+      'unit:status_log',
+      'file:read',
+      'file:download',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant:risk_log'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -1024,9 +1201,21 @@ role_permissions AS (
       'system:user:me',
       'system:dict-type:list',
       'system:dict-item:list',
+      'file:read',
+      'file:upload',
+      'file:download',
       'unit:read',
       'unit:change_status',
       'unit:status_log',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant:create',
+      'park_tenant:update',
+      'park_tenant:risk_log',
+      'park_tenant_contact:read',
+      'park_tenant_contact:create',
+      'park_tenant_contact:update',
+      'park_tenant_qualification:read',
       'asset:read',
       'asset:statistics',
       'asset:status_board'
@@ -1047,8 +1236,63 @@ role_permissions AS (
       'system:user:me',
       'system:dict-type:list',
       'system:dict-item:list',
+      'file:read',
+      'file:download',
       'asset:status_board',
-      'unit:read'
+      'unit:read',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant:create',
+      'park_tenant:update',
+      'park_tenant_contact:read',
+      'park_tenant_contact:create',
+      'park_tenant_contact:update',
+      'park_tenant_qualification:read'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'SAFETY_MANAGER'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'file:read',
+      'file:download',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant:risk_update',
+      'park_tenant:risk_log',
+      'park_tenant_contact:read',
+      'park_tenant_qualification:read'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'PROPERTY_MANAGER'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'park_tenant:read',
+      'park_tenant:360',
+      'park_tenant_contact:read'
     )
 )
 INSERT INTO rel_role_perm (
@@ -1091,7 +1335,8 @@ code_rules(entity_type, rule_code, rule_name, target_module, target_entity, pref
     ('inspection_robot', 'INSPECTION_ROBOT_CODE', '巡检机器人编码规则', 'robot', 'inspection_robot', 'INS-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'INS-RB-001', 'SaaS inspection robot code rule seed'),
     ('workorder', 'WORKORDER_CODE', '工单编码规则', 'workorder', 'workorder', 'WO-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'WO-20260515000001', 'SaaS workorder code rule seed'),
     ('contract', 'CONTRACT_CODE', '合同编码规则', 'contract', 'contract', 'CT-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'CT-20260515000001', 'SaaS contract code rule seed'),
-    ('bill', 'BILL_CODE', '账单编码规则', 'finance', 'bill', 'BILL-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'monthly', '', 'BILL-20260515000001', 'SaaS bill code rule seed')
+    ('bill', 'BILL_CODE', '账单编码规则', 'finance', 'bill', 'BILL-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'monthly', '', 'BILL-20260515000001', 'SaaS bill code rule seed'),
+    (NULL, 'PARK_TENANT_CODE', '园区租户企业编码规则', 'leasing', 'park_tenant', 'PT-', '{PREFIX}{SEQ:5}', NULL, 5, 'none', '', 'PT-00001', 'SaaS park tenant code rule seed')
 )
 INSERT INTO sys_code_rule (
   tenant_id,
@@ -1513,7 +1758,14 @@ dict_types(dict_code, dict_name, remark) AS (
     ('audit_result', '审计结果', 'Production-safe audit result dictionary'),
     ('unit_usage_type', '房源用途', 'Production-safe unit usage type dictionary'),
     ('unit_rental_status', '房源出租状态', 'Production-safe unit rental status dictionary'),
-    ('unit_fitting_status', '房源装修状态', 'Production-safe unit fitting status dictionary')
+    ('unit_fitting_status', '房源装修状态', 'Production-safe unit fitting status dictionary'),
+    ('park_tenant_status', '租户企业状态', 'Production-safe park tenant status dictionary'),
+    ('park_tenant_type', '租户企业类型', 'Production-safe park tenant type dictionary'),
+    ('park_tenant_risk_level', '租户企业风险等级', 'Production-safe park tenant risk level dictionary'),
+    ('industry_code', '行业编码', 'Production-safe industry code dictionary'),
+    ('park_tenant_source_type', '租户企业来源', 'Production-safe park tenant source dictionary'),
+    ('park_tenant_contact_role', '租户企业联系人角色', 'Production-safe park tenant contact role dictionary'),
+    ('park_tenant_qualification_type', '租户企业资质类型', 'Production-safe park tenant qualification type dictionary')
 ),
 upsert_types AS (
   INSERT INTO sys_dict_type (
@@ -1554,6 +1806,7 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('file_biz_type', '工单', 'workorder', 20, 'default'),
     ('file_biz_type', '隐患整改', 'hazard', 30, 'default'),
     ('file_biz_type', '租户资质', 'tenant_qualification', 40, 'default'),
+    ('file_biz_type', '租户企业资质', 'park_tenant_qualification', 45, 'primary'),
     ('file_biz_type', '房源照片', 'unit_photo', 50, 'default'),
     ('file_biz_type', '楼层平面图', 'floorplan', 60, 'default'),
     ('file_biz_type', '房源平面图', 'unit_floorplan', 70, 'default'),
@@ -1575,7 +1828,102 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('unit_rental_status', '自用', '60', 60, 'default'),
     ('unit_fitting_status', '毛坯', '10', 10, 'default'),
     ('unit_fitting_status', '简装', '20', 20, 'primary'),
-    ('unit_fitting_status', '精装', '30', 30, 'success')
+    ('unit_fitting_status', '精装', '30', 30, 'success'),
+    ('park_tenant_status', '待入驻', '10', 10, 'warning'),
+    ('park_tenant_status', '在租', '20', 20, 'success'),
+    ('park_tenant_status', '已退租', '30', 30, 'default'),
+    ('park_tenant_status', '暂停服务', '40', 40, 'danger'),
+    ('park_tenant_status', '黑名单', '50', 50, 'danger'),
+    ('park_tenant_type', '写字楼办公', '10', 10, 'primary'),
+    ('park_tenant_type', '生产制造', '20', 20, 'default'),
+    ('park_tenant_type', '仓储物流', '30', 30, 'default'),
+    ('park_tenant_type', '展贸零售', '40', 40, 'warning'),
+    ('park_tenant_type', '研发实验', '50', 50, 'primary'),
+    ('park_tenant_type', '特殊行业', '60', 60, 'danger'),
+    ('park_tenant_risk_level', '一般', '10', 10, 'success'),
+    ('park_tenant_risk_level', '关注', '20', 20, 'warning'),
+    ('park_tenant_risk_level', '重点', '30', 30, 'primary'),
+    ('park_tenant_risk_level', '高风险', '40', 40, 'danger'),
+    ('industry_code', '综合', 'general', 10, 'default'),
+    ('industry_code', '制造业', 'manufacturing', 20, 'primary'),
+    ('industry_code', '电商', 'ecommerce', 30, 'primary'),
+    ('industry_code', '物流仓储', 'logistics', 40, 'warning'),
+    ('industry_code', '科技研发', 'tech', 50, 'success'),
+    ('industry_code', '商贸展销', 'trade', 60, 'default'),
+    ('industry_code', '其他', 'other', 90, 'default'),
+    ('park_tenant_source_type', '人工录入', 'manual', 10, 'default'),
+    ('park_tenant_source_type', '线索转化', 'lead_convert', 20, 'primary'),
+    ('park_tenant_source_type', '导入', 'import', 30, 'default'),
+    ('park_tenant_source_type', '系统生成', 'system', 40, 'default'),
+    ('park_tenant_contact_role', '主联系人', 'primary', 10, 'primary'),
+    ('park_tenant_contact_role', '财务联系人', 'finance', 20, 'success'),
+    ('park_tenant_contact_role', '安全联系人', 'safety', 30, 'warning'),
+    ('park_tenant_contact_role', '物业联系人', 'property', 40, 'default'),
+    ('park_tenant_contact_role', '企业管理员', 'admin', 50, 'primary'),
+    ('park_tenant_contact_role', '应急联系人', 'emergency', 60, 'danger'),
+    ('park_tenant_contact_role', '其他', 'other', 90, 'default'),
+    ('park_tenant_qualification_type', '营业执照', 'business_license', 10, 'primary'),
+    ('park_tenant_qualification_type', '法人证件', 'legal_person_id', 20, 'default'),
+    ('park_tenant_qualification_type', '安全承诺书', 'safety_commitment', 30, 'warning'),
+    ('park_tenant_qualification_type', '特殊行业许可', 'special_license', 40, 'danger'),
+    ('park_tenant_qualification_type', '装修资料', 'decoration', 50, 'default'),
+    ('park_tenant_qualification_type', '其他', 'other', 90, 'default')
+),
+desired_dict_items AS (
+  SELECT
+    upsert_types.tenant_id,
+    upsert_types.park_id,
+    upsert_types.id AS dict_type_id,
+    dict_items.item_label,
+    dict_items.item_value,
+    dict_items.sort_order,
+    dict_items.tag_type
+  FROM dict_items
+  JOIN upsert_types ON upsert_types.dict_code = dict_items.dict_code
+),
+retired_dict_items AS (
+  UPDATE sys_dict_item existing
+  SET status = 'disabled',
+      is_deleted = true,
+      remark = 'Retired by production-safe dictionary item seed',
+      update_time = now()
+  FROM upsert_types
+  WHERE existing.tenant_id = upsert_types.tenant_id
+    AND existing.park_id = upsert_types.park_id
+    AND existing.dict_type_id = upsert_types.id
+    AND existing.is_deleted = false
+    AND upsert_types.dict_code IN (
+      'park_tenant_status',
+      'park_tenant_type',
+      'park_tenant_risk_level',
+      'industry_code',
+      'park_tenant_contact_role',
+      'park_tenant_qualification_type'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM desired_dict_items desired
+      WHERE desired.dict_type_id = existing.dict_type_id
+        AND desired.item_value = existing.item_value
+    )
+  RETURNING existing.id
+),
+updated_dict_items AS (
+  UPDATE sys_dict_item existing
+  SET item_label = desired_dict_items.item_label,
+      sort_order = desired_dict_items.sort_order,
+      status = 'enabled',
+      tag_type = desired_dict_items.tag_type,
+      remark = 'Production-safe dictionary item seed',
+      is_deleted = false,
+      update_time = now()
+  FROM desired_dict_items
+  WHERE existing.tenant_id = desired_dict_items.tenant_id
+    AND existing.park_id = desired_dict_items.park_id
+    AND existing.dict_type_id = desired_dict_items.dict_type_id
+    AND existing.item_value = desired_dict_items.item_value
+    AND existing.is_deleted = false
+  RETURNING existing.id
 )
 INSERT INTO sys_dict_item (
   tenant_id,
@@ -1589,23 +1937,22 @@ INSERT INTO sys_dict_item (
   remark
 )
 SELECT
-  upsert_types.tenant_id,
-  upsert_types.park_id,
-  upsert_types.id,
-  dict_items.item_label,
-  dict_items.item_value,
-  dict_items.sort_order,
+  desired_dict_items.tenant_id,
+  desired_dict_items.park_id,
+  desired_dict_items.dict_type_id,
+  desired_dict_items.item_label,
+  desired_dict_items.item_value,
+  desired_dict_items.sort_order,
   'enabled',
-  dict_items.tag_type,
+  desired_dict_items.tag_type,
   'Production-safe dictionary item seed'
-FROM dict_items
-JOIN upsert_types ON upsert_types.dict_code = dict_items.dict_code
+FROM desired_dict_items
 WHERE NOT EXISTS (
   SELECT 1
   FROM sys_dict_item existing
-  WHERE existing.tenant_id = upsert_types.tenant_id
-    AND existing.park_id = upsert_types.park_id
-    AND existing.dict_type_id = upsert_types.id
-    AND existing.item_value = dict_items.item_value
+  WHERE existing.tenant_id = desired_dict_items.tenant_id
+    AND existing.park_id = desired_dict_items.park_id
+    AND existing.dict_type_id = desired_dict_items.dict_type_id
+    AND existing.item_value = desired_dict_items.item_value
     AND existing.is_deleted = false
 );

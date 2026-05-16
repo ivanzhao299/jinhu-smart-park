@@ -4,9 +4,12 @@ import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { CodeRulesService } from "../code-rules/code-rules.service";
+import { DataScopeService } from "../data-scopes/data-scope.service";
+import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { UnitEntity } from "../units/entities/unit.entity";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreateFloorDto } from "./dto/create-floor.dto";
 import type { FloorQueryDto } from "./dto/floor-query.dto";
 import type { UpdateFloorDto } from "./dto/update-floor.dto";
@@ -26,11 +29,14 @@ export class FloorsService {
     @InjectRepository(UnitEntity)
     private readonly unitsRepository: Repository<UnitEntity>,
     private readonly filesService: FilesService,
-    private readonly codeRulesService: CodeRulesService
+    private readonly codeRulesService: CodeRulesService,
+    private readonly dataScopeService: DataScopeService,
+    private readonly fieldPolicyService: FieldPolicyService
   ) {}
 
-  async list(scope: TenantParkScope, query: FloorQueryDto): Promise<PaginatedResult<FloorEntity>> {
+  async list(scope: TenantParkScope, query: FloorQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<FloorEntity>> {
     const builder = this.scopedBuilder(scope).leftJoinAndSelect("floor.building", "building");
+    await this.applyFloorDataScope(builder, actor);
 
     if (query.building_id) {
       builder.andWhere("floor.building_id = :buildingId", { buildingId: query.building_id });
@@ -54,24 +60,31 @@ export class FloorsService {
       .take(query.page_size)
       .getManyAndCount();
 
-    return { items, total, page: query.page, page_size: query.page_size };
+    const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "asset", "floor", items);
+    return { items: securedItems, total, page: query.page, page_size: query.page_size };
   }
 
-  async detail(scope: TenantParkScope, id: string): Promise<FloorEntity> {
-    const entity = await this.scopedBuilder(scope)
+  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<FloorEntity> {
+    const entity = await this.findDetail(scope, id, actor);
+    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "floor", entity);
+  }
+
+  private async findDetail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<FloorEntity> {
+    const builder = this.scopedBuilder(scope)
       .leftJoinAndSelect("floor.building", "building")
       .leftJoinAndSelect("floor.layoutFile", "layoutFile")
-      .andWhere("floor.id = :id", { id })
-      .getOne();
+      .andWhere("floor.id = :id", { id });
+    await this.applyFloorDataScope(builder, actor);
+    const entity = await builder.getOne();
     if (!entity) {
       throw new NotFoundException("Floor not found");
     }
     return entity;
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateFloorDto): Promise<FloorEntity> {
-    const building = await this.mustFindBuilding(scope, dto.buildingId);
-    const floorCode = await this.resolveFloorCode(scope, actorId, dto.floorCode);
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateFloorDto): Promise<FloorEntity> {
+    const building = await this.mustFindBuilding(scope, dto.buildingId, actor);
+    const floorCode = await this.resolveFloorCode(scope, actor.sub, dto.floorCode);
     await this.assertFloorCodeAvailable(scope, floorCode);
     await this.assertLayoutFile(scope, dto.layoutFileId);
 
@@ -88,16 +101,16 @@ export class FloorsService {
       status: dto.status ?? 1,
       sortNo: dto.sortNo ?? dto.floorNo,
       remark: this.emptyToNull(dto.remark),
-      createBy: actorId,
-      updateBy: actorId
+      createBy: actor.sub,
+      updateBy: actor.sub
     });
     return this.floorsRepository.save(entity);
   }
 
-  async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateFloorDto): Promise<FloorEntity> {
-    const entity = await this.detail(scope, id);
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateFloorDto): Promise<FloorEntity> {
+    const entity = await this.findDetail(scope, id, actor);
     if (dto.buildingId) {
-      const building = await this.mustFindBuilding(scope, dto.buildingId);
+      const building = await this.mustFindBuilding(scope, dto.buildingId, actor);
       entity.buildingId = building.id;
     }
 
@@ -117,28 +130,28 @@ export class FloorsService {
     if (dto.status !== undefined) entity.status = dto.status;
     if (dto.sortNo !== undefined) entity.sortNo = dto.sortNo;
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
-    entity.updateBy = actorId;
+    entity.updateBy = actor.sub;
 
     return this.floorsRepository.save(entity);
   }
 
-  async uploadLayout(scope: TenantParkScope, actorId: string, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
-    const entity = await this.detail(scope, id);
-    const uploaded = await this.filesService.upload(scope, actorId, { biz_type: "floorplan", biz_id: id, remark }, file);
+  async uploadLayout(scope: TenantParkScope, actor: JwtPrincipal, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
+    const entity = await this.findDetail(scope, id, actor);
+    const uploaded = await this.filesService.upload(scope, actor.sub, { biz_type: "floorplan", biz_id: id, remark }, file);
     entity.layoutFileId = uploaded.id;
     entity.layoutUrl = uploaded.fileUrl;
-    entity.updateBy = actorId;
+    entity.updateBy = actor.sub;
     await this.floorsRepository.save(entity);
     return uploaded;
   }
 
-  async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
-    const entity = await this.detail(scope, id);
+  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
+    const entity = await this.findDetail(scope, id, actor);
     if (await this.hasUndeletedUnits(scope, id)) {
       throw new BadRequestException("Floor has undeleted units and cannot be deleted");
     }
     entity.isDeleted = true;
-    entity.updateBy = actorId;
+    entity.updateBy = actor.sub;
     await this.floorsRepository.save(entity);
     return { id };
   }
@@ -151,14 +164,66 @@ export class FloorsService {
       .andWhere("floor.is_deleted = false");
   }
 
-  private async mustFindBuilding(scope: TenantParkScope, buildingId: string): Promise<BuildingEntity> {
-    const building = await this.buildingsRepository.findOne({
-      where: { id: buildingId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+  private async mustFindBuilding(scope: TenantParkScope, buildingId: string, actor?: JwtPrincipal): Promise<BuildingEntity> {
+    const builder = this.buildingsRepository
+      .createQueryBuilder("building")
+      .where("building.id = :buildingId", { buildingId })
+      .andWhere("building.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("building.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("building.is_deleted = false");
+    await this.applyBuildingLookupDataScope(builder, actor);
+    const building = await builder.getOne();
     if (!building) {
       throw new BadRequestException("Building not found");
     }
     return building;
+  }
+
+  private async applyFloorDataScope(builder: SelectQueryBuilder<FloorEntity>, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    const filters = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "building"),
+      this.dataScopeService.buildScopeFilter(actor, "floor")
+    ]);
+    const columns = { park: "park_id", building: "building_id", floor: "id" } as const;
+    for (const filter of filters) {
+      if (filter.unrestricted) continue;
+      const column = columns[filter.dimension as keyof typeof columns];
+      if (!column) continue;
+      if (filter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+        continue;
+      }
+      const parameterName = `floorDataScope${filter.dimension.replace(/_/g, "")}Ids`;
+      builder.andWhere(`floor.${column} IN (:...${parameterName})`, { [parameterName]: filter.allowed_ids });
+    }
+  }
+
+  private async applyBuildingLookupDataScope(builder: SelectQueryBuilder<BuildingEntity>, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    const [parkFilter, buildingFilter] = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "building")
+    ]);
+    if (!parkFilter.unrestricted) {
+      if (parkFilter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+      } else {
+        builder.andWhere("building.park_id IN (:...floorBuildingParkScopeIds)", { floorBuildingParkScopeIds: parkFilter.allowed_ids });
+      }
+    }
+    if (!buildingFilter.unrestricted) {
+      if (buildingFilter.allowed_ids.length === 0) {
+        builder.andWhere("1 = 0");
+      } else {
+        builder.andWhere("building.id IN (:...floorBuildingDataScopeIds)", { floorBuildingDataScopeIds: buildingFilter.allowed_ids });
+      }
+    }
   }
 
   private async assertLayoutFile(scope: TenantParkScope, layoutFileId?: string): Promise<void> {

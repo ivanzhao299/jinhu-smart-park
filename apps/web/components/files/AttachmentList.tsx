@@ -102,7 +102,7 @@ export function AttachmentList({ bizType, bizId, refreshKey = 0 }: AttachmentLis
         <button className="primary-button" type="submit"><Search size={16} />查询附件</button>
       </form>
       <h2 className="panel-title">附件列表</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table className="attachment-table">
         <thead><tr><th>文件编号</th><th>原始文件名</th><th>类型</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
           {data.items.map((item) => (

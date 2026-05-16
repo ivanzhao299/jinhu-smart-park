@@ -598,7 +598,15 @@ export class UsersService {
     if (frontendRoute?.startsWith("/assets") || permissionCode?.startsWith("asset") || permissionCode?.startsWith("unit:") || permissionCode?.startsWith("park:") || permissionCode?.startsWith("building:") || permissionCode?.startsWith("floor:")) {
       return "asset";
     }
-    if (frontendRoute?.startsWith("/invest") || frontendRoute?.startsWith("/contracts") || frontendRoute?.startsWith("/finance")) {
+    if (
+      frontendRoute?.startsWith("/leasing") ||
+      frontendRoute?.startsWith("/invest") ||
+      frontendRoute?.startsWith("/contracts") ||
+      frontendRoute?.startsWith("/finance") ||
+      permissionCode?.startsWith("park_tenant:") ||
+      permissionCode?.startsWith("park_tenant_contact:") ||
+      permissionCode?.startsWith("park_tenant_qualification:")
+    ) {
       return "leasing";
     }
     if (frontendRoute?.startsWith("/workorders")) {
@@ -653,6 +661,7 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "file-text",
     module: "leasing",
     children: [
+      { label: "租户企业档案", href: "/leasing/tenants", permission: "park_tenant:read", module: "leasing" },
       { label: "招商线索", href: "/invest/leads", permission: "invest:read", module: "leasing" },
       { label: "公海池", href: "/invest/lead-pool", permission: "invest:read", module: "leasing" },
       { label: "招商漏斗", href: "/invest/funnel", permission: "invest:read", module: "leasing" },

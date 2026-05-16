@@ -20,21 +20,21 @@ export class FloorsController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.FLOOR_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: FloorQueryDto) {
-    return this.floorsService.list(scope, query);
+  list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: FloorQueryDto) {
+    return this.floorsService.list(scope, query, user);
   }
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.FLOOR_READ)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.floorsService.detail(scope, id);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.floorsService.detail(scope, id, user);
   }
 
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.FLOOR_CREATE)
   @AuditLog({ module: "楼层管理", resource: "biz.floor", action: "新增", bizType: "biz_floor" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateFloorDto) {
-    return this.floorsService.create(scope, user.sub, dto);
+    return this.floorsService.create(scope, user, dto);
   }
 
   @Put(":id")
@@ -46,7 +46,7 @@ export class FloorsController {
     @Param("id") id: string,
     @Body() dto: UpdateFloorDto
   ) {
-    return this.floorsService.update(scope, user.sub, id, dto);
+    return this.floorsService.update(scope, user, id, dto);
   }
 
   @Post(":id/layout")
@@ -60,13 +60,13 @@ export class FloorsController {
     @Body("remark") remark: string | undefined,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.floorsService.uploadLayout(scope, user.sub, id, file, remark);
+    return this.floorsService.uploadLayout(scope, user, id, file, remark);
   }
 
   @Delete(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.FLOOR_DELETE)
   @AuditLog({ module: "楼层管理", resource: "biz.floor", action: "删除", bizType: "biz_floor", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.floorsService.softDelete(scope, user.sub, id);
+    return this.floorsService.softDelete(scope, user, id);
   }
 }

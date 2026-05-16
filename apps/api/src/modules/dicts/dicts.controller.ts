@@ -8,6 +8,7 @@ import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CreateDictItemDto } from "./dto/create-dict-item.dto";
 import { CreateDictTypeDto } from "./dto/create-dict-type.dto";
+import { ListDictItemsDto } from "./dto/list-dict-items.dto";
 import { UpdateDictItemDto } from "./dto/update-dict-item.dto";
 import { UpdateDictTypeDto } from "./dto/update-dict-type.dto";
 import { DictsService } from "./dicts.service";
@@ -58,10 +59,9 @@ export class DictsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.DICT_ITEM_LIST)
   listItems(
     @CurrentScope() scope: TenantParkScope,
-    @Query() query: PaginationQueryDto,
-    @Query("dict_type_id") dictTypeId?: string
+    @Query() query: ListDictItemsDto
   ) {
-    return this.dictsService.listItems(scope, query, dictTypeId);
+    return this.dictsService.listItems(scope, query, query.dict_type_id);
   }
 
   @Post("dict-items")
