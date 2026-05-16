@@ -76,7 +76,26 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private sanitize(value: Record<string, unknown>): Record<string, unknown> {
-    const maskedKeys = new Set(["password", "oldPassword", "newPassword", "token", "accessToken", "secret"]);
+    const maskedKeys = new Set([
+      "password",
+      "oldPassword",
+      "newPassword",
+      "token",
+      "accessToken",
+      "secret",
+      "contactMobile",
+      "contact_mobile",
+      "mobile",
+      "legalPersonId",
+      "legal_person_id",
+      "demandPrice",
+      "demand_price",
+      "quotePrice",
+      "quote_price",
+      "propertyFeePrice",
+      "property_fee_price",
+      "content"
+    ]);
     return Object.fromEntries(
       Object.entries(value).map(([key, entryValue]) => [key, maskedKeys.has(key) ? "***" : entryValue])
     );

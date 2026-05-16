@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Eye, Plus, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
+import { Archive, Building2, Edit3, Eye, GitBranch, History, Plus, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -9,18 +9,30 @@ import { apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/a
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { hasPermission } from "../../../lib/permissions";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
+const LEASING_QUOTE_ENTITY = "leasing_quote";
+const LEASING_FOLLOW_ENTITY = "leasing_follow";
 const FOLLOW_FILE_BIZ_TYPE = "leasing_follow";
 const VISIT_FILE_BIZ_TYPE = "leasing_visit";
 const FIELD_CONTACT_MOBILE = "contactMobile";
 const FIELD_DEMAND_PRICE = "demandPrice";
+const FIELD_QUOTE_PRICE = "quotePrice";
+const FIELD_PROPERTY_FEE_PRICE = "propertyFeePrice";
+const FIELD_FOLLOW_CONTENT = "content";
 const LEAD_PERMISSIONS = {
   read: "leasing_lead:read",
   create: "leasing_lead:create",
   update: "leasing_lead:update",
-  delete: "leasing_lead:delete"
+  delete: "leasing_lead:delete",
+  changeStatus: "leasing_lead:change_status",
+  forceChangeStatus: "leasing_lead:force_change_status",
+  confirmSign: "leasing_lead:confirm_sign",
+  statusLog: "leasing_lead:status_log",
+  convertToParkTenant: "leasing_lead:convert_to_park_tenant",
+  moveToPool: "leasing_lead:move_to_pool"
 } as const;
 const FOLLOW_PERMISSIONS = {
   read: "leasing_follow:read",
@@ -33,6 +45,15 @@ const VISIT_PERMISSIONS = {
   create: "leasing_visit:create",
   update: "leasing_visit:update",
   delete: "leasing_visit:delete"
+} as const;
+const QUOTE_PERMISSIONS = {
+  read: "leasing_quote:read",
+  create: "leasing_quote:create",
+  update: "leasing_quote:update",
+  delete: "leasing_quote:delete",
+  submit: "leasing_quote:submit",
+  approve: "leasing_quote:approve",
+  reject: "leasing_quote:reject"
 } as const;
 const FILE_PERMISSIONS = {
   upload: "file:upload"
@@ -114,7 +135,7 @@ interface LeasingFollowRow {
   followUserId: string | null;
   followUserName: string | null;
   followType: string | null;
-  content: string;
+  content?: string | null;
   nextAction: string | null;
   nextFollowTime: string | null;
   attachmentFileIds: string[];
@@ -144,6 +165,7 @@ interface UnitOptionRow {
   unitCode: string;
   unitName: string;
   unitArea: string;
+  refPrice?: string | null;
   rentalStatus: number;
   buildingId: string;
   floorId: string;
@@ -157,6 +179,53 @@ interface UnitOptionRow {
     floorCode: string;
     floorName: string;
   };
+}
+
+interface LeasingQuoteApproveRecord {
+  action: "submit" | "approve" | "reject";
+  operatorId: string;
+  operatorName: string;
+  opTime: string;
+  fromStatus: string;
+  toStatus: string;
+  opinion?: string | null;
+  rejectReason?: string | null;
+  priceWarning?: string | null;
+}
+
+interface LeasingQuoteRow {
+  id: string;
+  leadId: string;
+  unitId: string;
+  unit?: UnitOptionRow | null;
+  quotePrice?: string | null;
+  quotePeriod: string | null;
+  freeRentMonths: string;
+  depositMonths: string;
+  paymentPeriod: string | null;
+  propertyFeePrice: string;
+  quoteStatus: string;
+  approveRecords: LeasingQuoteApproveRecord[];
+  submitTime: string | null;
+  approveTime: string | null;
+  approveBy: string | null;
+  rejectReason: string | null;
+  remark: string | null;
+  createTime: string;
+  updateTime: string;
+}
+
+interface LeasingLeadStatusLogRow {
+  id: string;
+  leadId: string;
+  beforeStatus: string;
+  afterStatus: string;
+  reason: string;
+  operatorId: string | null;
+  operatorName: string | null;
+  opTime: string;
+  remark: string | null;
+  createTime: string;
 }
 
 interface FollowFormState {
@@ -179,6 +248,61 @@ interface VisitFormState {
   photoFileIds: string[];
   advanceStatus: string;
   remark: string;
+}
+
+interface QuoteFormState {
+  unitId: string;
+  quotePrice: string;
+  quotePeriod: string;
+  freeRentMonths: string;
+  depositMonths: string;
+  paymentPeriod: string;
+  propertyFeePrice: string;
+  remark: string;
+}
+
+interface StatusFormState {
+  afterStatus: string;
+  reason: string;
+  lostReason: string;
+  lostRemark: string;
+}
+
+interface ConvertParkTenantFormState {
+  companyName: string;
+  unifiedCreditCode: string;
+  legalPerson: string;
+  contactName: string;
+  contactMobile: string;
+  tenantType: string;
+  industryCode: string;
+  riskLevel: string;
+  afterStatus: "78" | "keep";
+  remark: string;
+}
+
+interface ParkTenantSummary {
+  id: string;
+  code: string | null;
+  parkTenantCode: string;
+  companyName: string;
+  unifiedCreditCode: string | null;
+  contactName: string | null;
+  contactMobile?: string | null;
+  tenantType: string | null;
+  industryCode: string | null;
+  riskLevel: string | null;
+  status: string;
+  sourceType: string;
+}
+
+interface ConvertParkTenantResult {
+  lead_id: string;
+  lead_code: string;
+  park_tenant_id: string;
+  created: boolean;
+  status: string;
+  park_tenant: ParkTenantSummary;
 }
 
 const emptyPage: PaginatedResult<LeasingLeadRow> = { items: [], page: 1, page_size: 20, total: 0 };
@@ -229,6 +353,49 @@ const emptyVisitForm: VisitFormState = {
   remark: ""
 };
 
+const emptyQuoteForm: QuoteFormState = {
+  unitId: "",
+  quotePrice: "",
+  quotePeriod: "",
+  freeRentMonths: "0",
+  depositMonths: "0",
+  paymentPeriod: "",
+  propertyFeePrice: "0",
+  remark: ""
+};
+
+const emptyStatusForm: StatusFormState = {
+  afterStatus: "",
+  reason: "",
+  lostReason: "",
+  lostRemark: ""
+};
+
+const emptyConvertForm: ConvertParkTenantFormState = {
+  companyName: "",
+  unifiedCreditCode: "",
+  legalPerson: "",
+  contactName: "",
+  contactMobile: "",
+  tenantType: "",
+  industryCode: "",
+  riskLevel: "",
+  afterStatus: "78",
+  remark: "由招商线索转入"
+};
+
+const ALLOWED_LEAD_STATUS_TRANSITIONS: Record<string, string[]> = {
+  "10": ["20", "90", "91"],
+  "20": ["30", "80", "91"],
+  "30": ["40", "91"],
+  "40": ["50", "91"],
+  "50": ["60", "91"],
+  "60": ["70", "91"],
+  "70": ["75", "91"],
+  "75": ["78"],
+  "80": ["20", "91"]
+};
+
 export default function LeasingLeadsPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<LeasingLeadRow>>(emptyPage);
@@ -246,7 +413,7 @@ export default function LeasingLeadsPage() {
   const [form, setForm] = useState<LeadFormState>(emptyForm);
   const [editing, setEditing] = useState<LeasingLeadRow | null>(null);
   const [detail, setDetail] = useState<LeasingLeadRow | null>(null);
-  const [detailTab, setDetailTab] = useState<"profile" | "follows" | "visits">("profile");
+  const [detailTab, setDetailTab] = useState<"profile" | "follows" | "visits" | "quotes" | "statusLogs">("profile");
   const [follows, setFollows] = useState<LeasingFollowRow[]>([]);
   const [followForm, setFollowForm] = useState<FollowFormState>(emptyFollowForm);
   const [editingFollow, setEditingFollow] = useState<LeasingFollowRow | null>(null);
@@ -262,6 +429,19 @@ export default function LeasingLeadsPage() {
   const [visitUnitOptions, setVisitUnitOptions] = useState<UnitOptionRow[]>([]);
   const [visitBuildingOptions, setVisitBuildingOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [visitUnitFilters, setVisitUnitFilters] = useState({ buildingId: "", rentalStatus: "", keyword: "" });
+  const [quotes, setQuotes] = useState<LeasingQuoteRow[]>([]);
+  const [quoteForm, setQuoteForm] = useState<QuoteFormState>(emptyQuoteForm);
+  const [editingQuote, setEditingQuote] = useState<LeasingQuoteRow | null>(null);
+  const [showQuoteForm, setShowQuoteForm] = useState(false);
+  const [quoteUnitOptions, setQuoteUnitOptions] = useState<UnitOptionRow[]>([]);
+  const [quoteBuildingOptions, setQuoteBuildingOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [quoteUnitFilters, setQuoteUnitFilters] = useState({ buildingId: "", rentalStatus: "", keyword: "" });
+  const [statusLogs, setStatusLogs] = useState<LeasingLeadStatusLogRow[]>([]);
+  const [statusForm, setStatusForm] = useState<StatusFormState>(emptyStatusForm);
+  const [statusTarget, setStatusTarget] = useState<LeasingLeadRow | null>(null);
+  const [showStatusForm, setShowStatusForm] = useState(false);
+  const [convertForm, setConvertForm] = useState<ConvertParkTenantFormState>(emptyConvertForm);
+  const [showConvertForm, setShowConvertForm] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -269,14 +449,24 @@ export default function LeasingLeadsPage() {
   const canEditContactMobile = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
   const canViewDemandPrice = canViewField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
   const canEditDemandPrice = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
+  const canViewQuotePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
+  const canEditQuotePrice = canEditField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
+  const canViewPropertyFeePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE);
+  const canEditPropertyFeePrice = canEditField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE);
+  const canViewFollowContent = canViewField(authUser, LEASING_MODULE, LEASING_FOLLOW_ENTITY, FIELD_FOLLOW_CONTENT);
 
   const statusItems = dicts.leasing_lead_status ?? [];
+  const lostReasonItems = dicts.leasing_lost_reason ?? dicts.leasing_lead_lost_reason ?? [];
   const sourceItems = dicts.leasing_lead_source ?? [];
   const intentionItems = dicts.leasing_intention_level ?? [];
   const followTypeItems = dicts.leasing_follow_type ?? [];
   const industryItems = dicts.industry_code ?? [];
   const unitTypeItems = dicts.unit_usage_type ?? [];
   const rentalStatusItems = dicts.unit_rental_status ?? [];
+  const paymentPeriodItems = dicts.leasing_payment_period ?? [];
+  const quoteStatusItems = dicts.leasing_quote_status ?? [];
+  const parkTenantTypeItems = dicts.park_tenant_type ?? [];
+  const parkTenantRiskItems = dicts.park_tenant_risk_level ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -301,12 +491,18 @@ export default function LeasingLeadsPage() {
     const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "leasing_lead_status",
+      "leasing_lost_reason",
+      "leasing_lead_lost_reason",
       "leasing_lead_source",
       "leasing_intention_level",
       "leasing_follow_type",
+      "leasing_payment_period",
+      "leasing_quote_status",
       "industry_code",
       "unit_usage_type",
-      "unit_rental_status"
+      "unit_rental_status",
+      "park_tenant_type",
+      "park_tenant_risk_level"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -381,17 +577,27 @@ export default function LeasingLeadsPage() {
     setDetailTab("profile");
     setFollows([]);
     setVisits([]);
+    setQuotes([]);
+    setStatusLogs([]);
     setShowFollowForm(false);
     setShowVisitForm(false);
+    setShowQuoteForm(false);
+    setShowStatusForm(false);
+    setShowConvertForm(false);
     setEditingFollow(null);
     setEditingVisit(null);
+    setEditingQuote(null);
+    setStatusTarget(null);
     setFollowForm(emptyFollowForm);
     setVisitForm(emptyVisitForm);
+    setQuoteForm(emptyQuoteForm);
+    setStatusForm(emptyStatusForm);
+    setConvertForm(emptyConvertForm);
     setMessage("");
     try {
       const response = await apiRequest<LeasingLeadRow>(`/leasing/leads/${row.id}`, { token: getAccessToken() });
       setDetail(response.data);
-      await Promise.all([loadFollows(row.id), loadVisits(row.id), loadVisitUnits()]);
+      await Promise.all([loadFollows(row.id), loadVisits(row.id), loadQuotes(row.id), loadStatusLogs(row.id), loadVisitUnits(), loadQuoteUnits()]);
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -416,6 +622,22 @@ export default function LeasingLeadsPage() {
     setVisits(response.data);
   }, []);
 
+  const loadQuotes = useCallback(async (leadId: string) => {
+    const response = await apiRequest<LeasingQuoteRow[]>(`/leasing/leads/${leadId}/quotes`, {
+      token: getAccessToken()
+    });
+    setQuotes(response.data);
+    setQuoteUnitOptions((current) => mergeUnitOptions(current, response.data.map((quote) => quote.unit).filter(Boolean) as UnitOptionRow[]));
+    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, response.data.map((quote) => quote.unit).filter(Boolean) as UnitOptionRow[]));
+  }, []);
+
+  const loadStatusLogs = useCallback(async (leadId: string) => {
+    const response = await apiRequest<PaginatedResult<LeasingLeadStatusLogRow>>(`/leasing/leads/${leadId}/status-logs?page=1&page_size=50`, {
+      token: getAccessToken()
+    });
+    setStatusLogs(response.data.items);
+  }, []);
+
   const loadVisitUnits = useCallback(async () => {
     const params = new URLSearchParams({ page: "1", page_size: "100" });
     if (visitUnitFilters.buildingId) params.set("building_id", visitUnitFilters.buildingId);
@@ -427,6 +649,18 @@ export default function LeasingLeadsPage() {
     setVisitUnitOptions(response.data.items);
     setVisitBuildingOptions((current) => mergeBuildingOptions(current, response.data.items));
   }, [visitUnitFilters]);
+
+  const loadQuoteUnits = useCallback(async () => {
+    const params = new URLSearchParams({ page: "1", page_size: "100" });
+    if (quoteUnitFilters.buildingId) params.set("building_id", quoteUnitFilters.buildingId);
+    if (quoteUnitFilters.rentalStatus) params.set("rental_status", quoteUnitFilters.rentalStatus);
+    if (quoteUnitFilters.keyword.trim()) params.set("keyword", quoteUnitFilters.keyword.trim());
+    const response = await apiRequest<PaginatedResult<UnitOptionRow>>(`/park-units?${params.toString()}`, {
+      token: getAccessToken()
+    });
+    setQuoteUnitOptions(response.data.items);
+    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, response.data.items));
+  }, [quoteUnitFilters]);
 
   function openFollowCreate() {
     setEditingFollow(null);
@@ -444,7 +678,7 @@ export default function LeasingLeadsPage() {
     setFollowForm({
       followTime: toLocalInputValue(row.followTime),
       followType: row.followType ?? "",
-      content: row.content,
+      content: row.content ?? "",
       nextAction: row.nextAction ?? "",
       nextFollowTime: toLocalInputValue(row.nextFollowTime),
       attachmentFileIds: row.attachmentFileIds ?? [],
@@ -483,6 +717,38 @@ export default function LeasingLeadsPage() {
     setMessage("");
   }
 
+  function openQuoteCreate() {
+    setEditingQuote(null);
+    setQuoteForm({
+      ...emptyQuoteForm,
+      paymentPeriod: paymentPeriodItems[0]?.itemValue ?? ""
+    });
+    setShowQuoteForm(true);
+    void loadQuoteUnits().catch((error: Error) => setMessage(error.message));
+    setMessage("");
+  }
+
+  function openQuoteEdit(row: LeasingQuoteRow) {
+    setEditingQuote(row);
+    setQuoteForm({
+      unitId: row.unitId,
+      quotePrice: typeof row.quotePrice === "string" ? row.quotePrice : "",
+      quotePeriod: row.quotePeriod ?? "",
+      freeRentMonths: row.freeRentMonths ?? "0",
+      depositMonths: row.depositMonths ?? "0",
+      paymentPeriod: row.paymentPeriod ?? "",
+      propertyFeePrice: row.propertyFeePrice ?? "0",
+      remark: row.remark ?? ""
+    });
+    setShowQuoteForm(true);
+    if (row.unit) {
+      setQuoteUnitOptions((current) => mergeUnitOptions(current, [row.unit].filter(Boolean) as UnitOptionRow[]));
+      setQuoteBuildingOptions((current) => mergeBuildingOptions(current, [row.unit].filter(Boolean) as UnitOptionRow[]));
+    }
+    void loadQuoteUnits().catch((error: Error) => setMessage(error.message));
+    setMessage("");
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body: Record<string, unknown> = {
@@ -499,7 +765,6 @@ export default function LeasingLeadsPage() {
       intentionLevel: emptyToUndefined(form.intentionLevel),
       followUserId: emptyToUndefined(form.followUserId),
       followUserName: emptyToUndefined(form.followUserName),
-      status: emptyToUndefined(form.status),
       lastFollowTime: dateTimeOrUndefined(form.lastFollowTime),
       nextFollowTime: dateTimeOrUndefined(form.nextFollowTime),
       expectedCloseDate: emptyToUndefined(form.expectedCloseDate),
@@ -530,6 +795,69 @@ export default function LeasingLeadsPage() {
     });
     setMessage("删除成功");
     await load(pageData.page);
+  }
+
+  async function moveToPool(row: LeasingLeadRow) {
+    const reason = window.prompt(`请输入将线索「${row.customerName}」移入公海池的原因`);
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      setMessage("移入公海池原因必填");
+      return;
+    }
+    await apiRequest<LeasingLeadRow>(`/leasing/leads/${row.id}/move-to-pool`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-lead-move-to-pool"),
+      body: { reason: trimmedReason }
+    });
+    setMessage("已移入公海池");
+    await load(pageData.page);
+    if (detail?.id === row.id) {
+      await refreshDetail(row.id);
+    }
+  }
+
+  function openConvertToParkTenant() {
+    if (!detail) return;
+    setConvertForm({
+      ...emptyConvertForm,
+      companyName: detail.customerName,
+      contactName: detail.contactName,
+      contactMobile: typeof detail.contactMobile === "string" ? detail.contactMobile : "",
+      tenantType: parkTenantTypeItems[0]?.itemValue ?? "",
+      industryCode: detail.industryCode ?? "",
+      riskLevel: parkTenantRiskItems[0]?.itemValue ?? "",
+      afterStatus: detail.status === "78" ? "keep" : "78"
+    });
+    setShowConvertForm(true);
+    setMessage("");
+  }
+
+  async function submitConvertToParkTenant(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail) return;
+    const response = await apiRequest<ConvertParkTenantResult>(`/leasing/leads/${detail.id}/convert-to-park-tenant`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-lead-convert-to-park-tenant"),
+      body: {
+        company_name: convertForm.companyName.trim(),
+        unified_credit_code: emptyToUndefined(convertForm.unifiedCreditCode),
+        legal_person: emptyToUndefined(convertForm.legalPerson),
+        contact_name: emptyToUndefined(convertForm.contactName),
+        contact_mobile: emptyToUndefined(convertForm.contactMobile),
+        tenant_type: emptyToUndefined(convertForm.tenantType),
+        industry_code: emptyToUndefined(convertForm.industryCode),
+        risk_level: emptyToUndefined(convertForm.riskLevel),
+        after_status: convertForm.afterStatus,
+        remark: emptyToUndefined(convertForm.remark)
+      }
+    });
+    setShowConvertForm(false);
+    setConvertForm(emptyConvertForm);
+    setMessage(response.data.created ? "已创建并关联租户企业" : "已关联已有租户企业");
+    await Promise.all([refreshDetail(detail.id), load(pageData.page)]);
   }
 
   async function uploadFollowFile(event: FormEvent<HTMLFormElement>) {
@@ -662,6 +990,128 @@ export default function LeasingLeadsPage() {
     await loadVisits(detail.id);
   }
 
+  async function submitQuote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail) return;
+    const body: Record<string, unknown> = {
+      unitId: quoteForm.unitId,
+      quotePeriod: emptyToUndefined(quoteForm.quotePeriod),
+      freeRentMonths: numberOrUndefined(quoteForm.freeRentMonths) ?? 0,
+      depositMonths: numberOrUndefined(quoteForm.depositMonths) ?? 0,
+      paymentPeriod: emptyToUndefined(quoteForm.paymentPeriod),
+      remark: emptyToUndefined(quoteForm.remark)
+    };
+    if (canEditQuotePrice) body.quotePrice = numberOrUndefined(quoteForm.quotePrice) ?? 0;
+    if (canEditPropertyFeePrice) body.propertyFeePrice = numberOrUndefined(quoteForm.propertyFeePrice) ?? 0;
+    await apiRequest<LeasingQuoteRow>(
+      editingQuote ? `/leasing/leads/${detail.id}/quotes/${editingQuote.id}` : `/leasing/leads/${detail.id}/quotes`,
+      {
+        method: editingQuote ? "PUT" : "POST",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey(editingQuote ? "leasing-quote-update" : "leasing-quote-create"),
+        body
+      }
+    );
+    setShowQuoteForm(false);
+    setEditingQuote(null);
+    setQuoteForm(emptyQuoteForm);
+    setMessage("报价方案保存成功");
+    await loadQuotes(detail.id);
+  }
+
+  async function removeQuote(row: LeasingQuoteRow) {
+    if (!detail || !window.confirm("确认删除这条报价方案？")) return;
+    await apiRequest<{ id: string }>(`/leasing/leads/${detail.id}/quotes/${row.id}`, {
+      method: "DELETE",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-quote-delete")
+    });
+    setMessage("报价方案删除成功");
+    await loadQuotes(detail.id);
+  }
+
+  async function submitQuoteApproval(row: LeasingQuoteRow) {
+    if (!detail) return;
+    await apiRequest<LeasingQuoteRow>(`/leasing/quotes/${row.id}/submit`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-quote-submit"),
+      body: { opinion: "提交报价审批" }
+    });
+    setMessage("报价已提交审批");
+    await loadQuotes(detail.id);
+  }
+
+  async function approveQuote(row: LeasingQuoteRow) {
+    if (!detail) return;
+    await apiRequest<LeasingQuoteRow>(`/leasing/quotes/${row.id}/approve`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-quote-approve"),
+      body: { opinion: "审批通过" }
+    });
+    setMessage("报价审批通过");
+    await Promise.all([loadQuotes(detail.id), refreshDetail(detail.id), load(pageData.page)]);
+  }
+
+  async function rejectQuote(row: LeasingQuoteRow) {
+    if (!detail) return;
+    const rejectReason = window.prompt("请输入驳回原因");
+    if (!rejectReason?.trim()) {
+      setMessage("驳回原因必填");
+      return;
+    }
+    await apiRequest<LeasingQuoteRow>(`/leasing/quotes/${row.id}/reject`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-quote-reject"),
+      body: { rejectReason: rejectReason.trim() }
+    });
+    setMessage("报价已驳回");
+    await loadQuotes(detail.id);
+  }
+
+  function openStatusChange(row: LeasingLeadRow) {
+    const allowedTargets = ALLOWED_LEAD_STATUS_TRANSITIONS[row.status] ?? [];
+    setStatusTarget(row);
+    setStatusForm({
+      ...emptyStatusForm,
+      afterStatus: allowedTargets[0] ?? ""
+    });
+    setShowStatusForm(true);
+    setMessage("");
+  }
+
+  async function submitStatusChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!statusTarget) return;
+    const body: Record<string, unknown> = {
+      after_status: statusForm.afterStatus,
+      reason: emptyToUndefined(statusForm.reason)
+    };
+    if (statusForm.afterStatus === "91") {
+      body.lost_reason = statusForm.lostReason;
+      body.lost_remark = emptyToUndefined(statusForm.lostRemark);
+    }
+    await apiRequest(`/leasing/leads/${statusTarget.id}/change-status`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-lead-change-status"),
+      body
+    });
+    setShowStatusForm(false);
+    setStatusTarget(null);
+    setStatusForm(emptyStatusForm);
+    setMessage("状态变更成功");
+    await load(pageData.page);
+    if (detail?.id === statusTarget.id) {
+      await Promise.all([refreshDetail(statusTarget.id), loadStatusLogs(statusTarget.id)]);
+    }
+  }
+
+  const statusSelectItems = statusTarget ? selectableLeadStatusItems(statusItems, statusTarget.status, authUser) : statusItems;
+  const statusHint = statusTarget ? leadStatusTransitionHint(statusTarget.status, statusForm.afterStatus, authUser) : null;
+
   return (
     <PermissionGuard module={LEASING_MODULE} fallback={<ModuleUnauthorizedInline />}>
       <PermissionGuard permission={LEAD_PERMISSIONS.read} module={LEASING_MODULE} fallback={<ForbiddenInline />}>
@@ -763,6 +1213,16 @@ export default function LeasingLeadsPage() {
                           <Edit3 size={16} />
                           编辑
                         </PermissionButton>
+                        <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.changeStatus} type="button" onClick={() => openStatusChange(row)}>
+                          <GitBranch size={16} />
+                          状态
+                        </PermissionButton>
+                        {!row.isInPool ? (
+                          <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.moveToPool} type="button" onClick={() => void moveToPool(row).catch((error: Error) => setMessage(error.message))}>
+                            <Archive size={16} />
+                            入池
+                          </PermissionButton>
+                        ) : null}
                         <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.delete} type="button" onClick={() => void remove(row)}>
                           <Trash2 size={16} />
                           删除
@@ -794,7 +1254,6 @@ export default function LeasingLeadsPage() {
               <form className="form-stack" onSubmit={(event) => void submit(event)}>
                 <div className="system-grid">
                   <TextField label="线索编码" value={form.leadCode} onChange={(value) => setFormValue("leadCode", value, setForm)} placeholder="留空自动生成" />
-                  <SelectField label="状态" value={form.status} onChange={(value) => setFormValue("status", value, setForm)} options={statusItems} />
                   <TextField label="客户名称" value={form.customerName} onChange={(value) => setFormValue("customerName", value, setForm)} required />
                   <TextField label="联系人" value={form.contactName} onChange={(value) => setFormValue("contactName", value, setForm)} required />
                   {canEditContactMobile ? <TextField label="联系电话" value={form.contactMobile} onChange={(value) => setFormValue("contactMobile", value, setForm)} required /> : null}
@@ -835,10 +1294,33 @@ export default function LeasingLeadsPage() {
             <section className="page-content drawer-panel drawer-panel-md">
               <div className="system-toolbar">
                 <h2>线索详情</h2>
-                <button className="primary-button" type="button" onClick={() => setDetail(null)}>
-                  <X size={16} />
-                  关闭
-                </button>
+                <span className="page-actions">
+                  <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.changeStatus} type="button" onClick={() => openStatusChange(detail)}>
+                    <GitBranch size={16} />
+                    状态流转
+                  </PermissionButton>
+                  {!detail.isInPool ? (
+                    <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.moveToPool} type="button" onClick={() => void moveToPool(detail).catch((error: Error) => setMessage(error.message))}>
+                      <Archive size={16} />
+                      移入公海池
+                    </PermissionButton>
+                  ) : null}
+                  {detail.parkTenantId ? (
+                    <a className="primary-button" href="/leasing/tenants">
+                      <Building2 size={16} />
+                      租户企业入口
+                    </a>
+                  ) : (
+                    <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.convertToParkTenant} type="button" onClick={openConvertToParkTenant}>
+                      <Building2 size={16} />
+                      转为租户企业
+                    </PermissionButton>
+                  )}
+                  <button className="primary-button" type="button" onClick={() => setDetail(null)}>
+                    <X size={16} />
+                    关闭
+                  </button>
+                </span>
               </div>
               <div className="system-tabs">
                 <button className={detailTab === "profile" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("profile")}>基础信息</button>
@@ -848,26 +1330,108 @@ export default function LeasingLeadsPage() {
                 <PermissionGuard permission={VISIT_PERMISSIONS.read}>
                   <button className={detailTab === "visits" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("visits")}>看房记录</button>
                 </PermissionGuard>
+                <PermissionGuard permission={QUOTE_PERMISSIONS.read}>
+                  <button className={detailTab === "quotes" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("quotes")}>报价方案</button>
+                </PermissionGuard>
+                <PermissionGuard permission={LEAD_PERMISSIONS.statusLog}>
+                  <button className={detailTab === "statusLogs" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("statusLogs")}>
+                    <History size={16} />
+                    状态日志
+                  </button>
+                </PermissionGuard>
               </div>
               {detailTab === "profile" ? (
-                <DetailGrid>
-                  <DetailItem label="线索编码" value={detail.leadCode} />
-                  <DetailItem label="客户名称" value={detail.customerName} />
-                  <DetailItem label="联系人" value={detail.contactName} />
-                  <DetailItem label="联系电话" value={fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, detail.contactMobile)} />
-                  <DetailItem label="来源" value={labelFor(sourceItems, detail.source)} />
-                  <DetailItem label="行业" value={labelFor(industryItems, detail.industryCode)} />
-                  <DetailItem label="需求面积" value={formatArea(detail.demandArea)} />
-                  <DetailItem label="预算价格" value={moneyText(authUser, canViewDemandPrice, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE, detail.demandPrice)} />
-                  <DetailItem label="意向等级" value={<DictBadge items={intentionItems} value={detail.intentionLevel} />} />
-                  <DetailItem label="当前状态" value={<DictBadge items={statusItems} value={detail.status} />} />
-                  <DetailItem label="跟进人" value={detail.followUserName ?? "-"} />
-                  <DetailItem label="是否公海" value={detail.isInPool ? "是" : "否"} />
-                  <DetailItem label="最近跟进" value={formatDateTime(detail.lastFollowTime)} />
-                  <DetailItem label="下次跟进" value={formatDateTime(detail.nextFollowTime)} />
-                  <DetailItem label="预计成交" value={detail.expectedCloseDate ?? "-"} />
-                  <DetailItem label="备注" value={detail.remark ?? "-"} />
-                </DetailGrid>
+                <>
+                  <DetailGrid>
+                    <DetailItem label="线索编码" value={detail.leadCode} />
+                    <DetailItem label="客户名称" value={detail.customerName} />
+                    <DetailItem label="联系人" value={detail.contactName} />
+                    <DetailItem label="联系电话" value={fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, detail.contactMobile)} />
+                    <DetailItem label="来源" value={labelFor(sourceItems, detail.source)} />
+                    <DetailItem label="行业" value={labelFor(industryItems, detail.industryCode)} />
+                    <DetailItem label="需求面积" value={formatArea(detail.demandArea)} />
+                    <DetailItem label="预算价格" value={moneyText(authUser, canViewDemandPrice, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE, detail.demandPrice)} />
+                    <DetailItem label="意向等级" value={<DictBadge items={intentionItems} value={detail.intentionLevel} />} />
+                    <DetailItem label="当前状态" value={<DictBadge items={statusItems} value={detail.status} />} />
+                    <DetailItem label="流失原因" value={labelFor(lostReasonItems, detail.lostReason)} />
+                    <DetailItem label="流失备注" value={detail.lostRemark ?? "-"} />
+                    <DetailItem label="跟进人" value={detail.followUserName ?? "-"} />
+                    <DetailItem label="是否公海" value={detail.isInPool ? "是" : "否"} />
+                    <DetailItem label="关联租户企业" value={detail.parkTenantId ?? "未转化"} />
+                    <DetailItem label="最近跟进" value={formatDateTime(detail.lastFollowTime)} />
+                    <DetailItem label="下次跟进" value={formatDateTime(detail.nextFollowTime)} />
+                    <DetailItem label="预计成交" value={detail.expectedCloseDate ?? "-"} />
+                    <DetailItem label="备注" value={detail.remark ?? "-"} />
+                  </DetailGrid>
+                  {showConvertForm ? (
+                    <PermissionGuard permission={LEAD_PERMISSIONS.convertToParkTenant} fallback={<p className="muted-text">当前账号没有线索转租户企业权限。</p>}>
+                      <form className="form-stack" onSubmit={(event) => void submitConvertToParkTenant(event).catch((error: Error) => setMessage(error.message))}>
+                        <h3>转为租户企业</h3>
+                        <div className="system-grid">
+                          <TextField label="企业名称" value={convertForm.companyName} onChange={(value) => setConvertFormValue("companyName", value, setConvertForm)} required />
+                          <TextField label="统一社会信用代码" value={convertForm.unifiedCreditCode} onChange={(value) => setConvertFormValue("unifiedCreditCode", value, setConvertForm)} />
+                          <TextField label="法定代表人" value={convertForm.legalPerson} onChange={(value) => setConvertFormValue("legalPerson", value, setConvertForm)} />
+                          <TextField label="主联系人" value={convertForm.contactName} onChange={(value) => setConvertFormValue("contactName", value, setConvertForm)} />
+                          <TextField label="联系电话" value={convertForm.contactMobile} onChange={(value) => setConvertFormValue("contactMobile", value, setConvertForm)} />
+                          <SelectField label="租户类型" value={convertForm.tenantType} onChange={(value) => setConvertFormValue("tenantType", value, setConvertForm)} options={parkTenantTypeItems} allowEmpty />
+                          <SelectField label="行业" value={convertForm.industryCode} onChange={(value) => setConvertFormValue("industryCode", value, setConvertForm)} options={industryItems} allowEmpty />
+                          <SelectField label="风险等级" value={convertForm.riskLevel} onChange={(value) => setConvertFormValue("riskLevel", value, setConvertForm)} options={parkTenantRiskItems} allowEmpty />
+                          <SelectField
+                            label="线索状态处理"
+                            value={convertForm.afterStatus}
+                            onChange={(value) => setConvertForm((current) => ({ ...current, afterStatus: value === "keep" ? "keep" : "78" }))}
+                            options={[
+                              { id: "convert-status-moved-in", itemLabel: "转为已入驻", itemValue: "78", status: "enabled" },
+                              { id: "convert-status-keep", itemLabel: "保持当前状态", itemValue: "keep", status: "enabled" }
+                            ]}
+                          />
+                        </div>
+                        <TextAreaField label="备注" value={convertForm.remark} onChange={(value) => setConvertFormValue("remark", value, setConvertForm)} />
+                        <div className="page-actions">
+                          <button className="primary-button" type="submit">确认转化</button>
+                          <button className="primary-button" type="button" onClick={() => setShowConvertForm(false)}>取消</button>
+                        </div>
+                      </form>
+                    </PermissionGuard>
+                  ) : null}
+                </>
+              ) : null}
+              {detailTab === "statusLogs" ? (
+                <PermissionGuard permission={LEAD_PERMISSIONS.statusLog} fallback={<p className="muted-text">当前账号没有查看状态日志的权限。</p>}>
+                  <section className="detail-stack">
+                    <div className="task-item">
+                      <h3>状态日志</h3>
+                      <button className="primary-button" type="button" onClick={() => void loadStatusLogs(detail.id).catch((error: Error) => setMessage(error.message))}>
+                        <RefreshCw size={16} />
+                        刷新日志
+                      </button>
+                    </div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>变更时间</th>
+                          <th>变更前</th>
+                          <th>变更后</th>
+                          <th>原因</th>
+                          <th>操作人</th>
+                          <th>备注</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {statusLogs.length === 0 ? <tr><td colSpan={6}>暂无状态变更日志</td></tr> : statusLogs.map((log) => (
+                          <tr key={log.id}>
+                            <td>{formatDateTime(log.opTime)}</td>
+                            <td><DictBadge items={statusItems} value={log.beforeStatus} /></td>
+                            <td><DictBadge items={statusItems} value={log.afterStatus} /></td>
+                            <td>{log.reason}</td>
+                            <td>{log.operatorName ?? "-"}</td>
+                            <td>{log.remark ?? "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                </PermissionGuard>
               ) : null}
               {detailTab === "follows" ? (
                 <PermissionGuard permission={FOLLOW_PERMISSIONS.read} fallback={<p className="muted-text">当前账号没有查看跟进记录的权限。</p>}>
@@ -898,7 +1462,7 @@ export default function LeasingLeadsPage() {
                             <td>{formatDateTime(follow.followTime)}</td>
                             <td>{labelFor(followTypeItems, follow.followType)}</td>
                             <td>{follow.followUserName ?? "-"}</td>
-                            <td>{follow.content}</td>
+                            <td>{fieldText(authUser, canViewFollowContent, LEASING_MODULE, LEASING_FOLLOW_ENTITY, FIELD_FOLLOW_CONTENT, follow.content)}</td>
                             <td>{follow.nextAction ?? "-"}</td>
                             <td>{formatDateTime(follow.nextFollowTime)}</td>
                             <td>{formatFileList(follow.attachmentFileIds, followFileNames)}</td>
@@ -1054,6 +1618,140 @@ export default function LeasingLeadsPage() {
                   </section>
                 </PermissionGuard>
               ) : null}
+              {detailTab === "quotes" ? (
+                <PermissionGuard permission={QUOTE_PERMISSIONS.read} fallback={<p className="muted-text">当前账号没有查看报价方案的权限。</p>}>
+                  <section className="detail-stack">
+                    <div className="task-item">
+                      <h3>报价方案</h3>
+                      <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.create} type="button" onClick={openQuoteCreate}>
+                        <Plus size={16} />
+                        新增报价
+                      </PermissionButton>
+                    </div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>房源</th>
+                          <th>报价单价</th>
+                          <th>参考价</th>
+                          <th>付款周期</th>
+                          <th>免租期</th>
+                          <th>押金</th>
+                          <th>物业费</th>
+                          <th>状态</th>
+                          <th>审批记录</th>
+                          <th>操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quotes.length === 0 ? <tr><td colSpan={10}>暂无报价方案</td></tr> : quotes.map((quote) => (
+                          <tr key={quote.id}>
+                            <td>{unitDisplay(quoteUnitFor(quote, quoteUnitOptions))}</td>
+                            <td>{moneyText(authUser, canViewQuotePrice, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE, quote.quotePrice)}</td>
+                            <td>{formatCurrency(quoteUnitFor(quote, quoteUnitOptions).refPrice)}</td>
+                            <td>{labelFor(paymentPeriodItems, quote.paymentPeriod)}</td>
+                            <td>{formatMonthCount(quote.freeRentMonths)}</td>
+                            <td>{formatMonthCount(quote.depositMonths)}</td>
+                            <td>{moneyText(authUser, canViewPropertyFeePrice, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE, quote.propertyFeePrice)}</td>
+                            <td><DictBadge items={quoteStatusItems} value={quote.quoteStatus} /></td>
+                            <td>{formatApproveRecords(quote.approveRecords)}</td>
+                            <td>
+                              <span className="data-table-actions">
+                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.update} type="button" onClick={() => openQuoteEdit(quote)}>
+                                  <Edit3 size={16} />
+                                  编辑
+                                </PermissionButton>
+                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.submit} type="button" onClick={() => void submitQuoteApproval(quote).catch((error: Error) => setMessage(error.message))}>
+                                  提交
+                                </PermissionButton>
+                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.approve} type="button" onClick={() => void approveQuote(quote).catch((error: Error) => setMessage(error.message))}>
+                                  通过
+                                </PermissionButton>
+                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.reject} type="button" onClick={() => void rejectQuote(quote).catch((error: Error) => setMessage(error.message))}>
+                                  驳回
+                                </PermissionButton>
+                                <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.delete} type="button" onClick={() => void removeQuote(quote).catch((error: Error) => setMessage(error.message))}>
+                                  <Trash2 size={16} />
+                                  删除
+                                </PermissionButton>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {showQuoteForm ? (
+                      <form className="form-stack" onSubmit={(event) => void submitQuote(event).catch((error: Error) => setMessage(error.message))}>
+                        <h3>{editingQuote ? "编辑报价" : "新增报价"}</h3>
+                        <QuoteUnitSelector
+                          filters={quoteUnitFilters}
+                          buildingOptions={quoteBuildingOptions}
+                          rentalStatusItems={rentalStatusItems}
+                          units={quoteUnitOptions}
+                          selectedId={quoteForm.unitId}
+                          onFilterChange={(key, value) => setQuoteUnitFilters((current) => ({ ...current, [key]: value }))}
+                          onRefresh={() => void loadQuoteUnits().catch((error: Error) => setMessage(error.message))}
+                          onSelect={(unitId) => setQuoteForm((current) => ({ ...current, unitId }))}
+                        />
+                        {quotePriceWarningText(quoteForm.quotePrice, quoteUnitOptions.find((unit) => unit.id === quoteForm.unitId)) ? (
+                          <span className="status-pill status-warning">{quotePriceWarningText(quoteForm.quotePrice, quoteUnitOptions.find((unit) => unit.id === quoteForm.unitId))}</span>
+                        ) : null}
+                        <div className="system-grid">
+                          {canEditQuotePrice ? <NumberField label="报价单价" value={quoteForm.quotePrice} onChange={(value) => setQuoteFormValue("quotePrice", value, setQuoteForm)} /> : null}
+                          <TextField label="报价周期" value={quoteForm.quotePeriod} onChange={(value) => setQuoteFormValue("quotePeriod", value, setQuoteForm)} placeholder="例如 2026-06 至 2029-05" />
+                          <NumberField label="免租期（月）" value={quoteForm.freeRentMonths} onChange={(value) => setQuoteFormValue("freeRentMonths", value, setQuoteForm)} />
+                          <NumberField label="押金（月）" value={quoteForm.depositMonths} onChange={(value) => setQuoteFormValue("depositMonths", value, setQuoteForm)} />
+                          <SelectField label="付款周期" value={quoteForm.paymentPeriod} onChange={(value) => setQuoteFormValue("paymentPeriod", value, setQuoteForm)} options={paymentPeriodItems} allowEmpty />
+                          {canEditPropertyFeePrice ? <NumberField label="物业费单价" value={quoteForm.propertyFeePrice} onChange={(value) => setQuoteFormValue("propertyFeePrice", value, setQuoteForm)} /> : null}
+                        </div>
+                        <TextAreaField label="备注" value={quoteForm.remark} onChange={(value) => setQuoteFormValue("remark", value, setQuoteForm)} />
+                        <div className="page-actions">
+                          <button className="primary-button" type="submit">保存报价</button>
+                          <button className="primary-button" type="button" onClick={() => setShowQuoteForm(false)}>取消</button>
+                        </div>
+                      </form>
+                    ) : null}
+                  </section>
+                </PermissionGuard>
+              ) : null}
+            </section>
+          ) : null}
+
+          {showStatusForm && statusTarget ? (
+            <section className="page-content drawer-panel drawer-panel-md">
+              <div className="system-toolbar">
+                <h2>线索状态流转</h2>
+                <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>
+                  <X size={16} />
+                  关闭
+                </button>
+              </div>
+              <form className="form-stack" onSubmit={(event) => void submitStatusChange(event).catch((error: Error) => setMessage(error.message))}>
+                <DetailGrid>
+                  <DetailItem label="线索编码" value={statusTarget.leadCode} />
+                  <DetailItem label="客户名称" value={statusTarget.customerName} />
+                  <DetailItem label="当前状态" value={<DictBadge items={statusItems} value={statusTarget.status} />} />
+                  <DetailItem label="目标状态" value={<DictBadge items={statusItems} value={statusForm.afterStatus} />} />
+                </DetailGrid>
+                <SelectField
+                  label="目标状态"
+                  value={statusForm.afterStatus}
+                  onChange={(value) => setStatusFormValue("afterStatus", value, setStatusForm)}
+                  options={statusSelectItems}
+                />
+                {statusHint ? <span className="status-pill status-warning">{statusHint}</span> : null}
+                <TextAreaField label="变更原因" value={statusForm.reason} onChange={(value) => setStatusFormValue("reason", value, setStatusForm)} />
+                {statusForm.afterStatus === "91" ? (
+                  <div className="system-grid">
+                    <SelectField label="流失原因" value={statusForm.lostReason} onChange={(value) => setStatusFormValue("lostReason", value, setStatusForm)} options={lostReasonItems} />
+                    <TextAreaField label="流失备注" value={statusForm.lostRemark} onChange={(value) => setStatusFormValue("lostRemark", value, setStatusForm)} />
+                  </div>
+                ) : null}
+                <div className="page-actions">
+                  <button className="primary-button" type="submit">确认变更</button>
+                  <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>取消</button>
+                </div>
+              </form>
             </section>
           ) : null}
         </main>
@@ -1197,6 +1895,47 @@ function setVisitFormValue(key: keyof Omit<VisitFormState, "unitIds" | "photoFil
   setter((current) => ({ ...current, [key]: value }));
 }
 
+function setQuoteFormValue(key: keyof QuoteFormState, value: string, setter: (updater: (current: QuoteFormState) => QuoteFormState) => void) {
+  setter((current) => ({ ...current, [key]: value }));
+}
+
+function setStatusFormValue(key: keyof StatusFormState, value: string, setter: (updater: (current: StatusFormState) => StatusFormState) => void) {
+  setter((current) => ({ ...current, [key]: value }));
+}
+
+function setConvertFormValue(
+  key: keyof Omit<ConvertParkTenantFormState, "afterStatus">,
+  value: string,
+  setter: (updater: (current: ConvertParkTenantFormState) => ConvertParkTenantFormState) => void
+) {
+  setter((current) => ({ ...current, [key]: value }));
+}
+
+function selectableLeadStatusItems(items: DictItemRow[], currentStatus: string, user: ReturnType<typeof useAuthUser>): DictItemRow[] {
+  const allowed = new Set(ALLOWED_LEAD_STATUS_TRANSITIONS[currentStatus] ?? []);
+  const canForce = hasPermission(user, LEAD_PERMISSIONS.forceChangeStatus);
+  const canConfirmSign = hasPermission(user, LEAD_PERMISSIONS.confirmSign);
+  return items.filter((item) => {
+    if (item.itemValue === currentStatus) return false;
+    if (["75", "78"].includes(item.itemValue) && !canConfirmSign) return false;
+    return canForce || allowed.has(item.itemValue);
+  });
+}
+
+function leadStatusTransitionHint(currentStatus: string, targetStatus: string, user: ReturnType<typeof useAuthUser>): string | null {
+  if (!targetStatus) return "请选择目标状态";
+  const allowed = ALLOWED_LEAD_STATUS_TRANSITIONS[currentStatus] ?? [];
+  if (targetStatus === "91") return "流失必须选择流失原因，后端会写状态日志和操作日志";
+  if (targetStatus === "90") return "无效线索必须填写变更原因";
+  if (["75", "78"].includes(targetStatus) && !hasPermission(user, LEAD_PERMISSIONS.confirmSign)) {
+    return "已签约、已入驻需要确认签约权限";
+  }
+  if (!allowed.includes(targetStatus)) {
+    return "当前为强制流转，必须填写变更原因且具备强制状态变更权限";
+  }
+  return null;
+}
+
 function VisitUnitSelector({
   filters,
   buildingOptions,
@@ -1261,6 +2000,76 @@ function VisitUnitSelector({
         </tbody>
       </table>
       <span className="status-pill">已选择：{selectedIds.length} 个房源</span>
+    </section>
+  );
+}
+
+function QuoteUnitSelector({
+  filters,
+  buildingOptions,
+  rentalStatusItems,
+  units,
+  selectedId,
+  onFilterChange,
+  onRefresh,
+  onSelect
+}: {
+  filters: { buildingId: string; rentalStatus: string; keyword: string };
+  buildingOptions: Array<{ id: string; label: string }>;
+  rentalStatusItems: DictItemRow[];
+  units: UnitOptionRow[];
+  selectedId: string;
+  onFilterChange: (key: "buildingId" | "rentalStatus" | "keyword", value: string) => void;
+  onRefresh: () => void;
+  onSelect: (unitId: string) => void;
+}) {
+  return (
+    <section className="detail-stack">
+      <h3>报价房源</h3>
+      <div className="system-grid-three">
+        <label className="field">
+          <span>楼栋</span>
+          <select value={filters.buildingId} onChange={(event) => onFilterChange("buildingId", event.target.value)}>
+            <option value="">全部</option>
+            {buildingOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+          </select>
+        </label>
+        <SelectField label="出租状态" value={filters.rentalStatus} onChange={(value) => onFilterChange("rentalStatus", value)} options={rentalStatusItems} allowEmpty />
+        <TextField label="房源关键词" value={filters.keyword} onChange={(value) => onFilterChange("keyword", value)} placeholder="编码、名称" />
+        <div className="filter-actions">
+          <button className="primary-button" type="button" onClick={onRefresh}>
+            <Search size={16} />
+            筛选房源
+          </button>
+        </div>
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>选择</th>
+            <th>房源</th>
+            <th>楼栋/楼层</th>
+            <th>面积</th>
+            <th>参考价</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {units.length === 0 ? <tr><td colSpan={6}>暂无可选房源</td></tr> : units.map((unit) => (
+            <tr key={unit.id}>
+              <td>
+                <input type="radio" name="quote-unit" checked={selectedId === unit.id} onChange={() => onSelect(unit.id)} />
+              </td>
+              <td>{unitDisplay(unit)}</td>
+              <td>{buildingFloorDisplay(unit)}</td>
+              <td>{formatArea(unit.unitArea)}</td>
+              <td>{formatCurrency(unit.refPrice)}</td>
+              <td>{labelFor(rentalStatusItems, String(unit.rentalStatus))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <span className="status-pill">已选择：{selectedId ? unitDisplay(units.find((unit) => unit.id === selectedId) ?? fallbackUnit(selectedId)) : "未选择"}</span>
     </section>
   );
 }
@@ -1341,6 +2150,18 @@ function formatArea(value?: string | null): string {
   return Number.isFinite(numeric) ? `${numeric.toFixed(2)} m²` : value;
 }
 
+function formatCurrency(value?: string | null): string {
+  if (!value) return "-";
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(2) : value;
+}
+
+function formatMonthCount(value?: string | null): string {
+  if (!value) return "-";
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toFixed(2)} 月` : value;
+}
+
 function formatFileList(fileIds: string[] | undefined, fileNames: Record<string, string>): string {
   const ids = fileIds ?? [];
   if (ids.length === 0) return "-";
@@ -1356,6 +2177,24 @@ function formatUnitList(unitIds: string[] | undefined, units: UnitOptionRow[]): 
 
 function unitDisplay(unit: UnitOptionRow): string {
   return `${unit.unitName}（${unit.code ?? unit.unitCode}）`;
+}
+
+function fallbackUnit(unitId: string): UnitOptionRow {
+  return {
+    id: unitId,
+    code: null,
+    unitCode: unitId,
+    unitName: unitId,
+    unitArea: "",
+    refPrice: null,
+    rentalStatus: 10,
+    buildingId: "",
+    floorId: ""
+  };
+}
+
+function quoteUnitFor(quote: LeasingQuoteRow, units: UnitOptionRow[]): UnitOptionRow {
+  return quote.unit ?? units.find((unit) => unit.id === quote.unitId) ?? fallbackUnit(quote.unitId);
 }
 
 function buildingFloorDisplay(unit: UnitOptionRow): string {
@@ -1375,6 +2214,45 @@ function mergeBuildingOptions(current: Array<{ id: string; label: string }>, uni
     next.set(unit.building.id, `${unit.building.buildingName} ${unit.building.buildingCode}`);
   }
   return [...next.entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+}
+
+function mergeUnitOptions(current: UnitOptionRow[], units: UnitOptionRow[]): UnitOptionRow[] {
+  const next = new Map(current.map((unit) => [unit.id, unit]));
+  for (const unit of units) {
+    next.set(unit.id, unit);
+  }
+  return [...next.values()];
+}
+
+function quotePriceWarningText(quotePriceValue: string, unit?: UnitOptionRow): string | null {
+  const quotePrice = Number(quotePriceValue);
+  const refPrice = Number(unit?.refPrice);
+  if (!Number.isFinite(quotePrice) || !Number.isFinite(refPrice) || refPrice <= 0) return null;
+  if (quotePrice < refPrice * 0.8) return "报价低于房源参考价 20% 以上，需要运营负责人或高层重点审批";
+  if (quotePrice < refPrice * 0.9) return "报价低于房源参考价 10% 以上，需要招商主管或运营负责人审批";
+  return null;
+}
+
+function formatApproveRecords(records: LeasingQuoteApproveRecord[] | undefined): string {
+  const items = records ?? [];
+  if (items.length === 0) return "-";
+  return items
+    .slice(-2)
+    .map((record) => `${approveActionLabel(record.action)} ${record.operatorName} ${formatDateTime(record.opTime)}`)
+    .join("；");
+}
+
+function approveActionLabel(action: LeasingQuoteApproveRecord["action"]): string {
+  switch (action) {
+    case "submit":
+      return "提交";
+    case "approve":
+      return "通过";
+    case "reject":
+      return "驳回";
+    default:
+      return action;
+  }
 }
 
 function formatDateTime(value?: string | null): string {

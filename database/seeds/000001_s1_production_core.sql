@@ -213,6 +213,15 @@ leaf_permissions(code, name, resource, action) AS (
     ('leasing_lead:create', '新增招商线索', 'biz.leasing_lead', 'create'),
     ('leasing_lead:update', '编辑招商线索', 'biz.leasing_lead', 'update'),
     ('leasing_lead:delete', '删除招商线索', 'biz.leasing_lead', 'delete'),
+    ('leasing_lead:change_status', '招商线索状态流转', 'biz.leasing_lead', 'change_status'),
+    ('leasing_lead:force_change_status', '招商线索强制状态流转', 'biz.leasing_lead', 'force_change_status'),
+    ('leasing_lead:confirm_sign', '确认招商线索签约入驻', 'biz.leasing_lead', 'confirm_sign'),
+    ('leasing_lead:status_log', '招商线索状态日志', 'biz.leasing_lead_status_log', 'status_log'),
+    ('leasing_lead:convert_to_park_tenant', '招商线索转租户企业', 'biz.leasing_lead', 'convert_to_park_tenant'),
+    ('leasing_lead_pool:read', '招商公海池读取', 'biz.leasing_lead_pool', 'read'),
+    ('leasing_lead:assign', '招商线索分配', 'biz.leasing_lead', 'assign'),
+    ('leasing_lead:reclaim', '招商线索领取', 'biz.leasing_lead', 'reclaim'),
+    ('leasing_lead:move_to_pool', '招商线索移入公海池', 'biz.leasing_lead', 'move_to_pool'),
     ('leasing_follow:read', '招商跟进记录读取', 'biz.leasing_follow', 'read'),
     ('leasing_follow:create', '新增招商跟进记录', 'biz.leasing_follow', 'create'),
     ('leasing_follow:update', '编辑招商跟进记录', 'biz.leasing_follow', 'update'),
@@ -221,6 +230,14 @@ leaf_permissions(code, name, resource, action) AS (
     ('leasing_visit:create', '新增招商看房记录', 'biz.leasing_visit', 'create'),
     ('leasing_visit:update', '编辑招商看房记录', 'biz.leasing_visit', 'update'),
     ('leasing_visit:delete', '删除招商看房记录', 'biz.leasing_visit', 'delete'),
+    ('leasing_quote:read', '招商报价读取', 'biz.leasing_quote', 'read'),
+    ('leasing_quote:create', '新增招商报价', 'biz.leasing_quote', 'create'),
+    ('leasing_quote:update', '编辑招商报价', 'biz.leasing_quote', 'update'),
+    ('leasing_quote:delete', '删除招商报价', 'biz.leasing_quote', 'delete'),
+    ('leasing_quote:submit', '提交招商报价审批', 'biz.leasing_quote', 'submit'),
+    ('leasing_quote:approve', '招商报价审批通过', 'biz.leasing_quote', 'approve'),
+    ('leasing_quote:reject', '招商报价审批驳回', 'biz.leasing_quote', 'reject'),
+    ('leasing_statistics:funnel', '招商漏斗统计', 'biz.leasing_statistics', 'funnel'),
     ('invest:read', '招商租赁读取', 'leasing', 'read'),
     ('contract:read', '合同读取', 'leasing.contract', 'read'),
     ('ar:read', '应收读取', 'leasing.receivable', 'read'),
@@ -258,7 +275,8 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('leasing', '招商租赁', NULL, 'leasing', 'menu', 'menu', 10, 30),
     ('leasing:tenant', '租户企业档案', 'leasing', 'leasing.tenant', 'page', 'page', 20, 10),
     ('leasing:lead', '招商线索', 'leasing', 'leasing.lead', 'page', 'page', 20, 20),
-    ('leasing:invest', '招商运营', 'leasing', 'leasing.invest', 'page', 'page', 20, 25),
+    ('leasing:lead-pool', '公海池', 'leasing', 'leasing.lead_pool', 'page', 'page', 20, 25),
+    ('leasing:invest', '招商漏斗', 'leasing', 'leasing.funnel', 'page', 'page', 20, 26),
     ('leasing:contract', '合同管理', 'leasing', 'leasing.contract', 'page', 'page', 20, 30),
     ('leasing:receivable', '应收账单', 'leasing', 'leasing.receivable', 'page', 'page', 20, 40),
     ('workorder', '工单管理', NULL, 'workorder', 'menu', 'menu', 10, 40),
@@ -322,7 +340,9 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
       WHEN leaf_permissions.code = 'asset:read' THEN 'asset'
       WHEN leaf_permissions.code LIKE 'park_tenant:%' OR leaf_permissions.code LIKE 'park_tenant_contact:%' OR leaf_permissions.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
-      WHEN leaf_permissions.code LIKE 'leasing_lead:%' OR leaf_permissions.code LIKE 'leasing_follow:%' OR leaf_permissions.code LIKE 'leasing_visit:%' THEN 'leasing:lead'
+      WHEN leaf_permissions.code LIKE 'leasing_lead_pool:%' THEN 'leasing:lead-pool'
+      WHEN leaf_permissions.code LIKE 'leasing_statistics:%' THEN 'leasing:invest'
+      WHEN leaf_permissions.code LIKE 'leasing_lead:%' OR leaf_permissions.code LIKE 'leasing_follow:%' OR leaf_permissions.code LIKE 'leasing_visit:%' OR leaf_permissions.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN leaf_permissions.code = 'invest:read' THEN 'leasing:invest'
       WHEN leaf_permissions.code = 'contract:read' THEN 'leasing:contract'
       WHEN leaf_permissions.code = 'ar:read' THEN 'leasing:receivable'
@@ -442,7 +462,8 @@ upsert_permissions AS (
       WHEN 'asset:statistics-page' THEN '/assets/statistics'
       WHEN 'leasing:tenant' THEN '/leasing/tenants'
       WHEN 'leasing:lead' THEN '/leasing/leads'
-      WHEN 'leasing:invest' THEN '/invest/leads'
+      WHEN 'leasing:lead-pool' THEN '/leasing/lead-pool'
+      WHEN 'leasing:invest' THEN '/leasing/funnel'
       WHEN 'leasing:contract' THEN '/contracts'
       WHEN 'leasing:receivable' THEN '/finance/receivables'
       WHEN 'workorder:center' THEN '/workorders'
@@ -530,7 +551,7 @@ permission_parent_map AS (
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:module', 'system:dict-type', 'system:file', 'system:audit') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
-      WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
+      WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
       WHEN child.code = 'workorder:center' THEN 'workorder'
       WHEN child.code = 'iot:overview' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
@@ -575,7 +596,9 @@ permission_parent_map AS (
       WHEN child.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
       WHEN child.code = 'asset:read' THEN 'asset'
       WHEN child.code LIKE 'park_tenant:%' OR child.code LIKE 'park_tenant_contact:%' OR child.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
-      WHEN child.code LIKE 'leasing_lead:%' OR child.code LIKE 'leasing_follow:%' OR child.code LIKE 'leasing_visit:%' THEN 'leasing:lead'
+      WHEN child.code LIKE 'leasing_lead_pool:%' THEN 'leasing:lead-pool'
+      WHEN child.code LIKE 'leasing_statistics:%' THEN 'leasing:invest'
+      WHEN child.code LIKE 'leasing_lead:%' OR child.code LIKE 'leasing_follow:%' OR child.code LIKE 'leasing_visit:%' OR child.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN child.code = 'invest:read' THEN 'leasing:invest'
       WHEN child.code = 'contract:read' THEN 'leasing:contract'
       WHEN child.code = 'ar:read' THEN 'leasing:receivable'
@@ -653,6 +676,8 @@ WHERE tenant_id = '10000001'
     (entity = 'park_tenant' AND field_key IN ('contactMobile', 'legalPersonId'))
     OR (entity = 'park_tenant_qualification' AND field_key IN ('certificateNo', 'fileId'))
     OR (entity = 'leasing_lead' AND field_key IN ('contactMobile', 'demandPrice'))
+    OR (entity = 'leasing_quote' AND field_key IN ('quotePrice', 'propertyFeePrice'))
+    OR (entity = 'leasing_follow' AND field_key IN ('content'))
   );
 
 WITH seed_scope AS (
@@ -687,7 +712,10 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('leasing', 'park_tenant_qualification', 'certificate_no', '租户企业资质证书编号', 'masked', 'custom', 'park tenant qualification certificate number default field policy'),
     ('leasing', 'park_tenant_qualification', 'file_id', '租户企业资质附件 ID', 'masked', 'custom', 'park tenant qualification file id default field policy'),
     ('leasing', 'leasing_lead', 'contact_mobile', '招商线索联系人手机号', 'masked', 'mobile', 'leasing lead contact mobile default field policy'),
-    ('leasing', 'leasing_lead', 'demand_price', '招商线索预算价格', 'masked', 'amount', 'leasing lead demand price default field policy')
+    ('leasing', 'leasing_lead', 'demand_price', '招商线索预算价格', 'masked', 'amount', 'leasing lead demand price default field policy'),
+    ('leasing', 'leasing_quote', 'quote_price', '招商报价单价', 'masked', 'amount', 'leasing quote price default field policy'),
+    ('leasing', 'leasing_quote', 'property_fee_price', '招商报价物业费单价', 'masked', 'amount', 'leasing quote property fee price default field policy'),
+    ('leasing', 'leasing_follow', 'content', '招商跟进内容', 'visible', NULL, 'leasing follow content default field policy')
 )
 INSERT INTO sys_field_policy (
   tenant_id,
@@ -884,7 +912,7 @@ role_rule_codes(role_code, rule_code) AS (
     ('AUDITOR', 'current_park'),
     ('OPERATIONS_OWNER', 'current_park'),
     ('EXECUTIVE', 'current_park'),
-    ('INVEST_MANAGER', 'self_only'),
+    ('INVEST_MANAGER', 'current_park'),
     ('INVEST_SPECIALIST', 'self_only'),
     ('SAFETY_MANAGER', 'current_park'),
     ('PROPERTY_MANAGER', 'current_park')
@@ -1002,6 +1030,15 @@ s3a_permissions(permission_code) AS (
     ('leasing_lead:create'),
     ('leasing_lead:update'),
     ('leasing_lead:delete'),
+    ('leasing_lead:change_status'),
+    ('leasing_lead:force_change_status'),
+    ('leasing_lead:confirm_sign'),
+    ('leasing_lead:status_log'),
+    ('leasing_lead:convert_to_park_tenant'),
+    ('leasing_lead_pool:read'),
+    ('leasing_lead:assign'),
+    ('leasing_lead:reclaim'),
+    ('leasing_lead:move_to_pool'),
     ('leasing_follow:read'),
     ('leasing_follow:create'),
     ('leasing_follow:update'),
@@ -1009,13 +1046,25 @@ s3a_permissions(permission_code) AS (
     ('leasing_visit:read'),
     ('leasing_visit:create'),
     ('leasing_visit:update'),
-    ('leasing_visit:delete')
+    ('leasing_visit:delete'),
+    ('leasing_quote:read'),
+    ('leasing_quote:create'),
+    ('leasing_quote:update'),
+    ('leasing_quote:delete'),
+    ('leasing_quote:submit'),
+    ('leasing_quote:approve'),
+    ('leasing_quote:reject'),
+    ('leasing_statistics:funnel')
 ),
 desired_role_permissions(role_code, permission_code) AS (
   VALUES
     ('EXECUTIVE', 'park_tenant:read'),
     ('EXECUTIVE', 'park_tenant:360'),
     ('EXECUTIVE', 'park_tenant:risk_log'),
+    ('EXECUTIVE', 'leasing_lead:read'),
+    ('EXECUTIVE', 'leasing_lead:status_log'),
+    ('EXECUTIVE', 'leasing_quote:read'),
+    ('EXECUTIVE', 'leasing_statistics:funnel'),
     ('OPERATIONS_OWNER', 'park_tenant:read'),
     ('OPERATIONS_OWNER', 'park_tenant:create'),
     ('OPERATIONS_OWNER', 'park_tenant:update'),
@@ -1035,6 +1084,15 @@ desired_role_permissions(role_code, permission_code) AS (
     ('OPERATIONS_OWNER', 'leasing_lead:create'),
     ('OPERATIONS_OWNER', 'leasing_lead:update'),
     ('OPERATIONS_OWNER', 'leasing_lead:delete'),
+    ('OPERATIONS_OWNER', 'leasing_lead:change_status'),
+    ('OPERATIONS_OWNER', 'leasing_lead:force_change_status'),
+    ('OPERATIONS_OWNER', 'leasing_lead:confirm_sign'),
+    ('OPERATIONS_OWNER', 'leasing_lead:status_log'),
+    ('OPERATIONS_OWNER', 'leasing_lead:convert_to_park_tenant'),
+    ('OPERATIONS_OWNER', 'leasing_lead_pool:read'),
+    ('OPERATIONS_OWNER', 'leasing_lead:assign'),
+    ('OPERATIONS_OWNER', 'leasing_lead:reclaim'),
+    ('OPERATIONS_OWNER', 'leasing_lead:move_to_pool'),
     ('OPERATIONS_OWNER', 'leasing_follow:read'),
     ('OPERATIONS_OWNER', 'leasing_follow:create'),
     ('OPERATIONS_OWNER', 'leasing_follow:update'),
@@ -1043,6 +1101,14 @@ desired_role_permissions(role_code, permission_code) AS (
     ('OPERATIONS_OWNER', 'leasing_visit:create'),
     ('OPERATIONS_OWNER', 'leasing_visit:update'),
     ('OPERATIONS_OWNER', 'leasing_visit:delete'),
+    ('OPERATIONS_OWNER', 'leasing_quote:read'),
+    ('OPERATIONS_OWNER', 'leasing_quote:create'),
+    ('OPERATIONS_OWNER', 'leasing_quote:update'),
+    ('OPERATIONS_OWNER', 'leasing_quote:delete'),
+    ('OPERATIONS_OWNER', 'leasing_quote:submit'),
+    ('OPERATIONS_OWNER', 'leasing_quote:approve'),
+    ('OPERATIONS_OWNER', 'leasing_quote:reject'),
+    ('OPERATIONS_OWNER', 'leasing_statistics:funnel'),
     ('INVEST_MANAGER', 'park_tenant:read'),
     ('INVEST_MANAGER', 'park_tenant:create'),
     ('INVEST_MANAGER', 'park_tenant:update'),
@@ -1056,6 +1122,14 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_MANAGER', 'leasing_lead:create'),
     ('INVEST_MANAGER', 'leasing_lead:update'),
     ('INVEST_MANAGER', 'leasing_lead:delete'),
+    ('INVEST_MANAGER', 'leasing_lead:change_status'),
+    ('INVEST_MANAGER', 'leasing_lead:confirm_sign'),
+    ('INVEST_MANAGER', 'leasing_lead:status_log'),
+    ('INVEST_MANAGER', 'leasing_lead:convert_to_park_tenant'),
+    ('INVEST_MANAGER', 'leasing_lead_pool:read'),
+    ('INVEST_MANAGER', 'leasing_lead:assign'),
+    ('INVEST_MANAGER', 'leasing_lead:reclaim'),
+    ('INVEST_MANAGER', 'leasing_lead:move_to_pool'),
     ('INVEST_MANAGER', 'leasing_follow:read'),
     ('INVEST_MANAGER', 'leasing_follow:create'),
     ('INVEST_MANAGER', 'leasing_follow:update'),
@@ -1064,6 +1138,14 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_MANAGER', 'leasing_visit:create'),
     ('INVEST_MANAGER', 'leasing_visit:update'),
     ('INVEST_MANAGER', 'leasing_visit:delete'),
+    ('INVEST_MANAGER', 'leasing_quote:read'),
+    ('INVEST_MANAGER', 'leasing_quote:create'),
+    ('INVEST_MANAGER', 'leasing_quote:update'),
+    ('INVEST_MANAGER', 'leasing_quote:delete'),
+    ('INVEST_MANAGER', 'leasing_quote:submit'),
+    ('INVEST_MANAGER', 'leasing_quote:approve'),
+    ('INVEST_MANAGER', 'leasing_quote:reject'),
+    ('INVEST_MANAGER', 'leasing_statistics:funnel'),
     ('INVEST_SPECIALIST', 'park_tenant:read'),
     ('INVEST_SPECIALIST', 'park_tenant:create'),
     ('INVEST_SPECIALIST', 'park_tenant:update'),
@@ -1075,12 +1157,24 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_SPECIALIST', 'leasing_lead:read'),
     ('INVEST_SPECIALIST', 'leasing_lead:create'),
     ('INVEST_SPECIALIST', 'leasing_lead:update'),
+    ('INVEST_SPECIALIST', 'leasing_lead:change_status'),
+    ('INVEST_SPECIALIST', 'leasing_lead:status_log'),
+    ('INVEST_SPECIALIST', 'leasing_lead_pool:read'),
+    ('INVEST_SPECIALIST', 'leasing_lead:reclaim'),
     ('INVEST_SPECIALIST', 'leasing_follow:read'),
     ('INVEST_SPECIALIST', 'leasing_follow:create'),
     ('INVEST_SPECIALIST', 'leasing_follow:update'),
+    ('INVEST_SPECIALIST', 'leasing_follow:delete'),
     ('INVEST_SPECIALIST', 'leasing_visit:read'),
     ('INVEST_SPECIALIST', 'leasing_visit:create'),
     ('INVEST_SPECIALIST', 'leasing_visit:update'),
+    ('INVEST_SPECIALIST', 'leasing_visit:delete'),
+    ('INVEST_SPECIALIST', 'leasing_quote:read'),
+    ('INVEST_SPECIALIST', 'leasing_quote:create'),
+    ('INVEST_SPECIALIST', 'leasing_quote:update'),
+    ('INVEST_SPECIALIST', 'leasing_quote:delete'),
+    ('INVEST_SPECIALIST', 'leasing_quote:submit'),
+    ('INVEST_SPECIALIST', 'leasing_statistics:funnel'),
     ('SAFETY_MANAGER', 'park_tenant:read'),
     ('SAFETY_MANAGER', 'park_tenant:360'),
     ('SAFETY_MANAGER', 'park_tenant:risk_update'),
@@ -1222,6 +1316,15 @@ role_permissions AS (
       'leasing_lead:create',
       'leasing_lead:update',
       'leasing_lead:delete',
+      'leasing_lead:change_status',
+      'leasing_lead:force_change_status',
+      'leasing_lead:confirm_sign',
+      'leasing_lead:status_log',
+      'leasing_lead:convert_to_park_tenant',
+      'leasing_lead_pool:read',
+      'leasing_lead:assign',
+      'leasing_lead:reclaim',
+      'leasing_lead:move_to_pool',
       'leasing_follow:read',
       'leasing_follow:create',
       'leasing_follow:update',
@@ -1230,6 +1333,14 @@ role_permissions AS (
       'leasing_visit:create',
       'leasing_visit:update',
       'leasing_visit:delete',
+      'leasing_quote:read',
+      'leasing_quote:create',
+      'leasing_quote:update',
+      'leasing_quote:delete',
+      'leasing_quote:submit',
+      'leasing_quote:approve',
+      'leasing_quote:reject',
+      'leasing_statistics:funnel',
       'asset:read',
       'asset:status_board',
       'asset:statistics'
@@ -1259,7 +1370,11 @@ role_permissions AS (
       'file:download',
       'park_tenant:read',
       'park_tenant:360',
-      'park_tenant:risk_log'
+      'park_tenant:risk_log',
+      'leasing_lead:read',
+      'leasing_lead:status_log',
+      'leasing_quote:read',
+      'leasing_statistics:funnel'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -1296,6 +1411,14 @@ role_permissions AS (
       'leasing_lead:create',
       'leasing_lead:update',
       'leasing_lead:delete',
+      'leasing_lead:change_status',
+      'leasing_lead:confirm_sign',
+      'leasing_lead:status_log',
+      'leasing_lead:convert_to_park_tenant',
+      'leasing_lead_pool:read',
+      'leasing_lead:assign',
+      'leasing_lead:reclaim',
+      'leasing_lead:move_to_pool',
       'leasing_follow:read',
       'leasing_follow:create',
       'leasing_follow:update',
@@ -1304,6 +1427,14 @@ role_permissions AS (
       'leasing_visit:create',
       'leasing_visit:update',
       'leasing_visit:delete',
+      'leasing_quote:read',
+      'leasing_quote:create',
+      'leasing_quote:update',
+      'leasing_quote:delete',
+      'leasing_quote:submit',
+      'leasing_quote:approve',
+      'leasing_quote:reject',
+      'leasing_statistics:funnel',
       'asset:read',
       'asset:statistics',
       'asset:status_board'
@@ -1339,12 +1470,24 @@ role_permissions AS (
       'leasing_lead:read',
       'leasing_lead:create',
       'leasing_lead:update',
+      'leasing_lead:change_status',
+      'leasing_lead:status_log',
+      'leasing_lead_pool:read',
+      'leasing_lead:reclaim',
       'leasing_follow:read',
       'leasing_follow:create',
       'leasing_follow:update',
+      'leasing_follow:delete',
       'leasing_visit:read',
       'leasing_visit:create',
-      'leasing_visit:update'
+      'leasing_visit:update',
+      'leasing_visit:delete',
+      'leasing_quote:read',
+      'leasing_quote:create',
+      'leasing_quote:update',
+      'leasing_quote:delete',
+      'leasing_quote:submit',
+      'leasing_statistics:funnel'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -1865,9 +2008,13 @@ dict_types(dict_code, dict_name, remark) AS (
     ('park_tenant_contact_role', '租户企业联系人角色', 'Production-safe park tenant contact role dictionary'),
     ('park_tenant_qualification_type', '租户企业资质类型', 'Production-safe park tenant qualification type dictionary'),
     ('leasing_lead_status', '招商线索状态', 'Production-safe leasing lead status dictionary'),
+    ('leasing_lost_reason', '招商线索流失原因', 'Production-safe leasing lost reason dictionary'),
+    ('leasing_lead_lost_reason', '招商线索流失原因', 'Production-safe leasing lead lost reason dictionary'),
     ('leasing_lead_source', '招商线索来源', 'Production-safe leasing lead source dictionary'),
     ('leasing_intention_level', '招商意向等级', 'Production-safe leasing intention level dictionary'),
-    ('leasing_follow_type', '招商跟进方式', 'Production-safe leasing follow type dictionary')
+    ('leasing_follow_type', '招商跟进方式', 'Production-safe leasing follow type dictionary'),
+    ('leasing_payment_period', '招商报价付款周期', 'Production-safe leasing quote payment period dictionary'),
+    ('leasing_quote_status', '招商报价状态', 'Production-safe leasing quote status dictionary')
 ),
 upsert_types AS (
   INSERT INTO sys_dict_type (
@@ -1973,28 +2120,57 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('park_tenant_qualification_type', '装修资料', 'decoration', 50, 'default'),
     ('park_tenant_qualification_type', '其他', 'other', 90, 'default'),
     ('leasing_lead_status', '新建线索', '10', 10, 'default'),
-    ('leasing_lead_status', '跟进中', '20', 20, 'primary'),
-    ('leasing_lead_status', '已看房', '30', 30, 'warning'),
-    ('leasing_lead_status', '已报价', '40', 40, 'primary'),
-    ('leasing_lead_status', '已转企业', '50', 50, 'success'),
-    ('leasing_lead_status', '已流失', '90', 90, 'danger'),
-    ('leasing_lead_source', '人工录入', 'manual', 10, 'default'),
-    ('leasing_lead_source', '网络咨询', 'online', 20, 'primary'),
-    ('leasing_lead_source', '电话咨询', 'phone', 30, 'success'),
-    ('leasing_lead_source', '到访咨询', 'visit', 40, 'warning'),
-    ('leasing_lead_source', '转介绍', 'referral', 50, 'primary'),
-    ('leasing_lead_source', '活动获客', 'campaign', 60, 'success'),
-    ('leasing_lead_source', '其他', 'other', 90, 'default'),
-    ('leasing_intention_level', '低意向', '10', 10, 'default'),
-    ('leasing_intention_level', '中意向', '20', 20, 'primary'),
-    ('leasing_intention_level', '高意向', '30', 30, 'warning'),
-    ('leasing_intention_level', '重点意向', '40', 40, 'danger'),
+    ('leasing_lead_status', '初步沟通', '20', 20, 'primary'),
+    ('leasing_lead_status', '已邀约看房', '30', 30, 'warning'),
+    ('leasing_lead_status', '已看房', '40', 40, 'warning'),
+    ('leasing_lead_status', '已报价', '50', 50, 'primary'),
+    ('leasing_lead_status', '商务谈判', '60', 60, 'primary'),
+    ('leasing_lead_status', '合同意向', '70', 70, 'success'),
+    ('leasing_lead_status', '已签约', '75', 75, 'success'),
+    ('leasing_lead_status', '已入驻', '78', 78, 'success'),
+    ('leasing_lead_status', '暂搁置', '80', 80, 'default'),
+    ('leasing_lead_status', '无效', '90', 90, 'danger'),
+    ('leasing_lead_status', '流失', '91', 91, 'danger'),
+    ('leasing_lost_reason', '价格原因', 'price', 10, 'warning'),
+    ('leasing_lost_reason', '区位原因', 'location', 20, 'warning'),
+    ('leasing_lost_reason', '面积不匹配', 'area', 30, 'warning'),
+    ('leasing_lost_reason', '不符合行业定位', 'industry', 40, 'default'),
+    ('leasing_lost_reason', '转向竞品园区', 'competitor', 50, 'primary'),
+    ('leasing_lost_reason', '客户无响应', 'no_response', 60, 'default'),
+    ('leasing_lost_reason', '其他', 'other', 90, 'default'),
+    ('leasing_lead_lost_reason', '价格原因', 'price', 10, 'warning'),
+    ('leasing_lead_lost_reason', '区位原因', 'location', 20, 'warning'),
+    ('leasing_lead_lost_reason', '面积不匹配', 'area', 30, 'warning'),
+    ('leasing_lead_lost_reason', '不符合行业定位', 'industry', 40, 'default'),
+    ('leasing_lead_lost_reason', '转向竞品园区', 'competitor', 50, 'primary'),
+    ('leasing_lead_lost_reason', '客户无响应', 'no_response', 60, 'default'),
+    ('leasing_lead_lost_reason', '其他', 'other', 90, 'default'),
+    ('leasing_lead_source', '渠道商', '10', 10, 'default'),
+    ('leasing_lead_source', '主动来访', '20', 20, 'primary'),
+    ('leasing_lead_source', '老客户介绍', '30', 30, 'success'),
+    ('leasing_lead_source', '线上推广', '40', 40, 'warning'),
+    ('leasing_lead_source', '政府推荐', '50', 50, 'primary'),
+    ('leasing_lead_source', '其他', '90', 90, 'default'),
+    ('leasing_intention_level', 'A 高', '10', 10, 'danger'),
+    ('leasing_intention_level', 'B 中', '20', 20, 'warning'),
+    ('leasing_intention_level', 'C 低', '30', 30, 'default'),
     ('leasing_follow_type', '电话', 'phone', 10, 'success'),
     ('leasing_follow_type', '微信', 'wechat', 20, 'primary'),
     ('leasing_follow_type', '邮件', 'email', 30, 'default'),
     ('leasing_follow_type', '拜访', 'visit', 40, 'warning'),
     ('leasing_follow_type', '会议', 'meeting', 50, 'primary'),
-    ('leasing_follow_type', '其他', 'other', 90, 'default')
+    ('leasing_follow_type', '其他', 'other', 90, 'default'),
+    ('leasing_payment_period', '月付', '10', 10, 'default'),
+    ('leasing_payment_period', '双月付', '20', 20, 'primary'),
+    ('leasing_payment_period', '季付', '30', 30, 'warning'),
+    ('leasing_payment_period', '半年付', '40', 40, 'success'),
+    ('leasing_payment_period', '年付', '50', 50, 'success'),
+    ('leasing_quote_status', '草稿', '10', 10, 'default'),
+    ('leasing_quote_status', '已提交', '20', 20, 'primary'),
+    ('leasing_quote_status', '审批中', '30', 30, 'warning'),
+    ('leasing_quote_status', '已通过', '40', 40, 'success'),
+    ('leasing_quote_status', '已驳回', '50', 50, 'danger'),
+    ('leasing_quote_status', '已作废', '90', 90, 'default')
 ),
 desired_dict_items AS (
   SELECT
@@ -2027,9 +2203,13 @@ retired_dict_items AS (
       'park_tenant_contact_role',
       'park_tenant_qualification_type',
       'leasing_lead_status',
+      'leasing_lost_reason',
+      'leasing_lead_lost_reason',
       'leasing_lead_source',
       'leasing_intention_level',
-      'leasing_follow_type'
+      'leasing_follow_type',
+      'leasing_payment_period',
+      'leasing_quote_status'
     )
     AND NOT EXISTS (
       SELECT 1

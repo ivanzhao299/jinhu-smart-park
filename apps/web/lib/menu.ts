@@ -51,8 +51,8 @@ export const dashboardMenus: MenuNode[] = [
     children: [
       { label: "租户企业档案", href: "/leasing/tenants", permission: "park_tenant:read", module: "leasing" },
       { label: "招商线索", href: "/leasing/leads", permission: "leasing_lead:read", module: "leasing" },
-      { label: "公海池", href: "/invest/lead-pool", permission: "invest:read", module: "leasing" },
-      { label: "招商漏斗", href: "/invest/funnel", permission: "invest:read", module: "leasing" },
+      { label: "公海池", href: "/leasing/lead-pool", permission: "leasing_lead_pool:read", module: "leasing" },
+      { label: "招商漏斗", href: "/leasing/funnel", permission: "leasing_statistics:funnel", module: "leasing" },
       { label: "合同管理", href: "/contracts", permission: "contract:read", module: "leasing" },
       { label: "应收账单", href: "/finance/receivables", permission: "ar:read", module: "leasing" }
     ]
