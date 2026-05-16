@@ -15,6 +15,7 @@ export const CODE_RULE_ENTITY_TYPES = [
   "cleaning_robot",
   "inspection_robot",
   "workorder",
+  "leasing_lead",
   "contract",
   "bill"
 ] as const;

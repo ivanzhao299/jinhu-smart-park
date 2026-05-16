@@ -209,6 +209,18 @@ leaf_permissions(code, name, resource, action) AS (
     ('park_tenant_qualification:create', '新增租户企业资质', 'biz.park_tenant_qualification', 'create'),
     ('park_tenant_qualification:update', '编辑租户企业资质', 'biz.park_tenant_qualification', 'update'),
     ('park_tenant_qualification:delete', '删除租户企业资质', 'biz.park_tenant_qualification', 'delete'),
+    ('leasing_lead:read', '招商线索读取', 'biz.leasing_lead', 'read'),
+    ('leasing_lead:create', '新增招商线索', 'biz.leasing_lead', 'create'),
+    ('leasing_lead:update', '编辑招商线索', 'biz.leasing_lead', 'update'),
+    ('leasing_lead:delete', '删除招商线索', 'biz.leasing_lead', 'delete'),
+    ('leasing_follow:read', '招商跟进记录读取', 'biz.leasing_follow', 'read'),
+    ('leasing_follow:create', '新增招商跟进记录', 'biz.leasing_follow', 'create'),
+    ('leasing_follow:update', '编辑招商跟进记录', 'biz.leasing_follow', 'update'),
+    ('leasing_follow:delete', '删除招商跟进记录', 'biz.leasing_follow', 'delete'),
+    ('leasing_visit:read', '招商看房记录读取', 'biz.leasing_visit', 'read'),
+    ('leasing_visit:create', '新增招商看房记录', 'biz.leasing_visit', 'create'),
+    ('leasing_visit:update', '编辑招商看房记录', 'biz.leasing_visit', 'update'),
+    ('leasing_visit:delete', '删除招商看房记录', 'biz.leasing_visit', 'delete'),
     ('invest:read', '招商租赁读取', 'leasing', 'read'),
     ('contract:read', '合同读取', 'leasing.contract', 'read'),
     ('ar:read', '应收读取', 'leasing.receivable', 'read'),
@@ -245,7 +257,8 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('asset:statistics-page', '资产统计', 'asset', 'asset.statistics', 'page', 'page', 20, 60),
     ('leasing', '招商租赁', NULL, 'leasing', 'menu', 'menu', 10, 30),
     ('leasing:tenant', '租户企业档案', 'leasing', 'leasing.tenant', 'page', 'page', 20, 10),
-    ('leasing:invest', '招商运营', 'leasing', 'leasing.invest', 'page', 'page', 20, 20),
+    ('leasing:lead', '招商线索', 'leasing', 'leasing.lead', 'page', 'page', 20, 20),
+    ('leasing:invest', '招商运营', 'leasing', 'leasing.invest', 'page', 'page', 20, 25),
     ('leasing:contract', '合同管理', 'leasing', 'leasing.contract', 'page', 'page', 20, 30),
     ('leasing:receivable', '应收账单', 'leasing', 'leasing.receivable', 'page', 'page', 20, 40),
     ('workorder', '工单管理', NULL, 'workorder', 'menu', 'menu', 10, 40),
@@ -309,6 +322,7 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
       WHEN leaf_permissions.code = 'asset:read' THEN 'asset'
       WHEN leaf_permissions.code LIKE 'park_tenant:%' OR leaf_permissions.code LIKE 'park_tenant_contact:%' OR leaf_permissions.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
+      WHEN leaf_permissions.code LIKE 'leasing_lead:%' OR leaf_permissions.code LIKE 'leasing_follow:%' OR leaf_permissions.code LIKE 'leasing_visit:%' THEN 'leasing:lead'
       WHEN leaf_permissions.code = 'invest:read' THEN 'leasing:invest'
       WHEN leaf_permissions.code = 'contract:read' THEN 'leasing:contract'
       WHEN leaf_permissions.code = 'ar:read' THEN 'leasing:receivable'
@@ -427,6 +441,7 @@ upsert_permissions AS (
       WHEN 'asset:unit-status-board' THEN '/assets/unit-status-board'
       WHEN 'asset:statistics-page' THEN '/assets/statistics'
       WHEN 'leasing:tenant' THEN '/leasing/tenants'
+      WHEN 'leasing:lead' THEN '/leasing/leads'
       WHEN 'leasing:invest' THEN '/invest/leads'
       WHEN 'leasing:contract' THEN '/contracts'
       WHEN 'leasing:receivable' THEN '/finance/receivables'
@@ -515,7 +530,7 @@ permission_parent_map AS (
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:module', 'system:dict-type', 'system:file', 'system:audit') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
-      WHEN child.code IN ('leasing:tenant', 'leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
+      WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:invest', 'leasing:contract', 'leasing:receivable') THEN 'leasing'
       WHEN child.code = 'workorder:center' THEN 'workorder'
       WHEN child.code = 'iot:overview' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
@@ -560,6 +575,7 @@ permission_parent_map AS (
       WHEN child.code IN ('asset:statistics', 'asset:statistics:read') THEN 'asset:statistics-page'
       WHEN child.code = 'asset:read' THEN 'asset'
       WHEN child.code LIKE 'park_tenant:%' OR child.code LIKE 'park_tenant_contact:%' OR child.code LIKE 'park_tenant_qualification:%' THEN 'leasing:tenant'
+      WHEN child.code LIKE 'leasing_lead:%' OR child.code LIKE 'leasing_follow:%' OR child.code LIKE 'leasing_visit:%' THEN 'leasing:lead'
       WHEN child.code = 'invest:read' THEN 'leasing:invest'
       WHEN child.code = 'contract:read' THEN 'leasing:contract'
       WHEN child.code = 'ar:read' THEN 'leasing:receivable'
@@ -636,6 +652,7 @@ WHERE tenant_id = '10000001'
   AND (
     (entity = 'park_tenant' AND field_key IN ('contactMobile', 'legalPersonId'))
     OR (entity = 'park_tenant_qualification' AND field_key IN ('certificateNo', 'fileId'))
+    OR (entity = 'leasing_lead' AND field_key IN ('contactMobile', 'demandPrice'))
   );
 
 WITH seed_scope AS (
@@ -668,7 +685,9 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('leasing', 'park_tenant_contact', 'mobile', '租户企业联系人手机号', 'masked', 'mobile', 'park tenant contact mobile default field policy'),
     ('leasing', 'park_tenant_contact', 'email', '租户企业联系人邮箱', 'visible', NULL, 'park tenant contact email default visible field policy'),
     ('leasing', 'park_tenant_qualification', 'certificate_no', '租户企业资质证书编号', 'masked', 'custom', 'park tenant qualification certificate number default field policy'),
-    ('leasing', 'park_tenant_qualification', 'file_id', '租户企业资质附件 ID', 'masked', 'custom', 'park tenant qualification file id default field policy')
+    ('leasing', 'park_tenant_qualification', 'file_id', '租户企业资质附件 ID', 'masked', 'custom', 'park tenant qualification file id default field policy'),
+    ('leasing', 'leasing_lead', 'contact_mobile', '招商线索联系人手机号', 'masked', 'mobile', 'leasing lead contact mobile default field policy'),
+    ('leasing', 'leasing_lead', 'demand_price', '招商线索预算价格', 'masked', 'amount', 'leasing lead demand price default field policy')
 )
 INSERT INTO sys_field_policy (
   tenant_id,
@@ -978,7 +997,19 @@ s3a_permissions(permission_code) AS (
     ('park_tenant_qualification:update'),
     ('park_tenant_qualification:delete'),
     ('park_tenant:risk_update'),
-    ('park_tenant:risk_log')
+    ('park_tenant:risk_log'),
+    ('leasing_lead:read'),
+    ('leasing_lead:create'),
+    ('leasing_lead:update'),
+    ('leasing_lead:delete'),
+    ('leasing_follow:read'),
+    ('leasing_follow:create'),
+    ('leasing_follow:update'),
+    ('leasing_follow:delete'),
+    ('leasing_visit:read'),
+    ('leasing_visit:create'),
+    ('leasing_visit:update'),
+    ('leasing_visit:delete')
 ),
 desired_role_permissions(role_code, permission_code) AS (
   VALUES
@@ -1000,6 +1031,18 @@ desired_role_permissions(role_code, permission_code) AS (
     ('OPERATIONS_OWNER', 'park_tenant_qualification:delete'),
     ('OPERATIONS_OWNER', 'park_tenant:risk_update'),
     ('OPERATIONS_OWNER', 'park_tenant:risk_log'),
+    ('OPERATIONS_OWNER', 'leasing_lead:read'),
+    ('OPERATIONS_OWNER', 'leasing_lead:create'),
+    ('OPERATIONS_OWNER', 'leasing_lead:update'),
+    ('OPERATIONS_OWNER', 'leasing_lead:delete'),
+    ('OPERATIONS_OWNER', 'leasing_follow:read'),
+    ('OPERATIONS_OWNER', 'leasing_follow:create'),
+    ('OPERATIONS_OWNER', 'leasing_follow:update'),
+    ('OPERATIONS_OWNER', 'leasing_follow:delete'),
+    ('OPERATIONS_OWNER', 'leasing_visit:read'),
+    ('OPERATIONS_OWNER', 'leasing_visit:create'),
+    ('OPERATIONS_OWNER', 'leasing_visit:update'),
+    ('OPERATIONS_OWNER', 'leasing_visit:delete'),
     ('INVEST_MANAGER', 'park_tenant:read'),
     ('INVEST_MANAGER', 'park_tenant:create'),
     ('INVEST_MANAGER', 'park_tenant:update'),
@@ -1009,6 +1052,18 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_MANAGER', 'park_tenant_contact:update'),
     ('INVEST_MANAGER', 'park_tenant_qualification:read'),
     ('INVEST_MANAGER', 'park_tenant:risk_log'),
+    ('INVEST_MANAGER', 'leasing_lead:read'),
+    ('INVEST_MANAGER', 'leasing_lead:create'),
+    ('INVEST_MANAGER', 'leasing_lead:update'),
+    ('INVEST_MANAGER', 'leasing_lead:delete'),
+    ('INVEST_MANAGER', 'leasing_follow:read'),
+    ('INVEST_MANAGER', 'leasing_follow:create'),
+    ('INVEST_MANAGER', 'leasing_follow:update'),
+    ('INVEST_MANAGER', 'leasing_follow:delete'),
+    ('INVEST_MANAGER', 'leasing_visit:read'),
+    ('INVEST_MANAGER', 'leasing_visit:create'),
+    ('INVEST_MANAGER', 'leasing_visit:update'),
+    ('INVEST_MANAGER', 'leasing_visit:delete'),
     ('INVEST_SPECIALIST', 'park_tenant:read'),
     ('INVEST_SPECIALIST', 'park_tenant:create'),
     ('INVEST_SPECIALIST', 'park_tenant:update'),
@@ -1017,6 +1072,15 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_SPECIALIST', 'park_tenant_contact:create'),
     ('INVEST_SPECIALIST', 'park_tenant_contact:update'),
     ('INVEST_SPECIALIST', 'park_tenant_qualification:read'),
+    ('INVEST_SPECIALIST', 'leasing_lead:read'),
+    ('INVEST_SPECIALIST', 'leasing_lead:create'),
+    ('INVEST_SPECIALIST', 'leasing_lead:update'),
+    ('INVEST_SPECIALIST', 'leasing_follow:read'),
+    ('INVEST_SPECIALIST', 'leasing_follow:create'),
+    ('INVEST_SPECIALIST', 'leasing_follow:update'),
+    ('INVEST_SPECIALIST', 'leasing_visit:read'),
+    ('INVEST_SPECIALIST', 'leasing_visit:create'),
+    ('INVEST_SPECIALIST', 'leasing_visit:update'),
     ('SAFETY_MANAGER', 'park_tenant:read'),
     ('SAFETY_MANAGER', 'park_tenant:360'),
     ('SAFETY_MANAGER', 'park_tenant:risk_update'),
@@ -1154,6 +1218,18 @@ role_permissions AS (
       'park_tenant_qualification:create',
       'park_tenant_qualification:update',
       'park_tenant_qualification:delete',
+      'leasing_lead:read',
+      'leasing_lead:create',
+      'leasing_lead:update',
+      'leasing_lead:delete',
+      'leasing_follow:read',
+      'leasing_follow:create',
+      'leasing_follow:update',
+      'leasing_follow:delete',
+      'leasing_visit:read',
+      'leasing_visit:create',
+      'leasing_visit:update',
+      'leasing_visit:delete',
       'asset:read',
       'asset:status_board',
       'asset:statistics'
@@ -1216,6 +1292,18 @@ role_permissions AS (
       'park_tenant_contact:create',
       'park_tenant_contact:update',
       'park_tenant_qualification:read',
+      'leasing_lead:read',
+      'leasing_lead:create',
+      'leasing_lead:update',
+      'leasing_lead:delete',
+      'leasing_follow:read',
+      'leasing_follow:create',
+      'leasing_follow:update',
+      'leasing_follow:delete',
+      'leasing_visit:read',
+      'leasing_visit:create',
+      'leasing_visit:update',
+      'leasing_visit:delete',
       'asset:read',
       'asset:statistics',
       'asset:status_board'
@@ -1247,7 +1335,16 @@ role_permissions AS (
       'park_tenant_contact:read',
       'park_tenant_contact:create',
       'park_tenant_contact:update',
-      'park_tenant_qualification:read'
+      'park_tenant_qualification:read',
+      'leasing_lead:read',
+      'leasing_lead:create',
+      'leasing_lead:update',
+      'leasing_follow:read',
+      'leasing_follow:create',
+      'leasing_follow:update',
+      'leasing_visit:read',
+      'leasing_visit:create',
+      'leasing_visit:update'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -1334,6 +1431,7 @@ code_rules(entity_type, rule_code, rule_name, target_module, target_entity, pref
     ('cleaning_robot', 'CLEANING_ROBOT_CODE', '清洁机器人编码规则', 'robot', 'cleaning_robot', 'CLN-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'CLN-RB-001', 'SaaS cleaning robot code rule seed'),
     ('inspection_robot', 'INSPECTION_ROBOT_CODE', '巡检机器人编码规则', 'robot', 'inspection_robot', 'INS-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'INS-RB-001', 'SaaS inspection robot code rule seed'),
     ('workorder', 'WORKORDER_CODE', '工单编码规则', 'workorder', 'workorder', 'WO-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'WO-20260515000001', 'SaaS workorder code rule seed'),
+    ('leasing_lead', 'LEASING_LEAD_CODE', '招商线索编码规则', 'leasing', 'leasing_lead', 'LEAD-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'LEAD-000001', 'SaaS leasing lead code rule seed'),
     ('contract', 'CONTRACT_CODE', '合同编码规则', 'contract', 'contract', 'CT-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'CT-20260515000001', 'SaaS contract code rule seed'),
     ('bill', 'BILL_CODE', '账单编码规则', 'finance', 'bill', 'BILL-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'monthly', '', 'BILL-20260515000001', 'SaaS bill code rule seed'),
     (NULL, 'PARK_TENANT_CODE', '园区租户企业编码规则', 'leasing', 'park_tenant', 'PT-', '{PREFIX}{SEQ:5}', NULL, 5, 'none', '', 'PT-00001', 'SaaS park tenant code rule seed')
@@ -1765,7 +1863,11 @@ dict_types(dict_code, dict_name, remark) AS (
     ('industry_code', '行业编码', 'Production-safe industry code dictionary'),
     ('park_tenant_source_type', '租户企业来源', 'Production-safe park tenant source dictionary'),
     ('park_tenant_contact_role', '租户企业联系人角色', 'Production-safe park tenant contact role dictionary'),
-    ('park_tenant_qualification_type', '租户企业资质类型', 'Production-safe park tenant qualification type dictionary')
+    ('park_tenant_qualification_type', '租户企业资质类型', 'Production-safe park tenant qualification type dictionary'),
+    ('leasing_lead_status', '招商线索状态', 'Production-safe leasing lead status dictionary'),
+    ('leasing_lead_source', '招商线索来源', 'Production-safe leasing lead source dictionary'),
+    ('leasing_intention_level', '招商意向等级', 'Production-safe leasing intention level dictionary'),
+    ('leasing_follow_type', '招商跟进方式', 'Production-safe leasing follow type dictionary')
 ),
 upsert_types AS (
   INSERT INTO sys_dict_type (
@@ -1807,6 +1909,8 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('file_biz_type', '隐患整改', 'hazard', 30, 'default'),
     ('file_biz_type', '租户资质', 'tenant_qualification', 40, 'default'),
     ('file_biz_type', '租户企业资质', 'park_tenant_qualification', 45, 'primary'),
+    ('file_biz_type', '招商跟进附件', 'leasing_follow', 48, 'primary'),
+    ('file_biz_type', '招商看房照片', 'leasing_visit', 49, 'warning'),
     ('file_biz_type', '房源照片', 'unit_photo', 50, 'default'),
     ('file_biz_type', '楼层平面图', 'floorplan', 60, 'default'),
     ('file_biz_type', '房源平面图', 'unit_floorplan', 70, 'default'),
@@ -1867,7 +1971,30 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('park_tenant_qualification_type', '安全承诺书', 'safety_commitment', 30, 'warning'),
     ('park_tenant_qualification_type', '特殊行业许可', 'special_license', 40, 'danger'),
     ('park_tenant_qualification_type', '装修资料', 'decoration', 50, 'default'),
-    ('park_tenant_qualification_type', '其他', 'other', 90, 'default')
+    ('park_tenant_qualification_type', '其他', 'other', 90, 'default'),
+    ('leasing_lead_status', '新建线索', '10', 10, 'default'),
+    ('leasing_lead_status', '跟进中', '20', 20, 'primary'),
+    ('leasing_lead_status', '已看房', '30', 30, 'warning'),
+    ('leasing_lead_status', '已报价', '40', 40, 'primary'),
+    ('leasing_lead_status', '已转企业', '50', 50, 'success'),
+    ('leasing_lead_status', '已流失', '90', 90, 'danger'),
+    ('leasing_lead_source', '人工录入', 'manual', 10, 'default'),
+    ('leasing_lead_source', '网络咨询', 'online', 20, 'primary'),
+    ('leasing_lead_source', '电话咨询', 'phone', 30, 'success'),
+    ('leasing_lead_source', '到访咨询', 'visit', 40, 'warning'),
+    ('leasing_lead_source', '转介绍', 'referral', 50, 'primary'),
+    ('leasing_lead_source', '活动获客', 'campaign', 60, 'success'),
+    ('leasing_lead_source', '其他', 'other', 90, 'default'),
+    ('leasing_intention_level', '低意向', '10', 10, 'default'),
+    ('leasing_intention_level', '中意向', '20', 20, 'primary'),
+    ('leasing_intention_level', '高意向', '30', 30, 'warning'),
+    ('leasing_intention_level', '重点意向', '40', 40, 'danger'),
+    ('leasing_follow_type', '电话', 'phone', 10, 'success'),
+    ('leasing_follow_type', '微信', 'wechat', 20, 'primary'),
+    ('leasing_follow_type', '邮件', 'email', 30, 'default'),
+    ('leasing_follow_type', '拜访', 'visit', 40, 'warning'),
+    ('leasing_follow_type', '会议', 'meeting', 50, 'primary'),
+    ('leasing_follow_type', '其他', 'other', 90, 'default')
 ),
 desired_dict_items AS (
   SELECT
@@ -1898,7 +2025,11 @@ retired_dict_items AS (
       'park_tenant_risk_level',
       'industry_code',
       'park_tenant_contact_role',
-      'park_tenant_qualification_type'
+      'park_tenant_qualification_type',
+      'leasing_lead_status',
+      'leasing_lead_source',
+      'leasing_intention_level',
+      'leasing_follow_type'
     )
     AND NOT EXISTS (
       SELECT 1

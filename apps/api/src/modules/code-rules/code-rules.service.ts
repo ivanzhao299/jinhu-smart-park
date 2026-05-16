@@ -296,6 +296,7 @@ export class CodeRulesService {
     if (["device", "camera", "iot_point"].includes(entityType)) return "iot";
     if (["robot", "cleaning_robot", "inspection_robot"].includes(entityType)) return "robot";
     if (entityType === "workorder") return "workorder";
+    if (entityType === "leasing_lead") return "leasing";
     if (entityType === "contract") return "contract";
     if (entityType === "bill") return "finance";
     return "system";
