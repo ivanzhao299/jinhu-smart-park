@@ -20,7 +20,7 @@ export class LeasingContractStatusLogEntity extends AuditableEntity {
   afterStatus!: string;
 
   @Column({ name: "action", type: "varchar", length: 32, default: "system" })
-  action!: "create" | "submit" | "approve" | "reject" | "archive" | "effective" | "void" | "sign" | "system";
+  action!: "create" | "submit" | "approve" | "reject" | "archive" | "effective" | "terminate" | "void" | "sign" | "system";
 
   @Column({ name: "reason", type: "varchar", length: 500, nullable: true })
   reason!: string | null;

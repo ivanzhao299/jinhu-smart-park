@@ -746,7 +746,8 @@ WHERE unit_id IN (${sqlLiteral(unitA.id)}::uuid, ${sqlLiteral(unitB.id)}::uuid)
   assert(tenant360.body.data.contracts.available === true, "tenant 360 contracts should be available");
   assert(tenant360.body.data.contracts.items.some((item) => item.id === adminContract.id), "tenant 360 should include real contract list");
   assert(tenant360.body.data.contracts.summary.active_contract_count >= 1, "tenant 360 active contract count should include effective contract");
-  assert(tenant360.body.data.receivables.available === false, "tenant 360 receivables should remain unavailable before S3-D");
+  assert(tenant360.body.data.receivables.available === true, "tenant 360 receivables should be available after S3-D-A");
+  assert(Array.isArray(tenant360.body.data.receivables.recent_items), "tenant 360 receivables should expose a real receivable list");
 
   const leadWithTenant = await jsonRequest(
     "/leasing/leads",

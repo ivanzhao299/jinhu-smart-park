@@ -11,6 +11,8 @@ import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 
+const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -20,6 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<UserContext | null>(getStoredUser());
   const [ready, setReady] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -39,6 +42,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       });
   }, [router]);
 
+  useEffect(() => {
+    setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+  }, []);
+
+  const handleSidebarCollapsedChange = (collapsed: boolean) => {
+    setSidebarCollapsed(collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  };
+
   const requiredMenu = useMemo(() => findMenuByPath(pathname), [pathname]);
 
   useEffect(() => {
@@ -56,8 +68,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <AuthUserContext.Provider value={user}>
-      <div className="dashboard-shell">
-        <AppSidebar />
+      <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+        <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
         <div className="dashboard-main">
           <AppHeader />
           <AppBreadcrumb />

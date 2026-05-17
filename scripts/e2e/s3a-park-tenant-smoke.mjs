@@ -511,7 +511,12 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   assert(adminTenant360.body.data.contracts.available === true, "tenant 360 contracts should be available after S3-C-A contract module");
   assert(Array.isArray(adminTenant360.body.data.contracts.items), "tenant 360 contracts should expose a real contract item list");
   assert(adminTenant360.body.data.contracts.summary?.contract_count === 0, "new tenant 360 contract summary should start at zero");
-  assert(adminTenant360.body.data.receivables.available === false, "tenant 360 receivables should be unavailable before receivable module");
+  assert(adminTenant360.body.data.receivables.available === true, "tenant 360 receivables should be available after S3-D-A receivable module");
+  assert(Array.isArray(adminTenant360.body.data.receivables.recent_items), "tenant 360 receivables should expose a real receivable list");
+  assert(adminTenant360.body.data.payments.available === true, "tenant 360 payments should be available after S3-D-A payment module");
+  assert(Array.isArray(adminTenant360.body.data.payments.recent_items), "tenant 360 payments should expose a real payment list");
+  assert(adminTenant360.body.data.invoices.available === true, "tenant 360 invoices should be available after S3-D-A invoice module");
+  assert(Array.isArray(adminTenant360.body.data.invoices.recent_items), "tenant 360 invoices should expose a real invoice list");
   assert(adminTenant360.body.data.workorders.available === false, "tenant 360 workorders should be unavailable before workorder module");
   assert(adminTenant360.body.data.hazards.available === false, "tenant 360 hazards should be unavailable before safety module");
   assert(adminTenant360.body.data.energy.available === false, "tenant 360 energy should be unavailable before energy module");

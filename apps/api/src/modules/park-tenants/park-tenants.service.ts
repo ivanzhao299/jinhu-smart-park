@@ -1,13 +1,18 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
+import { Brackets, type ObjectLiteral, type Repository, type SelectQueryBuilder } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CodeRulesService } from "../code-rules/code-rules.service";
-import { DataScopeService } from "../data-scopes/data-scope.service";
+import { DataScopeService, type DataScopeFilter } from "../data-scopes/data-scope.service";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
+import { LeasingInvoiceReceivableEntity } from "../leasing-invoices/entities/leasing-invoice-receivable.entity";
+import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
+import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
+import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
+import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
 import type { ChangeParkTenantRiskDto } from "./dto/change-park-tenant-risk.dto";
 import type { CreateParkTenantDto } from "./dto/create-park-tenant.dto";
 import type { ParkTenantQueryDto } from "./dto/park-tenant-query.dto";
@@ -42,6 +47,12 @@ export class ParkTenantsService {
     private readonly qualificationsRepository: Repository<ParkTenantQualificationEntity>,
     @InjectRepository(LeasingContractEntity)
     private readonly contractsRepository: Repository<LeasingContractEntity>,
+    @InjectRepository(LeasingReceivableEntity)
+    private readonly receivablesRepository: Repository<LeasingReceivableEntity>,
+    @InjectRepository(LeasingPaymentEntity)
+    private readonly paymentsRepository: Repository<LeasingPaymentEntity>,
+    @InjectRepository(LeasingInvoiceEntity)
+    private readonly invoicesRepository: Repository<LeasingInvoiceEntity>,
     @InjectRepository(DictItemEntity)
     private readonly dictItemsRepository: Repository<DictItemEntity>,
     private readonly codeRulesService: CodeRulesService,
@@ -69,7 +80,74 @@ export class ParkTenantsService {
 
   async tenant360(scope: TenantParkScope, id: string, actor: JwtPrincipal) {
     const profile = await this.detail(scope, id, actor);
-    const [contactsRaw, qualificationsRaw, riskLogsRaw, contractsRaw] = await Promise.all([
+    const receivablesBuilder = this.receivablesRepository
+      .createQueryBuilder("receivable")
+      .leftJoinAndSelect("receivable.contract", "contract")
+      .leftJoin("contract.sourceLead", "sourceLead")
+      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("receivable.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("receivable.is_deleted = false")
+      .orderBy("receivable.dueDate", "DESC")
+      .addOrderBy("receivable.createTime", "DESC");
+    const paymentsBuilder = this.paymentsRepository
+      .createQueryBuilder("payment")
+      .distinct(true)
+      .leftJoin(LeasingPaymentReceivableEntity, "paymentApplication", "paymentApplication.paymentId = payment.id AND paymentApplication.isDeleted = false")
+      .leftJoin(LeasingReceivableEntity, "paymentReceivable", "paymentReceivable.id = paymentApplication.receivableId AND paymentReceivable.isDeleted = false")
+      .leftJoin("paymentReceivable.contract", "paymentContract")
+      .leftJoin("paymentContract.sourceLead", "paymentSourceLead")
+      .where("payment.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("payment.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("payment.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("payment.is_deleted = false")
+      .orderBy("payment.payTime", "DESC")
+      .addOrderBy("payment.createTime", "DESC");
+    const invoicesBuilder = this.invoicesRepository
+      .createQueryBuilder("invoice")
+      .distinct(true)
+      .leftJoin(LeasingInvoiceReceivableEntity, "invoiceApplication", "invoiceApplication.invoiceId = invoice.id AND invoiceApplication.isDeleted = false")
+      .leftJoin(LeasingReceivableEntity, "invoiceReceivable", "invoiceReceivable.id = invoiceApplication.receivableId AND invoiceReceivable.isDeleted = false")
+      .leftJoin("invoiceReceivable.contract", "invoiceContract")
+      .leftJoin("invoiceContract.sourceLead", "invoiceSourceLead")
+      .where("invoice.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("invoice.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("invoice.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("invoice.is_deleted = false")
+      .orderBy("invoice.invoiceDate", "DESC")
+      .addOrderBy("invoice.createTime", "DESC");
+    await Promise.all([
+      this.applyFinanceDataScope(receivablesBuilder, scope, actor, {
+        rootAlias: "receivable",
+        parameterPrefix: "tenant360Receivable",
+        ownerAliases: ["receivable"],
+        contractAlias: "contract",
+        sourceLeadAlias: "sourceLead"
+      }),
+      this.applyFinanceDataScope(paymentsBuilder, scope, actor, {
+        rootAlias: "payment",
+        parameterPrefix: "tenant360Payment",
+        ownerAliases: ["payment", "paymentReceivable"],
+        contractAlias: "paymentContract",
+        sourceLeadAlias: "paymentSourceLead"
+      }),
+      this.applyFinanceDataScope(invoicesBuilder, scope, actor, {
+        rootAlias: "invoice",
+        parameterPrefix: "tenant360Invoice",
+        ownerAliases: ["invoice", "invoiceReceivable"],
+        contractAlias: "invoiceContract",
+        sourceLeadAlias: "invoiceSourceLead"
+      })
+    ]);
+    const [
+      contactsRaw,
+      qualificationsRaw,
+      riskLogsRaw,
+      contractsRaw,
+      receivablesAllRaw,
+      paymentsAllRaw,
+      invoicesAllRaw
+    ] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
         .where("contact.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -106,9 +184,18 @@ export class ParkTenantsService {
         .andWhere("contract.is_deleted = false")
         .orderBy("contract.start_date", "DESC")
         .addOrderBy("contract.create_time", "DESC")
-        .getMany()
+        .getMany(),
+      receivablesBuilder.getMany(),
+      paymentsBuilder.getMany(),
+      invoicesBuilder.getMany()
     ]);
-    const [contacts, qualifications, riskLogs, contracts] = await Promise.all([
+    const receivablesRaw = receivablesAllRaw.slice(0, 5);
+    const paymentsRaw = paymentsAllRaw.slice(0, 5);
+    const invoicesRaw = invoicesAllRaw.slice(0, 5);
+    const receivableSummaryRaw = this.buildReceivableSummary(receivablesAllRaw);
+    const paymentSummaryRaw = this.buildPaymentSummary(paymentsAllRaw);
+    const invoiceSummaryRaw = this.buildInvoiceSummary(invoicesAllRaw);
+    const [contacts, qualifications, riskLogs, contracts, receivables, payments, invoices, receivablesSummary, paymentsSummary, invoicesSummary] = await Promise.all([
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_contact", contactsRaw),
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_qualification", qualificationsRaw),
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_risk_log", riskLogsRaw),
@@ -126,7 +213,65 @@ export class ParkTenantsService {
           total_amount: contract.totalAmount,
           status: contract.status
         }))
-      )
+      ),
+      this.fieldPolicyService.applyFieldPoliciesToList(
+        scope,
+        actor,
+        "leasing",
+        "leasing_receivable",
+        receivablesRaw.map((receivable) => ({
+          id: receivable.id,
+          ar_code: receivable.arCode,
+          contract_id: receivable.contractId,
+          contract_code: receivable.contract?.contractCode ?? null,
+          fee_type: receivable.feeType,
+          period_start: receivable.periodStart,
+          period_end: receivable.periodEnd,
+          due_date: receivable.dueDate,
+          amount_due: receivable.amountDue,
+          amount_paid: receivable.amountPaid,
+          amount_waived: receivable.amountWaived,
+          amount_remain: receivable.amountRemain,
+          late_fee: receivable.lateFee,
+          overdue_days: receivable.overdueDays,
+          invoice_status: receivable.invoiceStatus,
+          status: receivable.status
+        }))
+      ),
+      this.fieldPolicyService.applyFieldPoliciesToList(
+        scope,
+        actor,
+        "leasing",
+        "leasing_payment",
+        paymentsRaw.map((payment) => ({
+          id: payment.id,
+          pay_code: payment.payCode,
+          pay_time: payment.payTime,
+          pay_method: payment.payMethod,
+          pay_amount: payment.payAmount,
+          unapplied_amount: payment.unappliedAmount,
+          payer_name: payment.payerName,
+          status: payment.status
+        }))
+      ),
+      this.fieldPolicyService.applyFieldPoliciesToList(
+        scope,
+        actor,
+        "leasing",
+        "leasing_invoice",
+        invoicesRaw.map((invoice) => ({
+          id: invoice.id,
+          invoice_code: invoice.invoiceCode,
+          invoice_type: invoice.invoiceType,
+          invoice_no: invoice.invoiceNo,
+          invoice_date: invoice.invoiceDate,
+          amount: invoice.amount,
+          status: invoice.status
+        }))
+      ),
+      this.secureReceivableSummary(scope, actor, receivableSummaryRaw),
+      this.securePaymentSummary(scope, actor, paymentSummaryRaw),
+      this.secureInvoiceSummary(scope, actor, invoiceSummaryRaw)
     ]);
     return {
       profile: this.toTenant360Profile(profile),
@@ -142,7 +287,9 @@ export class ParkTenantsService {
           active_contract_count: contractsRaw.filter((contract) => contract.status === "75").length
         }
       },
-      receivables: { available: false, summary: null },
+      receivables: { available: true, summary: receivablesSummary, recent_items: receivables },
+      payments: { available: true, summary: paymentsSummary, recent_items: payments },
+      invoices: { available: true, summary: invoicesSummary, recent_items: invoices },
       workorders: { available: false, summary: null },
       hazards: { available: false, summary: null },
       energy: { available: false, summary: null }
@@ -339,6 +486,97 @@ export class ParkTenantsService {
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "tenant_company", "parkTenant", { tenantCompany: "id" });
   }
 
+  private async applyFinanceDataScope<Entity extends ObjectLiteral>(
+    builder: SelectQueryBuilder<Entity>,
+    scope: TenantParkScope,
+    actor: JwtPrincipal | undefined,
+    config: {
+      rootAlias: string;
+      parameterPrefix: string;
+      ownerAliases: string[];
+      contractAlias: string;
+      sourceLeadAlias: string;
+    }
+  ): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) return;
+    const [parkFilter, tenantCompanyFilter, contractOwnerFilter, customerOwnerFilter] = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "tenant_company"),
+      this.dataScopeService.buildScopeFilter(actor, "contract_owner"),
+      this.dataScopeService.buildScopeFilter(actor, "customer_owner")
+    ]);
+    this.applyConfiguredIdScopeFilter(builder, config.rootAlias, "park_id", parkFilter, `${config.parameterPrefix}ParkScopeIds`);
+    this.applyConfiguredIdScopeFilter(builder, config.rootAlias, "park_tenant_id", tenantCompanyFilter, `${config.parameterPrefix}ParkTenantScopeIds`);
+    this.applyFinanceOwnerDataScope(builder, contractOwnerFilter, customerOwnerFilter, config);
+  }
+
+  private applyConfiguredIdScopeFilter<Entity extends ObjectLiteral>(
+    builder: SelectQueryBuilder<Entity>,
+    alias: string,
+    column: string,
+    filter: DataScopeFilter,
+    parameterName: string
+  ): void {
+    if (filter.unrestricted) return;
+    if (filter.allowed_ids.length > 0) {
+      builder.andWhere(`${alias}.${column} IN (:...${parameterName})`, { [parameterName]: filter.allowed_ids });
+      return;
+    }
+    if (filter.scope_types.includes("custom")) builder.andWhere("1 = 0");
+  }
+
+  private applyFinanceOwnerDataScope<Entity extends ObjectLiteral>(
+    builder: SelectQueryBuilder<Entity>,
+    contractOwnerFilter: DataScopeFilter,
+    customerOwnerFilter: DataScopeFilter,
+    config: {
+      parameterPrefix: string;
+      ownerAliases: string[];
+      contractAlias: string;
+      sourceLeadAlias: string;
+    }
+  ): void {
+    if (contractOwnerFilter.unrestricted) return;
+
+    const clauses: Array<{ sql: string; params?: Record<string, string[]> }> = [];
+    if (contractOwnerFilter.allowed_ids.length > 0) {
+      config.ownerAliases.forEach((alias, index) => {
+        clauses.push({
+          sql: `${alias}.create_by IN (:...${config.parameterPrefix}OwnerScopeIds${index})`,
+          params: { [`${config.parameterPrefix}OwnerScopeIds${index}`]: contractOwnerFilter.allowed_ids }
+        });
+      });
+      clauses.push({
+        sql: `${config.contractAlias}.create_by IN (:...${config.parameterPrefix}ContractOwnerScopeIds)`,
+        params: { [`${config.parameterPrefix}ContractOwnerScopeIds`]: contractOwnerFilter.allowed_ids }
+      });
+    }
+
+    if (customerOwnerFilter.unrestricted) {
+      clauses.push({ sql: `${config.sourceLeadAlias}.id IS NOT NULL` });
+    } else if (customerOwnerFilter.allowed_ids.length > 0) {
+      clauses.push({
+        sql: `${config.sourceLeadAlias}.follow_user_id IN (:...${config.parameterPrefix}CustomerOwnerScopeIds)`,
+        params: { [`${config.parameterPrefix}CustomerOwnerScopeIds`]: customerOwnerFilter.allowed_ids }
+      });
+    }
+
+    if (clauses.length === 0) {
+      builder.andWhere("1 = 0");
+      return;
+    }
+
+    builder.andWhere(new Brackets((qb) => {
+      clauses.forEach((clause, index) => {
+        if (index === 0) {
+          qb.where(clause.sql, clause.params);
+        } else {
+          qb.orWhere(clause.sql, clause.params);
+        }
+      });
+    }));
+  }
+
   private async resolveParkTenantCode(scope: TenantParkScope, actorId: string, code?: string): Promise<string> {
     const providedCode = code?.trim();
     if (providedCode) {
@@ -437,5 +675,125 @@ export class ParkTenantsService {
       }
       return record;
     });
+  }
+
+  private buildReceivableSummary(rows: LeasingReceivableEntity[]) {
+    const totals = rows.reduce(
+      (acc, row) => {
+        const remain = this.toNumber(row.amountRemain);
+        acc.totalAmountDue += this.toNumber(row.amountDue);
+        acc.totalAmountPaid += this.toNumber(row.amountPaid);
+        acc.totalAmountRemain += remain;
+        if (remain > 0 && this.isOverdue(row)) {
+          acc.overdueAmount += remain;
+          acc.overdueCount += 1;
+        }
+        return acc;
+      },
+      { totalAmountDue: 0, totalAmountPaid: 0, totalAmountRemain: 0, overdueAmount: 0, overdueCount: 0 }
+    );
+    return {
+      totalAmountDue: this.decimal(totals.totalAmountDue),
+      totalAmountPaid: this.decimal(totals.totalAmountPaid),
+      totalAmountRemain: this.decimal(totals.totalAmountRemain),
+      overdueAmount: this.decimal(totals.overdueAmount),
+      overdueCount: String(totals.overdueCount)
+    };
+  }
+
+  private buildPaymentSummary(rows: LeasingPaymentEntity[]) {
+    const totals = rows.reduce(
+      (acc, row) => {
+        acc.totalPaymentAmount += this.toNumber(row.payAmount);
+        acc.unappliedAmount += this.toNumber(row.unappliedAmount);
+        return acc;
+      },
+      { totalPaymentAmount: 0, unappliedAmount: 0 }
+    );
+    return {
+      totalPaymentAmount: this.decimal(totals.totalPaymentAmount),
+      unappliedAmount: this.decimal(totals.unappliedAmount)
+    };
+  }
+
+  private buildInvoiceSummary(rows: LeasingInvoiceEntity[]) {
+    const invoiceAmount = rows.reduce((sum, row) => sum + this.toNumber(row.amount), 0);
+    return {
+      invoiceCount: String(rows.length),
+      invoiceAmount: this.decimal(invoiceAmount)
+    };
+  }
+
+  private isOverdue(row: LeasingReceivableEntity): boolean {
+    if (this.toNumber(row.amountRemain) <= 0) return false;
+    if (row.overdueDays > 0) return true;
+    const due = new Date(`${row.dueDate.slice(0, 10)}T00:00:00Z`).getTime();
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`).getTime();
+    return Number.isFinite(due) && due < today;
+  }
+
+  private async secureReceivableSummary(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    raw?: {
+      totalAmountDue?: string | null;
+      totalAmountPaid?: string | null;
+      totalAmountRemain?: string | null;
+      overdueAmount?: string | null;
+      overdueCount?: string | null;
+    } | null
+  ) {
+    const secured = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_receivable", {
+      amountDue: this.decimal(raw?.totalAmountDue),
+      amountPaid: this.decimal(raw?.totalAmountPaid),
+      amountRemain: this.decimal(raw?.totalAmountRemain),
+      overdueAmount: this.decimal(raw?.overdueAmount)
+    });
+    return {
+      total_amount_due: secured.amountDue ?? null,
+      total_amount_paid: secured.amountPaid ?? null,
+      total_amount_remain: secured.amountRemain ?? null,
+      overdue_amount: secured.overdueAmount ?? null,
+      overdue_count: Number(raw?.overdueCount ?? 0)
+    };
+  }
+
+  private async securePaymentSummary(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    raw?: { totalPaymentAmount?: string | null; unappliedAmount?: string | null } | null
+  ) {
+    const secured = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_payment", {
+      payAmount: this.decimal(raw?.totalPaymentAmount),
+      unappliedAmount: this.decimal(raw?.unappliedAmount)
+    });
+    return {
+      total_payment_amount: secured.payAmount ?? null,
+      unapplied_amount: secured.unappliedAmount ?? null
+    };
+  }
+
+  private async secureInvoiceSummary(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    raw?: { invoiceCount?: string | null; invoiceAmount?: string | null } | null
+  ) {
+    const secured = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_invoice", {
+      amount: this.decimal(raw?.invoiceAmount)
+    });
+    return {
+      invoice_count: Number(raw?.invoiceCount ?? 0),
+      invoice_amount: secured.amount ?? null
+    };
+  }
+
+  private decimal(value: unknown): string {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00";
+  }
+
+  private toNumber(value: unknown): number {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 }

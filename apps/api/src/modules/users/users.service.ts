@@ -613,6 +613,10 @@ export class UsersService {
       permissionCode?.startsWith("leasing_quote:") ||
       permissionCode?.startsWith("leasing_contract:") ||
       permissionCode?.startsWith("leasing_contract_unit:") ||
+      permissionCode?.startsWith("leasing_receivable:") ||
+      permissionCode?.startsWith("leasing_payment:") ||
+      permissionCode?.startsWith("leasing_waiver:") ||
+      permissionCode?.startsWith("leasing_invoice:") ||
       permissionCode?.startsWith("leasing_statistics:")
     ) {
       return "leasing";
@@ -674,7 +678,11 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "公海池", href: "/leasing/lead-pool", permission: "leasing_lead_pool:read", module: "leasing" },
       { label: "招商漏斗", href: "/leasing/funnel", permission: "leasing_statistics:funnel", module: "leasing" },
       { label: "合同管理", href: "/leasing/contracts", permission: "leasing_contract:read", module: "leasing" },
-      { label: "应收账单", href: "/finance/receivables", permission: "ar:read", module: "leasing" }
+      { label: "应收账单", href: "/leasing/receivables", permission: "leasing_receivable:read", module: "leasing" },
+      { label: "收款登记", href: "/leasing/payments", permission: "leasing_payment:read", module: "leasing" },
+      { label: "欠费账龄", href: "/leasing/aging", permission: "leasing_receivable:aging", module: "leasing" },
+      { label: "豁免管理", href: "/leasing/waivers", permission: "leasing_waiver:read", module: "leasing" },
+      { label: "发票登记", href: "/leasing/invoices", permission: "leasing_invoice:read", module: "leasing" }
     ]
   },
   {

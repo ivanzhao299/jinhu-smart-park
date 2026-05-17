@@ -33,13 +33,20 @@ const CONTRACT_PERMISSIONS = {
   void: "leasing_contract:void",
   archive: "leasing_contract:archive",
   effective: "leasing_contract:effective",
+  renew: "leasing_contract:renew",
   statusLog: "leasing_contract:status_log",
+  actionLog: "leasing_contract:action_log",
   fileRead: "leasing_contract:file_read",
   unitRead: "leasing_contract_unit:read",
   unitCreate: "leasing_contract_unit:create",
   unitUpdate: "leasing_contract_unit:update",
   unitDelete: "leasing_contract_unit:delete",
-  recalculate: "leasing_contract:recalculate"
+  recalculate: "leasing_contract:recalculate",
+  generateReceivables: "leasing_receivable:generate",
+  changeRead: "leasing_contract_change:read",
+  changeCreate: "leasing_contract_change:create",
+  checkoutRead: "leasing_checkout:read",
+  checkoutCreate: "leasing_checkout:create"
 } as const;
 const FILE_PERMISSIONS = {
   upload: "file:upload",
@@ -116,6 +123,7 @@ interface LeasingContractRow {
   sourceType: string;
   sourceLeadId: string | null;
   sourceQuoteId: string | null;
+  renewalFromContractId?: string | null;
   startDate: string;
   endDate: string;
   signDate: string | null;
@@ -170,6 +178,52 @@ interface ContractStatusLogRow {
   remark: string | null;
 }
 
+interface ContractActionLogRow {
+  id: string;
+  contractId: string;
+  bizType: "contract_change" | "renewal" | "checkout" | "refund" | "contract";
+  bizId: string | null;
+  action: string;
+  beforeStatus: string | null;
+  afterStatus: string | null;
+  reason: string | null;
+  operatorId: string | null;
+  operatorName: string | null;
+  opTime: string;
+  remark: string | null;
+}
+
+interface ContractChangeRow {
+  id: string;
+  changeCode: string;
+  contractId: string;
+  parkTenantId: string;
+  changeType: string;
+  changeReason: string;
+  effectiveDate: string;
+  beforeSnapshot: Record<string, unknown>;
+  afterSnapshot: Record<string, unknown>;
+  receivablePolicy: string;
+  status: string;
+  updateTime: string;
+}
+
+interface CheckoutRow {
+  id: string;
+  checkoutCode: string;
+  contractId: string;
+  parkTenantId: string;
+  checkoutType: string;
+  plannedCheckoutDate: string;
+  actualCheckoutDate: string | null;
+  releaseUnitStatus: string;
+  settlementStatus: string;
+  refundAmount?: string | null;
+  amountDueFromTenant?: string | null;
+  status: string;
+  updateTime: string;
+}
+
 interface ContractFormState {
   contractCode: string;
   contractName: string;
@@ -218,6 +272,37 @@ interface ArchiveFormState {
 interface EffectiveFormState {
   effectiveDate: string;
   opinion: string;
+}
+
+interface RenewalFormState {
+  contractName: string;
+  startDate: string;
+  endDate: string;
+  rentUnitPrice: string;
+  depositMonths: string;
+  freeRentMonths: string;
+  paymentPeriod: string;
+  paymentAdvanceDays: string;
+}
+
+interface ReceivableGenerationRow {
+  contract_id: string;
+  fee_type: string;
+  period_start: string;
+  period_end: string;
+  due_date?: string;
+  amount_due?: string;
+  receivable_id?: string;
+  ar_code?: string;
+  status: "generated" | "regenerated" | "skipped" | "failed";
+  message?: string;
+}
+
+interface ReceivableGenerationResult {
+  generated_count: number;
+  skipped_count: number;
+  failed_count: number;
+  rows: ReceivableGenerationRow[];
 }
 
 const emptyPage: PaginatedResult<LeasingContractRow> = { items: [], page: 1, page_size: 20, total: 0 };
@@ -271,6 +356,17 @@ const emptyEffectiveForm: EffectiveFormState = {
   opinion: "合同已生效"
 };
 
+const emptyRenewalForm: RenewalFormState = {
+  contractName: "",
+  startDate: "",
+  endDate: "",
+  rentUnitPrice: "",
+  depositMonths: "",
+  freeRentMonths: "0",
+  paymentPeriod: "",
+  paymentAdvanceDays: ""
+};
+
 export default function LeasingContractsPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<LeasingContractRow>>(emptyPage);
@@ -282,6 +378,11 @@ export default function LeasingContractsPage() {
   const [contractUnits, setContractUnits] = useState<ContractUnitRow[]>([]);
   const [contractFiles, setContractFiles] = useState<FileRecord[]>([]);
   const [contractStatusLogs, setContractStatusLogs] = useState<ContractStatusLogRow[]>([]);
+  const [contractActionLogs, setContractActionLogs] = useState<ContractActionLogRow[]>([]);
+  const [contractChanges, setContractChanges] = useState<ContractChangeRow[]>([]);
+  const [contractCheckouts, setContractCheckouts] = useState<CheckoutRow[]>([]);
+  const [renewalContracts, setRenewalContracts] = useState<LeasingContractRow[]>([]);
+  const [receivableGenerationResult, setReceivableGenerationResult] = useState<ReceivableGenerationResult | null>(null);
   const [message, setMessage] = useState("");
   const [filters, setFilters] = useState({ keyword: "", status: "", contractType: "", parkTenantId: "", startDate: "", endDate: "" });
   const [unitFilters, setUnitFilters] = useState({ buildingId: "", floorId: "", rentalStatus: "" });
@@ -291,18 +392,35 @@ export default function LeasingContractsPage() {
   const [unitForm, setUnitForm] = useState<ContractUnitFormState>(emptyUnitForm);
   const [archiveForm, setArchiveForm] = useState<ArchiveFormState>(emptyArchiveForm);
   const [effectiveForm, setEffectiveForm] = useState<EffectiveFormState>(emptyEffectiveForm);
+  const [renewalForm, setRenewalForm] = useState<RenewalFormState>(emptyRenewalForm);
+  const [showRenewalForm, setShowRenewalForm] = useState(false);
 
   const statusItems = dicts.leasing_contract_status ?? [];
   const typeItems = dicts.leasing_contract_type ?? [];
+  const sourceTypeItems = dicts.leasing_contract_source_type ?? [];
   const paymentItems = dicts.leasing_payment_period ?? [];
   const unitRentalStatusItems = dicts.unit_rental_status ?? [];
+  const feeTypeItems = dicts.leasing_fee_type ?? [];
+  const changeTypeItems = dicts.leasing_contract_change_type ?? [];
+  const changeStatusItems = dicts.leasing_contract_change_status ?? [];
+  const receivablePolicyItems = dicts.leasing_receivable_adjust_policy ?? [];
+  const checkoutTypeItems = dicts.leasing_checkout_type ?? [];
+  const checkoutStatusItems = dicts.leasing_checkout_status ?? [];
+  const settlementStatusItems = dicts.leasing_settlement_status ?? [];
+  const releaseStatusItems = dicts.leasing_release_unit_status ?? [];
   const canReadContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitRead);
   const canReadContractFiles = hasPermission(authUser, CONTRACT_PERMISSIONS.fileRead);
   const canReadContractStatusLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.statusLog);
+  const canReadContractActionLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.actionLog);
   const canCreateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitCreate);
   const canUpdateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitUpdate);
   const canDeleteContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitDelete);
   const canRecalculate = hasPermission(authUser, CONTRACT_PERMISSIONS.recalculate);
+  const canGenerateReceivables = hasPermission(authUser, CONTRACT_PERMISSIONS.generateReceivables);
+  const canReadContractChanges = hasPermission(authUser, CONTRACT_PERMISSIONS.changeRead);
+  const canReadCheckouts = hasPermission(authUser, CONTRACT_PERMISSIONS.checkoutRead);
+  const canCreateCheckout = hasPermission(authUser, CONTRACT_PERMISSIONS.checkoutCreate);
+  const canRenew = hasPermission(authUser, CONTRACT_PERMISSIONS.renew);
   const canViewRentUnitPrice = canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, FIELD_RENT_UNIT_PRICE);
   const canViewRentPerMonth = canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, FIELD_RENT_PER_MONTH);
   const canViewTotalAmount = canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, FIELD_TOTAL_AMOUNT);
@@ -338,7 +456,21 @@ export default function LeasingContractsPage() {
       token: getAccessToken()
     });
     const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
-    const codes = ["leasing_contract_status", "leasing_contract_type", "leasing_payment_period", "unit_rental_status"];
+    const codes = [
+      "leasing_contract_status",
+      "leasing_contract_type",
+      "leasing_contract_source_type",
+      "leasing_payment_period",
+      "unit_rental_status",
+      "leasing_fee_type",
+      "leasing_contract_change_type",
+      "leasing_contract_change_status",
+      "leasing_receivable_adjust_policy",
+      "leasing_checkout_type",
+      "leasing_checkout_status",
+      "leasing_settlement_status",
+      "leasing_release_unit_status"
+    ];
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = dictTypeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
@@ -406,6 +538,37 @@ export default function LeasingContractsPage() {
     setContractStatusLogs(response.data.items);
   }, [canReadContractStatusLogs]);
 
+  const loadContractActionLogs = useCallback(async (contractId: string) => {
+    if (!canReadContractActionLogs) return;
+    const response = await apiRequest<PaginatedResult<ContractActionLogRow>>(`/leasing/contracts/${contractId}/action-logs?page=1&page_size=100`, {
+      token: getAccessToken()
+    });
+    setContractActionLogs(response.data.items);
+  }, [canReadContractActionLogs]);
+
+  const loadContractChanges = useCallback(async (contractId: string) => {
+    if (!canReadContractChanges) return;
+    const response = await apiRequest<PaginatedResult<ContractChangeRow>>(`/leasing/contract-changes?contract_id=${contractId}&page=1&page_size=100&sort=-updateTime`, {
+      token: getAccessToken()
+    });
+    setContractChanges(response.data.items);
+  }, [canReadContractChanges]);
+
+  const loadRenewalContracts = useCallback(async (contractId: string) => {
+    const response = await apiRequest<PaginatedResult<LeasingContractRow>>(`/leasing/contracts?renewal_from_contract_id=${contractId}&page=1&page_size=100&sort=-createTime`, {
+      token: getAccessToken()
+    });
+    setRenewalContracts(response.data.items);
+  }, []);
+
+  const loadContractCheckouts = useCallback(async (contractId: string) => {
+    if (!canReadCheckouts) return;
+    const response = await apiRequest<PaginatedResult<CheckoutRow>>(`/leasing/checkouts?contract_id=${contractId}&page=1&page_size=100&sort=-updateTime`, {
+      token: getAccessToken()
+    });
+    setContractCheckouts(response.data.items);
+  }, [canReadCheckouts]);
+
   const refreshEditingContract = useCallback(async (contractId: string) => {
     const response = await apiRequest<LeasingContractRow>(`/leasing/contracts/${contractId}`, {
       token: getAccessToken()
@@ -417,7 +580,11 @@ export default function LeasingContractsPage() {
     await load(pageData.page);
     await loadContractFiles(contractId);
     await loadContractStatusLogs(contractId);
-  }, [load, loadContractFiles, loadContractStatusLogs, pageData.page]);
+    await loadContractActionLogs(contractId);
+    await loadContractChanges(contractId);
+    await loadRenewalContracts(contractId);
+    await loadContractCheckouts(contractId);
+  }, [load, loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractStatusLogs, loadRenewalContracts, pageData.page]);
 
   const openContractDrawer = useCallback((row: LeasingContractRow) => {
     setEditing(row);
@@ -425,11 +592,18 @@ export default function LeasingContractsPage() {
     syncArchiveFormFromContract(row, setArchiveForm);
     syncEffectiveFormFromContract(row, setEffectiveForm);
     setUnitForm(emptyUnitForm);
+    setRenewalForm(formFromRenewalSource(row));
+    setShowRenewalForm(false);
+    setReceivableGenerationResult(null);
     void loadContractUnits(row.id).catch((error: Error) => setMessage(error.message));
     void loadContractFiles(row.id).catch((error: Error) => setMessage(error.message));
     void loadContractStatusLogs(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractActionLogs(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractChanges(row.id).catch((error: Error) => setMessage(error.message));
+    void loadRenewalContracts(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractCheckouts(row.id).catch((error: Error) => setMessage(error.message));
     setShowForm(true);
-  }, [loadContractFiles, loadContractStatusLogs, loadContractUnits]);
+  }, [loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractStatusLogs, loadContractUnits, loadRenewalContracts]);
 
   useEffect(() => {
     void loadDicts().catch((error: Error) => setMessage(error.message));
@@ -465,9 +639,16 @@ export default function LeasingContractsPage() {
     setContractUnits([]);
     setContractFiles([]);
     setContractStatusLogs([]);
+    setContractActionLogs([]);
+    setContractChanges([]);
+    setContractCheckouts([]);
+    setRenewalContracts([]);
     setUnitForm(emptyUnitForm);
     setArchiveForm(emptyArchiveForm);
     setEffectiveForm(emptyEffectiveForm);
+    setRenewalForm(emptyRenewalForm);
+    setShowRenewalForm(false);
+    setReceivableGenerationResult(null);
     setShowForm(true);
   }
 
@@ -636,6 +817,7 @@ export default function LeasingContractsPage() {
       syncEffectiveFormFromContract(response.data, setEffectiveForm);
       await loadContractUnits(row.id);
       await loadContractStatusLogs(row.id);
+      await loadContractActionLogs(row.id);
     }
     await load(pageData.page);
   }
@@ -665,6 +847,7 @@ export default function LeasingContractsPage() {
     syncEffectiveFormFromContract(response.data, setEffectiveForm);
     await loadContractFiles(editing.id);
     await loadContractStatusLogs(editing.id);
+    await loadContractActionLogs(editing.id);
     await load(pageData.page);
   }
 
@@ -691,7 +874,54 @@ export default function LeasingContractsPage() {
     syncEffectiveFormFromContract(response.data, setEffectiveForm);
     await loadContractUnits(editing.id);
     await loadContractStatusLogs(editing.id);
+    await loadContractActionLogs(editing.id);
     await load(pageData.page);
+  }
+
+  async function generateReceivables() {
+    if (!editing) return;
+    const response = await apiRequest<ReceivableGenerationResult>(`/leasing/contracts/${editing.id}/generate-receivables`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-contract-generate-receivables"),
+      body: {
+        include_rent: true,
+        include_deposit: true,
+        include_property_fee: true,
+        force_regenerate: false
+      }
+    });
+    setReceivableGenerationResult(response.data);
+    setMessage(`应收生成完成：新增 ${response.data.generated_count}，跳过 ${response.data.skipped_count}，失败 ${response.data.failed_count}`);
+  }
+
+  async function createRenewalDraft() {
+    if (!editing) return;
+    if (!renewalForm.startDate || !renewalForm.endDate) {
+      setMessage("请填写续租租期");
+      return;
+    }
+    const response = await apiRequest<LeasingContractRow>(`/leasing/contracts/${editing.id}/renew-draft`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-contract-renew-draft"),
+      body: {
+        contract_name: emptyToUndefined(renewalForm.contractName),
+        start_date: renewalForm.startDate,
+        end_date: renewalForm.endDate,
+        rent_unit_price: numberOrUndefined(renewalForm.rentUnitPrice),
+        deposit_months: numberOrUndefined(renewalForm.depositMonths),
+        free_rent_months: numberOrUndefined(renewalForm.freeRentMonths),
+        payment_period: emptyToUndefined(renewalForm.paymentPeriod),
+        payment_advance_days: integerOrUndefined(renewalForm.paymentAdvanceDays)
+      }
+    });
+    setMessage("续租合同草稿已生成");
+    setShowRenewalForm(false);
+    await loadRenewalContracts(editing.id);
+    await loadContractActionLogs(editing.id);
+    await load(pageData.page);
+    openContractDrawer(response.data);
   }
 
   async function downloadContractFile(file: FileRecord) {
@@ -739,7 +969,7 @@ export default function LeasingContractsPage() {
           <section className="page-header">
             <div className="header-title">
               <strong>合同管理</strong>
-              <span>维护租赁合同主档案，本阶段不生成应收账单</span>
+              <span>维护租赁合同主档案，并可对已生效合同手动生成应收账单</span>
             </div>
             <div className="page-actions">
               <button className="primary-button" type="button" onClick={() => void load(pageData.page)}>
@@ -780,6 +1010,7 @@ export default function LeasingContractsPage() {
                   <th>合同名称</th>
                   <th>租户企业</th>
                   <th>合同类型</th>
+                  <th>来源</th>
                   <th>租期</th>
                   <th>总面积</th>
                   <th>月租金</th>
@@ -794,7 +1025,7 @@ export default function LeasingContractsPage() {
               <tbody>
                 {pageData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={13}>暂无合同数据</td>
+                    <td colSpan={14}>暂无合同数据</td>
                   </tr>
                 ) : pageData.items.map((row) => (
                   <tr key={row.id}>
@@ -802,6 +1033,7 @@ export default function LeasingContractsPage() {
                     <td>{row.contractName}</td>
                     <td>{row.parkTenant?.companyName ?? tenantName(parkTenants, row.parkTenantId)}</td>
                     <td>{labelFor(typeItems, row.contractType)}</td>
+                    <td>{labelFor(sourceTypeItems, row.sourceType)}</td>
                     <td>{formatDate(row.startDate)} 至 {formatDate(row.endDate)}</td>
                     <td>{formatArea(row.totalArea)}</td>
                     <td>{moneyText(authUser, canViewRentPerMonth, "rentPerMonth", row.rentPerMonth)}</td>
@@ -923,12 +1155,86 @@ export default function LeasingContractsPage() {
                           标记生效
                         </PermissionButton>
                       ) : null}
+                      {editing.status === "75" && canGenerateReceivables ? (
+                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.generateReceivables} type="button" onClick={() => void generateReceivables().catch((error: Error) => setMessage(error.message))}>
+                          <RefreshCw size={16} />
+                          生成应收
+                        </PermissionButton>
+                      ) : null}
+                      {editing.status === "75" && canRenew ? (
+                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.renew} type="button" onClick={() => { setRenewalForm(formFromRenewalSource(editing)); setShowRenewalForm((current) => !current); }}>
+                          <Plus size={16} />
+                          发起续租
+                        </PermissionButton>
+                      ) : null}
+                      {["70", "75"].includes(editing.status) ? (
+                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.changeCreate} type="button" onClick={() => { window.location.href = `/leasing/contract-changes?contract_id=${editing.id}`; }}>
+                          <Plus size={16} />
+                          发起变更
+                        </PermissionButton>
+                      ) : null}
+                      {editing.status === "75" && canCreateCheckout ? (
+                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.checkoutCreate} type="button" onClick={() => { window.location.href = `/leasing/checkouts?contract_id=${editing.id}`; }}>
+                          <Plus size={16} />
+                          发起退租
+                        </PermissionButton>
+                      ) : null}
                     </span>
                   </div>
                   <ApprovalTrail records={editing.approveRecords ?? []} statusItems={statusItems} />
                   <PermissionGuard permission={CONTRACT_PERMISSIONS.statusLog} fallback={<p className="muted-text">当前账号没有查看合同状态日志的权限。</p>}>
                     <ContractStatusTimeline logs={contractStatusLogs} statusItems={statusItems} />
                   </PermissionGuard>
+                  <PermissionGuard permission={CONTRACT_PERMISSIONS.actionLog} fallback={<p className="muted-text">当前账号没有查看合同操作日志的权限。</p>}>
+                    <ContractActionTimeline logs={contractActionLogs} statusItems={statusItems} />
+                  </PermissionGuard>
+                  <PermissionGuard permission={CONTRACT_PERMISSIONS.changeRead} fallback={<p className="muted-text">当前账号没有查看合同变更记录的权限。</p>}>
+                    <ContractChangeTable changes={contractChanges} changeTypeItems={changeTypeItems} changeStatusItems={changeStatusItems} receivablePolicyItems={receivablePolicyItems} />
+                  </PermissionGuard>
+                  <RenewalContractTable
+                    renewals={renewalContracts}
+                    statusItems={statusItems}
+                    sourceTypeItems={sourceTypeItems}
+                    authUser={authUser}
+                    canViewTotalAmount={canViewTotalAmount}
+                    onOpen={openContractDrawer}
+                  />
+                  <PermissionGuard permission={CONTRACT_PERMISSIONS.checkoutRead} fallback={<p className="muted-text">当前账号没有查看退租记录的权限。</p>}>
+                    <CheckoutTable
+                      checkouts={contractCheckouts}
+                      checkoutTypeItems={checkoutTypeItems}
+                      checkoutStatusItems={checkoutStatusItems}
+                      settlementStatusItems={settlementStatusItems}
+                      releaseStatusItems={releaseStatusItems}
+                      authUser={authUser}
+                    />
+                  </PermissionGuard>
+                  {showRenewalForm && editing.status === "75" ? (
+                    <section className="detail-stack">
+                      <div className="system-toolbar">
+                        <h3>续租草稿</h3>
+                        <span className="muted-text">续租会创建新的合同草稿，不直接修改原合同</span>
+                      </div>
+                      <div className="system-grid">
+                        <TextField label="续租合同名称" value={renewalForm.contractName} onChange={(value) => setRenewalFormValue("contractName", value, setRenewalForm)} />
+                        <DateField label="续租开始日期" value={renewalForm.startDate} onChange={(value) => setRenewalFormValue("startDate", value, setRenewalForm)} required />
+                        <DateField label="续租结束日期" value={renewalForm.endDate} onChange={(value) => setRenewalFormValue("endDate", value, setRenewalForm)} required />
+                        {canEditRentUnitPrice ? <NumberField label="续租租金单价" value={renewalForm.rentUnitPrice} onChange={(value) => setRenewalFormValue("rentUnitPrice", value, setRenewalForm)} /> : null}
+                        <NumberField label="押金月数" value={renewalForm.depositMonths} onChange={(value) => setRenewalFormValue("depositMonths", value, setRenewalForm)} />
+                        <NumberField label="免租月数" value={renewalForm.freeRentMonths} onChange={(value) => setRenewalFormValue("freeRentMonths", value, setRenewalForm)} />
+                        <SelectField label="付款周期" value={renewalForm.paymentPeriod} onChange={(value) => setRenewalFormValue("paymentPeriod", value, setRenewalForm)} options={paymentItems} allowEmpty />
+                        <NumberField label="提前付款天数" value={renewalForm.paymentAdvanceDays} onChange={(value) => setRenewalFormValue("paymentAdvanceDays", value, setRenewalForm)} step="1" />
+                      </div>
+                      <div className="page-actions">
+                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.renew} type="button" onClick={() => void createRenewalDraft().catch((error: Error) => setMessage(error.message))}>
+                          <Plus size={16} />
+                          生成续租草稿
+                        </PermissionButton>
+                        <button className="primary-button" type="button" onClick={() => setShowRenewalForm(false)}>取消</button>
+                      </div>
+                    </section>
+                  ) : null}
+                  {receivableGenerationResult ? <ReceivableGenerationTable result={receivableGenerationResult} feeTypeItems={feeTypeItems} /> : null}
                 </section>
               ) : null}
               {editing ? (
@@ -1149,6 +1455,181 @@ export default function LeasingContractsPage() {
         </main>
       </PermissionGuard>
     </PermissionGuard>
+  );
+}
+
+function ContractChangeTable({
+  changes,
+  changeTypeItems,
+  changeStatusItems,
+  receivablePolicyItems
+}: {
+  changes: ContractChangeRow[];
+  changeTypeItems: DictItemRow[];
+  changeStatusItems: DictItemRow[];
+  receivablePolicyItems: DictItemRow[];
+}) {
+  return (
+    <section className="detail-stack">
+      <div className="system-toolbar">
+        <h3>变更记录</h3>
+        <span className="muted-text">变更单仅记录申请，不直接修改合同主表</span>
+      </div>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>变更单号</th>
+              <th>变更类型</th>
+              <th>生效日期</th>
+              <th>应收策略</th>
+              <th>状态</th>
+              <th>变更原因</th>
+              <th>更新时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            {changes.length === 0 ? (
+              <tr><td colSpan={7}>暂无合同变更记录</td></tr>
+            ) : changes.map((change) => (
+              <tr key={change.id}>
+                <td>{change.changeCode}</td>
+                <td>{labelFor(changeTypeItems, change.changeType)}</td>
+                <td>{formatDate(change.effectiveDate)}</td>
+                <td>{labelFor(receivablePolicyItems, change.receivablePolicy)}</td>
+                <td><DictBadge items={changeStatusItems} value={change.status} /></td>
+                <td>{change.changeReason}</td>
+                <td>{formatDateTime(change.updateTime)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function RenewalContractTable({
+  renewals,
+  statusItems,
+  sourceTypeItems,
+  authUser,
+  canViewTotalAmount,
+  onOpen
+}: {
+  renewals: LeasingContractRow[];
+  statusItems: DictItemRow[];
+  sourceTypeItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+  canViewTotalAmount: boolean;
+  onOpen: (row: LeasingContractRow) => void;
+}) {
+  return (
+    <section className="detail-stack">
+      <div className="system-toolbar">
+        <h3>续租记录</h3>
+        <span className="muted-text">续租合同是新合同记录，继续走合同审批、生效流程</span>
+      </div>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>续租合同编号</th>
+              <th>合同名称</th>
+              <th>来源</th>
+              <th>租期</th>
+              <th>合同总金额</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {renewals.length === 0 ? (
+              <tr><td colSpan={7}>暂无续租合同</td></tr>
+            ) : renewals.map((row) => (
+              <tr key={row.id}>
+                <td>{row.contractCode}</td>
+                <td>{row.contractName}</td>
+                <td>{labelFor(sourceTypeItems, row.sourceType)}</td>
+                <td>{formatDate(row.startDate)} 至 {formatDate(row.endDate)}</td>
+                <td>{moneyText(authUser, canViewTotalAmount, FIELD_TOTAL_AMOUNT, row.totalAmount)}</td>
+                <td><DictBadge items={statusItems} value={row.status} /></td>
+                <td>
+                  <button className="primary-button" type="button" onClick={() => onOpen(row)}>
+                    查看
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function CheckoutTable({
+  checkouts,
+  checkoutTypeItems,
+  checkoutStatusItems,
+  settlementStatusItems,
+  releaseStatusItems,
+  authUser
+}: {
+  checkouts: CheckoutRow[];
+  checkoutTypeItems: DictItemRow[];
+  checkoutStatusItems: DictItemRow[];
+  settlementStatusItems: DictItemRow[];
+  releaseStatusItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+}) {
+  return (
+    <section className="detail-stack">
+      <div className="system-toolbar">
+        <h3>退租记录</h3>
+        <span className="muted-text">退租申请审批后进入结算，结算确认后可登记退款</span>
+      </div>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>退租单号</th>
+              <th>退租类型</th>
+              <th>计划退租日</th>
+              <th>实际退租日</th>
+              <th>释放房源状态</th>
+              <th>结算状态</th>
+              <th>应退金额</th>
+              <th>租户应补</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {checkouts.length === 0 ? (
+              <tr><td colSpan={10}>暂无退租记录</td></tr>
+            ) : checkouts.map((row) => (
+              <tr key={row.id}>
+                <td>{row.checkoutCode}</td>
+                <td><DictBadge items={checkoutTypeItems} value={row.checkoutType} /></td>
+                <td>{formatDate(row.plannedCheckoutDate)}</td>
+                <td>{formatDate(row.actualCheckoutDate)}</td>
+                <td><DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} /></td>
+                <td><DictBadge items={settlementStatusItems} value={row.settlementStatus} /></td>
+                <td>{checkoutMoneyText(authUser, "refundAmount", row.refundAmount)}</td>
+                <td>{checkoutMoneyText(authUser, "amountDueFromTenant", row.amountDueFromTenant)}</td>
+                <td><DictBadge items={checkoutStatusItems} value={row.status} /></td>
+                <td>
+                  <button className="primary-button" type="button" onClick={() => { window.location.href = `/leasing/checkouts?contract_id=${row.contractId}`; }}>
+                    查看
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -1378,6 +1859,81 @@ function ContractStatusTimeline({ logs, statusItems }: { logs: ContractStatusLog
   );
 }
 
+function ContractActionTimeline({ logs, statusItems }: { logs: ContractActionLogRow[]; statusItems: DictItemRow[] }) {
+  return (
+    <section className="table-scroll">
+      <h3>合同操作日志</h3>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>业务类型</th>
+            <th>动作</th>
+            <th>状态变化</th>
+            <th>操作人</th>
+            <th>原因</th>
+            <th>备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          {logs.length === 0 ? (
+            <tr><td colSpan={7}>暂无合同操作日志</td></tr>
+          ) : logs.map((log) => (
+            <tr key={log.id}>
+              <td>{formatDateTime(log.opTime)}</td>
+              <td>{contractBizTypeLabel(log.bizType)}</td>
+              <td>{contractActionLogActionLabel(log.action)}</td>
+              <td><DictBadge items={statusItems} value={log.beforeStatus} /> → <DictBadge items={statusItems} value={log.afterStatus} /></td>
+              <td>{log.operatorName ?? "-"}</td>
+              <td>{log.reason ?? "-"}</td>
+              <td>{log.remark ?? "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function ReceivableGenerationTable({ result, feeTypeItems }: { result: ReceivableGenerationResult; feeTypeItems: DictItemRow[] }) {
+  return (
+    <section className="table-scroll">
+      <div className="system-toolbar">
+        <h3>应收生成结果</h3>
+        <span className="muted-text">新增 {result.generated_count} / 跳过 {result.skipped_count} / 失败 {result.failed_count}</span>
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>费用类型</th>
+            <th>账期</th>
+            <th>应收日</th>
+            <th>应收金额</th>
+            <th>应收单号</th>
+            <th>结果</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.rows.length === 0 ? (
+            <tr><td colSpan={7}>本合同没有需要生成的应收</td></tr>
+          ) : result.rows.map((row, index) => (
+            <tr key={`${row.contract_id}-${row.fee_type}-${row.period_start}-${index}`}>
+              <td>{labelFor(feeTypeItems, row.fee_type)}</td>
+              <td>{formatDate(row.period_start)} 至 {formatDate(row.period_end)}</td>
+              <td>{formatDate(row.due_date)}</td>
+              <td>{formatMoney(row.amount_due)}</td>
+              <td>{row.ar_code ?? "-"}</td>
+              <td><span className={`status-pill ${generationStatusClass(row.status)}`}>{generationStatusLabel(row.status)}</span></td>
+              <td>{row.message ?? "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function SelectField({ label, value, onChange, options, allowEmpty, disabled }: {
   label: string;
   value: string;
@@ -1504,6 +2060,19 @@ function statusClass(tagType?: string | null): string {
   return "status-muted";
 }
 
+function generationStatusLabel(status: ReceivableGenerationRow["status"]): string {
+  if (status === "generated") return "已生成";
+  if (status === "regenerated") return "已重生成";
+  if (status === "skipped") return "已跳过";
+  return "失败";
+}
+
+function generationStatusClass(status: ReceivableGenerationRow["status"]): string {
+  if (status === "generated" || status === "regenerated") return "status-success";
+  if (status === "skipped") return "status-warning";
+  return "status-danger";
+}
+
 function labelFor(items: DictItemRow[], value?: string | null): string {
   if (!value) return "-";
   return items.find((item) => item.itemValue === value)?.itemLabel ?? value;
@@ -1537,6 +2106,39 @@ function contractStatusLogActionLabel(action: ContractStatusAction): string {
   return labels[action] ?? action;
 }
 
+function contractBizTypeLabel(bizType: ContractActionLogRow["bizType"]): string {
+  const labels: Record<ContractActionLogRow["bizType"], string> = {
+    contract_change: "合同变更",
+    renewal: "续租",
+    checkout: "退租",
+    refund: "退款",
+    contract: "合同"
+  };
+  return labels[bizType] ?? bizType;
+}
+
+function contractActionLogActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    create: "创建",
+    submit: "提交审批",
+    approve: "审批通过",
+    reject: "审批驳回",
+    sign: "签章",
+    archive: "归档",
+    effective: "生效",
+    void: "作废",
+    preview: "预览",
+    preview_finance: "财务影响预览",
+    preview_settlement: "结算预览",
+    confirm_settlement: "确认结算",
+    settlement: "结算",
+    refund: "退款登记",
+    cancel: "取消",
+    system: "系统"
+  };
+  return labels[action] ?? action;
+}
+
 function tenantName(items: ParkTenantRow[], id: string): string {
   return items.find((item) => item.id === id)?.companyName ?? "-";
 }
@@ -1547,6 +2149,10 @@ function moneyText(user: ReturnType<typeof useAuthUser>, canView: boolean, field
 
 function unitMoneyText(user: ReturnType<typeof useAuthUser>, canView: boolean, fieldKey: string, value?: string | null): string {
   return scopedMoneyText(user, canView, CONTRACT_UNIT_ENTITY, fieldKey, value);
+}
+
+function checkoutMoneyText(user: ReturnType<typeof useAuthUser>, fieldKey: string, value?: string | null): string {
+  return scopedMoneyText(user, canViewField(user, LEASING_MODULE, "leasing_checkout", fieldKey), "leasing_checkout", fieldKey, value);
 }
 
 function scopedMoneyText(user: ReturnType<typeof useAuthUser>, canView: boolean, entityName: string, fieldKey: string, value?: string | null): string {
@@ -1624,6 +2230,33 @@ function syncFormFromContract(row: LeasingContractRow, setter: (updater: (curren
   }));
 }
 
+function formFromRenewalSource(row: LeasingContractRow): RenewalFormState {
+  const startDate = nextDate(row.endDate);
+  return {
+    contractName: `${row.contractName}续租合同`,
+    startDate,
+    endDate: oneYearMinusOneDay(startDate),
+    rentUnitPrice: row.rentUnitPrice ?? "",
+    depositMonths: row.depositMonths ?? "",
+    freeRentMonths: "0",
+    paymentPeriod: row.paymentPeriod ?? "",
+    paymentAdvanceDays: String(row.paymentAdvanceDays ?? "")
+  };
+}
+
+function nextDate(value: string): string {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function oneYearMinusOneDay(startDate: string): string {
+  const date = new Date(`${startDate.slice(0, 10)}T00:00:00Z`);
+  date.setUTCFullYear(date.getUTCFullYear() + 1);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
 function syncArchiveFormFromContract(row: LeasingContractRow, setter: (updater: (current: ArchiveFormState) => ArchiveFormState) => void) {
   setter((current) => ({
     ...current,
@@ -1671,6 +2304,14 @@ function setEffectiveFormValue<K extends keyof EffectiveFormState>(
   key: K,
   value: EffectiveFormState[K],
   setter: (updater: (current: EffectiveFormState) => EffectiveFormState) => void
+) {
+  setter((current) => ({ ...current, [key]: value }));
+}
+
+function setRenewalFormValue<K extends keyof RenewalFormState>(
+  key: K,
+  value: RenewalFormState[K],
+  setter: (updater: (current: RenewalFormState) => RenewalFormState) => void
 ) {
   setter((current) => ({ ...current, [key]: value }));
 }

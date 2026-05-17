@@ -110,10 +110,50 @@ export class AuditLogInterceptor implements NestInterceptor {
       "contract_pdf_file_id",
       "scanPdfFileId",
       "scan_pdf_file_id",
+      "amount",
+      "amountDue",
+      "amount_due",
+      "amountPaid",
+      "amount_paid",
+      "amountWaived",
+      "amount_waived",
+      "amountRemain",
+      "amount_remain",
+      "lateFee",
+      "late_fee",
+      "payAmount",
+      "pay_amount",
+      "unappliedAmount",
+      "unapplied_amount",
+      "bankSerial",
+      "bank_serial",
+      "receiptFileId",
+      "receipt_file_id",
+      "buyerTaxNo",
+      "buyer_tax_no",
+      "waiverAmount",
+      "waiver_amount",
+      "invoiceAmount",
+      "invoice_amount",
       "content"
     ]);
+    return this.sanitizeRecord(value, maskedKeys);
+  }
+
+  private sanitizeRecord(value: Record<string, unknown>, maskedKeys: Set<string>): Record<string, unknown> {
     return Object.fromEntries(
-      Object.entries(value).map(([key, entryValue]) => [key, maskedKeys.has(key) ? "***" : entryValue])
+      Object.entries(value).map(([key, entryValue]) => [key, this.sanitizeValue(key, entryValue, maskedKeys)])
     );
+  }
+
+  private sanitizeValue(key: string, value: unknown, maskedKeys: Set<string>): unknown {
+    if (maskedKeys.has(key)) return "***";
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sanitizeValue("", item, maskedKeys));
+    }
+    if (typeof value === "object" && value !== null && !Buffer.isBuffer(value)) {
+      return this.sanitizeRecord(value as Record<string, unknown>, maskedKeys);
+    }
+    return value;
   }
 }

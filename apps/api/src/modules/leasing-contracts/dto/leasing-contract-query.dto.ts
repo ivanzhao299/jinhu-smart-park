@@ -34,6 +34,14 @@ export class LeasingContractQueryDto {
   park_tenant_id?: string;
 
   @IsOptional()
+  @IsString()
+  source_type?: string;
+
+  @IsOptional()
+  @IsUUID()
+  renewal_from_contract_id?: string;
+
+  @IsOptional()
   @IsDateString()
   start_date?: string;
 

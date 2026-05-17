@@ -17,7 +17,15 @@ export const CODE_RULE_ENTITY_TYPES = [
   "workorder",
   "leasing_lead",
   "contract",
-  "bill"
+  "contract_change",
+  "renewal_contract",
+  "checkout",
+  "refund",
+  "bill",
+  "receivable",
+  "payment",
+  "invoice",
+  "waiver"
 ] as const;
 
 export type CodeRuleEntityType = (typeof CODE_RULE_ENTITY_TYPES)[number];

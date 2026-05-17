@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
+import { Brackets, type EntityManager, type Repository, type SelectQueryBuilder } from "typeorm";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CodeRulesService } from "../code-rules/code-rules.service";
@@ -8,6 +8,7 @@ import { DataScopeService, type DataScopeFilter } from "../data-scopes/data-scop
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingContractActionLogEntity } from "../leasing-contract-changes/entities/leasing-contract-action-log.entity";
 import { LeasingLeadEntity } from "../leasing-leads/entities/leasing-lead.entity";
 import { LeasingQuoteEntity } from "../leasing-leads/entities/leasing-quote.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
@@ -16,6 +17,7 @@ import { UnitEntity } from "../units/entities/unit.entity";
 import type { CreateContractDraftFromQuoteDto } from "./dto/create-contract-draft-from-quote.dto";
 import type { CreateLeasingContractUnitDto } from "./dto/create-leasing-contract-unit.dto";
 import type { CreateLeasingContractDto } from "./dto/create-leasing-contract.dto";
+import type { CreateRenewalContractDraftDto } from "./dto/create-renewal-contract-draft.dto";
 import type { LeasingContractQueryDto } from "./dto/leasing-contract-query.dto";
 import type { LeasingContractStatusLogQueryDto } from "./dto/leasing-contract-status-log-query.dto";
 import type {
@@ -106,6 +108,8 @@ export class LeasingContractsService {
     private readonly contractUnitsRepository: Repository<LeasingContractUnitEntity>,
     @InjectRepository(LeasingContractStatusLogEntity)
     private readonly contractStatusLogsRepository: Repository<LeasingContractStatusLogEntity>,
+    @InjectRepository(LeasingContractActionLogEntity)
+    private readonly contractActionLogsRepository: Repository<LeasingContractActionLogEntity>,
     @InjectRepository(ParkTenantEntity)
     private readonly parkTenantsRepository: Repository<ParkTenantEntity>,
     @InjectRepository(UnitEntity)
@@ -163,6 +167,7 @@ export class LeasingContractsService {
       sourceType: dto.source_type ?? "manual",
       sourceLeadId: dto.source_lead_id ?? null,
       sourceQuoteId: dto.source_quote_id ?? null,
+      renewalFromContractId: null,
       startDate: this.dateOnly(dto.start_date),
       endDate: this.dateOnly(dto.end_date),
       signDate: dto.sign_date ? this.dateOnly(dto.sign_date) : null,
@@ -208,6 +213,7 @@ export class LeasingContractsService {
           remark: null
         })
       );
+      await this.createContractActionLog(manager, scope, actor, saved.id, "contract", saved.id, null, CONTRACT_STATUS_DRAFT, "create", "创建合同草稿");
     });
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_contract", saved);
   }
@@ -268,6 +274,7 @@ export class LeasingContractsService {
         sourceType: "quote",
         sourceLeadId: quote.leadId,
         sourceQuoteId: quote.id,
+        renewalFromContractId: null,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         rentUnitPrice: this.decimal(rentUnitPrice),
@@ -308,6 +315,19 @@ export class LeasingContractsService {
           remark: null
         })
       );
+      await this.createContractActionLog(
+        manager,
+        scope,
+        actor,
+        savedContract.id,
+        "contract",
+        savedContract.id,
+        null,
+        CONTRACT_STATUS_DRAFT,
+        "create",
+        "报价生成合同草稿",
+        `source_quote:${quote.id}`
+      );
 
       await this.assertUnitBindable(scope, actor, savedContract.id, unit, dateRange.startDate, dateRange.endDate);
       const relation = manager.getRepository(LeasingContractUnitEntity).create({
@@ -328,6 +348,150 @@ export class LeasingContractsService {
         updateBy: actor.sub
       });
       await manager.getRepository(LeasingContractUnitEntity).save(relation);
+    });
+
+    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_contract", savedContract);
+  }
+
+  async createRenewalDraft(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    contractId: string,
+    dto: CreateRenewalContractDraftDto
+  ): Promise<LeasingContractEntity> {
+    const original = await this.findOne(scope, contractId, actor);
+    if (original.status !== CONTRACT_STATUS_EFFECTIVE) {
+      throw new BadRequestException("Only effective contracts can create renewal draft");
+    }
+    const startDate = this.dateOnly(dto.start_date);
+    const endDate = this.dateOnly(dto.end_date);
+    this.assertDateRange(startDate, endDate);
+    if (new Date(startDate).getTime() <= new Date(original.endDate).getTime()) {
+      throw new BadRequestException("Renewal start_date must be later than original contract end_date");
+    }
+    const paymentPeriod = dto.payment_period ?? original.paymentPeriod;
+    await this.validateDictionaryValues(scope, original.contractType ?? DEFAULT_CONTRACT_TYPE, paymentPeriod, CONTRACT_STATUS_DRAFT);
+    await this.mustFindParkTenant(scope, original.parkTenantId);
+    const originalRelations = await this.contractUnitsRepository
+      .createQueryBuilder("rel")
+      .leftJoinAndSelect("rel.unit", "unit")
+      .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("rel.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("rel.contract_id = :contractId", { contractId: original.id })
+      .andWhere("rel.status = 1")
+      .andWhere("rel.is_deleted = false")
+      .orderBy("rel.create_time", "ASC")
+      .getMany();
+    if (originalRelations.length === 0) {
+      throw new BadRequestException("Original contract must link at least one unit before renewal");
+    }
+    await this.assertNoEffectiveUnitConflictForRenewal(scope, original.id, originalRelations.map((relation) => relation.unitId), startDate, endDate);
+
+    const contractCode = await this.resolveContractCode(scope, actor.sub);
+    await this.assertContractCodeAvailable(scope, contractCode);
+    const depositMonths = dto.deposit_months ?? this.toNumber(original.depositMonths);
+    const freeRentMonths = dto.free_rent_months ?? this.toNumber(original.freeRentMonths);
+    const paymentAdvanceDays = dto.payment_advance_days ?? original.paymentAdvanceDays ?? 0;
+    const billableMonths = Math.max(0, this.approximateNaturalMonths(startDate, endDate) - freeRentMonths);
+
+    let savedContract!: LeasingContractEntity;
+    await this.contractsRepository.manager.transaction(async (manager) => {
+      const relationDrafts = originalRelations.map((relation) => {
+        const area = this.toNumber(relation.area);
+        const rentUnitPrice = dto.rent_unit_price ?? this.toNumber(relation.rentUnitPrice);
+        return { source: relation, area, rentUnitPrice, rentAmountPerMonth: area * rentUnitPrice };
+      });
+      const totalArea = relationDrafts.reduce((sum, item) => sum + item.area, 0);
+      const rentPerMonth = relationDrafts.reduce((sum, item) => sum + item.rentAmountPerMonth, 0);
+      const contract = manager.getRepository(LeasingContractEntity).create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        code: contractCode,
+        contractCode,
+        contractName: dto.contract_name?.trim() || `${original.contractName}续租合同`,
+        contractType: original.contractType ?? DEFAULT_CONTRACT_TYPE,
+        parkTenantId: original.parkTenantId,
+        sourceType: "renewal",
+        sourceLeadId: original.sourceLeadId,
+        sourceQuoteId: null,
+        renewalFromContractId: original.id,
+        startDate,
+        endDate,
+        signDate: null,
+        effectiveDate: null,
+        rentUnitPrice: this.decimal(dto.rent_unit_price ?? this.toNumber(original.rentUnitPrice)),
+        totalArea: this.decimal(totalArea),
+        rentPerMonth: this.decimal(rentPerMonth),
+        totalAmount: this.decimal(rentPerMonth * billableMonths),
+        depositMonths: this.decimal(depositMonths),
+        depositAmount: this.decimal(rentPerMonth * depositMonths),
+        freeRentMonths: this.decimal(freeRentMonths),
+        paymentPeriod: paymentPeriod ?? null,
+        paymentAdvanceDays,
+        lateFeeRule: original.lateFeeRule,
+        propertyFeeUnitPrice: original.propertyFeeUnitPrice,
+        otherFeeRules: original.otherFeeRules ?? [],
+        status: CONTRACT_STATUS_DRAFT,
+        approveRecords: [],
+        contractPdfFileId: null,
+        scanPdfFileId: null,
+        remark: `续租来源合同：${original.contractCode}`,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      });
+      savedContract = await manager.getRepository(LeasingContractEntity).save(contract);
+      await manager.getRepository(LeasingContractStatusLogEntity).save(
+        manager.getRepository(LeasingContractStatusLogEntity).create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          contractId: savedContract.id,
+          beforeStatus: null,
+          afterStatus: CONTRACT_STATUS_DRAFT,
+          action: "create",
+          reason: "原合同生成续租合同草稿",
+          operatorId: actor.sub,
+          operatorName: this.actorName(actor),
+          opTime: new Date(),
+          createBy: actor.sub,
+          updateBy: actor.sub,
+          remark: `原合同：${original.contractCode}`
+        })
+      );
+      await this.createContractActionLog(
+        manager,
+        scope,
+        actor,
+        original.id,
+        "renewal",
+        savedContract.id,
+        null,
+        CONTRACT_STATUS_DRAFT,
+        "create",
+        `生成续租合同草稿 ${savedContract.contractCode}`,
+        `renewal_contract:${savedContract.contractCode}`
+      );
+
+      for (const draft of relationDrafts) {
+        await manager.getRepository(LeasingContractUnitEntity).save(
+          manager.getRepository(LeasingContractUnitEntity).create({
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            contractId: savedContract.id,
+            unitId: draft.source.unitId,
+            unitCode: draft.source.unitCode,
+            unitName: draft.source.unitName,
+            area: this.decimal(draft.area),
+            rentUnitPrice: this.decimal(draft.rentUnitPrice),
+            rentAmountPerMonth: this.decimal(draft.rentAmountPerMonth),
+            startDate,
+            endDate,
+            status: 1,
+            remark: "续租继承原合同房源",
+            createBy: actor.sub,
+            updateBy: actor.sub
+          })
+        );
+      }
     });
 
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_contract", savedContract);
@@ -487,6 +651,26 @@ export class LeasingContractsService {
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
+  async listActionLogs(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    contractId: string,
+    query: LeasingContractStatusLogQueryDto
+  ): Promise<PaginatedResult<LeasingContractActionLogEntity>> {
+    await this.findOne(scope, contractId, actor);
+    const [items, total] = await this.contractActionLogsRepository
+      .createQueryBuilder("log")
+      .where("log.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("log.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("log.contract_id = :contractId", { contractId })
+      .andWhere("log.is_deleted = false")
+      .orderBy("log.op_time", "DESC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
+    return { items, total, page: query.page, page_size: query.page_size };
+  }
+
   async effective(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: EffectiveLeasingContractDto): Promise<LeasingContractEntity> {
     const scopedContract = await this.findOne(scope, id, actor);
     const effectiveDate = this.dateOnly(dto.effective_date);
@@ -507,6 +691,21 @@ export class LeasingContractsService {
       }
       if (contract.status !== CONTRACT_STATUS_SIGNED) {
         throw new BadRequestException("Only signed contracts can become effective");
+      }
+      if (contract.sourceType === "renewal" && contract.renewalFromContractId) {
+        const effectiveRenewalExists = await manager
+          .getRepository(LeasingContractEntity)
+          .createQueryBuilder("renewal")
+          .where("renewal.tenant_id = :tenantId", { tenantId: scope.tenantId })
+          .andWhere("renewal.park_id = :parkId", { parkId: scope.parkId })
+          .andWhere("renewal.renewal_from_contract_id = :originalContractId", { originalContractId: contract.renewalFromContractId })
+          .andWhere("renewal.status = :effectiveStatus", { effectiveStatus: CONTRACT_STATUS_EFFECTIVE })
+          .andWhere("renewal.id <> :contractId", { contractId: contract.id })
+          .andWhere("renewal.is_deleted = false")
+          .getExists();
+        if (effectiveRenewalExists) {
+          throw new ConflictException("Original contract already has an effective renewal contract");
+        }
       }
       if (!contract.parkTenantId) {
         throw new BadRequestException("Contract must be linked to a park tenant before effective");
@@ -588,6 +787,7 @@ export class LeasingContractsService {
           remark: "合同生效"
         })
       );
+      await this.createContractActionLog(manager, scope, actor, contract.id, "contract", contract.id, beforeStatus, CONTRACT_STATUS_EFFECTIVE, "effective", reason);
 
       for (const unit of units) {
         const beforeUnitStatus = unit.rentalStatus;
@@ -801,8 +1001,42 @@ export class LeasingContractsService {
         remark: null
       });
       await manager.getRepository(LeasingContractStatusLogEntity).save(log);
+      await this.createContractActionLog(manager, scope, actor, contract.id, "contract", contract.id, beforeStatus, afterStatus, action, reason);
     });
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_contract", saved);
+  }
+
+  private async createContractActionLog(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    contractId: string,
+    bizType: LeasingContractActionLogEntity["bizType"],
+    bizId: string | null,
+    beforeStatus: string | null,
+    afterStatus: string | null,
+    action: LeasingContractActionLogEntity["action"],
+    reason?: string | null,
+    remark?: string | null
+  ): Promise<void> {
+    const log = manager.getRepository(LeasingContractActionLogEntity).create({
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      contractId,
+      bizType,
+      bizId,
+      beforeStatus,
+      afterStatus,
+      action,
+      reason: this.emptyToNull(reason ?? undefined),
+      operatorId: actor.sub,
+      operatorName: this.actorName(actor),
+      opTime: new Date(),
+      createBy: actor.sub,
+      updateBy: actor.sub,
+      remark: this.emptyToNull(remark ?? undefined)
+    });
+    await manager.getRepository(LeasingContractActionLogEntity).save(log);
   }
 
   private buildApproveRecord(
@@ -931,6 +1165,27 @@ export class LeasingContractsService {
     }
   }
 
+  private async assertNoEffectiveUnitConflictForRenewal(scope: TenantParkScope, originalContractId: string, unitIds: string[], startDate: string, endDate: string): Promise<void> {
+    if (unitIds.length === 0) return;
+    const occupied = await this.contractUnitsRepository
+      .createQueryBuilder("rel")
+      .innerJoin(LeasingContractEntity, "contract", "contract.id = rel.contract_id")
+      .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("rel.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("rel.unit_id IN (:...unitIds)", { unitIds })
+      .andWhere("rel.status = 1")
+      .andWhere("rel.is_deleted = false")
+      .andWhere("contract.is_deleted = false")
+      .andWhere("contract.status = :effectiveStatus", { effectiveStatus: CONTRACT_STATUS_EFFECTIVE })
+      .andWhere("contract.id <> :originalContractId", { originalContractId })
+      .andWhere("rel.start_date <= :endDate", { endDate })
+      .andWhere("rel.end_date >= :startDate", { startDate })
+      .getExists();
+    if (occupied) {
+      throw new ConflictException("Renewal units are occupied by another effective contract during this period");
+    }
+  }
+
   private async assertUnitBindable(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -1047,6 +1302,8 @@ export class LeasingContractsService {
     if (query.status) builder.andWhere("contract.status = :status", { status: query.status });
     if (query.contract_type) builder.andWhere("contract.contract_type = :contractType", { contractType: query.contract_type });
     if (query.park_tenant_id) builder.andWhere("contract.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
+    if (query.source_type) builder.andWhere("contract.source_type = :sourceType", { sourceType: query.source_type });
+    if (query.renewal_from_contract_id) builder.andWhere("contract.renewal_from_contract_id = :renewalFromContractId", { renewalFromContractId: query.renewal_from_contract_id });
     if (query.start_date) builder.andWhere("contract.start_date >= :startDate", { startDate: query.start_date });
     if (query.end_date) builder.andWhere("contract.end_date <= :endDate", { endDate: query.end_date });
   }

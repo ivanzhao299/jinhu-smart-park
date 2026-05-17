@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@jinhu/ui";
 import { LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
@@ -78,10 +79,10 @@ export default function LoginPage() {
             <label htmlFor="password">密码</label>
             <input id="password" name="password" placeholder="请输入密码" type="password" />
           </div>
-          <button className="primary-button" disabled={loading} type="submit">
+          <Button disabled={loading} type="submit" variant="primary">
             <LogIn size={16} />
             {loading ? "登录中" : "登录"}
-          </button>
+          </Button>
           {message ? <span className="status-pill">{message}</span> : null}
         </form>
       </section>

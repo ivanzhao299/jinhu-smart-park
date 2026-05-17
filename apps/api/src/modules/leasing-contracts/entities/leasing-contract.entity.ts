@@ -59,6 +59,13 @@ export class LeasingContractEntity extends AuditableEntity {
   @JoinColumn({ name: "source_quote_id" })
   sourceQuote?: LeasingQuoteEntity | null;
 
+  @Column({ name: "renewal_from_contract_id", type: "uuid", nullable: true })
+  renewalFromContractId!: string | null;
+
+  @ManyToOne(() => LeasingContractEntity, { nullable: true })
+  @JoinColumn({ name: "renewal_from_contract_id" })
+  renewalFromContract?: LeasingContractEntity | null;
+
   @Column({ name: "start_date", type: "date" })
   startDate!: string;
 

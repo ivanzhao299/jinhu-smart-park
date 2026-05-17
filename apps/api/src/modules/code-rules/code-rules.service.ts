@@ -297,7 +297,8 @@ export class CodeRulesService {
     if (["robot", "cleaning_robot", "inspection_robot"].includes(entityType)) return "robot";
     if (entityType === "workorder") return "workorder";
     if (entityType === "leasing_lead") return "leasing";
-    if (entityType === "contract") return "leasing";
+    if (["contract", "contract_change", "renewal_contract", "checkout", "refund"].includes(entityType)) return "leasing";
+    if (["receivable", "payment", "invoice", "waiver"].includes(entityType)) return "leasing";
     if (entityType === "bill") return "finance";
     return "system";
   }

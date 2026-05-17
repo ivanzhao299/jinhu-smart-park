@@ -5,6 +5,7 @@ import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingContractActionLogEntity } from "../leasing-contract-changes/entities/leasing-contract-action-log.entity";
 import { LeasingLeadEntity } from "../leasing-leads/entities/leasing-lead.entity";
 import { LeasingQuoteEntity } from "../leasing-leads/entities/leasing-quote.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
@@ -22,6 +23,7 @@ import { LeasingContractsService } from "./leasing-contracts.service";
       LeasingContractEntity,
       LeasingContractUnitEntity,
       LeasingContractStatusLogEntity,
+      LeasingContractActionLogEntity,
       ParkTenantEntity,
       UnitEntity,
       UnitStatusLogEntity,

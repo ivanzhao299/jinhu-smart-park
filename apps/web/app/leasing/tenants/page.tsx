@@ -15,6 +15,9 @@ const PARK_TENANT_ENTITY = "park_tenant";
 const PARK_TENANT_CONTACT_ENTITY = "park_tenant_contact";
 const PARK_TENANT_QUALIFICATION_ENTITY = "park_tenant_qualification";
 const LEASING_CONTRACT_ENTITY = "leasing_contract";
+const LEASING_RECEIVABLE_ENTITY = "leasing_receivable";
+const LEASING_PAYMENT_ENTITY = "leasing_payment";
+const LEASING_INVOICE_ENTITY = "leasing_invoice";
 const FIELD_LEGAL_PERSON_ID = "legalPersonId";
 const FIELD_CONTACT_MOBILE = "contactMobile";
 const FIELD_CONTACT_ROW_MOBILE = "mobile";
@@ -22,6 +25,13 @@ const FIELD_CONTACT_ROW_EMAIL = "email";
 const FIELD_QUALIFICATION_CERTIFICATE_NO = "certificateNo";
 const FIELD_QUALIFICATION_FILE_ID = "fileId";
 const FIELD_CONTRACT_TOTAL_AMOUNT = "totalAmount";
+const FIELD_AMOUNT_DUE = "amountDue";
+const FIELD_AMOUNT_PAID = "amountPaid";
+const FIELD_AMOUNT_REMAIN = "amountRemain";
+const FIELD_OVERDUE_AMOUNT = "overdueAmount";
+const FIELD_PAY_AMOUNT = "payAmount";
+const FIELD_UNAPPLIED_AMOUNT = "unappliedAmount";
+const FIELD_INVOICE_AMOUNT = "amount";
 const PARK_TENANT_PERMISSIONS = {
   read: "park_tenant:read",
   tenant360: "park_tenant:360",
@@ -202,6 +212,76 @@ interface Tenant360ContractsNode {
   } | null;
 }
 
+interface Tenant360ReceivableRow {
+  id: string;
+  ar_code: string;
+  contract_id: string | null;
+  contract_code: string | null;
+  fee_type: string;
+  period_start: string;
+  period_end: string;
+  due_date: string;
+  amount_due?: string | null;
+  amount_paid?: string | null;
+  amount_waived?: string | null;
+  amount_remain?: string | null;
+  late_fee?: string | null;
+  overdue_days: number;
+  invoice_status: string;
+  status: string;
+}
+
+interface Tenant360ReceivablesNode {
+  available: boolean;
+  summary?: {
+    total_amount_due?: string | null;
+    total_amount_paid?: string | null;
+    total_amount_remain?: string | null;
+    overdue_amount?: string | null;
+    overdue_count: number;
+  } | null;
+  recent_items: Tenant360ReceivableRow[];
+}
+
+interface Tenant360PaymentRow {
+  id: string;
+  pay_code: string;
+  pay_time: string;
+  pay_method: string;
+  pay_amount?: string | null;
+  unapplied_amount?: string | null;
+  payer_name: string | null;
+  status: string;
+}
+
+interface Tenant360PaymentsNode {
+  available: boolean;
+  summary?: {
+    total_payment_amount?: string | null;
+    unapplied_amount?: string | null;
+  } | null;
+  recent_items: Tenant360PaymentRow[];
+}
+
+interface Tenant360InvoiceRow {
+  id: string;
+  invoice_code: string;
+  invoice_type: string;
+  invoice_no: string | null;
+  invoice_date: string;
+  amount?: string | null;
+  status: string;
+}
+
+interface Tenant360InvoicesNode {
+  available: boolean;
+  summary?: {
+    invoice_count: number;
+    invoice_amount?: string | null;
+  } | null;
+  recent_items: Tenant360InvoiceRow[];
+}
+
 interface ParkTenant360View {
   profile: ParkTenantRow;
   contacts: ParkTenantContactRow[];
@@ -209,7 +289,9 @@ interface ParkTenant360View {
   riskLogs: ParkTenantRiskLogRow[];
   relatedUnits: unknown[];
   contracts: Tenant360ContractsNode;
-  receivables: { available: boolean; summary: unknown | null };
+  receivables: Tenant360ReceivablesNode;
+  payments: Tenant360PaymentsNode;
+  invoices: Tenant360InvoicesNode;
   workorders: { available: boolean; summary: unknown | null };
   hazards: { available: boolean; summary: unknown | null };
   energy: { available: boolean; summary: unknown | null };
@@ -291,7 +373,7 @@ export default function LeasingTenantsPage() {
   const [riskLogs, setRiskLogs] = useState<ParkTenantRiskLogRow[]>([]);
   const [riskForm, setRiskForm] = useState<ParkTenantRiskFormState>(emptyRiskForm);
   const [showRiskForm, setShowRiskForm] = useState(false);
-  const [detailTab, setDetailTab] = useState<"profile" | "risk" | "contacts" | "qualifications" | "contracts" | "receivables" | "workorders" | "hazards" | "energy">("profile");
+  const [detailTab, setDetailTab] = useState<"profile" | "risk" | "contacts" | "qualifications" | "contracts" | "receivables" | "payments" | "invoices" | "workorders" | "hazards" | "energy">("profile");
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -308,6 +390,13 @@ export default function LeasingTenantsPage() {
   const canViewQualificationFileId = canViewField(authUser, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, FIELD_QUALIFICATION_FILE_ID);
   const canEditQualificationFileId = canEditField(authUser, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, FIELD_QUALIFICATION_FILE_ID);
   const canViewContractTotalAmount = canViewField(authUser, LEASING_MODULE, LEASING_CONTRACT_ENTITY, FIELD_CONTRACT_TOTAL_AMOUNT);
+  const canViewReceivableAmountDue = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_DUE);
+  const canViewReceivableAmountPaid = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_PAID);
+  const canViewReceivableAmountRemain = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_REMAIN);
+  const canViewReceivableOverdueAmount = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_OVERDUE_AMOUNT);
+  const canViewPaymentAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT);
+  const canViewPaymentUnappliedAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT);
+  const canViewInvoiceAmount = canViewField(authUser, LEASING_MODULE, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT);
 
   const statusItems = dicts.park_tenant_status ?? [];
   const typeItems = dicts.park_tenant_type ?? [];
@@ -317,6 +406,12 @@ export default function LeasingTenantsPage() {
   const contactRoleItems = dicts.park_tenant_contact_role ?? [];
   const qualificationTypeItems = dicts.park_tenant_qualification_type ?? [];
   const contractStatusItems = dicts.leasing_contract_status ?? [];
+  const feeTypeItems = dicts.leasing_fee_type ?? [];
+  const receivableStatusItems = dicts.leasing_receivable_status ?? [];
+  const invoiceStatusItems = dicts.leasing_invoice_status ?? [];
+  const paymentMethodItems = dicts.leasing_payment_method ?? [];
+  const paymentStatusItems = dicts.leasing_payment_status ?? [];
+  const invoiceTypeItems = dicts.leasing_invoice_type ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -360,7 +455,13 @@ export default function LeasingTenantsPage() {
       "park_tenant_source_type",
       "park_tenant_contact_role",
       "park_tenant_qualification_type",
-      "leasing_contract_status"
+      "leasing_contract_status",
+      "leasing_fee_type",
+      "leasing_receivable_status",
+      "leasing_invoice_status",
+      "leasing_payment_method",
+      "leasing_payment_status",
+      "leasing_invoice_type"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -871,6 +972,8 @@ export default function LeasingTenantsPage() {
                 <button className={detailTab === "qualifications" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("qualifications")}>资质附件</button>
                 <button className={detailTab === "contracts" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("contracts")}>合同</button>
                 <button className={detailTab === "receivables" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("receivables")}>应收</button>
+                <button className={detailTab === "payments" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("payments")}>收款</button>
+                <button className={detailTab === "invoices" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("invoices")}>发票</button>
                 <button className={detailTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("workorders")}>工单</button>
                 <button className={detailTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("hazards")}>隐患</button>
                 <button className={detailTab === "energy" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("energy")}>能耗</button>
@@ -1126,7 +1229,42 @@ export default function LeasingTenantsPage() {
                   onOpenContract={openContractDetail}
                 />
               ) : null}
-              {!tenant360Loading && detailTab === "receivables" ? <EmptyState title="应收模块尚未开发" description={tenant360?.receivables.available ? "暂无应收数据" : "当前阶段仅预留应收入口，不展示假数据。"} /> : null}
+              {!tenant360Loading && detailTab === "receivables" ? (
+                <Tenant360ReceivablesPanel
+                  receivables={tenant360?.receivables}
+                  feeTypeItems={feeTypeItems}
+                  receivableStatusItems={receivableStatusItems}
+                  invoiceStatusItems={invoiceStatusItems}
+                  authUser={authUser}
+                  visibility={{
+                    amountDue: canViewReceivableAmountDue,
+                    amountPaid: canViewReceivableAmountPaid,
+                    amountRemain: canViewReceivableAmountRemain,
+                    overdueAmount: canViewReceivableOverdueAmount
+                  }}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "payments" ? (
+                <Tenant360PaymentsPanel
+                  payments={tenant360?.payments}
+                  paymentMethodItems={paymentMethodItems}
+                  paymentStatusItems={paymentStatusItems}
+                  authUser={authUser}
+                  visibility={{
+                    payAmount: canViewPaymentAmount,
+                    unappliedAmount: canViewPaymentUnappliedAmount
+                  }}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "invoices" ? (
+                <Tenant360InvoicesPanel
+                  invoices={tenant360?.invoices}
+                  invoiceTypeItems={invoiceTypeItems}
+                  invoiceStatusItems={invoiceStatusItems}
+                  authUser={authUser}
+                  canViewInvoiceAmount={canViewInvoiceAmount}
+                />
+              ) : null}
               {!tenant360Loading && detailTab === "workorders" ? <EmptyState title="工单模块尚未开发" description={tenant360?.workorders.available ? "暂无工单数据" : "当前阶段仅预留工单入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "hazards" ? <EmptyState title="安全模块尚未开发" description={tenant360?.hazards.available ? "暂无隐患数据" : "当前阶段仅预留安全入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块尚未开发" description={tenant360?.energy.available ? "暂无能耗数据" : "当前阶段仅预留能耗入口，不展示假数据。"} /> : null}
@@ -1297,6 +1435,187 @@ function Tenant360ContractsTable({
   );
 }
 
+function Tenant360ReceivablesPanel({
+  receivables,
+  feeTypeItems,
+  receivableStatusItems,
+  invoiceStatusItems,
+  authUser,
+  visibility
+}: {
+  receivables?: Tenant360ReceivablesNode;
+  feeTypeItems: DictItemRow[];
+  receivableStatusItems: DictItemRow[];
+  invoiceStatusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  visibility: {
+    amountDue: boolean;
+    amountPaid: boolean;
+    amountRemain: boolean;
+    overdueAmount: boolean;
+  };
+}) {
+  if (!receivables?.available) {
+    return <EmptyState title="应收模块尚未开发" description="当前阶段仅预留应收入口，不展示假数据。" />;
+  }
+  const items = receivables.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="应收总额" value={financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_DUE, visibility.amountDue, receivables.summary?.total_amount_due)} />
+        <MetricCard label="已收总额" value={financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_PAID, visibility.amountPaid, receivables.summary?.total_amount_paid)} />
+        <MetricCard label="未收总额" value={financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_REMAIN, visibility.amountRemain, receivables.summary?.total_amount_remain)} />
+        <MetricCard label="逾期金额" value={financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_OVERDUE_AMOUNT, visibility.overdueAmount, receivables.summary?.overdue_amount)} />
+        <MetricCard label="逾期单数" value={String(receivables.summary?.overdue_count ?? 0)} />
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>应收单号</th>
+            <th>合同编号</th>
+            <th>费用类型</th>
+            <th>账期</th>
+            <th>应收日</th>
+            <th>应收金额</th>
+            <th>已收金额</th>
+            <th>未收金额</th>
+            <th>开票状态</th>
+            <th>应收状态</th>
+            <th>逾期天数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.ar_code}</td>
+              <td>{fieldText(row.contract_code)}</td>
+              <td>{labelFor(feeTypeItems, row.fee_type)}</td>
+              <td>{formatDateRange(row.period_start, row.period_end)}</td>
+              <td>{fieldText(row.due_date)}</td>
+              <td>{financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_DUE, visibility.amountDue, row.amount_due)}</td>
+              <td>{financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_PAID, visibility.amountPaid, row.amount_paid)}</td>
+              <td>{financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_REMAIN, visibility.amountRemain, row.amount_remain)}</td>
+              <td><DictBadge items={invoiceStatusItems} value={row.invoice_status} /></td>
+              <td><DictBadge items={receivableStatusItems} value={row.status} /></td>
+              <td>{row.overdue_days}</td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={11}>暂无应收数据</td></tr> : null}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function Tenant360PaymentsPanel({
+  payments,
+  paymentMethodItems,
+  paymentStatusItems,
+  authUser,
+  visibility
+}: {
+  payments?: Tenant360PaymentsNode;
+  paymentMethodItems: DictItemRow[];
+  paymentStatusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  visibility: {
+    payAmount: boolean;
+    unappliedAmount: boolean;
+  };
+}) {
+  if (!payments?.available) {
+    return <EmptyState title="收款模块尚未开发" description="当前阶段仅预留收款入口，不展示假数据。" />;
+  }
+  const items = payments.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="收款总额" value={financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT, visibility.payAmount, payments.summary?.total_payment_amount)} />
+        <MetricCard label="未核销金额" value={financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT, visibility.unappliedAmount, payments.summary?.unapplied_amount)} />
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>收款单号</th>
+            <th>收款时间</th>
+            <th>收款方式</th>
+            <th>付款人</th>
+            <th>收款金额</th>
+            <th>未核销金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.pay_code}</td>
+              <td>{formatDateTime(row.pay_time)}</td>
+              <td>{labelFor(paymentMethodItems, row.pay_method)}</td>
+              <td>{fieldText(row.payer_name)}</td>
+              <td>{financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT, visibility.payAmount, row.pay_amount)}</td>
+              <td>{financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT, visibility.unappliedAmount, row.unapplied_amount)}</td>
+              <td><DictBadge items={paymentStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={7}>暂无收款数据</td></tr> : null}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function Tenant360InvoicesPanel({
+  invoices,
+  invoiceTypeItems,
+  invoiceStatusItems,
+  authUser,
+  canViewInvoiceAmount
+}: {
+  invoices?: Tenant360InvoicesNode;
+  invoiceTypeItems: DictItemRow[];
+  invoiceStatusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  canViewInvoiceAmount: boolean;
+}) {
+  if (!invoices?.available) {
+    return <EmptyState title="发票模块尚未开发" description="当前阶段仅预留发票入口，不展示假数据。" />;
+  }
+  const items = invoices.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="发票数量" value={String(invoices.summary?.invoice_count ?? 0)} />
+        <MetricCard label="开票金额" value={financeAmountText(authUser, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT, canViewInvoiceAmount, invoices.summary?.invoice_amount)} />
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>发票单号</th>
+            <th>发票类型</th>
+            <th>发票号码</th>
+            <th>发票日期</th>
+            <th>金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.invoice_code}</td>
+              <td>{labelFor(invoiceTypeItems, row.invoice_type)}</td>
+              <td>{fieldText(row.invoice_no)}</td>
+              <td>{fieldText(row.invoice_date)}</td>
+              <td>{financeAmountText(authUser, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT, canViewInvoiceAmount, row.amount)}</td>
+              <td><DictBadge items={invoiceStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={6}>暂无发票数据</td></tr> : null}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <section className="empty-state">
@@ -1387,6 +1706,14 @@ function formatDateRange(start: string | null, end: string | null): string {
 function contractAmountText(user: Parameters<typeof maskField>[0], canView: boolean, value: unknown): string {
   if (!canView) return "-";
   const masked = maskContractField(user, FIELD_CONTRACT_TOTAL_AMOUNT, value);
+  if (masked === null || masked === undefined || masked === "") return "-";
+  const numberValue = Number(masked);
+  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(masked);
+}
+
+function financeAmountText(user: Parameters<typeof maskField>[0], entity: string, fieldKey: string, canView: boolean, value: unknown): string {
+  if (!canView) return "-";
+  const masked = maskField(user, LEASING_MODULE, entity, fieldKey, value);
   if (masked === null || masked === undefined || masked === "") return "-";
   const numberValue = Number(masked);
   return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(masked);

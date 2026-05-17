@@ -65,8 +65,17 @@ BEGIN
           'cleaning_robot',
           'inspection_robot',
           'workorder',
+          'leasing_lead',
           'contract',
-          'bill'
+          'contract_change',
+          'renewal_contract',
+          'checkout',
+          'refund',
+          'bill',
+          'receivable',
+          'payment',
+          'invoice',
+          'waiver'
         )
       );
   END IF;

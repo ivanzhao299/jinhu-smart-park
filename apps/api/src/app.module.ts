@@ -16,8 +16,14 @@ import { DictsModule } from "./modules/dicts/dicts.module";
 import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
+import { LeasingContractChangesModule } from "./modules/leasing-contract-changes/leasing-contract-changes.module";
 import { LeasingContractsModule } from "./modules/leasing-contracts/leasing-contracts.module";
+import { LeasingCheckoutsModule } from "./modules/leasing-checkouts/leasing-checkouts.module";
+import { LeasingInvoicesModule } from "./modules/leasing-invoices/leasing-invoices.module";
 import { LeasingLeadsModule } from "./modules/leasing-leads/leasing-leads.module";
+import { LeasingPaymentsModule } from "./modules/leasing-payments/leasing-payments.module";
+import { LeasingReceivablesModule } from "./modules/leasing-receivables/leasing-receivables.module";
+import { LeasingWaiversModule } from "./modules/leasing-waivers/leasing-waivers.module";
 import { OrgsModule } from "./modules/orgs/orgs.module";
 import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
@@ -69,8 +75,14 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     DataScopesModule,
     FieldPoliciesModule,
     FloorsModule,
+    LeasingContractChangesModule,
     LeasingContractsModule,
+    LeasingCheckoutsModule,
+    LeasingInvoicesModule,
     LeasingLeadsModule,
+    LeasingReceivablesModule,
+    LeasingPaymentsModule,
+    LeasingWaiversModule,
     UnitsModule,
     ParkTenantsModule,
     OrgsModule,

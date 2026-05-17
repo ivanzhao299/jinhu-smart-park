@@ -8,6 +8,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CreateLeasingContractUnitDto } from "./dto/create-leasing-contract-unit.dto";
 import { CreateLeasingContractDto } from "./dto/create-leasing-contract.dto";
+import { CreateRenewalContractDraftDto } from "./dto/create-renewal-contract-draft.dto";
 import {
   ArchiveLeasingContractDto,
   EffectiveLeasingContractDto,
@@ -52,6 +53,17 @@ export class LeasingContractsController {
     @Query() query: LeasingContractStatusLogQueryDto
   ) {
     return this.leasingContractsService.listStatusLogs(scope, user, id, query);
+  }
+
+  @Get(":id/action-logs")
+  @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_ACTION_LOG)
+  actionLogs(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Query() query: LeasingContractStatusLogQueryDto
+  ) {
+    return this.leasingContractsService.listActionLogs(scope, user, id, query);
   }
 
   @Get(":contractId/units")
@@ -174,6 +186,18 @@ export class LeasingContractsController {
     @Body() dto: EffectiveLeasingContractDto
   ) {
     return this.leasingContractsService.effective(scope, user, id, dto);
+  }
+
+  @Post(":id/renew-draft")
+  @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_RENEW)
+  @AuditLog({ module: "租赁合同", resource: "biz.leasing_contract", action: "生成续租草稿", bizType: "biz_leasing_contract", bizIdParam: "id" })
+  renewDraft(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: CreateRenewalContractDraftDto
+  ) {
+    return this.leasingContractsService.createRenewalDraft(scope, user, id, dto);
   }
 
   @Post()
