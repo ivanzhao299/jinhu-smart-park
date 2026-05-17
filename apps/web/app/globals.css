@@ -777,7 +777,7 @@ button {
   background: var(--phoenix-color-primary-hover);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 720px) {
   .dashboard-shell {
     grid-template-columns: 1fr;
   }
