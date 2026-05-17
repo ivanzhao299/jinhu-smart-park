@@ -5,6 +5,8 @@ import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingContractsModule } from "../leasing-contracts/leasing-contracts.module";
+import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
@@ -31,8 +33,10 @@ import { LeasingStatisticsController } from "./leasing-statistics.controller";
       UserEntity,
       ParkTenantEntity,
       DictItemEntity,
-      FileEntity
+      FileEntity,
+      LeasingContractEntity
     ]),
+    LeasingContractsModule,
     CodeRulesModule,
     DataScopesModule,
     FieldPoliciesModule

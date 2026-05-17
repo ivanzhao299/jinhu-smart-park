@@ -6,13 +6,18 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { CreateContractDraftFromQuoteDto } from "../leasing-contracts/dto/create-contract-draft-from-quote.dto";
+import { LeasingContractsService } from "../leasing-contracts/leasing-contracts.service";
 import { ApproveLeasingQuoteDto, RejectLeasingQuoteDto, SubmitLeasingQuoteDto } from "./dto/leasing-quote-action.dto";
 import { LeasingLeadsService } from "./leasing-leads.service";
 
 @Controller("leasing/quotes")
 @RequireModule("leasing")
 export class LeasingQuotesController {
-  constructor(private readonly leasingLeadsService: LeasingLeadsService) {}
+  constructor(
+    private readonly leasingLeadsService: LeasingLeadsService,
+    private readonly leasingContractsService: LeasingContractsService
+  ) {}
 
   @Post(":quoteId/submit")
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_QUOTE_SUBMIT)
@@ -48,5 +53,17 @@ export class LeasingQuotesController {
     @Body() dto: RejectLeasingQuoteDto
   ) {
     return this.leasingLeadsService.rejectQuote(scope, user, quoteId, dto);
+  }
+
+  @Post(":quoteId/create-contract-draft")
+  @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_QUOTE_CREATE_CONTRACT, SYSTEM_PERMISSIONS.LEASING_CONTRACT_CREATE)
+  @AuditLog({ module: "招商报价方案", resource: "biz.leasing_quote", action: "生成合同草稿", bizType: "biz_leasing_contract", bizIdParam: "quoteId" })
+  createContractDraft(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("quoteId") quoteId: string,
+    @Body() dto: CreateContractDraftFromQuoteDto
+  ) {
+    return this.leasingContractsService.createDraftFromApprovedQuote(scope, user, quoteId, dto);
   }
 }

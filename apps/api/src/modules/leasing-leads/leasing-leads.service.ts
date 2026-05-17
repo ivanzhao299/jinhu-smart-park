@@ -8,6 +8,7 @@ import { DataScopeService } from "../data-scopes/data-scope.service";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
@@ -105,6 +106,15 @@ export interface ConvertLeasingLeadToParkTenantResult {
   park_tenant: ParkTenantEntity;
 }
 
+interface LeasingQuoteContractDraftSummary {
+  id: string;
+  contractCode: string;
+  contractName: string;
+  status: string;
+}
+
+type LeasingQuoteWithContractDraft = LeasingQuoteEntity & { contractDraft?: LeasingQuoteContractDraftSummary | null };
+
 interface FunnelSummaryRaw {
   total_leads: string | number | null;
   valid_leads: string | number | null;
@@ -129,6 +139,8 @@ export class LeasingLeadsService {
     private readonly visitsRepository: Repository<LeasingVisitEntity>,
     @InjectRepository(LeasingQuoteEntity)
     private readonly quotesRepository: Repository<LeasingQuoteEntity>,
+    @InjectRepository(LeasingContractEntity)
+    private readonly contractsRepository: Repository<LeasingContractEntity>,
     @InjectRepository(UnitEntity)
     private readonly unitsRepository: Repository<UnitEntity>,
     @InjectRepository(UserEntity)
@@ -754,6 +766,7 @@ export class LeasingLeadsService {
       .andWhere("quote.is_deleted = false")
       .orderBy("quote.create_time", "DESC")
       .getMany();
+    await this.attachContractDraftSummaries(scope, quotes);
     return this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "leasing_quote", quotes);
   }
 
@@ -945,6 +958,36 @@ export class LeasingLeadsService {
     }
     await this.findOne(scope, entity.leadId, actor);
     return entity;
+  }
+
+  private async attachContractDraftSummaries(scope: TenantParkScope, quotes: LeasingQuoteEntity[]): Promise<void> {
+    const quoteIds = quotes.map((quote) => quote.id);
+    if (quoteIds.length === 0) return;
+    const contracts = await this.contractsRepository
+      .createQueryBuilder("contract")
+      .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("contract.source_quote_id IN (:...quoteIds)", { quoteIds })
+      .andWhere("contract.is_deleted = false")
+      .orderBy("contract.create_time", "DESC")
+      .getMany();
+    const contractByQuoteId = new Map<string, LeasingContractEntity>();
+    for (const contract of contracts) {
+      if (contract.sourceQuoteId && !contractByQuoteId.has(contract.sourceQuoteId)) {
+        contractByQuoteId.set(contract.sourceQuoteId, contract);
+      }
+    }
+    for (const quote of quotes as LeasingQuoteWithContractDraft[]) {
+      const contract = contractByQuoteId.get(quote.id);
+      quote.contractDraft = contract
+        ? {
+            id: contract.id,
+            contractCode: contract.contractCode,
+            contractName: contract.contractName,
+            status: contract.status
+          }
+        : null;
+    }
   }
 
   private applyQuery(builder: SelectQueryBuilder<LeasingLeadEntity>, query: LeasingLeadQueryDto): void {

@@ -7,6 +7,7 @@ import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
+import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import type { ChangeParkTenantRiskDto } from "./dto/change-park-tenant-risk.dto";
 import type { CreateParkTenantDto } from "./dto/create-park-tenant.dto";
 import type { ParkTenantQueryDto } from "./dto/park-tenant-query.dto";
@@ -39,6 +40,8 @@ export class ParkTenantsService {
     private readonly contactsRepository: Repository<ParkTenantContactEntity>,
     @InjectRepository(ParkTenantQualificationEntity)
     private readonly qualificationsRepository: Repository<ParkTenantQualificationEntity>,
+    @InjectRepository(LeasingContractEntity)
+    private readonly contractsRepository: Repository<LeasingContractEntity>,
     @InjectRepository(DictItemEntity)
     private readonly dictItemsRepository: Repository<DictItemEntity>,
     private readonly codeRulesService: CodeRulesService,
@@ -66,7 +69,7 @@ export class ParkTenantsService {
 
   async tenant360(scope: TenantParkScope, id: string, actor: JwtPrincipal) {
     const profile = await this.detail(scope, id, actor);
-    const [contactsRaw, qualificationsRaw, riskLogsRaw] = await Promise.all([
+    const [contactsRaw, qualificationsRaw, riskLogsRaw, contractsRaw] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
         .where("contact.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -94,12 +97,36 @@ export class ParkTenantsService {
         .andWhere("riskLog.is_deleted = false")
         .orderBy("riskLog.op_time", "DESC")
         .addOrderBy("riskLog.create_time", "DESC")
+        .getMany(),
+      this.contractsRepository
+        .createQueryBuilder("contract")
+        .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("contract.park_tenant_id = :parkTenantId", { parkTenantId: id })
+        .andWhere("contract.is_deleted = false")
+        .orderBy("contract.start_date", "DESC")
+        .addOrderBy("contract.create_time", "DESC")
         .getMany()
     ]);
-    const [contacts, qualifications, riskLogs] = await Promise.all([
+    const [contacts, qualifications, riskLogs, contracts] = await Promise.all([
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_contact", contactsRaw),
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_qualification", qualificationsRaw),
-      this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_risk_log", riskLogsRaw)
+      this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_risk_log", riskLogsRaw),
+      this.fieldPolicyService.applyFieldPoliciesToList(
+        scope,
+        actor,
+        "leasing",
+        "leasing_contract",
+        contractsRaw.map((contract) => ({
+          id: contract.id,
+          contract_code: contract.contractCode,
+          contract_name: contract.contractName,
+          start_date: contract.startDate,
+          end_date: contract.endDate,
+          total_amount: contract.totalAmount,
+          status: contract.status
+        }))
+      )
     ]);
     return {
       profile: this.toTenant360Profile(profile),
@@ -107,7 +134,14 @@ export class ParkTenantsService {
       qualifications: this.sanitizeQualificationFiles(qualifications),
       riskLogs,
       relatedUnits: [],
-      contracts: { available: false, items: [] },
+      contracts: {
+        available: true,
+        items: contracts,
+        summary: {
+          contract_count: contractsRaw.length,
+          active_contract_count: contractsRaw.filter((contract) => contract.status === "75").length
+        }
+      },
       receivables: { available: false, summary: null },
       workorders: { available: false, summary: null },
       hazards: { available: false, summary: null },

@@ -53,7 +53,8 @@ const QUOTE_PERMISSIONS = {
   delete: "leasing_quote:delete",
   submit: "leasing_quote:submit",
   approve: "leasing_quote:approve",
-  reject: "leasing_quote:reject"
+  reject: "leasing_quote:reject",
+  createContract: "leasing_quote:create_contract"
 } as const;
 const FILE_PERMISSIONS = {
   upload: "file:upload"
@@ -210,6 +211,12 @@ interface LeasingQuoteRow {
   approveTime: string | null;
   approveBy: string | null;
   rejectReason: string | null;
+  contractDraft?: {
+    id: string;
+    contractCode: string;
+    contractName: string;
+    status: string;
+  } | null;
   remark: string | null;
   createTime: string;
   updateTime: string;
@@ -1071,6 +1078,32 @@ export default function LeasingLeadsPage() {
     await loadQuotes(detail.id);
   }
 
+  async function createContractDraftFromQuote(row: LeasingQuoteRow) {
+    if (!detail) return;
+    if (row.quoteStatus !== "40") {
+      setMessage("只有已通过的报价才能生成合同草稿");
+      return;
+    }
+    if (row.contractDraft) {
+      window.location.href = "/leasing/contracts";
+      return;
+    }
+    if (!detail.parkTenantId) {
+      setMessage("请先将线索转为租户企业，再生成合同草稿");
+      return;
+    }
+    const contractName = `${detail.customerName}租赁合同`;
+    await apiRequest<{ id: string; contractCode: string; contractName: string }>(`/leasing/quotes/${row.id}/create-contract-draft`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("leasing-quote-create-contract"),
+      body: { contract_name: contractName }
+    });
+    setMessage("合同草稿已生成");
+    await loadQuotes(detail.id);
+    window.location.href = "/leasing/contracts";
+  }
+
   function openStatusChange(row: LeasingLeadRow) {
     const allowedTargets = ALLOWED_LEAD_STATUS_TRANSITIONS[row.status] ?? [];
     setStatusTarget(row);
@@ -1670,6 +1703,17 @@ export default function LeasingLeadsPage() {
                                 <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.reject} type="button" onClick={() => void rejectQuote(quote).catch((error: Error) => setMessage(error.message))}>
                                   驳回
                                 </PermissionButton>
+                                {quote.contractDraft ? (
+                                  <a className="primary-button" href="/leasing/contracts">
+                                    <Eye size={16} />
+                                    查看合同
+                                  </a>
+                                ) : quote.quoteStatus === "40" ? (
+                                  <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.createContract} type="button" onClick={() => void createContractDraftFromQuote(quote).catch((error: Error) => setMessage(error.message))}>
+                                    <Building2 size={16} />
+                                    生成合同草稿
+                                  </PermissionButton>
+                                ) : null}
                                 <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.delete} type="button" onClick={() => void removeQuote(quote).catch((error: Error) => setMessage(error.message))}>
                                   <Trash2 size={16} />
                                   删除

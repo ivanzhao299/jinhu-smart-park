@@ -94,6 +94,22 @@ export class AuditLogInterceptor implements NestInterceptor {
       "quote_price",
       "propertyFeePrice",
       "property_fee_price",
+      "rentUnitPrice",
+      "rent_unit_price",
+      "rentAmountPerMonth",
+      "rent_amount_per_month",
+      "rentPerMonth",
+      "rent_per_month",
+      "totalAmount",
+      "total_amount",
+      "depositAmount",
+      "deposit_amount",
+      "propertyFeeUnitPrice",
+      "property_fee_unit_price",
+      "contractPdfFileId",
+      "contract_pdf_file_id",
+      "scanPdfFileId",
+      "scan_pdf_file_id",
       "content"
     ]);
     return Object.fromEntries(

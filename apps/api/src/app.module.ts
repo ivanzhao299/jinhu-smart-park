@@ -16,6 +16,7 @@ import { DictsModule } from "./modules/dicts/dicts.module";
 import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
+import { LeasingContractsModule } from "./modules/leasing-contracts/leasing-contracts.module";
 import { LeasingLeadsModule } from "./modules/leasing-leads/leasing-leads.module";
 import { OrgsModule } from "./modules/orgs/orgs.module";
 import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
@@ -68,6 +69,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     DataScopesModule,
     FieldPoliciesModule,
     FloorsModule,
+    LeasingContractsModule,
     LeasingLeadsModule,
     UnitsModule,
     ParkTenantsModule,

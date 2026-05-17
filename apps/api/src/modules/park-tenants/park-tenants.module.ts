@@ -6,6 +6,7 @@ import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import { ParkTenantContactEntity } from "./entities/park-tenant-contact.entity";
 import { ParkTenantQualificationEntity } from "./entities/park-tenant-qualification.entity";
 import { ParkTenantRiskLogEntity } from "./entities/park-tenant-risk-log.entity";
@@ -22,6 +23,7 @@ import { ParkTenantsService } from "./park-tenants.service";
       ParkTenantContactEntity,
       ParkTenantQualificationEntity,
       ParkTenantRiskLogEntity,
+      LeasingContractEntity,
       FileEntity,
       DictTypeEntity,
       DictItemEntity

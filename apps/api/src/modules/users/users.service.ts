@@ -611,6 +611,8 @@ export class UsersService {
       permissionCode?.startsWith("leasing_follow:") ||
       permissionCode?.startsWith("leasing_visit:") ||
       permissionCode?.startsWith("leasing_quote:") ||
+      permissionCode?.startsWith("leasing_contract:") ||
+      permissionCode?.startsWith("leasing_contract_unit:") ||
       permissionCode?.startsWith("leasing_statistics:")
     ) {
       return "leasing";
@@ -671,7 +673,7 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "招商线索", href: "/leasing/leads", permission: "leasing_lead:read", module: "leasing" },
       { label: "公海池", href: "/leasing/lead-pool", permission: "leasing_lead_pool:read", module: "leasing" },
       { label: "招商漏斗", href: "/leasing/funnel", permission: "leasing_statistics:funnel", module: "leasing" },
-      { label: "合同管理", href: "/contracts", permission: "contract:read", module: "leasing" },
+      { label: "合同管理", href: "/leasing/contracts", permission: "leasing_contract:read", module: "leasing" },
       { label: "应收账单", href: "/finance/receivables", permission: "ar:read", module: "leasing" }
     ]
   },

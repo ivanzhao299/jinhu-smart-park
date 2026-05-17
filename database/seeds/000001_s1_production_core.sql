@@ -237,9 +237,29 @@ leaf_permissions(code, name, resource, action) AS (
     ('leasing_quote:submit', '提交招商报价审批', 'biz.leasing_quote', 'submit'),
     ('leasing_quote:approve', '招商报价审批通过', 'biz.leasing_quote', 'approve'),
     ('leasing_quote:reject', '招商报价审批驳回', 'biz.leasing_quote', 'reject'),
+    ('leasing_quote:create_contract', '报价生成合同草稿', 'biz.leasing_quote', 'create_contract'),
+    ('leasing_contract:read', '合同读取', 'biz.leasing_contract', 'read'),
+    ('leasing_contract:create', '新增合同', 'biz.leasing_contract', 'create'),
+    ('leasing_contract:update', '编辑合同', 'biz.leasing_contract', 'update'),
+    ('leasing_contract:delete', '删除合同', 'biz.leasing_contract', 'delete'),
+    ('leasing_contract:submit', '提交合同审批', 'biz.leasing_contract', 'submit'),
+    ('leasing_contract:approve', '合同审批通过', 'biz.leasing_contract', 'approve'),
+    ('leasing_contract:reject', '合同审批驳回', 'biz.leasing_contract', 'reject'),
+    ('leasing_contract:void', '合同作废', 'biz.leasing_contract', 'void'),
+    ('leasing_contract:archive', '合同签章归档', 'biz.leasing_contract', 'archive'),
+    ('leasing_contract:effective', '合同生效', 'biz.leasing_contract', 'effective'),
+    ('leasing_contract:status_log', '合同状态日志', 'biz.leasing_contract_status_log', 'status_log'),
+    ('leasing_contract:file_read', '合同附件读取', 'biz.leasing_contract', 'file_read'),
+    ('leasing_contract_unit:read', '合同房源读取', 'rel.leasing_contract_unit', 'read'),
+    ('leasing_contract_unit:create', '新增合同房源', 'rel.leasing_contract_unit', 'create'),
+    ('leasing_contract_unit:update', '编辑合同房源', 'rel.leasing_contract_unit', 'update'),
+    ('leasing_contract_unit:delete', '删除合同房源', 'rel.leasing_contract_unit', 'delete'),
+    ('leasing_contract:recalculate', '合同金额重算', 'biz.leasing_contract', 'recalculate'),
+    ('leasing_contract:override_area', '合同房源面积超额覆盖', 'rel.leasing_contract_unit', 'override_area'),
+    ('leasing_contract:force_bind_unit', '合同强制绑定房源', 'rel.leasing_contract_unit', 'force_bind_unit'),
+    ('leasing_contract:edit_after_submit', '提交后编辑合同房源', 'rel.leasing_contract_unit', 'edit_after_submit'),
     ('leasing_statistics:funnel', '招商漏斗统计', 'biz.leasing_statistics', 'funnel'),
     ('invest:read', '招商租赁读取', 'leasing', 'read'),
-    ('contract:read', '合同读取', 'leasing.contract', 'read'),
     ('ar:read', '应收读取', 'leasing.receivable', 'read'),
     ('wo:read', '工单读取', 'workorder', 'read'),
     ('iot:read', 'IoT 平台读取', 'iot', 'read'),
@@ -344,7 +364,7 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code LIKE 'leasing_statistics:%' THEN 'leasing:invest'
       WHEN leaf_permissions.code LIKE 'leasing_lead:%' OR leaf_permissions.code LIKE 'leasing_follow:%' OR leaf_permissions.code LIKE 'leasing_visit:%' OR leaf_permissions.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN leaf_permissions.code = 'invest:read' THEN 'leasing:invest'
-      WHEN leaf_permissions.code = 'contract:read' THEN 'leasing:contract'
+      WHEN leaf_permissions.code LIKE 'leasing_contract:%' OR leaf_permissions.code LIKE 'leasing_contract_unit:%' THEN 'leasing:contract'
       WHEN leaf_permissions.code = 'ar:read' THEN 'leasing:receivable'
       WHEN leaf_permissions.code = 'wo:read' THEN 'workorder:center'
       WHEN leaf_permissions.code = 'iot:read' THEN 'iot:overview'
@@ -464,7 +484,7 @@ upsert_permissions AS (
       WHEN 'leasing:lead' THEN '/leasing/leads'
       WHEN 'leasing:lead-pool' THEN '/leasing/lead-pool'
       WHEN 'leasing:invest' THEN '/leasing/funnel'
-      WHEN 'leasing:contract' THEN '/contracts'
+      WHEN 'leasing:contract' THEN '/leasing/contracts'
       WHEN 'leasing:receivable' THEN '/finance/receivables'
       WHEN 'workorder:center' THEN '/workorders'
       WHEN 'iot:overview' THEN '/iot/overview'
@@ -600,7 +620,7 @@ permission_parent_map AS (
       WHEN child.code LIKE 'leasing_statistics:%' THEN 'leasing:invest'
       WHEN child.code LIKE 'leasing_lead:%' OR child.code LIKE 'leasing_follow:%' OR child.code LIKE 'leasing_visit:%' OR child.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN child.code = 'invest:read' THEN 'leasing:invest'
-      WHEN child.code = 'contract:read' THEN 'leasing:contract'
+      WHEN child.code LIKE 'leasing_contract:%' OR child.code LIKE 'leasing_contract_unit:%' THEN 'leasing:contract'
       WHEN child.code = 'ar:read' THEN 'leasing:receivable'
       WHEN child.code = 'wo:read' THEN 'workorder:center'
       WHEN child.code = 'iot:read' THEN 'iot:overview'
@@ -630,6 +650,7 @@ data_scope_rules(rule_code, rule_name, dimension, scope_type, scope_config, rema
     ('all_parks', '全部园区', 'park', 'all', '{}'::jsonb, 'Production-safe data scope rule for all parks'),
     ('current_park', '当前园区', 'park', 'park', '{}'::jsonb, 'Production-safe data scope rule for current park'),
     ('self_only', '仅本人', 'customer_owner', 'self', '{}'::jsonb, 'Production-safe data scope rule for self-owned data'),
+    ('self_contract_owner', '仅本人合同', 'contract_owner', 'self', '{}'::jsonb, 'Production-safe data scope rule for self-owned contracts'),
     ('org_and_children', '本部门及下级', 'org', 'org_and_children', '{}'::jsonb, 'Production-safe data scope rule for organization tree')
 )
 INSERT INTO sys_data_scope_rule (
@@ -690,16 +711,33 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('system', 'user', 'mobile', '手机号', 'masked', 'mobile', 'Sensitive mobile number default policy'),
     ('system', 'user', 'id_card_no', '身份证号', 'masked', 'id_card', 'Sensitive identity number default policy'),
     ('finance', 'bank_account', 'bank_account_no', '银行账号', 'masked', 'bank_account', 'Sensitive bank account default policy'),
-    ('contract', 'contract', 'contract_amount', '合同金额', 'masked', 'amount', 'Sensitive contract amount default policy'),
+    ('leasing', 'leasing_contract', 'contract_amount', '合同金额', 'masked', 'amount', 'Sensitive contract amount default policy'),
     ('finance', 'receivable', 'amount', '应收金额', 'masked', 'amount', 'Receivable amount default masked policy'),
     ('finance', 'payment', 'amount', '收款金额', 'hidden', 'amount', 'Payment amount default hidden policy'),
     ('finance', 'bank_account', 'bank_account', '银行账号', 'masked', 'bank_account', 'Generic bank account default policy'),
     ('system', 'person', 'id_card', '身份证号', 'masked', 'id_card', 'Generic ID card default policy'),
-    ('contract', 'attachment', 'contract_attachment', '合同附件', 'visible', 'file_name', 'Contract attachment default policy'),
+    ('leasing', 'leasing_contract', 'contract_attachment', '合同附件', 'visible', 'file_name', 'Contract attachment default policy'),
     ('system', 'sys_user', 'mobile', '用户手机号', 'masked', 'mobile', 'sys_user.mobile default field policy'),
     ('tenant', 'biz_tenant', 'contact_mobile', '租户联系人手机号', 'masked', 'mobile', 'biz_tenant.contact_mobile default field policy'),
     ('tenant', 'biz_tenant', 'legal_person_id', '法人身份证号', 'masked', 'id_card', 'biz_tenant.legal_person_id default field policy'),
-    ('contract', 'biz_contract', 'total_amount', '合同总金额', 'masked', 'amount', 'biz_contract.total_amount default field policy'),
+    ('leasing', 'leasing_contract', 'rent_unit_price', '合同租金单价', 'masked', 'amount', 'leasing contract rent unit price default field policy'),
+    ('leasing', 'leasing_contract', 'rentUnitPrice', '合同租金单价', 'masked', 'amount', 'leasing contract rentUnitPrice default field policy'),
+    ('leasing', 'leasing_contract', 'total_amount', '合同总金额', 'masked', 'amount', 'leasing contract total amount default field policy'),
+    ('leasing', 'leasing_contract', 'totalAmount', '合同总金额', 'masked', 'amount', 'leasing contract totalAmount default field policy'),
+    ('leasing', 'leasing_contract', 'rent_per_month', '月租金', 'masked', 'amount', 'leasing contract rent per month default field policy'),
+    ('leasing', 'leasing_contract', 'rentPerMonth', '月租金', 'masked', 'amount', 'leasing contract rentPerMonth default field policy'),
+    ('leasing', 'leasing_contract', 'deposit_amount', '押金金额', 'masked', 'amount', 'leasing contract deposit amount default field policy'),
+    ('leasing', 'leasing_contract', 'depositAmount', '押金金额', 'masked', 'amount', 'leasing contract depositAmount default field policy'),
+    ('leasing', 'leasing_contract', 'property_fee_unit_price', '物业费单价', 'masked', 'amount', 'leasing contract property fee unit price default field policy'),
+    ('leasing', 'leasing_contract', 'propertyFeeUnitPrice', '物业费单价', 'masked', 'amount', 'leasing contract propertyFeeUnitPrice default field policy'),
+    ('leasing', 'leasing_contract', 'contract_pdf_file_id', '合同正文文件', 'visible', 'file_name', 'leasing contract pdf file default field policy'),
+    ('leasing', 'leasing_contract', 'contractPdfFileId', '合同正文文件', 'visible', 'file_name', 'leasing contractPdfFileId default field policy'),
+    ('leasing', 'leasing_contract', 'scan_pdf_file_id', '合同扫描件', 'visible', 'file_name', 'leasing contract scan file default field policy'),
+    ('leasing', 'leasing_contract', 'scanPdfFileId', '合同扫描件', 'visible', 'file_name', 'leasing contract scanPdfFileId default field policy'),
+    ('leasing', 'rel_leasing_contract_unit', 'rent_unit_price', '合同房源租金单价', 'masked', 'amount', 'leasing contract unit rent unit price default field policy'),
+    ('leasing', 'rel_leasing_contract_unit', 'rentUnitPrice', '合同房源租金单价', 'masked', 'amount', 'leasing contract unit rentUnitPrice default field policy'),
+    ('leasing', 'rel_leasing_contract_unit', 'rent_amount_per_month', '合同房源月租金', 'masked', 'amount', 'leasing contract unit monthly amount default field policy'),
+    ('leasing', 'rel_leasing_contract_unit', 'rentAmountPerMonth', '合同房源月租金', 'masked', 'amount', 'leasing contract unit rentAmountPerMonth default field policy'),
     ('payment', 'biz_payment', 'bank_serial', '银行流水号', 'masked', 'bank_account', 'biz_payment.bank_serial default field policy'),
     ('system', 'sys_file', 'file_url', '文件访问地址', 'masked', 'custom', 'sys_file.file_url default field policy'),
     ('asset', 'unit', 'refPrice', '房源参考租金', 'masked', 'amount', 'asset unit reference price default field policy'),
@@ -763,7 +801,9 @@ WITH seed_scope AS (
     '00000000-0000-4000-8000-000000002103'::uuid AS invest_manager_role_id,
     '00000000-0000-4000-8000-000000002104'::uuid AS invest_specialist_role_id,
     '00000000-0000-4000-8000-000000002105'::uuid AS safety_manager_role_id,
-    '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id
+    '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id,
+    '00000000-0000-4000-8000-000000002107'::uuid AS finance_manager_role_id,
+    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id
 ),
 default_park AS (
   INSERT INTO sys_org (
@@ -823,6 +863,12 @@ roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, rema
   FROM seed_scope
   UNION ALL
   SELECT property_manager_role_id, 'PROPERTY_MANAGER', '物业主管', 'park', 'park', 'park', false, 90, 'Default property manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT finance_manager_role_id, 'FINANCE_MANAGER', '财务主管', 'park', 'park', 'park', false, 100, 'Default finance manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT finance_specialist_role_id, 'FINANCE_SPECIALIST', '财务专员', 'park', 'park', 'park', false, 110, 'Default finance specialist role template.'
   FROM seed_scope
 )
 INSERT INTO sys_role (
@@ -914,8 +960,11 @@ role_rule_codes(role_code, rule_code) AS (
     ('EXECUTIVE', 'current_park'),
     ('INVEST_MANAGER', 'current_park'),
     ('INVEST_SPECIALIST', 'self_only'),
+    ('INVEST_SPECIALIST', 'self_contract_owner'),
     ('SAFETY_MANAGER', 'current_park'),
-    ('PROPERTY_MANAGER', 'current_park')
+    ('PROPERTY_MANAGER', 'current_park'),
+    ('FINANCE_MANAGER', 'current_park'),
+    ('FINANCE_SPECIALIST', 'current_park')
 ),
 role_data_scope_links AS (
   SELECT
@@ -1007,7 +1056,9 @@ managed_roles(role_code) AS (
     ('INVEST_MANAGER'),
     ('INVEST_SPECIALIST'),
     ('SAFETY_MANAGER'),
-    ('PROPERTY_MANAGER')
+    ('PROPERTY_MANAGER'),
+    ('FINANCE_MANAGER'),
+    ('FINANCE_SPECIALIST')
 ),
 s3a_permissions(permission_code) AS (
   VALUES
@@ -1054,6 +1105,27 @@ s3a_permissions(permission_code) AS (
     ('leasing_quote:submit'),
     ('leasing_quote:approve'),
     ('leasing_quote:reject'),
+    ('leasing_quote:create_contract'),
+    ('leasing_contract:read'),
+    ('leasing_contract:create'),
+    ('leasing_contract:update'),
+    ('leasing_contract:delete'),
+    ('leasing_contract:submit'),
+    ('leasing_contract:approve'),
+    ('leasing_contract:reject'),
+    ('leasing_contract:void'),
+    ('leasing_contract:archive'),
+    ('leasing_contract:effective'),
+    ('leasing_contract:status_log'),
+    ('leasing_contract:file_read'),
+    ('leasing_contract_unit:read'),
+    ('leasing_contract_unit:create'),
+    ('leasing_contract_unit:update'),
+    ('leasing_contract_unit:delete'),
+    ('leasing_contract:recalculate'),
+    ('leasing_contract:override_area'),
+    ('leasing_contract:force_bind_unit'),
+    ('leasing_contract:edit_after_submit'),
     ('leasing_statistics:funnel')
 ),
 desired_role_permissions(role_code, permission_code) AS (
@@ -1064,6 +1136,10 @@ desired_role_permissions(role_code, permission_code) AS (
     ('EXECUTIVE', 'leasing_lead:read'),
     ('EXECUTIVE', 'leasing_lead:status_log'),
     ('EXECUTIVE', 'leasing_quote:read'),
+    ('EXECUTIVE', 'leasing_contract:read'),
+    ('EXECUTIVE', 'leasing_contract:status_log'),
+    ('EXECUTIVE', 'leasing_contract:file_read'),
+    ('EXECUTIVE', 'leasing_contract_unit:read'),
     ('EXECUTIVE', 'leasing_statistics:funnel'),
     ('OPERATIONS_OWNER', 'park_tenant:read'),
     ('OPERATIONS_OWNER', 'park_tenant:create'),
@@ -1108,6 +1184,27 @@ desired_role_permissions(role_code, permission_code) AS (
     ('OPERATIONS_OWNER', 'leasing_quote:submit'),
     ('OPERATIONS_OWNER', 'leasing_quote:approve'),
     ('OPERATIONS_OWNER', 'leasing_quote:reject'),
+    ('OPERATIONS_OWNER', 'leasing_quote:create_contract'),
+    ('OPERATIONS_OWNER', 'leasing_contract:read'),
+    ('OPERATIONS_OWNER', 'leasing_contract:create'),
+    ('OPERATIONS_OWNER', 'leasing_contract:update'),
+    ('OPERATIONS_OWNER', 'leasing_contract:delete'),
+    ('OPERATIONS_OWNER', 'leasing_contract:submit'),
+    ('OPERATIONS_OWNER', 'leasing_contract:approve'),
+    ('OPERATIONS_OWNER', 'leasing_contract:reject'),
+    ('OPERATIONS_OWNER', 'leasing_contract:void'),
+    ('OPERATIONS_OWNER', 'leasing_contract:archive'),
+    ('OPERATIONS_OWNER', 'leasing_contract:effective'),
+    ('OPERATIONS_OWNER', 'leasing_contract:status_log'),
+    ('OPERATIONS_OWNER', 'leasing_contract:file_read'),
+    ('OPERATIONS_OWNER', 'leasing_contract_unit:read'),
+    ('OPERATIONS_OWNER', 'leasing_contract_unit:create'),
+    ('OPERATIONS_OWNER', 'leasing_contract_unit:update'),
+    ('OPERATIONS_OWNER', 'leasing_contract_unit:delete'),
+    ('OPERATIONS_OWNER', 'leasing_contract:recalculate'),
+    ('OPERATIONS_OWNER', 'leasing_contract:override_area'),
+    ('OPERATIONS_OWNER', 'leasing_contract:force_bind_unit'),
+    ('OPERATIONS_OWNER', 'leasing_contract:edit_after_submit'),
     ('OPERATIONS_OWNER', 'leasing_statistics:funnel'),
     ('INVEST_MANAGER', 'park_tenant:read'),
     ('INVEST_MANAGER', 'park_tenant:create'),
@@ -1145,6 +1242,21 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_MANAGER', 'leasing_quote:submit'),
     ('INVEST_MANAGER', 'leasing_quote:approve'),
     ('INVEST_MANAGER', 'leasing_quote:reject'),
+    ('INVEST_MANAGER', 'leasing_quote:create_contract'),
+    ('INVEST_MANAGER', 'leasing_contract:read'),
+    ('INVEST_MANAGER', 'leasing_contract:create'),
+    ('INVEST_MANAGER', 'leasing_contract:update'),
+    ('INVEST_MANAGER', 'leasing_contract:submit'),
+    ('INVEST_MANAGER', 'leasing_contract:approve'),
+    ('INVEST_MANAGER', 'leasing_contract:reject'),
+    ('INVEST_MANAGER', 'leasing_contract:archive'),
+    ('INVEST_MANAGER', 'leasing_contract:status_log'),
+    ('INVEST_MANAGER', 'leasing_contract:file_read'),
+    ('INVEST_MANAGER', 'leasing_contract_unit:read'),
+    ('INVEST_MANAGER', 'leasing_contract_unit:create'),
+    ('INVEST_MANAGER', 'leasing_contract_unit:update'),
+    ('INVEST_MANAGER', 'leasing_contract_unit:delete'),
+    ('INVEST_MANAGER', 'leasing_contract:recalculate'),
     ('INVEST_MANAGER', 'leasing_statistics:funnel'),
     ('INVEST_SPECIALIST', 'park_tenant:read'),
     ('INVEST_SPECIALIST', 'park_tenant:create'),
@@ -1174,7 +1286,27 @@ desired_role_permissions(role_code, permission_code) AS (
     ('INVEST_SPECIALIST', 'leasing_quote:update'),
     ('INVEST_SPECIALIST', 'leasing_quote:delete'),
     ('INVEST_SPECIALIST', 'leasing_quote:submit'),
+    ('INVEST_SPECIALIST', 'leasing_quote:create_contract'),
+    ('INVEST_SPECIALIST', 'leasing_contract:read'),
+    ('INVEST_SPECIALIST', 'leasing_contract:create'),
+    ('INVEST_SPECIALIST', 'leasing_contract:update'),
+    ('INVEST_SPECIALIST', 'leasing_contract:submit'),
+    ('INVEST_SPECIALIST', 'leasing_contract:status_log'),
+    ('INVEST_SPECIALIST', 'leasing_contract:file_read'),
+    ('INVEST_SPECIALIST', 'leasing_contract_unit:read'),
+    ('INVEST_SPECIALIST', 'leasing_contract_unit:create'),
+    ('INVEST_SPECIALIST', 'leasing_contract_unit:update'),
+    ('INVEST_SPECIALIST', 'leasing_contract_unit:delete'),
+    ('INVEST_SPECIALIST', 'leasing_contract:recalculate'),
     ('INVEST_SPECIALIST', 'leasing_statistics:funnel'),
+    ('FINANCE_MANAGER', 'leasing_contract:read'),
+    ('FINANCE_MANAGER', 'leasing_contract:approve'),
+    ('FINANCE_MANAGER', 'leasing_contract:reject'),
+    ('FINANCE_MANAGER', 'leasing_contract:status_log'),
+    ('FINANCE_MANAGER', 'leasing_contract:file_read'),
+    ('FINANCE_SPECIALIST', 'leasing_contract:read'),
+    ('FINANCE_SPECIALIST', 'leasing_contract:status_log'),
+    ('FINANCE_SPECIALIST', 'leasing_contract:file_read'),
     ('SAFETY_MANAGER', 'park_tenant:read'),
     ('SAFETY_MANAGER', 'park_tenant:360'),
     ('SAFETY_MANAGER', 'park_tenant:risk_update'),
@@ -1340,6 +1472,25 @@ role_permissions AS (
       'leasing_quote:submit',
       'leasing_quote:approve',
       'leasing_quote:reject',
+      'leasing_quote:create_contract',
+      'leasing_contract:read',
+      'leasing_contract:create',
+      'leasing_contract:update',
+      'leasing_contract:delete',
+      'leasing_contract:submit',
+      'leasing_contract:approve',
+      'leasing_contract:reject',
+      'leasing_contract:archive',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read',
+      'leasing_contract_unit:read',
+      'leasing_contract_unit:create',
+      'leasing_contract_unit:update',
+      'leasing_contract_unit:delete',
+      'leasing_contract:recalculate',
+      'leasing_contract:override_area',
+      'leasing_contract:force_bind_unit',
+      'leasing_contract:edit_after_submit',
       'leasing_statistics:funnel',
       'asset:read',
       'asset:status_board',
@@ -1374,6 +1525,10 @@ role_permissions AS (
       'leasing_lead:read',
       'leasing_lead:status_log',
       'leasing_quote:read',
+      'leasing_contract:read',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read',
+      'leasing_contract_unit:read',
       'leasing_statistics:funnel'
     )
   UNION ALL
@@ -1434,6 +1589,21 @@ role_permissions AS (
       'leasing_quote:submit',
       'leasing_quote:approve',
       'leasing_quote:reject',
+      'leasing_quote:create_contract',
+      'leasing_contract:read',
+      'leasing_contract:create',
+      'leasing_contract:update',
+      'leasing_contract:submit',
+      'leasing_contract:approve',
+      'leasing_contract:reject',
+      'leasing_contract:archive',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read',
+      'leasing_contract_unit:read',
+      'leasing_contract_unit:create',
+      'leasing_contract_unit:update',
+      'leasing_contract_unit:delete',
+      'leasing_contract:recalculate',
       'leasing_statistics:funnel',
       'asset:read',
       'asset:statistics',
@@ -1487,7 +1657,65 @@ role_permissions AS (
       'leasing_quote:update',
       'leasing_quote:delete',
       'leasing_quote:submit',
+      'leasing_quote:create_contract',
+      'leasing_contract:read',
+      'leasing_contract:create',
+      'leasing_contract:update',
+      'leasing_contract:submit',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read',
+      'leasing_contract_unit:read',
+      'leasing_contract_unit:create',
+      'leasing_contract_unit:update',
+      'leasing_contract_unit:delete',
+      'leasing_contract:recalculate',
       'leasing_statistics:funnel'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'FINANCE_MANAGER'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'file:read',
+      'file:download',
+      'leasing_contract:read',
+      'leasing_contract:approve',
+      'leasing_contract:reject',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'FINANCE_SPECIALIST'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'file:read',
+      'file:download',
+      'leasing_contract:read',
+      'leasing_contract:status_log',
+      'leasing_contract:file_read'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -1575,7 +1803,7 @@ code_rules(entity_type, rule_code, rule_name, target_module, target_entity, pref
     ('inspection_robot', 'INSPECTION_ROBOT_CODE', '巡检机器人编码规则', 'robot', 'inspection_robot', 'INS-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'INS-RB-001', 'SaaS inspection robot code rule seed'),
     ('workorder', 'WORKORDER_CODE', '工单编码规则', 'workorder', 'workorder', 'WO-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'WO-20260515000001', 'SaaS workorder code rule seed'),
     ('leasing_lead', 'LEASING_LEAD_CODE', '招商线索编码规则', 'leasing', 'leasing_lead', 'LEAD-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'LEAD-000001', 'SaaS leasing lead code rule seed'),
-    ('contract', 'CONTRACT_CODE', '合同编码规则', 'contract', 'contract', 'CT-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'CT-20260515000001', 'SaaS contract code rule seed'),
+    ('contract', 'CONTRACT_CODE', '合同编码规则', 'leasing', 'contract', 'CT-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'CT-20260515000001', 'SaaS contract code rule seed'),
     ('bill', 'BILL_CODE', '账单编码规则', 'finance', 'bill', 'BILL-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'monthly', '', 'BILL-20260515000001', 'SaaS bill code rule seed'),
     (NULL, 'PARK_TENANT_CODE', '园区租户企业编码规则', 'leasing', 'park_tenant', 'PT-', '{PREFIX}{SEQ:5}', NULL, 5, 'none', '', 'PT-00001', 'SaaS park tenant code rule seed')
 )
@@ -2014,7 +2242,10 @@ dict_types(dict_code, dict_name, remark) AS (
     ('leasing_intention_level', '招商意向等级', 'Production-safe leasing intention level dictionary'),
     ('leasing_follow_type', '招商跟进方式', 'Production-safe leasing follow type dictionary'),
     ('leasing_payment_period', '招商报价付款周期', 'Production-safe leasing quote payment period dictionary'),
-    ('leasing_quote_status', '招商报价状态', 'Production-safe leasing quote status dictionary')
+    ('leasing_quote_status', '招商报价状态', 'Production-safe leasing quote status dictionary'),
+    ('leasing_contract_status', '租赁合同状态', 'Production-safe leasing contract status dictionary'),
+    ('leasing_contract_type', '租赁合同类型', 'Production-safe leasing contract type dictionary'),
+    ('leasing_contract_source_type', '租赁合同来源', 'Production-safe leasing contract source type dictionary')
 ),
 upsert_types AS (
   INSERT INTO sys_dict_type (
@@ -2058,6 +2289,7 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('file_biz_type', '租户企业资质', 'park_tenant_qualification', 45, 'primary'),
     ('file_biz_type', '招商跟进附件', 'leasing_follow', 48, 'primary'),
     ('file_biz_type', '招商看房照片', 'leasing_visit', 49, 'warning'),
+    ('file_biz_type', '租赁合同附件', 'leasing_contract', 50, 'primary'),
     ('file_biz_type', '房源照片', 'unit_photo', 50, 'default'),
     ('file_biz_type', '楼层平面图', 'floorplan', 60, 'default'),
     ('file_biz_type', '房源平面图', 'unit_floorplan', 70, 'default'),
@@ -2170,7 +2402,25 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('leasing_quote_status', '审批中', '30', 30, 'warning'),
     ('leasing_quote_status', '已通过', '40', 40, 'success'),
     ('leasing_quote_status', '已驳回', '50', 50, 'danger'),
-    ('leasing_quote_status', '已作废', '90', 90, 'default')
+    ('leasing_quote_status', '已作废', '90', 90, 'default'),
+    ('leasing_contract_status', '草稿', '10', 10, 'default'),
+    ('leasing_contract_status', '已提交', '20', 20, 'primary'),
+    ('leasing_contract_status', '审批中', '30', 30, 'warning'),
+    ('leasing_contract_status', '已通过', '40', 40, 'success'),
+    ('leasing_contract_status', '已驳回', '50', 50, 'danger'),
+    ('leasing_contract_status', '待签章', '60', 60, 'warning'),
+    ('leasing_contract_status', '已签章', '70', 70, 'primary'),
+    ('leasing_contract_status', '已生效', '75', 75, 'success'),
+    ('leasing_contract_status', '已终止', '90', 90, 'danger'),
+    ('leasing_contract_status', '已作废', '91', 91, 'default'),
+    ('leasing_contract_type', '主合同', '10', 10, 'primary'),
+    ('leasing_contract_type', '补充协议', '20', 20, 'info'),
+    ('leasing_contract_type', '续租合同', '30', 30, 'default'),
+    ('leasing_contract_type', '退租结算', '40', 40, 'warning'),
+    ('leasing_contract_source_type', '手工创建', 'manual', 10, 'default'),
+    ('leasing_contract_source_type', '报价转合同', 'quote', 20, 'primary'),
+    ('leasing_contract_source_type', '续租', 'renewal', 30, 'info'),
+    ('leasing_contract_source_type', '变更', 'change', 40, 'warning')
 ),
 desired_dict_items AS (
   SELECT
@@ -2209,7 +2459,10 @@ retired_dict_items AS (
       'leasing_intention_level',
       'leasing_follow_type',
       'leasing_payment_period',
-      'leasing_quote_status'
+      'leasing_quote_status',
+      'leasing_contract_status',
+      'leasing_contract_type',
+      'leasing_contract_source_type'
     )
     AND NOT EXISTS (
       SELECT 1
@@ -2267,3 +2520,23 @@ WHERE NOT EXISTS (
     AND existing.item_value = desired_dict_items.item_value
     AND existing.is_deleted = false
 );
+
+WITH seed_scope AS (
+  SELECT
+    '10000001' AS tenant_id,
+    '20000001' AS park_id
+)
+UPDATE sys_dict_item item
+SET status = 'disabled',
+    remark = 'Reserved for later contract phases',
+    update_time = now()
+FROM sys_dict_type dict_type
+JOIN seed_scope
+  ON seed_scope.tenant_id = dict_type.tenant_id
+ AND seed_scope.park_id = dict_type.park_id
+WHERE item.tenant_id = dict_type.tenant_id
+  AND item.park_id = dict_type.park_id
+  AND item.dict_type_id = dict_type.id
+  AND dict_type.dict_code = 'leasing_contract_type'
+  AND item.item_value IN ('20', '30', '40')
+  AND item.is_deleted = false;

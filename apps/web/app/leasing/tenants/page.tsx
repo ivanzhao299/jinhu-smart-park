@@ -14,12 +14,14 @@ const LEASING_MODULE = "leasing";
 const PARK_TENANT_ENTITY = "park_tenant";
 const PARK_TENANT_CONTACT_ENTITY = "park_tenant_contact";
 const PARK_TENANT_QUALIFICATION_ENTITY = "park_tenant_qualification";
+const LEASING_CONTRACT_ENTITY = "leasing_contract";
 const FIELD_LEGAL_PERSON_ID = "legalPersonId";
 const FIELD_CONTACT_MOBILE = "contactMobile";
 const FIELD_CONTACT_ROW_MOBILE = "mobile";
 const FIELD_CONTACT_ROW_EMAIL = "email";
 const FIELD_QUALIFICATION_CERTIFICATE_NO = "certificateNo";
 const FIELD_QUALIFICATION_FILE_ID = "fileId";
+const FIELD_CONTRACT_TOTAL_AMOUNT = "totalAmount";
 const PARK_TENANT_PERMISSIONS = {
   read: "park_tenant:read",
   tenant360: "park_tenant:360",
@@ -181,13 +183,32 @@ interface ParkTenantRiskFormState {
   reason: string;
 }
 
+interface Tenant360ContractRow {
+  id: string;
+  contract_code: string;
+  contract_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  total_amount?: string | null;
+  status: string;
+}
+
+interface Tenant360ContractsNode {
+  available: boolean;
+  items: Tenant360ContractRow[];
+  summary?: {
+    contract_count: number;
+    active_contract_count: number;
+  } | null;
+}
+
 interface ParkTenant360View {
   profile: ParkTenantRow;
   contacts: ParkTenantContactRow[];
   qualifications: ParkTenantQualificationRow[];
   riskLogs: ParkTenantRiskLogRow[];
   relatedUnits: unknown[];
-  contracts: { available: boolean; items: unknown[] };
+  contracts: Tenant360ContractsNode;
   receivables: { available: boolean; summary: unknown | null };
   workorders: { available: boolean; summary: unknown | null };
   hazards: { available: boolean; summary: unknown | null };
@@ -286,6 +307,7 @@ export default function LeasingTenantsPage() {
   const canEditQualificationCertificateNo = canEditField(authUser, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, FIELD_QUALIFICATION_CERTIFICATE_NO);
   const canViewQualificationFileId = canViewField(authUser, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, FIELD_QUALIFICATION_FILE_ID);
   const canEditQualificationFileId = canEditField(authUser, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, FIELD_QUALIFICATION_FILE_ID);
+  const canViewContractTotalAmount = canViewField(authUser, LEASING_MODULE, LEASING_CONTRACT_ENTITY, FIELD_CONTRACT_TOTAL_AMOUNT);
 
   const statusItems = dicts.park_tenant_status ?? [];
   const typeItems = dicts.park_tenant_type ?? [];
@@ -294,6 +316,7 @@ export default function LeasingTenantsPage() {
   const sourceItems = dicts.park_tenant_source_type ?? [];
   const contactRoleItems = dicts.park_tenant_contact_role ?? [];
   const qualificationTypeItems = dicts.park_tenant_qualification_type ?? [];
+  const contractStatusItems = dicts.leasing_contract_status ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -336,7 +359,8 @@ export default function LeasingTenantsPage() {
       "industry_code",
       "park_tenant_source_type",
       "park_tenant_contact_role",
-      "park_tenant_qualification_type"
+      "park_tenant_qualification_type",
+      "leasing_contract_status"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -363,6 +387,11 @@ export default function LeasingTenantsPage() {
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function openContractDetail(contract: Tenant360ContractRow) {
+    window.sessionStorage.setItem("leasingContractFocusId", contract.id);
+    window.location.href = "/leasing/contracts";
   }
 
   function openCreate() {
@@ -1088,7 +1117,15 @@ export default function LeasingTenantsPage() {
                 </section>
               ) : null}
 
-              {!tenant360Loading && detailTab === "contracts" ? <EmptyState title="合同模块尚未开发" description={tenant360?.contracts.available ? "暂无合同数据" : "当前阶段仅预留合同入口，不展示假数据。"} /> : null}
+              {!tenant360Loading && detailTab === "contracts" ? (
+                <Tenant360ContractsTable
+                  contracts={tenant360?.contracts}
+                  statusItems={contractStatusItems}
+                  authUser={authUser}
+                  canViewTotalAmount={canViewContractTotalAmount}
+                  onOpenContract={openContractDetail}
+                />
+              ) : null}
               {!tenant360Loading && detailTab === "receivables" ? <EmptyState title="应收模块尚未开发" description={tenant360?.receivables.available ? "暂无应收数据" : "当前阶段仅预留应收入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "workorders" ? <EmptyState title="工单模块尚未开发" description={tenant360?.workorders.available ? "暂无工单数据" : "当前阶段仅预留工单入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "hazards" ? <EmptyState title="安全模块尚未开发" description={tenant360?.hazards.available ? "暂无隐患数据" : "当前阶段仅预留安全入口，不展示假数据。"} /> : null}
@@ -1202,11 +1239,78 @@ function RiskLogTable({ riskLogs, riskItems }: { riskLogs: ParkTenantRiskLogRow[
   );
 }
 
+function Tenant360ContractsTable({
+  contracts,
+  statusItems,
+  authUser,
+  canViewTotalAmount,
+  onOpenContract
+}: {
+  contracts?: Tenant360ContractsNode;
+  statusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  canViewTotalAmount: boolean;
+  onOpenContract: (contract: Tenant360ContractRow) => void;
+}) {
+  if (!contracts?.available) {
+    return <EmptyState title="合同模块尚未开发" description="当前阶段仅预留合同入口，不展示假数据。" />;
+  }
+  if (contracts.items.length === 0) {
+    return <EmptyState title="暂无合同数据" description="该租户企业当前没有关联合同。" />;
+  }
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="合同数量" value={String(contracts.summary?.contract_count ?? contracts.items.length)} />
+        <MetricCard label="生效合同" value={String(contracts.summary?.active_contract_count ?? 0)} />
+      </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>合同编号</th>
+            <th>合同名称</th>
+            <th>租期</th>
+            <th>合同总金额</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {contracts.items.map((contract) => (
+            <tr key={contract.id}>
+              <td>{contract.contract_code}</td>
+              <td>{contract.contract_name}</td>
+              <td>{formatDateRange(contract.start_date, contract.end_date)}</td>
+              <td>{contractAmountText(authUser, canViewTotalAmount, contract.total_amount)}</td>
+              <td><DictBadge items={statusItems} value={contract.status} /></td>
+              <td>
+                <button className="primary-button" type="button" onClick={() => onOpenContract(contract)}>
+                  <Eye size={16} />
+                  查看合同
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <section className="empty-state">
       <strong>{title}</strong>
       <p className="muted-text">{description}</p>
+    </section>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <section className="metric-card">
+      <span>{label}</span>
+      <strong className="metric-value">{value}</strong>
     </section>
   );
 }
@@ -1280,6 +1384,14 @@ function formatDateRange(start: string | null, end: string | null): string {
   return `${start ?? "-"} 至 ${end ?? "-"}`;
 }
 
+function contractAmountText(user: Parameters<typeof maskField>[0], canView: boolean, value: unknown): string {
+  if (!canView) return "-";
+  const masked = maskContractField(user, FIELD_CONTRACT_TOTAL_AMOUNT, value);
+  if (masked === null || masked === undefined || masked === "") return "-";
+  const numberValue = Number(masked);
+  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : String(masked);
+}
+
 function isExpired(value: string | null): boolean {
   if (!value) return false;
   const today = new Date();
@@ -1317,6 +1429,10 @@ function maskContactEmailField(user: Parameters<typeof maskField>[0], value: unk
 
 function maskQualificationField(user: Parameters<typeof maskField>[0], fieldKey: string, value: unknown): unknown {
   return maskField(user, LEASING_MODULE, PARK_TENANT_QUALIFICATION_ENTITY, fieldKey, value);
+}
+
+function maskContractField(user: Parameters<typeof maskField>[0], fieldKey: string, value: unknown): unknown {
+  return maskField(user, LEASING_MODULE, LEASING_CONTRACT_ENTITY, fieldKey, value);
 }
 
 function setFormValue(
