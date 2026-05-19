@@ -2,12 +2,16 @@
 
 import { ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { dashboardMenus, findMenuByPath } from "../../lib/menu";
+import { useMemo } from "react";
+import { useAuthUser } from "../../lib/auth-context";
+import { findMenuByPath, getDashboardMenus } from "../../lib/menu";
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
-  const current = findMenuByPath(pathname);
-  const parent = dashboardMenus.find((menu) => menu.children?.some((child) => child.href === pathname));
+  const user = useAuthUser();
+  const menus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
+  const current = findMenuByPath(pathname, menus);
+  const parent = menus.find((menu) => menu.children?.some((child) => child.href === pathname));
 
   return (
     <nav className="breadcrumb" aria-label="breadcrumb">

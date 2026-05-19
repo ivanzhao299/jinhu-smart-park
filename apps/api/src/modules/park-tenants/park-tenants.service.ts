@@ -7,6 +7,9 @@ import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService, type DataScopeFilter } from "../data-scopes/data-scope.service";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
+import { LeasingCheckoutEntity } from "../leasing-checkouts/entities/leasing-checkout.entity";
+import { LeasingRefundEntity } from "../leasing-checkouts/entities/leasing-refund.entity";
+import { LeasingContractChangeEntity } from "../leasing-contract-changes/entities/leasing-contract-change.entity";
 import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import { LeasingInvoiceReceivableEntity } from "../leasing-invoices/entities/leasing-invoice-receivable.entity";
 import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
@@ -47,6 +50,12 @@ export class ParkTenantsService {
     private readonly qualificationsRepository: Repository<ParkTenantQualificationEntity>,
     @InjectRepository(LeasingContractEntity)
     private readonly contractsRepository: Repository<LeasingContractEntity>,
+    @InjectRepository(LeasingContractChangeEntity)
+    private readonly contractChangesRepository: Repository<LeasingContractChangeEntity>,
+    @InjectRepository(LeasingCheckoutEntity)
+    private readonly checkoutsRepository: Repository<LeasingCheckoutEntity>,
+    @InjectRepository(LeasingRefundEntity)
+    private readonly refundsRepository: Repository<LeasingRefundEntity>,
     @InjectRepository(LeasingReceivableEntity)
     private readonly receivablesRepository: Repository<LeasingReceivableEntity>,
     @InjectRepository(LeasingPaymentEntity)
@@ -116,6 +125,37 @@ export class ParkTenantsService {
       .andWhere("invoice.is_deleted = false")
       .orderBy("invoice.invoiceDate", "DESC")
       .addOrderBy("invoice.createTime", "DESC");
+    const contractChangesBuilder = this.contractChangesRepository
+      .createQueryBuilder("contractChange")
+      .leftJoinAndSelect("contractChange.contract", "changeContract")
+      .leftJoin("changeContract.sourceLead", "changeSourceLead")
+      .where("contractChange.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("contractChange.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("contractChange.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("contractChange.is_deleted = false")
+      .orderBy("contractChange.updateTime", "DESC")
+      .addOrderBy("contractChange.createTime", "DESC");
+    const checkoutsBuilder = this.checkoutsRepository
+      .createQueryBuilder("checkout")
+      .leftJoinAndSelect("checkout.contract", "checkoutContract")
+      .leftJoin("checkoutContract.sourceLead", "checkoutSourceLead")
+      .where("checkout.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("checkout.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("checkout.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("checkout.is_deleted = false")
+      .orderBy("checkout.updateTime", "DESC")
+      .addOrderBy("checkout.createTime", "DESC");
+    const refundsBuilder = this.refundsRepository
+      .createQueryBuilder("refund")
+      .leftJoinAndSelect("refund.checkout", "refundCheckout")
+      .leftJoinAndSelect("refund.contract", "refundContract")
+      .leftJoin("refundContract.sourceLead", "refundSourceLead")
+      .where("refund.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("refund.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("refund.park_tenant_id = :parkTenantId", { parkTenantId: id })
+      .andWhere("refund.is_deleted = false")
+      .orderBy("refund.refundTime", "DESC")
+      .addOrderBy("refund.createTime", "DESC");
     await Promise.all([
       this.applyFinanceDataScope(receivablesBuilder, scope, actor, {
         rootAlias: "receivable",
@@ -137,6 +177,27 @@ export class ParkTenantsService {
         ownerAliases: ["invoice", "invoiceReceivable"],
         contractAlias: "invoiceContract",
         sourceLeadAlias: "invoiceSourceLead"
+      }),
+      this.applyFinanceDataScope(contractChangesBuilder, scope, actor, {
+        rootAlias: "contractChange",
+        parameterPrefix: "tenant360ContractChange",
+        ownerAliases: ["contractChange"],
+        contractAlias: "changeContract",
+        sourceLeadAlias: "changeSourceLead"
+      }),
+      this.applyFinanceDataScope(checkoutsBuilder, scope, actor, {
+        rootAlias: "checkout",
+        parameterPrefix: "tenant360Checkout",
+        ownerAliases: ["checkout"],
+        contractAlias: "checkoutContract",
+        sourceLeadAlias: "checkoutSourceLead"
+      }),
+      this.applyFinanceDataScope(refundsBuilder, scope, actor, {
+        rootAlias: "refund",
+        parameterPrefix: "tenant360Refund",
+        ownerAliases: ["refund"],
+        contractAlias: "refundContract",
+        sourceLeadAlias: "refundSourceLead"
       })
     ]);
     const [
@@ -146,7 +207,10 @@ export class ParkTenantsService {
       contractsRaw,
       receivablesAllRaw,
       paymentsAllRaw,
-      invoicesAllRaw
+      invoicesAllRaw,
+      contractChangesAllRaw,
+      checkoutsAllRaw,
+      refundsAllRaw
     ] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
@@ -187,15 +251,39 @@ export class ParkTenantsService {
         .getMany(),
       receivablesBuilder.getMany(),
       paymentsBuilder.getMany(),
-      invoicesBuilder.getMany()
+      invoicesBuilder.getMany(),
+      contractChangesBuilder.getMany(),
+      checkoutsBuilder.getMany(),
+      refundsBuilder.getMany()
     ]);
     const receivablesRaw = receivablesAllRaw.slice(0, 5);
     const paymentsRaw = paymentsAllRaw.slice(0, 5);
     const invoicesRaw = invoicesAllRaw.slice(0, 5);
+    const contractChangesRaw = contractChangesAllRaw.slice(0, 5);
+    const checkoutsRaw = checkoutsAllRaw.slice(0, 5);
+    const refundsRaw = refundsAllRaw.slice(0, 5);
     const receivableSummaryRaw = this.buildReceivableSummary(receivablesAllRaw);
     const paymentSummaryRaw = this.buildPaymentSummary(paymentsAllRaw);
     const invoiceSummaryRaw = this.buildInvoiceSummary(invoicesAllRaw);
-    const [contacts, qualifications, riskLogs, contracts, receivables, payments, invoices, receivablesSummary, paymentsSummary, invoicesSummary] = await Promise.all([
+    const contractChangeSummary = this.buildContractChangeSummary(contractChangesAllRaw);
+    const checkoutSummary = this.buildCheckoutSummary(checkoutsAllRaw);
+    const refundSummaryRaw = this.buildRefundSummary(refundsAllRaw);
+    const [
+      contacts,
+      qualifications,
+      riskLogs,
+      contracts,
+      receivables,
+      payments,
+      invoices,
+      contractChanges,
+      checkouts,
+      refunds,
+      receivablesSummary,
+      paymentsSummary,
+      invoicesSummary,
+      refundsSummary
+    ] = await Promise.all([
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_contact", contactsRaw),
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_qualification", qualificationsRaw),
       this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "leasing", "park_tenant_risk_log", riskLogsRaw),
@@ -269,9 +357,13 @@ export class ParkTenantsService {
           status: invoice.status
         }))
       ),
+      this.secureContractChangeRows(scope, actor, contractChangesRaw),
+      this.secureCheckoutRows(scope, actor, checkoutsRaw),
+      this.secureRefundRows(scope, actor, refundsRaw),
       this.secureReceivableSummary(scope, actor, receivableSummaryRaw),
       this.securePaymentSummary(scope, actor, paymentSummaryRaw),
-      this.secureInvoiceSummary(scope, actor, invoiceSummaryRaw)
+      this.secureInvoiceSummary(scope, actor, invoiceSummaryRaw),
+      this.secureRefundSummary(scope, actor, refundSummaryRaw)
     ]);
     return {
       profile: this.toTenant360Profile(profile),
@@ -290,6 +382,9 @@ export class ParkTenantsService {
       receivables: { available: true, summary: receivablesSummary, recent_items: receivables },
       payments: { available: true, summary: paymentsSummary, recent_items: payments },
       invoices: { available: true, summary: invoicesSummary, recent_items: invoices },
+      contract_changes: { available: true, summary: contractChangeSummary, recent_items: contractChanges },
+      checkouts: { available: true, summary: checkoutSummary, recent_items: checkouts },
+      refunds: { available: true, summary: refundsSummary, recent_items: refunds },
       workorders: { available: false, summary: null },
       hazards: { available: false, summary: null },
       energy: { available: false, summary: null }
@@ -724,6 +819,133 @@ export class ParkTenantsService {
     };
   }
 
+  private buildContractChangeSummary(rows: LeasingContractChangeEntity[]) {
+    return {
+      pending_count: rows.filter((row) => ["10", "30", "40"].includes(row.status)).length,
+      effective_count: rows.filter((row) => row.status === "60").length
+    };
+  }
+
+  private buildCheckoutSummary(rows: LeasingCheckoutEntity[]) {
+    return {
+      pending_count: rows.filter((row) => ["10", "30", "40", "60"].includes(row.status)).length,
+      completed_count: rows.filter((row) => row.status === "70").length
+    };
+  }
+
+  private buildRefundSummary(rows: LeasingRefundEntity[]) {
+    const refundAmount = rows.reduce((sum, row) => sum + this.toNumber(row.refundAmount), 0);
+    return {
+      refundCount: String(rows.length),
+      refundAmount: this.decimal(refundAmount)
+    };
+  }
+
+  private async secureContractChangeRows(scope: TenantParkScope, actor: JwtPrincipal, rows: LeasingContractChangeEntity[]) {
+    const securedRows = await this.fieldPolicyService.applyFieldPoliciesToList(
+      scope,
+      actor,
+      "leasing",
+      "leasing_contract_change",
+      rows.map((row) => ({
+        id: row.id,
+        changeCode: row.changeCode,
+        contractId: row.contractId,
+        contractCode: row.contract?.contractCode ?? null,
+        changeType: row.changeType,
+        effectiveDate: row.effectiveDate,
+        receivablePolicy: row.receivablePolicy,
+        status: row.status,
+        updateTime: row.updateTime
+      }))
+    );
+    return securedRows.map((row) => ({
+      id: row.id,
+      change_code: row.changeCode,
+      contract_id: row.contractId,
+      contract_code: row.contractCode,
+      change_type: row.changeType,
+      effective_date: row.effectiveDate,
+      receivable_policy: row.receivablePolicy,
+      status: row.status,
+      update_time: row.updateTime
+    }));
+  }
+
+  private async secureCheckoutRows(scope: TenantParkScope, actor: JwtPrincipal, rows: LeasingCheckoutEntity[]) {
+    const securedRows = await this.fieldPolicyService.applyFieldPoliciesToList(
+      scope,
+      actor,
+      "leasing",
+      "leasing_checkout",
+      rows.map((row) => ({
+        id: row.id,
+        checkoutCode: row.checkoutCode,
+        contractId: row.contractId,
+        contractCode: row.contract?.contractCode ?? null,
+        checkoutType: row.checkoutType,
+        plannedCheckoutDate: row.plannedCheckoutDate,
+        actualCheckoutDate: row.actualCheckoutDate,
+        releaseUnitStatus: row.releaseUnitStatus,
+        settlementStatus: row.settlementStatus,
+        status: row.status,
+        refundAmount: row.refundAmount,
+        amountDueFromTenant: row.amountDueFromTenant,
+        updateTime: row.updateTime
+      }))
+    );
+    return securedRows.map((row) => ({
+      id: row.id,
+      checkout_code: row.checkoutCode,
+      contract_id: row.contractId,
+      contract_code: row.contractCode,
+      checkout_type: row.checkoutType,
+      planned_checkout_date: row.plannedCheckoutDate,
+      actual_checkout_date: row.actualCheckoutDate,
+      release_unit_status: row.releaseUnitStatus,
+      settlement_status: row.settlementStatus,
+      status: row.status,
+      refund_amount: row.refundAmount ?? null,
+      amount_due_from_tenant: row.amountDueFromTenant ?? null,
+      update_time: row.updateTime
+    }));
+  }
+
+  private async secureRefundRows(scope: TenantParkScope, actor: JwtPrincipal, rows: LeasingRefundEntity[]) {
+    const securedRows = await this.fieldPolicyService.applyFieldPoliciesToList(
+      scope,
+      actor,
+      "leasing",
+      "leasing_refund",
+      rows.map((row) => ({
+        id: row.id,
+        refundCode: row.refundCode,
+        checkoutId: row.checkoutId,
+        checkoutCode: row.checkout?.checkoutCode ?? null,
+        contractId: row.contractId,
+        contractCode: row.contract?.contractCode ?? null,
+        refundAmount: row.refundAmount,
+        refundMethod: row.refundMethod,
+        refundTime: row.refundTime,
+        receiverName: row.receiverName,
+        status: row.status
+      }))
+    );
+    return securedRows.map((row) => ({
+      id: row.id,
+      refund_code: row.refundCode,
+      checkout_id: row.checkoutId,
+      checkout_code: row.checkoutCode,
+      contract_id: row.contractId,
+      contract_code: row.contractCode,
+      refund_amount: row.refundAmount ?? null,
+      refund_method: row.refundMethod,
+      refund_time: row.refundTime,
+      receiver_name: row.receiverName ?? null,
+      status: row.status
+    }));
+  }
+
   private isOverdue(row: LeasingReceivableEntity): boolean {
     if (this.toNumber(row.amountRemain) <= 0) return false;
     if (row.overdueDays > 0) return true;
@@ -784,6 +1006,20 @@ export class ParkTenantsService {
     return {
       invoice_count: Number(raw?.invoiceCount ?? 0),
       invoice_amount: secured.amount ?? null
+    };
+  }
+
+  private async secureRefundSummary(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    raw?: { refundCount?: string | null; refundAmount?: string | null } | null
+  ) {
+    const secured = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_refund", {
+      refundAmount: this.decimal(raw?.refundAmount)
+    });
+    return {
+      refund_count: Number(raw?.refundCount ?? 0),
+      refund_amount: secured.refundAmount ?? null
     };
   }
 

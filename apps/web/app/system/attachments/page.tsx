@@ -1,4 +1,5 @@
 "use client";
+import { Card } from "@jinhu/ui";
 
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -31,15 +32,15 @@ export default function AttachmentsPage() {
         </PermissionButton>
       </header>
 
-      <section className="work-panel">
+      <Card >
         <div className="field">
           <label htmlFor="bizType">业务类型</label>
           <input id="bizType" value={bizType} onChange={(event) => setBizType(event.target.value)} placeholder="system / contract / workorder" />
         </div>
-      </section>
+      </Card>
 
       {showCreate ? (
-        <section className="login-panel" style={{ position: "fixed", right: 24, top: 24, zIndex: 10 }}>
+        <section className="login-panel floating-panel">
           <div className="task-item">
             <h2 className="panel-title">上传附件</h2>
             <button type="button" onClick={() => setShowCreate(false)}>关闭</button>

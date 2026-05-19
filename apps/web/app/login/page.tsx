@@ -1,10 +1,9 @@
 "use client";
 
-import { Button } from "@jinhu/ui";
-import { LogIn } from "lucide-react";
+import { Alert, Button, Form, Input } from "antd";
+import { Building2, LockKeyhole, LogIn, MapPinned, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiRequest } from "../../lib/api-client";
 import { fetchCurrentUser, setSession, setToken } from "../../lib/auth";
 
@@ -22,23 +21,29 @@ interface LoginResult {
   };
 }
 
+interface LoginFormValues {
+  tenantId: string;
+  parkId: string;
+  username: string;
+  password: string;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const unsafeParams = ["tenantId", "parkId", "username", "password", "tenant_id", "park_id"];
+    if (unsafeParams.some((param) => currentUrl.searchParams.has(param))) {
+      window.history.replaceState(null, "", currentUrl.pathname);
+    }
+  }, []);
+
+  async function handleSubmit(payload: LoginFormValues) {
     setLoading(true);
     setMessage("");
-
-    const formData = new FormData(event.currentTarget);
-    const payload = {
-      tenantId: String(formData.get("tenantId") ?? ""),
-      parkId: String(formData.get("parkId") ?? ""),
-      username: String(formData.get("username") ?? ""),
-      password: String(formData.get("password") ?? "")
-    };
 
     try {
       const response = await apiRequest<LoginResult>("/auth/login", {
@@ -58,33 +63,50 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-page">
-      <section className="login-panel">
-        <h1>产业园数字运营 SaaS 平台</h1>
-        <p>使用租户统一身份登录管理后台</p>
-        <form className="form-stack" onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="tenantId">租户 ID</label>
-            <input id="tenantId" name="tenantId" placeholder="请输入 tenant_id" type="text" />
+    <main className="signin-page">
+      <section className="signin-identity" aria-label="金湖科创产业园">
+        <div className="signin-brand-row">
+          <span className="signin-symbol">
+            <img alt="金湖科创产业园" src="/brand/jinhu-park-symbol.png" />
+          </span>
+          <span>金湖科创产业园</span>
+        </div>
+        <div className="signin-copy">
+          <h1>数字运营平台</h1>
+          <span>资产、招商、合同、财务和运营协同管理</span>
+        </div>
+      </section>
+
+      <section className="signin-card" aria-label="登录">
+        <div className="signin-card-header">
+          <img alt="金湖科创产业园" src="/brand/jinhu-park-symbol.png" />
+          <div>
+            <h2>登录</h2>
+            <p>使用租户身份进入管理后台</p>
           </div>
-          <div className="field">
-            <label htmlFor="parkId">园区 ID</label>
-            <input id="parkId" name="parkId" placeholder="请输入 park_id" type="text" />
+        </div>
+
+        <Form<LoginFormValues> className="signin-form" layout="vertical" onFinish={handleSubmit}>
+          <div className="signin-scope-grid">
+            <Form.Item label="租户 ID" name="tenantId" rules={[{ required: true, message: "请输入租户 ID" }]}>
+              <Input autoComplete="organization" placeholder="tenant_id" prefix={<Building2 size={16} />} size="large" />
+            </Form.Item>
+            <Form.Item label="园区 ID" name="parkId" rules={[{ required: true, message: "请输入园区 ID" }]}>
+              <Input autoComplete="off" placeholder="park_id" prefix={<MapPinned size={16} />} size="large" />
+            </Form.Item>
           </div>
-          <div className="field">
-            <label htmlFor="username">账号</label>
-            <input id="username" name="username" placeholder="请输入账号" type="text" />
-          </div>
-          <div className="field">
-            <label htmlFor="password">密码</label>
-            <input id="password" name="password" placeholder="请输入密码" type="password" />
-          </div>
-          <Button disabled={loading} type="submit" variant="primary">
-            <LogIn size={16} />
-            {loading ? "登录中" : "登录"}
+          <Form.Item label="账号" name="username" rules={[{ required: true, message: "请输入账号" }]}>
+            <Input autoComplete="username" placeholder="请输入账号" prefix={<UserRound size={16} />} size="large" />
+          </Form.Item>
+          <Form.Item label="密码" name="password" rules={[{ required: true, message: "请输入密码" }]}>
+            <Input.Password autoComplete="current-password" placeholder="请输入密码" prefix={<LockKeyhole size={16} />} size="large" />
+          </Form.Item>
+
+          <Button block className="signin-submit" htmlType="submit" icon={<LogIn size={17} />} loading={loading} size="large" type="primary">
+            登录
           </Button>
-          {message ? <span className="status-pill">{message}</span> : null}
-        </form>
+          {message ? <Alert className="signin-alert" message={message} showIcon type="warning" /> : null}
+        </Form>
       </section>
     </main>
   );

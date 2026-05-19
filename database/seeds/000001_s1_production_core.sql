@@ -325,6 +325,7 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('system:data-scope', '数据权限', 'system', 'system.data-scope', 'page', 'page', 20, 50),
     ('system:field-policy', '字段权限', 'system', 'system.field-policy', 'page', 'page', 20, 60),
     ('system:code-rule', '编码规则', 'system', 'system.code-rule', 'page', 'page', 20, 70),
+    ('system:tenant', '租户管理', 'system', 'system.tenant', 'page', 'page', 20, 75),
     ('system:module', '模块授权', 'system', 'system.module', 'page', 'page', 20, 80),
     ('system:dict-type', '字典管理', 'system', 'system.dict-type', 'page', 'page', 20, 90),
     ('system:dict-item', '字典项', 'system:dict-type', 'system.dict-item', 'page', 'page', 20, 100),
@@ -344,7 +345,8 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('leasing:invest', '招商漏斗', 'leasing', 'leasing.funnel', 'page', 'page', 20, 26),
     ('leasing:contract', '合同管理', 'leasing', 'leasing.contract', 'page', 'page', 20, 30),
     ('leasing:contract-change', '合同变更', 'leasing', 'leasing.contract_change', 'page', 'page', 20, 35),
-    ('leasing:checkout', '退租管理', 'leasing', 'leasing.checkout', 'page', 'page', 20, 38),
+    ('leasing:checkout', '退租结算', 'leasing', 'leasing.checkout', 'page', 'page', 20, 38),
+    ('leasing:refund', '退款登记', 'leasing', 'leasing.refund', 'page', 'page', 20, 39),
     ('leasing:receivable', '应收账单', 'leasing', 'leasing.receivable', 'page', 'page', 20, 40),
     ('leasing:payment', '收款登记', 'leasing', 'leasing.payment', 'page', 'page', 20, 42),
     ('leasing:aging', '欠费账龄', 'leasing', 'leasing.aging', 'page', 'page', 20, 45),
@@ -378,7 +380,7 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code LIKE 'system:user:%' THEN 'system:user'
       WHEN leaf_permissions.code LIKE 'system:role:%' THEN 'system:role'
       WHEN leaf_permissions.code LIKE 'role:%' THEN 'system:role'
-      WHEN leaf_permissions.code LIKE 'tenant:%' THEN 'system'
+      WHEN leaf_permissions.code LIKE 'tenant:%' THEN 'system:tenant'
       WHEN leaf_permissions.code LIKE 'system:permission:%' THEN 'system:permission'
       WHEN leaf_permissions.code LIKE 'permission:%' THEN 'system:permission'
       WHEN leaf_permissions.code LIKE 'system:data-scope:%' THEN 'system:data-scope'
@@ -416,7 +418,8 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code LIKE 'leasing_lead:%' OR leaf_permissions.code LIKE 'leasing_follow:%' OR leaf_permissions.code LIKE 'leasing_visit:%' OR leaf_permissions.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN leaf_permissions.code = 'invest:read' THEN 'leasing:invest'
       WHEN leaf_permissions.code LIKE 'leasing_contract_change:%' THEN 'leasing:contract-change'
-      WHEN leaf_permissions.code LIKE 'leasing_checkout:%' OR leaf_permissions.code LIKE 'leasing_refund:%' THEN 'leasing:checkout'
+      WHEN leaf_permissions.code LIKE 'leasing_checkout:%' THEN 'leasing:checkout'
+      WHEN leaf_permissions.code LIKE 'leasing_refund:%' THEN 'leasing:refund'
       WHEN leaf_permissions.code LIKE 'leasing_contract:%' OR leaf_permissions.code LIKE 'leasing_contract_unit:%' THEN 'leasing:contract'
       WHEN leaf_permissions.code IN ('leasing_receivable:overdue', 'leasing_receivable:aging') THEN 'leasing:aging'
       WHEN leaf_permissions.code LIKE 'leasing_receivable:%' OR leaf_permissions.code = 'ar:read' THEN 'leasing:receivable'
@@ -489,6 +492,9 @@ upsert_permissions AS (
     api_path,
     frontend_route,
     component_key,
+    icon,
+    keep_alive,
+    always_show,
     field_key,
     data_dimension,
     is_system,
@@ -522,9 +528,10 @@ upsert_permissions AS (
       WHEN 'system:user' THEN '/system/users'
       WHEN 'system:role' THEN '/system/roles'
       WHEN 'system:permission' THEN '/system/permissions'
-      WHEN 'system:data-scope' THEN '/system/roles'
-      WHEN 'system:field-policy' THEN '/system/roles'
+      WHEN 'system:data-scope' THEN '/system/data-scopes'
+      WHEN 'system:field-policy' THEN '/system/field-policies'
       WHEN 'system:code-rule' THEN '/system/code-rules'
+      WHEN 'system:tenant' THEN '/system/tenants'
       WHEN 'system:module' THEN '/system/modules'
       WHEN 'system:dict-type' THEN '/system/dicts'
       WHEN 'system:dict-item' THEN '/system/dicts'
@@ -544,6 +551,7 @@ upsert_permissions AS (
       WHEN 'leasing:contract' THEN '/leasing/contracts'
       WHEN 'leasing:contract-change' THEN '/leasing/contract-changes'
       WHEN 'leasing:checkout' THEN '/leasing/checkouts'
+      WHEN 'leasing:refund' THEN '/leasing/refunds'
       WHEN 'leasing:receivable' THEN '/leasing/receivables'
       WHEN 'leasing:payment' THEN '/leasing/payments'
       WHEN 'leasing:aging' THEN '/leasing/aging'
@@ -558,7 +566,52 @@ upsert_permissions AS (
       WHEN 'ai:assistant' THEN '/ai/assistant'
       ELSE NULL
     END,
-    NULL,
+    CASE permission_tree.code
+      WHEN 'system' THEN 'Layout'
+      WHEN 'system:org' THEN 'system/orgs'
+      WHEN 'system:user' THEN 'system/users'
+      WHEN 'system:role' THEN 'system/roles'
+      WHEN 'system:permission' THEN 'system/permissions'
+      WHEN 'system:data-scope' THEN 'system/data-scopes'
+      WHEN 'system:field-policy' THEN 'system/field-policies'
+      WHEN 'system:code-rule' THEN 'system/code-rules'
+      WHEN 'system:tenant' THEN 'system/tenants'
+      WHEN 'system:module' THEN 'system/modules'
+      WHEN 'system:dict-type' THEN 'system/dicts'
+      WHEN 'system:dict-item' THEN 'system/dict-items'
+      WHEN 'system:file' THEN 'system/files'
+      WHEN 'system:audit' THEN 'system/audit-op-logs'
+      ELSE NULL
+    END,
+    CASE permission_tree.code
+      WHEN 'system' THEN 'shield-check'
+      WHEN 'system:org' THEN 'building-2'
+      WHEN 'system:user' THEN 'users'
+      WHEN 'system:role' THEN 'shield'
+      WHEN 'system:permission' THEN 'key-round'
+      WHEN 'system:data-scope' THEN 'database'
+      WHEN 'system:field-policy' THEN 'key-round'
+      WHEN 'system:code-rule' THEN 'settings'
+      WHEN 'system:tenant' THEN 'building-2'
+      WHEN 'system:module' THEN 'folder-tree'
+      WHEN 'system:dict-type' THEN 'tags'
+      WHEN 'system:dict-item' THEN 'tags'
+      WHEN 'system:file' THEN 'file-text'
+      WHEN 'system:audit' THEN 'scroll-text'
+      WHEN 'asset' THEN 'building-2'
+      WHEN 'leasing' THEN 'file-text'
+      WHEN 'workorder' THEN 'wrench'
+      WHEN 'iot' THEN 'cpu'
+      WHEN 'energy' THEN 'zap'
+      WHEN 'robot' THEN 'bot'
+      WHEN 'video' THEN 'video'
+      WHEN 'bim' THEN 'layout-dashboard'
+      WHEN 'ai' THEN 'brain-circuit'
+      WHEN 'cockpit' THEN 'layout-dashboard'
+      ELSE NULL
+    END,
+    true,
+    permission_tree.code <> 'system:dict-item',
     NULL,
     NULL,
     true,
@@ -585,6 +638,9 @@ upsert_permissions AS (
     api_path = EXCLUDED.api_path,
     frontend_route = EXCLUDED.frontend_route,
     component_key = EXCLUDED.component_key,
+    icon = EXCLUDED.icon,
+    keep_alive = EXCLUDED.keep_alive,
+    always_show = EXCLUDED.always_show,
     field_key = EXCLUDED.field_key,
     data_dimension = EXCLUDED.data_dimension,
     is_system = true,
@@ -631,10 +687,10 @@ permission_parent_map AS (
    AND parent.is_deleted = false
    AND parent.code = CASE
       WHEN child.code IN ('system', 'asset', 'leasing', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
-      WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:module', 'system:dict-type', 'system:file', 'system:audit') THEN 'system'
+      WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:tenant', 'system:module', 'system:dict-type', 'system:file', 'system:audit', 'system:audit-login-log') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
-      WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
+      WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
       WHEN child.code = 'workorder:center' THEN 'workorder'
       WHEN child.code = 'iot:overview' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
@@ -646,7 +702,7 @@ permission_parent_map AS (
       WHEN child.code LIKE 'system:user:%' THEN 'system:user'
       WHEN child.code LIKE 'system:role:%' THEN 'system:role'
       WHEN child.code LIKE 'role:%' THEN 'system:role'
-      WHEN child.code LIKE 'tenant:%' THEN 'system'
+      WHEN child.code LIKE 'tenant:%' THEN 'system:tenant'
       WHEN child.code LIKE 'system:permission:%' THEN 'system:permission'
       WHEN child.code LIKE 'permission:%' THEN 'system:permission'
       WHEN child.code LIKE 'system:data-scope:%' THEN 'system:data-scope'
@@ -684,7 +740,8 @@ permission_parent_map AS (
       WHEN child.code LIKE 'leasing_lead:%' OR child.code LIKE 'leasing_follow:%' OR child.code LIKE 'leasing_visit:%' OR child.code LIKE 'leasing_quote:%' THEN 'leasing:lead'
       WHEN child.code = 'invest:read' THEN 'leasing:invest'
       WHEN child.code LIKE 'leasing_contract_change:%' THEN 'leasing:contract-change'
-      WHEN child.code LIKE 'leasing_checkout:%' OR child.code LIKE 'leasing_refund:%' THEN 'leasing:checkout'
+      WHEN child.code LIKE 'leasing_checkout:%' THEN 'leasing:checkout'
+      WHEN child.code LIKE 'leasing_refund:%' THEN 'leasing:refund'
       WHEN child.code LIKE 'leasing_contract:%' OR child.code LIKE 'leasing_contract_unit:%' THEN 'leasing:contract'
       WHEN child.code IN ('leasing_receivable:overdue', 'leasing_receivable:aging') THEN 'leasing:aging'
       WHEN child.code LIKE 'leasing_receivable:%' OR child.code = 'ar:read' THEN 'leasing:receivable'
@@ -813,6 +870,12 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('leasing', 'rel_leasing_contract_unit', 'rentUnitPrice', '合同房源租金单价', 'masked', 'amount', 'leasing contract unit rentUnitPrice default field policy'),
     ('leasing', 'rel_leasing_contract_unit', 'rent_amount_per_month', '合同房源月租金', 'masked', 'amount', 'leasing contract unit monthly amount default field policy'),
     ('leasing', 'rel_leasing_contract_unit', 'rentAmountPerMonth', '合同房源月租金', 'masked', 'amount', 'leasing contract unit rentAmountPerMonth default field policy'),
+    ('leasing', 'leasing_contract_change', 'before_snapshot', '合同变更前快照', 'hidden', NULL, 'leasing contract change before snapshot sensitive field policy'),
+    ('leasing', 'leasing_contract_change', 'beforeSnapshot', '合同变更前快照', 'hidden', NULL, 'leasing contract change beforeSnapshot sensitive field policy'),
+    ('leasing', 'leasing_contract_change', 'after_snapshot', '合同变更后快照', 'hidden', NULL, 'leasing contract change after snapshot sensitive field policy'),
+    ('leasing', 'leasing_contract_change', 'afterSnapshot', '合同变更后快照', 'hidden', NULL, 'leasing contract change afterSnapshot sensitive field policy'),
+    ('leasing', 'leasing_contract_change', 'finance_impact', '合同变更财务影响', 'masked', 'custom', 'leasing contract change finance impact sensitive field policy'),
+    ('leasing', 'leasing_contract_change', 'financeImpact', '合同变更财务影响', 'masked', 'custom', 'leasing contract change financeImpact sensitive field policy'),
     ('leasing', 'leasing_checkout', 'unpaid_amount', '退租未缴金额', 'masked', 'amount', 'leasing checkout unpaid amount default field policy'),
     ('leasing', 'leasing_checkout', 'unpaidAmount', '退租未缴金额', 'masked', 'amount', 'leasing checkout unpaidAmount default field policy'),
     ('leasing', 'leasing_checkout', 'late_fee_amount', '退租滞纳金', 'masked', 'amount', 'leasing checkout late fee default field policy'),
@@ -952,14 +1015,30 @@ default_park AS (
     'enabled',
     'Production-safe default park organization'
   FROM seed_scope
-  ON CONFLICT (tenant_id, park_id, org_code) WHERE is_deleted = false DO UPDATE SET
-    org_name = EXCLUDED.org_name,
-    org_type = EXCLUDED.org_type,
-    sort_order = EXCLUDED.sort_order,
+  ON CONFLICT DO NOTHING
+  RETURNING id
+),
+updated_default_park AS (
+  UPDATE sys_org
+  SET
+    tenant_id = seed_scope.tenant_id,
+    park_id = seed_scope.park_id,
+    org_code = 'JH_ROOT',
+    org_name = '金湖科创产业园',
+    org_type = 'park',
+    sort_order = 0,
     status = 'enabled',
+    remark = 'Production-safe default park organization',
     is_deleted = false,
     update_time = now()
-  RETURNING id
+  FROM seed_scope
+  WHERE sys_org.id = seed_scope.org_id
+     OR (
+      sys_org.tenant_id = seed_scope.tenant_id
+      AND sys_org.park_id = seed_scope.park_id
+      AND sys_org.org_code = 'JH_ROOT'
+    )
+  RETURNING sys_org.id
 ),
 roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, remark) AS (
   SELECT super_admin_role_id, 'SUPER_ADMIN', '超级管理员', 'system', 'platform', 'all', true, 10, 'Built-in super administrator role template. Assign to a real user after secure account provisioning.'
@@ -1048,27 +1127,103 @@ SELECT
   roles.remark
 FROM roles
 CROSS JOIN seed_scope
-ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO UPDATE SET
-  name = EXCLUDED.name,
-  role_path = EXCLUDED.role_path,
-  role_level = EXCLUDED.role_level,
-  level = EXCLUDED.level,
-  sort_no = EXCLUDED.sort_no,
-  role_type = EXCLUDED.role_type,
-  role_scope = EXCLUDED.role_scope,
-  data_scope = EXCLUDED.data_scope,
-  is_template = EXCLUDED.is_template,
-  is_system = EXCLUDED.is_system,
-  is_builtin = EXCLUDED.is_builtin,
-  is_super = EXCLUDED.is_super,
+ON CONFLICT DO NOTHING;
+
+WITH seed_scope AS (
+  SELECT
+    '10000001' AS tenant_id,
+    '20000001' AS park_id,
+    '00000000-0000-4000-8000-000000002001'::uuid AS super_admin_role_id,
+    '00000000-0000-4000-8000-000000002003'::uuid AS system_admin_role_id,
+    '00000000-0000-4000-8000-000000002004'::uuid AS auditor_role_id,
+    '00000000-0000-4000-8000-000000002101'::uuid AS operations_owner_role_id,
+    '00000000-0000-4000-8000-000000002102'::uuid AS executive_role_id,
+    '00000000-0000-4000-8000-000000002103'::uuid AS invest_manager_role_id,
+    '00000000-0000-4000-8000-000000002104'::uuid AS invest_specialist_role_id,
+    '00000000-0000-4000-8000-000000002105'::uuid AS safety_manager_role_id,
+    '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id,
+    '00000000-0000-4000-8000-000000002107'::uuid AS finance_manager_role_id,
+    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id
+),
+roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, remark) AS (
+  SELECT super_admin_role_id, 'SUPER_ADMIN', '超级管理员', 'system', 'platform', 'all', true, 10, 'Built-in super administrator role template. Assign to a real user after secure account provisioning.'
+  FROM seed_scope
+  UNION ALL
+  SELECT system_admin_role_id, 'SYSTEM_ADMIN', '系统管理员', 'system', 'platform', 'park', false, 20, 'Default system administration role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT auditor_role_id, 'AUDITOR', '审计员', 'system', 'platform', 'park', false, 30, 'Default audit read-only role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT operations_owner_role_id, 'OPERATIONS_OWNER', '运营负责人', 'park', 'park', 'park', false, 40, 'Default asset management role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT executive_role_id, 'EXECUTIVE', '高层', 'tenant', 'tenant', 'park', false, 50, 'Default asset read-only executive role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT invest_manager_role_id, 'INVEST_MANAGER', '招商主管', 'park', 'park', 'self', false, 60, 'Default investment manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT invest_specialist_role_id, 'INVEST_SPECIALIST', '招商专员', 'park', 'park', 'self', false, 70, 'Default investment specialist role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT safety_manager_role_id, 'SAFETY_MANAGER', '安全主管', 'park', 'park', 'park', false, 80, 'Default safety manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT property_manager_role_id, 'PROPERTY_MANAGER', '物业主管', 'park', 'park', 'park', false, 90, 'Default property manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT finance_manager_role_id, 'FINANCE_MANAGER', '财务主管', 'park', 'park', 'park', false, 100, 'Default finance manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT finance_specialist_role_id, 'FINANCE_SPECIALIST', '财务专员', 'park', 'park', 'park', false, 110, 'Default finance specialist role template.'
+  FROM seed_scope
+)
+UPDATE sys_role
+SET
+  tenant_id = seed_scope.tenant_id,
+  park_id = seed_scope.park_id,
+  code = roles.code,
+  name = roles.name,
+  parent_id = NULL,
+  role_path = roles.code,
+  role_level = 1,
+  level = 1,
+  sort_no = roles.sort_no,
+  role_type = roles.role_type,
+  role_scope = roles.role_scope,
+  data_scope = roles.data_scope,
+  data_scope_config = '{}'::jsonb,
+  is_template = true,
+  is_system = roles.code = 'SUPER_ADMIN',
+  is_builtin = roles.code = 'SUPER_ADMIN',
+  is_super = roles.is_super,
   editable = true,
   is_editable = true,
-  is_deletable = EXCLUDED.is_deletable,
+  is_deletable = roles.code <> 'SUPER_ADMIN',
   is_enabled = true,
   status = 'enabled',
-  remark = EXCLUDED.remark,
+  remark = roles.remark,
   is_deleted = false,
-  update_time = now();
+  update_time = now()
+FROM roles
+CROSS JOIN seed_scope
+WHERE sys_role.id = roles.id
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys_role existing_role
+    WHERE existing_role.tenant_id = seed_scope.tenant_id
+      AND existing_role.park_id = seed_scope.park_id
+      AND existing_role.code = roles.code
+      AND existing_role.id <> sys_role.id
+      AND existing_role.is_deleted = false
+  )
+   OR (
+    sys_role.tenant_id = seed_scope.tenant_id
+    AND sys_role.park_id = seed_scope.park_id
+    AND sys_role.code = roles.code
+    AND sys_role.is_deleted = false
+  );
 
 WITH seed_scope AS (
   SELECT
@@ -1312,6 +1467,8 @@ desired_role_permissions(role_code, permission_code) AS (
     ('EXECUTIVE', 'leasing_contract_unit:read'),
     ('EXECUTIVE', 'leasing_contract_change:read'),
     ('EXECUTIVE', 'leasing_contract_change:preview'),
+    ('EXECUTIVE', 'leasing_checkout:read'),
+    ('EXECUTIVE', 'leasing_refund:read'),
     ('EXECUTIVE', 'leasing_receivable:read'),
     ('EXECUTIVE', 'leasing_receivable:aging'),
     ('EXECUTIVE', 'leasing_receivable:status_log'),
@@ -1568,6 +1725,7 @@ desired_role_permissions(role_code, permission_code) AS (
     ('FINANCE_MANAGER', 'leasing_contract_change:preview'),
     ('FINANCE_MANAGER', 'leasing_contract_change:approve'),
     ('FINANCE_MANAGER', 'leasing_contract_change:reject'),
+    ('FINANCE_MANAGER', 'leasing_contract_change:effective'),
     ('FINANCE_MANAGER', 'leasing_checkout:read'),
     ('FINANCE_MANAGER', 'leasing_checkout:approve'),
     ('FINANCE_MANAGER', 'leasing_checkout:reject'),
@@ -1604,6 +1762,10 @@ desired_role_permissions(role_code, permission_code) AS (
     ('FINANCE_SPECIALIST', 'leasing_contract:file_read'),
     ('FINANCE_SPECIALIST', 'leasing_contract_change:read'),
     ('FINANCE_SPECIALIST', 'leasing_contract_change:preview'),
+    ('FINANCE_SPECIALIST', 'leasing_checkout:read'),
+    ('FINANCE_SPECIALIST', 'leasing_checkout:preview_settlement'),
+    ('FINANCE_SPECIALIST', 'leasing_refund:read'),
+    ('FINANCE_SPECIALIST', 'leasing_refund:create'),
     ('FINANCE_SPECIALIST', 'leasing_receivable:read'),
     ('FINANCE_SPECIALIST', 'leasing_receivable:create'),
     ('FINANCE_SPECIALIST', 'leasing_receivable:update'),
@@ -1629,7 +1791,9 @@ desired_role_permissions(role_code, permission_code) AS (
     ('SAFETY_MANAGER', 'park_tenant_qualification:read'),
     ('PROPERTY_MANAGER', 'park_tenant:read'),
     ('PROPERTY_MANAGER', 'park_tenant:360'),
-    ('PROPERTY_MANAGER', 'park_tenant_contact:read')
+    ('PROPERTY_MANAGER', 'park_tenant_contact:read'),
+    ('PROPERTY_MANAGER', 'leasing_checkout:read'),
+    ('PROPERTY_MANAGER', 'leasing_contract:action_log')
 )
 UPDATE rel_role_perm relation
 SET is_deleted = true,
@@ -1685,7 +1849,10 @@ role_permissions AS (
    AND seed_scope.park_id = role.park_id
   WHERE role.code = 'SYSTEM_ADMIN'
     AND role.is_deleted = false
+    AND permission.code <> 'system:tenant'
     AND (
+      permission.code = 'system'
+      OR
       permission.code LIKE 'system:%'
       OR permission.code LIKE 'asset:%'
       OR permission.code LIKE 'park:%'
@@ -1706,7 +1873,7 @@ role_permissions AS (
    AND seed_scope.park_id = role.park_id
   WHERE role.code = 'AUDITOR'
     AND role.is_deleted = false
-    AND permission.code IN ('system:user:me', 'audit:read', 'system:audit:login-log:list', 'system:audit:op-log:list')
+    AND permission.code IN ('system', 'system:audit', 'system:audit-login-log', 'system:user:me', 'audit:read', 'system:audit:login-log:list', 'system:audit:op-log:list')
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
   FROM sys_role role
@@ -2662,6 +2829,19 @@ SET is_deleted = true,
 WHERE plan_code = 'BASELINE'
   AND is_deleted = false;
 
+UPDATE sys_plan
+SET permission_codes = CASE plan_code
+    WHEN 'BASIC' THEN '["module:system","module:asset","module:workorder"]'::jsonb
+    WHEN 'PROFESSIONAL' THEN '["module:system","module:asset","module:workorder","module:iot","module:energy","module:robot","module:video"]'::jsonb
+    WHEN 'ENTERPRISE' THEN '["module:system","module:asset","module:workorder","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    WHEN 'GROUP' THEN '["module:system","module:asset","module:leasing","module:workorder","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    ELSE permission_codes
+  END,
+  feature_config = COALESCE(feature_config, '{}'::jsonb),
+  update_time = now()
+WHERE plan_code IN ('BASIC', 'PROFESSIONAL', 'ENTERPRISE', 'GROUP')
+  AND is_deleted = false;
+
 INSERT INTO biz_park (
   tenant_id,
   park_id,
@@ -2722,6 +2902,7 @@ dict_types(dict_code, dict_name, remark) AS (
     ('leasing_receivable_adjust_policy', '应收调整策略', 'Production-safe leasing receivable adjustment policy dictionary'),
     ('leasing_checkout_type', '退租类型', 'Production-safe leasing checkout type dictionary'),
     ('leasing_release_unit_status', '退租后房源状态', 'Production-safe leasing release unit status dictionary'),
+    ('leasing_unit_release_status', '退租后房源状态', 'Production-safe leasing unit release status dictionary alias'),
     ('leasing_settlement_status', '退租结算状态', 'Production-safe leasing settlement status dictionary'),
     ('leasing_checkout_status', '退租申请状态', 'Production-safe leasing checkout status dictionary'),
     ('leasing_refund_method', '退租退款方式', 'Production-safe leasing refund method dictionary'),
@@ -2797,6 +2978,7 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('unit_rental_status', '即将到期', '40', 40, 'warning'),
     ('unit_rental_status', '维修中', '50', 50, 'danger'),
     ('unit_rental_status', '自用', '60', 60, 'default'),
+    ('unit_rental_status', '已售', '70', 70, 'default'),
     ('unit_fitting_status', '毛坯', '10', 10, 'default'),
     ('unit_fitting_status', '简装', '20', 20, 'primary'),
     ('unit_fitting_status', '精装', '30', 30, 'success'),
@@ -2922,34 +3104,40 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('leasing_contract_change_status', '已通过', '40', 40, 'success'),
     ('leasing_contract_change_status', '已驳回', '50', 50, 'danger'),
     ('leasing_contract_change_status', '已生效', '60', 60, 'success'),
+    ('leasing_contract_change_status', '已作废', '90', 90, 'default'),
     ('leasing_contract_change_status', '已作废', '91', 91, 'default'),
     ('leasing_receivable_adjust_policy', '不处理既有应收', 'no_action', 10, 'default'),
     ('leasing_receivable_adjust_policy', '调整未收款未来应收', 'adjust_future', 20, 'warning'),
     ('leasing_receivable_adjust_policy', '人工复核', 'manual_review', 30, 'primary'),
-    ('leasing_checkout_type', '正常到期退租', 'normal_expiry', 10, 'primary'),
-    ('leasing_checkout_type', '提前退租', 'early_termination', 20, 'warning'),
-    ('leasing_checkout_type', '违约终止', 'breach_termination', 30, 'danger'),
+    ('leasing_checkout_type', '到期退租', 'normal', 10, 'primary'),
+    ('leasing_checkout_type', '提前退租', 'early', 20, 'warning'),
+    ('leasing_checkout_type', '违约终止', 'breach', 30, 'danger'),
+    ('leasing_checkout_type', '强制终止', 'force', 40, 'danger'),
     ('leasing_checkout_type', '其他', 'other', 90, 'default'),
     ('leasing_release_unit_status', '可招商', 'rentable', 10, 'success'),
     ('leasing_release_unit_status', '维修中', 'maintenance', 20, 'warning'),
-    ('leasing_settlement_status', '待结算', '10', 10, 'warning'),
+    ('leasing_unit_release_status', '可招商', 'rentable', 10, 'success'),
+    ('leasing_unit_release_status', '维修中', 'maintenance', 20, 'warning'),
+    ('leasing_settlement_status', '未结算', '10', 10, 'warning'),
     ('leasing_settlement_status', '结算中', '20', 20, 'primary'),
-    ('leasing_settlement_status', '已确认', '30', 30, 'success'),
+    ('leasing_settlement_status', '已结算', '30', 30, 'success'),
     ('leasing_settlement_status', '已退款', '40', 40, 'default'),
     ('leasing_checkout_status', '草稿', '10', 10, 'default'),
+    ('leasing_checkout_status', '已提交', '20', 20, 'primary'),
     ('leasing_checkout_status', '审批中', '30', 30, 'warning'),
-    ('leasing_checkout_status', '待结算', '40', 40, 'primary'),
+    ('leasing_checkout_status', '已通过待结算', '40', 40, 'primary'),
     ('leasing_checkout_status', '已驳回', '50', 50, 'danger'),
-    ('leasing_checkout_status', '结算已确认', '60', 60, 'warning'),
-    ('leasing_checkout_status', '已退租生效', '70', 70, 'success'),
+    ('leasing_checkout_status', '已结算', '60', 60, 'warning'),
+    ('leasing_checkout_status', '已生效', '70', 70, 'success'),
+    ('leasing_checkout_status', '已作废', '90', 90, 'default'),
     ('leasing_checkout_status', '已作废', '91', 91, 'default'),
     ('leasing_refund_method', '银行转账', 'bank_transfer', 10, 'primary'),
     ('leasing_refund_method', '现金', 'cash', 20, 'warning'),
     ('leasing_refund_method', '微信', 'wechat', 30, 'success'),
     ('leasing_refund_method', '支付宝', 'alipay', 40, 'info'),
     ('leasing_refund_method', '其他', 'other', 90, 'default'),
-    ('leasing_refund_status', '待退款', '10', 10, 'warning'),
-    ('leasing_refund_status', '退款中', '20', 20, 'primary'),
+    ('leasing_refund_status', '已登记', '10', 10, 'warning'),
+    ('leasing_refund_status', '已完成', '20', 20, 'primary'),
     ('leasing_refund_status', '已退款', '30', 30, 'success'),
     ('leasing_refund_status', '已作废', '90', 90, 'default'),
     ('leasing_fee_type', '租金', '10', 10, 'primary'),
@@ -3037,6 +3225,7 @@ retired_dict_items AS (
       'leasing_receivable_adjust_policy',
       'leasing_checkout_type',
       'leasing_release_unit_status',
+      'leasing_unit_release_status',
       'leasing_settlement_status',
       'leasing_checkout_status',
       'leasing_refund_method',

@@ -36,12 +36,28 @@ upsert_org AS (
     'enabled',
     'S1 dev seed organization'
   FROM seed_scope
-  ON CONFLICT (tenant_id, park_id, org_code) WHERE is_deleted = false DO UPDATE SET
-    org_name = EXCLUDED.org_name,
-    org_type = EXCLUDED.org_type,
-    status = 'enabled',
-    update_time = now()
+  ON CONFLICT DO NOTHING
   RETURNING id
+),
+updated_org AS (
+  UPDATE sys_org
+  SET
+    tenant_id = seed_scope.tenant_id,
+    park_id = seed_scope.park_id,
+    org_code = 'JH_ROOT',
+    org_name = '金湖科创产业园',
+    org_type = 'park',
+    status = 'enabled',
+    is_deleted = false,
+    update_time = now()
+  FROM seed_scope
+  WHERE sys_org.id = seed_scope.org_id
+     OR (
+      sys_org.tenant_id = seed_scope.tenant_id
+      AND sys_org.park_id = seed_scope.park_id
+      AND sys_org.org_code = 'JH_ROOT'
+    )
+  RETURNING sys_org.id
 ),
 upsert_roles AS (
   INSERT INTO sys_role (
@@ -59,12 +75,45 @@ upsert_roles AS (
   UNION ALL
   SELECT normal_role_id, tenant_id, park_id, 'S1_NORMAL', 'S1 普通用户', true, 'enabled', 'S1 dev seed role'
   FROM seed_scope
-  ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO UPDATE SET
-    name = EXCLUDED.name,
+  ON CONFLICT DO NOTHING
+  RETURNING id, code
+),
+updated_roles AS (
+  UPDATE sys_role
+  SET
+    tenant_id = seed_scope.tenant_id,
+    park_id = seed_scope.park_id,
+    code = role_rows.code,
+    name = role_rows.name,
     is_enabled = true,
     status = 'enabled',
+    is_deleted = false,
     update_time = now()
-  RETURNING id, code
+  FROM seed_scope
+  CROSS JOIN LATERAL (
+    VALUES
+      (seed_scope.admin_role_id, 'SUPER_ADMIN', '超级管理员'),
+      (seed_scope.normal_role_id, 'S1_NORMAL', 'S1 普通用户')
+  ) AS role_rows(id, code, name)
+  WHERE (
+      sys_role.id = role_rows.id
+      AND NOT EXISTS (
+        SELECT 1
+        FROM sys_role existing_role
+        WHERE existing_role.tenant_id = seed_scope.tenant_id
+          AND existing_role.park_id = seed_scope.park_id
+          AND existing_role.code = role_rows.code
+          AND existing_role.id <> sys_role.id
+          AND existing_role.is_deleted = false
+      )
+    )
+     OR (
+      sys_role.tenant_id = seed_scope.tenant_id
+      AND sys_role.park_id = seed_scope.park_id
+      AND sys_role.code = role_rows.code
+      AND sys_role.is_deleted = false
+    )
+  RETURNING sys_role.id, sys_role.code
 ),
 upsert_users AS (
   INSERT INTO sys_user (
@@ -107,15 +156,62 @@ upsert_users AS (
     'enabled',
     'S1 dev seed user'
   FROM seed_scope
-  ON CONFLICT (tenant_id, park_id, username) WHERE is_deleted = false DO UPDATE SET
-    display_name = EXCLUDED.display_name,
-    password_hash = EXCLUDED.password_hash,
-    mobile = EXCLUDED.mobile,
-    email = EXCLUDED.email,
+  ON CONFLICT DO NOTHING
+  RETURNING id, username
+),
+updated_users AS (
+  UPDATE sys_user
+  SET
+    tenant_id = seed_scope.tenant_id,
+    park_id = seed_scope.park_id,
+    username = user_rows.username,
+    display_name = user_rows.display_name,
+    password_hash = user_rows.password_hash,
+    mobile = user_rows.mobile,
+    email = user_rows.email,
     is_enabled = true,
     status = 'enabled',
+    is_deleted = false,
     update_time = now()
-  RETURNING id, username
+  FROM seed_scope
+  CROSS JOIN LATERAL (
+    VALUES
+      (
+        seed_scope.admin_user_id,
+        'admin',
+        '系统管理员',
+        '$2b$12$tS1KYDt3dKKsYOsyiEMpbujHOIehHVKLGvoO5zQVwCKxE.oyvdG06',
+        '13800000001',
+        'admin@jinhu.local'
+      ),
+      (
+        seed_scope.normal_user_id,
+        's1_user',
+        'S1 普通用户',
+        '$2b$12$1VDxTxrK9XgWgYf4DCbGy.jYpSgEtypK90x/kEcG8GOVRO7BgAoHe',
+        '13800000002',
+        's1_user@jinhu.local'
+      )
+  ) AS user_rows(id, username, display_name, password_hash, mobile, email)
+  WHERE (
+      sys_user.id = user_rows.id
+      AND NOT EXISTS (
+        SELECT 1
+        FROM sys_user existing_user
+        WHERE existing_user.tenant_id = seed_scope.tenant_id
+          AND existing_user.park_id = seed_scope.park_id
+          AND existing_user.username = user_rows.username
+          AND existing_user.id <> sys_user.id
+          AND existing_user.is_deleted = false
+      )
+    )
+     OR (
+      sys_user.tenant_id = seed_scope.tenant_id
+      AND sys_user.park_id = seed_scope.park_id
+      AND sys_user.username = user_rows.username
+      AND sys_user.is_deleted = false
+    )
+  RETURNING sys_user.id, sys_user.username
 ),
 upsert_user_org AS (
   INSERT INTO rel_user_org (
@@ -220,7 +316,9 @@ normal_role_permissions AS (
 )
 SELECT
   (SELECT count(*) FROM upsert_users) AS users_seeded,
+  (SELECT count(*) FROM updated_users) AS users_updated,
   (SELECT count(*) FROM upsert_roles) AS roles_seeded,
+  (SELECT count(*) FROM updated_roles) AS roles_updated,
   (SELECT count(*) FROM admin_role_permissions) AS admin_permissions_seeded,
   (SELECT count(*) FROM normal_role_permissions) AS normal_permissions_seeded;
 

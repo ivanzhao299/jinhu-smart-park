@@ -23,6 +23,8 @@ export interface AuthUser {
   username: string;
   realName?: string;
   real_name?: string;
+  avatar_url?: string | null;
+  gender?: string | null;
   mobile?: string | null;
   email?: string | null;
   tenantId: string;
@@ -90,6 +92,10 @@ export interface UserContext {
   real_name: string;
   mobile: string | null;
   email: string | null;
+  avatar_url?: string | null;
+  gender?: string | null;
+  last_login_ip?: string | null;
+  last_login_time?: string | null;
   tenant_id: string;
   park_id: string;
   park_name?: string | null;

@@ -1,9 +1,10 @@
 "use client";
 
-import { Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
-import type { FormEvent } from "react";
+import { Card, Drawer } from "@jinhu/ui";
+import { ChevronDown, ChevronRight, Database, FolderTree, KeyRound, Plus, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
+import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 
@@ -32,7 +33,14 @@ interface PermissionRow {
   remark?: string | null;
 }
 
-const emptyPage: PaginatedResult<PermissionRow> = { items: [], page: 1, page_size: 100, total: 0 };
+interface CreateDefaults {
+  parentId: string;
+  permType: number;
+  resource: string;
+  action: string;
+  title: string;
+}
+
 const permTypes = [
   { value: "", label: "全部类型" },
   { value: "10", label: "菜单" },
@@ -46,191 +54,330 @@ const permTypes = [
   { value: "90", label: "自定义" }
 ];
 
+type CreatePresetKey = "menu" | "button" | "api" | "data" | "field";
+
+const createPresets: Record<CreatePresetKey, Omit<CreateDefaults, "parentId">> = {
+  menu: { permType: 10, resource: "system.menu", action: "view", title: "新增菜单权限" },
+  button: { permType: 30, resource: "system.button", action: "click", title: "新增按钮权限" },
+  api: { permType: 40, resource: "system.api", action: "request", title: "新增 API 权限" },
+  data: { permType: 50, resource: "system.data", action: "read", title: "新增数据权限" },
+  field: { permType: 60, resource: "system.field", action: "read", title: "新增字段权限" }
+};
+
 export default function PermissionsPage() {
-  const [data, setData] = useState(emptyPage);
   const [tree, setTree] = useState<PermissionRow[]>([]);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [permType, setPermType] = useState("");
+  const [includeApi, setIncludeApi] = useState(false);
   const [selected, setSelected] = useState<PermissionRow | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [showDetailApi, setShowDetailApi] = useState(false);
+  const [createDefaults, setCreateDefaults] = useState<CreateDefaults | null>(null);
   const [message, setMessage] = useState("");
 
   const flatTree = useMemo(() => flattenTree(tree), [tree]);
-  const filteredItems = useMemo(() => data.items.filter((item) => !permType || String(item.permType ?? "") === permType), [data.items, permType]);
+  const visibleTree = useMemo(
+    () => filterPermissionTree(tree, { keyword, status, permType, includeApi }),
+    [tree, keyword, status, permType, includeApi]
+  );
+  const visibleCount = useMemo(() => flattenTree(visibleTree).length, [visibleTree]);
+  const summary = useMemo(() => summarizePermissions(flatTree, visibleCount), [flatTree, visibleCount]);
+  const selectedChildren = selected?.children ?? [];
+  const selectedMainChildren = selectedChildren.filter((item) => item.permType !== 40);
+  const selectedApiChildren = selectedChildren.filter((item) => item.permType === 40);
 
-  async function load(page = 1) {
-    const token = getToken();
-    const params = new URLSearchParams({ page: String(page), page_size: "100" });
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    if (status) params.set("status", status);
-    const [listResponse, treeResponse] = await Promise.all([
-      apiRequest<PaginatedResult<PermissionRow>>(`/permissions?${params.toString()}`, { token }),
-      apiRequest<PermissionRow[]>("/permissions/tree", { token })
-    ]);
-    setData(listResponse.data);
+  async function load() {
+    const treeResponse = await apiRequest<PermissionRow[]>("/permissions/tree", { token: getToken() });
     setTree(treeResponse.data);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      treeResponse.data.forEach((item) => next.add(item.id));
+      return next;
+    });
+    setSelected((current) => {
+      if (current && flattenTree(treeResponse.data).some((item) => item.id === current.id)) {
+        return current;
+      }
+      return treeResponse.data[0] ?? null;
+    });
+  }
+
+  function openCreate(kind: CreatePresetKey) {
+    const preset = createPresets[kind];
+    setCreateDefaults({
+      ...preset,
+      parentId: selected?.id ?? ""
+    });
   }
 
   async function createPermission(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const token = getToken();
     const form = new FormData(event.currentTarget);
     await apiRequest<PermissionRow>("/permissions", {
       method: "POST",
-      token,
+      token: getToken(),
       idempotencyKey: createIdempotencyKey("permission-create"),
       body: {
         code: String(form.get("code") ?? ""),
         name: String(form.get("name") ?? ""),
         parentId: String(form.get("parentId") ?? "") || undefined,
-        permType: Number(form.get("permType") ?? 90),
-        resource: String(form.get("resource") ?? "tenant.custom"),
-        action: String(form.get("action") ?? "custom"),
+        permType: Number(form.get("permType") ?? createDefaults?.permType ?? 90),
+        resource: String(form.get("resource") ?? createDefaults?.resource ?? "tenant.custom"),
+        action: String(form.get("action") ?? createDefaults?.action ?? "custom"),
         sortNo: Number(form.get("sortNo") ?? 0),
         frontendRoute: String(form.get("frontendRoute") ?? "") || undefined,
         componentKey: String(form.get("componentKey") ?? "") || undefined,
+        apiPath: String(form.get("apiPath") ?? "") || undefined,
+        apiMethod: String(form.get("apiMethod") ?? "") || undefined,
         fieldKey: String(form.get("fieldKey") ?? "") || undefined,
         dataDimension: String(form.get("dataDimension") ?? "") || undefined,
         status: String(form.get("status") ?? "enabled"),
         remark: String(form.get("remark") ?? "") || undefined
       }
     });
-    setShowCreate(false);
-    setMessage("自定义权限已创建");
-    await load(data.page);
+    setCreateDefaults(null);
+    setMessage("权限已创建");
+    await load();
   }
 
   async function deletePermission(permission: PermissionRow) {
     if (permission.isBuiltin || permission.isSystem) return;
     if (!window.confirm(`确认删除权限「${permission.name}」？`)) return;
-    const token = getToken();
-    await apiRequest<{ id: string }>(`/permissions/${permission.id}`, { method: "DELETE", token, idempotencyKey: createIdempotencyKey("permission-delete") });
+    await apiRequest<{ id: string }>(`/permissions/${permission.id}`, {
+      method: "DELETE",
+      token: getToken(),
+      idempotencyKey: createIdempotencyKey("permission-delete")
+    });
     setSelected(null);
     setMessage("权限已删除");
-    await load(data.page);
+    await load();
   }
 
   useEffect(() => {
     void load().catch(showError);
   }, []);
 
+  useEffect(() => {
+    setShowDetailApi(false);
+  }, [selected?.id]);
+
   function showError(error: unknown) {
     setMessage(error instanceof Error ? error.message : "操作失败");
   }
 
+  function toggleExpanded(id: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
   return (
-    <main className="page-container">
+    <main className="page-container permissions-page">
       <header className="page-header">
         <div className="header-title">
-          <strong>权限点管理</strong>
-          <span>支持菜单、页面、按钮、API、数据、字段等权限树分类管理</span>
+          <strong>权限中心</strong>
+          <span>维护菜单、页面、按钮、接口、数据和字段权限资产</span>
         </div>
-        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => setShowCreate(true)}><Plus size={16} />新增 custom 权限</PermissionButton>
+        <div className="system-actions">
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("menu")}><Plus size={16} />菜单</PermissionButton>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("button")}><Plus size={16} />按钮</PermissionButton>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("api")}><Plus size={16} />API</PermissionButton>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("data")}><Plus size={16} />数据</PermissionButton>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("field")}><Plus size={16} />字段</PermissionButton>
+        </div>
       </header>
 
-      <section className="filter-bar">
-        <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch(showError); }}>
-          <div className="dashboard-grid">
-            <div className="field"><label>关键词</label><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="权限名称 / 编码" /></div>
-            <div className="field"><label>状态</label><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>权限分类</label><select value={permType} onChange={(event) => setPermType(event.target.value)}>{permTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+      <section className="filter-bar permission-filter-bar">
+        <form className="system-grid-three" onSubmit={(event) => { event.preventDefault(); }}>
+          <div className="field"><label>关键词</label><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="权限名称 / 编码 / 路由" /></div>
+          <div className="field"><label>状态</label><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+          <div className="field"><label>权限分类</label><select value={permType} onChange={(event) => setPermType(event.target.value)}>{permTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+          <div className="filter-actions">
+            <label className="permission-api-toggle"><input type="checkbox" checked={includeApi} onChange={(event) => setIncludeApi(event.target.checked)} />显示 API</label>
+            <button className="primary-button" type="button" onClick={() => void load().catch(showError)}><Search size={16} />刷新</button>
           </div>
-          <div className="filter-actions"><button className="primary-button" type="submit"><Search size={16} />查询</button></div>
         </form>
+        <div className="permission-summary-strip" aria-label="权限统计">
+          <SummaryItem label="权限资产" value={summary.total} icon={<ShieldCheck size={17} />} />
+          <SummaryItem label="菜单 / 页面" value={summary.navigation} icon={<FolderTree size={17} />} />
+          <SummaryItem label="按钮" value={summary.buttons} icon={<KeyRound size={17} />} />
+          <SummaryItem label="API" value={summary.apis} icon={<Database size={17} />} />
+          <SummaryItem label="当前显示" value={summary.visible} icon={<Search size={17} />} />
+        </div>
       </section>
 
-      <section className="system-split">
-        <div className="page-content">
-          <h2 className="panel-title">权限树</h2>
-          <div className="tree-list">{tree.map((permission) => <PermissionTree key={permission.id} permission={permission} selectedId={selected?.id ?? ""} onSelect={setSelected} />)}</div>
-        </div>
-        <div className="page-content">
-          <h2 className="panel-title">权限详情</h2>
+      <section className="permission-workbench">
+        <Card>
+          <div className="system-toolbar">
+            <h2 className="panel-title">权限树</h2>
+            <span className="status-pill">{includeApi || keyword || permType === "40" ? "含 API" : "API 已折叠"}</span>
+          </div>
+          <div className="permission-tree-scroll">
+            {visibleTree.length === 0 ? <p className="status-pill">没有匹配的权限节点</p> : null}
+            {visibleTree.map((permission) => (
+              <PermissionTree
+                key={permission.id}
+                permission={permission}
+                selectedId={selected?.id ?? ""}
+                expandedIds={expandedIds}
+                onSelect={setSelected}
+                onToggle={toggleExpanded}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="system-toolbar">
+            <h2 className="panel-title">权限详情</h2>
+            {selected ? <StatusBadge status={selected.status} /> : null}
+          </div>
           {selected ? (
-            <div className="detail-stack">
-              <div className="system-toolbar"><strong>{selected.name}</strong><span className="status-pill">{typeLabel(selected.permType)}</span></div>
-              <Meta label="编码" value={selected.code} />
-              <Meta label="资源 / 动作" value={`${selected.resource} / ${selected.action}`} />
-              <Meta label="前端路由" value={selected.frontendRoute ?? "-"} />
-              <Meta label="API" value={selected.apiPath ? `${selected.apiMethod ?? ""} ${selected.apiPath}` : "-"} />
-              <Meta label="组件 / 字段" value={selected.componentKey ?? selected.fieldKey ?? "-"} />
-              <Meta label="数据维度" value={selected.dataDimension ?? "-"} />
+            <div className="permission-detail">
+              <section className="permission-detail-hero">
+                <div>
+                  <span className="status-pill">{typeLabel(selected.permType)}</span>
+                  <h3>{selected.name}</h3>
+                  <p>{selected.code}</p>
+                </div>
+                <div className="system-actions">
+                  {selected.isBuiltin || selected.isSystem ? <span className="status-pill">系统内置</span> : null}
+                  {selected.isTenantCustom ? <span className="status-pill">租户自定义</span> : null}
+                </div>
+              </section>
+
+              <section className="permission-meta-grid">
+                <Meta label="资源 / 动作" value={`${selected.resource} / ${selected.action}`} />
+                <Meta label="权限路径" value={selected.permPath ?? "-"} />
+                <Meta label="前端路由" value={selected.frontendRoute ?? "-"} />
+                <Meta label="组件键" value={selected.componentKey ?? "-"} />
+                <Meta label="API" value={selected.apiPath ? `${selected.apiMethod ?? ""} ${selected.apiPath}` : "-"} />
+                <Meta label="字段 / 数据" value={selected.fieldKey ?? selected.dataDimension ?? "-"} />
+              </section>
+
+              <section className="permission-child-panel">
+                <div className="system-toolbar">
+                  <h3 className="panel-title">子权限</h3>
+                  <span className="status-pill">页面/按钮 {selectedMainChildren.length} · API {selectedApiChildren.length}</span>
+                </div>
+                <PermissionChildList items={selectedMainChildren} onSelect={setSelected} emptyText="暂无页面、按钮、数据或字段子权限" />
+                {selectedApiChildren.length > 0 ? (
+                  <div className="permission-api-section">
+                    <button type="button" className="permission-api-toggle-button" onClick={() => setShowDetailApi((value) => !value)}>
+                      {showDetailApi ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      API 权限 {selectedApiChildren.length}
+                    </button>
+                    {showDetailApi ? <PermissionChildList items={selectedApiChildren} onSelect={setSelected} emptyText="暂无 API 权限" /> : null}
+                  </div>
+                ) : null}
+              </section>
+
               <div className="system-actions">
-                {selected.isBuiltin || selected.isSystem ? <span className="status-pill">内置权限不可随意删除</span> : <PermissionButton permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_DELETE} type="button" onClick={() => void deletePermission(selected).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
+                <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_CREATE} type="button" onClick={() => openCreate("button")}><Plus size={16} />新增子权限</PermissionButton>
+                {selected.isBuiltin || selected.isSystem ? <span className="status-pill">内置权限不可删除</span> : <PermissionButton permission={SYSTEM_PERMISSIONS.PERMISSION_OPEN_DELETE} type="button" onClick={() => void deletePermission(selected).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
               </div>
             </div>
           ) : <p className="status-pill">请选择权限节点查看详情</p>}
-        </div>
+        </Card>
       </section>
 
-      <section className="page-content">
-        <h2 className="panel-title">权限列表</h2>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead><tr><th>编码</th><th>名称</th><th>资源</th><th>动作</th><th>类型</th><th>路由/组件</th><th>状态</th><th>操作</th></tr></thead>
-            <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.code}</td>
-                  <td>{item.name}</td>
-                  <td>{item.resource}</td>
-                  <td>{item.action}</td>
-                  <td>{typeLabel(item.permType)}</td>
-                  <td>{item.frontendRoute ?? item.componentKey ?? "-"}</td>
-                  <td><StatusBadge status={item.status} /></td>
-                  <td><button type="button" onClick={() => setSelected(item)} title="详情"><Eye size={16} /></button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="task-item"><span>共 {data.total} 条，当前显示 {filteredItems.length} 条</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
-      </section>
-
-      {showCreate ? (
-        <section className="drawer">
+      {createDefaults ? (
+        <Drawer size="md" onClose={() => setCreateDefaults(null)}>
           <form className="form-stack" onSubmit={(event) => void createPermission(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">新增租户自定义权限</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setShowCreate(false)}><X size={16} /></button></div>
-            <div className="field"><label>编码</label><input name="code" placeholder="tenant:custom:example" required /></div>
+            <div className="system-toolbar"><h2 className="panel-title">{createDefaults.title}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setCreateDefaults(null)}><X size={16} /></button></div>
+            <div className="field"><label>编码</label><input name="code" placeholder="system:example:read" required /></div>
             <div className="field"><label>名称</label><input name="name" required /></div>
-            <div className="field"><label>上级权限</label><select name="parentId"><option value="">无</option>{flatTree.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-            <div className="field"><label>权限分类</label><select name="permType" defaultValue="90">{permTypes.filter((item) => item.value).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-            <div className="field"><label>资源</label><input name="resource" defaultValue="tenant.custom" /></div>
-            <div className="field"><label>动作</label><input name="action" defaultValue="custom" /></div>
+            <div className="field"><label>上级权限</label><select name="parentId" defaultValue={createDefaults.parentId}><option value="">无</option>{flatTree.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+            <div className="field"><label>权限分类</label><select name="permType" defaultValue={createDefaults.permType}>{permTypes.filter((item) => item.value).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+            <div className="field"><label>资源</label><input name="resource" defaultValue={createDefaults.resource} /></div>
+            <div className="field"><label>动作</label><input name="action" defaultValue={createDefaults.action} /></div>
             <div className="field"><label>排序</label><input name="sortNo" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
             <div className="field"><label>前端路由</label><input name="frontendRoute" /></div>
             <div className="field"><label>组件键</label><input name="componentKey" /></div>
+            <div className="field"><label>API 方法</label><select name="apiMethod" defaultValue={createDefaults.permType === 40 ? "GET" : ""}><option value="">无</option><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></div>
+            <div className="field"><label>API 路径</label><input name="apiPath" placeholder="/api/v1/example" /></div>
             <div className="field"><label>字段键</label><input name="fieldKey" /></div>
             <div className="field"><label>数据维度</label><input name="dataDimension" /></div>
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             <div className="field"><label>备注</label><input name="remark" /></div>
             <button className="primary-button" type="submit"><Save size={16} />保存</button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
     </main>
   );
 }
 
-function PermissionTree({ permission, selectedId, onSelect }: { permission: PermissionRow; selectedId: string; onSelect: (permission: PermissionRow) => void }) {
+function PermissionTree({
+  permission,
+  selectedId,
+  expandedIds,
+  onSelect,
+  onToggle
+}: {
+  permission: PermissionRow;
+  selectedId: string;
+  expandedIds: Set<string>;
+  onSelect: (permission: PermissionRow) => void;
+  onToggle: (id: string) => void;
+}) {
+  const children = permission.children ?? [];
+  const expanded = expandedIds.has(permission.id);
   return (
-    <div className="tree-list">
-      <button className={`tree-row${selectedId === permission.id ? " active" : ""}`} type="button" onClick={() => onSelect(permission)}>
-        <span>{permission.name}</span><span className="status-pill">{typeLabel(permission.permType)}</span>
-      </button>
-      {permission.children && permission.children.length > 0 ? <div className="tree-children">{permission.children.map((child) => <PermissionTree key={child.id} permission={child} selectedId={selectedId} onSelect={onSelect} />)}</div> : null}
+    <div className="permission-tree-node">
+      <div className={`permission-tree-row${selectedId === permission.id ? " active" : ""}`}>
+        <button className="permission-tree-toggle" type="button" disabled={children.length === 0} onClick={() => onToggle(permission.id)} aria-label={expanded ? "收起" : "展开"}>
+          {children.length > 0 ? expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} /> : null}
+        </button>
+        <button className="permission-tree-main" type="button" onClick={() => onSelect(permission)}>
+          <span>{permission.name}</span>
+          <span className="muted-text">{permission.code}</span>
+        </button>
+        <span className="status-pill">{typeLabel(permission.permType)}</span>
+      </div>
+      {expanded && children.length > 0 ? (
+        <div className="permission-tree-children">
+          {children.map((child) => <PermissionTree key={child.id} permission={child} selectedId={selectedId} expandedIds={expandedIds} onSelect={onSelect} onToggle={onToggle} />)}
+        </div>
+      ) : null}
     </div>
   );
 }
 
+function PermissionChildList({ items, emptyText, onSelect }: { items: PermissionRow[]; emptyText: string; onSelect: (permission: PermissionRow) => void }) {
+  if (items.length === 0) {
+    return <p className="status-pill">{emptyText}</p>;
+  }
+  return (
+    <div className="permission-child-list">
+      {items.map((item) => (
+        <button key={item.id} type="button" className="permission-child-row" onClick={() => onSelect(item)}>
+          <span><strong>{item.name}</strong><em>{item.code}</em></span>
+          <span className="status-pill">{typeLabel(item.permType)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SummaryItem({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+  return <div className="permission-summary-item"><span>{icon}{label}</span><strong>{value}</strong></div>;
+}
+
 function Meta({ label, value }: { label: string; value: string }) {
-  return <div className="task-item"><span className="muted-text">{label}</span><strong>{value}</strong></div>;
+  return <div className="permission-meta-item"><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  return <span className="status-pill">{status === "enabled" ? "启用" : "停用"}</span>;
+  return <span className={`status-pill ${status === "enabled" ? "status-success" : "status-muted"}`}>{status === "enabled" ? "启用" : "停用"}</span>;
 }
 
 function typeLabel(value?: number): string {
@@ -239,6 +386,36 @@ function typeLabel(value?: number): string {
 
 function flattenTree(items: PermissionRow[]): PermissionRow[] {
   return items.flatMap((item) => [item, ...flattenTree(item.children ?? [])]);
+}
+
+function filterPermissionTree(items: PermissionRow[], filters: { keyword: string; status: string; permType: string; includeApi: boolean }): PermissionRow[] {
+  const keyword = filters.keyword.trim().toLowerCase();
+  const hideApi = !filters.includeApi && !keyword && filters.permType !== "40";
+  return items.flatMap((item) => {
+    if (hideApi && item.permType === 40) {
+      return [];
+    }
+    const children = filterPermissionTree(item.children ?? [], filters);
+    const keywordMatched = !keyword || [item.name, item.code, item.resource, item.action, item.frontendRoute, item.apiPath, item.componentKey]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(keyword));
+    const statusMatched = !filters.status || item.status === filters.status;
+    const typeMatched = !filters.permType || String(item.permType ?? "") === filters.permType;
+    if ((keywordMatched && statusMatched && typeMatched) || children.length > 0) {
+      return [{ ...item, children }];
+    }
+    return [];
+  });
+}
+
+function summarizePermissions(items: PermissionRow[], visible: number) {
+  return {
+    total: items.length,
+    navigation: items.filter((item) => item.permType === 10 || item.permType === 20).length,
+    buttons: items.filter((item) => item.permType === 30).length,
+    apis: items.filter((item) => item.permType === 40).length,
+    visible
+  };
 }
 
 function getToken(): string {

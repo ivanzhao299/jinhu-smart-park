@@ -1,4 +1,5 @@
 "use client";
+import { Card } from "@jinhu/ui";
 
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -47,9 +48,9 @@ export default function LoginLogsPage() {
   if (!hasPermission(authUser, SYSTEM_PERMISSIONS.AUDIT_READ)) {
     return (
       <main className="content">
-        <section className="work-panel">
+        <Card >
           <span className="status-pill">无 audit:read 权限</span>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -62,7 +63,7 @@ export default function LoginLogsPage() {
           <span>记录登录成功、登录失败和登录来源信息</span>
         </div>
       </header>
-      <section className="work-panel">
+      <Card >
         <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(); }}>
           <div className="dashboard-grid">
             <div className="field"><label>用户名</label><input value={filters.username} onChange={(event) => setFilters({ ...filters, username: event.target.value })} /></div>
@@ -70,27 +71,29 @@ export default function LoginLogsPage() {
           </div>
           <button className="primary-button" type="submit"><Search size={16} />查询</button>
         </form>
-      </section>
-      <section className="work-panel">
+      </Card>
+      <Card >
         <h2 className="panel-title">登录日志列表</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr><th>用户</th><th>IP</th><th>登录方式</th><th>结果</th><th>失败原因</th><th>请求 ID</th><th>时间</th></tr></thead>
-          <tbody>
-            {data.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.username}</td>
-                <td>{item.loginIp ?? "-"}</td>
-                <td>{item.loginMethod ?? "-"}</td>
-                <td><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
-                <td>{item.failReason ?? "-"}</td>
-                <td>{item.requestId ?? "-"}</td>
-                <td>{item.loginTime ?? item.createTime}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="native-table-wrap">
+          <table className="native-table">
+            <thead><tr><th>用户</th><th>IP</th><th>登录方式</th><th>结果</th><th>失败原因</th><th>请求 ID</th><th>时间</th></tr></thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.username}</td>
+                  <td>{item.loginIp ?? "-"}</td>
+                  <td>{item.loginMethod ?? "-"}</td>
+                  <td><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
+                  <td>{item.failReason ?? "-"}</td>
+                  <td>{item.requestId ?? "-"}</td>
+                  <td>{item.loginTime ?? item.createTime}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
-      </section>
+      </Card>
       {message ? <p className="status-pill">{message}</p> : null}
     </main>
   );

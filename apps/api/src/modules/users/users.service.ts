@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
@@ -15,6 +15,7 @@ import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
+import { TenantEntity } from "../tenants/entities/tenant.entity";
 import type { AssignRolesDto } from "./dto/assign-roles.dto";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
@@ -28,6 +29,10 @@ export interface UserView {
   displayName: string;
   mobile: string | null;
   email: string | null;
+  avatarUrl: string | null;
+  gender: string | null;
+  lastLoginIp: string | null;
+  lastLoginTime: Date | null;
   isEnabled: boolean;
   status: string;
   tenantId: string;
@@ -52,6 +57,8 @@ export class UsersService {
     private readonly userParkRepository: Repository<UserParkEntity>,
     @InjectRepository(ParkEntity)
     private readonly parksRepository: Repository<ParkEntity>,
+    @InjectRepository(TenantEntity)
+    private readonly tenantRepository: Repository<TenantEntity>,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
     private readonly saasModulesService: SaaSModulesService,
@@ -92,6 +99,7 @@ export class UsersService {
 
   async create(scope: TenantParkScope, actorId: string, dto: CreateUserDto): Promise<UserView> {
     await this.assertUsernameAvailable(scope, dto.username);
+    await this.assertTenantUserLimit(scope);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
     const user = await this.usersRepository.save(
@@ -101,6 +109,8 @@ export class UsersService {
         passwordHash,
         mobile: dto.mobile ?? null,
         email: dto.email ?? null,
+        avatarUrl: dto.avatarUrl ?? null,
+        gender: dto.gender ?? null,
         isEnabled: dto.status !== "disabled",
         status: dto.status ?? "enabled",
         remark: dto.remark ?? null,
@@ -224,6 +234,10 @@ export class UsersService {
       real_name: user.displayName,
       mobile: (securedSelf.mobile as string | null | undefined) ?? null,
       email: (securedSelf.email as string | null | undefined) ?? null,
+      avatar_url: user.avatarUrl,
+      gender: user.gender,
+      last_login_ip: user.lastLoginIp,
+      last_login_time: user.lastLoginTime?.toISOString() ?? null,
       tenant_id: currentPark?.tenant_id ?? user.tenantId,
       park_id: currentPark?.park_id ?? user.parkId,
       park_name: currentPark?.park_name ?? "当前园区",
@@ -250,6 +264,8 @@ export class UsersService {
       displayName: dto.displayName ?? user.displayName,
       mobile: dto.mobile ?? user.mobile,
       email: dto.email ?? user.email,
+      avatarUrl: dto.avatarUrl ?? user.avatarUrl,
+      gender: dto.gender ?? user.gender,
       status: dto.status ?? user.status,
       isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
       remark: dto.remark ?? user.remark,
@@ -273,6 +289,13 @@ export class UsersService {
     user.updateBy = actorId;
     await this.usersRepository.save(user);
     return { id };
+  }
+
+  async recordSuccessfulLogin(scope: TenantParkScope, id: string, ipAddress: string | null): Promise<void> {
+    await this.usersRepository.update(
+      { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      { lastLoginIp: ipAddress, lastLoginTime: new Date() }
+    );
   }
 
   async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {
@@ -316,6 +339,19 @@ export class UsersService {
     }
   }
 
+  private async assertTenantUserLimit(scope: TenantParkScope): Promise<void> {
+    const tenant = await this.tenantRepository.findOne({ where: { tenantId: scope.tenantId, isDeleted: false } });
+    if (!tenant?.maxUsers) {
+      return;
+    }
+    const currentUsers = await this.usersRepository.count({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
+    if (currentUsers >= tenant.maxUsers) {
+      throw new BadRequestException("Tenant user limit exceeded");
+    }
+  }
+
   private toView(user: UserEntity): UserView {
     return {
       id: user.id,
@@ -323,6 +359,10 @@ export class UsersService {
       displayName: user.displayName,
       mobile: user.mobile,
       email: user.email,
+      avatarUrl: user.avatarUrl,
+      gender: user.gender,
+      lastLoginIp: user.lastLoginIp,
+      lastLoginTime: user.lastLoginTime,
       isEnabled: user.isEnabled,
       status: user.status,
       tenantId: user.tenantId,
@@ -581,6 +621,7 @@ export class UsersService {
         href: permission.frontendRoute ?? undefined,
         permission: permission.code,
         module: this.inferModuleCode(permission.frontendRoute ?? undefined, permission.code),
+        icon: permission.icon ?? undefined,
         children: children.length > 0 ? children : undefined
       };
       return node;

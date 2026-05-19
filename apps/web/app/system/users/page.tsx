@@ -1,4 +1,5 @@
 "use client";
+import { Card } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search } from "lucide-react";
 import type { FormEvent } from "react";
@@ -72,7 +73,7 @@ export default function UsersPage() {
         </PermissionButton>
       </header>
 
-      <section className="work-panel">
+      <Card >
         <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(); }}>
           <div className="dashboard-grid">
             <div className="field">
@@ -90,33 +91,40 @@ export default function UsersPage() {
           </div>
           <button className="primary-button" type="submit"><Search size={16} />查询</button>
         </form>
-      </section>
+      </Card>
 
-      <section className="work-panel">
+      <Card >
         <h2 className="panel-title">用户列表</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr><th>账号</th><th>姓名</th><th>手机</th><th>邮箱</th><th>状态</th><th>操作</th></tr></thead>
-          <tbody>
-            {data.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.username}</td>
-                <td>{item.displayName}</td>
-                <td>{item.mobile ?? "-"}</td>
-                <td>{item.email ?? "-"}</td>
-                <td><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
-                <td><PermissionButton permission={SYSTEM_PERMISSIONS.USER_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.USER_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="native-table-wrap">
+          <table className="native-table">
+            <thead><tr><th>账号</th><th>姓名</th><th>手机</th><th>邮箱</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.username}</td>
+                  <td>{item.displayName}</td>
+                  <td>{item.mobile ?? "-"}</td>
+                  <td>{item.email ?? "-"}</td>
+                  <td><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
+                  <td>
+                    <span className="data-table-actions">
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.USER_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton>
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.USER_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="task-item">
           <span>共 {data.total} 条，第 {data.page} 页</span>
           <span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span>
         </div>
-      </section>
+      </Card>
 
       {showCreate ? (
-        <section className="login-panel" style={{ position: "fixed", right: 24, top: 24, zIndex: 10 }}>
+        <section className="login-panel floating-panel">
           <h2 className="panel-title">新增用户</h2>
           <form className="form-stack" onSubmit={(event) => void createUser(event).catch((error: Error) => setMessage(error.message))}>
             <div className="field"><label>账号</label><input name="username" /></div>

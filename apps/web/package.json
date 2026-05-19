@@ -12,6 +12,7 @@
   "dependencies": {
     "@jinhu/shared": "workspace:*",
     "@jinhu/ui": "workspace:*",
+    "antd": "^6.4.2",
     "lucide-react": "^0.468.0",
     "next": "^15.0.3",
     "react": "^19.0.0",

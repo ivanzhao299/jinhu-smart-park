@@ -298,7 +298,6 @@ export class LeasingContractChangesService {
       const contractRepo = manager.getRepository(LeasingContractEntity);
       const change = await changeRepo
         .createQueryBuilder("change")
-        .leftJoinAndSelect("change.contract", "contract")
         .where("change.tenant_id = :tenantId", { tenantId: scope.tenantId })
         .andWhere("change.park_id = :parkId", { parkId: scope.parkId })
         .andWhere("change.id = :id", { id })
@@ -606,9 +605,17 @@ export class LeasingContractChangesService {
 
   private async secureFinanceImpact(scope: TenantParkScope, actor: JwtPrincipal | undefined, preview: FinanceImpactPreview): Promise<Record<string, unknown>> {
     if (!actor || actor.isSuper) return preview as unknown as Record<string, unknown>;
+    const directSecured = await this.fieldPolicyService.applyFieldPolicies(
+      scope,
+      actor,
+      "leasing",
+      "leasing_contract_change",
+      { financeImpact: preview }
+    );
+    if (!this.isPlainRecord(directSecured.financeImpact)) return {};
     const policies = (await this.fieldPolicyService.getUserFieldPolicies(scope, actor))
       .filter((policy) => policy.module === "leasing" && policy.entity === "leasing_receivable");
-    return this.maskNestedSnapshot(preview as unknown as Record<string, unknown>, policies);
+    return this.maskNestedSnapshot(directSecured.financeImpact, policies);
   }
 
   private scopedBuilder(scope: TenantParkScope): SelectQueryBuilder<LeasingContractChangeEntity> {
@@ -841,13 +848,24 @@ export class LeasingContractChangesService {
     const userPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, actor);
     const contractPolicies = userPolicies.filter((policy) => policy.module === "leasing" && policy.entity === "leasing_contract");
     const receivablePolicies = userPolicies.filter((policy) => policy.module === "leasing" && policy.entity === "leasing_receivable");
-    secured.beforeSnapshot = this.maskNestedSnapshot(secured.beforeSnapshot, contractPolicies);
-    secured.afterSnapshot = this.maskNestedSnapshot(secured.afterSnapshot, contractPolicies);
-    secured.financeImpact = this.maskNestedSnapshot(this.maskNestedSnapshot(secured.financeImpact, contractPolicies), receivablePolicies);
+    const securedRecord = secured as unknown as Record<string, unknown>;
+    if (this.isPlainRecord(securedRecord.beforeSnapshot)) {
+      securedRecord.beforeSnapshot = this.maskNestedSnapshot(securedRecord.beforeSnapshot, contractPolicies);
+    }
+    if (this.isPlainRecord(securedRecord.afterSnapshot)) {
+      securedRecord.afterSnapshot = this.maskNestedSnapshot(securedRecord.afterSnapshot, contractPolicies);
+    }
+    if (this.isPlainRecord(securedRecord.financeImpact)) {
+      securedRecord.financeImpact = this.maskNestedSnapshot(
+        this.maskNestedSnapshot(securedRecord.financeImpact, contractPolicies),
+        receivablePolicies
+      );
+    }
     return secured;
   }
 
-  private maskNestedSnapshot(value: Record<string, unknown>, policies: Awaited<ReturnType<FieldPolicyService["getUserFieldPolicies"]>>): Record<string, unknown> {
+  private maskNestedSnapshot(value: unknown, policies: Awaited<ReturnType<FieldPolicyService["getUserFieldPolicies"]>>): Record<string, unknown> {
+    if (!this.isPlainRecord(value)) return {};
     const cloned = this.deepClone(value);
     for (const policy of policies) {
       if (!["hidden", "masked"].includes(policy.policy_type)) continue;
@@ -973,6 +991,10 @@ export class LeasingContractChangesService {
 
   private deepClone<T>(value: T): T {
     return JSON.parse(JSON.stringify(value ?? {})) as T;
+  }
+
+  private isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
 }

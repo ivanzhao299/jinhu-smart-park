@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, MaxLength, Min } from "class-validator";
 
 export class UpdatePlanDto {
   @IsOptional()
@@ -27,6 +27,11 @@ export class UpdatePlanDto {
   moduleCodes?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  permissionCodes?: string[];
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   maxUsers?: number;
@@ -44,6 +49,10 @@ export class UpdatePlanDto {
   @IsOptional()
   @IsIn(["enabled", "disabled"])
   status?: string;
+
+  @IsOptional()
+  @IsObject()
+  featureConfig?: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

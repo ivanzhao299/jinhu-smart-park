@@ -1,4 +1,5 @@
 "use client";
+import { Card, DataTable, Drawer, DrawerActions, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 
 import { Download, Edit3, Eye, FileDown, FileImage, FileUp, History, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -124,7 +125,8 @@ const ALLOWED_RENTAL_STATUS_TARGETS = new Map<number, number[]>([
   [30, [40, 50]],
   [40, [30, 10]],
   [50, [10, 60]],
-  [60, [10, 50]]
+  [60, [10, 50]],
+  [70, []]
 ]);
 
 const emptyForm: UnitFormState = {
@@ -486,7 +488,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           </PermissionButton>
         </header>
 
-        <section className="work-panel">
+        <Card >
           <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
             <div className="dashboard-grid">
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => updateFilter("buildingId", value)}>
@@ -513,10 +515,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               查询
             </button>
           </form>
-        </section>
+        </Card>
 
-        <section className="work-panel table-scroll">
-          <table className="data-table">
+        <Card className=" table-scroll">
+          <DataTable >
             <thead>
               <tr>
                 <th>房源编码</th>
@@ -579,7 +581,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
             <span>
@@ -593,10 +595,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               </button>
             </span>
           </div>
-        </section>
+        </Card>
 
         {showForm ? (
-          <section className="login-panel drawer-panel">
+          <Drawer size="lg" onClose={() => setShowForm(false)}>
             <div className="task-item">
               <h2 className="panel-title">{editingId ? "编辑房源" : "新增房源"}</h2>
               <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
@@ -646,11 +648,11 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               <button className="primary-button" type="submit">保存</button>
               <button type="button" onClick={() => setShowForm(false)}>取消</button>
             </form>
-          </section>
+          </Drawer>
         ) : null}
 
         {showImport ? (
-          <section className="login-panel drawer-panel drawer-panel-lg">
+          <Drawer size="md" onClose={() => setShowImport(false)}>
             <div className="task-item">
               <h2 className="panel-title">房源批量导入</h2>
               <button type="button" title="关闭" onClick={() => setShowImport(false)}><X size={16} /></button>
@@ -672,12 +674,12 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               <button type="button" onClick={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}>下载模板</button>
             </form>
             {importResult ? (
-              <section className="work-panel">
+              <Card >
                 <div className="task-item">
                   <span>导入结果</span>
                   <strong>总计 {importResult.total}，成功 {importResult.success_count}，失败 {importResult.fail_count}</strong>
                 </div>
-                <table className="data-table">
+                <DataTable >
                   <thead>
                     <tr><th>行号</th><th>房源编码</th><th>错误原因</th></tr>
                   </thead>
@@ -691,10 +693,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
                     ))}
                     {importResult.rows.every((row) => row.success) ? <tr><td colSpan={3}>全部导入成功</td></tr> : null}
                   </tbody>
-                </table>
-              </section>
+                </DataTable>
+              </Card>
             ) : null}
-          </section>
+          </Drawer>
         ) : null}
 
         {detail ? (
@@ -709,7 +711,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
         ) : null}
 
         {attachmentTarget ? (
-          <section className="login-panel drawer-panel drawer-panel-xl">
+          <Drawer size="md" onClose={() => setAttachmentTarget(null)}>
             <div className="task-item">
               <h2 className="panel-title">{attachmentTarget.unit.unitName} {attachmentTarget.mode === "photos" ? "照片" : "平面图"}</h2>
               <button type="button" title="关闭" onClick={() => setAttachmentTarget(null)}><X size={16} /></button>
@@ -727,11 +729,11 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               bizId={attachmentTarget.unit.id}
               refreshKey={refreshKey}
             />
-          </section>
+          </Drawer>
         ) : null}
 
         {transitionTarget ? (
-          <section className="login-panel drawer-panel drawer-panel-md">
+          <Drawer size="md" onClose={() => setTransitionTarget(null)}>
             <div className="task-item">
               <h2 className="panel-title">{transitionTarget.unitName} {transitionPanelMode === "change" ? "状态流转" : "状态日志"}</h2>
               <button type="button" title="关闭" onClick={() => setTransitionTarget(null)}><X size={16} /></button>
@@ -763,9 +765,9 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
               </form>
             ) : null}
             <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG}>
-              <section className="work-panel">
+              <Card >
                 <h3 className="panel-title">状态日志</h3>
-                <table className="data-table">
+                <DataTable >
                   <thead><tr><th>原状态</th><th>新状态</th><th>原因</th><th>来源</th><th>操作人</th><th>时间</th></tr></thead>
                   <tbody>
                     {statusLogPage.items.map((log) => (
@@ -780,7 +782,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
                     ))}
                     {statusLogPage.items.length === 0 ? <tr><td colSpan={6}>暂无状态日志</td></tr> : null}
                   </tbody>
-                </table>
+                </DataTable>
                 <div className="task-item">
                   <span>共 {statusLogPage.total} 条，第 {statusLogPage.page} / {Math.max(1, Math.ceil(statusLogPage.total / statusLogPage.page_size))} 页</span>
                   <span>
@@ -794,9 +796,9 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
                     </button>
                   </span>
                 </div>
-              </section>
+              </Card>
             </PermissionGuard>
-          </section>
+          </Drawer>
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}
@@ -825,51 +827,46 @@ function UnitDetailDrawer({
   const canViewRemark = canViewField(authUser, "asset", "unit", UNIT_FIELD_REMARK);
   const canViewPhotoUrls = canViewField(authUser, "asset", "unit", UNIT_FIELD_PHOTO_URLS);
   return (
-    <section className="login-panel drawer-panel drawer-panel-lg">
-      <div className="task-item">
-        <h2 className="panel-title">房源详情</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
-      </div>
-      <div className="form-stack">
-        <DetailItem label="房源编码" value={unit.unitCode} />
-        <DetailItem label="房源名称" value={unit.unitName} />
-        <DetailItem label="楼栋" value={unit.building ? `${unit.building.buildingCode} ${unit.building.buildingName}` : "-"} />
-        <DetailItem label="楼层" value={unit.floor ? `${unit.floor.floorCode} ${unit.floor.floorName}` : "-"} />
-        <DetailItem label="用途" value={dictLabel(dicts.unit_usage_type, unit.usageType)} />
-        <DetailItem label="建筑面积" value={formatArea(unit.unitArea)} />
-        <DetailItem label="使用面积" value={formatArea(unit.useArea)} />
-        <DetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} />} />
-        <DetailItem
-          label="状态操作"
-          value={(
-            <span className="data-table-actions">
-              <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} type="button" onClick={onOpenTransition}>
-                <RefreshCw size={16} />状态流转
-              </PermissionButton>
-              <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} type="button" onClick={onOpenStatusLogs}>
-                <History size={16} />状态日志
-              </PermissionButton>
-            </span>
-          )}
-        />
-        <DetailItem label="状态更新时间" value={unit.statusUpdateTime ? formatDateTime(unit.statusUpdateTime) : "-"} />
-        <DetailItem label="锁定原因" value={unit.lockReason ?? "-"} />
-        <DetailItem label="锁定到期" value={unit.lockExpireTime ? formatDateTime(unit.lockExpireTime) : "-"} />
-        <DetailItem label="装修状态" value={<DictBadge items={dicts.unit_fitting_status} value={unit.fittingStatus} />} />
-        {canViewRefPrice ? <DetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.refPrice))} /> : null}
-        <DetailItem label="可租日期" value={unit.availableDate ?? "-"} />
-        {canViewPhotoUrls ? <DetailItem label="照片" value={<button type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button>} /> : null}
-        <DetailItem label="平面图" value={<button type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>} />
-        <DetailItem label="状态" value={<StatusBadge status={unit.status} />} />
-        {canViewRemark ? <DetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
-      </div>
-      <div className="work-panel">
-        <div className="task-item"><strong>合同</strong><span>预留</span></div>
-        <div className="task-item"><strong>租户</strong><span>预留</span></div>
-        <div className="task-item"><strong>工单</strong><span>预留</span></div>
-        <div className="task-item"><strong>隐患</strong><span>预留</span></div>
-      </div>
-    </section>
+    <Drawer size="md" onClose={onClose}>
+      <DrawerHeader
+        eyebrow="房源详情"
+        title={unit.unitName}
+        description={`${unit.unitCode} · ${unit.building ? unit.building.buildingName : "未关联楼栋"} · ${unit.floor ? unit.floor.floorName : "未关联楼层"}`}
+        onClose={onClose}
+        closeIcon={<X size={18} />}
+      />
+      <DrawerActions>
+        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} type="button" onClick={onOpenTransition}>
+          <RefreshCw size={14} />状态流转
+        </PermissionButton>
+        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} type="button" onClick={onOpenStatusLogs}>
+          <History size={14} />状态日志
+        </PermissionButton>
+        {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
+        <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
+      </DrawerActions>
+      <DrawerDetailGrid>
+        <DrawerDetailItem label="房源编码" value={unit.unitCode} />
+        <DrawerDetailItem label="房源名称" value={unit.unitName} />
+        <DrawerDetailItem label="楼栋" value={unit.building ? `${unit.building.buildingCode} ${unit.building.buildingName}` : "-"} />
+        <DrawerDetailItem label="楼层" value={unit.floor ? `${unit.floor.floorCode} ${unit.floor.floorName}` : "-"} />
+        <DrawerDetailItem label="用途" value={dictLabel(dicts.unit_usage_type, unit.usageType)} />
+        <DrawerDetailItem label="建筑面积" value={formatArea(unit.unitArea)} />
+        <DrawerDetailItem label="使用面积" value={formatArea(unit.useArea)} />
+        <DrawerDetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} />} />
+        <DrawerDetailItem label="状态更新时间" value={unit.statusUpdateTime ? formatDateTime(unit.statusUpdateTime) : "-"} />
+        <DrawerDetailItem label="锁定原因" value={unit.lockReason ?? "-"} />
+        <DrawerDetailItem label="锁定到期" value={unit.lockExpireTime ? formatDateTime(unit.lockExpireTime) : "-"} />
+        <DrawerDetailItem label="装修状态" value={<DictBadge items={dicts.unit_fitting_status} value={unit.fittingStatus} />} />
+        {canViewRefPrice ? <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.refPrice))} /> : null}
+        <DrawerDetailItem label="可租日期" value={unit.availableDate ?? "-"} />
+        <DrawerDetailItem label="状态" value={<StatusBadge status={unit.status} />} />
+        {canViewRemark ? <DrawerDetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
+      </DrawerDetailGrid>
+      <DrawerFooter>
+        <button type="button" onClick={onClose}>关闭</button>
+      </DrawerFooter>
+    </Drawer>
   );
 }
 
@@ -1074,10 +1071,10 @@ function formatYmd(value: Date): string {
 function ForbiddenInline() {
   return (
     <main className="content">
-      <section className="work-panel">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p>当前账号没有房源管理访问权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }

@@ -1,0 +1,37 @@
+.metricCard {
+  padding: var(--phoenix-space-4);
+  border: 1px solid var(--jinhu-color-border-soft, var(--phoenix-color-border));
+  border-radius: var(--phoenix-radius-lg, var(--phoenix-radius-md));
+  background: var(--phoenix-color-surface);
+  box-shadow: var(--phoenix-shadow-sm);
+  transition: var(--phoenix-transition);
+}
+
+.metricCard:hover {
+  box-shadow: var(--phoenix-shadow-md);
+  transform: translateY(-2px);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--phoenix-space-2);
+  color: var(--phoenix-color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.icon {
+  display: inline-flex;
+  color: var(--phoenix-color-primary);
+}
+
+.value {
+  display: block;
+  margin-top: var(--phoenix-space-2);
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--phoenix-color-text);
+}

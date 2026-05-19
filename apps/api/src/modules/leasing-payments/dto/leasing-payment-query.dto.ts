@@ -26,6 +26,10 @@ export class LeasingPaymentQueryDto {
   park_tenant_id?: string;
 
   @IsOptional()
+  @IsUUID()
+  contract_id?: string;
+
+  @IsOptional()
   @IsString()
   pay_method?: string;
 

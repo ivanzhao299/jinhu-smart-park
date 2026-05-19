@@ -40,14 +40,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
-  const payload = (await response.json().catch(() => undefined)) as ApiResponse<T> | undefined;
+  const payload = (await readApiResponse<T>(response));
   if (!response.ok) {
     handleUnauthorized(response.status);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
 
   if (!payload) {
-    throw new ApiError("Empty response payload", response.status);
+    throw new ApiError("Invalid API response payload", response.status);
   }
 
   return payload;
@@ -77,13 +77,13 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
     body: options.body
   });
 
-  const payload = (await response.json().catch(() => undefined)) as ApiResponse<T> | undefined;
+  const payload = await readApiResponse<T>(response);
   if (!response.ok) {
     handleUnauthorized(response.status);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
   if (!payload) {
-    throw new ApiError("Empty response payload", response.status);
+    throw new ApiError("Invalid API response payload", response.status);
   }
   return payload;
 }
@@ -101,4 +101,12 @@ function handleUnauthorized(status: number): void {
   localStorage.removeItem("jinhu_access_token");
   localStorage.removeItem("jinhu_auth_user");
   window.location.href = "/login";
+}
+
+async function readApiResponse<T>(response: Response): Promise<ApiResponse<T> | undefined> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined;
+  }
+  return response.json().catch(() => undefined) as Promise<ApiResponse<T> | undefined>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Card, DataTable, Drawer } from "@jinhu/ui";
 
 import { Boxes, CheckCircle2, PackageCheck, Search, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
@@ -26,6 +27,7 @@ interface PlanRow {
   planName: string;
   planType?: string;
   moduleCodes: string[];
+  permissionCodes?: string[];
   maxUsers?: number;
   maxParks?: number;
   status: string;
@@ -85,6 +87,10 @@ export default function ModulesPage() {
         planName: String(form.get("planName") ?? "").trim(),
         planType: String(form.get("planType") ?? "standard").trim(),
         moduleCodes: String(form.get("moduleCodes") ?? "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        permissionCodes: String(form.get("permissionCodes") ?? "")
           .split(",")
           .map((item) => item.trim())
           .filter(Boolean),
@@ -150,13 +156,13 @@ export default function ModulesPage() {
         </form>
       </section>
 
-      <section className="page-content">
+      <Card >
         <div className="system-toolbar">
           <h2 className="panel-title">模块列表</h2>
           <span className="muted-text">共 {modules.total} 个模块</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>模块编码</th>
@@ -198,23 +204,24 @@ export default function ModulesPage() {
                 );
               })}
             </tbody>
-          </table>
+          </DataTable>
         </div>
-      </section>
+      </Card>
 
-      <section className="page-content">
+      <Card >
         <div className="system-toolbar">
           <h2 className="panel-title">套餐列表</h2>
           <span className="muted-text">共 {plans.total} 个套餐</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>套餐编码</th>
                 <th>套餐名称</th>
                 <th>类型</th>
                 <th>模块</th>
+                <th>默认权限</th>
                 <th>用户上限</th>
                 <th>园区上限</th>
                 <th>状态</th>
@@ -227,23 +234,24 @@ export default function ModulesPage() {
                   <td>{item.planName}</td>
                   <td>{item.planType ?? "-"}</td>
                   <td>{item.moduleCodes.join(", ") || "-"}</td>
+                  <td>{item.permissionCodes?.join(", ") || "-"}</td>
                   <td>{item.maxUsers ?? 0}</td>
                   <td>{item.maxParks ?? 0}</td>
                   <td><StatusBadge status={item.status} /></td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
-      </section>
+      </Card>
 
-      <section className="page-content">
+      <Card >
         <div className="system-toolbar">
           <h2 className="panel-title">当前租户模块授权</h2>
           <span className="muted-text">共 {tenantModules.total} 条授权</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>模块编码</th>
@@ -266,18 +274,19 @@ export default function ModulesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
-      </section>
+      </Card>
 
       {showPlan ? (
-        <section className="drawer">
+        <Drawer size="md" onClose={() => setShowPlan(false)}>
           <form className="form-stack" onSubmit={(event) => void createPlan(event).catch((error: Error) => setMessage(error.message))}>
             <h2 className="panel-title">新增套餐</h2>
             <div className="field"><label>套餐编码</label><input name="planCode" required /></div>
             <div className="field"><label>套餐名称</label><input name="planName" required /></div>
             <div className="field"><label>套餐类型</label><input name="planType" defaultValue="standard" /></div>
             <div className="field"><label>模块编码</label><input name="moduleCodes" placeholder="多个编码用英文逗号分隔" /></div>
+            <div className="field"><label>默认权限</label><input name="permissionCodes" placeholder="如 module:system,module:asset" /></div>
             <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
             <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
@@ -286,7 +295,7 @@ export default function ModulesPage() {
               <button type="button" onClick={() => setShowPlan(false)}>取消</button>
             </div>
           </form>
-        </section>
+        </Drawer>
       ) : null}
 
       {message ? <p className="status-pill">{message}</p> : null}

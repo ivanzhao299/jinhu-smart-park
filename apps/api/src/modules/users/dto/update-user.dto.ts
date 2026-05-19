@@ -17,6 +17,16 @@ export class UpdateUserDto {
   email?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  avatarUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  gender?: string;
+
+  @IsOptional()
   @IsIn(["enabled", "disabled"])
   status?: string;
 

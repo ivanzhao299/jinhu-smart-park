@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
 import { AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
-import { findMenuByPath } from "../../lib/menu";
+import { findMenuByPath, getDashboardMenus } from "../../lib/menu";
 import { hasModule, hasPermission } from "../../lib/permissions";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
@@ -51,7 +51,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   };
 
-  const requiredMenu = useMemo(() => findMenuByPath(pathname), [pathname]);
+  const menus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
+  const requiredMenu = useMemo(() => findMenuByPath(pathname, menus), [menus, pathname]);
 
   useEffect(() => {
     if (ready && requiredMenu && !hasPermission(user, requiredMenu.permission)) {

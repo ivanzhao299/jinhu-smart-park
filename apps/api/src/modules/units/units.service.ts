@@ -57,7 +57,8 @@ const ALLOWED_RENTAL_STATUS_TRANSITIONS = new Map<number, number[]>([
   [30, [40, 50]],
   [40, [30, 10]],
   [50, [10, 60]],
-  [60, [10, 50]]
+  [60, [10, 50]],
+  [70, []]
 ]);
 
 const UNIT_IMPORT_HEADERS = [
@@ -702,6 +703,8 @@ export class UnitsService {
       maintenance_area: number;
       self_use_units: number;
       self_use_area: number;
+      sold_units: number;
+      sold_area: number;
       occupancy_rate: number;
       vacancy_rate: number;
       avg_ref_price: number;
@@ -741,6 +744,8 @@ export class UnitsService {
         .addSelect("coalesce(sum(unit.unit_area) filter (where unit.rental_status = 50), 0)::float", "maintenance_area")
         .addSelect("count(*) filter (where unit.rental_status = 60)::int", "self_use_units")
         .addSelect("coalesce(sum(unit.unit_area) filter (where unit.rental_status = 60), 0)::float", "self_use_area")
+        .addSelect("count(*) filter (where unit.rental_status = 70)::int", "sold_units")
+        .addSelect("coalesce(sum(unit.unit_area) filter (where unit.rental_status = 70), 0)::float", "sold_area")
         .addSelect("coalesce(avg(unit.ref_price), 0)::float", "avg_ref_price")
         .getRawOne<Record<string, string | number>>(),
       byBuildingBuilder
@@ -791,6 +796,8 @@ export class UnitsService {
       maintenance_area: this.rawNumber(summaryRow?.maintenance_area),
       self_use_units: this.rawNumber(summaryRow?.self_use_units),
       self_use_area: this.rawNumber(summaryRow?.self_use_area),
+      sold_units: this.rawNumber(summaryRow?.sold_units),
+      sold_area: this.rawNumber(summaryRow?.sold_area),
       occupancy_rate: this.rate(rentedArea, totalArea),
       vacancy_rate: this.rate(rentableArea, totalArea),
       avg_ref_price: this.round2(this.rawNumber(summaryRow?.avg_ref_price))

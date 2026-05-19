@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { Brackets, type SelectQueryBuilder, type Repository } from "typeorm";
 import { DataScopeService } from "../data-scopes/data-scope.service";
+import { TenantEntity } from "../tenants/entities/tenant.entity";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreateParkDto } from "./dto/create-park.dto";
 import type { ParkQueryDto } from "./dto/park-query.dto";
@@ -16,6 +17,8 @@ export class ParksService {
   constructor(
     @InjectRepository(ParkEntity)
     private readonly parksRepository: Repository<ParkEntity>,
+    @InjectRepository(TenantEntity)
+    private readonly tenantRepository: Repository<TenantEntity>,
     private readonly dataScopeService: DataScopeService
   ) {}
 
@@ -57,6 +60,7 @@ export class ParksService {
   }
 
   async create(scope: TenantParkScope, actorId: string, dto: CreateParkDto): Promise<ParkEntity> {
+    await this.assertTenantParkLimit(scope);
     const parkCode = dto.parkCode.trim();
     await this.assertParkCodeAvailable(parkCode);
     const entity = this.parksRepository.create({
@@ -160,6 +164,19 @@ export class ParksService {
     const exists = await builder.getExists();
     if (exists) {
       throw new ConflictException("Park code already exists");
+    }
+  }
+
+  private async assertTenantParkLimit(scope: TenantParkScope): Promise<void> {
+    const tenant = await this.tenantRepository.findOne({ where: { tenantId: scope.tenantId, isDeleted: false } });
+    if (!tenant?.maxParks) {
+      return;
+    }
+    const currentParks = await this.parksRepository.count({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
+    if (currentParks >= tenant.maxParks) {
+      throw new BadRequestException("Tenant park limit exceeded");
     }
   }
 

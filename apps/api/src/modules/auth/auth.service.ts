@@ -6,6 +6,7 @@ import { SYSTEM_PERMISSIONS, type AuthUser } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { LoginDto } from "./dto/login.dto";
+import { TenantsService } from "../tenants/tenants.service";
 import { UsersService } from "../users/users.service";
 
 export interface LoginResult {
@@ -27,10 +28,12 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly tenantsService: TenantsService
   ) {}
 
   async login(dto: LoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    await this.tenantsService.assertTenantActive(dto.tenantId);
     const user = await this.usersService.findByUsernameInScope(dto.username, {
       tenantId: dto.tenantId,
       parkId: dto.parkId
@@ -66,6 +69,8 @@ export class AuthService {
       id: user.id,
       username: user.username,
       realName: user.displayName,
+      avatar_url: user.avatarUrl,
+      gender: user.gender,
       tenantId: user.tenantId,
       parkId: user.parkId,
       roles: activeRoleLinks.map((link) => link.role.code),
@@ -92,6 +97,7 @@ export class AuthService {
       expiresIn: this.configService.get<string>("JWT_EXPIRES_IN", "2h"),
       user: authUser
     };
+    await this.usersService.recordSuccessfulLogin({ tenantId: user.tenantId, parkId: user.parkId }, user.id, meta.ipAddress);
     await this.recordLogin(dto, meta, user.id, true, "success");
     return result;
   }

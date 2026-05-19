@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
@@ -175,7 +176,7 @@ export default function ParksPage() {
           </PermissionButton>
         </header>
 
-        <section className="work-panel">
+        <Card >
           <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
             <div className="dashboard-grid">
               <div className="field">
@@ -197,10 +198,10 @@ export default function ParksPage() {
               查询
             </button>
           </form>
-        </section>
+        </Card>
 
-        <section className="work-panel table-scroll">
-          <table className="data-table">
+        <Card className=" table-scroll">
+          <DataTable >
             <thead>
               <tr>
                 <th>园区编码</th>
@@ -242,7 +243,7 @@ export default function ParksPage() {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
             <span>
@@ -256,10 +257,10 @@ export default function ParksPage() {
               </button>
             </span>
           </div>
-        </section>
+        </Card>
 
         {showForm ? (
-          <section className="login-panel drawer-panel">
+          <Drawer size="md" onClose={() => setShowForm(false)}>
             <div className="task-item">
               <h2 className="panel-title">{editingId ? "编辑园区" : "新增园区"}</h2>
               <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
@@ -291,11 +292,11 @@ export default function ParksPage() {
               <button className="primary-button" type="submit">保存</button>
               <button type="button" onClick={() => setShowForm(false)}>取消</button>
             </form>
-          </section>
+          </Drawer>
         ) : null}
 
         {detail ? (
-          <section className="login-panel drawer-panel">
+          <Drawer size="md" onClose={() => setDetail(null)}>
             <div className="task-item">
               <h2 className="panel-title">园区详情</h2>
               <button type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
@@ -311,7 +312,7 @@ export default function ParksPage() {
               <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
               <DetailItem label="备注" value={detail.remark ?? "-"} />
             </div>
-          </section>
+          </Drawer>
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}
@@ -371,10 +372,10 @@ function formatArea(value: string): string {
 function ForbiddenInline() {
   return (
     <main className="content">
-      <section className="work-panel">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p>当前账号没有园区管理访问权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }

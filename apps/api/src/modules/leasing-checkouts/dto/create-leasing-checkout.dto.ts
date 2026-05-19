@@ -2,7 +2,16 @@ import { Transform } from "class-transformer";
 import { IsDateString, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
 import { trimOptional } from "../../leasing-receivables/dto/create-leasing-receivable.dto";
 
-export const LEASING_CHECKOUT_TYPES = ["normal_expiry", "early_termination", "breach_termination", "other"] as const;
+export const LEASING_CHECKOUT_TYPES = [
+  "normal",
+  "early",
+  "breach",
+  "force",
+  "other",
+  "normal_expiry",
+  "early_termination",
+  "breach_termination"
+] as const;
 export const LEASING_RELEASE_UNIT_STATUSES = ["rentable", "maintenance"] as const;
 
 export class CreateLeasingCheckoutDto {

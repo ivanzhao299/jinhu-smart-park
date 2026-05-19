@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "antd";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthUser } from "../../lib/auth-context";
@@ -31,13 +32,18 @@ export function AppHeader() {
   return (
     <header className="app-header">
       <div className="header-title">
-        <strong>产业园数字运营 SaaS</strong>
+        <strong>金湖科创产业园 SaaS</strong>
         <span>园区：{currentParkName} · 角色：{roleNames}</span>
       </div>
       <div className="header-actions">
-        <button aria-label="切换主题" title="切换主题" type="button" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
-          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
+        <Button
+          aria-label="切换主题"
+          className="header-icon-button"
+          icon={theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          title="切换主题"
+          type="text"
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+        />
         <UserMenu />
       </div>
     </header>

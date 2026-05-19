@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { AlertTriangle, CheckCircle2, Download, Edit3, Eye, Plus, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -18,6 +19,8 @@ const LEASING_CONTRACT_ENTITY = "leasing_contract";
 const LEASING_RECEIVABLE_ENTITY = "leasing_receivable";
 const LEASING_PAYMENT_ENTITY = "leasing_payment";
 const LEASING_INVOICE_ENTITY = "leasing_invoice";
+const LEASING_CHECKOUT_ENTITY = "leasing_checkout";
+const LEASING_REFUND_ENTITY = "leasing_refund";
 const FIELD_LEGAL_PERSON_ID = "legalPersonId";
 const FIELD_CONTACT_MOBILE = "contactMobile";
 const FIELD_CONTACT_ROW_MOBILE = "mobile";
@@ -32,6 +35,9 @@ const FIELD_OVERDUE_AMOUNT = "overdueAmount";
 const FIELD_PAY_AMOUNT = "payAmount";
 const FIELD_UNAPPLIED_AMOUNT = "unappliedAmount";
 const FIELD_INVOICE_AMOUNT = "amount";
+const FIELD_CHECKOUT_REFUND_AMOUNT = "refundAmount";
+const FIELD_CHECKOUT_TENANT_DUE = "amountDueFromTenant";
+const FIELD_REFUND_AMOUNT = "refundAmount";
 const PARK_TENANT_PERMISSIONS = {
   read: "park_tenant:read",
   tenant360: "park_tenant:360",
@@ -282,6 +288,75 @@ interface Tenant360InvoicesNode {
   recent_items: Tenant360InvoiceRow[];
 }
 
+interface Tenant360ContractChangeRow {
+  id: string;
+  change_code: string;
+  contract_id: string;
+  contract_code: string | null;
+  change_type: string;
+  effective_date: string;
+  receivable_policy: string;
+  status: string;
+  update_time: string;
+}
+
+interface Tenant360ContractChangesNode {
+  available: boolean;
+  summary?: {
+    pending_count: number;
+    effective_count: number;
+  } | null;
+  recent_items: Tenant360ContractChangeRow[];
+}
+
+interface Tenant360CheckoutRow {
+  id: string;
+  checkout_code: string;
+  contract_id: string;
+  contract_code: string | null;
+  checkout_type: string;
+  planned_checkout_date: string;
+  actual_checkout_date: string | null;
+  release_unit_status: string;
+  settlement_status: string;
+  status: string;
+  refund_amount?: string | null;
+  amount_due_from_tenant?: string | null;
+  update_time: string;
+}
+
+interface Tenant360CheckoutsNode {
+  available: boolean;
+  summary?: {
+    pending_count: number;
+    completed_count: number;
+  } | null;
+  recent_items: Tenant360CheckoutRow[];
+}
+
+interface Tenant360RefundRow {
+  id: string;
+  refund_code: string;
+  checkout_id: string;
+  checkout_code: string | null;
+  contract_id: string;
+  contract_code: string | null;
+  refund_amount?: string | null;
+  refund_method: string;
+  refund_time: string;
+  receiver_name: string | null;
+  status: string;
+}
+
+interface Tenant360RefundsNode {
+  available: boolean;
+  summary?: {
+    refund_count: number;
+    refund_amount?: string | null;
+  } | null;
+  recent_items: Tenant360RefundRow[];
+}
+
 interface ParkTenant360View {
   profile: ParkTenantRow;
   contacts: ParkTenantContactRow[];
@@ -292,6 +367,9 @@ interface ParkTenant360View {
   receivables: Tenant360ReceivablesNode;
   payments: Tenant360PaymentsNode;
   invoices: Tenant360InvoicesNode;
+  contract_changes: Tenant360ContractChangesNode;
+  checkouts: Tenant360CheckoutsNode;
+  refunds: Tenant360RefundsNode;
   workorders: { available: boolean; summary: unknown | null };
   hazards: { available: boolean; summary: unknown | null };
   energy: { available: boolean; summary: unknown | null };
@@ -373,7 +451,22 @@ export default function LeasingTenantsPage() {
   const [riskLogs, setRiskLogs] = useState<ParkTenantRiskLogRow[]>([]);
   const [riskForm, setRiskForm] = useState<ParkTenantRiskFormState>(emptyRiskForm);
   const [showRiskForm, setShowRiskForm] = useState(false);
-  const [detailTab, setDetailTab] = useState<"profile" | "risk" | "contacts" | "qualifications" | "contracts" | "receivables" | "payments" | "invoices" | "workorders" | "hazards" | "energy">("profile");
+  const [detailTab, setDetailTab] = useState<
+    | "profile"
+    | "risk"
+    | "contacts"
+    | "qualifications"
+    | "contracts"
+    | "receivables"
+    | "payments"
+    | "invoices"
+    | "contract_changes"
+    | "checkouts"
+    | "refunds"
+    | "workorders"
+    | "hazards"
+    | "energy"
+  >("profile");
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -397,6 +490,9 @@ export default function LeasingTenantsPage() {
   const canViewPaymentAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT);
   const canViewPaymentUnappliedAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT);
   const canViewInvoiceAmount = canViewField(authUser, LEASING_MODULE, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT);
+  const canViewCheckoutRefundAmount = canViewField(authUser, LEASING_MODULE, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_REFUND_AMOUNT);
+  const canViewCheckoutTenantDue = canViewField(authUser, LEASING_MODULE, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_TENANT_DUE);
+  const canViewRefundAmount = canViewField(authUser, LEASING_MODULE, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT);
 
   const statusItems = dicts.park_tenant_status ?? [];
   const typeItems = dicts.park_tenant_type ?? [];
@@ -412,6 +508,15 @@ export default function LeasingTenantsPage() {
   const paymentMethodItems = dicts.leasing_payment_method ?? [];
   const paymentStatusItems = dicts.leasing_payment_status ?? [];
   const invoiceTypeItems = dicts.leasing_invoice_type ?? [];
+  const contractChangeTypeItems = dicts.leasing_contract_change_type ?? [];
+  const contractChangeStatusItems = dicts.leasing_contract_change_status ?? [];
+  const receivablePolicyItems = dicts.leasing_receivable_adjust_policy ?? [];
+  const checkoutTypeItems = dicts.leasing_checkout_type ?? [];
+  const checkoutStatusItems = dicts.leasing_checkout_status ?? [];
+  const settlementStatusItems = dicts.leasing_settlement_status ?? [];
+  const releaseStatusItems = dicts.leasing_release_unit_status ?? [];
+  const refundMethodItems = dicts.leasing_refund_method ?? [];
+  const refundStatusItems = dicts.leasing_refund_status ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -461,7 +566,16 @@ export default function LeasingTenantsPage() {
       "leasing_invoice_status",
       "leasing_payment_method",
       "leasing_payment_status",
-      "leasing_invoice_type"
+      "leasing_invoice_type",
+      "leasing_contract_change_type",
+      "leasing_contract_change_status",
+      "leasing_receivable_adjust_policy",
+      "leasing_checkout_type",
+      "leasing_checkout_status",
+      "leasing_settlement_status",
+      "leasing_release_unit_status",
+      "leasing_refund_method",
+      "leasing_refund_status"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -857,8 +971,8 @@ export default function LeasingTenantsPage() {
             </form>
           </section>
 
-          <section className="page-content table-scroll">
-            <table className="data-table">
+          <Card className=" table-scroll">
+            <DataTable >
               <thead>
                 <tr>
                   <th>企业编码</th>
@@ -902,7 +1016,7 @@ export default function LeasingTenantsPage() {
                 ))}
                 {pageData.items.length === 0 ? <tr><td colSpan={11}>暂无租户企业数据</td></tr> : null}
               </tbody>
-            </table>
+            </DataTable>
             <div className="task-item">
               <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
               <span>
@@ -910,10 +1024,10 @@ export default function LeasingTenantsPage() {
                 <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
               </span>
             </div>
-          </section>
+          </Card>
 
           {showForm ? (
-            <section className="login-panel drawer-panel drawer-panel-lg">
+            <Drawer size="lg" onClose={() => setShowForm(false)}>
               <div className="task-item">
                 <h2 className="panel-title">{editing ? "编辑租户企业" : "新增租户企业"}</h2>
                 <button title="关闭" type="button" onClick={() => setShowForm(false)}><X size={16} /></button>
@@ -956,11 +1070,11 @@ export default function LeasingTenantsPage() {
                 <button className="primary-button" type="submit">保存</button>
                 <button type="button" onClick={() => setShowForm(false)}>取消</button>
               </form>
-            </section>
+            </Drawer>
           ) : null}
 
           {detail ? (
-            <section className="login-panel drawer-panel drawer-panel-lg">
+            <Drawer size="lg" onClose={() => setDetail(null)}>
               <div className="task-item">
                 <h2 className="panel-title">租户 360</h2>
                 <button title="关闭" type="button" onClick={() => setDetail(null)}><X size={16} /></button>
@@ -974,6 +1088,9 @@ export default function LeasingTenantsPage() {
                 <button className={detailTab === "receivables" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("receivables")}>应收</button>
                 <button className={detailTab === "payments" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("payments")}>收款</button>
                 <button className={detailTab === "invoices" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("invoices")}>发票</button>
+                <button className={detailTab === "contract_changes" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("contract_changes")}>合同变更</button>
+                <button className={detailTab === "checkouts" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("checkouts")}>退租记录</button>
+                <button className={detailTab === "refunds" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("refunds")}>退款记录</button>
                 <button className={detailTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("workorders")}>工单</button>
                 <button className={detailTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("hazards")}>隐患</button>
                 <button className={detailTab === "energy" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("energy")}>能耗</button>
@@ -982,7 +1099,7 @@ export default function LeasingTenantsPage() {
               {tenant360Loading ? <Tenant360Skeleton /> : null}
 
               {!tenant360Loading && detailTab === "profile" ? (
-                <table className="data-table">
+                <DataTable >
                   <tbody>
                     <DetailRow label="企业编码" value={detail.parkTenantCode} />
                     <DetailRow label="企业名称" value={detail.companyName} />
@@ -1003,7 +1120,7 @@ export default function LeasingTenantsPage() {
                     <DetailRow label="经营范围" value={fieldText(detail.businessScope)} />
                     <DetailRow label="备注" value={fieldText(detail.remark)} />
                   </tbody>
-                </table>
+                </DataTable>
               ) : null}
 
               {!tenant360Loading && detailTab === "risk" ? (
@@ -1015,12 +1132,12 @@ export default function LeasingTenantsPage() {
                       调整风险
                     </PermissionButton>
                   </div>
-                  <table className="data-table">
+                  <DataTable >
                     <tbody>
                       <DetailRow label="当前风险等级" value={<DictBadge items={riskItems} value={detail.riskLevel} />} />
                       <DetailRow label="风险标签" value={<TagList tags={detail.riskTags} />} />
                     </tbody>
-                  </table>
+                  </DataTable>
 
                   {showRiskForm ? (
                     <form className="form-stack" onSubmit={(event) => void submitRiskChange(event).catch((error: Error) => setMessage(error.message))}>
@@ -1049,7 +1166,7 @@ export default function LeasingTenantsPage() {
                       新增联系人
                     </PermissionButton>
                   </div>
-                  <table className="data-table">
+                  <DataTable >
                     <thead>
                       <tr>
                         <th>姓名</th>
@@ -1096,7 +1213,7 @@ export default function LeasingTenantsPage() {
                       ))}
                       {contacts.length === 0 ? <tr><td colSpan={8}>暂无联系人</td></tr> : null}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </section>
               ) : null}
 
@@ -1132,7 +1249,7 @@ export default function LeasingTenantsPage() {
                       新增资质
                     </PermissionButton>
                   </div>
-                  <table className="data-table">
+                  <DataTable >
                     <thead>
                       <tr>
                         <th>资质类型</th>
@@ -1177,7 +1294,7 @@ export default function LeasingTenantsPage() {
                       ))}
                       {qualifications.length === 0 ? <tr><td colSpan={7}>暂无资质附件</td></tr> : null}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </section>
               ) : null}
 
@@ -1265,10 +1382,41 @@ export default function LeasingTenantsPage() {
                   canViewInvoiceAmount={canViewInvoiceAmount}
                 />
               ) : null}
+              {!tenant360Loading && detailTab === "contract_changes" ? (
+                <Tenant360ContractChangesPanel
+                  contractChanges={tenant360?.contract_changes}
+                  changeTypeItems={contractChangeTypeItems}
+                  changeStatusItems={contractChangeStatusItems}
+                  receivablePolicyItems={receivablePolicyItems}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "checkouts" ? (
+                <Tenant360CheckoutsPanel
+                  checkouts={tenant360?.checkouts}
+                  checkoutTypeItems={checkoutTypeItems}
+                  checkoutStatusItems={checkoutStatusItems}
+                  settlementStatusItems={settlementStatusItems}
+                  releaseStatusItems={releaseStatusItems}
+                  authUser={authUser}
+                  visibility={{
+                    refundAmount: canViewCheckoutRefundAmount,
+                    amountDueFromTenant: canViewCheckoutTenantDue
+                  }}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "refunds" ? (
+                <Tenant360RefundsPanel
+                  refunds={tenant360?.refunds}
+                  refundMethodItems={refundMethodItems}
+                  refundStatusItems={refundStatusItems}
+                  authUser={authUser}
+                  canViewRefundAmount={canViewRefundAmount}
+                />
+              ) : null}
               {!tenant360Loading && detailTab === "workorders" ? <EmptyState title="工单模块尚未开发" description={tenant360?.workorders.available ? "暂无工单数据" : "当前阶段仅预留工单入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "hazards" ? <EmptyState title="安全模块尚未开发" description={tenant360?.hazards.available ? "暂无隐患数据" : "当前阶段仅预留安全入口，不展示假数据。"} /> : null}
               {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块尚未开发" description={tenant360?.energy.available ? "暂无能耗数据" : "当前阶段仅预留能耗入口，不展示假数据。"} /> : null}
-            </section>
+            </Drawer>
           ) : null}
 
           {message ? <p className="status-pill">{message}</p> : null}
@@ -1349,7 +1497,7 @@ function TagList({ tags }: { tags: string[] | null | undefined }) {
 
 function RiskLogTable({ riskLogs, riskItems }: { riskLogs: ParkTenantRiskLogRow[]; riskItems: DictItemRow[] }) {
   return (
-    <table className="data-table">
+    <DataTable >
       <thead>
         <tr>
           <th>变更时间</th>
@@ -1373,7 +1521,7 @@ function RiskLogTable({ riskLogs, riskItems }: { riskLogs: ParkTenantRiskLogRow[
         ))}
         {riskLogs.length === 0 ? <tr><td colSpan={6}>暂无风险变更日志</td></tr> : null}
       </tbody>
-    </table>
+    </DataTable>
   );
 }
 
@@ -1402,7 +1550,7 @@ function Tenant360ContractsTable({
         <MetricCard label="合同数量" value={String(contracts.summary?.contract_count ?? contracts.items.length)} />
         <MetricCard label="生效合同" value={String(contracts.summary?.active_contract_count ?? 0)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>合同编号</th>
@@ -1430,7 +1578,7 @@ function Tenant360ContractsTable({
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1468,7 +1616,7 @@ function Tenant360ReceivablesPanel({
         <MetricCard label="逾期金额" value={financeAmountText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_OVERDUE_AMOUNT, visibility.overdueAmount, receivables.summary?.overdue_amount)} />
         <MetricCard label="逾期单数" value={String(receivables.summary?.overdue_count ?? 0)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>应收单号</th>
@@ -1502,7 +1650,7 @@ function Tenant360ReceivablesPanel({
           ))}
           {items.length === 0 ? <tr><td colSpan={11}>暂无应收数据</td></tr> : null}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1533,7 +1681,7 @@ function Tenant360PaymentsPanel({
         <MetricCard label="收款总额" value={financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT, visibility.payAmount, payments.summary?.total_payment_amount)} />
         <MetricCard label="未核销金额" value={financeAmountText(authUser, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT, visibility.unappliedAmount, payments.summary?.unapplied_amount)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>收款单号</th>
@@ -1559,7 +1707,7 @@ function Tenant360PaymentsPanel({
           ))}
           {items.length === 0 ? <tr><td colSpan={7}>暂无收款数据</td></tr> : null}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1587,7 +1735,7 @@ function Tenant360InvoicesPanel({
         <MetricCard label="发票数量" value={String(invoices.summary?.invoice_count ?? 0)} />
         <MetricCard label="开票金额" value={financeAmountText(authUser, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT, canViewInvoiceAmount, invoices.summary?.invoice_amount)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>发票单号</th>
@@ -1611,7 +1759,182 @@ function Tenant360InvoicesPanel({
           ))}
           {items.length === 0 ? <tr><td colSpan={6}>暂无发票数据</td></tr> : null}
         </tbody>
-      </table>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360ContractChangesPanel({
+  contractChanges,
+  changeTypeItems,
+  changeStatusItems,
+  receivablePolicyItems
+}: {
+  contractChanges?: Tenant360ContractChangesNode;
+  changeTypeItems: DictItemRow[];
+  changeStatusItems: DictItemRow[];
+  receivablePolicyItems: DictItemRow[];
+}) {
+  if (!contractChanges?.available) {
+    return <EmptyState title="合同变更模块尚未开发" description="当前阶段仅预留合同变更入口，不展示假数据。" />;
+  }
+  const items = contractChanges.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="待处理变更" value={String(contractChanges.summary?.pending_count ?? 0)} />
+        <MetricCard label="已生效变更" value={String(contractChanges.summary?.effective_count ?? 0)} />
+      </div>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>变更单号</th>
+            <th>合同编号</th>
+            <th>变更类型</th>
+            <th>生效日期</th>
+            <th>应收策略</th>
+            <th>状态</th>
+            <th>更新时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.change_code}</td>
+              <td>{fieldText(row.contract_code)}</td>
+              <td>{labelFor(changeTypeItems, row.change_type)}</td>
+              <td>{fieldText(row.effective_date)}</td>
+              <td>{labelFor(receivablePolicyItems, row.receivable_policy)}</td>
+              <td><DictBadge items={changeStatusItems} value={row.status} /></td>
+              <td>{formatDateTime(row.update_time)}</td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={7}>暂无合同变更记录</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360CheckoutsPanel({
+  checkouts,
+  checkoutTypeItems,
+  checkoutStatusItems,
+  settlementStatusItems,
+  releaseStatusItems,
+  authUser,
+  visibility
+}: {
+  checkouts?: Tenant360CheckoutsNode;
+  checkoutTypeItems: DictItemRow[];
+  checkoutStatusItems: DictItemRow[];
+  settlementStatusItems: DictItemRow[];
+  releaseStatusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  visibility: {
+    refundAmount: boolean;
+    amountDueFromTenant: boolean;
+  };
+}) {
+  if (!checkouts?.available) {
+    return <EmptyState title="退租模块尚未开发" description="当前阶段仅预留退租入口，不展示假数据。" />;
+  }
+  const items = checkouts.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="待处理退租" value={String(checkouts.summary?.pending_count ?? 0)} />
+        <MetricCard label="已完成退租" value={String(checkouts.summary?.completed_count ?? 0)} />
+      </div>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>退租单号</th>
+            <th>合同编号</th>
+            <th>退租类型</th>
+            <th>计划退租日</th>
+            <th>实际退租日</th>
+            <th>释放状态</th>
+            <th>结算状态</th>
+            <th>应退金额</th>
+            <th>租户应补</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.checkout_code}</td>
+              <td>{fieldText(row.contract_code)}</td>
+              <td>{labelFor(checkoutTypeItems, row.checkout_type)}</td>
+              <td>{fieldText(row.planned_checkout_date)}</td>
+              <td>{fieldText(row.actual_checkout_date)}</td>
+              <td>{labelFor(releaseStatusItems, row.release_unit_status)}</td>
+              <td><DictBadge items={settlementStatusItems} value={row.settlement_status} /></td>
+              <td>{financeAmountText(authUser, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_REFUND_AMOUNT, visibility.refundAmount, row.refund_amount)}</td>
+              <td>{financeAmountText(authUser, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_TENANT_DUE, visibility.amountDueFromTenant, row.amount_due_from_tenant)}</td>
+              <td><DictBadge items={checkoutStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={10}>暂无退租记录</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360RefundsPanel({
+  refunds,
+  refundMethodItems,
+  refundStatusItems,
+  authUser,
+  canViewRefundAmount
+}: {
+  refunds?: Tenant360RefundsNode;
+  refundMethodItems: DictItemRow[];
+  refundStatusItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  canViewRefundAmount: boolean;
+}) {
+  if (!refunds?.available) {
+    return <EmptyState title="退款模块尚未开发" description="当前阶段仅预留退款入口，不展示假数据。" />;
+  }
+  const items = refunds.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="退款笔数" value={String(refunds.summary?.refund_count ?? 0)} />
+        <MetricCard label="退款金额" value={financeAmountText(authUser, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT, canViewRefundAmount, refunds.summary?.refund_amount)} />
+      </div>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>退款单号</th>
+            <th>退租单号</th>
+            <th>合同编号</th>
+            <th>退款方式</th>
+            <th>退款时间</th>
+            <th>收款人</th>
+            <th>退款金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.refund_code}</td>
+              <td>{fieldText(row.checkout_code)}</td>
+              <td>{fieldText(row.contract_code)}</td>
+              <td>{labelFor(refundMethodItems, row.refund_method)}</td>
+              <td>{formatDateTime(row.refund_time)}</td>
+              <td>{fieldText(row.receiver_name)}</td>
+              <td>{financeAmountText(authUser, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT, canViewRefundAmount, row.refund_amount)}</td>
+              <td><DictBadge items={refundStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={8}>暂无退款记录</td></tr> : null}
+        </tbody>
+      </DataTable>
     </section>
   );
 }
@@ -1664,10 +1987,10 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p className="muted-text">当前账号没有租户企业档案权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -1675,10 +1998,10 @@ function ForbiddenInline() {
 function ModuleUnauthorizedInline() {
   return (
     <main className="page-container">
-      <section className="page-content module-denied">
+      <Card className=" module-denied">
         <h1 className="panel-title">模块未授权</h1>
         <p className="muted-text">当前租户未启用招商租赁模块。</p>
-      </section>
+      </Card>
     </main>
   );
 }

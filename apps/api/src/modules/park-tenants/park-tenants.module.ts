@@ -6,6 +6,9 @@ import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FileEntity } from "../files/entities/file.entity";
+import { LeasingCheckoutEntity } from "../leasing-checkouts/entities/leasing-checkout.entity";
+import { LeasingRefundEntity } from "../leasing-checkouts/entities/leasing-refund.entity";
+import { LeasingContractChangeEntity } from "../leasing-contract-changes/entities/leasing-contract-change.entity";
 import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
 import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
 import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
@@ -27,6 +30,9 @@ import { ParkTenantsService } from "./park-tenants.service";
       ParkTenantQualificationEntity,
       ParkTenantRiskLogEntity,
       LeasingContractEntity,
+      LeasingContractChangeEntity,
+      LeasingCheckoutEntity,
+      LeasingRefundEntity,
       LeasingReceivableEntity,
       LeasingPaymentEntity,
       LeasingInvoiceEntity,

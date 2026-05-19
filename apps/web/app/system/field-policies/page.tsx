@@ -1,4 +1,5 @@
 "use client";
+import { Card, DataTable, Drawer } from "@jinhu/ui";
 
 import { Edit3, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -120,19 +121,19 @@ export default function FieldPoliciesPage() {
         </form>
       </section>
 
-      <section className="page-content">
+      <Card >
         <h2 className="panel-title">策略列表</h2>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead><tr><th>模块</th><th>实体</th><th>字段</th><th>策略</th><th>脱敏规则</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>{data.items.map((item) => <tr key={item.id}><td>{item.module}</td><td>{item.entity}</td><td>{item.fieldName}<br /><span className="muted-text">{item.fieldKey}</span></td><td><span className="status-pill">{item.policyType}</span></td><td>{item.maskRule ?? "-"}</td><td><StatusBadge status={item.status} /></td><td><PermissionButton permission={SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_UPDATE} type="button" onClick={() => openEdit(item)}><Edit3 size={16} />编辑</PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_DELETE} type="button" onClick={() => void remove(item).catch(showError)}><Trash2 size={16} />删除</PermissionButton></td></tr>)}</tbody>
-          </table>
+          </DataTable>
         </div>
         <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
-      </section>
+      </Card>
 
       {formOpen ? (
-        <section className="drawer">
+        <Drawer size="md" onClose={() => setFormOpen(false)}>
           <form className="form-stack" onSubmit={(event) => void submit(event).catch(showError)}>
             <div className="system-toolbar"><h2 className="panel-title">{formState.id ? "编辑字段策略" : "新增字段策略"}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
             <div className="field"><label>模块</label><input required value={formState.module} onChange={(event) => setFormState({ ...formState, module: event.target.value })} /></div>
@@ -145,7 +146,7 @@ export default function FieldPoliciesPage() {
             <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
             <button className="primary-button" type="submit"><Save size={16} />保存</button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
     </main>

@@ -241,6 +241,7 @@ export class LeasingInvoicesService {
       })).setParameter("keyword", `%${query.keyword.trim()}%`);
     }
     if (query.park_tenant_id) builder.andWhere("invoice.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
+    if (query.contract_id) builder.andWhere("receivable.contract_id = :contractId", { contractId: query.contract_id });
     if (query.invoice_type) builder.andWhere("invoice.invoice_type = :invoiceType", { invoiceType: query.invoice_type });
     if (query.status) builder.andWhere("invoice.status = :status", { status: query.status });
     if (query.invoice_start) builder.andWhere("invoice.invoice_date >= :invoiceStart", { invoiceStart: query.invoice_start });

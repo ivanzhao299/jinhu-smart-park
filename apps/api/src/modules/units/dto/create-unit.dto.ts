@@ -1,7 +1,7 @@
 import { IsArray, IsDateString, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateIf } from "class-validator";
 
 const USAGE_TYPES = [10, 20, 30, 40, 50, 60] as const;
-const RENTAL_STATUSES = [10, 20, 30, 40, 50, 60] as const;
+const RENTAL_STATUSES = [10, 20, 30, 40, 50, 60, 70] as const;
 const FITTING_STATUSES = [10, 20, 30] as const;
 
 export class CreateUnitDto {

@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Edit3, Eye, FileUp, Plus, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
@@ -193,7 +194,7 @@ export default function FloorsPage() {
           </PermissionButton>
         </header>
 
-        <section className="work-panel">
+        <Card >
           <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
             <div className="dashboard-grid">
               <div className="field">
@@ -224,10 +225,10 @@ export default function FloorsPage() {
               查询
             </button>
           </form>
-        </section>
+        </Card>
 
-        <section className="work-panel table-scroll">
-          <table className="data-table">
+        <Card className=" table-scroll">
+          <DataTable >
             <thead>
               <tr>
                 <th>楼栋</th>
@@ -282,7 +283,7 @@ export default function FloorsPage() {
                 </tr>
               ) : null}
             </tbody>
-          </table>
+          </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
             <span>
@@ -296,10 +297,10 @@ export default function FloorsPage() {
               </button>
             </span>
           </div>
-        </section>
+        </Card>
 
         {showForm ? (
-          <section className="login-panel drawer-panel">
+          <Drawer size="md" onClose={() => setShowForm(false)}>
             <div className="task-item">
               <h2 className="panel-title">{editingId ? "编辑楼层" : "新增楼层"}</h2>
               <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
@@ -340,11 +341,11 @@ export default function FloorsPage() {
               <button className="primary-button" type="submit">保存</button>
               <button type="button" onClick={() => setShowForm(false)}>取消</button>
             </form>
-          </section>
+          </Drawer>
         ) : null}
 
         {layoutTarget ? (
-          <section className="login-panel drawer-panel drawer-panel-lg">
+          <Drawer size="md" onClose={() => setLayoutTarget(null)}>
             <div className="task-item">
               <h2 className="panel-title">{layoutTarget.floorName} 平面图</h2>
               <button type="button" title="关闭" onClick={() => setLayoutTarget(null)}><X size={16} /></button>
@@ -360,11 +361,11 @@ export default function FloorsPage() {
               </PermissionGuard>
             ) : null}
             {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} /> : null}
-          </section>
+          </Drawer>
         ) : null}
 
         {detail ? (
-          <section className="login-panel drawer-panel">
+          <Drawer size="md" onClose={() => setDetail(null)}>
             <div className="task-item">
               <h2 className="panel-title">楼层详情</h2>
               <button type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
@@ -384,7 +385,7 @@ export default function FloorsPage() {
               <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
               <DetailItem label="备注" value={detail.remark ?? "-"} />
             </div>
-          </section>
+          </Drawer>
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}
@@ -469,10 +470,10 @@ function fieldText(value: unknown): string {
 function ForbiddenInline() {
   return (
     <main className="content">
-      <section className="work-panel">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p>当前账号没有楼层管理访问权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Card } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search } from "lucide-react";
 import type { FormEvent } from "react";
@@ -70,7 +71,7 @@ export default function OrgsPage() {
         </PermissionButton>
       </header>
 
-      <section className="work-panel">
+      <Card >
         <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(); }}>
           <div className="dashboard-grid">
             <div className="field">
@@ -91,35 +92,39 @@ export default function OrgsPage() {
             查询
           </button>
         </form>
-      </section>
+      </Card>
 
-      <section className="work-panel">
+      <Card >
         <h2 className="panel-title">组织列表</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th>编码</th>
-              <th>名称</th>
-              <th>类型</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.orgCode}</td>
-                <td>{item.orgName}</td>
-                <td>{item.orgType}</td>
-                <td><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
-                <td>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton>
-                </td>
+        <div className="native-table-wrap">
+          <table className="native-table">
+            <thead>
+              <tr>
+                <th>编码</th>
+                <th>名称</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.orgCode}</td>
+                  <td>{item.orgName}</td>
+                  <td>{item.orgType}</td>
+                  <td><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
+                  <td>
+                    <span className="data-table-actions">
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton>
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="task-item">
           <span>共 {data.total} 条，第 {data.page} 页</span>
           <span>
@@ -127,10 +132,10 @@ export default function OrgsPage() {
             <button type="button" onClick={() => void load(data.page + 1)}>下一页</button>
           </span>
         </div>
-      </section>
+      </Card>
 
       {showCreate ? (
-        <section className="login-panel" style={{ position: "fixed", right: 24, top: 24, zIndex: 10 }}>
+        <section className="login-panel floating-panel">
           <h2 className="panel-title">新增组织</h2>
           <form className="form-stack" onSubmit={(event) => void createOrg(event).catch((error: Error) => setMessage(error.message))}>
             <div className="field"><label>编码</label><input name="orgCode" /></div>

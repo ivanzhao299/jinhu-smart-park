@@ -298,6 +298,7 @@ export class LeasingPaymentsService {
       })).setParameter("keyword", `%${query.keyword.trim()}%`);
     }
     if (query.park_tenant_id) builder.andWhere("payment.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
+    if (query.contract_id) builder.andWhere("receivable.contract_id = :contractId", { contractId: query.contract_id });
     if (query.pay_method) builder.andWhere("payment.pay_method = :payMethod", { payMethod: query.pay_method });
     if (query.status) builder.andWhere("payment.status = :status", { status: query.status });
     if (query.pay_start) builder.andWhere("payment.pay_time >= :payStart", { payStart: `${query.pay_start}T00:00:00.000Z` });

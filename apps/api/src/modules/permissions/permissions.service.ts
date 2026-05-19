@@ -25,8 +25,12 @@ export interface PermissionTreeNode {
   apiPath: string | null;
   frontendRoute: string | null;
   componentKey: string | null;
+  icon: string | null;
   fieldKey: string | null;
   dataDimension: string | null;
+  visible: boolean;
+  keepAlive: boolean;
+  alwaysShow: boolean;
   isBuiltin: boolean;
   isTenantCustom: boolean;
   children: PermissionTreeNode[];
@@ -135,12 +139,15 @@ export class PermissionsService {
         apiPath: dto.apiPath ?? null,
         frontendRoute: dto.frontendRoute ?? null,
         componentKey: dto.componentKey ?? null,
+        icon: dto.icon ?? null,
         fieldKey: dto.fieldKey ?? null,
         dataDimension: dto.dataDimension ?? null,
         isSystem: false,
         isBuiltin: false,
         isTenantCustom: true,
-        visible: true,
+        visible: dto.visible ?? true,
+        keepAlive: dto.keepAlive ?? true,
+        alwaysShow: dto.alwaysShow ?? true,
         isEnabled: dto.status !== "disabled",
         status: dto.status ?? "enabled",
         remark: dto.remark ?? null,
@@ -185,8 +192,12 @@ export class PermissionsService {
       apiPath: dto.apiPath === undefined ? permission.apiPath : dto.apiPath ?? null,
       frontendRoute: dto.frontendRoute === undefined ? permission.frontendRoute : dto.frontendRoute ?? null,
       componentKey: dto.componentKey === undefined ? permission.componentKey : dto.componentKey ?? null,
+      icon: dto.icon === undefined ? permission.icon : dto.icon ?? null,
       fieldKey: dto.fieldKey === undefined ? permission.fieldKey : dto.fieldKey ?? null,
       dataDimension: dto.dataDimension === undefined ? permission.dataDimension : dto.dataDimension ?? null,
+      visible: dto.visible ?? permission.visible,
+      keepAlive: dto.keepAlive ?? permission.keepAlive,
+      alwaysShow: dto.alwaysShow ?? permission.alwaysShow,
       status: dto.status ?? permission.status,
       isEnabled: dto.status ? dto.status === "enabled" : permission.isEnabled,
       remark: dto.remark ?? permission.remark,
@@ -239,8 +250,12 @@ export class PermissionsService {
         apiPath: permission.apiPath,
         frontendRoute: permission.frontendRoute,
         componentKey: permission.componentKey,
+        icon: permission.icon,
         fieldKey: permission.fieldKey,
         dataDimension: permission.dataDimension,
+        visible: permission.visible,
+        keepAlive: permission.keepAlive,
+        alwaysShow: permission.alwaysShow,
         isBuiltin: permission.isBuiltin,
         isTenantCustom: permission.isTenantCustom,
         children: []

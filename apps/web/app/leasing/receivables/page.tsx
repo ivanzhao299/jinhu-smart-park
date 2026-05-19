@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { BadgePercent, Edit3, History, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -517,7 +518,7 @@ export default function LeasingReceivablesPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         {generationResult ? <GenerationResultTable result={generationResult} dicts={dicts} /> : null}
@@ -526,7 +527,7 @@ export default function LeasingReceivablesPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>应收单号</th>
@@ -590,13 +591,13 @@ export default function LeasingReceivablesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无应收账单</div> : null}
-      </section>
+      </Card>
 
       {batchDrawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="md" onClose={() => setBatchDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>批量生成应收</strong>
             <button className="primary-button" type="button" onClick={() => setBatchDrawerOpen(false)}>
@@ -627,11 +628,11 @@ export default function LeasingReceivablesPage() {
             </button>
           </form>
           {generationResult ? <GenerationResultTable result={generationResult} dicts={dicts} /> : null}
-        </section>
+        </Drawer>
       ) : null}
 
       {drawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>{editing ? "编辑应收账单" : "新增应收账单"}</strong>
             <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
@@ -736,11 +737,11 @@ export default function LeasingReceivablesPage() {
               {saving ? "保存中" : "保存"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
 
       {statusLogTarget ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="md" onClose={() => setStatusLogTarget(null)}>
           <div className="system-toolbar">
             <strong>应收状态日志 - {statusLogTarget.arCode}</strong>
             <button className="primary-button" type="button" onClick={() => setStatusLogTarget(null)}>
@@ -748,7 +749,7 @@ export default function LeasingReceivablesPage() {
             </button>
           </div>
           <ReceivableStatusTimeline logs={statusLogs} loading={statusLogLoading} dicts={dicts} />
-        </section>
+        </Drawer>
       ) : null}
     </div>
   );
@@ -757,7 +758,7 @@ export default function LeasingReceivablesPage() {
 function ReceivableStatusTimeline({ logs, loading, dicts }: { logs: ReceivableStatusLogRow[]; loading: boolean; dicts: Record<string, DictItemRow[]> }) {
   return (
     <section className="table-scroll">
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>时间</th>
@@ -784,7 +785,7 @@ function ReceivableStatusTimeline({ logs, loading, dicts }: { logs: ReceivableSt
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -803,7 +804,7 @@ function GenerationResultTable({ result, dicts }: { result: GenerationResult; di
         <span className="muted-text">新增 {result.generated_count} / 跳过 {result.skipped_count} / 失败 {result.failed_count}</span>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>费用类型</th>
@@ -830,7 +831,7 @@ function GenerationResultTable({ result, dicts }: { result: GenerationResult; di
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </section>
   );

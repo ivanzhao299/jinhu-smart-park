@@ -20,6 +20,18 @@ export class UserEntity extends AuditableEntity {
   @Column({ name: "email", type: "varchar", length: 128, nullable: true })
   email!: string | null;
 
+  @Column({ name: "avatar_url", type: "varchar", length: 255, nullable: true })
+  avatarUrl!: string | null;
+
+  @Column({ name: "gender", type: "varchar", length: 16, nullable: true })
+  gender!: string | null;
+
+  @Column({ name: "last_login_ip", type: "varchar", length: 64, nullable: true })
+  lastLoginIp!: string | null;
+
+  @Column({ name: "last_login_time", type: "timestamptz", nullable: true })
+  lastLoginTime!: Date | null;
+
   @Column({ name: "is_enabled", type: "boolean", default: true })
   isEnabled!: boolean;
 

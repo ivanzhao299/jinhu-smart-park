@@ -1,4 +1,5 @@
 "use client";
+import { Card, DataTable, Drawer } from "@jinhu/ui";
 
 import { Copy, Edit3, FolderTree, KeyRound, Layers3, Plus, Power, Save, ShieldCheck, Tags, Trash2, X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
@@ -314,14 +315,14 @@ export default function RolesPage() {
       </section>
 
       <section className="system-split">
-        <div className="page-content">
+        <Card >
           <h2 className="panel-title"><FolderTree size={18} />角色树</h2>
           <div className="tree-list">
             {roleTree.map((role) => <RoleTreeItem key={role.id} role={role} selectedId={selectedRoleId} onSelect={(id) => void selectRole(id).catch(showError)} onCreateChild={openCreateForm} />)}
           </div>
-        </div>
+        </Card>
 
-        <div className="page-content">
+        <Card >
           {selectedRole ? (
             <div className="detail-stack">
               <div className="system-toolbar">
@@ -355,13 +356,13 @@ export default function RolesPage() {
               {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
             </div>
           ) : <p className="status-pill">请选择一个角色</p>}
-        </div>
+        </Card>
       </section>
 
-      <section className="page-content">
+      <Card >
         <h2 className="panel-title">角色列表</h2>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead><tr><th>编码</th><th>名称</th><th>上级</th><th>范围</th><th>数据范围</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               {data.items.map((item) => (
@@ -377,13 +378,13 @@ export default function RolesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
-      </section>
+      </Card>
 
       {formOpen ? (
-        <section className="drawer">
+        <Drawer size="md" onClose={() => setFormOpen(false)}>
           <form className="form-stack" onSubmit={(event) => void submitRole(event).catch(showError)}>
             <div className="system-toolbar"><h2 className="panel-title">{formMode === "create" ? "新增自定义角色" : "编辑角色"}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
             <div className="field"><label>角色编码</label><input required value={formState.code} onChange={(event) => setFormState({ ...formState, code: event.target.value })} disabled={formMode === "edit" && Boolean(selectedRole?.isBuiltin)} /></div>
@@ -398,7 +399,7 @@ export default function RolesPage() {
             <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
             <button className="primary-button" type="submit"><Save size={16} />保存</button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
     </main>

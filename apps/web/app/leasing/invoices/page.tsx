@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Edit3, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -417,7 +418,7 @@ export default function LeasingInvoicesPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         <div className="system-toolbar">
@@ -425,7 +426,7 @@ export default function LeasingInvoicesPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} / ${totalPages} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>发票单号</th>
@@ -472,13 +473,13 @@ export default function LeasingInvoicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无发票登记</div> : null}
-      </section>
+      </Card>
 
       {drawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>{editing ? "编辑发票" : "新增发票"}</strong>
             <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
@@ -559,11 +560,11 @@ export default function LeasingInvoicesPage() {
               {saving ? "保存中" : "保存"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
 
       {detailOpen && viewing ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setDetailOpen(false)}>
           <div className="system-toolbar">
             <strong>发票关联应收：{viewing.invoiceCode}</strong>
             <button className="primary-button" type="button" onClick={() => setDetailOpen(false)}>
@@ -576,7 +577,7 @@ export default function LeasingInvoicesPage() {
             <MetricTile label="发票状态" value={dictLabel(invoiceStatusItems, viewing.status)} />
           </div>
           <div className="table-scroll">
-            <table className="data-table">
+            <DataTable >
               <thead>
                 <tr>
                   <th>应收单号</th>
@@ -605,7 +606,7 @@ export default function LeasingInvoicesPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </div>
           {!canViewInvoiceFile ? (
             <div className="empty-state">当前字段权限不允许查看发票附件</div>
@@ -617,7 +618,7 @@ export default function LeasingInvoicesPage() {
           ) : (
             <div className="empty-state">暂无发票附件</div>
           )}
-        </section>
+        </Drawer>
       ) : null}
     </div>
   );

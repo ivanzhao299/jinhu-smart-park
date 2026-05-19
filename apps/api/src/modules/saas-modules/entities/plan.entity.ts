@@ -23,6 +23,9 @@ export class PlanEntity extends AuditableEntity {
   @Column({ name: "module_codes", type: "jsonb", default: [] })
   moduleCodes!: string[];
 
+  @Column({ name: "permission_codes", type: "jsonb", default: [] })
+  permissionCodes!: string[];
+
   @Column({ name: "max_users", type: "integer", default: 0 })
   maxUsers!: number;
 
@@ -34,4 +37,7 @@ export class PlanEntity extends AuditableEntity {
 
   @Column({ name: "status", type: "varchar", length: 32, default: "enabled" })
   status!: string;
+
+  @Column({ name: "feature_config", type: "jsonb", default: {} })
+  featureConfig!: Record<string, unknown>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Card } from "@jinhu/ui";
 
 import { Building2, Layers3, PieChart, RefreshCw, Search } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -57,6 +58,8 @@ interface AssetStatistics {
     maintenance_area: number;
     self_use_units: number;
     self_use_area: number;
+    sold_units: number;
+    sold_area: number;
     occupancy_rate: number;
     vacancy_rate: number;
     avg_ref_price: number;
@@ -91,6 +94,8 @@ const emptyStats: AssetStatistics = {
     maintenance_area: 0,
     self_use_units: 0,
     self_use_area: 0,
+    sold_units: 0,
+    sold_area: 0,
     occupancy_rate: 0,
     vacancy_rate: 0,
     avg_ref_price: 0
@@ -169,7 +174,7 @@ export default function AssetStatisticsPage() {
   return (
     <PermissionGuard permission={ASSET_READ_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
       <PermissionGuard permission={ASSET_STATISTICS_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
-      <main className="page-container">
+      <main className="page-container asset-statistics-page">
         <header className="page-header">
           <div className="header-title">
             <strong>资产统计</strong>
@@ -182,8 +187,8 @@ export default function AssetStatisticsPage() {
         </header>
 
         <section className="filter-bar">
-          <form className="form-stack" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
-            <div className="dashboard-grid">
+          <form className="asset-stat-filter-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
+            <div className="asset-stat-filter-grid">
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => updateFilter("buildingId", value)}>
                 <option value="">全部楼栋</option>
                 {buildings.map((building) => (
@@ -198,14 +203,14 @@ export default function AssetStatisticsPage() {
               </SelectField>
               <DictSelect label="用途" value={filters.usageType} items={dicts.unit_usage_type} onChange={(value) => updateFilter("usageType", value)} />
             </div>
-            <button className="primary-button" type="submit">
+            <button className="primary-button asset-stat-filter-button" type="submit">
               <Search size={16} />
               查询
             </button>
           </form>
         </section>
 
-        <section className="page-content dashboard-grid">
+        <Card className="asset-stat-summary">
           <MetricCard icon={<Building2 size={18} />} label="房源总数" value={formatCount(stats.summary.total_units)} />
           <MetricCard icon={<Layers3 size={18} />} label="总建筑面积" value={formatArea(stats.summary.total_area)} />
           <MetricCard icon={<Layers3 size={18} />} label="已租面积" value={formatArea(stats.summary.rented_area)} />
@@ -214,11 +219,13 @@ export default function AssetStatisticsPage() {
           <MetricCard icon={<PieChart size={18} />} label="空置率" value={formatPercent(stats.summary.vacancy_rate)} />
           <MetricCard icon={<Layers3 size={18} />} label="锁定面积" value={formatArea(stats.summary.locked_area)} />
           <MetricCard icon={<Layers3 size={18} />} label="维修中面积" value={formatArea(stats.summary.maintenance_area)} />
-        </section>
+          <MetricCard icon={<Layers3 size={18} />} label="自用面积" value={formatArea(stats.summary.self_use_area)} />
+          <MetricCard icon={<Layers3 size={18} />} label="已售面积" value={formatArea(stats.summary.sold_area)} />
+        </Card>
 
-        <section className="page-content table-scroll">
+        <Card className="asset-stat-panel table-scroll">
           <h2 className="panel-title">楼栋统计</h2>
-          <table className="data-table">
+          <DataTable >
             <thead><tr><th>楼栋编码</th><th>楼栋名称</th><th>总面积</th><th>已租面积</th><th>可招商面积</th><th>出租率</th><th>空置率</th></tr></thead>
             <tbody>
               {stats.by_building.map((item) => (
@@ -234,8 +241,8 @@ export default function AssetStatisticsPage() {
               ))}
               {stats.by_building.length === 0 ? <tr><td colSpan={7}>暂无楼栋统计数据</td></tr> : null}
             </tbody>
-          </table>
-        </section>
+          </DataTable>
+        </Card>
 
         <DistributionPanel
           title="状态分布"
@@ -268,12 +275,12 @@ export default function AssetStatisticsPage() {
 
 function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <section className="metric-card">
-      <div className="task-item">
-        <span>{icon}</span>
+    <section className="asset-stat-card">
+      <div className="asset-stat-card-header">
+        <span className="asset-stat-card-icon">{icon}</span>
         <span>{label}</span>
       </div>
-      <strong className="metric-value">{value}</strong>
+      <strong className="asset-stat-card-value">{value}</strong>
     </section>
   );
 }
@@ -286,19 +293,19 @@ function DistributionPanel({
   rows: Array<{ key: string; label: ReactNode; count: number; area: number; percent: number }>;
 }) {
   return (
-    <section className="page-content">
+    <Card className="asset-stat-panel asset-distribution-panel">
       <h2 className="panel-title">{title}</h2>
-      <div className="form-stack">
+      <div className="asset-distribution-list">
         {rows.map((row) => (
-          <div className="task-item" key={row.key}>
-            <span>{row.label}</span>
+          <div className="asset-distribution-row" key={row.key}>
+            <span className="asset-distribution-label">{row.label}</span>
             <strong>{formatCount(row.count)} 间 / {formatArea(row.area)}</strong>
             <progress className="asset-progress" value={row.percent * 100} max={100} />
           </div>
         ))}
         {rows.length === 0 ? <span>暂无统计数据</span> : null}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -367,10 +374,10 @@ function formatPercent(value: number): string {
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p>当前账号没有资产统计访问权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }

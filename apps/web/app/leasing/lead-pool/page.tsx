@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { CheckCircle2, RefreshCw, Search, UserPlus, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -205,8 +206,8 @@ export default function LeasingLeadPoolPage() {
 
           {message ? <p className="status-pill">{message}</p> : null}
 
-          <section className="page-content table-scroll">
-            <table className="data-table">
+          <Card className=" table-scroll">
+            <DataTable >
               <thead>
                 <tr>
                   <th>线索编码</th>
@@ -258,7 +259,7 @@ export default function LeasingLeadPoolPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             <div className="system-toolbar">
               <span className="muted-text">共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
               <span className="page-actions">
@@ -266,10 +267,10 @@ export default function LeasingLeadPoolPage() {
                 <button className="primary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1)}>下一页</button>
               </span>
             </div>
-          </section>
+          </Card>
 
           {assignTarget ? (
-            <section className="page-content drawer-panel drawer-panel-md">
+            <Drawer size="md" onClose={() => setAssignTarget(null)}>
               <div className="system-toolbar">
                 <h2>分配线索</h2>
                 <button className="primary-button" type="button" onClick={() => setAssignTarget(null)}>
@@ -311,7 +312,7 @@ export default function LeasingLeadPoolPage() {
                   <button className="primary-button" type="button" onClick={() => setAssignTarget(null)}>取消</button>
                 </div>
               </form>
-            </section>
+            </Drawer>
           ) : null}
         </main>
       </PermissionGuard>
@@ -386,10 +387,10 @@ function DetailItem({ label, value }: { label: string; value: ReactNode }) {
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h2>403</h2>
         <p className="muted-text">当前账号没有访问招商公海池的权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -397,10 +398,10 @@ function ForbiddenInline() {
 function ModuleUnauthorizedInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h2>模块未授权</h2>
         <p className="muted-text">当前租户未启用 leasing 模块。</p>
-      </section>
+      </Card>
     </main>
   );
 }

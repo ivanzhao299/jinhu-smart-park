@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { CheckCircle2, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -359,7 +360,7 @@ export default function LeasingWaiversPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         <div className="system-toolbar">
@@ -367,7 +368,7 @@ export default function LeasingWaiversPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} / ${totalPages} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>豁免单号</th>
@@ -413,13 +414,13 @@ export default function LeasingWaiversPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无豁免申请</div> : null}
-      </section>
+      </Card>
 
       {drawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="md" onClose={() => setDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>新增豁免申请</strong>
             <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
@@ -467,11 +468,11 @@ export default function LeasingWaiversPage() {
               {saving ? "提交中" : "提交申请"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
 
       {actionTarget && actionType ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="md" onClose={() => setActionTarget(null)}>
           <div className="system-toolbar">
             <strong>{actionType === "approve" ? "审批通过" : "审批驳回"}</strong>
             <button className="primary-button" type="button" onClick={() => setActionTarget(null)}>
@@ -498,7 +499,7 @@ export default function LeasingWaiversPage() {
               {saving ? "处理中" : actionType === "approve" ? "确认通过" : "确认驳回"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
     </div>
   );

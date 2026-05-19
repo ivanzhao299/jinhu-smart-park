@@ -4,6 +4,7 @@ import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { SaaSModulesModule } from "../saas-modules/saas-modules.module";
+import { TenantEntity } from "../tenants/entities/tenant.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { RolesModule } from "../roles/roles.module";
@@ -15,7 +16,7 @@ import { UsersService } from "./users.service";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, RoleEntity, UserRoleEntity, UserOrgEntity, UserParkEntity, ParkEntity]),
+    TypeOrmModule.forFeature([UserEntity, RoleEntity, UserRoleEntity, UserOrgEntity, UserParkEntity, ParkEntity, TenantEntity]),
     RolesModule,
     DataScopesModule,
     FieldPoliciesModule,

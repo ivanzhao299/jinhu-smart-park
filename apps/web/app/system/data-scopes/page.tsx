@@ -1,4 +1,5 @@
 "use client";
+import { Card, DataTable, Drawer } from "@jinhu/ui";
 
 import { Edit3, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -127,19 +128,19 @@ export default function DataScopesPage() {
         </form>
       </section>
 
-      <section className="page-content">
+      <Card >
         <h2 className="panel-title">规则列表</h2>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead><tr><th>规则编码</th><th>规则名称</th><th>维度</th><th>范围类型</th><th>配置摘要</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>{data.items.map((item) => <tr key={item.id}><td>{item.ruleCode}</td><td>{item.ruleName}</td><td>{item.dimension}</td><td>{item.scopeType}</td><td>{JSON.stringify(item.scopeConfig ?? {})}</td><td><StatusBadge status={item.status} /></td><td><PermissionButton permission={SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_UPDATE} type="button" onClick={() => openEdit(item)}><Edit3 size={16} />编辑</PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.DATA_SCOPE_OPEN_DELETE} type="button" onClick={() => void remove(item).catch(showError)}><Trash2 size={16} />删除</PermissionButton></td></tr>)}</tbody>
-          </table>
+          </DataTable>
         </div>
         <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
-      </section>
+      </Card>
 
       {formOpen ? (
-        <section className="drawer">
+        <Drawer size="md" onClose={() => setFormOpen(false)}>
           <form className="form-stack" onSubmit={(event) => void submit(event).catch(showError)}>
             <div className="system-toolbar"><h2 className="panel-title">{formState.id ? "编辑数据权限规则" : "新增数据权限规则"}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
             <div className="field"><label>规则编码</label><input required value={formState.ruleCode} onChange={(event) => setFormState({ ...formState, ruleCode: event.target.value })} /></div>
@@ -151,7 +152,7 @@ export default function DataScopesPage() {
             <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
             <button className="primary-button" type="submit"><Save size={16} />保存</button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
     </main>

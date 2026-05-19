@@ -26,6 +26,10 @@ export class LeasingInvoiceQueryDto {
   park_tenant_id?: string;
 
   @IsOptional()
+  @IsUUID()
+  contract_id?: string;
+
+  @IsOptional()
   @IsString()
   invoice_type?: string;
 

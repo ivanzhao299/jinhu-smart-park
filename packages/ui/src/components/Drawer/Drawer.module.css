@@ -1,0 +1,270 @@
+.drawerRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.drawerBackdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--phoenix-color-text) 28%, transparent);
+  box-shadow: none;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.drawerBackdrop:hover {
+  background: color-mix(in srgb, var(--phoenix-color-text) 30%, transparent);
+}
+
+.drawerPanel {
+  --drawer-offset: var(--phoenix-space-3);
+  --drawer-width: 440px;
+
+  position: absolute;
+  top: var(--drawer-offset);
+  right: var(--drawer-offset);
+  bottom: var(--drawer-offset);
+  width: min(var(--drawer-width), calc(100vw - (var(--drawer-offset) * 2)));
+  overflow: auto;
+  border: 1px solid var(--jinhu-color-border-soft, var(--phoenix-color-border));
+  border-radius: var(--radius-lg, var(--phoenix-radius-lg, var(--phoenix-radius-md)));
+  background: var(--phoenix-color-surface);
+  box-shadow: var(--phoenix-shadow-lg);
+  padding: var(--phoenix-space-4);
+  color: var(--phoenix-color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  pointer-events: auto;
+  animation: drawer-slide-in 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.size-md { --drawer-width: 600px; }
+.size-lg { --drawer-width: 720px; }
+.size-xl { --drawer-width: 900px; }
+
+.drawerHeader {
+  position: sticky;
+  top: calc(var(--phoenix-space-4) * -1);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: var(--phoenix-space-3);
+  align-items: start;
+  margin: calc(var(--phoenix-space-4) * -1) calc(var(--phoenix-space-4) * -1) 0;
+  border-bottom: 1px solid var(--phoenix-color-border);
+  padding: 14px 16px 12px;
+  background: var(--phoenix-color-surface);
+}
+
+.drawerHeaderContent {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.drawerEyebrow {
+  color: var(--phoenix-color-primary);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.drawerTitle {
+  overflow: hidden;
+  margin: 0;
+  color: var(--phoenix-color-text);
+  font-size: 18px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawerDescription {
+  overflow: hidden;
+  margin: 0;
+  color: var(--phoenix-color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawerCloseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--radius-sm, var(--phoenix-radius-sm));
+  padding: 0;
+  background: var(--phoenix-color-surface);
+  color: var(--phoenix-color-text);
+  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  cursor: pointer;
+  transition: var(--phoenix-transition);
+}
+
+.drawerCloseButton:hover {
+  border-color: color-mix(in srgb, var(--phoenix-color-primary) 34%, var(--phoenix-color-border));
+  color: var(--phoenix-color-primary);
+}
+
+.drawerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0 calc(var(--phoenix-space-4) * -1);
+  border-bottom: 1px solid var(--phoenix-color-border);
+  padding: 9px 16px;
+  background: var(--bg-muted, var(--phoenix-color-surface-muted));
+}
+
+.drawerTabs {
+  position: sticky;
+  top: 58px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 calc(var(--phoenix-space-4) * -1);
+  border-bottom: 1px solid var(--phoenix-color-border);
+  padding: 9px 16px;
+  background: var(--phoenix-color-surface);
+}
+
+.drawerTabButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--phoenix-space-2);
+  min-height: 30px;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--radius-sm, var(--phoenix-radius-sm));
+  padding: 0 10px;
+  background: var(--phoenix-color-surface);
+  color: var(--phoenix-color-text);
+  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: var(--phoenix-transition);
+}
+
+.drawerTabButtonActive {
+  border-color: transparent;
+  background: var(--phoenix-color-primary);
+  color: var(--phoenix-color-on-primary);
+  box-shadow: none;
+}
+
+.drawerForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding-bottom: 72px;
+}
+
+.drawerSection {
+  display: grid;
+  gap: 10px;
+}
+
+.drawerSectionTitle {
+  margin: 0;
+  color: var(--phoenix-color-text);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.drawerFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.drawerFormGridSingle {
+  grid-template-columns: 1fr;
+}
+
+.drawerFooter {
+  position: sticky;
+  bottom: calc(var(--phoenix-space-4) * -1);
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 4px calc(var(--phoenix-space-4) * -1) calc(var(--phoenix-space-4) * -1);
+  border-top: 1px solid var(--phoenix-color-border);
+  padding: 12px 16px;
+  background: var(--phoenix-color-surface);
+}
+
+.drawerDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+  padding: 14px 2px 0;
+}
+
+.drawerDetailItem {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--phoenix-color-border) 72%, transparent);
+  padding: 8px 0;
+}
+
+.drawerDetailLabel {
+  color: var(--phoenix-color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.drawerDetailValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--phoenix-color-text);
+  font-size: 13px;
+  font-weight: 640;
+  line-height: 1.45;
+}
+
+@keyframes drawer-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .drawerPanel,
+  .size-md,
+  .size-lg,
+  .size-xl {
+    inset: var(--phoenix-space-2);
+    width: auto;
+  }
+
+  .drawerFormGrid,
+  .drawerDetailGrid {
+    grid-template-columns: 1fr;
+  }
+}

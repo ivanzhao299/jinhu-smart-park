@@ -3,15 +3,24 @@ import {
   BrainCircuit,
   Building2,
   Cpu,
+  Database,
   FileText,
+  FolderTree,
   Home,
+  KeyRound,
   LayoutDashboard,
+  ScrollText,
+  Settings,
+  Shield,
   ShieldCheck,
+  Tags,
+  Users,
   Video,
   Wrench,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { UserMenuTreeNode } from "@jinhu/shared";
 
 export interface MenuNode {
   label: string;
@@ -21,6 +30,35 @@ export interface MenuNode {
   icon?: LucideIcon;
   children?: MenuNode[];
 }
+
+const MENU_ICON_MAP: Record<string, LucideIcon> = {
+  home: Home,
+  "building-2": Building2,
+  building: Building2,
+  "file-text": FileText,
+  file: FileText,
+  cpu: Cpu,
+  zap: Zap,
+  bot: Bot,
+  video: Video,
+  "layout-dashboard": LayoutDashboard,
+  dashboard: LayoutDashboard,
+  wrench: Wrench,
+  "brain-circuit": BrainCircuit,
+  "shield-check": ShieldCheck,
+  shield: Shield,
+  users: Users,
+  user: Users,
+  "key-round": KeyRound,
+  key: KeyRound,
+  settings: Settings,
+  database: Database,
+  tags: Tags,
+  "folder-tree": FolderTree,
+  menu: FolderTree,
+  "scroll-text": ScrollText,
+  audit: ScrollText
+};
 
 export const dashboardMenus: MenuNode[] = [
   {
@@ -55,7 +93,8 @@ export const dashboardMenus: MenuNode[] = [
       { label: "招商漏斗", href: "/leasing/funnel", permission: "leasing_statistics:funnel", module: "leasing" },
       { label: "合同管理", href: "/leasing/contracts", permission: "leasing_contract:read", module: "leasing" },
       { label: "合同变更", href: "/leasing/contract-changes", permission: "leasing_contract_change:read", module: "leasing" },
-      { label: "退租管理", href: "/leasing/checkouts", permission: "leasing_checkout:read", module: "leasing" },
+      { label: "退租结算", href: "/leasing/checkouts", permission: "leasing_checkout:read", module: "leasing" },
+      { label: "退款登记", href: "/leasing/refunds", permission: "leasing_refund:read", module: "leasing" },
       { label: "应收账单", href: "/leasing/receivables", permission: "leasing_receivable:read", module: "leasing" },
       { label: "收款登记", href: "/leasing/payments", permission: "leasing_payment:read", module: "leasing" },
       { label: "欠费账龄", href: "/leasing/aging", permission: "leasing_receivable:aging", module: "leasing" },
@@ -144,6 +183,7 @@ export const dashboardMenus: MenuNode[] = [
       { label: "数据权限", href: "/system/data-scopes", permission: "data_scope:read", module: "system" },
       { label: "字段权限", href: "/system/field-policies", permission: "field_policy:read", module: "system" },
       { label: "编码规则", href: "/system/code-rules", permission: "system:code-rule:read", module: "system" },
+      { label: "租户管理", href: "/system/tenants", permission: "tenant:read", module: "system" },
       { label: "模块授权", href: "/system/modules", permission: "module:read", module: "system" },
       { label: "字典管理", href: "/system/dicts", permission: "dict:read", module: "system" },
       { label: "附件中心", href: "/system/files", permission: "file:read", module: "system" },
@@ -152,6 +192,38 @@ export const dashboardMenus: MenuNode[] = [
     ]
   }
 ];
+
+export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  const menus = normalizeMenuTree(userMenus);
+  return menus.length > 0 ? menus : dashboardMenus;
+}
+
+export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  if (!userMenus?.length) {
+    return [];
+  }
+  return userMenus.map(toMenuNode).filter((menu) => menu.label);
+}
+
+function toMenuNode(node: UserMenuTreeNode): MenuNode {
+  const children = node.children?.map(toMenuNode).filter((child) => child.label);
+  return {
+    label: node.label,
+    href: node.href,
+    permission: node.permission,
+    module: node.module,
+    icon: resolveMenuIcon(node.icon),
+    children: children && children.length > 0 ? children : undefined
+  };
+}
+
+function resolveMenuIcon(icon?: string | null): LucideIcon | undefined {
+  if (!icon) {
+    return undefined;
+  }
+  const normalized = icon.toLowerCase().replace(/^.*:/, "").replace(/_/g, "-");
+  return MENU_ICON_MAP[normalized] ?? MENU_ICON_MAP[icon.toLowerCase()];
+}
 
 export function findMenuByPath(pathname: string, menus: MenuNode[] = dashboardMenus): MenuNode | undefined {
   if (pathname === "/system/attachments") {

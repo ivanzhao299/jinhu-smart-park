@@ -1,12 +1,12 @@
 "use client";
 
-import { Building2, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "../../lib/auth-context";
-import { dashboardMenus, type MenuNode } from "../../lib/menu";
+import { getDashboardMenus, type MenuNode } from "../../lib/menu";
 import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
 
 interface AppSidebarProps {
@@ -17,12 +17,13 @@ interface AppSidebarProps {
 export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const pathname = usePathname();
   const user = useAuthUser();
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [suppressPreview, setSuppressPreview] = useState(false);
+  const sourceMenus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
   const menus = useMemo(
     () =>
-      dashboardMenus
+      sourceMenus
         .map((menu) => ({
           ...menu,
           children: menu.children?.filter((child) => hasAccess(user, child.permission, child.module ?? menu.module))
@@ -34,7 +35,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
               hasAnyPermission(user, menu.children?.map((child) => child.permission ?? "") ?? []) ||
               Boolean(menu.children?.some((child) => !child.permission)))
         ),
-    [user]
+    [sourceMenus, user]
   );
 
   useEffect(() => {
@@ -42,18 +43,34 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     if (!activeMenu) {
       return;
     }
-    setOpenGroups((current) => (current[activeMenu.label] ? current : { ...current, [activeMenu.label]: true }));
+    setOpenGroup(activeMenu.label);
   }, [menus, pathname]);
 
-  const toggleGroup = (label: string) => {
-    setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
-  };
-
   const isPreviewing = collapsed && previewOpen;
+  const toggleGroup = (label: string) => {
+    if (collapsed && !isPreviewing) {
+      setPreviewOpen(true);
+      setSuppressPreview(false);
+    }
+    setOpenGroup((current) => (current === label ? null : label));
+  };
 
   return (
     <aside
+      aria-label="主导航"
       className={`app-sidebar${collapsed ? " sidebar-collapsed" : ""}${isPreviewing ? " sidebar-preview" : ""}`}
+      data-collapsed={collapsed ? "true" : "false"}
+      onBlur={(event) => {
+        const nextFocusedElement = event.relatedTarget;
+        if (!nextFocusedElement || !event.currentTarget.contains(nextFocusedElement)) {
+          setPreviewOpen(false);
+        }
+      }}
+      onFocus={() => {
+        if (collapsed && !suppressPreview) {
+          setPreviewOpen(true);
+        }
+      }}
       onMouseEnter={() => {
         if (collapsed && !suppressPreview) {
           setPreviewOpen(true);
@@ -63,21 +80,13 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
         setPreviewOpen(false);
         setSuppressPreview(false);
       }}
-      onFocus={() => {
-        if (collapsed && !suppressPreview) {
-          setPreviewOpen(true);
-        }
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setPreviewOpen(false);
-        }
-      }}
     >
       <div className="sidebar-brand-row">
         <div className="brand">
-          <span className="brand-mark"><Building2 size={20} /></span>
-          <span className="brand-title">数字运营 SaaS</span>
+          <span className="brand-mark">
+            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhu-park-symbol.png" />
+          </span>
+          <span className="brand-title">金湖科创产业园</span>
         </div>
         <button
           aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
@@ -105,7 +114,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             key={menu.label}
             menu={menu}
             pathname={pathname}
-            open={openGroups[menu.label] ?? isMenuActive(menu, pathname)}
+            open={openGroup === menu.label}
             onToggle={() => toggleGroup(menu.label)}
           />
         ))}
@@ -129,13 +138,13 @@ function MenuGroup({
   return (
     <section className={`menu-group${open ? " menu-group-open" : ""}`}>
       <button className="menu-group-title" type="button" aria-expanded={open} onClick={onToggle}>
-        {Icon ? <Icon size={16} /> : null}
+        {Icon ? <Icon className="menu-group-icon" size={18} /> : null}
         <span>{menu.label}</span>
-        <ChevronDown className="menu-group-chevron" size={14} />
+        <ChevronRight className="menu-group-chevron" size={14} />
       </button>
       <div className={`menu-group-items${open ? "" : " menu-group-items-closed"}`} aria-hidden={!open}>
         {menu.children?.map((child) => {
-          const isActive = isChildActive(pathname, child.href);
+          const isActive = isChildActive(pathname, child.href, true);
           return (
             <Link
               className={`nav-link${isActive ? " active" : ""}`}
@@ -156,6 +165,10 @@ function isMenuActive(menu: MenuNode, pathname: string): boolean {
   return isChildActive(pathname, menu.href) || Boolean(menu.children?.some((child) => isChildActive(pathname, child.href)));
 }
 
-function isChildActive(pathname: string, href?: string): boolean {
-  return pathname === href || (pathname === "/assets/rooms" && href === "/assets/units");
+function isChildActive(pathname: string, href?: string, exact = false): boolean {
+  if (!href) return false;
+  if (pathname === href) return true;
+  if (pathname === "/assets/rooms" && href === "/assets/units") return true;
+  if (exact) return false;
+  return pathname.startsWith(`${href}/`);
 }

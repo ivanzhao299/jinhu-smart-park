@@ -1,4 +1,19 @@
 "use client";
+import {
+  Card,
+  DataTable,
+  Drawer,
+  DrawerActions,
+  DrawerDetailGrid,
+  DrawerDetailItem,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  DrawerSection,
+  DrawerTabButton,
+  DrawerTabs
+} from "@jinhu/ui";
 
 import { Archive, Building2, Edit3, Eye, GitBranch, History, Plus, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -1144,11 +1159,15 @@ export default function LeasingLeadsPage() {
 
   const statusSelectItems = statusTarget ? selectableLeadStatusItems(statusItems, statusTarget.status, authUser) : statusItems;
   const statusHint = statusTarget ? leadStatusTransitionHint(statusTarget.status, statusForm.afterStatus, authUser) : null;
+  const closeDetailDrawer = () => {
+    setDetail(null);
+    setShowConvertForm(false);
+  };
 
   return (
     <PermissionGuard module={LEASING_MODULE} fallback={<ModuleUnauthorizedInline />}>
       <PermissionGuard permission={LEAD_PERMISSIONS.read} module={LEASING_MODULE} fallback={<ForbiddenInline />}>
-        <main className="page-container">
+        <main className="page-container leasing-leads-page">
           <section className="page-header">
             <div className="header-title">
               <strong>招商线索</strong>
@@ -1196,76 +1215,86 @@ export default function LeasingLeadsPage() {
 
           {message ? <p className="status-pill">{message}</p> : null}
 
-          <section className="page-content table-scroll">
-            <table className="data-table">
+          <Card className="lead-table-card">
+            <DataTable className="lead-list-table">
               <thead>
                 <tr>
-                  <th>线索编码</th>
-                  <th>客户名称</th>
+                  <th>线索 / 客户</th>
                   <th>联系人</th>
-                  <th>联系电话</th>
-                  <th>来源</th>
-                  <th>行业</th>
-                  <th>需求面积</th>
-                  <th>预算价格</th>
-                  <th>意向等级</th>
-                  <th>当前状态</th>
-                  <th>跟进人</th>
-                  <th>最近跟进</th>
-                  <th>下次跟进</th>
+                  <th>需求信息</th>
+                  <th>阶段</th>
+                  <th>跟进计划</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {pageData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={14}>暂无线索数据</td>
+                    <td colSpan={6}>暂无线索数据</td>
                   </tr>
                 ) : pageData.items.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.leadCode}</td>
-                    <td>{row.customerName}</td>
-                    <td>{row.contactName}</td>
-                    <td>{fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, row.contactMobile)}</td>
-                    <td>{labelFor(sourceItems, row.source)}</td>
-                    <td>{labelFor(industryItems, row.industryCode)}</td>
-                    <td>{formatArea(row.demandArea)}</td>
-                    <td>{moneyText(authUser, canViewDemandPrice, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE, row.demandPrice)}</td>
-                    <td><DictBadge items={intentionItems} value={row.intentionLevel} /></td>
-                    <td><DictBadge items={statusItems} value={row.status} /></td>
-                    <td>{row.followUserName ?? "-"}</td>
-                    <td>{formatDateTime(row.lastFollowTime)}</td>
-                    <td>{formatDateTime(row.nextFollowTime)}</td>
                     <td>
-                      <span className="data-table-actions">
-                        <button className="primary-button" type="button" onClick={() => void openDetail(row)}>
+                      <div className="lead-primary-cell">
+                        <span className="lead-code">{row.leadCode}</span>
+                        <strong title={row.customerName}>{row.customerName}</strong>
+                        <span className="lead-meta-line">
+                          <span>{labelFor(sourceItems, row.source)}</span>
+                          <span>{labelFor(industryItems, row.industryCode)}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="lead-stacked-cell">
+                        <strong title={row.contactName}>{row.contactName}</strong>
+                        <span>{fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, row.contactMobile)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="lead-facts">
+                        <span><em>面积</em>{formatArea(row.demandArea)}</span>
+                        <span><em>预算</em>{moneyText(authUser, canViewDemandPrice, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE, row.demandPrice)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="lead-stage-cell">
+                        <DictBadge items={statusItems} value={row.status} />
+                        <DictBadge items={intentionItems} value={row.intentionLevel} />
+                        {row.isInPool ? <span className="status-pill status-warning">公海</span> : null}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="lead-timeline-cell">
+                        <span><em>跟进人</em>{row.followUserName ?? "-"}</span>
+                        <span><em>最近</em>{formatDateTime(row.lastFollowTime)}</span>
+                        <span><em>下次</em>{formatDateTime(row.nextFollowTime)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="data-table-actions lead-row-actions">
+                        <button aria-label="查看线索" className="primary-button row-action-button" title="查看" type="button" onClick={() => void openDetail(row)}>
                           <Eye size={16} />
-                          查看
                         </button>
-                        <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.update} type="button" onClick={() => openEdit(row)}>
+                        <PermissionButton aria-label="编辑线索" className="primary-button row-action-button" permission={LEAD_PERMISSIONS.update} title="编辑" type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={16} />
-                          编辑
                         </PermissionButton>
-                        <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.changeStatus} type="button" onClick={() => openStatusChange(row)}>
+                        <PermissionButton aria-label="线索状态流转" className="primary-button row-action-button" permission={LEAD_PERMISSIONS.changeStatus} title="状态流转" type="button" onClick={() => openStatusChange(row)}>
                           <GitBranch size={16} />
-                          状态
                         </PermissionButton>
                         {!row.isInPool ? (
-                          <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.moveToPool} type="button" onClick={() => void moveToPool(row).catch((error: Error) => setMessage(error.message))}>
+                          <PermissionButton aria-label="移入公海池" className="primary-button row-action-button" permission={LEAD_PERMISSIONS.moveToPool} title="移入公海池" type="button" onClick={() => void moveToPool(row).catch((error: Error) => setMessage(error.message))}>
                             <Archive size={16} />
-                            入池
                           </PermissionButton>
                         ) : null}
-                        <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.delete} type="button" onClick={() => void remove(row)}>
+                        <PermissionButton aria-label="删除线索" className="primary-button row-action-button row-action-danger" permission={LEAD_PERMISSIONS.delete} title="删除" type="button" onClick={() => void remove(row)}>
                           <Trash2 size={16} />
-                          删除
                         </PermissionButton>
                       </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             <div className="system-toolbar">
               <span className="muted-text">共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
               <span className="page-actions">
@@ -1273,106 +1302,124 @@ export default function LeasingLeadsPage() {
                 <button className="primary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1)}>下一页</button>
               </span>
             </div>
-          </section>
+          </Card>
 
           {showForm ? (
-            <section className="page-content drawer-panel drawer-panel-lg">
-              <div className="system-toolbar">
-                <h2>{editing ? "编辑招商线索" : "新增招商线索"}</h2>
-                <button className="primary-button" type="button" onClick={() => setShowForm(false)}>
-                  <X size={16} />
-                  关闭
-                </button>
-              </div>
-              <form className="form-stack" onSubmit={(event) => void submit(event)}>
-                <div className="system-grid">
-                  <TextField label="线索编码" value={form.leadCode} onChange={(value) => setFormValue("leadCode", value, setForm)} placeholder="留空自动生成" />
-                  <TextField label="客户名称" value={form.customerName} onChange={(value) => setFormValue("customerName", value, setForm)} required />
-                  <TextField label="联系人" value={form.contactName} onChange={(value) => setFormValue("contactName", value, setForm)} required />
-                  {canEditContactMobile ? <TextField label="联系电话" value={form.contactMobile} onChange={(value) => setFormValue("contactMobile", value, setForm)} required /> : null}
-                  <TextField label="联系人邮箱" value={form.contactEmail} onChange={(value) => setFormValue("contactEmail", value, setForm)} type="email" />
-                  <SelectField label="来源" value={form.source} onChange={(value) => setFormValue("source", value, setForm)} options={sourceItems} />
-                  <TextField label="渠道名称" value={form.channelName} onChange={(value) => setFormValue("channelName", value, setForm)} />
-                  <SelectField label="行业" value={form.industryCode} onChange={(value) => setFormValue("industryCode", value, setForm)} options={industryItems} allowEmpty />
-                  <TextField label="行业细分" value={form.industryDetail} onChange={(value) => setFormValue("industryDetail", value, setForm)} />
-                  <NumberField label="需求面积" value={form.demandArea} onChange={(value) => setFormValue("demandArea", value, setForm)} />
-                  {canEditDemandPrice ? <NumberField label="预算价格" value={form.demandPrice} onChange={(value) => setFormValue("demandPrice", value, setForm)} /> : null}
-                  <SelectField label="需求房源类型" value={form.demandUnitType} onChange={(value) => setFormValue("demandUnitType", value, setForm)} options={unitTypeItems} allowEmpty />
-                  <SelectField label="意向等级" value={form.intentionLevel} onChange={(value) => setFormValue("intentionLevel", value, setForm)} options={intentionItems} allowEmpty />
-                  <TextField label="跟进人 ID" value={form.followUserId} onChange={(value) => setFormValue("followUserId", value, setForm)} />
-                  <TextField label="跟进人名称" value={form.followUserName} onChange={(value) => setFormValue("followUserName", value, setForm)} />
-                  <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
-                  <DateTimeField label="下次跟进时间" value={form.nextFollowTime} onChange={(value) => setFormValue("nextFollowTime", value, setForm)} />
-                  <DateField label="预计成交日期" value={form.expectedCloseDate} onChange={(value) => setFormValue("expectedCloseDate", value, setForm)} />
-                  <SelectField
-                    label="是否公海"
-                    value={form.isInPool}
-                    onChange={(value) => setFormValue("isInPool", value, setForm)}
-                    options={[
-                      { id: "form-pool-yes", itemLabel: "是", itemValue: "true", status: "enabled" },
-                      { id: "form-pool-no", itemLabel: "否", itemValue: "false", status: "enabled" }
-                    ]}
-                  />
-                </div>
-                <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
-                <div className="page-actions">
-                  <button className="primary-button" type="submit">保存</button>
-                  <button className="primary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
-                </div>
-              </form>
-            </section>
+            <Drawer className="lead-form-drawer" size="md" onClose={() => setShowForm(false)}>
+              <DrawerHeader
+                eyebrow="招商线索"
+                title={editing ? "编辑招商线索" : "新增招商线索"}
+                description="维护客户、需求和跟进计划，线索编码留空时由系统生成。"
+                closeIcon={<X size={18} />}
+                onClose={() => setShowForm(false)}
+              />
+              <DrawerForm onSubmit={(event) => void submit(event)}>
+                <DrawerSection title="客户信息">
+                  <DrawerFormGrid>
+                    <TextField label="线索编码" value={form.leadCode} onChange={(value) => setFormValue("leadCode", value, setForm)} placeholder="留空自动生成" />
+                    <TextField label="客户名称" value={form.customerName} onChange={(value) => setFormValue("customerName", value, setForm)} required />
+                    <TextField label="联系人" value={form.contactName} onChange={(value) => setFormValue("contactName", value, setForm)} required />
+                    {canEditContactMobile ? <TextField label="联系电话" value={form.contactMobile} onChange={(value) => setFormValue("contactMobile", value, setForm)} required /> : null}
+                    <TextField label="联系人邮箱" value={form.contactEmail} onChange={(value) => setFormValue("contactEmail", value, setForm)} type="email" />
+                  </DrawerFormGrid>
+                </DrawerSection>
+
+                <DrawerSection title="来源与需求">
+                  <DrawerFormGrid>
+                    <SelectField label="来源" value={form.source} onChange={(value) => setFormValue("source", value, setForm)} options={sourceItems} />
+                    <TextField label="渠道名称" value={form.channelName} onChange={(value) => setFormValue("channelName", value, setForm)} />
+                    <SelectField label="行业" value={form.industryCode} onChange={(value) => setFormValue("industryCode", value, setForm)} options={industryItems} allowEmpty />
+                    <TextField label="行业细分" value={form.industryDetail} onChange={(value) => setFormValue("industryDetail", value, setForm)} />
+                    <NumberField label="需求面积" value={form.demandArea} onChange={(value) => setFormValue("demandArea", value, setForm)} />
+                    {canEditDemandPrice ? <NumberField label="预算价格" value={form.demandPrice} onChange={(value) => setFormValue("demandPrice", value, setForm)} /> : null}
+                    <SelectField label="需求房源类型" value={form.demandUnitType} onChange={(value) => setFormValue("demandUnitType", value, setForm)} options={unitTypeItems} allowEmpty />
+                    <SelectField label="意向等级" value={form.intentionLevel} onChange={(value) => setFormValue("intentionLevel", value, setForm)} options={intentionItems} allowEmpty />
+                  </DrawerFormGrid>
+                </DrawerSection>
+
+                <DrawerSection title="跟进计划">
+                  <DrawerFormGrid>
+                    <TextField label="跟进人 ID" value={form.followUserId} onChange={(value) => setFormValue("followUserId", value, setForm)} />
+                    <TextField label="跟进人名称" value={form.followUserName} onChange={(value) => setFormValue("followUserName", value, setForm)} />
+                    <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
+                    <DateTimeField label="下次跟进时间" value={form.nextFollowTime} onChange={(value) => setFormValue("nextFollowTime", value, setForm)} />
+                    <DateField label="预计成交日期" value={form.expectedCloseDate} onChange={(value) => setFormValue("expectedCloseDate", value, setForm)} />
+                    <SelectField
+                      label="是否公海"
+                      value={form.isInPool}
+                      onChange={(value) => setFormValue("isInPool", value, setForm)}
+                      options={[
+                        { id: "form-pool-yes", itemLabel: "是", itemValue: "true", status: "enabled" },
+                        { id: "form-pool-no", itemLabel: "否", itemValue: "false", status: "enabled" }
+                      ]}
+                    />
+                  </DrawerFormGrid>
+                </DrawerSection>
+
+                <DrawerSection title="备注">
+                  <DrawerFormGrid single>
+                    <TextAreaField label="备注说明" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
+                  </DrawerFormGrid>
+                </DrawerSection>
+
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                  <button className="primary-button" type="submit">保存线索</button>
+                </DrawerFooter>
+              </DrawerForm>
+            </Drawer>
           ) : null}
 
           {detail ? (
-            <section className="page-content drawer-panel drawer-panel-md">
-              <div className="system-toolbar">
-                <h2>线索详情</h2>
-                <span className="page-actions">
-                  <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.changeStatus} type="button" onClick={() => openStatusChange(detail)}>
+            <Drawer className="lead-detail-drawer" size="lg" onClose={closeDetailDrawer}>
+              <DrawerHeader
+                eyebrow="招商线索详情"
+                title={detail.customerName}
+                description={`${detail.leadCode} · ${detail.contactName} · ${fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, detail.contactMobile)}`}
+                closeIcon={<X size={18} />}
+                onClose={closeDetailDrawer}
+              />
+              <DrawerActions>
+                  <PermissionButton className="primary-button drawer-action-button" permission={LEAD_PERMISSIONS.changeStatus} type="button" onClick={() => openStatusChange(detail)}>
                     <GitBranch size={16} />
                     状态流转
                   </PermissionButton>
                   {!detail.isInPool ? (
-                    <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.moveToPool} type="button" onClick={() => void moveToPool(detail).catch((error: Error) => setMessage(error.message))}>
+                    <PermissionButton className="primary-button drawer-action-button" permission={LEAD_PERMISSIONS.moveToPool} type="button" onClick={() => void moveToPool(detail).catch((error: Error) => setMessage(error.message))}>
                       <Archive size={16} />
                       移入公海池
                     </PermissionButton>
                   ) : null}
                   {detail.parkTenantId ? (
-                    <a className="primary-button" href="/leasing/tenants">
+                    <a className="primary-button drawer-action-button" href="/leasing/tenants">
                       <Building2 size={16} />
                       租户企业入口
                     </a>
                   ) : (
-                    <PermissionButton className="primary-button" permission={LEAD_PERMISSIONS.convertToParkTenant} type="button" onClick={openConvertToParkTenant}>
+                    <PermissionButton className="primary-button drawer-action-button" permission={LEAD_PERMISSIONS.convertToParkTenant} type="button" onClick={openConvertToParkTenant}>
                       <Building2 size={16} />
                       转为租户企业
                     </PermissionButton>
                   )}
-                  <button className="primary-button" type="button" onClick={() => setDetail(null)}>
-                    <X size={16} />
-                    关闭
-                  </button>
-                </span>
-              </div>
-              <div className="system-tabs">
-                <button className={detailTab === "profile" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("profile")}>基础信息</button>
+              </DrawerActions>
+              <DrawerTabs>
+                <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
                 <PermissionGuard permission={FOLLOW_PERMISSIONS.read}>
-                  <button className={detailTab === "follows" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("follows")}>跟进记录</button>
+                  <DrawerTabButton active={detailTab === "follows"} onClick={() => setDetailTab("follows")}>跟进记录</DrawerTabButton>
                 </PermissionGuard>
                 <PermissionGuard permission={VISIT_PERMISSIONS.read}>
-                  <button className={detailTab === "visits" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("visits")}>看房记录</button>
+                  <DrawerTabButton active={detailTab === "visits"} onClick={() => setDetailTab("visits")}>看房记录</DrawerTabButton>
                 </PermissionGuard>
                 <PermissionGuard permission={QUOTE_PERMISSIONS.read}>
-                  <button className={detailTab === "quotes" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("quotes")}>报价方案</button>
+                  <DrawerTabButton active={detailTab === "quotes"} onClick={() => setDetailTab("quotes")}>报价方案</DrawerTabButton>
                 </PermissionGuard>
                 <PermissionGuard permission={LEAD_PERMISSIONS.statusLog}>
-                  <button className={detailTab === "statusLogs" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("statusLogs")}>
+                  <DrawerTabButton active={detailTab === "statusLogs"} onClick={() => setDetailTab("statusLogs")}>
                     <History size={16} />
                     状态日志
-                  </button>
+                  </DrawerTabButton>
                 </PermissionGuard>
-              </div>
+              </DrawerTabs>
               {detailTab === "profile" ? (
                 <>
                   <DetailGrid>
@@ -1439,7 +1486,7 @@ export default function LeasingLeadsPage() {
                         刷新日志
                       </button>
                     </div>
-                    <table className="data-table">
+                    <DataTable >
                       <thead>
                         <tr>
                           <th>变更时间</th>
@@ -1462,7 +1509,7 @@ export default function LeasingLeadsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </DataTable>
                   </section>
                 </PermissionGuard>
               ) : null}
@@ -1476,7 +1523,7 @@ export default function LeasingLeadsPage() {
                         新增跟进
                       </PermissionButton>
                     </div>
-                    <table className="data-table">
+                    <DataTable >
                       <thead>
                         <tr>
                           <th>跟进时间</th>
@@ -1514,7 +1561,7 @@ export default function LeasingLeadsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </DataTable>
                     {showFollowForm ? (
                       <section className="detail-stack">
                         <PermissionGuard permission={FILE_PERMISSIONS.upload} fallback={<p className="muted-text">当前账号没有附件上传权限。</p>}>
@@ -1559,7 +1606,7 @@ export default function LeasingLeadsPage() {
                         新增看房
                       </PermissionButton>
                     </div>
-                    <table className="data-table">
+                    <DataTable >
                       <thead>
                         <tr>
                           <th>看房时间</th>
@@ -1595,7 +1642,7 @@ export default function LeasingLeadsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </DataTable>
                     {showVisitForm ? (
                       <section className="detail-stack">
                         <PermissionGuard permission={FILE_PERMISSIONS.upload} fallback={<p className="muted-text">当前账号没有照片上传权限。</p>}>
@@ -1661,7 +1708,7 @@ export default function LeasingLeadsPage() {
                         新增报价
                       </PermissionButton>
                     </div>
-                    <table className="data-table">
+                    <DataTable >
                       <thead>
                         <tr>
                           <th>房源</th>
@@ -1723,7 +1770,7 @@ export default function LeasingLeadsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </DataTable>
                     {showQuoteForm ? (
                       <form className="form-stack" onSubmit={(event) => void submitQuote(event).catch((error: Error) => setMessage(error.message))}>
                         <h3>{editingQuote ? "编辑报价" : "新增报价"}</h3>
@@ -1758,11 +1805,11 @@ export default function LeasingLeadsPage() {
                   </section>
                 </PermissionGuard>
               ) : null}
-            </section>
+            </Drawer>
           ) : null}
 
           {showStatusForm && statusTarget ? (
-            <section className="page-content drawer-panel drawer-panel-md">
+            <Drawer size="md" onClose={() => setShowStatusForm(false)}>
               <div className="system-toolbar">
                 <h2>线索状态流转</h2>
                 <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>
@@ -1796,7 +1843,7 @@ export default function LeasingLeadsPage() {
                   <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>取消</button>
                 </div>
               </form>
-            </section>
+            </Drawer>
           ) : null}
         </main>
       </PermissionGuard>
@@ -1893,25 +1940,20 @@ function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | nu
 }
 
 function DetailGrid({ children }: { children: ReactNode }) {
-  return <div className="system-grid">{children}</div>;
+  return <DrawerDetailGrid>{children}</DrawerDetailGrid>;
 }
 
 function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span className="muted-text">{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+  return <DrawerDetailItem label={label} value={value} />;
 }
 
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h1>403</h1>
         <p>当前账号没有访问招商线索的权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -1919,10 +1961,10 @@ function ForbiddenInline() {
 function ModuleUnauthorizedInline() {
   return (
     <main className="page-container">
-      <section className="page-content module-denied">
+      <Card className=" module-denied">
         <h1>模块未授权</h1>
         <p>当前租户未启用招商租赁模块。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -2019,7 +2061,7 @@ function VisitUnitSelector({
           </button>
         </div>
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>选择</th>
@@ -2042,7 +2084,7 @@ function VisitUnitSelector({
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
       <span className="status-pill">已选择：{selectedIds.length} 个房源</span>
     </section>
   );
@@ -2087,7 +2129,7 @@ function QuoteUnitSelector({
           </button>
         </div>
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>选择</th>
@@ -2112,7 +2154,7 @@ function QuoteUnitSelector({
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
       <span className="status-pill">已选择：{selectedId ? unitDisplay(units.find((unit) => unit.id === selectedId) ?? fallbackUnit(selectedId)) : "未选择"}</span>
     </section>
   );

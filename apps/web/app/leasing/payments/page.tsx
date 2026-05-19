@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Edit3, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -404,7 +405,7 @@ export default function LeasingPaymentsPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         <div className="system-toolbar">
@@ -412,7 +413,7 @@ export default function LeasingPaymentsPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} / ${totalPages} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>收款单号</th>
@@ -461,13 +462,13 @@ export default function LeasingPaymentsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无收款登记</div> : null}
-      </section>
+      </Card>
 
       {drawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>{editing ? "编辑收款" : "新增收款"}</strong>
             <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
@@ -513,11 +514,11 @@ export default function LeasingPaymentsPage() {
               {saving ? "保存中" : "保存"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
 
       {applyOpen && editing ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setApplyOpen(false)}>
           <div className="system-toolbar">
             <strong>收款核销：{editing.payCode}</strong>
             <button className="primary-button" type="button" onClick={() => setApplyOpen(false)}>
@@ -564,7 +565,7 @@ export default function LeasingPaymentsPage() {
           <section className="detail-stack">
             <h3>已核销记录</h3>
             <div className="table-scroll">
-              <table className="data-table">
+              <DataTable >
                 <thead>
                   <tr>
                     <th>应收单号</th>
@@ -589,10 +590,10 @@ export default function LeasingPaymentsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
           </section>
-        </section>
+        </Drawer>
       ) : null}
     </div>
   );

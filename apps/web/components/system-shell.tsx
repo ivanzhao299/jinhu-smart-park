@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,7 +21,7 @@ export function SystemShell({ children }: SystemShellProps) {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
-            <Building2 size={20} />
+            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhu-park-symbol.png" />
           </span>
           <span>系统管理</span>
         </div>

@@ -60,6 +60,9 @@ export class PermissionEntity extends AuditableEntity {
   @Column({ name: "component_key", type: "varchar", length: 128, nullable: true })
   componentKey!: string | null;
 
+  @Column({ name: "icon", type: "varchar", length: 128, nullable: true })
+  icon!: string | null;
+
   @Column({ name: "field_key", type: "varchar", length: 128, nullable: true })
   fieldKey!: string | null;
 
@@ -77,6 +80,12 @@ export class PermissionEntity extends AuditableEntity {
 
   @Column({ name: "visible", type: "boolean", default: true })
   visible!: boolean;
+
+  @Column({ name: "keep_alive", type: "boolean", default: true })
+  keepAlive!: boolean;
+
+  @Column({ name: "always_show", type: "boolean", default: true })
+  alwaysShow!: boolean;
 
   @Column({ name: "is_enabled", type: "boolean", default: true })
   isEnabled!: boolean;

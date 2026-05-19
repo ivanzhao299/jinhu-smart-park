@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, Min } from "class-validator";
 
 export class CreatePlanDto {
   @IsString()
@@ -27,6 +27,11 @@ export class CreatePlanDto {
   moduleCodes?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  permissionCodes?: string[];
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   maxUsers?: number;
@@ -44,6 +49,10 @@ export class CreatePlanDto {
   @IsOptional()
   @IsIn(["enabled", "disabled"])
   status?: string;
+
+  @IsOptional()
+  @IsObject()
+  featureConfig?: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

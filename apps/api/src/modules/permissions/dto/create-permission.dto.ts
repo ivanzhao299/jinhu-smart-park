@@ -1,5 +1,18 @@
 import { Transform } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
+
+function toOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return value.toLowerCase() === "true" || value === "1";
+  }
+  return Boolean(value);
+}
 
 export class CreatePermissionDto {
   @IsString()
@@ -55,6 +68,26 @@ export class CreatePermissionDto {
   @IsString()
   @MaxLength(128)
   componentKey?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  icon?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  visible?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  keepAlive?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  alwaysShow?: boolean;
 
   @IsOptional()
   @IsString()

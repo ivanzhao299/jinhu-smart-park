@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Ban, CheckCircle2, Download, Edit3, Plus, RefreshCw, Send, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -15,6 +16,10 @@ import { hasPermission } from "../../../lib/permissions";
 const LEASING_MODULE = "leasing";
 const CONTRACT_ENTITY = "leasing_contract";
 const CONTRACT_UNIT_ENTITY = "rel_leasing_contract_unit";
+const LEASING_RECEIVABLE_ENTITY = "leasing_receivable";
+const LEASING_PAYMENT_ENTITY = "leasing_payment";
+const LEASING_INVOICE_ENTITY = "leasing_invoice";
+const LEASING_REFUND_ENTITY = "leasing_refund";
 const FIELD_RENT_UNIT_PRICE = "rentUnitPrice";
 const FIELD_RENT_PER_MONTH = "rentPerMonth";
 const FIELD_TOTAL_AMOUNT = "totalAmount";
@@ -22,6 +27,13 @@ const FIELD_DEPOSIT_AMOUNT = "depositAmount";
 const FIELD_PROPERTY_FEE_UNIT_PRICE = "propertyFeeUnitPrice";
 const FIELD_CONTRACT_UNIT_RENT_UNIT_PRICE = "rentUnitPrice";
 const FIELD_CONTRACT_UNIT_RENT_AMOUNT_PER_MONTH = "rentAmountPerMonth";
+const FIELD_AMOUNT_DUE = "amountDue";
+const FIELD_AMOUNT_PAID = "amountPaid";
+const FIELD_AMOUNT_REMAIN = "amountRemain";
+const FIELD_PAY_AMOUNT = "payAmount";
+const FIELD_UNAPPLIED_AMOUNT = "unappliedAmount";
+const FIELD_INVOICE_AMOUNT = "amount";
+const FIELD_REFUND_AMOUNT = "refundAmount";
 const CONTRACT_PERMISSIONS = {
   read: "leasing_contract:read",
   create: "leasing_contract:create",
@@ -42,6 +54,10 @@ const CONTRACT_PERMISSIONS = {
   unitUpdate: "leasing_contract_unit:update",
   unitDelete: "leasing_contract_unit:delete",
   recalculate: "leasing_contract:recalculate",
+  receivableRead: "leasing_receivable:read",
+  paymentRead: "leasing_payment:read",
+  invoiceRead: "leasing_invoice:read",
+  refundRead: "leasing_refund:read",
   generateReceivables: "leasing_receivable:generate",
   changeRead: "leasing_contract_change:read",
   changeCreate: "leasing_contract_change:create",
@@ -111,6 +127,19 @@ interface LeasingContractApproveRecord {
 }
 
 type ContractStatusAction = LeasingContractApproveRecord["action"] | "create" | "system";
+type ContractDetailTab =
+  | "profile"
+  | "units"
+  | "receivables"
+  | "payments"
+  | "invoices"
+  | "changes"
+  | "renewals"
+  | "checkouts"
+  | "refunds"
+  | "files"
+  | "approvals"
+  | "actions";
 
 interface LeasingContractRow {
   id: string;
@@ -222,6 +251,56 @@ interface CheckoutRow {
   amountDueFromTenant?: string | null;
   status: string;
   updateTime: string;
+}
+
+interface ContractReceivableRow {
+  id: string;
+  arCode: string;
+  feeType: string;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  amountDue?: string | null;
+  amountPaid?: string | null;
+  amountWaived?: string | null;
+  amountRemain?: string | null;
+  lateFee?: string | null;
+  invoiceStatus: string;
+  overdueDays: number;
+  status: string;
+}
+
+interface ContractPaymentRow {
+  id: string;
+  payCode: string;
+  payTime: string;
+  payMethod: string;
+  payAmount?: string | null;
+  unappliedAmount?: string | null;
+  payerName: string | null;
+  status: string;
+}
+
+interface ContractInvoiceRow {
+  id: string;
+  invoiceCode: string;
+  invoiceType: string;
+  invoiceNo: string | null;
+  invoiceDate: string;
+  amount?: string | null;
+  status: string;
+}
+
+interface ContractRefundRow {
+  id: string;
+  refundCode: string;
+  checkoutId: string;
+  checkout?: { checkoutCode?: string | null } | null;
+  refundAmount?: string | null;
+  refundMethod: string;
+  refundTime: string;
+  receiverName: string | null;
+  status: string;
 }
 
 interface ContractFormState {
@@ -382,6 +461,10 @@ export default function LeasingContractsPage() {
   const [contractChanges, setContractChanges] = useState<ContractChangeRow[]>([]);
   const [contractCheckouts, setContractCheckouts] = useState<CheckoutRow[]>([]);
   const [renewalContracts, setRenewalContracts] = useState<LeasingContractRow[]>([]);
+  const [contractReceivables, setContractReceivables] = useState<ContractReceivableRow[]>([]);
+  const [contractPayments, setContractPayments] = useState<ContractPaymentRow[]>([]);
+  const [contractInvoices, setContractInvoices] = useState<ContractInvoiceRow[]>([]);
+  const [contractRefunds, setContractRefunds] = useState<ContractRefundRow[]>([]);
   const [receivableGenerationResult, setReceivableGenerationResult] = useState<ReceivableGenerationResult | null>(null);
   const [message, setMessage] = useState("");
   const [filters, setFilters] = useState({ keyword: "", status: "", contractType: "", parkTenantId: "", startDate: "", endDate: "" });
@@ -394,6 +477,7 @@ export default function LeasingContractsPage() {
   const [effectiveForm, setEffectiveForm] = useState<EffectiveFormState>(emptyEffectiveForm);
   const [renewalForm, setRenewalForm] = useState<RenewalFormState>(emptyRenewalForm);
   const [showRenewalForm, setShowRenewalForm] = useState(false);
+  const [contractDetailTab, setContractDetailTab] = useState<ContractDetailTab>("profile");
 
   const statusItems = dicts.leasing_contract_status ?? [];
   const typeItems = dicts.leasing_contract_type ?? [];
@@ -401,6 +485,11 @@ export default function LeasingContractsPage() {
   const paymentItems = dicts.leasing_payment_period ?? [];
   const unitRentalStatusItems = dicts.unit_rental_status ?? [];
   const feeTypeItems = dicts.leasing_fee_type ?? [];
+  const receivableStatusItems = dicts.leasing_receivable_status ?? [];
+  const invoiceStatusItems = dicts.leasing_invoice_status ?? [];
+  const paymentMethodItems = dicts.leasing_payment_method ?? [];
+  const paymentStatusItems = dicts.leasing_payment_status ?? [];
+  const invoiceTypeItems = dicts.leasing_invoice_type ?? [];
   const changeTypeItems = dicts.leasing_contract_change_type ?? [];
   const changeStatusItems = dicts.leasing_contract_change_status ?? [];
   const receivablePolicyItems = dicts.leasing_receivable_adjust_policy ?? [];
@@ -408,10 +497,16 @@ export default function LeasingContractsPage() {
   const checkoutStatusItems = dicts.leasing_checkout_status ?? [];
   const settlementStatusItems = dicts.leasing_settlement_status ?? [];
   const releaseStatusItems = dicts.leasing_release_unit_status ?? [];
+  const refundMethodItems = dicts.leasing_refund_method ?? [];
+  const refundStatusItems = dicts.leasing_refund_status ?? [];
   const canReadContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitRead);
   const canReadContractFiles = hasPermission(authUser, CONTRACT_PERMISSIONS.fileRead);
   const canReadContractStatusLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.statusLog);
   const canReadContractActionLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.actionLog);
+  const canReadReceivables = hasPermission(authUser, CONTRACT_PERMISSIONS.receivableRead);
+  const canReadPayments = hasPermission(authUser, CONTRACT_PERMISSIONS.paymentRead);
+  const canReadInvoices = hasPermission(authUser, CONTRACT_PERMISSIONS.invoiceRead);
+  const canReadRefunds = hasPermission(authUser, CONTRACT_PERMISSIONS.refundRead);
   const canCreateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitCreate);
   const canUpdateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitUpdate);
   const canDeleteContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitDelete);
@@ -434,6 +529,13 @@ export default function LeasingContractsPage() {
   const canViewContractUnitRentUnitPrice = canViewField(authUser, LEASING_MODULE, CONTRACT_UNIT_ENTITY, FIELD_CONTRACT_UNIT_RENT_UNIT_PRICE);
   const canViewContractUnitRentAmountPerMonth = canViewField(authUser, LEASING_MODULE, CONTRACT_UNIT_ENTITY, FIELD_CONTRACT_UNIT_RENT_AMOUNT_PER_MONTH);
   const canEditContractUnitRentUnitPrice = canEditField(authUser, LEASING_MODULE, CONTRACT_UNIT_ENTITY, FIELD_CONTRACT_UNIT_RENT_UNIT_PRICE);
+  const canViewReceivableAmountDue = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_DUE);
+  const canViewReceivableAmountPaid = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_PAID);
+  const canViewReceivableAmountRemain = canViewField(authUser, LEASING_MODULE, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_REMAIN);
+  const canViewPaymentAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT);
+  const canViewPaymentUnappliedAmount = canViewField(authUser, LEASING_MODULE, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT);
+  const canViewInvoiceAmount = canViewField(authUser, LEASING_MODULE, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT);
+  const canViewRefundAmount = canViewField(authUser, LEASING_MODULE, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT);
   const canEditContractPdf = canEditField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "contractPdfFileId");
   const canEditScanPdf = canEditField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "scanPdfFileId");
 
@@ -463,13 +565,20 @@ export default function LeasingContractsPage() {
       "leasing_payment_period",
       "unit_rental_status",
       "leasing_fee_type",
+      "leasing_receivable_status",
+      "leasing_invoice_status",
+      "leasing_payment_method",
+      "leasing_payment_status",
+      "leasing_invoice_type",
       "leasing_contract_change_type",
       "leasing_contract_change_status",
       "leasing_receivable_adjust_policy",
       "leasing_checkout_type",
       "leasing_checkout_status",
       "leasing_settlement_status",
-      "leasing_release_unit_status"
+      "leasing_release_unit_status",
+      "leasing_refund_method",
+      "leasing_refund_status"
     ];
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = dictTypeMap.get(code);
@@ -569,6 +678,38 @@ export default function LeasingContractsPage() {
     setContractCheckouts(response.data.items);
   }, [canReadCheckouts]);
 
+  const loadContractReceivables = useCallback(async (contractId: string) => {
+    if (!canReadReceivables) return;
+    const response = await apiRequest<PaginatedResult<ContractReceivableRow>>(`/leasing/receivables?contract_id=${contractId}&page=1&page_size=100&sort=-dueDate`, {
+      token: getAccessToken()
+    });
+    setContractReceivables(response.data.items);
+  }, [canReadReceivables]);
+
+  const loadContractPayments = useCallback(async (contractId: string) => {
+    if (!canReadPayments) return;
+    const response = await apiRequest<PaginatedResult<ContractPaymentRow>>(`/leasing/payments?contract_id=${contractId}&page=1&page_size=100&sort=-payTime`, {
+      token: getAccessToken()
+    });
+    setContractPayments(response.data.items);
+  }, [canReadPayments]);
+
+  const loadContractInvoices = useCallback(async (contractId: string) => {
+    if (!canReadInvoices) return;
+    const response = await apiRequest<PaginatedResult<ContractInvoiceRow>>(`/leasing/invoices?contract_id=${contractId}&page=1&page_size=100&sort=-invoiceDate`, {
+      token: getAccessToken()
+    });
+    setContractInvoices(response.data.items);
+  }, [canReadInvoices]);
+
+  const loadContractRefunds = useCallback(async (contractId: string) => {
+    if (!canReadRefunds) return;
+    const response = await apiRequest<PaginatedResult<ContractRefundRow>>(`/leasing/refunds?contract_id=${contractId}&page=1&page_size=100&sort=-refundTime`, {
+      token: getAccessToken()
+    });
+    setContractRefunds(response.data.items);
+  }, [canReadRefunds]);
+
   const refreshEditingContract = useCallback(async (contractId: string) => {
     const response = await apiRequest<LeasingContractRow>(`/leasing/contracts/${contractId}`, {
       token: getAccessToken()
@@ -584,7 +725,11 @@ export default function LeasingContractsPage() {
     await loadContractChanges(contractId);
     await loadRenewalContracts(contractId);
     await loadContractCheckouts(contractId);
-  }, [load, loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractStatusLogs, loadRenewalContracts, pageData.page]);
+    await loadContractReceivables(contractId);
+    await loadContractPayments(contractId);
+    await loadContractInvoices(contractId);
+    await loadContractRefunds(contractId);
+  }, [load, loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractInvoices, loadContractPayments, loadContractReceivables, loadContractRefunds, loadContractStatusLogs, loadRenewalContracts, pageData.page]);
 
   const openContractDrawer = useCallback((row: LeasingContractRow) => {
     setEditing(row);
@@ -594,6 +739,7 @@ export default function LeasingContractsPage() {
     setUnitForm(emptyUnitForm);
     setRenewalForm(formFromRenewalSource(row));
     setShowRenewalForm(false);
+    setContractDetailTab("profile");
     setReceivableGenerationResult(null);
     void loadContractUnits(row.id).catch((error: Error) => setMessage(error.message));
     void loadContractFiles(row.id).catch((error: Error) => setMessage(error.message));
@@ -602,8 +748,12 @@ export default function LeasingContractsPage() {
     void loadContractChanges(row.id).catch((error: Error) => setMessage(error.message));
     void loadRenewalContracts(row.id).catch((error: Error) => setMessage(error.message));
     void loadContractCheckouts(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractReceivables(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractPayments(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractInvoices(row.id).catch((error: Error) => setMessage(error.message));
+    void loadContractRefunds(row.id).catch((error: Error) => setMessage(error.message));
     setShowForm(true);
-  }, [loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractStatusLogs, loadContractUnits, loadRenewalContracts]);
+  }, [loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractInvoices, loadContractPayments, loadContractReceivables, loadContractRefunds, loadContractStatusLogs, loadContractUnits, loadRenewalContracts]);
 
   useEffect(() => {
     void loadDicts().catch((error: Error) => setMessage(error.message));
@@ -643,11 +793,16 @@ export default function LeasingContractsPage() {
     setContractChanges([]);
     setContractCheckouts([]);
     setRenewalContracts([]);
+    setContractReceivables([]);
+    setContractPayments([]);
+    setContractInvoices([]);
+    setContractRefunds([]);
     setUnitForm(emptyUnitForm);
     setArchiveForm(emptyArchiveForm);
     setEffectiveForm(emptyEffectiveForm);
     setRenewalForm(emptyRenewalForm);
     setShowRenewalForm(false);
+    setContractDetailTab("profile");
     setReceivableGenerationResult(null);
     setShowForm(true);
   }
@@ -892,7 +1047,9 @@ export default function LeasingContractsPage() {
       }
     });
     setReceivableGenerationResult(response.data);
+    setContractDetailTab("receivables");
     setMessage(`应收生成完成：新增 ${response.data.generated_count}，跳过 ${response.data.skipped_count}，失败 ${response.data.failed_count}`);
+    await loadContractReceivables(editing.id);
   }
 
   async function createRenewalDraft() {
@@ -1002,8 +1159,8 @@ export default function LeasingContractsPage() {
 
           {message ? <p className="status-pill">{message}</p> : null}
 
-          <section className="page-content table-scroll">
-            <table className="data-table">
+          <Card className=" table-scroll">
+            <DataTable >
               <thead>
                 <tr>
                   <th>合同编号</th>
@@ -1086,7 +1243,7 @@ export default function LeasingContractsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
             <div className="system-toolbar">
               <span className="muted-text">共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
               <span className="page-actions">
@@ -1094,10 +1251,10 @@ export default function LeasingContractsPage() {
                 <button className="primary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1)}>下一页</button>
               </span>
             </div>
-          </section>
+          </Card>
 
           {showForm ? (
-            <section className="page-content drawer-panel drawer-panel-lg">
+            <Drawer size="lg" onClose={() => setShowForm(false)}>
               <div className="system-toolbar">
                 <h2>{editing ? "合同详情" : "新增合同草稿"}</h2>
                 <button className="primary-button" type="button" onClick={() => setShowForm(false)}>
@@ -1107,6 +1264,9 @@ export default function LeasingContractsPage() {
               </div>
               {coreDisabled ? <p className="status-pill status-warning">当前合同状态不允许编辑核心金额与日期字段</p> : null}
               {editing ? (
+                <ContractDetailTabs activeTab={contractDetailTab} onChange={setContractDetailTab} />
+              ) : null}
+              {editing && contractDetailTab === "profile" ? (
                 <ContractOverview
                   contract={editing}
                   parkTenants={parkTenants}
@@ -1181,34 +1341,92 @@ export default function LeasingContractsPage() {
                       ) : null}
                     </span>
                   </div>
-                  <ApprovalTrail records={editing.approveRecords ?? []} statusItems={statusItems} />
-                  <PermissionGuard permission={CONTRACT_PERMISSIONS.statusLog} fallback={<p className="muted-text">当前账号没有查看合同状态日志的权限。</p>}>
-                    <ContractStatusTimeline logs={contractStatusLogs} statusItems={statusItems} />
-                  </PermissionGuard>
-                  <PermissionGuard permission={CONTRACT_PERMISSIONS.actionLog} fallback={<p className="muted-text">当前账号没有查看合同操作日志的权限。</p>}>
-                    <ContractActionTimeline logs={contractActionLogs} statusItems={statusItems} />
-                  </PermissionGuard>
-                  <PermissionGuard permission={CONTRACT_PERMISSIONS.changeRead} fallback={<p className="muted-text">当前账号没有查看合同变更记录的权限。</p>}>
-                    <ContractChangeTable changes={contractChanges} changeTypeItems={changeTypeItems} changeStatusItems={changeStatusItems} receivablePolicyItems={receivablePolicyItems} />
-                  </PermissionGuard>
-                  <RenewalContractTable
-                    renewals={renewalContracts}
-                    statusItems={statusItems}
-                    sourceTypeItems={sourceTypeItems}
-                    authUser={authUser}
-                    canViewTotalAmount={canViewTotalAmount}
-                    onOpen={openContractDrawer}
-                  />
-                  <PermissionGuard permission={CONTRACT_PERMISSIONS.checkoutRead} fallback={<p className="muted-text">当前账号没有查看退租记录的权限。</p>}>
-                    <CheckoutTable
-                      checkouts={contractCheckouts}
-                      checkoutTypeItems={checkoutTypeItems}
-                      checkoutStatusItems={checkoutStatusItems}
-                      settlementStatusItems={settlementStatusItems}
-                      releaseStatusItems={releaseStatusItems}
+                  {contractDetailTab === "receivables" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.receivableRead} fallback={<p className="muted-text">当前账号没有查看应收账单的权限。</p>}>
+                      <ContractReceivablesTable
+                        receivables={contractReceivables}
+                        feeTypeItems={feeTypeItems}
+                        receivableStatusItems={receivableStatusItems}
+                        invoiceStatusItems={invoiceStatusItems}
+                        authUser={authUser}
+                        canViewAmountDue={canViewReceivableAmountDue}
+                        canViewAmountPaid={canViewReceivableAmountPaid}
+                        canViewAmountRemain={canViewReceivableAmountRemain}
+                      />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "payments" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.paymentRead} fallback={<p className="muted-text">当前账号没有查看收款记录的权限。</p>}>
+                      <ContractPaymentsTable
+                        payments={contractPayments}
+                        paymentMethodItems={paymentMethodItems}
+                        paymentStatusItems={paymentStatusItems}
+                        authUser={authUser}
+                        canViewPayAmount={canViewPaymentAmount}
+                        canViewUnappliedAmount={canViewPaymentUnappliedAmount}
+                      />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "invoices" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.invoiceRead} fallback={<p className="muted-text">当前账号没有查看发票记录的权限。</p>}>
+                      <ContractInvoicesTable
+                        invoices={contractInvoices}
+                        invoiceTypeItems={invoiceTypeItems}
+                        invoiceStatusItems={invoiceStatusItems}
+                        authUser={authUser}
+                        canViewAmount={canViewInvoiceAmount}
+                      />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "changes" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.changeRead} fallback={<p className="muted-text">当前账号没有查看合同变更记录的权限。</p>}>
+                      <ContractChangeTable changes={contractChanges} changeTypeItems={changeTypeItems} changeStatusItems={changeStatusItems} receivablePolicyItems={receivablePolicyItems} />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "renewals" ? (
+                    <RenewalContractTable
+                      renewals={renewalContracts}
+                      statusItems={statusItems}
+                      sourceTypeItems={sourceTypeItems}
                       authUser={authUser}
+                      canViewTotalAmount={canViewTotalAmount}
+                      onOpen={openContractDrawer}
                     />
-                  </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "checkouts" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.checkoutRead} fallback={<p className="muted-text">当前账号没有查看退租记录的权限。</p>}>
+                      <CheckoutTable
+                        checkouts={contractCheckouts}
+                        checkoutTypeItems={checkoutTypeItems}
+                        checkoutStatusItems={checkoutStatusItems}
+                        settlementStatusItems={settlementStatusItems}
+                        releaseStatusItems={releaseStatusItems}
+                        authUser={authUser}
+                      />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "refunds" ? (
+                    <PermissionGuard permission={CONTRACT_PERMISSIONS.refundRead} fallback={<p className="muted-text">当前账号没有查看退款记录的权限。</p>}>
+                      <ContractRefundsTable
+                        refunds={contractRefunds}
+                        refundMethodItems={refundMethodItems}
+                        refundStatusItems={refundStatusItems}
+                        authUser={authUser}
+                        canViewRefundAmount={canViewRefundAmount}
+                      />
+                    </PermissionGuard>
+                  ) : null}
+                  {contractDetailTab === "approvals" ? <ApprovalTrail records={editing.approveRecords ?? []} statusItems={statusItems} /> : null}
+                  {contractDetailTab === "actions" ? (
+                    <>
+                      <PermissionGuard permission={CONTRACT_PERMISSIONS.statusLog} fallback={<p className="muted-text">当前账号没有查看合同状态日志的权限。</p>}>
+                        <ContractStatusTimeline logs={contractStatusLogs} statusItems={statusItems} />
+                      </PermissionGuard>
+                      <PermissionGuard permission={CONTRACT_PERMISSIONS.actionLog} fallback={<p className="muted-text">当前账号没有查看合同操作日志的权限。</p>}>
+                        <ContractActionTimeline logs={contractActionLogs} statusItems={statusItems} />
+                      </PermissionGuard>
+                    </>
+                  ) : null}
                   {showRenewalForm && editing.status === "75" ? (
                     <section className="detail-stack">
                       <div className="system-toolbar">
@@ -1234,10 +1452,10 @@ export default function LeasingContractsPage() {
                       </div>
                     </section>
                   ) : null}
-                  {receivableGenerationResult ? <ReceivableGenerationTable result={receivableGenerationResult} feeTypeItems={feeTypeItems} /> : null}
+                  {contractDetailTab === "receivables" && receivableGenerationResult ? <ReceivableGenerationTable result={receivableGenerationResult} feeTypeItems={feeTypeItems} /> : null}
                 </section>
               ) : null}
-              {editing ? (
+              {editing && contractDetailTab === "files" ? (
                 <section className="detail-stack">
                   <div className="system-toolbar">
                     <h3>合同签章归档与附件</h3>
@@ -1254,7 +1472,7 @@ export default function LeasingContractsPage() {
                       <MetricTile label="签章扫描件" value={archiveForm.scanPdfName || archiveForm.scanPdfFileId || "-"} />
                     </div>
                     <div className="table-scroll">
-                      <table className="data-table">
+                      <DataTable >
                         <thead>
                           <tr>
                             <th>文件编号</th>
@@ -1282,7 +1500,7 @@ export default function LeasingContractsPage() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </DataTable>
                     </div>
                   </PermissionGuard>
                   {editing.status === "60" ? (
@@ -1323,7 +1541,9 @@ export default function LeasingContractsPage() {
                   ) : null}
                 </section>
               ) : null}
+              {(!editing || contractDetailTab === "profile" || contractDetailTab === "units") ? (
               <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+                {(!editing || contractDetailTab === "profile") ? (
                 <div className="system-grid">
                   <TextField label="合同编号" value={form.contractCode} onChange={(value) => setFormValue("contractCode", value, setForm)} placeholder="留空自动生成" disabled={coreDisabled} />
                   <TextField label="合同名称" value={form.contractName} onChange={(value) => setFormValue("contractName", value, setForm)} required disabled={coreDisabled} />
@@ -1346,7 +1566,9 @@ export default function LeasingContractsPage() {
                   {canEditContractPdf ? <TextField label="合同正文文件 ID" value={form.contractPdfFileId} onChange={(value) => setFormValue("contractPdfFileId", value, setForm)} /> : null}
                   {canEditScanPdf ? <TextField label="扫描件文件 ID" value={form.scanPdfFileId} onChange={(value) => setFormValue("scanPdfFileId", value, setForm)} /> : null}
                 </div>
-                <section className="page-content">
+                ) : null}
+                {(!editing || contractDetailTab === "units") ? (
+                <Card >
                   <div className="system-toolbar">
                     <h3>合同房源</h3>
                     <span className="page-actions">
@@ -1391,7 +1613,7 @@ export default function LeasingContractsPage() {
                         </form>
                       ) : null}
                       <div className="table-scroll">
-                        <table className="data-table">
+                        <DataTable >
                           <thead>
                             <tr>
                               <th>房源编码</th>
@@ -1437,24 +1659,259 @@ export default function LeasingContractsPage() {
                               </tr>
                             ))}
                           </tbody>
-                        </table>
+                        </DataTable>
                       </div>
                     </>
                   ) : null}
-                </section>
-                {editing ? <ContractFutureTabs /> : null}
+                </Card>
+                ) : null}
+                {(!editing || contractDetailTab === "profile") ? (
+                <>
                 <TextAreaField label="滞纳金规则" value={form.lateFeeRule} onChange={(value) => setFormValue("lateFeeRule", value, setForm)} disabled={coreDisabled} />
                 <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
                 <div className="page-actions">
                   <button className="primary-button" type="submit">保存</button>
                   <button className="primary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
                 </div>
+                </>
+                ) : null}
               </form>
-            </section>
+              ) : null}
+            </Drawer>
           ) : null}
         </main>
       </PermissionGuard>
     </PermissionGuard>
+  );
+}
+
+function ContractDetailTabs({ activeTab, onChange }: { activeTab: ContractDetailTab; onChange: (tab: ContractDetailTab) => void }) {
+  const tabs: Array<{ key: ContractDetailTab; label: string }> = [
+    { key: "profile", label: "基础信息" },
+    { key: "units", label: "合同房源" },
+    { key: "receivables", label: "应收账单" },
+    { key: "payments", label: "收款记录" },
+    { key: "invoices", label: "发票记录" },
+    { key: "changes", label: "变更记录" },
+    { key: "renewals", label: "续租记录" },
+    { key: "checkouts", label: "退租记录" },
+    { key: "refunds", label: "退款记录" },
+    { key: "files", label: "附件" },
+    { key: "approvals", label: "审批轨迹" },
+    { key: "actions", label: "操作日志" }
+  ];
+  return (
+    <div className="system-tabs">
+      {tabs.map((tab) => (
+        <button key={tab.key} className={activeTab === tab.key ? "primary-button" : undefined} type="button" onClick={() => onChange(tab.key)}>
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ContractReceivablesTable({
+  receivables,
+  feeTypeItems,
+  receivableStatusItems,
+  invoiceStatusItems,
+  authUser,
+  canViewAmountDue,
+  canViewAmountPaid,
+  canViewAmountRemain
+}: {
+  receivables: ContractReceivableRow[];
+  feeTypeItems: DictItemRow[];
+  receivableStatusItems: DictItemRow[];
+  invoiceStatusItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+  canViewAmountDue: boolean;
+  canViewAmountPaid: boolean;
+  canViewAmountRemain: boolean;
+}) {
+  return (
+    <section className="table-scroll">
+      <h3>应收账单</h3>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>应收单号</th>
+            <th>费用类型</th>
+            <th>账期</th>
+            <th>应收日</th>
+            <th>应收金额</th>
+            <th>已收金额</th>
+            <th>未收金额</th>
+            <th>开票状态</th>
+            <th>应收状态</th>
+            <th>逾期天数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receivables.length === 0 ? (
+            <tr><td colSpan={10}>暂无应收账单</td></tr>
+          ) : receivables.map((row) => (
+            <tr key={row.id}>
+              <td>{row.arCode}</td>
+              <td>{labelFor(feeTypeItems, row.feeType)}</td>
+              <td>{formatDate(row.periodStart)} 至 {formatDate(row.periodEnd)}</td>
+              <td>{formatDate(row.dueDate)}</td>
+              <td>{financeMoneyText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_DUE, canViewAmountDue, row.amountDue)}</td>
+              <td>{financeMoneyText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_PAID, canViewAmountPaid, row.amountPaid)}</td>
+              <td>{financeMoneyText(authUser, LEASING_RECEIVABLE_ENTITY, FIELD_AMOUNT_REMAIN, canViewAmountRemain, row.amountRemain)}</td>
+              <td><DictBadge items={invoiceStatusItems} value={row.invoiceStatus} /></td>
+              <td><DictBadge items={receivableStatusItems} value={row.status} /></td>
+              <td>{row.overdueDays}</td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function ContractPaymentsTable({
+  payments,
+  paymentMethodItems,
+  paymentStatusItems,
+  authUser,
+  canViewPayAmount,
+  canViewUnappliedAmount
+}: {
+  payments: ContractPaymentRow[];
+  paymentMethodItems: DictItemRow[];
+  paymentStatusItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+  canViewPayAmount: boolean;
+  canViewUnappliedAmount: boolean;
+}) {
+  return (
+    <section className="table-scroll">
+      <h3>收款记录</h3>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>收款单号</th>
+            <th>收款时间</th>
+            <th>收款方式</th>
+            <th>付款人</th>
+            <th>收款金额</th>
+            <th>未核销金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {payments.length === 0 ? (
+            <tr><td colSpan={7}>暂无收款记录</td></tr>
+          ) : payments.map((row) => (
+            <tr key={row.id}>
+              <td>{row.payCode}</td>
+              <td>{formatDateTime(row.payTime)}</td>
+              <td>{labelFor(paymentMethodItems, row.payMethod)}</td>
+              <td>{row.payerName ?? "-"}</td>
+              <td>{financeMoneyText(authUser, LEASING_PAYMENT_ENTITY, FIELD_PAY_AMOUNT, canViewPayAmount, row.payAmount)}</td>
+              <td>{financeMoneyText(authUser, LEASING_PAYMENT_ENTITY, FIELD_UNAPPLIED_AMOUNT, canViewUnappliedAmount, row.unappliedAmount)}</td>
+              <td><DictBadge items={paymentStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function ContractInvoicesTable({
+  invoices,
+  invoiceTypeItems,
+  invoiceStatusItems,
+  authUser,
+  canViewAmount
+}: {
+  invoices: ContractInvoiceRow[];
+  invoiceTypeItems: DictItemRow[];
+  invoiceStatusItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+  canViewAmount: boolean;
+}) {
+  return (
+    <section className="table-scroll">
+      <h3>发票记录</h3>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>发票单号</th>
+            <th>发票类型</th>
+            <th>发票号码</th>
+            <th>发票日期</th>
+            <th>金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.length === 0 ? (
+            <tr><td colSpan={6}>暂无发票记录</td></tr>
+          ) : invoices.map((row) => (
+            <tr key={row.id}>
+              <td>{row.invoiceCode}</td>
+              <td>{labelFor(invoiceTypeItems, row.invoiceType)}</td>
+              <td>{row.invoiceNo ?? "-"}</td>
+              <td>{formatDate(row.invoiceDate)}</td>
+              <td>{financeMoneyText(authUser, LEASING_INVOICE_ENTITY, FIELD_INVOICE_AMOUNT, canViewAmount, row.amount)}</td>
+              <td><DictBadge items={invoiceStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function ContractRefundsTable({
+  refunds,
+  refundMethodItems,
+  refundStatusItems,
+  authUser,
+  canViewRefundAmount
+}: {
+  refunds: ContractRefundRow[];
+  refundMethodItems: DictItemRow[];
+  refundStatusItems: DictItemRow[];
+  authUser: ReturnType<typeof useAuthUser>;
+  canViewRefundAmount: boolean;
+}) {
+  return (
+    <section className="table-scroll">
+      <h3>退款记录</h3>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>退款单号</th>
+            <th>退租单号</th>
+            <th>退款方式</th>
+            <th>退款时间</th>
+            <th>收款人</th>
+            <th>退款金额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          {refunds.length === 0 ? (
+            <tr><td colSpan={7}>暂无退款记录</td></tr>
+          ) : refunds.map((row) => (
+            <tr key={row.id}>
+              <td>{row.refundCode}</td>
+              <td>{row.checkout?.checkoutCode ?? row.checkoutId}</td>
+              <td>{labelFor(refundMethodItems, row.refundMethod)}</td>
+              <td>{formatDateTime(row.refundTime)}</td>
+              <td>{row.receiverName ?? "-"}</td>
+              <td>{financeMoneyText(authUser, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT, canViewRefundAmount, row.refundAmount)}</td>
+              <td><DictBadge items={refundStatusItems} value={row.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+    </section>
   );
 }
 
@@ -1476,7 +1933,7 @@ function ContractChangeTable({
         <span className="muted-text">变更单仅记录申请，不直接修改合同主表</span>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>变更单号</th>
@@ -1503,7 +1960,7 @@ function ContractChangeTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </section>
   );
@@ -1531,7 +1988,7 @@ function RenewalContractTable({
         <span className="muted-text">续租合同是新合同记录，继续走合同审批、生效流程</span>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>续租合同编号</th>
@@ -1562,7 +2019,7 @@ function RenewalContractTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </section>
   );
@@ -1590,7 +2047,7 @@ function CheckoutTable({
         <span className="muted-text">退租申请审批后进入结算，结算确认后可登记退款</span>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>退租单号</th>
@@ -1627,7 +2084,7 @@ function CheckoutTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </section>
   );
@@ -1734,7 +2191,7 @@ function ContractOverview({
         <MetricTile label="合同总金额" value={moneyText(authUser, canViewTotalAmount, "totalAmount", contract.totalAmount)} />
         <MetricTile label="押金金额" value={moneyText(authUser, canViewDepositAmount, "depositAmount", contract.depositAmount)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <tbody>
           <DetailRow label="合同编号" value={contract.contractCode} />
           <DetailRow label="合同名称" value={contract.contractName} />
@@ -1749,7 +2206,7 @@ function ContractOverview({
           <DetailRow label="物业费单价" value={moneyText(authUser, canViewPropertyFeeUnitPrice, FIELD_PROPERTY_FEE_UNIT_PRICE, contract.propertyFeeUnitPrice)} />
           <DetailRow label="来源类型" value={contract.sourceType} />
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1763,39 +2220,11 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function ContractFutureTabs() {
-  const [activeTab, setActiveTab] = useState<"receivables" | "payments">("receivables");
-  return (
-    <section className="page-content">
-      <h3>后续业务</h3>
-      <div className="system-tabs">
-        <button className={activeTab === "receivables" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("receivables")}>后续应收账单</button>
-        <button className={activeTab === "payments" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("payments")}>后续收款记录</button>
-      </div>
-      {activeTab === "receivables" ? (
-        <EmptyState title="应收模块尚未开发" description="当前阶段不生成应收账单，不展示假数据。" />
-      ) : null}
-      {activeTab === "payments" ? (
-        <EmptyState title="收款模块尚未开发" description="当前阶段不展示收款记录，不展示假数据。" />
-      ) : null}
-    </section>
-  );
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <section className="empty-state">
-      <strong>{title}</strong>
-      <p className="muted-text">{description}</p>
-    </section>
-  );
-}
-
 function ApprovalTrail({ records, statusItems }: { records: LeasingContractApproveRecord[]; statusItems: DictItemRow[] }) {
   return (
     <section className="table-scroll">
       <h3>审批轨迹</h3>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>时间</th>
@@ -1820,7 +2249,7 @@ function ApprovalTrail({ records, statusItems }: { records: LeasingContractAppro
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1829,7 +2258,7 @@ function ContractStatusTimeline({ logs, statusItems }: { logs: ContractStatusLog
   return (
     <section className="table-scroll">
       <h3>状态日志</h3>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>时间</th>
@@ -1854,7 +2283,7 @@ function ContractStatusTimeline({ logs, statusItems }: { logs: ContractStatusLog
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1863,7 +2292,7 @@ function ContractActionTimeline({ logs, statusItems }: { logs: ContractActionLog
   return (
     <section className="table-scroll">
       <h3>合同操作日志</h3>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>时间</th>
@@ -1890,7 +2319,7 @@ function ContractActionTimeline({ logs, statusItems }: { logs: ContractActionLog
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -1902,7 +2331,7 @@ function ReceivableGenerationTable({ result, feeTypeItems }: { result: Receivabl
         <h3>应收生成结果</h3>
         <span className="muted-text">新增 {result.generated_count} / 跳过 {result.skipped_count} / 失败 {result.failed_count}</span>
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>费用类型</th>
@@ -1929,7 +2358,7 @@ function ReceivableGenerationTable({ result, feeTypeItems }: { result: Receivabl
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -2153,6 +2582,10 @@ function unitMoneyText(user: ReturnType<typeof useAuthUser>, canView: boolean, f
 
 function checkoutMoneyText(user: ReturnType<typeof useAuthUser>, fieldKey: string, value?: string | null): string {
   return scopedMoneyText(user, canViewField(user, LEASING_MODULE, "leasing_checkout", fieldKey), "leasing_checkout", fieldKey, value);
+}
+
+function financeMoneyText(user: ReturnType<typeof useAuthUser>, entityName: string, fieldKey: string, canView: boolean, value?: string | null): string {
+  return scopedMoneyText(user, canView, entityName, fieldKey, value);
 }
 
 function scopedMoneyText(user: ReturnType<typeof useAuthUser>, canView: boolean, entityName: string, fieldKey: string, value?: string | null): string {

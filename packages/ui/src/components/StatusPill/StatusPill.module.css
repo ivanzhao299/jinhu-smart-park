@@ -1,0 +1,46 @@
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-xl, 999px);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Variants */
+.default {
+  background: var(--phoenix-color-surface-muted);
+  color: var(--phoenix-color-text);
+}
+
+.success {
+  background: color-mix(in srgb, var(--phoenix-color-success) 14%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-success);
+}
+
+.warning {
+  background: color-mix(in srgb, var(--phoenix-color-warning) 16%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-warning);
+}
+
+.danger {
+  background: color-mix(in srgb, var(--phoenix-color-danger) 14%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-danger);
+}
+
+.info {
+  background: color-mix(in srgb, var(--phoenix-color-info) 14%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-info);
+}
+
+.primary {
+  background: color-mix(in srgb, var(--phoenix-color-primary) 14%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-primary);
+}
+
+.muted {
+  background: var(--phoenix-color-surface-muted);
+  color: var(--phoenix-color-text-muted);
+}

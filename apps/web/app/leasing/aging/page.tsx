@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Card } from "@jinhu/ui";
 
 import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -301,12 +302,12 @@ export default function LeasingAgingPage() {
         <MetricCard label="90 天以上欠费金额" value={amountText(d90PlusAmount, authUser, canViewAmountRemain)} />
       </section>
 
-      <section className="page-content table-scroll">
+      <Card className=" table-scroll">
         <div className="system-toolbar">
           <strong>账龄分布</strong>
           <span className="muted-text">{loading ? "加载中" : "按未收金额统计"}</span>
         </div>
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>账龄桶</th>
@@ -323,15 +324,15 @@ export default function LeasingAgingPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </section>
+        </DataTable>
+      </Card>
 
-      <section className="page-content table-scroll">
+      <Card className=" table-scroll">
         <div className="system-toolbar">
           <strong>欠费租户排行</strong>
           <span className="muted-text">最多显示前 10 名</span>
         </div>
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>租户企业</th>
@@ -348,16 +349,16 @@ export default function LeasingAgingPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
         {aging.top_tenants.length === 0 ? <div className="empty-state">暂无欠费租户</div> : null}
-      </section>
+      </Card>
 
-      <section className="page-content table-scroll">
+      <Card className=" table-scroll">
         <div className="system-toolbar">
           <strong>逾期应收列表</strong>
           <span className="muted-text">共 {overdueData.total} 条，第 {overdueData.page} / {totalPages} 页</span>
         </div>
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>应收单号</th>
@@ -386,13 +387,13 @@ export default function LeasingAgingPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
         {overdueData.items.length === 0 && !loading ? <div className="empty-state">暂无逾期应收</div> : null}
         <div className="system-actions">
           <button className="primary-button" type="button" disabled={overdueData.page <= 1} onClick={() => load(overdueData.page - 1)}>上一页</button>
           <button className="primary-button" type="button" disabled={overdueData.page >= totalPages} onClick={() => load(overdueData.page + 1)}>下一页</button>
         </div>
-      </section>
+      </Card>
     </main>
   );
 }

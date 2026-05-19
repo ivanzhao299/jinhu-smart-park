@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -193,7 +194,7 @@ const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60
 const emptyCheckoutForm: CheckoutFormState = {
   checkoutCode: "",
   contractId: "",
-  checkoutType: "normal_expiry",
+  checkoutType: "normal",
   plannedCheckoutDate: today(),
   actualCheckoutDate: "",
   reason: "",
@@ -644,14 +645,14 @@ export default function LeasingCheckoutsPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {message ? <div className="empty-state">{message}</div> : null}
         <div className="system-toolbar">
           <span className="muted-text">共 {pageData.total} 条</span>
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>退租单号</th>
@@ -700,13 +701,12 @@ export default function LeasingCheckoutsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
-      </section>
+      </Card>
 
       {drawerOpen ? (
-        <section className="drawer-backdrop">
-          <div className="drawer-panel">
+          <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
             <div className="drawer-header">
               <strong>{editing ? `退租单 ${editing.checkoutCode}` : "发起退租申请"}</strong>
               <button className="icon-button" type="button" onClick={() => setDrawerOpen(false)}><X size={18} /></button>
@@ -836,8 +836,7 @@ export default function LeasingCheckoutsPage() {
                 {effectiveResult ? <EffectiveResultTable result={effectiveResult} authUser={authUser} contractStatusItems={contractStatusItems} unitStatusItems={unitRentalStatusItems} /> : null}
               </section>
             ) : null}
-          </div>
-        </section>
+          </Drawer>
       ) : null}
     </div>
   );
@@ -920,7 +919,7 @@ function SettlementPreviewTable({ preview, authUser, feeTypeItems }: { preview: 
         <MetricTile label="应退金额" value={moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", preview.summary.refund_amount)} />
         <MetricTile label="租户应补" value={moneyText(authUser, CHECKOUT_ENTITY, "amountDueFromTenant", preview.summary.amount_due_from_tenant)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>应收单号</th>
@@ -943,7 +942,7 @@ function SettlementPreviewTable({ preview, authUser, feeTypeItems }: { preview: 
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -951,7 +950,7 @@ function SettlementPreviewTable({ preview, authUser, feeTypeItems }: { preview: 
 function RefundTable({ rows, methodItems, statusItems, authUser }: { rows: RefundRow[]; methodItems: DictItemRow[]; statusItems: DictItemRow[]; authUser: ReturnType<typeof useAuthUser> }) {
   return (
     <section className="table-scroll">
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>退款单号</th>
@@ -980,7 +979,7 @@ function RefundTable({ rows, methodItems, statusItems, authUser }: { rows: Refun
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }
@@ -999,7 +998,7 @@ function EffectiveResultTable({ result, authUser, contractStatusItems, unitStatu
         <MetricTile label="取消未来应收" value={String(result.canceled_receivables.length)} />
         <MetricTile label="需人工复核" value={String(result.skipped_receivables.length)} />
       </div>
-      <table className="data-table">
+      <DataTable >
         <thead>
           <tr>
             <th>房源编码</th>
@@ -1018,8 +1017,8 @@ function EffectiveResultTable({ result, authUser, contractStatusItems, unitStatu
             </tr>
           ))}
         </tbody>
-      </table>
-      <table className="data-table">
+      </DataTable>
+      <DataTable >
         <thead>
           <tr>
             <th>未来应收单号</th>
@@ -1052,7 +1051,7 @@ function EffectiveResultTable({ result, authUser, contractStatusItems, unitStatu
             </>
           )}
         </tbody>
-      </table>
+      </DataTable>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Card, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 
 import { Eye, RefreshCw, Search, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -130,7 +131,7 @@ export default function UnitStatusBoardPage() {
     <PermissionGuard module={ASSET_MODULE} fallback={<ModuleUnauthorizedInline />}>
       <PermissionGuard permission={ASSET_STATUS_BOARD_PERMISSION} module={ASSET_MODULE} fallback={<ForbiddenInline />}>
         <PermissionGuard permission={UNIT_READ_PERMISSION} module={ASSET_MODULE} fallback={<ForbiddenInline />}>
-      <main className="page-container">
+      <main className="page-container unit-status-board-page">
         <header className="page-header">
           <div className="header-title">
             <strong>房源状态看板</strong>
@@ -143,8 +144,8 @@ export default function UnitStatusBoardPage() {
         </header>
 
         <section className="filter-bar">
-          <form className="form-stack" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
-            <div className="dashboard-grid">
+          <form className="unit-board-filter-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
+            <div className="unit-board-filter-grid">
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => setFilters((current) => ({ ...current, buildingId: value }))}>
                 <option value="">全部楼栋</option>
                 {buildings.map((building) => (
@@ -158,32 +159,32 @@ export default function UnitStatusBoardPage() {
                 ))}
               </SelectField>
             </div>
-            <button className="primary-button" type="submit">
+            <button className="primary-button unit-board-filter-button" type="submit">
               <Search size={16} />
               查询
             </button>
           </form>
         </section>
 
-        <section className="page-content task-item">
+        <Card className="unit-board-summary">
           <span>当前结果</span>
           <strong>{board.buildings.length} 栋 / {totalUnits} 间房源</strong>
-        </section>
+        </Card>
 
         {board.buildings.map((building) => (
-          <section className="page-content asset-board-building" key={building.building_id}>
-            <div className="task-item">
+          <Card className="asset-board-building unit-board-building" key={building.building_id}>
+            <div className="unit-board-building-header">
               <h2 className="panel-title">{building.building_code} {building.building_name}</h2>
               <span>{building.floors.reduce((total, floor) => total + floor.units.length, 0)} 间</span>
             </div>
-            <div className="form-stack">
+            <div className="unit-board-floor-list">
               {building.floors.map((floor) => (
                 <section className="asset-board-floor" key={floor.floor_id}>
-                  <div className="task-item">
+                  <div className="unit-board-floor-header">
                     <strong>{floor.floor_code} {floor.floor_name}</strong>
                     <span>{floor.units.length} 间</span>
                   </div>
-                  <div className="dashboard-grid">
+                  <div className="unit-board-grid">
                     {floor.units.map((unit) => (
                       <button
                         className={`asset-unit-card asset-unit-status-${unit.rental_status}`}
@@ -191,14 +192,14 @@ export default function UnitStatusBoardPage() {
                         type="button"
                         onClick={() => setSelected({ building, floor, unit })}
                       >
-                        <div className="task-item">
-                          <strong>{unit.unit_name}</strong>
+                        <div className="unit-card-main">
+                          <strong title={unit.unit_name}>{unit.unit_name}</strong>
                           <StatusBadge status={unit.rental_status} label={unit.rental_status_name} />
                         </div>
-                        <div className="form-stack">
-                          <span>{unit.code || unit.unit_code}</span>
-                          <span>{unit.unit_code}</span>
-                          <span>{formatArea(unit.unit_area)} · {unit.usage_type_name}</span>
+                        <div className="unit-card-meta">
+                          <span title={unit.code || unit.unit_code}>{unit.code || unit.unit_code}</span>
+                          <span>{formatArea(unit.unit_area)}</span>
+                          <span>{unit.usage_type_name}</span>
                           {canViewRefPrice ? <strong>{formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.ref_price))}</strong> : null}
                         </div>
                       </button>
@@ -208,13 +209,13 @@ export default function UnitStatusBoardPage() {
                 </section>
               ))}
             </div>
-          </section>
+          </Card>
         ))}
 
         {board.buildings.length === 0 ? (
-          <section className="page-content">
+          <Card >
             <p>暂无匹配房源。</p>
-          </section>
+          </Card>
         ) : null}
 
         {selected ? <UnitDetailDrawer selected={selected} onClose={() => setSelected(null)} /> : null}
@@ -231,27 +232,34 @@ function UnitDetailDrawer({ selected, onClose }: { selected: SelectedUnit; onClo
   const { building, floor, unit } = selected;
   const canViewRefPrice = canViewField(authUser, "asset", "unit", UNIT_FIELD_REF_PRICE);
   return (
-    <section className="login-panel drawer-panel drawer-panel-md">
-      <div className="task-item">
-        <h2 className="panel-title">房源详情</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
-      </div>
-      <div className="form-stack">
-        <DetailItem label="房源名称" value={unit.unit_name} />
-        <DetailItem label="统一编码" value={unit.code || unit.unit_code} />
-        <DetailItem label="房源编码" value={unit.unit_code} />
-        <DetailItem label="楼栋" value={`${building.building_code} ${building.building_name}`} />
-        <DetailItem label="楼层" value={`${floor.floor_code} ${floor.floor_name}`} />
-        <DetailItem label="建筑面积" value={formatArea(unit.unit_area)} />
-        <DetailItem label="出租状态" value={<StatusBadge status={unit.rental_status} label={unit.rental_status_name} />} />
-        <DetailItem label="用途" value={unit.usage_type_name} />
-        {canViewRefPrice ? <DetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.ref_price))} /> : null}
-      </div>
-      <button className="primary-button" type="button" onClick={onClose}>
-        <Eye size={16} />
-        知道了
-      </button>
-    </section>
+    <Drawer size="md" onClose={onClose}>
+      <DrawerHeader
+        eyebrow={`${building.building_code} / ${floor.floor_name}`}
+        title={unit.unit_name}
+        description={`${unit.unit_code} · ${formatArea(unit.unit_area)} · ${unit.usage_type_name}`}
+        closeIcon={<X size={16} />}
+        onClose={onClose}
+      />
+      <DrawerDetailGrid>
+        <DrawerDetailItem label="房源名称" value={unit.unit_name} />
+        <DrawerDetailItem label="统一编码" value={unit.code || unit.unit_code} />
+        <DrawerDetailItem label="房源编码" value={unit.unit_code} />
+        <DrawerDetailItem label="楼栋" value={`${building.building_code} ${building.building_name}`} />
+        <DrawerDetailItem label="楼层" value={`${floor.floor_code} ${floor.floor_name}`} />
+        <DrawerDetailItem label="建筑面积" value={formatArea(unit.unit_area)} />
+        <DrawerDetailItem label="出租状态" value={<StatusBadge status={unit.rental_status} label={unit.rental_status_name} />} />
+        <DrawerDetailItem label="用途" value={unit.usage_type_name} />
+        {canViewRefPrice ? (
+          <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.ref_price))} />
+        ) : null}
+      </DrawerDetailGrid>
+      <DrawerFooter>
+        <button className="primary-button" type="button" onClick={onClose}>
+          <Eye size={16} />
+          知道了
+        </button>
+      </DrawerFooter>
+    </Drawer>
   );
 }
 
@@ -276,15 +284,6 @@ function SelectField({
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 function StatusBadge({ status, label }: { status: number; label: string }) {
   return <span className={`status-pill ${statusClassName(status)}`}>{label}</span>;
 }
@@ -296,7 +295,8 @@ function statusClassName(status: number): string {
     30: "status-primary",
     40: "status-warning",
     50: "status-danger",
-    60: "status-info"
+    60: "status-info",
+    70: "status-muted"
   };
   return classes[status] ?? "status-muted";
 }
@@ -320,10 +320,10 @@ function maskUnitField(user: UserContext | null, fieldKey: string, value: unknow
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h1 className="panel-title">403</h1>
         <p>当前账号没有房源状态看板访问权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -331,10 +331,10 @@ function ForbiddenInline() {
 function ModuleUnauthorizedInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h1 className="panel-title">模块未授权</h1>
         <p>当前租户未开通资产模块，无法访问房源状态看板。</p>
-      </section>
+      </Card>
     </main>
   );
 }

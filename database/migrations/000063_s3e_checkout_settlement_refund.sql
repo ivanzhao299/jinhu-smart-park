@@ -3,7 +3,24 @@ ALTER TABLE biz_leasing_contract_action_log
 
 ALTER TABLE biz_leasing_contract_action_log
   ADD CONSTRAINT ck_biz_leasing_contract_action_log_action
-  CHECK (action IN ('create', 'submit', 'approve', 'reject', 'effective', 'void', 'preview', 'settlement', 'refund', 'system'));
+  CHECK (action IN (
+    'create',
+    'submit',
+    'approve',
+    'reject',
+    'sign',
+    'archive',
+    'effective',
+    'void',
+    'preview',
+    'preview_finance',
+    'preview_settlement',
+    'confirm_settlement',
+    'settlement',
+    'refund',
+    'cancel',
+    'system'
+  ));
 
 CREATE TABLE IF NOT EXISTS biz_leasing_refund (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),

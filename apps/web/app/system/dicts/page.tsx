@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -108,35 +109,35 @@ export default function DictsPage() {
           <button className="primary-button" type="submit"><Search size={16} />查询</button>
         </form>
       </section>
-      <section className="work-panel">
+      <Card >
         <h2 className="panel-title">字典类型</h2>
-        <table className="data-table">
+        <DataTable >
           <thead><tr><th>编码</th><th>名称</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             {types.items.map((item) => (
               <tr key={item.id}><td>{item.dictCode}</td><td>{item.dictName}</td><td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td><td><span className="data-table-actions"><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_TYPE_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_TYPE_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton></span></td></tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
         <div className="task-item"><span>共 {types.total} 条，第 {types.page} 页</span><span><button type="button" onClick={() => void loadTypes(Math.max(1, types.page - 1))}>上一页</button><button type="button" onClick={() => void loadTypes(types.page + 1)}>下一页</button></span></div>
-      </section>
-      <section className="work-panel">
+      </Card>
+      <Card >
         <div className="task-item">
           <h2 className="panel-title">字典项</h2>
           <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.DICT_ITEM_CREATE} type="button" onClick={() => setShowCreateItem(true)}><Plus size={16} />新增字典项</PermissionButton>
         </div>
-        <table className="data-table">
+        <DataTable >
           <thead><tr><th>标签</th><th>值</th><th>标签类型</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             {items.items.map((item) => (
               <tr key={item.id}><td>{item.itemLabel}</td><td>{item.itemValue}</td><td>{item.tagType ?? "-"}</td><td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td><td><span className="data-table-actions"><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_ITEM_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_ITEM_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton></span></td></tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
         <div className="task-item"><span>共 {items.total} 条，第 {items.page} 页</span><span><button type="button" onClick={() => void loadItems(Math.max(1, items.page - 1))}>上一页</button><button type="button" onClick={() => void loadItems(items.page + 1)}>下一页</button></span></div>
-      </section>
+      </Card>
       {showCreate ? (
-        <section className="login-panel drawer-panel">
+        <Drawer size="md" onClose={() => setShowCreate(false)}>
           <div className="system-toolbar"><h2 className="panel-title">新增字典类型</h2><button className="icon-button" aria-label="关闭" title="关闭" type="button" onClick={() => setShowCreate(false)}><X size={16} /></button></div>
           <form className="form-stack" onSubmit={(event) => void createType(event).catch((error: Error) => setMessage(error.message))}>
             <div className="field"><label>编码</label><input name="dictCode" /></div>
@@ -144,10 +145,10 @@ export default function DictsPage() {
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             <div className="system-actions"><button className="primary-button" type="submit">保存</button><button type="button" onClick={() => setShowCreate(false)}>取消</button></div>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {showCreateItem ? (
-        <section className="login-panel drawer-panel">
+        <Drawer size="md" onClose={() => setShowCreateItem(false)}>
           <div className="system-toolbar"><h2 className="panel-title">新增字典项</h2><button className="icon-button" aria-label="关闭" title="关闭" type="button" onClick={() => setShowCreateItem(false)}><X size={16} /></button></div>
           <form className="form-stack" onSubmit={(event) => void createItem(event).catch((error: Error) => setMessage(error.message))}>
             <div className="field"><label>字典类型</label><select name="dictTypeId" defaultValue={selectedTypeId}>{types.items.map((item) => <option value={item.id} key={item.id}>{item.dictName}</option>)}</select></div>
@@ -157,7 +158,7 @@ export default function DictsPage() {
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             <div className="system-actions"><button className="primary-button" type="submit">保存</button><button type="button" onClick={() => setShowCreateItem(false)}>取消</button></div>
           </form>
-        </section>
+        </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
     </main>

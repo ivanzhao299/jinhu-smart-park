@@ -1,4 +1,5 @@
 "use client";
+import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, PlayCircle, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -10,6 +11,7 @@ import { canEditField, canViewField, maskField } from "../../../lib/field-policy
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 
 const LEASING_MODULE = "leasing";
+const CHANGE_ENTITY = "leasing_contract_change";
 const CONTRACT_ENTITY = "leasing_contract";
 const RECEIVABLE_ENTITY = "leasing_receivable";
 const CHANGE_PERMISSIONS = {
@@ -76,9 +78,9 @@ interface ContractChangeRow {
   changeType: string;
   changeReason: string;
   effectiveDate: string;
-  beforeSnapshot: Record<string, unknown>;
-  afterSnapshot: Record<string, unknown>;
-  financeImpact: Record<string, unknown>;
+  beforeSnapshot?: unknown;
+  afterSnapshot?: unknown;
+  financeImpact?: unknown;
   receivablePolicy: string;
   status: string;
   approveRecords: unknown[];
@@ -195,6 +197,10 @@ export default function LeasingContractChangesPage() {
   const canEffective = hasPermission(authUser, CHANGE_PERMISSIONS.effective);
   const canViewRentPerMonth = canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "rentPerMonth");
   const canViewTotalAmount = canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "totalAmount");
+  const canViewBeforeSnapshot = canViewField(authUser, LEASING_MODULE, CHANGE_ENTITY, "beforeSnapshot");
+  const canViewAfterSnapshot = canViewField(authUser, LEASING_MODULE, CHANGE_ENTITY, "afterSnapshot");
+  const canViewFinanceImpact = canViewField(authUser, LEASING_MODULE, CHANGE_ENTITY, "financeImpact");
+  const canEditAfterSnapshot = canEditField(authUser, LEASING_MODULE, CHANGE_ENTITY, "afterSnapshot");
   const canEditRentUnitPrice = canEditField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "rentUnitPrice");
   const canEditRentPerMonth = canEditField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "rentPerMonth");
   const canEditDepositAmount = canEditField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "depositAmount");
@@ -288,6 +294,10 @@ export default function LeasingContractChangesPage() {
   }
 
   function openEdit(row: ContractChangeRow) {
+    if (!canViewAfterSnapshot || !canEditAfterSnapshot) {
+      setError("变更后快照已按字段权限隐藏，无法编辑该变更单");
+      return;
+    }
     setEditing(row);
     setForm(formFromChange(row));
     setDrawerOpen(true);
@@ -297,7 +307,7 @@ export default function LeasingContractChangesPage() {
 
   function openDetail(row: ContractChangeRow) {
     setDetail(row);
-    setFinanceImpact(normalizeFinanceImpact(row.financeImpact));
+    setFinanceImpact(canViewFinanceImpact ? normalizeFinanceImpact(row.financeImpact) : null);
     setNotice(null);
     setError(null);
   }
@@ -377,7 +387,7 @@ export default function LeasingContractChangesPage() {
         body: JSON.stringify({})
       });
       setFinanceImpact(response.data);
-      setDetail((prev) => prev && prev.id === row.id ? { ...prev, financeImpact: response.data as unknown as Record<string, unknown> } : prev);
+      setDetail((prev) => prev && prev.id === row.id ? { ...prev, financeImpact: response.data } : prev);
       setNotice("财务影响预览已更新");
       await load(pageData.page);
     } catch (err) {
@@ -503,7 +513,7 @@ export default function LeasingContractChangesPage() {
         </div>
       </section>
 
-      <section className="page-content">
+      <Card >
         {error ? <div className="module-denied">{error}</div> : null}
         {notice ? <div className="empty-state">{notice}</div> : null}
         <div className="system-toolbar">
@@ -511,7 +521,7 @@ export default function LeasingContractChangesPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
         </div>
         <div className="table-scroll">
-          <table className="data-table">
+          <DataTable >
             <thead>
               <tr>
                 <th>变更单号</th>
@@ -535,8 +545,8 @@ export default function LeasingContractChangesPage() {
                   <td>{row.parkTenant?.companyName ?? row.contract?.parkTenant?.companyName ?? "-"}</td>
                   <td>{dictLabel("leasing_contract_change_type", row.changeType, dicts)}</td>
                   <td>{row.effectiveDate}</td>
-                  <td>{snapshotDiff(row.beforeSnapshot, row.afterSnapshot, "rent_per_month", "rentPerMonth", canViewRentPerMonth, authUser)}</td>
-                  <td>{snapshotDiff(row.beforeSnapshot, row.afterSnapshot, "total_amount", "totalAmount", canViewTotalAmount, authUser)}</td>
+                  <td>{snapshotDiff(row.beforeSnapshot, row.afterSnapshot, "rent_per_month", "rentPerMonth", canViewRentPerMonth && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</td>
+                  <td>{snapshotDiff(row.beforeSnapshot, row.afterSnapshot, "total_amount", "totalAmount", canViewTotalAmount && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</td>
                   <td>{dictLabel("leasing_receivable_adjust_policy", row.receivablePolicy, dicts)}</td>
                   <td><StatusPill dictCode="leasing_contract_change_status" value={row.status} dicts={dicts} /></td>
                   <td>{formatDateTime(row.updateTime)}</td>
@@ -545,7 +555,7 @@ export default function LeasingContractChangesPage() {
                       <button className="primary-button" type="button" onClick={() => openDetail(row)}>
                         <Eye size={14} /> 详情
                       </button>
-                      {canUpdate && row.status === "10" ? (
+                      {canUpdate && canViewAfterSnapshot && canEditAfterSnapshot && row.status === "10" ? (
                         <button className="primary-button" type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={14} /> 编辑
                         </button>
@@ -580,17 +590,17 @@ export default function LeasingContractChangesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
         {pageData.items.length === 0 && !loading ? <div className="empty-state">暂无合同变更申请</div> : null}
-      </section>
+      </Card>
 
       {detail ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => { setDetail(null); setFinanceImpact(null); }}>
           <div className="system-toolbar">
             <strong>变更详情：{detail.changeCode}</strong>
             <div className="page-actions">
-              {canPreview ? (
+              {canPreview && canViewFinanceImpact ? (
                 <button className="primary-button" type="button" onClick={() => void previewImpact(detail)} disabled={saving}>
                   <RefreshCw size={16} /> 财务影响预览
                 </button>
@@ -612,14 +622,16 @@ export default function LeasingContractChangesPage() {
             </div>
             <div className="empty-state">
               <strong>金额变化</strong>
-              <span>租金单价：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "rent_unit_price", "rentUnitPrice", canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "rentUnitPrice"), authUser)}</span>
-              <span>月租金：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "rent_per_month", "rentPerMonth", canViewRentPerMonth, authUser)}</span>
-              <span>合同总额：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "total_amount", "totalAmount", canViewTotalAmount, authUser)}</span>
-              <span>押金：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "deposit_amount", "depositAmount", canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "depositAmount"), authUser)}</span>
+              <span>租金单价：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "rent_unit_price", "rentUnitPrice", canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "rentUnitPrice") && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</span>
+              <span>月租金：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "rent_per_month", "rentPerMonth", canViewRentPerMonth && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</span>
+              <span>合同总额：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "total_amount", "totalAmount", canViewTotalAmount && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</span>
+              <span>押金：{snapshotDiff(detail.beforeSnapshot, detail.afterSnapshot, "deposit_amount", "depositAmount", canViewField(authUser, LEASING_MODULE, CONTRACT_ENTITY, "depositAmount") && canViewBeforeSnapshot && canViewAfterSnapshot, authUser)}</span>
             </div>
           </div>
 
-          {financeImpact ? (
+          {!canViewFinanceImpact ? (
+            <div className="empty-state">财务影响预览已按字段权限隐藏</div>
+          ) : financeImpact ? (
             <FinanceImpactPanel
               impact={financeImpact}
               dicts={dicts}
@@ -633,7 +645,7 @@ export default function LeasingContractChangesPage() {
             <strong>审批轨迹</strong>
           </div>
           <div className="table-scroll">
-            <table className="data-table">
+            <DataTable >
               <thead>
                 <tr>
                   <th>动作</th>
@@ -654,13 +666,13 @@ export default function LeasingContractChangesPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </div>
-        </section>
+        </Drawer>
       ) : null}
 
       {drawerOpen ? (
-        <section className="page-content drawer-panel drawer-panel-lg">
+        <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
           <div className="system-toolbar">
             <strong>{editing ? "编辑合同变更草稿" : "发起合同变更"}</strong>
             <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
@@ -749,7 +761,7 @@ export default function LeasingContractChangesPage() {
               {saving ? "保存中" : "保存草稿"}
             </button>
           </form>
-        </section>
+        </Drawer>
       ) : null}
     </div>
   );
@@ -773,7 +785,7 @@ export default function LeasingContractChangesPage() {
   }
 
   function formFromChange(row: ContractChangeRow): ChangeFormState {
-    const after = row.afterSnapshot ?? {};
+    const after = safeRecord(row.afterSnapshot);
     return {
       changeCode: row.changeCode,
       contractId: row.contractId,
@@ -817,7 +829,7 @@ function FinanceImpactPanel({ impact, dicts, authUser }: { impact: FinanceImpact
         <span className="muted-text">增加 {formatReceivableAmount(impact.summary.increase_amount, "amountDue", canViewAmountDue, authUser)} / 减少 {formatReceivableAmount(impact.summary.decrease_amount, "amountDue", canViewAmountDue, authUser)} / 阻断 {impact.summary.blocked_count}</span>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>应收单号</th>
@@ -846,13 +858,13 @@ function FinanceImpactPanel({ impact, dicts, authUser }: { impact: FinanceImpact
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
       <div className="system-toolbar">
         <strong>需人工复核应收</strong>
       </div>
       <div className="table-scroll">
-        <table className="data-table">
+        <DataTable >
           <thead>
             <tr>
               <th>应收单号</th>
@@ -869,7 +881,7 @@ function FinanceImpactPanel({ impact, dicts, authUser }: { impact: FinanceImpact
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </section>
   );
@@ -894,9 +906,10 @@ function dictLabel(dictCode: string, value: string | null | undefined, dicts: Re
   return dicts[dictCode]?.find((item) => item.itemValue === value)?.itemLabel ?? value;
 }
 
-function snapshotDiff(beforeSnapshot: Record<string, unknown>, afterSnapshot: Record<string, unknown>, snakeKey: string, camelKey: string, canView: boolean, authUser: ReturnType<typeof useAuthUser>): string {
-  const beforeValue = snapshotValue(beforeSnapshot, snakeKey, camelKey);
-  const afterValue = snapshotValue(afterSnapshot, snakeKey, camelKey);
+function snapshotDiff(beforeSnapshot: unknown, afterSnapshot: unknown, snakeKey: string, camelKey: string, canView: boolean, authUser: ReturnType<typeof useAuthUser>): string {
+  if (!canView) return "-";
+  const beforeValue = snapshotValue(safeRecord(beforeSnapshot), snakeKey, camelKey);
+  const afterValue = snapshotValue(safeRecord(afterSnapshot), snakeKey, camelKey);
   if (beforeValue === afterValue) return formatAmount(afterValue, camelKey, canView, authUser);
   return `${formatAmount(beforeValue, camelKey, canView, authUser)} → ${formatAmount(afterValue, camelKey, canView, authUser)}`;
 }
@@ -928,8 +941,9 @@ function normalizeAmount(value: string | number | null | undefined): string {
   return Number.isFinite(numberValue) ? numberValue.toFixed(2) : "0.00";
 }
 
-function normalizeFinanceImpact(value: Record<string, unknown> | null | undefined): FinanceImpactPreview | null {
-  if (!value || !Array.isArray(value.affected_receivables) || !Array.isArray(value.blocked_receivables)) return null;
+function normalizeFinanceImpact(value: unknown): FinanceImpactPreview | null {
+  const record = safeRecord(value);
+  if (!Array.isArray(record.affected_receivables) || !Array.isArray(record.blocked_receivables)) return null;
   return value as unknown as FinanceImpactPreview;
 }
 
@@ -938,6 +952,10 @@ function recordValue(record: unknown, key: string): string {
   const value = (record as Record<string, unknown>)[key];
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+function safeRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function actionNotice(action: "submit" | "approve" | "reject" | "effective"): string {

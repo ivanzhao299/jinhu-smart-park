@@ -28,6 +28,15 @@ export class TenantEntity {
   @Column({ name: "contact_mobile", type: "varchar", length: 32, nullable: true })
   contactMobile!: string | null;
 
+  @Column({ name: "contact_user_id", type: "uuid", nullable: true })
+  contactUserId!: string | null;
+
+  @Column({ name: "websites", type: "jsonb", default: [] })
+  websites!: string[];
+
+  @Column({ name: "domains", type: "jsonb", default: [] })
+  domains!: string[];
+
   @Column({ name: "status", type: "integer", default: 1 })
   status!: number;
 
@@ -42,6 +51,9 @@ export class TenantEntity {
 
   @Column({ name: "plan_code", type: "varchar", length: 64, nullable: true })
   planCode!: string | null;
+
+  @Column({ name: "feature_config", type: "jsonb", default: {} })
+  featureConfig!: Record<string, unknown>;
 
   @Column({ name: "create_by", type: "varchar", length: 64, nullable: true })
   createBy!: string | null;

@@ -1,6 +1,7 @@
 "use client";
+import { DataTable, Card } from "@jinhu/ui";
 
-import { BarChart3, CircleDollarSign, RefreshCw, Search, Target, TrendingUp, UserCheck, Users } from "lucide-react";
+import { BarChart3, RefreshCw, Search, Target, UserCheck, Users } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -145,7 +146,7 @@ export default function LeasingFunnelPage() {
     <PermissionGuard module={LEASING_MODULE} fallback={<ModuleUnauthorizedInline />}>
       <PermissionGuard permission={LEAD_READ_PERMISSION} module={LEASING_MODULE} fallback={<ForbiddenInline />}>
         <PermissionGuard permission={FUNNEL_PERMISSION} module={LEASING_MODULE} fallback={<ForbiddenInline />}>
-          <main className="page-container">
+          <main className="page-container funnel-page">
             <section className="page-header">
               <div className="header-title">
                 <strong>招商漏斗</strong>
@@ -157,9 +158,9 @@ export default function LeasingFunnelPage() {
               </button>
             </section>
 
-            <section className="filter-bar">
-              <form className="form-stack" onSubmit={submit}>
-                <div className="system-grid-three">
+            <section className="filter-bar funnel-filter">
+              <form className="funnel-filter-form" onSubmit={submit}>
+                <div className="funnel-filter-grid">
                   <DateField label="开始日期" value={filters.startDate} onChange={(value) => updateFilter("startDate", value)} />
                   <DateField label="结束日期" value={filters.endDate} onChange={(value) => updateFilter("endDate", value)} />
                   <UserField users={users} value={filters.followUserId} onChange={(value) => updateFilter("followUserId", value)} />
@@ -177,25 +178,35 @@ export default function LeasingFunnelPage() {
 
             {message ? <p className="status-pill">{message}</p> : null}
 
-            <section className="page-content dashboard-grid">
-              <MetricCard icon={<Users size={18} />} label="总线索" value={formatCount(stats.summary.total_leads)} />
-              <MetricCard icon={<Target size={18} />} label="有效线索" value={formatCount(stats.summary.valid_leads)} />
-              <MetricCard icon={<UserCheck size={18} />} label="已看房" value={formatCount(stats.summary.visited_count)} />
-              <MetricCard icon={<CircleDollarSign size={18} />} label="已报价" value={formatCount(stats.summary.quoted_count)} />
-              <MetricCard icon={<TrendingUp size={18} />} label="商务谈判" value={formatCount(stats.summary.negotiating_count)} />
-              <MetricCard icon={<BarChart3 size={18} />} label="已签约" value={formatCount(stats.summary.signed_count)} />
-              <MetricCard icon={<CircleDollarSign size={18} />} label="签约面积" value={formatArea(stats.summary.signed_area)} />
-              <MetricCard icon={<Target size={18} />} label="流失" value={formatCount(stats.summary.lost_count)} />
+            <section className="funnel-kpi-grid">
+              <FunnelKpiCard icon={<Users size={18} />} label="总线索" value={formatCount(stats.summary.total_leads)} helper="全部招商线索" />
+              <FunnelKpiCard icon={<Target size={18} />} label="有效线索" value={formatCount(stats.summary.valid_leads)} helper={`占比 ${formatPercent(ratio(stats.summary.valid_leads, stats.summary.total_leads))}`} />
+              <FunnelKpiCard icon={<UserCheck size={18} />} label="已看房" value={formatCount(stats.summary.visited_count)} helper={`看房率 ${formatPercent(stats.summary.visit_rate)}`} />
+              <FunnelKpiCard icon={<BarChart3 size={18} />} label="已签约" value={formatCount(stats.summary.signed_count)} helper={`签约面积 ${formatArea(stats.summary.signed_area)}`} emphasis />
             </section>
 
-            <section className="page-content dashboard-grid">
-              <MetricCard icon={<TrendingUp size={18} />} label="看房率" value={formatPercent(stats.summary.visit_rate)} />
-              <MetricCard icon={<TrendingUp size={18} />} label="报价率" value={formatPercent(stats.summary.quote_rate)} />
-              <MetricCard icon={<TrendingUp size={18} />} label="签约率" value={formatPercent(stats.summary.sign_rate)} />
+            <section className="funnel-rate-strip">
+              <RateCard label="报价率" value={formatPercent(stats.summary.quote_rate)} count={`${formatCount(stats.summary.quoted_count)} 条报价`} />
+              <RateCard label="谈判中" value={formatCount(stats.summary.negotiating_count)} count="商务谈判阶段" />
+              <RateCard label="签约率" value={formatPercent(stats.summary.sign_rate)} count={`${formatCount(stats.summary.signed_count)} 条签约`} />
+              <RateCard label="流失" value={formatCount(stats.summary.lost_count)} count="需复盘原因" muted />
+            </section>
+
+            <section className="funnel-main-grid">
+              <FunnelStagePanel summary={stats.summary} />
+              <DistributionPanel
+                title="来源分布"
+                rows={stats.by_source.map((item) => ({
+                  key: item.source ?? "empty",
+                  label: item.source_name || labelFor(sourceItems, item.source),
+                  count: item.count,
+                  percent: item.count / maxSourceCount
+                }))}
+              />
             </section>
 
             <DistributionPanel
-              title="阶段分布"
+              title="阶段明细"
               rows={stats.by_status.map((item) => ({
                 key: item.status,
                 label: <span className="status-pill">{item.status_name}</span>,
@@ -204,66 +215,58 @@ export default function LeasingFunnelPage() {
               }))}
             />
 
-            <DistributionPanel
-              title="来源分布"
-              rows={stats.by_source.map((item) => ({
-                key: item.source ?? "empty",
-                label: item.source_name || labelFor(sourceItems, item.source),
-                count: item.count,
-                percent: item.count / maxSourceCount
-              }))}
-            />
-
-            <section className="page-content table-scroll">
-              <h2 className="panel-title">流失原因排行</h2>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>流失原因</th>
-                    <th>线索数</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.lost_reasons.length === 0 ? (
+            <section className="funnel-table-grid">
+              <Card className="funnel-table-card table-scroll">
+                <h2 className="panel-title">流失原因排行</h2>
+                <DataTable >
+                  <thead>
                     <tr>
-                      <td colSpan={2}>暂无流失原因数据</td>
+                      <th>流失原因</th>
+                      <th>线索数</th>
                     </tr>
-                  ) : stats.lost_reasons.map((item) => (
-                    <tr key={item.lost_reason}>
-                      <td>{item.lost_reason_name}</td>
-                      <td>{formatCount(item.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+                  </thead>
+                  <tbody>
+                    {stats.lost_reasons.length === 0 ? (
+                      <tr>
+                        <td colSpan={2}>暂无流失原因数据</td>
+                      </tr>
+                    ) : stats.lost_reasons.map((item) => (
+                      <tr key={item.lost_reason}>
+                        <td>{item.lost_reason_name}</td>
+                        <td>{formatCount(item.count)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              </Card>
 
-            <section className="page-content table-scroll">
-              <h2 className="panel-title">跟进人统计</h2>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>跟进人</th>
-                    <th>线索数</th>
-                    <th>已签约</th>
-                    <th>签约率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.by_follow_user.length === 0 ? (
+              <Card className="funnel-table-card table-scroll">
+                <h2 className="panel-title">跟进人统计</h2>
+                <DataTable >
+                  <thead>
                     <tr>
-                      <td colSpan={4}>暂无跟进人统计数据</td>
+                      <th>跟进人</th>
+                      <th>线索数</th>
+                      <th>已签约</th>
+                      <th>签约率</th>
                     </tr>
-                  ) : stats.by_follow_user.map((item) => (
-                    <tr key={item.follow_user_id ?? "empty"}>
-                      <td>{item.follow_user_name}</td>
-                      <td>{formatCount(item.count)}</td>
-                      <td>{formatCount(item.signed_count)}</td>
-                      <td>{formatPercent(item.count > 0 ? item.signed_count / item.count : 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {stats.by_follow_user.length === 0 ? (
+                      <tr>
+                        <td colSpan={4}>暂无跟进人统计数据</td>
+                      </tr>
+                    ) : stats.by_follow_user.map((item) => (
+                      <tr key={item.follow_user_id ?? "empty"}>
+                        <td>{item.follow_user_name}</td>
+                        <td>{formatCount(item.count)}</td>
+                        <td>{formatCount(item.signed_count)}</td>
+                        <td>{formatPercent(item.count > 0 ? item.signed_count / item.count : 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              </Card>
             </section>
           </main>
         </PermissionGuard>
@@ -272,15 +275,69 @@ export default function LeasingFunnelPage() {
   );
 }
 
-function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function FunnelKpiCard({
+  icon,
+  label,
+  value,
+  helper,
+  emphasis = false
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  helper: string;
+  emphasis?: boolean;
+}) {
   return (
-    <section className="metric-card">
-      <div className="task-item">
-        <span>{icon}</span>
+    <section className={`funnel-kpi-card${emphasis ? " funnel-kpi-card-emphasis" : ""}`}>
+      <div className="funnel-kpi-header">
+        <span className="funnel-kpi-icon">{icon}</span>
         <span>{label}</span>
       </div>
-      <strong className="metric-value">{value}</strong>
+      <strong>{value}</strong>
+      <span>{helper}</span>
     </section>
+  );
+}
+
+function RateCard({ label, value, count, muted = false }: { label: string; value: string; count: string; muted?: boolean }) {
+  return (
+    <section className={`funnel-rate-card${muted ? " funnel-rate-muted" : ""}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <em>{count}</em>
+    </section>
+  );
+}
+
+function FunnelStagePanel({ summary }: { summary: LeasingFunnelStatistics["summary"] }) {
+  const stages = [
+    { key: "total", label: "总线索", value: summary.total_leads, helper: "线索入口" },
+    { key: "valid", label: "有效线索", value: summary.valid_leads, helper: "可继续推进" },
+    { key: "visited", label: "已看房", value: summary.visited_count, helper: `看房率 ${formatPercent(summary.visit_rate)}` },
+    { key: "quoted", label: "已报价", value: summary.quoted_count, helper: `报价率 ${formatPercent(summary.quote_rate)}` },
+    { key: "negotiating", label: "商务谈判", value: summary.negotiating_count, helper: "价格与条款沟通" },
+    { key: "signed", label: "已签约", value: summary.signed_count, helper: `签约率 ${formatPercent(summary.sign_rate)}` }
+  ];
+  const maxValue = Math.max(1, summary.total_leads, ...stages.map((stage) => stage.value));
+
+  return (
+    <Card className="funnel-stage-panel">
+      <div className="funnel-panel-header">
+        <h2 className="panel-title">招商阶段漏斗</h2>
+        <span>从线索进入到签约转化</span>
+      </div>
+      <div className="funnel-stage-list">
+        {stages.map((stage) => (
+          <div className="funnel-stage-row" key={stage.key}>
+            <span>{stage.label}</span>
+            <strong>{formatCount(stage.value)}</strong>
+            <progress className="funnel-stage-progress" value={(stage.value / maxValue) * 100} max={100} />
+            <em>{stage.helper}</em>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -292,19 +349,22 @@ function DistributionPanel({
   rows: Array<{ key: string; label: ReactNode; count: number; percent: number }>;
 }) {
   return (
-    <section className="page-content">
-      <h2 className="panel-title">{title}</h2>
-      <div className="form-stack">
+    <Card className="funnel-distribution-panel">
+      <div className="funnel-panel-header">
+        <h2 className="panel-title">{title}</h2>
+        <span>{rows.length > 0 ? `${rows.length} 项` : "暂无数据"}</span>
+      </div>
+      <div className="funnel-bar-list">
         {rows.map((row) => (
-          <div className="task-item" key={row.key}>
+          <div className="funnel-bar-row" key={row.key}>
             <span>{row.label}</span>
             <strong>{formatCount(row.count)} 条</strong>
-            <progress className="asset-progress" value={row.percent * 100} max={100} />
+            <progress className="funnel-mini-progress" value={row.percent * 100} max={100} />
           </div>
         ))}
-        {rows.length === 0 ? <span>暂无统计数据</span> : null}
+        {rows.length === 0 ? <span className="muted-text">暂无统计数据</span> : null}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -380,13 +440,17 @@ function formatPercent(value: number): string {
   return `${(Number(value || 0) * 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
+function ratio(value: number, total: number): number {
+  return total > 0 ? value / total : 0;
+}
+
 function ForbiddenInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h2>403</h2>
         <p className="muted-text">当前账号没有访问招商漏斗统计的权限。</p>
-      </section>
+      </Card>
     </main>
   );
 }
@@ -394,10 +458,10 @@ function ForbiddenInline() {
 function ModuleUnauthorizedInline() {
   return (
     <main className="page-container">
-      <section className="page-content">
+      <Card >
         <h2>模块未授权</h2>
         <p className="muted-text">当前租户未启用 leasing 模块。</p>
-      </section>
+      </Card>
     </main>
   );
 }
