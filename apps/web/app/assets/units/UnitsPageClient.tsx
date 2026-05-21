@@ -103,6 +103,57 @@ interface UnitStatusLogRow {
   opTime: string;
 }
 
+interface UnitWorkOrderRow {
+  id: string;
+  wo_code: string;
+  title: string;
+  wo_type: string;
+  priority: string;
+  urgency: string | null;
+  status: string;
+  location: string | null;
+  reporter_name: string | null;
+  reporter_mobile?: string | null;
+  assignee_name: string | null;
+  overdue_flag: boolean;
+  create_time: string;
+  update_time: string;
+}
+
+interface UnitWorkOrdersResponse {
+  summary: {
+    total_count: number;
+    open_count: number;
+    overdue_count: number;
+  };
+  recent_items: UnitWorkOrderRow[];
+}
+
+interface UnitHazardRow {
+  id: string;
+  hazard_code: string;
+  title: string;
+  hazard_type: string | null;
+  risk_level: string | null;
+  source_type: string;
+  status: string;
+  location: string;
+  rectify_user_name: string | null;
+  rectify_deadline: string | null;
+  overdue_flag: boolean;
+  update_time: string;
+}
+
+interface UnitHazardsResponse {
+  summary: {
+    total_count: number;
+    open_count: number;
+    overdue_count: number;
+    major_count: number;
+  };
+  recent_items: UnitHazardRow[];
+}
+
 interface ImportResult {
   total: number;
   success_count: number;
@@ -229,7 +280,18 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     setBuildings(buildingResponse.data.items);
     setFloors(floorResponse.data.items);
 
-    const dictCodes = ["unit_usage_type", "unit_rental_status", "unit_fitting_status"];
+    const dictCodes = [
+      "unit_usage_type",
+      "unit_rental_status",
+      "unit_fitting_status",
+      "workorder_status",
+      "workorder_type",
+      "workorder_priority",
+      "safety_hazard_status",
+      "safety_hazard_type",
+      "safety_risk_level",
+      "safety_hazard_source_type"
+    ];
     const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const dictEntries = await Promise.all(
       dictCodes.map(async (code) => {
@@ -823,9 +885,50 @@ function UnitDetailDrawer({
   onOpenStatusLogs: () => void;
 }) {
   const authUser = useAuthUser();
+  const [activeTab, setActiveTab] = useState<"info" | "workorders" | "hazards">("info");
+  const [workorders, setWorkorders] = useState<UnitWorkOrdersResponse | null>(null);
+  const [workordersLoading, setWorkordersLoading] = useState(false);
+  const [workordersError, setWorkordersError] = useState("");
+  const [hazards, setHazards] = useState<UnitHazardsResponse | null>(null);
+  const [hazardsLoading, setHazardsLoading] = useState(false);
+  const [hazardsError, setHazardsError] = useState("");
   const canViewRefPrice = canViewField(authUser, "asset", "unit", UNIT_FIELD_REF_PRICE);
   const canViewRemark = canViewField(authUser, "asset", "unit", UNIT_FIELD_REMARK);
   const canViewPhotoUrls = canViewField(authUser, "asset", "unit", UNIT_FIELD_PHOTO_URLS);
+  const canViewWorkOrderReporterMobile = canViewField(authUser, "workorder", "work_order", "reporterMobile");
+
+  useEffect(() => {
+    setActiveTab("info");
+    setWorkorders(null);
+    setWorkordersError("");
+    setHazards(null);
+    setHazardsError("");
+  }, [unit.id]);
+
+  useEffect(() => {
+    if (activeTab !== "workorders" || workorders) {
+      return;
+    }
+    setWorkordersLoading(true);
+    setWorkordersError("");
+    void apiRequest<UnitWorkOrdersResponse>(`/park-units/${unit.id}/workorders`, { token: getAccessToken() })
+      .then((response) => setWorkorders(response.data))
+      .catch((error: Error) => setWorkordersError(error.message))
+      .finally(() => setWorkordersLoading(false));
+  }, [activeTab, unit.id, workorders]);
+
+  useEffect(() => {
+    if (activeTab !== "hazards" || hazards) {
+      return;
+    }
+    setHazardsLoading(true);
+    setHazardsError("");
+    void apiRequest<UnitHazardsResponse>(`/park-units/${unit.id}/hazards`, { token: getAccessToken() })
+      .then((response) => setHazards(response.data))
+      .catch((error: Error) => setHazardsError(error.message))
+      .finally(() => setHazardsLoading(false));
+  }, [activeTab, unit.id, hazards]);
+
   return (
     <Drawer size="md" onClose={onClose}>
       <DrawerHeader
@@ -845,28 +948,191 @@ function UnitDetailDrawer({
         {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
         <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
       </DrawerActions>
-      <DrawerDetailGrid>
-        <DrawerDetailItem label="房源编码" value={unit.unitCode} />
-        <DrawerDetailItem label="房源名称" value={unit.unitName} />
-        <DrawerDetailItem label="楼栋" value={unit.building ? `${unit.building.buildingCode} ${unit.building.buildingName}` : "-"} />
-        <DrawerDetailItem label="楼层" value={unit.floor ? `${unit.floor.floorCode} ${unit.floor.floorName}` : "-"} />
-        <DrawerDetailItem label="用途" value={dictLabel(dicts.unit_usage_type, unit.usageType)} />
-        <DrawerDetailItem label="建筑面积" value={formatArea(unit.unitArea)} />
-        <DrawerDetailItem label="使用面积" value={formatArea(unit.useArea)} />
-        <DrawerDetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} />} />
-        <DrawerDetailItem label="状态更新时间" value={unit.statusUpdateTime ? formatDateTime(unit.statusUpdateTime) : "-"} />
-        <DrawerDetailItem label="锁定原因" value={unit.lockReason ?? "-"} />
-        <DrawerDetailItem label="锁定到期" value={unit.lockExpireTime ? formatDateTime(unit.lockExpireTime) : "-"} />
-        <DrawerDetailItem label="装修状态" value={<DictBadge items={dicts.unit_fitting_status} value={unit.fittingStatus} />} />
-        {canViewRefPrice ? <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.refPrice))} /> : null}
-        <DrawerDetailItem label="可租日期" value={unit.availableDate ?? "-"} />
-        <DrawerDetailItem label="状态" value={<StatusBadge status={unit.status} />} />
-        {canViewRemark ? <DrawerDetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
-      </DrawerDetailGrid>
+      <div className="system-tabs">
+        <button className={activeTab === "info" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("info")}>基础信息</button>
+        <button className={activeTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workorders")}>关联工单</button>
+        <button className={activeTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("hazards")}>安全隐患</button>
+      </div>
+      {activeTab === "info" ? (
+        <DrawerDetailGrid>
+          <DrawerDetailItem label="房源编码" value={unit.unitCode} />
+          <DrawerDetailItem label="房源名称" value={unit.unitName} />
+          <DrawerDetailItem label="楼栋" value={unit.building ? `${unit.building.buildingCode} ${unit.building.buildingName}` : "-"} />
+          <DrawerDetailItem label="楼层" value={unit.floor ? `${unit.floor.floorCode} ${unit.floor.floorName}` : "-"} />
+          <DrawerDetailItem label="用途" value={dictLabel(dicts.unit_usage_type, unit.usageType)} />
+          <DrawerDetailItem label="建筑面积" value={formatArea(unit.unitArea)} />
+          <DrawerDetailItem label="使用面积" value={formatArea(unit.useArea)} />
+          <DrawerDetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} />} />
+          <DrawerDetailItem label="状态更新时间" value={unit.statusUpdateTime ? formatDateTime(unit.statusUpdateTime) : "-"} />
+          <DrawerDetailItem label="锁定原因" value={unit.lockReason ?? "-"} />
+          <DrawerDetailItem label="锁定到期" value={unit.lockExpireTime ? formatDateTime(unit.lockExpireTime) : "-"} />
+          <DrawerDetailItem label="装修状态" value={<DictBadge items={dicts.unit_fitting_status} value={unit.fittingStatus} />} />
+          {canViewRefPrice ? <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.refPrice))} /> : null}
+          <DrawerDetailItem label="可租日期" value={unit.availableDate ?? "-"} />
+          <DrawerDetailItem label="状态" value={<StatusBadge status={unit.status} />} />
+          {canViewRemark ? <DrawerDetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
+        </DrawerDetailGrid>
+      ) : null}
+      {activeTab === "workorders" ? (
+        <UnitWorkordersPanel
+          data={workorders}
+          loading={workordersLoading}
+          error={workordersError}
+          dicts={dicts}
+          authUser={authUser}
+          canViewReporterMobile={canViewWorkOrderReporterMobile}
+        />
+      ) : null}
+      {activeTab === "hazards" ? (
+        <UnitHazardsPanel
+          data={hazards}
+          loading={hazardsLoading}
+          error={hazardsError}
+          dicts={dicts}
+        />
+      ) : null}
       <DrawerFooter>
         <button type="button" onClick={onClose}>关闭</button>
       </DrawerFooter>
     </Drawer>
+  );
+}
+
+function UnitWorkordersPanel({
+  data,
+  loading,
+  error,
+  dicts,
+  authUser,
+  canViewReporterMobile
+}: {
+  data: UnitWorkOrdersResponse | null;
+  loading: boolean;
+  error: string;
+  dicts: Record<string, DictItemRow[]>;
+  authUser: UserContext | null;
+  canViewReporterMobile: boolean;
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载工单数据...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>工单总数</span></Card>
+        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
+        <Card><strong>{data?.summary.overdue_count ?? 0}</strong><span>超时</span></Card>
+      </div>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>工单编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>优先级</th>
+            <th>状态</th>
+            <th>报告人</th>
+            <th>处理人</th>
+            <th>超时</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.wo_code}</td>
+              <td>{row.title}</td>
+              <td>{dictLabelText(dicts.workorder_type, row.wo_type)}</td>
+              <td><StringDictBadge items={dicts.workorder_priority} value={row.priority} /></td>
+              <td><StringDictBadge items={dicts.workorder_status} value={row.status} /></td>
+              <td>
+                {fieldText(row.reporter_name)}
+                {canViewReporterMobile ? ` / ${fieldText(maskField(authUser, "workorder", "work_order", "reporterMobile", row.reporter_mobile))}` : ""}
+              </td>
+              <td>{fieldText(row.assignee_name)}</td>
+              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超时" : "正常"}</span></td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/workorders/${row.id}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={9}>暂无关联工单</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function UnitHazardsPanel({
+  data,
+  loading,
+  error,
+  dicts
+}: {
+  data: UnitHazardsResponse | null;
+  loading: boolean;
+  error: string;
+  dicts: Record<string, DictItemRow[]>;
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载隐患数据...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>隐患总数</span></Card>
+        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
+        <Card><strong>{data?.summary.overdue_count ?? 0}</strong><span>超期</span></Card>
+        <Card><strong>{data?.summary.major_count ?? 0}</strong><span>重大隐患</span></Card>
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>隐患编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>风险</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>整改人</th>
+            <th>超期</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.hazard_code}</td>
+              <td>{row.title}</td>
+              <td>{dictLabelText(dicts.safety_hazard_type, row.hazard_type)}</td>
+              <td><StringDictBadge items={dicts.safety_risk_level} value={row.risk_level} /></td>
+              <td><StringDictBadge items={dicts.safety_hazard_status} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{fieldText(row.rectify_user_name)}</td>
+              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超期" : "正常"}</span></td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(row.id)}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={9}>暂无关联隐患</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
   );
 }
 
@@ -979,6 +1245,11 @@ function DictBadge({ items = [], value }: { items?: DictItemRow[]; value: number
   return <span className="status-pill">{item?.itemLabel ?? value}</span>;
 }
 
+function StringDictBadge({ items = [], value }: { items?: DictItemRow[]; value: string | null }) {
+  const item = items.find((option) => option.itemValue === value);
+  return <span className={`status-pill ${dictStatusClass(item?.tagType)}`}>{item?.itemLabel ?? value ?? "-"}</span>;
+}
+
 function StatusBadge({ status }: { status: EnabledStatus }) {
   const option = status === 1
     ? { label: "启用", className: "status-success" }
@@ -988,6 +1259,17 @@ function StatusBadge({ status }: { status: EnabledStatus }) {
 
 function dictLabel(items: DictItemRow[] | undefined, value: number): string {
   return items?.find((item) => Number(item.itemValue) === value)?.itemLabel ?? String(value);
+}
+
+function dictLabelText(items: DictItemRow[] | undefined, value: string | null): string {
+  return items?.find((item) => item.itemValue === value)?.itemLabel ?? value ?? "-";
+}
+
+function dictStatusClass(tagType?: string | null): string {
+  if (tagType === "success" || tagType === "warning" || tagType === "danger" || tagType === "primary" || tagType === "info") {
+    return `status-${tagType}`;
+  }
+  return "status-muted";
 }
 
 function getTransitionOptions(currentStatus: number, items: DictItemRow[] | undefined, canForceChangeStatus: boolean): DictItemRow[] {

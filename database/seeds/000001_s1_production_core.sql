@@ -307,6 +307,32 @@ leaf_permissions(code, name, resource, action) AS (
     ('invest:read', '招商租赁读取', 'leasing', 'read'),
     ('ar:read', '应收读取', 'leasing.receivable', 'read'),
     ('wo:read', '工单读取', 'workorder', 'read'),
+    ('workorder:read', '工单读取', 'biz.work_order', 'read'),
+    ('workorder:create', '新增工单', 'biz.work_order', 'create'),
+    ('workorder:update', '编辑工单', 'biz.work_order', 'update'),
+    ('workorder:delete', '删除工单', 'biz.work_order', 'delete'),
+    ('workorder:assign', '工单派单', 'biz.work_order', 'assign'),
+    ('workorder:reassign', '工单改派', 'biz.work_order', 'reassign'),
+    ('workorder:accept', '工单接单', 'biz.work_order', 'accept'),
+    ('workorder:start', '开始处理工单', 'biz.work_order', 'start'),
+    ('workorder:wait_material', '工单待物料', 'biz.work_order', 'wait_material'),
+    ('workorder:finish', '完成处理工单', 'biz.work_order', 'finish'),
+    ('workorder:confirm', '工单确认完成', 'biz.work_order', 'confirm'),
+    ('workorder:evaluate', '工单评价', 'biz.work_order', 'evaluate'),
+    ('workorder:close', '工单关闭', 'biz.work_order', 'close'),
+    ('workorder:cancel', '工单取消', 'biz.work_order', 'cancel'),
+    ('workorder:return', '工单退回', 'biz.work_order', 'return'),
+    ('workorder:reject', '工单驳回', 'biz.work_order', 'reject'),
+    ('workorder_sla:read', '工单 SLA 规则读取', 'biz.work_order_sla_rule', 'read'),
+    ('workorder_sla:create', '新增工单 SLA 规则', 'biz.work_order_sla_rule', 'create'),
+    ('workorder_sla:update', '编辑工单 SLA 规则', 'biz.work_order_sla_rule', 'update'),
+    ('workorder_sla:delete', '删除工单 SLA 规则', 'biz.work_order_sla_rule', 'delete'),
+    ('workorder:recalculate_overdue', '重算工单超时', 'biz.work_order', 'recalculate_overdue'),
+    ('workorder:overdue', '超时工单读取', 'biz.work_order', 'overdue'),
+    ('workorder:stats', '工单统计', 'biz.work_order', 'stats'),
+    ('workorder_log:read', '工单日志读取', 'biz.work_order_log', 'read'),
+    ('workorder_log:create', '新增工单日志', 'biz.work_order_log', 'create'),
+    ('workorder:manage_all', '管理全部工单', 'biz.work_order', 'manage_all'),
     ('iot:read', 'IoT 平台读取', 'iot', 'read'),
     ('energy:read', '能耗读取', 'energy', 'read'),
     ('robot:read', '机器人运营读取', 'robot', 'read'),
@@ -353,7 +379,11 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('leasing:waiver', '豁免管理', 'leasing', 'leasing.waiver', 'page', 'page', 20, 50),
     ('leasing:invoice', '发票登记', 'leasing', 'leasing.invoice', 'page', 'page', 20, 55),
     ('workorder', '工单管理', NULL, 'workorder', 'menu', 'menu', 10, 40),
-    ('workorder:center', '工单中心', 'workorder', 'workorder.center', 'page', 'page', 20, 10),
+    ('workorder:center', '工单看板', 'workorder', 'workorder.center', 'page', 'page', 20, 10),
+    ('workorder:list-page', '工单列表', 'workorder', 'workorder.list', 'page', 'page', 20, 15),
+    ('workorder:sla-rules', 'SLA 规则', 'workorder', 'workorder.sla_rules', 'page', 'page', 20, 20),
+    ('workorder:overdue-page', '超时工单', 'workorder', 'workorder.overdue', 'page', 'page', 20, 30),
+    ('workorder:stats-page', '工单统计', 'workorder', 'workorder.stats', 'page', 'page', 20, 40),
     ('iot', 'IoT 平台', NULL, 'iot', 'menu', 'menu', 10, 50),
     ('iot:overview', 'IoT 总览', 'iot', 'iot.overview', 'page', 'page', 20, 10),
     ('energy', '能耗管理', NULL, 'energy', 'menu', 'menu', 10, 60),
@@ -426,7 +456,10 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code LIKE 'leasing_payment:%' THEN 'leasing:payment'
       WHEN leaf_permissions.code LIKE 'leasing_waiver:%' THEN 'leasing:waiver'
       WHEN leaf_permissions.code LIKE 'leasing_invoice:%' THEN 'leasing:invoice'
-      WHEN leaf_permissions.code = 'wo:read' THEN 'workorder:center'
+      WHEN leaf_permissions.code LIKE 'workorder_sla:%' THEN 'workorder:sla-rules'
+      WHEN leaf_permissions.code IN ('workorder:recalculate_overdue', 'workorder:overdue') THEN 'workorder:overdue-page'
+      WHEN leaf_permissions.code = 'workorder:stats' THEN 'workorder:stats-page'
+      WHEN leaf_permissions.code = 'wo:read' OR leaf_permissions.code LIKE 'workorder:%' OR leaf_permissions.code LIKE 'workorder_log:%' THEN 'workorder:center'
       WHEN leaf_permissions.code = 'iot:read' THEN 'iot:overview'
       WHEN leaf_permissions.code = 'energy:read' THEN 'energy:overview'
       WHEN leaf_permissions.code = 'robot:read' THEN 'robot:overview'
@@ -558,6 +591,10 @@ upsert_permissions AS (
       WHEN 'leasing:waiver' THEN '/leasing/waivers'
       WHEN 'leasing:invoice' THEN '/leasing/invoices'
       WHEN 'workorder:center' THEN '/workorders'
+      WHEN 'workorder:list-page' THEN '/workorders/list'
+      WHEN 'workorder:sla-rules' THEN '/workorders/sla-rules'
+      WHEN 'workorder:overdue-page' THEN '/workorders/overdue'
+      WHEN 'workorder:stats-page' THEN '/workorders/stats'
       WHEN 'iot:overview' THEN '/iot/overview'
       WHEN 'energy:overview' THEN '/energy/overview'
       WHEN 'robot:overview' THEN '/robots/overview'
@@ -691,7 +728,7 @@ permission_parent_map AS (
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
-      WHEN child.code = 'workorder:center' THEN 'workorder'
+      WHEN child.code IN ('workorder:center', 'workorder:list-page', 'workorder:sla-rules', 'workorder:overdue-page', 'workorder:stats-page') THEN 'workorder'
       WHEN child.code = 'iot:overview' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
       WHEN child.code = 'robot:overview' THEN 'robot'
@@ -748,7 +785,10 @@ permission_parent_map AS (
       WHEN child.code LIKE 'leasing_payment:%' THEN 'leasing:payment'
       WHEN child.code LIKE 'leasing_waiver:%' THEN 'leasing:waiver'
       WHEN child.code LIKE 'leasing_invoice:%' THEN 'leasing:invoice'
-      WHEN child.code = 'wo:read' THEN 'workorder:center'
+      WHEN child.code LIKE 'workorder_sla:%' THEN 'workorder:sla-rules'
+      WHEN child.code IN ('workorder:recalculate_overdue', 'workorder:overdue') THEN 'workorder:overdue-page'
+      WHEN child.code = 'workorder:stats' THEN 'workorder:stats-page'
+      WHEN child.code = 'wo:read' OR child.code LIKE 'workorder:%' OR child.code LIKE 'workorder_log:%' THEN 'workorder:center'
       WHEN child.code = 'iot:read' THEN 'iot:overview'
       WHEN child.code = 'energy:read' THEN 'energy:overview'
       WHEN child.code = 'robot:read' THEN 'robot:overview'
@@ -940,7 +980,15 @@ field_policies(module, entity, field_key, field_name, policy_type, mask_rule, re
     ('leasing', 'leasing_invoice', 'buyerTaxNo', '购方税号', 'masked', 'custom', 'leasing invoice buyerTaxNo default field policy'),
     ('leasing', 'leasing_invoice', 'amount', '发票金额', 'masked', 'amount', 'leasing invoice amount default field policy'),
     ('leasing', 'leasing_invoice', 'file_id', '发票附件 ID', 'visible', 'file_name', 'leasing invoice file id default field policy'),
-    ('leasing', 'leasing_invoice', 'fileId', '发票附件 ID', 'visible', 'file_name', 'leasing invoice fileId default field policy')
+    ('leasing', 'leasing_invoice', 'fileId', '发票附件 ID', 'visible', 'file_name', 'leasing invoice fileId default field policy'),
+    ('workorder', 'work_order', 'reporter_mobile', '报修人手机号', 'masked', 'mobile', 'work order reporter mobile default field policy'),
+    ('workorder', 'work_order', 'reporterMobile', '报修人手机号', 'masked', 'mobile', 'work order reporterMobile default field policy'),
+    ('workorder', 'work_order', 'description', '工单描述', 'visible', NULL, 'work order description default field policy'),
+    ('workorder', 'work_order', 'image_file_ids', '工单图片附件', 'visible', NULL, 'work order image file ids default field policy'),
+    ('workorder', 'work_order', 'imageFileIds', '工单图片附件', 'visible', NULL, 'work order imageFileIds default field policy'),
+    ('workorder', 'work_order', 'video_file_ids', '工单视频附件', 'visible', NULL, 'work order video file ids default field policy'),
+    ('workorder', 'work_order', 'videoFileIds', '工单视频附件', 'visible', NULL, 'work order videoFileIds default field policy'),
+    ('workorder', 'work_order', 'evaluation', '工单评价', 'visible', NULL, 'work order evaluation default field policy')
 )
 INSERT INTO sys_field_policy (
   tenant_id,
@@ -990,7 +1038,9 @@ WITH seed_scope AS (
     '00000000-0000-4000-8000-000000002105'::uuid AS safety_manager_role_id,
     '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id,
     '00000000-0000-4000-8000-000000002107'::uuid AS finance_manager_role_id,
-    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id
+    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id,
+    '00000000-0000-4000-8000-000000002109'::uuid AS property_staff_role_id,
+    '00000000-0000-4000-8000-000000002110'::uuid AS maintenance_engineer_role_id
 ),
 default_park AS (
   INSERT INTO sys_org (
@@ -1068,6 +1118,12 @@ roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, rema
   SELECT property_manager_role_id, 'PROPERTY_MANAGER', '物业主管', 'park', 'park', 'park', false, 90, 'Default property manager role template.'
   FROM seed_scope
   UNION ALL
+  SELECT property_staff_role_id, 'PROPERTY_STAFF', '物业专员/派单员', 'park', 'park', 'park', false, 95, 'Default property staff and dispatcher role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT maintenance_engineer_role_id, 'MAINTENANCE_ENGINEER', '维修工程师', 'park', 'park', 'self', false, 98, 'Default maintenance engineer role template.'
+  FROM seed_scope
+  UNION ALL
   SELECT finance_manager_role_id, 'FINANCE_MANAGER', '财务主管', 'park', 'park', 'park', false, 100, 'Default finance manager role template.'
   FROM seed_scope
   UNION ALL
@@ -1143,7 +1199,9 @@ WITH seed_scope AS (
     '00000000-0000-4000-8000-000000002105'::uuid AS safety_manager_role_id,
     '00000000-0000-4000-8000-000000002106'::uuid AS property_manager_role_id,
     '00000000-0000-4000-8000-000000002107'::uuid AS finance_manager_role_id,
-    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id
+    '00000000-0000-4000-8000-000000002108'::uuid AS finance_specialist_role_id,
+    '00000000-0000-4000-8000-000000002109'::uuid AS property_staff_role_id,
+    '00000000-0000-4000-8000-000000002110'::uuid AS maintenance_engineer_role_id
 ),
 roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, remark) AS (
   SELECT super_admin_role_id, 'SUPER_ADMIN', '超级管理员', 'system', 'platform', 'all', true, 10, 'Built-in super administrator role template. Assign to a real user after secure account provisioning.'
@@ -1171,6 +1229,12 @@ roles(id, code, name, role_type, role_scope, data_scope, is_super, sort_no, rema
   FROM seed_scope
   UNION ALL
   SELECT property_manager_role_id, 'PROPERTY_MANAGER', '物业主管', 'park', 'park', 'park', false, 90, 'Default property manager role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT property_staff_role_id, 'PROPERTY_STAFF', '物业专员/派单员', 'park', 'park', 'park', false, 95, 'Default property staff and dispatcher role template.'
+  FROM seed_scope
+  UNION ALL
+  SELECT maintenance_engineer_role_id, 'MAINTENANCE_ENGINEER', '维修工程师', 'park', 'park', 'self', false, 98, 'Default maintenance engineer role template.'
   FROM seed_scope
   UNION ALL
   SELECT finance_manager_role_id, 'FINANCE_MANAGER', '财务主管', 'park', 'park', 'park', false, 100, 'Default finance manager role template.'
@@ -1242,6 +1306,8 @@ role_rule_codes(role_code, rule_code) AS (
     ('INVEST_SPECIALIST', 'self_contract_owner'),
     ('SAFETY_MANAGER', 'current_park'),
     ('PROPERTY_MANAGER', 'current_park'),
+    ('PROPERTY_STAFF', 'current_park'),
+    ('MAINTENANCE_ENGINEER', 'self_only'),
     ('FINANCE_MANAGER', 'current_park'),
     ('FINANCE_SPECIALIST', 'current_park')
 ),
@@ -1336,6 +1402,8 @@ managed_roles(role_code) AS (
     ('INVEST_SPECIALIST'),
     ('SAFETY_MANAGER'),
     ('PROPERTY_MANAGER'),
+    ('PROPERTY_STAFF'),
+    ('MAINTENANCE_ENGINEER'),
     ('FINANCE_MANAGER'),
     ('FINANCE_SPECIALIST')
 ),
@@ -1450,7 +1518,33 @@ s3a_permissions(permission_code) AS (
     ('leasing_invoice:create'),
     ('leasing_invoice:update'),
     ('leasing_invoice:delete'),
-    ('leasing_statistics:funnel')
+    ('leasing_statistics:funnel'),
+    ('workorder:read'),
+    ('workorder:create'),
+    ('workorder:update'),
+    ('workorder:delete'),
+    ('workorder:assign'),
+    ('workorder:reassign'),
+    ('workorder:accept'),
+    ('workorder:start'),
+    ('workorder:wait_material'),
+    ('workorder:finish'),
+    ('workorder:confirm'),
+    ('workorder:evaluate'),
+    ('workorder:close'),
+    ('workorder:cancel'),
+    ('workorder:return'),
+    ('workorder:reject'),
+    ('workorder_sla:read'),
+    ('workorder_sla:create'),
+    ('workorder_sla:update'),
+    ('workorder_sla:delete'),
+    ('workorder:recalculate_overdue'),
+    ('workorder:overdue'),
+    ('workorder:stats'),
+    ('workorder_log:read'),
+    ('workorder_log:create'),
+    ('workorder:manage_all')
 ),
 desired_role_permissions(role_code, permission_code) AS (
   VALUES
@@ -1476,6 +1570,9 @@ desired_role_permissions(role_code, permission_code) AS (
     ('EXECUTIVE', 'leasing_waiver:read'),
     ('EXECUTIVE', 'leasing_invoice:read'),
     ('EXECUTIVE', 'leasing_statistics:funnel'),
+    ('EXECUTIVE', 'workorder:read'),
+    ('EXECUTIVE', 'workorder:stats'),
+    ('EXECUTIVE', 'workorder_log:read'),
     ('OPERATIONS_OWNER', 'park_tenant:read'),
     ('OPERATIONS_OWNER', 'park_tenant:create'),
     ('OPERATIONS_OWNER', 'park_tenant:update'),
@@ -1586,6 +1683,32 @@ desired_role_permissions(role_code, permission_code) AS (
     ('OPERATIONS_OWNER', 'leasing_invoice:update'),
     ('OPERATIONS_OWNER', 'leasing_invoice:delete'),
     ('OPERATIONS_OWNER', 'leasing_statistics:funnel'),
+    ('OPERATIONS_OWNER', 'workorder:read'),
+    ('OPERATIONS_OWNER', 'workorder:create'),
+    ('OPERATIONS_OWNER', 'workorder:update'),
+    ('OPERATIONS_OWNER', 'workorder:delete'),
+    ('OPERATIONS_OWNER', 'workorder:assign'),
+    ('OPERATIONS_OWNER', 'workorder:reassign'),
+    ('OPERATIONS_OWNER', 'workorder:accept'),
+    ('OPERATIONS_OWNER', 'workorder:start'),
+    ('OPERATIONS_OWNER', 'workorder:wait_material'),
+    ('OPERATIONS_OWNER', 'workorder:finish'),
+    ('OPERATIONS_OWNER', 'workorder:confirm'),
+    ('OPERATIONS_OWNER', 'workorder:evaluate'),
+    ('OPERATIONS_OWNER', 'workorder:close'),
+    ('OPERATIONS_OWNER', 'workorder:cancel'),
+    ('OPERATIONS_OWNER', 'workorder:return'),
+    ('OPERATIONS_OWNER', 'workorder:reject'),
+    ('OPERATIONS_OWNER', 'workorder_sla:read'),
+    ('OPERATIONS_OWNER', 'workorder_sla:create'),
+    ('OPERATIONS_OWNER', 'workorder_sla:update'),
+    ('OPERATIONS_OWNER', 'workorder_sla:delete'),
+    ('OPERATIONS_OWNER', 'workorder:recalculate_overdue'),
+    ('OPERATIONS_OWNER', 'workorder:overdue'),
+    ('OPERATIONS_OWNER', 'workorder:stats'),
+    ('OPERATIONS_OWNER', 'workorder_log:read'),
+    ('OPERATIONS_OWNER', 'workorder_log:create'),
+    ('OPERATIONS_OWNER', 'workorder:manage_all'),
     ('INVEST_MANAGER', 'park_tenant:read'),
     ('INVEST_MANAGER', 'park_tenant:create'),
     ('INVEST_MANAGER', 'park_tenant:update'),
@@ -1756,6 +1879,7 @@ desired_role_permissions(role_code, permission_code) AS (
     ('FINANCE_MANAGER', 'leasing_invoice:create'),
     ('FINANCE_MANAGER', 'leasing_invoice:update'),
     ('FINANCE_MANAGER', 'leasing_invoice:delete'),
+    ('FINANCE_MANAGER', 'workorder:read'),
     ('FINANCE_SPECIALIST', 'leasing_contract:read'),
     ('FINANCE_SPECIALIST', 'leasing_contract:status_log'),
     ('FINANCE_SPECIALIST', 'leasing_contract:action_log'),
@@ -1789,11 +1913,45 @@ desired_role_permissions(role_code, permission_code) AS (
     ('SAFETY_MANAGER', 'park_tenant:risk_log'),
     ('SAFETY_MANAGER', 'park_tenant_contact:read'),
     ('SAFETY_MANAGER', 'park_tenant_qualification:read'),
+    ('SAFETY_MANAGER', 'workorder:read'),
+    ('SAFETY_MANAGER', 'workorder:create'),
+    ('SAFETY_MANAGER', 'workorder:stats'),
+    ('SAFETY_MANAGER', 'workorder_log:read'),
     ('PROPERTY_MANAGER', 'park_tenant:read'),
     ('PROPERTY_MANAGER', 'park_tenant:360'),
     ('PROPERTY_MANAGER', 'park_tenant_contact:read'),
     ('PROPERTY_MANAGER', 'leasing_checkout:read'),
-    ('PROPERTY_MANAGER', 'leasing_contract:action_log')
+    ('PROPERTY_MANAGER', 'leasing_contract:action_log'),
+    ('PROPERTY_MANAGER', 'workorder:read'),
+    ('PROPERTY_MANAGER', 'workorder:create'),
+    ('PROPERTY_MANAGER', 'workorder:update'),
+    ('PROPERTY_MANAGER', 'workorder:assign'),
+    ('PROPERTY_MANAGER', 'workorder:reassign'),
+    ('PROPERTY_MANAGER', 'workorder:close'),
+    ('PROPERTY_MANAGER', 'workorder:cancel'),
+    ('PROPERTY_MANAGER', 'workorder:reject'),
+    ('PROPERTY_MANAGER', 'workorder_sla:read'),
+    ('PROPERTY_MANAGER', 'workorder_sla:create'),
+    ('PROPERTY_MANAGER', 'workorder_sla:update'),
+    ('PROPERTY_MANAGER', 'workorder_sla:delete'),
+    ('PROPERTY_MANAGER', 'workorder:overdue'),
+    ('PROPERTY_MANAGER', 'workorder:stats'),
+    ('PROPERTY_MANAGER', 'workorder_log:read'),
+    ('PROPERTY_MANAGER', 'workorder:manage_all'),
+    ('PROPERTY_STAFF', 'workorder:read'),
+    ('PROPERTY_STAFF', 'workorder:create'),
+    ('PROPERTY_STAFF', 'workorder:assign'),
+    ('PROPERTY_STAFF', 'workorder:reassign'),
+    ('PROPERTY_STAFF', 'workorder:cancel'),
+    ('PROPERTY_STAFF', 'workorder_log:read'),
+    ('MAINTENANCE_ENGINEER', 'workorder:read'),
+    ('MAINTENANCE_ENGINEER', 'workorder:accept'),
+    ('MAINTENANCE_ENGINEER', 'workorder:start'),
+    ('MAINTENANCE_ENGINEER', 'workorder:wait_material'),
+    ('MAINTENANCE_ENGINEER', 'workorder:finish'),
+    ('MAINTENANCE_ENGINEER', 'workorder:return'),
+    ('MAINTENANCE_ENGINEER', 'workorder_log:read'),
+    ('MAINTENANCE_ENGINEER', 'workorder_log:create')
 )
 UPDATE rel_role_perm relation
 SET is_deleted = true,
@@ -1892,11 +2050,18 @@ role_permissions AS (
       'system:dict-item:list',
       'file:read',
       'file:upload',
-      'file:download',
-      'file:delete',
-      'park:read',
-      'building:read',
-      'building:create',
+	      'file:download',
+	      'file:delete',
+	      'asset',
+	      'asset:park',
+	      'asset:building',
+	      'asset:floor',
+	      'asset:unit',
+	      'asset:unit-status-board',
+	      'asset:statistics-page',
+	      'park:read',
+	      'building:read',
+	      'building:create',
       'building:update',
       'floor:read',
       'floor:create',
@@ -2019,7 +2184,16 @@ role_permissions AS (
       'leasing_statistics:funnel',
       'asset:read',
       'asset:status_board',
-      'asset:statistics'
+      'asset:statistics',
+      'workorder_sla:read',
+      'workorder_sla:create',
+      'workorder_sla:update',
+      'workorder_sla:delete',
+      'workorder:recalculate_overdue',
+      'workorder:overdue',
+      'workorder:stats',
+      'workorder_log:read',
+      'workorder_log:create'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -2034,14 +2208,17 @@ role_permissions AS (
   WHERE role.code = 'EXECUTIVE'
     AND role.is_deleted = false
     AND permission.code IN (
-      'system:user:me',
-      'system:dict-type:list',
-      'system:dict-item:list',
-      'asset:read',
-      'asset:status_board',
-      'asset:statistics',
-      'unit:read',
-      'unit:status_log',
+	      'system:user:me',
+	      'system:dict-type:list',
+	      'system:dict-item:list',
+	      'asset',
+	      'asset:read',
+	      'asset:status_board',
+	      'asset:statistics',
+	      'asset:unit-status-board',
+	      'asset:statistics-page',
+	      'unit:read',
+	      'unit:status_log',
       'file:read',
       'file:download',
       'park_tenant:read',
@@ -2184,11 +2361,13 @@ role_permissions AS (
     AND permission.code IN (
       'system:user:me',
       'system:dict-type:list',
-      'system:dict-item:list',
-      'file:read',
-      'file:download',
-      'asset:status_board',
-      'unit:read',
+	      'system:dict-item:list',
+	      'file:read',
+	      'file:download',
+	      'asset',
+	      'asset:status_board',
+	      'asset:unit-status-board',
+	      'unit:read',
       'park_tenant:read',
       'park_tenant:360',
       'park_tenant:create',
@@ -2370,7 +2549,11 @@ role_permissions AS (
       'park_tenant:risk_update',
       'park_tenant:risk_log',
       'park_tenant_contact:read',
-      'park_tenant_qualification:read'
+      'park_tenant_qualification:read',
+      'workorder:read',
+      'workorder:create',
+      'workorder:stats',
+      'workorder_log:read'
     )
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
@@ -2390,7 +2573,71 @@ role_permissions AS (
       'system:dict-item:list',
       'park_tenant:read',
       'park_tenant:360',
-      'park_tenant_contact:read'
+      'park_tenant_contact:read',
+      'workorder:read',
+      'workorder:create',
+      'workorder:update',
+      'workorder:assign',
+      'workorder:reassign',
+      'workorder:close',
+      'workorder:cancel',
+      'workorder:reject',
+      'workorder_sla:read',
+      'workorder_sla:create',
+      'workorder_sla:update',
+      'workorder_sla:delete',
+      'workorder:overdue',
+      'workorder:stats',
+      'workorder_log:read',
+      'workorder:manage_all'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'PROPERTY_STAFF'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'workorder:read',
+      'workorder:create',
+      'workorder:assign',
+      'workorder:reassign',
+      'workorder:cancel',
+      'workorder_log:read'
+    )
+  UNION ALL
+  SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
+  FROM sys_role role
+  JOIN sys_permission permission
+    ON permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.is_deleted = false
+  JOIN seed_scope
+    ON seed_scope.tenant_id = role.tenant_id
+   AND seed_scope.park_id = role.park_id
+  WHERE role.code = 'MAINTENANCE_ENGINEER'
+    AND role.is_deleted = false
+    AND permission.code IN (
+      'system:user:me',
+      'system:dict-type:list',
+      'system:dict-item:list',
+      'workorder:read',
+      'workorder:accept',
+      'workorder:start',
+      'workorder:wait_material',
+      'workorder:finish',
+      'workorder:return',
+      'workorder_log:read',
+      'workorder_log:create'
     )
 )
 INSERT INTO rel_role_perm (
@@ -2432,6 +2679,13 @@ code_rules(entity_type, rule_code, rule_name, target_module, target_entity, pref
     ('cleaning_robot', 'CLEANING_ROBOT_CODE', '清洁机器人编码规则', 'robot', 'cleaning_robot', 'CLN-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'CLN-RB-001', 'SaaS cleaning robot code rule seed'),
     ('inspection_robot', 'INSPECTION_ROBOT_CODE', '巡检机器人编码规则', 'robot', 'inspection_robot', 'INS-RB-', '{PREFIX}{SEQ:3}', NULL, 3, 'none', '', 'INS-RB-001', 'SaaS inspection robot code rule seed'),
     ('workorder', 'WORKORDER_CODE', '工单编码规则', 'workorder', 'workorder', 'WO-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'WO-20260515000001', 'SaaS workorder code rule seed'),
+    ('workorder_log', 'WORKORDER_LOG_CODE', '工单日志编码规则', 'workorder', 'workorder_log', 'WOL-', '{PREFIX}{DATE:yyyyMM}-{SEQ:6}', 'yyyyMM', 6, 'monthly', '', 'WOL-202605-000001', 'SaaS workorder log code rule seed'),
+    ('safety_inspect_point', 'SAFETY_INSPECT_POINT_CODE', '安全巡检点编码规则', 'safety', 'safety_inspect_point', 'SP-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'SP-000001', 'SaaS safety inspect point code rule seed'),
+    ('safety_inspect_template', 'SAFETY_INSPECT_TEMPLATE_CODE', '安全巡检模板编码规则', 'safety', 'safety_inspect_template', 'STPL-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'STPL-000001', 'SaaS safety inspect template code rule seed'),
+    ('safety_inspect_plan', 'SAFETY_INSPECT_PLAN_CODE', '安全巡检计划编码规则', 'safety', 'safety_inspect_plan', 'SPLAN-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'SPLAN-000001', 'SaaS safety inspect plan code rule seed'),
+    ('safety_inspect_task', 'SAFETY_INSPECT_TASK_CODE', '安全巡检任务编码规则', 'safety', 'safety_inspect_task', 'STASK-', '{PREFIX}{DATE:yyyyMM}-{SEQ:6}', 'yyyyMM', 6, 'monthly', '', 'STASK-202605-000001', 'SaaS safety inspect task code rule seed'),
+    ('safety_hazard', 'SAFETY_HAZARD_CODE', '安全隐患编码规则', 'safety', 'safety_hazard', 'HZ-', '{PREFIX}{DATE:yyyyMM}-{SEQ:6}', 'yyyyMM', 6, 'monthly', '', 'HZ-202605-000001', 'SaaS safety hazard code rule seed'),
+    ('safety_hazard_log', 'SAFETY_HAZARD_LOG_CODE', '安全隐患日志编码规则', 'safety', 'safety_hazard_log', 'HZL-', '{PREFIX}{DATE:yyyyMM}-{SEQ:6}', 'yyyyMM', 6, 'monthly', '', 'HZL-202605-000001', 'SaaS safety hazard log code rule seed'),
     ('leasing_lead', 'LEASING_LEAD_CODE', '招商线索编码规则', 'leasing', 'leasing_lead', 'LEAD-', '{PREFIX}{SEQ:6}', NULL, 6, 'none', '', 'LEAD-000001', 'SaaS leasing lead code rule seed'),
     ('contract', 'CONTRACT_CODE', '合同编码规则', 'leasing', 'contract', 'CT-', '{PREFIX}{DATE:yyyyMMdd}{SEQ:6}', 'yyyyMMdd', 6, 'daily', '', 'CT-20260515000001', 'SaaS contract code rule seed'),
     ('contract_change', 'CONTRACT_CHANGE_CODE', '合同变更编码规则', 'leasing', 'contract_change', 'CHG-', '{PREFIX}{DATE:yyyy}-{SEQ:6}', 'yyyy', 6, 'yearly', '', 'CHG-2026-000001', 'SaaS leasing contract change code rule seed'),
@@ -2504,6 +2758,52 @@ ON CONFLICT (tenant_id, park_id, rule_code) WHERE is_deleted = false DO UPDATE S
   separator = EXCLUDED.separator,
   example_code = EXCLUDED.example_code,
   sample_code = EXCLUDED.sample_code,
+  status = 'enabled',
+  remark = EXCLUDED.remark,
+  is_deleted = false,
+  update_time = now();
+
+WITH seed_scope AS (
+  SELECT
+    '10000001' AS tenant_id,
+    '20000001' AS park_id
+),
+sla_rules(wo_type, urgency, priority, dispatch_sla_min, finish_sla_min, escalate_role_code, remark) AS (
+  VALUES
+    ('repair', 'urgent', 'high', 5, 30, 'PROPERTY_MANAGER', 'Production-safe urgent repair SLA rule seed'),
+    ('repair', 'normal', 'medium', 30, 240, 'PROPERTY_MANAGER', 'Production-safe normal repair SLA rule seed'),
+    ('complaint', 'normal', 'medium', 30, 1440, 'PROPERTY_MANAGER', 'Production-safe complaint SLA rule seed'),
+    ('consultation', 'normal', 'low', 30, 1440, 'PROPERTY_MANAGER', 'Production-safe consultation SLA rule seed')
+)
+INSERT INTO biz_work_order_sla_rule (
+  tenant_id,
+  park_id,
+  wo_type,
+  urgency,
+  priority,
+  dispatch_sla_min,
+  finish_sla_min,
+  escalate_role_code,
+  status,
+  remark
+)
+SELECT
+  seed_scope.tenant_id,
+  seed_scope.park_id,
+  sla_rules.wo_type,
+  sla_rules.urgency,
+  sla_rules.priority,
+  sla_rules.dispatch_sla_min,
+  sla_rules.finish_sla_min,
+  sla_rules.escalate_role_code,
+  'enabled',
+  sla_rules.remark
+FROM seed_scope
+CROSS JOIN sla_rules
+ON CONFLICT (tenant_id, park_id, wo_type, urgency, priority) WHERE is_deleted = false DO UPDATE SET
+  dispatch_sla_min = EXCLUDED.dispatch_sla_min,
+  finish_sla_min = EXCLUDED.finish_sla_min,
+  escalate_role_code = EXCLUDED.escalate_role_code,
   status = 'enabled',
   remark = EXCLUDED.remark,
   is_deleted = false,
@@ -2643,7 +2943,8 @@ WITH saas_modules(module_code, module_name, module_group, description, route_pre
     ('system', '系统管理', 'foundation', '用户、组织、角色、权限、字典、附件、审计等系统基础能力', '/system', 'shield-check', 10),
     ('asset', '资产管理', 'business', '园区、楼栋、楼层、房源、资产统计与状态看板', '/assets', 'building-2', 20),
     ('leasing', '招商租赁', 'business', '招商线索、租赁、合同与财务协同预留模块', '/invest', 'gauge', 30),
-    ('workorder', '工单管理', 'business', '物业服务工单与服务统计预留模块', '/workorders', 'wrench', 40),
+    ('workorder', '工单管理', 'business', '物业服务工单、派单处理、SLA 与服务统计', '/workorders', 'wrench', 40),
+    ('safety', '安全管理', 'business', '安全巡检、隐患整改与安全闭环能力', '/safety', 'shield-alert', 45),
     ('iot', 'IoT平台', 'extension', '物联网点位、设备接入与监测预留模块', '/iot', 'radio', 50),
     ('energy', '能耗管理', 'extension', '能耗采集、分析与报表预留模块', '/energy', 'zap', 60),
     ('robot', '机器人运营', 'extension', '清洁、巡检等机器人运营预留模块', '/robots', 'bot', 70),
@@ -2693,9 +2994,9 @@ WITH seed_scope AS (
 plans(plan_code, plan_name, description, sort_no, module_codes) AS (
   VALUES
     ('BASIC', '基础版', '基础系统、资产与工单能力', 10, ARRAY['system','asset','workorder']),
-    ('PROFESSIONAL', '专业版', '专业园区运营、IoT、能耗、机器人与视频能力', 20, ARRAY['system','asset','workorder','iot','energy','robot','video']),
-    ('ENTERPRISE', '企业版', '企业级园区运营、数字孪生与 AI 能力', 30, ARRAY['system','asset','workorder','iot','energy','robot','video','bim','ai']),
-    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','iot','energy','robot','video','bim','ai'])
+    ('PROFESSIONAL', '专业版', '专业园区运营、IoT、能耗、机器人与视频能力', 20, ARRAY['system','asset','workorder','safety','iot','energy','robot','video']),
+    ('ENTERPRISE', '企业版', '企业级园区运营、数字孪生与 AI 能力', 30, ARRAY['system','asset','workorder','safety','iot','energy','robot','video','bim','ai']),
+    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','safety','iot','energy','robot','video','bim','ai'])
 ),
 upsert_plans AS (
   INSERT INTO sys_plan (
@@ -2809,7 +3110,7 @@ SELECT
 FROM sys_module module
 CROSS JOIN seed_scope
 CROSS JOIN group_plan
-WHERE module.module_code IN ('system','asset','leasing','workorder','iot','energy','robot','video','bim','ai')
+WHERE module.module_code IN ('system','asset','leasing','workorder','safety','iot','energy','robot','video','bim','ai')
   AND module.is_deleted = false
 ON CONFLICT (tenant_id, park_id, module_id) WHERE is_deleted = false DO UPDATE SET
   plan_id = EXCLUDED.plan_id,
@@ -2832,9 +3133,9 @@ WHERE plan_code = 'BASELINE'
 UPDATE sys_plan
 SET permission_codes = CASE plan_code
     WHEN 'BASIC' THEN '["module:system","module:asset","module:workorder"]'::jsonb
-    WHEN 'PROFESSIONAL' THEN '["module:system","module:asset","module:workorder","module:iot","module:energy","module:robot","module:video"]'::jsonb
-    WHEN 'ENTERPRISE' THEN '["module:system","module:asset","module:workorder","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
-    WHEN 'GROUP' THEN '["module:system","module:asset","module:leasing","module:workorder","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    WHEN 'PROFESSIONAL' THEN '["module:system","module:asset","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video"]'::jsonb
+    WHEN 'ENTERPRISE' THEN '["module:system","module:asset","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    WHEN 'GROUP' THEN '["module:system","module:asset","module:leasing","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
     ELSE permission_codes
   END,
   feature_config = COALESCE(feature_config, '{}'::jsonb),
@@ -2913,7 +3214,12 @@ dict_types(dict_code, dict_name, remark) AS (
     ('leasing_receivable_status', '租赁应收状态', 'Production-safe leasing receivable status dictionary'),
     ('leasing_payment_method', '租赁收款方式', 'Production-safe leasing payment method dictionary'),
     ('leasing_payment_status', '租赁收款状态', 'Production-safe leasing payment status dictionary'),
-    ('leasing_waiver_status', '租赁豁免审批状态', 'Production-safe leasing waiver status dictionary')
+    ('leasing_waiver_status', '租赁豁免审批状态', 'Production-safe leasing waiver status dictionary'),
+    ('workorder_status', '工单状态', 'Production-safe work order status dictionary'),
+    ('workorder_priority', '工单优先级', 'Production-safe work order priority dictionary'),
+    ('workorder_type', '工单类型', 'Production-safe work order type dictionary'),
+    ('workorder_urgency', '工单紧急程度', 'Production-safe work order urgency dictionary'),
+    ('workorder_source_type', '工单来源', 'Production-safe work order source type dictionary')
 ),
 upsert_types AS (
   INSERT INTO sys_dict_type (
@@ -3177,7 +3483,39 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('leasing_waiver_status', '审批中', '20', 20, 'warning'),
     ('leasing_waiver_status', '已通过', '30', 30, 'success'),
     ('leasing_waiver_status', '已驳回', '40', 40, 'danger'),
-    ('leasing_waiver_status', '已作废', '90', 90, 'default')
+    ('leasing_waiver_status', '已作废', '90', 90, 'default'),
+    ('workorder_status', '已提交', '10', 10, 'default'),
+    ('workorder_status', '已派单', '20', 20, 'primary'),
+    ('workorder_status', '已接单', '30', 30, 'primary'),
+    ('workorder_status', '处理中', '40', 40, 'warning'),
+    ('workorder_status', '待物料', '45', 45, 'warning'),
+    ('workorder_status', '已处理', '50', 50, 'success'),
+    ('workorder_status', '已确认', '60', 60, 'primary'),
+    ('workorder_status', '已评价', '70', 70, 'success'),
+    ('workorder_status', '已超时', '80', 80, 'danger'),
+    ('workorder_status', '已取消', '90', 90, 'default'),
+    ('workorder_status', '已退回', '91', 91, 'danger'),
+    ('workorder_status', '已关闭', '100', 100, 'success'),
+    ('workorder_priority', '高', 'high', 10, 'danger'),
+    ('workorder_priority', '中', 'medium', 20, 'warning'),
+    ('workorder_priority', '低', 'low', 30, 'default'),
+    ('workorder_type', '报修', 'repair', 10, 'primary'),
+    ('workorder_type', '投诉', 'complaint', 20, 'danger'),
+    ('workorder_type', '申请', 'request', 30, 'success'),
+    ('workorder_type', '咨询', 'consultation', 40, 'default'),
+    ('workorder_type', '维保', 'maintenance', 50, 'primary'),
+    ('workorder_type', '保洁', 'cleaning', 60, 'success'),
+    ('workorder_type', '安防', 'security', 70, 'warning'),
+    ('workorder_type', '其他', 'other', 90, 'default'),
+    ('workorder_urgency', '紧急', 'urgent', 10, 'danger'),
+    ('workorder_urgency', '一般', 'normal', 20, 'primary'),
+    ('workorder_urgency', '低', 'low', 30, 'default'),
+    ('workorder_source_type', '人工创建', 'manual', 10, 'default'),
+    ('workorder_source_type', '租户请求', 'tenant_request', 20, 'primary'),
+    ('workorder_source_type', '设备告警', 'alert', 30, 'warning'),
+    ('workorder_source_type', '巡检发现', 'inspection', 40, 'warning'),
+    ('workorder_source_type', '机器人异常', 'robot', 50, 'default'),
+    ('workorder_source_type', '系统生成', 'system', 60, 'default')
 ),
 desired_dict_items AS (
   SELECT
@@ -3236,7 +3574,12 @@ retired_dict_items AS (
       'leasing_receivable_status',
       'leasing_payment_method',
       'leasing_payment_status',
-      'leasing_waiver_status'
+      'leasing_waiver_status',
+      'workorder_status',
+      'workorder_priority',
+      'workorder_type',
+      'workorder_urgency',
+      'workorder_source_type'
     )
     AND NOT EXISTS (
       SELECT 1

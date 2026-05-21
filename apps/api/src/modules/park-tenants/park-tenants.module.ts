@@ -13,6 +13,8 @@ import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-con
 import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
 import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { SafetyHazardsModule } from "../safety-hazards/safety-hazards.module";
+import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { ParkTenantContactEntity } from "./entities/park-tenant-contact.entity";
 import { ParkTenantQualificationEntity } from "./entities/park-tenant-qualification.entity";
 import { ParkTenantRiskLogEntity } from "./entities/park-tenant-risk-log.entity";
@@ -42,7 +44,9 @@ import { ParkTenantsService } from "./park-tenants.service";
     ]),
     CodeRulesModule,
     DataScopesModule,
-    FieldPoliciesModule
+    FieldPoliciesModule,
+    WorkOrdersModule,
+    SafetyHazardsModule
   ],
   controllers: [ParkTenantsController],
   providers: [ParkTenantsService, ParkTenantContactsService, ParkTenantQualificationsService],

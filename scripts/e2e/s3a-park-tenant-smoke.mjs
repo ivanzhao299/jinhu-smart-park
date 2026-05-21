@@ -176,7 +176,7 @@ target_permission AS (
   SELECT id, tenant_id, park_id FROM sys_permission
   WHERE tenant_id = ${sqlLiteral(tenantId)}
     AND park_id = ${sqlLiteral(parkId)}
-    AND code IN ('park_tenant:read', 'park_tenant:360', 'park_tenant:risk_log', 'park_tenant_contact:read', 'park_tenant_qualification:read')
+    AND code IN ('park_tenant:read', 'park_tenant:360', 'park_tenant:risk_log', 'park_tenant_contact:read', 'park_tenant_qualification:read', 'workorder:read', 'safety_hazard:read')
     AND is_deleted = false
 )
 INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, create_by, update_by, remark)
@@ -517,8 +517,10 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   assert(Array.isArray(adminTenant360.body.data.payments.recent_items), "tenant 360 payments should expose a real payment list");
   assert(adminTenant360.body.data.invoices.available === true, "tenant 360 invoices should be available after S3-D-A invoice module");
   assert(Array.isArray(adminTenant360.body.data.invoices.recent_items), "tenant 360 invoices should expose a real invoice list");
-  assert(adminTenant360.body.data.workorders.available === false, "tenant 360 workorders should be unavailable before workorder module");
-  assert(adminTenant360.body.data.hazards.available === false, "tenant 360 hazards should be unavailable before safety module");
+  assert(adminTenant360.body.data.workorders.available === true, "tenant 360 workorders should be available after S4-A workorder module");
+  assert(Array.isArray(adminTenant360.body.data.workorders.recent_items), "tenant 360 workorders should expose a real workorder list");
+  assert(adminTenant360.body.data.hazards.available === true, "tenant 360 hazards should be available after S5-A safety module");
+  assert(Array.isArray(adminTenant360.body.data.hazards.recent_items), "tenant 360 hazards should expose a real hazard list");
   assert(adminTenant360.body.data.energy.available === false, "tenant 360 energy should be unavailable before energy module");
 
   const downloaded = await request(`/files/${uploadedFile.body.data.id}/download`, {

@@ -30,9 +30,17 @@ import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { SaaSModulesModule } from "./modules/saas-modules/saas-modules.module";
+import { SafetyEmergencyModule } from "./modules/safety-emergency/safety-emergency.module";
+import { SafetyHazardsModule } from "./modules/safety-hazards/safety-hazards.module";
+import { SafetyInspectPointsModule } from "./modules/safety-inspect-points/safety-inspect-points.module";
+import { SafetyInspectPlansModule } from "./modules/safety-inspect-plans/safety-inspect-plans.module";
+import { SafetyInspectTasksModule } from "./modules/safety-inspect-tasks/safety-inspect-tasks.module";
+import { SafetyInspectTemplatesModule } from "./modules/safety-inspect-templates/safety-inspect-templates.module";
+import { SafetyStatisticsModule } from "./modules/safety-statistics/safety-statistics.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
+import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 import { AuditLogInterceptor } from "./shared/interceptors/audit-log.interceptor";
@@ -93,7 +101,15 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     DictsModule,
     AttachmentsModule,
     FilesModule,
-    AuditModule
+    AuditModule,
+    WorkOrdersModule,
+    SafetyInspectPointsModule,
+    SafetyInspectTemplatesModule,
+    SafetyInspectPlansModule,
+    SafetyInspectTasksModule,
+    SafetyHazardsModule,
+    SafetyEmergencyModule,
+    SafetyStatisticsModule
   ],
   providers: [
     {

@@ -295,7 +295,19 @@ export class CodeRulesService {
     if (["park", "building", "floor", "room", "unit", "zone", "asset"].includes(entityType)) return "asset";
     if (["device", "camera", "iot_point"].includes(entityType)) return "iot";
     if (["robot", "cleaning_robot", "inspection_robot"].includes(entityType)) return "robot";
-    if (entityType === "workorder") return "workorder";
+    if (["workorder", "workorder_log"].includes(entityType)) return "workorder";
+    if (
+      [
+        "safety_inspect_point",
+        "safety_inspect_template",
+        "safety_inspect_plan",
+        "safety_inspect_task",
+        "safety_hazard",
+        "safety_hazard_log"
+      ].includes(entityType)
+    ) {
+      return "safety";
+    }
     if (entityType === "leasing_lead") return "leasing";
     if (["contract", "contract_change", "renewal_contract", "checkout", "refund"].includes(entityType)) return "leasing";
     if (["receivable", "payment", "invoice", "waiver"].includes(entityType)) return "leasing";

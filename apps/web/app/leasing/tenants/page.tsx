@@ -21,6 +21,10 @@ const LEASING_PAYMENT_ENTITY = "leasing_payment";
 const LEASING_INVOICE_ENTITY = "leasing_invoice";
 const LEASING_CHECKOUT_ENTITY = "leasing_checkout";
 const LEASING_REFUND_ENTITY = "leasing_refund";
+const WORKORDER_MODULE = "workorder";
+const WORKORDER_ENTITY = "work_order";
+const SAFETY_MODULE = "safety";
+const SAFETY_HAZARD_ENTITY = "safety_hazard";
 const FIELD_LEGAL_PERSON_ID = "legalPersonId";
 const FIELD_CONTACT_MOBILE = "contactMobile";
 const FIELD_CONTACT_ROW_MOBILE = "mobile";
@@ -38,6 +42,8 @@ const FIELD_INVOICE_AMOUNT = "amount";
 const FIELD_CHECKOUT_REFUND_AMOUNT = "refundAmount";
 const FIELD_CHECKOUT_TENANT_DUE = "amountDueFromTenant";
 const FIELD_REFUND_AMOUNT = "refundAmount";
+const FIELD_WORKORDER_REPORTER_MOBILE = "reporterMobile";
+const FIELD_HAZARD_DESCRIPTION = "description";
 const PARK_TENANT_PERMISSIONS = {
   read: "park_tenant:read",
   tenant360: "park_tenant:360",
@@ -357,6 +363,62 @@ interface Tenant360RefundsNode {
   recent_items: Tenant360RefundRow[];
 }
 
+interface Tenant360WorkOrderRow {
+  id: string;
+  wo_code: string;
+  title: string;
+  wo_type: string;
+  priority: string;
+  urgency: string | null;
+  status: string;
+  location: string | null;
+  reporter_name: string | null;
+  reporter_mobile?: string | null;
+  assignee_name: string | null;
+  overdue_flag: boolean;
+  create_time: string;
+  update_time: string;
+}
+
+interface Tenant360WorkordersNode {
+  available: boolean;
+  summary?: {
+    total_count: number;
+    open_count: number;
+    overdue_count: number;
+    avg_satisfaction: number;
+  } | null;
+  recent_items: Tenant360WorkOrderRow[];
+}
+
+interface Tenant360HazardRow {
+  id: string;
+  hazard_code: string;
+  title: string;
+  hazard_type: string | null;
+  risk_level: string | null;
+  source_type: string;
+  status: string;
+  location: string;
+  description?: string | null;
+  rectify_user_name: string | null;
+  rectify_deadline: string | null;
+  overdue_flag: boolean;
+  update_time: string;
+}
+
+interface Tenant360HazardsNode {
+  available: boolean;
+  summary?: {
+    total_count: number;
+    open_count: number;
+    overdue_count: number;
+    major_count: number;
+    closed_count: number;
+  } | null;
+  recent_items: Tenant360HazardRow[];
+}
+
 interface ParkTenant360View {
   profile: ParkTenantRow;
   contacts: ParkTenantContactRow[];
@@ -370,8 +432,8 @@ interface ParkTenant360View {
   contract_changes: Tenant360ContractChangesNode;
   checkouts: Tenant360CheckoutsNode;
   refunds: Tenant360RefundsNode;
-  workorders: { available: boolean; summary: unknown | null };
-  hazards: { available: boolean; summary: unknown | null };
+  workorders: Tenant360WorkordersNode;
+  hazards: Tenant360HazardsNode;
   energy: { available: boolean; summary: unknown | null };
 }
 
@@ -493,6 +555,8 @@ export default function LeasingTenantsPage() {
   const canViewCheckoutRefundAmount = canViewField(authUser, LEASING_MODULE, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_REFUND_AMOUNT);
   const canViewCheckoutTenantDue = canViewField(authUser, LEASING_MODULE, LEASING_CHECKOUT_ENTITY, FIELD_CHECKOUT_TENANT_DUE);
   const canViewRefundAmount = canViewField(authUser, LEASING_MODULE, LEASING_REFUND_ENTITY, FIELD_REFUND_AMOUNT);
+  const canViewWorkOrderReporterMobile = canViewField(authUser, WORKORDER_MODULE, WORKORDER_ENTITY, FIELD_WORKORDER_REPORTER_MOBILE);
+  const canViewHazardDescription = canViewField(authUser, SAFETY_MODULE, SAFETY_HAZARD_ENTITY, FIELD_HAZARD_DESCRIPTION);
 
   const statusItems = dicts.park_tenant_status ?? [];
   const typeItems = dicts.park_tenant_type ?? [];
@@ -517,6 +581,13 @@ export default function LeasingTenantsPage() {
   const releaseStatusItems = dicts.leasing_release_unit_status ?? [];
   const refundMethodItems = dicts.leasing_refund_method ?? [];
   const refundStatusItems = dicts.leasing_refund_status ?? [];
+  const workOrderStatusItems = dicts.workorder_status ?? [];
+  const workOrderTypeItems = dicts.workorder_type ?? [];
+  const workOrderPriorityItems = dicts.workorder_priority ?? [];
+  const hazardStatusItems = dicts.safety_hazard_status ?? [];
+  const hazardTypeItems = dicts.safety_hazard_type ?? [];
+  const hazardRiskItems = dicts.safety_risk_level ?? [];
+  const hazardSourceItems = dicts.safety_hazard_source_type ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -575,7 +646,14 @@ export default function LeasingTenantsPage() {
       "leasing_settlement_status",
       "leasing_release_unit_status",
       "leasing_refund_method",
-      "leasing_refund_status"
+      "leasing_refund_status",
+      "workorder_status",
+      "workorder_type",
+      "workorder_priority",
+      "safety_hazard_status",
+      "safety_hazard_type",
+      "safety_risk_level",
+      "safety_hazard_source_type"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -607,6 +685,14 @@ export default function LeasingTenantsPage() {
   function openContractDetail(contract: Tenant360ContractRow) {
     window.sessionStorage.setItem("leasingContractFocusId", contract.id);
     window.location.href = "/leasing/contracts";
+  }
+
+  function openWorkOrderDetail(workOrder: Tenant360WorkOrderRow) {
+    window.location.href = `/workorders/${workOrder.id}`;
+  }
+
+  function openHazardDetail(hazard: Tenant360HazardRow) {
+    window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(hazard.id)}`;
   }
 
   function openCreate() {
@@ -1413,8 +1499,29 @@ export default function LeasingTenantsPage() {
                   canViewRefundAmount={canViewRefundAmount}
                 />
               ) : null}
-              {!tenant360Loading && detailTab === "workorders" ? <EmptyState title="工单模块尚未开发" description={tenant360?.workorders.available ? "暂无工单数据" : "当前阶段仅预留工单入口，不展示假数据。"} /> : null}
-              {!tenant360Loading && detailTab === "hazards" ? <EmptyState title="安全模块尚未开发" description={tenant360?.hazards.available ? "暂无隐患数据" : "当前阶段仅预留安全入口，不展示假数据。"} /> : null}
+              {!tenant360Loading && detailTab === "workorders" ? (
+                <Tenant360WorkordersPanel
+                  workorders={tenant360?.workorders}
+                  statusItems={workOrderStatusItems}
+                  typeItems={workOrderTypeItems}
+                  priorityItems={workOrderPriorityItems}
+                  authUser={authUser}
+                  canViewReporterMobile={canViewWorkOrderReporterMobile}
+                  onOpenWorkOrder={openWorkOrderDetail}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "hazards" ? (
+                <Tenant360HazardsPanel
+                  hazards={tenant360?.hazards}
+                  statusItems={hazardStatusItems}
+                  typeItems={hazardTypeItems}
+                  riskItems={hazardRiskItems}
+                  sourceItems={hazardSourceItems}
+                  authUser={authUser}
+                  canViewDescription={canViewHazardDescription}
+                  onOpenHazard={openHazardDetail}
+                />
+              ) : null}
               {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块尚未开发" description={tenant360?.energy.available ? "暂无能耗数据" : "当前阶段仅预留能耗入口，不展示假数据。"} /> : null}
             </Drawer>
           ) : null}
@@ -1939,6 +2046,160 @@ function Tenant360RefundsPanel({
   );
 }
 
+function Tenant360WorkordersPanel({
+  workorders,
+  statusItems,
+  typeItems,
+  priorityItems,
+  authUser,
+  canViewReporterMobile,
+  onOpenWorkOrder
+}: {
+  workorders?: Tenant360WorkordersNode;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  priorityItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  canViewReporterMobile: boolean;
+  onOpenWorkOrder: (workOrder: Tenant360WorkOrderRow) => void;
+}) {
+  if (!workorders?.available) {
+    return <EmptyState title="工单模块尚未开发" description="当前阶段仅预留工单入口，不展示假数据。" />;
+  }
+  const items = workorders.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="工单总数" value={String(workorders.summary?.total_count ?? 0)} />
+        <MetricCard label="未闭环工单" value={String(workorders.summary?.open_count ?? 0)} />
+        <MetricCard label="超时工单" value={String(workorders.summary?.overdue_count ?? 0)} />
+        <MetricCard label="平均满意度" value={formatScore(workorders.summary?.avg_satisfaction)} />
+      </div>
+      <DataTable >
+        <thead>
+          <tr>
+            <th>工单编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>优先级</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>报告人</th>
+            <th>处理人</th>
+            <th>超时</th>
+            <th>更新时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.wo_code}</td>
+              <td>{row.title}</td>
+              <td>{labelFor(typeItems, row.wo_type)}</td>
+              <td><DictBadge items={priorityItems} value={row.priority} /></td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>
+                {fieldText(row.reporter_name)}
+                {canViewReporterMobile ? ` / ${fieldText(maskField(authUser, WORKORDER_MODULE, WORKORDER_ENTITY, FIELD_WORKORDER_REPORTER_MOBILE, row.reporter_mobile))}` : ""}
+              </td>
+              <td>{fieldText(row.assignee_name)}</td>
+              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超时" : "正常"}</span></td>
+              <td>{formatDateTime(row.update_time)}</td>
+              <td>
+                <button type="button" onClick={() => onOpenWorkOrder(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={11}>暂无工单数据</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360HazardsPanel({
+  hazards,
+  statusItems,
+  typeItems,
+  riskItems,
+  sourceItems,
+  authUser,
+  canViewDescription,
+  onOpenHazard
+}: {
+  hazards?: Tenant360HazardsNode;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  riskItems: DictItemRow[];
+  sourceItems: DictItemRow[];
+  authUser: Parameters<typeof maskField>[0];
+  canViewDescription: boolean;
+  onOpenHazard: (hazard: Tenant360HazardRow) => void;
+}) {
+  if (!hazards?.available) {
+    return <EmptyState title="安全模块尚未开发" description="当前阶段仅预留安全入口，不展示假数据。" />;
+  }
+  const items = hazards.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="隐患总数" value={String(hazards.summary?.total_count ?? 0)} />
+        <MetricCard label="未闭环隐患" value={String(hazards.summary?.open_count ?? 0)} />
+        <MetricCard label="超期隐患" value={String(hazards.summary?.overdue_count ?? 0)} />
+        <MetricCard label="重大隐患" value={String(hazards.summary?.major_count ?? 0)} />
+        <MetricCard label="已闭环隐患" value={String(hazards.summary?.closed_count ?? 0)} />
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>隐患编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>风险</th>
+            <th>来源</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>描述</th>
+            <th>整改人</th>
+            <th>超期</th>
+            <th>更新时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.hazard_code}</td>
+              <td>{row.title}</td>
+              <td>{labelFor(typeItems, row.hazard_type)}</td>
+              <td><DictBadge items={riskItems} value={row.risk_level} /></td>
+              <td>{labelFor(sourceItems, row.source_type)}</td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{canViewDescription ? fieldText(maskField(authUser, SAFETY_MODULE, SAFETY_HAZARD_ENTITY, FIELD_HAZARD_DESCRIPTION, row.description)) : "-"}</td>
+              <td>{fieldText(row.rectify_user_name)}</td>
+              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超期" : "正常"}</span></td>
+              <td>{formatDateTime(row.update_time)}</td>
+              <td>
+                <button type="button" onClick={() => onOpenHazard(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={12}>暂无隐患数据</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <section className="empty-state">
@@ -2024,6 +2285,11 @@ function formatDateTime(value: string): string {
 function formatDateRange(start: string | null, end: string | null): string {
   if (!start && !end) return "-";
   return `${start ?? "-"} 至 ${end ?? "-"}`;
+}
+
+function formatScore(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "-";
+  return Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 }
 
 function contractAmountText(user: Parameters<typeof maskField>[0], canView: boolean, value: unknown): string {

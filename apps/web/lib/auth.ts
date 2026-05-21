@@ -4,6 +4,7 @@ import type { UserContext } from "@jinhu/shared";
 import { apiRequest } from "./api-client";
 
 const TOKEN_KEY = "jinhu_access_token";
+const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
 
 export function getToken(): string {
@@ -28,11 +29,21 @@ export function getStoredUser(): UserContext | null {
   }
 }
 
-export function setSession(token: string, user: UserContext): void {
+export function getRefreshToken(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return sessionStorage.getItem(REFRESH_TOKEN_KEY) ?? localStorage.getItem(REFRESH_TOKEN_KEY) ?? "";
+}
+
+export function setSession(token: string, user: UserContext, refreshToken?: string): void {
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (refreshToken) {
+    setRefreshToken(refreshToken);
+  }
 }
 
 export function setToken(token: string): void {
@@ -40,10 +51,17 @@ export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function setRefreshToken(token: string): void {
+  sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
 export function clearSession(): void {
   sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
 

@@ -24,6 +24,8 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { FloorEntity } from "../floors/entities/floor.entity";
+import { SafetyHazardsService, type UnitHazardsNode } from "../safety-hazards/safety-hazards.service";
+import { WorkOrdersService, type UnitWorkOrdersNode } from "../work-orders/work-orders.service";
 import type { CreateUnitDto } from "./dto/create-unit.dto";
 import type { TransitionUnitStatusDto } from "./dto/transition-unit-status.dto";
 import type { AssetStatisticsQueryDto } from "../assets/dto/asset-statistics-query.dto";
@@ -183,7 +185,9 @@ export class UnitsService {
     private readonly auditService: AuditService,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
-    private readonly codeRulesService: CodeRulesService
+    private readonly codeRulesService: CodeRulesService,
+    private readonly workOrdersService: WorkOrdersService,
+    private readonly safetyHazardsService: SafetyHazardsService
   ) {}
 
   async list(scope: TenantParkScope, query: UnitQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<UnitEntity>> {
@@ -204,6 +208,16 @@ export class UnitsService {
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UnitEntity> {
     const entity = await this.findDetail(scope, id, actor);
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", entity);
+  }
+
+  async workorders(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<UnitWorkOrdersNode> {
+    await this.findDetail(scope, id, actor);
+    return this.workOrdersService.unitWorkorders(scope, actor, id);
+  }
+
+  async hazards(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<UnitHazardsNode> {
+    await this.findDetail(scope, id, actor);
+    return this.safetyHazardsService.unitHazards(scope, actor, id);
   }
 
   private async findDetail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UnitEntity> {

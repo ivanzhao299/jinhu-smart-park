@@ -1,0 +1,1571 @@
+"use client";
+
+import {
+  Card,
+  DataTable,
+  DataTableActions,
+  Drawer,
+  DrawerDetailGrid,
+  DrawerDetailItem,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  DrawerTabButton,
+  DrawerTabs
+} from "@jinhu/ui";
+import {
+  Archive,
+  Ban,
+  CheckCircle2,
+  Clock3,
+  CornerDownLeft,
+  Edit3,
+  Eye,
+  Hammer,
+  PackageSearch,
+  PlayCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldAlert,
+  Shuffle,
+  Star,
+  Trash2,
+  X
+} from "lucide-react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
+import { PermissionButton } from "../../../components/auth/PermissionButton";
+import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { FileUploader } from "../../../components/files/FileUploader";
+import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { useAuthUser } from "../../../lib/auth-context";
+import { getAccessToken } from "../../../lib/authz";
+import { canViewField, maskField } from "../../../lib/field-policy";
+
+const WORKORDER_MODULE = "workorder";
+const WORK_ORDER_ENTITY = "work_order";
+const WORKORDER_FINISH_FILE_BIZ_TYPE = "workorder_finish";
+const WORKORDER_LOG_FILE_BIZ_TYPE = "workorder_log";
+const FIELD_REPORTER_MOBILE = "reporterMobile";
+const FIELD_DESCRIPTION = "description";
+const FIELD_EVALUATION = "evaluation";
+
+interface DictTypeRow {
+  id: string;
+  dictCode: string;
+}
+
+interface DictItemRow {
+  id: string;
+  itemLabel: string;
+  itemValue: string;
+  status: string;
+  tagType?: string | null;
+}
+
+interface ParkTenantRow {
+  id: string;
+  parkTenantCode: string;
+  companyName: string;
+}
+
+interface UnitRow {
+  id: string;
+  code: string | null;
+  unitCode: string;
+  unitName: string;
+  buildingId: string;
+  floorId: string;
+  building?: {
+    buildingCode: string;
+    buildingName: string;
+  } | null;
+  floor?: {
+    floorCode: string;
+    floorName: string;
+  } | null;
+}
+
+interface UserRow {
+  id: string;
+  username: string;
+  displayName?: string;
+  realName?: string;
+  mobile?: string | null;
+  status: string;
+}
+
+interface WorkOrderRow {
+  id: string;
+  code: string | null;
+  woCode: string;
+  title: string;
+  woType: string;
+  woSubType: string | null;
+  priority: string;
+  urgency: string | null;
+  status: string;
+  sourceType: string;
+  sourceId: string | null;
+  parkTenantId: string | null;
+  unitId: string | null;
+  buildingId: string | null;
+  floorId: string | null;
+  roomLabel: string | null;
+  location: string | null;
+  reporterId: string | null;
+  reporterName: string | null;
+  reporterMobile?: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  description?: string | null;
+  imageFileIds?: string[];
+  videoFileIds?: string[];
+  slaDispatchMin: number | null;
+  slaFinishMin: number | null;
+  overdueFlag: boolean;
+  overdueReason: string | null;
+  acceptTime?: string | null;
+  startTime?: string | null;
+  waitMaterialTime?: string | null;
+  finishTime?: string | null;
+  confirmTime?: string | null;
+  closeTime?: string | null;
+  satisfaction?: number | null;
+  evaluation?: string | null;
+  resolveNote?: string | null;
+  createTime: string;
+  updateTime: string;
+  remark: string | null;
+  parkTenant?: ParkTenantRow | null;
+  unit?: UnitRow | null;
+  building?: {
+    buildingCode: string;
+    buildingName: string;
+  } | null;
+  floor?: {
+    floorCode: string;
+    floorName: string;
+  } | null;
+}
+
+interface WorkOrderLogRow {
+  id: string;
+  code: string | null;
+  logCode: string | null;
+  workOrderId: string;
+  action: string;
+  beforeStatus: string | null;
+  afterStatus: string | null;
+  operatorId: string | null;
+  operatorName: string | null;
+  reason: string | null;
+  content: string | null;
+  attachmentFileIds: string[];
+  opTime: string;
+  remark: string | null;
+}
+
+interface WorkOrderFormState {
+  woCode: string;
+  title: string;
+  woType: string;
+  woSubType: string;
+  priority: string;
+  urgency: string;
+  sourceType: string;
+  parkTenantId: string;
+  unitId: string;
+  buildingId: string;
+  floorId: string;
+  roomLabel: string;
+  location: string;
+  reporterName: string;
+  reporterMobile: string;
+  assigneeId: string;
+  assigneeName: string;
+  description: string;
+  slaDispatchMin: string;
+  slaFinishMin: string;
+  remark: string;
+}
+
+interface AssignmentFormState {
+  assigneeId: string;
+  reason: string;
+}
+
+interface AssignmentState {
+  mode: "assign" | "reassign";
+  row: WorkOrderRow;
+}
+
+type ProcessActionMode = "wait-material" | "finish";
+
+interface ProcessActionState {
+  mode: ProcessActionMode;
+  row: WorkOrderRow;
+}
+
+interface ProcessFormState {
+  reason: string;
+  resolveNote: string;
+  imageFileIds: string[];
+}
+
+type ClosureActionMode = "confirm" | "evaluate" | "close";
+
+interface ClosureActionState {
+  mode: ClosureActionMode;
+  row: WorkOrderRow;
+}
+
+interface ClosureFormState {
+  confirmNote: string;
+  satisfaction: string;
+  evaluation: string;
+  reason: string;
+}
+
+type ExceptionActionMode = "cancel" | "return" | "reject";
+
+interface ExceptionActionState {
+  mode: ExceptionActionMode;
+  row: WorkOrderRow;
+}
+
+interface ExceptionFormState {
+  reason: string;
+}
+
+interface WorkOrderLogFormState {
+  reason: string;
+  content: string;
+  attachmentFileIds: string[];
+}
+
+interface FilterState {
+  keyword: string;
+  status: string;
+  woType: string;
+  priority: string;
+  urgency: string;
+  assigneeId: string;
+  parkTenantId: string;
+  unitId: string;
+  sourceType: string;
+  overdueOnly: string;
+  startDate: string;
+  endDate: string;
+}
+
+type DictMap = Record<string, DictItemRow[]>;
+type DetailTab = "profile" | "logs";
+
+const emptyPage: PaginatedResult<WorkOrderRow> = { items: [], page: 1, page_size: 20, total: 0 };
+const emptyFilters: FilterState = {
+  keyword: "",
+  status: "",
+  woType: "",
+  priority: "",
+  urgency: "",
+  assigneeId: "",
+  parkTenantId: "",
+  unitId: "",
+  sourceType: "",
+  overdueOnly: "",
+  startDate: "",
+  endDate: ""
+};
+const emptyForm: WorkOrderFormState = {
+  woCode: "",
+  title: "",
+  woType: "",
+  woSubType: "",
+  priority: "",
+  urgency: "",
+  sourceType: "manual",
+  parkTenantId: "",
+  unitId: "",
+  buildingId: "",
+  floorId: "",
+  roomLabel: "",
+  location: "",
+  reporterName: "",
+  reporterMobile: "",
+  assigneeId: "",
+  assigneeName: "",
+  description: "",
+  slaDispatchMin: "",
+  slaFinishMin: "",
+  remark: ""
+};
+const emptyAssignmentForm: AssignmentFormState = {
+  assigneeId: "",
+  reason: ""
+};
+const emptyProcessForm: ProcessFormState = {
+  reason: "",
+  resolveNote: "",
+  imageFileIds: []
+};
+const emptyClosureForm: ClosureFormState = {
+  confirmNote: "",
+  satisfaction: "5",
+  evaluation: "",
+  reason: ""
+};
+const emptyExceptionForm: ExceptionFormState = {
+  reason: ""
+};
+const emptyLogForm: WorkOrderLogFormState = {
+  reason: "",
+  content: "",
+  attachmentFileIds: []
+};
+
+export default function WorkOrdersListPage() {
+  const authUser = useAuthUser();
+  const [pageData, setPageData] = useState<PaginatedResult<WorkOrderRow>>(emptyPage);
+  const [filters, setFilters] = useState<FilterState>(emptyFilters);
+  const [dicts, setDicts] = useState<DictMap>({});
+  const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
+  const [units, setUnits] = useState<UnitRow[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [form, setForm] = useState<WorkOrderFormState>(emptyForm);
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(emptyAssignmentForm);
+  const [processForm, setProcessForm] = useState<ProcessFormState>(emptyProcessForm);
+  const [closureForm, setClosureForm] = useState<ClosureFormState>(emptyClosureForm);
+  const [exceptionForm, setExceptionForm] = useState<ExceptionFormState>(emptyExceptionForm);
+  const [logForm, setLogForm] = useState<WorkOrderLogFormState>(emptyLogForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentState | null>(null);
+  const [processAction, setProcessAction] = useState<ProcessActionState | null>(null);
+  const [closureAction, setClosureAction] = useState<ClosureActionState | null>(null);
+  const [exceptionAction, setExceptionAction] = useState<ExceptionActionState | null>(null);
+  const [detail, setDetail] = useState<WorkOrderRow | null>(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>("profile");
+  const [workOrderLogs, setWorkOrderLogs] = useState<WorkOrderLogRow[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [message, setMessage] = useState("");
+  const canViewReporterMobile = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_REPORTER_MOBILE);
+  const canViewDescription = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_DESCRIPTION);
+  const canViewEvaluation = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_EVALUATION);
+
+  const statusItems = dicts.workorder_status ?? [];
+  const typeItems = dicts.workorder_type ?? [];
+  const priorityItems = dicts.workorder_priority ?? [];
+  const urgencyItems = dicts.workorder_urgency ?? [];
+  const sourceItems = dicts.workorder_source_type ?? [];
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+
+  const load = useCallback(async (page = 1) => {
+    const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "createTime:DESC" });
+    if (filters.keyword.trim()) params.set("keyword", filters.keyword.trim());
+    if (filters.status) params.set("status", filters.status);
+    if (filters.woType) params.set("wo_type", filters.woType);
+    if (filters.priority) params.set("priority", filters.priority);
+    if (filters.urgency) params.set("urgency", filters.urgency);
+    if (filters.assigneeId.trim()) params.set("assignee_id", filters.assigneeId.trim());
+    if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
+    if (filters.unitId) params.set("unit_id", filters.unitId);
+    if (filters.sourceType) params.set("source_type", filters.sourceType);
+    if (filters.overdueOnly) params.set("overdue_only", filters.overdueOnly);
+    if (filters.startDate) params.set("start_date", filters.startDate);
+    if (filters.endDate) params.set("end_date", filters.endDate);
+    const response = await apiRequest<PaginatedResult<WorkOrderRow>>(`/work-orders?${params.toString()}`, {
+      token: getAccessToken()
+    });
+    setPageData(response.data);
+  }, [filters]);
+
+  const loadWorkOrderLogs = useCallback(async (workOrderId: string) => {
+    if (!hasPermission(authUser, SYSTEM_PERMISSIONS.WORKORDER_LOG_READ)) {
+      setWorkOrderLogs([]);
+      return;
+    }
+    const response = await apiRequest<PaginatedResult<WorkOrderLogRow>>(`/work-orders/${workOrderId}/logs?page=1&page_size=100&order=desc`, {
+      token: getAccessToken()
+    });
+    setWorkOrderLogs(response.data.items);
+  }, [authUser]);
+
+  const loadDicts = useCallback(async () => {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=200", {
+      token: getAccessToken()
+    });
+    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
+    const codes = ["workorder_status", "workorder_type", "workorder_priority", "workorder_urgency", "workorder_source_type"];
+    const entries = await Promise.all(codes.map(async (code) => {
+      const dictTypeId = typeMap.get(code);
+      if (!dictTypeId) return [code, []] as const;
+      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
+        token: getAccessToken()
+      });
+      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
+    }));
+    setDicts(Object.fromEntries(entries));
+  }, []);
+
+  const loadReferenceData = useCallback(async () => {
+    const [tenantResponse, unitResponse, userResponse] = await Promise.allSettled([
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
+    ]);
+    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
+    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
+    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+  }, []);
+
+  useEffect(() => {
+    void loadDicts().catch((error: Error) => setMessage(error.message));
+    void loadReferenceData().catch((error: Error) => setMessage(error.message));
+  }, [loadDicts, loadReferenceData]);
+
+  useEffect(() => {
+    void load().catch((error: Error) => setMessage(error.message));
+  }, [load]);
+
+  function openCreate() {
+    setEditingId(null);
+    setForm({
+      ...emptyForm,
+      woType: typeItems[0]?.itemValue ?? "",
+      priority: priorityItems.find((item) => item.itemValue === "medium")?.itemValue ?? priorityItems[0]?.itemValue ?? "",
+      urgency: urgencyItems.find((item) => item.itemValue === "normal")?.itemValue ?? urgencyItems[0]?.itemValue ?? "",
+      sourceType: sourceItems.find((item) => item.itemValue === "manual")?.itemValue ?? sourceItems[0]?.itemValue ?? "manual",
+      reporterName: authUser?.real_name ?? authUser?.username ?? ""
+    });
+    setShowForm(true);
+    setMessage("");
+  }
+
+  function openEdit(row: WorkOrderRow) {
+    setEditingId(row.id);
+    setForm({
+      woCode: row.woCode,
+      title: row.title,
+      woType: row.woType,
+      woSubType: row.woSubType ?? "",
+      priority: row.priority,
+      urgency: row.urgency ?? "",
+      sourceType: row.sourceType,
+      parkTenantId: row.parkTenantId ?? "",
+      unitId: row.unitId ?? "",
+      buildingId: row.buildingId ?? "",
+      floorId: row.floorId ?? "",
+      roomLabel: row.roomLabel ?? "",
+      location: row.location ?? "",
+      reporterName: row.reporterName ?? "",
+      reporterMobile: row.reporterMobile ?? "",
+      assigneeId: row.assigneeId ?? "",
+      assigneeName: row.assigneeName ?? "",
+      description: row.description ?? "",
+      slaDispatchMin: row.slaDispatchMin === null ? "" : String(row.slaDispatchMin),
+      slaFinishMin: row.slaFinishMin === null ? "" : String(row.slaFinishMin),
+      remark: row.remark ?? ""
+    });
+    setShowForm(true);
+    setMessage("");
+  }
+
+  function openDetail(row: WorkOrderRow) {
+    setDetail(row);
+    setDetailTab("profile");
+    setLogForm(emptyLogForm);
+    void loadWorkOrderLogs(row.id).catch((error: Error) => setMessage(error.message));
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = {
+      wo_code: form.woCode.trim() || undefined,
+      title: form.title.trim(),
+      wo_type: form.woType,
+      wo_sub_type: form.woSubType.trim() || undefined,
+      priority: form.priority,
+      urgency: form.urgency || undefined,
+      source_type: form.sourceType || "manual",
+      park_tenant_id: form.parkTenantId || undefined,
+      unit_id: form.unitId || undefined,
+      building_id: form.buildingId || undefined,
+      floor_id: form.floorId || undefined,
+      room_label: form.roomLabel.trim() || undefined,
+      location: form.location.trim() || undefined,
+      reporter_name: form.reporterName.trim() || undefined,
+      reporter_mobile: form.reporterMobile.trim() || undefined,
+      assignee_id: form.assigneeId || undefined,
+      assignee_name: form.assigneeName.trim() || undefined,
+      description: form.description.trim(),
+      sla_dispatch_min: form.slaDispatchMin ? Number(form.slaDispatchMin) : undefined,
+      sla_finish_min: form.slaFinishMin ? Number(form.slaFinishMin) : undefined,
+      remark: form.remark.trim() || undefined
+    };
+    await apiRequest<WorkOrderRow>(editingId ? `/work-orders/${editingId}` : "/work-orders", {
+      method: editingId ? "PUT" : "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(editingId ? "work-order-update" : "work-order-create"),
+      body
+    });
+    setShowForm(false);
+    setEditingId(null);
+    setMessage("保存成功");
+    await load(pageData.page);
+  }
+
+  async function remove(row: WorkOrderRow) {
+    if (!window.confirm(`确认删除工单「${row.woCode}」？仅已取消工单允许删除。`)) {
+      return;
+    }
+    await apiRequest<{ id: string }>(`/work-orders/${row.id}`, {
+      method: "DELETE",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("work-order-delete")
+    });
+    setMessage("删除成功");
+    await load(pageData.page);
+  }
+
+  function setUnit(unitId: string) {
+    const unit = units.find((item) => item.id === unitId);
+    setForm((current) => ({
+      ...current,
+      unitId,
+      buildingId: unit?.buildingId ?? current.buildingId,
+      floorId: unit?.floorId ?? current.floorId,
+      roomLabel: unit?.unitName ?? current.roomLabel,
+      location: unit ? unitLocation(unit) : current.location
+    }));
+  }
+
+  function setAssignee(userId: string) {
+    const user = users.find((item) => item.id === userId);
+    setForm((current) => ({ ...current, assigneeId: userId, assigneeName: displayUserName(user) }));
+  }
+
+  function openAssignment(row: WorkOrderRow, mode: "assign" | "reassign") {
+    setAssignment({ row, mode });
+    setAssignmentForm({
+      assigneeId: row.assigneeId ?? "",
+      reason: ""
+    });
+    setMessage("");
+  }
+
+  async function submitAssignment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assignment) return;
+    if (!assignmentForm.assigneeId) {
+      setMessage("请选择处理人");
+      return;
+    }
+    if (assignment.mode === "reassign" && !assignmentForm.reason.trim()) {
+      setMessage("改派原因必填");
+      return;
+    }
+    const response = await apiRequest<WorkOrderRow>(`/work-orders/${assignment.row.id}/${assignment.mode}`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(`work-order-${assignment.mode}`),
+      body: {
+        assignee_id: assignmentForm.assigneeId,
+        reason: assignmentForm.reason.trim() || undefined
+      }
+    });
+    if (detail?.id === response.data.id) {
+      setDetail(response.data);
+      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+    }
+    setAssignment(null);
+    setAssignmentForm(emptyAssignmentForm);
+    setMessage(assignment.mode === "assign" ? "派单成功" : "改派成功");
+    await load(pageData.page);
+  }
+
+  async function submitDirectProcessAction(row: WorkOrderRow, action: "accept" | "start") {
+    const response = await apiRequest<WorkOrderRow>(`/work-orders/${row.id}/${action}`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(`work-order-${action}`)
+    });
+    if (detail?.id === response.data.id) {
+      setDetail(response.data);
+      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+    }
+    setMessage(action === "accept" ? "接单成功" : row.status === "45" ? "已恢复处理" : "已开始处理");
+    await load(pageData.page);
+  }
+
+  function openProcessAction(row: WorkOrderRow, mode: ProcessActionMode) {
+    setProcessAction({ row, mode });
+    setProcessForm(emptyProcessForm);
+    setMessage("");
+  }
+
+  async function submitProcessAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!processAction) return;
+    if (processAction.mode === "wait-material" && !processForm.reason.trim()) {
+      setMessage("待物料原因必填");
+      return;
+    }
+    if (processAction.mode === "finish" && !processForm.resolveNote.trim()) {
+      setMessage("完成处理说明必填");
+      return;
+    }
+    const path = processAction.mode === "wait-material" ? "wait-material" : "finish";
+    const body = processAction.mode === "wait-material"
+      ? { reason: processForm.reason.trim() }
+      : { resolve_note: processForm.resolveNote.trim(), image_file_ids: processForm.imageFileIds };
+    const response = await apiRequest<WorkOrderRow>(`/work-orders/${processAction.row.id}/${path}`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(`work-order-${path}`),
+      body
+    });
+    if (detail?.id === response.data.id) {
+      setDetail(response.data);
+      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+    }
+    setProcessAction(null);
+    setProcessForm(emptyProcessForm);
+    setMessage(processAction.mode === "wait-material" ? "已标记待物料" : "已完成处理");
+    await load(pageData.page);
+  }
+
+  function handleFinishFileUploaded(file: FileRecord) {
+    setProcessForm((current) => ({
+      ...current,
+      imageFileIds: [...new Set([...current.imageFileIds, file.id])]
+    }));
+  }
+
+  function openClosureAction(row: WorkOrderRow, mode: ClosureActionMode) {
+    setClosureAction({ row, mode });
+    setClosureForm({
+      ...emptyClosureForm,
+      satisfaction: row.satisfaction ? String(row.satisfaction) : "5"
+    });
+    setMessage("");
+  }
+
+  async function submitClosureAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!closureAction) return;
+    if (closureAction.mode === "evaluate") {
+      const satisfaction = Number(closureForm.satisfaction);
+      if (!Number.isInteger(satisfaction) || satisfaction < 1 || satisfaction > 5) {
+        setMessage("满意度必须为 1-5");
+        return;
+      }
+    }
+    if (closureAction.mode === "close" && !closureForm.reason.trim()) {
+      setMessage("关闭原因必填");
+      return;
+    }
+    const body = closureAction.mode === "confirm"
+      ? { confirm_note: closureForm.confirmNote.trim() || undefined }
+      : closureAction.mode === "evaluate"
+        ? { satisfaction: Number(closureForm.satisfaction), evaluation: closureForm.evaluation.trim() || undefined }
+        : { reason: closureForm.reason.trim() };
+    const response = await apiRequest<WorkOrderRow>(`/work-orders/${closureAction.row.id}/${closureAction.mode}`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(`work-order-${closureAction.mode}`),
+      body
+    });
+    if (detail?.id === response.data.id) {
+      setDetail(response.data);
+      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+    }
+    setClosureAction(null);
+    setClosureForm(emptyClosureForm);
+    setMessage(closureAction.mode === "confirm" ? "确认完成成功" : closureAction.mode === "evaluate" ? "评价成功" : "关闭成功");
+    await load(pageData.page);
+  }
+
+  function openExceptionAction(row: WorkOrderRow, mode: ExceptionActionMode) {
+    setExceptionAction({ row, mode });
+    setExceptionForm(emptyExceptionForm);
+    setMessage("");
+  }
+
+  async function submitExceptionAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!exceptionAction) return;
+    if (!exceptionForm.reason.trim()) {
+      setMessage("操作原因必填");
+      return;
+    }
+    const response = await apiRequest<WorkOrderRow>(`/work-orders/${exceptionAction.row.id}/${exceptionAction.mode}`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey(`work-order-${exceptionAction.mode}`),
+      body: {
+        reason: exceptionForm.reason.trim()
+      }
+    });
+    if (detail?.id === response.data.id) {
+      setDetail(response.data);
+      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+    }
+    setExceptionAction(null);
+    setExceptionForm(emptyExceptionForm);
+    setMessage(exceptionAction.mode === "cancel" ? "取消成功" : exceptionAction.mode === "return" ? "退回成功" : "驳回成功");
+    await load(pageData.page);
+  }
+
+  async function submitWorkOrderLog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail) return;
+    if (!logForm.content.trim()) {
+      setMessage("日志内容必填");
+      return;
+    }
+    await apiRequest<WorkOrderLogRow>(`/work-orders/${detail.id}/logs`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("work-order-log-create"),
+      body: {
+        action: "system",
+        reason: logForm.reason.trim() || undefined,
+        content: logForm.content.trim(),
+        attachment_file_ids: logForm.attachmentFileIds
+      }
+    });
+    setLogForm(emptyLogForm);
+    setMessage("日志已补充");
+    await loadWorkOrderLogs(detail.id);
+  }
+
+  function handleLogFileUploaded(file: FileRecord) {
+    setLogForm((current) => ({
+      ...current,
+      attachmentFileIds: [...new Set([...current.attachmentFileIds, file.id])]
+    }));
+  }
+
+  return (
+    <PermissionGuard permission={SYSTEM_PERMISSIONS.WORKORDER_READ} module={WORKORDER_MODULE} fallback={<ForbiddenInline />}>
+      <main className="content">
+        <header className="header">
+          <div className="header-title">
+            <strong>工单中心</strong>
+            <span>手工创建报修、投诉、申请与咨询工单，后续接入派单和处理闭环</span>
+          </div>
+          <div className="page-actions">
+            <button className="primary-button secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
+              <RefreshCw size={16} />
+              刷新
+            </button>
+            <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CREATE} type="button" onClick={openCreate}>
+              <Plus size={16} />
+              新增工单
+            </PermissionButton>
+          </div>
+        </header>
+
+        <Card>
+          <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
+            <div className="dashboard-grid">
+              <Field label="关键词">
+                <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编号 / 标题 / 位置 / 人员" />
+              </Field>
+              <Field label="状态">
+                <Select value={filters.status} onChange={(value) => setFilters((current) => ({ ...current, status: value }))} items={statusItems} allLabel="全部状态" />
+              </Field>
+              <Field label="工单类型">
+                <Select value={filters.woType} onChange={(value) => setFilters((current) => ({ ...current, woType: value }))} items={typeItems} allLabel="全部类型" />
+              </Field>
+              <Field label="优先级">
+                <Select value={filters.priority} onChange={(value) => setFilters((current) => ({ ...current, priority: value }))} items={priorityItems} allLabel="全部优先级" />
+              </Field>
+              <Field label="紧急程度">
+                <Select value={filters.urgency} onChange={(value) => setFilters((current) => ({ ...current, urgency: value }))} items={urgencyItems} allLabel="全部紧急程度" />
+              </Field>
+              <Field label="处理人">
+                <select value={filters.assigneeId} onChange={(event) => setFilters((current) => ({ ...current, assigneeId: event.target.value }))}>
+                  <option value="">全部处理人</option>
+                  {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
+                </select>
+              </Field>
+              <Field label="租户企业">
+                <select value={filters.parkTenantId} onChange={(event) => setFilters((current) => ({ ...current, parkTenantId: event.target.value }))}>
+                  <option value="">全部企业</option>
+                  {parkTenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.companyName}</option>)}
+                </select>
+              </Field>
+              <Field label="房源">
+                <select value={filters.unitId} onChange={(event) => setFilters((current) => ({ ...current, unitId: event.target.value }))}>
+                  <option value="">全部房源</option>
+                  {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.unitCode} {unit.unitName}</option>)}
+                </select>
+              </Field>
+              <Field label="是否超时">
+                <select value={filters.overdueOnly} onChange={(event) => setFilters((current) => ({ ...current, overdueOnly: event.target.value }))}>
+                  <option value="">全部</option>
+                  <option value="true">仅超时</option>
+                </select>
+              </Field>
+              <Field label="开始日期">
+                <input type="date" value={filters.startDate} onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))} />
+              </Field>
+              <Field label="结束日期">
+                <input type="date" value={filters.endDate} onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))} />
+              </Field>
+            </div>
+            <div className="filter-actions">
+              <button className="primary-button" type="submit">
+                <Search size={16} />
+                查询
+              </button>
+            </div>
+          </form>
+        </Card>
+
+        <Card className="table-scroll">
+          <DataTable>
+            <thead>
+              <tr>
+                <th>工单编号</th>
+                <th>标题</th>
+                <th>类型</th>
+                <th>优先级</th>
+                <th>状态</th>
+                <th>租户企业</th>
+                <th>位置</th>
+                <th>报告人</th>
+                <th>处理人</th>
+                <th>超时</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageData.items.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.woCode}</td>
+                  <td>{row.title}</td>
+                  <td>{labelFor(typeItems, row.woType)}</td>
+                  <td><DictBadge items={priorityItems} value={row.priority} /></td>
+                  <td><DictBadge items={statusItems} value={row.status} /></td>
+                  <td>{row.parkTenant?.companyName ?? "-"}</td>
+                  <td>{row.location ?? row.unit?.unitName ?? row.roomLabel ?? "-"}</td>
+                  <td>{row.reporterName ?? "-"}</td>
+                  <td>{row.assigneeName ?? "-"}</td>
+                  <td>{row.overdueFlag ? <span className="status-pill status-danger">超时</span> : <span className="status-pill status-muted">正常</span>}</td>
+                  <td>{formatDateTime(row.createTime)}</td>
+                  <td>
+                    <DataTableActions>
+                      <button className="row-action-button" title="详情" type="button" onClick={() => openDetail(row)}>
+                        <Eye size={16} />
+                        详情
+                      </button>
+                      <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
+                        <Edit3 size={16} />
+                        编辑
+                      </PermissionButton>
+                      {canAssignWorkOrder(row) ? (
+                        <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ASSIGN} title="派单" type="button" onClick={() => openAssignment(row, "assign")}>
+                          <Send size={16} />
+                          派单
+                        </PermissionButton>
+                      ) : null}
+                      {canReassignWorkOrder(row) ? (
+                        <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REASSIGN} title="改派" type="button" onClick={() => openAssignment(row, "reassign")}>
+                          <Shuffle size={16} />
+                          改派
+                        </PermissionButton>
+                      ) : null}
+                      <PermissionButton className="row-action-button row-action-danger" permission={SYSTEM_PERMISSIONS.WORKORDER_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                        <Trash2 size={16} />
+                        删除
+                      </PermissionButton>
+                    </DataTableActions>
+                  </td>
+                </tr>
+              ))}
+              {pageData.items.length === 0 ? (
+                <tr>
+                  <td colSpan={12}>暂无工单数据</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </DataTable>
+          <div className="task-item">
+            <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
+            <span>
+              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
+              <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
+            </span>
+          </div>
+        </Card>
+
+        {showForm ? (
+          <Drawer size="lg" onClose={() => setShowForm(false)}>
+            <DrawerHeader
+              eyebrow={editingId ? "编辑工单" : "新增工单"}
+              title={editingId ? "编辑工单信息" : "新增手工工单"}
+              description="填写报修、投诉、申请或咨询事项，提交后状态为已提交。"
+              onClose={() => setShowForm(false)}
+              closeIcon={<X size={16} />}
+            />
+            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid>
+                <TextField label="工单编号" value={form.woCode} placeholder="留空自动生成" onChange={(value) => setForm((current) => ({ ...current, woCode: value }))} />
+                <TextField label="标题" value={form.title} required onChange={(value) => setForm((current) => ({ ...current, title: value }))} />
+                <SelectField label="工单类型" value={form.woType} required items={typeItems} onChange={(value) => setForm((current) => ({ ...current, woType: value }))} />
+                <TextField label="子类型" value={form.woSubType} onChange={(value) => setForm((current) => ({ ...current, woSubType: value }))} />
+                <SelectField label="优先级" value={form.priority} required items={priorityItems} onChange={(value) => setForm((current) => ({ ...current, priority: value }))} />
+                <SelectField label="紧急程度" value={form.urgency} items={urgencyItems} onChange={(value) => setForm((current) => ({ ...current, urgency: value }))} />
+                <SelectField label="来源" value={form.sourceType} items={sourceItems} onChange={(value) => setForm((current) => ({ ...current, sourceType: value || "manual" }))} />
+                <Field label="租户企业">
+                  <select value={form.parkTenantId} onChange={(event) => setForm((current) => ({ ...current, parkTenantId: event.target.value }))}>
+                    <option value="">内部工单 / 不关联租户</option>
+                    {parkTenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.companyName}</option>)}
+                  </select>
+                </Field>
+                <Field label="房源">
+                  <select value={form.unitId} onChange={(event) => setUnit(event.target.value)}>
+                    <option value="">不关联房源</option>
+                    {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.unitCode} {unit.unitName}</option>)}
+                  </select>
+                </Field>
+                <TextField label="位置" value={form.location} onChange={(value) => setForm((current) => ({ ...current, location: value }))} />
+                <TextField label="报告人" value={form.reporterName} onChange={(value) => setForm((current) => ({ ...current, reporterName: value }))} />
+                <TextField label="报告电话" value={form.reporterMobile} onChange={(value) => setForm((current) => ({ ...current, reporterMobile: value }))} />
+                <Field label="处理人">
+                  <select value={form.assigneeId} onChange={(event) => setAssignee(event.target.value)}>
+                    <option value="">暂不指定</option>
+                    {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
+                  </select>
+                </Field>
+                <TextField label="处理人名称" value={form.assigneeName} onChange={(value) => setForm((current) => ({ ...current, assigneeName: value }))} />
+                <NumberField label="派单 SLA(分钟)" value={form.slaDispatchMin} onChange={(value) => setForm((current) => ({ ...current, slaDispatchMin: value }))} />
+                <NumberField label="完成 SLA(分钟)" value={form.slaFinishMin} onChange={(value) => setForm((current) => ({ ...current, slaFinishMin: value }))} />
+              </DrawerFormGrid>
+              <DrawerFormGrid single>
+                <TextAreaField label="问题描述" value={form.description} required onChange={(value) => setForm((current) => ({ ...current, description: value }))} />
+                <TextAreaField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="primary-button" type="submit">保存</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {detail ? (
+          <Drawer size="lg" onClose={() => setDetail(null)}>
+            <DrawerHeader
+              eyebrow="工单详情"
+              title={detail.title}
+              description={`${detail.woCode} · ${labelFor(statusItems, detail.status)} · ${detail.reporterName ?? "-"}`}
+              onClose={() => setDetail(null)}
+              closeIcon={<X size={16} />}
+            />
+            {canAssignWorkOrder(detail) || canReassignWorkOrder(detail) || canAcceptWorkOrder(authUser, detail) || canStartWorkOrder(authUser, detail) || canWaitMaterialWorkOrder(authUser, detail) || canFinishWorkOrder(authUser, detail) || canConfirmWorkOrder(authUser, detail) || canEvaluateWorkOrder(authUser, detail) || canCloseWorkOrder(authUser, detail) || canCancelWorkOrder(detail) || canReturnWorkOrder(authUser, detail) || canRejectWorkOrder(authUser, detail) ? (
+              <div className="drawer-action-bar">
+                {canAssignWorkOrder(detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ASSIGN} type="button" onClick={() => openAssignment(detail, "assign")}>
+                    <Send size={16} />
+                    派单
+                  </PermissionButton>
+                ) : null}
+                {canReassignWorkOrder(detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REASSIGN} type="button" onClick={() => openAssignment(detail, "reassign")}>
+                    <Shuffle size={16} />
+                    改派
+                  </PermissionButton>
+                ) : null}
+                {canAcceptWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ACCEPT} type="button" onClick={() => void submitDirectProcessAction(detail, "accept").catch((error: Error) => setMessage(error.message))}>
+                    <CheckCircle2 size={16} />
+                    接单
+                  </PermissionButton>
+                ) : null}
+                {canStartWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_START} type="button" onClick={() => void submitDirectProcessAction(detail, "start").catch((error: Error) => setMessage(error.message))}>
+                    <PlayCircle size={16} />
+                    {detail.status === "45" ? "恢复处理" : "开始处理"}
+                  </PermissionButton>
+                ) : null}
+                {canWaitMaterialWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_WAIT_MATERIAL} type="button" onClick={() => openProcessAction(detail, "wait-material")}>
+                    <PackageSearch size={16} />
+                    待物料
+                  </PermissionButton>
+                ) : null}
+                {canFinishWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_FINISH} type="button" onClick={() => openProcessAction(detail, "finish")}>
+                    <Hammer size={16} />
+                    完成处理
+                  </PermissionButton>
+                ) : null}
+                {canConfirmWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CONFIRM} type="button" onClick={() => openClosureAction(detail, "confirm")}>
+                    <CheckCircle2 size={16} />
+                    确认完成
+                  </PermissionButton>
+                ) : null}
+                {canEvaluateWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_EVALUATE} type="button" onClick={() => openClosureAction(detail, "evaluate")}>
+                    <Star size={16} />
+                    评价
+                  </PermissionButton>
+                ) : null}
+                {canCloseWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CLOSE} type="button" onClick={() => openClosureAction(detail, "close")}>
+                    <Archive size={16} />
+                    关闭
+                  </PermissionButton>
+                ) : null}
+                {canCancelWorkOrder(detail) ? (
+                  <PermissionButton className="drawer-action-button danger-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CANCEL} type="button" onClick={() => openExceptionAction(detail, "cancel")}>
+                    <Ban size={16} />
+                    取消
+                  </PermissionButton>
+                ) : null}
+                {canReturnWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_RETURN} type="button" onClick={() => openExceptionAction(detail, "return")}>
+                    <CornerDownLeft size={16} />
+                    退回
+                  </PermissionButton>
+                ) : null}
+                {canRejectWorkOrder(authUser, detail) ? (
+                  <PermissionButton className="drawer-action-button danger-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REJECT} type="button" onClick={() => openExceptionAction(detail, "reject")}>
+                    <ShieldAlert size={16} />
+                    驳回
+                  </PermissionButton>
+                ) : null}
+              </div>
+            ) : null}
+            <DrawerTabs>
+              <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
+              <DrawerTabButton active={detailTab === "logs"} onClick={() => {
+                setDetailTab("logs");
+                void loadWorkOrderLogs(detail.id).catch((error: Error) => setMessage(error.message));
+              }}>
+                <Clock3 size={16} />
+                时间线 / 操作日志
+              </DrawerTabButton>
+            </DrawerTabs>
+            {detailTab === "profile" ? (
+              <DrawerDetailGrid>
+                <DrawerDetailItem label="工单编号" value={detail.woCode} />
+                <DrawerDetailItem label="类型" value={labelFor(typeItems, detail.woType)} />
+                <DrawerDetailItem label="优先级" value={<DictBadge items={priorityItems} value={detail.priority} />} />
+                <DrawerDetailItem label="状态" value={<DictBadge items={statusItems} value={detail.status} />} />
+                <DrawerDetailItem label="租户企业" value={detail.parkTenant?.companyName ?? "-"} />
+                <DrawerDetailItem label="房源" value={detail.unit ? `${detail.unit.unitCode} ${detail.unit.unitName}` : "-"} />
+                <DrawerDetailItem label="位置" value={detail.location ?? detail.roomLabel ?? "-"} />
+                <DrawerDetailItem label="报告人" value={detail.reporterName ?? "-"} />
+                <DrawerDetailItem label="报告电话" value={fieldText(authUser, canViewReporterMobile, FIELD_REPORTER_MOBILE, detail.reporterMobile)} />
+                <DrawerDetailItem label="处理人" value={detail.assigneeName ?? "-"} />
+                <DrawerDetailItem label="是否超时" value={detail.overdueFlag ? "超时" : "正常"} />
+                <DrawerDetailItem label="接单时间" value={formatDateTime(detail.acceptTime)} />
+                <DrawerDetailItem label="开始处理" value={formatDateTime(detail.startTime)} />
+                <DrawerDetailItem label="待物料时间" value={formatDateTime(detail.waitMaterialTime)} />
+                <DrawerDetailItem label="完成时间" value={formatDateTime(detail.finishTime)} />
+                <DrawerDetailItem label="确认时间" value={formatDateTime(detail.confirmTime)} />
+                <DrawerDetailItem label="关闭时间" value={formatDateTime(detail.closeTime)} />
+                <DrawerDetailItem label="创建时间" value={formatDateTime(detail.createTime)} />
+                <DrawerDetailItem label="处理说明" value={detail.resolveNote ?? "-"} />
+                <DrawerDetailItem label="满意度" value={detail.satisfaction ? `${detail.satisfaction} / 5` : "-"} />
+                <DrawerDetailItem label="评价" value={fieldText(authUser, canViewEvaluation, FIELD_EVALUATION, detail.evaluation)} />
+                <DrawerDetailItem label="问题描述" value={fieldText(authUser, canViewDescription, FIELD_DESCRIPTION, detail.description)} />
+                <DrawerDetailItem label="备注" value={detail.remark ?? "-"} />
+              </DrawerDetailGrid>
+            ) : null}
+            {detailTab === "logs" ? (
+              <section className="work-panel">
+                <div className="task-item">
+                  <h3 className="panel-title">时间线</h3>
+                  <button type="button" onClick={() => void loadWorkOrderLogs(detail.id).catch((error: Error) => setMessage(error.message))}>
+                    <RefreshCw size={16} />
+                    刷新
+                  </button>
+                </div>
+                <div className="timeline-list">
+                  {workOrderLogs.map((log) => (
+                    <article className="timeline-item" key={log.id}>
+                      <div className="timeline-dot" />
+                      <div className="timeline-content">
+                        <div className="timeline-head">
+                          <strong>{actionLabel(log.action)}</strong>
+                          <span>{formatDateTime(log.opTime)}</span>
+                        </div>
+                        <p>{log.operatorName ?? "-"}</p>
+                        {log.beforeStatus || log.afterStatus ? (
+                          <p className="muted-text">
+                            状态：{labelFor(statusItems, log.beforeStatus)} → {labelFor(statusItems, log.afterStatus)}
+                          </p>
+                        ) : null}
+                        {log.reason ? <p>原因：{log.reason}</p> : null}
+                        {log.content ? <p>{log.content}</p> : null}
+                        {log.attachmentFileIds.length > 0 ? <p className="muted-text">附件：{log.attachmentFileIds.length} 个</p> : null}
+                      </div>
+                    </article>
+                  ))}
+                  {workOrderLogs.length === 0 ? <p className="muted-text">暂无操作日志</p> : null}
+                </div>
+                <PermissionGuard permission={SYSTEM_PERMISSIONS.WORKORDER_LOG_CREATE} module={WORKORDER_MODULE} fallback={null}>
+                  <form className="form-stack" onSubmit={(event) => void submitWorkOrderLog(event).catch((error: Error) => setMessage(error.message))}>
+                    <DrawerFormGrid single>
+                      <TextField label="补充原因" value={logForm.reason} onChange={(value) => setLogForm((current) => ({ ...current, reason: value }))} />
+                      <TextAreaField label="补充内容" value={logForm.content} required onChange={(value) => setLogForm((current) => ({ ...current, content: value }))} />
+                      <div className="work-panel">
+                        <h3 className="panel-title">日志附件</h3>
+                        <FileUploader bizType={WORKORDER_LOG_FILE_BIZ_TYPE} bizId={detail.id} onUploaded={handleLogFileUploaded} />
+                        <p className="muted-text">已选择 {logForm.attachmentFileIds.length} 个附件</p>
+                      </div>
+                    </DrawerFormGrid>
+                    <DrawerFooter>
+                      <button type="button" onClick={() => setLogForm(emptyLogForm)}>清空</button>
+                      <button className="primary-button" type="submit">补充日志</button>
+                    </DrawerFooter>
+                  </form>
+                </PermissionGuard>
+              </section>
+            ) : null}
+          </Drawer>
+        ) : null}
+
+        {assignment ? (
+          <Drawer size="md" onClose={() => setAssignment(null)}>
+            <DrawerHeader
+              eyebrow={assignment.mode === "assign" ? "工单派单" : "工单改派"}
+              title={assignment.row.woCode}
+              description={assignment.mode === "assign" ? "选择处理人并记录派单说明。" : "改派必须填写原因，系统会写入工单日志。"}
+              onClose={() => setAssignment(null)}
+              closeIcon={<X size={16} />}
+            />
+            <DrawerForm onSubmit={(event) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                <Field label="处理人">
+                  <select required value={assignmentForm.assigneeId} onChange={(event) => setAssignmentForm((current) => ({ ...current, assigneeId: event.target.value }))}>
+                    <option value="">请选择处理人</option>
+                    {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
+                  </select>
+                </Field>
+                <TextAreaField
+                  label={assignment.mode === "assign" ? "派单说明" : "改派原因"}
+                  value={assignmentForm.reason}
+                  required={assignment.mode === "reassign"}
+                  onChange={(value) => setAssignmentForm((current) => ({ ...current, reason: value }))}
+                />
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button type="button" onClick={() => setAssignment(null)}>取消</button>
+                <button className="primary-button" type="submit">{assignment.mode === "assign" ? "确认派单" : "确认改派"}</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {processAction ? (
+          <Drawer size="md" onClose={() => setProcessAction(null)}>
+            <DrawerHeader
+              eyebrow={processAction.mode === "wait-material" ? "标记待物料" : "完成处理"}
+              title={processAction.row.woCode}
+              description={processAction.mode === "wait-material" ? "记录缺料原因，工单进入待物料状态。" : "填写处理说明，可上传处理后的现场图片。"}
+              onClose={() => setProcessAction(null)}
+              closeIcon={<X size={16} />}
+            />
+            <DrawerForm onSubmit={(event) => void submitProcessAction(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                {processAction.mode === "wait-material" ? (
+                  <TextAreaField
+                    label="待物料原因"
+                    value={processForm.reason}
+                    required
+                    onChange={(value) => setProcessForm((current) => ({ ...current, reason: value }))}
+                  />
+                ) : (
+                  <>
+                    <TextAreaField
+                      label="处理说明"
+                      value={processForm.resolveNote}
+                      required
+                      onChange={(value) => setProcessForm((current) => ({ ...current, resolveNote: value }))}
+                    />
+                    <div className="work-panel">
+                      <h2 className="panel-title">处理图片</h2>
+                      <FileUploader bizType={WORKORDER_FINISH_FILE_BIZ_TYPE} bizId={processAction.row.id} onUploaded={handleFinishFileUploaded} />
+                      <p className="muted-text">已选择 {processForm.imageFileIds.length} 个处理附件</p>
+                    </div>
+                  </>
+                )}
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button type="button" onClick={() => setProcessAction(null)}>取消</button>
+                <button className="primary-button" type="submit">{processAction.mode === "wait-material" ? "确认待物料" : "确认完成"}</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {closureAction ? (
+          <Drawer size="md" onClose={() => setClosureAction(null)}>
+            <DrawerHeader
+              eyebrow={closureAction.mode === "confirm" ? "确认完成" : closureAction.mode === "evaluate" ? "工单评价" : "关闭工单"}
+              title={closureAction.row.woCode}
+              description={
+                closureAction.mode === "confirm"
+                  ? "确认处理结果后，工单进入已确认状态。"
+                  : closureAction.mode === "evaluate"
+                    ? "填写满意度和评价内容，完成服务反馈。"
+                    : "关闭后工单进入闭环，不能继续处理或评价。"
+              }
+              onClose={() => setClosureAction(null)}
+              closeIcon={<X size={16} />}
+            />
+            <DrawerForm onSubmit={(event) => void submitClosureAction(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                {closureAction.mode === "confirm" ? (
+                  <TextAreaField
+                    label="确认说明"
+                    value={closureForm.confirmNote}
+                    onChange={(value) => setClosureForm((current) => ({ ...current, confirmNote: value }))}
+                  />
+                ) : null}
+                {closureAction.mode === "evaluate" ? (
+                  <>
+                    <NumberField
+                      label="满意度"
+                      value={closureForm.satisfaction}
+                      min={1}
+                      max={5}
+                      onChange={(value) => setClosureForm((current) => ({ ...current, satisfaction: value }))}
+                    />
+                    <TextAreaField
+                      label="评价内容"
+                      value={closureForm.evaluation}
+                      onChange={(value) => setClosureForm((current) => ({ ...current, evaluation: value }))}
+                    />
+                  </>
+                ) : null}
+                {closureAction.mode === "close" ? (
+                  <TextAreaField
+                    label="关闭原因"
+                    value={closureForm.reason}
+                    required
+                    onChange={(value) => setClosureForm((current) => ({ ...current, reason: value }))}
+                  />
+                ) : null}
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button type="button" onClick={() => setClosureAction(null)}>取消</button>
+                <button className="primary-button" type="submit">
+                  {closureAction.mode === "confirm" ? "确认完成" : closureAction.mode === "evaluate" ? "提交评价" : "确认关闭"}
+                </button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {exceptionAction ? (
+          <Drawer size="md" onClose={() => setExceptionAction(null)}>
+            <DrawerHeader
+              eyebrow={exceptionAction.mode === "cancel" ? "取消工单" : exceptionAction.mode === "return" ? "退回工单" : "驳回工单"}
+              title={exceptionAction.row.woCode}
+              description={
+                exceptionAction.mode === "cancel"
+                  ? "取消后工单进入已取消状态，只保留历史记录。"
+                  : exceptionAction.mode === "return"
+                    ? "退回后工单进入已退回状态，可重新派单。"
+                    : "驳回后工单进入已退回状态，等待补充或重新处理。"
+              }
+              onClose={() => setExceptionAction(null)}
+              closeIcon={<X size={16} />}
+            />
+            <DrawerForm onSubmit={(event) => void submitExceptionAction(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                <TextAreaField
+                  label={exceptionAction.mode === "cancel" ? "取消原因" : exceptionAction.mode === "return" ? "退回原因" : "驳回原因"}
+                  value={exceptionForm.reason}
+                  required
+                  onChange={(value) => setExceptionForm((current) => ({ ...current, reason: value }))}
+                />
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button type="button" onClick={() => setExceptionAction(null)}>取消</button>
+                <button className="primary-button" type="submit">
+                  {exceptionAction.mode === "cancel" ? "确认取消" : exceptionAction.mode === "return" ? "确认退回" : "确认驳回"}
+                </button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {message ? <p className="status-pill">{message}</p> : null}
+      </main>
+    </PermissionGuard>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  required,
+  placeholder,
+  onChange
+}: {
+  label: string;
+  value: string;
+  required?: boolean;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <input value={value} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+    </Field>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  min = 0,
+  max,
+  onChange
+}: {
+  label: string;
+  value: string;
+  min?: number;
+  max?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step="1"
+        value={value}
+        onFocus={(event) => event.target.select()}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </Field>
+  );
+}
+
+function TextAreaField({ label, value, required, onChange }: { label: string; value: string; required?: boolean; onChange: (value: string) => void }) {
+  return (
+    <Field label={label}>
+      <textarea value={value} required={required} rows={4} onChange={(event) => onChange(event.target.value)} />
+    </Field>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  required,
+  items,
+  onChange
+}: {
+  label: string;
+  value: string;
+  required?: boolean;
+  items: DictItemRow[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <Select value={value} items={items} required={required} onChange={onChange} />
+    </Field>
+  );
+}
+
+function Select({
+  value,
+  items,
+  required,
+  allLabel = "请选择",
+  onChange
+}: {
+  value: string;
+  items: DictItemRow[];
+  required?: boolean;
+  allLabel?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select value={value} required={required} onChange={(event) => onChange(event.target.value)}>
+      <option value="">{allLabel}</option>
+      {items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+    </select>
+  );
+}
+
+function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | null }) {
+  const item = items.find((candidate) => candidate.itemValue === value);
+  return <span className={`status-pill ${statusClass(item?.tagType)}`}>{item?.itemLabel ?? value ?? "-"}</span>;
+}
+
+function labelFor(items: DictItemRow[], value?: string | null): string {
+  if (!value) return "-";
+  return items.find((item) => item.itemValue === value)?.itemLabel ?? value;
+}
+
+function statusClass(tagType?: string | null): string {
+  switch (tagType) {
+    case "success":
+      return "status-success";
+    case "warning":
+      return "status-warning";
+    case "danger":
+      return "status-danger";
+    case "primary":
+      return "status-primary";
+    case "info":
+      return "status-info";
+    default:
+      return "status-muted";
+  }
+}
+
+function actionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    create: "创建工单",
+    update: "更新工单",
+    assign: "派单",
+    reassign: "改派",
+    accept: "接单",
+    start: "开始处理",
+    wait_material: "待物料",
+    resume: "恢复处理",
+    finish: "完成处理",
+    confirm: "确认完成",
+    evaluate: "评价",
+    close: "关闭",
+    cancel: "取消",
+    return: "退回",
+    reject: "驳回",
+    overdue: "超时标记",
+    overdue_clear: "清除超时",
+    system: "补充日志"
+  };
+  return labels[action] ?? action;
+}
+
+function displayUserName(user?: UserRow): string {
+  if (!user) return "";
+  return user.displayName ?? user.realName ?? user.username;
+}
+
+function unitLocation(unit: UnitRow): string {
+  return [unit.building?.buildingName, unit.floor?.floorName, unit.unitName].filter(Boolean).join(" / ");
+}
+
+function isDispatchableStatus(status: string): boolean {
+  return status === "10" || status === "20" || status === "91";
+}
+
+function canAssignWorkOrder(row: WorkOrderRow): boolean {
+  return isDispatchableStatus(row.status) && !row.assigneeId;
+}
+
+function canReassignWorkOrder(row: WorkOrderRow): boolean {
+  return isDispatchableStatus(row.status) && Boolean(row.assigneeId);
+}
+
+function canHandleWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  if (!user) return false;
+  if (hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_MANAGE_ALL)) return true;
+  return Boolean(row.assigneeId && row.assigneeId === user.id);
+}
+
+function canConfirmActor(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  if (!user) return false;
+  if (hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_MANAGE_ALL)) return true;
+  return Boolean(row.reporterId && row.reporterId === user.id);
+}
+
+function canAcceptWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return row.status === "20" && canHandleWorkOrder(user, row);
+}
+
+function canStartWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return (row.status === "30" || row.status === "45") && canHandleWorkOrder(user, row);
+}
+
+function canWaitMaterialWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return row.status === "40" && canHandleWorkOrder(user, row);
+}
+
+function canFinishWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return (row.status === "40" || row.status === "45") && canHandleWorkOrder(user, row);
+}
+
+function canConfirmWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return row.status === "50" && canConfirmActor(user, row);
+}
+
+function canEvaluateWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return row.status === "60" && canConfirmActor(user, row);
+}
+
+function canCloseWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return (row.status === "60" || row.status === "70") && hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_MANAGE_ALL);
+}
+
+function canCancelWorkOrder(row: WorkOrderRow): boolean {
+  return row.status === "10" || row.status === "20";
+}
+
+function canReturnWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return (row.status === "30" || row.status === "40" || row.status === "45") && canHandleWorkOrder(user, row);
+}
+
+function canRejectWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrderRow): boolean {
+  return (row.status === "10" || row.status === "20" || row.status === "30" || row.status === "40" || row.status === "45")
+    && hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_MANAGE_ALL);
+}
+
+function hasPermission(user: ReturnType<typeof useAuthUser>, permission: string): boolean {
+  if (!user) return false;
+  return user.is_super === true || user.permissions.includes("*") || user.permissions.includes(permission);
+}
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function fieldText(user: ReturnType<typeof useAuthUser>, canView: boolean, fieldKey: string, value: unknown): string {
+  if (!canView) return "-";
+  const masked = maskField(user, WORKORDER_MODULE, WORK_ORDER_ENTITY, fieldKey, value);
+  if (masked === null || masked === undefined || masked === "") return "-";
+  return String(masked);
+}
+
+function ForbiddenInline() {
+  return (
+    <main className="content">
+      <Card>
+        <h1 className="panel-title">403</h1>
+        <p>当前账号没有工单中心访问权限，或当前租户未启用 workorder 模块。</p>
+      </Card>
+    </main>
+  );
+}

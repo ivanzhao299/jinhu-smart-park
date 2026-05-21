@@ -155,6 +155,18 @@ export class AuditLogInterceptor implements NestInterceptor {
       "waiver_amount",
       "invoiceAmount",
       "invoice_amount",
+      "reporterMobile",
+      "reporter_mobile",
+      "description",
+      "imageFileIds",
+      "image_file_ids",
+      "videoFileIds",
+      "video_file_ids",
+      "evaluation",
+      "resolveNote",
+      "resolve_note",
+      "attachmentFileIds",
+      "attachment_file_ids",
       "content"
     ]);
     return this.sanitizeRecord(value, maskedKeys);

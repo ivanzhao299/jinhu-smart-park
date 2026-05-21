@@ -1,19 +1,90 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
+import { createHash, randomBytes, randomInt } from "crypto";
+import { MoreThan, type Repository } from "typeorm";
 import { SYSTEM_PERMISSIONS, type AuthUser } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { LoginDto } from "./dto/login.dto";
 import { TenantsService } from "../tenants/tenants.service";
+import type { MobileLoginDto } from "./dto/mobile-login.dto";
+import type { MobileSendCodeDto } from "./dto/mobile-send-code.dto";
+import type { RefreshTokenDto } from "./dto/refresh-token.dto";
+import type { SelectContextDto } from "./dto/select-context.dto";
+import type { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
+import type { WechatBindDto } from "./dto/wechat-bind.dto";
+import type { WechatCallbackDto } from "./dto/wechat-callback.dto";
+import { AuthLoginTicketEntity } from "./entities/auth-login-ticket.entity";
+import { AuthOauthStateEntity } from "./entities/auth-oauth-state.entity";
+import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
+import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
+import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { UsersService } from "../users/users.service";
+import type { UserEntity } from "../users/entities/user.entity";
+
+export interface LoginContextOption {
+  userId: string;
+  username: string;
+  realName: string;
+  tenantId: string;
+  parkId: string;
+}
 
 export interface LoginResult {
-  accessToken: string;
-  tokenType: "Bearer";
-  expiresIn: string;
-  user: AuthUser;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: "Bearer";
+  expiresIn?: string;
+  user?: AuthUser;
+  requiresContextSelection?: boolean;
+  loginTicket?: string;
+  contexts?: LoginContextOption[];
+}
+
+export interface MobileCodeResult {
+  mobile: string;
+  expiresIn: number;
+  message: string;
+  mockCode?: string;
+}
+
+export interface WechatAuthorizeResult {
+  provider: "wechat_open";
+  state: string;
+  authorizationUrl: string;
+  expiresIn: number;
+  mock: boolean;
+  message?: string;
+}
+
+export interface OAuthProviderProfile {
+  provider: "wechat_open";
+  providerUserId: string;
+  providerUnionId: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+  rawProfile: Record<string, unknown>;
+}
+
+export interface WechatCallbackResult extends LoginResult {
+  requiresIdentityBinding?: boolean;
+  bindTicket?: string;
+  provider?: "wechat_open";
+  profile?: {
+    nickname: string | null;
+    avatarUrl: string | null;
+  };
+}
+
+export interface BindIdentityResult {
+  provider: "wechat_open";
+  providerUserId: string;
+  userId: string;
+  tenantId: string;
+  parkId: string;
 }
 
 export interface LoginRequestMeta {
@@ -29,7 +100,17 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
-    private readonly tenantsService: TenantsService
+    private readonly tenantsService: TenantsService,
+    @InjectRepository(UserIdentityEntity)
+    private readonly identityRepository: Repository<UserIdentityEntity>,
+    @InjectRepository(AuthRefreshTokenEntity)
+    private readonly refreshTokenRepository: Repository<AuthRefreshTokenEntity>,
+    @InjectRepository(AuthOtpCodeEntity)
+    private readonly otpCodeRepository: Repository<AuthOtpCodeEntity>,
+    @InjectRepository(AuthOauthStateEntity)
+    private readonly oauthStateRepository: Repository<AuthOauthStateEntity>,
+    @InjectRepository(AuthLoginTicketEntity)
+    private readonly loginTicketRepository: Repository<AuthLoginTicketEntity>
   ) {}
 
   async login(dto: LoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
@@ -39,16 +120,381 @@ export class AuthService {
       parkId: dto.parkId
     });
     if (!user || user.isDeleted || !user.isEnabled) {
-      await this.recordLogin(dto, meta, null, false, "Invalid username or password");
+      await this.recordLoginEvent(
+        { tenantId: dto.tenantId, parkId: dto.parkId, username: dto.username, loginMethod: "password" },
+        meta,
+        null,
+        false,
+        "Invalid username or password"
+      );
       throw new UnauthorizedException("Invalid username or password");
     }
 
     const passwordMatched = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatched) {
-      await this.recordLogin(dto, meta, user.id, false, "Invalid username or password");
+      await this.recordLoginEvent(
+        { tenantId: dto.tenantId, parkId: dto.parkId, username: dto.username, loginMethod: "password" },
+        meta,
+        user.id,
+        false,
+        "Invalid username or password"
+      );
       throw new UnauthorizedException("Invalid username or password");
     }
 
+    await this.ensureIdentity(user, "password", user.username);
+    return this.issueLoginResult(user, meta, "password", user.username);
+  }
+
+  async sendMobileCode(dto: MobileSendCodeDto, meta: LoginRequestMeta): Promise<MobileCodeResult> {
+    await this.tenantsService.assertTenantActive(dto.tenantId);
+    const scene = dto.scene ?? "login";
+    const now = new Date();
+    const resendSeconds = Number(this.configService.get<string>("AUTH_SMS_RESEND_SECONDS", "60"));
+    const ttlSeconds = Number(this.configService.get<string>("AUTH_SMS_CODE_TTL_SECONDS", "300"));
+    const recentCode = await this.otpCodeRepository.findOne({
+      where: {
+        tenantId: dto.tenantId,
+        mobile: dto.mobile,
+        scene,
+        used: false,
+        isDeleted: false,
+        expiresAt: MoreThan(now)
+      },
+      order: { createTime: "DESC" }
+    });
+
+    if (recentCode && now.getTime() - recentCode.createTime.getTime() < resendSeconds * 1000) {
+      throw new BadRequestException("Please wait before requesting another code");
+    }
+
+    const fixedCode = this.configService.get<string>("AUTH_SMS_FIXED_CODE", process.env.NODE_ENV === "production" ? "" : "123456");
+    const code = fixedCode || String(randomInt(100000, 1000000));
+    await this.otpCodeRepository.save(
+      this.otpCodeRepository.create({
+        tenantId: dto.tenantId,
+        parkId: dto.parkId ?? null,
+        mobile: dto.mobile,
+        scene,
+        codeHash: this.hashOtpCode(dto.mobile, code),
+        expiresAt: new Date(now.getTime() + ttlSeconds * 1000),
+        ipAddress: meta.ipAddress,
+        remark: "SMS provider integration reserved; code generated by auth center"
+      })
+    );
+
+    const showMockCode = this.configService.get<string>("AUTH_SMS_CODE_VISIBLE", process.env.NODE_ENV === "production" ? "false" : "true") === "true";
+    return {
+      mobile: this.maskMobile(dto.mobile),
+      expiresIn: ttlSeconds,
+      message: "Verification code sent",
+      ...(showMockCode ? { mockCode: code } : {})
+    };
+  }
+
+  async mobileLogin(dto: MobileLoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    await this.tenantsService.assertTenantActive(dto.tenantId);
+    await this.verifyMobileCode(dto.tenantId, dto.parkId ?? null, dto.mobile, dto.code);
+    const users = await this.usersService.listLoginUsersByMobile(dto.tenantId, dto.mobile, dto.parkId);
+    if (users.length === 0) {
+      if (dto.parkId) {
+        await this.recordLoginEvent(
+          { tenantId: dto.tenantId, parkId: dto.parkId, username: this.maskMobile(dto.mobile), loginMethod: "mobile" },
+          meta,
+          null,
+          false,
+          "Mobile is not bound to an enabled user"
+        );
+      }
+      throw new UnauthorizedException("Mobile is not bound to an enabled user");
+    }
+
+    await Promise.all(users.map((user) => this.ensureIdentity(user, "mobile", dto.mobile)));
+    if (!dto.parkId && users.length > 1) {
+      const ticket = await this.createLoginTicket(dto.tenantId, "mobile", users.map((user) => user.id));
+      return {
+        requiresContextSelection: true,
+        loginTicket: ticket,
+        contexts: users.map((user) => this.toContextOption(user))
+      };
+    }
+
+    const user = users[0]!;
+    return this.issueLoginResult(user, meta, "mobile", this.maskMobile(dto.mobile));
+  }
+
+  async createWechatAuthorization(dto: WechatAuthorizeDto, _meta: LoginRequestMeta): Promise<WechatAuthorizeResult> {
+    await this.tenantsService.assertTenantActive(dto.tenantId);
+    const provider = "wechat_open" as const;
+    const redirectUri = dto.redirectUri ?? this.configService.get<string>("AUTH_WECHAT_REDIRECT_URI", "");
+    if (!redirectUri) {
+      throw new BadRequestException("WeChat redirect URI is not configured");
+    }
+    if (!this.isAllowedRedirectUri(redirectUri)) {
+      throw new BadRequestException("Redirect URI is not allowed");
+    }
+
+    const ttlSeconds = Number(this.configService.get<string>("AUTH_OAUTH_STATE_TTL_SECONDS", "300"));
+    const state = randomBytes(24).toString("hex");
+    await this.oauthStateRepository.save(
+      this.oauthStateRepository.create({
+        tenantId: dto.tenantId,
+        parkId: dto.parkId ?? null,
+        provider,
+        state,
+        redirectUri,
+        contextJson: {
+          action: "login",
+          provider,
+          parkId: dto.parkId ?? null
+        },
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+        remark: "WeChat OAuth state"
+      })
+    );
+
+    const appId = this.configService.get<string>("AUTH_WECHAT_APP_ID", "");
+    const mock = !appId || this.isWechatMockEnabled();
+    return {
+      provider,
+      state,
+      authorizationUrl: mock
+        ? this.buildMockWechatRedirectUrl(redirectUri, state)
+        : this.buildWechatAuthorizeUrl(redirectUri, state, appId),
+      expiresIn: ttlSeconds,
+      mock,
+      ...(mock ? { message: "WeChat OAuth is running in local mock mode" } : {})
+    };
+  }
+
+  async wechatCallback(dto: WechatCallbackDto, meta: LoginRequestMeta): Promise<WechatCallbackResult> {
+    const oauthState = await this.oauthStateRepository.findOne({
+      where: {
+        provider: "wechat_open",
+        state: dto.state,
+        consumed: false,
+        isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      }
+    });
+    if (!oauthState?.tenantId) {
+      throw new UnauthorizedException("OAuth state expired");
+    }
+    await this.tenantsService.assertTenantActive(oauthState.tenantId);
+
+    const profile = await this.exchangeWechatCode(dto.code, oauthState);
+    oauthState.consumed = true;
+    oauthState.consumedTime = new Date();
+    await this.oauthStateRepository.save(oauthState);
+
+    const users = await this.findUsersByOAuthProfile(oauthState.tenantId, oauthState.parkId, profile);
+    if (users.length === 0) {
+      const bindTicket = await this.createIdentityBindTicket(oauthState.tenantId, oauthState.parkId, profile);
+      await this.recordLoginEvent(
+        {
+          tenantId: oauthState.tenantId,
+          parkId: oauthState.parkId ?? "0",
+          username: profile.nickname ?? profile.providerUserId,
+          loginMethod: profile.provider
+        },
+        meta,
+        null,
+        false,
+        "WeChat identity is not bound to a platform account"
+      );
+      return {
+        requiresIdentityBinding: true,
+        bindTicket,
+        provider: profile.provider,
+        profile: {
+          nickname: profile.nickname,
+          avatarUrl: profile.avatarUrl
+        }
+      };
+    }
+
+    if (!oauthState.parkId && users.length > 1) {
+      const ticket = await this.createLoginTicket(
+        oauthState.tenantId,
+        profile.provider,
+        users.map((user) => user.id)
+      );
+      return {
+        requiresContextSelection: true,
+        loginTicket: ticket,
+        contexts: users.map((user) => this.toContextOption(user))
+      };
+    }
+
+    const user = users[0]!;
+    await this.ensureIdentityFromProfile(user, profile);
+    return this.issueLoginResult(user, meta, profile.provider, profile.nickname ?? profile.providerUserId);
+  }
+
+  async bindWechatIdentity(user: JwtPrincipal, dto: WechatBindDto): Promise<BindIdentityResult> {
+    const ticket = await this.loginTicketRepository.findOne({
+      where: {
+        tenantId: user.tenantId,
+        provider: "wechat_open_bind",
+        ticket: dto.bindTicket,
+        used: false,
+        isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      }
+    });
+    if (!ticket) {
+      throw new UnauthorizedException("Bind ticket expired");
+    }
+
+    const profile = this.getOAuthProfileFromTicket(ticket.contextPayload);
+    const parkId = this.readString(ticket.contextPayload, "parkId") ?? user.parkId;
+    const currentUser = await this.usersService.findByIdInScope(user.sub, { tenantId: user.tenantId, parkId });
+    if (!currentUser || !currentUser.isEnabled || currentUser.isDeleted) {
+      throw new UnauthorizedException("Current user context is unavailable");
+    }
+
+    const existing = await this.identityRepository.findOne({
+      where: {
+        tenantId: user.tenantId,
+        parkId,
+        provider: profile.provider,
+        providerUserId: profile.providerUserId,
+        isDeleted: false
+      }
+    });
+    if (existing && existing.userId !== user.sub) {
+      throw new ConflictException("WeChat identity is already bound to another account");
+    }
+    if (existing) {
+      ticket.used = true;
+      ticket.usedTime = new Date();
+      await this.loginTicketRepository.save(ticket);
+      return {
+        provider: profile.provider,
+        providerUserId: profile.providerUserId,
+        userId: user.sub,
+        tenantId: user.tenantId,
+        parkId
+      };
+    }
+
+    await this.identityRepository.save(
+      this.identityRepository.create({
+        tenantId: user.tenantId,
+        parkId,
+        userId: user.sub,
+        provider: profile.provider,
+        providerUserId: profile.providerUserId,
+        providerUnionId: profile.providerUnionId,
+        mobile: currentUser.mobile,
+        email: currentUser.email,
+        nickname: profile.nickname ?? currentUser.displayName,
+        avatarUrl: profile.avatarUrl ?? currentUser.avatarUrl,
+        rawProfileJson: profile.rawProfile,
+        bindStatus: "bound",
+        lastLoginTime: new Date(),
+        createBy: user.sub,
+        updateBy: user.sub
+      })
+    );
+    ticket.used = true;
+    ticket.usedTime = new Date();
+    await this.loginTicketRepository.save(ticket);
+    return {
+      provider: profile.provider,
+      providerUserId: profile.providerUserId,
+      userId: user.sub,
+      tenantId: user.tenantId,
+      parkId
+    };
+  }
+
+  async selectContext(dto: SelectContextDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    await this.tenantsService.assertTenantActive(dto.tenantId);
+    const ticket = await this.loginTicketRepository.findOne({
+      where: {
+        tenantId: dto.tenantId,
+        ticket: dto.ticket,
+        used: false,
+        isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      }
+    });
+    if (!ticket) {
+      throw new UnauthorizedException("Login ticket expired");
+    }
+
+    const userIds = this.getTicketUserIds(ticket.contextPayload);
+    if (!userIds.includes(dto.userId)) {
+      throw new BadRequestException("Selected context is not allowed");
+    }
+
+    const user = await this.usersService.findByIdInScope(dto.userId, {
+      tenantId: dto.tenantId,
+      parkId: dto.parkId
+    });
+    if (!user || !user.isEnabled || user.isDeleted) {
+      throw new UnauthorizedException("Selected user context is unavailable");
+    }
+
+    ticket.used = true;
+    ticket.usedTime = new Date();
+    await this.loginTicketRepository.save(ticket);
+    return this.issueLoginResult(user, meta, "mobile", user.username);
+  }
+
+  async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    const tokenHash = this.hashToken(dto.refreshToken);
+    const refreshToken = await this.refreshTokenRepository.findOne({
+      where: {
+        tokenHash,
+        revoked: false,
+        isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      }
+    });
+    if (!refreshToken) {
+      throw new UnauthorizedException("Refresh token expired");
+    }
+
+    const user = await this.usersService.findByIdInScope(refreshToken.userId, {
+      tenantId: refreshToken.tenantId,
+      parkId: refreshToken.parkId
+    });
+    if (!user || !user.isEnabled || user.isDeleted) {
+      throw new UnauthorizedException("Refresh token user unavailable");
+    }
+
+    refreshToken.revoked = true;
+    refreshToken.revokedTime = new Date();
+    await this.refreshTokenRepository.save(refreshToken);
+    return this.issueLoginResult(user, meta, "refresh_token", user.username);
+  }
+
+  async logout(user: JwtPrincipal, refreshToken?: string): Promise<{ userId: string }> {
+    if (refreshToken) {
+      const tokenHash = this.hashToken(refreshToken);
+      await this.refreshTokenRepository.update(
+        {
+          tenantId: user.tenantId,
+          parkId: user.parkId,
+          userId: user.sub,
+          tokenHash,
+          revoked: false,
+          isDeleted: false
+        },
+        { revoked: true, revokedTime: new Date(), updateBy: user.sub }
+      );
+    }
+    return { userId: user.sub };
+  }
+
+  private async issueLoginResult(
+    user: UserEntity,
+    meta: LoginRequestMeta,
+    loginMethod: string,
+    loginUsername: string
+  ): Promise<LoginResult> {
     const activeRoleLinks = user.roleLinks.filter(
       (link) => !link.isDeleted && link.role.isEnabled && !link.role.isDeleted
     );
@@ -93,34 +539,411 @@ export class AuthService {
 
     const result: LoginResult = {
       accessToken: await this.jwtService.signAsync(payload),
+      refreshToken: await this.createRefreshToken(user, meta),
       tokenType: "Bearer",
       expiresIn: this.configService.get<string>("JWT_EXPIRES_IN", "2h"),
       user: authUser
     };
     await this.usersService.recordSuccessfulLogin({ tenantId: user.tenantId, parkId: user.parkId }, user.id, meta.ipAddress);
-    await this.recordLogin(dto, meta, user.id, true, "success");
+    await this.recordLoginEvent(
+      { tenantId: user.tenantId, parkId: user.parkId, username: loginUsername, loginMethod },
+      meta,
+      user.id,
+      true,
+      "success"
+    );
     return result;
   }
 
-  private async recordLogin(
-    dto: LoginDto,
+  private async recordLoginEvent(
+    login: { tenantId: string; parkId: string; username: string; loginMethod: string },
     meta: LoginRequestMeta,
     userId: string | null,
     success: boolean,
     message: string
   ): Promise<void> {
     await this.auditService.recordLogin({
-      tenantId: dto.tenantId,
-      parkId: dto.parkId,
+      tenantId: login.tenantId,
+      parkId: login.parkId,
       userId,
-      username: dto.username,
+      username: login.username,
       ipAddress: meta.ipAddress,
-      userAgent: Array.isArray(meta.userAgent) ? meta.userAgent.join(";") : meta.userAgent,
-      loginMethod: "password",
+      userAgent: this.normalizeUserAgent(meta.userAgent),
+      loginMethod: login.loginMethod,
       success,
       message,
       requestId: meta.requestId ?? null
     });
+  }
+
+  private async createRefreshToken(user: UserEntity, meta: LoginRequestMeta): Promise<string> {
+    const rawToken = randomBytes(48).toString("hex");
+    const expiresDays = Number(this.configService.get<string>("AUTH_REFRESH_EXPIRES_DAYS", "30"));
+    await this.refreshTokenRepository.save(
+      this.refreshTokenRepository.create({
+        tenantId: user.tenantId,
+        parkId: user.parkId,
+        userId: user.id,
+        tokenHash: this.hashToken(rawToken),
+        userAgent: this.normalizeUserAgent(meta.userAgent),
+        ipAddress: meta.ipAddress,
+        expiresAt: new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000),
+        createBy: user.id,
+        updateBy: user.id
+      })
+    );
+    return rawToken;
+  }
+
+  private async createLoginTicket(tenantId: string, provider: string, userIds: string[]): Promise<string> {
+    const ticket = randomBytes(32).toString("hex");
+    const ttlSeconds = Number(this.configService.get<string>("AUTH_LOGIN_TICKET_TTL_SECONDS", "300"));
+    await this.loginTicketRepository.save(
+      this.loginTicketRepository.create({
+        tenantId,
+        provider,
+        ticket,
+        contextPayload: { userIds },
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000)
+      })
+    );
+    return ticket;
+  }
+
+  private async createIdentityBindTicket(
+    tenantId: string,
+    parkId: string | null,
+    profile: OAuthProviderProfile
+  ): Promise<string> {
+    const ticket = randomBytes(32).toString("hex");
+    const ttlSeconds = Number(this.configService.get<string>("AUTH_LOGIN_TICKET_TTL_SECONDS", "300"));
+    await this.loginTicketRepository.save(
+      this.loginTicketRepository.create({
+        tenantId,
+        provider: "wechat_open_bind",
+        ticket,
+        contextPayload: {
+          type: "oauth_bind",
+          provider: profile.provider,
+          parkId,
+          profile
+        },
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000)
+      })
+    );
+    return ticket;
+  }
+
+  private async ensureIdentity(user: UserEntity, provider: string, providerUserId: string): Promise<void> {
+    const exists = await this.identityRepository.exists({
+      where: {
+        tenantId: user.tenantId,
+        parkId: user.parkId,
+        provider,
+        providerUserId,
+        isDeleted: false
+      }
+    });
+    if (exists) {
+      await this.identityRepository.update(
+        {
+          tenantId: user.tenantId,
+          parkId: user.parkId,
+          provider,
+          providerUserId,
+          isDeleted: false
+        },
+        { lastLoginTime: new Date(), updateBy: user.id }
+      );
+      return;
+    }
+
+    await this.identityRepository.save(
+      this.identityRepository.create({
+        tenantId: user.tenantId,
+        parkId: user.parkId,
+        userId: user.id,
+        provider,
+        providerUserId,
+        mobile: user.mobile,
+        email: user.email,
+        nickname: user.displayName,
+        avatarUrl: user.avatarUrl,
+        bindStatus: "bound",
+        lastLoginTime: new Date(),
+        createBy: user.id,
+        updateBy: user.id
+      })
+    );
+  }
+
+  private async ensureIdentityFromProfile(user: UserEntity, profile: OAuthProviderProfile): Promise<void> {
+    const identity = await this.identityRepository.findOne({
+      where: {
+        tenantId: user.tenantId,
+        parkId: user.parkId,
+        provider: profile.provider,
+        providerUserId: profile.providerUserId,
+        isDeleted: false
+      }
+    });
+    if (!identity) {
+      await this.identityRepository.save(
+        this.identityRepository.create({
+          tenantId: user.tenantId,
+          parkId: user.parkId,
+          userId: user.id,
+          provider: profile.provider,
+          providerUserId: profile.providerUserId,
+          providerUnionId: profile.providerUnionId,
+          mobile: user.mobile,
+          email: user.email,
+          nickname: profile.nickname ?? user.displayName,
+          avatarUrl: profile.avatarUrl ?? user.avatarUrl,
+          rawProfileJson: profile.rawProfile,
+          bindStatus: "bound",
+          lastLoginTime: new Date(),
+          createBy: user.id,
+          updateBy: user.id
+        })
+      );
+      return;
+    }
+
+    identity.providerUnionId = profile.providerUnionId ?? identity.providerUnionId;
+    identity.nickname = profile.nickname ?? identity.nickname;
+    identity.avatarUrl = profile.avatarUrl ?? identity.avatarUrl;
+    identity.rawProfileJson = profile.rawProfile;
+    identity.lastLoginTime = new Date();
+    identity.updateBy = user.id;
+    await this.identityRepository.save(identity);
+  }
+
+  private async findUsersByOAuthProfile(
+    tenantId: string,
+    parkId: string | null,
+    profile: OAuthProviderProfile
+  ): Promise<UserEntity[]> {
+    const identities = await this.identityRepository.find({
+      where: {
+        tenantId,
+        ...(parkId ? { parkId } : {}),
+        provider: profile.provider,
+        providerUserId: profile.providerUserId,
+        isDeleted: false
+      },
+      order: { createTime: "ASC" }
+    });
+    const users: UserEntity[] = [];
+    for (const identity of identities) {
+      const resolvedUser = await this.usersService.findByIdInScope(identity.userId, {
+        tenantId: identity.tenantId,
+        parkId: identity.parkId
+      });
+      if (resolvedUser?.isEnabled && !resolvedUser.isDeleted) {
+        users.push(resolvedUser);
+      }
+    }
+    return users;
+  }
+
+  private async exchangeWechatCode(code: string, oauthState: AuthOauthStateEntity): Promise<OAuthProviderProfile> {
+    const appId = this.configService.get<string>("AUTH_WECHAT_APP_ID", "");
+    const appSecret = this.configService.get<string>("AUTH_WECHAT_APP_SECRET", "");
+    if (!appId || !appSecret || this.isWechatMockEnabled() || code.startsWith("mock:")) {
+      return this.createMockWechatProfile(code, oauthState.state);
+    }
+
+    const accessTokenUrl = new URL("https://api.weixin.qq.com/sns/oauth2/access_token");
+    accessTokenUrl.searchParams.set("appid", appId);
+    accessTokenUrl.searchParams.set("secret", appSecret);
+    accessTokenUrl.searchParams.set("code", code);
+    accessTokenUrl.searchParams.set("grant_type", "authorization_code");
+    const tokenResponse = await fetch(accessTokenUrl);
+    const tokenPayload = this.asRecord(await tokenResponse.json());
+    const tokenError = this.readString(tokenPayload, "errmsg");
+    if (!tokenResponse.ok || tokenError) {
+      throw new UnauthorizedException(tokenError ?? "WeChat OAuth token exchange failed");
+    }
+
+    const openId = this.readString(tokenPayload, "openid");
+    const accessToken = this.readString(tokenPayload, "access_token");
+    if (!openId || !accessToken) {
+      throw new UnauthorizedException("WeChat OAuth token response is incomplete");
+    }
+
+    const profileUrl = new URL("https://api.weixin.qq.com/sns/userinfo");
+    profileUrl.searchParams.set("access_token", accessToken);
+    profileUrl.searchParams.set("openid", openId);
+    profileUrl.searchParams.set("lang", "zh_CN");
+    const profileResponse = await fetch(profileUrl);
+    const profilePayload = this.asRecord(await profileResponse.json());
+    const profileError = this.readString(profilePayload, "errmsg");
+    if (!profileResponse.ok || profileError) {
+      throw new UnauthorizedException(profileError ?? "WeChat profile fetch failed");
+    }
+
+    return {
+      provider: "wechat_open",
+      providerUserId: openId,
+      providerUnionId: this.readString(profilePayload, "unionid"),
+      nickname: this.readString(profilePayload, "nickname"),
+      avatarUrl: this.readString(profilePayload, "headimgurl"),
+      rawProfile: profilePayload
+    };
+  }
+
+  private createMockWechatProfile(code: string, state: string): OAuthProviderProfile {
+    const seed = code.startsWith("mock:") ? code.slice(5) : code;
+    const providerUserId = `mock_${createHash("sha256").update(`${seed}:${state}`).digest("hex").slice(0, 32)}`;
+    return {
+      provider: "wechat_open",
+      providerUserId,
+      providerUnionId: null,
+      nickname: "微信模拟用户",
+      avatarUrl: null,
+      rawProfile: {
+        mode: "mock",
+        seed,
+        providerUserId
+      }
+    };
+  }
+
+  private buildWechatAuthorizeUrl(redirectUri: string, state: string, appId: string): string {
+    const authorizeUrl = new URL(
+      this.configService.get<string>("AUTH_WECHAT_AUTHORIZE_URL", "https://open.weixin.qq.com/connect/qrconnect")
+    );
+    authorizeUrl.searchParams.set("appid", appId);
+    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizeUrl.searchParams.set("response_type", "code");
+    authorizeUrl.searchParams.set("scope", this.configService.get<string>("AUTH_WECHAT_SCOPE", "snsapi_login"));
+    authorizeUrl.searchParams.set("state", state);
+    return `${authorizeUrl.toString()}#wechat_redirect`;
+  }
+
+  private buildMockWechatRedirectUrl(redirectUri: string, state: string): string {
+    const url = new URL(redirectUri);
+    url.searchParams.set("code", `mock:${state}`);
+    url.searchParams.set("state", state);
+    return url.toString();
+  }
+
+  private isWechatMockEnabled(): boolean {
+    return (
+      this.configService.get<string>("AUTH_WECHAT_MOCK_ENABLED", process.env.NODE_ENV === "production" ? "false" : "true") ===
+      "true"
+    );
+  }
+
+  private isAllowedRedirectUri(redirectUri: string): boolean {
+    let url: URL;
+    try {
+      url = new URL(redirectUri);
+    } catch {
+      return false;
+    }
+    const configuredRedirectUri = this.configService.get<string>("AUTH_WECHAT_REDIRECT_URI", "");
+    if (configuredRedirectUri && redirectUri === configuredRedirectUri) {
+      return true;
+    }
+    const allowedOrigins = this.configService
+      .get<string>("AUTH_WECHAT_ALLOWED_REDIRECT_ORIGINS", "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (allowedOrigins.includes(url.origin)) {
+      return true;
+    }
+    return process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  }
+
+  private getOAuthProfileFromTicket(payload: Record<string, unknown>): OAuthProviderProfile {
+    const profile = this.asRecord(payload.profile);
+    const provider = this.readString(profile, "provider");
+    const providerUserId = this.readString(profile, "providerUserId");
+    if (provider !== "wechat_open" || !providerUserId) {
+      throw new UnauthorizedException("Bind ticket payload is invalid");
+    }
+    return {
+      provider,
+      providerUserId,
+      providerUnionId: this.readString(profile, "providerUnionId"),
+      nickname: this.readString(profile, "nickname"),
+      avatarUrl: this.readString(profile, "avatarUrl"),
+      rawProfile: this.asRecord(profile.rawProfile)
+    };
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  }
+
+  private readString(record: Record<string, unknown>, key: string): string | null {
+    const value = record[key];
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+
+  private async verifyMobileCode(tenantId: string, parkId: string | null, mobile: string, code: string): Promise<void> {
+    const otpCode = await this.otpCodeRepository.findOne({
+      where: {
+        tenantId,
+        mobile,
+        scene: "login",
+        used: false,
+        isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      },
+      order: { createTime: "DESC" }
+    });
+    if (!otpCode || (parkId && otpCode.parkId && otpCode.parkId !== parkId)) {
+      throw new UnauthorizedException("Invalid verification code");
+    }
+    if (otpCode.attemptCount >= 5) {
+      throw new UnauthorizedException("Verification code attempts exceeded");
+    }
+    if (otpCode.codeHash !== this.hashOtpCode(mobile, code)) {
+      otpCode.attemptCount += 1;
+      await this.otpCodeRepository.save(otpCode);
+      throw new UnauthorizedException("Invalid verification code");
+    }
+    otpCode.used = true;
+    otpCode.usedTime = new Date();
+    await this.otpCodeRepository.save(otpCode);
+  }
+
+  private toContextOption(user: UserEntity): LoginContextOption {
+    return {
+      userId: user.id,
+      username: user.username,
+      realName: user.displayName,
+      tenantId: user.tenantId,
+      parkId: user.parkId
+    };
+  }
+
+  private getTicketUserIds(payload: Record<string, unknown>): string[] {
+    const userIds = payload.userIds;
+    if (!Array.isArray(userIds)) {
+      return [];
+    }
+    return userIds.filter((item): item is string => typeof item === "string");
+  }
+
+  private hashToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  private hashOtpCode(mobile: string, code: string): string {
+    return createHash("sha256").update(`${mobile}:${code}`).digest("hex");
+  }
+
+  private normalizeUserAgent(userAgent: string | string[] | null): string | null {
+    return Array.isArray(userAgent) ? userAgent.join(";") : userAgent;
+  }
+
+  private maskMobile(mobile: string): string {
+    return mobile.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
   }
 
   private resolveDataScope(scopes: string[]): string {

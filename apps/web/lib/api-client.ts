@@ -97,8 +97,10 @@ function handleUnauthorized(status: number): void {
     return;
   }
   sessionStorage.removeItem("jinhu_access_token");
+  sessionStorage.removeItem("jinhu_refresh_token");
   sessionStorage.removeItem("jinhu_auth_user");
   localStorage.removeItem("jinhu_access_token");
+  localStorage.removeItem("jinhu_refresh_token");
   localStorage.removeItem("jinhu_auth_user");
   window.location.href = "/login";
 }

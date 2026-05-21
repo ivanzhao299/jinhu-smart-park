@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   Tags,
   Users,
@@ -46,6 +47,7 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   wrench: Wrench,
   "brain-circuit": BrainCircuit,
   "shield-check": ShieldCheck,
+  "shield-alert": ShieldAlert,
   shield: Shield,
   users: Users,
   user: Users,
@@ -147,8 +149,29 @@ export const dashboardMenus: MenuNode[] = [
     icon: Wrench,
     module: "workorder",
     children: [
-      { label: "工单中心", href: "/workorders", permission: "wo:read", module: "workorder" },
-      { label: "工单统计", href: "/workorders/statistics", permission: "wo:read", module: "workorder" }
+      { label: "工单看板", href: "/workorders", permission: "workorder:read", module: "workorder" },
+      { label: "工单列表", href: "/workorders/list", permission: "workorder:read", module: "workorder" },
+      { label: "SLA 规则", href: "/workorders/sla-rules", permission: "workorder_sla:read", module: "workorder" },
+      { label: "超时工单", href: "/workorders/overdue", permission: "workorder:overdue", module: "workorder" },
+      { label: "工单统计", href: "/workorders/stats", permission: "workorder:stats", module: "workorder" }
+    ]
+  },
+  {
+    label: "安全管理",
+    icon: ShieldAlert,
+    module: "safety",
+    children: [
+      { label: "安全看板", href: "/safety/dashboard", permission: "safety_statistics:read", module: "safety" },
+      { label: "巡检点位", href: "/safety/inspect-points", permission: "safety_inspect_point:read", module: "safety" },
+      { label: "巡检模板", href: "/safety/inspect-templates", permission: "safety_inspect_template:read", module: "safety" },
+      { label: "巡检计划", href: "/safety/inspect-plans", permission: "safety_inspect_plan:read", module: "safety" },
+      { label: "巡检任务", href: "/safety/inspect-tasks", permission: "safety_inspect_task:read", module: "safety" },
+      { label: "我的巡检", href: "/safety/my-inspect-tasks", permission: "safety_inspect_task:my", module: "safety" },
+      { label: "隐患整改", href: "/safety/hazards", permission: "safety_hazard:read", module: "safety" },
+      { label: "超期隐患", href: "/safety/hazards/overdue", permission: "safety_hazard:overdue", module: "safety" },
+      { label: "应急联系人", href: "/safety/emergency-contacts", permission: "safety_emergency_contact:read", module: "safety" },
+      { label: "应急预案", href: "/safety/emergency-plans", permission: "safety_emergency_plan:read", module: "safety" },
+      { label: "应急事件", href: "/safety/emergencies", permission: "safety_emergency:read", module: "safety" }
     ]
   },
   {

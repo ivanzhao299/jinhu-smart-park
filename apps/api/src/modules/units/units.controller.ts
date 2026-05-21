@@ -102,6 +102,20 @@ export class UnitsController {
     return this.unitsService.importExcel(scope, user, file);
   }
 
+  @Get(":id/workorders")
+  @RequireModule("asset", "workorder")
+  @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ, SYSTEM_PERMISSIONS.WORKORDER_READ)
+  workorders(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.unitsService.workorders(scope, id, user);
+  }
+
+  @Get(":id/hazards")
+  @RequireModule("asset", "safety")
+  @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ, SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ)
+  hazards(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.unitsService.hazards(scope, id, user);
+  }
+
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {

@@ -40,7 +40,13 @@ export class ParkTenantsController {
   }
 
   @Get(":id/360")
-  @RequirePermissions(SYSTEM_PERMISSIONS.PARK_TENANT_READ, SYSTEM_PERMISSIONS.PARK_TENANT_360)
+  @RequireModule("leasing", "workorder", "safety")
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.PARK_TENANT_READ,
+    SYSTEM_PERMISSIONS.PARK_TENANT_360,
+    SYSTEM_PERMISSIONS.WORKORDER_READ,
+    SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ
+  )
   tenant360(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.parkTenantsService.tenant360(scope, id, user);
   }

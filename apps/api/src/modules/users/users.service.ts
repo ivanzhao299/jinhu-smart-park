@@ -42,6 +42,15 @@ export interface UserView {
   remark: string | null;
 }
 
+export interface UserLoginContextCandidate {
+  id: string;
+  username: string;
+  realName: string;
+  tenantId: string;
+  parkId: string;
+  mobile: string | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -161,6 +170,59 @@ export class UsersService {
         }
       }
     });
+  }
+
+  findByMobileInScope(mobile: string, scope: TenantParkScope): Promise<UserEntity | null> {
+    return this.usersRepository.findOne({
+      where: {
+        mobile,
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        isDeleted: false
+      },
+      relations: {
+        roleLinks: {
+          role: {
+            permissionLinks: {
+              permission: true
+            }
+          }
+        }
+      }
+    });
+  }
+
+  async listLoginUsersByMobile(tenantId: string, mobile: string, parkId?: string): Promise<UserEntity[]> {
+    return this.usersRepository.find({
+      where: {
+        tenantId,
+        ...(parkId ? { parkId } : {}),
+        mobile,
+        isDeleted: false,
+        isEnabled: true
+      },
+      relations: {
+        roleLinks: {
+          role: {
+            permissionLinks: {
+              permission: true
+            }
+          }
+        }
+      },
+      order: { parkId: "ASC", createTime: "ASC" }
+    });
+  }
+
+  toLoginContextCandidate(user: UserEntity): UserLoginContextCandidate {
+    return {
+      id: user.id,
+      username: user.username,
+      realName: user.displayName,
+      tenantId: user.tenantId,
+      parkId: user.parkId,
+      mobile: user.mobile
+    };
   }
 
   async getEntityInScope(scope: TenantParkScope, id: string): Promise<UserEntity> {
@@ -771,8 +833,11 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "wrench",
     module: "workorder",
     children: [
-      { label: "工单中心", href: "/workorders", permission: "wo:read", module: "workorder" },
-      { label: "工单统计", href: "/workorders/statistics", permission: "wo:read", module: "workorder" }
+      { label: "工单看板", href: "/workorders", permission: "workorder:read", module: "workorder" },
+      { label: "工单列表", href: "/workorders/list", permission: "workorder:read", module: "workorder" },
+      { label: "SLA 规则", href: "/workorders/sla-rules", permission: "workorder_sla:read", module: "workorder" },
+      { label: "超时工单", href: "/workorders/overdue", permission: "workorder:overdue", module: "workorder" },
+      { label: "工单统计", href: "/workorders/stats", permission: "workorder:stats", module: "workorder" }
     ]
   },
   {

@@ -16,6 +16,8 @@ import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoi
 import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
 import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { SafetyHazardsService } from "../safety-hazards/safety-hazards.service";
+import { WorkOrdersService } from "../work-orders/work-orders.service";
 import type { ChangeParkTenantRiskDto } from "./dto/change-park-tenant-risk.dto";
 import type { CreateParkTenantDto } from "./dto/create-park-tenant.dto";
 import type { ParkTenantQueryDto } from "./dto/park-tenant-query.dto";
@@ -66,7 +68,9 @@ export class ParkTenantsService {
     private readonly dictItemsRepository: Repository<DictItemEntity>,
     private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
-    private readonly fieldPolicyService: FieldPolicyService
+    private readonly fieldPolicyService: FieldPolicyService,
+    private readonly workOrdersService: WorkOrdersService,
+    private readonly safetyHazardsService: SafetyHazardsService
   ) {}
 
   async list(scope: TenantParkScope, query: ParkTenantQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkTenantEntity>> {
@@ -210,7 +214,9 @@ export class ParkTenantsService {
       invoicesAllRaw,
       contractChangesAllRaw,
       checkoutsAllRaw,
-      refundsAllRaw
+      refundsAllRaw,
+      workorders,
+      hazards
     ] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
@@ -254,7 +260,9 @@ export class ParkTenantsService {
       invoicesBuilder.getMany(),
       contractChangesBuilder.getMany(),
       checkoutsBuilder.getMany(),
-      refundsBuilder.getMany()
+      refundsBuilder.getMany(),
+      this.workOrdersService.tenant360Workorders(scope, actor, id),
+      this.safetyHazardsService.tenant360Hazards(scope, actor, id)
     ]);
     const receivablesRaw = receivablesAllRaw.slice(0, 5);
     const paymentsRaw = paymentsAllRaw.slice(0, 5);
@@ -385,8 +393,8 @@ export class ParkTenantsService {
       contract_changes: { available: true, summary: contractChangeSummary, recent_items: contractChanges },
       checkouts: { available: true, summary: checkoutSummary, recent_items: checkouts },
       refunds: { available: true, summary: refundsSummary, recent_items: refunds },
-      workorders: { available: false, summary: null },
-      hazards: { available: false, summary: null },
+      workorders,
+      hazards,
       energy: { available: false, summary: null }
     };
   }

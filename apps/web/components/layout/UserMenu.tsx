@@ -4,7 +4,7 @@ import { LogOut, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthUser } from "../../lib/auth-context";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
-import { clearSession, getToken } from "../../lib/auth";
+import { clearSession, getRefreshToken, getToken } from "../../lib/auth";
 
 export function UserMenu() {
   const router = useRouter();
@@ -15,6 +15,7 @@ export function UserMenu() {
       await apiRequest<{ userId: string }>("/auth/logout", {
         method: "POST",
         token: getToken(),
+        body: { refreshToken: getRefreshToken() },
         idempotencyKey: createIdempotencyKey("logout")
       });
     } finally {

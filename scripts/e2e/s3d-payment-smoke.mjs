@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -18,6 +19,13 @@ const normalUser = process.env.E2E_NORMAL_USERNAME ?? "s1_user";
 const normalPassword = process.env.E2E_NORMAL_PASSWORD ?? "Jinhu@123456";
 const stamp = Date.now();
 const smokeRemark = `S3D payment smoke ${stamp}`;
+let apiProcess = null;
+
+function getPnpmBin() {
+  if (process.env.PNPM_BIN) return process.env.PNPM_BIN;
+  const bundled = resolve(rootDir, ".tools/pnpm");
+  return existsSync(bundled) ? bundled : "pnpm";
+}
 
 function logStep(message) {
   console.log(`[s3d-payment-smoke] ${message}`);
@@ -77,6 +85,45 @@ async function login(username, password) {
   });
 }
 
+async function isApiReachable() {
+  try {
+    const { response } = await request("/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tenantId, parkId, username: adminUser, password: "bad-password" })
+    });
+    return response.status === 401;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForApi() {
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    if (await isApiReachable()) return;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+  }
+  throw new Error(`API did not become reachable at ${apiBase}`);
+}
+
+async function ensureApiStarted() {
+  if (await isApiReachable()) {
+    logStep(`API reachable: ${apiBase}`);
+    return;
+  }
+  if (process.env.E2E_NO_API_START === "1") throw new Error(`API is not reachable at ${apiBase}`);
+  logStep("API not reachable, starting @jinhu/api for S3-D payment smoke test");
+  apiProcess = spawn(getPnpmBin(), ["--filter", "@jinhu/api", "start"], {
+    cwd: rootDir,
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env }
+  });
+  apiProcess.unref();
+  await waitForApi();
+}
+
 async function dbScalar(sql) {
   const { stdout } = await execFileAsync("docker", [
     "compose",
@@ -134,6 +181,7 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
 }
 
 async function main() {
+  await ensureApiStarted();
   const adminLogin = await login(adminUser, adminPassword);
   assertStatus("admin login", adminLogin.response.status, 200);
   assertUniformResponse("admin login", adminLogin.body);
@@ -297,7 +345,8 @@ async function main() {
   assert(Number(tenant360Finance.body.data.payments.summary.total_payment_amount) >= 200, "tenant 360 payment summary should include created payments");
   assert(Array.isArray(tenant360Finance.body.data.payments.recent_items), "tenant 360 payments should return recent_items");
   assert(tenant360Finance.body.data.invoices?.available === true, "tenant 360 invoices should be available");
-  assert(tenant360Finance.body.data.workorders?.available === false, "tenant 360 workorders should remain unavailable");
+  assert(tenant360Finance.body.data.workorders?.available === true, "tenant 360 workorders should be available after S4-A");
+  assert(Array.isArray(tenant360Finance.body.data.workorders.recent_items), "tenant 360 workorders should return recent_items");
 
   const statusLogCount = Number(await dbScalar(`
 SELECT count(*)
@@ -336,7 +385,17 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   logStep("S3-D payment smoke passed");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    if (apiProcess?.pid) {
+      try {
+        process.kill(-apiProcess.pid, "SIGTERM");
+      } catch {
+        // API process may already have exited.
+      }
+    }
+  });
