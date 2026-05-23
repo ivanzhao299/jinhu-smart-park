@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Edit3,
+  ExternalLink,
   Eye,
   Paperclip,
   PlayCircle,
@@ -33,6 +34,7 @@ import {
   ShieldCheck,
   Siren,
   Trash2,
+  Wrench,
   XCircle
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -42,7 +44,7 @@ import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { canViewField, maskField } from "../../../lib/field-policy";
+import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 
 const SAFETY_MODULE = "safety";
 const EVENT_ENTITY = "emergency_event";
@@ -154,6 +156,17 @@ interface EmergencyTimelineRow {
   opTime: string;
 }
 
+interface WorkOrderRow {
+  id: string;
+  woCode: string;
+  title: string;
+}
+
+interface CreateWorkOrderResponse {
+  emergency: EmergencyEventRow;
+  work_order: WorkOrderRow;
+}
+
 interface EventForm {
   emergencyCode: string;
   sourceType: string;
@@ -199,6 +212,15 @@ interface TimelineLogForm {
   attachmentFileIds: string[];
   gpsLng: string;
   gpsLat: string;
+}
+
+interface CreateWorkOrderForm {
+  title: string;
+  woType: string;
+  priority: string;
+  urgency: string;
+  assigneeId: string;
+  description: string;
 }
 
 interface Filters {
@@ -261,6 +283,14 @@ const emptyTimelineLogForm: TimelineLogForm = {
   gpsLng: "",
   gpsLat: ""
 };
+const emptyCreateWorkOrderForm: CreateWorkOrderForm = {
+  title: "",
+  woType: "repair",
+  priority: "high",
+  urgency: "urgent",
+  assigneeId: "",
+  description: ""
+};
 
 export default function SafetyEmergenciesPage() {
   const authUser = useAuthUser();
@@ -283,6 +313,8 @@ export default function SafetyEmergenciesPage() {
   const [actionForm, setActionForm] = useState<ActionForm>(emptyActionForm);
   const [timelineLogOpen, setTimelineLogOpen] = useState(false);
   const [timelineLogForm, setTimelineLogForm] = useState<TimelineLogForm>(emptyTimelineLogForm);
+  const [creatingWorkOrder, setCreatingWorkOrder] = useState<EmergencyEventRow | null>(null);
+  const [createWorkOrderForm, setCreateWorkOrderForm] = useState<CreateWorkOrderForm>(emptyCreateWorkOrderForm);
   const [message, setMessage] = useState("");
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
@@ -291,6 +323,9 @@ export default function SafetyEmergenciesPage() {
   const severityLevels = dicts.safety_emergency_severity ?? [];
   const responseLevels = dicts.safety_emergency_response_level ?? [];
   const statusItems = dicts.safety_emergency_status ?? [];
+  const workOrderTypes = dicts.workorder_type ?? [];
+  const workOrderPriorities = dicts.workorder_priority ?? [];
+  const workOrderUrgencies = dicts.workorder_urgency ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-report_time" });
@@ -318,7 +353,10 @@ export default function SafetyEmergenciesPage() {
       "safety_emergency_incident_type",
       "safety_emergency_severity",
       "safety_emergency_response_level",
-      "safety_emergency_status"
+      "safety_emergency_status",
+      "workorder_type",
+      "workorder_priority",
+      "workorder_urgency"
     ];
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
@@ -527,6 +565,50 @@ export default function SafetyEmergenciesPage() {
     await loadTimeline(viewing.id);
   }
 
+  function openCreateWorkOrder(row: EmergencyEventRow) {
+    setCreatingWorkOrder(row);
+    setCreateWorkOrderForm({
+      title: `${row.title}后续处置工单`,
+      woType: workOrderTypes.find((item) => item.itemValue === "repair")?.itemValue ?? workOrderTypes[0]?.itemValue ?? "repair",
+      priority: workOrderPriorities.find((item) => item.itemValue === "high")?.itemValue ?? workOrderPriorities[0]?.itemValue ?? "high",
+      urgency: workOrderUrgencies.find((item) => item.itemValue === "urgent")?.itemValue ?? workOrderUrgencies[0]?.itemValue ?? "urgent",
+      assigneeId: "",
+      description: `应急事件处置后的维修清理任务：${row.title}`
+    });
+  }
+
+  function closeCreateWorkOrder() {
+    setCreatingWorkOrder(null);
+    setCreateWorkOrderForm(emptyCreateWorkOrderForm);
+  }
+
+  async function submitCreateWorkOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!creatingWorkOrder) return;
+    if (!createWorkOrderForm.title.trim() || !createWorkOrderForm.description.trim()) {
+      setMessage("工单标题和描述必填");
+      return;
+    }
+    const response = await apiRequest<CreateWorkOrderResponse>(`/safety/emergencies/${creatingWorkOrder.id}/create-work-order`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("safety-emergency-create-workorder"),
+      body: {
+        title: createWorkOrderForm.title.trim(),
+        wo_type: createWorkOrderForm.woType || undefined,
+        priority: createWorkOrderForm.priority,
+        urgency: createWorkOrderForm.urgency,
+        assignee_id: createWorkOrderForm.assigneeId || undefined,
+        description: createWorkOrderForm.description.trim()
+      }
+    });
+    setMessage(`已生成工单 ${response.data.work_order.woCode}`);
+    setViewing(response.data.emergency);
+    closeCreateWorkOrder();
+    await loadTimeline(response.data.emergency.id);
+    await load(pageData.page);
+  }
+
   function setFormValue<K extends keyof EventForm>(key: K, value: EventForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -612,9 +694,9 @@ export default function SafetyEmergenciesPage() {
                   <td><StatusPill dictCode="safety_emergency_response_level" value={row.responseLevel} dicts={dicts} /></td>
                   <td><StatusPill dictCode="safety_emergency_status" value={row.status} dicts={dicts} /></td>
                   <td>{row.location}</td>
-                  <td>{row.reporterName ?? "-"} {maskedReporterMobile(authUser, row.reporterMobile)}</td>
+                  <td>{row.reporterName ?? "-"} {securedEventField(authUser, "reporter_mobile", row.reporterMobile)}</td>
                   <td>{row.emergencyPlan?.planName ?? "-"}</td>
-                  <td><Paperclip size={14} /> {(row.photosFileIds?.length ?? 0) + (row.videosFileIds?.length ?? 0)}</td>
+                  <td><Paperclip size={14} /> {eventAttachmentSummary(authUser, row)}</td>
                   <td>{formatDateTime(row.reportTime)}</td>
                   <td>
                     <DataTableActions>
@@ -670,10 +752,10 @@ export default function SafetyEmergenciesPage() {
                 <ReferenceSelect label="房源" value={form.unitId} allLabel="不关联房源" items={units.map((item) => ({ id: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => setFormValue("unitId", value)} />
                 <ReferenceSelect label="租户企业" value={form.parkTenantId} allLabel="不关联租户企业" items={parkTenants.map((item) => ({ id: item.id, label: `${item.parkTenantCode ?? ""} ${item.companyName}` }))} onChange={(value) => setFormValue("parkTenantId", value)} />
                 <Field label="GPS 经度">
-                  <input type="number" value={form.gpsLng} onFocus={(event) => event.target.select()} onChange={(event) => setFormValue("gpsLng", event.target.value)} />
+                  <input type="number" value={form.gpsLng} disabled={!canEditEventField(authUser, "gps_lng")} onFocus={(event) => event.target.select()} onChange={(event) => setFormValue("gpsLng", event.target.value)} />
                 </Field>
                 <Field label="GPS 纬度">
-                  <input type="number" value={form.gpsLat} onFocus={(event) => event.target.select()} onChange={(event) => setFormValue("gpsLat", event.target.value)} />
+                  <input type="number" value={form.gpsLat} disabled={!canEditEventField(authUser, "gps_lat")} onFocus={(event) => event.target.select()} onChange={(event) => setFormValue("gpsLat", event.target.value)} />
                 </Field>
                 {!sosMode ? (
                   <ReferenceSelect label="应急预案" value={form.emergencyPlanId} allLabel="自动匹配预案" items={plans.map((item) => ({ id: item.id, label: `${item.planCode} ${item.planName}` }))} onChange={(value) => setFormValue("emergencyPlanId", value)} />
@@ -685,12 +767,12 @@ export default function SafetyEmergenciesPage() {
                   <input value={form.reporterName} onChange={(event) => setFormValue("reporterName", event.target.value)} placeholder="默认当前用户" />
                 </Field>
                 <Field label="上报电话">
-                  <input value={form.reporterMobile} onChange={(event) => setFormValue("reporterMobile", event.target.value)} />
+                  <input value={form.reporterMobile} disabled={!canEditEventField(authUser, "reporter_mobile")} onChange={(event) => setFormValue("reporterMobile", event.target.value)} />
                 </Field>
               </DrawerFormGrid>
               <DrawerFormGrid single>
                 <Field label="事件描述">
-                  <textarea required value={form.description} onChange={(event) => setFormValue("description", event.target.value)} />
+                  <textarea required value={form.description} disabled={!canEditEventField(authUser, "description")} onChange={(event) => setFormValue("description", event.target.value)} />
                 </Field>
                 {!sosMode ? (
                   <Field label="响应团队用户">
@@ -698,11 +780,11 @@ export default function SafetyEmergenciesPage() {
                   </Field>
                 ) : null}
                 <Field label="现场照片">
-                  <FileUploader bizType="safety_emergency_event" onUploaded={(file) => handleUploaded("photosFileIds", file)} />
+                  {canEditEventField(authUser, "photos_file_ids") ? <FileUploader bizType="safety_emergency_event" onUploaded={(file) => handleUploaded("photosFileIds", file)} /> : null}
                   <span className="status-pill">已选择 {form.photosFileIds.length} 张照片</span>
                 </Field>
                 <Field label="现场视频">
-                  <FileUploader bizType="safety_emergency_event" onUploaded={(file) => handleUploaded("videosFileIds", file)} />
+                  {canEditEventField(authUser, "videos_file_ids") ? <FileUploader bizType="safety_emergency_event" onUploaded={(file) => handleUploaded("videosFileIds", file)} /> : null}
                   <span className="status-pill">已选择 {form.videosFileIds.length} 个视频</span>
                 </Field>
                 {!sosMode ? (
@@ -759,6 +841,18 @@ export default function SafetyEmergenciesPage() {
                 <XCircle size={16} />
                 取消 / 误报
               </PermissionButton>
+              <PermissionGuard module="workorder" permission={SYSTEM_PERMISSIONS.WORKORDER_CREATE}>
+                <PermissionButton
+                  className="secondary-button"
+                  permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CREATE_WORKORDER}
+                  type="button"
+                  disabled={["90", "91"].includes(viewing.status)}
+                  onClick={() => openCreateWorkOrder(viewing)}
+                >
+                  <Wrench size={16} />
+                  转工单
+                </PermissionButton>
+              </PermissionGuard>
             </DrawerActions>
             <DrawerTabs>
               <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
@@ -776,20 +870,21 @@ export default function SafetyEmergenciesPage() {
                 <DrawerDetailItem label="状态" value={<StatusPill dictCode="safety_emergency_status" value={viewing.status} dicts={dicts} />} />
                 <DrawerDetailItem label="来源" value={<StatusPill dictCode="safety_emergency_source_type" value={viewing.sourceType} dicts={dicts} />} />
                 <DrawerDetailItem label="位置" value={viewing.location} />
+                <DrawerDetailItem label="定位" value={eventGpsSummary(authUser, viewing)} />
                 <DrawerDetailItem label="租户企业" value={viewing.parkTenant?.companyName ?? "-"} />
                 <DrawerDetailItem label="房源" value={viewing.unit ? `${viewing.unit.unitCode} ${viewing.unit.unitName}` : "-"} />
                 <DrawerDetailItem label="上报人" value={viewing.reporterName ?? "-"} />
-                <DrawerDetailItem label="上报电话" value={maskedReporterMobile(authUser, viewing.reporterMobile)} />
+                <DrawerDetailItem label="上报电话" value={securedEventField(authUser, "reporter_mobile", viewing.reporterMobile)} />
                 <DrawerDetailItem label="指挥人" value={viewing.commanderName ?? "-"} />
                 <DrawerDetailItem label="应急预案" value={viewing.emergencyPlan?.planName ?? "-"} />
                 <DrawerDetailItem label="响应时间" value={formatDateTime(viewing.responseTime)} />
                 <DrawerDetailItem label="控制时间" value={formatDateTime(viewing.controlTime)} />
                 <DrawerDetailItem label="关闭时间" value={formatDateTime(viewing.closeTime)} />
                 <DrawerDetailItem label="取消时间" value={formatDateTime(viewing.cancelTime)} />
-                <DrawerDetailItem label="附件" value={`${viewing.photosFileIds?.length ?? 0} 张照片 / ${viewing.videosFileIds?.length ?? 0} 个视频`} />
-                <DrawerDetailItem label="复盘报告" value={viewing.reviewFileId ? "已上传" : "-"} />
-                <DrawerDetailItem label="复盘结论" value={viewing.conclusion ?? "-"} />
-                <DrawerDetailItem label="描述" value={canViewField(authUser, SAFETY_MODULE, EVENT_ENTITY, "description") ? viewing.description ?? "-" : "-"} />
+                <DrawerDetailItem label="附件" value={eventAttachmentSummary(authUser, viewing)} />
+                <DrawerDetailItem label="复盘报告" value={canViewEventField(authUser, "review_file_id") ? viewing.reviewFileId ? "已上传" : "-" : "-"} />
+                <DrawerDetailItem label="复盘结论" value={securedEventField(authUser, "conclusion", viewing.conclusion)} />
+                <DrawerDetailItem label="描述" value={securedEventField(authUser, "description", viewing.description)} />
                 <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
               </DrawerDetailGrid>
             ) : (
@@ -937,6 +1032,73 @@ export default function SafetyEmergenciesPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
+
+        {creatingWorkOrder ? (
+          <Drawer size="md" onClose={closeCreateWorkOrder}>
+            <DrawerHeader
+              eyebrow="应急联动"
+              title="应急事件转工单"
+              description={`${creatingWorkOrder.emergencyCode} · 创建后会写入工单日志和事件时间线`}
+              onClose={closeCreateWorkOrder}
+            />
+            <DrawerForm onSubmit={(event) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                <Field label="工单标题">
+                  <input
+                    required
+                    value={createWorkOrderForm.title}
+                    onChange={(event) => setCreateWorkOrderForm((current) => ({ ...current, title: event.target.value }))}
+                  />
+                </Field>
+                <SelectField
+                  label="工单类型"
+                  value={createWorkOrderForm.woType}
+                  items={workOrderTypes}
+                  allLabel="请选择类型"
+                  required
+                  onChange={(value) => setCreateWorkOrderForm((current) => ({ ...current, woType: value }))}
+                />
+                <SelectField
+                  label="优先级"
+                  value={createWorkOrderForm.priority}
+                  items={workOrderPriorities}
+                  allLabel="请选择优先级"
+                  required
+                  onChange={(value) => setCreateWorkOrderForm((current) => ({ ...current, priority: value }))}
+                />
+                <SelectField
+                  label="紧急程度"
+                  value={createWorkOrderForm.urgency}
+                  items={workOrderUrgencies}
+                  allLabel="请选择紧急程度"
+                  required
+                  onChange={(value) => setCreateWorkOrderForm((current) => ({ ...current, urgency: value }))}
+                />
+                <ReferenceSelect
+                  label="处理人"
+                  value={createWorkOrderForm.assigneeId}
+                  allLabel="暂不指定处理人"
+                  items={users.map((item) => ({ id: item.id, label: userLabel(item) }))}
+                  onChange={(value) => setCreateWorkOrderForm((current) => ({ ...current, assigneeId: value }))}
+                />
+                <Field label="工单描述">
+                  <textarea
+                    required
+                    value={createWorkOrderForm.description}
+                    onChange={(event) => setCreateWorkOrderForm((current) => ({ ...current, description: event.target.value }))}
+                  />
+                </Field>
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={closeCreateWorkOrder}>取消</button>
+                <button className="primary-button" type="submit">
+                  <ExternalLink size={16} />
+                  生成工单
+                </button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
       </main>
     </PermissionGuard>
   );
@@ -1020,7 +1182,8 @@ function emergencyActionLabel(action: string) {
     review: "复盘",
     close: "关闭",
     upgrade: "升级",
-    cancel: "取消 / 误报"
+    cancel: "取消 / 误报",
+    create_workorder: "转工单"
   };
   return labels[action] ?? action;
 }
@@ -1107,9 +1270,34 @@ async function safeFetchPage<T>(path: string): Promise<T[]> {
   }
 }
 
-function maskedReporterMobile(authUser: ReturnType<typeof useAuthUser>, value: string | null) {
-  if (!value) return "";
-  return String(maskField(authUser, SAFETY_MODULE, EVENT_ENTITY, "reporter_mobile", value));
+function canViewEventField(authUser: ReturnType<typeof useAuthUser>, field: string): boolean {
+  return canViewField(authUser, SAFETY_MODULE, EVENT_ENTITY, field);
+}
+
+function canEditEventField(authUser: ReturnType<typeof useAuthUser>, field: string): boolean {
+  return canEditField(authUser, SAFETY_MODULE, EVENT_ENTITY, field);
+}
+
+function securedEventField(authUser: ReturnType<typeof useAuthUser>, field: string, value: unknown): string {
+  if (!canViewEventField(authUser, field)) return "-";
+  const masked = maskField(authUser, SAFETY_MODULE, EVENT_ENTITY, field, value);
+  return masked === null || masked === undefined || masked === "" ? "-" : String(masked);
+}
+
+function eventAttachmentSummary(authUser: ReturnType<typeof useAuthUser>, event: Pick<EmergencyEventRow, "photosFileIds" | "videosFileIds">): string {
+  const canViewPhotos = canViewEventField(authUser, "photos_file_ids");
+  const canViewVideos = canViewEventField(authUser, "videos_file_ids");
+  if (!canViewPhotos && !canViewVideos) return "-";
+  const photoText = canViewPhotos ? `${event.photosFileIds?.length ?? 0} 张照片` : "照片已隐藏";
+  const videoText = canViewVideos ? `${event.videosFileIds?.length ?? 0} 个视频` : "视频已隐藏";
+  return `${photoText} / ${videoText}`;
+}
+
+function eventGpsSummary(authUser: ReturnType<typeof useAuthUser>, event: Pick<EmergencyEventRow, "gpsLng" | "gpsLat">): string {
+  const lng = securedEventField(authUser, "gps_lng", event.gpsLng);
+  const lat = securedEventField(authUser, "gps_lat", event.gpsLat);
+  if (lng === "-" && lat === "-") return "-";
+  return `${lng}, ${lat}`;
 }
 
 function EmptyState() {

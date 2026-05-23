@@ -3,7 +3,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
-import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 import type { JwtPrincipal } from "../types/jwt-principal";
 
 const ALL_PERMISSION = "*";
@@ -25,7 +25,11 @@ export class PermissionGuard implements CanActivate {
       context.getHandler(),
       context.getClass()
     ]);
-    if (!requiredPermissions || requiredPermissions.length === 0) {
+    const anyPermissions = this.reflector.getAllAndOverride<string[]>(ANY_PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    if ((!requiredPermissions || requiredPermissions.length === 0) && (!anyPermissions || anyPermissions.length === 0)) {
       throw new ForbiddenException("Permission point is required for this endpoint");
     }
 
@@ -40,6 +44,8 @@ export class PermissionGuard implements CanActivate {
     }
 
     const granted = new Set(user.permissions);
-    return requiredPermissions.every((permission) => granted.has(permission));
+    const hasRequired = !requiredPermissions || requiredPermissions.length === 0 || requiredPermissions.every((permission) => granted.has(permission));
+    const hasAny = !anyPermissions || anyPermissions.length === 0 || anyPermissions.some((permission) => granted.has(permission));
+    return hasRequired && hasAny;
   }
 }

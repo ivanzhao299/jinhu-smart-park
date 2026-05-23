@@ -11,6 +11,7 @@ import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { SafetyActionLogEntity } from "../safety-inspect-tasks/entities/safety-action-log.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { SafetyEmergencyContactsController } from "./safety-emergency-contacts.controller";
 import { SafetyEmergenciesController } from "./safety-emergencies.controller";
 import { SafetyEmergencyPlansController } from "./safety-emergency-plans.controller";
@@ -38,7 +39,8 @@ import { SafetyEmergencyTimelineEntity } from "./entities/safety-emergency-timel
     CodeRulesModule,
     DataScopesModule,
     FieldPoliciesModule,
-    FilesModule
+    FilesModule,
+    WorkOrdersModule
   ],
   controllers: [SafetyEmergencyContactsController, SafetyEmergencyPlansController, SafetyEmergenciesController],
   providers: [SafetyEmergencyService],

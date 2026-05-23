@@ -82,7 +82,18 @@ export class AuditLogInterceptor implements NestInterceptor {
       "newPassword",
       "token",
       "accessToken",
+      "access_token",
+      "accessKey",
+      "access_key",
       "secret",
+      "secretEncrypted",
+      "secret_encrypted",
+      "deviceSecret",
+      "device_secret",
+      "deviceSecretHash",
+      "device_secret_hash",
+      "endpointUrl",
+      "endpoint_url",
       "contactMobile",
       "contact_mobile",
       "mobile",
@@ -167,7 +178,17 @@ export class AuditLogInterceptor implements NestInterceptor {
       "resolve_note",
       "attachmentFileIds",
       "attachment_file_ids",
-      "content"
+      "content",
+      "gpsLng",
+      "gps_lng",
+      "gpsLat",
+      "gps_lat",
+      "statusPayload",
+      "status_payload",
+      "triggerPayload",
+      "trigger_payload",
+      "rawPayload",
+      "raw_payload"
     ]);
     return this.sanitizeRecord(value, maskedKeys);
   }

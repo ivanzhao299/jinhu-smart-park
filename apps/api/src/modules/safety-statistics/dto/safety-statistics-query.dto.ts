@@ -36,6 +36,26 @@ export class SafetyStatisticsQueryDto {
   hazard_type?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptional(value))
+  incident_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptional(value))
+  permit_type?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
+  unit_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
+  park_tenant_id?: string;
+
+  @IsOptional()
   @IsUUID()
   @Transform(({ value }) => trimOptional(value))
   handler_id?: string;

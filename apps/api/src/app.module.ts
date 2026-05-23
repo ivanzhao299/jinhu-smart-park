@@ -16,6 +16,7 @@ import { DictsModule } from "./modules/dicts/dicts.module";
 import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
+import { IotModule } from "./modules/iot/iot.module";
 import { LeasingContractChangesModule } from "./modules/leasing-contract-changes/leasing-contract-changes.module";
 import { LeasingContractsModule } from "./modules/leasing-contracts/leasing-contracts.module";
 import { LeasingCheckoutsModule } from "./modules/leasing-checkouts/leasing-checkouts.module";
@@ -37,6 +38,7 @@ import { SafetyInspectPlansModule } from "./modules/safety-inspect-plans/safety-
 import { SafetyInspectTasksModule } from "./modules/safety-inspect-tasks/safety-inspect-tasks.module";
 import { SafetyInspectTemplatesModule } from "./modules/safety-inspect-templates/safety-inspect-templates.module";
 import { SafetyStatisticsModule } from "./modules/safety-statistics/safety-statistics.module";
+import { SafetyWorkPermitsModule } from "./modules/safety-work-permits/safety-work-permits.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -83,6 +85,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     DataScopesModule,
     FieldPoliciesModule,
     FloorsModule,
+    IotModule,
     LeasingContractChangesModule,
     LeasingContractsModule,
     LeasingCheckoutsModule,
@@ -109,7 +112,8 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     SafetyInspectTasksModule,
     SafetyHazardsModule,
     SafetyEmergencyModule,
-    SafetyStatisticsModule
+    SafetyStatisticsModule,
+    SafetyWorkPermitsModule
   ],
   providers: [
     {

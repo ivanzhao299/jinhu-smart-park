@@ -116,6 +116,27 @@ export class UnitsController {
     return this.unitsService.hazards(scope, id, user);
   }
 
+  @Get(":id/emergencies")
+  @RequireModule("asset", "safety")
+  @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ, SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_READ)
+  emergencies(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.unitsService.emergencies(scope, id, user);
+  }
+
+  @Get(":id/work-permits")
+  @RequireModule("asset", "safety")
+  @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ, SYSTEM_PERMISSIONS.SAFETY_WORK_PERMIT_READ)
+  workPermits(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.unitsService.workPermits(scope, id, user);
+  }
+
+  @Get(":id/devices")
+  @RequireModule("asset", "iot")
+  @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ, SYSTEM_PERMISSIONS.IOT_DEVICE_READ)
+  devices(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.unitsService.devices(scope, id, user);
+  }
+
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {

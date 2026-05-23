@@ -6,6 +6,7 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { CreateEmergencyWorkOrderDto } from "./dto/create-emergency-work-order.dto";
 import { CreateSafetyEmergencyEventDto } from "./dto/create-safety-emergency-event.dto";
 import {
   CreateSafetyEmergencyTimelineDto,
@@ -196,6 +197,25 @@ export class SafetyEmergenciesController {
     @Body() dto: SafetyEmergencyActionDto
   ) {
     return this.service.cancelEvent(scope, user, id, dto);
+  }
+
+  @Post(":id/create-work-order")
+  @RequireModule("safety", "workorder")
+  @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CREATE_WORKORDER, SYSTEM_PERMISSIONS.WORKORDER_CREATE)
+  @AuditLog({
+    module: "安全应急",
+    action: "应急转工单",
+    resource: "biz.safety_emergency_event",
+    bizType: "biz_safety_emergency_event",
+    bizIdParam: "id"
+  })
+  createWorkOrder(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: CreateEmergencyWorkOrderDto
+  ) {
+    return this.service.createWorkOrder(scope, user, id, dto);
   }
 
   @Put(":id")

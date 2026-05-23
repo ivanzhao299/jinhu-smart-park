@@ -6,6 +6,7 @@ import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FileEntity } from "../files/entities/file.entity";
+import { IotModule } from "../iot/iot.module";
 import { LeasingCheckoutEntity } from "../leasing-checkouts/entities/leasing-checkout.entity";
 import { LeasingRefundEntity } from "../leasing-checkouts/entities/leasing-refund.entity";
 import { LeasingContractChangeEntity } from "../leasing-contract-changes/entities/leasing-contract-change.entity";
@@ -13,7 +14,9 @@ import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-con
 import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
 import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { SafetyEmergencyModule } from "../safety-emergency/safety-emergency.module";
 import { SafetyHazardsModule } from "../safety-hazards/safety-hazards.module";
+import { SafetyWorkPermitsModule } from "../safety-work-permits/safety-work-permits.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { ParkTenantContactEntity } from "./entities/park-tenant-contact.entity";
 import { ParkTenantQualificationEntity } from "./entities/park-tenant-qualification.entity";
@@ -46,7 +49,10 @@ import { ParkTenantsService } from "./park-tenants.service";
     DataScopesModule,
     FieldPoliciesModule,
     WorkOrdersModule,
-    SafetyHazardsModule
+    SafetyHazardsModule,
+    SafetyEmergencyModule,
+    SafetyWorkPermitsModule,
+    IotModule
   ],
   controllers: [ParkTenantsController],
   providers: [ParkTenantsService, ParkTenantContactsService, ParkTenantQualificationsService],

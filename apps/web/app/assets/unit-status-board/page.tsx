@@ -129,6 +129,92 @@ interface UnitHazardsResponse {
   recent_items: UnitHazardRow[];
 }
 
+interface UnitEmergencyRow {
+  id: string;
+  emergency_code: string;
+  title: string;
+  incident_type: string;
+  severity_level: string;
+  response_level: string | null;
+  status: string;
+  location: string;
+  reporter_name: string | null;
+  report_time: string;
+  update_time: string;
+}
+
+interface UnitEmergenciesResponse {
+  summary: {
+    total_count: number;
+    open_count: number;
+    closed_count: number;
+    major_count: number;
+  };
+  recent_items: UnitEmergencyRow[];
+}
+
+interface UnitWorkPermitRow {
+  id: string;
+  permit_code: string;
+  permit_type: string;
+  risk_level: string;
+  status: string;
+  location: string;
+  apply_user_name: string | null;
+  contractor_name: string | null;
+  monitor_user_name: string | null;
+  time_start: string;
+  time_end: string;
+  violation_count: number;
+  update_time: string;
+}
+
+interface UnitWorkPermitsResponse {
+  summary: {
+    total_count: number;
+    in_progress_count: number;
+    violation_count: number;
+    closed_count: number;
+  };
+  recent_items: UnitWorkPermitRow[];
+}
+
+interface UnitIotDeviceRow {
+  id: string;
+  device_code: string;
+  device_name: string;
+  device_type: string;
+  online_status: string;
+  status: string;
+  location: string | null;
+  last_data_time: string | null;
+}
+
+interface UnitIotAlertRow {
+  id: string;
+  alert_code: string;
+  alert_title: string;
+  alert_level: string;
+  status: string;
+  device_id: string;
+  device_code: string;
+  device_name: string;
+  metric_code: string;
+  trigger_value: string | null;
+  last_trigger_time: string;
+}
+
+interface UnitDevicesResponse {
+  summary: {
+    device_count: number;
+    online_count: number;
+    offline_count: number;
+    active_alert_count: number;
+  };
+  recent_devices: UnitIotDeviceRow[];
+  recent_alerts: UnitIotAlertRow[];
+}
+
 export default function UnitStatusBoardPage() {
   const authUser = useAuthUser();
   const [board, setBoard] = useState<UnitStatusBoardResponse>({ buildings: [] });
@@ -140,6 +226,16 @@ export default function UnitStatusBoardPage() {
   const [hazardStatusItems, setHazardStatusItems] = useState<DictItemRow[]>([]);
   const [hazardTypeItems, setHazardTypeItems] = useState<DictItemRow[]>([]);
   const [hazardRiskItems, setHazardRiskItems] = useState<DictItemRow[]>([]);
+  const [emergencyStatusItems, setEmergencyStatusItems] = useState<DictItemRow[]>([]);
+  const [emergencyTypeItems, setEmergencyTypeItems] = useState<DictItemRow[]>([]);
+  const [emergencySeverityItems, setEmergencySeverityItems] = useState<DictItemRow[]>([]);
+  const [emergencyResponseItems, setEmergencyResponseItems] = useState<DictItemRow[]>([]);
+  const [workPermitStatusItems, setWorkPermitStatusItems] = useState<DictItemRow[]>([]);
+  const [workPermitTypeItems, setWorkPermitTypeItems] = useState<DictItemRow[]>([]);
+  const [iotDeviceTypeItems, setIotDeviceTypeItems] = useState<DictItemRow[]>([]);
+  const [iotDeviceStatusItems, setIotDeviceStatusItems] = useState<DictItemRow[]>([]);
+  const [iotAlertLevelItems, setIotAlertLevelItems] = useState<DictItemRow[]>([]);
+  const [iotAlertStatusItems, setIotAlertStatusItems] = useState<DictItemRow[]>([]);
   const [filters, setFilters] = useState({ buildingId: "", rentalStatus: "" });
   const [selected, setSelected] = useState<SelectedUnit | null>(null);
   const [message, setMessage] = useState("");
@@ -175,14 +271,42 @@ export default function UnitStatusBoardPage() {
       });
       return itemsResponse.data.items.filter((item) => item.status === "enabled");
     };
-    const [rentalItems, statusItems, typeItems, priorityItems, hazardStatuses, hazardTypes, hazardRisks] = await Promise.all([
+    const [
+      rentalItems,
+      statusItems,
+      typeItems,
+      priorityItems,
+      hazardStatuses,
+      hazardTypes,
+      hazardRisks,
+      emergencyStatuses,
+      emergencyTypes,
+      emergencySeverities,
+      emergencyResponses,
+      permitStatuses,
+      permitTypes,
+      deviceTypes,
+      deviceStatuses,
+      alertLevels,
+      alertStatuses
+    ] = await Promise.all([
       loadDictItems("unit_rental_status"),
       loadDictItems("workorder_status"),
       loadDictItems("workorder_type"),
       loadDictItems("workorder_priority"),
       loadDictItems("safety_hazard_status"),
       loadDictItems("safety_hazard_type"),
-      loadDictItems("safety_risk_level")
+      loadDictItems("safety_risk_level"),
+      loadDictItems("safety_emergency_status"),
+      loadDictItems("safety_emergency_incident_type"),
+      loadDictItems("safety_emergency_severity"),
+      loadDictItems("safety_emergency_response_level"),
+      loadDictItems("safety_work_permit_status"),
+      loadDictItems("safety_work_permit_type"),
+      loadDictItems("iot_device_type"),
+      loadDictItems("iot_device_status"),
+      loadDictItems("iot_alert_level"),
+      loadDictItems("iot_alert_status")
     ]);
     setRentalStatusItems(rentalItems);
     setWorkOrderStatusItems(statusItems);
@@ -191,6 +315,16 @@ export default function UnitStatusBoardPage() {
     setHazardStatusItems(hazardStatuses);
     setHazardTypeItems(hazardTypes);
     setHazardRiskItems(hazardRisks);
+    setEmergencyStatusItems(emergencyStatuses);
+    setEmergencyTypeItems(emergencyTypes);
+    setEmergencySeverityItems(emergencySeverities);
+    setEmergencyResponseItems(emergencyResponses);
+    setWorkPermitStatusItems(permitStatuses);
+    setWorkPermitTypeItems(permitTypes);
+    setIotDeviceTypeItems(deviceTypes);
+    setIotDeviceStatusItems(deviceStatuses);
+    setIotAlertLevelItems(alertLevels);
+    setIotAlertStatusItems(alertStatuses);
   }, []);
 
   useEffect(() => {
@@ -301,6 +435,17 @@ export default function UnitStatusBoardPage() {
             hazardStatusItems={hazardStatusItems}
             hazardTypeItems={hazardTypeItems}
             hazardRiskItems={hazardRiskItems}
+            emergencyStatusItems={emergencyStatusItems}
+            emergencyTypeItems={emergencyTypeItems}
+            emergencySeverityItems={emergencySeverityItems}
+            emergencyResponseItems={emergencyResponseItems}
+            workPermitStatusItems={workPermitStatusItems}
+            workPermitTypeItems={workPermitTypeItems}
+            workPermitRiskItems={hazardRiskItems}
+            iotDeviceTypeItems={iotDeviceTypeItems}
+            iotDeviceStatusItems={iotDeviceStatusItems}
+            iotAlertLevelItems={iotAlertLevelItems}
+            iotAlertStatusItems={iotAlertStatusItems}
             onClose={() => setSelected(null)}
           />
         ) : null}
@@ -320,6 +465,17 @@ function UnitDetailDrawer({
   hazardStatusItems,
   hazardTypeItems,
   hazardRiskItems,
+  emergencyStatusItems,
+  emergencyTypeItems,
+  emergencySeverityItems,
+  emergencyResponseItems,
+  workPermitStatusItems,
+  workPermitTypeItems,
+  workPermitRiskItems,
+  iotDeviceTypeItems,
+  iotDeviceStatusItems,
+  iotAlertLevelItems,
+  iotAlertStatusItems,
   onClose
 }: {
   selected: SelectedUnit;
@@ -329,17 +485,37 @@ function UnitDetailDrawer({
   hazardStatusItems: DictItemRow[];
   hazardTypeItems: DictItemRow[];
   hazardRiskItems: DictItemRow[];
+  emergencyStatusItems: DictItemRow[];
+  emergencyTypeItems: DictItemRow[];
+  emergencySeverityItems: DictItemRow[];
+  emergencyResponseItems: DictItemRow[];
+  workPermitStatusItems: DictItemRow[];
+  workPermitTypeItems: DictItemRow[];
+  workPermitRiskItems: DictItemRow[];
+  iotDeviceTypeItems: DictItemRow[];
+  iotDeviceStatusItems: DictItemRow[];
+  iotAlertLevelItems: DictItemRow[];
+  iotAlertStatusItems: DictItemRow[];
   onClose: () => void;
 }) {
   const authUser = useAuthUser();
   const { building, floor, unit } = selected;
-  const [activeTab, setActiveTab] = useState<"info" | "workorders" | "hazards">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "workorders" | "hazards" | "emergencies" | "workPermits" | "devices" | "deviceAlerts">("info");
   const [workorders, setWorkorders] = useState<UnitWorkOrdersResponse | null>(null);
   const [workordersLoading, setWorkordersLoading] = useState(false);
   const [workordersError, setWorkordersError] = useState("");
   const [hazards, setHazards] = useState<UnitHazardsResponse | null>(null);
   const [hazardsLoading, setHazardsLoading] = useState(false);
   const [hazardsError, setHazardsError] = useState("");
+  const [emergencies, setEmergencies] = useState<UnitEmergenciesResponse | null>(null);
+  const [emergenciesLoading, setEmergenciesLoading] = useState(false);
+  const [emergenciesError, setEmergenciesError] = useState("");
+  const [workPermits, setWorkPermits] = useState<UnitWorkPermitsResponse | null>(null);
+  const [workPermitsLoading, setWorkPermitsLoading] = useState(false);
+  const [workPermitsError, setWorkPermitsError] = useState("");
+  const [devices, setDevices] = useState<UnitDevicesResponse | null>(null);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState("");
   const canViewRefPrice = canViewField(authUser, "asset", "unit", UNIT_FIELD_REF_PRICE);
   const canViewWorkOrderReporterMobile = canViewField(authUser, "workorder", "work_order", "reporterMobile");
 
@@ -349,6 +525,12 @@ function UnitDetailDrawer({
     setWorkordersError("");
     setHazards(null);
     setHazardsError("");
+    setEmergencies(null);
+    setEmergenciesError("");
+    setWorkPermits(null);
+    setWorkPermitsError("");
+    setDevices(null);
+    setDevicesError("");
   }, [unit.unit_id]);
 
   useEffect(() => {
@@ -375,6 +557,42 @@ function UnitDetailDrawer({
       .finally(() => setHazardsLoading(false));
   }, [activeTab, unit.unit_id, hazards]);
 
+  useEffect(() => {
+    if (activeTab !== "emergencies" || emergencies) {
+      return;
+    }
+    setEmergenciesLoading(true);
+    setEmergenciesError("");
+    void apiRequest<UnitEmergenciesResponse>(`/park-units/${unit.unit_id}/emergencies`, { token: getAccessToken() })
+      .then((response) => setEmergencies(response.data))
+      .catch((error: Error) => setEmergenciesError(error.message))
+      .finally(() => setEmergenciesLoading(false));
+  }, [activeTab, unit.unit_id, emergencies]);
+
+  useEffect(() => {
+    if (activeTab !== "workPermits" || workPermits) {
+      return;
+    }
+    setWorkPermitsLoading(true);
+    setWorkPermitsError("");
+    void apiRequest<UnitWorkPermitsResponse>(`/park-units/${unit.unit_id}/work-permits`, { token: getAccessToken() })
+      .then((response) => setWorkPermits(response.data))
+      .catch((error: Error) => setWorkPermitsError(error.message))
+      .finally(() => setWorkPermitsLoading(false));
+  }, [activeTab, unit.unit_id, workPermits]);
+
+  useEffect(() => {
+    if ((activeTab !== "devices" && activeTab !== "deviceAlerts") || devices) {
+      return;
+    }
+    setDevicesLoading(true);
+    setDevicesError("");
+    void apiRequest<UnitDevicesResponse>(`/park-units/${unit.unit_id}/devices`, { token: getAccessToken() })
+      .then((response) => setDevices(response.data))
+      .catch((error: Error) => setDevicesError(error.message))
+      .finally(() => setDevicesLoading(false));
+  }, [activeTab, unit.unit_id, devices]);
+
   return (
     <Drawer size="md" onClose={onClose}>
       <DrawerHeader
@@ -388,6 +606,10 @@ function UnitDetailDrawer({
         <button className={activeTab === "info" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("info")}>基础信息</button>
         <button className={activeTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workorders")}>关联工单</button>
         <button className={activeTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("hazards")}>安全隐患</button>
+        <button className={activeTab === "emergencies" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("emergencies")}>应急事件</button>
+        <button className={activeTab === "workPermits" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workPermits")}>作业许可</button>
+        <button className={activeTab === "devices" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("devices")}>设备</button>
+        <button className={activeTab === "deviceAlerts" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("deviceAlerts")}>设备告警</button>
       </div>
       {activeTab === "info" ? (
         <DrawerDetailGrid>
@@ -424,6 +646,45 @@ function UnitDetailDrawer({
           statusItems={hazardStatusItems}
           typeItems={hazardTypeItems}
           riskItems={hazardRiskItems}
+        />
+      ) : null}
+      {activeTab === "emergencies" ? (
+        <UnitEmergenciesPanel
+          data={emergencies}
+          loading={emergenciesLoading}
+          error={emergenciesError}
+          statusItems={emergencyStatusItems}
+          typeItems={emergencyTypeItems}
+          severityItems={emergencySeverityItems}
+          responseItems={emergencyResponseItems}
+        />
+      ) : null}
+      {activeTab === "workPermits" ? (
+        <UnitWorkPermitsPanel
+          data={workPermits}
+          loading={workPermitsLoading}
+          error={workPermitsError}
+          statusItems={workPermitStatusItems}
+          typeItems={workPermitTypeItems}
+          riskItems={workPermitRiskItems}
+        />
+      ) : null}
+      {activeTab === "devices" ? (
+        <UnitDevicesPanel
+          data={devices}
+          loading={devicesLoading}
+          error={devicesError}
+          deviceTypeItems={iotDeviceTypeItems}
+          deviceStatusItems={iotDeviceStatusItems}
+        />
+      ) : null}
+      {activeTab === "deviceAlerts" ? (
+        <UnitDeviceAlertsPanel
+          data={devices}
+          loading={devicesLoading}
+          error={devicesError}
+          alertLevelItems={iotAlertLevelItems}
+          alertStatusItems={iotAlertStatusItems}
         />
       ) : null}
       <DrawerFooter>
@@ -582,6 +843,286 @@ function UnitHazardsPanel({
   );
 }
 
+function UnitEmergenciesPanel({
+  data,
+  loading,
+  error,
+  statusItems,
+  typeItems,
+  severityItems,
+  responseItems
+}: {
+  data: UnitEmergenciesResponse | null;
+  loading: boolean;
+  error: string;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  severityItems: DictItemRow[];
+  responseItems: DictItemRow[];
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载应急事件...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>事件总数</span></Card>
+        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
+        <Card><strong>{data?.summary.closed_count ?? 0}</strong><span>已闭环</span></Card>
+        <Card><strong>{data?.summary.major_count ?? 0}</strong><span>重大事件</span></Card>
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>事件编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>严重等级</th>
+            <th>响应等级</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>上报人</th>
+            <th>上报时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.emergency_code}</td>
+              <td>{row.title}</td>
+              <td>{labelFor(typeItems, row.incident_type)}</td>
+              <td><DictBadge items={severityItems} value={row.severity_level} /></td>
+              <td><DictBadge items={responseItems} value={row.response_level} /></td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{fieldText(row.reporter_name)}</td>
+              <td>{formatDateTime(row.report_time)}</td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/safety/emergencies?emergency_id=${encodeURIComponent(row.id)}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={10}>暂无关联应急事件</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function UnitWorkPermitsPanel({
+  data,
+  loading,
+  error,
+  statusItems,
+  typeItems,
+  riskItems
+}: {
+  data: UnitWorkPermitsResponse | null;
+  loading: boolean;
+  error: string;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  riskItems: DictItemRow[];
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载作业许可...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>许可总数</span></Card>
+        <Card><strong>{data?.summary.in_progress_count ?? 0}</strong><span>开工中</span></Card>
+        <Card><strong>{data?.summary.violation_count ?? 0}</strong><span>违规次数</span></Card>
+        <Card><strong>{data?.summary.closed_count ?? 0}</strong><span>已闭环</span></Card>
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>许可编号</th>
+            <th>类型</th>
+            <th>风险</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>申请人</th>
+            <th>施工方</th>
+            <th>监护人</th>
+            <th>作业时间</th>
+            <th>违规</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.permit_code}</td>
+              <td>{labelFor(typeItems, row.permit_type)}</td>
+              <td><DictBadge items={riskItems} value={row.risk_level} /></td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{fieldText(row.apply_user_name)}</td>
+              <td>{fieldText(row.contractor_name)}</td>
+              <td>{fieldText(row.monitor_user_name)}</td>
+              <td>{`${formatDateTime(row.time_start)} - ${formatDateTime(row.time_end)}`}</td>
+              <td>{row.violation_count}</td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/safety/work-permits?permit_id=${encodeURIComponent(row.id)}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={11}>暂无关联作业许可</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function UnitDevicesPanel({
+  data,
+  loading,
+  error,
+  deviceTypeItems,
+  deviceStatusItems
+}: {
+  data: UnitDevicesResponse | null;
+  loading: boolean;
+  error: string;
+  deviceTypeItems: DictItemRow[];
+  deviceStatusItems: DictItemRow[];
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载设备数据...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_devices ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.device_count ?? 0}</strong><span>设备总数</span></Card>
+        <Card><strong>{data?.summary.online_count ?? 0}</strong><span>在线设备</span></Card>
+        <Card><strong>{data?.summary.offline_count ?? 0}</strong><span>离线设备</span></Card>
+        <Card><strong>{data?.summary.active_alert_count ?? 0}</strong><span>活跃告警</span></Card>
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>设备编号</th>
+            <th>设备名称</th>
+            <th>设备类型</th>
+            <th>在线状态</th>
+            <th>启停状态</th>
+            <th>位置</th>
+            <th>最近上报</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.device_code}</td>
+              <td>{row.device_name}</td>
+              <td>{labelFor(deviceTypeItems, row.device_type)}</td>
+              <td><DictBadge items={deviceStatusItems} value={row.online_status} /></td>
+              <td>{fieldText(row.status)}</td>
+              <td>{fieldText(row.location)}</td>
+              <td>{row.last_data_time ? formatDateTime(row.last_data_time) : "-"}</td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/iot/devices/${row.id}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={8}>暂无关联设备</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function UnitDeviceAlertsPanel({
+  data,
+  loading,
+  error,
+  alertLevelItems,
+  alertStatusItems
+}: {
+  data: UnitDevicesResponse | null;
+  loading: boolean;
+  error: string;
+  alertLevelItems: DictItemRow[];
+  alertStatusItems: DictItemRow[];
+}) {
+  if (loading) {
+    return <p className="muted-text">正在加载设备告警...</p>;
+  }
+  if (error) {
+    return <p className="status-pill status-warning">{error}</p>;
+  }
+  const items = data?.recent_alerts ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <Card><strong>{data?.summary.active_alert_count ?? 0}</strong><span>活跃告警</span></Card>
+        <Card><strong>{data?.summary.device_count ?? 0}</strong><span>关联设备</span></Card>
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>告警编号</th>
+            <th>告警标题</th>
+            <th>设备</th>
+            <th>指标</th>
+            <th>级别</th>
+            <th>状态</th>
+            <th>触发值</th>
+            <th>最近触发</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.alert_code}</td>
+              <td>{row.alert_title}</td>
+              <td>{row.device_name}</td>
+              <td>{row.metric_code}</td>
+              <td><DictBadge items={alertLevelItems} value={row.alert_level} /></td>
+              <td><DictBadge items={alertStatusItems} value={row.status} /></td>
+              <td>{fieldText(row.trigger_value)}</td>
+              <td>{formatDateTime(row.last_trigger_time)}</td>
+              <td>
+                <button type="button" onClick={() => { window.location.href = `/iot/alerts?device_id=${encodeURIComponent(row.device_id)}`; }}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={9}>暂无设备告警</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
 function SelectField({
   label,
   value,
@@ -650,6 +1191,10 @@ function formatMoney(value: unknown): string {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? `${parsed.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元` : String(value);
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
 function maskUnitField(user: UserContext | null, fieldKey: string, value: unknown): unknown {

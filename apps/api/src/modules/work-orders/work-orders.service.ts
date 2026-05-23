@@ -1027,6 +1027,7 @@ export class WorkOrdersService {
     if (query.reporter_id) builder.andWhere("workOrder.reporter_id = :reporterId", { reporterId: query.reporter_id });
     if (query.park_tenant_id) builder.andWhere("workOrder.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
     if (query.unit_id) builder.andWhere("workOrder.unit_id = :unitId", { unitId: query.unit_id });
+    if (query.device_id) builder.andWhere("workOrder.device_id = :deviceId", { deviceId: query.device_id });
     if (query.building_id) builder.andWhere("workOrder.building_id = :buildingId", { buildingId: query.building_id });
     if (query.source_type) builder.andWhere("workOrder.source_type = :sourceType", { sourceType: query.source_type });
     if (query.overdue_only) builder.andWhere("workOrder.overdue_flag = true");

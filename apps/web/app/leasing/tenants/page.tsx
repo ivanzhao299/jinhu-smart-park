@@ -419,6 +419,94 @@ interface Tenant360HazardsNode {
   recent_items: Tenant360HazardRow[];
 }
 
+interface Tenant360EmergencyRow {
+  id: string;
+  emergency_code: string;
+  title: string;
+  incident_type: string;
+  severity_level: string;
+  response_level: string | null;
+  status: string;
+  location: string;
+  reporter_name: string | null;
+  report_time: string;
+  update_time: string;
+}
+
+interface Tenant360EmergencyNode {
+  available: boolean;
+  summary?: {
+    total_count: number;
+    open_count: number;
+    closed_count: number;
+    major_count: number;
+  } | null;
+  recent_items: Tenant360EmergencyRow[];
+}
+
+interface Tenant360WorkPermitRow {
+  id: string;
+  permit_code: string;
+  permit_type: string;
+  risk_level: string;
+  status: string;
+  location: string;
+  apply_user_name: string | null;
+  contractor_name: string | null;
+  monitor_user_name: string | null;
+  time_start: string;
+  time_end: string;
+  violation_count: number;
+  update_time: string;
+}
+
+interface Tenant360WorkPermitsNode {
+  available: boolean;
+  summary?: {
+    total_count: number;
+    in_progress_count: number;
+    violation_count: number;
+    closed_count: number;
+  } | null;
+  recent_items: Tenant360WorkPermitRow[];
+}
+
+interface Tenant360DeviceRow {
+  id: string;
+  device_code: string;
+  device_name: string;
+  device_type: string;
+  online_status: string;
+  status: string;
+  location: string | null;
+  last_data_time: string | null;
+}
+
+interface Tenant360DeviceAlertRow {
+  id: string;
+  alert_code: string;
+  alert_title: string;
+  alert_level: string;
+  status: string;
+  device_id: string;
+  device_code: string;
+  device_name: string;
+  metric_code: string;
+  trigger_value: string | null;
+  last_trigger_time: string;
+}
+
+interface Tenant360DevicesNode {
+  available: boolean;
+  summary?: {
+    device_count: number;
+    online_count: number;
+    active_alert_count: number;
+  } | null;
+  recent_devices: Tenant360DeviceRow[];
+  recent_alerts: Tenant360DeviceAlertRow[];
+}
+
 interface ParkTenant360View {
   profile: ParkTenantRow;
   contacts: ParkTenantContactRow[];
@@ -434,6 +522,9 @@ interface ParkTenant360View {
   refunds: Tenant360RefundsNode;
   workorders: Tenant360WorkordersNode;
   hazards: Tenant360HazardsNode;
+  emergency: Tenant360EmergencyNode;
+  work_permits: Tenant360WorkPermitsNode;
+  devices: Tenant360DevicesNode;
   energy: { available: boolean; summary: unknown | null };
 }
 
@@ -527,6 +618,9 @@ export default function LeasingTenantsPage() {
     | "refunds"
     | "workorders"
     | "hazards"
+    | "emergency"
+    | "work_permits"
+    | "devices"
     | "energy"
   >("profile");
   const [showForm, setShowForm] = useState(false);
@@ -588,6 +682,17 @@ export default function LeasingTenantsPage() {
   const hazardTypeItems = dicts.safety_hazard_type ?? [];
   const hazardRiskItems = dicts.safety_risk_level ?? [];
   const hazardSourceItems = dicts.safety_hazard_source_type ?? [];
+  const emergencyStatusItems = dicts.safety_emergency_status ?? [];
+  const emergencyTypeItems = dicts.safety_emergency_incident_type ?? [];
+  const emergencySeverityItems = dicts.safety_emergency_severity ?? [];
+  const emergencyResponseItems = dicts.safety_emergency_response_level ?? [];
+  const workPermitStatusItems = dicts.safety_work_permit_status ?? [];
+  const workPermitTypeItems = dicts.safety_work_permit_type ?? [];
+  const workPermitRiskItems = dicts.safety_risk_level ?? [];
+  const iotDeviceTypeItems = dicts.iot_device_type ?? [];
+  const iotDeviceStatusItems = dicts.iot_device_status ?? [];
+  const iotAlertLevelItems = dicts.iot_alert_level ?? [];
+  const iotAlertStatusItems = dicts.iot_alert_status ?? [];
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -653,7 +758,17 @@ export default function LeasingTenantsPage() {
       "safety_hazard_status",
       "safety_hazard_type",
       "safety_risk_level",
-      "safety_hazard_source_type"
+      "safety_hazard_source_type",
+      "safety_emergency_status",
+      "safety_emergency_incident_type",
+      "safety_emergency_severity",
+      "safety_emergency_response_level",
+      "safety_work_permit_status",
+      "safety_work_permit_type",
+      "iot_device_type",
+      "iot_device_status",
+      "iot_alert_level",
+      "iot_alert_status"
     ];
     const entries = await Promise.all(
       codes.map(async (code) => {
@@ -693,6 +808,22 @@ export default function LeasingTenantsPage() {
 
   function openHazardDetail(hazard: Tenant360HazardRow) {
     window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(hazard.id)}`;
+  }
+
+  function openEmergencyDetail(row: Tenant360EmergencyRow) {
+    window.location.href = `/safety/emergencies?emergency_id=${encodeURIComponent(row.id)}`;
+  }
+
+  function openWorkPermitDetail(row: Tenant360WorkPermitRow) {
+    window.location.href = `/safety/work-permits?permit_id=${encodeURIComponent(row.id)}`;
+  }
+
+  function openDeviceDetail(row: Tenant360DeviceRow) {
+    window.location.href = `/iot/devices/${row.id}`;
+  }
+
+  function openIotAlert(row: Tenant360DeviceAlertRow) {
+    window.location.href = `/iot/alerts?device_id=${encodeURIComponent(row.device_id)}`;
   }
 
   function openCreate() {
@@ -1179,6 +1310,9 @@ export default function LeasingTenantsPage() {
                 <button className={detailTab === "refunds" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("refunds")}>退款记录</button>
                 <button className={detailTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("workorders")}>工单</button>
                 <button className={detailTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("hazards")}>隐患</button>
+                <button className={detailTab === "emergency" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("emergency")}>应急事件</button>
+                <button className={detailTab === "work_permits" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("work_permits")}>作业许可</button>
+                <button className={detailTab === "devices" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("devices")}>设备</button>
                 <button className={detailTab === "energy" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("energy")}>能耗</button>
               </div>
 
@@ -1520,6 +1654,36 @@ export default function LeasingTenantsPage() {
                   authUser={authUser}
                   canViewDescription={canViewHazardDescription}
                   onOpenHazard={openHazardDetail}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "emergency" ? (
+                <Tenant360EmergencyPanel
+                  emergency={tenant360?.emergency}
+                  statusItems={emergencyStatusItems}
+                  typeItems={emergencyTypeItems}
+                  severityItems={emergencySeverityItems}
+                  responseItems={emergencyResponseItems}
+                  onOpenEmergency={openEmergencyDetail}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "work_permits" ? (
+                <Tenant360WorkPermitsPanel
+                  workPermits={tenant360?.work_permits}
+                  statusItems={workPermitStatusItems}
+                  typeItems={workPermitTypeItems}
+                  riskItems={workPermitRiskItems}
+                  onOpenWorkPermit={openWorkPermitDetail}
+                />
+              ) : null}
+              {!tenant360Loading && detailTab === "devices" ? (
+                <Tenant360DevicesPanel
+                  devices={tenant360?.devices}
+                  deviceTypeItems={iotDeviceTypeItems}
+                  deviceStatusItems={iotDeviceStatusItems}
+                  alertLevelItems={iotAlertLevelItems}
+                  alertStatusItems={iotAlertStatusItems}
+                  onOpenDevice={openDeviceDetail}
+                  onOpenAlert={openIotAlert}
                 />
               ) : null}
               {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块尚未开发" description={tenant360?.energy.available ? "暂无能耗数据" : "当前阶段仅预留能耗入口，不展示假数据。"} /> : null}
@@ -2194,6 +2358,247 @@ function Tenant360HazardsPanel({
             </tr>
           ))}
           {items.length === 0 ? <tr><td colSpan={12}>暂无隐患数据</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360EmergencyPanel({
+  emergency,
+  statusItems,
+  typeItems,
+  severityItems,
+  responseItems,
+  onOpenEmergency
+}: {
+  emergency?: Tenant360EmergencyNode;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  severityItems: DictItemRow[];
+  responseItems: DictItemRow[];
+  onOpenEmergency: (emergency: Tenant360EmergencyRow) => void;
+}) {
+  if (!emergency?.available) {
+    return <EmptyState title="应急模块未启用" description="当前租户暂未启用安全应急能力，不展示假数据。" />;
+  }
+  const items = emergency.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="应急事件总数" value={String(emergency.summary?.total_count ?? 0)} />
+        <MetricCard label="未闭环事件" value={String(emergency.summary?.open_count ?? 0)} />
+        <MetricCard label="已闭环事件" value={String(emergency.summary?.closed_count ?? 0)} />
+        <MetricCard label="重大事件" value={String(emergency.summary?.major_count ?? 0)} />
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>事件编号</th>
+            <th>标题</th>
+            <th>类型</th>
+            <th>严重等级</th>
+            <th>响应等级</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>上报人</th>
+            <th>上报时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.emergency_code}</td>
+              <td>{row.title}</td>
+              <td>{labelFor(typeItems, row.incident_type)}</td>
+              <td><DictBadge items={severityItems} value={row.severity_level} /></td>
+              <td><DictBadge items={responseItems} value={row.response_level} /></td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{fieldText(row.reporter_name)}</td>
+              <td>{formatDateTime(row.report_time)}</td>
+              <td>
+                <button type="button" onClick={() => onOpenEmergency(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={10}>暂无应急事件</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360WorkPermitsPanel({
+  workPermits,
+  statusItems,
+  typeItems,
+  riskItems,
+  onOpenWorkPermit
+}: {
+  workPermits?: Tenant360WorkPermitsNode;
+  statusItems: DictItemRow[];
+  typeItems: DictItemRow[];
+  riskItems: DictItemRow[];
+  onOpenWorkPermit: (workPermit: Tenant360WorkPermitRow) => void;
+}) {
+  if (!workPermits?.available) {
+    return <EmptyState title="作业许可未启用" description="当前租户暂未启用作业许可能力，不展示假数据。" />;
+  }
+  const items = workPermits.recent_items ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="作业许可总数" value={String(workPermits.summary?.total_count ?? 0)} />
+        <MetricCard label="开工中许可" value={String(workPermits.summary?.in_progress_count ?? 0)} />
+        <MetricCard label="违规次数" value={String(workPermits.summary?.violation_count ?? 0)} />
+        <MetricCard label="已闭环许可" value={String(workPermits.summary?.closed_count ?? 0)} />
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>许可编号</th>
+            <th>类型</th>
+            <th>风险</th>
+            <th>状态</th>
+            <th>位置</th>
+            <th>申请人</th>
+            <th>施工方</th>
+            <th>监护人</th>
+            <th>作业时间</th>
+            <th>违规</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((row) => (
+            <tr key={row.id}>
+              <td>{row.permit_code}</td>
+              <td>{labelFor(typeItems, row.permit_type)}</td>
+              <td><DictBadge items={riskItems} value={row.risk_level} /></td>
+              <td><DictBadge items={statusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{fieldText(row.apply_user_name)}</td>
+              <td>{fieldText(row.contractor_name)}</td>
+              <td>{fieldText(row.monitor_user_name)}</td>
+              <td>{formatDateRange(row.time_start, row.time_end)}</td>
+              <td>{row.violation_count}</td>
+              <td>
+                <button type="button" onClick={() => onOpenWorkPermit(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 ? <tr><td colSpan={11}>暂无作业许可</td></tr> : null}
+        </tbody>
+      </DataTable>
+    </section>
+  );
+}
+
+function Tenant360DevicesPanel({
+  devices,
+  deviceTypeItems,
+  deviceStatusItems,
+  alertLevelItems,
+  alertStatusItems,
+  onOpenDevice,
+  onOpenAlert
+}: {
+  devices?: Tenant360DevicesNode;
+  deviceTypeItems: DictItemRow[];
+  deviceStatusItems: DictItemRow[];
+  alertLevelItems: DictItemRow[];
+  alertStatusItems: DictItemRow[];
+  onOpenDevice: (device: Tenant360DeviceRow) => void;
+  onOpenAlert: (alert: Tenant360DeviceAlertRow) => void;
+}) {
+  if (!devices?.available) {
+    return <EmptyState title="IoT 模块未启用" description="当前租户暂未启用 IoT 设备能力，不展示假数据。" />;
+  }
+  const deviceItems = devices.recent_devices ?? [];
+  const alertItems = devices.recent_alerts ?? [];
+  return (
+    <section className="detail-stack">
+      <div className="system-grid">
+        <MetricCard label="设备总数" value={String(devices.summary?.device_count ?? 0)} />
+        <MetricCard label="在线设备" value={String(devices.summary?.online_count ?? 0)} />
+        <MetricCard label="活跃告警" value={String(devices.summary?.active_alert_count ?? 0)} />
+      </div>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>设备编号</th>
+            <th>设备名称</th>
+            <th>设备类型</th>
+            <th>在线状态</th>
+            <th>启停状态</th>
+            <th>位置</th>
+            <th>最近上报</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deviceItems.map((row) => (
+            <tr key={row.id}>
+              <td>{row.device_code}</td>
+              <td>{row.device_name}</td>
+              <td>{labelFor(deviceTypeItems, row.device_type)}</td>
+              <td><DictBadge items={deviceStatusItems} value={row.online_status} /></td>
+              <td><DictBadge items={deviceStatusItems} value={row.status} /></td>
+              <td>{fieldText(row.location)}</td>
+              <td>{row.last_data_time ? formatDateTime(row.last_data_time) : "-"}</td>
+              <td>
+                <button type="button" onClick={() => onOpenDevice(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {deviceItems.length === 0 ? <tr><td colSpan={8}>暂无关联设备</td></tr> : null}
+        </tbody>
+      </DataTable>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>告警编号</th>
+            <th>告警标题</th>
+            <th>设备</th>
+            <th>指标</th>
+            <th>级别</th>
+            <th>状态</th>
+            <th>触发值</th>
+            <th>最近触发</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {alertItems.map((row) => (
+            <tr key={row.id}>
+              <td>{row.alert_code}</td>
+              <td>{row.alert_title}</td>
+              <td>{row.device_name || row.device_code}</td>
+              <td>{row.metric_code}</td>
+              <td><DictBadge items={alertLevelItems} value={row.alert_level} /></td>
+              <td><DictBadge items={alertStatusItems} value={row.status} /></td>
+              <td>{fieldText(row.trigger_value)}</td>
+              <td>{formatDateTime(row.last_trigger_time)}</td>
+              <td>
+                <button type="button" onClick={() => onOpenAlert(row)}>
+                  <Eye size={16} />
+                  查看
+                </button>
+              </td>
+            </tr>
+          ))}
+          {alertItems.length === 0 ? <tr><td colSpan={9}>暂无设备告警</td></tr> : null}
         </tbody>
       </DataTable>
     </section>

@@ -21,6 +21,7 @@ export interface DataScopeColumnMapping {
   building?: string;
   floor?: string;
   unit?: string;
+  device?: string;
   tenantCompany?: string;
   owner?: string;
   handler?: string;
@@ -243,7 +244,8 @@ export class DataScopeService {
     if (ids.length === 0) {
       return builder.andWhere("1 = 0");
     }
-    return builder.andWhere(`${alias}.${column} IN (:...dataScopeIds)`, { dataScopeIds: ids });
+    const parameterName = `dataScopeIds_${dimension}`;
+    return builder.andWhere(`${alias}.${column} IN (:...${parameterName})`, { [parameterName]: ids });
   }
 
   private async resolveAllowedIds(scope: TenantParkScope, user: JwtPrincipal, dimension: DataScopeDimension): Promise<string[] | null> {
@@ -360,6 +362,7 @@ export class DataScopeService {
       building: config.buildingIds ?? config.ids,
       floor: config.floorIds ?? config.ids,
       unit: config.unitIds ?? config.ids,
+      device: config.deviceIds ?? config.ids,
       tenant_company: config.tenantCompanyIds ?? config.ids,
       customer_owner: config.userIds ?? config.ids,
       contract_owner: config.userIds ?? config.ids,
@@ -376,6 +379,7 @@ export class DataScopeService {
       building: mapping.building ?? "buildingId",
       floor: mapping.floor ?? "floorId",
       unit: mapping.unit ?? "unitId",
+      device: mapping.device ?? "deviceId",
       tenant_company: mapping.tenantCompany,
       customer_owner: mapping.owner,
       contract_owner: mapping.owner,
@@ -392,6 +396,7 @@ export class DataScopeService {
       building: mapping.building ?? "building_id",
       floor: mapping.floor ?? "floor_id",
       unit: mapping.unit ?? "unit_id",
+      device: mapping.device ?? "device_id",
       tenant_company: mapping.tenantCompany,
       customer_owner: mapping.owner,
       contract_owner: mapping.owner,
@@ -403,7 +408,16 @@ export class DataScopeService {
   private normalizeScopeConfig(config: DataScopeConfig | undefined): DataScopeConfig {
     const source = config ?? {};
     const normalized: DataScopeConfig = {};
-    const keys: Array<keyof DataScopeConfig> = ["ids", "orgIds", "buildingIds", "floorIds", "unitIds", "tenantCompanyIds", "userIds"];
+    const keys: Array<keyof DataScopeConfig> = [
+      "ids",
+      "orgIds",
+      "buildingIds",
+      "floorIds",
+      "unitIds",
+      "deviceIds",
+      "tenantCompanyIds",
+      "userIds"
+    ];
     for (const key of keys) {
       const value = source[key];
       if (value !== undefined) {

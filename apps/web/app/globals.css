@@ -188,6 +188,18 @@ a {
   text-decoration: none;
 }
 
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--phoenix-space-1);
+  color: var(--phoenix-color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.text-link:hover {
+  color: var(--phoenix-color-primary-hover);
+}
+
 ul {
   list-style: none;
 }
@@ -1708,6 +1720,20 @@ textarea:disabled {
   box-shadow: none;
 }
 
+.danger-button,
+.drawer-action-button.danger-button {
+  border-color: color-mix(in srgb, var(--status-danger) 28%, var(--border));
+  background: var(--bg-card);
+  color: var(--status-danger);
+}
+
+.danger-button:hover,
+.drawer-action-button.danger-button:hover {
+  border-color: color-mix(in srgb, var(--status-danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--status-danger) 8%, var(--bg-card));
+  color: var(--status-danger);
+}
+
 .drawer-link {
   color: var(--color-primary);
   font-weight: 720;
@@ -2301,6 +2327,49 @@ textarea:disabled {
 
 .page-header .primary-button {
   min-width: 104px;
+}
+
+.realtime-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--phoenix-space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.realtime-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--phoenix-space-2);
+  min-height: 28px;
+  border: 1px solid var(--jinhu-color-border-soft);
+  border-radius: var(--phoenix-radius-sm);
+  padding: 0 var(--phoenix-space-3);
+  background: var(--phoenix-color-surface);
+  color: var(--phoenix-color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.realtime-status.is-connected {
+  border-color: color-mix(in srgb, var(--phoenix-color-success) 42%, var(--jinhu-color-border-soft));
+  background: color-mix(in srgb, var(--phoenix-color-success) 10%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-success);
+}
+
+.realtime-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--phoenix-color-text-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--phoenix-color-text-muted) 12%, transparent);
+}
+
+.realtime-status.is-connected .realtime-status-dot {
+  background: var(--phoenix-color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--phoenix-color-success) 16%, transparent);
 }
 
 .leasing-leads-page {
@@ -3004,6 +3073,83 @@ textarea:disabled {
 
 .asset-stat-panel table {
   color: var(--text-primary);
+}
+
+.iot-detail-page {
+  gap: 14px;
+}
+
+.back-link {
+  margin-bottom: var(--phoenix-space-2);
+}
+
+.iot-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--phoenix-space-2);
+  padding: var(--phoenix-space-3);
+}
+
+.iot-detail-tabs .primary-button,
+.iot-detail-tabs .secondary-button {
+  min-height: 34px;
+}
+
+.iot-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--phoenix-space-3);
+}
+
+.iot-detail-field {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.38fr) minmax(0, 1fr);
+  gap: var(--phoenix-space-3);
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--bg-card);
+}
+
+.iot-detail-field > span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-card-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.iot-detail-field > strong {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-table-body);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.iot-json-block {
+  display: grid;
+  gap: var(--phoenix-space-2);
+  margin-top: var(--phoenix-space-4);
+}
+
+.iot-json-block > span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-card-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.iot-json-block pre {
+  overflow: auto;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--phoenix-space-3);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-size: var(--font-size-caption);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .asset-distribution-list {
@@ -4113,7 +4259,8 @@ textarea:disabled {
   }
 
   .drawer-form-grid,
-  .detail-grid {
+  .detail-grid,
+  .iot-detail-grid {
     grid-template-columns: 1fr;
   }
 

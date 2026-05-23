@@ -24,7 +24,10 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { FloorEntity } from "../floors/entities/floor.entity";
+import { IotDashboardService, type IotUnitDevicesNode } from "../iot/iot-dashboard.service";
+import { SafetyEmergencyService, type SafetyEmergencySummaryNode } from "../safety-emergency/safety-emergency.service";
 import { SafetyHazardsService, type UnitHazardsNode } from "../safety-hazards/safety-hazards.service";
+import { SafetyWorkPermitsService, type SafetyWorkPermitSummaryNode } from "../safety-work-permits/safety-work-permits.service";
 import { WorkOrdersService, type UnitWorkOrdersNode } from "../work-orders/work-orders.service";
 import type { CreateUnitDto } from "./dto/create-unit.dto";
 import type { TransitionUnitStatusDto } from "./dto/transition-unit-status.dto";
@@ -187,7 +190,10 @@ export class UnitsService {
     private readonly fieldPolicyService: FieldPolicyService,
     private readonly codeRulesService: CodeRulesService,
     private readonly workOrdersService: WorkOrdersService,
-    private readonly safetyHazardsService: SafetyHazardsService
+    private readonly safetyHazardsService: SafetyHazardsService,
+    private readonly safetyEmergencyService: SafetyEmergencyService,
+    private readonly safetyWorkPermitsService: SafetyWorkPermitsService,
+    private readonly iotDashboardService: IotDashboardService
   ) {}
 
   async list(scope: TenantParkScope, query: UnitQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<UnitEntity>> {
@@ -218,6 +224,21 @@ export class UnitsService {
   async hazards(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<UnitHazardsNode> {
     await this.findDetail(scope, id, actor);
     return this.safetyHazardsService.unitHazards(scope, actor, id);
+  }
+
+  async emergencies(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<SafetyEmergencySummaryNode> {
+    await this.findDetail(scope, id, actor);
+    return this.safetyEmergencyService.unitEmergencies(scope, actor, id);
+  }
+
+  async workPermits(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<SafetyWorkPermitSummaryNode> {
+    await this.findDetail(scope, id, actor);
+    return this.safetyWorkPermitsService.unitWorkPermits(scope, actor, id);
+  }
+
+  async devices(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<IotUnitDevicesNode> {
+    await this.findDetail(scope, id, actor);
+    return this.iotDashboardService.unitDevices(scope, actor, id);
   }
 
   private async findDetail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UnitEntity> {

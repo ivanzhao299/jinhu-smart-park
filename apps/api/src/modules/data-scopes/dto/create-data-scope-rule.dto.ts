@@ -8,6 +8,7 @@ export const DATA_SCOPE_DIMENSIONS: DataScopeDimension[] = [
   "building",
   "floor",
   "unit",
+  "device",
   "tenant_company",
   "customer_owner",
   "contract_owner",

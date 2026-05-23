@@ -793,7 +793,12 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "cpu",
     module: "iot",
     children: [
-      { label: "IoT 总览", href: "/iot/overview", permission: "iot:read", module: "iot" }
+      { label: "IoT 看板", href: "/iot/dashboard", permission: "iot_dashboard:read", module: "iot" },
+      { label: "网关管理", href: "/iot/gateways", permission: "iot_gateway:read", module: "iot" },
+      { label: "设备管理", href: "/iot/devices", permission: "iot_device:read", module: "iot" },
+      { label: "指标管理", href: "/iot/metrics", permission: "iot_metric:read", module: "iot" },
+      { label: "告警规则", href: "/iot/alert-rules", permission: "iot_alert_rule:read", module: "iot" },
+      { label: "设备告警", href: "/iot/alerts", permission: "iot_alert:read", module: "iot" }
     ]
   },
   {
@@ -838,6 +843,26 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "SLA 规则", href: "/workorders/sla-rules", permission: "workorder_sla:read", module: "workorder" },
       { label: "超时工单", href: "/workorders/overdue", permission: "workorder:overdue", module: "workorder" },
       { label: "工单统计", href: "/workorders/stats", permission: "workorder:stats", module: "workorder" }
+    ]
+  },
+  {
+    label: "安全管理",
+    icon: "shield-alert",
+    module: "safety",
+    children: [
+      { label: "安全看板", href: "/safety/dashboard", permission: "safety_statistics:read", module: "safety" },
+      { label: "应急作业看板", href: "/safety/emergency-dashboard", permission: "safety_emergency_statistics:read", module: "safety" },
+      { label: "巡检点位", href: "/safety/inspect-points", permission: "safety_inspect_point:read", module: "safety" },
+      { label: "巡检模板", href: "/safety/inspect-templates", permission: "safety_inspect_template:read", module: "safety" },
+      { label: "巡检计划", href: "/safety/inspect-plans", permission: "safety_inspect_plan:read", module: "safety" },
+      { label: "巡检任务", href: "/safety/inspect-tasks", permission: "safety_inspect_task:read", module: "safety" },
+      { label: "我的巡检", href: "/safety/my-inspect-tasks", permission: "safety_inspect_task:my", module: "safety" },
+      { label: "隐患整改", href: "/safety/hazards", permission: "safety_hazard:read", module: "safety" },
+      { label: "超期隐患", href: "/safety/hazards/overdue", permission: "safety_hazard:overdue", module: "safety" },
+      { label: "应急联系人", href: "/safety/emergency-contacts", permission: "safety_emergency_contact:read", module: "safety" },
+      { label: "应急预案", href: "/safety/emergency-plans", permission: "safety_emergency_plan:read", module: "safety" },
+      { label: "应急事件", href: "/safety/emergencies", permission: "safety_emergency:read", module: "safety" },
+      { label: "作业许可", href: "/safety/work-permits", permission: "safety_work_permit:read", module: "safety" }
     ]
   },
   {

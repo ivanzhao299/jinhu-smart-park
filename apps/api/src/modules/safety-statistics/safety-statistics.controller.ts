@@ -18,4 +18,14 @@ export class SafetyStatisticsController {
   statistics(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: SafetyStatisticsQueryDto) {
     return this.service.statistics(scope, user, query);
   }
+
+  @Get("emergency-work-permit-statistics")
+  @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_STATISTICS_READ, SYSTEM_PERMISSIONS.SAFETY_WORK_PERMIT_STATISTICS_READ)
+  emergencyWorkPermitStatistics(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Query() query: SafetyStatisticsQueryDto
+  ) {
+    return this.service.emergencyWorkPermitStatistics(scope, user, query);
+  }
 }

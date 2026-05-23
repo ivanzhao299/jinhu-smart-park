@@ -9,6 +9,7 @@ export type DataScopeDimension =
   | "building"
   | "floor"
   | "unit"
+  | "device"
   | "tenant_company"
   | "customer_owner"
   | "contract_owner"
@@ -22,6 +23,7 @@ export interface DataScopeConfig {
   buildingIds?: string[];
   floorIds?: string[];
   unitIds?: string[];
+  deviceIds?: string[];
   tenantCompanyIds?: string[];
   userIds?: string[];
 }

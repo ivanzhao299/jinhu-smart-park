@@ -385,7 +385,7 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('workorder:overdue-page', '超时工单', 'workorder', 'workorder.overdue', 'page', 'page', 20, 30),
     ('workorder:stats-page', '工单统计', 'workorder', 'workorder.stats', 'page', 'page', 20, 40),
     ('iot', 'IoT 平台', NULL, 'iot', 'menu', 'menu', 10, 50),
-    ('iot:overview', 'IoT 总览', 'iot', 'iot.overview', 'page', 'page', 20, 10),
+    ('iot:dashboard', 'IoT 看板', 'iot', 'iot.dashboard', 'page', 'page', 20, 10),
     ('energy', '能耗管理', NULL, 'energy', 'menu', 'menu', 10, 60),
     ('energy:overview', '能耗总览', 'energy', 'energy.overview', 'page', 'page', 20, 10),
     ('robot', '机器人运营', NULL, 'robot', 'menu', 'menu', 10, 70),
@@ -460,7 +460,7 @@ permission_nodes(code, name, parent_code, resource, action, permission_type, per
       WHEN leaf_permissions.code IN ('workorder:recalculate_overdue', 'workorder:overdue') THEN 'workorder:overdue-page'
       WHEN leaf_permissions.code = 'workorder:stats' THEN 'workorder:stats-page'
       WHEN leaf_permissions.code = 'wo:read' OR leaf_permissions.code LIKE 'workorder:%' OR leaf_permissions.code LIKE 'workorder_log:%' THEN 'workorder:center'
-      WHEN leaf_permissions.code = 'iot:read' THEN 'iot:overview'
+      WHEN leaf_permissions.code = 'iot:read' THEN 'iot:dashboard'
       WHEN leaf_permissions.code = 'energy:read' THEN 'energy:overview'
       WHEN leaf_permissions.code = 'robot:read' THEN 'robot:overview'
       WHEN leaf_permissions.code = 'video:read' THEN 'video:overview'
@@ -595,7 +595,7 @@ upsert_permissions AS (
       WHEN 'workorder:sla-rules' THEN '/workorders/sla-rules'
       WHEN 'workorder:overdue-page' THEN '/workorders/overdue'
       WHEN 'workorder:stats-page' THEN '/workorders/stats'
-      WHEN 'iot:overview' THEN '/iot/overview'
+      WHEN 'iot:dashboard' THEN '/iot/dashboard'
       WHEN 'energy:overview' THEN '/energy/overview'
       WHEN 'robot:overview' THEN '/robots/overview'
       WHEN 'video:overview' THEN '/video/overview'
@@ -729,7 +729,7 @@ permission_parent_map AS (
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
       WHEN child.code IN ('workorder:center', 'workorder:list-page', 'workorder:sla-rules', 'workorder:overdue-page', 'workorder:stats-page') THEN 'workorder'
-      WHEN child.code = 'iot:overview' THEN 'iot'
+      WHEN child.code = 'iot:dashboard' THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
       WHEN child.code = 'robot:overview' THEN 'robot'
       WHEN child.code = 'video:overview' THEN 'video'
@@ -789,7 +789,7 @@ permission_parent_map AS (
       WHEN child.code IN ('workorder:recalculate_overdue', 'workorder:overdue') THEN 'workorder:overdue-page'
       WHEN child.code = 'workorder:stats' THEN 'workorder:stats-page'
       WHEN child.code = 'wo:read' OR child.code LIKE 'workorder:%' OR child.code LIKE 'workorder_log:%' THEN 'workorder:center'
-      WHEN child.code = 'iot:read' THEN 'iot:overview'
+      WHEN child.code = 'iot:read' THEN 'iot:dashboard'
       WHEN child.code = 'energy:read' THEN 'energy:overview'
       WHEN child.code = 'robot:read' THEN 'robot:overview'
       WHEN child.code = 'video:read' THEN 'video:overview'
@@ -3514,6 +3514,9 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('workorder_source_type', '租户请求', 'tenant_request', 20, 'primary'),
     ('workorder_source_type', '设备告警', 'alert', 30, 'warning'),
     ('workorder_source_type', '巡检发现', 'inspection', 40, 'warning'),
+    ('workorder_source_type', '应急事件', 'safety_emergency', 45, 'danger'),
+    ('workorder_source_type', '作业许可', 'work_permit', 46, 'warning'),
+    ('workorder_source_type', 'IoT 告警', 'iot_alert', 47, 'warning'),
     ('workorder_source_type', '机器人异常', 'robot', 50, 'default'),
     ('workorder_source_type', '系统生成', 'system', 60, 'default')
 ),

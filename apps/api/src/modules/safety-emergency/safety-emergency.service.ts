@@ -15,6 +15,10 @@ import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { SafetyActionLogEntity } from "../safety-inspect-tasks/entities/safety-action-log.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import type { CreateWorkOrderDto } from "../work-orders/dto/create-work-order.dto";
+import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
+import { WorkOrdersService } from "../work-orders/work-orders.service";
+import { CreateEmergencyWorkOrderDto } from "./dto/create-emergency-work-order.dto";
 import { CreateSafetyEmergencyContactDto } from "./dto/create-safety-emergency-contact.dto";
 import { CreateSafetyEmergencyEventDto } from "./dto/create-safety-emergency-event.dto";
 import { CreateSafetyEmergencyPlanDto } from "./dto/create-safety-emergency-plan.dto";
@@ -48,6 +52,34 @@ const EVENT_STATUS_UPGRADED = "80";
 const EVENT_STATUS_CANCELLED = "90";
 const EVENT_STATUS_FALSE_ALARM = "91";
 const EVENT_SOURCE_MANUAL = "manual";
+const EVENT_SOURCE_SOS = "sos";
+const DEFAULT_EMERGENCY_WORK_ORDER_TYPE = "repair";
+const WORK_ORDER_SOURCE_SAFETY_EMERGENCY = "safety_emergency";
+
+export interface SafetyEmergencySummaryRow {
+  id: string;
+  emergency_code: string;
+  title: string;
+  incident_type: string;
+  severity_level: string;
+  response_level: string | null;
+  status: string;
+  location: string;
+  reporter_name: string | null;
+  report_time: Date;
+  update_time: Date;
+}
+
+export interface SafetyEmergencySummaryNode {
+  available: true;
+  summary: {
+    total_count: number;
+    open_count: number;
+    closed_count: number;
+    major_count: number;
+  };
+  recent_items: SafetyEmergencySummaryRow[];
+}
 
 @Injectable()
 export class SafetyEmergencyService {
@@ -78,6 +110,7 @@ export class SafetyEmergencyService {
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
     private readonly filesService: FilesService,
+    private readonly workOrdersService: WorkOrdersService,
     private readonly dataSource: DataSource
   ) {}
 
@@ -299,6 +332,26 @@ export class SafetyEmergencyService {
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", EVENT_ENTITY, entity);
   }
 
+  async tenant360Emergencies(scope: TenantParkScope, actor: JwtPrincipal, parkTenantId: string): Promise<SafetyEmergencySummaryNode> {
+    const builder = this.scopedEventBuilder(scope)
+      .andWhere("event.park_tenant_id = :parkTenantId", { parkTenantId })
+      .orderBy("event.reportTime", "DESC")
+      .addOrderBy("event.createTime", "DESC");
+    await this.applyParkDataScope(builder, actor, "event");
+    const events = await builder.getMany();
+    return this.buildSummaryNode(scope, actor, events);
+  }
+
+  async unitEmergencies(scope: TenantParkScope, actor: JwtPrincipal, unitId: string): Promise<SafetyEmergencySummaryNode> {
+    const builder = this.scopedEventBuilder(scope)
+      .andWhere("event.unit_id = :unitId", { unitId })
+      .orderBy("event.reportTime", "DESC")
+      .addOrderBy("event.createTime", "DESC");
+    await this.applyParkDataScope(builder, actor, "event");
+    const events = await builder.getMany();
+    return this.buildSummaryNode(scope, actor, events);
+  }
+
   async createEvent(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -392,7 +445,7 @@ export class SafetyEmergencyService {
     this.assertRequired(dto.description, "description is required");
     const severityLevel = dto.severity_level ?? "30";
     return this.createEvent(scope, actor, {
-      source_type: EVENT_SOURCE_MANUAL,
+      source_type: EVENT_SOURCE_SOS,
       incident_type: dto.incident_type,
       severity_level: severityLevel,
       response_level: dto.response_level,
@@ -699,6 +752,74 @@ export class SafetyEmergencyService {
     });
   }
 
+  async createWorkOrder(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: CreateEmergencyWorkOrderDto
+  ): Promise<{ emergency: SafetyEmergencyEventEntity; work_order: WorkOrderEntity }> {
+    const entity = await this.findEvent(scope, id, actor);
+    if ([EVENT_STATUS_CANCELLED, EVENT_STATUS_FALSE_ALARM].includes(entity.status)) {
+      throw new BadRequestException("Canceled or false-alarm emergency event cannot be converted to a work order");
+    }
+    this.assertRequired(dto.title, "title is required");
+    this.assertRequired(dto.priority, "priority is required");
+    this.assertRequired(dto.urgency, "urgency is required");
+    this.assertRequired(dto.description, "description is required");
+    const assignee = dto.assignee_id ? await this.findScopedUser(scope, dto.assignee_id) : null;
+    const payload: CreateWorkOrderDto = {
+      title: dto.title.trim(),
+      wo_type: dto.wo_type?.trim() || DEFAULT_EMERGENCY_WORK_ORDER_TYPE,
+      priority: dto.priority.trim(),
+      urgency: dto.urgency.trim(),
+      source_type: WORK_ORDER_SOURCE_SAFETY_EMERGENCY,
+      source_id: entity.id,
+      park_tenant_id: entity.parkTenantId ?? undefined,
+      unit_id: entity.unitId ?? undefined,
+      building_id: entity.buildingId ?? undefined,
+      floor_id: entity.floorId ?? undefined,
+      location: entity.location,
+      reporter_id: actor.sub,
+      reporter_name: this.actorName(actor),
+      assignee_id: dto.assignee_id,
+      assignee_name: assignee?.displayName ?? assignee?.username ?? undefined,
+      description: this.buildEmergencyWorkOrderDescription(entity, dto.description),
+      image_file_ids: entity.photosFileIds ?? [],
+      remark: `emergency:${entity.emergencyCode}`
+    };
+    const workOrder = await this.workOrdersService.create(scope, actor, payload);
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.writeEmergencyTimeline(manager, scope, actor, {
+        emergencyId: entity.id,
+        action: "create_workorder",
+        beforeStatus: entity.status,
+        afterStatus: entity.status,
+        reason: dto.description.trim(),
+        content: `应急事件已转工单 ${workOrder.woCode}`
+      });
+      await this.writeSafetyActionLog(manager, scope, actor, {
+        bizType: "emergency_event",
+        bizId: entity.id,
+        action: "create_workorder",
+        beforeStatus: entity.status,
+        afterStatus: entity.status,
+        reason: dto.description.trim(),
+        content: `应急事件已转工单 ${workOrder.woCode}`,
+        payload: {
+          work_order_id: workOrder.id,
+          wo_code: workOrder.woCode,
+          source_type: WORK_ORDER_SOURCE_SAFETY_EMERGENCY
+        }
+      });
+    });
+
+    return {
+      emergency: await this.eventDetail(scope, entity.id, actor),
+      work_order: workOrder
+    };
+  }
+
   private async transitionEmergencyEvent(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -841,6 +962,38 @@ export class SafetyEmergencyService {
     if (query.park_tenant_id) builder.andWhere("event.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
     if (query.start_date) builder.andWhere("event.report_time >= :startDate", { startDate: query.start_date });
     if (query.end_date) builder.andWhere("event.report_time <= :endDate", { endDate: query.end_date });
+  }
+
+  private async buildSummaryNode(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    events: SafetyEmergencyEventEntity[]
+  ): Promise<SafetyEmergencySummaryNode> {
+    const recent = events.slice(0, 5).map((event) => ({
+      id: event.id,
+      emergency_code: event.emergencyCode,
+      title: event.title,
+      incident_type: event.incidentType,
+      severity_level: event.severityLevel,
+      response_level: event.responseLevel,
+      status: event.status,
+      location: event.location,
+      reporter_name: event.reporterName,
+      report_time: event.reportTime,
+      update_time: event.updateTime
+    }));
+    const recentItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "safety", EVENT_ENTITY, recent) as SafetyEmergencySummaryRow[];
+    const closedStatuses = new Set([EVENT_STATUS_CLOSED, EVENT_STATUS_CANCELLED, EVENT_STATUS_FALSE_ALARM]);
+    return {
+      available: true,
+      summary: {
+        total_count: events.length,
+        open_count: events.filter((event) => !closedStatuses.has(event.status)).length,
+        closed_count: events.filter((event) => event.status === EVENT_STATUS_CLOSED).length,
+        major_count: events.filter((event) => event.severityLevel === "30" || event.severityLevel === "major").length
+      },
+      recent_items: recentItems
+    };
   }
 
   private applyContactSort(builder: SelectQueryBuilder<SafetyEmergencyContactEntity>, sort?: string): void {
@@ -1181,6 +1334,17 @@ export class SafetyEmergencyService {
     }
   }
 
+  private buildEmergencyWorkOrderDescription(entity: SafetyEmergencyEventEntity, extra: string): string {
+    const lines = [
+      extra.trim(),
+      `来源应急事件：${entity.emergencyCode}`,
+      `事件标题：${entity.title}`,
+      entity.location ? `事件位置：${entity.location}` : null,
+      entity.description ? `事件描述：${entity.description}` : null
+    ].filter((line): line is string => Boolean(line));
+    return lines.join("\n");
+  }
+
   private async writeEmergencyTimeline(
     manager: EntityManager | DataSource,
     scope: TenantParkScope,
@@ -1286,6 +1450,30 @@ export class SafetyEmergencyService {
     }
     const parkFilter = await this.dataScopeService.buildScopeFilter(actor, "park");
     this.applyConfiguredIdScopeFilter(builder, alias, "park_id", parkFilter, `${alias}ParkScopeIds`);
+    if (alias !== "event") {
+      return;
+    }
+    const [buildingFilter, floorFilter, unitFilter, tenantCompanyFilter, handlerFilter] = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "building"),
+      this.dataScopeService.buildScopeFilter(actor, "floor"),
+      this.dataScopeService.buildScopeFilter(actor, "unit"),
+      this.dataScopeService.buildScopeFilter(actor, "tenant_company"),
+      this.dataScopeService.buildScopeFilter(actor, "workorder_handler")
+    ]);
+    this.applyConfiguredIdScopeFilter(builder, alias, "building_id", buildingFilter, "safetyEmergencyBuildingScopeIds");
+    this.applyConfiguredIdScopeFilter(builder, alias, "floor_id", floorFilter, "safetyEmergencyFloorScopeIds");
+    this.applyConfiguredIdScopeFilter(builder, alias, "unit_id", unitFilter, "safetyEmergencyUnitScopeIds");
+    this.applyConfiguredIdScopeFilter(builder, alias, "park_tenant_id", tenantCompanyFilter, "safetyEmergencyTenantScopeIds");
+    this.applyConfiguredIdScopeFilter(builder, alias, "commander_id", handlerFilter, "safetyEmergencyHandlerScopeIds");
+    if (this.isSelfScope(actor)) {
+      builder.andWhere(
+        new Brackets((qb) => {
+          qb.where(`${alias}.reporter_id = :currentSafetyEmergencyUserId`, { currentSafetyEmergencyUserId: actor.sub })
+            .orWhere(`${alias}.commander_id = :currentSafetyEmergencyUserId`, { currentSafetyEmergencyUserId: actor.sub })
+            .orWhere(`${alias}.create_by = :currentSafetyEmergencyUserId`, { currentSafetyEmergencyUserId: actor.sub });
+        })
+      );
+    }
   }
 
   private applyConfiguredIdScopeFilter<Entity extends ObjectLiteral>(
@@ -1303,5 +1491,10 @@ export class SafetyEmergencyService {
     if (filter.scope_types.includes("custom")) {
       builder.andWhere("1 = 0");
     }
+  }
+
+  private isSelfScope(actor: JwtPrincipal): boolean {
+    const scope = actor.dataScope;
+    return scope === "self" || scope === "10";
   }
 }

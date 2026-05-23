@@ -21,7 +21,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { canViewField, maskField } from "../../../lib/field-policy";
+import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 
 const SAFETY_MODULE = "safety";
 const CONTACT_ENTITY = "emergency_contact";
@@ -217,6 +217,9 @@ export default function SafetyEmergencyContactsPage() {
   }
 
   const canViewMobile = canViewField(authUser, SAFETY_MODULE, CONTACT_ENTITY, "mobile");
+  const canViewEmail = canViewField(authUser, SAFETY_MODULE, CONTACT_ENTITY, "email");
+  const canEditMobile = canEditField(authUser, SAFETY_MODULE, CONTACT_ENTITY, "mobile");
+  const canEditEmail = canEditField(authUser, SAFETY_MODULE, CONTACT_ENTITY, "email");
 
   return (
     <PermissionGuard module={SAFETY_MODULE} permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CONTACT_READ} fallback={<Forbidden />}>
@@ -280,7 +283,7 @@ export default function SafetyEmergencyContactsPage() {
                   <td>{row.contactName}</td>
                   <td><StatusPill dictCode="safety_emergency_contact_role" value={row.contactRole} dicts={dicts} /></td>
                   <td>{canViewMobile ? displaySecuredField(authUser, "mobile", row.mobile) : "-"}</td>
-                  <td>{row.email ?? "-"}</td>
+                  <td>{canViewEmail ? displaySecuredField(authUser, "email", row.email) : "-"}</td>
                   <td><StatusPill dictCode="safety_emergency_duty_type" value={row.dutyType} dicts={dicts} /></td>
                   <td>{row.priorityLevel}</td>
                   <td>{row.notifyChannels?.join(" / ") || "-"}</td>
@@ -324,10 +327,10 @@ export default function SafetyEmergencyContactsPage() {
                 </Field>
                 <SelectField label="联系人角色" value={form.contactRole} items={contactRoles} allLabel="请选择角色" onChange={(value) => setFormValue("contactRole", value)} />
                 <Field label="手机号">
-                  <input required value={form.mobile} onChange={(event) => setFormValue("mobile", event.target.value)} />
+                  <input required value={form.mobile} disabled={!canEditMobile} onChange={(event) => setFormValue("mobile", event.target.value)} />
                 </Field>
                 <Field label="邮箱">
-                  <input type="email" value={form.email} onChange={(event) => setFormValue("email", event.target.value)} />
+                  <input type="email" value={form.email} disabled={!canEditEmail} onChange={(event) => setFormValue("email", event.target.value)} />
                 </Field>
                 <SelectField label="值守类型" value={form.dutyType} items={dutyTypes} allLabel="请选择类型" onChange={(value) => setFormValue("dutyType", value)} />
                 <Field label="优先级">
@@ -369,7 +372,7 @@ export default function SafetyEmergencyContactsPage() {
               <DrawerDetailItem label="联系人编码" value={viewing.contactCode} />
               <DrawerDetailItem label="角色" value={<StatusPill dictCode="safety_emergency_contact_role" value={viewing.contactRole} dicts={dicts} />} />
               <DrawerDetailItem label="手机号" value={canViewMobile ? displaySecuredField(authUser, "mobile", viewing.mobile) : "-"} />
-              <DrawerDetailItem label="邮箱" value={viewing.email ?? "-"} />
+              <DrawerDetailItem label="邮箱" value={canViewEmail ? displaySecuredField(authUser, "email", viewing.email) : "-"} />
               <DrawerDetailItem label="值守类型" value={<StatusPill dictCode="safety_emergency_duty_type" value={viewing.dutyType} dicts={dicts} />} />
               <DrawerDetailItem label="优先级" value={viewing.priorityLevel} />
               <DrawerDetailItem label="通知渠道" value={viewing.notifyChannels?.join(" / ") || "-"} />

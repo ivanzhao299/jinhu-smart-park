@@ -16,7 +16,10 @@ import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoi
 import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
 import { LeasingPaymentEntity } from "../leasing-payments/entities/leasing-payment.entity";
 import { LeasingReceivableEntity } from "../leasing-receivables/entities/leasing-receivable.entity";
+import { IotDashboardService } from "../iot/iot-dashboard.service";
+import { SafetyEmergencyService } from "../safety-emergency/safety-emergency.service";
 import { SafetyHazardsService } from "../safety-hazards/safety-hazards.service";
+import { SafetyWorkPermitsService } from "../safety-work-permits/safety-work-permits.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import type { ChangeParkTenantRiskDto } from "./dto/change-park-tenant-risk.dto";
 import type { CreateParkTenantDto } from "./dto/create-park-tenant.dto";
@@ -70,7 +73,10 @@ export class ParkTenantsService {
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
     private readonly workOrdersService: WorkOrdersService,
-    private readonly safetyHazardsService: SafetyHazardsService
+    private readonly safetyHazardsService: SafetyHazardsService,
+    private readonly safetyEmergencyService: SafetyEmergencyService,
+    private readonly safetyWorkPermitsService: SafetyWorkPermitsService,
+    private readonly iotDashboardService: IotDashboardService
   ) {}
 
   async list(scope: TenantParkScope, query: ParkTenantQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkTenantEntity>> {
@@ -216,7 +222,10 @@ export class ParkTenantsService {
       checkoutsAllRaw,
       refundsAllRaw,
       workorders,
-      hazards
+      hazards,
+      emergency,
+      workPermits,
+      devices
     ] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
@@ -262,7 +271,10 @@ export class ParkTenantsService {
       checkoutsBuilder.getMany(),
       refundsBuilder.getMany(),
       this.workOrdersService.tenant360Workorders(scope, actor, id),
-      this.safetyHazardsService.tenant360Hazards(scope, actor, id)
+      this.safetyHazardsService.tenant360Hazards(scope, actor, id),
+      this.safetyEmergencyService.tenant360Emergencies(scope, actor, id),
+      this.safetyWorkPermitsService.tenant360WorkPermits(scope, actor, id),
+      this.iotDashboardService.tenant360Devices(scope, actor, id)
     ]);
     const receivablesRaw = receivablesAllRaw.slice(0, 5);
     const paymentsRaw = paymentsAllRaw.slice(0, 5);
@@ -395,6 +407,9 @@ export class ParkTenantsService {
       refunds: { available: true, summary: refundsSummary, recent_items: refunds },
       workorders,
       hazards,
+      emergency,
+      work_permits: workPermits,
+      devices,
       energy: { available: false, summary: null }
     };
   }

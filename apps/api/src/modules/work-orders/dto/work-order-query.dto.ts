@@ -61,6 +61,10 @@ export class WorkOrderQueryDto {
 
   @IsOptional()
   @IsUUID()
+  device_id?: string;
+
+  @IsOptional()
+  @IsUUID()
   building_id?: string;
 
   @IsOptional()
