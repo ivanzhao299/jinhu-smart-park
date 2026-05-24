@@ -716,6 +716,9 @@ export class UsersService {
       permissionCode?.startsWith("leasing_quote:") ||
       permissionCode?.startsWith("leasing_contract:") ||
       permissionCode?.startsWith("leasing_contract_unit:") ||
+      permissionCode?.startsWith("leasing_contract_change:") ||
+      permissionCode?.startsWith("leasing_checkout:") ||
+      permissionCode?.startsWith("leasing_refund:") ||
       permissionCode?.startsWith("leasing_receivable:") ||
       permissionCode?.startsWith("leasing_payment:") ||
       permissionCode?.startsWith("leasing_waiver:") ||
@@ -724,25 +727,28 @@ export class UsersService {
     ) {
       return "leasing";
     }
-    if (frontendRoute?.startsWith("/workorders")) {
+    if (frontendRoute?.startsWith("/workorders") || permissionCode?.startsWith("workorder")) {
       return "workorder";
     }
-    if (frontendRoute?.startsWith("/iot")) {
+    if (frontendRoute?.startsWith("/safety") || permissionCode?.startsWith("safety")) {
+      return "safety";
+    }
+    if (frontendRoute?.startsWith("/iot") || permissionCode?.startsWith("iot")) {
       return "iot";
     }
-    if (frontendRoute?.startsWith("/energy")) {
+    if (frontendRoute?.startsWith("/energy") || permissionCode?.startsWith("energy")) {
       return "energy";
     }
-    if (frontendRoute?.startsWith("/robots")) {
+    if (frontendRoute?.startsWith("/robots") || permissionCode?.startsWith("robot")) {
       return "robot";
     }
-    if (frontendRoute?.startsWith("/video")) {
+    if (frontendRoute?.startsWith("/video") || permissionCode?.startsWith("video")) {
       return "video";
     }
-    if (frontendRoute?.startsWith("/bim")) {
+    if (frontendRoute?.startsWith("/bim") || permissionCode?.startsWith("bim")) {
       return "bim";
     }
-    if (frontendRoute?.startsWith("/ai")) {
+    if (frontendRoute?.startsWith("/ai") || permissionCode?.startsWith("ai")) {
       return "ai";
     }
     return undefined;
@@ -781,6 +787,9 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "公海池", href: "/leasing/lead-pool", permission: "leasing_lead_pool:read", module: "leasing" },
       { label: "招商漏斗", href: "/leasing/funnel", permission: "leasing_statistics:funnel", module: "leasing" },
       { label: "合同管理", href: "/leasing/contracts", permission: "leasing_contract:read", module: "leasing" },
+      { label: "合同变更", href: "/leasing/contract-changes", permission: "leasing_contract_change:read", module: "leasing" },
+      { label: "退租结算", href: "/leasing/checkouts", permission: "leasing_checkout:read", module: "leasing" },
+      { label: "退款登记", href: "/leasing/refunds", permission: "leasing_refund:read", module: "leasing" },
       { label: "应收账单", href: "/leasing/receivables", permission: "leasing_receivable:read", module: "leasing" },
       { label: "收款登记", href: "/leasing/payments", permission: "leasing_payment:read", module: "leasing" },
       { label: "欠费账龄", href: "/leasing/aging", permission: "leasing_receivable:aging", module: "leasing" },

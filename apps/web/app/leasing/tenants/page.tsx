@@ -1686,7 +1686,7 @@ export default function LeasingTenantsPage() {
                   onOpenAlert={openIotAlert}
                 />
               ) : null}
-              {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块尚未开发" description={tenant360?.energy.available ? "暂无能耗数据" : "当前阶段仅预留能耗入口，不展示假数据。"} /> : null}
+              {!tenant360Loading && detailTab === "energy" ? <EmptyState title="能耗模块暂未接入" description={tenant360?.energy.available ? "暂无能耗数据" : "能耗能力将在后续阶段接入，当前不展示假数据。"} /> : null}
             </Drawer>
           ) : null}
 
@@ -1810,7 +1810,7 @@ function Tenant360ContractsTable({
   onOpenContract: (contract: Tenant360ContractRow) => void;
 }) {
   if (!contracts?.available) {
-    return <EmptyState title="合同模块尚未开发" description="当前阶段仅预留合同入口，不展示假数据。" />;
+    return <EmptyState title="合同模块未启用" description="当前租户暂未启用合同能力，或当前账号无权查看合同数据。" />;
   }
   if (contracts.items.length === 0) {
     return <EmptyState title="暂无合同数据" description="该租户企业当前没有关联合同。" />;
@@ -1875,7 +1875,7 @@ function Tenant360ReceivablesPanel({
   };
 }) {
   if (!receivables?.available) {
-    return <EmptyState title="应收模块尚未开发" description="当前阶段仅预留应收入口，不展示假数据。" />;
+    return <EmptyState title="应收模块未启用" description="当前租户暂未启用应收能力，或当前账号无权查看应收数据。" />;
   }
   const items = receivables.recent_items ?? [];
   return (
@@ -1943,7 +1943,7 @@ function Tenant360PaymentsPanel({
   };
 }) {
   if (!payments?.available) {
-    return <EmptyState title="收款模块尚未开发" description="当前阶段仅预留收款入口，不展示假数据。" />;
+    return <EmptyState title="收款模块未启用" description="当前租户暂未启用收款能力，或当前账号无权查看收款数据。" />;
   }
   const items = payments.recent_items ?? [];
   return (
@@ -1997,7 +1997,7 @@ function Tenant360InvoicesPanel({
   canViewInvoiceAmount: boolean;
 }) {
   if (!invoices?.available) {
-    return <EmptyState title="发票模块尚未开发" description="当前阶段仅预留发票入口，不展示假数据。" />;
+    return <EmptyState title="发票模块未启用" description="当前租户暂未启用发票能力，或当前账号无权查看发票数据。" />;
   }
   const items = invoices.recent_items ?? [];
   return (
@@ -2047,7 +2047,7 @@ function Tenant360ContractChangesPanel({
   receivablePolicyItems: DictItemRow[];
 }) {
   if (!contractChanges?.available) {
-    return <EmptyState title="合同变更模块尚未开发" description="当前阶段仅预留合同变更入口，不展示假数据。" />;
+    return <EmptyState title="合同变更未启用" description="当前租户暂未启用合同变更能力，或当前账号无权查看变更记录。" />;
   }
   const items = contractChanges.recent_items ?? [];
   return (
@@ -2108,7 +2108,7 @@ function Tenant360CheckoutsPanel({
   };
 }) {
   if (!checkouts?.available) {
-    return <EmptyState title="退租模块尚未开发" description="当前阶段仅预留退租入口，不展示假数据。" />;
+    return <EmptyState title="退租结算未启用" description="当前租户暂未启用退租结算能力，或当前账号无权查看退租记录。" />;
   }
   const items = checkouts.recent_items ?? [];
   return (
@@ -2168,7 +2168,7 @@ function Tenant360RefundsPanel({
   canViewRefundAmount: boolean;
 }) {
   if (!refunds?.available) {
-    return <EmptyState title="退款模块尚未开发" description="当前阶段仅预留退款入口，不展示假数据。" />;
+    return <EmptyState title="退款登记未启用" description="当前租户暂未启用退款登记能力，或当前账号无权查看退款记录。" />;
   }
   const items = refunds.recent_items ?? [];
   return (
@@ -2228,7 +2228,7 @@ function Tenant360WorkordersPanel({
   onOpenWorkOrder: (workOrder: Tenant360WorkOrderRow) => void;
 }) {
   if (!workorders?.available) {
-    return <EmptyState title="工单模块尚未开发" description="当前阶段仅预留工单入口，不展示假数据。" />;
+    return <EmptyState title="工单模块未启用" description="当前租户暂未启用工单能力，或当前账号无权查看工单数据。" />;
   }
   const items = workorders.recent_items ?? [];
   return (
@@ -2306,7 +2306,7 @@ function Tenant360HazardsPanel({
   onOpenHazard: (hazard: Tenant360HazardRow) => void;
 }) {
   if (!hazards?.available) {
-    return <EmptyState title="安全模块尚未开发" description="当前阶段仅预留安全入口，不展示假数据。" />;
+    return <EmptyState title="安全隐患未启用" description="当前租户暂未启用安全隐患能力，或当前账号无权查看隐患数据。" />;
   }
   const items = hazards.recent_items ?? [];
   return (

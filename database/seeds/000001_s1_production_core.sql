@@ -386,6 +386,11 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('workorder:stats-page', '工单统计', 'workorder', 'workorder.stats', 'page', 'page', 20, 40),
     ('iot', 'IoT 平台', NULL, 'iot', 'menu', 'menu', 10, 50),
     ('iot:dashboard', 'IoT 看板', 'iot', 'iot.dashboard', 'page', 'page', 20, 10),
+    ('iot:devices', '设备管理', 'iot', 'iot.device', 'page', 'page', 20, 20),
+    ('iot:gateways', '网关管理', 'iot', 'iot.gateway', 'page', 'page', 20, 30),
+    ('iot:metrics', '指标管理', 'iot', 'iot.metric', 'page', 'page', 20, 40),
+    ('iot:alert-rules', '告警规则', 'iot', 'iot.alert_rule', 'page', 'page', 20, 50),
+    ('iot:alerts', '设备告警', 'iot', 'iot.alert', 'page', 'page', 20, 60),
     ('energy', '能耗管理', NULL, 'energy', 'menu', 'menu', 10, 60),
     ('energy:overview', '能耗总览', 'energy', 'energy.overview', 'page', 'page', 20, 10),
     ('robot', '机器人运营', NULL, 'robot', 'menu', 'menu', 10, 70),
@@ -596,6 +601,11 @@ upsert_permissions AS (
       WHEN 'workorder:overdue-page' THEN '/workorders/overdue'
       WHEN 'workorder:stats-page' THEN '/workorders/stats'
       WHEN 'iot:dashboard' THEN '/iot/dashboard'
+      WHEN 'iot:devices' THEN '/iot/devices'
+      WHEN 'iot:gateways' THEN '/iot/gateways'
+      WHEN 'iot:metrics' THEN '/iot/metrics'
+      WHEN 'iot:alert-rules' THEN '/iot/alert-rules'
+      WHEN 'iot:alerts' THEN '/iot/alerts'
       WHEN 'energy:overview' THEN '/energy/overview'
       WHEN 'robot:overview' THEN '/robots/overview'
       WHEN 'video:overview' THEN '/video/overview'
@@ -729,7 +739,7 @@ permission_parent_map AS (
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
       WHEN child.code IN ('workorder:center', 'workorder:list-page', 'workorder:sla-rules', 'workorder:overdue-page', 'workorder:stats-page') THEN 'workorder'
-      WHEN child.code = 'iot:dashboard' THEN 'iot'
+      WHEN child.code IN ('iot:dashboard', 'iot:devices', 'iot:gateways', 'iot:metrics', 'iot:alert-rules', 'iot:alerts') THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'
       WHEN child.code = 'robot:overview' THEN 'robot'
       WHEN child.code = 'video:overview' THEN 'video'
@@ -790,6 +800,11 @@ permission_parent_map AS (
       WHEN child.code = 'workorder:stats' THEN 'workorder:stats-page'
       WHEN child.code = 'wo:read' OR child.code LIKE 'workorder:%' OR child.code LIKE 'workorder_log:%' THEN 'workorder:center'
       WHEN child.code = 'iot:read' THEN 'iot:dashboard'
+      WHEN child.code LIKE 'iot_gateway:%' OR child.code LIKE 'iot_mqtt:%' THEN 'iot:gateways'
+      WHEN child.code LIKE 'iot_device:%' OR child.code LIKE 'iot_point:%' OR child.code LIKE 'iot_data:%' THEN 'iot:devices'
+      WHEN child.code LIKE 'iot_metric:%' THEN 'iot:metrics'
+      WHEN child.code LIKE 'iot_alert_rule:%' THEN 'iot:alert-rules'
+      WHEN child.code LIKE 'iot_alert:%' OR child.code LIKE 'iot_alert_log:%' THEN 'iot:alerts'
       WHEN child.code = 'energy:read' THEN 'energy:overview'
       WHEN child.code = 'robot:read' THEN 'robot:overview'
       WHEN child.code = 'video:read' THEN 'video:overview'
@@ -2942,7 +2957,7 @@ WITH saas_modules(module_code, module_name, module_group, description, route_pre
   VALUES
     ('system', '系统管理', 'foundation', '用户、组织、角色、权限、字典、附件、审计等系统基础能力', '/system', 'shield-check', 10),
     ('asset', '资产管理', 'business', '园区、楼栋、楼层、房源、资产统计与状态看板', '/assets', 'building-2', 20),
-    ('leasing', '招商租赁', 'business', '招商线索、租赁、合同与财务协同预留模块', '/invest', 'gauge', 30),
+    ('leasing', '招商租赁', 'business', '招商线索、租赁、合同与财务协同模块', '/leasing', 'gauge', 30),
     ('workorder', '工单管理', 'business', '物业服务工单、派单处理、SLA 与服务统计', '/workorders', 'wrench', 40),
     ('safety', '安全管理', 'business', '安全巡检、隐患整改与安全闭环能力', '/safety', 'shield-alert', 45),
     ('iot', 'IoT平台', 'extension', '物联网点位、设备接入与监测预留模块', '/iot', 'radio', 50),
