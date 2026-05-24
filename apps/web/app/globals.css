@@ -516,6 +516,7 @@ textarea:disabled {
   font-weight: var(--font-weight-semibold);
   justify-content: flex-start;
   text-align: left;
+  text-decoration: none;
   box-shadow: none;
   transition:
     background 0.18s var(--ease),
@@ -547,6 +548,7 @@ textarea:disabled {
 }
 
 .app-sidebar .menu-group-title:hover,
+.app-sidebar .menu-group-title.active,
 .app-sidebar .menu-group-open .menu-group-title {
   background: color-mix(in srgb, var(--phoenix-sidebar-text) 7%, transparent);
   color: var(--phoenix-sidebar-text);

@@ -135,6 +135,19 @@ function MenuGroup({
   onToggle: () => void;
 }) {
   const Icon = menu.icon;
+  if (!menu.children?.length) {
+    if (!menu.href) {
+      return null;
+    }
+    return (
+      <section className="menu-group">
+        <Link className={`menu-group-title${isChildActive(pathname, menu.href, true) ? " active" : ""}`} href={menu.href as Route}>
+          {Icon ? <Icon className="menu-group-icon" size={18} /> : null}
+          <span>{menu.label}</span>
+        </Link>
+      </section>
+    );
+  }
   return (
     <section className={`menu-group${open ? " menu-group-open" : ""}`}>
       <button className="menu-group-title" type="button" aria-expanded={open} onClick={onToggle}>

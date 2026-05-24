@@ -62,6 +62,13 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   audit: ScrollText
 };
 
+const LEGACY_MENU_HREF_ALIASES = [
+  "/assets/rooms",
+  "/iot/overview",
+  "/system/attachments",
+  "/workorders/statistics"
+];
+
 export const dashboardMenus: MenuNode[] = [
   {
     label: "总览",
@@ -225,7 +232,7 @@ export const dashboardMenus: MenuNode[] = [
 
 export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
   const menus = normalizeMenuTree(userMenus);
-  return menus.length > 0 ? menus : dashboardMenus;
+  return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
 
 export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
@@ -245,6 +252,140 @@ function toMenuNode(node: UserMenuTreeNode): MenuNode {
     icon: resolveMenuIcon(node.icon),
     children: children && children.length > 0 ? children : undefined
   };
+}
+
+function mergeWithDashboardMenus(userMenus: MenuNode[]): MenuNode[] {
+  const backendNodesByHref = new Map<string, MenuNode>();
+  const backendGroupsByLabel = new Map<string, MenuNode>();
+  const canonicalHrefs = new Set<string>();
+  const usedBackendHrefs = new Set<string>();
+
+  collectMenuNodes(userMenus, (node) => {
+    if (node.href) {
+      backendNodesByHref.set(node.href, node);
+    }
+  });
+
+  for (const node of userMenus) {
+    backendGroupsByLabel.set(node.label, node);
+  }
+
+  collectMenuNodes(dashboardMenus, (node) => {
+    if (node.href) {
+      canonicalHrefs.add(node.href);
+    }
+  });
+  for (const href of LEGACY_MENU_HREF_ALIASES) {
+    canonicalHrefs.add(href);
+  }
+
+  return dashboardMenus.map((menu) => {
+    const merged = mergeCanonicalMenu(menu, backendNodesByHref, backendGroupsByLabel, usedBackendHrefs);
+    const moduleCode = inferMenuModule(merged);
+    const extraChildren = moduleCode
+      ? collectExtraChildrenForModule(userMenus, moduleCode, canonicalHrefs, usedBackendHrefs)
+      : [];
+    return extraChildren.length > 0
+      ? { ...merged, children: [...(merged.children ?? []), ...extraChildren] }
+      : merged;
+  });
+}
+
+function mergeCanonicalMenu(
+  menu: MenuNode,
+  backendNodesByHref: Map<string, MenuNode>,
+  backendGroupsByLabel: Map<string, MenuNode>,
+  usedBackendHrefs: Set<string>
+): MenuNode {
+  const backendNode = menu.href ? backendNodesByHref.get(menu.href) : backendGroupsByLabel.get(menu.label);
+  if (backendNode?.href) {
+    usedBackendHrefs.add(backendNode.href);
+  }
+  return {
+    ...menu,
+    href: menu.href ?? backendNode?.href,
+    permission: menu.permission ?? backendNode?.permission,
+    module: menu.module ?? backendNode?.module,
+    icon: menu.icon ?? backendNode?.icon,
+    children: menu.children?.map((child) =>
+      mergeCanonicalMenu(child, backendNodesByHref, backendGroupsByLabel, usedBackendHrefs)
+    )
+  };
+}
+
+function collectExtraChildrenForModule(
+  menus: MenuNode[],
+  moduleCode: string,
+  canonicalHrefs: Set<string>,
+  usedBackendHrefs: Set<string>
+): MenuNode[] {
+  const children: MenuNode[] = [];
+  collectMenuNodes(menus, (node) => {
+    if (!node.href || canonicalHrefs.has(node.href) || usedBackendHrefs.has(node.href)) {
+      return;
+    }
+    if (inferMenuModule(node) !== moduleCode) {
+      return;
+    }
+    usedBackendHrefs.add(node.href);
+    children.push({ ...node, icon: undefined, children: undefined });
+  });
+  return children;
+}
+
+function collectMenuNodes(menus: MenuNode[], visit: (node: MenuNode) => void) {
+  for (const menu of menus) {
+    visit(menu);
+    if (menu.children) {
+      collectMenuNodes(menu.children, visit);
+    }
+  }
+}
+
+function inferMenuModule(menu: MenuNode): string | undefined {
+  if (menu.module) {
+    return menu.module;
+  }
+  const href = menu.href ?? "";
+  const permission = menu.permission ?? "";
+  if (href.startsWith("/assets") || startsWithAny(permission, ["asset", "park:", "building:", "floor:", "unit:"])) {
+    return "asset";
+  }
+  if (href.startsWith("/leasing") || startsWithAny(permission, ["leasing", "park_tenant"])) {
+    return "leasing";
+  }
+  if (href.startsWith("/workorders") || permission.startsWith("workorder")) {
+    return "workorder";
+  }
+  if (href.startsWith("/safety") || permission.startsWith("safety")) {
+    return "safety";
+  }
+  if (href.startsWith("/iot") || permission.startsWith("iot")) {
+    return "iot";
+  }
+  if (href.startsWith("/energy") || permission.startsWith("energy")) {
+    return "energy";
+  }
+  if (href.startsWith("/system") || permission.startsWith("system") || permission.startsWith("module:")) {
+    return "system";
+  }
+  if (href.startsWith("/robots") || permission.startsWith("robot")) {
+    return "robot";
+  }
+  if (href.startsWith("/video") || permission.startsWith("video")) {
+    return "video";
+  }
+  if (href.startsWith("/bim") || permission.startsWith("bim")) {
+    return "bim";
+  }
+  if (href.startsWith("/ai") || permission.startsWith("ai")) {
+    return "ai";
+  }
+  return undefined;
+}
+
+function startsWithAny(value: string, prefixes: string[]): boolean {
+  return prefixes.some((prefix) => value.startsWith(prefix));
 }
 
 function resolveMenuIcon(icon?: string | null): LucideIcon | undefined {
