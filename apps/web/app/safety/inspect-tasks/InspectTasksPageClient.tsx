@@ -18,6 +18,7 @@ import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useSta
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { VideoEvidencePanel } from "../../../components/video/VideoEvidencePanel";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
@@ -671,6 +672,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
               <DrawerDetailItem label="状态" value={<StatusPill dictCode="safety_inspect_task_status" value={viewing.status} dicts={dicts} />} />
               <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
             </DrawerDetailGrid>
+            <VideoEvidencePanel sourceType="INSPECTION" sourceId={viewing.id} />
             <Card>
               <h3>检查结果</h3>
               <DataTable>

@@ -630,7 +630,17 @@ export class TenantsService {
         if (modules.has("iot") && (code === "iot" || code === "iot:overview" || code === "iot:read")) return true;
         if (modules.has("energy") && (code === "energy" || code === "energy:overview" || code === "energy:read")) return true;
         if (modules.has("robot") && (code === "robot" || code === "robot:overview" || code === "robot:read")) return true;
-        if (modules.has("video") && (code === "video" || code === "video:overview" || code === "video:read")) return true;
+        if (
+          modules.has("video") &&
+          (code === "video" ||
+            code === "video:overview" ||
+            code === "video:read" ||
+            code.startsWith("video_camera:") ||
+            code.startsWith("video_platform_config:") ||
+            code.startsWith("VIDEO_CAMERA") ||
+            code.startsWith("VIDEO_PLATFORM_CONFIG") ||
+            code.startsWith("MENU_VIDEO"))
+        ) return true;
         if (modules.has("bim") && (code === "bim" || code === "bim:overview" || code === "bim:read")) return true;
         if (modules.has("ai") && (code === "ai" || code === "ai:assistant" || code === "ai:read")) return true;
         return false;

@@ -2174,6 +2174,40 @@ textarea:disabled {
   background: var(--phoenix-color-surface-muted);
 }
 
+.code-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--phoenix-radius-sm);
+  padding: var(--phoenix-space-2) var(--phoenix-space-3);
+  background: var(--phoenix-color-surface);
+  color: var(--phoenix-color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: var(--phoenix-font-size-sm);
+}
+
+.video-preview-frame {
+  display: grid;
+  gap: var(--phoenix-space-3);
+  overflow: hidden;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--phoenix-radius-md);
+  background: var(--phoenix-color-surface-muted);
+  padding: var(--phoenix-space-3);
+}
+
+.video-preview-frame video,
+.video-preview-frame img {
+  display: block;
+  width: 100%;
+  max-height: 58vh;
+  object-fit: contain;
+  border-radius: var(--phoenix-radius-sm);
+  background: var(--phoenix-color-surface);
+}
+
 .skeleton-line {
   display: block;
   width: 70%;

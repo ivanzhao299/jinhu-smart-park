@@ -145,7 +145,9 @@ export const dashboardMenus: MenuNode[] = [
     icon: Video,
     module: "video",
     children: [
-      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" }
+      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" },
+      { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
+      { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
     ]
   },
   {
@@ -372,7 +374,7 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   if (href.startsWith("/robots") || permission.startsWith("robot")) {
     return "robot";
   }
-  if (href.startsWith("/video") || permission.startsWith("video")) {
+  if (href.startsWith("/video") || href.startsWith("/admin/video-security") || permission.startsWith("video")) {
     return "video";
   }
   if (href.startsWith("/bim") || permission.startsWith("bim")) {

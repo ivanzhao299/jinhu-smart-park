@@ -831,7 +831,9 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "video",
     module: "video",
     children: [
-      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" }
+      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" },
+      { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
+      { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
     ]
   },
   {

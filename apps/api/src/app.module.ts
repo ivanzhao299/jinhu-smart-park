@@ -42,6 +42,7 @@ import { SafetyWorkPermitsModule } from "./modules/safety-work-permits/safety-wo
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
+import { VideoCamerasModule } from "./modules/video-cameras/video-cameras.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
@@ -105,6 +106,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     AttachmentsModule,
     FilesModule,
     AuditModule,
+    VideoCamerasModule,
     WorkOrdersModule,
     SafetyInspectPointsModule,
     SafetyInspectTemplatesModule,

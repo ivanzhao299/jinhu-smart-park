@@ -293,7 +293,8 @@ export class CodeRulesService {
 
   private resolveTargetModule(entityType: string): string {
     if (["park", "building", "floor", "room", "unit", "zone", "asset"].includes(entityType)) return "asset";
-    if (["device", "camera", "iot_point", "iot_gateway", "iot_device", "iot_metric", "iot_alert", "iot_alert_rule"].includes(entityType)) return "iot";
+    if (entityType === "camera") return "video";
+    if (["device", "iot_point", "iot_gateway", "iot_device", "iot_metric", "iot_alert", "iot_alert_rule"].includes(entityType)) return "iot";
     if (["robot", "cleaning_robot", "inspection_robot"].includes(entityType)) return "robot";
     if (["workorder", "workorder_log"].includes(entityType)) return "workorder";
     if (

@@ -20,6 +20,7 @@ import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useSta
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { FileUploader } from "../../../components/files/FileUploader";
+import { VideoEvidencePanel } from "../../../components/video/VideoEvidencePanel";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
@@ -990,6 +991,7 @@ export default function SafetyHazardsPage() {
               <DrawerDetailItem label="隐患描述" value={canViewDescription ? displaySecuredField(authUser, "description", viewing.description) : "-"} />
               <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
             </DrawerDetailGrid>
+            <VideoEvidencePanel sourceType="HAZARD" sourceId={viewing.id} canCreate={viewing.status !== "60"} />
             <section className="work-panel">
               <div className="task-item">
                 <h3 className="panel-title">整改时间线</h3>
