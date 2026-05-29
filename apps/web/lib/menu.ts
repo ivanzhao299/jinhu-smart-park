@@ -147,7 +147,10 @@ export const dashboardMenus: MenuNode[] = [
       { label: "能源监测看板", href: "/energy/dashboard", permission: "energy_dashboard:read", module: "energy" },
       { label: "能源计量表", href: "/energy/meters", permission: "energy_meter:read", module: "energy" },
       { label: "能源读数记录", href: "/energy/readings", permission: "energy_reading:read", module: "energy" },
-      { label: "能源异常告警", href: "/energy/alerts", permission: "energy_alert:read", module: "energy" }
+      { label: "能源异常告警", href: "/energy/alerts", permission: "energy_alert:read", module: "energy" },
+      { label: "能源账期管理", href: "/energy/billing-cycles", permission: "energy_billing_cycle:read", module: "energy" },
+      { label: "能源账单明细", href: "/energy/billing-items", permission: "energy_billing_item:read", module: "energy" },
+      { label: "公共能耗分摊规则", href: "/energy/allocation-rules", permission: "energy_allocation_rule:read", module: "energy" }
     ]
   },
   {

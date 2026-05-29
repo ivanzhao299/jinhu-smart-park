@@ -33,6 +33,7 @@
     "test:e2e:s9d-iot-scene-center": "node scripts/e2e/s9d-iot-scene-center-smoke.mjs",
     "test:e2e:s9d1-unified-action-executor": "node scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
     "test:e2e:s9e-energy-meter-monitor": "node scripts/e2e/s9e-energy-meter-monitor-smoke.mjs",
+    "test:e2e:s9f-energy-billing-tenant": "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
     "smoke:cleanup": "sh scripts/smoke-cleanup.sh",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",
