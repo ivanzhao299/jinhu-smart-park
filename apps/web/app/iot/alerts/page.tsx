@@ -178,7 +178,7 @@ export default function IotAlertsPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -186,7 +186,7 @@ export default function IotAlertsPage() {
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=200&dict_type_id=${dictTypeId}`, {
+      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
         token: getAccessToken()
       });
       return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
@@ -195,14 +195,14 @@ export default function IotAlertsPage() {
   }, []);
 
   const loadDevices = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<DeviceRow>>("/iot/devices?page=1&page_size=500&sort=device_code", {
+    const response = await apiRequest<PaginatedResult<DeviceRow>>("/iot/devices?page=1&page_size=100&sort=device_code", {
       token: getAccessToken()
     });
     setDevices(response.data.items);
   }, []);
 
   const loadUsers = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=300&status=enabled", {
+    const response = await apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
       token: getAccessToken()
     });
     setUsers(response.data.items);
@@ -227,14 +227,15 @@ export default function IotAlertsPage() {
     enabled: realtimeTopics.length > 0,
     topics: realtimeTopics,
     onEvent: (event) => {
-      if (event.event !== "alert.created" && event.event !== "alert.updated") return;
-      const messageText = event.event === "alert.created" ? "收到新设备告警，列表已刷新" : "告警状态已实时更新";
+      if (!["alert.created", "alert.updated", "iot.alert.created", "iot.alert.updated"].includes(event.event)) return;
+      const isCreated = event.event === "alert.created" || event.event === "iot.alert.created";
+      const messageText = isCreated ? "收到新设备告警，列表已刷新" : "告警状态已实时更新";
       setMessage(messageText);
       if (viewing?.id && event.alert_id === viewing.id) {
         void reloadAfterAction(viewing.id).catch((error: Error) => setMessage(error.message));
         return;
       }
-      const nextPage = event.event === "alert.created" ? 1 : pageData.page;
+      const nextPage = isCreated ? 1 : pageData.page;
       void load(nextPage).catch((error: Error) => setMessage(error.message));
     }
   });

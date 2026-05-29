@@ -394,7 +394,7 @@ export default function WorkOrdersListPage() {
   }, [authUser]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=200", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));

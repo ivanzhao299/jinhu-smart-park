@@ -760,8 +760,7 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     label: "总览",
     icon: "home",
     children: [
-      { label: "首页", href: "/dashboard" },
-      { label: "总裁驾驶舱", href: "/cockpit/executive", permission: "cockpit:read" }
+      { label: "首页", href: "/dashboard" }
     ]
   },
   {
@@ -805,17 +804,13 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "IoT 看板", href: "/iot/dashboard", permission: "iot_dashboard:read", module: "iot" },
       { label: "网关管理", href: "/iot/gateways", permission: "iot_gateway:read", module: "iot" },
       { label: "设备管理", href: "/iot/devices", permission: "iot_device:read", module: "iot" },
+      { label: "协议配置", href: "/admin/iot/protocol-configs", permission: "iot_protocol_config:read", module: "iot" },
       { label: "指标管理", href: "/iot/metrics", permission: "iot_metric:read", module: "iot" },
       { label: "告警规则", href: "/iot/alert-rules", permission: "iot_alert_rule:read", module: "iot" },
+      { label: "规则引擎", href: "/admin/iot/rules", permission: "iot_rule:read", module: "iot" },
+      { label: "场景联动", href: "/admin/iot/scenes", permission: "iot_scene:read", module: "iot" },
+      { label: "场景模板库", href: "/admin/iot/scenes/templates", permission: "iot_scene_template:read", module: "iot" },
       { label: "设备告警", href: "/iot/alerts", permission: "iot_alert:read", module: "iot" }
-    ]
-  },
-  {
-    label: "能耗管理",
-    icon: "zap",
-    module: "energy",
-    children: [
-      { label: "能耗总览", href: "/energy/overview", permission: "energy:read", module: "energy" }
     ]
   },
   {
@@ -823,7 +818,8 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "bot",
     module: "robot",
     children: [
-      { label: "机器人总览", href: "/robots/overview", permission: "robot:read", module: "robot" }
+      { label: "机器人总览", href: "/robots/overview", permission: "robot:read", module: "robot" },
+      { label: "清洁机器人", href: "/robots/cleaning", permission: "robot:read", module: "robot" }
     ]
   },
   {
@@ -831,17 +827,10 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "video",
     module: "video",
     children: [
-      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" },
+      { label: "安防指挥中心", href: "/admin/video-security/dashboard", permission: "video_security_dashboard:read", module: "video" },
       { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
+      { label: "视频告警中心", href: "/admin/video-security/alerts", permission: "video_alert:read", module: "video" },
       { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
-    ]
-  },
-  {
-    label: "数字孪生",
-    icon: "layout-dashboard",
-    module: "bim",
-    children: [
-      { label: "BIM 总览", href: "/bim/overview", permission: "bim:read", module: "bim" }
     ]
   },
   {
@@ -874,25 +863,6 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "应急预案", href: "/safety/emergency-plans", permission: "safety_emergency_plan:read", module: "safety" },
       { label: "应急事件", href: "/safety/emergencies", permission: "safety_emergency:read", module: "safety" },
       { label: "作业许可", href: "/safety/work-permits", permission: "safety_work_permit:read", module: "safety" }
-    ]
-  },
-  {
-    label: "AI 助手",
-    icon: "brain-circuit",
-    module: "ai",
-    children: [
-      { label: "AI 助手", href: "/ai/assistant", permission: "ai:read", module: "ai" }
-    ]
-  },
-  {
-    label: "经营驾驶舱",
-    icon: "layout-dashboard",
-    permission: "cockpit:read",
-    children: [
-      { label: "招商驾驶舱", href: "/cockpit/invest", permission: "cockpit:read" },
-      { label: "资产驾驶舱", href: "/cockpit/assets", permission: "cockpit:read" },
-      { label: "财务驾驶舱", href: "/cockpit/finance", permission: "cockpit:read" },
-      { label: "物业安全驾驶舱", href: "/cockpit/safety", permission: "cockpit:read" }
     ]
   },
   {

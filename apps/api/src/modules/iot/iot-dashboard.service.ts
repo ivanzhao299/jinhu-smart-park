@@ -7,6 +7,7 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { IotAlertEntity } from "./entities/iot-alert.entity";
 import { IotDeviceDataEntity } from "./entities/iot-device-data.entity";
+import { IotDeviceHeartbeatEntity } from "./entities/iot-device-heartbeat.entity";
 import { IotDeviceEntity } from "./entities/iot-device.entity";
 
 const ACTIVE_ALERT_STATUSES = ["active", "10"];
@@ -121,6 +122,8 @@ export class IotDashboardService {
     private readonly deviceRepository: Repository<IotDeviceEntity>,
     @InjectRepository(IotDeviceDataEntity)
     private readonly deviceDataRepository: Repository<IotDeviceDataEntity>,
+    @InjectRepository(IotDeviceHeartbeatEntity)
+    private readonly heartbeatRepository: Repository<IotDeviceHeartbeatEntity>,
     @InjectRepository(IotAlertEntity)
     private readonly alertRepository: Repository<IotAlertEntity>,
     private readonly dataScopeService: DataScopeService,
@@ -171,6 +174,81 @@ export class IotDashboardService {
       by_device_type: byDeviceType,
       recent_alerts: recentAlerts,
       recent_devices: recentDevices
+    };
+  }
+
+  async overview(scope: TenantParkScope, actor?: JwtPrincipal): Promise<IotDashboardView> {
+    return this.dashboard(scope, actor);
+  }
+
+  async deviceStatus(scope: TenantParkScope, actor?: JwtPrincipal): Promise<{
+    total_count: number;
+    online_count: number;
+    offline_count: number;
+    fault_count: number;
+    disabled_count: number;
+    online_rate: number;
+    by_status: Array<{ status: string; count: number }>;
+  }> {
+    const builder = await this.scopedDeviceBuilder(scope, actor);
+    const rows = await builder
+      .select("COALESCE(device.online_status, device.status, 'unknown')", "status")
+      .addSelect("COUNT(*)", "count")
+      .groupBy("COALESCE(device.online_status, device.status, 'unknown')")
+      .getRawMany<{ status: string; count: string }>();
+    const byStatus = rows.map((row) => ({ status: row.status, count: Number(row.count) }));
+    const countOf = (status: string) => byStatus.find((item) => item.status === status)?.count ?? 0;
+    const total = byStatus.reduce((sum, item) => sum + item.count, 0);
+    const online = countOf("online");
+    return {
+      total_count: total,
+      online_count: online,
+      offline_count: countOf("offline"),
+      fault_count: countOf("fault"),
+      disabled_count: countOf("disabled"),
+      online_rate: total === 0 ? 0 : Number((online / total).toFixed(4)),
+      by_status: byStatus
+    };
+  }
+
+  async alertTrends(scope: TenantParkScope, actor?: JwtPrincipal): Promise<Array<{ date: string; count: number; active_count: number }>> {
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
+    const builder = await this.scopedAlertBuilder(scope, actor);
+    const rows = await builder
+      .select("to_char(alert.last_trigger_time, 'YYYY-MM-DD')", "date")
+      .addSelect("COUNT(*)", "count")
+      .addSelect("SUM(CASE WHEN alert.status IN (:...activeStatuses) THEN 1 ELSE 0 END)", "active_count")
+      .andWhere("alert.last_trigger_time >= :start", { start })
+      .setParameter("activeStatuses", ACTIVE_ALERT_STATUSES)
+      .groupBy("to_char(alert.last_trigger_time, 'YYYY-MM-DD')")
+      .orderBy("date", "ASC")
+      .getRawMany<{ date: string; count: string; active_count: string | null }>();
+    return rows.map((row) => ({
+      date: row.date,
+      count: Number(row.count),
+      active_count: Number(row.active_count ?? 0)
+    }));
+  }
+
+  async realtimeEvents(scope: TenantParkScope, actor?: JwtPrincipal): Promise<{
+    recent_alerts: IotDashboardRecentAlert[];
+    recent_devices: IotDashboardRecentDevice[];
+    recent_heartbeats: Array<{ device_id: string; device_code: string | null; status: string; heartbeat_time: Date; latency_ms: number | null }>;
+    recent_metrics: Array<{ device_id: string; device_code: string; metric_code: string; value: string | number | boolean | unknown | null; reported_at: Date }>;
+  }> {
+    const [recentAlerts, recentDevices, heartbeats, metrics] = await Promise.all([
+      this.recentAlerts(scope, actor),
+      this.recentDevices(scope, actor),
+      this.recentHeartbeats(scope, actor),
+      this.recentMetrics(scope, actor)
+    ]);
+    return {
+      recent_alerts: recentAlerts,
+      recent_devices: recentDevices,
+      recent_heartbeats: heartbeats,
+      recent_metrics: metrics
     };
   }
 
@@ -305,6 +383,52 @@ export class IotDashboardService {
     }));
   }
 
+  private async recentHeartbeats(
+    scope: TenantParkScope,
+    actor?: JwtPrincipal
+  ): Promise<Array<{ device_id: string; device_code: string | null; status: string; heartbeat_time: Date; latency_ms: number | null }>> {
+    const builder = this.heartbeatRepository
+      .createQueryBuilder("heartbeat")
+      .innerJoin(IotDeviceEntity, "device", "device.id = heartbeat.device_id AND device.tenant_id = heartbeat.tenant_id AND device.park_id = heartbeat.park_id")
+      .where("heartbeat.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("heartbeat.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("heartbeat.is_deleted = false")
+      .andWhere("device.is_deleted = false");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "park", "device");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "device", "device", { device: "id" });
+    const rows = await builder.orderBy("heartbeat.heartbeatTime", "DESC").addOrderBy("heartbeat.createTime", "DESC").take(10).getMany();
+    return rows.map((row) => ({
+      device_id: row.deviceId,
+      device_code: row.deviceCode,
+      status: row.status,
+      heartbeat_time: row.heartbeatTime,
+      latency_ms: row.latencyMs
+    }));
+  }
+
+  private async recentMetrics(
+    scope: TenantParkScope,
+    actor?: JwtPrincipal
+  ): Promise<Array<{ device_id: string; device_code: string; metric_code: string; value: string | number | boolean | unknown | null; reported_at: Date }>> {
+    const builder = this.deviceDataRepository
+      .createQueryBuilder("data")
+      .innerJoin(IotDeviceEntity, "device", "device.id = data.device_id AND device.tenant_id = data.tenant_id AND device.park_id = data.park_id")
+      .where("data.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("data.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("data.is_deleted = false")
+      .andWhere("device.is_deleted = false");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "park", "device");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "device", "device", { device: "id" });
+    const rows = await builder.orderBy("data.reportedAt", "DESC").addOrderBy("data.createTime", "DESC").take(10).getMany();
+    return rows.map((row) => ({
+      device_id: row.deviceId,
+      device_code: row.deviceCode,
+      metric_code: row.metricCode,
+      value: this.resolveDataValue(row),
+      reported_at: row.reportedAt
+    }));
+  }
+
   private async countLinkedDevices(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -413,5 +537,12 @@ export class IotDashboardService {
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "park", "alert");
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "device", "alert");
     return builder;
+  }
+
+  private resolveDataValue(row: IotDeviceDataEntity): string | number | boolean | unknown | null {
+    if (row.valueType === "number" && row.valueNumber !== null) return Number(row.valueNumber);
+    if (row.valueType === "boolean") return row.valueBool;
+    if (row.valueType === "json") return row.valueJson;
+    return row.valueText ?? row.valueNumber ?? row.valueBool ?? row.valueJson ?? null;
   }
 }

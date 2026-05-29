@@ -16,3 +16,7 @@ apps/web/.next
 .tools
 *.tsbuildinfo
 apps/api/storage
+artifacts/
+replace*.mjs
+apps/web/.next.*
+database/import-reports/

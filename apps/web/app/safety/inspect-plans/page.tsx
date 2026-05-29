@@ -171,7 +171,7 @@ export default function SafetyInspectPlansPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -189,16 +189,16 @@ export default function SafetyInspectPlansPage() {
 
   const loadRefs = useCallback(async () => {
     const [templateResponse, pointResponse, userResponse, roleResponse] = await Promise.all([
-      apiRequest<PaginatedResult<InspectTemplateRow>>("/safety/inspect-templates?page=1&page_size=300&status=enabled&sort=template_code", {
+      apiRequest<PaginatedResult<InspectTemplateRow>>("/safety/inspect-templates?page=1&page_size=100&status=enabled&sort=template_code", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=500&status=enabled&sort=sort_no", {
+      apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=100&status=enabled&sort=sort_no", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=300&status=enabled", {
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<RoleRow>>("/roles?page=1&page_size=300&status=enabled", {
+      apiRequest<PaginatedResult<RoleRow>>("/roles?page=1&page_size=100&status=enabled", {
         token: getAccessToken()
       })
     ]);

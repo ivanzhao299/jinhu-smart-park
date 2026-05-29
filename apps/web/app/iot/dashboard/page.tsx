@@ -109,7 +109,7 @@ export default function IotDashboardPage() {
   }, []);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -117,7 +117,7 @@ export default function IotDashboardPage() {
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=200&dict_type_id=${dictTypeId}`, {
+      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
         token: getAccessToken()
       });
       return [code, response.data.items.filter((item) => item.status === "enabled")] as const;

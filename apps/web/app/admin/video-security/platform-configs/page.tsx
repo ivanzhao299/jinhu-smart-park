@@ -128,7 +128,7 @@ export default function VideoPlatformConfigsPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=400", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item: DictTypeRow) => [item.dictCode, item.id]));

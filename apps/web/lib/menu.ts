@@ -69,13 +69,24 @@ const LEGACY_MENU_HREF_ALIASES = [
   "/workorders/statistics"
 ];
 
+const DISABLED_PLACEHOLDER_HREFS = new Set([
+  "/cockpit/executive",
+  "/cockpit/invest",
+  "/cockpit/assets",
+  "/cockpit/finance",
+  "/cockpit/safety",
+  "/energy/overview",
+  "/video/overview",
+  "/bim/overview",
+  "/ai/assistant"
+]);
+
 export const dashboardMenus: MenuNode[] = [
   {
     label: "总览",
     icon: Home,
     children: [
-      { label: "首页", href: "/dashboard" },
-      { label: "总裁驾驶舱", href: "/cockpit/executive", permission: "cockpit:read" }
+      { label: "首页", href: "/dashboard" }
     ]
   },
   {
@@ -119,8 +130,12 @@ export const dashboardMenus: MenuNode[] = [
       { label: "IoT 看板", href: "/iot/dashboard", permission: "iot_dashboard:read", module: "iot" },
       { label: "网关管理", href: "/iot/gateways", permission: "iot_gateway:read", module: "iot" },
       { label: "设备管理", href: "/iot/devices", permission: "iot_device:read", module: "iot" },
+      { label: "协议配置", href: "/admin/iot/protocol-configs", permission: "iot_protocol_config:read", module: "iot" },
       { label: "指标管理", href: "/iot/metrics", permission: "iot_metric:read", module: "iot" },
       { label: "告警规则", href: "/iot/alert-rules", permission: "iot_alert_rule:read", module: "iot" },
+      { label: "规则引擎", href: "/admin/iot/rules", permission: "iot_rule:read", module: "iot" },
+      { label: "场景联动", href: "/admin/iot/scenes", permission: "iot_scene:read", module: "iot" },
+      { label: "场景模板库", href: "/admin/iot/scenes/templates", permission: "iot_scene_template:read", module: "iot" },
       { label: "设备告警", href: "/iot/alerts", permission: "iot_alert:read", module: "iot" }
     ]
   },
@@ -129,7 +144,10 @@ export const dashboardMenus: MenuNode[] = [
     icon: Zap,
     module: "energy",
     children: [
-      { label: "能耗总览", href: "/energy/overview", permission: "energy:read", module: "energy" }
+      { label: "能源监测看板", href: "/energy/dashboard", permission: "energy_dashboard:read", module: "energy" },
+      { label: "能源计量表", href: "/energy/meters", permission: "energy_meter:read", module: "energy" },
+      { label: "能源读数记录", href: "/energy/readings", permission: "energy_reading:read", module: "energy" },
+      { label: "能源异常告警", href: "/energy/alerts", permission: "energy_alert:read", module: "energy" }
     ]
   },
   {
@@ -137,7 +155,8 @@ export const dashboardMenus: MenuNode[] = [
     icon: Bot,
     module: "robot",
     children: [
-      { label: "机器人总览", href: "/robots/overview", permission: "robot:read", module: "robot" }
+      { label: "机器人总览", href: "/robots/overview", permission: "robot:read", module: "robot" },
+      { label: "清洁机器人", href: "/robots/cleaning", permission: "robot:read", module: "robot" }
     ]
   },
   {
@@ -145,17 +164,10 @@ export const dashboardMenus: MenuNode[] = [
     icon: Video,
     module: "video",
     children: [
-      { label: "视频总览", href: "/video/overview", permission: "video:read", module: "video" },
+      { label: "安防指挥中心", href: "/admin/video-security/dashboard", permission: "video_security_dashboard:read", module: "video" },
       { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
+      { label: "视频告警中心", href: "/admin/video-security/alerts", permission: "video_alert:read", module: "video" },
       { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
-    ]
-  },
-  {
-    label: "数字孪生",
-    icon: LayoutDashboard,
-    module: "bim",
-    children: [
-      { label: "BIM 总览", href: "/bim/overview", permission: "bim:read", module: "bim" }
     ]
   },
   {
@@ -191,25 +203,6 @@ export const dashboardMenus: MenuNode[] = [
     ]
   },
   {
-    label: "AI 助手",
-    icon: BrainCircuit,
-    module: "ai",
-    children: [
-      { label: "AI 助手", href: "/ai/assistant", permission: "ai:read", module: "ai" }
-    ]
-  },
-  {
-    label: "经营驾驶舱",
-    icon: LayoutDashboard,
-    permission: "cockpit:read",
-    children: [
-      { label: "招商驾驶舱", href: "/cockpit/invest", permission: "cockpit:read" },
-      { label: "资产驾驶舱", href: "/cockpit/assets", permission: "cockpit:read" },
-      { label: "财务驾驶舱", href: "/cockpit/finance", permission: "cockpit:read" },
-      { label: "物业安全驾驶舱", href: "/cockpit/safety", permission: "cockpit:read" }
-    ]
-  },
-  {
     label: "系统管理",
     icon: ShieldCheck,
     permission: "system:read",
@@ -241,7 +234,10 @@ export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNo
   if (!userMenus?.length) {
     return [];
   }
-  return userMenus.map(toMenuNode).filter((menu) => menu.label);
+  return userMenus
+    .map(toMenuNode)
+    .map(prunePlaceholderMenus)
+    .filter((menu): menu is MenuNode => Boolean(menu?.label));
 }
 
 function toMenuNode(node: UserMenuTreeNode): MenuNode {
@@ -254,6 +250,19 @@ function toMenuNode(node: UserMenuTreeNode): MenuNode {
     icon: resolveMenuIcon(node.icon),
     children: children && children.length > 0 ? children : undefined
   };
+}
+
+function prunePlaceholderMenus(menu: MenuNode): MenuNode | undefined {
+  if (menu.href && DISABLED_PLACEHOLDER_HREFS.has(menu.href)) {
+    return undefined;
+  }
+  const children = menu.children
+    ?.map(prunePlaceholderMenus)
+    .filter((child): child is MenuNode => Boolean(child));
+  if (!menu.href && !children?.length) {
+    return undefined;
+  }
+  return { ...menu, children };
 }
 
 function mergeWithDashboardMenus(userMenus: MenuNode[]): MenuNode[] {

@@ -344,7 +344,7 @@ export default function SafetyEmergenciesPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -371,11 +371,11 @@ export default function SafetyEmergenciesPage() {
 
   const loadRefs = useCallback(async () => {
     const [buildingItems, unitItems, tenantItems, planItems, userItems] = await Promise.all([
-      safeFetchPage<BuildingRow>("/buildings?page=1&page_size=200"),
-      safeFetchPage<UnitRow>("/park-units?page=1&page_size=200"),
-      safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=200"),
-      safeFetchPage<EmergencyPlanRow>("/safety/emergency-plans?page=1&page_size=200&status=enabled"),
-      safeFetchPage<UserRow>("/users?page=1&page_size=200")
+      safeFetchPage<BuildingRow>("/buildings?page=1&page_size=100"),
+      safeFetchPage<UnitRow>("/park-units?page=1&page_size=100"),
+      safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=100"),
+      safeFetchPage<EmergencyPlanRow>("/safety/emergency-plans?page=1&page_size=100&status=enabled"),
+      safeFetchPage<UserRow>("/users?page=1&page_size=100")
     ]);
     setBuildings(buildingItems);
     setUnits(unitItems);

@@ -20,8 +20,23 @@ export class IotDeviceEntity extends AuditableEntity {
   @Column({ name: "device_type", type: "varchar", length: 64 })
   deviceType!: string;
 
+  @Column({ name: "device_category", type: "varchar", length: 64, nullable: true })
+  deviceCategory!: string | null;
+
   @Column({ name: "protocol_type", type: "varchar", length: 64 })
   protocolType!: string;
+
+  @Column({ name: "connection_type", type: "varchar", length: 64, nullable: true })
+  connectionType!: string | null;
+
+  @Column({ name: "brand", type: "varchar", length: 120, nullable: true })
+  brand!: string | null;
+
+  @Column({ name: "model", type: "varchar", length: 120, nullable: true })
+  model!: string | null;
+
+  @Column({ name: "manufacturer", type: "varchar", length: 120, nullable: true })
+  manufacturer!: string | null;
 
   @Column({ name: "vendor_platform", type: "varchar", length: 64, nullable: true })
   vendorPlatform!: string | null;
@@ -32,8 +47,26 @@ export class IotDeviceEntity extends AuditableEntity {
   @Column({ name: "vendor_device_id", type: "varchar", length: 128, nullable: true })
   vendorDeviceId!: string | null;
 
+  @Column({ name: "platform_type", type: "varchar", length: 64, nullable: true })
+  platformType!: string | null;
+
+  @Column({ name: "platform_device_id", type: "varchar", length: 128, nullable: true })
+  platformDeviceId!: string | null;
+
   @Column({ name: "gateway_id", type: "uuid", nullable: true })
   gatewayId!: string | null;
+
+  @Column({ name: "ip_address", type: "varchar", length: 64, nullable: true })
+  ipAddress!: string | null;
+
+  @Column({ name: "port", type: "integer", nullable: true })
+  port!: number | null;
+
+  @Column({ name: "mac_address", type: "varchar", length: 64, nullable: true })
+  macAddress!: string | null;
+
+  @Column({ name: "serial_number", type: "varchar", length: 128, nullable: true })
+  serialNumber!: string | null;
 
   @Column({ name: "device_secret", type: "text", nullable: true })
   deviceSecret!: string | null;
@@ -50,6 +83,12 @@ export class IotDeviceEntity extends AuditableEntity {
   @Column({ name: "unit_id", type: "uuid", nullable: true })
   unitId!: string | null;
 
+  @Column({ name: "room_id", type: "uuid", nullable: true })
+  roomId!: string | null;
+
+  @Column({ name: "area_id", type: "uuid", nullable: true })
+  areaId!: string | null;
+
   @Column({ name: "park_tenant_id", type: "uuid", nullable: true })
   parkTenantId!: string | null;
 
@@ -59,11 +98,20 @@ export class IotDeviceEntity extends AuditableEntity {
   @Column({ name: "install_position", type: "varchar", length: 200, nullable: true })
   installPosition!: string | null;
 
+  @Column({ name: "install_location", type: "varchar", length: 300, nullable: true })
+  installLocation!: string | null;
+
   @Column({ name: "gps_lng", type: "numeric", precision: 12, scale: 8, nullable: true })
   gpsLng!: string | null;
 
   @Column({ name: "gps_lat", type: "numeric", precision: 12, scale: 8, nullable: true })
   gpsLat!: string | null;
+
+  @Column({ name: "longitude", type: "numeric", precision: 12, scale: 8, nullable: true })
+  longitude!: string | null;
+
+  @Column({ name: "latitude", type: "numeric", precision: 12, scale: 8, nullable: true })
+  latitude!: string | null;
 
   @Column({ name: "install_date", type: "date", nullable: true })
   installDate!: string | null;
@@ -77,6 +125,9 @@ export class IotDeviceEntity extends AuditableEntity {
   @Column({ name: "status", type: "varchar", length: 32, default: "enabled" })
   status!: string;
 
+  @Column({ name: "is_enabled", type: "boolean", default: true })
+  isEnabled!: boolean;
+
   @Column({ name: "last_report_time", type: "timestamptz", nullable: true })
   lastReportTime!: Date | null;
 
@@ -88,6 +139,9 @@ export class IotDeviceEntity extends AuditableEntity {
 
   @Column({ name: "last_data_time", type: "timestamptz", nullable: true })
   lastDataTime!: Date | null;
+
+  @Column({ name: "last_heartbeat_at", type: "timestamptz", nullable: true })
+  lastHeartbeatAt!: Date | null;
 
   @Column({ name: "metadata", type: "jsonb", default: {} })
   metadata!: Record<string, unknown>;

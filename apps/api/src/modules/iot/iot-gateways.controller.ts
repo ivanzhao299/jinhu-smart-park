@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -45,6 +45,24 @@ export class IotGatewaysController {
     bizIdParam: "id"
   })
   update(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: UpdateIotGatewayDto
+  ) {
+    return this.gatewaysService.update(scope, user, id, dto);
+  }
+
+  @Patch(":id")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_GATEWAY_UPDATE)
+  @AuditLog({
+    module: "IoT 平台",
+    action: "修改",
+    resource: "biz.iot_gateway",
+    bizType: "biz_iot_gateway",
+    bizIdParam: "id"
+  })
+  patch(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,

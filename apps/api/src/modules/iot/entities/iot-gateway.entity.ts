@@ -23,8 +23,20 @@ export class IotGatewayEntity extends AuditableEntity {
   @Column({ name: "vendor_name", type: "varchar", length: 120, nullable: true })
   vendorName!: string | null;
 
+  @Column({ name: "brand", type: "varchar", length: 120, nullable: true })
+  brand!: string | null;
+
+  @Column({ name: "model", type: "varchar", length: 120, nullable: true })
+  model!: string | null;
+
   @Column({ name: "endpoint_url", type: "varchar", length: 300, nullable: true })
   endpointUrl!: string | null;
+
+  @Column({ name: "ip_address", type: "varchar", length: 64, nullable: true })
+  ipAddress!: string | null;
+
+  @Column({ name: "port", type: "integer", nullable: true })
+  port!: number | null;
 
   @Column({ name: "mqtt_client_id", type: "varchar", length: 128, nullable: true })
   mqttClientId!: string | null;
@@ -43,4 +55,7 @@ export class IotGatewayEntity extends AuditableEntity {
 
   @Column({ name: "last_offline_time", type: "timestamptz", nullable: true })
   lastOfflineTime!: Date | null;
+
+  @Column({ name: "last_heartbeat_at", type: "timestamptz", nullable: true })
+  lastHeartbeatAt!: Date | null;
 }

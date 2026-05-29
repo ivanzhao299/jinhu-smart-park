@@ -30,6 +30,7 @@ interface LocationRefs {
   buildingId: string | null;
   floorId: string | null;
   unitId: string | null;
+  roomId: string | null;
   parkTenantId: string | null;
 }
 
@@ -41,24 +42,42 @@ export interface IotDeviceView {
   deviceCode: string;
   deviceName: string;
   deviceType: string;
+  deviceCategory: string | null;
   gatewayId: string | null;
+  brand: string | null;
+  model: string | null;
+  manufacturer: string | null;
   vendorName: string | null;
   vendorDeviceId: string | null;
+  platformType: string | null;
+  platformDeviceId: string | null;
   protocolType: string | null;
+  connectionType: string | null;
+  ipAddress: string | null;
+  port: number | null;
+  macAddress: string | null;
+  serialNumber: string | null;
   buildingId: string | null;
   floorId: string | null;
   unitId: string | null;
+  roomId: string | null;
+  areaId: string | null;
   parkTenantId: string | null;
   location: string | null;
+  installLocation: string | null;
   gpsLng: string | null;
   gpsLat: string | null;
+  longitude: string | null;
+  latitude: string | null;
   installDate: string | null;
   warrantyEndDate: string | null;
   status: string;
   onlineStatus: string;
+  isEnabled: boolean;
   lastOnlineTime: Date | null;
   lastOfflineTime: Date | null;
   lastDataTime: Date | null;
+  lastHeartbeatAt: Date | null;
   statusPayload: Record<string, unknown>;
   remark: string | null;
   createBy: string | null;
@@ -209,7 +228,7 @@ export class IotDevicesService {
     const pageSize = Math.min(query.page_size ?? 100, 1000);
     const builder = this.scopedDeviceDataBuilder(scope, entity.id);
     this.applyDataTimeQuery(builder, query.metric_code, query.start_time, query.end_time);
-    builder.orderBy("data.reported_at", "DESC").addOrderBy("data.create_time", "DESC");
+    builder.orderBy("data.reportedAt", "DESC").addOrderBy("data.createTime", "DESC");
     const [items, total] = await builder.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
     const safeItems = items.map((item) => this.toDataView(item));
     const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "iot", DEVICE_DATA_ENTITY, safeItems);
@@ -264,8 +283,12 @@ export class IotDevicesService {
     await this.assertDeviceCodeAvailable(scope, deviceCode);
     const refs = await this.resolveLocationRefs(scope, dto);
     await this.assertGateway(scope, dto.gateway_id);
-    await this.assertVendorDeviceAvailable(scope, dto.gateway_id ?? null, dto.vendor_device_id ?? null);
+    const vendorDeviceId = dto.vendor_device_id ?? dto.platform_device_id ?? null;
+    await this.assertVendorDeviceAvailable(scope, dto.gateway_id ?? null, vendorDeviceId);
     const secret = this.deviceSecretService.generatePlainSecret();
+    const statusState = this.normalizeStatusState(dto.status, dto.online_status, dto.is_enabled);
+    const longitude = this.formatNumber(dto.longitude ?? dto.gps_lng);
+    const latitude = this.formatNumber(dto.latitude ?? dto.gps_lat);
     const entity = this.deviceRepository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -273,22 +296,40 @@ export class IotDevicesService {
       deviceCode,
       deviceName: dto.device_name,
       deviceType: dto.device_type,
+      deviceCategory: dto.device_category ?? null,
       gatewayId: dto.gateway_id ?? null,
-      vendorName: dto.vendor_name ?? null,
-      vendorPlatform: dto.vendor_name ?? null,
-      vendorDeviceId: dto.vendor_device_id ?? null,
+      brand: dto.brand ?? null,
+      model: dto.model ?? null,
+      manufacturer: dto.manufacturer ?? dto.vendor_name ?? null,
+      vendorName: dto.vendor_name ?? dto.manufacturer ?? null,
+      vendorPlatform: dto.platform_type ?? dto.vendor_name ?? null,
+      vendorDeviceId,
+      platformType: dto.platform_type ?? null,
+      platformDeviceId: dto.platform_device_id ?? vendorDeviceId,
       protocolType: dto.protocol_type ?? "http",
+      connectionType: dto.connection_type ?? null,
+      ipAddress: dto.ip_address ?? null,
+      port: dto.port ?? null,
+      macAddress: dto.mac_address ?? null,
+      serialNumber: dto.serial_number ?? null,
       buildingId: refs.buildingId,
       floorId: refs.floorId,
       unitId: refs.unitId,
+      roomId: refs.roomId,
+      areaId: dto.area_id ?? null,
       parkTenantId: refs.parkTenantId,
       location: dto.location ?? null,
-      gpsLng: this.formatNumber(dto.gps_lng),
-      gpsLat: this.formatNumber(dto.gps_lat),
+      installLocation: dto.install_location ?? dto.location ?? null,
+      gpsLng: this.formatNumber(dto.gps_lng ?? dto.longitude),
+      gpsLat: this.formatNumber(dto.gps_lat ?? dto.latitude),
+      longitude,
+      latitude,
       installDate: dto.install_date ?? null,
       warrantyEndDate: dto.warranty_end_date ?? null,
-      status: dto.status ?? DEFAULT_STATUS,
-      onlineStatus: dto.online_status ?? DEFAULT_ONLINE_STATUS,
+      status: statusState.status,
+      onlineStatus: statusState.onlineStatus,
+      isEnabled: statusState.isEnabled,
+      lastHeartbeatAt: this.parseOptionalDate(dto.last_heartbeat_at, "last_heartbeat_at"),
       deviceSecret: this.deviceSecretService.encryptSecret(secret),
       deviceSecretHash: this.deviceSecretService.hashSecret(secret),
       statusPayload: this.normalizePayload(dto.status_payload),
@@ -308,36 +349,59 @@ export class IotDevicesService {
       await this.assertDeviceCodeAvailable(scope, nextDeviceCode, entity.id);
     }
     const nextGatewayId = dto.gateway_id === undefined ? entity.gatewayId : dto.gateway_id ?? null;
-    const nextVendorDeviceId = dto.vendor_device_id === undefined ? entity.vendorDeviceId : dto.vendor_device_id ?? null;
+    const nextVendorDeviceId =
+      dto.vendor_device_id === undefined && dto.platform_device_id === undefined
+        ? entity.vendorDeviceId
+        : dto.vendor_device_id ?? dto.platform_device_id ?? null;
     await this.assertGateway(scope, nextGatewayId ?? undefined);
     await this.assertVendorDeviceAvailable(scope, nextGatewayId, nextVendorDeviceId, entity.id);
     const refs = await this.resolveLocationRefs(scope, {
       building_id: dto.building_id === undefined ? entity.buildingId ?? undefined : dto.building_id,
       floor_id: dto.floor_id === undefined ? entity.floorId ?? undefined : dto.floor_id,
       unit_id: dto.unit_id === undefined ? entity.unitId ?? undefined : dto.unit_id,
+      room_id: dto.room_id === undefined ? entity.roomId ?? entity.unitId ?? undefined : dto.room_id,
       park_tenant_id: dto.park_tenant_id === undefined ? entity.parkTenantId ?? undefined : dto.park_tenant_id
     });
+    const statusState = this.normalizeStatusState(dto.status, dto.online_status, dto.is_enabled, entity);
     Object.assign(entity, {
       code: dto.code === undefined ? entity.code : dto.code ?? null,
       deviceCode: nextDeviceCode,
       deviceName: dto.device_name ?? entity.deviceName,
       deviceType: dto.device_type ?? entity.deviceType,
+      deviceCategory: dto.device_category === undefined ? entity.deviceCategory : dto.device_category ?? null,
       gatewayId: nextGatewayId,
-      vendorName: dto.vendor_name === undefined ? entity.vendorName : dto.vendor_name ?? null,
-      vendorPlatform: dto.vendor_name === undefined ? entity.vendorPlatform : dto.vendor_name ?? null,
+      brand: dto.brand === undefined ? entity.brand : dto.brand ?? null,
+      model: dto.model === undefined ? entity.model : dto.model ?? null,
+      manufacturer: dto.manufacturer === undefined ? entity.manufacturer : dto.manufacturer ?? dto.vendor_name ?? null,
+      vendorName: dto.vendor_name === undefined ? entity.vendorName : dto.vendor_name ?? dto.manufacturer ?? null,
+      vendorPlatform: dto.platform_type === undefined ? entity.vendorPlatform : dto.platform_type ?? null,
       vendorDeviceId: nextVendorDeviceId,
+      platformType: dto.platform_type === undefined ? entity.platformType : dto.platform_type ?? null,
+      platformDeviceId: dto.platform_device_id === undefined ? entity.platformDeviceId : dto.platform_device_id ?? nextVendorDeviceId,
       protocolType: dto.protocol_type ?? entity.protocolType,
+      connectionType: dto.connection_type === undefined ? entity.connectionType : dto.connection_type ?? null,
+      ipAddress: dto.ip_address === undefined ? entity.ipAddress : dto.ip_address ?? null,
+      port: dto.port === undefined ? entity.port : dto.port ?? null,
+      macAddress: dto.mac_address === undefined ? entity.macAddress : dto.mac_address ?? null,
+      serialNumber: dto.serial_number === undefined ? entity.serialNumber : dto.serial_number ?? null,
       buildingId: refs.buildingId,
       floorId: refs.floorId,
       unitId: refs.unitId,
+      roomId: refs.roomId,
+      areaId: dto.area_id === undefined ? entity.areaId : dto.area_id ?? null,
       parkTenantId: refs.parkTenantId,
       location: dto.location === undefined ? entity.location : dto.location ?? null,
-      gpsLng: dto.gps_lng === undefined ? entity.gpsLng : this.formatNumber(dto.gps_lng),
-      gpsLat: dto.gps_lat === undefined ? entity.gpsLat : this.formatNumber(dto.gps_lat),
+      installLocation: dto.install_location === undefined ? entity.installLocation : dto.install_location ?? dto.location ?? null,
+      gpsLng: dto.gps_lng === undefined && dto.longitude === undefined ? entity.gpsLng : this.formatNumber(dto.gps_lng ?? dto.longitude),
+      gpsLat: dto.gps_lat === undefined && dto.latitude === undefined ? entity.gpsLat : this.formatNumber(dto.gps_lat ?? dto.latitude),
+      longitude: dto.longitude === undefined && dto.gps_lng === undefined ? entity.longitude : this.formatNumber(dto.longitude ?? dto.gps_lng),
+      latitude: dto.latitude === undefined && dto.gps_lat === undefined ? entity.latitude : this.formatNumber(dto.latitude ?? dto.gps_lat),
       installDate: dto.install_date === undefined ? entity.installDate : dto.install_date ?? null,
       warrantyEndDate: dto.warranty_end_date === undefined ? entity.warrantyEndDate : dto.warranty_end_date ?? null,
-      status: dto.status ?? entity.status,
-      onlineStatus: dto.online_status ?? entity.onlineStatus,
+      status: statusState.status,
+      onlineStatus: statusState.onlineStatus,
+      isEnabled: statusState.isEnabled,
+      lastHeartbeatAt: dto.last_heartbeat_at === undefined ? entity.lastHeartbeatAt : this.parseOptionalDate(dto.last_heartbeat_at, "last_heartbeat_at"),
       statusPayload: dto.status_payload === undefined ? entity.statusPayload : this.normalizePayload(dto.status_payload),
       metadata: dto.status_payload === undefined ? entity.metadata : this.normalizePayload(dto.status_payload),
       remark: dto.remark === undefined ? entity.remark : dto.remark ?? null,
@@ -364,6 +428,7 @@ export class IotDevicesService {
   async enable(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<IotDeviceView> {
     const entity = await this.findDevice(scope, id, actor);
     entity.status = DEFAULT_STATUS;
+    entity.isEnabled = true;
     entity.updateBy = actor.sub;
     await this.deviceRepository.save(entity);
     return this.detail(scope, id, actor);
@@ -372,6 +437,30 @@ export class IotDevicesService {
   async disable(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<IotDeviceView> {
     const entity = await this.findDevice(scope, id, actor);
     entity.status = "disabled";
+    entity.onlineStatus = "disabled";
+    entity.isEnabled = false;
+    entity.updateBy = actor.sub;
+    await this.deviceRepository.save(entity);
+    return this.detail(scope, id, actor);
+  }
+
+  async setStatus(scope: TenantParkScope, actor: JwtPrincipal, id: string, status: string): Promise<IotDeviceView> {
+    const entity = await this.findDevice(scope, id, actor);
+    const normalized = this.normalizeStatusValue(status);
+    const now = new Date();
+    if (normalized === "disabled") {
+      entity.status = "disabled";
+      entity.onlineStatus = "disabled";
+      entity.isEnabled = false;
+      entity.lastOfflineTime = now;
+    } else {
+      entity.status = DEFAULT_STATUS;
+      entity.onlineStatus = normalized;
+      entity.isEnabled = true;
+      if (normalized === "online") entity.lastOnlineTime = now;
+      if (normalized === "offline") entity.lastOfflineTime = now;
+    }
+    entity.lastHeartbeatAt = now;
     entity.updateBy = actor.sub;
     await this.deviceRepository.save(entity);
     return this.detail(scope, id, actor);
@@ -441,17 +530,26 @@ export class IotDevicesService {
             .orWhere("device.device_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("device.vendor_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("device.vendor_device_id ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("device.brand ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("device.model ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("device.ip_address ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("device.location ILIKE :keyword", { keyword: `%${query.keyword}%` });
         })
       );
     }
     if (query.device_type) builder.andWhere("device.device_type = :deviceType", { deviceType: query.device_type });
-    if (query.status) builder.andWhere("device.status = :status", { status: query.status });
+    if (query.protocol_type) builder.andWhere("device.protocol_type = :protocolType", { protocolType: query.protocol_type });
+    if (query.status) {
+      const normalizedStatus = this.normalizeStatusValue(query.status);
+      builder.andWhere("(device.status = :status OR device.online_status = :status)", { status: normalizedStatus });
+    }
     if (query.online_status) builder.andWhere("device.online_status = :onlineStatus", { onlineStatus: query.online_status });
     if (query.gateway_id) builder.andWhere("device.gateway_id = :gatewayId", { gatewayId: query.gateway_id });
     if (query.building_id) builder.andWhere("device.building_id = :buildingId", { buildingId: query.building_id });
     if (query.floor_id) builder.andWhere("device.floor_id = :floorId", { floorId: query.floor_id });
     if (query.unit_id) builder.andWhere("device.unit_id = :unitId", { unitId: query.unit_id });
+    if (query.room_id) builder.andWhere("(device.room_id = :roomId OR device.unit_id = :roomId)", { roomId: query.room_id });
+    if (query.area_id) builder.andWhere("device.area_id = :areaId", { areaId: query.area_id });
     if (query.park_tenant_id) builder.andWhere("device.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
   }
 
@@ -460,8 +558,10 @@ export class IotDevicesService {
       device_code: "device.deviceCode",
       device_name: "device.deviceName",
       device_type: "device.deviceType",
+      protocol_type: "device.protocolType",
       status: "device.status",
       online_status: "device.onlineStatus",
+      last_heartbeat_at: "device.lastHeartbeatAt",
       last_online_time: "device.lastOnlineTime",
       last_data_time: "device.lastDataTime",
       update_time: "device.updateTime",
@@ -516,11 +616,12 @@ export class IotDevicesService {
 
   private async resolveLocationRefs(
     scope: TenantParkScope,
-    dto: Pick<CreateIotDeviceDto, "building_id" | "floor_id" | "unit_id" | "park_tenant_id">
+    dto: Pick<CreateIotDeviceDto, "building_id" | "floor_id" | "unit_id" | "room_id" | "park_tenant_id">
   ): Promise<LocationRefs> {
     let buildingId = dto.building_id ?? null;
     let floorId = dto.floor_id ?? null;
-    const unitId = dto.unit_id ?? null;
+    const unitId = dto.unit_id ?? dto.room_id ?? null;
+    const roomId = dto.room_id ?? unitId;
     const parkTenantId = dto.park_tenant_id ?? null;
     if (unitId) {
       const unit = await this.unitRepository.findOne({
@@ -566,7 +667,7 @@ export class IotDevicesService {
         throw new BadRequestException("park_tenant_id does not belong to current tenant and park");
       }
     }
-    return { buildingId, floorId, unitId, parkTenantId };
+    return { buildingId, floorId, unitId, roomId, parkTenantId };
   }
 
   private async assertGateway(scope: TenantParkScope, gatewayId?: string): Promise<void> {
@@ -619,6 +720,36 @@ export class IotDevicesService {
     return value as Record<string, unknown>;
   }
 
+  private normalizeStatusValue(status: string | undefined): string {
+    const value = String(status ?? DEFAULT_ONLINE_STATUS).trim();
+    const upperMap: Record<string, string> = {
+      ONLINE: "online",
+      OFFLINE: "offline",
+      UNKNOWN: "unknown",
+      DISABLED: "disabled"
+    };
+    return upperMap[value.toUpperCase()] ?? value;
+  }
+
+  private normalizeStatusState(
+    status: string | undefined,
+    onlineStatus: string | undefined,
+    isEnabled: boolean | undefined,
+    current?: IotDeviceEntity
+  ): { status: string; onlineStatus: string; isEnabled: boolean } {
+    const normalizedStatus = status === undefined ? undefined : this.normalizeStatusValue(status);
+    const normalizedOnlineStatus = onlineStatus === undefined ? undefined : this.normalizeStatusValue(onlineStatus);
+    const disabled = normalizedStatus === "disabled" || isEnabled === false;
+    if (disabled) {
+      return { status: "disabled", onlineStatus: "disabled", isEnabled: false };
+    }
+    return {
+      status: normalizedStatus && ["enabled", "disabled"].includes(normalizedStatus) ? normalizedStatus : current?.status ?? DEFAULT_STATUS,
+      onlineStatus: normalizedOnlineStatus ?? (normalizedStatus && !["enabled", "disabled"].includes(normalizedStatus) ? normalizedStatus : current?.onlineStatus ?? DEFAULT_ONLINE_STATUS),
+      isEnabled: isEnabled ?? current?.isEnabled ?? true
+    };
+  }
+
   private parseOptionalDate(value: string | undefined, fieldName: string): Date | null {
     if (!value) return null;
     const parsed = new Date(value);
@@ -637,24 +768,42 @@ export class IotDevicesService {
       deviceCode: entity.deviceCode,
       deviceName: entity.deviceName,
       deviceType: entity.deviceType,
+      deviceCategory: entity.deviceCategory,
       gatewayId: entity.gatewayId,
+      brand: entity.brand,
+      model: entity.model,
+      manufacturer: entity.manufacturer,
       vendorName: entity.vendorName ?? entity.vendorPlatform,
       vendorDeviceId: entity.vendorDeviceId,
+      platformType: entity.platformType ?? entity.vendorPlatform,
+      platformDeviceId: entity.platformDeviceId ?? entity.vendorDeviceId,
       protocolType: entity.protocolType,
+      connectionType: entity.connectionType,
+      ipAddress: entity.ipAddress,
+      port: entity.port,
+      macAddress: entity.macAddress,
+      serialNumber: entity.serialNumber,
       buildingId: entity.buildingId,
       floorId: entity.floorId,
       unitId: entity.unitId,
+      roomId: entity.roomId ?? entity.unitId,
+      areaId: entity.areaId,
       parkTenantId: entity.parkTenantId,
       location: entity.location,
+      installLocation: entity.installLocation ?? entity.installPosition,
       gpsLng: entity.gpsLng,
       gpsLat: entity.gpsLat,
+      longitude: entity.longitude ?? entity.gpsLng,
+      latitude: entity.latitude ?? entity.gpsLat,
       installDate: entity.installDate,
       warrantyEndDate: entity.warrantyEndDate,
       status: entity.status,
       onlineStatus: entity.onlineStatus,
+      isEnabled: entity.isEnabled,
       lastOnlineTime: entity.lastOnlineTime,
       lastOfflineTime: entity.lastOfflineTime,
       lastDataTime: entity.lastDataTime ?? entity.lastReportTime,
+      lastHeartbeatAt: entity.lastHeartbeatAt,
       statusPayload: entity.statusPayload ?? entity.metadata ?? {},
       remark: entity.remark,
       createBy: entity.createBy,

@@ -1,6 +1,6 @@
 import { Transform } from "class-transformer";
-import { IsDateString, IsNumber, IsObject, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
-import { optionalNumber, trimOptional } from "./transformers";
+import { IsBoolean, IsDateString, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
+import { optionalBoolean, optionalInteger, optionalNumber, trimOptional } from "./transformers";
 
 export class CreateIotDeviceDto {
   @IsOptional()
@@ -26,6 +26,12 @@ export class CreateIotDeviceDto {
   device_type!: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
+  device_category?: string;
+
+  @IsOptional()
   @IsUUID()
   @Transform(({ value }) => trimOptional(value))
   gateway_id?: string;
@@ -38,6 +44,24 @@ export class CreateIotDeviceDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
+  @Transform(({ value }) => trimOptional(value))
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  @Transform(({ value }) => trimOptional(value))
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  @Transform(({ value }) => trimOptional(value))
+  manufacturer?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(128)
   @Transform(({ value }) => trimOptional(value))
   vendor_device_id?: string;
@@ -46,7 +70,50 @@ export class CreateIotDeviceDto {
   @IsString()
   @MaxLength(64)
   @Transform(({ value }) => trimOptional(value))
+  platform_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  @Transform(({ value }) => trimOptional(value))
+  platform_device_id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
   protocol_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
+  connection_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
+  ip_address?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  @Transform(({ value }) => optionalInteger(value))
+  port?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
+  mac_address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  @Transform(({ value }) => trimOptional(value))
+  serial_number?: string;
 
   @IsOptional()
   @IsUUID()
@@ -66,6 +133,16 @@ export class CreateIotDeviceDto {
   @IsOptional()
   @IsUUID()
   @Transform(({ value }) => trimOptional(value))
+  room_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
+  area_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
   park_tenant_id?: string;
 
   @IsOptional()
@@ -73,6 +150,12 @@ export class CreateIotDeviceDto {
   @MaxLength(300)
   @Transform(({ value }) => trimOptional(value))
   location?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  @Transform(({ value }) => trimOptional(value))
+  install_location?: string;
 
   @IsOptional()
   @IsNumber()
@@ -83,6 +166,16 @@ export class CreateIotDeviceDto {
   @IsNumber()
   @Transform(({ value }) => optionalNumber(value))
   gps_lat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => optionalNumber(value))
+  longitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => optionalNumber(value))
+  latitude?: number;
 
   @IsOptional()
   @IsDateString()
@@ -105,6 +198,16 @@ export class CreateIotDeviceDto {
   @MaxLength(32)
   @Transform(({ value }) => trimOptional(value))
   online_status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => optionalBoolean(value))
+  is_enabled?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  @Transform(({ value }) => trimOptional(value))
+  last_heartbeat_at?: string;
 
   @IsOptional()
   @IsObject()

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -9,13 +9,19 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CreateIotDeviceDto } from "./dto/create-iot-device.dto";
 import { IotDeviceHistoryQueryDto, IotDeviceTrendQueryDto } from "./dto/iot-device-data-query.dto";
 import { IotDeviceQueryDto } from "./dto/iot-device-query.dto";
+import { IotDeviceHeartbeatDto, IotDeviceMetricsDto, IotRuntimeHistoryQueryDto, IotRuntimeMetricsQueryDto } from "./dto/iot-device-runtime.dto";
 import { UpdateIotDeviceDto } from "./dto/update-iot-device.dto";
+import { UpdateIotDeviceStatusDto } from "./dto/update-iot-device-status.dto";
 import { IotDevicesService } from "./iot-devices.service";
+import { IotRuntimeService } from "./iot-runtime.service";
 
 @Controller("iot/devices")
 @RequireModule("iot")
 export class IotDevicesController {
-  constructor(private readonly devicesService: IotDevicesService) {}
+  constructor(
+    private readonly devicesService: IotDevicesService,
+    private readonly runtimeService: IotRuntimeService
+  ) {}
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_READ)
@@ -57,6 +63,50 @@ export class IotDevicesController {
     return this.devicesService.trend(scope, id, query, user);
   }
 
+  @Post(":id/heartbeat")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_HEARTBEAT)
+  heartbeat(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: IotDeviceHeartbeatDto
+  ) {
+    return this.runtimeService.recordHeartbeat(scope, user, id, dto);
+  }
+
+  @Get(":id/heartbeat-history")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_READ)
+  heartbeatHistory(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Query() query: IotRuntimeHistoryQueryDto
+  ) {
+    return this.runtimeService.heartbeatHistory(scope, user, id, query);
+  }
+
+  @Post(":id/metrics")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_METRIC_REPORT)
+  reportMetrics(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: IotDeviceMetricsDto
+  ) {
+    return this.runtimeService.reportMetrics(scope, user, id, dto);
+  }
+
+  @Get(":id/metrics")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DATA_READ)
+  runtimeMetrics(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Query() query: IotRuntimeMetricsQueryDto
+  ) {
+    return this.runtimeService.metrics(scope, user, id, query);
+  }
+
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -80,6 +130,24 @@ export class IotDevicesController {
     bizIdParam: "id"
   })
   update(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: UpdateIotDeviceDto
+  ) {
+    return this.devicesService.update(scope, user, id, dto);
+  }
+
+  @Patch(":id")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_UPDATE)
+  @AuditLog({
+    module: "IoT 平台",
+    action: "修改",
+    resource: "biz.iot_device",
+    bizType: "biz_iot_device",
+    bizIdParam: "id"
+  })
+  patch(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
@@ -125,6 +193,24 @@ export class IotDevicesController {
   })
   disable(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.devicesService.disable(scope, user, id);
+  }
+
+  @Patch(":id/status")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DEVICE_STATUS)
+  @AuditLog({
+    module: "IoT 平台",
+    action: "修改设备状态",
+    resource: "biz.iot_device",
+    bizType: "biz_iot_device",
+    bizIdParam: "id"
+  })
+  setStatus(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: UpdateIotDeviceStatusDto
+  ) {
+    return this.devicesService.setStatus(scope, user, id, dto.status);
   }
 
   @Post(":id/reset-secret")

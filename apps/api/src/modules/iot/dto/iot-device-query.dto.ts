@@ -16,6 +16,11 @@ export class IotDeviceQueryDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => trimOptional(value))
+  protocol_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptional(value))
   status?: string;
 
   @IsOptional()
@@ -42,6 +47,16 @@ export class IotDeviceQueryDto {
   @IsUUID()
   @Transform(({ value }) => trimOptional(value))
   unit_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
+  room_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(({ value }) => trimOptional(value))
+  area_id?: string;
 
   @IsOptional()
   @IsUUID()

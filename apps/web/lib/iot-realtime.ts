@@ -4,7 +4,16 @@ import { API_PREFIX } from "./api-client";
 import { getAccessToken } from "./authz";
 
 export type IotRealtimeConnectionState = "idle" | "connecting" | "connected" | "reconnecting" | "closed" | "error";
-export type IotRealtimeEventName = "device.latest" | "device.status" | "alert.created" | "alert.updated";
+export type IotRealtimeEventName =
+  | "device.latest"
+  | "device.status"
+  | "alert.created"
+  | "alert.updated"
+  | "iot.device.online"
+  | "iot.device.offline"
+  | "iot.alert.created"
+  | "iot.alert.updated"
+  | "iot.metric.updated";
 
 export interface IotRealtimeEvent<T = Record<string, unknown>> {
   type: "event";

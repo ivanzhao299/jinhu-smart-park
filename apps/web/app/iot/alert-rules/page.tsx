@@ -160,7 +160,7 @@ export default function IotAlertRulesPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -168,7 +168,7 @@ export default function IotAlertRulesPage() {
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=200&dict_type_id=${dictTypeId}`, {
+      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
         token: getAccessToken()
       });
       return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
@@ -177,7 +177,7 @@ export default function IotAlertRulesPage() {
   }, []);
 
   const loadDevices = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<DeviceRow>>("/iot/devices?page=1&page_size=500&sort=device_code", {
+    const response = await apiRequest<PaginatedResult<DeviceRow>>("/iot/devices?page=1&page_size=100&sort=device_code", {
       token: getAccessToken()
     });
     setDevices(response.data.items);
@@ -188,7 +188,7 @@ export default function IotAlertRulesPage() {
       setPoints([]);
       return;
     }
-    const response = await apiRequest<PaginatedResult<PointRow>>(`/iot/devices/${deviceId}/points?page=1&page_size=500&sort=point_code`, {
+    const response = await apiRequest<PaginatedResult<PointRow>>(`/iot/devices/${deviceId}/points?page=1&page_size=100&sort=point_code`, {
       token: getAccessToken()
     });
     setPoints(response.data.items);

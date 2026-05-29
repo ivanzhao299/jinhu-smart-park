@@ -13,6 +13,7 @@ import { BuildingsModule } from "./modules/buildings/buildings.module";
 import { CodeRulesModule } from "./modules/code-rules/code-rules.module";
 import { DataScopesModule } from "./modules/data-scopes/data-scopes.module";
 import { DictsModule } from "./modules/dicts/dicts.module";
+import { EnergyModule } from "./modules/energy/energy.module";
 import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
@@ -30,6 +31,7 @@ import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { RolesModule } from "./modules/roles/roles.module";
+import { RobotsModule } from "./modules/robots/robots.module";
 import { SaaSModulesModule } from "./modules/saas-modules/saas-modules.module";
 import { SafetyEmergencyModule } from "./modules/safety-emergency/safety-emergency.module";
 import { SafetyHazardsModule } from "./modules/safety-hazards/safety-hazards.module";
@@ -86,6 +88,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     DataScopesModule,
     FieldPoliciesModule,
     FloorsModule,
+    EnergyModule,
     IotModule,
     LeasingContractChangesModule,
     LeasingContractsModule,
@@ -100,6 +103,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
     OrgsModule,
     UsersModule,
     RolesModule,
+    RobotsModule,
     SaaSModulesModule,
     PermissionsModule,
     DictsModule,

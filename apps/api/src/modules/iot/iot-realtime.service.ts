@@ -9,7 +9,16 @@ import { IotDeviceEntity } from "./entities/iot-device.entity";
 
 const WEB_SOCKET_OPEN = 1;
 
-export type IotRealtimeEventName = "device.latest" | "device.status" | "alert.created" | "alert.updated";
+export type IotRealtimeEventName =
+  | "device.latest"
+  | "device.status"
+  | "alert.created"
+  | "alert.updated"
+  | "iot.device.online"
+  | "iot.device.offline"
+  | "iot.alert.created"
+  | "iot.alert.updated"
+  | "iot.metric.updated";
 
 export interface IotRealtimeMetricPayload {
   key: string;
@@ -173,9 +182,8 @@ export class IotRealtimeService {
   }
 
   publishDeviceStatus(input: { tenantId: string; parkId: string; deviceId: string; deviceCode: string; onlineStatus: string; lastDataTime: string }): void {
-    this.publish({
-      type: "event",
-      event: "device.status",
+    const payload = {
+      type: "event" as const,
       tenant_id: input.tenantId,
       park_id: input.parkId,
       device_id: input.deviceId,
@@ -184,6 +192,39 @@ export class IotRealtimeService {
         device_code: input.deviceCode,
         online_status: input.onlineStatus,
         last_data_time: input.lastDataTime
+      },
+      server_time: new Date().toISOString()
+    };
+    this.publish({
+      ...payload,
+      type: "event",
+      event: "device.status",
+    });
+    this.publish({
+      ...payload,
+      event: input.onlineStatus === "online" ? "iot.device.online" : "iot.device.offline"
+    });
+  }
+
+  publishMetricUpdated(input: {
+    tenantId: string;
+    parkId: string;
+    deviceId: string;
+    deviceCode: string;
+    reportTime: string;
+    metrics: IotRealtimeMetricPayload[];
+  }): void {
+    this.publish({
+      type: "event",
+      event: "iot.metric.updated",
+      tenant_id: input.tenantId,
+      park_id: input.parkId,
+      device_id: input.deviceId,
+      data: {
+        device_id: input.deviceId,
+        device_code: input.deviceCode,
+        report_time: input.reportTime,
+        metrics: input.metrics
       },
       server_time: new Date().toISOString()
     });
@@ -199,16 +240,17 @@ export class IotRealtimeService {
 
   private publishAlert(event: "alert.created" | "alert.updated", alert: AlertLike): void {
     const payload = this.toAlertPayload(alert);
-    this.publish({
+    const envelope = {
       type: "event",
-      event,
       tenant_id: payload.tenant_id,
       park_id: payload.park_id,
       device_id: payload.device_id,
       alert_id: payload.id,
       data: payload,
       server_time: new Date().toISOString()
-    });
+    } as const;
+    this.publish({ ...envelope, event });
+    this.publish({ ...envelope, event: event === "alert.created" ? "iot.alert.created" : "iot.alert.updated" });
   }
 
   private publish(envelope: IotRealtimeEnvelope): void {
@@ -226,7 +268,7 @@ export class IotRealtimeService {
   private matchesSubscription(subscriptions: Set<string>, envelope: IotRealtimeEnvelope): boolean {
     if (subscriptions.has(`iot:park:${envelope.park_id}`)) return true;
     if (envelope.device_id && subscriptions.has(`iot:device:${envelope.device_id}`)) return true;
-    if ((envelope.event === "alert.created" || envelope.event === "alert.updated") && subscriptions.has(`iot:alerts:${envelope.park_id}`)) return true;
+    if (envelope.event.includes("alert") && subscriptions.has(`iot:alerts:${envelope.park_id}`)) return true;
     return false;
   }
 

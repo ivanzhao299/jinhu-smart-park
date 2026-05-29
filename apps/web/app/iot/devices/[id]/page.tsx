@@ -210,7 +210,11 @@ export default function IotDeviceDetailPage() {
     topics: realtimeTopics,
     onEvent: (event) => {
       if (event.device_id !== deviceId) return;
-      if (event.event === "device.latest" || event.event === "device.status" || event.event === "alert.created" || event.event === "alert.updated") {
+      if (
+        ["device.latest", "device.status", "iot.device.online", "iot.device.offline", "iot.metric.updated", "alert.created", "alert.updated", "iot.alert.created", "iot.alert.updated"].includes(
+          event.event
+        )
+      ) {
         void refreshRealtimeParts().catch((error: Error) => setMessage(error.message));
       }
     }
@@ -242,11 +246,11 @@ export default function IotDeviceDetailPage() {
         apiRequest<PaginatedResult<AlertRow>>(`/iot/alerts?device_id=${deviceId}&page=1&page_size=20&sort=-last_trigger_time`, { token: getAccessToken() }),
         safeFetchPage<WorkOrderRow>(`/work-orders?device_id=${deviceId}&page=1&page_size=20&sort=-update_time`),
         loadDicts(),
-        safeFetchPage<GatewayRow>("/iot/gateways?page=1&page_size=300"),
-        safeFetchPage<BuildingRow>("/buildings?page=1&page_size=300"),
-        safeFetchPage<FloorRow>("/floors?page=1&page_size=500"),
-        safeFetchPage<UnitRow>("/park-units?page=1&page_size=500"),
-        safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=500")
+        safeFetchPage<GatewayRow>("/iot/gateways?page=1&page_size=100"),
+        safeFetchPage<BuildingRow>("/buildings?page=1&page_size=100"),
+        safeFetchPage<FloorRow>("/floors?page=1&page_size=100"),
+        safeFetchPage<UnitRow>("/park-units?page=1&page_size=100"),
+        safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=100")
       ]);
       setDevice(deviceResponse.data);
       setPoints(pointsResponse.data);
@@ -627,14 +631,14 @@ async function safeFetchPage<T>(path: string): Promise<T[]> {
 }
 
 async function loadDicts(): Promise<DictMap> {
-  const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+  const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
     token: getAccessToken()
   });
   const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
   const entries = await Promise.all(dictCodes.map(async (code) => {
     const dictTypeId = typeMap.get(code);
     if (!dictTypeId) return [code, []] as const;
-    const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=200&dict_type_id=${dictTypeId}`, {
+    const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
       token: getAccessToken()
     });
     return [code, response.data.items.filter((item) => item.status === "enabled")] as const;

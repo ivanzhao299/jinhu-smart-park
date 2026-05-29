@@ -1,5 +1,15 @@
+-- The S9-A compatibility view can exist in local databases that have already
+-- run newer migrations. Drop and recreate it so the legacy device_secret type
+-- widening remains idempotent.
+DROP VIEW IF EXISTS iot_device;
+
 ALTER TABLE IF EXISTS biz_iot_device
   ALTER COLUMN device_secret TYPE text;
+
+CREATE OR REPLACE VIEW iot_device AS
+SELECT *
+FROM biz_iot_device
+WHERE is_deleted = false;
 
 ALTER TABLE IF EXISTS biz_iot_alert_rule
   ADD COLUMN IF NOT EXISTS code varchar(64);

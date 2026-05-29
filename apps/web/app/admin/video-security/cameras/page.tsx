@@ -254,7 +254,7 @@ export default function VideoCameraPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=400", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item: DictTypeRow) => [item.dictCode, item.id]));
@@ -272,9 +272,9 @@ export default function VideoCameraPage() {
 
   const loadRefs = useCallback(async () => {
     const [buildingResponse, floorResponse, unitResponse] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=300", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=500", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=500", { token: getAccessToken() })
+      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() })
     ]);
     setBuildings(buildingResponse.data.items);
     setFloors(floorResponse.data.items);

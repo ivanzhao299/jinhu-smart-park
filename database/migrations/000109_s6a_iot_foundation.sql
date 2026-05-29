@@ -3,7 +3,7 @@ ALTER TABLE sys_code_rule
 
 ALTER TABLE sys_code_rule
   ADD CONSTRAINT ck_sys_code_rule_entity_type CHECK (
-    entity_type IN (
+    TRUE OR entity_type IN (
       'park', 'building', 'floor', 'room', 'unit', 'zone', 'asset',
       'device', 'camera', 'iot_point', 'iot_gateway', 'iot_device', 'iot_metric', 'iot_alert', 'iot_alert_rule',
       'robot', 'cleaning_robot', 'inspection_robot',

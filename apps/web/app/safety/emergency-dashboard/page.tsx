@@ -176,7 +176,7 @@ export default function SafetyEmergencyDashboardPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -203,8 +203,8 @@ export default function SafetyEmergencyDashboardPage() {
   const loadReferences = useCallback(async () => {
     const [buildingResponse, unitResponse, parkTenantResponse] = await Promise.allSettled([
       apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=300", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=300", { token: getAccessToken() })
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() })
     ]);
     if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
     if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);

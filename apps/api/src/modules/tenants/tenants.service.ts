@@ -637,8 +637,15 @@ export class TenantsService {
             code === "video:read" ||
             code.startsWith("video_camera:") ||
             code.startsWith("video_platform_config:") ||
+            code.startsWith("video_evidence:") ||
+            code.startsWith("video_alert:") ||
+            code.startsWith("video_alert_log:") ||
+            code.startsWith("video_security_dashboard:") ||
             code.startsWith("VIDEO_CAMERA") ||
             code.startsWith("VIDEO_PLATFORM_CONFIG") ||
+            code.startsWith("VIDEO_EVIDENCE") ||
+            code.startsWith("VIDEO_ALERT") ||
+            code.startsWith("VIDEO_SECURITY_DASHBOARD") ||
             code.startsWith("MENU_VIDEO"))
         ) return true;
         if (modules.has("bim") && (code === "bim" || code === "bim:overview" || code === "bim:read")) return true;

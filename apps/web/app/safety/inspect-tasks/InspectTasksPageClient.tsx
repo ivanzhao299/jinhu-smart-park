@@ -251,7 +251,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }, [filters, mode]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -269,16 +269,16 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   const loadRefs = useCallback(async () => {
     const [planResponse, templateResponse, pointResponse, userResponse] = await Promise.all([
-      apiRequest<PaginatedResult<InspectPlanRow>>("/safety/inspect-plans?page=1&page_size=300&status=enabled&sort=plan_code", {
+      apiRequest<PaginatedResult<InspectPlanRow>>("/safety/inspect-plans?page=1&page_size=100&status=enabled&sort=plan_code", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<InspectTemplateRow>>("/safety/inspect-templates?page=1&page_size=300&status=enabled&sort=template_code", {
+      apiRequest<PaginatedResult<InspectTemplateRow>>("/safety/inspect-templates?page=1&page_size=100&status=enabled&sort=template_code", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=500&status=enabled&sort=sort_no", {
+      apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=100&status=enabled&sort=sort_no", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=300&status=enabled", {
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
         token: getAccessToken()
       })
     ]);
@@ -339,7 +339,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function loadTemplateItems(templateId: string, existingResults: InspectTaskResultRow[]) {
-    const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=300`, {
+    const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=100`, {
       token: getAccessToken()
     });
     setTemplateItems(response.data.items);

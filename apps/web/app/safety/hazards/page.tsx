@@ -354,7 +354,7 @@ export default function SafetyHazardsPage() {
   }, []);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -381,11 +381,11 @@ export default function SafetyHazardsPage() {
 
   const loadReferenceData = useCallback(async () => {
     const [buildingResponse, floorResponse, unitResponse, tenantResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=200", { token: getAccessToken() })
+      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100", { token: getAccessToken() })
     ]);
     if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
     if (floorResponse.status === "fulfilled") setFloors(floorResponse.value.data.items);

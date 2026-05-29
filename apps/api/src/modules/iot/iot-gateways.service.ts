@@ -26,11 +26,16 @@ export interface IotGatewayView {
   gatewayType: string;
   protocolType: string;
   vendorName: string | null;
+  brand: string | null;
+  model: string | null;
   endpointUrl: string | null;
+  ipAddress: string | null;
+  port: number | null;
   mqttClientId: string | null;
   accessKey: string | null;
   secretEncrypted: string | null;
   status: string;
+  lastHeartbeatAt: Date | null;
   lastOnlineTime: Date | null;
   lastOfflineTime: Date | null;
   remark: string | null;
@@ -88,11 +93,16 @@ export class IotGatewaysService {
       gatewayType: dto.gateway_type,
       protocolType: dto.protocol_type,
       vendorName: dto.vendor_name ?? null,
+      brand: dto.brand ?? null,
+      model: dto.model ?? null,
       endpointUrl: dto.endpoint_url ?? null,
+      ipAddress: dto.ip_address ?? null,
+      port: dto.port ?? null,
       mqttClientId: dto.mqtt_client_id ?? null,
       accessKey: dto.access_key ?? null,
       secretEncrypted: this.normalizeSecret(dto.secret ?? dto.secret_encrypted),
       status: dto.status ?? "enabled",
+      lastHeartbeatAt: this.parseOptionalDate(dto.last_heartbeat_at, "last_heartbeat_at"),
       remark: dto.remark ?? null,
       createBy: actor.sub,
       updateBy: actor.sub
@@ -114,9 +124,15 @@ export class IotGatewaysService {
       gatewayType: dto.gateway_type ?? entity.gatewayType,
       protocolType: dto.protocol_type ?? entity.protocolType,
       vendorName: dto.vendor_name === undefined ? entity.vendorName : dto.vendor_name ?? null,
+      brand: dto.brand === undefined ? entity.brand : dto.brand ?? null,
+      model: dto.model === undefined ? entity.model : dto.model ?? null,
       endpointUrl: dto.endpoint_url === undefined ? entity.endpointUrl : dto.endpoint_url ?? null,
+      ipAddress: dto.ip_address === undefined ? entity.ipAddress : dto.ip_address ?? null,
+      port: dto.port === undefined ? entity.port : dto.port ?? null,
       mqttClientId: dto.mqtt_client_id === undefined ? entity.mqttClientId : dto.mqtt_client_id ?? null,
       accessKey: dto.access_key === undefined ? entity.accessKey : dto.access_key ?? null,
+      lastHeartbeatAt:
+        dto.last_heartbeat_at === undefined ? entity.lastHeartbeatAt : this.parseOptionalDate(dto.last_heartbeat_at, "last_heartbeat_at"),
       status: dto.status ?? entity.status,
       remark: dto.remark === undefined ? entity.remark : dto.remark ?? null,
       updateBy: actor.sub
@@ -189,6 +205,9 @@ export class IotGatewaysService {
           qb.where("gateway.gateway_code ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("gateway.gateway_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("gateway.vendor_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("gateway.brand ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("gateway.model ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("gateway.ip_address ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("gateway.endpoint_url ILIKE :keyword", { keyword: `%${query.keyword}%` })
             .orWhere("gateway.mqtt_client_id ILIKE :keyword", { keyword: `%${query.keyword}%` });
         })
@@ -205,6 +224,8 @@ export class IotGatewaysService {
       gateway_name: "gateway.gatewayName",
       gateway_type: "gateway.gatewayType",
       protocol_type: "gateway.protocolType",
+      brand: "gateway.brand",
+      last_heartbeat_at: "gateway.lastHeartbeatAt",
       status: "gateway.status",
       last_online_time: "gateway.lastOnlineTime",
       update_time: "gateway.updateTime",
@@ -263,6 +284,17 @@ export class IotGatewaysService {
     return `sha256:${createHash("sha256").update(text).digest("hex")}`;
   }
 
+  private parseOptionalDate(value: string | null | undefined, field: string): Date | null {
+    if (value === undefined || value === null || value === "") {
+      return null;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${field} is invalid`);
+    }
+    return parsed;
+  }
+
   private toSafeView(entity: IotGatewayEntity): IotGatewayView {
     return {
       id: entity.id,
@@ -274,11 +306,16 @@ export class IotGatewaysService {
       gatewayType: entity.gatewayType,
       protocolType: entity.protocolType,
       vendorName: entity.vendorName,
+      brand: entity.brand,
+      model: entity.model,
       endpointUrl: entity.endpointUrl,
+      ipAddress: entity.ipAddress,
+      port: entity.port,
       mqttClientId: entity.mqttClientId,
       accessKey: entity.accessKey,
       secretEncrypted: entity.secretEncrypted ? MASKED_SECRET_VALUE : null,
       status: entity.status,
+      lastHeartbeatAt: entity.lastHeartbeatAt,
       lastOnlineTime: entity.lastOnlineTime,
       lastOfflineTime: entity.lastOfflineTime,
       remark: entity.remark,

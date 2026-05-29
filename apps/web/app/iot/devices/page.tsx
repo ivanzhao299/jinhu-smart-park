@@ -232,7 +232,7 @@ interface SecretResetResult {
 type DictMap = Record<string, DictItemRow[]>;
 type DetailTab = "profile" | "latest" | "history" | "trend" | "points";
 
-const emptyPage: PaginatedResult<IotDeviceRow> = { items: [], total: 0, page: 1, page_size: 20 };
+const emptyPage: PaginatedResult<IotDeviceRow> = { items: [], total: 0, page: 1, page_size: 10 };
 const emptyFilters: Filters = {
   keyword: "",
   deviceType: "",
@@ -320,7 +320,7 @@ export default function IotDevicesPage() {
   const detailMetricOptions = useMemo(() => buildMetricOptions(points, latestRows), [latestRows, points]);
 
   const load = useCallback(async (page = 1) => {
-    const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
+    const params = new URLSearchParams({ page: String(page), page_size: "10", sort: "-update_time" });
     if (filters.keyword.trim()) params.set("keyword", filters.keyword.trim());
     if (filters.deviceType) params.set("device_type", filters.deviceType);
     if (filters.status) params.set("status", filters.status);
@@ -337,7 +337,7 @@ export default function IotDevicesPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=300", {
+    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
       token: getAccessToken()
     });
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
@@ -345,7 +345,7 @@ export default function IotDevicesPage() {
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=200&dict_type_id=${dictTypeId}`, {
+      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
         token: getAccessToken()
       });
       return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
@@ -355,12 +355,12 @@ export default function IotDevicesPage() {
 
   const loadOptions = useCallback(async () => {
     const [gatewayResponse, buildingResponse, floorResponse, unitResponse, tenantResponse, metricResponse] = await Promise.all([
-      apiRequest<PaginatedResult<GatewayRow>>("/iot/gateways?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=500", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=500", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=300", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<IotMetricRow>>("/iot/metrics?page=1&page_size=500&sort=metric_code", { token: getAccessToken() })
+      apiRequest<PaginatedResult<GatewayRow>>("/iot/gateways?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<IotMetricRow>>("/iot/metrics?page=1&page_size=100&sort=metric_code", { token: getAccessToken() })
     ]);
     setGateways(gatewayResponse.data.items);
     setBuildings(buildingResponse.data.items);
@@ -412,7 +412,7 @@ export default function IotDevicesPage() {
     topics: realtimeTopics,
     onEvent: (event) => {
       if (!viewingDeviceId || event.device_id !== viewingDeviceId) return;
-      if (event.event !== "device.latest" && event.event !== "device.status") return;
+      if (!["device.latest", "device.status", "iot.device.online", "iot.device.offline", "iot.metric.updated"].includes(event.event)) return;
       const onlineStatus = readRealtimeString(event.data, "online_status");
       const lastDataTime = readRealtimeString(event.data, "last_data_time") ?? readRealtimeString(event.data, "report_time");
       if (onlineStatus || lastDataTime) {

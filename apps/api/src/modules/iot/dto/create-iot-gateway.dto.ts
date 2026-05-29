@@ -1,6 +1,6 @@
 import { Transform } from "class-transformer";
-import { IsOptional, IsString, MaxLength } from "class-validator";
-import { trimOptional } from "./transformers";
+import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { optionalInteger, trimOptional } from "./transformers";
 
 export class CreateIotGatewayDto {
   @IsOptional()
@@ -38,9 +38,34 @@ export class CreateIotGatewayDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
+  @Transform(({ value }) => trimOptional(value))
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  @Transform(({ value }) => trimOptional(value))
+  model?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(300)
   @Transform(({ value }) => trimOptional(value))
   endpoint_url?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Transform(({ value }) => trimOptional(value))
+  ip_address?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  @Transform(({ value }) => optionalInteger(value))
+  port?: number;
 
   @IsOptional()
   @IsString()
@@ -71,6 +96,11 @@ export class CreateIotGatewayDto {
   @MaxLength(32)
   @Transform(({ value }) => trimOptional(value))
   status?: string;
+
+  @IsOptional()
+  @IsDateString()
+  @Transform(({ value }) => trimOptional(value))
+  last_heartbeat_at?: string;
 
   @IsOptional()
   @IsString()

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, DataSource, type ObjectLiteral, type Repository, type SelectQueryBuilder } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserEntity } from "../users/entities/user.entity";
@@ -9,6 +10,7 @@ import type { CreateWorkOrderDto } from "../work-orders/dto/create-work-order.dt
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import type { CreateIotAlertDto } from "./dto/create-iot-alert.dto";
 import type { IotAlertActionDto } from "./dto/iot-alert-action.dto";
 import type { IotAlertQueryDto } from "./dto/iot-alert-query.dto";
 import type { IotAlertWorkOrderDto } from "./dto/iot-alert-work-order.dto";
@@ -16,6 +18,7 @@ import { IotAlertLogEntity } from "./entities/iot-alert-log.entity";
 import { IotAlertEntity } from "./entities/iot-alert.entity";
 import { IotDeviceEntity } from "./entities/iot-device.entity";
 import { IotRealtimeService } from "./iot-realtime.service";
+import { IotRuleTriggerService } from "./iot-rule-trigger.service";
 
 const ALERT_ENTITY = "iot_alert";
 const DEFAULT_IOT_ALERT_WORK_ORDER_TYPE = "repair";
@@ -23,6 +26,7 @@ const WORK_ORDER_SOURCE_IOT_ALERT = "iot_alert";
 const ACTIVE_STATUSES = ["active", "10"];
 const ACKNOWLEDGED_STATUSES = ["acknowledged", "20"];
 const PROCESSING_STATUSES = ["processing", "30"];
+const RESOLVED_STATUSES = ["resolved", "35"];
 const IGNORABLE_STATUSES = [...ACTIVE_STATUSES, ...ACKNOWLEDGED_STATUSES];
 const CLOSED_STATUSES = ["closed", "40"];
 const IGNORED_STATUSES = ["ignored", "90"];
@@ -95,9 +99,11 @@ export class IotAlertsService {
     private readonly userRepository: Repository<UserEntity>,
     private readonly dataSource: DataSource,
     private readonly workOrdersService: WorkOrdersService,
+    private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
-    private readonly realtimeService: IotRealtimeService
+    private readonly realtimeService: IotRealtimeService,
+    private readonly ruleTriggerService: IotRuleTriggerService
   ) {}
 
   async list(scope: TenantParkScope, query: IotAlertQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<IotAlertView>> {
@@ -129,6 +135,72 @@ export class IotAlertsService {
       .orderBy("log.op_time", "DESC")
       .getMany();
     return rows.map((row) => this.toLogView(row));
+  }
+
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateIotAlertDto): Promise<IotAlertView> {
+    this.assertRequired(dto.device_id, "device_id is required");
+    this.assertRequired(dto.alert_type, "alert_type is required");
+    this.assertRequired(dto.alert_level, "alert_level is required");
+    this.assertRequired(dto.title, "title is required");
+    const device = await this.findDevice(scope, dto.device_id, actor);
+    const generated = await this.codeRulesService.generateNext(scope, actor.sub, "IOT_ALERT_CODE");
+    const now = new Date();
+    const payload = {
+      source_type: dto.source_type ?? "MANUAL",
+      alert_type: dto.alert_type,
+      remark: dto.remark ?? null
+    };
+    const alert = await this.alertRepository.save(
+      this.alertRepository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        code: generated.code,
+        alertCode: generated.code,
+        ruleId: null,
+        deviceId: device.id,
+        deviceCode: device.deviceCode,
+        deviceName: device.deviceName,
+        pointId: null,
+        metricCode: dto.alert_type,
+        metricName: null,
+        alertLevel: dto.alert_level,
+        alertTitle: dto.title,
+        alertContent: dto.description ?? null,
+        triggerValue: null,
+        thresholdValue: null,
+        status: "active",
+        payload,
+        triggerPayload: payload,
+        firstTriggerTime: now,
+        lastTriggerTime: now,
+        buildingId: device.buildingId,
+        floorId: device.floorId,
+        unitId: device.unitId,
+        parkTenantId: device.parkTenantId,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      })
+    );
+    await this.alertLogRepository.save(
+      this.alertLogRepository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        alertId: alert.id,
+        action: "create",
+        beforeStatus: null,
+        afterStatus: alert.status,
+        operatorId: actor.sub,
+        operatorName: this.actorName(actor),
+        content: dto.description ?? dto.title,
+        reason: dto.remark ?? null,
+        opTime: now,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      })
+    );
+    this.realtimeService.publishAlertCreated(alert);
+    await this.ruleTriggerService.handleAlertCreatedOrUpdated(scope, alert, actor);
+    return this.detail(scope, alert.id, actor);
   }
 
   async acknowledge(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: IotAlertActionDto): Promise<IotAlertView> {
@@ -167,7 +239,7 @@ export class IotAlertsService {
     this.assertRequired(closeReason, "close_reason is required");
     return this.transition(scope, actor, id, {
       action: "close",
-      allowed: PROCESSING_STATUSES,
+      allowed: [...PROCESSING_STATUSES, ...RESOLVED_STATUSES],
       afterStatus: "closed",
       content: dto.content ?? closeReason!,
       reason: closeReason,
@@ -176,6 +248,22 @@ export class IotAlertsService {
         alert.closeBy = actor.sub;
         alert.closeByName = this.actorName(actor);
         alert.closeReason = closeReason!;
+      }
+    });
+  }
+
+  async resolve(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: IotAlertActionDto): Promise<IotAlertView> {
+    return this.transition(scope, actor, id, {
+      action: "resolve",
+      allowed: PROCESSING_STATUSES,
+      afterStatus: "resolved",
+      content: dto.content ?? dto.reason ?? "告警已解除",
+      reason: dto.reason ?? null,
+      mutate: (alert, now) => {
+        alert.handleTime = now;
+        alert.handleBy = actor.sub;
+        alert.handleByName = this.actorName(actor);
+        alert.handleNote = dto.content ?? dto.reason ?? null;
       }
     });
   }
@@ -342,6 +430,20 @@ export class IotAlertsService {
     await this.applyDataScope(builder, scope, actor);
     const entity = await builder.getOne();
     if (!entity) throw new NotFoundException("IoT alert not found");
+    return entity;
+  }
+
+  private async findDevice(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<IotDeviceEntity> {
+    const builder = this.deviceRepository
+      .createQueryBuilder("device")
+      .where("device.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("device.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("device.is_deleted = false")
+      .andWhere("device.id = :id", { id });
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "park", "device");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "device", "device", { device: "id" });
+    const entity = await builder.getOne();
+    if (!entity) throw new BadRequestException("device_id is invalid");
     return entity;
   }
 

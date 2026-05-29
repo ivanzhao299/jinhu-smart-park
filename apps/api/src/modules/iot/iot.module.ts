@@ -5,6 +5,9 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { CodeRulesModule } from "../code-rules/code-rules.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { EnergyAlertEntity } from "../energy/entities/energy-alert.entity";
+import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
+import { EnergyReadingEntity } from "../energy/entities/energy-reading.entity";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { FloorEntity } from "../floors/entities/floor.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
@@ -16,12 +19,19 @@ import { IotAlertLogEntity } from "./entities/iot-alert-log.entity";
 import { IotAlertRuleEntity } from "./entities/iot-alert-rule.entity";
 import { IotAlertEntity } from "./entities/iot-alert.entity";
 import { IotDeviceDataEntity } from "./entities/iot-device-data.entity";
+import { IotDeviceHeartbeatEntity } from "./entities/iot-device-heartbeat.entity";
 import { IotDeviceLatestEntity } from "./entities/iot-device-latest.entity";
 import { IotDeviceMetricEntity } from "./entities/iot-device-metric.entity";
 import { IotDeviceEntity } from "./entities/iot-device.entity";
 import { IotGatewayEntity } from "./entities/iot-gateway.entity";
 import { IotMetricEntity } from "./entities/iot-metric.entity";
 import { IotPointEntity } from "./entities/iot-point.entity";
+import { IotProtocolConfigEntity } from "./entities/iot-protocol-config.entity";
+import { IotRuleExecutionLogEntity } from "./entities/iot-rule-execution-log.entity";
+import { IotRuleEntity } from "./entities/iot-rule.entity";
+import { SceneExecutionLogEntity } from "./entities/scene-execution-log.entity";
+import { SceneInstanceEntity } from "./entities/scene-instance.entity";
+import { SceneTemplateEntity } from "./entities/scene-template.entity";
 import { IotDeviceSecretService } from "./iot-device-secret.service";
 import { IotDashboardController } from "./iot-dashboard.controller";
 import { IotDashboardService } from "./iot-dashboard.service";
@@ -39,10 +49,23 @@ import { IotMetricsController } from "./iot-metrics.controller";
 import { IotMetricsService } from "./iot-metrics.service";
 import { IotMqttController } from "./iot-mqtt.controller";
 import { IotMqttService } from "./iot-mqtt.service";
+import { IotProtocolConfigsController } from "./iot-protocol-configs.controller";
+import { IotProtocolConfigsService } from "./iot-protocol-configs.service";
 import { IotRealtimeGateway } from "./iot-realtime.gateway";
 import { IotRealtimeService } from "./iot-realtime.service";
+import { IotRuleEngineService } from "./iot-rule-engine.service";
+import { IotRuleScheduler } from "./iot-rule.scheduler";
+import { IotRuleTriggerService } from "./iot-rule-trigger.service";
+import { IotRulesController } from "./iot-rules.controller";
+import { IotScenesController } from "./iot-scenes.controller";
+import { IotRuntimeService } from "./iot-runtime.service";
+import { IotStatusScheduler } from "./iot-status.scheduler";
 import { MqttIngestService } from "./mqtt-ingest.service";
 import { MqttMessageParser } from "./mqtt-message-parser";
+import { SceneExecutionService } from "./scene-execution.service";
+import { SceneInstancesService } from "./scene-instances.service";
+import { SceneTemplatesService } from "./scene-templates.service";
+import { UnifiedActionExecutorService } from "./unified-action-executor.service";
 
 @Module({
   imports: [
@@ -54,9 +77,19 @@ import { MqttMessageParser } from "./mqtt-message-parser";
       IotPointEntity,
       IotDeviceLatestEntity,
       IotDeviceDataEntity,
+      IotDeviceHeartbeatEntity,
       IotAlertRuleEntity,
       IotAlertEntity,
       IotAlertLogEntity,
+      IotProtocolConfigEntity,
+      IotRuleEntity,
+      IotRuleExecutionLogEntity,
+      SceneTemplateEntity,
+      SceneInstanceEntity,
+      SceneExecutionLogEntity,
+      EnergyMeterEntity,
+      EnergyReadingEntity,
+      EnergyAlertEntity,
       BuildingEntity,
       FloorEntity,
       UnitEntity,
@@ -84,7 +117,10 @@ import { MqttMessageParser } from "./mqtt-message-parser";
     IotAlertsController,
     IotIngestController,
     IotMqttController,
-    IotDashboardController
+    IotDashboardController,
+    IotProtocolConfigsController,
+    IotRulesController,
+    IotScenesController
   ],
   providers: [
     IotGatewaysService,
@@ -98,8 +134,18 @@ import { MqttMessageParser } from "./mqtt-message-parser";
     MqttMessageParser,
     MqttIngestService,
     IotMqttService,
+    IotProtocolConfigsService,
     IotRealtimeService,
-    IotRealtimeGateway
+    IotRealtimeGateway,
+    IotRuleEngineService,
+    IotRuleTriggerService,
+    IotRuleScheduler,
+    UnifiedActionExecutorService,
+    SceneTemplatesService,
+    SceneInstancesService,
+    SceneExecutionService,
+    IotRuntimeService,
+    IotStatusScheduler
   ],
   exports: [
     IotGatewaysService,
@@ -113,7 +159,15 @@ import { MqttMessageParser } from "./mqtt-message-parser";
     MqttMessageParser,
     MqttIngestService,
     IotMqttService,
-    IotRealtimeService
+    IotProtocolConfigsService,
+    IotRealtimeService,
+    IotRuleEngineService,
+    IotRuleTriggerService,
+    UnifiedActionExecutorService,
+    SceneTemplatesService,
+    SceneInstancesService,
+    SceneExecutionService,
+    IotRuntimeService
   ]
 })
 export class IotModule {}

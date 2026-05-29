@@ -17,4 +17,28 @@ export class IotDashboardController {
   dashboard(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
     return this.dashboardService.dashboard(scope, user);
   }
+
+  @Get("overview")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DASHBOARD_READ)
+  overview(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.dashboardService.overview(scope, user);
+  }
+
+  @Get("device-status")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DASHBOARD_READ)
+  deviceStatus(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.dashboardService.deviceStatus(scope, user);
+  }
+
+  @Get("alert-trends")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DASHBOARD_READ)
+  alertTrends(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.dashboardService.alertTrends(scope, user);
+  }
+
+  @Get("realtime-events")
+  @RequirePermissions(SYSTEM_PERMISSIONS.IOT_DASHBOARD_READ)
+  realtimeEvents(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.dashboardService.realtimeEvents(scope, user);
+  }
 }

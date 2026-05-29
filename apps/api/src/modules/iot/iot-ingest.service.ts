@@ -4,6 +4,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Brackets, DataSource, type EntityManager, type Repository } from "typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import { CodeRulesService } from "../code-rules/code-rules.service";
+import { EnergyAlertEntity } from "../energy/entities/energy-alert.entity";
+import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
+import { EnergyReadingEntity } from "../energy/entities/energy-reading.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import type { IotHttpIngestDto, IotMetricPayloadValue } from "./dto/iot-http-ingest.dto";
 import { IotAlertLogEntity } from "./entities/iot-alert-log.entity";
@@ -16,12 +19,20 @@ import { IotGatewayEntity } from "./entities/iot-gateway.entity";
 import { IotPointEntity } from "./entities/iot-point.entity";
 import { IotDeviceSecretService } from "./iot-device-secret.service";
 import { IotRealtimeService } from "./iot-realtime.service";
+import { IotRuleTriggerService } from "./iot-rule-trigger.service";
 
 const MAX_TIMESTAMP_DRIFT_MS = 5 * 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
 const SYSTEM_OPERATOR_ID = "00000000-0000-0000-0000-000000000000";
 const ACTIVE_ALERT_STATUSES = ["active", "acknowledged", "processing", "10", "20", "30"];
 const ALLOWED_QUALITIES = new Set(["good", "bad", "stale", "simulated"]);
+const ENERGY_READING_KEYS_BY_METER_TYPE: Record<string, string[]> = {
+  ELECTRIC: ["energy", "electric_usage", "total_energy", "electric", "reading"],
+  WATER: ["total_volume", "water_usage", "water", "flow_total", "reading"],
+  GAS: ["gas_usage", "total_volume", "gas", "reading"],
+  HEAT: ["heat_usage", "heat", "reading"],
+  OTHER: ["reading", "value"]
+};
 
 interface IngestHeaders {
   deviceCode: string;
@@ -96,7 +107,8 @@ export class IotIngestService {
     private readonly codeRulesService: CodeRulesService,
     private readonly modulesService: SaaSModulesService,
     private readonly deviceSecretService: IotDeviceSecretService,
-    private readonly realtimeService: IotRealtimeService
+    private readonly realtimeService: IotRealtimeService,
+    private readonly ruleTriggerService: IotRuleTriggerService
   ) {}
 
   async ingestHttp(headers: IngestHeaders, dto: IotHttpIngestDto): Promise<IotIngestResult> {
@@ -186,12 +198,20 @@ export class IotIngestService {
       onlineStatus: "online",
       lastDataTime: result.report_time
     });
+    const scope = { tenantId: device.tenantId, parkId: device.parkId };
+    await this.ruleTriggerService.handleMetricReported(scope, device, input.metrics, undefined, {
+      quality,
+      reported_at: result.report_time,
+      source_type: input.source_type ?? null,
+      raw_payload: input.raw_payload ?? {}
+    });
     for (const item of persistResult.alerts) {
       if (item.created) {
         this.realtimeService.publishAlertCreated(item.alert);
       } else {
         this.realtimeService.publishAlertUpdated(item.alert);
       }
+      await this.ruleTriggerService.handleAlertCreatedOrUpdated(scope, item.alert);
     }
     return result;
   }
@@ -385,6 +405,8 @@ export class IotIngestService {
         );
       }
 
+      await this.syncEnergyReadings(manager, scope, device, matched, rawPayload, reportTime);
+
       await deviceRepository.update(
         { id: device.id, tenantId: device.tenantId, parkId: device.parkId, isDeleted: false },
         {
@@ -406,6 +428,115 @@ export class IotIngestService {
       const alerts = await this.evaluateAlertRules(manager, scope, device, matched, rawPayload, reportTime);
       return { alertCount: alerts.length, alerts };
     });
+  }
+
+  private async syncEnergyReadings(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    device: IotDeviceEntity,
+    matched: MatchedMetric[],
+    rawPayload: Record<string, unknown>,
+    reportTime: Date
+  ): Promise<void> {
+    const meterRepository = manager.getRepository(EnergyMeterEntity);
+    const readingRepository = manager.getRepository(EnergyReadingEntity);
+    const meters = await meterRepository.find({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        iotDeviceId: device.id,
+        isDeleted: false,
+        isEnabled: true
+      }
+    });
+    if (meters.length === 0) return;
+
+    for (const meter of meters) {
+      if (meter.status === "DISABLED") continue;
+      const readingMetric = this.resolveEnergyReadingMetric(meter, matched);
+      if (!readingMetric?.valueNumber) continue;
+
+      const previous = Number(meter.currentReading ?? meter.initialReading ?? 0);
+      const current = Number(readingMetric.valueNumber);
+      if (!Number.isFinite(current)) continue;
+      const multiplier = Number(meter.multiplier ?? 1);
+      const abnormal = current < previous;
+      const consumption = abnormal ? 0 : (current - previous) * multiplier;
+      const existing = await readingRepository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          meterId: meter.id,
+          iotDeviceId: device.id,
+          readingSource: "IOT",
+          readingTime: reportTime
+        }
+      });
+      if (existing) continue;
+
+      const reading = readingRepository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        meterId: meter.id,
+        iotDeviceId: device.id,
+        readingValue: current.toFixed(4),
+        previousReadingValue: previous.toFixed(4),
+        consumptionValue: consumption.toFixed(4),
+        readingTime: reportTime,
+        readingSource: "IOT",
+        confirmationStatus: abnormal ? "ABNORMAL" : "PENDING",
+        rawPayload: {
+          ...rawPayload,
+          matched_metric: {
+            key: readingMetric.key,
+            metric_code: readingMetric.point.metricCode ?? readingMetric.point.pointCode,
+            point_id: readingMetric.point.id
+          }
+        },
+        createdBy: null
+      });
+      await readingRepository.save(reading);
+
+      if (abnormal) {
+        const generated = await this.codeRulesService.generateNext(scope, SYSTEM_OPERATOR_ID, "ENERGY_ALERT_CODE");
+        const alertRepository = manager.getRepository(EnergyAlertEntity);
+        await alertRepository.save(
+          alertRepository.create({
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            meterId: meter.id,
+            alertCode: generated.code,
+            alertType: "REVERSE_READING",
+            alertLevel: "HIGH",
+            title: `${meter.meterName} IoT 读数倒挂`,
+            description: `IoT 上报读数 ${current} 小于上一期读数 ${previous}，已进入异常口径，不参与确认统计。`,
+            triggeredAt: reportTime,
+            processStatus: "PENDING",
+            createBy: null,
+            updateBy: null,
+            remark: "S9-E IoT energy reading bridge"
+          })
+        );
+      }
+    }
+  }
+
+  private resolveEnergyReadingMetric(meter: EnergyMeterEntity, matched: MatchedMetric[]): MatchedMetric | null {
+    const numericMatched = matched.filter((item) => item.valueNumber !== null);
+    if (numericMatched.length === 0) return null;
+    const candidates = ENERGY_READING_KEYS_BY_METER_TYPE[meter.meterType] ?? ENERGY_READING_KEYS_BY_METER_TYPE.OTHER ?? ["reading", "value"];
+    for (const candidate of candidates) {
+      const normalizedCandidate = candidate.toLowerCase();
+      const found = numericMatched.find((item) => {
+        const metricCode = item.point.metricCode?.toLowerCase();
+        const pointCode = item.point.pointCode.toLowerCase();
+        const reportKey = item.point.reportKey?.toLowerCase();
+        const payloadKey = item.key.toLowerCase();
+        return [metricCode, pointCode, reportKey, payloadKey].includes(normalizedCandidate);
+      });
+      if (found) return found;
+    }
+    return numericMatched.length === 1 ? numericMatched[0]! : null;
   }
 
   private async upsertLatest(
