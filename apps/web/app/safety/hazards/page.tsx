@@ -848,7 +848,7 @@ export default function SafetyHazardsPage() {
               description="重大风险需要维护整改期限，照片可先上传后随表单保存。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="隐患编号">
                   <input value={form.hazardCode} onChange={(event) => setFormValue("hazardCode", event.target.value)} placeholder="留空自动生成" />
@@ -1031,7 +1031,7 @@ export default function SafetyHazardsPage() {
               description="指定整改责任人和整改期限，下达后隐患进入已下发整改状态。"
               onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitAssign(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssign(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SelectRefField label="整改责任人" value={assignForm.rectifyUserId} allLabel="请选择责任人" items={users.map((item) => ({ id: item.id, label: displayUserName(item) }))} onChange={(value) => setAssignForm((current) => ({ ...current, rectifyUserId: value }))} />
                 <Field label="整改期限">
@@ -1059,7 +1059,7 @@ export default function SafetyHazardsPage() {
               description="提交整改说明并上传至少一张整改后照片，提交后隐患进入已整改状态。"
               onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitRectify(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRectify(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="整改说明">
                   <textarea required value={rectifyForm.rectifyNote} onChange={(event) => setRectifyForm((current) => ({ ...current, rectifyNote: event.target.value }))} placeholder="请填写实际整改情况" />
@@ -1085,7 +1085,7 @@ export default function SafetyHazardsPage() {
               description={rechecking.result === "pass" ? "通过后隐患将直接闭环。" : "不通过后隐患将退回整改中。"}
               onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitRecheck(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRecheck(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="复查说明">
                   <textarea required value={recheckForm.reason} onChange={(event) => setRecheckForm({ reason: event.target.value })} placeholder="请填写现场复查结论" />
@@ -1107,7 +1107,7 @@ export default function SafetyHazardsPage() {
               description="退回后隐患状态回到整改中，整改责任人可重新提交整改。"
               onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitRejectRectify(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRejectRectify(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="退回原因">
                   <textarea required value={rejectForm.reason} onChange={(event) => setRejectForm({ reason: event.target.value })} placeholder="请说明整改不通过原因" />
@@ -1129,7 +1129,7 @@ export default function SafetyHazardsPage() {
               description="关闭后隐患进入闭环状态，不能重复关闭。"
               onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitClose(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitClose(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="关闭原因">
                   <textarea required value={closeFormState.reason} onChange={(event) => setCloseFormState({ reason: event.target.value })} placeholder="请填写关闭原因" />
@@ -1151,7 +1151,7 @@ export default function SafetyHazardsPage() {
               description="创建后工单来源为巡检，隐患会标记为已转工单并保留关联入口。"
               onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="工单标题">
                   <input required value={createWorkOrderForm.title} onChange={(event) => setCreateWorkOrderForm((current) => ({ ...current, title: event.target.value }))} />
@@ -1181,7 +1181,7 @@ export default function SafetyHazardsPage() {
               description="创建后应急事件保留隐患来源，隐患状态更新为已转应急。"
               onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}
             />
-            <DrawerForm onSubmit={(event) => void submitCreateEmergency(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateEmergency(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SelectField label="事件类型" value={createEmergencyForm.incidentType} items={emergencyIncidentItems} allLabel="请选择事件类型" required onChange={(value) => setCreateEmergencyForm((current) => ({ ...current, incidentType: value }))} />
                 <SelectField label="严重等级" value={createEmergencyForm.severityLevel} items={emergencySeverityItems} allLabel="请选择严重等级" required onChange={(value) => setCreateEmergencyForm((current) => ({ ...current, severityLevel: value }))} />

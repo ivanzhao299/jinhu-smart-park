@@ -264,7 +264,7 @@ export default function EnergyMetersPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader eyebrow="能源表计" title={editing ? "编辑表计" : "新增表计"} description="租户表计必须关联租户企业；公共表计可为空。" onClose={closeForm} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="表计名称"><input required value={form.meterName} onChange={(event) => setForm((current) => ({ ...current, meterName: event.target.value }))} /></Field>
                 <SelectField required label="表计类型" value={form.meterType} items={dicts.energy_meter_type ?? []} allLabel="请选择类型" onChange={(value) => setForm((current) => ({ ...current, meterType: value }))} />

@@ -317,7 +317,7 @@ export default function SafetyEmergencyContactsPage() {
               description="手机号为敏感字段，返回和展示会按字段权限处理。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="联系人编码">
                   <input value={form.contactCode} onChange={(event) => setFormValue("contactCode", event.target.value)} placeholder="留空自动生成" />

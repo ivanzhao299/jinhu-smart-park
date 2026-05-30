@@ -410,7 +410,7 @@ export default function IotAlertRulesPage() {
               description="规则可绑定设备类型、具体设备或点位；设备上报后由统一 ingest 链路评估。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="规则编码">
                   <input value={form.ruleCode} onChange={(event) => setForm((current) => ({ ...current, ruleCode: event.target.value }))} placeholder="留空自动生成" />

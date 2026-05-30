@@ -191,7 +191,7 @@ export default function EnergyReadingsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader eyebrow="能源读数" title="录入读数" description="确认前读数不会进入后续结算口径；倒表读数会被标记异常。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="表计"><select required value={form.meterId} onChange={(event) => setForm((current) => ({ ...current, meterId: event.target.value }))}><option value="">请选择表计</option>{meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.meterCode} · {meter.meterName}</option>)}</select></Field>
                 <Field label="本期读数"><input required type="number" min="0" step="0.0001" value={form.readingValue} onFocus={(event) => event.target.select()} onChange={(event) => setForm((current) => ({ ...current, readingValue: event.target.value }))} /></Field>

@@ -393,7 +393,7 @@ export default function IotScenesPage() {
               description="场景可以直接配置动作，也可以关联 IoT 规则；触发结果会写入执行日志。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <TemplateSelect value={form.templateId} templates={templates} onChange={(templateId) => {
                   const template = templates.find((item) => item.id === templateId);

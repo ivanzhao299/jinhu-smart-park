@@ -421,7 +421,7 @@ export default function IotRulesPage() {
               description="条件与动作使用 JSON 配置，后端会校验允许的动作类型并拒绝任意代码执行。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="规则编码">
                   <input value={form.ruleCode} onChange={(event) => setForm((current) => ({ ...current, ruleCode: event.target.value }))} placeholder="留空自动生成" />
@@ -468,7 +468,7 @@ export default function IotRulesPage() {
               description="手动模拟触发载荷，执行结果会写入规则执行日志。"
               onClose={() => setTestOpen(false)}
             />
-            <DrawerForm onSubmit={(event) => void runTest(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void runTest(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="测试载荷 JSON">
                   <textarea required value={testPayload} onChange={(event) => setTestPayload(event.target.value)} />

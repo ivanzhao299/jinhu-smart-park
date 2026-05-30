@@ -152,7 +152,7 @@ export default function EnergyAlertsPage() {
         {actionState ? (
           <Drawer size="md" onClose={() => setActionState(null)}>
             <DrawerHeader eyebrow="能源告警" title={actionLabel(actionState.action, false)} description={actionState.row.title} onClose={() => setActionState(null)} />
-            <DrawerForm onSubmit={(event) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="告警编号"><input readOnly value={actionState.row.alertCode} /></Field>
                 {actionState.action === "close" ? (

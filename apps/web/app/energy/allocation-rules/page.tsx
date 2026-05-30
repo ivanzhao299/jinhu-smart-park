@@ -205,7 +205,7 @@ export default function EnergyAllocationRulesPage() {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader eyebrow="能耗分摊" title={editing ? "编辑分摊规则" : "新增分摊规则"} description="规则计算时会保存配置快照，确保历史账单可追溯。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="规则名称"><input required value={form.ruleName} onChange={(event) => setForm((current) => ({ ...current, ruleName: event.target.value }))} /></Field>
                 <SelectField required label="表计类型" value={form.meterType} items={dicts.energy_meter_type ?? []} allLabel="请选择类型" onChange={(value) => setForm((current) => ({ ...current, meterType: value }))} />

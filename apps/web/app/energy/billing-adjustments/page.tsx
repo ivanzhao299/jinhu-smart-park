@@ -165,7 +165,7 @@ export default function EnergyBillingAdjustmentsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader eyebrow="能源账单" title="新增调整或红冲" description="红冲自动按原账单最终金额取负数；补差可正可负。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="账单项 ID"><input required value={form.billingItemId} onChange={(event) => setForm((current) => ({ ...current, billingItemId: event.target.value }))} /></Field>
                 <Field label="调整类型"><select value={form.adjustmentType} onChange={(event) => setForm((current) => ({ ...current, adjustmentType: event.target.value as AdjustmentForm["adjustmentType"] }))}><option value="ADJUSTMENT">补差</option><option value="REVERSAL">红冲</option></select></Field>

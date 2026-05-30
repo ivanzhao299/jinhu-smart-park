@@ -727,7 +727,7 @@ export default function SafetyEmergenciesPage() {
               description="本轮仅做站内业务留痕，不发送真实短信、企微或邮件。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 {!sosMode ? (
                   <Field label="事件编号">
@@ -937,7 +937,7 @@ export default function SafetyEmergenciesPage() {
               description={actionModeDescription(acting.mode)}
               onClose={closeAction}
             />
-            <DrawerForm onSubmit={(event) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 {acting.mode === "review" ? (
                   <>
@@ -974,7 +974,7 @@ export default function SafetyEmergenciesPage() {
               description={viewing.emergencyCode}
               onClose={closeTimelineLog}
             />
-            <DrawerForm onSubmit={(event) => void submitTimelineLog(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitTimelineLog(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="处置内容">
                   <textarea
@@ -1041,7 +1041,7 @@ export default function SafetyEmergenciesPage() {
               description={`${creatingWorkOrder.emergencyCode} · 创建后会写入工单日志和事件时间线`}
               onClose={closeCreateWorkOrder}
             />
-            <DrawerForm onSubmit={(event) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="工单标题">
                   <input

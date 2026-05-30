@@ -335,7 +335,7 @@ export default function IotGatewaysPage() {
               description="密钥只写入不回显，端点地址和访问 Key 会按字段权限脱敏。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="网关编码">
                   <input value={form.gatewayCode} onChange={(event) => setFormValue("gatewayCode", event.target.value)} placeholder="留空自动生成" />

@@ -1313,7 +1313,7 @@ export default function LeasingLeadsPage() {
                 closeIcon={<X size={18} />}
                 onClose={() => setShowForm(false)}
               />
-              <DrawerForm onSubmit={(event) => void submit(event)}>
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submit(event)}>
                 <DrawerSection title="客户信息">
                   <DrawerFormGrid>
                     <TextField label="线索编码" value={form.leadCode} onChange={(value) => setFormValue("leadCode", value, setForm)} placeholder="留空自动生成" />

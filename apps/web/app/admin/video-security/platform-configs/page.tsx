@@ -309,7 +309,7 @@ export default function VideoPlatformConfigsPage() {
               description="密钥、Token 保存时会加密处理，编辑时留空表示不修改。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SelectField label="平台类型" required value={form.platformType} items={platformTypes} allLabel="请选择平台" onChange={(value) => setFormValue("platformType", value)} />
                 <Field label="平台名称" required>

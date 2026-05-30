@@ -395,7 +395,7 @@ export default function SafetyInspectTemplatesPage() {
         {(templateForm !== emptyTemplateForm || editingTemplate) ? (
           <Drawer size="md" onClose={() => { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); }}>
             <DrawerHeader title={editingTemplate ? "编辑巡检模板" : "新增巡检模板"} description="模板定义巡检任务要执行的一组检查项。" onClose={() => { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); }} />
-            <DrawerForm onSubmit={(event) => void saveTemplate(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveTemplate(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="模板编码">
                   <input value={templateForm.templateCode} onChange={(event) => setTemplateFormValue("templateCode", event.target.value)} placeholder="留空自动生成" />
@@ -491,7 +491,7 @@ export default function SafetyInspectTemplatesPage() {
             </DataTable>
 
             {(itemForm !== emptyItemForm || editingItem) ? (
-              <DrawerForm onSubmit={(event) => void saveItem(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveItem(event).catch((error: Error) => setMessage(error.message))}>
                 <DrawerFormGrid>
                   <Field label="检查项编码">
                     <input value={itemForm.itemCode} onChange={(event) => setItemFormValue("itemCode", event.target.value)} placeholder="留空自动生成" />

@@ -348,7 +348,7 @@ export default function VideoAlertsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader title="新增视频告警" description="人工补登记视频异常或安防事件。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void submitForm(event)}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitForm(event)}>
               <DrawerFormGrid>
                 <label>摄像头<select required value={form.cameraId} onChange={(event) => setForm({ ...form, cameraId: event.target.value })}><option value="">请选择</option>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.cameraName}</option>)}</select></label>
                 <label>告警类型<select value={form.alertType} onChange={(event) => setForm({ ...form, alertType: event.target.value })}>{alertTypes.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></label>

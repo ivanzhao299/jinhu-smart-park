@@ -292,7 +292,7 @@ export default function IotMetricsPage() {
               description="指标可复用于同类型设备，枚举映射使用 JSON 对象保存。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="指标编码">
                   <input value={form.metricCode} onChange={(event) => setForm((current) => ({ ...current, metricCode: event.target.value }))} placeholder="留空自动生成" />

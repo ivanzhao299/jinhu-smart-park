@@ -536,7 +536,7 @@ export default function VideoCameraPage() {
             description="维护设备台账、安装位置和视频流配置。"
             onClose={closeForm}
           />
-          <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+          <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
             <DrawerFormGrid>
               <Field label="摄像头编号">
                 <input value={form.cameraCode} onChange={(event) => setFormValue("cameraCode", event.target.value)} placeholder="留空自动生成" />

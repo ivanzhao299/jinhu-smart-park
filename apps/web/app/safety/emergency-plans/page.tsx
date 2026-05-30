@@ -323,7 +323,7 @@ export default function SafetyEmergencyPlansPage() {
               description="预案步骤可逐行填写，保存时会转换为结构化步骤数组。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="预案编码">
                   <input value={form.planCode} onChange={(event) => setFormValue("planCode", event.target.value)} placeholder="留空自动生成" />

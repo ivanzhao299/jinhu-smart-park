@@ -579,7 +579,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader title="新增巡检任务" description="可手工指定模板、点位和责任人，计划任务建议从巡检计划生成。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void saveTask(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveTask(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="任务编号">
                   <input value={form.taskCode} onChange={(event) => setFormValue("taskCode", event.target.value)} placeholder="留空自动生成" />
@@ -609,7 +609,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         {generateOpen ? (
           <Drawer size="md" onClose={() => setGenerateOpen(false)}>
             <DrawerHeader title="按计划生成巡检任务" description="同一计划、点位和计划时间不会重复生成。" onClose={() => setGenerateOpen(false)} />
-            <DrawerForm onSubmit={(event) => void generateTasks(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void generateTasks(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SimpleSelect label="巡检计划" required value={generateForm.planId} allLabel="请选择计划" options={plans.map((item) => ({ value: item.id, label: `${item.planCode} ${item.planName}` }))} onChange={(value) => setGenerateForm((current) => ({ ...current, planId: value }))} />
                 <Field label="计划时间">
@@ -719,7 +719,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 开始任务
               </PermissionButton>
             </DrawerFooter>
-            <DrawerForm onSubmit={(event) => void checkIn(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void checkIn(event).catch((error: Error) => setMessage(error.message))}>
               <h3>扫码 / 定位 / 拍照</h3>
               <DrawerFormGrid>
                 <Field label="二维码">
@@ -743,7 +743,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 <button className="primary-button" type="submit">提交打卡</button>
               </DrawerFooter>
             </DrawerForm>
-            <DrawerForm onSubmit={(event) => void submitResults(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitResults(event).catch((error: Error) => setMessage(error.message))}>
               <h3>检查项结果</h3>
               <DataTable>
                 <thead>

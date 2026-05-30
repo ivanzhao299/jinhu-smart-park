@@ -914,7 +914,7 @@ export default function WorkOrdersListPage() {
               onClose={() => setShowForm(false)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <TextField label="工单编号" value={form.woCode} placeholder="留空自动生成" onChange={(value) => setForm((current) => ({ ...current, woCode: value }))} />
                 <TextField label="标题" value={form.title} required onChange={(value) => setForm((current) => ({ ...current, title: value }))} />
@@ -1145,7 +1145,7 @@ export default function WorkOrdersListPage() {
               onClose={() => setAssignment(null)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="处理人">
                   <select required value={assignmentForm.assigneeId} onChange={(event) => setAssignmentForm((current) => ({ ...current, assigneeId: event.target.value }))}>
@@ -1177,7 +1177,7 @@ export default function WorkOrdersListPage() {
               onClose={() => setProcessAction(null)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submitProcessAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitProcessAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 {processAction.mode === "wait-material" ? (
                   <TextAreaField
@@ -1225,7 +1225,7 @@ export default function WorkOrdersListPage() {
               onClose={() => setClosureAction(null)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submitClosureAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitClosureAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 {closureAction.mode === "confirm" ? (
                   <TextAreaField
@@ -1284,7 +1284,7 @@ export default function WorkOrdersListPage() {
               onClose={() => setExceptionAction(null)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submitExceptionAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitExceptionAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <TextAreaField
                   label={exceptionAction.mode === "cancel" ? "取消原因" : exceptionAction.mode === "return" ? "退回原因" : "驳回原因"}

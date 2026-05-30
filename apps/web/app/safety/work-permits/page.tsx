@@ -685,7 +685,7 @@ export default function SafetyWorkPermitsPage() {
               description="高风险作业必须指定监护人，同区域同时间窗会进行冲突校验。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="许可编号">
                   <input value={form.permitCode} onChange={(event) => setFormValue("permitCode", event.target.value)} placeholder="留空自动生成" />
@@ -853,7 +853,7 @@ export default function SafetyWorkPermitsPage() {
               description={`${actionTarget.permitCode} · 当前状态 ${labelFor(statusItems, actionTarget.status)}`}
               onClose={closeAction}
             />
-            <DrawerForm onSubmit={(event) => void submitPermitAction(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitPermitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 {actionType === "reject" ? (
                   <Field label="驳回原因">

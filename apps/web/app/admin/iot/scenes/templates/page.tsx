@@ -255,7 +255,7 @@ export default function IotSceneTemplatesPage() {
         {formOpen ? (
           <Drawer size="lg" onClose={closeForm}>
             <DrawerHeader eyebrow="场景模板" title={editing ? "编辑模板" : "新增模板"} description="模板保存触发配置和动作配置，复制后可以生成具体园区场景。" onClose={closeForm} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="模板编码">
                   <input value={form.sceneCode} onChange={(event) => setForm((current) => ({ ...current, sceneCode: event.target.value }))} placeholder="留空自动生成" />

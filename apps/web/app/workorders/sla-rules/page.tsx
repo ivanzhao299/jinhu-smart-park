@@ -297,7 +297,7 @@ export default function WorkOrderSlaRulesPage() {
               onClose={() => setShowForm(false)}
               closeIcon={<X size={16} />}
             />
-            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SelectField label="工单类型" value={form.woType} required items={typeItems} onChange={(value) => setForm((current) => ({ ...current, woType: value }))} />
                 <SelectField label="紧急程度" value={form.urgency} required items={urgencyItems} onChange={(value) => setForm((current) => ({ ...current, urgency: value }))} />

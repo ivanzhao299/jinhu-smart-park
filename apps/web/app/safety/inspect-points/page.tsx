@@ -429,7 +429,7 @@ export default function SafetyInspectPointsPage() {
         {(form !== emptyForm || editing) ? (
           <Drawer size="lg" onClose={() => { setEditing(null); setForm(emptyForm); }}>
             <DrawerHeader title={editing ? "编辑巡检点位" : "新增巡检点位"} description="点位可关联资产、租户企业和公共区域，二维码内容可自动使用点位编码。" onClose={() => { setEditing(null); setForm(emptyForm); }} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="点位编码">
                   <input value={form.pointCode} onChange={(event) => setFormValue("pointCode", event.target.value)} placeholder="留空自动生成" />

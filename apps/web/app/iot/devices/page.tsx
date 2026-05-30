@@ -751,7 +751,7 @@ export default function IotDevicesPage() {
               description="设备密钥不在表单中回显，创建后可通过重置密钥获取一次性明文。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="设备编码">
                   <input value={form.deviceCode} onChange={(event) => setFormValue("deviceCode", event.target.value)} placeholder="留空自动生成" />
@@ -1076,7 +1076,7 @@ export default function IotDevicesPage() {
               description={`${viewing.deviceCode} · ${viewing.deviceName}`}
               onClose={closePointForm}
             />
-            <DrawerForm onSubmit={(event) => void savePoint(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void savePoint(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="点位编码">
                   <input value={pointForm.pointCode} onChange={(event) => setPointFormValue("pointCode", event.target.value)} placeholder="留空自动生成" />

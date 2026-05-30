@@ -405,7 +405,7 @@ export default function SafetyInspectPlansPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader title={editing ? "编辑巡检计划" : "新增巡检计划"} description="计划启用后可由后续任务生成器按频率生成巡检任务。" onClose={closeForm} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="计划编码">
                   <input value={form.planCode} onChange={(event) => setFormValue("planCode", event.target.value)} placeholder="留空自动生成" />

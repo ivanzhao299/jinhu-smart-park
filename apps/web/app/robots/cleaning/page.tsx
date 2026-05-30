@@ -370,7 +370,7 @@ export default function CleaningRobotsPage() {
               description="AppKey、AppSecret 和回调 Token 会加密保存，前端不会回显明文。"
               onClose={() => setConfigOpen(false)}
             />
-            <DrawerForm onSubmit={(event) => void saveConfig(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveConfig(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="配置名称">
                   <input required value={configForm.config_name} onChange={(event) => setConfigFormValue("config_name", event.target.value)} />
@@ -415,7 +415,7 @@ export default function CleaningRobotsPage() {
               description="控制指令会直接调用萤石开放平台，请谨慎操作。"
               onClose={() => setCommandTarget(null)}
             />
-            <DrawerForm onSubmit={(event) => void runControl(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void runControl(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="控制命令">
                   <select value={command} onChange={(event) => setCommand(event.target.value)}>

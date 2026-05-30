@@ -167,7 +167,7 @@ export default function EnergyBillingCyclesPage() {
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
             <DrawerHeader eyebrow="能源账期" title="新增账期" description="账期计算只读取已确认能源读数。" onClose={() => setFormOpen(false)} />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="账期名称"><input required value={form.cycleName} onChange={(event) => setForm((current) => ({ ...current, cycleName: event.target.value }))} /></Field>
                 <SelectField required label="表计类型" value={form.meterType} items={dicts.energy_meter_type ?? []} allLabel="请选择类型" onChange={(value) => setForm((current) => ({ ...current, meterType: value }))} />
