@@ -46,6 +46,7 @@ import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
 import { VideoCamerasModule } from "./modules/video-cameras/video-cameras.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
+import { HealthController } from "./health.controller";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 import { AuditLogInterceptor } from "./shared/interceptors/audit-log.interceptor";
@@ -150,6 +151,7 @@ import { PermissionGuard } from "./shared/guards/permission.guard";
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor
     }
-  ]
+  ],
+  controllers: [HealthController]
 })
 export class AppModule {}

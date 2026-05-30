@@ -42,6 +42,10 @@
     "db:seed": "sh scripts/db-seed-prod.sh",
     "db:seed:dev": "sh scripts/db-seed-dev.sh",
     "db:seed:prod": "sh scripts/db-seed-prod.sh",
+    "prod:deploy": "sh scripts/prod-deploy.sh",
+    "prod:health": "sh scripts/prod-healthcheck.sh",
+    "prod:up": "docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml up -d",
+    "prod:down": "docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml down",
     "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "devDependencies": {
