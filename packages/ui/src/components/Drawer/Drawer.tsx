@@ -12,6 +12,8 @@ import styles from './Drawer.module.css';
 export interface DrawerProps extends HTMLAttributes<HTMLElement> {
   size?: 'md' | 'lg' | 'xl' | 'auto';
   as?: 'aside' | 'div' | 'section';
+  children?: ReactNode;
+  className?: string;
   onClose?: () => void;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
