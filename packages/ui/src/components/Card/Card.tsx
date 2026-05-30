@@ -4,6 +4,7 @@ import styles from './Card.module.css';
 export interface CardProps extends HTMLAttributes<HTMLElement> {
   as?: 'article' | 'div' | 'main' | 'section';
   children?: ReactNode;
+  className?: string;
 }
 
 export function Card({ className = '', as = 'div', ...props }: CardProps) {
