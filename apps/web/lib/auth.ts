@@ -7,6 +7,8 @@ const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
 
+let currentUserRequest: Promise<UserContext> | null = null;
+
 export function getToken(): string {
   if (typeof window === "undefined") {
     return "";
@@ -57,6 +59,7 @@ export function setRefreshToken(token: string): void {
 }
 
 export function clearSession(): void {
+  currentUserRequest = null;
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
@@ -70,8 +73,16 @@ export async function fetchCurrentUser(): Promise<UserContext> {
   if (!token) {
     throw new Error("Unauthorized");
   }
-  const response = await apiRequest<UserContext>("/users/me", { token });
-  sessionStorage.setItem(USER_KEY, JSON.stringify(response.data));
-  localStorage.setItem(USER_KEY, JSON.stringify(response.data));
-  return response.data;
+  if (!currentUserRequest) {
+    currentUserRequest = apiRequest<UserContext>("/users/me", { token })
+      .then((response) => {
+        sessionStorage.setItem(USER_KEY, JSON.stringify(response.data));
+        localStorage.setItem(USER_KEY, JSON.stringify(response.data));
+        return response.data;
+      })
+      .finally(() => {
+        currentUserRequest = null;
+      });
+  }
+  return currentUserRequest;
 }

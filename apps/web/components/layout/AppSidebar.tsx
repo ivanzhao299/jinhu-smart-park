@@ -3,7 +3,7 @@
 import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "../../lib/auth-context";
 import { getDashboardMenus, type MenuNode } from "../../lib/menu";
@@ -16,6 +16,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const user = useAuthUser();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -47,6 +48,12 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   }, [menus, pathname]);
 
   const isPreviewing = collapsed && previewOpen;
+  const prefetchRoute = (href?: string) => {
+    if (!href) {
+      return;
+    }
+    router.prefetch(href as Route);
+  };
   const toggleGroup = (label: string) => {
     if (collapsed && !isPreviewing) {
       setPreviewOpen(true);
@@ -115,6 +122,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             menu={menu}
             pathname={pathname}
             open={openGroup === menu.label}
+            onPrefetch={prefetchRoute}
             onToggle={() => toggleGroup(menu.label)}
           />
         ))}
@@ -127,12 +135,14 @@ function MenuGroup({
   menu,
   pathname,
   open,
-  onToggle
+  onToggle,
+  onPrefetch
 }: {
   menu: MenuNode;
   pathname: string;
   open: boolean;
   onToggle: () => void;
+  onPrefetch: (href?: string) => void;
 }) {
   const Icon = menu.icon;
   if (!menu.children?.length) {
@@ -141,7 +151,12 @@ function MenuGroup({
     }
     return (
       <section className="menu-group">
-        <Link className={`menu-group-title${isChildActive(pathname, menu.href, true) ? " active" : ""}`} href={menu.href as Route}>
+        <Link
+          className={`menu-group-title${isChildActive(pathname, menu.href, true) ? " active" : ""}`}
+          href={menu.href as Route}
+          onFocus={() => onPrefetch(menu.href)}
+          onMouseEnter={() => onPrefetch(menu.href)}
+        >
           {Icon ? <Icon className="menu-group-icon" size={18} /> : null}
           <span>{menu.label}</span>
         </Link>
@@ -163,6 +178,8 @@ function MenuGroup({
               className={`nav-link${isActive ? " active" : ""}`}
               href={(child.href ?? "/dashboard") as Route}
               key={child.href}
+              onFocus={() => onPrefetch(child.href)}
+              onMouseEnter={() => onPrefetch(child.href)}
               tabIndex={open ? undefined : -1}
             >
               {child.label}

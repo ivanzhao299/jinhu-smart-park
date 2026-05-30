@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "../components/theme/ThemeProvider";
 import { DesignSystemProvider } from "../components/theme/DesignSystemProvider";
+import { QueryProvider } from "../components/runtime/QueryProvider";
 import "antd/dist/reset.css";
 import "./globals.css";
 
@@ -44,7 +45,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body>
         <ThemeProvider>
-          <DesignSystemProvider>{children}</DesignSystemProvider>
+          <QueryProvider>
+            <DesignSystemProvider>{children}</DesignSystemProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

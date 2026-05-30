@@ -20,8 +20,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<UserContext | null>(getStoredUser());
-  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<UserContext | null>(() => getStoredUser());
+  const [ready, setReady] = useState(() => Boolean(getToken() && getStoredUser()));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -30,6 +30,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       clearSession();
       router.replace("/login");
       return;
+    }
+    const storedUser = getStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+      setReady(true);
     }
     fetchCurrentUser()
       .then((currentUser) => {
@@ -55,15 +60,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const requiredMenu = useMemo(() => findMenuByPath(pathname, menus), [menus, pathname]);
 
   useEffect(() => {
-    if (ready && requiredMenu && !hasPermission(user, requiredMenu.permission)) {
+    if (!ready || !user) {
+      return;
+    }
+    if (requiredMenu && !hasPermission(user, requiredMenu.permission)) {
       router.replace("/403");
     }
-    if (ready && requiredMenu && hasPermission(user, requiredMenu.permission) && !hasModule(user, requiredMenu.module)) {
+    if (requiredMenu && hasPermission(user, requiredMenu.permission) && !hasModule(user, requiredMenu.module)) {
       router.replace("/403?reason=module");
     }
   }, [ready, requiredMenu, router, user]);
 
-  if (!ready) {
+  if (!ready || !user) {
     return <main className="content">加载中...</main>;
   }
 
