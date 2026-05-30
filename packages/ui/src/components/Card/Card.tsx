@@ -1,8 +1,9 @@
-import { type HTMLAttributes } from 'react';
+import { type HTMLAttributes, type ReactNode } from 'react';
 import styles from './Card.module.css';
 
 export interface CardProps extends HTMLAttributes<HTMLElement> {
   as?: 'article' | 'div' | 'main' | 'section';
+  children?: ReactNode;
 }
 
 export function Card({ className = '', as = 'div', ...props }: CardProps) {
