@@ -9,6 +9,16 @@ import {
 } from 'react';
 import styles from './Drawer.module.css';
 
+type DivPropsWithChildren = HTMLAttributes<HTMLDivElement> & {
+  children?: ReactNode;
+  className?: string;
+};
+
+type FormPropsWithChildren = FormHTMLAttributes<HTMLFormElement> & {
+  children?: ReactNode;
+  className?: string;
+};
+
 export interface DrawerProps extends HTMLAttributes<HTMLElement> {
   size?: 'md' | 'lg' | 'xl' | 'auto';
   as?: 'aside' | 'div' | 'section';
@@ -65,6 +75,7 @@ export interface DrawerHeaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
+  className?: string;
   onClose?: () => void;
   closeIcon?: ReactNode;
   closeLabel?: string;
@@ -96,16 +107,18 @@ export function DrawerHeader({
   );
 }
 
-export function DrawerActions({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+export function DrawerActions({ className = '', ...props }: DivPropsWithChildren) {
   return <div className={[styles.drawerActions, className].filter(Boolean).join(' ')} {...props} />;
 }
 
-export function DrawerTabs({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+export function DrawerTabs({ className = '', ...props }: DivPropsWithChildren) {
   return <div className={[styles.drawerTabs, className].filter(Boolean).join(' ')} {...props} />;
 }
 
 export interface DrawerTabButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
+  children?: ReactNode;
+  className?: string;
 }
 
 export function DrawerTabButton({ className = '', active = false, ...props }: DrawerTabButtonProps) {
@@ -118,12 +131,14 @@ export function DrawerTabButton({ className = '', active = false, ...props }: Dr
   return <button className={classNames} type="button" {...props} />;
 }
 
-export function DrawerForm({ className = '', ...props }: FormHTMLAttributes<HTMLFormElement>) {
+export function DrawerForm({ className = '', ...props }: FormPropsWithChildren) {
   return <form className={[styles.drawerForm, className].filter(Boolean).join(' ')} {...props} />;
 }
 
 export interface DrawerSectionProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   title?: ReactNode;
+  children?: ReactNode;
+  className?: string;
 }
 
 export function DrawerSection({ className = '', title, children, ...props }: DrawerSectionProps) {
@@ -151,17 +166,18 @@ export function DrawerFormGrid({ className = '', single = false, ...props }: Dra
   return <div className={classNames} {...props} />;
 }
 
-export function DrawerFooter({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+export function DrawerFooter({ className = '', ...props }: DivPropsWithChildren) {
   return <div className={[styles.drawerFooter, className].filter(Boolean).join(' ')} {...props} />;
 }
 
-export function DrawerDetailGrid({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
+export function DrawerDetailGrid({ className = '', ...props }: DivPropsWithChildren) {
   return <div className={[styles.drawerDetailGrid, className].filter(Boolean).join(' ')} {...props} />;
 }
 
 export interface DrawerDetailItemProps extends HTMLAttributes<HTMLDivElement> {
   label: ReactNode;
   value: ReactNode;
+  className?: string;
 }
 
 export function DrawerDetailItem({ className = '', label, value, ...props }: DrawerDetailItemProps) {
