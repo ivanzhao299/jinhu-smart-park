@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   verify:
     name: Lint, Typecheck, Build
@@ -36,6 +39,9 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Build shared workspace types
+        run: pnpm --filter @jinhu/shared build
 
       - name: Typecheck
         run: pnpm typecheck
