@@ -7,6 +7,8 @@ export const ENERGY_BILLING_METHODS = ["DIRECT_METER", "PUBLIC_ALLOCATION", "MAN
 export const ENERGY_BILLING_ITEM_STATUS = ["PENDING", "CONFIRMED", "DISPUTED"] as const;
 export const ENERGY_ALLOCATION_SCOPE = ["BUILDING", "FLOOR", "AREA", "PARK"] as const;
 export const ENERGY_ALLOCATION_METHOD = ["AREA_RATIO", "TENANT_COUNT", "ROOM_COUNT", "MANUAL_RATIO"] as const;
+export const ENERGY_BILLING_ADJUSTMENT_TYPES = ["REVERSAL", "ADJUSTMENT"] as const;
+export const ENERGY_BILLING_ADJUSTMENT_STATUS = ["DRAFT", "APPROVED", "POSTED", "CANCELLED"] as const;
 
 export function trimOptional(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
@@ -198,6 +200,71 @@ export class EnergyAllocationRuleQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => trimOptional(value))
+  status?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => optionalNumber(value) ?? 1)
+  @IsNumber()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Transform(({ value }) => optionalNumber(value) ?? 20)
+  @IsNumber()
+  @Min(1)
+  page_size = 20;
+}
+
+export class CreateEnergyBillingAdjustmentDto {
+  @IsUUID()
+  billing_item_id!: string;
+
+  @Transform(({ value }) => trimOptional(value))
+  @IsIn(ENERGY_BILLING_ADJUSTMENT_TYPES)
+  adjustment_type!: "REVERSAL" | "ADJUSTMENT";
+
+  @IsOptional()
+  @Transform(({ value }) => optionalNumber(value))
+  @IsNumber()
+  adjustment_amount?: number;
+
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(500)
+  adjustment_reason!: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(500)
+  remark?: string;
+}
+
+export class EnergyBillingAdjustmentQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  keyword?: string;
+
+  @IsOptional()
+  @IsUUID()
+  billing_item_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  cycle_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  related_park_tenant_id?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsIn(ENERGY_BILLING_ADJUSTMENT_TYPES)
+  adjustment_type?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsIn(ENERGY_BILLING_ADJUSTMENT_STATUS)
   status?: string;
 
   @IsOptional()

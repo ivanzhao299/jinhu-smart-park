@@ -313,7 +313,7 @@ export class CodeRulesService {
     if (["contract", "contract_change", "renewal_contract", "checkout", "refund"].includes(entityType)) return "leasing";
     if (["receivable", "payment", "invoice", "waiver"].includes(entityType)) return "leasing";
     if (entityType === "bill") return "finance";
-    if (entityType === "energy_billing_cycle") return "energy";
+    if (["energy_billing_cycle", "energy_billing_adjustment"].includes(entityType)) return "energy";
     return "system";
   }
 }

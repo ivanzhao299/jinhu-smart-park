@@ -38,7 +38,8 @@ export const CODE_RULE_ENTITY_TYPES = [
   "payment",
   "invoice",
   "waiver",
-  "energy_billing_cycle"
+  "energy_billing_cycle",
+  "energy_billing_adjustment"
 ] as const;
 
 export type CodeRuleEntityType = (typeof CODE_RULE_ENTITY_TYPES)[number];

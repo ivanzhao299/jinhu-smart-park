@@ -67,7 +67,7 @@ export class LeasingReceivableEntity extends AuditableEntity {
   status!: string;
 
   @Column({ name: "source_type", type: "varchar", length: 32, default: "manual" })
-  sourceType!: "contract" | "manual" | "adjustment";
+  sourceType!: "contract" | "manual" | "adjustment" | "ENERGY_BILLING" | "ENERGY_BILLING_ADJUSTMENT" | "ENERGY_BILLING_REVERSAL";
 
   @Column({ name: "source_id", type: "uuid", nullable: true })
   sourceId!: string | null;
