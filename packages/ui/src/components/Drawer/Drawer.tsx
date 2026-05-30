@@ -137,6 +137,8 @@ export function DrawerSection({ className = '', title, children, ...props }: Dra
 
 export interface DrawerFormGridProps extends HTMLAttributes<HTMLDivElement> {
   single?: boolean;
+  children?: ReactNode;
+  className?: string;
 }
 
 export function DrawerFormGrid({ className = '', single = false, ...props }: DrawerFormGridProps) {
