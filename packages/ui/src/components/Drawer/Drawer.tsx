@@ -5,6 +5,7 @@ import {
   type ButtonHTMLAttributes,
   type FormHTMLAttributes,
   type HTMLAttributes,
+  type MouseEventHandler,
   type ReactNode
 } from 'react';
 import styles from './Drawer.module.css';
@@ -119,6 +120,7 @@ export interface DrawerTabButtonProps extends ButtonHTMLAttributes<HTMLButtonEle
   active?: boolean;
   children?: ReactNode;
   className?: string;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export function DrawerTabButton({ className = '', active = false, ...props }: DrawerTabButtonProps) {
