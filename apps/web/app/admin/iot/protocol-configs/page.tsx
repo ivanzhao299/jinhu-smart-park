@@ -258,7 +258,7 @@ export default function IotProtocolConfigsPage() {
               description="配置 JSON 用于保存连接参数。提交后前端不会再回显密钥、账号或 token 原文。"
               onClose={closeForm}
             />
-            <DrawerForm onSubmit={(event) => void save(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SelectField required label="协议类型" value={form.protocolType} items={protocolTypes} allLabel="请选择协议" onChange={(value) => setForm((current) => ({ ...current, protocolType: value }))} />
                 <Field label="配置名称">
