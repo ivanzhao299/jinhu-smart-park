@@ -45,4 +45,8 @@ fi
 compose up -d api web
 "$ROOT_DIR/scripts/prod-healthcheck.sh"
 
+if [ "${PRUNE_DOCKER_AFTER_DEPLOY:-yes}" = "yes" ]; then
+  "$ROOT_DIR/scripts/prod-docker-cleanup.sh"
+fi
+
 printf "Production deployment finished.\n"
