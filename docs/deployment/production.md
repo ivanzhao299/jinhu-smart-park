@@ -41,7 +41,7 @@ The deploy script:
 6. Runs API/Web health checks.
 7. Prunes old Docker containers, unused images, and build cache.
 
-The cleanup keeps the images used by the currently running production containers. It does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
+The cleanup keeps the images used by the currently running production containers and removes historical build cache. It does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
 
 ```bash
 PRUNE_DOCKER_AFTER_DEPLOY=no pnpm prod:deploy

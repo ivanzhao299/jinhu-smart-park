@@ -4,7 +4,6 @@ set -eu
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.production}"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.prod.yml}"
-BUILDER_KEEP_STORAGE="${DOCKER_BUILDER_KEEP_STORAGE:-1GB}"
 
 if [ ! -f "$ENV_FILE" ]; then
   printf "Missing production env file: %s\n" "$ENV_FILE" >&2
@@ -25,7 +24,7 @@ docker container prune -f
 printf "\nPruning unused images. Current container images are kept by Docker automatically.\n"
 docker image prune -af
 
-printf "\nPruning build cache, keeping at most %s.\n" "$BUILDER_KEEP_STORAGE"
-docker builder prune -af --keep-storage "$BUILDER_KEEP_STORAGE"
+printf "\nPruning build cache. Production does not keep historical build cache by default.\n"
+docker builder prune -af
 
 printf "\nProduction Docker cleanup finished.\n"
