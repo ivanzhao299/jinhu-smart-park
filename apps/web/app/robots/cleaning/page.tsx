@@ -582,7 +582,7 @@ export default function CleaningRobotsPage() {
             <DrawerHeader
               eyebrow="萤石开放平台"
               title="添加并同步设备"
-              description="用于现场机器人还没有加入当前萤石账号的情况。"
+              description="用于机器人还未加入当前萤石账号的情况；如设备已转移到当前账号，系统会自动改为同步。"
               onClose={closeSyncDrawer}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void addEzvizDevice(event).catch((error: Error) => setMessage(error.message))}>

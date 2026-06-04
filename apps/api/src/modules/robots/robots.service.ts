@@ -187,7 +187,13 @@ export class RobotsService {
     this.assertText(dto.device_serial, "device_serial is required");
     this.assertText(dto.validate_code, "validate_code is required");
     const config = await this.getEzvizConfig(scope);
-    await this.ezvizAdapter.addDevice(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial, dto.validate_code);
+    try {
+      await this.ezvizAdapter.addDevice(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial, dto.validate_code);
+    } catch (error) {
+      if (!this.isEzvizDeviceAlreadyLinkedError(error)) {
+        throw error;
+      }
+    }
     return this.syncEzvizDevice(scope, actor, dto);
   }
 
@@ -638,6 +644,11 @@ export class RobotsService {
 
     // 设备详情接口对机器人型号字段并不稳定；未知型号允许手工添加后继续按控制接口验证。
     return true;
+  }
+
+  private isEzvizDeviceAlreadyLinkedError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /(已被.*添加|已添加|已存在|已绑定|already.*(add|exist|bind|own|link))/i.test(message);
   }
 
   private recordOrEmpty(value: unknown): Record<string, unknown> {
