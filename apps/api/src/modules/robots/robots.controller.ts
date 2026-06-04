@@ -8,6 +8,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { Public } from "../../shared/decorators/public.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { EzvizConfigDto } from "./dto/ezviz-config.dto";
+import { EzvizDeviceAddDto, EzvizDeviceSyncDto } from "./dto/ezviz-device-sync.dto";
 import { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
 import { RobotQueryDto } from "./dto/robot-query.dto";
 import { RobotsService } from "./robots.service";
@@ -36,6 +37,26 @@ export class RobotsController {
     return this.robotsService.upsertEzvizConfig(scope, user, dto);
   }
 
+  @Get("cleaning/ezviz-devices")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_READ)
+  listEzvizPlatformDevices(@CurrentScope() scope: TenantParkScope) {
+    return this.robotsService.listEzvizPlatformDevices(scope);
+  }
+
+  @Post("cleaning/ezviz-devices/sync")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE)
+  @AuditLog({ module: "机器人运营", action: "同步萤石清洁机器人", resource: "biz.robot", bizType: "biz_iot_device" })
+  syncEzvizDevice(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: EzvizDeviceSyncDto) {
+    return this.robotsService.syncEzvizDevice(scope, user, dto);
+  }
+
+  @Post("cleaning/ezviz-devices/add")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE)
+  @AuditLog({ module: "机器人运营", action: "添加并同步萤石清洁机器人", resource: "biz.robot", bizType: "biz_iot_device" })
+  addEzvizDevice(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: EzvizDeviceAddDto) {
+    return this.robotsService.addEzvizPlatformDevice(scope, user, dto);
+  }
+
   @Get("cleaning/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -53,6 +74,13 @@ export class RobotsController {
   @AuditLog({ module: "机器人运营", action: "查询清洁机器人任务", resource: "biz.robot", bizType: "biz_iot_device", bizIdParam: "id" })
   queryTask(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.robotsService.queryTask(scope, user, id);
+  }
+
+  @Post("cleaning/:id/sync-info")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE)
+  @AuditLog({ module: "机器人运营", action: "刷新清洁机器人详情", resource: "biz.robot", bizType: "biz_iot_device", bizIdParam: "id" })
+  syncInfo(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.robotsService.refreshEzvizDeviceInfo(scope, user, id);
   }
 
   @Post("cleaning/:id/clean-control")

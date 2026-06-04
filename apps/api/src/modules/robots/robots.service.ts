@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, Repository } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { IotDeviceEntity } from "../iot/entities/iot-device.entity";
 import { IotProtocolConfigEntity } from "../iot/entities/iot-protocol-config.entity";
@@ -12,6 +13,7 @@ import type { IotMetricPayloadValue } from "../iot/dto/iot-http-ingest.dto";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { EzvizCleaningRobotAdapter } from "./adapters/ezviz-cleaning-robot.adapter";
 import type { EzvizConfigDto } from "./dto/ezviz-config.dto";
+import type { EzvizDeviceAddDto, EzvizDeviceSyncDto } from "./dto/ezviz-device-sync.dto";
 import type { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
 import type { RobotQueryDto } from "./dto/robot-query.dto";
 import { RobotCommandLogEntity } from "./entities/robot-command-log.entity";
@@ -48,6 +50,17 @@ export interface RobotView {
   statusPayload: Record<string, unknown>;
 }
 
+export interface EzvizPlatformDeviceView {
+  deviceSerial: string;
+  deviceName: string | null;
+  deviceType: string | null;
+  model: string | null;
+  status: string | null;
+  isSynced: boolean;
+  robotId: string | null;
+  raw: Record<string, unknown>;
+}
+
 @Injectable()
 export class RobotsService {
   constructor(
@@ -57,6 +70,7 @@ export class RobotsService {
     private readonly protocolConfigRepository: Repository<IotProtocolConfigEntity>,
     @InjectRepository(RobotCommandLogEntity)
     private readonly commandLogRepository: Repository<RobotCommandLogEntity>,
+    private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
     private readonly modulesService: SaaSModulesService,
     private readonly secretService: IotDeviceSecretService,
@@ -130,6 +144,118 @@ export class RobotsService {
       order: { updateTime: "DESC" }
     });
     return rows.map((row) => this.toConfigView(row));
+  }
+
+  async listEzvizPlatformDevices(scope: TenantParkScope): Promise<EzvizPlatformDeviceView[]> {
+    const config = await this.getEzvizConfig(scope);
+    const response = await this.ezvizAdapter.listDevices(config.baseUrl, await this.getAccessToken(scope, config), 0, 50);
+    const rows = this.extractEzvizDeviceRows(response);
+    const serials = rows.map((row) => this.getDeviceSerial(row)).filter((serial): serial is string => Boolean(serial));
+    const synced = serials.length
+      ? await this.deviceRepository
+        .createQueryBuilder("device")
+        .where("device.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("device.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("device.is_deleted = false")
+        .andWhere("device.device_type = :deviceType", { deviceType: ROBOT_DEVICE_TYPE })
+        .andWhere("(device.vendor_device_id IN (:...serials) OR device.platform_device_id IN (:...serials) OR device.serial_number IN (:...serials))", { serials })
+        .getMany()
+      : [];
+    const syncedBySerial = new Map<string, IotDeviceEntity>();
+    for (const device of synced) {
+      for (const serial of [device.vendorDeviceId, device.platformDeviceId, device.serialNumber]) {
+        if (serial) syncedBySerial.set(serial, device);
+      }
+    }
+    return rows.map((row) => {
+      const serial = this.getDeviceSerial(row) ?? "";
+      const local = syncedBySerial.get(serial) ?? null;
+      return {
+        deviceSerial: serial,
+        deviceName: this.readString(row, "deviceName") ?? this.readString(row, "device_name") ?? null,
+        deviceType: this.readString(row, "deviceType") ?? this.readString(row, "device_type") ?? null,
+        model: this.readString(row, "model") ?? this.readString(row, "deviceModel") ?? null,
+        status: this.readString(row, "status") ?? this.readString(row, "online") ?? null,
+        isSynced: Boolean(local),
+        robotId: local?.id ?? null,
+        raw: row
+      };
+    });
+  }
+
+  async addEzvizPlatformDevice(scope: TenantParkScope, actor: JwtPrincipal, dto: EzvizDeviceAddDto): Promise<RobotView> {
+    this.assertText(dto.device_serial, "device_serial is required");
+    this.assertText(dto.validate_code, "validate_code is required");
+    const config = await this.getEzvizConfig(scope);
+    await this.ezvizAdapter.addDevice(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial, dto.validate_code);
+    return this.syncEzvizDevice(scope, actor, dto);
+  }
+
+  async syncEzvizDevice(scope: TenantParkScope, actor: JwtPrincipal, dto: EzvizDeviceSyncDto): Promise<RobotView> {
+    this.assertText(dto.device_serial, "device_serial is required");
+    const config = await this.getEzvizConfig(scope);
+    const detail = await this.ezvizAdapter.deviceInfo(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial);
+    const detailData = this.recordOrEmpty(detail.data);
+    const existing = await this.findRobotBySerial(scope, dto.device_serial);
+    const generated = existing ? null : await this.codeRulesService.generateNext(scope, actor.sub, "IOT_DEVICE_CODE");
+    const entity = existing ?? this.deviceRepository.create({
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      code: generated?.code ?? null,
+      deviceCode: generated?.code ?? dto.device_serial,
+      deviceType: ROBOT_DEVICE_TYPE,
+      deviceCategory: ROBOT_CATEGORY,
+      protocolType: EZVIZ_PROTOCOL,
+      createBy: actor.sub
+    });
+    const nameFromDetail = this.readString(detailData, "deviceName") ?? this.readString(detailData, "device_name");
+    const modelFromDetail = this.readString(detailData, "model") ?? this.readString(detailData, "deviceModel") ?? this.readString(detailData, "productModel");
+    entity.deviceName = dto.device_name ?? nameFromDetail ?? entity.deviceName ?? `萤石清洁机器人 ${dto.device_serial}`;
+    entity.deviceType = ROBOT_DEVICE_TYPE;
+    entity.deviceCategory = ROBOT_CATEGORY;
+    entity.protocolType = EZVIZ_PROTOCOL;
+    entity.connectionType = "vendor_api";
+    entity.brand = "萤石";
+    entity.vendorName = "萤石";
+    entity.manufacturer = "萤石";
+    entity.vendorPlatform = EZVIZ_PROTOCOL;
+    entity.platformType = EZVIZ_PROTOCOL;
+    entity.vendorDeviceId = dto.device_serial;
+    entity.platformDeviceId = dto.device_serial;
+    entity.serialNumber = dto.device_serial;
+    entity.model = modelFromDetail ?? entity.model ?? null;
+    entity.location = dto.location ?? entity.location ?? null;
+    entity.installLocation = dto.location ?? entity.installLocation ?? entity.location ?? null;
+    entity.onlineStatus = this.normalizeEzvizOnlineStatus(detailData) ?? entity.onlineStatus ?? "unknown";
+    entity.status = entity.status === "disabled" ? "disabled" : "enabled";
+    entity.isEnabled = entity.status !== "disabled";
+    entity.statusPayload = {
+      ...(entity.statusPayload ?? {}),
+      ezviz_device_info: detailData,
+      ezviz_sync_time: new Date().toISOString()
+    };
+    entity.metadata = {
+      ...(entity.metadata ?? {}),
+      source: EZVIZ_PROTOCOL,
+      ezviz_device_serial: dto.device_serial
+    };
+    entity.remark = dto.remark ?? entity.remark ?? null;
+    entity.updateBy = actor.sub;
+    const saved = await this.deviceRepository.save(entity);
+    await this.writeCommandLog(scope, actor, saved, "sync_ezviz_device", { device_serial: dto.device_serial }, { device_id: saved.id }, "success", null);
+    return this.toRobotView(saved);
+  }
+
+  async refreshEzvizDeviceInfo(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<RobotView> {
+    const device = await this.findRobot(scope, id, actor);
+    const serial = device.vendorDeviceId ?? device.platformDeviceId ?? device.serialNumber;
+    this.assertText(serial, "robot vendor device id is required");
+    const synced = await this.syncEzvizDevice(scope, actor, {
+      device_serial: serial,
+      device_name: device.deviceName,
+      location: device.location ?? undefined
+    });
+    return synced;
   }
 
   async listCommandLogs(scope: TenantParkScope, actor: JwtPrincipal, id: string, query: RobotQueryDto) {
@@ -316,6 +442,17 @@ export class RobotsService {
       });
   }
 
+  private async findRobotBySerial(scope: TenantParkScope, serial: string): Promise<IotDeviceEntity | null> {
+    return this.deviceRepository
+      .createQueryBuilder("device")
+      .where("device.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("device.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("device.is_deleted = false")
+      .andWhere("device.device_type = :deviceType", { deviceType: ROBOT_DEVICE_TYPE })
+      .andWhere("(device.vendor_device_id = :serial OR device.platform_device_id = :serial OR device.serial_number = :serial)", { serial })
+      .getOne();
+  }
+
   private async findRobot(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<IotDeviceEntity> {
     const builder = this.robotBuilder(scope).andWhere("device.id = :id", { id });
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "device", "device");
@@ -441,6 +578,39 @@ export class RobotsService {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
     return undefined;
+  }
+
+  private extractEzvizDeviceRows(response: Record<string, unknown>): Record<string, unknown>[] {
+    const data = response.data;
+    if (Array.isArray(data)) return data.filter(this.isRecord);
+    if (this.isRecord(data)) {
+      for (const key of ["devices", "items", "list", "rows"]) {
+        const value = data[key];
+        if (Array.isArray(value)) return value.filter(this.isRecord);
+      }
+    }
+    return [];
+  }
+
+  private getDeviceSerial(row: Record<string, unknown>): string | undefined {
+    return this.readString(row, "deviceSerial") ?? this.readString(row, "device_serial") ?? this.readString(row, "serial") ?? this.readString(row, "deviceId");
+  }
+
+  private normalizeEzvizOnlineStatus(row: Record<string, unknown>): string | undefined {
+    const status = this.readString(row, "status") ?? this.readString(row, "onlineStatus") ?? this.readString(row, "online");
+    if (!status) return undefined;
+    const normalized = status.toLowerCase();
+    if (["1", "online", "true"].includes(normalized)) return "online";
+    if (["0", "offline", "false"].includes(normalized)) return "offline";
+    return normalized;
+  }
+
+  private recordOrEmpty(value: unknown): Record<string, unknown> {
+    return this.isRecord(value) ? value : {};
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
 
   private assertText(value: unknown, message: string): asserts value is string {

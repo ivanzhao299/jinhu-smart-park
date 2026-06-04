@@ -138,6 +138,9 @@ export class EzvizCleaningRobotAdapter {
     if (!response.ok) {
       throw new BadGatewayException(payload.msg || `EZVIZ request failed: ${response.status}`);
     }
+    if (payload.code && !["0", "200"].includes(String(payload.code))) {
+      throw new BadGatewayException(payload.msg || `EZVIZ request failed: ${payload.code}`);
+    }
     return payload;
   }
 

@@ -32,6 +32,13 @@ const emptyConfigForm: EzvizConfigForm = {
   status: "enabled",
   remark: ""
 };
+const emptySyncForm: EzvizSyncForm = {
+  device_serial: "",
+  validate_code: "",
+  device_name: "",
+  location: "",
+  remark: ""
+};
 
 interface RobotRow {
   id: string;
@@ -80,6 +87,24 @@ interface EzvizConfigForm {
   remark: string;
 }
 
+interface EzvizPlatformDeviceRow {
+  deviceSerial: string;
+  deviceName: string | null;
+  deviceType: string | null;
+  model: string | null;
+  status: string | null;
+  isSynced: boolean;
+  robotId: string | null;
+}
+
+interface EzvizSyncForm {
+  device_serial: string;
+  validate_code: string;
+  device_name: string;
+  location: string;
+  remark: string;
+}
+
 interface Filters {
   keyword: string;
   onlineStatus: string;
@@ -92,8 +117,12 @@ export default function CleaningRobotsPage() {
   const [viewing, setViewing] = useState<RobotRow | null>(null);
   const [logs, setLogs] = useState<RobotLogRow[]>([]);
   const [configs, setConfigs] = useState<EzvizConfigRow[]>([]);
+  const [platformDevices, setPlatformDevices] = useState<EzvizPlatformDeviceRow[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
   const [configForm, setConfigForm] = useState<EzvizConfigForm>(emptyConfigForm);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [syncForm, setSyncForm] = useState<EzvizSyncForm>(emptySyncForm);
   const [commandTarget, setCommandTarget] = useState<RobotRow | null>(null);
   const [command, setCommand] = useState("start");
   const [cleanMode, setCleanMode] = useState("dustAbsorption");
@@ -110,6 +139,11 @@ export default function CleaningRobotsPage() {
   const loadConfigs = useCallback(async () => {
     const response = await apiRequest<EzvizConfigRow[]>("/robots/cleaning/ezviz-configs", { token: getAccessToken() });
     setConfigs(response.data);
+  }, []);
+
+  const loadPlatformDevices = useCallback(async () => {
+    const response = await apiRequest<EzvizPlatformDeviceRow[]>("/robots/cleaning/ezviz-devices", { token: getAccessToken() });
+    setPlatformDevices(response.data);
   }, []);
 
   useEffect(() => {
@@ -148,6 +182,53 @@ export default function CleaningRobotsPage() {
     setConfigOpen(false);
     setConfigForm(emptyConfigForm);
     await loadConfigs();
+  }
+
+  async function syncEzvizDevice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await apiRequest<RobotRow>("/robots/cleaning/ezviz-devices/sync", {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-ezviz-sync"),
+      body: {
+        device_serial: syncForm.device_serial.trim(),
+        device_name: syncForm.device_name.trim() || undefined,
+        location: syncForm.location.trim() || undefined,
+        remark: syncForm.remark.trim() || undefined
+      }
+    });
+    setMessage("萤石设备已同步为本系统清洁机器人");
+    closeSyncDrawer();
+    await Promise.all([load(pageData.page), loadPlatformDevices()]);
+  }
+
+  async function addEzvizDevice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await apiRequest<RobotRow>("/robots/cleaning/ezviz-devices/add", {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-ezviz-add"),
+      body: {
+        device_serial: syncForm.device_serial.trim(),
+        validate_code: syncForm.validate_code.trim(),
+        device_name: syncForm.device_name.trim() || undefined,
+        location: syncForm.location.trim() || undefined,
+        remark: syncForm.remark.trim() || undefined
+      }
+    });
+    setMessage("萤石设备已添加并同步到本系统");
+    closeSyncDrawer();
+    await Promise.all([load(pageData.page), loadPlatformDevices()]);
+  }
+
+  async function refreshRobotInfo(row: RobotRow) {
+    await apiRequest<RobotRow>(`/robots/cleaning/${row.id}/sync-info`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-ezviz-refresh")
+    });
+    setMessage("机器人萤石详情已刷新");
+    await load(pageData.page);
   }
 
   async function runQueryTask(row: RobotRow) {
@@ -224,6 +305,60 @@ export default function CleaningRobotsPage() {
 
         <Card className="page-content">
           <div className="task-item">
+            <div>
+              <h2 className="panel-title">萤石设备同步</h2>
+              <p className="muted-text">从萤石开放平台读取现场设备，一键同步为本系统清洁机器人。</p>
+            </div>
+            <span>
+              <button className="secondary-button" type="button" onClick={() => void loadPlatformDevices().catch((error: Error) => setMessage(error.message))}>
+                <RefreshCw size={16} />
+                读取设备
+              </button>
+              <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => {
+                setSyncForm(emptySyncForm);
+                setAddOpen(true);
+              }}>
+                <Plus size={16} />
+                添加设备
+              </PermissionButton>
+            </span>
+          </div>
+          <DataTable>
+            <thead>
+              <tr>
+                <th>萤石序列号</th>
+                <th>设备名称</th>
+                <th>型号</th>
+                <th>平台状态</th>
+                <th>同步状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {platformDevices.map((row) => (
+                <tr key={row.deviceSerial}>
+                  <td>{row.deviceSerial}</td>
+                  <td>{row.deviceName ?? "-"}</td>
+                  <td>{row.model ?? row.deviceType ?? "-"}</td>
+                  <td>{row.status ?? "-"}</td>
+                  <td><StatusPill variant={row.isSynced ? "success" : "warning"}>{row.isSynced ? "已同步" : "未同步"}</StatusPill></td>
+                  <td>
+                    <DataTableActions>
+                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => openSyncDrawer(row)}>
+                        <Save size={16} />
+                        同步
+                      </PermissionButton>
+                    </DataTableActions>
+                  </td>
+                </tr>
+              ))}
+              {platformDevices.length === 0 ? <tr><td colSpan={6}><p className="muted-text">尚未读取萤石设备。请先保存平台配置，然后点击“读取设备”。</p></td></tr> : null}
+            </tbody>
+          </DataTable>
+        </Card>
+
+        <Card className="page-content">
+          <div className="task-item">
             <h2 className="panel-title">机器人列表</h2>
             <span>共 {pageData.total} 台</span>
           </div>
@@ -263,6 +398,10 @@ export default function CleaningRobotsPage() {
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => setCommandTarget(row)}>
                         <Play size={16} />
                         控制
+                      </PermissionButton>
+                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => void refreshRobotInfo(row).catch((error: Error) => setMessage(error.message))}>
+                        <RefreshCw size={16} />
+                        同步详情
                       </PermissionButton>
                     </DataTableActions>
                   </td>
@@ -407,6 +546,71 @@ export default function CleaningRobotsPage() {
           </Drawer>
         ) : null}
 
+        {syncOpen ? (
+          <Drawer size="md" onClose={closeSyncDrawer}>
+            <DrawerHeader
+              eyebrow="萤石设备同步"
+              title="同步为清洁机器人"
+              description="同步后会创建或更新本系统 IoT 设备台账中的清洁机器人。"
+              onClose={closeSyncDrawer}
+            />
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void syncEzvizDevice(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                <Field label="萤石设备序列号">
+                  <input required value={syncForm.device_serial} onChange={(event) => setSyncFormValue("device_serial", event.target.value)} />
+                </Field>
+                <Field label="机器人名称">
+                  <input value={syncForm.device_name} onChange={(event) => setSyncFormValue("device_name", event.target.value)} placeholder="留空则使用萤石设备名称" />
+                </Field>
+                <Field label="安装位置">
+                  <input value={syncForm.location} onChange={(event) => setSyncFormValue("location", event.target.value)} placeholder="例如：1号楼大厅" />
+                </Field>
+                <Field label="备注">
+                  <textarea value={syncForm.remark} onChange={(event) => setSyncFormValue("remark", event.target.value)} />
+                </Field>
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={closeSyncDrawer}>取消</button>
+                <button className="primary-button" type="submit"><Save size={16} />同步</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {addOpen ? (
+          <Drawer size="md" onClose={closeSyncDrawer}>
+            <DrawerHeader
+              eyebrow="萤石开放平台"
+              title="添加并同步设备"
+              description="用于现场机器人还没有加入当前萤石账号的情况。"
+              onClose={closeSyncDrawer}
+            />
+            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void addEzvizDevice(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid single>
+                <Field label="萤石设备序列号">
+                  <input required value={syncForm.device_serial} onChange={(event) => setSyncFormValue("device_serial", event.target.value)} />
+                </Field>
+                <Field label="设备验证码">
+                  <input required type="password" value={syncForm.validate_code} onChange={(event) => setSyncFormValue("validate_code", event.target.value)} />
+                </Field>
+                <Field label="机器人名称">
+                  <input value={syncForm.device_name} onChange={(event) => setSyncFormValue("device_name", event.target.value)} />
+                </Field>
+                <Field label="安装位置">
+                  <input value={syncForm.location} onChange={(event) => setSyncFormValue("location", event.target.value)} />
+                </Field>
+                <Field label="备注">
+                  <textarea value={syncForm.remark} onChange={(event) => setSyncFormValue("remark", event.target.value)} />
+                </Field>
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={closeSyncDrawer}>取消</button>
+                <button className="primary-button" type="submit"><Plus size={16} />添加并同步</button>
+              </DrawerFooter>
+            </DrawerForm>
+          </Drawer>
+        ) : null}
+
         {commandTarget ? (
           <Drawer size="md" onClose={() => setCommandTarget(null)}>
             <DrawerHeader
@@ -447,6 +651,25 @@ export default function CleaningRobotsPage() {
   function setConfigFormValue<K extends keyof EzvizConfigForm>(key: K, value: EzvizConfigForm[K]) {
     setConfigForm((current) => ({ ...current, [key]: value }));
   }
+
+  function setSyncFormValue<K extends keyof EzvizSyncForm>(key: K, value: EzvizSyncForm[K]) {
+    setSyncForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function openSyncDrawer(row: EzvizPlatformDeviceRow) {
+    setSyncForm({
+      ...emptySyncForm,
+      device_serial: row.deviceSerial,
+      device_name: row.deviceName ?? ""
+    });
+    setSyncOpen(true);
+  }
+
+  function closeSyncDrawer() {
+    setSyncOpen(false);
+    setAddOpen(false);
+    setSyncForm(emptySyncForm);
+  }
 }
 
 function RobotStatus({ status }: { status: string }) {
@@ -472,7 +695,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function EmptyState() {
-  return <p className="muted-text">暂无清洁机器人。请先在 IoT 设备管理中创建 device_type=robot、device_category=cleaning_robot 的设备，并填写厂家设备号。</p>;
+  return <p className="muted-text">暂无清洁机器人。请先配置萤石开放平台，然后在“萤石设备同步”中读取并同步现场机器人。</p>;
 }
 
 function Forbidden() {

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { CodeRulesModule } from "../code-rules/code-rules.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { IotDeviceEntity } from "../iot/entities/iot-device.entity";
 import { IotProtocolConfigEntity } from "../iot/entities/iot-protocol-config.entity";
@@ -13,6 +14,7 @@ import { RobotsService } from "./robots.service";
 @Module({
   imports: [
     TypeOrmModule.forFeature([IotDeviceEntity, IotProtocolConfigEntity, RobotCommandLogEntity]),
+    CodeRulesModule,
     DataScopesModule,
     SaaSModulesModule,
     IotModule
