@@ -356,11 +356,11 @@ export default function CleaningRobotsPage() {
 
   return (
     <PermissionGuard module={ROBOT_MODULE} permission={SYSTEM_PERMISSIONS.ROBOT_READ} fallback={<Forbidden />}>
-      <main className="page-container">
+      <main className="page-container robot-cleaning-page">
         <Card className="page-header">
           <div>
             <h1>清洁机器人</h1>
-            <p>接入萤石商用清洁机器人，支持任务查询、清扫控制、清洁模式设置和回调数据归集。</p>
+            <p>统一管理萤石商用清洁机器人，覆盖设备同步、任务查询、清扫控制、区域清洁和回调数据归集。</p>
           </div>
           <div className="page-actions">
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
@@ -374,7 +374,7 @@ export default function CleaningRobotsPage() {
           </div>
         </Card>
 
-        <Card className="filter-bar">
+        <Card className="filter-bar robot-filter-bar">
           <Field label="关键词">
             <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="机器人编码 / 名称 / 厂家设备号" />
           </Field>
@@ -392,75 +392,31 @@ export default function CleaningRobotsPage() {
           </button>
         </Card>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? (
+          <div className={`robot-page-notice ${isTokenMessage(message) ? "robot-page-notice--warning" : ""}`} role="status">
+            <AlertTriangle size={16} />
+            <span>{message}</span>
+          </div>
+        ) : null}
 
-        <section className="dashboard-grid">
+        <section className="dashboard-grid robot-summary-grid">
           <RobotMetricCard icon={<Bot size={18} />} label="机器人总数" value={`${robotSummary.total}`} />
           <RobotMetricCard icon={<Activity size={18} />} label="在线设备" value={`${robotSummary.online}`} tone="success" />
           <RobotMetricCard icon={<Route size={18} />} label="有任务快照" value={`${robotSummary.withTask}`} />
           <RobotMetricCard icon={<AlertTriangle size={18} />} label="异常/离线" value={`${robotSummary.exception}`} tone="warning" />
         </section>
 
-        <Card className="page-content">
+        <Card className="page-content robot-list-card">
           <div className="task-item">
             <div>
-              <h2 className="panel-title">萤石设备同步</h2>
-              <p className="muted-text">仅读取可识别的清洁机器人候选设备；摄像头、NVR 等监控设备请进入视频安防模块管理。</p>
+              <h2 className="panel-title">机器人列表</h2>
+              <p className="muted-text">共 {pageData.total} 台，优先展示可操作机器人；摄像头、NVR 等监控设备请进入视频安防模块。</p>
             </div>
-            <span>
-              <button className="secondary-button" type="button" onClick={() => void loadPlatformDevices().catch((error: Error) => setMessage(error.message))}>
-                <RefreshCw size={16} />
-                读取设备
-              </button>
-              <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => {
-                setSyncForm(emptySyncForm);
-                setAddOpen(true);
-              }}>
-                <Plus size={16} />
-                添加设备
-              </PermissionButton>
-            </span>
+            <StatusPill variant={robotSummary.exception > 0 ? "warning" : "success"}>
+              {robotSummary.exception > 0 ? `${robotSummary.exception} 台需关注` : "运行正常"}
+            </StatusPill>
           </div>
-          <DataTable>
-            <thead>
-              <tr>
-                <th>萤石序列号</th>
-                <th>设备名称</th>
-                <th>型号</th>
-                <th>平台状态</th>
-                <th>同步状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {platformDevices.map((row) => (
-                <tr key={row.deviceSerial}>
-                  <td>{row.deviceSerial}</td>
-                  <td>{row.deviceName ?? "-"}</td>
-                  <td>{row.model ?? row.deviceType ?? "-"}</td>
-                  <td>{row.status ?? "-"}</td>
-                  <td><StatusPill variant={row.isSynced ? "success" : "warning"}>{row.isSynced ? "已同步" : "未同步"}</StatusPill></td>
-                  <td>
-                    <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => openSyncDrawer(row)}>
-                        <Save size={16} />
-                        同步
-                      </PermissionButton>
-                    </DataTableActions>
-                  </td>
-                </tr>
-              ))}
-              {platformDevices.length === 0 ? <tr><td colSpan={6}><p className="muted-text">暂无清洁机器人候选设备。若机器人未显示，请使用设备序列号和验证码添加。</p></td></tr> : null}
-            </tbody>
-          </DataTable>
-        </Card>
-
-        <Card className="page-content">
-          <div className="task-item">
-            <h2 className="panel-title">机器人列表</h2>
-            <span>共 {pageData.total} 台</span>
-          </div>
-          <DataTable>
+          <DataTable className="robot-list-table">
             <thead>
               <tr>
                 <th>设备编码</th>
@@ -484,26 +440,26 @@ export default function CleaningRobotsPage() {
                   <td><RobotStatus status={row.onlineStatus} /></td>
                   <td>{formatDateTime(row.lastDataTime)}</td>
                   <td>
-                    <DataTableActions>
+                    <DataTableActions className="robot-row-actions">
                       <button className="table-action-button" type="button" onClick={() => void openDetail(row).catch((error: Error) => setMessage(error.message))}>
-                        <Eye size={16} />
+                        <Eye size={15} />
                         详情
                       </button>
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => void runQueryTask(row).catch((error: Error) => setMessage(error.message))}>
-                        <Route size={16} />
+                        <Route size={15} />
                         任务
                       </PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => setCommandTarget(row)}>
-                        <Play size={16} />
+                      <PermissionButton className="table-action-button table-action-button--primary" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => setCommandTarget(row)}>
+                        <Play size={15} />
                         控制
                       </PermissionButton>
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => openAdvancedDrawer(row, "path")}>
-                        <Map size={16} />
-                        轨迹/区域
+                        <Map size={15} />
+                        区域
                       </PermissionButton>
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => void refreshRobotInfo(row).catch((error: Error) => setMessage(error.message))}>
-                        <RefreshCw size={16} />
-                        同步详情
+                        <RefreshCw size={15} />
+                        同步
                       </PermissionButton>
                     </DataTableActions>
                   </td>
@@ -512,7 +468,7 @@ export default function CleaningRobotsPage() {
               {pageData.items.length === 0 ? <tr><td colSpan={8}><EmptyState /></td></tr> : null}
             </tbody>
           </DataTable>
-          <div className="task-item">
+          <div className="task-item robot-pagination">
             <span>第 {pageData.page} / {totalPages} 页</span>
             <span>
               <button className="secondary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
@@ -521,56 +477,109 @@ export default function CleaningRobotsPage() {
           </div>
         </Card>
 
-        <Card className="page-content">
-          <div className="task-item">
-            <h2 className="panel-title">萤石平台配置</h2>
-            <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => setConfigOpen(true)}>
-              <Plus size={16} />
-              新增 / 更新
-            </PermissionButton>
-          </div>
-          <DataTable>
-            <thead>
-              <tr>
-                <th>配置名称</th>
-                <th>状态</th>
-                <th>AppKey</th>
-                <th>AppSecret</th>
-                <th>Token</th>
-                <th>过期时间</th>
-                <th>更新时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {configs.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.configName}</td>
-                  <td><StatusPill variant={row.status === "enabled" ? "success" : "muted"}>{row.status}</StatusPill></td>
-                  <td>{row.hasAppKey ? "已配置" : "未配置"}</td>
-                  <td>{row.hasAppSecret ? "已配置" : "未配置"}</td>
-                  <td>{row.hasAccessToken ? "已缓存" : "未缓存"}</td>
-                  <td>{row.tokenExpireAt ? new Date(row.tokenExpireAt).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
-                  <td>{formatDateTime(row.updateTime)}</td>
-                  <td>
-                    <DataTableActions>
-                      <PermissionButton
-                        className="secondary-button"
-                        permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE}
-                        type="button"
-                        onClick={() => void refreshEzvizToken(row).catch((error: Error) => setMessage(error.message))}
-                      >
-                        <RefreshCw size={16} />
-                        刷新 Token
-                      </PermissionButton>
-                    </DataTableActions>
-                  </td>
+        <section className="robot-setup-grid">
+          <Card className="page-content robot-setup-card">
+            <div className="task-item">
+              <div>
+                <h2 className="panel-title">萤石设备同步</h2>
+                <p className="muted-text">仅读取可识别的清洁机器人候选设备；摄像头、NVR 等监控设备请进入视频安防模块管理。</p>
+              </div>
+              <span>
+                <button className="secondary-button" type="button" onClick={() => void loadPlatformDevices().catch((error: Error) => setMessage(error.message))}>
+                  <RefreshCw size={16} />
+                  读取设备
+                </button>
+                <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => {
+                  setSyncForm(emptySyncForm);
+                  setAddOpen(true);
+                }}>
+                  <Plus size={16} />
+                  添加设备
+                </PermissionButton>
+              </span>
+            </div>
+            <DataTable className="robot-sync-table">
+              <thead>
+                <tr>
+                  <th>萤石序列号</th>
+                  <th>设备名称</th>
+                  <th>型号</th>
+                  <th>同步状态</th>
+                  <th>操作</th>
                 </tr>
-              ))}
-              {configs.length === 0 ? <tr><td colSpan={8}><p className="muted-text">暂无萤石平台配置</p></td></tr> : null}
-            </tbody>
-          </DataTable>
-        </Card>
+              </thead>
+              <tbody>
+                {platformDevices.map((row) => (
+                  <tr key={row.deviceSerial}>
+                    <td>{row.deviceSerial}</td>
+                    <td>{row.deviceName ?? "-"}</td>
+                    <td>{row.model ?? row.deviceType ?? "-"}</td>
+                    <td><StatusPill variant={row.isSynced ? "success" : "warning"}>{row.isSynced ? "已同步" : "未同步"}</StatusPill></td>
+                    <td>
+                      <DataTableActions className="robot-row-actions">
+                        <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => openSyncDrawer(row)}>
+                          <Save size={15} />
+                          同步
+                        </PermissionButton>
+                      </DataTableActions>
+                    </td>
+                  </tr>
+                ))}
+                {platformDevices.length === 0 ? <tr><td colSpan={5}><p className="muted-text">暂无清洁机器人候选设备。若机器人未显示，请使用设备序列号和验证码添加。</p></td></tr> : null}
+              </tbody>
+            </DataTable>
+          </Card>
+
+          <Card className="page-content robot-setup-card">
+            <div className="task-item">
+              <div>
+                <h2 className="panel-title">萤石平台配置</h2>
+                <p className="muted-text">密钥只保存加密态；Token 可自动刷新，也可手动刷新。</p>
+              </div>
+              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => setConfigOpen(true)}>
+                <Plus size={16} />
+                新增 / 更新
+              </PermissionButton>
+            </div>
+            <DataTable className="robot-config-table">
+              <thead>
+                <tr>
+                  <th>配置名称</th>
+                  <th>状态</th>
+                  <th>凭据</th>
+                  <th>Token</th>
+                  <th>更新时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {configs.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.configName}</td>
+                    <td><StatusPill variant={row.status === "enabled" ? "success" : "muted"}>{row.status}</StatusPill></td>
+                    <td><CredentialFlags row={row} /></td>
+                    <td><TokenState row={row} /></td>
+                    <td>{formatDateTime(row.updateTime)}</td>
+                    <td>
+                      <DataTableActions className="robot-row-actions">
+                        <PermissionButton
+                          className="table-action-button"
+                          permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE}
+                          type="button"
+                          onClick={() => void refreshEzvizToken(row).catch((error: Error) => setMessage(error.message))}
+                        >
+                          <RefreshCw size={15} />
+                          刷新
+                        </PermissionButton>
+                      </DataTableActions>
+                    </td>
+                  </tr>
+                ))}
+                {configs.length === 0 ? <tr><td colSpan={6}><p className="muted-text">暂无萤石平台配置</p></td></tr> : null}
+              </tbody>
+            </DataTable>
+          </Card>
+        </section>
 
         {viewing ? (
           <Drawer size="md" onClose={() => setViewing(null)}>
@@ -904,6 +913,25 @@ function RobotStatus({ status }: { status: string }) {
   return <StatusPill variant="muted">{status || "未知"}</StatusPill>;
 }
 
+function CredentialFlags({ row }: { row: EzvizConfigRow }) {
+  return (
+    <span className="robot-config-flags">
+      <StatusPill variant={row.hasAppKey ? "success" : "warning"}>AppKey</StatusPill>
+      <StatusPill variant={row.hasAppSecret ? "success" : "warning"}>Secret</StatusPill>
+    </span>
+  );
+}
+
+function TokenState({ row }: { row: EzvizConfigRow }) {
+  const expireText = row.tokenExpireAt ? new Date(row.tokenExpireAt).toLocaleString("zh-CN", { hour12: false }) : "-";
+  return (
+    <span className="robot-token-state">
+      <StatusPill variant={row.hasAccessToken ? "success" : "warning"}>{row.hasAccessToken ? "已缓存" : "未缓存"}</StatusPill>
+      <small>{expireText}</small>
+    </span>
+  );
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">
@@ -994,6 +1022,10 @@ function stringifyPreview(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+function isTokenMessage(value: string) {
+  return /token|accessToken|10002|过期|异常/i.test(value);
 }
 
 function Forbidden() {
