@@ -307,7 +307,7 @@ export default function CleaningRobotsPage() {
           <div className="task-item">
             <div>
               <h2 className="panel-title">萤石设备同步</h2>
-              <p className="muted-text">从萤石开放平台读取现场设备，一键同步为本系统清洁机器人。</p>
+              <p className="muted-text">仅读取可识别的清洁机器人候选设备；摄像头、NVR 等监控设备请进入视频安防模块管理。</p>
             </div>
             <span>
               <button className="secondary-button" type="button" onClick={() => void loadPlatformDevices().catch((error: Error) => setMessage(error.message))}>
@@ -352,7 +352,7 @@ export default function CleaningRobotsPage() {
                   </td>
                 </tr>
               ))}
-              {platformDevices.length === 0 ? <tr><td colSpan={6}><p className="muted-text">尚未读取萤石设备。请先保存平台配置，然后点击“读取设备”。</p></td></tr> : null}
+              {platformDevices.length === 0 ? <tr><td colSpan={6}><p className="muted-text">暂无清洁机器人候选设备。若机器人未显示，请使用设备序列号和验证码添加。</p></td></tr> : null}
             </tbody>
           </DataTable>
         </Card>

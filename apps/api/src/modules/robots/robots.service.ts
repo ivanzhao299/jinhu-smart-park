@@ -149,7 +149,7 @@ export class RobotsService {
   async listEzvizPlatformDevices(scope: TenantParkScope): Promise<EzvizPlatformDeviceView[]> {
     const config = await this.getEzvizConfig(scope);
     const response = await this.ezvizAdapter.listDevices(config.baseUrl, await this.getAccessToken(scope, config), 0, 50);
-    const rows = this.extractEzvizDeviceRows(response);
+    const rows = this.extractEzvizDeviceRows(response).filter((row) => this.isEzvizCleaningRobotCandidate(row));
     const serials = rows.map((row) => this.getDeviceSerial(row)).filter((serial): serial is string => Boolean(serial));
     const synced = serials.length
       ? await this.deviceRepository
@@ -196,6 +196,9 @@ export class RobotsService {
     const config = await this.getEzvizConfig(scope);
     const detail = await this.ezvizAdapter.deviceInfo(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial);
     const detailData = this.recordOrEmpty(detail.data);
+    if (!this.isEzvizCleaningRobotCandidate({ ...detailData, deviceSerial: dto.device_serial, deviceName: dto.device_name })) {
+      throw new BadRequestException("EZVIZ device is not recognized as a cleaning robot");
+    }
     const existing = await this.findRobotBySerial(scope, dto.device_serial);
     const generated = existing ? null : await this.codeRulesService.generateNext(scope, actor.sub, "IOT_DEVICE_CODE");
     const entity = existing ?? this.deviceRepository.create({
@@ -603,6 +606,38 @@ export class RobotsService {
     if (["1", "online", "true"].includes(normalized)) return "online";
     if (["0", "offline", "false"].includes(normalized)) return "offline";
     return normalized;
+  }
+
+  private isEzvizCleaningRobotCandidate(row: Record<string, unknown>): boolean {
+    const values = [
+      this.getDeviceSerial(row),
+      this.readString(row, "deviceName"),
+      this.readString(row, "device_name"),
+      this.readString(row, "name"),
+      this.readString(row, "model"),
+      this.readString(row, "deviceModel"),
+      this.readString(row, "productModel"),
+      this.readString(row, "deviceType"),
+      this.readString(row, "device_type"),
+      this.readString(row, "category"),
+      this.readString(row, "productType")
+    ]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+    const text = values.join(" ");
+
+    if (/(sweeper|sweeprobot|cleaning[_ -]?robot|clean[_ -]?robot|robot|扫地|清洁|洗地|机器人)/i.test(text)) {
+      return true;
+    }
+
+    // 萤石开放平台的通用设备列表会返回摄像头、NVR、门口机等安防设备。
+    // 清洁机器人页面只允许同步机器人候选设备，明确监控类设备留给视频安防模块处理。
+    if (/(^|\s)(ds-|cs-c|cs-t|c6|c6c|c6cn|nvr|dvr|camera|ipc|摄像|监控|录像机|门口|门禁)/i.test(text)) {
+      return false;
+    }
+
+    // 设备详情接口对机器人型号字段并不稳定；未知型号允许手工添加后继续按控制接口验证。
+    return true;
   }
 
   private recordOrEmpty(value: unknown): Record<string, unknown> {
