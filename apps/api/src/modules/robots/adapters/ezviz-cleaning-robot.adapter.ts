@@ -20,6 +20,15 @@ export interface EzvizTaskStatus {
   cleanTaskInfo?: unknown;
 }
 
+export class EzvizApiException extends BadGatewayException {
+  constructor(
+    public readonly ezvizCode: string,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
 @Injectable()
 export class EzvizCleaningRobotAdapter {
   async getToken(baseUrl: string | undefined, appKey: string, appSecret: string): Promise<EzvizApiResult<{ accessToken: string; expireTime: number }>> {
@@ -139,7 +148,7 @@ export class EzvizCleaningRobotAdapter {
       throw new BadGatewayException(payload.msg || `EZVIZ request failed: ${response.status}`);
     }
     if (payload.code && !["0", "200"].includes(String(payload.code))) {
-      throw new BadGatewayException(payload.msg || `EZVIZ request failed: ${payload.code}`);
+      throw new EzvizApiException(String(payload.code), payload.msg || `EZVIZ request failed: ${payload.code}`);
     }
     return payload;
   }

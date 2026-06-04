@@ -11,7 +11,7 @@ import { IotDeviceSecretService } from "../iot/iot-device-secret.service";
 import { IotIngestService } from "../iot/iot-ingest.service";
 import type { IotMetricPayloadValue } from "../iot/dto/iot-http-ingest.dto";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
-import { EzvizCleaningRobotAdapter } from "./adapters/ezviz-cleaning-robot.adapter";
+import { EzvizApiException, EzvizCleaningRobotAdapter, type EzvizApiResult } from "./adapters/ezviz-cleaning-robot.adapter";
 import type { EzvizConfigDto } from "./dto/ezviz-config.dto";
 import type { EzvizDeviceAddDto, EzvizDeviceSyncDto } from "./dto/ezviz-device-sync.dto";
 import type { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
@@ -168,7 +168,7 @@ export class RobotsService {
 
   async listEzvizPlatformDevices(scope: TenantParkScope): Promise<EzvizPlatformDeviceView[]> {
     const config = await this.getEzvizConfig(scope);
-    const response = await this.ezvizAdapter.listDevices(config.baseUrl, await this.getAccessToken(scope, config), 0, 50);
+    const response = await this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.listDevices(config.baseUrl, accessToken, 0, 50));
     const rows = this.extractEzvizDeviceRows(response).filter((row) => this.isEzvizCleaningRobotCandidate(row));
     const serials = rows.map((row) => this.getDeviceSerial(row)).filter((serial): serial is string => Boolean(serial));
     const synced = serials.length
@@ -208,7 +208,7 @@ export class RobotsService {
     this.assertText(dto.validate_code, "validate_code is required");
     const config = await this.getEzvizConfig(scope);
     try {
-      await this.ezvizAdapter.addDevice(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial, dto.validate_code);
+      await this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.addDevice(config.baseUrl, accessToken, dto.device_serial, dto.validate_code));
     } catch (error) {
       if (!this.isEzvizDeviceAlreadyLinkedError(error)) {
         throw error;
@@ -220,7 +220,7 @@ export class RobotsService {
   async syncEzvizDevice(scope: TenantParkScope, actor: JwtPrincipal, dto: EzvizDeviceSyncDto): Promise<RobotView> {
     this.assertText(dto.device_serial, "device_serial is required");
     const config = await this.getEzvizConfig(scope);
-    const detail = await this.ezvizAdapter.deviceInfo(config.baseUrl, await this.getAccessToken(scope, config), dto.device_serial);
+    const detail = await this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.deviceInfo(config.baseUrl, accessToken, dto.device_serial));
     const detailData = this.recordOrEmpty(detail.data);
     if (!this.isEzvizCleaningRobotCandidate({ ...detailData, deviceSerial: dto.device_serial, deviceName: dto.device_name })) {
       throw new BadRequestException("EZVIZ device is not recognized as a cleaning robot");
@@ -318,42 +318,42 @@ export class RobotsService {
 
   async queryTask(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.runEzvizCommand(scope, actor, id, "query_task", {}, async (config, serial) =>
-      this.ezvizAdapter.queryCurrentTask(config.baseUrl, await this.getAccessToken(scope, config), serial)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.queryCurrentTask(config.baseUrl, accessToken, serial))
     );
   }
 
   async cleanControl(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotCleanControlDto) {
     this.assertText(dto.command, "command is required");
     return this.runEzvizCommand(scope, actor, id, "clean_control", { command: dto.command }, async (config, serial) =>
-      this.ezvizAdapter.cleanControl(config.baseUrl, await this.getAccessToken(scope, config), serial, dto.command)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.cleanControl(config.baseUrl, accessToken, serial, dto.command))
     );
   }
 
   async setCleanMode(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotCleanModeDto) {
     this.assertText(dto.mode, "mode is required");
     return this.runEzvizCommand(scope, actor, id, "set_clean_mode", { mode: dto.mode }, async (config, serial) =>
-      this.ezvizAdapter.setCleanMode(config.baseUrl, await this.getAccessToken(scope, config), serial, dto.mode)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.setCleanMode(config.baseUrl, accessToken, serial, dto.mode))
     );
   }
 
   async queryPath(scope: TenantParkScope, actor: JwtPrincipal, id: string, mapId: string) {
     this.assertText(mapId, "map_id is required");
     return this.runEzvizCommand(scope, actor, id, "query_path", { map_id: mapId }, async (config, serial) =>
-      this.ezvizAdapter.queryPath(config.baseUrl, await this.getAccessToken(scope, config), serial, mapId)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.queryPath(config.baseUrl, accessToken, serial, mapId))
     );
   }
 
   async startRegionClean(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotRegionCleanDto) {
     if (!dto.regions?.length) throw new BadRequestException("regions is required");
     return this.runEzvizCommand(scope, actor, id, "start_region_clean", dto as unknown as Record<string, unknown>, async (config, serial) =>
-      this.ezvizAdapter.startRegionClean(config.baseUrl, await this.getAccessToken(scope, config), serial, dto)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.startRegionClean(config.baseUrl, accessToken, serial, dto))
     );
   }
 
   async startTempRegionClean(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotTempRegionCleanDto) {
     if (!dto.temp_region) throw new BadRequestException("temp_region is required");
     return this.runEzvizCommand(scope, actor, id, "start_temp_region_clean", dto as unknown as Record<string, unknown>, async (config, serial) =>
-      this.ezvizAdapter.startTempRegionClean(config.baseUrl, await this.getAccessToken(scope, config), serial, dto)
+      this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.startTempRegionClean(config.baseUrl, accessToken, serial, dto))
     );
   }
 
@@ -437,8 +437,24 @@ export class RobotsService {
     return this.fetchAndStoreAccessToken(scope, config);
   }
 
+  private async callEzvizWithToken<T>(
+    scope: TenantParkScope,
+    config: EzvizConfig,
+    call: (accessToken: string) => Promise<EzvizApiResult<T>>
+  ): Promise<EzvizApiResult<T>> {
+    try {
+      return await call(await this.getAccessToken(scope, config));
+    } catch (error) {
+      if (!this.isEzvizTokenExpiredError(error)) throw error;
+      const refreshedToken = await this.fetchAndStoreAccessToken(scope, config);
+      config.accessToken = refreshedToken;
+      config.tokenExpireAt = undefined;
+      return call(refreshedToken);
+    }
+  }
+
   private async fetchAndStoreAccessToken(scope: TenantParkScope, config: EzvizConfig): Promise<string> {
-    let response;
+    let response: EzvizApiResult<{ accessToken: string; expireTime: number }>;
     try {
       response = await this.ezvizAdapter.getToken(config.baseUrl, config.appKey, config.appSecret);
     } catch (error) {
@@ -458,6 +474,11 @@ export class RobotsService {
       await this.protocolConfigRepository.save(entity);
     }
     return token;
+  }
+
+  private isEzvizTokenExpiredError(error: unknown): boolean {
+    if (error instanceof EzvizApiException) return error.ezvizCode === "10002";
+    return error instanceof Error && /10002|accessToken|token/i.test(error.message);
   }
 
   private async getEzvizConfig(scope: TenantParkScope): Promise<EzvizConfig> {
