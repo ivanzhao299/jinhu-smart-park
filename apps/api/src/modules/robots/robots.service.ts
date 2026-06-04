@@ -626,11 +626,18 @@ export class RobotsService {
       this.readString(row, "deviceType"),
       this.readString(row, "device_type"),
       this.readString(row, "category"),
+      this.readString(row, "parentCategory"),
+      this.readString(row, "resourceType"),
       this.readString(row, "productType")
     ]
       .filter((value): value is string => Boolean(value))
       .map((value) => value.toLowerCase());
     const text = values.join(" ");
+
+    // 萤石商用清洁文档明确：机器人详情 parentCategory=commercialRobot，回调 resourceType=SweepingRobot。
+    if (/(commercialrobot|sweepingrobot)/i.test(text)) {
+      return true;
+    }
 
     if (/(sweeper|sweeprobot|cleaning[_ -]?robot|clean[_ -]?robot|robot|扫地|清洁|洗地|机器人)/i.test(text)) {
       return true;
