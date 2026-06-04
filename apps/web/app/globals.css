@@ -2245,6 +2245,84 @@ textarea:disabled {
   padding: var(--phoenix-space-4);
 }
 
+.robot-metric-card {
+  display: grid;
+  gap: var(--phoenix-space-2);
+  min-height: 116px;
+  padding: var(--phoenix-space-4);
+}
+
+.robot-metric-card > span:not(.robot-metric-icon) {
+  color: var(--phoenix-color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.robot-metric-card > strong {
+  color: var(--phoenix-color-text);
+  font-size: var(--font-size-kpi-value);
+  line-height: 1;
+}
+
+.robot-metric-icon {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--phoenix-color-primary);
+  background: color-mix(in srgb, var(--phoenix-color-primary) 12%, transparent);
+}
+
+.robot-metric-card--success .robot-metric-icon {
+  color: var(--phoenix-color-success);
+  background: color-mix(in srgb, var(--phoenix-color-success) 12%, transparent);
+}
+
+.robot-metric-card--warning .robot-metric-icon {
+  color: var(--phoenix-color-warning);
+  background: color-mix(in srgb, var(--phoenix-color-warning) 14%, transparent);
+}
+
+.robot-command-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--phoenix-space-2);
+  padding: var(--phoenix-space-4) 0;
+}
+
+.robot-detail-section {
+  display: grid;
+  gap: var(--phoenix-space-3);
+  padding: var(--phoenix-space-4) 0;
+}
+
+.robot-json-preview,
+.robot-json-input {
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--radius-md);
+  background: var(--phoenix-color-surface-muted);
+  color: var(--phoenix-color-text);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: var(--font-size-caption);
+  line-height: 1.7;
+  overflow: auto;
+}
+
+.robot-json-preview {
+  margin: 0;
+  padding: var(--phoenix-space-4);
+  white-space: pre-wrap;
+}
+
+.robot-json-input {
+  padding: var(--phoenix-space-3);
+  resize: vertical;
+}
+
 .workorder-stat-section {
   display: grid;
   gap: var(--phoenix-space-3);

@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Bot, Eye, Play, Plus, RefreshCw, Route, Save, Search, Settings2 } from "lucide-react";
+import { Activity, AlertTriangle, Bot, Eye, Map, Play, Plus, RefreshCw, Route, Save, Search, Settings2, Wrench } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -39,6 +39,23 @@ const emptySyncForm: EzvizSyncForm = {
   location: "",
   remark: ""
 };
+const defaultRegionPayload = JSON.stringify({
+  regions: [
+    {
+      region_id: "room-1",
+      clean_mode: "dustAbsorption"
+    }
+  ]
+}, null, 2);
+const defaultTempRegionPayload = JSON.stringify({
+  temp_region: {
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 1000
+  },
+  clean_times: 1
+}, null, 2);
 
 interface RobotRow {
   id: string;
@@ -110,6 +127,8 @@ interface Filters {
   onlineStatus: string;
 }
 
+type AdvancedActionKind = "path" | "region" | "temp";
+
 export default function CleaningRobotsPage() {
   const [pageData, setPageData] = useState<PaginatedResult<RobotRow>>(emptyPage);
   const [filters, setFilters] = useState<Filters>({ keyword: "", onlineStatus: "" });
@@ -126,7 +145,14 @@ export default function CleaningRobotsPage() {
   const [commandTarget, setCommandTarget] = useState<RobotRow | null>(null);
   const [command, setCommand] = useState("start");
   const [cleanMode, setCleanMode] = useState("dustAbsorption");
+  const [lastCommandResult, setLastCommandResult] = useState<{ title: string; data: unknown } | null>(null);
+  const [advancedTarget, setAdvancedTarget] = useState<RobotRow | null>(null);
+  const [advancedKind, setAdvancedKind] = useState<AdvancedActionKind>("path");
+  const [mapId, setMapId] = useState("");
+  const [regionPayload, setRegionPayload] = useState(defaultRegionPayload);
+  const [tempRegionPayload, setTempRegionPayload] = useState(defaultTempRegionPayload);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const robotSummary = useMemo(() => buildRobotSummary(pageData.items), [pageData.items]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -155,7 +181,8 @@ export default function CleaningRobotsPage() {
   }, [loadConfigs]);
 
   async function openDetail(row: RobotRow) {
-    setViewing(row);
+    const detail = await apiRequest<RobotRow>(`/robots/cleaning/${row.id}`, { token: getAccessToken() });
+    setViewing(detail.data);
     const response = await apiRequest<PaginatedResult<RobotLogRow>>(`/robots/cleaning/${row.id}/command-logs?page=1&page_size=20`, {
       token: getAccessToken()
     });
@@ -237,30 +264,78 @@ export default function CleaningRobotsPage() {
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("robot-query-task")
     });
-    setMessage(`任务查询成功：${JSON.stringify(response.data).slice(0, 160)}`);
-    await openDetail(row);
+    setLastCommandResult({ title: "当前任务查询结果", data: response.data });
+    setMessage("任务查询成功，已刷新机器人当前任务快照");
+    await Promise.all([load(pageData.page), openDetail(row)]);
   }
 
   async function runControl(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!commandTarget) return;
-    await apiRequest<unknown>(`/robots/cleaning/${commandTarget.id}/clean-control`, {
+    const controlResponse = await apiRequest<unknown>(`/robots/cleaning/${commandTarget.id}/clean-control`, {
       method: "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("robot-clean-control"),
       body: { command }
     });
+    const results: Record<string, unknown> = { clean_control: controlResponse.data };
     if (cleanMode.trim()) {
-      await apiRequest<unknown>(`/robots/cleaning/${commandTarget.id}/set-clean-mode`, {
+      const modeResponse = await apiRequest<unknown>(`/robots/cleaning/${commandTarget.id}/set-clean-mode`, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("robot-clean-mode"),
         body: { mode: cleanMode }
       });
+      results.set_clean_mode = modeResponse.data;
     }
+    setLastCommandResult({ title: "控制指令回执", data: results });
     setMessage("机器人控制指令已下发");
+    const target = commandTarget;
     setCommandTarget(null);
-    await load(pageData.page);
+    await Promise.all([load(pageData.page), openDetail(target)]);
+  }
+
+  async function queryPath(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!advancedTarget) return;
+    const response = await apiRequest<unknown>(`/robots/cleaning/${advancedTarget.id}/path?map_id=${encodeURIComponent(mapId.trim())}`, {
+      token: getAccessToken()
+    });
+    setLastCommandResult({ title: "地图路径查询结果", data: response.data });
+    setMessage("地图路径查询成功");
+    await openDetail(advancedTarget);
+  }
+
+  async function startRegionClean(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!advancedTarget) return;
+    const body = parseJsonObject(regionPayload);
+    const response = await apiRequest<unknown>(`/robots/cleaning/${advancedTarget.id}/start-region-clean`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-region-clean"),
+      body
+    });
+    setLastCommandResult({ title: "区域清扫回执", data: response.data });
+    setMessage("区域清扫指令已下发");
+    setAdvancedTarget(null);
+    await Promise.all([load(pageData.page), openDetail(advancedTarget)]);
+  }
+
+  async function startTempRegionClean(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!advancedTarget) return;
+    const body = parseJsonObject(tempRegionPayload);
+    const response = await apiRequest<unknown>(`/robots/cleaning/${advancedTarget.id}/start-temp-region-clean`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-temp-region-clean"),
+      body
+    });
+    setLastCommandResult({ title: "临时区域清扫回执", data: response.data });
+    setMessage("临时区域清扫指令已下发");
+    setAdvancedTarget(null);
+    await Promise.all([load(pageData.page), openDetail(advancedTarget)]);
   }
 
   return (
@@ -302,6 +377,13 @@ export default function CleaningRobotsPage() {
         </Card>
 
         {message ? <p className="form-error">{message}</p> : null}
+
+        <section className="dashboard-grid">
+          <RobotMetricCard icon={<Bot size={18} />} label="机器人总数" value={`${robotSummary.total}`} />
+          <RobotMetricCard icon={<Activity size={18} />} label="在线设备" value={`${robotSummary.online}`} tone="success" />
+          <RobotMetricCard icon={<Route size={18} />} label="有任务快照" value={`${robotSummary.withTask}`} />
+          <RobotMetricCard icon={<AlertTriangle size={18} />} label="异常/离线" value={`${robotSummary.exception}`} tone="warning" />
+        </section>
 
         <Card className="page-content">
           <div className="task-item">
@@ -399,6 +481,10 @@ export default function CleaningRobotsPage() {
                         <Play size={16} />
                         控制
                       </PermissionButton>
+                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => openAdvancedDrawer(row, "path")}>
+                        <Map size={16} />
+                        轨迹/区域
+                      </PermissionButton>
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => void refreshRobotInfo(row).catch((error: Error) => setMessage(error.message))}>
                         <RefreshCw size={16} />
                         同步详情
@@ -471,7 +557,31 @@ export default function CleaningRobotsPage() {
               <DrawerDetailItem label="型号" value={viewing.model ?? "-"} />
               <DrawerDetailItem label="位置" value={viewing.location ?? "-"} />
               <DrawerDetailItem label="最近数据" value={formatDateTime(viewing.lastDataTime)} />
+              <DrawerDetailItem label="任务状态" value={readTaskText(viewing, "taskStatus") ?? "-"} />
+              <DrawerDetailItem label="清洁进度" value={readTaskText(viewing, "cleaningProgress") ?? "-"} />
+              <DrawerDetailItem label="电量" value={readBatteryText(viewing)} />
+              <DrawerDetailItem label="异常信息" value={readTaskText(viewing, "exceptionInfo") ?? "-"} />
             </DrawerDetailGrid>
+            <div className="robot-command-bar">
+              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => void runQueryTask(viewing).catch((error: Error) => setMessage(error.message))}>
+                <Route size={16} />
+                查询任务
+              </PermissionButton>
+              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => setCommandTarget(viewing)}>
+                <Play size={16} />
+                控制
+              </PermissionButton>
+              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_CONTROL} type="button" onClick={() => openAdvancedDrawer(viewing, "path")}>
+                <Map size={16} />
+                轨迹/区域
+              </PermissionButton>
+            </div>
+            {lastCommandResult ? (
+              <section className="robot-detail-section">
+                <h2 className="panel-title">{lastCommandResult.title}</h2>
+                <pre className="robot-json-preview">{stringifyPreview(lastCommandResult.data)}</pre>
+              </section>
+            ) : null}
             <div className="page-content">
               <h2 className="panel-title">最近命令</h2>
               <DataTable>
@@ -543,6 +653,70 @@ export default function CleaningRobotsPage() {
                 <button className="primary-button" type="submit"><Save size={16} />保存</button>
               </DrawerFooter>
             </DrawerForm>
+          </Drawer>
+        ) : null}
+
+        {advancedTarget ? (
+          <Drawer size="md" onClose={() => setAdvancedTarget(null)}>
+            <DrawerHeader
+              eyebrow="轨迹与区域清扫"
+              title={advancedTarget.deviceName}
+              description="路径查询和区域清扫对应萤石商用清洁机器人文档中的地图、区域、临时区域能力。"
+              onClose={() => setAdvancedTarget(null)}
+            />
+            <div className="robot-command-bar">
+              <button className={advancedKind === "path" ? "primary-button" : "secondary-button"} type="button" onClick={() => setAdvancedKind("path")}>
+                <Route size={16} />
+                路径查询
+              </button>
+              <button className={advancedKind === "region" ? "primary-button" : "secondary-button"} type="button" onClick={() => setAdvancedKind("region")}>
+                <Map size={16} />
+                区域清扫
+              </button>
+              <button className={advancedKind === "temp" ? "primary-button" : "secondary-button"} type="button" onClick={() => setAdvancedKind("temp")}>
+                <Wrench size={16} />
+                临时区域
+              </button>
+            </div>
+            {advancedKind === "path" ? (
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void queryPath(event).catch((error: Error) => setMessage(error.message))}>
+                <DrawerFormGrid single>
+                  <Field label="地图 ID">
+                    <input required value={mapId} onChange={(event) => setMapId(event.target.value)} placeholder="从当前任务或地图配置中获取 mapId" />
+                  </Field>
+                </DrawerFormGrid>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setAdvancedTarget(null)}>取消</button>
+                  <button className="primary-button" type="submit"><Route size={16} />查询路径</button>
+                </DrawerFooter>
+              </DrawerForm>
+            ) : null}
+            {advancedKind === "region" ? (
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void startRegionClean(event).catch((error: Error) => setMessage(error.message))}>
+                <DrawerFormGrid single>
+                  <Field label="区域清扫 JSON">
+                    <textarea className="robot-json-input" value={regionPayload} onChange={(event) => setRegionPayload(event.target.value)} />
+                  </Field>
+                </DrawerFormGrid>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setAdvancedTarget(null)}>取消</button>
+                  <button className="primary-button" type="submit"><Play size={16} />开始区域清扫</button>
+                </DrawerFooter>
+              </DrawerForm>
+            ) : null}
+            {advancedKind === "temp" ? (
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void startTempRegionClean(event).catch((error: Error) => setMessage(error.message))}>
+                <DrawerFormGrid single>
+                  <Field label="临时区域 JSON">
+                    <textarea className="robot-json-input" value={tempRegionPayload} onChange={(event) => setTempRegionPayload(event.target.value)} />
+                  </Field>
+                </DrawerFormGrid>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setAdvancedTarget(null)}>取消</button>
+                  <button className="primary-button" type="submit"><Play size={16} />开始临时区域清扫</button>
+                </DrawerFooter>
+              </DrawerForm>
+            ) : null}
           </Drawer>
         ) : null}
 
@@ -670,6 +844,22 @@ export default function CleaningRobotsPage() {
     setAddOpen(false);
     setSyncForm(emptySyncForm);
   }
+
+  function openAdvancedDrawer(row: RobotRow, kind: AdvancedActionKind) {
+    setAdvancedTarget(row);
+    setAdvancedKind(kind);
+    setMapId(readTaskText(row, "mapID") ?? "");
+  }
+}
+
+function RobotMetricCard({ icon, label, value, tone = "default" }: { icon: ReactNode; label: string; value: string; tone?: "default" | "success" | "warning" }) {
+  return (
+    <article className={`metric-card robot-metric-card robot-metric-card--${tone}`}>
+      <span className="robot-metric-icon">{icon}</span>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
 }
 
 function RobotStatus({ status }: { status: string }) {
@@ -696,6 +886,78 @@ function formatDateTime(value?: string | null) {
 
 function EmptyState() {
   return <p className="muted-text">暂无清洁机器人。请先配置萤石开放平台，然后在“萤石设备同步”中读取并同步现场机器人。</p>;
+}
+
+function buildRobotSummary(items: RobotRow[]) {
+  return items.reduce((summary, item) => ({
+    total: summary.total + 1,
+    online: summary.online + (item.onlineStatus === "online" ? 1 : 0),
+    withTask: summary.withTask + (hasTaskSnapshot(item) ? 1 : 0),
+    exception: summary.exception + (item.onlineStatus === "offline" || hasRobotException(item) ? 1 : 0)
+  }), { total: 0, online: 0, withTask: 0, exception: 0 });
+}
+
+function hasTaskSnapshot(row: RobotRow) {
+  return Boolean(getStatusRecord(row, "ezviz_current_task") ?? getStatusRecord(row, "ezviz_last_command"));
+}
+
+function hasRobotException(row: RobotRow) {
+  const value = readTaskValue(row, "exceptionInfo") ?? readTaskValue(row, "exceptionCode") ?? readTaskValue(row, "errorCode");
+  if (value === null || value === undefined || value === "" || value === 0) return false;
+  if (typeof value === "object" && Object.keys(value).length === 0) return false;
+  return true;
+}
+
+function readBatteryText(row: RobotRow) {
+  const value = readTaskValue(row, "battery") ?? readTaskValue(row, "batteryLevel") ?? readTaskValue(row, "electricity");
+  if (value === null || value === undefined || value === "") return "-";
+  return typeof value === "number" ? `${value}%` : String(value);
+}
+
+function readTaskText(row: RobotRow, key: string) {
+  const value = readTaskValue(row, key);
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "object") return stringifyPreview(value);
+  return String(value);
+}
+
+function readTaskValue(row: RobotRow, key: string): unknown {
+  const task = getStatusRecord(row, "ezviz_current_task");
+  const command = getStatusRecord(row, "ezviz_last_command");
+  return deepFindValue(task, key) ?? deepFindValue(command, key) ?? deepFindValue(row.statusPayload, key);
+}
+
+function getStatusRecord(row: RobotRow, key: string) {
+  const value = row.statusPayload?.[key];
+  return isRecord(value) ? value : null;
+}
+
+function deepFindValue(value: unknown, targetKey: string): unknown {
+  if (!isRecord(value)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(value, targetKey)) return value[targetKey];
+  for (const nested of Object.values(value)) {
+    const found = deepFindValue(nested, targetKey);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseJsonObject(value: string) {
+  const parsed: unknown = JSON.parse(value);
+  if (!isRecord(parsed)) throw new Error("请输入 JSON 对象");
+  return parsed;
+}
+
+function stringifyPreview(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function Forbidden() {

@@ -391,6 +391,18 @@ export class RobotsService {
     try {
       const response = await executor(config, serial);
       await this.writeCommandLog(scope, actor, device, command, requestPayload, response as Record<string, unknown>, "success", null);
+      const responseRecord = this.recordOrEmpty(response);
+      device.statusPayload = {
+        ...(device.statusPayload ?? {}),
+        ezviz_last_command: {
+          command,
+          response: this.maskCommandResponse(responseRecord),
+          time: new Date().toISOString()
+        },
+        ...(command === "query_task" ? { ezviz_current_task: this.recordOrEmpty(responseRecord.data) } : {})
+      };
+      device.lastDataTime = new Date();
+      await this.deviceRepository.save(device);
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Robot command failed";
