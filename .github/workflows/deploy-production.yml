@@ -32,4 +32,23 @@ jobs:
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
         run: |
-          ssh "$PROD_USER@$PROD_HOST" "cd '$PROD_DEPLOY_PATH' && git pull --ff-only && pnpm prod:deploy && pnpm prod:health"
+          rsync -az --delete \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='node_modules/' \
+            --exclude='**/node_modules/' \
+            --exclude='.next/' \
+            --exclude='**/.next/' \
+            --exclude='dist/' \
+            --exclude='**/dist/' \
+            --exclude='coverage/' \
+            --exclude='**/coverage/' \
+            --exclude='logs/' \
+            --exclude='tmp/' \
+            --exclude='temp/' \
+            --exclude='uploads/' \
+            --exclude='storage/' \
+            --exclude='data/' \
+            ./ "$PROD_USER@$PROD_HOST:$PROD_DEPLOY_PATH/"
+          ssh "$PROD_USER@$PROD_HOST" "cd '$PROD_DEPLOY_PATH' && PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health"
