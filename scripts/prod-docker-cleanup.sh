@@ -15,6 +15,9 @@ compose() {
 }
 
 printf "Production Docker cleanup started.\n"
+printf "\nDocker disk usage before cleanup:\n"
+docker system df || true
+
 printf "Keeping images used by current production containers:\n"
 compose ps --format "table {{.Name}}\t{{.Image}}\t{{.State}}" || true
 
@@ -26,5 +29,11 @@ docker image prune -af
 
 printf "\nPruning build cache. Production does not keep historical build cache by default.\n"
 docker builder prune -af
+
+printf "\nDocker disk usage after cleanup:\n"
+docker system df || true
+
+printf "\nRunning containers after cleanup:\n"
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" || true
 
 printf "\nProduction Docker cleanup finished.\n"
