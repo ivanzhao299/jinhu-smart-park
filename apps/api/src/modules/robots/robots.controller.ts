@@ -37,6 +37,13 @@ export class RobotsController {
     return this.robotsService.upsertEzvizConfig(scope, user, dto);
   }
 
+  @Post("cleaning/ezviz-configs/:id/refresh-token")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE)
+  @AuditLog({ module: "机器人运营", action: "刷新萤石 AccessToken", resource: "biz.robot_config", bizType: "iot_protocol_config", bizIdParam: "id" })
+  refreshEzvizConfigToken(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
+    return this.robotsService.refreshEzvizAccessToken(scope, id);
+  }
+
   @Get("cleaning/ezviz-devices")
   @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_READ)
   listEzvizPlatformDevices(@CurrentScope() scope: TenantParkScope) {

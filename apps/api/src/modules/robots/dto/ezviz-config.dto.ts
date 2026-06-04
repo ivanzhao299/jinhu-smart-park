@@ -25,6 +25,16 @@ export class EzvizConfigDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
+  access_token?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  token_expire_at?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(32)
   status?: string;
 

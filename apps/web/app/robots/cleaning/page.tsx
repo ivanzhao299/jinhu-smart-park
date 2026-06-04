@@ -29,6 +29,8 @@ const emptyConfigForm: EzvizConfigForm = {
   app_secret: "",
   api_base_url: "https://open.ys7.com",
   callback_token: "",
+  access_token: "",
+  token_expire_at: "",
   status: "enabled",
   remark: ""
 };
@@ -100,6 +102,8 @@ interface EzvizConfigForm {
   app_secret: string;
   api_base_url: string;
   callback_token: string;
+  access_token: string;
+  token_expire_at: string;
   status: string;
   remark: string;
 }
@@ -201,6 +205,8 @@ export default function CleaningRobotsPage() {
         app_secret: configForm.app_secret.trim(),
         api_base_url: configForm.api_base_url.trim() || undefined,
         callback_token: configForm.callback_token.trim() || undefined,
+        access_token: configForm.access_token.trim() || undefined,
+        token_expire_at: configForm.token_expire_at.trim() || undefined,
         status: configForm.status,
         remark: configForm.remark.trim() || undefined
       }
@@ -208,6 +214,16 @@ export default function CleaningRobotsPage() {
     setMessage("萤石平台配置已保存，密钥不会明文回显");
     setConfigOpen(false);
     setConfigForm(emptyConfigForm);
+    await loadConfigs();
+  }
+
+  async function refreshEzvizToken(row: EzvizConfigRow) {
+    const response = await apiRequest<EzvizConfigRow>(`/robots/cleaning/ezviz-configs/${row.id}/refresh-token`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("robot-ezviz-refresh-token")
+    });
+    setMessage(`萤石 AccessToken 已刷新，有效期至 ${response.data.tokenExpireAt ? new Date(response.data.tokenExpireAt).toLocaleString("zh-CN", { hour12: false }) : "未知"}`);
     await loadConfigs();
   }
 
@@ -523,6 +539,7 @@ export default function CleaningRobotsPage() {
                 <th>Token</th>
                 <th>过期时间</th>
                 <th>更新时间</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -535,9 +552,22 @@ export default function CleaningRobotsPage() {
                   <td>{row.hasAccessToken ? "已缓存" : "未缓存"}</td>
                   <td>{row.tokenExpireAt ? new Date(row.tokenExpireAt).toLocaleString("zh-CN", { hour12: false }) : "-"}</td>
                   <td>{formatDateTime(row.updateTime)}</td>
+                  <td>
+                    <DataTableActions>
+                      <PermissionButton
+                        className="secondary-button"
+                        permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE}
+                        type="button"
+                        onClick={() => void refreshEzvizToken(row).catch((error: Error) => setMessage(error.message))}
+                      >
+                        <RefreshCw size={16} />
+                        刷新 Token
+                      </PermissionButton>
+                    </DataTableActions>
+                  </td>
                 </tr>
               ))}
-              {configs.length === 0 ? <tr><td colSpan={7}><p className="muted-text">暂无萤石平台配置</p></td></tr> : null}
+              {configs.length === 0 ? <tr><td colSpan={8}><p className="muted-text">暂无萤石平台配置</p></td></tr> : null}
             </tbody>
           </DataTable>
         </Card>
@@ -635,6 +665,12 @@ export default function CleaningRobotsPage() {
                 </Field>
                 <Field label="回调 Token">
                   <input type="password" value={configForm.callback_token} onChange={(event) => setConfigFormValue("callback_token", event.target.value)} placeholder="用于验证萤石回调" />
+                </Field>
+                <Field label="AccessToken">
+                  <input type="password" value={configForm.access_token} onChange={(event) => setConfigFormValue("access_token", event.target.value)} placeholder="可选：从萤石开放平台复制当前 AccessToken" />
+                </Field>
+                <Field label="Token 过期时间">
+                  <input type="datetime-local" value={configForm.token_expire_at} onChange={(event) => setConfigFormValue("token_expire_at", event.target.value)} />
                 </Field>
                 <Field label="状态">
                   <select value={configForm.status} onChange={(event) => setConfigFormValue("status", event.target.value)}>

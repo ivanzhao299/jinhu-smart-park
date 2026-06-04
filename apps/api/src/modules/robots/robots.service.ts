@@ -106,14 +106,6 @@ export class RobotsService {
   }
 
   async upsertEzvizConfig(scope: TenantParkScope, actor: JwtPrincipal, dto: EzvizConfigDto) {
-    const configJson: Record<string, unknown> = {
-      app_key: this.secretService.encryptSecret(dto.app_key),
-      app_secret_encrypted: this.secretService.encryptSecret(dto.app_secret),
-      api_base_url: dto.api_base_url ?? "https://open.ys7.com"
-    };
-    if (dto.callback_token) {
-      configJson.callback_token_encrypted = this.secretService.encryptSecret(dto.callback_token);
-    }
     const existing = await this.protocolConfigRepository.findOne({
       where: {
         tenantId: scope.tenantId,
@@ -123,6 +115,21 @@ export class RobotsService {
         isDeleted: false
       }
     });
+    const configJson: Record<string, unknown> = {
+      ...(existing?.configJson ?? {}),
+      app_key: this.secretService.encryptSecret(dto.app_key),
+      app_secret_encrypted: this.secretService.encryptSecret(dto.app_secret),
+      api_base_url: dto.api_base_url ?? "https://open.ys7.com"
+    };
+    if (dto.callback_token) {
+      configJson.callback_token_encrypted = this.secretService.encryptSecret(dto.callback_token);
+    }
+    if (dto.access_token) {
+      configJson.access_token_encrypted = this.secretService.encryptSecret(dto.access_token);
+      configJson.token_expire_at = this.parseTokenExpireAt(dto.token_expire_at) ?? this.defaultManualTokenExpireAt();
+    } else if (dto.token_expire_at) {
+      configJson.token_expire_at = this.parseTokenExpireAt(dto.token_expire_at);
+    }
     const entity = existing ?? this.protocolConfigRepository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -130,12 +137,25 @@ export class RobotsService {
       configName: dto.config_name,
       createBy: actor.sub
     });
-    entity.configJson = { ...(existing?.configJson ?? {}), ...configJson };
+    entity.configJson = configJson;
     entity.status = dto.status ?? "enabled";
     entity.remark = dto.remark ?? entity.remark ?? null;
     entity.updateBy = actor.sub;
     const saved = await this.protocolConfigRepository.save(entity);
     return this.toConfigView(saved);
+  }
+
+  async refreshEzvizAccessToken(scope: TenantParkScope, configId: string) {
+    const entity = await this.protocolConfigRepository.findOne({
+      where: { id: configId, tenantId: scope.tenantId, parkId: scope.parkId, protocolType: EZVIZ_PROTOCOL, isDeleted: false }
+    });
+    if (!entity) throw new NotFoundException("EZVIZ cleaning robot config not found");
+    const config = this.toEzvizConfig(entity);
+    await this.fetchAndStoreAccessToken(scope, config);
+    const refreshed = await this.protocolConfigRepository.findOneOrFail({
+      where: { id: configId, tenantId: scope.tenantId, parkId: scope.parkId, protocolType: EZVIZ_PROTOCOL, isDeleted: false }
+    });
+    return this.toConfigView(refreshed);
   }
 
   async listEzvizConfigs(scope: TenantParkScope) {
@@ -414,10 +434,20 @@ export class RobotsService {
   private async getAccessToken(scope: TenantParkScope, config: EzvizConfig): Promise<string> {
     const now = Date.now();
     if (config.accessToken && config.tokenExpireAt && config.tokenExpireAt - now > 60_000) return config.accessToken;
-    const response = await this.ezvizAdapter.getToken(config.baseUrl, config.appKey, config.appSecret);
+    return this.fetchAndStoreAccessToken(scope, config);
+  }
+
+  private async fetchAndStoreAccessToken(scope: TenantParkScope, config: EzvizConfig): Promise<string> {
+    let response;
+    try {
+      response = await this.ezvizAdapter.getToken(config.baseUrl, config.appKey, config.appSecret);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      throw new BadRequestException(`萤石 AccessToken 获取失败：${message}。请检查 AppKey/AppSecret，或在萤石配置页手动填入开放平台当前 AccessToken。`);
+    }
     const token = response.data?.accessToken;
     const expireTime = response.data?.expireTime;
-    if (!token || !expireTime) throw new BadRequestException("Failed to obtain EZVIZ access token");
+    if (!token || !expireTime) throw new BadRequestException("萤石 AccessToken 获取失败：返回内容缺少 accessToken 或 expireTime。请在配置页手动填入当前 AccessToken。");
     const entity = await this.protocolConfigRepository.findOne({ where: { id: config.id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
     if (entity) {
       entity.configJson = {
@@ -436,6 +466,10 @@ export class RobotsService {
       order: { updateTime: "DESC" }
     });
     if (!entity) throw new BadRequestException("EZVIZ cleaning robot config is not configured");
+    return this.toEzvizConfig(entity);
+  }
+
+  private toEzvizConfig(entity: IotProtocolConfigEntity): EzvizConfig {
     const json = entity.configJson ?? {};
     const appKey = this.decryptRequired(json.app_key, "app_key is not configured");
     const appSecret = this.decryptRequired(json.app_secret_encrypted, "app_secret is not configured");
@@ -448,6 +482,20 @@ export class RobotsService {
       tokenExpireAt: this.readNumber(json, "token_expire_at"),
       callbackToken: this.decryptOptional(json.callback_token_encrypted)
     };
+  }
+
+  private parseTokenExpireAt(value: string | undefined): number | undefined {
+    if (!value?.trim()) return undefined;
+    const raw = value.trim();
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+    const parsed = new Date(raw).getTime();
+    if (Number.isNaN(parsed)) throw new BadRequestException("token_expire_at is invalid");
+    return parsed;
+  }
+
+  private defaultManualTokenExpireAt(): number {
+    return Date.now() + 6 * 24 * 60 * 60 * 1000;
   }
 
   private robotBuilder(scope: TenantParkScope) {
