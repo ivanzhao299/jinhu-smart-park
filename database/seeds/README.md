@@ -57,6 +57,152 @@ Execution scope:
 
 Do not run development-only seeds in shared, staging, or production environments.
 
+`scripts/db-seed-dev.sh` now refuses to run when:
+
+- `NODE_ENV=production`
+- `APP_ENV=production`
+- `APP_ENV=staging`
+- `APP_ENV=shared`
+- `DISABLE_DEV_SEED=yes`
+
+To override that protection intentionally, you must set:
+
+```bash
+ALLOW_DEV_SEED=yes pnpm db:seed:dev
+```
+
+## Release Initialization Sequence
+
+Recommended order for a clean release-ready environment:
+
+1. Run migration
+
+```bash
+pnpm db:migrate
+```
+
+2. Run production seed
+
+```bash
+ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod
+```
+
+3. Run init baseline check
+
+```bash
+TENANT_ID=10000001 \
+PARK_ID=20000001 \
+pnpm db:check:init
+```
+
+Expected result at this point:
+
+```text
+[FAIL] no bootstrap admin found
+INIT BASELINE RESULT: FAIL
+```
+
+4. Bootstrap the first admin
+
+```bash
+TENANT_ID=10000001 \
+PARK_ID=20000001 \
+ADMIN_USERNAME=<ADMIN_USERNAME> \
+ADMIN_PASSWORD='<STRONG_PASSWORD>' \
+ADMIN_NAME='<ADMIN_NAME>' \
+ADMIN_EMAIL='<ADMIN_EMAIL>' \
+ADMIN_PHONE='<ADMIN_PHONE>' \
+ROLE_CODE=SUPER_ADMIN \
+pnpm db:bootstrap:admin
+```
+
+5. Run init baseline check again
+
+```bash
+TENANT_ID=10000001 \
+PARK_ID=20000001 \
+FILE_STORAGE_LOCAL_ROOT=/var/lib/jinhu/files \
+AUTH_SMS_CODE_VISIBLE=false \
+AUTH_WECHAT_MOCK_ENABLED=false \
+pnpm db:check:init
+```
+
+Expected result:
+
+- `PASS`, or
+- `WARN` when non-blocking items such as explicit file path settings are still pending
+
+## bootstrap-admin Notes
+
+`bootstrap-admin` only creates the first login-capable administrator. It does not create:
+
+- tenants
+- parks
+- roles
+- permissions
+- module authorizations
+
+Main environment variables:
+
+- `ADMIN_USERNAME`, required
+- `ADMIN_PASSWORD`, required
+- `ADMIN_NAME`, required
+- `ADMIN_EMAIL`, optional
+- `ADMIN_PHONE`, optional
+- `TENANT_ID`, defaults to `10000001`
+- `PARK_ID`, defaults to `20000001`
+- `ROLE_CODE`, defaults to `SUPER_ADMIN`
+- `ALLOW_PASSWORD_RESET`, defaults to `no`
+- `POSTGRES_USER`
+- `POSTGRES_DB`
+- `COMPOSE_FILE`
+- `ENV_FILE`
+- `BCRYPT_SALT_ROUNDS`
+
+Safety rules:
+
+- never use weak passwords such as `Jinhu@123456`
+- the script must not print plaintext passwords
+- the script must not print password hashes
+- repeated execution must not create duplicate users
+
+## check-init-baseline Return Codes
+
+- `0`: `PASS`
+- `0`: `WARN`
+- `2`: `FAIL`
+
+When `STRICT=true`:
+
+- `WARN` returns non-zero
+
+## Common Failure Reasons
+
+- migration has not completed
+- production seed has not been applied
+- bootstrap admin has not been created yet
+- target tenant or park baseline does not exist
+- target role is missing
+- target role has no permission relations
+- tenant module authorization baseline is missing
+- dev seed contamination was detected
+- `FILE_STORAGE_LOCAL_ROOT` is not explicitly set
+- auth mock variables are not disabled
+
+## Rollback Guidance
+
+- prefer soft-deleting the bootstrap admin and unbinding its relations
+- do not rollback the production seed baseline itself
+- take a database backup before seeding shared, staging, or production environments
+
+If the host network cannot reach the database or API ports directly, use the container-internal verification helper:
+
+```bash
+sh scripts/verify-api-login-dockerexec.sh
+```
+
+It runs the same bootstrap/login validation flow using `docker exec` inside the postgres and API containers.
+
 Before seeding a real environment, replace the `tenant_id` and `park_id` values in each `seed_scope`.
 
 ## Smoke Data Cleanup
