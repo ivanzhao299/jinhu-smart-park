@@ -1,6 +1,22 @@
 "use client";
 
-import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
+import {
+  ContentCard,
+  DataTable,
+  DataTableActions,
+  Drawer,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
+  StatusPill
+} from "@jinhu/ui";
 import { Edit3, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -156,26 +172,28 @@ export default function EnergyAllocationRulesPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_ALLOCATION_RULE_VIEW} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div><h1>公共能耗分摊规则</h1><p>配置公共电、水、气表按面积、租户数、房间数或手工比例分摊。</p></div>
-          <div className="page-actions">
+      <PageShell>
+        <PageHeader
+          title="公共能耗分摊规则"
+          description="配置公共电、水、气表按面积、租户数、房间数或手工比例分摊。"
+          actions={
+            <>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button>
             <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ENERGY_ALLOCATION_RULE_CREATE} type="button" onClick={openCreate}><Plus size={16} />新增规则</PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="关键词"><input value={filters.keyword} placeholder="规则名称" onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} /></Field>
           <SelectField label="表计类型" value={filters.meterType} items={dicts.energy_meter_type ?? []} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, meterType: value }))} />
           <SelectField label="状态" value={filters.status} items={dicts.energy_allocation_rule_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item"><h2 className="panel-title">规则列表</h2><span>共 {pageData.total} 条</span></div>
+        <ContentCard title="规则列表" actions={<span>共 {pageData.total} 条</span>}>
           <DataTable>
             <thead><tr><th>规则名称</th><th>表计类型</th><th>分摊范围</th><th>分摊方式</th><th>公共表计</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
@@ -196,11 +214,11 @@ export default function EnergyAllocationRulesPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={7}><div className="empty-state">暂无分摊规则</div></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={7}><EmptyState title="暂无分摊规则" compact /></td></tr> : null}
             </tbody>
           </DataTable>
-          <Pager page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
@@ -222,7 +240,7 @@ export default function EnergyAllocationRulesPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -261,10 +279,6 @@ function SelectField({ label, value, items, allLabel, onChange, required }: { la
   return <Field label={label}><select required={required} value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
 }
 
-function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  return <div className="pagination"><button className="secondary-button" type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>上一页</button><span>第 {page} / {totalPages} 页</span><button className="secondary-button" type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>下一页</button></div>;
-}
-
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><h1>403</h1><p>无权访问公共能耗分摊规则，或当前租户未启用 energy 模块。</p></Card></main>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权访问公共能耗分摊规则，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
 }

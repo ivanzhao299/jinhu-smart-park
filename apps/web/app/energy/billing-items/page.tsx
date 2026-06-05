@@ -1,6 +1,22 @@
 "use client";
 
-import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
+import {
+  ContentCard,
+  DataTable,
+  DataTableActions,
+  Drawer,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
+  StatusPill
+} from "@jinhu/ui";
 import { AlertTriangle, CheckCircle2, Edit3, RefreshCw, Search } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -112,24 +128,24 @@ export default function EnergyBillingItemsPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_VIEW} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div><h1>能源账单明细</h1><p>查看独立表计、公共分摊与人工调整后的租户能源账单项。</p></div>
-          <div className="page-actions"><button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button></div>
-        </Card>
+      <PageShell>
+        <PageHeader
+          title="能源账单明细"
+          description="查看独立表计、公共分摊与人工调整后的租户能源账单项。"
+          actions={<button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button>}
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="账期 ID"><input value={filters.cycleId} onChange={(event) => setFilters((current) => ({ ...current, cycleId: event.target.value }))} /></Field>
           <Field label="租户企业 ID"><input value={filters.parkTenantId} onChange={(event) => setFilters((current) => ({ ...current, parkTenantId: event.target.value }))} /></Field>
           <SelectField label="计费方式" value={filters.billingMethod} items={dicts.energy_billing_method ?? []} allLabel="全部方式" onChange={(value) => setFilters((current) => ({ ...current, billingMethod: value }))} />
           <SelectField label="确认状态" value={filters.status} items={dicts.energy_billing_item_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item"><h2 className="panel-title">账单项列表</h2><span>共 {pageData.total} 条</span></div>
+        <ContentCard title="账单项列表" actions={<span>共 {pageData.total} 条</span>}>
           <DataTable>
             <thead><tr><th>租户企业</th><th>表计类型</th><th>计费方式</th><th>用量</th><th>单价</th><th>金额</th><th>调整</th><th>最终金额</th><th>状态</th><th>应收</th><th>操作</th></tr></thead>
             <tbody>
@@ -154,11 +170,11 @@ export default function EnergyBillingItemsPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={11}><div className="empty-state">暂无账单项</div></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={11}><EmptyState title="暂无账单项" compact /></td></tr> : null}
             </tbody>
           </DataTable>
-          <Pager page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {adjusting ? (
           <Drawer size="md" onClose={() => setAdjusting(null)}>
@@ -172,7 +188,7 @@ export default function EnergyBillingItemsPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -185,10 +201,6 @@ function SelectField({ label, value, items, allLabel, onChange }: { label: strin
   return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
 }
 
-function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  return <div className="pagination"><button className="secondary-button" type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>上一页</button><span>第 {page} / {totalPages} 页</span><button className="secondary-button" type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>下一页</button></div>;
-}
-
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><h1>403</h1><p>无权访问能源账单明细，或当前租户未启用 energy 模块。</p></Card></main>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权访问能源账单明细，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
 }

@@ -1,0 +1,61 @@
+.empty,
+.loading,
+.error {
+  width: 100%;
+  min-height: 96px;
+  padding: var(--phoenix-space-5);
+  border: 1px dashed var(--phoenix-color-border);
+  border-radius: var(--radius-md, var(--phoenix-radius-md));
+  background: color-mix(in srgb, var(--phoenix-color-surface-muted) 70%, var(--phoenix-color-surface));
+  color: var(--phoenix-color-text-muted);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--phoenix-space-2);
+  text-align: center;
+}
+
+.compact {
+  min-height: 64px;
+  padding: var(--phoenix-space-3);
+}
+
+.icon {
+  display: inline-flex;
+  color: var(--phoenix-color-primary);
+}
+
+.title {
+  margin: 0;
+  color: var(--phoenix-color-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.description {
+  margin: 0;
+  max-width: 560px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.error {
+  border-color: color-mix(in srgb, var(--phoenix-color-danger) 35%, var(--phoenix-color-border));
+  background: color-mix(in srgb, var(--phoenix-color-danger) 6%, var(--phoenix-color-surface));
+}
+
+.loadingIndicator {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--phoenix-color-border);
+  border-top-color: var(--phoenix-color-primary);
+  border-radius: 999px;
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

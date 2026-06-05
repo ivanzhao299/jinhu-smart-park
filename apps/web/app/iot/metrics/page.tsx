@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Card,
+  ContentCard,
   DataTable,
   DataTableActions,
   Drawer,
@@ -9,6 +9,12 @@ import {
   DrawerForm,
   DrawerFormGrid,
   DrawerHeader,
+  EmptyState as UiEmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
   StatusPill
 } from "@jinhu/ui";
 import { Edit3, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
@@ -195,13 +201,12 @@ export default function IotMetricsPage() {
 
   return (
     <PermissionGuard module={IOT_MODULE} permission={SYSTEM_PERMISSIONS.IOT_METRIC_READ} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div>
-            <h1>IoT 指标管理</h1>
-            <p>统一维护电表、水表、摄像头等设备的采集指标和数据类型。</p>
-          </div>
-          <div className="page-actions">
+      <PageShell>
+        <PageHeader
+          title="IoT 指标管理"
+          description="统一维护电表、水表、摄像头等设备的采集指标和数据类型。"
+          actions={
+            <>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
               <RefreshCw size={16} />
               刷新
@@ -210,10 +215,11 @@ export default function IotMetricsPage() {
               <Plus size={16} />
               新增指标
             </PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="关键词">
             <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编码 / 名称 / 单位" />
           </Field>
@@ -224,15 +230,11 @@ export default function IotMetricsPage() {
             <Search size={16} />
             查询
           </button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item">
-            <h2 className="panel-title">指标列表</h2>
-            <span>共 {pageData.total} 条</span>
-          </div>
+        <ContentCard title="指标列表" description={`共 ${pageData.total} 条`}>
           <DataTable>
             <thead>
               <tr>
@@ -275,14 +277,8 @@ export default function IotMetricsPage() {
               {pageData.items.length === 0 ? <tr><td colSpan={9}><EmptyState /></td></tr> : null}
             </tbody>
           </DataTable>
-          <div className="task-item">
-            <span>第 {pageData.page} / {totalPages} 页</span>
-            <span>
-              <button className="secondary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-              <button className="secondary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
-            </span>
-          </div>
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} total={pageData.total} onPage={(nextPage) => void load(nextPage).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
@@ -325,7 +321,7 @@ export default function IotMetricsPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -400,9 +396,15 @@ function formatDateTime(value?: string | null) {
 }
 
 function EmptyState() {
-  return <div className="empty-state">暂无指标</div>;
+  return <UiEmptyState title="暂无指标" compact />;
 }
 
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><div className="empty-state">无权限访问 IoT 指标管理</div></Card></main>;
+  return (
+    <PageShell>
+      <ContentCard>
+        <UiEmptyState title="403" description="无权限访问 IoT 指标管理" />
+      </ContentCard>
+    </PageShell>
+  );
 }

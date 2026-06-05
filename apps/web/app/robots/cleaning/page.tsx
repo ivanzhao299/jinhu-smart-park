@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  Card,
+  ActionGroup,
+  ContentCard,
   DataTable,
   DataTableActions,
   Drawer,
@@ -11,6 +12,13 @@ import {
   DrawerForm,
   DrawerFormGrid,
   DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  MetricCard,
+  PageHeader,
+  PageShell,
+  PaginationBar,
   StatusPill
 } from "@jinhu/ui";
 import { Activity, AlertTriangle, Bot, Eye, Map, Play, Plus, RefreshCw, Route, Save, Search, Settings2, Wrench } from "lucide-react";
@@ -356,13 +364,12 @@ export default function CleaningRobotsPage() {
 
   return (
     <PermissionGuard module={ROBOT_MODULE} permission={SYSTEM_PERMISSIONS.ROBOT_READ} fallback={<Forbidden />}>
-      <main className="page-container robot-cleaning-page">
-        <Card className="page-header">
-          <div>
-            <h1>清洁机器人</h1>
-            <p>统一管理萤石商用清洁机器人，覆盖设备同步、任务查询、清扫控制、区域清洁和回调数据归集。</p>
-          </div>
-          <div className="page-actions">
+      <PageShell className="robot-cleaning-page">
+        <PageHeader
+          title="清洁机器人"
+          description="统一管理萤石商用清洁机器人，覆盖设备同步、任务查询、清扫控制、区域清洁和回调数据归集。"
+          actions={
+            <>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
               <RefreshCw size={16} />
               刷新
@@ -371,10 +378,11 @@ export default function CleaningRobotsPage() {
               <Settings2 size={16} />
               萤石配置
             </PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar robot-filter-bar">
+        <FilterPanel className="robot-filter-bar">
           <Field label="关键词">
             <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="机器人编码 / 名称 / 厂家设备号" />
           </Field>
@@ -390,32 +398,27 @@ export default function CleaningRobotsPage() {
             <Search size={16} />
             查询
           </button>
-        </Card>
+        </FilterPanel>
 
         {message ? (
-          <div className={`robot-page-notice ${isTokenMessage(message) ? "robot-page-notice--warning" : ""}`} role="status">
-            <AlertTriangle size={16} />
-            <span>{message}</span>
-          </div>
+          <FeedbackNotice variant={isTokenMessage(message) ? "warning" : "info"} icon={<AlertTriangle size={16} />}>
+            {message}
+          </FeedbackNotice>
         ) : null}
 
         <section className="dashboard-grid robot-summary-grid">
-          <RobotMetricCard icon={<Bot size={18} />} label="机器人总数" value={`${robotSummary.total}`} />
-          <RobotMetricCard icon={<Activity size={18} />} label="在线设备" value={`${robotSummary.online}`} tone="success" />
-          <RobotMetricCard icon={<Route size={18} />} label="有任务快照" value={`${robotSummary.withTask}`} />
-          <RobotMetricCard icon={<AlertTriangle size={18} />} label="异常/离线" value={`${robotSummary.exception}`} tone="warning" />
+          <MetricCard className="robot-metric-card" icon={<Bot size={18} />} label="机器人总数" value={robotSummary.total} />
+          <MetricCard className="robot-metric-card" icon={<Activity size={18} />} label="在线设备" value={robotSummary.online} />
+          <MetricCard className="robot-metric-card" icon={<Route size={18} />} label="有任务快照" value={robotSummary.withTask} />
+          <MetricCard className="robot-metric-card" icon={<AlertTriangle size={18} />} label="异常/离线" value={robotSummary.exception} />
         </section>
 
-        <Card className="page-content robot-list-card">
-          <div className="task-item">
-            <div>
-              <h2 className="panel-title">机器人列表</h2>
-              <p className="muted-text">共 {pageData.total} 台，优先展示可操作机器人；摄像头、NVR 等监控设备请进入视频安防模块。</p>
-            </div>
-            <StatusPill variant={robotSummary.exception > 0 ? "warning" : "success"}>
-              {robotSummary.exception > 0 ? `${robotSummary.exception} 台需关注` : "运行正常"}
-            </StatusPill>
-          </div>
+        <ContentCard
+          className="robot-list-card"
+          title="机器人列表"
+          description={`共 ${pageData.total} 台，优先展示可操作机器人；摄像头、NVR 等监控设备请进入视频安防模块。`}
+          actions={<StatusPill variant={robotSummary.exception > 0 ? "warning" : "success"}>{robotSummary.exception > 0 ? `${robotSummary.exception} 台需关注` : "运行正常"}</StatusPill>}
+        >
           <DataTable className="robot-list-table">
             <thead>
               <tr>
@@ -465,26 +468,35 @@ export default function CleaningRobotsPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={8}><EmptyState /></td></tr> : null}
+              {pageData.items.length === 0 ? (
+                <tr>
+                  <td colSpan={8}>
+                    <EmptyState
+                      compact
+                      title="暂无清洁机器人"
+                      description="请先配置萤石开放平台，然后在“萤石设备同步”中读取并同步现场机器人。"
+                    />
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </DataTable>
-          <div className="task-item robot-pagination">
-            <span>第 {pageData.page} / {totalPages} 页</span>
-            <span>
-              <button className="secondary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-              <button className="secondary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
-            </span>
-          </div>
-        </Card>
+          <PaginationBar
+            page={pageData.page}
+            totalPages={totalPages}
+            total={pageData.total}
+            previous={<button className="secondary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>}
+            next={<button className="secondary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>}
+          />
+        </ContentCard>
 
         <section className="robot-setup-grid">
-          <Card className="page-content robot-setup-card">
-            <div className="task-item">
-              <div>
-                <h2 className="panel-title">萤石设备同步</h2>
-                <p className="muted-text">仅读取可识别的清洁机器人候选设备；摄像头、NVR 等监控设备请进入视频安防模块管理。</p>
-              </div>
-              <span>
+          <ContentCard
+            className="robot-setup-card"
+            title="萤石设备同步"
+            description="仅读取可识别的清洁机器人候选设备；摄像头、NVR 等监控设备请进入视频安防模块管理。"
+            actions={
+              <ActionGroup>
                 <button className="secondary-button" type="button" onClick={() => void loadPlatformDevices().catch((error: Error) => setMessage(error.message))}>
                   <RefreshCw size={16} />
                   读取设备
@@ -496,8 +508,9 @@ export default function CleaningRobotsPage() {
                   <Plus size={16} />
                   添加设备
                 </PermissionButton>
-              </span>
-            </div>
+              </ActionGroup>
+            }
+          >
             <DataTable className="robot-sync-table">
               <thead>
                 <tr>
@@ -525,22 +538,28 @@ export default function CleaningRobotsPage() {
                     </td>
                   </tr>
                 ))}
-                {platformDevices.length === 0 ? <tr><td colSpan={5}><p className="muted-text">暂无清洁机器人候选设备。若机器人未显示，请使用设备序列号和验证码添加。</p></td></tr> : null}
+                {platformDevices.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <EmptyState compact title="暂无清洁机器人候选设备" description="若机器人未显示，请使用设备序列号和验证码添加。" />
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </DataTable>
-          </Card>
+          </ContentCard>
 
-          <Card className="page-content robot-setup-card">
-            <div className="task-item">
-              <div>
-                <h2 className="panel-title">萤石平台配置</h2>
-                <p className="muted-text">密钥只保存加密态；Token 可自动刷新，也可手动刷新。</p>
-              </div>
+          <ContentCard
+            className="robot-setup-card"
+            title="萤石平台配置"
+            description="密钥只保存加密态；Token 可自动刷新，也可手动刷新。"
+            actions={
               <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE} type="button" onClick={() => setConfigOpen(true)}>
                 <Plus size={16} />
                 新增 / 更新
               </PermissionButton>
-            </div>
+            }
+          >
             <DataTable className="robot-config-table">
               <thead>
                 <tr>
@@ -575,10 +594,16 @@ export default function CleaningRobotsPage() {
                     </td>
                   </tr>
                 ))}
-                {configs.length === 0 ? <tr><td colSpan={6}><p className="muted-text">暂无萤石平台配置</p></td></tr> : null}
+                {configs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <EmptyState compact title="暂无萤石平台配置" />
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </DataTable>
-          </Card>
+          </ContentCard>
         </section>
 
         {viewing ? (
@@ -863,7 +888,7 @@ export default function CleaningRobotsPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 
@@ -895,16 +920,6 @@ export default function CleaningRobotsPage() {
     setAdvancedKind(kind);
     setMapId(readTaskText(row, "mapID") ?? "");
   }
-}
-
-function RobotMetricCard({ icon, label, value, tone = "default" }: { icon: ReactNode; label: string; value: string; tone?: "default" | "success" | "warning" }) {
-  return (
-    <article className={`metric-card robot-metric-card robot-metric-card--${tone}`}>
-      <span className="robot-metric-icon">{icon}</span>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  );
 }
 
 function RobotStatus({ status }: { status: string }) {
@@ -946,10 +961,6 @@ function formatDateTime(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("zh-CN", { hour12: false });
-}
-
-function EmptyState() {
-  return <p className="muted-text">暂无清洁机器人。请先配置萤石开放平台，然后在“萤石设备同步”中读取并同步现场机器人。</p>;
 }
 
 function buildRobotSummary(items: RobotRow[]) {
@@ -1030,11 +1041,11 @@ function isTokenMessage(value: string) {
 
 function Forbidden() {
   return (
-    <main className="page-container">
-      <Card className="page-content">
+    <PageShell>
+      <ContentCard>
         <h1>403</h1>
         <p>无权访问机器人运营，或当前租户未启用 robot 模块。</p>
-      </Card>
-    </main>
+      </ContentCard>
+    </PageShell>
   );
 }

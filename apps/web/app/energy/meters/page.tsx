@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Card,
+  ContentCard,
   DataTable,
   DataTableActions,
   Drawer,
@@ -9,6 +9,12 @@ import {
   DrawerForm,
   DrawerFormGrid,
   DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
   StatusPill
 } from "@jinhu/ui";
 import { Edit3, Gauge, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
@@ -205,32 +211,31 @@ export default function EnergyMetersPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_METER_READ} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div>
-            <h1>能源计量表管理</h1>
-            <p>统一维护电表、水表、气表，建立能源业务确认口径。</p>
-          </div>
-          <div className="page-actions">
+      <PageShell>
+        <PageHeader
+          title="能源计量表管理"
+          description="统一维护电表、水表、气表，建立能源业务确认口径。"
+          actions={
+            <>
             <Link className="secondary-button" href="/energy/dashboard"><Gauge size={16} />看板</Link>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button>
             <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ENERGY_METER_CREATE} type="button" onClick={openCreate}><Plus size={16} />新增表计</PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="关键词"><input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编码 / 名称" /></Field>
           <SelectField label="表计类型" value={filters.meterType} items={dicts.energy_meter_type ?? []} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, meterType: value }))} />
           <SelectField label="用途" value={filters.meterPurpose} items={dicts.energy_meter_purpose ?? []} allLabel="全部用途" onChange={(value) => setFilters((current) => ({ ...current, meterPurpose: value }))} />
           <SelectField label="状态" value={filters.status} items={dicts.energy_meter_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
           <Field label="租户企业 ID"><input value={filters.relatedParkTenantId} onChange={(event) => setFilters((current) => ({ ...current, relatedParkTenantId: event.target.value }))} /></Field>
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item"><h2 className="panel-title">表计列表</h2><span>共 {pageData.total} 条</span></div>
+        <ContentCard title="表计列表" actions={<span>共 {pageData.total} 条</span>}>
           <DataTable>
             <thead><tr><th>表计编号</th><th>表计名称</th><th>类型</th><th>用途</th><th>租户企业</th><th>当前读数</th><th>倍率</th><th>状态</th><th>最近读数</th><th>操作</th></tr></thead>
             <tbody>
@@ -255,11 +260,11 @@ export default function EnergyMetersPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={10}><EmptyState text="暂无能源表计" /></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={10}><EmptyState title="暂无能源表计" compact /></td></tr> : null}
             </tbody>
           </DataTable>
-          <Pager page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
@@ -284,7 +289,7 @@ export default function EnergyMetersPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -329,19 +334,11 @@ function SelectField({ label, value, items, allLabel, onChange, required = false
   );
 }
 
-function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  return <div className="task-item"><span>第 {page} / {totalPages} 页</span><span><button className="secondary-button" type="button" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>上一页</button><button className="secondary-button" type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>下一页</button></span></div>;
-}
-
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
-function EmptyState({ text }: { text: string }) {
-  return <div className="empty-state">{text}</div>;
-}
-
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><div className="empty-state">无权限访问能源计量表管理，或当前租户未启用 energy 模块。</div></Card></main>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权限访问能源计量表管理，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
 }

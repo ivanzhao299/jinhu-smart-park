@@ -1,6 +1,22 @@
 "use client";
 
-import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
+import {
+  ContentCard,
+  DataTable,
+  DataTableActions,
+  Drawer,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
+  StatusPill
+} from "@jinhu/ui";
 import { CheckCircle2, RefreshCw, Search, ShieldCheck, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -103,25 +119,25 @@ export default function EnergyAlertsPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_READ} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div><h1>能源异常告警</h1><p>倒表、异常用量、离线等告警在这里确认、处理与关闭。</p></div>
-          <div className="page-actions"><button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button></div>
-        </Card>
+      <PageShell>
+        <PageHeader
+          title="能源异常告警"
+          description="倒表、异常用量、离线等告警在这里确认、处理与关闭。"
+          actions={<button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button>}
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="关键词"><input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编号 / 标题" /></Field>
           <Field label="表计 ID"><input value={filters.meterId} onChange={(event) => setFilters((current) => ({ ...current, meterId: event.target.value }))} /></Field>
           <SelectField label="告警类型" value={filters.alertType} items={dicts.energy_alert_type ?? []} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, alertType: value }))} />
           <SelectField label="告警级别" value={filters.alertLevel} items={dicts.energy_alert_level ?? []} allLabel="全部级别" onChange={(value) => setFilters((current) => ({ ...current, alertLevel: value }))} />
           <SelectField label="处理状态" value={filters.processStatus} items={dicts.energy_alert_process_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, processStatus: value }))} />
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item"><h2 className="panel-title">告警列表</h2><span>共 {pageData.total} 条</span></div>
+        <ContentCard title="告警列表" actions={<span>共 {pageData.total} 条</span>}>
           <DataTable>
             <thead><tr><th>告警编号</th><th>标题</th><th>类型</th><th>级别</th><th>状态</th><th>触发时间</th><th>处理时间</th><th>操作</th></tr></thead>
             <tbody>
@@ -143,11 +159,11 @@ export default function EnergyAlertsPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={8}><div className="empty-state">暂无能源告警</div></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={8}><EmptyState title="暂无能源告警" compact /></td></tr> : null}
             </tbody>
           </DataTable>
-          <Pager page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {actionState ? (
           <Drawer size="md" onClose={() => setActionState(null)}>
@@ -157,13 +173,13 @@ export default function EnergyAlertsPage() {
                 <Field label="告警编号"><input readOnly value={actionState.row.alertCode} /></Field>
                 {actionState.action === "close" ? (
                   <Field label="关闭原因"><textarea required value={actionState.reason} onChange={(event) => setActionState((current) => current ? { ...current, reason: event.target.value } : current)} /></Field>
-                ) : <div className="empty-state">确认执行“{actionLabel(actionState.action, false)}”操作。</div>}
+                ) : <EmptyState title={`确认执行“${actionLabel(actionState.action, false)}”操作。`} compact />}
               </DrawerFormGrid>
               <DrawerFooter><button className="secondary-button" type="button" onClick={() => setActionState(null)}>取消</button><button className="primary-button" type="submit">提交</button></DrawerFooter>
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -185,15 +201,11 @@ function SelectField({ label, value, items, allLabel, onChange }: { label: strin
   return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
 }
 
-function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  return <div className="task-item"><span>第 {page} / {totalPages} 页</span><span><button className="secondary-button" type="button" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>上一页</button><button className="secondary-button" type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>下一页</button></span></div>;
-}
-
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><div className="empty-state">无权限访问能源异常告警，或当前租户未启用 energy 模块。</div></Card></main>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权限访问能源异常告警，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
 }

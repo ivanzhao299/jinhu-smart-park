@@ -5,3 +5,5 @@ export * from './components/MetricCard/MetricCard';
 export * from './components/Card/Card';
 export * from './components/DataTable/DataTable';
 export * from './components/Drawer/Drawer';
+export * from './components/Page/Page';
+export * from './components/State/State';

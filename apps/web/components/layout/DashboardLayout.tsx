@@ -20,8 +20,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<UserContext | null>(() => getStoredUser());
-  const [ready, setReady] = useState(() => Boolean(getToken() && getStoredUser()));
+  const [user, setUser] = useState<UserContext | null>(null);
+  const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {

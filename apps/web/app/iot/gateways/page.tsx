@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Card,
+  ContentCard,
   DataTable,
   DataTableActions,
   Drawer,
@@ -11,6 +11,12 @@ import {
   DrawerForm,
   DrawerFormGrid,
   DrawerHeader,
+  EmptyState as UiEmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
   StatusPill
 } from "@jinhu/ui";
 import { Edit3, Eye, PlugZap, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
@@ -240,13 +246,12 @@ export default function IotGatewaysPage() {
 
   return (
     <PermissionGuard module={IOT_MODULE} permission={SYSTEM_PERMISSIONS.IOT_GATEWAY_READ} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div>
-            <h1>IoT 网关管理</h1>
-            <p>管理 MQTT、HTTP 厂家网关、Modbus、视频平台和消防主机等接入来源。</p>
-          </div>
-          <div className="page-actions">
+      <PageShell>
+        <PageHeader
+          title="IoT 网关管理"
+          description="管理 MQTT、HTTP 厂家网关、Modbus、视频平台和消防主机等接入来源。"
+          actions={
+            <>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
               <RefreshCw size={16} />
               刷新
@@ -255,10 +260,11 @@ export default function IotGatewaysPage() {
               <Plus size={16} />
               新增网关
             </PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="关键词">
             <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编码 / 名称 / 厂商 / 地址" />
           </Field>
@@ -269,15 +275,11 @@ export default function IotGatewaysPage() {
             <Search size={16} />
             查询
           </button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item">
-            <h2 className="panel-title">网关列表</h2>
-            <span>共 {pageData.total} 条</span>
-          </div>
+        <ContentCard title="网关列表" description={`共 ${pageData.total} 条`}>
           <DataTable>
             <thead>
               <tr>
@@ -318,14 +320,8 @@ export default function IotGatewaysPage() {
               {pageData.items.length === 0 ? <tr><td colSpan={10}><EmptyState /></td></tr> : null}
             </tbody>
           </DataTable>
-          <div className="task-item">
-            <span>第 {pageData.page} / {totalPages} 页</span>
-            <span>
-              <button className="secondary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-              <button className="secondary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
-            </span>
-          </div>
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} total={pageData.total} onPage={(nextPage) => void load(nextPage).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
@@ -401,7 +397,7 @@ export default function IotGatewaysPage() {
             </DrawerDetailGrid>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 
@@ -481,16 +477,15 @@ function displaySecret(value: string | null) {
 }
 
 function EmptyState() {
-  return <p className="muted-text">暂无 IoT 网关</p>;
+  return <UiEmptyState title="暂无 IoT 网关" compact />;
 }
 
 function Forbidden() {
   return (
-    <main className="page-container">
-      <Card className="page-content">
-        <h1>403</h1>
-        <p>无权访问 IoT 网关，或当前租户未启用 iot 模块。</p>
-      </Card>
-    </main>
+    <PageShell>
+      <ContentCard>
+        <UiEmptyState title="403" description="无权访问 IoT 网关，或当前租户未启用 iot 模块。" />
+      </ContentCard>
+    </PageShell>
   );
 }

@@ -1,6 +1,22 @@
 "use client";
 
-import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
+import {
+  ContentCard,
+  DataTable,
+  DataTableActions,
+  Drawer,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader,
+  EmptyState,
+  FeedbackNotice,
+  FilterPanel,
+  PageHeader,
+  PageShell,
+  PaginationBar,
+  StatusPill
+} from "@jinhu/ui";
 import { CheckCircle2, Plus, RefreshCw, Search, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -140,28 +156,30 @@ export default function EnergyReadingsPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_READING_READ} fallback={<Forbidden />}>
-      <main className="page-container">
-        <Card className="page-header">
-          <div><h1>能源读数记录</h1><p>手工读数、IoT 归集读数与确认口径分离，异常读数不会直接进入收费基础。</p></div>
-          <div className="page-actions">
+      <PageShell>
+        <PageHeader
+          title="能源读数记录"
+          description="手工读数、IoT 归集读数与确认口径分离，异常读数不会直接进入收费基础。"
+          actions={
+            <>
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}><RefreshCw size={16} />刷新</button>
             <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ENERGY_READING_CREATE} type="button" onClick={openCreate} disabled={!activeMeterId}><Plus size={16} />录入读数</PermissionButton>
-          </div>
-        </Card>
+            </>
+          }
+        />
 
-        <Card className="filter-bar">
+        <FilterPanel>
           <Field label="表计"><select value={filters.meterId} onChange={(event) => { setFilters((current) => ({ ...current, meterId: event.target.value })); setForm((current) => ({ ...current, meterId: event.target.value })); }}><option value="">请选择表计</option>{meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.meterCode} · {meter.meterName}</option>)}</select></Field>
           <SelectField label="确认状态" value={filters.confirmationStatus} items={dicts.energy_reading_confirmation_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, confirmationStatus: value }))} />
           <SelectField label="来源" value={filters.readingSource} items={dicts.energy_reading_source ?? []} allLabel="全部来源" onChange={(value) => setFilters((current) => ({ ...current, readingSource: value }))} />
           <Field label="开始时间"><input type="datetime-local" value={filters.startTime} onChange={(event) => setFilters((current) => ({ ...current, startTime: event.target.value }))} /></Field>
           <Field label="结束时间"><input type="datetime-local" value={filters.endTime} onChange={(event) => setFilters((current) => ({ ...current, endTime: event.target.value }))} /></Field>
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
-        </Card>
+        </FilterPanel>
 
-        {message ? <p className="form-error">{message}</p> : null}
+        {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
-        <Card className="page-content">
-          <div className="task-item"><h2 className="panel-title">读数列表</h2><span>共 {pageData.total} 条</span></div>
+        <ContentCard title="读数列表" actions={<span>共 {pageData.total} 条</span>}>
           <DataTable>
             <thead><tr><th>读数时间</th><th>本期读数</th><th>上期读数</th><th>用量</th><th>来源</th><th>确认状态</th><th>确认时间</th><th>操作</th></tr></thead>
             <tbody>
@@ -182,11 +200,11 @@ export default function EnergyReadingsPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={8}><div className="empty-state">暂无读数</div></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={8}><EmptyState title="暂无读数" compact /></td></tr> : null}
             </tbody>
           </DataTable>
-          <Pager page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
-        </Card>
+          <PaginationBar page={pageData.page} totalPages={totalPages} onPage={(page) => void load(page).catch((error: Error) => setMessage(error.message))} />
+        </ContentCard>
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
@@ -203,7 +221,7 @@ export default function EnergyReadingsPage() {
             </DrawerForm>
           </Drawer>
         ) : null}
-      </main>
+      </PageShell>
     </PermissionGuard>
   );
 }
@@ -229,15 +247,11 @@ function SelectField({ label, value, items, allLabel, onChange, required = false
   return <Field label={label}><select required={required} value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
 }
 
-function Pager({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  return <div className="task-item"><span>第 {page} / {totalPages} 页</span><span><button className="secondary-button" type="button" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>上一页</button><button className="secondary-button" type="button" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>下一页</button></span></div>;
-}
-
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
 function Forbidden() {
-  return <main className="page-container"><Card className="page-content"><div className="empty-state">无权限访问能源读数记录，或当前租户未启用 energy 模块。</div></Card></main>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权限访问能源读数记录，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
 }
