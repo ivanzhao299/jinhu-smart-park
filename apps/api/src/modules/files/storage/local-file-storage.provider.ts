@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join, normalize } from "node:path";
+import { dirname } from "node:path";
+import { isAbsolute, join, normalize, relative, resolve } from "node:path";
 import type { FileStorageProvider, StoredFileInput, StoredFileResult } from "./file-storage.types";
 
 @Injectable()
@@ -11,10 +12,9 @@ export class LocalFileStorageProvider implements FileStorageProvider {
   constructor(private readonly configService: ConfigService) {}
 
   async save(input: StoredFileInput): Promise<StoredFileResult> {
-    const root = this.getRoot();
     const relativePath = normalize(join(input.relativeDir, input.storedName));
-    const absolutePath = join(root, relativePath);
-    await mkdir(join(root, input.relativeDir), { recursive: true });
+    const absolutePath = this.toAbsolutePath(relativePath);
+    await mkdir(dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, input.buffer);
     return {
       storageType: this.storageType,
@@ -24,10 +24,22 @@ export class LocalFileStorageProvider implements FileStorageProvider {
   }
 
   resolve(storagePath: string): string {
-    return join(this.getRoot(), normalize(storagePath));
+    return this.toAbsolutePath(normalize(storagePath));
   }
 
   private getRoot(): string {
-    return this.configService.get<string>("FILE_STORAGE_LOCAL_ROOT", "storage/files");
+    return resolve(this.configService.get<string>("FILE_STORAGE_LOCAL_ROOT", "storage/files"));
+  }
+
+  private toAbsolutePath(relativePath: string): string {
+    const root = this.getRoot();
+    const target = resolve(root, relativePath);
+    const relativeToRoot = relative(root, target);
+
+    if (relativeToRoot === "" || (!relativeToRoot.startsWith("..") && !isAbsolute(relativeToRoot))) {
+      return target;
+    }
+
+    throw new InternalServerErrorException("Invalid file storage path");
   }
 }

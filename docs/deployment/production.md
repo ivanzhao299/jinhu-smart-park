@@ -146,6 +146,58 @@ Manual cleanup:
 pnpm prod:cleanup
 ```
 
+## 2.1 Local File Storage Operations
+
+The first release keeps local file storage enabled.
+
+- Files are downloaded through the authenticated API only
+- No static public file directory is exposed
+- Object storage is not part of the first-release deployment
+
+### Production Path and Volume
+
+- container path: `/var/lib/jinhu/files`
+- runtime variable: `FILE_STORAGE_LOCAL_ROOT=/var/lib/jinhu/files`
+- Docker named volume: `api-files-data`
+
+The production compose file mounts `api-files-data` into the API container and keeps `FILE_STORAGE_LOCAL_ROOT` aligned with that mount point.
+
+### Backup Strategy
+
+- Back up the directory or Docker volume behind `FILE_STORAGE_LOCAL_ROOT`
+- Keep file backups in the same maintenance window as PostgreSQL backups
+- A practical default is daily incremental backup plus weekly full backup, or the equivalent policy used by your operations team
+
+### Restore Strategy
+
+1. Restore PostgreSQL first.
+2. Restore the file directory or named volume contents.
+3. Keep the restored path identical to `FILE_STORAGE_LOCAL_ROOT`.
+4. After restore, verify at least one uploaded file can still be downloaded through the API.
+
+### Delete Semantics
+
+- Current business deletion is a soft delete on the database record only
+- The first release does not perform online physical deletion of the stored file
+- Physical cleanup should be handled by a later offline task or an explicit operations workflow
+
+### Multi-instance Limitation
+
+- Local storage is only suitable for a single API instance
+- Multiple API instances must share the same filesystem if local storage remains in use
+- Without a shared filesystem, horizontal scaling should wait until a dedicated object-storage design is introduced
+
+### Operations Warnings
+
+- Do not run `docker compose down -v` casually in production
+- `down -v` removes named volumes
+- That can destroy both PostgreSQL data and uploaded files
+- Normal service shutdown should use `docker compose down` without `-v`
+
+### Future Evolution
+
+If later releases require multi-instance deployment, cross-host storage, CDN distribution, or stronger file governance, design an object-storage migration separately instead of extending the first-release local-storage layout in place.
+
 ## 3. Database Initialization and Bootstrap Admin
 
 Recommended initialization order for a clean environment:
