@@ -15,9 +15,32 @@ At minimum set:
 - `WEB_ORIGIN`
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
+- `FILE_STORAGE_LOCAL_ROOT`
 - published ports if `3000`, `3001`, or `5432` are already occupied
 
 Do not commit `.env.production`.
+
+## 1.1 Authentication Release Constraints
+
+The first release supports password login only.
+
+- SMS verification-code login is disabled for the first release
+- WeChat QR-code login is disabled for the first release
+- production must keep the following dangerous mock variables disabled:
+  - `AUTH_SMS_FIXED_CODE` must be empty
+  - `AUTH_SMS_CODE_VISIBLE` must be `false`
+  - `AUTH_WECHAT_MOCK_ENABLED` must be `false`
+- non-release WeChat variables may remain blank until that capability is actually enabled:
+  - `AUTH_WECHAT_APP_ID`
+  - `AUTH_WECHAT_APP_SECRET`
+  - `AUTH_WECHAT_REDIRECT_URI`
+  - `AUTH_WECHAT_ALLOWED_REDIRECT_ORIGINS`
+  - `AUTH_WECHAT_AUTHORIZE_URL`
+  - `AUTH_WECHAT_SCOPE`
+
+If API startup fails after this change, check the auth mock variables first. A production environment with any of the dangerous mock flags enabled is expected to fail fast during bootstrap.
 
 ## 2. Deploy
 
@@ -149,6 +172,9 @@ When `STRICT=true`, `WARN` becomes non-zero.
 - dev seed contamination detected
 - `FILE_STORAGE_LOCAL_ROOT` not explicitly set
 - auth mock variables not disabled
+- `AUTH_SMS_FIXED_CODE` is not empty in production
+- `AUTH_SMS_CODE_VISIBLE` is not `false` in production
+- `AUTH_WECHAT_MOCK_ENABLED` is not `false` in production
 
 ### Rollback Advice
 
@@ -176,6 +202,8 @@ What this script verifies:
 3. Re-running bootstrap-admin stays idempotent.
 4. API login succeeds inside the API container.
 5. `/auth/me` succeeds with the issued token.
+6. SMS login endpoints are disabled in production.
+7. WeChat mock callback is rejected in production.
 
 Notes:
 
