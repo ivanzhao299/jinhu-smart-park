@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
-import { TypeOrmModule } from "@nestjs/typeorm";
+import { TypeOrmModule, getRepositoryToken } from "@nestjs/typeorm";
 import { ClsModule } from "nestjs-cls";
 import { randomUUID } from "node:crypto";
 import { AttachmentsModule } from "./modules/attachments/attachments.module";
@@ -47,6 +47,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { VideoCamerasModule } from "./modules/video-cameras/video-cameras.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { HealthController } from "./health.controller";
+import { IdempotencyRequestEntity } from "./shared/entities/idempotency-request.entity";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 import { AuditLogInterceptor } from "./shared/interceptors/audit-log.interceptor";
@@ -54,6 +55,8 @@ import { ApiExceptionFilter } from "./shared/filters/api-exception.filter";
 import { IdempotencyKeyGuard } from "./shared/guards/idempotency-key.guard";
 import { ModuleGuard } from "./shared/guards/module.guard";
 import { PermissionGuard } from "./shared/guards/permission.guard";
+import { IdempotencyService, setIdempotencyService } from "./shared/services/idempotency.service";
+import { DataSource } from "typeorm";
 
 function getEnvString(config: Record<string, unknown>, key: string, fallback = ""): string {
   const value = config[key];
@@ -103,6 +106,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
       }
     }),
     ScheduleModule.forRoot(),
+    TypeOrmModule.forFeature([IdempotencyRequestEntity]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -186,6 +190,15 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor
+    },
+    {
+      provide: IdempotencyService,
+      useFactory: (repository: unknown, dataSource: DataSource) => {
+        const service = new IdempotencyService(repository as never, dataSource);
+        setIdempotencyService(service);
+        return service;
+      },
+      inject: [getRepositoryToken(IdempotencyRequestEntity), DataSource]
     }
   ],
   controllers: [HealthController]
