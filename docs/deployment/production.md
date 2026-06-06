@@ -42,6 +42,76 @@ The first release supports password login only.
 
 If API startup fails after this change, check the auth mock variables first. A production environment with any of the dangerous mock flags enabled is expected to fail fast during bootstrap.
 
+## 1.2 First-Release Menu Scope
+
+The first release only shows the whitelist menu entries below.
+
+- Showing a menu entry does not mean the page code was deleted or the feature is fully opened
+- Hidden menus remain in the codebase for later releases
+- This PR does not change the backend permission model
+- Directly visiting a non-release URL keeps the current behavior in the first version
+- Non-release modules must go through a separate acceptance pass before being added back to the whitelist
+
+Visible first-release menu scope:
+
+- Dashboard: `/dashboard`
+- System management:
+  - `/system/orgs`
+  - `/system/users`
+  - `/system/roles`
+  - `/system/permissions`
+  - `/system/dicts`
+  - `/system/modules`
+  - `/system/tenants`
+  - `/system/audit/op-logs`
+  - `/system/audit/login-logs`
+- Asset management:
+  - `/assets/parks`
+  - `/assets/buildings`
+  - `/assets/floors`
+  - `/assets/units`
+  - `/assets/unit-status-board`
+  - `/assets/statistics`
+- Leasing:
+  - `/leasing/tenants`
+  - `/leasing/contracts`
+  - `/leasing/receivables`
+  - `/leasing/payments`
+- Work orders:
+  - `/workorders`
+  - `/workorders/list`
+  - `/workorders/sla-rules`
+  - `/workorders/overdue`
+  - `/workorders/stats`
+
+Hidden first-release menus include:
+
+- `/leasing/leads`
+- `/leasing/lead-pool`
+- `/leasing/funnel`
+- `/leasing/contract-changes`
+- `/leasing/checkouts`
+- `/leasing/refunds`
+- `/leasing/aging`
+- `/leasing/waivers`
+- `/leasing/invoices`
+- `/iot/*`
+- `/energy/*`
+- `/robots/*`
+- `/admin/video-security/*`
+- `/safety/*`
+- `/system/data-scopes`
+- `/system/field-policies`
+- `/system/code-rules`
+- `/system/files`
+- `/assets/rooms`
+- `/workorders/statistics`
+- `/system/attachments`
+- `/iot/overview`
+- `/invest/*`
+- `/finance/*`
+- `/contracts`
+
 ## 2. Deploy
 
 ```bash
