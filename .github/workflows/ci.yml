@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload release smoke logs
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-smoke-logs
           path: /tmp/release-smoke-logs
