@@ -212,16 +212,70 @@ Notes:
 - `ADMIN_PASSWORD` must be the real bootstrap admin password and must not be a weak default password.
 - The script does not use host `127.0.0.1:55432`, so it works even when host TCP access is restricted.
 
-## 4. Health Check
+## 4. Health Check Layers
+
+The production environment now has three different health / verification layers. They are intentionally not interchangeable.
+
+### Liveness
+
+- API endpoint: `/api/v1/health`
+- Purpose: prove the API process is alive and can answer HTTP requests
+- This check does not query PostgreSQL
+- This check does not verify production seed, bootstrap admin, tenant / park baseline, or release dictionaries
+- Docker container healthcheck should continue to use `/api/v1/health`
+
+### Readiness
+
+- API endpoint: `/api/v1/ready`
+- Purpose: prove the API is safe to receive production traffic
+- This check performs lightweight runtime validation for:
+  - `SELECT 1`
+  - default tenant
+  - default park
+  - tenant module authorization
+  - bootstrap admin existence
+  - workorder release dictionaries
+- Use this before switching traffic, before finishing deployment, or when investigating a production environment that is alive but not usable
+
+### Post-deploy Verification
+
+- `scripts/check-init-baseline.sh` is the deployment-level baseline verification tool
+- `scripts/verify-api-login-dockerexec.sh` is the deeper post-deploy validation tool
+- `release-smoke` in GitHub Actions validates the same release path automatically for PR gatekeeping
+
+Use these checks for shared, staging, pre-production, and production acceptance when you need stronger guarantees than runtime readiness alone.
+
+### prod-healthcheck.sh Modes
 
 ```bash
 pnpm prod:health
 ```
 
-Default checks:
+Supported modes:
 
-- API: `http://127.0.0.1:3001/api/v1/health`
-- Web: `http://127.0.0.1:3000/login`
+- `MODE=liveness`
+  - checks API `/api/v1/health`
+- `MODE=readiness`
+  - checks API `/api/v1/ready`
+- `MODE=full`
+  - checks API `/api/v1/health`
+  - checks API `/api/v1/ready`
+  - checks Web `/login`
+
+Examples:
+
+```bash
+MODE=liveness pnpm prod:health
+MODE=readiness pnpm prod:health
+MODE=full pnpm prod:health
+```
+
+Defaults:
+
+- `MODE=liveness`
+- API liveness URL: `http://127.0.0.1:3001/api/v1/health`
+- API readiness URL: `http://127.0.0.1:3001/api/v1/ready`
+- Web login URL: `http://127.0.0.1:3000/login`
 
 ## 5. Reverse Proxy
 
