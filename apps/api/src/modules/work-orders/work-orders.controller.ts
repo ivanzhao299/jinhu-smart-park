@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -20,6 +20,7 @@ import { CreateWorkOrderSlaRuleDto, UpdateWorkOrderSlaRuleDto, WorkOrderSlaRuleQ
 import { WorkOrderQueryDto } from "./dto/work-order-query.dto";
 import { WorkOrderStatsQueryDto } from "./dto/work-order-stats-query.dto";
 import { WorkOrdersService } from "./work-orders.service";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("work-orders")
 @RequireModule("workorder")
@@ -103,6 +104,7 @@ export class WorkOrdersController {
   }
 
   @Post()
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_CREATE)
   @AuditLog({ module: "工单管理", resource: "biz.work_order", action: "新增", bizType: "biz_work_order" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateWorkOrderDto) {

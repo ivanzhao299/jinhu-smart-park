@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -20,6 +20,7 @@ import { LeasingContractStatusLogQueryDto } from "./dto/leasing-contract-status-
 import { UpdateLeasingContractUnitDto } from "./dto/update-leasing-contract-unit.dto";
 import { UpdateLeasingContractDto } from "./dto/update-leasing-contract.dto";
 import { LeasingContractsService } from "./leasing-contracts.service";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("leasing/contracts")
 @RequireModule("leasing")
@@ -201,6 +202,7 @@ export class LeasingContractsController {
   }
 
   @Post()
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_CREATE)
   @AuditLog({ module: "租赁合同", resource: "biz.leasing_contract", action: "新增", bizType: "biz_leasing_contract" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateLeasingContractDto) {
