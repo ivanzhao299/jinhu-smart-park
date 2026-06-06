@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -94,7 +94,7 @@ export interface LoginRequestMeta {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -112,6 +112,10 @@ export class AuthService {
     @InjectRepository(AuthLoginTicketEntity)
     private readonly loginTicketRepository: Repository<AuthLoginTicketEntity>
   ) {}
+
+  onModuleInit(): void {
+    this.assertProductionAuthSafety();
+  }
 
   async login(dto: LoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
     await this.tenantsService.assertTenantActive(dto.tenantId);
@@ -147,6 +151,7 @@ export class AuthService {
   }
 
   async sendMobileCode(dto: MobileSendCodeDto, meta: LoginRequestMeta): Promise<MobileCodeResult> {
+    this.assertSmsLoginEnabled();
     await this.tenantsService.assertTenantActive(dto.tenantId);
     const scene = dto.scene ?? "login";
     const now = new Date();
@@ -193,6 +198,7 @@ export class AuthService {
   }
 
   async mobileLogin(dto: MobileLoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    this.assertSmsLoginEnabled();
     await this.tenantsService.assertTenantActive(dto.tenantId);
     await this.verifyMobileCode(dto.tenantId, dto.parkId ?? null, dto.mobile, dto.code);
     const users = await this.usersService.listLoginUsersByMobile(dto.tenantId, dto.mobile, dto.parkId);
@@ -224,6 +230,7 @@ export class AuthService {
   }
 
   async createWechatAuthorization(dto: WechatAuthorizeDto, _meta: LoginRequestMeta): Promise<WechatAuthorizeResult> {
+    this.assertWechatLoginEnabled();
     await this.tenantsService.assertTenantActive(dto.tenantId);
     const provider = "wechat_open" as const;
     const redirectUri = dto.redirectUri ?? this.configService.get<string>("AUTH_WECHAT_REDIRECT_URI", "");
@@ -268,6 +275,7 @@ export class AuthService {
   }
 
   async wechatCallback(dto: WechatCallbackDto, meta: LoginRequestMeta): Promise<WechatCallbackResult> {
+    this.assertWechatLoginEnabled();
     const oauthState = await this.oauthStateRepository.findOne({
       where: {
         provider: "wechat_open",
@@ -748,6 +756,9 @@ export class AuthService {
   }
 
   private async exchangeWechatCode(code: string, oauthState: AuthOauthStateEntity): Promise<OAuthProviderProfile> {
+    if (this.isProduction() && code.startsWith("mock:")) {
+      throw new UnauthorizedException("WeChat mock callback is not allowed in production");
+    }
     const appId = this.configService.get<string>("AUTH_WECHAT_APP_ID", "");
     const appSecret = this.configService.get<string>("AUTH_WECHAT_APP_SECRET", "");
     if (!appId || !appSecret || this.isWechatMockEnabled() || code.startsWith("mock:")) {
@@ -834,6 +845,42 @@ export class AuthService {
       this.configService.get<string>("AUTH_WECHAT_MOCK_ENABLED", process.env.NODE_ENV === "production" ? "false" : "true") ===
       "true"
     );
+  }
+
+  private assertProductionAuthSafety(): void {
+    if (!this.isProduction()) {
+      return;
+    }
+
+    const fixedCode = this.configService.get<string>("AUTH_SMS_FIXED_CODE", "");
+    if (fixedCode.trim().length > 0) {
+      throw new Error("AUTH_SMS_FIXED_CODE must be empty in production");
+    }
+
+    const showMockCode = this.configService.get<string>("AUTH_SMS_CODE_VISIBLE", "false");
+    if (showMockCode === "true") {
+      throw new Error("AUTH_SMS_CODE_VISIBLE must be false in production");
+    }
+
+    if (this.isWechatMockEnabled()) {
+      throw new Error("AUTH_WECHAT_MOCK_ENABLED must be false in production");
+    }
+  }
+
+  private assertSmsLoginEnabled(): void {
+    if (this.isProduction()) {
+      throw new BadRequestException("短信验证码登录未启用");
+    }
+  }
+
+  private assertWechatLoginEnabled(): void {
+    if (this.isProduction()) {
+      throw new BadRequestException("微信扫码登录未启用");
+    }
+  }
+
+  private isProduction(): boolean {
+    return this.configService.get<string>("NODE_ENV", process.env.NODE_ENV ?? "development") === "production";
   }
 
   private isAllowedRedirectUri(redirectUri: string): boolean {
