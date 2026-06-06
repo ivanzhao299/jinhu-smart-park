@@ -349,6 +349,79 @@ NODE
     fail "wrong password unexpectedly succeeded"
   fi
   printf '[PASS] wrong password rejected\n'
+
+  local sms_json sms_status sms_body
+  sms_json=$(docker exec -i \
+    -e API_BASE="$API_BASE" \
+    -e TENANT_ID="$TENANT_ID" \
+    -e PARK_ID="$PARK_ID" \
+    "$API_CTN" node <<'NODE'
+const base = process.env.API_BASE;
+(async () => {
+  const res = await fetch(`${base}/auth/mobile/send-code`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      tenantId: process.env.TENANT_ID,
+      parkId: process.env.PARK_ID,
+      mobile: "13800001234",
+      scene: "login"
+    })
+  });
+  const body = await res.text();
+  process.stdout.write(JSON.stringify({ status: res.status, body }));
+})().catch((error) => {
+  console.error(error && error.stack ? error.stack : String(error));
+  process.exit(1);
+});
+NODE
+  )
+  sms_status=$(SMS_JSON="$sms_json" node -e 'const v=JSON.parse(process.env.SMS_JSON); process.stdout.write(String(v.status));')
+  sms_body=$(SMS_JSON="$sms_json" node -e 'const v=JSON.parse(process.env.SMS_JSON); process.stdout.write(v.body);')
+  if [[ "$sms_status" == "200" ]]; then
+    fail "SMS login endpoint unexpectedly succeeded: $sms_body"
+  fi
+  if ! printf '%s' "$sms_body" | grep -q '未启用'; then
+    fail "SMS login endpoint did not return a disabled message: $sms_body"
+  fi
+  if printf '%s' "$sms_body" | grep -q 'mockCode'; then
+    fail "SMS login endpoint returned mockCode in production: $sms_body"
+  fi
+  printf '[PASS] sms login endpoint disabled in production\n'
+
+  local wechat_json wechat_status wechat_body
+  wechat_json=$(docker exec -i \
+    -e API_BASE="$API_BASE" \
+    -e TENANT_ID="$TENANT_ID" \
+    -e PARK_ID="$PARK_ID" \
+    "$API_CTN" node <<'NODE'
+const base = process.env.API_BASE;
+(async () => {
+  const res = await fetch(`${base}/auth/wechat/callback`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      code: "mock:production-check",
+      state: "1234567890abcdef"
+    })
+  });
+  const body = await res.text();
+  process.stdout.write(JSON.stringify({ status: res.status, body }));
+})().catch((error) => {
+  console.error(error && error.stack ? error.stack : String(error));
+  process.exit(1);
+});
+NODE
+  )
+  wechat_status=$(WECHAT_JSON="$wechat_json" node -e 'const v=JSON.parse(process.env.WECHAT_JSON); process.stdout.write(String(v.status));')
+  wechat_body=$(WECHAT_JSON="$wechat_json" node -e 'const v=JSON.parse(process.env.WECHAT_JSON); process.stdout.write(v.body);')
+  if [[ "$wechat_status" == "200" ]]; then
+    fail "WeChat callback unexpectedly succeeded in production: $wechat_body"
+  fi
+  if ! printf '%s' "$wechat_body" | grep -q '未启用'; then
+    fail "WeChat callback did not return a disabled message: $wechat_body"
+  fi
+  printf '[PASS] wechat mock callback rejected in production\n'
 }
 
 main() {
