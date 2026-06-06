@@ -48,3 +48,133 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  release-smoke:
+    name: Release Smoke
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
+      NODE_ENV: production
+      APP_ENV: ci
+      APP_PORT: 3001
+      API_PREFIX: api/v1
+      WEB_ORIGIN: http://127.0.0.1:3000
+      POSTGRES_DB: jinhu_release_smoke
+      POSTGRES_USER: jinhu
+      POSTGRES_PASSWORD: JinhuReleaseSmokeDb#2026
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_PUBLISHED_PORT: 5432
+      API_PUBLISHED_PORT: 3001
+      WEB_PUBLISHED_PORT: 3000
+      TENANT_ID: 10000001
+      PARK_ID: 20000001
+      ADMIN_USERNAME: bootstrap_admin_ci
+      ADMIN_PASSWORD: JinhuReleaseSmokeAdmin#2026
+      ADMIN_NAME: Bootstrap Admin CI
+      ADMIN_EMAIL: bootstrap.admin.ci@example.com
+      ADMIN_PHONE: 13800001234
+      ROLE_CODE: SUPER_ADMIN
+      JWT_SECRET: JinhuReleaseSmokeJwtSecret#2026_LongAndRandom
+      JWT_EXPIRES_IN: 8h
+      BCRYPT_SALT_ROUNDS: 10
+      FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
+      AUTH_SMS_FIXED_CODE: ""
+      AUTH_SMS_CODE_VISIBLE: "false"
+      AUTH_WECHAT_MOCK_ENABLED: "false"
+      DEFAULT_TENANT_CODE: jinhu
+      DEFAULT_TENANT_ID: 10000001
+      DEFAULT_PARK_ID: 20000001
+      NEXT_PUBLIC_API_TARGET: http://api:3001
+      NEXT_PUBLIC_API_PREFIX: /api/v1
+      POSTGRES_CTN: jinhu-smart-park-prod-postgres
+      API_CTN: jinhu-smart-park-prod-api
+      API_BASE: http://127.0.0.1:3001/api/v1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.12.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create release smoke log directory
+        run: mkdir -p /tmp/release-smoke-logs
+
+      - name: Start PostgreSQL
+        run: docker compose -f "$COMPOSE_FILE" up -d postgres
+
+      - name: Wait for PostgreSQL health
+        run: |
+          for _ in $(seq 1 30); do
+            status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$POSTGRES_CTN" 2>/dev/null || true)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PostgreSQL container did not become healthy in time" >&2
+          exit 1
+
+      - name: Run migration
+        run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
+
+      - name: Run production seed
+        run: ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+
+      - name: Bootstrap admin
+        run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log
+
+      - name: Check init baseline
+        run: pnpm db:check:init 2>&1 | tee /tmp/release-smoke-logs/check-init-baseline.log
+
+      - name: Start API
+        run: docker compose -f "$COMPOSE_FILE" up -d api
+
+      - name: Wait for API health
+        run: |
+          for _ in $(seq 1 40); do
+            status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$API_CTN" 2>/dev/null || true)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "API container did not become healthy in time" >&2
+          exit 1
+
+      - name: Verify release smoke login flow
+        run: bash scripts/verify-api-login-dockerexec.sh 2>&1 | tee /tmp/release-smoke-logs/verify-api-login.log
+
+      - name: Collect docker diagnostics
+        if: always()
+        run: |
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' > /tmp/release-smoke-logs/docker-ps.txt
+          docker compose -f "$COMPOSE_FILE" ps > /tmp/release-smoke-logs/docker-compose-ps.txt
+          docker logs "$POSTGRES_CTN" > /tmp/release-smoke-logs/postgres.log 2>&1 || true
+          docker logs "$API_CTN" > /tmp/release-smoke-logs/api.log 2>&1 || true
+
+      - name: Upload release smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-smoke-logs
+          path: /tmp/release-smoke-logs
+          if-no-files-found: warn
+
+      - name: Tear down release smoke containers
+        if: always()
+        run: docker compose -f "$COMPOSE_FILE" down -v
