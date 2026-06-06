@@ -39,6 +39,8 @@
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",
     "db:migrate": "sh scripts/db-migrate.sh",
+    "db:check:init": "sh scripts/check-init-baseline.sh",
+    "db:bootstrap:admin": "sh scripts/bootstrap-admin.sh",
     "db:seed": "sh scripts/db-seed-prod.sh",
     "db:seed:dev": "sh scripts/db-seed-dev.sh",
     "db:seed:prod": "sh scripts/db-seed-prod.sh",
