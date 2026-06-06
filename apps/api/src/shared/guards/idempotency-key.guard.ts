@@ -1,5 +1,4 @@
-import type { CanActivate, ExecutionContext} from "@nestjs/common";
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
