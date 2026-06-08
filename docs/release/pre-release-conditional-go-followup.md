@@ -270,3 +270,8 @@
 - 完成一次真实镜像 tag 回滚演练。
 - 评估并修复 `verify-api-login-dockerexec.sh` 的依赖可用性。
 - 若上述补验完成且无新增问题，再考虑将当前状态从 Conditional Go 升级为 Go。
+
+## 15. 最终 Go 验证入口
+
+- [Final Go 验证报告](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/pre-release-final-go-validation.md)
+- 如果三项最后补验都已完成，请以该报告作为最终 Go / No-Go 判定依据。
