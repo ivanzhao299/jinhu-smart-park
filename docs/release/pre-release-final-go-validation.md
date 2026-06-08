@@ -192,7 +192,7 @@
 
 | 编号 | 问题 | 严重级别 | 备注 |
 |---|---|---|---|
-| NBI-1 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内仍存在 `bcrypt` 依赖问题 | 中 | 不影响本次最终 Go 结论，但建议后续单独修复 |
+| NBI-1 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内曾存在 `bcrypt` 依赖问题 | 低 | 已通过脚本修复收口，`VERIFY RESULT: PASS` 复测通过 |
 
 ## 9. Go / No-Go 建议
 
@@ -212,5 +212,4 @@
 - 收口生产环境变量真实值。
 - 明确首个生产管理员真实创建流程。
 - 准备最终备份和上线窗口。
-- 持续推进 `verify-api-login-dockerexec.sh` 的依赖可用性修复。
-
+- `verify-api-login-dockerexec.sh` 的 `bcrypt` 依赖问题已通过脚本修复收口，可继续作为正式验收入口复用。

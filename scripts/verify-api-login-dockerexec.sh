@@ -103,10 +103,9 @@ check_positive() {
 }
 
 generate_password_hash() {
-  docker exec -i \
-    -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-    -e BCRYPT_SALT_ROUNDS="$BCRYPT_SALT_ROUNDS" \
-    "$API_CTN" node <<'NODE'
+  (
+    cd "$ROOT_DIR/apps/api"
+    ADMIN_PASSWORD="$ADMIN_PASSWORD" BCRYPT_SALT_ROUNDS="$BCRYPT_SALT_ROUNDS" node <<'NODE'
 const bcrypt = require("bcrypt");
 
 (async () => {
@@ -122,6 +121,7 @@ const bcrypt = require("bcrypt");
   process.exit(1);
 });
 NODE
+  )
 }
 
 ensure_bootstrap_admin() {
