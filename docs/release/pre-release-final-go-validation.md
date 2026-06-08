@@ -192,7 +192,7 @@
 
 | 编号 | 问题 | 严重级别 | 备注 |
 |---|---|---|---|
-| NBI-1 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内曾存在 `bcrypt` 依赖问题 | 低 | 已通过脚本修复收口，`VERIFY RESULT: PASS` 复测通过 |
+| NBI-1 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内曾存在 `bcrypt` 依赖问题 | 低 | 已通过脚本修复收口，`VERIFY RESULT: PASS` 复测通过；同时 API Dockerfile 已补齐 `python3/make/g++`，`release-smoke` 的 bcrypt 构建依赖已收口 |
 
 ## 9. Go / No-Go 建议
 
@@ -213,3 +213,4 @@
 - 明确首个生产管理员真实创建流程。
 - 准备最终备份和上线窗口。
 - `verify-api-login-dockerexec.sh` 的 `bcrypt` 依赖问题已通过脚本修复收口，可继续作为正式验收入口复用。
+- API Dockerfile 已补齐 `python3/make/g++`，`release-smoke` 的 bcrypt 构建依赖已收口，后续 release build 可直接依赖该镜像链路。
