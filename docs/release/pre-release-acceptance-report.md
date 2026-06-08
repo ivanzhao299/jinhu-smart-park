@@ -340,3 +340,8 @@
   - 收口预发验收报告后，输出上线 SOP / 回滚 SOP
   - 单独推进 migration 机制治理
   - 补齐幂等其余 4 个首批接口的真实重复请求验证
+
+## 10. 后续补验引用
+
+- [Conditional Go 遗留项补验报告](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/pre-release-conditional-go-followup.md)
+- 该报告用于承接本次预发验收报告中未完成的遗留项补验记录。
