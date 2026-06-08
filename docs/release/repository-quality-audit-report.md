@@ -7,15 +7,15 @@
 判断依据：
 
 - 当前 `main` 已明显脱离“高风险 AI Coding 项目”状态，已经具备**可运维首发基线**：production seed 初始化闭环、bootstrap-admin、认证 mock 收口、release-smoke、`/health` / `/ready` 分层、本地文件存储持久化、首发菜单白名单、幂等第一版、上线/回滚 SOP 与 Final Go 文档均已形成闭环。
-- 但仓库级质量门禁仍有两个真实剩余风险不宜继续忽略：
-  - `pnpm typecheck` 在当前干净工作区下**不能稳定独立通过**，`apps/web/tsconfig.json` 依赖 `.next/types/**/*.ts`，首次执行会因缺失生成文件而失败。
+- 但仓库级质量门禁仍有一个真实高风险剩余项不宜继续忽略：
   - migration 机制仍停留在**顺序 SQL 回放**，且已出现 **`000136` 重号**，没有执行历史表、没有 checksum、没有失败状态留痕、没有回滚策略。
+- 原 G0-1 `pnpm typecheck` 独立门禁问题已完成修复：Web standalone typecheck 已拆分为不依赖 `.next/types` 的 `tsconfig.typecheck.json`，`pnpm typecheck`、`pnpm --filter @jinhu/web typecheck`、`pnpm build`、`pnpm lint` 在修复后均已通过。
 - 除此之外，大量非首发页面代码仍可被直接访问，测试体系主要靠 smoke，文档索引偏分散，维护成本高但**不构成立即阻断上线**。
 
 建议口径：
 
 - 业务/运维基线：**可以作为首发上线基线**
-- 仓库治理口径：**上线前至少补强 typecheck 门禁口径，并明确接受 migration 风险的治理计划**
+- 仓库治理口径：**typecheck 门禁已收口，后续应继续完成 migration 风险治理计划**
 
 ## 2. 复审基线
 
@@ -37,7 +37,7 @@
 | bootstrap-admin | P0 | 已实装并验证幂等 | 是 | 后续可选补“首次改密”流程 |
 | 认证 mock | P0 | 生产态强禁用，文档和验证脚本一致 | 是 | 二期启用短信/微信时单独回归 |
 | 真实幂等 | P0 | 已有 PostgreSQL-backed 第一版，接入 5 个接口 | 部分关闭 | 扩覆盖范围、补清理任务、补监控规范 |
-| CI 测试门禁 | P0 | `verify + release-smoke` 已存在且阻断 | 部分关闭 | 解决 `pnpm typecheck` 独立失败，补更多自动化测试 |
+| CI 测试门禁 | P0 | `verify + release-smoke` 已存在且阻断，Web typecheck 独立门禁已收口 | 部分关闭 | 继续补更多自动化测试 |
 | 健康检查 | P1 | `/health` liveness 与 `/ready` readiness 已分层 | 是 | 随基线变化维护 readiness 项 |
 | migration 机制 | P1 | 仍是顺序 SQL 执行，且有重复编号 | 否 | 引入执行记录、失败追踪、checksum/替代框架 |
 | 文件存储 | P1 | 单机本地存储已收口并文档化 | 部分关闭 | 若未来多实例，单独做对象存储迁移 |
@@ -50,7 +50,7 @@
 结论：
 
 - 首次报告中的 P0 主风险，大部分已被收口到**可运维**水平。
-- 当前真实剩余项主要集中在：**migration 治理、仓库级类型检查门禁、测试覆盖不足、文档体系和可维护性债务**。
+- 当前真实剩余项主要集中在：**migration 治理、测试覆盖不足、文档体系和可维护性债务**。
 
 ## 4. P1-2 migration 机制治理建议
 
@@ -162,7 +162,7 @@
 | 类型 | 当前状态 | 说明 |
 |---|---|---|
 | lint | 有 | `pnpm lint` 通过 |
-| typecheck | 有但不稳 | `pnpm typecheck` 在干净工作区首次失败，依赖 `.next/types` |
+| typecheck | 有 | Web standalone typecheck 已改为 `tsc -p tsconfig.typecheck.json --noEmit`，不再依赖 `.next/types` |
 | build | 有 | `pnpm build` 通过，Next build 同时做了类型校验 |
 | unit | 极少 | 仅见 3 个幂等相关 spec |
 | integration | 基本无 | 未见成体系后端集成测试 |
@@ -398,13 +398,12 @@
 
 ### 剩余风险
 
-1. `pnpm typecheck` 独立失败会削弱工程门禁可信度。
-2. CORS 仍是单值 `WEB_ORIGIN` 依赖，适合首发单域名，不适合复杂多域场景。
-3. 文件上传仅校验 MIME 和大小，没有后缀校验、内容 sniff、恶意文件识别。
-4. 文件上传未纳入幂等第一版，需要单独设计。
-5. 幂等记录有 `cleanupExpired()`，但未见 scheduler/cron 接入，存在表增长风险。
-6. 仓库内 `.env.example` 仍保留大量未来集成变量，占位值多，误读成本高。
-7. 默认开发账号仍存在于 dev seed，虽然有脚本保护，但仍需继续强调“不得进入共享环境”。
+1. CORS 仍是单值 `WEB_ORIGIN` 依赖，适合首发单域名，不适合复杂多域场景。
+2. 文件上传仅校验 MIME 和大小，没有后缀校验、内容 sniff、恶意文件识别。
+3. 文件上传未纳入幂等第一版，需要单独设计。
+4. 幂等记录有 `cleanupExpired()`，但未见 scheduler/cron 接入，存在表增长风险。
+5. 仓库内 `.env.example` 仍保留大量未来集成变量，占位值多，误读成本高。
+6. 默认开发账号仍存在于 dev seed，虽然有脚本保护，但仍需继续强调“不得进入共享环境”。
 
 ### 是否阻断上线
 
@@ -467,13 +466,13 @@
 
 | 任务 | 类型 | 优先级 | 建议负责人 | 验收标准 |
 |---|---|---|---|---|
-| 修复或重定义 `pnpm typecheck` 独立门禁 | test | P0 | 前端工程负责人 | 干净工作区下 `pnpm typecheck` 稳定通过，且 CI 口径一致 |
 | 明确 migration 风险接受与执行策略 | migration | P0 | 后端/DBA | 发布文档明确 forward-only、备份、失败处理和重号禁令 |
 
 ### G1：上线后 1 周内
 
 | 任务 | 类型 | 优先级 | 建议负责人 | 验收标准 |
 |---|---|---|---|---|
+- Web standalone typecheck 门禁收口 | test | 已完成 | 前端工程负责人 | `pnpm typecheck`、`pnpm --filter @jinhu/web typecheck`、`pnpm build`、`pnpm lint` 在清理 `apps/web/.next` 后均通过 |
 | 为幂等记录增加清理任务与监控项 | ops | P1 | 后端 | 有定时清理，有表增长监控 |
 | 补登录/用户/合同/收款/工单最小自动化回归 | test | P1 | 测试/后端 | 能独立执行并纳入常规回归 |
 | README 重写并补 docs 索引 | docs | P1 | 架构/项目负责人 | 新人可按 README 找到启动、测试、发布入口 |
@@ -501,13 +500,14 @@
 
 - 标题：`fix web typecheck standalone dependency on .next types`
 - 类型：`test`
-- 优先级：`P0`
-- 背景：`apps/web/tsconfig.json` 直接包含 `.next/types/**/*.ts`，导致干净工作区首次 `pnpm typecheck` 失败。
+- 优先级：`已完成`
+- 背景：`apps/web/tsconfig.json` 直接包含 `.next/types/**/*.ts`，导致 standalone typecheck 口径依赖 Next generated types，稳定性不足。
 - 任务清单：
   - 明确 Next route types 的生成前提
-  - 修正 `typecheck` 脚本或 tsconfig 口径
-  - 保证本地与 CI 一致
-- 验收标准：干净工作区 `pnpm typecheck` 稳定通过
+  - 新增 `apps/web/tsconfig.typecheck.json`
+  - 将 Web `typecheck` 脚本切到独立 tsconfig
+  - 验证本地与 CI 口径一致
+- 验收标准：已完成。干净工作区下 `pnpm typecheck` 稳定通过
 
 ### Issue 2
 
@@ -603,7 +603,6 @@
 
 2. 如果可以，哪些项必须作为上线前强条件？
 
-- 明确 `pnpm typecheck` 门禁口径，不能继续保持“脚本存在但干净工作区失败”的状态。
 - 明确接受当前 migration 风险，并把执行、备份、失败恢复口径写进发布流程。
 
 3. 哪些项可以上线后治理？
@@ -617,6 +616,4 @@
 
 4. 下一步最应该做什么？
 
-- **先解决仓库门禁可信度问题：让 `pnpm typecheck` 与 CI 口径一致。**
-- 然后立刻把 **migration 风险接受与治理路线** 固化成 Issue 和上线口径。
-
+- **立刻把 migration 风险接受与治理路线** 固化成 Issue 和上线口径。
