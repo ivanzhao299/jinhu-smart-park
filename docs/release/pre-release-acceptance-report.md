@@ -345,3 +345,5 @@
 
 - [Conditional Go 遗留项补验报告](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/pre-release-conditional-go-followup.md)
 - 该报告用于承接本次预发验收报告中未完成的遗留项补验记录。
+- [Final Go 验证报告](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/pre-release-final-go-validation.md)
+- 该报告用于承接 Conditional Go 遗留项补验完成后的最终 Go 判定。
