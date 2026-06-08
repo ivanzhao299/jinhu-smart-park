@@ -236,6 +236,14 @@
 - 该脚本仍是 pre-release / release-smoke 的重要验证入口之一。
 - 需要统一脚本运行环境和依赖来源，避免后续验收流程出现“脚本本身不可执行”的问题。
 
+### 6) 后续修复说明
+
+该问题已在后续单独修复脚本中收口：
+
+- `scripts/verify-api-login-dockerexec.sh` 的 `generate_password_hash()` 已改为在仓库 `apps/api` 上下文中执行
+- bcrypt hash 由宿主机 Node 环境生成，不再依赖验证容器内的 `bcrypt` 运行时模块
+- 后续复测已恢复为 `VERIFY RESULT: PASS`
+
 ## 11. 阻断问题
 
 无产品级阻断问题。
@@ -244,7 +252,7 @@
 
 | 编号 | 问题 | 严重级别 | 备注 |
 |---|---|---|---|
-| NBI-1 | `verify-api-login-dockerexec.sh` 在当前镜像内缺少 `bcrypt` 模块 | 中 | 不影响直接 API 验证，但建议单独修复脚本依赖 |
+| NBI-1 | `verify-api-login-dockerexec.sh` 在当前镜像内缺少 `bcrypt` 模块 | 中 | 已通过脚本修复收口，不影响后续直接复测 |
 | NBI-2 | 浏览器级首发菜单可视化核验未执行 | 中 | 建议在预发环境人工登录补验 |
 | NBI-3 | 核心业务流程全量演练未覆盖完全部菜单项 | 中 | 当前以关键链路和部分菜单静态 / API 验证替代 |
 | NBI-4 | 完整镜像 tag 回滚演练未执行 | 中 | 已验证 down/up 不带 `-v` 的持久化特性，仍建议上线前补做真实回滚 |

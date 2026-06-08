@@ -8,7 +8,7 @@
 - 关键基线已经成立：初始化闭环、`/health`、`/ready`、认证链路、文件存储持久化、首发菜单白名单、第一版幂等控制均已完成验证。
 - 预发隔离环境中，`migration -> production seed -> check-init-baseline -> bootstrap-admin -> check-init-baseline` 已形成闭环，且 `bootstrap-admin` 前后态符合预期。
 - 容器内运行态验证通过：`/api/v1/health` 返回 `200`，`/api/v1/ready` 返回 `200`，Web `/login` 返回 `200`。
-- 认证链路已通过直接 API 验证；但 `scripts/verify-api-login-dockerexec.sh` 在容器内执行时因缺少 `bcrypt` 模块失败，属于验收脚本/镜像完整性问题，不是产品认证链路本身阻断。
+- 认证链路已通过直接 API 验证；`scripts/verify-api-login-dockerexec.sh` 的 `bcrypt` 依赖问题已在后续单独修复脚本中收口，属于验收脚本运行时依赖问题，不是产品认证链路本身阻断。
 - 文件存储、幂等、健康检查、CI 阻断门禁均已具备预发验收所需能力，但本次未把所有核心业务流程、备份恢复和回滚都完整演练一遍，因此结论为“带条件通过”而不是“通过”。
 
 ## 2. 验收环境
@@ -41,7 +41,7 @@
 | check-init-baseline | 通过 | 否 | bootstrap 前失败、bootstrap 后 PASS，且无 dev seed 污染 |
 | /health | 通过 | 否 | 容器内返回 `200` |
 | /ready | 通过 | 否 | 容器内返回 `200`，checks 全部 `ok` |
-| verify-api-login | 部分通过 | 否 | 直接 API 验证通过，但 `scripts/verify-api-login-dockerexec.sh` 因缺少 `bcrypt` 模块失败 |
+| verify-api-login | 通过（后续已修复脚本依赖） | 否 | 直接 API 验证通过；`scripts/verify-api-login-dockerexec.sh` 的 `bcrypt` 依赖问题已通过脚本修复收口 |
 | 首发菜单 | 通过 | 否 | 静态确认首发白名单过滤生效，未做浏览器级人工菜单核验 |
 | 文件存储 | 通过 | 否 | 上传、下载、删除、重启后下载、`docker compose down` 不带 `-v` 后下载均通过 |
 | 幂等 | 通过 | 否 | `POST /users` 同 key 重放验证通过，幂等表记录 `succeeded` |
@@ -145,7 +145,7 @@
 - 参考脚本：
   - `scripts/verify-api-login-dockerexec.sh`
 - 脚本执行结果：
-  - 在容器内执行时失败，原因是 API 容器缺少 `bcrypt` 模块
+  - 该问题在后续已通过脚本修复收口：`generate_password_hash()` 改为在仓库 `apps/api` 上下文中执行，复用宿主机 Node 环境生成 bcrypt hash，避免依赖验证容器内的 `bcrypt` 运行时模块
 - 直接 API 验证结果：
   - `/auth/login` 成功
   - `/auth/me` 成功
@@ -289,7 +289,7 @@
 
 | 编号 | 模块 | 问题 | 影响 | 建议处理 | 负责人 | 状态 |
 |---|---|---|---|---|---|---|
-| NBI-1 | 认证验证脚本 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内因缺少 `bcrypt` 模块失败 | 导致脚本无法直接完整跑通 | 补齐验证镜像依赖或调整脚本执行环境 | 待定 | 待处理 |
+| NBI-1 | 认证验证脚本 | `scripts/verify-api-login-dockerexec.sh` 在当前镜像内因缺少 `bcrypt` 模块失败 | 已影响当时脚本直接完整跑通 | 已通过脚本修复：将 hash 生成移出验证容器，改为使用仓库 `apps/api` 上下文的 Node + bcrypt | 已修复 | 已关闭 |
 | NBI-2 | 静态检查 | `pnpm typecheck` 首次 workspace 并行执行时出现一次 `apps/web` 瞬时失败 | 不影响最终结论，但建议观察稳定性 | 后续持续观察是否为并行抖动 | 待定 | 待观察 |
 | NBI-3 | 宿主机网络 | WSL 宿主机侧直连隔离 compose 端口受限 | 运行态验证需改为容器内请求 | 预发或 CI 侧尽量统一验证入口 | 待定 | 待处理 |
 
@@ -347,3 +347,4 @@
 - 该报告用于承接本次预发验收报告中未完成的遗留项补验记录。
 - [Final Go 验证报告](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/pre-release-final-go-validation.md)
 - 该报告用于承接 Conditional Go 遗留项补验完成后的最终 Go 判定。
+- `scripts/verify-api-login-dockerexec.sh` 的 `bcrypt` 依赖问题已通过脚本修复收口，后续验收可直接复用该脚本作为正式入口。
