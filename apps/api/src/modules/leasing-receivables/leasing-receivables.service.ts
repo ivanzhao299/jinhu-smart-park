@@ -9,6 +9,7 @@ import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { LeasingContractUnitEntity } from "../leasing-contracts/entities/leasing-contract-unit.entity";
 import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
+import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import type { CreateLeasingReceivableDto } from "./dto/create-leasing-receivable.dto";
 import type { GenerateContractReceivablesDto, GenerateReceivablesBatchDto } from "./dto/generate-receivables.dto";
@@ -120,6 +121,8 @@ export class LeasingReceivablesService {
     private readonly contractsRepository: Repository<LeasingContractEntity>,
     @InjectRepository(LeasingContractUnitEntity)
     private readonly contractUnitsRepository: Repository<LeasingContractUnitEntity>,
+    @InjectRepository(LeasingPaymentReceivableEntity)
+    private readonly paymentReceivablesRepository: Repository<LeasingPaymentReceivableEntity>,
     @InjectRepository(ParkTenantEntity)
     private readonly parkTenantsRepository: Repository<ParkTenantEntity>,
     @InjectRepository(DictItemEntity)
@@ -283,14 +286,28 @@ export class LeasingReceivablesService {
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findOne(scope, id, actor);
+    if (entity.status === RECEIVABLE_STATUS_VOID) {
+      throw new BadRequestException("Cannot void already void receivable");
+    }
     if (this.toNumber(entity.amountPaid) > 0) {
-      throw new BadRequestException("Receivable with payments cannot be deleted directly");
+      throw new BadRequestException("Cannot void receivable with payment activity");
     }
     if (this.toNumber(entity.amountWaived) > 0) {
-      throw new BadRequestException("Receivable with waived amount cannot be deleted directly");
+      throw new BadRequestException("Cannot void receivable with waived amount");
     }
     if (entity.invoiceStatus !== INVOICE_STATUS_NONE) {
-      throw new BadRequestException("Invoiced receivable cannot be deleted directly");
+      throw new BadRequestException("Cannot void invoiced receivable");
+    }
+    if (
+      entity.status === RECEIVABLE_STATUS_PARTIAL ||
+      entity.status === RECEIVABLE_STATUS_PAID ||
+      entity.status === RECEIVABLE_STATUS_OVERDUE_PARTIAL ||
+      entity.status === RECEIVABLE_STATUS_WAIVED
+    ) {
+      throw new BadRequestException("Cannot void receivable with financial activity");
+    }
+    if (await this.hasPaymentApplications(scope, entity.id)) {
+      throw new BadRequestException("Cannot void receivable with payment applications");
     }
     const beforeStatus = entity.status;
     await this.receivablesRepository.manager.transaction(async (manager) => {
@@ -846,6 +863,16 @@ export class LeasingReceivablesService {
 
   private receivableHasFinancialActivity(receivable: LeasingReceivableEntity): boolean {
     return this.toNumber(receivable.amountPaid) > 0 || this.toNumber(receivable.amountWaived) > 0 || receivable.invoiceStatus !== INVOICE_STATUS_NONE;
+  }
+
+  private async hasPaymentApplications(scope: TenantParkScope, receivableId: string): Promise<boolean> {
+    return this.paymentReceivablesRepository
+      .createQueryBuilder("application")
+      .where("application.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("application.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("application.receivable_id = :receivableId", { receivableId })
+      .andWhere("application.is_deleted = false")
+      .getExists();
   }
 
   private deriveGeneratedStatus(spec: ReceivableGenerationSpec): string {

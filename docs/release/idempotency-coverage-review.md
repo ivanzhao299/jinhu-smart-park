@@ -64,9 +64,9 @@
 | `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是 | 需专项确认 | 中 | E2-5B 设计 |
 | `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 已完成 | 是 | 低 | E2-5B-1 |
 | `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 已完成 | 是 | 低 | E2-5B-2C |
-| `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是 | 需删除 / 作废语义确认，当前为软删除 + void | 低 | E2-5B-3 设计 |
+| `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是，E2-5B-3A 已完成语义保护；仍未接 interceptor | 需 E2-5B-3B 决定幂等入口 | 低 | E2-5B-3A / E2-5B-3B |
 | `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 已完成 | 是 | 低 | E2-5B-1 |
-| `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是 | 需删除 / 作废语义确认，当前为软删除 + void | 低 | E2-5B-3 设计 |
+| `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是，E2-5B-3A 已完成语义保护；仍未接 interceptor | 需 E2-5B-3B 决定幂等入口，payment status log 仍是缺口 | 低 | E2-5B-3A / E2-5B-3B |
 
 ## 7. 剩余 P1 缺口
 
@@ -121,6 +121,6 @@
 ## 10. Go / No-Go 判断
 
 - 是否阻塞首发上线：是，至少在幂等维度上仍有 P0 缺口。
-- 必须在上线前修的风险：删除类接口需按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 完成语义保护或风险接受；批量生成接口需专项口径风险接受或后续治理。用户权限变更、应收创建、应收修改、收款修改已完成。
+- 必须在上线前修的风险：删除类接口已按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 完成语义保护，但仍需 E2-5B-3B 决定是否接入真实幂等或进行风险接受；批量生成接口需专项口径风险接受或后续治理。用户权限变更、应收创建、应收修改、收款修改已完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
 - 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。
