@@ -47,21 +47,23 @@
 
 ### Users
 
-| 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
-|---|---|---|---|---|---|
-| `POST /users/:id/reset-password` | 重复改密会造成账号状态和审计混乱 | 已完成 | 是 | 低 | E2-5A |
-| `POST /users/:id/roles` | 重复权限变更会影响可见范围和操作权限 | 已完成 | 是 | 低 | E2-5A |
+用户权限 P0 缺口已在 E2-5A 完成：
+
+- `POST /users/:id/reset-password`
+- `POST /users/:id/roles`
 
 ### Leasing / Finance
 
+应收 / 收款编辑删除类 P0 缺口已进入专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
+
 | 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
 |---|---|---|---|---|---|
-| `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是 | 是 | 中 | 下一批 |
-| `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 是 | 是 | 低 | 下一批 |
-| `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 是 | 是 | 低 | 下一批 |
-| `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是 | 是 | 低 | 下一批 |
-| `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 是 | 是 | 低 | 下一批 |
-| `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是 | 是 | 低 | 下一批 |
+| `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是 | 需专项确认 | 中 | E2-5B 设计 |
+| `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 是 | 是 | 低 | E2-5B-1 |
+| `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 是 | 技术适合，但需状态保护 | 低 | E2-5B-1 |
+| `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
+| `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 是 | 是 | 低 | E2-5B-2 |
+| `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
 
 ## 7. 剩余 P1 缺口
 
@@ -107,7 +109,7 @@
 
 推荐顺序如下：
 
-1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口（当前主要剩余项为 leasing 账务编辑 / 删除类接口）。
+1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口（当前主要剩余项为 leasing 账务编辑 / 删除类接口），实施前先参考 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
 2. 再补 P1 状态流转和文件删除等接口。
 3. multipart 文件和批量接口保持单独设计。
 
@@ -116,6 +118,6 @@
 ## 10. Go / No-Go 判断
 
 - 是否阻塞首发上线：是，至少在幂等维度上仍有 P0 缺口。
-- 必须在上线前修的风险：用户权限变更、收款 / 应收写接口。
+- 必须在上线前修的风险：收款 / 应收写接口；用户权限变更已在 E2-5A 完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
 - 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。

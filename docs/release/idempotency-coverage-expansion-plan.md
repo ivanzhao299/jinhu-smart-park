@@ -28,12 +28,14 @@
 | 接口 | 模块 | 是否 guard | 是否 interceptor | replay 是否验证 | 回归脚本是否覆盖 | 备注 |
 |---|---|---|---|---|---|---|
 | `POST /work-orders` | work-orders | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
-| `POST /leasing/contracts` | leasing-contracts | 是 | 是 | 部分 | 是 | `first-release-leasing.mjs` 已覆盖成功创建，但未做 replay / conflict 断言 |
-| `POST /leasing/contracts/:contractId/generate-receivables` | leasing-receivables | 是 | 是 | 部分 | 是 | 已纳入 leasing 回归脚本，但未做 replay / conflict 断言 |
-| `POST /leasing/payments` | leasing-payments | 是 | 是 | 部分 | 是 | 已纳入 leasing 回归脚本，但未做 replay / conflict 断言 |
+| `POST /leasing/contracts` | leasing-contracts | 是 | 是 | 是 | 是 | `first-release-leasing.mjs` 已覆盖 missing key / replay / conflict |
+| `POST /leasing/contracts/:contractId/generate-receivables` | leasing-receivables | 是 | 是 | 是 | 是 | `first-release-leasing.mjs` 已覆盖 missing key / replay / conflict |
+| `POST /leasing/payments` | leasing-payments | 是 | 是 | 是 | 是 | `first-release-leasing.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users/:id/reset-password` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users/:id/roles` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users` | users | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
+
+应收 / 收款编辑删除类 P0 缺口已进入 E2-5B 专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
 
 ## 4. 首发写接口盘点
 
@@ -136,6 +138,8 @@
 | `PUT /leasing/payments/:id` | 修改收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 
+> E2-5B 设计结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 适合作为下一批最小接入；`PUT /leasing/receivables/:id` 建议先补业务状态保护；删除类和批量生成接口暂缓专项设计。
+
 ## 5. 第一批建议补齐范围
 
 第一批建议只补 4 个接口，优先覆盖“状态推进 + 资源绑定 + 资金核销”三类高风险动作：
@@ -235,15 +239,25 @@
 
 ### E2-4：收款 / 应收补充幂等
 
-- 目标：已完成 `POST /leasing/payments/:id/apply`，后续视资源再扩到 `POST /leasing/receivables`
+- 目标：已完成 `POST /leasing/payments/:id/apply`；应收 / 收款编辑删除类 P0 缺口已进入 E2-5B 专项设计
 - 建议文件：
   - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
   - leasing 回归脚本
-- 风险：数据依赖最重，当前已通过 leasing 回归脚本补最小闭环验证
-- 验收标准：`apply` 已满足重复核销不重复生成核销关系或重复扣减应收
+- 风险：数据依赖最重，当前已通过 leasing 回归脚本补最小闭环验证；剩余编辑 / 删除接口需要先区分普通 JSON 更新、财务状态保护、删除 / 作废语义和批量部分成功语义
+- 验收标准：`apply` 已满足重复核销不重复生成核销关系或重复扣减应收；下一批按 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md) 分批实施
 
-### E2-5：文件写接口专项设计
+### E2-5：应收 / 收款编辑删除专项设计
+
+- 目标：设计并分批补齐 `POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、删除类接口和批量生成接口
+- 建议文件：
+  - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
+  - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
+  - `scripts/e2e/first-release-leasing.mjs`
+- 风险：资金账务接口不能只看 JSON fingerprint，还需要确认已核销 / 已开票 / 作废状态保护
+- 验收标准：详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)
+
+### E2-6：文件写接口专项设计
 
 - 目标：单独设计 multipart 文件写接口幂等策略
 - 建议文件：
@@ -300,10 +314,13 @@
 - 背景：资金与账务类接口属于最高风险写接口
 - 任务：
   - `POST /leasing/payments/:id/apply` 已完成
-  - 评估并补 `POST /leasing/receivables`
-  - 如可行，再扩到 `PUT /leasing/receivables/:id`
+  - 按 E2-5B 设计优先补 `POST /leasing/receivables`
+  - 补 `PUT /leasing/payments/:id` 的真实 replay / conflict
+  - `PUT /leasing/receivables/:id` 需先补业务状态保护，再接入 interceptor
+  - 删除类和批量生成接口按专项设计推进
 - 验收标准：
-  - 重复核销与重复新增账务均被拦截或复用
+  - 重复核销、重复新增应收、重复修改收款均被拦截或复用
+  - 已核销 / 已开票 / 作废场景有明确业务状态保护
 
 ### Issue 5
 
@@ -322,13 +339,13 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - `POST /work-orders/:id/accept`
-   - `POST /work-orders/:id/start`
-   - `POST /leasing/contracts/:id/submit`
-   - `POST /leasing/contracts/:id/approve`
+   - `POST /leasing/receivables`
+   - `PUT /leasing/payments/:id`
+   - `PUT /leasing/receivables/:id`，但需先补业务状态保护
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入 / 批量生成接口
+   - 财务删除 / 作废接口，直到删除语义和状态保护确认
    - 非首发模块接口
-3. 当前不需要先改幂等底层机制，现有 `IdempotencyInterceptor` 足以覆盖下一批 JSON 写接口；真正需要单独设计的是 multipart / 批量接口
+3. 当前不需要先改幂等底层机制，现有 `IdempotencyInterceptor` 足以覆盖下一批稳定 JSON 写接口；真正需要单独设计的是 multipart、批量接口和财务删除 / 作废语义
 4. 当前不需要修改 `first-release regression runner`，优先扩展已有 `workorders` 和 `leasing` 子脚本即可
