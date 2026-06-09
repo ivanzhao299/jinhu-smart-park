@@ -72,6 +72,21 @@
 
 如任一条件未满足，直接判定为 No-Go。
 
+### 5.1 与 migration history/checksum 设计的衔接
+
+本文件负责的是当前 SQL-first 机制下的生产执行强缓解口径，后续 `migration-history-checksum-design.md` 负责给出 history + checksum 的最小可落地设计。
+
+两份文档的关系建议按以下顺序理解：
+
+1. 先用本文件冻结生产执行口径，确保当前发布可受控、可备份、可停止。
+2. 再用 `migration-history-checksum-design.md` 明确中期实现目标，避免实现阶段再重新争论状态语义、跳过规则和失败恢复。
+3. 最后在实现阶段把 history/checksum 落到脚本和数据库表，而不是先改脚本再补文档。
+
+换句话说：
+
+- 本文件解决“现在怎么安全发”。
+- `migration-history-checksum-design.md` 解决“下一步怎么把机制做出来”。
+
 ## 6. Migration 文件清单冻结
 
 发布前必须生成“本次 migration 文件清单”，并由发布负责人和数据库负责人共同确认。
