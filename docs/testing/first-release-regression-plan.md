@@ -360,11 +360,14 @@ pnpm regression:leasing
   - 应收创建幂等：missing key / first request / replay / conflict
   - 应收修改幂等：missing key / first request / replay / conflict
   - 应收修改字段 / 状态保护：敏感字段拒绝、失败请求不会 replay 成成功、核销后状态保护
+  - 应收删除 / 作废语义保护：未发生财务活动应收可 softDelete，已核销 / 有 application 应收删除被拒绝
   - 收款登记幂等：missing key / first request / replay / conflict
   - 收款修改幂等：missing key / first request / replay / conflict，使用独立未核销测试收款
   - 收款核销幂等：missing key / first request / replay / conflict
+  - 收款删除 / 作废语义保护：未核销收款可 softDelete，已核销 / 有 application 收款删除被拒绝
   - 收款查询
   - `PUT /leasing/receivables/:id` 已接入 `IdempotencyInterceptor`，并保留字段 / 状态保护回归
+  - `DELETE /leasing/receivables/:id` 与 `DELETE /leasing/payments/:id` 暂未接入 `IdempotencyInterceptor`，本阶段只验证删除 / 作废语义保护
 - 对租赁链路数据依赖的说明：
   - 当前本地库未发现可直接复用的 park tenant / building / floor / unit 数据，因此脚本会自动创建一条带 `TEST_RUN_ID` 前缀的最小闭环数据。
   - 脚本优先查询已有同名测试数据，若不存在则自举创建。

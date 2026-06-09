@@ -1170,6 +1170,71 @@ async function exerciseReceivableUpdateStateProtection(authHeaders, receivable) 
   return true;
 }
 
+async function assertReceivableNotInList(authHeaders, contractId, receivable, label) {
+  const code = receivableField(receivable, "arCode", "ar_code");
+  const result = await request(`/leasing/receivables?page=1&page_size=20&contract_id=${contractId}&keyword=${encodeURIComponent(code ?? testRunId)}`, {
+    headers: authHeaders
+  });
+  if (!expectStatus(label, result.response.status, 200, result.body)) return false;
+  const items = listItems(result.body);
+  const stillVisible = items.some((item) => item?.id === receivable.id || receivableField(item, "arCode", "ar_code") === code);
+  if (stillVisible) {
+    fail(`${label} still returned soft-deleted receivable ${receivable.id}`);
+    return false;
+  }
+  pass(`${label} confirmed receivable is not visible in list`);
+  return true;
+}
+
+async function exerciseReceivableSoftDeleteAllowed(authHeaders, receivable, contractId) {
+  const before = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before soft delete");
+  if (!before) return false;
+  const deleted = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": buildIdempotencyKey("delete-receivable-allowed")
+    }
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id allowed soft delete", deleted.response.status, [200, 204], deleted.body)) {
+    return false;
+  }
+  const detailAfterDelete = await request(`/leasing/receivables/${receivable.id}`, { headers: authHeaders });
+  if (![404].includes(detailAfterDelete.response.status)) {
+    fail(`GET /leasing/receivables/:id after soft delete expected 404, got ${detailAfterDelete.response.status}; body=${summarizeBody(detailAfterDelete.body)}`);
+    return false;
+  }
+  pass("GET /leasing/receivables/:id after soft delete is not visible");
+  return assertReceivableNotInList(authHeaders, contractId, before, "GET /leasing/receivables after soft delete");
+}
+
+async function exerciseReceivableSoftDeleteStateProtection(authHeaders, receivable) {
+  const before = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before protected soft delete");
+  if (!before) return false;
+  const rejected = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": buildIdempotencyKey("delete-receivable-protected")
+    }
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id protected receivable", rejected.response.status, 400, rejected.body)) {
+    return false;
+  }
+  const after = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id after protected soft delete");
+  if (!after) return false;
+  if (receivableField(after, "status") === "90") {
+    fail(`Protected receivable unexpectedly changed to void; body=${summarizeBody(after)}`);
+    return false;
+  }
+  if (receivableField(after, "amountPaid", "amount_paid") !== receivableField(before, "amountPaid", "amount_paid")) {
+    fail(`Protected receivable amount_paid changed unexpectedly; before=${summarizeBody(before)}, after=${summarizeBody(after)}`);
+    return false;
+  }
+  pass("DELETE /leasing/receivables/:id rejected receivable with financial activity");
+  return true;
+}
+
 async function createPayment(authHeaders, parkTenantId, action = "create-payment") {
   const payload = buildPaymentPayload(parkTenantId);
   const missingKey = await request("/leasing/payments", {
@@ -1367,6 +1432,82 @@ async function queryPayment(authHeaders, paymentId, parkTenantId) {
   return true;
 }
 
+async function getPaymentDetail(authHeaders, paymentId, label = "GET /leasing/payments/:id") {
+  const detail = await request(`/leasing/payments/${paymentId}`, { headers: authHeaders });
+  if (!expectStatus(label, detail.response.status, 200, detail.body)) return null;
+  const data = unwrapData(detail.body);
+  if (!data || data.id !== paymentId) {
+    fail(`${label} did not return expected id; body=${summarizeBody(detail.body)}`);
+    return null;
+  }
+  return data;
+}
+
+async function assertPaymentNotInList(authHeaders, payment, parkTenantId, label) {
+  const payCode = payment.payCode ?? payment.pay_code ?? payment.code;
+  const result = await request(`/leasing/payments?page=1&page_size=20&park_tenant_id=${parkTenantId}&keyword=${encodeURIComponent(payCode ?? testRunId)}`, {
+    headers: authHeaders
+  });
+  if (!expectStatus(label, result.response.status, 200, result.body)) return false;
+  const items = listItems(result.body);
+  const stillVisible = items.some((item) => item?.id === payment.id || item?.payCode === payCode || item?.pay_code === payCode);
+  if (stillVisible) {
+    fail(`${label} still returned soft-deleted payment ${payment.id}`);
+    return false;
+  }
+  pass(`${label} confirmed payment is not visible in list`);
+  return true;
+}
+
+async function exercisePaymentSoftDeleteAllowed(authHeaders, payment, parkTenantId) {
+  const before = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id before soft delete");
+  if (!before) return false;
+  const deleted = await request(`/leasing/payments/${payment.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": buildIdempotencyKey("delete-payment-allowed")
+    }
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id allowed soft delete", deleted.response.status, [200, 204], deleted.body)) {
+    return false;
+  }
+  const detailAfterDelete = await request(`/leasing/payments/${payment.id}`, { headers: authHeaders });
+  if (![404].includes(detailAfterDelete.response.status)) {
+    fail(`GET /leasing/payments/:id after soft delete expected 404, got ${detailAfterDelete.response.status}; body=${summarizeBody(detailAfterDelete.body)}`);
+    return false;
+  }
+  pass("GET /leasing/payments/:id after soft delete is not visible");
+  return assertPaymentNotInList(authHeaders, before, parkTenantId, "GET /leasing/payments after soft delete");
+}
+
+async function exercisePaymentSoftDeleteStateProtection(authHeaders, payment) {
+  const before = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id before protected soft delete");
+  if (!before) return false;
+  const rejected = await request(`/leasing/payments/${payment.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": buildIdempotencyKey("delete-payment-protected")
+    }
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id protected payment", rejected.response.status, 400, rejected.body)) {
+    return false;
+  }
+  const after = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id after protected soft delete");
+  if (!after) return false;
+  if (after.status === "90") {
+    fail(`Protected payment unexpectedly changed to void; body=${summarizeBody(after)}`);
+    return false;
+  }
+  if (normalizeMoney(after.unappliedAmount ?? after.unapplied_amount) !== normalizeMoney(before.unappliedAmount ?? before.unapplied_amount)) {
+    fail(`Protected payment unapplied amount changed unexpectedly; before=${summarizeBody(before)}, after=${summarizeBody(after)}`);
+    return false;
+  }
+  pass("DELETE /leasing/payments/:id rejected payment with application activity");
+  return true;
+}
+
 async function listPaymentApplications(authHeaders, paymentId) {
   const result = await request(`/leasing/payments/${paymentId}/applications`, {
     headers: authHeaders
@@ -1552,11 +1693,15 @@ async function run() {
   if (!receivableAllowedUpdateOk) return;
   const receivableSensitiveRejectOk = await exerciseReceivableUpdateSensitiveFieldRejection(authHeaders, manualReceivable);
   if (!receivableSensitiveRejectOk) return;
+  const receivableSoftDeleteOk = await exerciseReceivableSoftDeleteAllowed(authHeaders, manualReceivable, contract.id);
+  if (!receivableSoftDeleteOk) return;
 
   const paymentForUpdate = await createPayment(authHeaders, parkTenant.id, "create-payment-for-update");
   if (!paymentForUpdate?.id) return;
   const paymentUpdateOk = await exercisePaymentUpdateIdempotency(authHeaders, paymentForUpdate, parkTenant.id);
   if (!paymentUpdateOk) return;
+  const paymentSoftDeleteOk = await exercisePaymentSoftDeleteAllowed(authHeaders, paymentForUpdate, parkTenant.id);
+  if (!paymentSoftDeleteOk) return;
 
   const payment = await createPayment(authHeaders, parkTenant.id);
   if (!payment?.id) return;
@@ -1564,6 +1709,10 @@ async function run() {
   if (!paymentApplyOk) return;
   const receivableStateProtectionOk = await exerciseReceivableUpdateStateProtection(authHeaders, receivables[0]);
   if (!receivableStateProtectionOk) return;
+  const receivableSoftDeleteProtectionOk = await exerciseReceivableSoftDeleteStateProtection(authHeaders, receivables[0]);
+  if (!receivableSoftDeleteProtectionOk) return;
+  const paymentSoftDeleteProtectionOk = await exercisePaymentSoftDeleteStateProtection(authHeaders, payment);
+  if (!paymentSoftDeleteProtectionOk) return;
   const paymentOk = await queryPayment(authHeaders, payment.id, parkTenant.id);
   if (!paymentOk) return;
 

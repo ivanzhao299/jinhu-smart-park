@@ -4,14 +4,14 @@
 
 本文用于确认应收 / 收款删除接口的当前语义、财务安全风险和后续幂等接入前置条件。
 
-本阶段只做设计确认，不修改业务代码，不接入新的 `IdempotencyInterceptor`，不调整回归脚本。
+本文最初用于 E2-5B-3 设计确认。E2-5B-3A 已按本文完成删除 / 作废语义保护实施与回归补充，但仍未接入新的 `IdempotencyInterceptor`。
 
 ## 2. 当前接口现状
 
 | 接口 | controller method | 当前是否 guard | 当前是否 interceptor | 当前 service 行为 | 当前状态保护 | 当前审计留痕 | 当前风险 |
 |---|---|---|---|---|---|---|---|
-| `DELETE /leasing/receivables/:id` | `LeasingReceivablesController.remove` -> `LeasingReceivablesService.softDelete` | 是，全局 `IdempotencyKeyGuard` 要求非公开写请求带 key | 否 | 读取 scoped 应收后设置 `isDeleted=true`、`status=void`，并返回 `{ id }` | 阻止 `amountPaid > 0`、`amountWaived > 0`、`invoiceStatus != none` 的应收删除 | controller 有 `AuditLog`；service 写应收状态日志，action 为 `delete` | `DELETE` 名称容易被误解为物理删除；首次成功后再次请求会因 `isDeleted=false` 过滤而变成 NotFound；没有真实 replay |
-| `DELETE /leasing/payments/:id` | `LeasingPaymentsController.remove` -> `LeasingPaymentsService.softDelete` | 是，全局 `IdempotencyKeyGuard` 要求非公开写请求带 key | 否 | 读取 scoped 收款后设置 `isDeleted=true`、`status=void`，并返回 `{ id }` | 阻止 `sumAppliedAmount > 0` 的收款删除 | controller 有 `AuditLog`；service 未见独立 payment status log | `DELETE` 名称容易被误解为物理删除；首次成功后再次请求会因 `isDeleted=false` 过滤而变成 NotFound；没有真实 replay |
+| `DELETE /leasing/receivables/:id` | `LeasingReceivablesController.remove` -> `LeasingReceivablesService.softDelete` | 是，全局 `IdempotencyKeyGuard` 要求非公开写请求带 key | 否 | 读取 scoped 应收后设置 `isDeleted=true`、`status=void`，并返回 `{ id }` | 阻止 `amountPaid > 0`、`amountWaived > 0`、`invoiceStatus != none`、paid / partial / waived / void 等状态以及 payment application 的应收删除 | controller 有 `AuditLog`；service 写应收状态日志，action 为 `delete` | `DELETE` 名称容易被误解为物理删除；首次成功后再次请求会因 `isDeleted=false` 过滤而变成 NotFound；没有真实 replay |
+| `DELETE /leasing/payments/:id` | `LeasingPaymentsController.remove` -> `LeasingPaymentsService.softDelete` | 是，全局 `IdempotencyKeyGuard` 要求非公开写请求带 key | 否 | 读取 scoped 收款后设置 `isDeleted=true`、`status=void`，并返回 `{ id }` | 阻止 void、partial、applied、`sumAppliedAmount > 0` 或存在 application 的收款删除 | controller 有 `AuditLog`；service 未见独立 payment status log | `DELETE` 名称容易被误解为物理删除；首次成功后再次请求会因 `isDeleted=false` 过滤而变成 NotFound；没有真实 replay |
 
 当前两个接口都不是物理删除，而是“软删除 + 置为 void”。但它们仍通过 HTTP `DELETE` 暴露，且未接入真实幂等 interceptor。
 
@@ -21,11 +21,14 @@
 
 `LeasingReceivablesService.softDelete` 会先通过 `findOne(scope, id, actor)` 读取当前应收。该查询包含租户、园区、数据权限和 `is_deleted = false` 约束。
 
-删除前当前已有以下保护：
+删除前当前已有以下保护，E2-5B-3A 已补强状态和 application 校验：
 
 - `amountPaid > 0` 时拒绝，错误为 `Receivable with payments cannot be deleted directly`
 - `amountWaived > 0` 时拒绝，错误为 `Receivable with waived amount cannot be deleted directly`
 - `invoiceStatus != none` 时拒绝，错误为 `Invoiced receivable cannot be deleted directly`
+- `status = void` 时拒绝
+- `status = partial / paid / overdue_partial / waived` 时拒绝
+- 存在未删除 payment application 时拒绝
 
 通过校验后，service 在事务中执行：
 
@@ -46,7 +49,7 @@
 - 已核销或部分核销应收不应删除，否则会破坏收款核销追溯。
 - 已开票应收不应删除，否则会破坏发票和账务口径。
 - 已减免应收不应删除，否则会丢失减免审批 / 财务活动追溯。
-- 当前通过 `amountPaid`、`amountWaived`、`invoiceStatus` 已覆盖主要财务活动保护。
+- 当前通过 `amountPaid`、`amountWaived`、`invoiceStatus`、状态枚举和 payment application 查询覆盖主要财务活动保护。
 - 当前没有显式 `deleted_at` / `voided_at` 字段，主要依赖审计字段、`isDeleted`、`status` 和状态日志追溯。
 - 当前再次执行相同 DELETE 时会因为 `is_deleted = false` 过滤而返回不存在，不能自然形成 replay。
 
@@ -62,10 +65,13 @@
 
 `LeasingPaymentsService.softDelete` 会先通过 `findOne(scope, id, actor)` 读取当前收款。该查询包含租户、园区、数据权限和 `is_deleted = false` 约束。
 
-删除前当前已有以下保护：
+删除前当前已有以下保护，E2-5B-3A 已补强状态和 application 行校验：
 
 - 通过 `sumAppliedAmount(scope, paymentId)` 统计未删除 application 的核销金额
 - `appliedAmount > 0` 时拒绝，错误为 `Applied payment cannot be deleted directly`
+- `status = void` 时拒绝
+- `status = partial / applied` 时拒绝
+- 存在未删除 application 行时拒绝，即使 applied amount 异常为 0 也不允许普通 softDelete
 
 通过校验后，service 执行：
 
@@ -85,7 +91,7 @@
 
 - 已核销或部分核销收款不应删除，否则会破坏应收余额、收款余额和核销追溯。
 - 有 application / allocation 记录的收款不应通过 DELETE 处理。
-- 当前通过 `sumAppliedAmount > 0` 阻断主要核销风险，但未见独立 payment status log。
+- 当前通过 `status`、`sumAppliedAmount > 0` 和 application 行存在性阻断主要核销风险，但未见独立 payment status log。
 - 当前没有显式 `deleted_at` / `voided_at` 字段，主要依赖审计字段、`isDeleted` 和 `status`。
 - 当前再次执行相同 DELETE 时会因为 `is_deleted = false` 过滤而返回不存在，不能自然形成 replay。
 
@@ -139,8 +145,8 @@
 
 目标：
 
-- 保留当前“未发生财务活动才允许删除”的保护。
-- 明确已作废对象、已核销对象、有 application 对象的错误口径。
+- 已完成。保留当前“未发生财务活动才允许删除”的保护。
+- 已完成。明确已作废对象、已核销对象、有 application 对象的错误口径。
 - 视业务需要补充 payment status log 或更明确的作废审计字段。
 - 暂不接入 `IdempotencyInterceptor`。
 
@@ -156,6 +162,8 @@
 - 已核销 / 已减免 / 已开票应收删除被拒绝。
 - 未核销收款可按当前口径软删除。
 - 已核销或有 application 的收款删除被拒绝。
+
+E2-5B-3A 回归已扩展 `first-release-leasing.mjs`，覆盖未发生财务活动对象可 softDelete、已核销 / 有 application 对象删除被拒绝。payment softDelete 仍缺少独立状态日志，后续如需补齐应单独设计表结构或复用统一状态日志机制。
 
 ### E2-5B-3B：删除 / 作废幂等接入
 
@@ -225,15 +233,15 @@
 
 ## 9. 结论
 
-当前两个 DELETE 接口实际都是软删除 + void：
+当前两个 DELETE 接口实际都是软删除 + void，E2-5B-3A 已完成语义保护补强：
 
-- `DELETE /leasing/receivables/:id` 已阻断已收款、已减免、已开票应收，并写应收状态日志。
-- `DELETE /leasing/payments/:id` 已阻断有核销金额的收款，但未见独立 payment status log。
+- `DELETE /leasing/receivables/:id` 已阻断已收款、已减免、已开票、已作废、财务活动状态和有 application 的应收，并写应收状态日志。
+- `DELETE /leasing/payments/:id` 已阻断已作废、部分核销、已核销、有核销金额或有 application 的收款，但未见独立 payment status log。
 
 下一步不建议直接接入 `IdempotencyInterceptor`。推荐顺序是：
 
-1. E2-5B-3A：先确认并补强删除 / 作废语义保护。
-2. E2-5B-3B：再决定 DELETE 或 POST void action 的幂等接入方式。
-3. E2-5B-3C：对已发生财务活动记录设计作废 / 冲销 / 反核销专项流程。
+1. E2-5B-3B：再决定 DELETE 或 POST void action 的幂等接入方式。
+2. E2-5B-3C：对已发生财务活动记录设计作废 / 冲销 / 反核销专项流程。
+3. 单独确认 payment softDelete 是否需要独立状态日志。
 
 在完成这些前，不应把应收 / 收款 DELETE 视为“真实幂等已覆盖”。

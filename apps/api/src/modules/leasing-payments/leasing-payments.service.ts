@@ -135,9 +135,18 @@ export class LeasingPaymentsService {
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findOne(scope, id, actor);
+    if (entity.status === PAYMENT_STATUS_VOID) {
+      throw new BadRequestException("Cannot void already void payment");
+    }
+    if (entity.status === PAYMENT_STATUS_PARTIAL || entity.status === PAYMENT_STATUS_APPLIED) {
+      throw new BadRequestException("Cannot void payment with application activity");
+    }
     const appliedAmount = await this.sumAppliedAmount(scope, entity.id);
     if (appliedAmount > 0) {
-      throw new BadRequestException("Applied payment cannot be deleted directly");
+      throw new BadRequestException("Cannot void payment with application activity");
+    }
+    if (await this.hasPaymentApplications(scope, entity.id)) {
+      throw new BadRequestException("Cannot void payment with applications");
     }
     entity.isDeleted = true;
     entity.status = PAYMENT_STATUS_VOID;
@@ -462,6 +471,16 @@ export class LeasingPaymentsService {
       .andWhere("application.is_deleted = false")
       .getRawOne<{ sum: string }>();
     return this.toNumber(result?.sum);
+  }
+
+  private async hasPaymentApplications(scope: TenantParkScope, paymentId: string): Promise<boolean> {
+    return this.applicationsRepository
+      .createQueryBuilder("application")
+      .where("application.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("application.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("application.payment_id = :paymentId", { paymentId })
+      .andWhere("application.is_deleted = false")
+      .getExists();
   }
 
   private async createReceivableStatusLog(

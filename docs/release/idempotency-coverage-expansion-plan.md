@@ -128,7 +128,7 @@
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
 | `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `PUT /leasing/receivables/:id` | 修改应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-2C 已完成，字段 / 状态保护仍生效 |
-| `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | 当前为软删除 + void，已进入 E2-5B-3 删除 / 作废语义设计 |
+| `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | E2-5B-3A 已完成语义保护，仍未接 interceptor |
 
 ### 4.7 Leasing Payments
 
@@ -137,9 +137,9 @@
 | `POST /leasing/payments` | 新增收款 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `POST /leasing/payments/:id/apply` | 收款核销 | 已接 interceptor | P0 | 已完成本批 | 资金与应收核销相关，已具备真实 replay / conflict 语义 |
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
-| `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 当前为软删除 + void，已进入 E2-5B-3 删除 / 作废语义设计 |
+| `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | E2-5B-3A 已完成语义保护，仍未接 interceptor；payment status log 仍待治理 |
 
-> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口已进入 E2-5B-3 删除 / 作废语义设计，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍暂缓专项设计。
+> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口已完成 E2-5B-3A 删除 / 作废语义保护，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -278,10 +278,10 @@
 - 当前设计文档：[receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
 - 风险：当前两个 DELETE 实际都是软删除 + void，不是物理删除；如果直接接幂等，会先绕开“删除 / 作废 / 冲销”业务口径确认
 - 后续拆分：
-  - E2-5B-3A：删除 / 作废语义保护实施，暂不接 interceptor
+  - E2-5B-3A：已完成删除 / 作废语义保护实施，暂未接 interceptor
   - E2-5B-3B：删除 / 作废幂等接入，确认 DELETE 或 POST void action 后补 replay
   - E2-5B-3C：作废 / 冲销 / 反核销专项设计
-- 验收标准：未发生财务活动记录的删除 / 作废口径明确；已核销、已开票、已减免、有 application 记录的对象明确拒绝；接入幂等前先完成产品 / 财务口径确认
+- 验收标准：未发生财务活动记录的删除 / 作废口径已明确；已核销、已开票、已减免、有 application 记录的对象已明确拒绝；接入幂等前仍需完成 E2-5B-3B 口径确认
 
 ### E2-6：文件写接口专项设计
 
