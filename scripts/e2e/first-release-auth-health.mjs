@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001/api/v1";
 const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
-const adminPassword = process.env.ADMIN_PASSWORD ?? "Admin@123456";
+const adminPassword = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
 
 function info(message) {
   console.log(`[INFO] ${message}`);

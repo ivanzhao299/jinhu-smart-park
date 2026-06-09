@@ -267,12 +267,16 @@ pnpm regression:leasing
 - 验证方式：登录成功/失败、`/health`、`/ready`、bootstrap-admin 后可登录。
 - 风险点：依赖环境变量和 bootstrap-admin 状态，需固定测试账号。
 
-### C2-2：idempotency regression
+### C2-2：idempotency replay + menu whitelist regression
 
-- 目标：验证首批写接口的防重放行为。
+- 目标：验证首批写接口的防重放行为，并用静态脚本锁定首发菜单白名单。
 - 建议文件：`scripts/e2e/regression-idempotency.mjs`
+- 当前落地：`scripts/e2e/first-release-idempotency.mjs`、`scripts/e2e/first-release-menu-whitelist.mjs`
+- 执行命令：`node scripts/e2e/first-release-idempotency.mjs`、`node scripts/e2e/first-release-menu-whitelist.mjs`
+- 第一版覆盖范围：`POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict；菜单白名单静态断言。
 - 验证方式：同 key 重放、冲突、失败后重试、缓存响应一致。
 - 风险点：需要固定 `TEST_RUN_ID` 和可重复的写入前置数据。
+- 暂缓项：合同 / 应收 / 收款回归留到第二批，因为它们的数据依赖更深、联动面更大，更适合在用户和工单回归稳定后再补。
 
 ### C2-3：files regression
 
