@@ -31,6 +31,8 @@
 | `POST /leasing/contracts` | leasing-contracts | 是 | 是 | 部分 | 是 | `first-release-leasing.mjs` 已覆盖成功创建，但未做 replay / conflict 断言 |
 | `POST /leasing/contracts/:contractId/generate-receivables` | leasing-receivables | 是 | 是 | 部分 | 是 | 已纳入 leasing 回归脚本，但未做 replay / conflict 断言 |
 | `POST /leasing/payments` | leasing-payments | 是 | 是 | 部分 | 是 | 已纳入 leasing 回归脚本，但未做 replay / conflict 断言 |
+| `POST /users/:id/reset-password` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
+| `POST /users/:id/roles` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users` | users | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
 
 ## 4. 首发写接口盘点
@@ -42,8 +44,8 @@
 | `POST /users` | 创建用户 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `PATCH /users/:id` | 修改用户 | 仅 guard | P1 | 是 | 关键业务对象修改，重复提交可能覆盖字段 |
 | `DELETE /users/:id` | 删除用户 | 仅 guard | P1 | 暂缓 | 软删除通常可由状态校验和重复删除兜底，收益低于角色变更 |
-| `POST /users/:id/reset-password` | 重置密码 | 仅 guard | P0 | 是 | 重复提交可能导致重复密码变更和审计混乱 |
-| `POST /users/:id/roles` | 分配角色 | 仅 guard | P0 | 是 | 用户权限变更属于高风险写操作 |
+| `POST /users/:id/reset-password` | 重置密码 | 已接 interceptor | P0 | 已完成本批 | `first-release-users-assets.mjs` 已覆盖 replay / conflict |
+| `POST /users/:id/roles` | 分配角色 | 已接 interceptor | P0 | 已完成本批 | `first-release-users-assets.mjs` 已覆盖 replay / conflict |
 
 ### 4.2 Files
 

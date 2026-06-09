@@ -298,6 +298,7 @@ pnpm regression:leasing
 - 当前落地：`scripts/e2e/first-release-users-assets.mjs`
 - 执行命令：`node scripts/e2e/first-release-users-assets.mjs`
 - 当前覆盖范围：登录、用户列表、创建测试用户、用户详情回读、`assets/parks`、`assets/buildings`、`assets/floors`、`assets/units` 只读。
+- 追加覆盖：`POST /users/:id/reset-password`、`POST /users/:id/roles` 的 missing key / first request / replay / conflict；测试用户复用 `TEST_RUN_ID` 隔离。
 - 暂缓范围：workorders、leasing contract / receivables / payments、资产写操作、浏览器 E2E。
 - 验证方式：用户创建后可在详情和列表中回读，资产列表接口可稳定返回可解析的分页结构。
 - 风险点：用户创建依赖幂等 key 和固定测试前缀，资产只读需要生产 seed / 基础数据可访问。
