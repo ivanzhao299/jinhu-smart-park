@@ -1,5 +1,7 @@
 # Production Deployment
 
+Production troubleshooting reference: [troubleshooting.md](./troubleshooting.md)
+
 This is the first production-grade deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment

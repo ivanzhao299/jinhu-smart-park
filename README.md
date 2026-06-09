@@ -1,113 +1,125 @@
-# 金湖科创产业园智慧园区管理系统
+# JinHu Smart Park
 
-基于 Next.js App Router、React、TypeScript、NestJS、TypeORM、PostgreSQL 的 monorepo 工程骨架。
+JinHu Smart Park 是一个面向产业园区数字运营场景的 SaaS 平台，当前采用 `pnpm workspace` monorepo 组织，核心技术栈包括 `Next.js`、`NestJS`、`PostgreSQL`、`Docker Compose`。
 
-## 目录
+当前阶段：首发基线已形成，仓库正在进行上线前质量加固与文档收口。  
+首发范围聚焦系统管理、资产、租赁、工单、文件、认证和基础运维能力。  
+`IoT`、能耗、视频、机器人、安全等模块仍视为二期范围，需要单独验收后启用。
 
-```text
-jinhu-smart-park/
-  apps/web
-  apps/api
-  packages/shared
-  packages/ui
-  packages/config
-  database/migrations
-  database/seeds
-  docs/prompts
-  docs/testing
-  infra/docker
-  scripts
-```
+## 1. 快速入口
 
-## 产品路线
+- 文档索引：[docs/index.md](docs/index.md)
+- 本地开发与部署入口：[docs/deployment/production.md](docs/deployment/production.md)
+- 测试与回归入口：[docs/testing/how-to-run-tests.md](docs/testing/how-to-run-tests.md)
+- 首发回归设计：[docs/testing/first-release-regression-plan.md](docs/testing/first-release-regression-plan.md)
+- 发布与回滚：
+  - [生产上线 SOP](docs/release/production-release-sop.md)
+  - [生产回滚 SOP](docs/release/production-rollback-sop.md)
+  - [Go-Live Checklist](docs/release/production-go-live-checklist.md)
+- 运维排障：[docs/deployment/troubleshooting.md](docs/deployment/troubleshooting.md)
+- 历史 handover 说明：早期交接、审查和签字材料保存在仓库外项目交接目录中，本仓库不直接链接这些文件
 
-系统按 S1-S11 迭代推进，完整路线图见 `docs/sprint-roadmap.md`。
+## 2. 仓库结构
 
-当前下一阶段为 S1 系统基础增强，详细设计见 `docs/s1-system-foundation.md`。
+- `apps/api`：NestJS API 服务
+- `apps/web`：Next.js Web 管理端
+- `packages`：共享包与通用配置
+- `database`：SQL migrations 与 seed
+- `scripts`：数据库、部署、验证、回归脚本
+- `infra/docker`：本地与生产 Docker Compose 配置
+- `docs`：仓库内正式文档入口
 
-## 准备环境
+## 3. 本地开发
+
+最小本地启动流程：
 
 ```bash
 cp .env.example .env
 pnpm install
-```
-
-请在 `.env` 中替换 `JWT_SECRET` 与数据库密码。不要在代码里硬编码密钥。
-
-`.env.example` 中的 TimescaleDB、Redis、MQTT、RabbitMQ、MinIO、AI 相关变量均为后续平台能力预留：
-
-- TimescaleDB：后续 IoT、能耗时序数据。
-- Redis / RabbitMQ：后续消息、异步任务、设备事件处理。
-- EMQX / MQTT：后续 IoT 设备接入。
-- MinIO：后续附件中心切换对象存储。
-- AI：后续 AI 运维助手。
-
-这些变量当前只提供占位值，请勿写入真实密钥。
-
-## 启动数据库
-
-```bash
 pnpm db:up
 pnpm db:migrate
 pnpm db:seed:dev
-```
-
-数据库使用 PostgreSQL，迁移 SQL 位于 `database/migrations`。
-
-Seed 分为两类：
-
-- `pnpm db:seed:dev`：本地开发和 S1 冒烟测试，包含固定测试账号。
-- `ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod`：生产安全 seed，只初始化权限元数据，不创建固定密码账号。
-
-## 启动后端
-
-```bash
 pnpm dev:api
-```
-
-默认地址：`http://localhost:3001/api/v1`
-
-已预留接口：
-
-- `POST /api/v1/auth/login`
-- `GET /api/v1/users/me`
-
-受保护接口通过 JWT Passport Guard 校验。业务查询服务已预留 `tenant_id` 与 `park_id` 隔离条件。
-
-### API 横切约束
-
-- 登录接口使用 `@Public()` 放行，其余接口默认校验 JWT。
-- 受保护接口必须声明 `@RequirePermissions()`，超级管理员角色 `SUPER_ADMIN` 或权限 `*` 具备全部权限。
-- `POST`、`PUT`、`PATCH`、`DELETE` 写请求必须携带 `X-Idempotency-Key`。
-- 写请求会通过审计拦截器记录 `sys_op_log`。
-- 列表查询 DTO 位于 `apps/api/src/shared/dto/pagination-query.dto.ts`，统一支持 `page`、`page_size`、`sort`、`keyword`、`status`。
-
-## 启动前端
-
-```bash
 pnpm dev:web
 ```
 
-默认地址：`http://localhost:3000`
+补充说明：
 
-前端已接入 `app/globals.css`，使用 Phoenix ERP V3 风格 CSS Variables，并提供 Sidebar、Header、Dashboard 首页与登录页。
+- 本地开发默认使用 `.env.example`
+- `dev seed` 仅用于本地开发和调试，不用于生产初始化
+- 生产或预发基线初始化请使用 `production seed` + `bootstrap-admin`
+- 数据库初始化、生产部署和基线检查细节见 [docs/deployment/production.md](docs/deployment/production.md)
 
-前端 API 请求封装位于 `apps/web/lib/api-client.ts`，使用相对 `/api/v1` 前缀，不硬编码绝对地址，并且所有请求统一检查 `res.ok`。
+## 4. 测试与质量门禁
 
-## 一键开发
-
-```bash
-sh scripts/dev.sh
-```
-
-脚本不包含绝对路径，会安装依赖、启动 PostgreSQL、并并行启动前后端。
-
-## 工程治理与测试
+当前常用门禁和回归入口：
 
 ```bash
 pnpm lint
+pnpm typecheck
 pnpm build
-pnpm test
+node scripts/e2e/first-release-regression.mjs
 ```
 
-`pnpm test` 当前执行最小 S1 冒烟 e2e：登录、`/users/me`、权限拒绝、附件上传/下载/软删除、字典新增、用户新增、角色授权、操作日志和登录日志查询。
+当前质量口径：
+
+- `lint`：静态质量检查
+- `typecheck`：独立类型检查
+- `build`：API 与 Web 构建验证
+- `release-smoke`：CI 生产基线冒烟
+- `first-release regression runner`：首发核心自动化回归统一入口
+
+运行 `first-release-regression` 前请先确保：
+
+- API 已启动
+- 数据库已完成 migration
+- `production seed` 已执行
+- `bootstrap-admin` 已完成
+- 管理员账号可成功登录
+
+测试运行入口见 [docs/testing/how-to-run-tests.md](docs/testing/how-to-run-tests.md)。
+
+## 5. 发布与运维
+
+仓库内正式发布与运维资料入口：
+
+- [生产部署说明](docs/deployment/production.md)
+- [生产上线 SOP](docs/release/production-release-sop.md)
+- [生产回滚 SOP](docs/release/production-rollback-sop.md)
+- [生产 Migration 执行策略](docs/release/production-migration-execution-policy.md)
+- [Go-Live Checklist](docs/release/production-go-live-checklist.md)
+- [生产就绪度检查](docs/release/production-go-live-readiness.md)
+- [运维排障手册](docs/deployment/troubleshooting.md)
+
+## 6. 首发范围与二期范围
+
+当前首发范围以菜单白名单和已验收主链路为准，重点包括：
+
+- 系统管理
+- 资产管理
+- 租赁核心链路
+- 工单管理
+- 文件中心
+- 认证与健康检查
+
+说明：
+
+- 菜单白名单控制的是首发展示入口
+- 隐藏菜单不等于代码已经删除
+- 二期模块启用前仍需独立验收和回归
+
+## 7. 重要约束
+
+- 不使用 `dev seed` 初始化生产或共享环境
+- migration 采用 history/checksum 管控，执行前仍需遵守生产 migration 策略
+- 写接口默认需要关注幂等键要求
+- 文件存储当前为单机本地存储方案，暂不等价于对象存储
+- 不要提交真实密钥、真实密码或生产环境配置
+
+## 8. 历史 Handover 资料说明
+
+早期 handover、阶段性审查、上线签字模板等资料保存在仓库外项目交接目录中，用于追溯早期 `P0/P1/P2` 修复过程；本仓库内正式文档入口以本 README 和 [docs/index.md](docs/index.md) 为准。
+
+## 9. 文档索引
+
+完整文档导航见 [docs/index.md](docs/index.md)。
