@@ -316,6 +316,8 @@
 
 ## 11. 最终建议
 
+当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
+
 1. 下一批最该补的接口是：
    - `POST /work-orders/:id/accept`
    - `POST /work-orders/:id/start`
