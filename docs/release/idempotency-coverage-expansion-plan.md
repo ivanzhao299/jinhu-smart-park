@@ -100,7 +100,7 @@
 | 接口 | 业务动作 | 当前幂等状态 | 风险等级 | 是否建议补齐 | 原因 |
 |---|---|---|---|---|---|
 | `POST /leasing/contracts` | 创建合同 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
-| `POST /leasing/contracts/:contractId/units` | 合同房源关联 | 仅 guard | P0 | 是 | 会造成重复资源绑定 |
+| `POST /leasing/contracts/:contractId/units` | 合同房源关联 | 已接 interceptor | P0 | 已完成本批 | 已具备真实 replay / conflict 语义 |
 | `PUT /leasing/contracts/:contractId/units/:relId` | 修改合同房源关联 | 仅 guard | P1 | 是 | 关联参数重复提交风险较高 |
 | `DELETE /leasing/contracts/:contractId/units/:relId` | 删除合同房源关联 | 仅 guard | P1 | 是 | 关系型资源变更 |
 | `POST /leasing/contracts/:contractId/recalculate` | 金额重算 | 仅 guard | P1 | 是 | 可能触发重复账务计算 |
@@ -109,7 +109,7 @@
 | `POST /leasing/contracts/:id/reject` | 审批驳回 | 仅 guard | P1 | 是 | 业务状态流转 |
 | `POST /leasing/contracts/:id/void` | 合同作废 | 仅 guard | P1 | 是 | 状态推进且影响后续账务 |
 | `POST /leasing/contracts/:id/archive` | 签章归档 | 仅 guard | P1 | 是 | 带文件绑定和状态推进 |
-| `POST /leasing/contracts/:id/effective` | 合同生效 | 仅 guard | P0 | 是 | 会推进合同与房源租赁状态 |
+| `POST /leasing/contracts/:id/effective` | 合同生效 | 已接 interceptor | P0 | 已完成本批 | 已具备真实 replay / conflict 语义 |
 | `POST /leasing/contracts/:id/renew-draft` | 生成续租草稿 | 仅 guard | P1 | 暂缓 | 数据依赖较重，优先级次于主合同状态链 |
 | `PUT /leasing/contracts/:id` | 修改合同 | 仅 guard | P1 | 暂缓 | 收益低于状态/关联/账务链 |
 | `DELETE /leasing/contracts/:id` | 删除合同 | 仅 guard | P2 | 暂缓 | 一般由状态和软删除兜底 |
@@ -141,8 +141,8 @@
 | 接口 | 为什么优先 | 数据依赖 | 是否适合当前 interceptor | 回归方式 |
 |---|---|---|---|---|
 | `POST /work-orders/:id/assign` | 首发工单主链高频动作，重复派单风险直观 | 需要已存在工单与处理人 | 是 | 在现有 `first-release-workorders.mjs` 增加 replay / conflict |
-| `POST /leasing/contracts/:id/effective` | 会推动合同和房源状态，重复执行风险高 | 需要合同已完成 submit / approve / archive | 是 | 在现有 `first-release-leasing.mjs` 增加 replay / conflict |
-| `POST /leasing/contracts/:contractId/units` | 重复房源绑定属于明确高风险 | 需要合同和房源已存在 | 是 | 在现有 `first-release-leasing.mjs` 增加 replay / conflict |
+| `POST /leasing/contracts/:id/effective` | 已在本批接入；后续转入稳定性观察 | 需要合同已完成 submit / approve / archive | 是 | `first-release-leasing.mjs` 已补 replay / conflict |
+| `POST /leasing/contracts/:contractId/units` | 已在本批接入；后续转入稳定性观察 | 需要合同和房源已存在 | 是 | `first-release-leasing.mjs` 已补 replay / conflict |
 | `POST /leasing/payments/:id/apply` | 资金核销属于 P0 | 需要已存在收款与可核销应收 | 是，但数据依赖更重 | 建议新增或扩展 leasing 核销专项回归 |
 
 补充判断：

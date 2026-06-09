@@ -348,9 +348,10 @@ pnpm regression:leasing
   - 创建测试租户企业
   - 创建测试楼栋 / 楼层 / 房源
   - 创建合同草稿
-  - 合同房源关联
+  - 合同房源关联幂等：missing key / first request / replay / conflict
   - 合同文件上传
-  - 合同提交 / 审批 / 归档 / 生效
+  - 合同提交 / 审批 / 归档
+  - 合同生效幂等：missing key / first request / replay / conflict
   - 应收生成
   - 应收查询
   - 收款登记
@@ -360,6 +361,8 @@ pnpm regression:leasing
   - 脚本优先查询已有同名测试数据，若不存在则自举创建。
   - 合同、应收、收款写接口均保留 `X-Idempotency-Key`。
 - 暂缓范围：
+  - 工单派单幂等
+  - 收款核销幂等
   - 合同审批流深化
   - 合同生效后的变更
   - 合同作废

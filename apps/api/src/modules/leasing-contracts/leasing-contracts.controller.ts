@@ -74,6 +74,7 @@ export class LeasingContractsController {
   }
 
   @Post(":contractId/units")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_UNIT_CREATE)
   @AuditLog({ module: "租赁合同房源", resource: "rel.leasing_contract_unit", action: "新增", bizType: "rel_leasing_contract_unit", bizIdParam: "contractId" })
   createUnitLink(
@@ -178,6 +179,7 @@ export class LeasingContractsController {
   }
 
   @Post(":id/effective")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_CONTRACT_EFFECTIVE)
   @AuditLog({ module: "租赁合同", resource: "biz.leasing_contract", action: "合同生效", bizType: "biz_leasing_contract", bizIdParam: "id" })
   effective(
