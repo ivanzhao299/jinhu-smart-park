@@ -91,6 +91,7 @@ export class LeasingReceivablesController {
   }
 
   @Delete(":id")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_RECEIVABLE_DELETE)
   @AuditLog({ module: "租赁应收", resource: "biz.leasing_receivable", action: "删除", bizType: "biz_leasing_receivable", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {

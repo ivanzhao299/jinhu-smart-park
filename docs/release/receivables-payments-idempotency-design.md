@@ -4,7 +4,7 @@
 
 本文用于分析应收 / 收款编辑删除类 P0 接口是否适合接入当前幂等机制，并制定安全实施顺序。
 
-本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐；E2-5B-3 已补充应收 / 收款删除与作废语义设计，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)。
+本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐；E2-5B-3A / E2-5B-3B 已补充应收 / 收款删除与作废语义保护和 DELETE 幂等接入，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)。
 
 ## 2. 当前幂等机制边界
 
@@ -31,9 +31,9 @@
 | `POST /leasing/receivables/generate-batch` | `leasing-receivables` | `LeasingReceivablesController.generateBatch` | 仅 guard | 按合同批量生成应收 | 是 | 不建议直接第一批接入 | P0 | 批量生成专项设计 |
 | `POST /leasing/receivables` | `leasing-receivables` | `LeasingReceivablesController.create` | 已接 interceptor | 手工创建应收 | 是 | 是 | 已完成 | E2-5B-1 已接入并回归 |
 | `PUT /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.update` | 已接 interceptor | 修改应收备注 / 到期日 | 是 | 是，已完成字段 / 状态保护 | 已完成 | E2-5B-2C 已接入并回归 |
-| `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但后续仍需确认幂等入口 | P0 | E2-5B-3A 已完成语义保护，未接 interceptor |
+| `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 已接 interceptor | 软删除并置为 void | 是 | 是，DELETE path + query fingerprint 稳定 | P0 | E2-5B-3B 已完成 replay / query conflict / failed retry |
 | `PUT /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.update` | 已接 interceptor | 修改收款金额 / 方式 / 凭证等 | 是 | 是，已优先覆盖未核销收款 | 已完成 | E2-5B-1 已接入并回归 |
-| `DELETE /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但后续仍需确认幂等入口 | P0 | E2-5B-3A 已完成语义保护，未接 interceptor |
+| `DELETE /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.remove` | 已接 interceptor | 软删除并置为 void | 是 | 是，DELETE path + query fingerprint 稳定 | P0 | E2-5B-3B 已完成 replay / query conflict / failed retry；payment status log 仍待治理 |
 
 ## 4. 接口逐项分析
 
@@ -74,12 +74,12 @@
 
 - 当前业务行为：不是硬删除；当 `amountPaid > 0`、`amountWaived > 0` 或 `invoiceStatus != none` 时拒绝删除，否则软删除并置为 `void`。
 - 主要副作用：应收从可用账务对象变为作废 / 不可见对象，并写状态日志。
-- 幂等适配性：请求 body 通常为空，path fingerprint 稳定；技术上可接入，但 replay 语义必须与“作废”一致。
+- 幂等适配性：请求 body 通常为空，path + query fingerprint 稳定；E2-5B-3B 已接入当前 interceptor。
 - replay 语义：same key replay 应返回第一次 `{ id }` 响应，不能第二次真实执行删除逻辑。
-- conflict 语义：body 为空时没有有意义的 conflict payload，除非 query/body 被显式引入。
+- conflict 语义：使用 same key + different query 构造 `409 conflict`；query 仅用于 fingerprint 回归，不改变业务语义。
 - 业务状态前置校验：已有部分保护，但删除 / 作废是否允许作为首发财务动作仍需产品 / 财务确认。
-- 推荐处理方式：不建议直接接入；先按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 将“删除”口径明确为作废 / 冲销 / 撤销，并补充业务验收。
-- 回归测试建议：后续使用独立未核销应收验证 replay；已核销 / 已开票应收应断言拒绝删除。
+- 推荐处理方式：E2-5B-3A 已明确普通 DELETE 仅用于未发生财务活动记录；E2-5B-3B 已接入真实幂等。已发生财务活动记录仍需后续作废 / 冲销专项设计。
+- 回归测试建议：`first-release-leasing.mjs` 已使用独立未核销应收验证 missing key / first / replay / query conflict，并用已核销应收验证 failed retry 不 replay 成成功。
 
 ### 4.5 `PUT /leasing/payments/:id`
 
@@ -96,12 +96,12 @@
 
 - 当前业务行为：不是硬删除；若已存在核销金额则拒绝删除，否则软删除并置为 `void`。
 - 主要副作用：收款记录从可用资金对象变为作废 / 不可见对象。
-- 幂等适配性：请求 body 通常为空，path fingerprint 稳定；技术上可接入，但 replay 语义必须与“作废”一致。
+- 幂等适配性：请求 body 通常为空，path + query fingerprint 稳定；E2-5B-3B 已接入当前 interceptor。
 - replay 语义：same key replay 应返回第一次 `{ id }` 响应，不能第二次真实执行删除逻辑。
-- conflict 语义：body 为空时通常没有有意义的 conflict payload。
+- conflict 语义：使用 same key + different query 构造 `409 conflict`；query 仅用于 fingerprint 回归，不改变业务语义。
 - 业务状态前置校验：已有“已核销收款不可删除”的保护，但删除是否应改名为作废 / 冲销需产品 / 财务确认。
-- 推荐处理方式：不建议直接接入；纳入 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 的删除 / 作废语义专项设计。
-- 回归测试建议：后续使用独立未核销收款验证 replay；已核销收款应断言拒绝删除。
+- 推荐处理方式：E2-5B-3A 已明确普通 DELETE 仅用于未发生核销活动记录；E2-5B-3B 已接入真实幂等。已发生核销活动记录仍需后续反核销 / 冲销专项设计。
+- 回归测试建议：`first-release-leasing.mjs` 已使用独立未核销收款验证 missing key / first / replay / query conflict，并用已 apply 收款验证 failed retry 不 replay 成成功。
 
 ## 5. 第一批实施建议
 
@@ -171,10 +171,10 @@ E2-5B-1 已完成最小 PR 范围：
 
 - 目标接口：`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id`
 - 风险：财务记录删除不应被误解为物理删除，且可能需要冲销 / 作废审计
-- 当前状态：E2-5B-3A 已完成删除 / 作废语义保护，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
+- 当前状态：E2-5B-3A 已完成删除 / 作废语义保护，E2-5B-3B 已完成 DELETE 幂等接入，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
 - 是否改业务逻辑：已补强状态和 application 保护，未改 softDelete 语义
-- 是否接入 interceptor：确认语义后再接，建议放入 E2-5B-3B
-- 回归验收标准：未核销对象可删除 / 作废；已核销 / 已开票 / 有 application 对象明确拒绝；如后续接幂等，same key replay 不二次执行
+- 是否接入 interceptor：已接入
+- 回归验收标准：未核销对象可删除 / 作废；已核销 / 已开票 / 有 application 对象明确拒绝；same key replay 不二次执行，same key + different query 返回 `409`，failed retry 仍失败
 
 ### E2-5B-4：批量生成专项设计
 
@@ -188,7 +188,7 @@ E2-5B-1 已完成最小 PR 范围：
 
 - 上线前建议必须补：`POST /leasing/receivables`、`PUT /leasing/payments/:id` 已完成。
 - 上线前建议在业务状态保护后补：`PUT /leasing/receivables/:id` 已完成。
-- 可以风险接受但需明确口径：`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id`，前提是首发不鼓励通过删除修正账务，异常账务走人工复核。
+- 可以风险接受但需明确口径：`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id` 已完成普通 softDelete 幂等，但首发仍不鼓励通过删除修正已发生财务活动的账务，异常账务走人工复核或后续冲销 / 反核销流程。
 - 必须明确不对首发开放或需强管控：批量生成应收的重复执行场景、已核销 / 已开票账务对象的删除或大幅修改。
 - 需要产品 / 财务业务口径确认：删除是否等价于作废、已核销收款是否允许修改非金额字段、已核销应收是否允许调整备注以外字段。
 
@@ -199,6 +199,6 @@ E2-5B-1 的最小安全子集已完成：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。删除类接口已完成 E2-5B-3A 语义保护，但仍未接入真实幂等；批量生成接口继续暂缓专项设计，不把它们误标为已完成。
+`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。删除类接口已完成 E2-5B-3A 语义保护和 E2-5B-3B 真实幂等接入；批量生成接口继续暂缓专项设计，不把它误标为已完成。
 
 本阶段不需要调整 `first-release-regression runner`。后续实施时扩展现有 `first-release-leasing.mjs` 即可，因为该脚本已经能构造合同、应收、收款和核销链路。
