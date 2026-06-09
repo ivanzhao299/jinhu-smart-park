@@ -30,7 +30,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `POST /leasing/receivables/generate-batch` | `leasing-receivables` | `LeasingReceivablesController.generateBatch` | 仅 guard | 按合同批量生成应收 | 是 | 不建议直接第一批接入 | P0 | 批量生成专项设计 |
 | `POST /leasing/receivables` | `leasing-receivables` | `LeasingReceivablesController.create` | 已接 interceptor | 手工创建应收 | 是 | 是 | 已完成 | E2-5B-1 已接入并回归 |
-| `PUT /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.update` | 仅 guard | 修改应收金额 / 状态 / 期间 / 租户等 | 是 | 技术上适合，但需先补状态保护 | P0 | 先补业务状态保护，再接入 |
+| `PUT /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.update` | 已接 interceptor | 修改应收备注 / 到期日 | 是 | 是，已完成字段 / 状态保护 | 已完成 | E2-5B-2C 已接入并回归 |
 | `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除语义需确认 | P0 | 删除 / 作废专项设计 |
 | `PUT /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.update` | 已接 interceptor | 修改收款金额 / 方式 / 凭证等 | 是 | 是，已优先覆盖未核销收款 | 已完成 | E2-5B-1 已接入并回归 |
 | `DELETE /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除语义需确认 | P0 | 删除 / 作废专项设计 |
@@ -61,14 +61,14 @@
 
 ### 4.3 `PUT /leasing/receivables/:id`
 
-- 当前业务行为：修改应收编码、合同、租户、费用类型、期间、金额、已收金额、减免金额、开票状态、状态、备注等字段。
-- 主要副作用：可能改变应收金额、剩余金额、逾期天数、状态，并在状态变化时写状态日志。
-- 幂等适配性：JSON body 稳定，技术上适合当前 interceptor。
-- replay 语义：same key + same payload 返回第一次修改结果，不能重复写状态日志或造成状态漂移。
-- conflict 语义：same key + different amount / status / period / remark 返回 `409`。
-- 业务状态前置校验：当前实现可直接修改 `amount_paid`、`amount_waived`、`invoice_status`、`status` 等账务敏感字段；对已核销、已减免、已开票应收的编辑边界需要先收紧。
-- 推荐处理方式：先补业务状态保护，再接入 interceptor。建议至少限制已收、已减免、已开票、已作废应收的金额 / 期间 / 租户 / 合同变更。
-- 回归测试建议：第一版只针对未核销、未减免、未开票、未作废的手工应收做 replay / conflict；已核销场景单独做状态保护测试。
+- 当前业务行为：普通 update 已收窄为修改 `remark` 与 `due_date`，禁止直接修改金额、已收、减免、开票状态、状态、合同、租户和来源追溯字段。
+- 主要副作用：可能改变到期日、逾期天数和派生状态，并在状态变化时写状态日志。
+- 幂等适配性：JSON body 稳定，已接入当前 interceptor。
+- replay 语义：same key + same payload 返回第一次修改结果，不能造成字段漂移。
+- conflict 语义：same key + different `remark` / `due_date` 返回 `409`。
+- 业务状态前置校验：已收金额 > 0、已减免金额 > 0、已开票、已作废、部分核销 / 已核销 / 逾期部分核销 / 已减免状态均拒绝普通 update。
+- 推荐处理方式：E2-5B-2B / E2-5B-2C 已完成。
+- 回归测试建议：`first-release-leasing.mjs` 已覆盖 missing key、first、replay、conflict、敏感字段拒绝、失败请求不 replay 成成功、核销后状态保护。
 
 ### 4.4 `DELETE /leasing/receivables/:id`
 
@@ -111,14 +111,14 @@
 |---|---|---|---|---|
 | 1 | `POST /leasing/receivables` | 已接入 interceptor | JSON body 稳定，创建副作用明确，数据可由现有 leasing 回归构造 | `first-release-leasing.mjs` 已覆盖 |
 | 2 | `PUT /leasing/payments/:id` | 已接入 interceptor，第一版只回归未核销收款 | JSON body 稳定，资金记录修改风险高，现有 service 已有部分已核销保护 | 已核销收款可编辑字段边界仍需后续确认 |
-| 3 | `PUT /leasing/receivables/:id` | 先补业务状态保护，再接入 interceptor | 修改金额 / 状态风险高，技术适配性好 | 限制已核销、已减免、已开票、已作废应收的敏感字段编辑 |
+| 3 | `PUT /leasing/receivables/:id` | 已完成状态保护和 interceptor 接入 | 修改金额 / 状态风险高，已收窄到 `remark` / `due_date` | `first-release-leasing.mjs` 已覆盖 replay / conflict |
 
 E2-5B-1 已完成最小 PR 范围：
 
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-`PUT /leasing/receivables/:id` 已完成字段 / 状态保护实施，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。该接口仍未接入 `IdempotencyInterceptor`，后续 E2-5B-2C 再补真实幂等和 replay / conflict 回归。
+`PUT /leasing/receivables/:id` 已完成字段 / 状态保护，并已在 E2-5B-2C 接入 `IdempotencyInterceptor` 与 replay / conflict 回归，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。
 
 ## 6. 暂缓接口
 
@@ -153,10 +153,10 @@ E2-5B-1 已完成最小 PR 范围：
 
 ### E2-5B-1：应收创建 / 修改幂等
 
-- 目标接口：`POST /leasing/receivables` 已完成；`PUT /leasing/receivables/:id` 已完成 E2-5B-2B 字段 / 状态保护，仍待 E2-5B-2C 接入幂等
+- 目标接口：`POST /leasing/receivables` 已完成；`PUT /leasing/receivables/:id` 已完成 E2-5B-2B 字段 / 状态保护和 E2-5B-2C 幂等接入
 - 风险：应收金额、状态、期间、租户、合同变更会直接影响账务闭环
 - 是否改业务逻辑：`POST` 不需要；`PUT` 建议先补业务状态保护
-- 是否接入 interceptor：`POST /leasing/receivables` 已接入；`PUT /leasing/receivables/:id` 待 E2-5B-2C 后续实施
+- 是否接入 interceptor：`POST /leasing/receivables` 与 `PUT /leasing/receivables/:id` 均已接入
 - 回归验收标准：手工新增应收已满足 same key replay 不重复创建，different payload 返回 `409`
 
 ### E2-5B-2：收款修改幂等
@@ -186,7 +186,7 @@ E2-5B-1 已完成最小 PR 范围：
 ## 9. Go / No-Go 判断
 
 - 上线前建议必须补：`POST /leasing/receivables`、`PUT /leasing/payments/:id` 已完成。
-- 上线前建议在业务状态保护后补：`PUT /leasing/receivables/:id`。
+- 上线前建议在业务状态保护后补：`PUT /leasing/receivables/:id` 已完成。
 - 可以风险接受但需明确口径：`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id`，前提是首发不鼓励通过删除修正账务，异常账务走人工复核。
 - 必须明确不对首发开放或需强管控：批量生成应收的重复执行场景、已核销 / 已开票账务对象的删除或大幅修改。
 - 需要产品 / 财务业务口径确认：删除是否等价于作废、已核销收款是否允许修改非金额字段、已核销应收是否允许调整备注以外字段。
@@ -198,6 +198,6 @@ E2-5B-1 的最小安全子集已完成：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-下一步应把已完成字段 / 状态保护的 `PUT /leasing/receivables/:id` 纳入 E2-5B-2C 真实幂等接入批次，并补 replay / conflict 回归。
+`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。下一步继续保留删除类接口和批量生成接口专项设计，不把它们误标为已完成。
 
 本阶段不需要调整 `first-release-regression runner`。后续实施时扩展现有 `first-release-leasing.mjs` 即可，因为该脚本已经能构造合同、应收、收款和核销链路。

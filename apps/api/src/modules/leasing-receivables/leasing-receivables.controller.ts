@@ -78,6 +78,7 @@ export class LeasingReceivablesController {
   }
 
   @Put(":id")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_RECEIVABLE_UPDATE)
   @AuditLog({ module: "租赁应收", resource: "biz.leasing_receivable", action: "修改", bizType: "biz_leasing_receivable", bizIdParam: "id" })
   update(
