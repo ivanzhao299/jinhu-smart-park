@@ -87,6 +87,13 @@
 - 本文件解决“现在怎么安全发”。
 - `migration-history-checksum-design.md` 解决“下一步怎么把机制做出来”。
 
+如果后续直接进入实现，建议严格按以下顺序推进：
+
+1. 先冻结本文件中的风险接受、备份、清单和 Go / No-Go 口径。
+2. 再落地 `migration-history-checksum-design.md` 里定义的 history 表和状态语义。
+3. 然后修改 `scripts/db-migrate.sh`，让脚本先具备记录、跳过和阻断能力。
+4. 最后补充验证与上线后文档收口，避免脚本能力和发布口径再次脱节。
+
 ## 6. Migration 文件清单冻结
 
 发布前必须生成“本次 migration 文件清单”，并由发布负责人和数据库负责人共同确认。
