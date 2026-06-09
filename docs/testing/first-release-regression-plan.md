@@ -379,6 +379,7 @@ pnpm regression:leasing
 - 状态：已落地
 - 脚本：`scripts/e2e/first-release-regression.mjs`
 - 执行命令：`node scripts/e2e/first-release-regression.mjs`
+- 说明：统一 runner 会串联已补齐 replay / conflict 的 `first-release-workorders.mjs` 和 `first-release-leasing.mjs`
 - 子脚本顺序：
   1. `scripts/e2e/first-release-menu-whitelist.mjs`
   2. `scripts/e2e/first-release-auth-health.mjs`
