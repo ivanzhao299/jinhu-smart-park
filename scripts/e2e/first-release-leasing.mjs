@@ -950,6 +950,139 @@ async function exerciseReceivableCreateIdempotency(authHeaders, contract, parkTe
   return created;
 }
 
+async function getReceivableDetail(authHeaders, receivableId, label = "GET /leasing/receivables/:id") {
+  const detail = await request(`/leasing/receivables/${receivableId}`, { headers: authHeaders });
+  if (!expectStatus(label, detail.response.status, 200, detail.body)) return null;
+  const data = unwrapData(detail.body);
+  if (!data || data.id !== receivableId) {
+    fail(`${label} did not return expected receivable id; body=${summarizeBody(detail.body)}`);
+    return null;
+  }
+  return data;
+}
+
+function receivableField(receivable, camelKey, snakeKey = camelKey) {
+  return receivable?.[camelKey] ?? receivable?.[snakeKey];
+}
+
+function normalizeMoney(value) {
+  return Number(value ?? 0).toFixed(2);
+}
+
+async function exerciseReceivableUpdateAllowedFields(authHeaders, receivable) {
+  const payload = {
+    remark: `First release receivable update allowed ${testRunId}`,
+    due_date: buildDate(45)
+  };
+  const update = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("update-receivable-allowed-fields")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("PUT /leasing/receivables/:id allowed fields", update.response.status, [200, 201], update.body)) {
+    return false;
+  }
+  const updated = unwrapData(update.body);
+  if (updated?.id !== receivable.id) {
+    fail(`PUT /leasing/receivables/:id allowed fields did not return expected id; body=${summarizeBody(update.body)}`);
+    return false;
+  }
+
+  const detail = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id after allowed update");
+  if (!detail) return false;
+  if (receivableField(detail, "remark") !== payload.remark) {
+    fail(`Receivable remark was not updated; body=${summarizeBody(detail)}`);
+    return false;
+  }
+  if (receivableField(detail, "dueDate", "due_date") !== payload.due_date) {
+    fail(`Receivable due_date was not updated; body=${summarizeBody(detail)}`);
+    return false;
+  }
+  pass("PUT /leasing/receivables/:id allowed remark and due_date update");
+  return true;
+}
+
+async function exerciseReceivableUpdateSensitiveFieldRejection(authHeaders, receivable) {
+  const baseline = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before sensitive field checks");
+  if (!baseline) return false;
+
+  const cases = [
+    { field: "amount_paid", value: 0.12, camel: "amountPaid", snake: "amount_paid" },
+    { field: "amount_waived", value: 0.13, camel: "amountWaived", snake: "amount_waived" },
+    { field: "invoice_status", value: "20", camel: "invoiceStatus", snake: "invoice_status" },
+    { field: "status", value: "50", camel: "status", snake: "status" },
+    { field: "amount_due", value: 9.99, camel: "amountDue", snake: "amount_due" }
+  ];
+
+  for (const item of cases) {
+    const rejected = await request(`/leasing/receivables/${receivable.id}`, {
+      method: "PUT",
+      headers: {
+        ...authHeaders,
+        "content-type": "application/json",
+        "x-idempotency-key": buildIdempotencyKey(`update-receivable-reject-${item.field}`)
+      },
+      body: JSON.stringify({
+        [item.field]: item.value
+      })
+    });
+    if (!expectStatus(`PUT /leasing/receivables/:id reject ${item.field}`, rejected.response.status, 400, rejected.body)) {
+      return false;
+    }
+    const after = await getReceivableDetail(authHeaders, receivable.id, `GET /leasing/receivables/:id after rejected ${item.field}`);
+    if (!after) return false;
+    const beforeValue = receivableField(baseline, item.camel, item.snake);
+    const afterValue = receivableField(after, item.camel, item.snake);
+    const stable = typeof item.value === "number"
+      ? normalizeMoney(beforeValue) === normalizeMoney(afterValue)
+      : beforeValue === afterValue;
+    if (!stable) {
+      fail(`Rejected ${item.field} update changed value from ${beforeValue} to ${afterValue}`);
+      return false;
+    }
+    pass(`PUT /leasing/receivables/:id rejected ${item.field} without mutating data`);
+  }
+
+  return true;
+}
+
+async function exerciseReceivableUpdateStateProtection(authHeaders, receivable) {
+  const before = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before state protection");
+  if (!before) return false;
+  const rejected = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("update-receivable-state-protection")
+    },
+    body: JSON.stringify({
+      remark: `Should not update paid receivable ${testRunId}`,
+      due_date: buildDate(60)
+    })
+  });
+  if (!expectStatus("PUT /leasing/receivables/:id state protected receivable", rejected.response.status, 400, rejected.body)) {
+    return false;
+  }
+
+  const after = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id after state protection");
+  if (!after) return false;
+  if (receivableField(after, "remark") !== receivableField(before, "remark")) {
+    fail(`State protected receivable remark changed unexpectedly; before=${summarizeBody(before)}, after=${summarizeBody(after)}`);
+    return false;
+  }
+  if (receivableField(after, "dueDate", "due_date") !== receivableField(before, "dueDate", "due_date")) {
+    fail(`State protected receivable due_date changed unexpectedly; before=${summarizeBody(before)}, after=${summarizeBody(after)}`);
+    return false;
+  }
+  pass("PUT /leasing/receivables/:id rejected update for receivable with financial activity");
+  return true;
+}
+
 async function createPayment(authHeaders, parkTenantId, action = "create-payment") {
   const payload = buildPaymentPayload(parkTenantId);
   const missingKey = await request("/leasing/payments", {
@@ -1328,6 +1461,10 @@ async function run() {
 
   const manualReceivable = await exerciseReceivableCreateIdempotency(authHeaders, contract, parkTenant.id);
   if (!manualReceivable?.id) return;
+  const receivableAllowedUpdateOk = await exerciseReceivableUpdateAllowedFields(authHeaders, manualReceivable);
+  if (!receivableAllowedUpdateOk) return;
+  const receivableSensitiveRejectOk = await exerciseReceivableUpdateSensitiveFieldRejection(authHeaders, manualReceivable);
+  if (!receivableSensitiveRejectOk) return;
 
   const paymentForUpdate = await createPayment(authHeaders, parkTenant.id, "create-payment-for-update");
   if (!paymentForUpdate?.id) return;
@@ -1338,6 +1475,8 @@ async function run() {
   if (!payment?.id) return;
   const paymentApplyOk = await exercisePaymentApplyIdempotency(authHeaders, payment, receivables[0]);
   if (!paymentApplyOk) return;
+  const receivableStateProtectionOk = await exerciseReceivableUpdateStateProtection(authHeaders, receivables[0]);
+  if (!receivableStateProtectionOk) return;
   const paymentOk = await queryPayment(authHeaders, payment.id, parkTenant.id);
   if (!paymentOk) return;
 

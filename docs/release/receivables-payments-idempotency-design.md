@@ -118,7 +118,7 @@ E2-5B-1 已完成最小 PR 范围：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-`PUT /leasing/receivables/:id` 已进入业务状态保护专项设计，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。在状态保护完成前，仍不视为已接入真实幂等，也不建议只为它加 interceptor。
+`PUT /leasing/receivables/:id` 已完成字段 / 状态保护实施，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。该接口仍未接入 `IdempotencyInterceptor`，后续 E2-5B-2C 再补真实幂等和 replay / conflict 回归。
 
 ## 6. 暂缓接口
 
@@ -153,10 +153,10 @@ E2-5B-1 已完成最小 PR 范围：
 
 ### E2-5B-1：应收创建 / 修改幂等
 
-- 目标接口：`POST /leasing/receivables` 已完成；`PUT /leasing/receivables/:id` 已进入 E2-5B-2A 业务状态保护设计，仍待保护实施后接入幂等
+- 目标接口：`POST /leasing/receivables` 已完成；`PUT /leasing/receivables/:id` 已完成 E2-5B-2B 字段 / 状态保护，仍待 E2-5B-2C 接入幂等
 - 风险：应收金额、状态、期间、租户、合同变更会直接影响账务闭环
 - 是否改业务逻辑：`POST` 不需要；`PUT` 建议先补业务状态保护
-- 是否接入 interceptor：`POST /leasing/receivables` 已接入；`PUT /leasing/receivables/:id` 待 E2-5B-2B / E2-5B-2C 后续实施
+- 是否接入 interceptor：`POST /leasing/receivables` 已接入；`PUT /leasing/receivables/:id` 待 E2-5B-2C 后续实施
 - 回归验收标准：手工新增应收已满足 same key replay 不重复创建，different payload 返回 `409`
 
 ### E2-5B-2：收款修改幂等
@@ -198,6 +198,6 @@ E2-5B-1 的最小安全子集已完成：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-下一步应先按 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md) 实施 `PUT /leasing/receivables/:id` 的字段 / 状态保护，再把它纳入真实幂等接入批次；否则不要只为它加 interceptor。
+下一步应把已完成字段 / 状态保护的 `PUT /leasing/receivables/:id` 纳入 E2-5B-2C 真实幂等接入批次，并补 replay / conflict 回归。
 
 本阶段不需要调整 `first-release-regression runner`。后续实施时扩展现有 `first-release-leasing.mjs` 即可，因为该脚本已经能构造合同、应收、收款和核销链路。

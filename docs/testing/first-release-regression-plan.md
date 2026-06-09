@@ -358,10 +358,12 @@ pnpm regression:leasing
   - 应收生成幂等：missing key / first request / replay / conflict
   - 应收查询
   - 应收创建幂等：missing key / first request / replay / conflict
+  - 应收修改字段 / 状态保护：允许字段修改、敏感字段拒绝、核销后状态保护
   - 收款登记幂等：missing key / first request / replay / conflict
   - 收款修改幂等：missing key / first request / replay / conflict，使用独立未核销测试收款
   - 收款核销幂等：missing key / first request / replay / conflict
   - 收款查询
+  - `PUT /leasing/receivables/:id` 当前尚未接入 `IdempotencyInterceptor`，本阶段暂不覆盖 replay / conflict
 - 对租赁链路数据依赖的说明：
   - 当前本地库未发现可直接复用的 park tenant / building / floor / unit 数据，因此脚本会自动创建一条带 `TEST_RUN_ID` 前缀的最小闭环数据。
   - 脚本优先查询已有同名测试数据，若不存在则自举创建。
