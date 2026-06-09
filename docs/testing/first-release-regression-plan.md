@@ -289,6 +289,17 @@ pnpm regression:leasing
 - 验证方式：上传成功、下载成功、MIME/大小边界、删除/软删语义。
 - 风险点：要注意文件清理和 volume 依赖。
 
+### C2-4a：users + assets read 最小链路回归
+
+- 目标：先补最稳定的用户读写最小链路，以及资产模块的只读验证。
+- 建议文件：`scripts/e2e/regression-users-assets.mjs`
+- 当前落地：`scripts/e2e/first-release-users-assets.mjs`
+- 执行命令：`node scripts/e2e/first-release-users-assets.mjs`
+- 当前覆盖范围：登录、用户列表、创建测试用户、用户详情回读、`assets/parks`、`assets/buildings`、`assets/floors`、`assets/units` 只读。
+- 暂缓范围：workorders、leasing contract / receivables / payments、资产写操作、浏览器 E2E。
+- 验证方式：用户创建后可在详情和列表中回读，资产列表接口可稳定返回可解析的分页结构。
+- 风险点：用户创建依赖幂等 key 和固定测试前缀，资产只读需要生产 seed / 基础数据可访问。
+
 ### C2-4：menu whitelist regression
 
 - 目标：验证首发菜单范围和隐藏模块策略。
@@ -296,12 +307,12 @@ pnpm regression:leasing
 - 验证方式：读取菜单白名单配置，断言白名单路径可见、非首发路径默认不展示。
 - 风险点：适合做静态/轻量检查，不建议升级成浏览器 E2E。
 
-### C2-5：users / workorders / leasing regression
+### C2-5：workorders / leasing regression
 
-- 目标：把首发高频业务链路补成可回归最小集。
-- 建议文件：`scripts/e2e/regression-users.mjs`、`scripts/e2e/regression-workorders.mjs`、`scripts/e2e/regression-leasing.mjs`
-- 验证方式：用户最小 CRUD、工单最小创建/列表、合同到应收/收款最小链。
-- 风险点：数据依赖更高，建议先稳定前四批再做。
+- 目标：把工单和租赁财务链路补成可回归最小集。
+- 建议文件：`scripts/e2e/regression-workorders.mjs`、`scripts/e2e/regression-leasing.mjs`
+- 验证方式：工单最小创建/列表、合同到应收/收款最小链。
+- 风险点：数据依赖更高，建议在 users / assets / files 稳定后再做。
 
 ## 14. 建议 Issue 列表
 
