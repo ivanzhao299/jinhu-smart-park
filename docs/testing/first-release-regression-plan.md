@@ -282,6 +282,10 @@ pnpm regression:leasing
 
 - 目标：验证上传、下载、权限和基础文件行为。
 - 建议文件：`scripts/e2e/regression-files.mjs`
+- 当前落地：`scripts/e2e/first-release-files.mjs`
+- 执行命令：`node scripts/e2e/first-release-files.mjs`
+- 当前覆盖范围：登录、单文件上传、下载内容比对、删除、删除后不可再次下载。
+- 暂缓范围：超大文件、非法 MIME、病毒 / 内容 sniff、多文件批量上传、权限越权下载、业务附件绑定复杂场景。
 - 验证方式：上传成功、下载成功、MIME/大小边界、删除/软删语义。
 - 风险点：要注意文件清理和 volume 依赖。
 
