@@ -974,21 +974,40 @@ async function exerciseReceivableUpdateAllowedFields(authHeaders, receivable) {
     remark: `First release receivable update allowed ${testRunId}`,
     due_date: buildDate(45)
   };
+  const missingKey = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      remark: `Missing key receivable update ${testRunId}`
+    })
+  });
+  if (!expectStatus("PUT /leasing/receivables/:id missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("update-receivable-allowed-fields");
   const update = await request(`/leasing/receivables/${receivable.id}`, {
     method: "PUT",
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("update-receivable-allowed-fields")
+      "x-idempotency-key": idempotencyKey
     },
     body: JSON.stringify(payload)
   });
-  if (!expectStatus("PUT /leasing/receivables/:id allowed fields", update.response.status, [200, 201], update.body)) {
+  if (!expectStatus("PUT /leasing/receivables/:id first request", update.response.status, [200, 201], update.body)) {
     return false;
   }
   const updated = unwrapData(update.body);
   if (updated?.id !== receivable.id) {
-    fail(`PUT /leasing/receivables/:id allowed fields did not return expected id; body=${summarizeBody(update.body)}`);
+    fail(`PUT /leasing/receivables/:id first request did not return expected id; body=${summarizeBody(update.body)}`);
+    return false;
+  }
+  if (receivableField(updated, "remark") !== payload.remark || receivableField(updated, "dueDate", "due_date") !== payload.due_date) {
+    fail(`PUT /leasing/receivables/:id first request did not return updated fields; body=${summarizeBody(update.body)}`);
     return false;
   }
 
@@ -1003,6 +1022,57 @@ async function exerciseReceivableUpdateAllowedFields(authHeaders, receivable) {
     return false;
   }
   pass("PUT /leasing/receivables/:id allowed remark and due_date update");
+
+  const replay = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("PUT /leasing/receivables/:id replay", replay.response.status, [200, 201], replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== receivable.id) {
+    fail(`PUT /leasing/receivables/:id replay expected same receivable id, got ${replayData?.id} vs ${receivable.id}`);
+    return false;
+  }
+  if (receivableField(replayData, "remark") !== payload.remark || receivableField(replayData, "dueDate", "due_date") !== payload.due_date) {
+    fail(`PUT /leasing/receivables/:id replay did not return cached updated fields; body=${summarizeBody(replay.body)}`);
+    return false;
+  }
+  pass("PUT /leasing/receivables/:id replay returned cached response");
+
+  const detailAfterReplay = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id after replay");
+  if (!detailAfterReplay) return false;
+  if (receivableField(detailAfterReplay, "remark") !== payload.remark) {
+    fail(`Receivable remark drifted after replay; body=${summarizeBody(detailAfterReplay)}`);
+    return false;
+  }
+  if (receivableField(detailAfterReplay, "dueDate", "due_date") !== payload.due_date) {
+    fail(`Receivable due_date drifted after replay; body=${summarizeBody(detailAfterReplay)}`);
+    return false;
+  }
+  pass("GET /leasing/receivables/:id confirmed stable fields after replay");
+
+  const conflict = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify({
+      remark: `${payload.remark} conflict`,
+      due_date: buildDate(46)
+    })
+  });
+  if (!expectStatus("PUT /leasing/receivables/:id conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
   return true;
 }
 
@@ -1032,6 +1102,23 @@ async function exerciseReceivableUpdateSensitiveFieldRejection(authHeaders, rece
     });
     if (!expectStatus(`PUT /leasing/receivables/:id reject ${item.field}`, rejected.response.status, 400, rejected.body)) {
       return false;
+    }
+    if (item.field === "amount_paid") {
+      const retry = await request(`/leasing/receivables/${receivable.id}`, {
+        method: "PUT",
+        headers: {
+          ...authHeaders,
+          "content-type": "application/json",
+          "x-idempotency-key": buildIdempotencyKey(`update-receivable-reject-${item.field}`)
+        },
+        body: JSON.stringify({
+          [item.field]: item.value
+        })
+      });
+      if (!expectStatus(`PUT /leasing/receivables/:id reject ${item.field} retry`, retry.response.status, 400, retry.body)) {
+        return false;
+      }
+      pass(`PUT /leasing/receivables/:id rejected ${item.field} retry without successful replay`);
     }
     const after = await getReceivableDetail(authHeaders, receivable.id, `GET /leasing/receivables/:id after rejected ${item.field}`);
     if (!after) return false;

@@ -4,7 +4,7 @@
 
 本文用于分析并记录 `PUT /leasing/receivables/:id` 的字段修改和状态保护边界，为后续真实幂等接入提供前置条件。
 
-该接口属于账务对象修改接口。直接接入 `IdempotencyInterceptor` 可以防止同一请求重复执行，但不能阻止错误修改 `amount_paid`、`amount_waived`、`invoice_status`、`status` 等敏感字段。因此 E2-5B-2B 已先实施业务状态保护，本接口仍未接入 `IdempotencyInterceptor`。
+该接口属于账务对象修改接口。直接接入 `IdempotencyInterceptor` 可以防止同一请求重复执行，但不能阻止错误修改 `amount_paid`、`amount_waived`、`invoice_status`、`status` 等敏感字段。因此 E2-5B-2B 已先实施业务状态保护，E2-5B-2C 已在该保护基础上接入真实幂等。
 
 ## 2. 当前接口现状
 
@@ -17,8 +17,8 @@
 | Service | `LeasingReceivablesService.update` |
 | 权限 | `LEASING_RECEIVABLE_UPDATE` |
 | Guard | 受全局 `IdempotencyKeyGuard` 约束，非公开写请求需要 `X-Idempotency-Key` |
-| Interceptor | 当前未接入 `IdempotencyInterceptor`，后续 E2-5B-2C 再处理 |
-| 回归数据 | `first-release-leasing.mjs` 已覆盖未核销应收允许字段修改、敏感字段拒绝、核销后状态保护 |
+| Interceptor | 已接入 `IdempotencyInterceptor` |
+| 回归数据 | `first-release-leasing.mjs` 已覆盖未核销应收 update missing key / first / replay / conflict、敏感字段拒绝、核销后状态保护 |
 
 E2-5B-2B 实施后的 service update 行为：
 
@@ -155,7 +155,7 @@ E2-5B-2B 实施后的 service update 行为：
 
 ## 8. 后续幂等接入设计
 
-完成字段和状态保护后，`PUT /leasing/receivables/:id` 才适合接入 `IdempotencyInterceptor`。
+字段和状态保护完成后，`PUT /leasing/receivables/:id` 已接入 `IdempotencyInterceptor`。
 
 建议接入方式：
 
@@ -163,14 +163,15 @@ E2-5B-2B 实施后的 service update 行为：
 - 保持全局 `IdempotencyKeyGuard` 语义不变。
 - 不改变 service 返回结构。
 
-后续回归建议扩展 `scripts/e2e/first-release-leasing.mjs`：
+`scripts/e2e/first-release-leasing.mjs` 已覆盖：
 
 - 使用独立创建的未核销、未减免、未开票手工应收作为测试对象。
 - missing key：不带 `X-Idempotency-Key` 返回 `400`。
 - first request：带 key 修改允许字段，例如 `remark` 或 `due_date`。
 - replay same key same payload：返回成功，关键 id 与修改字段一致。
 - conflict same key different payload：同 key 修改不同 `remark` / `due_date`，返回 `409`。
-- duplicate side-effect check：replay 后通过详情或列表确认字段没有额外漂移；若修改会触发状态日志，需确认 replay 不重复写状态日志。
+- duplicate side-effect check：replay 后通过详情确认字段没有额外漂移。
+- failed retry：敏感字段请求同 key 重试仍返回 `400`，不会被 replay 成成功。
 
 不建议在已核销、已开票或已作废应收上做幂等成功回归；这些场景应作为业务保护拒绝回归。
 
@@ -198,24 +199,24 @@ E2-5B-2B 实施后的 service update 行为：
   - `scripts/e2e/first-release-leasing.mjs`
   - 幂等覆盖相关文档
 - 验收标准：
-  - missing key 返回 `400`。
-  - same key + same payload replay 成功且结果一致。
-  - same key + different payload 返回 `409`。
-  - replay 不重复写状态日志或造成账务字段漂移。
+  - 已完成：missing key 返回 `400`。
+  - 已完成：same key + same payload replay 成功且结果一致。
+  - 已完成：same key + different payload 返回 `409`。
+  - 已完成：replay 不造成账务字段漂移，敏感字段失败请求不会被 replay 成成功。
 
 ## 10. Go / No-Go 判断
 
-- 是否可以直接接 interceptor：现在业务保护前置条件已完成，但本阶段按边界仍不接入。
+- 是否可以直接接 interceptor：已在 E2-5B-2C 接入。
 - 是否必须先补业务保护：已完成 E2-5B-2B。
-- 可以接受的短期风险：该接口仍仅 guard，不宣称真实幂等；重复 update 的 replay / conflict 留到 E2-5B-2C。
-- 上线前必须关闭的风险：真实幂等接入与 replay / conflict 回归仍需在 E2-5B-2C 完成。
+- 可以接受的短期风险：删除类接口和批量生成接口仍按专项设计暂缓。
+- 上线前必须关闭的风险：该接口在幂等维度已完成；后续不得放宽字段 / 状态保护。
 
 ## 11. 结论
 
-`PUT /leasing/receivables/:id` 的字段 / 状态保护已完成，技术上可以进入下一阶段真实幂等接入。
+`PUT /leasing/receivables/:id` 的字段 / 状态保护和真实幂等接入均已完成。
 
 下一步推荐：
 
-1. 实施 E2-5B-2C，接入 `IdempotencyInterceptor` 并补 replay / conflict 回归。
-2. 保持本阶段新增的字段 / 状态保护不放宽。
+1. 保持字段 / 状态保护不放宽。
+2. 保持 `first-release-leasing.mjs` 中的 replay / conflict 和业务保护失败回归。
 3. 继续将删除类接口和批量生成接口留在专项设计，不与本接口混在同一个 PR 中处理。

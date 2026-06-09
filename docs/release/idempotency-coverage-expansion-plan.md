@@ -33,6 +33,7 @@
 | `POST /leasing/payments` | leasing-payments | 是 | 是 | 是 | 是 | `first-release-leasing.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users/:id/reset-password` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users/:id/roles` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
+| `PUT /leasing/receivables/:id` | leasing-receivables | 是 | 是 | 是 | 是 | E2-5B-2C 已覆盖 missing key / replay / conflict，字段 / 状态保护仍生效 |
 | `POST /users` | users | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
 
 应收 / 收款编辑删除类 P0 缺口已进入 E2-5B 专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
@@ -126,7 +127,7 @@
 | `POST /leasing/receivables/generate-batch` | 批量生成应收 | 仅 guard | P0 | 是 | 重复生成可能造成重复账务 |
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
 | `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
-| `PUT /leasing/receivables/:id` | 修改应收 | 仅 guard | P0 | 是 | 直接修改账务对象 |
+| `PUT /leasing/receivables/:id` | 修改应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-2C 已完成，字段 / 状态保护仍生效 |
 | `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | 直接影响账务 |
 
 ### 4.7 Leasing Payments
@@ -138,7 +139,7 @@
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 
-> E2-5B-1 实施结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；`PUT /leasing/receivables/:id` 已完成 E2-5B-2B 字段 / 状态保护，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)，但仍未接入真实幂等；删除类和批量生成接口暂缓专项设计。
+> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类和批量生成接口暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -249,7 +250,7 @@
 
 ### E2-5：应收 / 收款编辑删除专项设计
 
-- 目标：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已完成；后续分批补齐 `PUT /leasing/receivables/:id`、删除类接口和批量生成接口
+- 目标：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已完成；后续分批处理删除类接口和批量生成接口
 - 建议文件：
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
   - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
@@ -257,15 +258,15 @@
 - 风险：资金账务接口不能只看 JSON fingerprint，还需要确认已核销 / 已开票 / 作废状态保护
 - 验收标准：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已由 `first-release-leasing.mjs` 覆盖 replay / conflict；剩余项详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)
 
-### E2-5B-2A / E2-5B-2B：应收修改业务状态保护设计与实施
+### E2-5B-2A / E2-5B-2B / E2-5B-2C：应收修改业务状态保护与幂等接入
 
-- 目标：设计并实施 `PUT /leasing/receivables/:id` 的字段白名单、禁止字段和状态保护，不直接接入 interceptor
+- 目标：设计并实施 `PUT /leasing/receivables/:id` 的字段白名单、禁止字段、状态保护和真实幂等接入
 - 建议文件：
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
   - `apps/api/src/modules/leasing-receivables/dto/update-leasing-receivable.dto.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 风险：当前 update DTO / service 可写入 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户 / 合同归属和来源追溯字段
-- 验收标准：状态保护已完成；后续进入 E2-5B-2C 真实幂等接入和 replay / conflict 回归
+- 验收标准：状态保护已完成；E2-5B-2C 真实幂等接入和 replay / conflict 回归已完成
 
 ### E2-6：文件写接口专项设计
 
@@ -326,7 +327,7 @@
   - `POST /leasing/payments/:id/apply` 已完成
   - `POST /leasing/receivables` 已完成
   - `PUT /leasing/payments/:id` 已完成
-  - `PUT /leasing/receivables/:id` 需先补业务状态保护，再接入 interceptor
+  - `PUT /leasing/receivables/:id` 已完成状态保护和 interceptor 接入
   - 删除类和批量生成接口按专项设计推进
 - 验收标准：
   - 重复核销、重复新增应收、重复修改收款均已被拦截或复用
@@ -349,7 +350,7 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - `PUT /leasing/receivables/:id`，字段 / 状态保护已完成，下一步进入 E2-5B-2C 幂等接入
+   - 删除类接口和批量生成接口仍需专项设计；`PUT /leasing/receivables/:id` 已完成
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入 / 批量生成接口
