@@ -57,7 +57,7 @@
 | 接口 | 业务动作 | 当前幂等状态 | 风险等级 | 是否建议补齐 | 原因 |
 |---|---|---|---|---|---|
 | `POST /work-orders` | 创建工单 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
-| `POST /work-orders/:id/assign` | 派单 | 仅 guard | P1 | 是 | 重复派单会造成重复状态推进 |
+| `POST /work-orders/:id/assign` | 派单 | 已接 interceptor | P1 | 已完成本批 | 已具备真实 replay / conflict 语义 |
 | `POST /work-orders/:id/reassign` | 改派 | 仅 guard | P1 | 是 | 重复改派会造成处理人抖动 |
 | `POST /work-orders/:id/accept` | 接单 | 仅 guard | P1 | 是 | 状态流转接口，重复提交收益高 |
 | `POST /work-orders/:id/start` | 开始处理 | 仅 guard | P1 | 是 | 状态推进 |
@@ -130,7 +130,7 @@
 | 接口 | 业务动作 | 当前幂等状态 | 风险等级 | 是否建议补齐 | 原因 |
 |---|---|---|---|---|---|
 | `POST /leasing/payments` | 新增收款 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
-| `POST /leasing/payments/:id/apply` | 收款核销 | 仅 guard | P0 | 是 | 资金与应收核销相关，重复执行风险最高 |
+| `POST /leasing/payments/:id/apply` | 收款核销 | 已接 interceptor | P0 | 已完成本批 | 资金与应收核销相关，已具备真实 replay / conflict 语义 |
 | `PUT /leasing/payments/:id` | 修改收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 
@@ -140,10 +140,10 @@
 
 | 接口 | 为什么优先 | 数据依赖 | 是否适合当前 interceptor | 回归方式 |
 |---|---|---|---|---|
-| `POST /work-orders/:id/assign` | 首发工单主链高频动作，重复派单风险直观 | 需要已存在工单与处理人 | 是 | 在现有 `first-release-workorders.mjs` 增加 replay / conflict |
+| `POST /work-orders/:id/assign` | 已在本批接入；后续转入稳定性观察 | 需要已存在工单与处理人 | 是 | `first-release-workorders.mjs` 已补 replay / conflict |
 | `POST /leasing/contracts/:id/effective` | 已在本批接入；后续转入稳定性观察 | 需要合同已完成 submit / approve / archive | 是 | `first-release-leasing.mjs` 已补 replay / conflict |
 | `POST /leasing/contracts/:contractId/units` | 已在本批接入；后续转入稳定性观察 | 需要合同和房源已存在 | 是 | `first-release-leasing.mjs` 已补 replay / conflict |
-| `POST /leasing/payments/:id/apply` | 资金核销属于 P0 | 需要已存在收款与可核销应收 | 是，但数据依赖更重 | 建议新增或扩展 leasing 核销专项回归 |
+| `POST /leasing/payments/:id/apply` | 已在本批接入；后续转入稳定性观察 | 需要已存在收款与可核销应收 | 是，但数据依赖更重 | `first-release-leasing.mjs` 已补 replay / conflict |
 
 补充判断：
 
@@ -186,11 +186,11 @@
 建议的回归同步方式：
 
 - 扩展 `scripts/e2e/first-release-workorders.mjs`
-  - 增加 `assign` 的 replay / conflict 断言
+  - 已增加 `assign` 的 replay / conflict 断言
 - 扩展 `scripts/e2e/first-release-leasing.mjs`
-  - 增加合同房源关联 `POST /leasing/contracts/:contractId/units` 的 replay / conflict
-  - 增加 `POST /leasing/contracts/:id/effective` 的 replay / conflict
-  - 后续再补 `POST /leasing/payments/:id/apply`
+  - 已增加合同房源关联 `POST /leasing/contracts/:contractId/units` 的 replay / conflict
+  - 已增加 `POST /leasing/contracts/:id/effective` 的 replay / conflict
+  - 已增加 `POST /leasing/payments/:id/apply` 的 replay / conflict
 - 保持 `scripts/e2e/first-release-regression.mjs` 继续串行调用现有脚本
 
 回归断言原则：
@@ -205,12 +205,12 @@
 
 ### E2-1：工单状态流转幂等
 
-- 目标：补 `assign`、`accept`、`start` 等工单主状态动作
+- 目标：已完成 `assign`，后续补 `accept`、`start` 等工单主状态动作
 - 建议文件：
   - `apps/api/src/modules/work-orders/work-orders.controller.ts`
   - `scripts/e2e/first-release-workorders.mjs`
-- 风险：状态机动作多，建议先从 `assign` 开始
-- 验收标准：same key replay 不重复推进，different payload 返回 `409`
+- 风险：状态机动作多，当前已验证 `assign`，后续接口仍需分批推进
+- 验收标准：`assign` 已满足 same key replay 不重复推进，different payload 返回 `409`
 
 ### E2-2：合同状态流转幂等
 
@@ -232,13 +232,13 @@
 
 ### E2-4：收款 / 应收补充幂等
 
-- 目标：补 `POST /leasing/payments/:id/apply`，视资源再扩到 `POST /leasing/receivables`
+- 目标：已完成 `POST /leasing/payments/:id/apply`，后续视资源再扩到 `POST /leasing/receivables`
 - 建议文件：
   - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
   - leasing 回归脚本
-- 风险：数据依赖最重，需要真实应收与收款联动
-- 验收标准：重复核销不重复生成核销关系或重复扣减应收
+- 风险：数据依赖最重，当前已通过 leasing 回归脚本补最小闭环验证
+- 验收标准：`apply` 已满足重复核销不重复生成核销关系或重复扣减应收
 
 ### E2-5：文件写接口专项设计
 
@@ -258,8 +258,7 @@
 - 优先级：P1
 - 背景：工单状态流转接口当前只有 guard，没有真实 replay / conflict
 - 任务：
-  - 先补 `assign`
-  - 再评估 `accept`、`start`、`finish`
+  - `assign` 已完成，后续补 `accept`、`start`、`finish`
   - 更新 `first-release-workorders.mjs`
 - 验收标准：
   - replay 不重复推进状态
@@ -274,7 +273,7 @@
   - 补 `submit`
   - 补 `approve`
   - 补 `archive`
-  - 补 `effective`
+  - `effective` 已完成，后续补 `submit`、`approve`、`archive`
 - 验收标准：
   - 关键状态动作支持 replay / conflict
   - 回归脚本补齐断言
@@ -285,8 +284,8 @@
 - 优先级：P0
 - 背景：重复房源绑定会导致资源关系异常
 - 任务：
-  - 为 `POST /leasing/contracts/:contractId/units` 接入 interceptor
-  - 补 leasing 回归 replay / conflict
+  - `POST /leasing/contracts/:contractId/units` 已接入 interceptor
+  - leasing 回归 replay / conflict 已补齐
 - 验收标准：
   - same key replay 返回同一绑定记录
   - different payload 返回 `409`
@@ -297,7 +296,7 @@
 - 优先级：P0
 - 背景：资金与账务类接口属于最高风险写接口
 - 任务：
-  - 评估并补 `POST /leasing/payments/:id/apply`
+  - `POST /leasing/payments/:id/apply` 已完成
   - 评估并补 `POST /leasing/receivables`
   - 如可行，再扩到 `PUT /leasing/receivables/:id`
 - 验收标准：
@@ -318,10 +317,10 @@
 ## 11. 最终建议
 
 1. 下一批最该补的接口是：
-   - `POST /leasing/contracts/:contractId/units`
-   - `POST /leasing/contracts/:id/effective`
-   - `POST /work-orders/:id/assign`
-   - `POST /leasing/payments/:id/apply`
+   - `POST /work-orders/:id/accept`
+   - `POST /work-orders/:id/start`
+   - `POST /leasing/contracts/:id/submit`
+   - `POST /leasing/contracts/:id/approve`
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入 / 批量生成接口
