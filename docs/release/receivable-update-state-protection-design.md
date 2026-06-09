@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-本文用于分析 `PUT /leasing/receivables/:id` 的字段修改和状态保护边界，为后续真实幂等接入提供前置条件。
+本文用于分析并记录 `PUT /leasing/receivables/:id` 的字段修改和状态保护边界，为后续真实幂等接入提供前置条件。
 
-该接口属于账务对象修改接口。直接接入 `IdempotencyInterceptor` 可以防止同一请求重复执行，但不能阻止错误修改 `amount_paid`、`amount_waived`、`invoice_status`、`status` 等敏感字段。因此本阶段先设计业务状态保护，不修改业务代码。
+该接口属于账务对象修改接口。直接接入 `IdempotencyInterceptor` 可以防止同一请求重复执行，但不能阻止错误修改 `amount_paid`、`amount_waived`、`invoice_status`、`status` 等敏感字段。因此 E2-5B-2B 已先实施业务状态保护，本接口仍未接入 `IdempotencyInterceptor`。
 
 ## 2. 当前接口现状
 
@@ -17,39 +17,39 @@
 | Service | `LeasingReceivablesService.update` |
 | 权限 | `LEASING_RECEIVABLE_UPDATE` |
 | Guard | 受全局 `IdempotencyKeyGuard` 约束，非公开写请求需要 `X-Idempotency-Key` |
-| Interceptor | 当前未接入 `IdempotencyInterceptor` |
-| 回归数据 | `first-release-leasing.mjs` 已能构造合同、应收、收款和核销链路；后续可复用独立未核销手工应收做 update 回归 |
+| Interceptor | 当前未接入 `IdempotencyInterceptor`，后续 E2-5B-2C 再处理 |
+| 回归数据 | `first-release-leasing.mjs` 已覆盖未核销应收允许字段修改、敏感字段拒绝、核销后状态保护 |
 
-当前 service update 行为：
+E2-5B-2B 实施后的 service update 行为：
 
 - 通过 `findOne(scope, id, actor)` 读取应收，保留租户、园区与数据权限隔离。
-- 接收 DTO 中的合同、租户、费用类型、期间、金额、已收、减免、开票状态、状态、来源、备注等字段。
-- 根据 `amount_due + late_fee - amount_paid - amount_waived` 重新计算 `amount_remain`。
-- 根据 due date 与金额状态推导逾期天数和默认状态，但如果 DTO 传入 `status`，当前会优先写入 DTO 状态。
+- 普通 update DTO 仅允许 `remark` 和 `due_date`。
+- 即使 DTO 被绕过，service 也会拒绝合同、租户、费用类型、期间、金额、已收、减免、开票状态、状态、来源等敏感字段。
+- 根据当前账务金额重新计算 `amount_remain`、`overdue_days` 和派生状态。
 - 当状态变化时写入应收状态日志。
 
-当前软删除逻辑已有部分保护：`amountPaid > 0`、`amountWaived > 0` 或 `invoiceStatus != none` 时拒绝删除；但普通 update 当前没有同等强度的状态保护。
+当前软删除逻辑已有部分保护：`amountPaid > 0`、`amountWaived > 0` 或 `invoiceStatus != none` 时拒绝删除；普通 update 现在也已补齐同类状态保护。
 
 ## 3. 当前允许修改字段
 
 | 字段 | 当前是否可传 | 当前是否会写入 | 风险等级 | 建议策略 |
 |---|---|---|---|---|
-| `ar_code` | 是 | 是 | 中 | 仅允许无财务活动且未开票应收修改，需保持唯一性 |
-| `contract_id` | 是 | 是 | 高 | 禁止普通 update 修改；如需调整应走账务更正流程 |
-| `park_tenant_id` | 是 | 是 | 高 | 禁止普通 update 修改；影响租户归属与后续核销 |
-| `fee_type` | 是 | 是 | 高 | 受限修改，仅允许无财务活动且未开票应收 |
-| `period_start` | 是 | 是 | 高 | 受限修改，仅允许无财务活动且未开票应收 |
-| `period_end` | 是 | 是 | 高 | 受限修改，仅允许无财务活动且未开票应收 |
+| `ar_code` | 否 | 否 | 中 | 已禁止普通 update 修改 |
+| `contract_id` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `park_tenant_id` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `fee_type` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `period_start` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `period_end` | 否 | 否 | 高 | 已禁止普通 update 修改 |
 | `due_date` | 是 | 是 | 中 | 可作为普通修改候选，但已核销 / 已开票 / 已作废时应禁止 |
-| `amount_due` | 是 | 是 | P0 | 受限修改，仅允许无财务活动且未开票应收；建议后续独立调整流程 |
-| `amount_paid` | 是 | 是 | P0 | 禁止普通 update 修改；应由收款核销 / 反核销流程维护 |
-| `amount_waived` | 是 | 是 | P0 | 禁止普通 update 修改；应由减免 / 豁免流程维护 |
-| `late_fee` | 是 | 是 | 高 | 受限修改，建议由逾期计算或调整流程维护 |
-| `invoice_status` | 是 | 是 | P0 | 禁止普通 update 修改；应由开票流程维护 |
-| `status` | 是 | 是 | P0 | 禁止普通 update 直接传入；应由金额、到期日、核销、作废流程推导或流转 |
-| `source_type` | 是 | 是 | 高 | 禁止普通 update 修改；属于来源追溯字段 |
-| `source_id` | 是 | 是 | 高 | 禁止普通 update 修改；属于来源追溯字段 |
-| `generate_batch_no` | 是 | 是 | 高 | 禁止普通 update 修改；属于批次追溯字段 |
+| `amount_due` | 否 | 否 | P0 | 已禁止普通 update 修改 |
+| `amount_paid` | 否 | 否 | P0 | 已禁止普通 update 修改 |
+| `amount_waived` | 否 | 否 | P0 | 已禁止普通 update 修改 |
+| `late_fee` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `invoice_status` | 否 | 否 | P0 | 已禁止普通 update 修改 |
+| `status` | 否 | 否 | P0 | 已禁止普通 update 直接传入 |
+| `source_type` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `source_id` | 否 | 否 | 高 | 已禁止普通 update 修改 |
+| `generate_batch_no` | 否 | 否 | 高 | 已禁止普通 update 修改 |
 | `remark` | 是 | 是 | 低 | 允许普通修改；作废 / 删除对象除外 |
 
 ## 4. 字段保护建议
@@ -183,12 +183,12 @@
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
   - `apps/api/src/modules/leasing-receivables/dto/update-leasing-receivable.dto.ts`（如决定收窄 DTO）
   - 对应 service / controller 测试或 `first-release-leasing.mjs` 的保护场景验证
-- 是否接 interceptor：建议本批先不接，除非实现范围非常小且回归充分。
+- 是否接 interceptor：未接入，按阶段边界留到 E2-5B-2C。
 - 验收标准：
-  - 禁止普通 update 修改 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户、合同和来源追溯字段。
-  - 已核销、部分核销、已减免、已开票、已作废应收不能修改财务字段。
-  - 未核销未开票应收可以修改允许字段。
-  - 错误消息稳定，可被回归脚本断言。
+  - 已完成：禁止普通 update 修改 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户、合同和来源追溯字段。
+  - 已完成：已核销、部分核销、已减免、已开票、已作废应收不能普通 update。
+  - 已完成：未核销未开票应收可以修改 `remark` 和 `due_date`。
+  - 已完成：`first-release-leasing.mjs` 已覆盖允许字段修改、敏感字段拒绝、状态保护。
 
 ### E2-5B-2C：应收修改幂等接入 + 回归
 
@@ -205,17 +205,17 @@
 
 ## 10. Go / No-Go 判断
 
-- 是否可以直接接 interceptor：不建议。
-- 是否必须先补业务保护：是。当前 DTO 和 service 可修改账务敏感字段，直接接 interceptor 只能防重复，不能防止错误账务更新。
-- 可以接受的短期风险：在完成状态保护前，保持该接口仅 guard，不宣称真实幂等；发布风险需在 P0 缺口中继续保留。
-- 上线前必须关闭的风险：普通 update 不得修改 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户 / 合同归属和来源追溯字段；已核销、已开票、已作废对象不得被财务更新。
+- 是否可以直接接 interceptor：现在业务保护前置条件已完成，但本阶段按边界仍不接入。
+- 是否必须先补业务保护：已完成 E2-5B-2B。
+- 可以接受的短期风险：该接口仍仅 guard，不宣称真实幂等；重复 update 的 replay / conflict 留到 E2-5B-2C。
+- 上线前必须关闭的风险：真实幂等接入与 replay / conflict 回归仍需在 E2-5B-2C 完成。
 
 ## 11. 结论
 
-`PUT /leasing/receivables/:id` 技术上适合当前 JSON fingerprint 幂等机制，但业务上不能直接接入。
+`PUT /leasing/receivables/:id` 的字段 / 状态保护已完成，技术上可以进入下一阶段真实幂等接入。
 
 下一步推荐：
 
-1. 先实施 E2-5B-2B，补字段白名单 / 禁止字段 / 状态保护。
-2. 再实施 E2-5B-2C，接入 `IdempotencyInterceptor` 并补 replay / conflict 回归。
+1. 实施 E2-5B-2C，接入 `IdempotencyInterceptor` 并补 replay / conflict 回归。
+2. 保持本阶段新增的字段 / 状态保护不放宽。
 3. 继续将删除类接口和批量生成接口留在专项设计，不与本接口混在同一个 PR 中处理。

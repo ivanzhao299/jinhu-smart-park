@@ -31,6 +31,23 @@ const CONTRACT_STATUS_EFFECTIVE = "75";
 const FEE_TYPE_RENT = "10";
 const FEE_TYPE_DEPOSIT = "20";
 const FEE_TYPE_PROPERTY_FEE = "30";
+const RECEIVABLE_UPDATE_FORBIDDEN_FIELDS = new Set([
+  "ar_code",
+  "contract_id",
+  "park_tenant_id",
+  "fee_type",
+  "period_start",
+  "period_end",
+  "amount_due",
+  "amount_paid",
+  "amount_waived",
+  "late_fee",
+  "invoice_status",
+  "status",
+  "source_type",
+  "source_id",
+  "generate_batch_no"
+]);
 const PAYMENT_PERIOD_MONTHS: Record<string, number> = {
   "10": 1,
   "20": 2,
@@ -207,55 +224,23 @@ export class LeasingReceivablesService {
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateLeasingReceivableDto): Promise<LeasingReceivableEntity> {
     const entity = await this.findOne(scope, id, actor);
-    const nextParkTenantId = dto.park_tenant_id ?? entity.parkTenantId;
-    const nextContractId = dto.contract_id === undefined ? entity.contractId : dto.contract_id ?? null;
-    const nextFeeType = dto.fee_type ?? entity.feeType;
-    const nextPeriodStart = this.dateOnly(dto.period_start ?? entity.periodStart);
-    const nextPeriodEnd = this.dateOnly(dto.period_end ?? entity.periodEnd);
-    this.assertDateRange(nextPeriodStart, nextPeriodEnd);
-    await this.validateDictionaryValues(scope, nextFeeType, dto.invoice_status ?? entity.invoiceStatus, dto.status ?? entity.status);
-    await this.mustFindParkTenant(scope, nextParkTenantId);
-    const contract = nextContractId ? await this.mustFindContract(scope, nextContractId) : null;
-    this.assertContractParkTenantMatch(contract, nextParkTenantId);
-    if (dto.ar_code && dto.ar_code !== entity.arCode) {
-      await this.assertArCodeAvailable(scope, dto.ar_code, entity.id);
-    }
-    if (
-      nextContractId &&
-      (nextContractId !== entity.contractId || nextFeeType !== entity.feeType || nextPeriodStart !== entity.periodStart || nextPeriodEnd !== entity.periodEnd)
-    ) {
-      await this.assertReceivablePeriodAvailable(scope, nextContractId, nextFeeType, nextPeriodStart, nextPeriodEnd, entity.id);
-    }
+    this.assertReceivableUpdatePayloadAllowed(dto as Record<string, unknown>);
+    this.assertReceivableOrdinaryUpdateAllowed(entity);
 
-    const amountDue = this.toNumber(dto.amount_due ?? entity.amountDue);
-    const amountPaid = this.toNumber(dto.amount_paid ?? entity.amountPaid);
-    const amountWaived = this.toNumber(dto.amount_waived ?? entity.amountWaived);
-    const lateFee = this.toNumber(dto.late_fee ?? entity.lateFee);
+    const amountDue = this.toNumber(entity.amountDue);
+    const amountPaid = this.toNumber(entity.amountPaid);
+    const amountWaived = this.toNumber(entity.amountWaived);
+    const lateFee = this.toNumber(entity.lateFee);
     const amountRemain = this.calculateAmountRemain(amountDue, lateFee, amountPaid, amountWaived);
     const dueDate = this.dateOnly(dto.due_date ?? entity.dueDate);
     const overdueDays = this.calculateOverdueDays(dueDate, amountRemain);
 
     const beforeStatus = entity.status;
     Object.assign(entity, {
-      arCode: dto.ar_code ?? entity.arCode,
-      code: dto.ar_code ?? entity.code,
-      contractId: nextContractId,
-      parkTenantId: nextParkTenantId,
-      feeType: nextFeeType,
-      periodStart: nextPeriodStart,
-      periodEnd: nextPeriodEnd,
       dueDate,
-      amountDue: this.decimal(amountDue),
-      amountPaid: this.decimal(amountPaid),
-      amountWaived: this.decimal(amountWaived),
       amountRemain: this.decimal(amountRemain),
-      lateFee: this.decimal(lateFee),
-      invoiceStatus: dto.invoice_status ?? entity.invoiceStatus,
       overdueDays,
-      status: dto.status ?? this.deriveStatus(amountDue, amountPaid, amountWaived, amountRemain, overdueDays),
-      sourceType: dto.source_type ?? entity.sourceType,
-      sourceId: dto.source_id === undefined ? entity.sourceId : dto.source_id ?? null,
-      generateBatchNo: dto.generate_batch_no === undefined ? entity.generateBatchNo : this.emptyToNull(dto.generate_batch_no),
+      status: this.deriveStatus(amountDue, amountPaid, amountWaived, amountRemain, overdueDays),
       remark: dto.remark === undefined ? entity.remark : this.emptyToNull(dto.remark),
       updateBy: actor.sub
     });
@@ -264,6 +249,36 @@ export class LeasingReceivablesService {
       await this.createStatusLog(null, scope, actor, saved, beforeStatus, saved.status, "system", "手工编辑更新应收状态");
     }
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "leasing", "leasing_receivable", saved);
+  }
+
+  private assertReceivableUpdatePayloadAllowed(payload: Record<string, unknown>): void {
+    const forbiddenField = Object.keys(payload).find((field) => RECEIVABLE_UPDATE_FORBIDDEN_FIELDS.has(field));
+    if (forbiddenField) {
+      throw new BadRequestException(`Receivable field ${forbiddenField} cannot be updated through ordinary update`);
+    }
+  }
+
+  private assertReceivableOrdinaryUpdateAllowed(receivable: LeasingReceivableEntity): void {
+    if (receivable.status === RECEIVABLE_STATUS_VOID) {
+      throw new BadRequestException("Void receivable cannot be updated");
+    }
+    if (this.toNumber(receivable.amountPaid) > 0) {
+      throw new BadRequestException("Receivable with payments cannot be updated through ordinary update");
+    }
+    if (this.toNumber(receivable.amountWaived) > 0) {
+      throw new BadRequestException("Receivable with waived amount cannot be updated through ordinary update");
+    }
+    if (receivable.invoiceStatus !== INVOICE_STATUS_NONE) {
+      throw new BadRequestException("Invoiced receivable cannot be updated through ordinary update");
+    }
+    if (
+      receivable.status === RECEIVABLE_STATUS_PARTIAL ||
+      receivable.status === RECEIVABLE_STATUS_PAID ||
+      receivable.status === RECEIVABLE_STATUS_OVERDUE_PARTIAL ||
+      receivable.status === RECEIVABLE_STATUS_WAIVED
+    ) {
+      throw new BadRequestException("Receivable with financial activity cannot be updated through ordinary update");
+    }
   }
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {

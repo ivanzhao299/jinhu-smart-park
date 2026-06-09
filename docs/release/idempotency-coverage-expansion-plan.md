@@ -138,7 +138,7 @@
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 
-> E2-5B-1 实施结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；`PUT /leasing/receivables/:id` 已进入 E2-5B-2A 业务状态保护设计，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)；删除类和批量生成接口暂缓专项设计。
+> E2-5B-1 实施结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；`PUT /leasing/receivables/:id` 已完成 E2-5B-2B 字段 / 状态保护，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)，但仍未接入真实幂等；删除类和批量生成接口暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -257,15 +257,15 @@
 - 风险：资金账务接口不能只看 JSON fingerprint，还需要确认已核销 / 已开票 / 作废状态保护
 - 验收标准：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已由 `first-release-leasing.mjs` 覆盖 replay / conflict；剩余项详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)
 
-### E2-5B-2A：应收修改业务状态保护设计
+### E2-5B-2A / E2-5B-2B：应收修改业务状态保护设计与实施
 
-- 目标：先设计 `PUT /leasing/receivables/:id` 的字段白名单、禁止字段和状态保护，不直接接入 interceptor
+- 目标：设计并实施 `PUT /leasing/receivables/:id` 的字段白名单、禁止字段和状态保护，不直接接入 interceptor
 - 建议文件：
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
   - `apps/api/src/modules/leasing-receivables/dto/update-leasing-receivable.dto.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 风险：当前 update DTO / service 可写入 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户 / 合同归属和来源追溯字段
-- 验收标准：先完成 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md) 中的状态保护实施，再进入真实幂等接入和 replay / conflict 回归
+- 验收标准：状态保护已完成；后续进入 E2-5B-2C 真实幂等接入和 replay / conflict 回归
 
 ### E2-6：文件写接口专项设计
 
@@ -349,7 +349,7 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - `PUT /leasing/receivables/:id`，但需先按 E2-5B-2A / E2-5B-2B 补业务状态保护，再进入 E2-5B-2C 幂等接入
+   - `PUT /leasing/receivables/:id`，字段 / 状态保护已完成，下一步进入 E2-5B-2C 幂等接入
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入 / 批量生成接口
