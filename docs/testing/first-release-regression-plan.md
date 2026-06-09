@@ -357,7 +357,9 @@ pnpm regression:leasing
   - 合同生效幂等：missing key / first request / replay / conflict
   - 应收生成幂等：missing key / first request / replay / conflict
   - 应收查询
+  - 应收创建幂等：missing key / first request / replay / conflict
   - 收款登记幂等：missing key / first request / replay / conflict
+  - 收款修改幂等：missing key / first request / replay / conflict，使用独立未核销测试收款
   - 收款核销幂等：missing key / first request / replay / conflict
   - 收款查询
 - 对租赁链路数据依赖的说明：

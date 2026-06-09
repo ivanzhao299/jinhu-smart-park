@@ -125,7 +125,7 @@
 | `POST /leasing/contracts/:contractId/generate-receivables` | 按合同生成应收 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `POST /leasing/receivables/generate-batch` | 批量生成应收 | 仅 guard | P0 | 是 | 重复生成可能造成重复账务 |
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
-| `POST /leasing/receivables` | 手工新增应收 | 仅 guard | P0 | 是 | 直接形成应收数据 |
+| `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `PUT /leasing/receivables/:id` | 修改应收 | 仅 guard | P0 | 是 | 直接修改账务对象 |
 | `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | 直接影响账务 |
 
@@ -135,10 +135,10 @@
 |---|---|---|---|---|---|
 | `POST /leasing/payments` | 新增收款 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `POST /leasing/payments/:id/apply` | 收款核销 | 已接 interceptor | P0 | 已完成本批 | 资金与应收核销相关，已具备真实 replay / conflict 语义 |
-| `PUT /leasing/payments/:id` | 修改收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
+| `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
 
-> E2-5B 设计结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 适合作为下一批最小接入；`PUT /leasing/receivables/:id` 建议先补业务状态保护；删除类和批量生成接口暂缓专项设计。
+> E2-5B-1 实施结论：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；`PUT /leasing/receivables/:id` 建议先补业务状态保护；删除类和批量生成接口暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -249,13 +249,13 @@
 
 ### E2-5：应收 / 收款编辑删除专项设计
 
-- 目标：设计并分批补齐 `POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、删除类接口和批量生成接口
+- 目标：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已完成；后续分批补齐 `PUT /leasing/receivables/:id`、删除类接口和批量生成接口
 - 建议文件：
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
   - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 风险：资金账务接口不能只看 JSON fingerprint，还需要确认已核销 / 已开票 / 作废状态保护
-- 验收标准：详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)
+- 验收标准：`POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 已由 `first-release-leasing.mjs` 覆盖 replay / conflict；剩余项详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)
 
 ### E2-6：文件写接口专项设计
 
@@ -314,12 +314,12 @@
 - 背景：资金与账务类接口属于最高风险写接口
 - 任务：
   - `POST /leasing/payments/:id/apply` 已完成
-  - 按 E2-5B 设计优先补 `POST /leasing/receivables`
-  - 补 `PUT /leasing/payments/:id` 的真实 replay / conflict
+  - `POST /leasing/receivables` 已完成
+  - `PUT /leasing/payments/:id` 已完成
   - `PUT /leasing/receivables/:id` 需先补业务状态保护，再接入 interceptor
   - 删除类和批量生成接口按专项设计推进
 - 验收标准：
-  - 重复核销、重复新增应收、重复修改收款均被拦截或复用
+  - 重复核销、重复新增应收、重复修改收款均已被拦截或复用
   - 已核销 / 已开票 / 作废场景有明确业务状态保护
 
 ### Issue 5
@@ -339,8 +339,6 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - `POST /leasing/receivables`
-   - `PUT /leasing/payments/:id`
    - `PUT /leasing/receivables/:id`，但需先补业务状态保护
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
