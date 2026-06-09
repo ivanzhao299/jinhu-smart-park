@@ -105,6 +105,23 @@ function buildCodes(prefix) {
   };
 }
 
+function findItemByIdOrCode(items, id, code, altCode, name) {
+  return items.find(
+    (item) =>
+      item?.id === id ||
+      item?.contractCode === code ||
+      item?.contract_code === code ||
+      item?.payCode === code ||
+      item?.pay_code === code ||
+      item?.code === code ||
+      item?.code === altCode ||
+      item?.contractName === name ||
+      item?.contract_name === name ||
+      item?.pay_name === name ||
+      item?.title === name
+  );
+}
+
 function listItems(body) {
   const data = unwrapData(body);
   if (Array.isArray(data)) {
@@ -348,6 +365,29 @@ function buildContractPayload(parkTenantId) {
   };
 }
 
+function buildGenerateReceivablesPayload(isConflict = false) {
+  return {
+    include_rent: true,
+    include_deposit: true,
+    include_property_fee: isConflict,
+    force_regenerate: isConflict
+  };
+}
+
+function buildPaymentPayload(parkTenantId) {
+  return {
+    pay_code: buildCodes("PAY").code,
+    park_tenant_id: parkTenantId,
+    pay_time: new Date().toISOString(),
+    pay_method: "bank_transfer",
+    pay_amount: 1,
+    payer_name: `First release payment ${testRunId}`,
+    bank_serial: `BANK-${buildSuffix().slice(0, 12)}`,
+    status: "10",
+    remark: `First release leasing regression ${testRunId}`
+  };
+}
+
 async function ensureContract(authHeaders, parkTenantId) {
   const items = await fetchList("/leasing/contracts", testRunId, authHeaders);
   if (!items) return null;
@@ -357,6 +397,18 @@ async function ensureContract(authHeaders, parkTenantId) {
     info(`Found ${items.length} matching contract candidate(s); creating a fresh isolated draft contract`);
   }
   const payload = buildContractPayload(parkTenantId);
+  const missingKey = await request("/leasing/contracts", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return null;
+  }
+
   const create = await request("/leasing/contracts", {
     method: "POST",
     headers: {
@@ -375,6 +427,54 @@ async function ensureContract(authHeaders, parkTenantId) {
     return null;
   }
   pass(`Created contract ${created.contractName ?? created.contractCode} (${created.id})`);
+
+  const replay = await request("/leasing/contracts", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("create-contract")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts replay", replay.response.status, [200, 201], replay.body)) {
+    return null;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== created.id) {
+    fail(`POST /leasing/contracts replay expected same contract id, got ${replayData?.id} vs ${created.id}`);
+    return null;
+  }
+  pass("POST /leasing/contracts replay returned cached response");
+
+  const contractListAfterReplay = await fetchList("/leasing/contracts", testRunId, authHeaders);
+  if (!contractListAfterReplay) return null;
+  const contractMatches = contractListAfterReplay.filter(
+    (item) => findItemByIdOrCode([item], created.id, created.contractCode, created.contractCode, created.contractName)
+  );
+  if (contractMatches.length !== 1) {
+    fail(`POST /leasing/contracts replay created duplicate contracts; count=${contractMatches.length}`);
+    return null;
+  }
+  pass("GET /leasing/contracts confirmed no duplicate contract for replay");
+
+  const conflict = await request("/leasing/contracts", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("create-contract")
+    },
+    body: JSON.stringify({
+      ...payload,
+      contract_name: `${payload.contract_name} conflict`,
+      remark: `${payload.remark} conflict`
+    })
+  });
+  if (!expectStatus("POST /leasing/contracts conflict", conflict.response.status, 409, conflict.body)) {
+    return null;
+  }
+
   return created;
 }
 
@@ -637,6 +737,10 @@ async function exerciseContractEffectiveIdempotency(authHeaders, contractId) {
 }
 
 async function generateReceivables(authHeaders, contractId) {
+  const before = await queryReceivables(authHeaders, contractId);
+  if (before === null) return null;
+
+  const payload = buildGenerateReceivablesPayload(false);
   const result = await request(`/leasing/contracts/${contractId}/generate-receivables`, {
     method: "POST",
     headers: {
@@ -644,12 +748,7 @@ async function generateReceivables(authHeaders, contractId) {
       "content-type": "application/json",
       "x-idempotency-key": buildIdempotencyKey("generate-receivables")
     },
-    body: JSON.stringify({
-      include_rent: true,
-      include_deposit: true,
-      include_property_fee: false,
-      force_regenerate: false
-    })
+    body: JSON.stringify(payload)
   });
   if (!expectStatus("POST /leasing/contracts/:id/generate-receivables", result.response.status, [200, 201], result.body)) return null;
   const data = unwrapData(result.body);
@@ -663,6 +762,51 @@ async function generateReceivables(authHeaders, contractId) {
     return null;
   }
   pass(`Generated receivables count=${generatedCount}`);
+
+  const replay = await request(`/leasing/contracts/${contractId}/generate-receivables`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("generate-receivables")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/generate-receivables replay", replay.response.status, [200, 201], replay.body)) {
+    return null;
+  }
+  const replayData = unwrapData(replay.body);
+  if (typeof replayData?.generated_count === "number" && replayData.generated_count !== generatedCount) {
+    fail(`POST /leasing/contracts/:id/generate-receivables replay expected same generated_count, got ${replayData.generated_count} vs ${generatedCount}`);
+    return null;
+  }
+  pass("POST /leasing/contracts/:id/generate-receivables replay returned cached response");
+
+  const afterReplay = await queryReceivables(authHeaders, contractId);
+  if (afterReplay === null) return null;
+  if (afterReplay.length < before.length) {
+    fail(`POST /leasing/contracts/:id/generate-receivables replay unexpectedly reduced receivable count from ${before.length} to ${afterReplay.length}`);
+    return null;
+  }
+  if (afterReplay.length > before.length + generatedCount) {
+    fail(`POST /leasing/contracts/:id/generate-receivables replay created extra receivables; before=${before.length}, after=${afterReplay.length}, generated=${generatedCount}`);
+    return null;
+  }
+  pass("GET /leasing/receivables confirmed no duplicate receivables for replay");
+
+  const conflict = await request(`/leasing/contracts/${contractId}/generate-receivables`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("generate-receivables")
+    },
+    body: JSON.stringify(buildGenerateReceivablesPayload(true))
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/generate-receivables conflict", conflict.response.status, 409, conflict.body)) {
+    return null;
+  }
+
   return data;
 }
 
@@ -681,17 +825,19 @@ async function queryReceivables(authHeaders, contractId) {
 }
 
 async function createPayment(authHeaders, parkTenantId) {
-  const payload = {
-    pay_code: buildCodes("PAY").code,
-    park_tenant_id: parkTenantId,
-    pay_time: new Date().toISOString(),
-    pay_method: "bank_transfer",
-    pay_amount: 1,
-    payer_name: `First release payment ${testRunId}`,
-    bank_serial: `BANK-${buildSuffix().slice(0, 12)}`,
-    status: "10",
-    remark: `First release leasing regression ${testRunId}`
-  };
+  const payload = buildPaymentPayload(parkTenantId);
+  const missingKey = await request("/leasing/payments", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/payments missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return null;
+  }
+
   const result = await request("/leasing/payments", {
     method: "POST",
     headers: {
@@ -708,6 +854,55 @@ async function createPayment(authHeaders, parkTenantId) {
     return null;
   }
   pass(`Created payment ${created.payCode ?? created.code ?? created.id} (${created.id})`);
+
+  const replay = await request("/leasing/payments", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("create-payment")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/payments replay", replay.response.status, [200, 201], replay.body)) {
+    return null;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== created.id) {
+    fail(`POST /leasing/payments replay expected same payment id, got ${replayData?.id} vs ${created.id}`);
+    return null;
+  }
+  pass("POST /leasing/payments replay returned cached response");
+
+  const listAfterReplay = await request(`/leasing/payments?page=1&page_size=20&park_tenant_id=${parkTenantId}&keyword=${encodeURIComponent(testRunId)}`, {
+    headers: authHeaders
+  });
+  if (!expectStatus("GET /leasing/payments after replay", listAfterReplay.response.status, 200, listAfterReplay.body)) return null;
+  const itemsAfterReplay = listItems(listAfterReplay.body);
+  const paymentMatches = itemsAfterReplay.filter((item) => findItemByIdOrCode([item], created.id, created.payCode, created.payCode, created.payerName));
+  if (paymentMatches.length !== 1) {
+    fail(`POST /leasing/payments replay created duplicate payments; count=${paymentMatches.length}`);
+    return null;
+  }
+  pass("GET /leasing/payments confirmed no duplicate payment for replay");
+
+  const conflict = await request("/leasing/payments", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("create-payment")
+    },
+    body: JSON.stringify({
+      ...payload,
+      pay_amount: payload.pay_amount + 1,
+      remark: `${payload.remark} conflict`
+    })
+  });
+  if (!expectStatus("POST /leasing/payments conflict", conflict.response.status, 409, conflict.body)) {
+    return null;
+  }
+
   return created;
 }
 
