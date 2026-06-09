@@ -128,11 +128,19 @@ The deploy script:
 
 1. Builds API and Web images.
 2. Starts PostgreSQL.
-3. Runs SQL migrations.
+3. Runs SQL migrations through the history/checksum-aware migration runner.
 4. Optionally runs production seed.
 5. Starts API and Web.
 6. Runs API/Web health checks.
 7. Prunes old Docker containers, unused images, and build cache.
+
+Migration behavior:
+
+- Successfully applied migration files are skipped on rerun.
+- A checksum mismatch after success fails fast and stops later migrations.
+- A failed migration can be retried after the SQL file is corrected.
+- Database migrations remain forward-only; rollback still relies on database backup recovery.
+- `production seed` remains a separate step and is not part of migration execution.
 
 The cleanup keeps the images used by the currently running production containers and removes historical build cache. It does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
 

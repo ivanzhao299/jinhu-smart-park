@@ -35,6 +35,8 @@
 - 本文件负责 history + checksum 的最小实现设计，进一步定义“怎么把机制做出来”。
 - 两份文档合在一起，形成从风险接受、执行冻结到机制演进的完整路径。
 
+当前最小实现已经落地到 `scripts/db-migrate.sh` 与 `database/migrations/000139_sys_schema_migration_history.sql`。本文件保留为实现契约、验收口径和后续治理路线的统一参考。
+
 ## 2. History 表结构设计
 
 建议新增一张专门的 migration 记录表，例如 `sys_schema_migration_history`。
@@ -334,12 +336,20 @@ Checksum 的目标是判断“同一个 migration 文件内容是否发生变化
 - SQL 执行策略文档更新
 - 发布流程口径更新
 
+推荐落地顺序：
+
+1. 先确认 `production-migration-execution-policy.md` 已覆盖备份、冻结、签字和 No-Go 条件。
+2. 再新增 migration history 表的 SQL，确保脚本启动前可以 bootstrap 记录表。
+3. 然后增强 `scripts/db-migrate.sh` 的记录、跳过、阻断、失败回写逻辑。
+4. 最后用临时数据库做首次执行、重复执行、checksum 冲突和失败重试验证。
+
 ### M2：脚本增强
 
 目标：
 
 - 在不更换 migration 框架的前提下，给脚本加 history/checksum/status。
 - 优先沿用当前 SQL-first 执行方式，只补可追踪、可跳过、可阻断能力。
+- 这一步已经以最小可落地形式实现，后续重点转为验证、收口和运行治理。
 
 交付：
 
