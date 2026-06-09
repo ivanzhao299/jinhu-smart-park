@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { type FindOneOptions, type UpdateResult } from "typeorm";
+import { type FindOneOptions, type FindManyOptions, type UpdateResult } from "typeorm";
 import { IdempotencyRequestEntity } from "../entities/idempotency-request.entity";
 import { IdempotencyService, type IdempotencyBeginContext } from "./idempotency.service";
 
@@ -41,6 +41,16 @@ class InMemoryIdempotencyRepository {
     return record ?? null;
   }
 
+  async find(options: FindManyOptions<IdempotencyRequestEntity>): Promise<IdempotencyRequestEntity[]> {
+    const now = new Date();
+    const take = options.take ?? Number.POSITIVE_INFINITY;
+    const records = Array.from(this.records.values())
+      .filter((record) => record.expiresAt.getTime() < now.getTime())
+      .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime() || a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, take);
+    return records.map((record) => ({ ...record }));
+  }
+
   async update(criteria: { id: string }, partial: Partial<IdempotencyRequestEntity>): Promise<UpdateResult> {
     const record = this.records.get(criteria.id);
     if (!record) {
@@ -50,9 +60,18 @@ class InMemoryIdempotencyRepository {
     return { affected: 1, raw: [], generatedMaps: [], identifiers: [] } as UpdateResult;
   }
 
-  async delete(): Promise<{ affected: number }> {
-    const now = new Date();
+  async delete(criteria?: unknown): Promise<{ affected: number }> {
     let affected = 0;
+    const ids = this.extractIds(criteria);
+    if (ids.length > 0) {
+      for (const id of ids) {
+        if (this.records.delete(id)) {
+          affected += 1;
+        }
+      }
+      return { affected };
+    }
+    const now = new Date();
     for (const [id, record] of this.records.entries()) {
       if (record.expiresAt.getTime() < now.getTime()) {
         this.records.delete(id);
@@ -60,6 +79,20 @@ class InMemoryIdempotencyRepository {
       }
     }
     return { affected };
+  }
+
+  private extractIds(criteria: unknown): string[] {
+    if (Array.isArray(criteria)) {
+      return criteria.filter((item): item is string => typeof item === "string");
+    }
+    if (!criteria || typeof criteria !== "object") {
+      return [];
+    }
+    const idValue = (criteria as { id?: unknown }).id;
+    if (Array.isArray(idValue)) {
+      return idValue.filter((item): item is string => typeof item === "string");
+    }
+    return typeof idValue === "string" ? [idValue] : [];
   }
 }
 
@@ -165,4 +198,60 @@ test("tryBegin returns processing while lock is still active", async () => {
   const processing = await service.tryBegin(input);
   assert.equal(processing.outcome, "processing");
   assert.equal(processing.reason, "processing");
+});
+
+test("cleanupExpired removes only expired records and respects limit", async () => {
+  const { service, repository } = createService();
+  const now = new Date();
+  const expired1 = repository.create({
+    id: "expired-1",
+    tenantId: "10000001",
+    parkId: "20000001",
+    userId: "user-1",
+    idempotencyKey: "idem-1",
+    requestMethod: "POST",
+    requestPath: "/work-orders",
+    requestFingerprint: "fp-1",
+    status: "succeeded",
+    lockedUntil: now,
+    expiresAt: new Date(now.getTime() - 10_000)
+  });
+  const expired2 = repository.create({
+    id: "expired-2",
+    tenantId: "10000001",
+    parkId: "20000001",
+    userId: "user-1",
+    idempotencyKey: "idem-2",
+    requestMethod: "POST",
+    requestPath: "/work-orders",
+    requestFingerprint: "fp-2",
+    status: "succeeded",
+    lockedUntil: now,
+    expiresAt: new Date(now.getTime() - 5_000)
+  });
+  const active = repository.create({
+    id: "active-1",
+    tenantId: "10000001",
+    parkId: "20000001",
+    userId: "user-1",
+    idempotencyKey: "idem-3",
+    requestMethod: "POST",
+    requestPath: "/work-orders",
+    requestFingerprint: "fp-3",
+    status: "succeeded",
+    lockedUntil: now,
+    expiresAt: new Date(now.getTime() + 60_000)
+  });
+  await repository.save(expired1);
+  await repository.save(expired2);
+  await repository.save(active);
+
+  const deleted = await service.cleanupExpired(1);
+  assert.equal(deleted, 1);
+
+  const remainingExpired = await service.cleanupExpired(10);
+  assert.equal(remainingExpired, 1);
+
+  const noDelete = await service.cleanupExpired(10);
+  assert.equal(noDelete, 0);
 });

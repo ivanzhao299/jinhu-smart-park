@@ -134,11 +134,31 @@ export class IdempotencyService {
     };
   }
 
-  async cleanupExpired(): Promise<number> {
-    const result = await this.idempotencyRequestsRepository.delete({
-      expiresAt: LessThan(new Date())
+  async cleanupExpired(limit: number): Promise<number> {
+    const normalizedLimit = Number.isFinite(limit) ? Math.floor(limit) : 0;
+    if (normalizedLimit < 1) {
+      return 0;
+    }
+
+    const now = new Date();
+    const expired = await this.idempotencyRequestsRepository.find({
+      select: { id: true },
+      where: {
+        expiresAt: LessThan(now)
+      },
+      order: {
+        expiresAt: "ASC",
+        createdAt: "ASC"
+      },
+      take: normalizedLimit
     });
-    return result.affected ?? 0;
+
+    if (expired.length === 0) {
+      return 0;
+    }
+
+    const result = await this.idempotencyRequestsRepository.delete(expired.map((record) => record.id) as never);
+    return result.affected ?? expired.length;
   }
 
   private async insertProcessing(

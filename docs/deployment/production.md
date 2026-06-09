@@ -142,6 +142,15 @@ Migration behavior:
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
+Idempotency cleanup:
+
+- `IDEMPOTENCY_CLEANUP_ENABLED` defaults to `true`.
+- `IDEMPOTENCY_CLEANUP_INTERVAL_MS` defaults to `3600000` milliseconds.
+- `IDEMPOTENCY_CLEANUP_BATCH_SIZE` defaults to `1000`.
+- The cleanup task removes only expired idempotency records in bounded batches.
+- Cleanup failures are logged and do not stop the API process.
+- Idempotency records are an anti-replay cache and are not meant to be retained forever.
+
 The cleanup keeps the images used by the currently running production containers and removes historical build cache. It does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
 
 ```bash
