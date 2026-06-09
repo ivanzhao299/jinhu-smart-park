@@ -314,6 +314,27 @@ pnpm regression:leasing
 - 验证方式：工单最小创建/列表、合同到应收/收款最小链。
 - 风险点：数据依赖更高，建议在 users / assets / files 稳定后再做。
 
+### 已落地状态
+
+#### C2-4b：workorders create/list regression
+
+- 状态：已落地
+- 脚本：`scripts/e2e/first-release-workorders.mjs`
+- 执行命令：`node scripts/e2e/first-release-workorders.mjs`
+- 当前覆盖范围：
+  - 登录
+  - 工单列表查询
+  - 工单创建
+  - 列表回读
+  - 详情回读
+- 暂缓范围：
+  - 工单状态流转
+  - SLA / 超时
+  - 附件绑定
+  - 评论 / 处理记录
+  - leasing contract / receivables / payments
+  - 浏览器 E2E
+
 ## 14. 建议 Issue 列表
 
 ### Issue 1
