@@ -107,6 +107,9 @@ function buildCodes(prefix) {
 
 function listItems(body) {
   const data = unwrapData(body);
+  if (Array.isArray(data)) {
+    return data;
+  }
   if (!data || typeof data !== "object" || !Array.isArray(data.items)) {
     return [];
   }
@@ -375,17 +378,35 @@ async function ensureContract(authHeaders, parkTenantId) {
   return created;
 }
 
-async function ensureContractUnitLink(authHeaders, contractId, unit) {
+function buildContractUnitLinkPayload(unit) {
+  return {
+    unit_id: unit.id,
+    area: 100,
+    rent_unit_price: 10,
+    start_date: buildDate(0),
+    end_date: buildNextMonthMinusOneDay(),
+    status: 1,
+    remark: `first release leasing regression ${testRunId}`
+  };
+}
+
+async function listContractUnits(authHeaders, contractId) {
   const current = await request(`/leasing/contracts/${contractId}/units`, { headers: authHeaders });
   if (!expectStatus("GET /leasing/contracts/:id/units", current.response.status, 200, current.body)) {
     return null;
   }
-  const currentItems = listItems(current.body);
+  return listItems(current.body);
+}
+
+async function ensureContractUnitLink(authHeaders, contractId, unit) {
+  const currentItems = await listContractUnits(authHeaders, contractId);
+  if (!currentItems) return null;
   const existing = currentItems.find((item) => item?.unitId === unit.id || item?.unit_id === unit.id);
   if (existing) {
     pass(`Reusing existing contract-unit link (${existing.id ?? existing.relId ?? "unknown"})`);
     return existing;
   }
+  const payload = buildContractUnitLinkPayload(unit);
   const link = await request(`/leasing/contracts/${contractId}/units`, {
     method: "POST",
     headers: {
@@ -393,15 +414,7 @@ async function ensureContractUnitLink(authHeaders, contractId, unit) {
       "content-type": "application/json",
       "x-idempotency-key": buildIdempotencyKey("create-contract-unit-link")
     },
-    body: JSON.stringify({
-      unit_id: unit.id,
-      area: 100,
-      rent_unit_price: 10,
-      start_date: buildDate(0),
-      end_date: buildNextMonthMinusOneDay(),
-      status: 1,
-      remark: `first release leasing regression ${testRunId}`
-    })
+    body: JSON.stringify(payload)
   });
   if (!expectStatus("POST /leasing/contracts/:contractId/units", link.response.status, [200, 201], link.body)) {
     return null;
@@ -415,7 +428,92 @@ async function ensureContractUnitLink(authHeaders, contractId, unit) {
   return created;
 }
 
-async function transitionContractToEffective(authHeaders, contractId, files) {
+async function exerciseContractUnitLinkIdempotency(authHeaders, contractId, unit) {
+  const payload = buildContractUnitLinkPayload(unit);
+
+  const missingKey = await request(`/leasing/contracts/${contractId}/units`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:contractId/units missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return null;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("create-contract-unit-link");
+  const first = await request(`/leasing/contracts/${contractId}/units`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:contractId/units first request", first.response.status, [200, 201], first.body)) {
+    return null;
+  }
+
+  const firstData = unwrapData(first.body);
+  const firstId = firstData?.id ?? firstData?.relId;
+  if (typeof firstId !== "string" || firstId.length === 0) {
+    fail(`POST /leasing/contracts/:contractId/units first request did not return relation id; body=${summarizeBody(first.body)}`);
+    return null;
+  }
+  pass(`POST /leasing/contracts/:contractId/units created relation ${firstId}`);
+
+  const replay = await request(`/leasing/contracts/${contractId}/units`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:contractId/units replay", replay.response.status, [200, 201], replay.body)) {
+    return null;
+  }
+  const replayData = unwrapData(replay.body);
+  const replayId = replayData?.id ?? replayData?.relId;
+  if (replayId !== firstId) {
+    fail(`POST /leasing/contracts/:contractId/units replay expected same relation id, got ${replayId} vs ${firstId}`);
+    return null;
+  }
+  pass("POST /leasing/contracts/:contractId/units replay returned cached response");
+
+  const unitsAfterReplay = await listContractUnits(authHeaders, contractId);
+  if (!unitsAfterReplay) return null;
+  const linkedMatches = unitsAfterReplay.filter((item) => (item?.unitId ?? item?.unit_id ?? item?.unit?.id) === unit.id);
+  if (linkedMatches.length !== 1) {
+    fail(`POST /leasing/contracts/:contractId/units replay created duplicate links; count=${linkedMatches.length}`);
+    return null;
+  }
+  pass("GET /leasing/contracts/:id/units confirmed no duplicate relation for replayed unit");
+
+  const conflict = await request(`/leasing/contracts/${contractId}/units`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify({
+      ...payload,
+      area: payload.area + 1
+    })
+  });
+  if (!expectStatus("POST /leasing/contracts/:contractId/units conflict", conflict.response.status, 409, conflict.body)) {
+    return null;
+  }
+
+  return firstData;
+}
+
+async function transitionContractToSigned(authHeaders, contractId, files) {
   const submit = await request(`/leasing/contracts/${contractId}/submit`, {
     method: "POST",
     headers: {
@@ -460,19 +558,80 @@ async function transitionContractToEffective(authHeaders, contractId, files) {
   });
   if (!expectStatus("POST /leasing/contracts/:id/archive", archive.response.status, [200, 201], archive.body)) return false;
 
-  const effective = await request(`/leasing/contracts/${contractId}/effective`, {
+  return true;
+}
+
+function buildEffectivePayload() {
+  return {
+    effective_date: buildDate(0),
+    opinion: `First release leasing regression effective ${testRunId}`
+  };
+}
+
+async function exerciseContractEffectiveIdempotency(authHeaders, contractId) {
+  const payload = buildEffectivePayload();
+
+  const missingKey = await request(`/leasing/contracts/${contractId}/effective`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/effective missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("effective-contract");
+  const first = await request(`/leasing/contracts/${contractId}/effective`, {
     method: "POST",
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("effective-contract")
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/effective first request", first.response.status, [200, 201], first.body)) return false;
+
+  const firstData = unwrapData(first.body);
+  if (!firstData?.id) {
+    fail(`POST /leasing/contracts/:id/effective first request did not return contract data; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+
+  const replay = await request(`/leasing/contracts/${contractId}/effective`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/effective replay", replay.response.status, [200, 201], replay.body)) return false;
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== firstData.id) {
+    fail(`POST /leasing/contracts/:id/effective replay expected same contract id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  pass("POST /leasing/contracts/:id/effective replay returned cached response");
+
+  const conflict = await request(`/leasing/contracts/${contractId}/effective`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
     },
     body: JSON.stringify({
-      effective_date: buildDate(0),
-      opinion: `First release leasing regression effective ${testRunId}`
+      ...payload,
+      opinion: `${payload.opinion} conflict`
     })
   });
-  if (!expectStatus("POST /leasing/contracts/:id/effective", effective.response.status, [200, 201], effective.body)) return false;
+  if (!expectStatus("POST /leasing/contracts/:id/effective conflict", conflict.response.status, 409, conflict.body)) return false;
+
   pass("Contract moved to effective status");
   return true;
 }
@@ -619,13 +778,16 @@ async function run() {
   }
   pass(`GET /leasing/contracts/:id confirmed ${contractBeforeData.contractName ?? contractBeforeData.contractCode ?? contract.id}`);
 
-  const linked = await ensureContractUnitLink(authHeaders, contract.id, unit);
+  const linked = await exerciseContractUnitLinkIdempotency(authHeaders, contract.id, unit);
   if (!linked) return;
 
   const files = await ensureContractFiles(authHeaders);
   if (!files) return;
 
-  const effectiveReady = await transitionContractToEffective(authHeaders, contract.id, files);
+  const signedReady = await transitionContractToSigned(authHeaders, contract.id, files);
+  if (!signedReady) return;
+
+  const effectiveReady = await exerciseContractEffectiveIdempotency(authHeaders, contract.id);
   if (!effectiveReady) return;
 
   const effectiveDetail = await request(`/leasing/contracts/${contract.id}`, { headers: authHeaders });
