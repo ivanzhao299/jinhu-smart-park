@@ -368,6 +368,32 @@ pnpm regression:leasing
   - 多合同批量生成
   - 浏览器 E2E
 
+#### C2-5：first-release regression runner / 统一入口
+
+- 状态：已落地
+- 脚本：`scripts/e2e/first-release-regression.mjs`
+- 执行命令：`node scripts/e2e/first-release-regression.mjs`
+- 子脚本顺序：
+  1. `scripts/e2e/first-release-menu-whitelist.mjs`
+  2. `scripts/e2e/first-release-auth-health.mjs`
+  3. `scripts/e2e/first-release-idempotency.mjs`
+  4. `scripts/e2e/first-release-files.mjs`
+  5. `scripts/e2e/first-release-users-assets.mjs`
+  6. `scripts/e2e/first-release-workorders.mjs`
+  7. `scripts/e2e/first-release-leasing.mjs`
+- 环境变量说明：
+  - runner 透传 `API_BASE_URL`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`TEST_RUN_ID`、`TENANT_ID`、`PARK_ID`、`IDEMPOTENCY_KEY_PREFIX`
+  - 若未提供 `TEST_RUN_ID`，runner 会自动生成并注入子进程环境
+  - 若未提供 `IDEMPOTENCY_KEY_PREFIX`，runner 会默认设置为 `first-release-regression`
+- 运行前置条件：
+  - API 已启动
+  - 数据库已完成 migration
+  - 数据库已完成 production seed
+  - 数据库已完成 bootstrap-admin
+- 说明：
+  - runner 只负责串行执行已有子脚本，不负责启动 API / DB
+  - 任一子脚本失败时 runner 立即退出非 0
+
 ## 14. 建议 Issue 列表
 
 ### Issue 1
