@@ -26,6 +26,8 @@
 | `POST /leasing/contracts/:id/effective` | leasing-contracts | E2-1 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 | `POST /work-orders/:id/assign` | work-orders | E2-2 | 是 | 是 | `first-release-workorders.mjs` | 已完成 |
 | `POST /leasing/payments/:id/apply` | leasing-payments | E2-2 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
+| `POST /users/:id/reset-password` | users | E2-5A | 是 | 是 | `first-release-users-assets.mjs` | 已完成 |
+| `POST /users/:id/roles` | users | E2-5A | 是 | 是 | `first-release-users-assets.mjs` | 已完成 |
 
 ## 4. 回归覆盖状态
 
@@ -33,6 +35,7 @@
 |---|---|
 | `first-release-idempotency.mjs` | `POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict |
 | `first-release-workorders.mjs` | `POST /work-orders/:id/assign` 的 missing key / first request / replay / conflict |
+| `first-release-users-assets.mjs` | `POST /users` 创建、`POST /users/:id/reset-password`、`POST /users/:id/roles` 的 missing key / first request / replay / conflict，同时保留 users list / assets read 回归 |
 | `first-release-leasing.mjs` | `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments`、`POST /leasing/contracts/:contractId/units`、`POST /leasing/contracts/:id/effective`、`POST /leasing/payments/:id/apply` 的 missing key / first request / replay / conflict |
 | `first-release-regression.mjs` | 串行覆盖上述所有子脚本 |
 
@@ -46,8 +49,8 @@
 
 | 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
 |---|---|---|---|---|---|
-| `POST /users/:id/reset-password` | 重复改密会造成账号状态和审计混乱 | 是 | 是 | 低 | 下一批 |
-| `POST /users/:id/roles` | 重复权限变更会影响可见范围和操作权限 | 是 | 是 | 低 | 下一批 |
+| `POST /users/:id/reset-password` | 重复改密会造成账号状态和审计混乱 | 已完成 | 是 | 低 | E2-5A |
+| `POST /users/:id/roles` | 重复权限变更会影响可见范围和操作权限 | 已完成 | 是 | 低 | E2-5A |
 
 ### Leasing / Finance
 
@@ -104,7 +107,7 @@
 
 推荐顺序如下：
 
-1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口。
+1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口（当前主要剩余项为 leasing 账务编辑 / 删除类接口）。
 2. 再补 P1 状态流转和文件删除等接口。
 3. multipart 文件和批量接口保持单独设计。
 

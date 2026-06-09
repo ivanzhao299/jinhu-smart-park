@@ -63,6 +63,7 @@ export class UsersController {
   }
 
   @Post(":id/reset-password")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_RESET_PASSWORD)
   @AuditLog({ module: "用户管理", resource: "system.user", action: "重置密码", bizType: "user", bizIdParam: "id", captureBody: false })
   resetPassword(
@@ -75,6 +76,7 @@ export class UsersController {
   }
 
   @Post(":id/roles")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES)
   @AuditLog({ module: "用户管理", resource: "system.user", action: "角色变更", bizType: "user", bizIdParam: "id" })
   assignRoles(
