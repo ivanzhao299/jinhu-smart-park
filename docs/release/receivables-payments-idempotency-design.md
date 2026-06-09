@@ -4,7 +4,7 @@
 
 本文用于分析应收 / 收款编辑删除类 P0 接口是否适合接入当前幂等机制，并制定安全实施顺序。
 
-本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐；E2-5B-3A / E2-5B-3B 已补充应收 / 收款删除与作废语义保护和 DELETE 幂等接入，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)。
+本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐；E2-5B-3A / E2-5B-3B 已补充应收 / 收款删除与作废语义保护和 DELETE 幂等接入，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；E2-5B-4 已进入批量生成应收幂等专项设计，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)。
 
 ## 2. 当前幂等机制边界
 
@@ -28,7 +28,7 @@
 
 | 接口 | 模块 | controller method | 当前状态 | 业务语义 | 是否资金相关 | 是否适合当前 interceptor | 风险等级 | 建议策略 |
 |---|---|---|---|---|---|---|---|---|
-| `POST /leasing/receivables/generate-batch` | `leasing-receivables` | `LeasingReceivablesController.generateBatch` | 仅 guard | 按合同批量生成应收 | 是 | 不建议直接第一批接入 | P0 | 批量生成专项设计 |
+| `POST /leasing/receivables/generate-batch` | `leasing-receivables` | `LeasingReceivablesController.generateBatch` | 仅 guard | 按合同批量生成应收 | 是 | 不建议直接接入 | P0 | E2-5B-4 专项设计 |
 | `POST /leasing/receivables` | `leasing-receivables` | `LeasingReceivablesController.create` | 已接 interceptor | 手工创建应收 | 是 | 是 | 已完成 | E2-5B-1 已接入并回归 |
 | `PUT /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.update` | 已接 interceptor | 修改应收备注 / 到期日 | 是 | 是，已完成字段 / 状态保护 | 已完成 | E2-5B-2C 已接入并回归 |
 | `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 已接 interceptor | 软删除并置为 void | 是 | 是，DELETE path + query fingerprint 稳定 | P0 | E2-5B-3B 已完成 replay / query conflict / failed retry |
@@ -45,7 +45,7 @@
 - replay 语义：same key replay 应返回首次批量生成结果，不能二次生成账务。
 - conflict 语义：same key + different contract list / billing month 应返回 `409`。
 - 业务状态前置校验：需确认已生成、已核销、已作废、部分失败场景如何表达。
-- 推荐处理方式：不放入第一批直接接入，先做批量生成专项设计，明确 partial success / retry / skip 的状态语义。
+- 推荐处理方式：不直接接入，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)。建议先补业务去重 / 事务语义保护，再决定 interceptor 接入。
 - 回归测试建议：后续使用独立批量场景，断言 replay 不增加应收数量，并记录每个合同的生成行状态。
 
 ### 4.2 `POST /leasing/receivables`
@@ -180,8 +180,9 @@ E2-5B-1 已完成最小 PR 范围：
 
 - 目标接口：`POST /leasing/receivables/generate-batch`
 - 风险：批量部分成功可能导致 replay / retry 语义不一致
-- 是否改业务逻辑：可能需要补 batch id 或生成记录
-- 是否接入 interceptor：专项设计后决定
+- 当前状态：已进入专项设计，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)
+- 是否改业务逻辑：建议先补业务去重 / 事务语义保护，后续可能需要 batch id 或生成记录
+- 是否接入 interceptor：E2-5B-4A 完成后再决定
 - 回归验收标准：same key replay 不新增应收；partial failed retry 语义清晰；different payload 返回 `409`
 
 ## 9. Go / No-Go 判断
@@ -199,6 +200,6 @@ E2-5B-1 的最小安全子集已完成：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。删除类接口已完成 E2-5B-3A 语义保护和 E2-5B-3B 真实幂等接入；批量生成接口继续暂缓专项设计，不把它误标为已完成。
+`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。删除类接口已完成 E2-5B-3A 语义保护和 E2-5B-3B 真实幂等接入；批量生成接口已进入 E2-5B-4 专项设计，但仍未接入真实幂等。
 
 本阶段不需要调整 `first-release-regression runner`。后续实施时扩展现有 `first-release-leasing.mjs` 即可，因为该脚本已经能构造合同、应收、收款和核销链路。
