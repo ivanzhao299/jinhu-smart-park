@@ -71,6 +71,7 @@ export class LeasingPaymentsController {
   }
 
   @Delete(":id")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_PAYMENT_DELETE)
   @AuditLog({ module: "租赁收款", resource: "biz.leasing_payment", action: "删除", bizType: "biz_leasing_payment", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {

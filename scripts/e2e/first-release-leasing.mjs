@@ -1189,16 +1189,60 @@ async function assertReceivableNotInList(authHeaders, contractId, receivable, la
 async function exerciseReceivableSoftDeleteAllowed(authHeaders, receivable, contractId) {
   const before = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before soft delete");
   if (!before) return false;
+
+  const missingKey = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "DELETE",
+    headers: authHeaders
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("delete-receivable-allowed");
   const deleted = await request(`/leasing/receivables/${receivable.id}`, {
     method: "DELETE",
     headers: {
       ...authHeaders,
-      "x-idempotency-key": buildIdempotencyKey("delete-receivable-allowed")
+      "x-idempotency-key": idempotencyKey
     }
   });
-  if (!expectStatus("DELETE /leasing/receivables/:id allowed soft delete", deleted.response.status, [200, 204], deleted.body)) {
+  if (!expectStatus("DELETE /leasing/receivables/:id first request", deleted.response.status, [200, 204], deleted.body)) {
     return false;
   }
+  const firstData = unwrapData(deleted.body);
+  if (firstData?.id && firstData.id !== receivable.id) {
+    fail(`DELETE /leasing/receivables/:id first request returned unexpected id; body=${summarizeBody(deleted.body)}`);
+    return false;
+  }
+
+  const replay = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id replay", replay.response.status, deleted.response.status, replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (firstData?.id && replayData?.id !== firstData.id) {
+    fail(`DELETE /leasing/receivables/:id replay expected same id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  pass("DELETE /leasing/receivables/:id replay returned cached soft delete response");
+
+  const conflict = await request(`/leasing/receivables/${receivable.id}?reason=changed`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
+
   const detailAfterDelete = await request(`/leasing/receivables/${receivable.id}`, { headers: authHeaders });
   if (![404].includes(detailAfterDelete.response.status)) {
     fail(`GET /leasing/receivables/:id after soft delete expected 404, got ${detailAfterDelete.response.status}; body=${summarizeBody(detailAfterDelete.body)}`);
@@ -1211,16 +1255,29 @@ async function exerciseReceivableSoftDeleteAllowed(authHeaders, receivable, cont
 async function exerciseReceivableSoftDeleteStateProtection(authHeaders, receivable) {
   const before = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id before protected soft delete");
   if (!before) return false;
+  const idempotencyKey = buildIdempotencyKey("delete-receivable-protected");
   const rejected = await request(`/leasing/receivables/${receivable.id}`, {
     method: "DELETE",
     headers: {
       ...authHeaders,
-      "x-idempotency-key": buildIdempotencyKey("delete-receivable-protected")
+      "x-idempotency-key": idempotencyKey
     }
   });
   if (!expectStatus("DELETE /leasing/receivables/:id protected receivable", rejected.response.status, 400, rejected.body)) {
     return false;
   }
+  const retry = await request(`/leasing/receivables/${receivable.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/receivables/:id protected receivable retry", retry.response.status, 400, retry.body)) {
+    return false;
+  }
+  pass("DELETE /leasing/receivables/:id protected retry remained failed instead of replaying success");
+
   const after = await getReceivableDetail(authHeaders, receivable.id, "GET /leasing/receivables/:id after protected soft delete");
   if (!after) return false;
   if (receivableField(after, "status") === "90") {
@@ -1462,16 +1519,60 @@ async function assertPaymentNotInList(authHeaders, payment, parkTenantId, label)
 async function exercisePaymentSoftDeleteAllowed(authHeaders, payment, parkTenantId) {
   const before = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id before soft delete");
   if (!before) return false;
+
+  const missingKey = await request(`/leasing/payments/${payment.id}`, {
+    method: "DELETE",
+    headers: authHeaders
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("delete-payment-allowed");
   const deleted = await request(`/leasing/payments/${payment.id}`, {
     method: "DELETE",
     headers: {
       ...authHeaders,
-      "x-idempotency-key": buildIdempotencyKey("delete-payment-allowed")
+      "x-idempotency-key": idempotencyKey
     }
   });
-  if (!expectStatus("DELETE /leasing/payments/:id allowed soft delete", deleted.response.status, [200, 204], deleted.body)) {
+  if (!expectStatus("DELETE /leasing/payments/:id first request", deleted.response.status, [200, 204], deleted.body)) {
     return false;
   }
+  const firstData = unwrapData(deleted.body);
+  if (firstData?.id && firstData.id !== payment.id) {
+    fail(`DELETE /leasing/payments/:id first request returned unexpected id; body=${summarizeBody(deleted.body)}`);
+    return false;
+  }
+
+  const replay = await request(`/leasing/payments/${payment.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id replay", replay.response.status, deleted.response.status, replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (firstData?.id && replayData?.id !== firstData.id) {
+    fail(`DELETE /leasing/payments/:id replay expected same id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  pass("DELETE /leasing/payments/:id replay returned cached soft delete response");
+
+  const conflict = await request(`/leasing/payments/${payment.id}?reason=changed`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
+
   const detailAfterDelete = await request(`/leasing/payments/${payment.id}`, { headers: authHeaders });
   if (![404].includes(detailAfterDelete.response.status)) {
     fail(`GET /leasing/payments/:id after soft delete expected 404, got ${detailAfterDelete.response.status}; body=${summarizeBody(detailAfterDelete.body)}`);
@@ -1484,16 +1585,29 @@ async function exercisePaymentSoftDeleteAllowed(authHeaders, payment, parkTenant
 async function exercisePaymentSoftDeleteStateProtection(authHeaders, payment) {
   const before = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id before protected soft delete");
   if (!before) return false;
+  const idempotencyKey = buildIdempotencyKey("delete-payment-protected");
   const rejected = await request(`/leasing/payments/${payment.id}`, {
     method: "DELETE",
     headers: {
       ...authHeaders,
-      "x-idempotency-key": buildIdempotencyKey("delete-payment-protected")
+      "x-idempotency-key": idempotencyKey
     }
   });
   if (!expectStatus("DELETE /leasing/payments/:id protected payment", rejected.response.status, 400, rejected.body)) {
     return false;
   }
+  const retry = await request(`/leasing/payments/${payment.id}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders,
+      "x-idempotency-key": idempotencyKey
+    }
+  });
+  if (!expectStatus("DELETE /leasing/payments/:id protected payment retry", retry.response.status, 400, retry.body)) {
+    return false;
+  }
+  pass("DELETE /leasing/payments/:id protected retry remained failed instead of replaying success");
+
   const after = await getPaymentDetail(authHeaders, payment.id, "GET /leasing/payments/:id after protected soft delete");
   if (!after) return false;
   if (after.status === "90") {

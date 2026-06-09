@@ -34,6 +34,8 @@
 | `POST /users/:id/reset-password` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `POST /users/:id/roles` | users | 是 | 是 | 是 | 是 | `first-release-users-assets.mjs` 已覆盖 missing key / replay / conflict |
 | `PUT /leasing/receivables/:id` | leasing-receivables | 是 | 是 | 是 | 是 | E2-5B-2C 已覆盖 missing key / replay / conflict，字段 / 状态保护仍生效 |
+| `DELETE /leasing/receivables/:id` | leasing-receivables | 是 | 是 | 是 | 是 | E2-5B-3B 已覆盖 missing key / replay / query conflict / failed retry，softDelete 保护仍生效 |
+| `DELETE /leasing/payments/:id` | leasing-payments | 是 | 是 | 是 | 是 | E2-5B-3B 已覆盖 missing key / replay / query conflict / failed retry，softDelete 保护仍生效 |
 | `POST /users` | users | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
 
 应收 / 收款编辑删除类 P0 缺口已进入 E2-5B 专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
@@ -128,7 +130,7 @@
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
 | `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `PUT /leasing/receivables/:id` | 修改应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-2C 已完成，字段 / 状态保护仍生效 |
-| `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | E2-5B-3A 已完成语义保护，仍未接 interceptor |
+| `DELETE /leasing/receivables/:id` | 删除应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-3B 已完成；仍仅代表未发生财务活动记录的 softDelete，不代表冲销流程 |
 
 ### 4.7 Leasing Payments
 
@@ -137,9 +139,9 @@
 | `POST /leasing/payments` | 新增收款 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `POST /leasing/payments/:id/apply` | 收款核销 | 已接 interceptor | P0 | 已完成本批 | 资金与应收核销相关，已具备真实 replay / conflict 语义 |
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
-| `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | E2-5B-3A 已完成语义保护，仍未接 interceptor；payment status log 仍待治理 |
+| `DELETE /leasing/payments/:id` | 删除收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-3B 已完成；payment status log 仍待治理 |
 
-> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口已完成 E2-5B-3A 删除 / 作废语义保护，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍暂缓专项设计。
+> E2-5B-1 / E2-5B-2C / E2-5B-3B 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、`DELETE /leasing/receivables/:id` 与 `DELETE /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口仍保持 softDelete + void 语义，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -199,6 +201,7 @@
   - 已增加合同房源关联 `POST /leasing/contracts/:contractId/units` 的 replay / conflict
   - 已增加 `POST /leasing/contracts/:id/effective` 的 replay / conflict
   - 已增加 `POST /leasing/payments/:id/apply` 的 replay / conflict
+  - 已增加 `DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id` 的 replay / query conflict / failed retry
 - 保持 `scripts/e2e/first-release-regression.mjs` 继续串行调用现有脚本
 
 回归断言原则：
@@ -276,12 +279,12 @@
   - `apps/api/src/modules/leasing-payments/leasing-payments.service.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 当前设计文档：[receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
-- 风险：当前两个 DELETE 实际都是软删除 + void，不是物理删除；如果直接接幂等，会先绕开“删除 / 作废 / 冲销”业务口径确认
+- 风险：当前两个 DELETE 实际都是软删除 + void，不是物理删除；幂等接入只解决重复请求，不等价于作废 / 冲销 / 反核销业务流程
 - 后续拆分：
-  - E2-5B-3A：已完成删除 / 作废语义保护实施，暂未接 interceptor
-  - E2-5B-3B：删除 / 作废幂等接入，确认 DELETE 或 POST void action 后补 replay
+  - E2-5B-3A：已完成删除 / 作废语义保护实施
+  - E2-5B-3B：已完成删除 / 作废幂等接入，DELETE same key replay 不变 404，same key different query 返回 `409`
   - E2-5B-3C：作废 / 冲销 / 反核销专项设计
-- 验收标准：未发生财务活动记录的删除 / 作废口径已明确；已核销、已开票、已减免、有 application 记录的对象已明确拒绝；接入幂等前仍需完成 E2-5B-3B 口径确认
+- 验收标准：未发生财务活动记录的删除 / 作废口径已明确；已核销、已开票、已减免、有 application 记录的对象已明确拒绝；DELETE replay / conflict / failed retry 已由 `first-release-leasing.mjs` 覆盖
 
 ### E2-6：文件写接口专项设计
 
