@@ -329,8 +329,9 @@ pnpm regression:leasing
   - 工单创建
   - 列表回读
   - 详情回读
+  - 工单派单幂等：missing key / first request / replay / conflict
 - 暂缓范围：
-  - 工单状态流转
+  - 其它工单状态流转
   - SLA / 超时
   - 附件绑定
   - 评论 / 处理记录
@@ -355,14 +356,14 @@ pnpm regression:leasing
   - 应收生成
   - 应收查询
   - 收款登记
+  - 收款核销幂等：missing key / first request / replay / conflict
   - 收款查询
 - 对租赁链路数据依赖的说明：
   - 当前本地库未发现可直接复用的 park tenant / building / floor / unit 数据，因此脚本会自动创建一条带 `TEST_RUN_ID` 前缀的最小闭环数据。
   - 脚本优先查询已有同名测试数据，若不存在则自举创建。
   - 合同、应收、收款写接口均保留 `X-Idempotency-Key`。
 - 暂缓范围：
-  - 工单派单幂等
-  - 收款核销幂等
+  - 工单其它状态流转幂等
   - 合同审批流深化
   - 合同生效后的变更
   - 合同作废

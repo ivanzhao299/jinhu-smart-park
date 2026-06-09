@@ -734,6 +734,111 @@ async function queryPayment(authHeaders, paymentId, parkTenantId) {
   return true;
 }
 
+async function listPaymentApplications(authHeaders, paymentId) {
+  const result = await request(`/leasing/payments/${paymentId}/applications`, {
+    headers: authHeaders
+  });
+  if (!expectStatus("GET /leasing/payments/:id/applications", result.response.status, 200, result.body)) return null;
+  const items = listItems(result.body);
+  pass(`GET /leasing/payments/:id/applications returned ${items.length} item(s)`);
+  return items;
+}
+
+function buildPaymentApplyPayload(receivableId, appliedAmount) {
+  return {
+    applications: [
+      {
+        receivable_id: receivableId,
+        applied_amount: appliedAmount
+      }
+    ]
+  };
+}
+
+async function exercisePaymentApplyIdempotency(authHeaders, payment, receivable) {
+  const receivableId = receivable?.id;
+  if (typeof receivableId !== "string" || receivableId.length === 0) {
+    fail("payment apply idempotency test requires a receivable id");
+    return false;
+  }
+
+  const payload = buildPaymentApplyPayload(receivableId, 0.01);
+  const missingKey = await request(`/leasing/payments/${payment.id}/apply`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/payments/:id/apply missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("apply-payment");
+  const first = await request(`/leasing/payments/${payment.id}/apply`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/payments/:id/apply first request", first.response.status, [200, 201], first.body)) {
+    return false;
+  }
+  const firstData = unwrapData(first.body);
+  if (firstData?.id !== payment.id) {
+    fail(`POST /leasing/payments/:id/apply first request did not return expected payment id; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+  pass(`POST /leasing/payments/:id/apply applied payment ${payment.id}`);
+
+  const replay = await request(`/leasing/payments/${payment.id}/apply`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/payments/:id/apply replay", replay.response.status, [200, 201], replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== firstData.id) {
+    fail(`POST /leasing/payments/:id/apply replay expected same payment id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  pass("POST /leasing/payments/:id/apply replay returned cached response");
+
+  const applications = await listPaymentApplications(authHeaders, payment.id);
+  if (!applications) return false;
+  const matches = applications.filter((item) => (item?.receivableId ?? item?.receivable_id ?? item?.receivable?.id) === receivableId);
+  if (matches.length !== 1) {
+    fail(`POST /leasing/payments/:id/apply replay created duplicate application rows; count=${matches.length}`);
+    return false;
+  }
+  pass("GET /leasing/payments/:id/applications confirmed no duplicate application for replay");
+
+  const conflict = await request(`/leasing/payments/${payment.id}/apply`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(buildPaymentApplyPayload(receivableId, 0.02))
+  });
+  if (!expectStatus("POST /leasing/payments/:id/apply conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
+
+  return true;
+}
+
 async function run() {
   info(`API base: ${apiBaseUrl}`);
   info(`Test run: ${testRunId}`);
@@ -810,6 +915,8 @@ async function run() {
 
   const payment = await createPayment(authHeaders, parkTenant.id);
   if (!payment?.id) return;
+  const paymentApplyOk = await exercisePaymentApplyIdempotency(authHeaders, payment, receivables[0]);
+  if (!paymentApplyOk) return;
   const paymentOk = await queryPayment(authHeaders, payment.id, parkTenant.id);
   if (!paymentOk) return;
 

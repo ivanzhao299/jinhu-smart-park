@@ -112,6 +112,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/assign")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_ASSIGN)
   @AuditLog({ module: "工单管理", resource: "biz.work_order", action: "派单", bizType: "biz_work_order", bizIdParam: "id" })
   assign(

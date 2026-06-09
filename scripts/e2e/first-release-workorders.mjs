@@ -127,6 +127,126 @@ function findWorkOrder(items, targetId, targetCode, targetTitle) {
   return items.find((item) => item?.id === targetId || item?.woCode === targetCode || item?.title === targetTitle || item?.wo_code === targetCode);
 }
 
+function extractAssigneeId(item) {
+  return item?.assigneeId ?? item?.assignee_id ?? item?.assignee?.id ?? null;
+}
+
+function buildAssignPayload(currentUserId) {
+  return {
+    assignee_id: currentUserId,
+    reason: `First release work order assignment ${testRunId}`
+  };
+}
+
+async function fetchCurrentUser(authHeaders) {
+  const current = await request("/auth/me", { headers: authHeaders });
+  if (!expectStatus("GET /auth/me", current.response.status, 200, current.body)) {
+    return null;
+  }
+  const currentUser = unwrapData(current.body);
+  if (typeof currentUser?.id !== "string" || currentUser.id.length === 0) {
+    fail(`GET /auth/me did not return user id; body=${summarizeBody(current.body)}`);
+    return null;
+  }
+  pass(`GET /auth/me confirmed ${currentUser.username ?? currentUser.id}`);
+  return currentUser;
+}
+
+async function exerciseAssignIdempotency(authHeaders, workOrderId, currentUserId) {
+  const payload = buildAssignPayload(currentUserId);
+
+  const missingKey = await request(`/work-orders/${workOrderId}/assign`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /work-orders/:id/assign missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("assign-work-order");
+  const first = await request(`/work-orders/${workOrderId}/assign`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /work-orders/:id/assign first request", first.response.status, [200, 201], first.body)) {
+    return false;
+  }
+
+  const firstData = unwrapData(first.body);
+  if (firstData?.id !== workOrderId) {
+    fail(`POST /work-orders/:id/assign first request did not return expected work order id; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+  if (extractAssigneeId(firstData) !== currentUserId) {
+    fail(`POST /work-orders/:id/assign first request did not assign expected user; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+  pass(`POST /work-orders/:id/assign assigned ${currentUserId}`);
+
+  const replay = await request(`/work-orders/${workOrderId}/assign`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /work-orders/:id/assign replay", replay.response.status, [200, 201], replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== firstData.id) {
+    fail(`POST /work-orders/:id/assign replay expected same work order id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  if (extractAssigneeId(replayData) !== currentUserId) {
+    fail(`POST /work-orders/:id/assign replay did not preserve assignee; body=${summarizeBody(replay.body)}`);
+    return false;
+  }
+  pass("POST /work-orders/:id/assign replay returned cached response");
+
+  const detail = await request(`/work-orders/${workOrderId}`, {
+    headers: authHeaders
+  });
+  if (!expectStatus("GET /work-orders/:id after assign", detail.response.status, 200, detail.body)) {
+    return false;
+  }
+  const detailData = unwrapData(detail.body);
+  if (detailData?.id !== workOrderId || extractAssigneeId(detailData) !== currentUserId) {
+    fail(`GET /work-orders/:id after assign did not confirm expected assignee; body=${summarizeBody(detail.body)}`);
+    return false;
+  }
+  pass("GET /work-orders/:id after assign confirmed assignee state");
+
+  const conflict = await request(`/work-orders/${workOrderId}/assign`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify({
+      ...payload,
+      reason: `${payload.reason} conflict`
+    })
+  });
+  if (!expectStatus("POST /work-orders/:id/assign conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
+
+  return true;
+}
+
 async function run() {
   info(`API base: ${apiBaseUrl}`);
   info(`Test run: ${testRunId}`);
@@ -144,6 +264,8 @@ async function run() {
   const authHeaders = {
     authorization: `Bearer ${accessToken}`
   };
+  const currentUser = await fetchCurrentUser(authHeaders);
+  if (!currentUser?.id) return;
 
   const beforeList = await request(`/work-orders?page=1&page_size=10&keyword=${encodeURIComponent(testRunId)}`, {
     headers: authHeaders
@@ -210,6 +332,9 @@ async function run() {
     return;
   }
   pass(`GET /work-orders/:id confirmed ${createdCode}`);
+
+  const assignOk = await exerciseAssignIdempotency(authHeaders, createdId, currentUser.id);
+  if (!assignOk) return;
 
   console.log("[PASS] first release workorders regression completed");
 }
