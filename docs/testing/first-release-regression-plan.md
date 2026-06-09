@@ -262,6 +262,8 @@ pnpm regression:leasing
 
 - 目标：先把最关键的“能登录、能存活、能进入系统”验证固定下来。
 - 建议文件：`scripts/e2e/regression-auth.mjs`、`scripts/e2e/regression-health.mjs`
+- 当前落地：`scripts/e2e/first-release-auth-health.mjs`
+- 执行命令：`node scripts/e2e/first-release-auth-health.mjs`
 - 验证方式：登录成功/失败、`/health`、`/ready`、bootstrap-admin 后可登录。
 - 风险点：依赖环境变量和 bootstrap-admin 状态，需固定测试账号。
 
@@ -362,4 +364,3 @@ pnpm regression:leasing
   - 保持数据前缀和清理策略统一。
 - 验收标准：
   - 形成第二批稳定回归包。
-
