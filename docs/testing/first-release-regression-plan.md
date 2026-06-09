@@ -335,6 +335,39 @@ pnpm regression:leasing
   - leasing contract / receivables / payments
   - 浏览器 E2E
 
+#### C2-4c：leasing contract / receivables / payments regression
+
+- 状态：已落地
+- 脚本：`scripts/e2e/first-release-leasing.mjs`
+- 执行命令：`node scripts/e2e/first-release-leasing.mjs`
+- 当前覆盖范围：
+  - 登录
+  - 读取合同列表
+  - 创建测试租户企业
+  - 创建测试楼栋 / 楼层 / 房源
+  - 创建合同草稿
+  - 合同房源关联
+  - 合同文件上传
+  - 合同提交 / 审批 / 归档 / 生效
+  - 应收生成
+  - 应收查询
+  - 收款登记
+  - 收款查询
+- 对租赁链路数据依赖的说明：
+  - 当前本地库未发现可直接复用的 park tenant / building / floor / unit 数据，因此脚本会自动创建一条带 `TEST_RUN_ID` 前缀的最小闭环数据。
+  - 脚本优先查询已有同名测试数据，若不存在则自举创建。
+  - 合同、应收、收款写接口均保留 `X-Idempotency-Key`。
+- 暂缓范围：
+  - 合同审批流深化
+  - 合同生效后的变更
+  - 合同作废
+  - 退款
+  - 豁免
+  - 发票
+  - 欠费账龄
+  - 多合同批量生成
+  - 浏览器 E2E
+
 ## 14. 建议 Issue 列表
 
 ### Issue 1
