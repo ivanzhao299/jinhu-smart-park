@@ -4,7 +4,7 @@
 
 本文用于分析应收 / 收款编辑删除类 P0 接口是否适合接入当前幂等机制，并制定安全实施顺序。
 
-本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐。
+本文最初用于 E2-5B 设计和风险分层。E2-5B-1 已按本设计完成 `POST /leasing/receivables` 与 `PUT /leasing/payments/:id` 的真实幂等接入和回归补齐；E2-5B-3 已补充应收 / 收款删除与作废语义设计，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)。
 
 ## 2. 当前幂等机制边界
 
@@ -31,9 +31,9 @@
 | `POST /leasing/receivables/generate-batch` | `leasing-receivables` | `LeasingReceivablesController.generateBatch` | 仅 guard | 按合同批量生成应收 | 是 | 不建议直接第一批接入 | P0 | 批量生成专项设计 |
 | `POST /leasing/receivables` | `leasing-receivables` | `LeasingReceivablesController.create` | 已接 interceptor | 手工创建应收 | 是 | 是 | 已完成 | E2-5B-1 已接入并回归 |
 | `PUT /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.update` | 已接 interceptor | 修改应收备注 / 到期日 | 是 | 是，已完成字段 / 状态保护 | 已完成 | E2-5B-2C 已接入并回归 |
-| `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除语义需确认 | P0 | 删除 / 作废专项设计 |
+| `DELETE /leasing/receivables/:id` | `leasing-receivables` | `LeasingReceivablesController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除 / 作废语义需先确认 | P0 | E2-5B-3 已进入删除 / 作废专项设计 |
 | `PUT /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.update` | 已接 interceptor | 修改收款金额 / 方式 / 凭证等 | 是 | 是，已优先覆盖未核销收款 | 已完成 | E2-5B-1 已接入并回归 |
-| `DELETE /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除语义需确认 | P0 | 删除 / 作废专项设计 |
+| `DELETE /leasing/payments/:id` | `leasing-payments` | `LeasingPaymentsController.remove` | 仅 guard | 软删除并置为 void | 是 | 技术上可接入，但删除 / 作废语义需先确认 | P0 | E2-5B-3 已进入删除 / 作废专项设计 |
 
 ## 4. 接口逐项分析
 
@@ -78,7 +78,7 @@
 - replay 语义：same key replay 应返回第一次 `{ id }` 响应，不能第二次真实执行删除逻辑。
 - conflict 语义：body 为空时没有有意义的 conflict payload，除非 query/body 被显式引入。
 - 业务状态前置校验：已有部分保护，但删除 / 作废是否允许作为首发财务动作仍需产品 / 财务确认。
-- 推荐处理方式：不建议第一批直接接入；先将“删除”口径明确为作废 / 冲销 / 撤销，并补充业务验收。
+- 推荐处理方式：不建议直接接入；先按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 将“删除”口径明确为作废 / 冲销 / 撤销，并补充业务验收。
 - 回归测试建议：后续使用独立未核销应收验证 replay；已核销 / 已开票应收应断言拒绝删除。
 
 ### 4.5 `PUT /leasing/payments/:id`
@@ -100,7 +100,7 @@
 - replay 语义：same key replay 应返回第一次 `{ id }` 响应，不能第二次真实执行删除逻辑。
 - conflict 语义：body 为空时通常没有有意义的 conflict payload。
 - 业务状态前置校验：已有“已核销收款不可删除”的保护，但删除是否应改名为作废 / 冲销需产品 / 财务确认。
-- 推荐处理方式：不建议第一批直接接入；纳入删除 / 作废语义专项设计。
+- 推荐处理方式：不建议直接接入；纳入 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 的删除 / 作废语义专项设计。
 - 回归测试建议：后续使用独立未核销收款验证 replay；已核销收款应断言拒绝删除。
 
 ## 5. 第一批实施建议
@@ -124,8 +124,8 @@ E2-5B-1 已完成最小 PR 范围：
 
 | 接口 | 暂缓原因 | 后续方向 |
 |---|---|---|
-| `DELETE /leasing/receivables/:id` | 当前是软删除 + void，属于财务作废语义；已核销 / 已减免 / 已开票保护已有，但产品口径仍需确认 | 删除 / 作废专项设计 |
-| `DELETE /leasing/payments/:id` | 当前是软删除 + void，已核销收款不可删；需确认是否应改为作废 / 冲销流程 | 删除 / 作废专项设计 |
+| `DELETE /leasing/receivables/:id` | 当前是软删除 + void，属于财务作废语义；已核销 / 已减免 / 已开票保护已有，但产品口径仍需确认 | E2-5B-3 删除 / 作废专项设计，见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) |
+| `DELETE /leasing/payments/:id` | 当前是软删除 + void，已核销收款不可删；需确认是否应改为作废 / 冲销流程 | E2-5B-3 删除 / 作废专项设计，见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) |
 | `POST /leasing/receivables/generate-batch` | 批量部分成功、跳过、失败行语义复杂；直接套 interceptor 容易掩盖 per-contract 状态 | 批量生成专项设计 |
 
 这些接口不是不重要，而是“不应该急着用通用锤子敲”。它们需要先把账务语义说清楚，再做幂等接入和回归。
@@ -171,9 +171,10 @@ E2-5B-1 已完成最小 PR 范围：
 
 - 目标接口：`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id`
 - 风险：财务记录删除不应被误解为物理删除，且可能需要冲销 / 作废审计
-- 是否改业务逻辑：待产品 / 财务口径确认后决定
-- 是否接入 interceptor：确认语义后再接
-- 回归验收标准：未核销对象可作废 replay；已核销 / 已开票对象明确拒绝
+- 当前状态：E2-5B-3 已完成只读语义确认，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
+- 是否改业务逻辑：待产品 / 财务口径确认后决定，建议先做 E2-5B-3A 语义保护实施
+- 是否接入 interceptor：确认语义后再接，建议放入 E2-5B-3B
+- 回归验收标准：未核销对象可删除 / 作废；已核销 / 已开票对象明确拒绝；如后续接幂等，same key replay 不二次执行
 
 ### E2-5B-4：批量生成专项设计
 
@@ -198,6 +199,6 @@ E2-5B-1 的最小安全子集已完成：
 1. `POST /leasing/receivables`
 2. `PUT /leasing/payments/:id`
 
-`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。下一步继续保留删除类接口和批量生成接口专项设计，不把它们误标为已完成。
+`PUT /leasing/receivables/:id` 已完成 E2-5B-2C 真实幂等接入和 replay / conflict 回归。删除类接口已进入 E2-5B-3 删除 / 作废语义专项设计，但仍未接入真实幂等；批量生成接口继续暂缓专项设计，不把它们误标为已完成。
 
 本阶段不需要调整 `first-release-regression runner`。后续实施时扩展现有 `first-release-leasing.mjs` 即可，因为该脚本已经能构造合同、应收、收款和核销链路。
