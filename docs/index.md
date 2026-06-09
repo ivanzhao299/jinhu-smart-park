@@ -1,0 +1,66 @@
+# JinHu Smart Park 文档索引
+
+本索引用于整理仓库内正式文档入口，帮助新人、开发、测试、运维和发布负责人快速定位材料。
+
+## 1. 新人接手
+
+- 项目总入口：[README.md](../README.md)
+- 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
+- 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
+- 生产部署入口：[deployment/production.md](deployment/production.md)
+
+## 2. 开发与本地运行
+
+- 环境变量模板：仓库根目录 `.env.example`、`.env.production.example`
+- 数据库初始化与生产基线：[deployment/production.md](deployment/production.md)
+- 生产 migration 执行策略：[release/production-migration-execution-policy.md](release/production-migration-execution-policy.md)
+- 本地开发细节：当前以 `README.md` 和现有脚本为入口，模块边界专项文档待后续补充
+
+## 3. 测试与回归
+
+- 测试运行手册：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
+- 首发核心回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
+- 测试总览旧文档：[testing/README.md](testing/README.md)
+- 现有阶段性测试材料：
+  - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)
+  - [testing/s1-governance-hardening.md](testing/s1-governance-hardening.md)
+  - [testing/s1-self-test.md](testing/s1-self-test.md)
+
+当前首发统一回归入口：
+
+```bash
+node scripts/e2e/first-release-regression.mjs
+```
+
+## 4. 部署与运维
+
+- 生产部署说明：[deployment/production.md](deployment/production.md)
+- 运维排障手册：[deployment/troubleshooting.md](deployment/troubleshooting.md)
+
+## 5. 发布与回滚
+
+- [生产上线 SOP](release/production-release-sop.md)
+- [生产回滚 SOP](release/production-rollback-sop.md)
+- [Go-Live Checklist](release/production-go-live-checklist.md)
+- [Go-Live Readiness](release/production-go-live-readiness.md)
+- [生产发布参数检查清单](release/production-release-params-checklist.md)
+- [生产 Migration 执行策略](release/production-migration-execution-policy.md)
+- [Migration history/checksum 设计](release/migration-history-checksum-design.md)
+- [预发布验收报告](release/pre-release-acceptance-report.md)
+- [Final Go 验证](release/pre-release-final-go-validation.md)
+
+## 6. 架构与治理
+
+- [仓库二次质量复审报告](release/repository-quality-audit-report.md)
+- [首发核心自动化回归包设计](testing/first-release-regression-plan.md)
+- [Migration history/checksum 设计](release/migration-history-checksum-design.md)
+- 架构专项资料：
+  - [architecture/auth-center-roadmap.md](architecture/auth-center-roadmap.md)
+  - [architecture/saas-rbac-std.md](architecture/saas-rbac-std.md)
+  - [architecture/supplement-integration.md](architecture/supplement-integration.md)
+
+## 7. 历史 Handover 资料
+
+早期 handover、阶段性审查和上线签字模板等材料位于仓库外项目交接目录中，不作为本 Git 仓库正式文档入口。
+
+当前仓库内的正式文档入口以 [README.md](../README.md) 和本索引为准。
