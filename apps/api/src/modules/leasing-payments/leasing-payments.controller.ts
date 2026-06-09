@@ -58,6 +58,7 @@ export class LeasingPaymentsController {
   }
 
   @Put(":id")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_PAYMENT_UPDATE)
   @AuditLog({ module: "租赁收款", resource: "biz.leasing_payment", action: "修改", bizType: "biz_leasing_payment", bizIdParam: "id" })
   update(

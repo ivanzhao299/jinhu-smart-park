@@ -28,6 +28,8 @@
 | `POST /leasing/payments/:id/apply` | leasing-payments | E2-2 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 | `POST /users/:id/reset-password` | users | E2-5A | 是 | 是 | `first-release-users-assets.mjs` | 已完成 |
 | `POST /users/:id/roles` | users | E2-5A | 是 | 是 | `first-release-users-assets.mjs` | 已完成 |
+| `POST /leasing/receivables` | leasing-receivables | E2-5B-1 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
+| `PUT /leasing/payments/:id` | leasing-payments | E2-5B-1 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 
 ## 4. 回归覆盖状态
 
@@ -36,7 +38,7 @@
 | `first-release-idempotency.mjs` | `POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict |
 | `first-release-workorders.mjs` | `POST /work-orders/:id/assign` 的 missing key / first request / replay / conflict |
 | `first-release-users-assets.mjs` | `POST /users` 创建、`POST /users/:id/reset-password`、`POST /users/:id/roles` 的 missing key / first request / replay / conflict，同时保留 users list / assets read 回归 |
-| `first-release-leasing.mjs` | `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments`、`POST /leasing/contracts/:contractId/units`、`POST /leasing/contracts/:id/effective`、`POST /leasing/payments/:id/apply` 的 missing key / first request / replay / conflict |
+| `first-release-leasing.mjs` | `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments`、`POST /leasing/contracts/:contractId/units`、`POST /leasing/contracts/:id/effective`、`POST /leasing/payments/:id/apply`、`POST /leasing/receivables`、`PUT /leasing/payments/:id` 的 missing key / first request / replay / conflict |
 | `first-release-regression.mjs` | 串行覆盖上述所有子脚本 |
 
 ## 5. 已接入但 replay / conflict 不完整的接口
@@ -59,10 +61,10 @@
 | 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
 |---|---|---|---|---|---|
 | `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是 | 需专项确认 | 中 | E2-5B 设计 |
-| `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 是 | 是 | 低 | E2-5B-1 |
+| `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 已完成 | 是 | 低 | E2-5B-1 |
 | `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 是 | 技术适合，但需状态保护 | 低 | E2-5B-1 |
 | `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
-| `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 是 | 是 | 低 | E2-5B-2 |
+| `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 已完成 | 是 | 低 | E2-5B-1 |
 | `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
 
 ## 7. 剩余 P1 缺口
@@ -118,6 +120,6 @@
 ## 10. Go / No-Go 判断
 
 - 是否阻塞首发上线：是，至少在幂等维度上仍有 P0 缺口。
-- 必须在上线前修的风险：收款 / 应收写接口；用户权限变更已在 E2-5A 完成。
+- 必须在上线前修的风险：`PUT /leasing/receivables/:id` 仍需业务状态保护后接入；删除类和批量生成接口需按专项口径风险接受或后续治理。用户权限变更、应收创建、收款修改已完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
 - 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。

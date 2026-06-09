@@ -113,6 +113,8 @@ function findItemByIdOrCode(items, id, code, altCode, name) {
       item?.contract_code === code ||
       item?.payCode === code ||
       item?.pay_code === code ||
+      item?.arCode === code ||
+      item?.ar_code === code ||
       item?.code === code ||
       item?.code === altCode ||
       item?.contractName === name ||
@@ -385,6 +387,39 @@ function buildPaymentPayload(parkTenantId) {
     bank_serial: `BANK-${buildSuffix().slice(0, 12)}`,
     status: "10",
     remark: `First release leasing regression ${testRunId}`
+  };
+}
+
+function buildManualReceivablePayload(contract, parkTenantId, options = {}) {
+  const codes = buildCodes("AR");
+  const periodStart = buildDate(options.offsetDays ?? 370);
+  const periodEnd = buildDate(options.offsetDays ?? 370);
+  const amountDue = options.amountDue ?? 0.99;
+  return {
+    ar_code: codes.code,
+    contract_id: contract.id,
+    park_tenant_id: parkTenantId,
+    fee_type: options.feeType ?? "90",
+    period_start: periodStart,
+    period_end: periodEnd,
+    due_date: periodEnd,
+    amount_due: amountDue,
+    amount_paid: 0,
+    amount_waived: 0,
+    late_fee: 0,
+    invoice_status: "10",
+    source_type: "manual",
+    remark: `First release manual receivable ${testRunId}`
+  };
+}
+
+function buildPaymentUpdatePayload(payment, options = {}) {
+  return {
+    pay_amount: options.payAmount ?? 1.23,
+    pay_method: options.payMethod ?? "bank_transfer",
+    payer_name: payment.payerName ?? payment.payer_name ?? `First release payment ${testRunId}`,
+    bank_serial: `UPD-${buildSuffix().slice(0, 12)}`,
+    remark: options.remark ?? `First release payment update ${testRunId}`
   };
 }
 
@@ -824,7 +859,98 @@ async function queryReceivables(authHeaders, contractId) {
   return items;
 }
 
-async function createPayment(authHeaders, parkTenantId) {
+async function queryReceivablesByCode(authHeaders, contractId, arCode) {
+  const result = await request(
+    `/leasing/receivables?page=1&page_size=20&contract_id=${contractId}&fee_type=90&keyword=${encodeURIComponent(arCode)}`,
+    { headers: authHeaders }
+  );
+  if (!expectStatus("GET /leasing/receivables by ar_code", result.response.status, 200, result.body)) return null;
+  return listItems(result.body);
+}
+
+async function exerciseReceivableCreateIdempotency(authHeaders, contract, parkTenantId) {
+  const payload = buildManualReceivablePayload(contract, parkTenantId);
+  const missingKey = await request("/leasing/receivables", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return null;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("create-receivable");
+  const first = await request("/leasing/receivables", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables first request", first.response.status, [200, 201], first.body)) {
+    return null;
+  }
+  const created = unwrapData(first.body);
+  if (!created?.id) {
+    fail(`POST /leasing/receivables first request did not return receivable id; body=${summarizeBody(first.body)}`);
+    return null;
+  }
+  pass(`POST /leasing/receivables created receivable ${created.arCode ?? created.ar_code ?? created.id}`);
+
+  const replay = await request("/leasing/receivables", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables replay", replay.response.status, [200, 201], replay.body)) {
+    return null;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== created.id) {
+    fail(`POST /leasing/receivables replay expected same receivable id, got ${replayData?.id} vs ${created.id}`);
+    return null;
+  }
+  pass("POST /leasing/receivables replay returned cached response");
+
+  const receivablesAfterReplay = await queryReceivablesByCode(authHeaders, contract.id, payload.ar_code);
+  if (!receivablesAfterReplay) return null;
+  const matches = receivablesAfterReplay.filter((item) => findItemByIdOrCode([item], created.id, created.arCode ?? created.ar_code, payload.ar_code));
+  if (matches.length !== 1) {
+    fail(`POST /leasing/receivables replay created duplicate receivables; count=${matches.length}`);
+    return null;
+  }
+  pass("GET /leasing/receivables confirmed no duplicate manual receivable for replay");
+
+  const conflict = await request("/leasing/receivables", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify({
+      ...payload,
+      amount_due: payload.amount_due + 1,
+      remark: `${payload.remark} conflict`
+    })
+  });
+  if (!expectStatus("POST /leasing/receivables conflict", conflict.response.status, 409, conflict.body)) {
+    return null;
+  }
+
+  return created;
+}
+
+async function createPayment(authHeaders, parkTenantId, action = "create-payment") {
   const payload = buildPaymentPayload(parkTenantId);
   const missingKey = await request("/leasing/payments", {
     method: "POST",
@@ -843,7 +969,7 @@ async function createPayment(authHeaders, parkTenantId) {
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("create-payment")
+      "x-idempotency-key": buildIdempotencyKey(action)
     },
     body: JSON.stringify(payload)
   });
@@ -860,7 +986,7 @@ async function createPayment(authHeaders, parkTenantId) {
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("create-payment")
+      "x-idempotency-key": buildIdempotencyKey(action)
     },
     body: JSON.stringify(payload)
   });
@@ -891,7 +1017,7 @@ async function createPayment(authHeaders, parkTenantId) {
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("create-payment")
+      "x-idempotency-key": buildIdempotencyKey(action)
     },
     body: JSON.stringify({
       ...payload,
@@ -904,6 +1030,98 @@ async function createPayment(authHeaders, parkTenantId) {
   }
 
   return created;
+}
+
+async function exercisePaymentUpdateIdempotency(authHeaders, payment, parkTenantId) {
+  const payload = buildPaymentUpdatePayload(payment);
+  const missingKey = await request(`/leasing/payments/${payment.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("PUT /leasing/payments/:id missing idempotency key", missingKey.response.status, 400, missingKey.body)) {
+    return false;
+  }
+
+  const idempotencyKey = buildIdempotencyKey("update-payment");
+  const first = await request(`/leasing/payments/${payment.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("PUT /leasing/payments/:id first request", first.response.status, [200, 201], first.body)) {
+    return false;
+  }
+  const firstData = unwrapData(first.body);
+  if (firstData?.id !== payment.id) {
+    fail(`PUT /leasing/payments/:id first request did not return expected payment id; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+  pass(`PUT /leasing/payments/:id updated payment ${payment.id}`);
+
+  const replay = await request(`/leasing/payments/${payment.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("PUT /leasing/payments/:id replay", replay.response.status, [200, 201], replay.body)) {
+    return false;
+  }
+  const replayData = unwrapData(replay.body);
+  if (replayData?.id !== firstData.id) {
+    fail(`PUT /leasing/payments/:id replay expected same payment id, got ${replayData?.id} vs ${firstData.id}`);
+    return false;
+  }
+  pass("PUT /leasing/payments/:id replay returned cached response");
+
+  const detail = await request(`/leasing/payments/${payment.id}`, { headers: authHeaders });
+  if (!expectStatus("GET /leasing/payments/:id after update replay", detail.response.status, 200, detail.body)) return false;
+  const detailData = unwrapData(detail.body);
+  if (!detailData || detailData.id !== payment.id) {
+    fail(`GET /leasing/payments/:id after update replay did not return expected id; body=${summarizeBody(detail.body)}`);
+    return false;
+  }
+  pass("GET /leasing/payments/:id confirmed payment update replay left a single stable payment");
+
+  const list = await request(`/leasing/payments?page=1&page_size=20&park_tenant_id=${parkTenantId}&keyword=${encodeURIComponent(testRunId)}`, {
+    headers: authHeaders
+  });
+  if (!expectStatus("GET /leasing/payments after update replay", list.response.status, 200, list.body)) return false;
+  const matches = listItems(list.body).filter((item) => item?.id === payment.id || item?.payCode === firstData.payCode || item?.pay_code === firstData.payCode);
+  if (matches.length !== 1) {
+    fail(`PUT /leasing/payments/:id replay produced unexpected payment list match count=${matches.length}`);
+    return false;
+  }
+  pass("GET /leasing/payments confirmed no duplicate payment side-effect for update replay");
+
+  const conflict = await request(`/leasing/payments/${payment.id}`, {
+    method: "PUT",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": idempotencyKey
+    },
+    body: JSON.stringify(buildPaymentUpdatePayload(payment, {
+      payAmount: payload.pay_amount + 1,
+      remark: `${payload.remark} conflict`
+    }))
+  });
+  if (!expectStatus("PUT /leasing/payments/:id conflict", conflict.response.status, 409, conflict.body)) {
+    return false;
+  }
+
+  return true;
 }
 
 async function queryPayment(authHeaders, paymentId, parkTenantId) {
@@ -1107,6 +1325,14 @@ async function run() {
     fail(`No receivables returned for contract ${contract.id}`);
     return;
   }
+
+  const manualReceivable = await exerciseReceivableCreateIdempotency(authHeaders, contract, parkTenant.id);
+  if (!manualReceivable?.id) return;
+
+  const paymentForUpdate = await createPayment(authHeaders, parkTenant.id, "create-payment-for-update");
+  if (!paymentForUpdate?.id) return;
+  const paymentUpdateOk = await exercisePaymentUpdateIdempotency(authHeaders, paymentForUpdate, parkTenant.id);
+  if (!paymentUpdateOk) return;
 
   const payment = await createPayment(authHeaders, parkTenant.id);
   if (!payment?.id) return;
