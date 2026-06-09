@@ -128,7 +128,7 @@
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
 | `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `PUT /leasing/receivables/:id` | 修改应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-2C 已完成，字段 / 状态保护仍生效 |
-| `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | 直接影响账务 |
+| `DELETE /leasing/receivables/:id` | 删除应收 | 仅 guard | P0 | 是 | 当前为软删除 + void，已进入 E2-5B-3 删除 / 作废语义设计 |
 
 ### 4.7 Leasing Payments
 
@@ -137,9 +137,9 @@
 | `POST /leasing/payments` | 新增收款 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
 | `POST /leasing/payments/:id/apply` | 收款核销 | 已接 interceptor | P0 | 已完成本批 | 资金与应收核销相关，已具备真实 replay / conflict 语义 |
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
-| `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 直接影响资金记录 |
+| `DELETE /leasing/payments/:id` | 删除收款 | 仅 guard | P0 | 是 | 当前为软删除 + void，已进入 E2-5B-3 删除 / 作废语义设计 |
 
-> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类和批量生成接口暂缓专项设计。
+> E2-5B-1 / E2-5B-2C 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id` 与 `PUT /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口已进入 E2-5B-3 删除 / 作废语义设计，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍暂缓专项设计。
 
 ## 5. 第一批建议补齐范围
 
@@ -268,6 +268,21 @@
 - 风险：当前 update DTO / service 可写入 `amount_paid`、`amount_waived`、`invoice_status`、`status`、租户 / 合同归属和来源追溯字段
 - 验收标准：状态保护已完成；E2-5B-2C 真实幂等接入和 replay / conflict 回归已完成
 
+### E2-5B-3：应收 / 收款删除与作废语义确认
+
+- 目标：确认 `DELETE /leasing/receivables/:id` 与 `DELETE /leasing/payments/:id` 的真实语义、财务状态保护和后续幂等接入前置条件
+- 建议文件：
+  - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
+  - `apps/api/src/modules/leasing-payments/leasing-payments.service.ts`
+  - `scripts/e2e/first-release-leasing.mjs`
+- 当前设计文档：[receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)
+- 风险：当前两个 DELETE 实际都是软删除 + void，不是物理删除；如果直接接幂等，会先绕开“删除 / 作废 / 冲销”业务口径确认
+- 后续拆分：
+  - E2-5B-3A：删除 / 作废语义保护实施，暂不接 interceptor
+  - E2-5B-3B：删除 / 作废幂等接入，确认 DELETE 或 POST void action 后补 replay
+  - E2-5B-3C：作废 / 冲销 / 反核销专项设计
+- 验收标准：未发生财务活动记录的删除 / 作废口径明确；已核销、已开票、已减免、有 application 记录的对象明确拒绝；接入幂等前先完成产品 / 财务口径确认
+
 ### E2-6：文件写接口专项设计
 
 - 目标：单独设计 multipart 文件写接口幂等策略
@@ -350,11 +365,11 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - 删除类接口和批量生成接口仍需专项设计；`PUT /leasing/receivables/:id` 已完成
+   - 删除类接口已进入 E2-5B-3 删除 / 作废语义设计；批量生成接口仍需专项设计；`PUT /leasing/receivables/:id` 已完成
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入 / 批量生成接口
-   - 财务删除 / 作废接口，直到删除语义和状态保护确认
+   - 财务删除 / 作废接口，直到 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 中的删除语义和状态保护确认
    - 非首发模块接口
 3. 当前不需要先改幂等底层机制，现有 `IdempotencyInterceptor` 足以覆盖下一批稳定 JSON 写接口；真正需要单独设计的是 multipart、批量接口和财务删除 / 作废语义
 4. 当前不需要修改 `first-release regression runner`，优先扩展已有 `workorders` 和 `leasing` 子脚本即可
