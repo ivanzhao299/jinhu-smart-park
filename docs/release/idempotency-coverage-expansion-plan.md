@@ -188,6 +188,7 @@
 - 扩展 `scripts/e2e/first-release-workorders.mjs`
   - 已增加 `assign` 的 replay / conflict 断言
 - 扩展 `scripts/e2e/first-release-leasing.mjs`
+  - 已补齐 `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments` 的 replay / conflict
   - 已增加合同房源关联 `POST /leasing/contracts/:contractId/units` 的 replay / conflict
   - 已增加 `POST /leasing/contracts/:id/effective` 的 replay / conflict
   - 已增加 `POST /leasing/payments/:id/apply` 的 replay / conflict

@@ -349,13 +349,14 @@ pnpm regression:leasing
   - 创建测试租户企业
   - 创建测试楼栋 / 楼层 / 房源
   - 创建合同草稿
+  - 合同创建幂等：missing key / first request / replay / conflict
   - 合同房源关联幂等：missing key / first request / replay / conflict
   - 合同文件上传
   - 合同提交 / 审批 / 归档
   - 合同生效幂等：missing key / first request / replay / conflict
-  - 应收生成
+  - 应收生成幂等：missing key / first request / replay / conflict
   - 应收查询
-  - 收款登记
+  - 收款登记幂等：missing key / first request / replay / conflict
   - 收款核销幂等：missing key / first request / replay / conflict
   - 收款查询
 - 对租赁链路数据依赖的说明：

@@ -19,9 +19,9 @@
 |---|---|---|---|---|---|---|
 | `POST /users` | users | 首批 | 是 | 是 | `first-release-idempotency.mjs` | 已完成 |
 | `POST /work-orders` | work-orders | 首批 | 是 | 是 | `first-release-idempotency.mjs` | 已完成 |
-| `POST /leasing/contracts` | leasing-contracts | 首批 | 否 | 否 | `first-release-leasing.mjs` | 仅成功链路 |
-| `POST /leasing/contracts/:contractId/generate-receivables` | leasing-receivables | 首批 | 否 | 否 | `first-release-leasing.mjs` | 仅成功链路 |
-| `POST /leasing/payments` | leasing-payments | 首批 | 否 | 否 | `first-release-leasing.mjs` | 仅成功链路 |
+| `POST /leasing/contracts` | leasing-contracts | 首批 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
+| `POST /leasing/contracts/:contractId/generate-receivables` | leasing-receivables | 首批 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
+| `POST /leasing/payments` | leasing-payments | 首批 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 | `POST /leasing/contracts/:contractId/units` | leasing-contracts | E2-1 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 | `POST /leasing/contracts/:id/effective` | leasing-contracts | E2-1 | 是 | 是 | `first-release-leasing.mjs` | 已完成 |
 | `POST /work-orders/:id/assign` | work-orders | E2-2 | 是 | 是 | `first-release-workorders.mjs` | 已完成 |
@@ -33,18 +33,12 @@
 |---|---|
 | `first-release-idempotency.mjs` | `POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict |
 | `first-release-workorders.mjs` | `POST /work-orders/:id/assign` 的 missing key / first request / replay / conflict |
-| `first-release-leasing.mjs` | `POST /leasing/contracts/:contractId/units`、`POST /leasing/contracts/:id/effective`、`POST /leasing/payments/:id/apply` 的 missing key / first request / replay / conflict；其余写接口仍仅做成功链路 |
+| `first-release-leasing.mjs` | `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments`、`POST /leasing/contracts/:contractId/units`、`POST /leasing/contracts/:id/effective`、`POST /leasing/payments/:id/apply` 的 missing key / first request / replay / conflict |
 | `first-release-regression.mjs` | 串行覆盖上述所有子脚本 |
 
 ## 5. 已接入但 replay / conflict 不完整的接口
 
-以下接口已经挂了 `IdempotencyInterceptor`，但现有回归脚本仍只验证成功链路：
-
-- `POST /leasing/contracts`
-- `POST /leasing/contracts/:contractId/generate-receivables`
-- `POST /leasing/payments`
-
-这三类接口属于“已接入，但回归未补齐 replay / conflict”。
+当前无“已接入但 replay / conflict 不完整”的首发接口。`first-release-leasing.mjs` 已把上述 3 个接口的 replay / conflict 补齐。
 
 ## 6. 剩余 P0 缺口
 
@@ -110,9 +104,9 @@
 
 推荐顺序如下：
 
-1. 先补齐已接入接口的回归缺口，尤其是 `POST /leasing/contracts`、`POST /leasing/contracts/:contractId/generate-receivables`、`POST /leasing/payments` 的 replay / conflict 断言。
-2. 再补 P0 缺口，优先用户权限和收款 / 应收写接口。
-3. 最后再进入 P1 状态流转和文件删除等接口。
+1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口。
+2. 再补 P1 状态流转和文件删除等接口。
+3. multipart 文件和批量接口保持单独设计。
 
 如果当前只看“幂等覆盖是否可交付首发”，建议仍然把 P0 缺口视为上线前必须处理项。
 
