@@ -12,12 +12,19 @@
 - 当前 migration 以 `database/migrations` 目录下的 SQL 文件为输入。
 - 当前执行方式为按文件名顺序逐个执行 SQL 文件。
 - 当前没有完整的 execution history 表用于记录某个 migration 是否已经执行、何时执行、执行结果如何。
-- 当前没有 checksum 校验机制，无法自动识别 SQL 文件是否在执行后被修改。
 - 当前没有自动 down migration 机制。
 - 当前生产发布采用 **forward-only** 策略。
 - `production seed` 与 `migration` 是不同职责：
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
+
+当前最小治理状态：
+
+- `scripts/db-migrate.sh` 已引入 `sys_schema_migration_history` 记录表。
+- 成功执行的 migration 会跳过。
+- `checksum` 不一致会阻断继续执行。
+- `failed` 状态允许在人工确认后修正并重试。
+- 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 
 ## 3. 已知风险
 
@@ -74,13 +81,15 @@
 
 ### 5.1 与 migration history/checksum 设计的衔接
 
-本文件负责的是当前 SQL-first 机制下的生产执行强缓解口径，后续 `migration-history-checksum-design.md` 负责给出 history + checksum 的最小可落地设计。
+本文件负责的是当前 SQL-first 机制下的生产执行强缓解口径，`migration-history-checksum-design.md` 负责记录 history + checksum 的最小实现设计和后续治理路径。
 
 两份文档的关系建议按以下顺序理解：
 
 1. 先用本文件冻结生产执行口径，确保当前发布可受控、可备份、可停止。
 2. 再用 `migration-history-checksum-design.md` 明确中期实现目标，避免实现阶段再重新争论状态语义、跳过规则和失败恢复。
 3. 最后在实现阶段把 history/checksum 落到脚本和数据库表，而不是先改脚本再补文档。
+
+当前状态下，这一最小机制已经落地，后续重点转为治理收口和长期机制演进。
 
 换句话说：
 
