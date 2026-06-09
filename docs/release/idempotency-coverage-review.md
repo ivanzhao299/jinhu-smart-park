@@ -56,13 +56,13 @@
 
 ### Leasing / Finance
 
-应收 / 收款编辑删除类 P0 缺口已进入专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
+应收 / 收款编辑删除类 P0 缺口已进入专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。其中 `PUT /leasing/receivables/:id` 已进一步进入业务状态保护设计，详见 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。
 
 | 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
 |---|---|---|---|---|---|
 | `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是 | 需专项确认 | 中 | E2-5B 设计 |
 | `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 已完成 | 是 | 低 | E2-5B-1 |
-| `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 是 | 技术适合，但需状态保护 | 低 | E2-5B-1 |
+| `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 是 | 技术适合，但需先完成字段 / 状态保护 | 低 | E2-5B-2A 设计，后续 E2-5B-2B / E2-5B-2C |
 | `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
 | `PUT /leasing/payments/:id` | 修改收款会直接影响资金记录 | 已完成 | 是 | 低 | E2-5B-1 |
 | `DELETE /leasing/payments/:id` | 删除收款会直接影响资金记录 | 是 | 需删除 / 作废语义确认 | 低 | E2-5B-3 |
@@ -111,7 +111,7 @@
 
 推荐顺序如下：
 
-1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口（当前主要剩余项为 leasing 账务编辑 / 删除类接口），实施前先参考 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
+1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次，优先补剩余 P0 写接口（当前主要剩余项为 leasing 账务编辑 / 删除类接口）。`PUT /leasing/receivables/:id` 实施前先参考 [receivable-update-state-protection-design.md](./receivable-update-state-protection-design.md)。
 2. 再补 P1 状态流转和文件删除等接口。
 3. multipart 文件和批量接口保持单独设计。
 
@@ -120,6 +120,6 @@
 ## 10. Go / No-Go 判断
 
 - 是否阻塞首发上线：是，至少在幂等维度上仍有 P0 缺口。
-- 必须在上线前修的风险：`PUT /leasing/receivables/:id` 仍需业务状态保护后接入；删除类和批量生成接口需按专项口径风险接受或后续治理。用户权限变更、应收创建、收款修改已完成。
+- 必须在上线前修的风险：`PUT /leasing/receivables/:id` 仍需先补业务状态保护，再接入真实幂等；删除类和批量生成接口需按专项口径风险接受或后续治理。用户权限变更、应收创建、收款修改已完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
 - 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。
