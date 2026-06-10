@@ -141,6 +141,28 @@ export interface WorkOrderLogFormState {
   attachmentFileIds: string[];
 }
 
+export interface AssignmentFormState {
+  assigneeId: string;
+  reason: string;
+}
+
+export interface ProcessFormState {
+  reason: string;
+  resolveNote: string;
+  imageFileIds: string[];
+}
+
+export interface ClosureFormState {
+  confirmNote: string;
+  satisfaction: string;
+  evaluation: string;
+  reason: string;
+}
+
+export interface ExceptionFormState {
+  reason: string;
+}
+
 export interface FilterState {
   keyword: string;
   status: string;
@@ -162,3 +184,23 @@ export type ProcessActionMode = "wait-material" | "finish";
 export type ClosureActionMode = "confirm" | "evaluate" | "close";
 export type ExceptionActionMode = "cancel" | "return" | "reject";
 export type DetailTab = "profile" | "logs";
+
+export interface AssignmentState {
+  mode: AssignmentMode;
+  row: WorkOrderRow;
+}
+
+export interface ProcessActionState {
+  mode: ProcessActionMode;
+  row: WorkOrderRow;
+}
+
+export interface ClosureActionState {
+  mode: ClosureActionMode;
+  row: WorkOrderRow;
+}
+
+export interface ExceptionActionState {
+  mode: ExceptionActionMode;
+  row: WorkOrderRow;
+}
