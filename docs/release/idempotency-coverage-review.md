@@ -1,5 +1,7 @@
 # JinHu Smart Park 幂等覆盖状态收口与风险复核
 
+> 最终阶段性收口结论见 [idempotency-accounting-risk-closure-review.md](./idempotency-accounting-risk-closure-review.md)。该文档作为本轮首发幂等与账务风险治理的最新 Go / No-Go 口径。
+
 ## 1. 复核目的
 
 本文用于在 E2-1 / E2-2 完成后，对首发范围真实幂等覆盖状态做一次快照复核，区分“仅要求带 `X-Idempotency-Key`”与“已具备真实 replay / conflict / failed retry 语义”的接口。
@@ -115,9 +117,9 @@
 
 推荐顺序如下：
 
-1. 继续按 `idempotency-coverage-expansion-plan.md` 的后续批次处理剩余 P0 写接口；应收 / 收款创建、修改、普通 softDelete 已完成真实幂等接入。
-2. 再补 P1 状态流转和文件删除等接口。
-3. multipart 文件和批量接口保持单独设计。
+1. 本轮首发幂等与账务 P0 主链建议阶段性收口，详见 [idempotency-accounting-risk-closure-review.md](./idempotency-accounting-risk-closure-review.md)。
+2. 后续如继续扩展，优先按小批量方式补 P1 状态流转和文件删除等接口。
+3. multipart 文件、batch history / result 表、冲销 / 反核销 / 发票 / 豁免链路保持单独专项设计。
 
 如果当前只看“幂等覆盖是否可交付首发”，普通高风险写接口和批量生成请求级 replay 已基本收口。剩余风险主要集中在 batch history / result 表、partial failed 行级追踪以及更复杂账务专项流程。
 
@@ -126,4 +128,4 @@
 - 是否阻塞首发上线：从普通单条高风险写接口和批量生成请求级幂等角度看，主要 P0 已基本收口；batch history / result 表仍可作为后续治理。
 - 必须在上线前修的风险：删除类接口已按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 完成语义保护和真实幂等接入；批量生成接口已按 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md) 完成 E2-5B-4A 业务去重 / 事务语义保护和 E2-5B-4B 统一幂等接入。用户权限变更、应收创建、应收修改、收款修改已完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
-- 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。
+- 风险接受口径：已完成的真实幂等接口集合可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。
