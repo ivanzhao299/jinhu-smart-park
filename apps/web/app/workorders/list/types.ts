@@ -94,6 +94,30 @@ export interface WorkOrderRow {
   } | null;
 }
 
+export interface WorkOrderFormState {
+  woCode: string;
+  title: string;
+  woType: string;
+  woSubType: string;
+  priority: string;
+  urgency: string;
+  sourceType: string;
+  parkTenantId: string;
+  unitId: string;
+  buildingId: string;
+  floorId: string;
+  roomLabel: string;
+  location: string;
+  reporterName: string;
+  reporterMobile: string;
+  assigneeId: string;
+  assigneeName: string;
+  description: string;
+  slaDispatchMin: string;
+  slaFinishMin: string;
+  remark: string;
+}
+
 export interface FilterState {
   keyword: string;
   status: string;
