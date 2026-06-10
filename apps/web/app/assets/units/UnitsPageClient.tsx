@@ -1,7 +1,7 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card } from "@jinhu/ui";
 
-import { Download, FileDown, FileUp, Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -14,6 +14,8 @@ import { hasPermission } from "../../../lib/permissions";
 import { UnitFormDialog } from "./components/UnitFormDialog";
 import { UnitAttachmentsPanel } from "./components/UnitAttachmentsPanel";
 import { UnitDetailDrawer, type UnitDetailTab } from "./components/UnitDetailDrawer";
+import { UnitImportDrawer } from "./components/UnitImportDrawer";
+import { UnitImportExportActions } from "./components/UnitImportExportActions";
 import { UnitStatusDrawer } from "./components/UnitStatusDrawer";
 import { UnitsTable } from "./components/UnitsTable";
 import { UnitsToolbar } from "./components/UnitsToolbar";
@@ -621,26 +623,15 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             <Plus size={16} />
             新增房源
           </PermissionButton>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_IMPORT_TEMPLATE} type="button" onClick={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}>
-            <FileDown size={16} />
-            下载模板
-          </PermissionButton>
-          <PermissionButton
-            permission={SYSTEM_PERMISSIONS.UNIT_IMPORT}
-            type="button"
-            onClick={() => {
+          <UnitImportExportActions
+            onDownloadTemplate={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}
+            onOpenImport={() => {
               setImportFile(null);
               setImportResult(null);
               setShowImport(true);
             }}
-          >
-            <FileUp size={16} />
-            批量导入
-          </PermissionButton>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_EXPORT} type="button" onClick={() => void exportUnits().catch((error: Error) => setMessage(error.message))}>
-            <Download size={16} />
-            导出
-          </PermissionButton>
+            onExport={() => void exportUnits().catch((error: Error) => setMessage(error.message))}
+          />
         </header>
 
         <UnitsToolbar
@@ -687,51 +678,16 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
         ) : null}
 
         {showImport ? (
-          <Drawer size="md" onClose={() => setShowImport(false)}>
-            <div className="task-item">
-              <h2 className="panel-title">房源批量导入</h2>
-              <button type="button" title="关闭" onClick={() => setShowImport(false)}><X size={16} /></button>
-            </div>
-            <form className="form-stack" onSubmit={(event) => void importUnits(event).catch((error: Error) => setMessage(error.message))}>
-              <div className="field">
-                <label>Excel 文件</label>
-                <input
-                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                  required
-                  type="file"
-                  onChange={(event) => {
-                    setImportFile(event.target.files?.[0] ?? null);
-                    setImportResult(null);
-                  }}
-                />
-              </div>
-              <button className="primary-button" type="submit">开始导入</button>
-              <button type="button" onClick={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}>下载模板</button>
-            </form>
-            {importResult ? (
-              <Card >
-                <div className="task-item">
-                  <span>导入结果</span>
-                  <strong>总计 {importResult.total}，成功 {importResult.success_count}，失败 {importResult.fail_count}</strong>
-                </div>
-                <DataTable >
-                  <thead>
-                    <tr><th>行号</th><th>房源编码</th><th>错误原因</th></tr>
-                  </thead>
-                  <tbody>
-                    {importResult.rows.filter((row) => !row.success).map((row) => (
-                      <tr key={row.row_no}>
-                        <td>{row.row_no}</td>
-                        <td>{row.unit_code || "-"}</td>
-                        <td>{row.errors.join("；")}</td>
-                      </tr>
-                    ))}
-                    {importResult.rows.every((row) => row.success) ? <tr><td colSpan={3}>全部导入成功</td></tr> : null}
-                  </tbody>
-                </DataTable>
-              </Card>
-            ) : null}
-          </Drawer>
+          <UnitImportDrawer
+            importResult={importResult}
+            onClose={() => setShowImport(false)}
+            onFileChange={(file) => {
+              setImportFile(file);
+              setImportResult(null);
+            }}
+            onSubmit={(event) => void importUnits(event).catch((error: Error) => setMessage(error.message))}
+            onDownloadTemplate={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}
+          />
         ) : null}
 
         {detail ? (
