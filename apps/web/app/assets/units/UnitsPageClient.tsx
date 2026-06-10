@@ -1,7 +1,7 @@
 "use client";
 import { Card, DataTable, Drawer, DrawerActions, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 
-import { Download, Edit3, Eye, FileDown, FileImage, FileUp, History, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { Download, Eye, FileDown, FileUp, History, Plus, RefreshCw, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult, type UserContext } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -13,6 +13,9 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
+import { UnitFormDialog } from "./components/UnitFormDialog";
+import { UnitsTable } from "./components/UnitsTable";
+import { UnitsToolbar } from "./components/UnitsToolbar";
 
 type EnabledStatus = 0 | 1;
 
@@ -646,167 +649,47 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           </PermissionButton>
         </header>
 
-        <Card >
-          <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
-            <div className="dashboard-grid">
-              <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => updateFilter("buildingId", value)}>
-                <option value="">全部楼栋</option>
-                {buildings.map((building) => (
-                  <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
-                ))}
-              </SelectField>
-              <SelectField label="楼层" value={filters.floorId} onChange={(value) => updateFilter("floorId", value)}>
-                <option value="">全部楼层</option>
-                {visibleFloors.map((floor) => (
-                  <option key={floor.id} value={floor.id}>{floor.floorCode} {floor.floorName}</option>
-                ))}
-              </SelectField>
-              <DictSelect label="用途" value={filters.usageType} items={dicts.unit_usage_type} onChange={(value) => updateFilter("usageType", value)} />
-              <DictSelect label="出租状态" value={filters.rentalStatus} items={dicts.unit_rental_status} onChange={(value) => updateFilter("rentalStatus", value)} />
-              <DictSelect label="装修状态" value={filters.fittingStatus} items={dicts.unit_fitting_status} onChange={(value) => updateFilter("fittingStatus", value)} />
-              <TextField label="关键词" value={filters.keyword} placeholder="房源编码或名称" onChange={(value) => updateFilter("keyword", value)} />
-              <NumberField label="最小面积" value={filters.minArea} step="0.01" onChange={(value) => updateFilter("minArea", value)} />
-              <NumberField label="最大面积" value={filters.maxArea} step="0.01" onChange={(value) => updateFilter("maxArea", value)} />
-            </div>
-            <button className="primary-button" type="submit">
-              <Search size={16} />
-              查询
-            </button>
-          </form>
-        </Card>
+        <UnitsToolbar
+          filters={filters}
+          buildings={buildings}
+          visibleFloors={visibleFloors}
+          dicts={dicts}
+          onFilterChange={updateFilter}
+          onSubmit={() => void load(1).catch((error: Error) => setMessage(error.message))}
+        />
 
-        <Card className=" table-scroll">
-          <DataTable >
-            <thead>
-              <tr>
-                <th>房源编码</th>
-                <th>房源名称</th>
-                <th>楼栋</th>
-                <th>楼层</th>
-                <th>用途</th>
-                <th>建筑面积</th>
-                <th>使用面积</th>
-                <th>出租状态</th>
-                <th>装修状态</th>
-                <th>参考租金</th>
-                <th>可租日期</th>
-                <th>更新时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageData.items.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.unitCode}</td>
-                  <td>{row.unitName}</td>
-                  <td>{row.building ? `${row.building.buildingCode} ${row.building.buildingName}` : "-"}</td>
-                  <td>{row.floor ? `${row.floor.floorCode} ${row.floor.floorName}` : "-"}</td>
-                  <td>{dictLabel(dicts.unit_usage_type, row.usageType)}</td>
-                  <td>{formatArea(row.unitArea)}</td>
-                  <td>{formatArea(row.useArea)}</td>
-                  <td><DictBadge items={dicts.unit_rental_status} value={row.rentalStatus} /></td>
-                  <td><DictBadge items={dicts.unit_fitting_status} value={row.fittingStatus} /></td>
-                  <td>{canViewRefPrice ? formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, row.refPrice)) : "-"}</td>
-                  <td>{row.availableDate ?? "-"}</td>
-                  <td>{formatDateTime(row.updateTime)}</td>
-                  <td>
-                    <span className="data-table-actions">
-                      <button title="详情" type="button" onClick={() => setDetail(row)}><Eye size={16} /></button>
-                      <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
-                        <Edit3 size={16} />
-                      </PermissionButton>
-                      {canEditPhotoUrls ? (
-                        <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="附件" type="button" onClick={() => setAttachmentTarget({ unit: row, mode: "photos" })}>
-                          <FileImage size={16} />
-                        </PermissionButton>
-                      ) : null}
-                      <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} title="状态流转" type="button" onClick={() => void openTransition(row).catch((error: Error) => setMessage(error.message))}>
-                        <RefreshCw size={16} />
-                      </PermissionButton>
-                      <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} title="状态日志" type="button" onClick={() => void openStatusLogs(row).catch((error: Error) => setMessage(error.message))}>
-                        <History size={16} />
-                      </PermissionButton>
-                      <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
-                        <Trash2 size={16} />
-                      </PermissionButton>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {pageData.items.length === 0 ? (
-                <tr>
-                  <td colSpan={13}>暂无房源数据</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </DataTable>
-          <div className="task-item">
-            <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
-            <span>
-              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-              <button
-                type="button"
-                disabled={pageData.page >= Math.max(1, Math.ceil(pageData.total / pageData.page_size))}
-                onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}
-              >
-                下一页
-              </button>
-            </span>
-          </div>
-        </Card>
+        <UnitsTable
+          pageData={pageData}
+          dicts={dicts}
+          authUser={authUser}
+          canViewRefPrice={canViewRefPrice}
+          canEditPhotoUrls={canEditPhotoUrls}
+          onView={setDetail}
+          onEdit={openEdit}
+          onOpenAttachments={(row) => setAttachmentTarget({ unit: row, mode: "photos" })}
+          onOpenTransition={(row) => void openTransition(row).catch((error: Error) => setMessage(error.message))}
+          onOpenStatusLogs={(row) => void openStatusLogs(row).catch((error: Error) => setMessage(error.message))}
+          onRemove={(row) => void remove(row).catch((error: Error) => setMessage(error.message))}
+          onPageChange={(page) => void load(page).catch((error: Error) => setMessage(error.message))}
+        />
 
         {showForm ? (
-          <Drawer size="lg" onClose={() => setShowForm(false)}>
-            <div className="task-item">
-              <h2 className="panel-title">{editingId ? "编辑房源" : "新增房源"}</h2>
-              <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
-            </div>
-            <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-              <SelectField label="所属楼栋" value={form.buildingId} required onChange={updateFormBuilding}>
-                <option value="">请选择楼栋</option>
-                {buildings.map((building) => (
-                  <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
-                ))}
-              </SelectField>
-              <SelectField label="所属楼层" value={form.floorId} required onChange={(value) => setForm((current) => ({ ...current, floorId: value }))}>
-                <option value="">请选择楼层</option>
-                {formFloors.map((floor) => (
-                  <option key={floor.id} value={floor.id}>{floor.floorCode} {floor.floorName}</option>
-                ))}
-              </SelectField>
-              <TextField label="房源编码" value={form.unitCode} required placeholder="请输入或生成房源编码" onChange={(value) => setForm((current) => ({ ...current, unitCode: value }))} />
-              <TextField label="房源名称" value={form.unitName} required onChange={(value) => setForm((current) => ({ ...current, unitName: value }))} />
-              <DictSelect label="用途" value={form.usageType} required items={dicts.unit_usage_type} onChange={(value) => setForm((current) => ({ ...current, usageType: value }))} />
-              <NumberField label="建筑面积" value={form.unitArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, unitArea: value }))} />
-              <NumberField label="使用面积" value={form.useArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, useArea: value }))} />
-              {editingId ? (
-                <DetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={Number(form.rentalStatus)} />} />
-              ) : (
-                <DictSelect label="出租状态" value={form.rentalStatus} required items={dicts.unit_rental_status} onChange={(value) => setForm((current) => ({ ...current, rentalStatus: value }))} />
-              )}
-              <DictSelect label="装修状态" value={form.fittingStatus} required items={dicts.unit_fitting_status} onChange={(value) => setForm((current) => ({ ...current, fittingStatus: value }))} />
-              {canEditRefPrice ? (
-                <NumberField label="参考租金" value={form.refPrice} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, refPrice: value }))} />
-              ) : canViewRefPrice ? (
-                <DetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, form.refPrice))} />
-              ) : null}
-              <div className="field">
-                <label>可租日期</label>
-                <input type="date" value={form.availableDate} onChange={(event) => setForm((current) => ({ ...current, availableDate: event.target.value }))} />
-              </div>
-              <SelectField label="状态" value={String(form.status)} onChange={(value) => setForm((current) => ({ ...current, status: Number(value) as EnabledStatus }))}>
-                <option value="1">启用</option>
-                <option value="0">停用</option>
-              </SelectField>
-              {canEditRemark ? (
-                <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
-              ) : canViewRemark ? (
-                <DetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, form.remark))} />
-              ) : null}
-              <button className="primary-button" type="submit">保存</button>
-              <button type="button" onClick={() => setShowForm(false)}>取消</button>
-            </form>
-          </Drawer>
+          <UnitFormDialog
+            editingId={editingId}
+            form={form}
+            buildings={buildings}
+            formFloors={formFloors}
+            dicts={dicts}
+            authUser={authUser}
+            canEditRefPrice={canEditRefPrice}
+            canViewRefPrice={canViewRefPrice}
+            canEditRemark={canEditRemark}
+            canViewRemark={canViewRemark}
+            onClose={() => setShowForm(false)}
+            onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}
+            onBuildingChange={updateFormBuilding}
+            onFormChange={(key, value) => setForm((current) => ({ ...current, [key]: value }))}
+          />
         ) : null}
 
         {showImport ? (
@@ -1606,34 +1489,6 @@ function TextField({
   );
 }
 
-function NumberField({
-  label,
-  value,
-  required,
-  step,
-  onChange
-}: {
-  label: string;
-  value: string;
-  required?: boolean;
-  step: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      <input
-        type="number"
-        step={step}
-        value={value}
-        required={required}
-        onFocus={(event) => event.target.select()}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
-  );
-}
-
 function SelectField({
   label,
   value,
@@ -1677,15 +1532,6 @@ function DictSelect({
         <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>
       ))}
     </SelectField>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
