@@ -287,7 +287,9 @@
 
 - `apps/web/app/assets/units/UnitsPageClient.tsx` 第一阶段展示层拆分已完成并阶段性收口。
 - 收口复核见：[assets-units-refactor-closure-review.md](assets-units-refactor-closure-review.md)。
-- 下一候选建议切换到 `apps/web/app/workorders/list/page.tsx`，优先拆表格、筛选、创建表单和展示层操作区，不触碰工单状态流转语义。
+- `apps/web/app/workorders/list/page.tsx` 第一阶段展示层拆分已完成并建议阶段性收口。
+- 工单列表收口复核见：[workorders-list-refactor-closure-review.md](workorders-list-refactor-closure-review.md)。
+- 下一候选方向建议切换到后端纯查询 service 拆分，或其它低风险前端页面治理。
 
 ### F1：前端低风险大页面拆分
 
