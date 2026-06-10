@@ -63,7 +63,7 @@
 
 | 接口 | 风险 | 是否建议上线前补齐 | 是否适合当前 JSON fingerprint | 数据依赖 | 建议批次 |
 |---|---|---|---|---|---|
-| `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是，仍未接 interceptor | 不建议直接接入，需先补业务去重 / 事务语义保护 | 中 | E2-5B-4 |
+| `POST /leasing/receivables/generate-batch` | 批量生成可能造成重复账务 | 是，仍未接 interceptor | E2-5B-4A 已完成业务去重 / 事务语义保护；后续再评估 interceptor | 中 | E2-5B-4B |
 | `POST /leasing/receivables` | 手工新增应收会直接形成账务对象 | 已完成 | 是 | 低 | E2-5B-1 |
 | `PUT /leasing/receivables/:id` | 修改应收会直接改变账务金额/状态 | 已完成 | 是 | 低 | E2-5B-2C |
 | `DELETE /leasing/receivables/:id` | 删除应收会直接影响账务闭环 | 已完成，E2-5B-3A 语义保护 + E2-5B-3B 真实幂等 | 是 | 低 | E2-5B-3B |
@@ -118,11 +118,11 @@
 2. 再补 P1 状态流转和文件删除等接口。
 3. multipart 文件和批量接口保持单独设计。
 
-如果当前只看“幂等覆盖是否可交付首发”，剩余 P0 主要集中在批量生成和更复杂账务专项流程，不再包括普通 softDelete replay。批量生成专项设计已给出先做 E2-5B-4A、再做 E2-5B-4B 的顺序。
+如果当前只看“幂等覆盖是否可交付首发”，剩余 P0 主要集中在批量生成请求级 replay 和更复杂账务专项流程，不再包括普通 softDelete replay。批量生成已完成 E2-5B-4A 业务去重 / 事务语义保护，后续按 E2-5B-4B 评估是否接入统一重复提交保护。
 
 ## 10. Go / No-Go 判断
 
 - 是否阻塞首发上线：从普通单条高风险写接口幂等角度看，主要 P0 已基本收口；批量生成接口仍需专项口径风险接受或后续治理。
-- 必须在上线前修的风险：删除类接口已按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 完成语义保护和真实幂等接入；批量生成接口已形成 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)，建议先补业务去重 / 事务语义保护，再接入 interceptor。用户权限变更、应收创建、应收修改、收款修改已完成。
+- 必须在上线前修的风险：删除类接口已按 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 完成语义保护和真实幂等接入；批量生成接口已按 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md) 完成 E2-5B-4A 业务去重 / 事务语义保护，仍未接入 interceptor。用户权限变更、应收创建、应收修改、收款修改已完成。
 - 可作为上线后治理的风险：P1 状态流转、文件删除、低频配置类接口。
 - 风险接受口径：已完成的 9 个真实幂等接口可以视为首发基础面，但不能把“已有 guard”误判成“全链路已幂等”。

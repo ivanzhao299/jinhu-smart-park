@@ -4,7 +4,7 @@
 
 本文用于确认 `POST /leasing/receivables/generate-batch` 的批量生成语义、风险边界和后续幂等治理策略。
 
-本阶段只做只读盘点和设计，不修改业务代码，不接入新的 `IdempotencyInterceptor`，不修改测试脚本。
+E2-5B-4A 已完成批量生成业务级去重 / 事务语义保护：相同 payload 不同 key 的重复调用不会重复生成同一合同同一账期应收；并发或唯一约束竞争优先转译为 `skipped`，避免暴露底层数据库唯一约束错误。该接口仍未接入 `IdempotencyInterceptor`，后续 E2-5B-4B 再评估是否接入统一重复提交保护。
 
 ## 2. 当前接口现状
 
@@ -19,7 +19,7 @@
 | 响应结构 | `generated_count`、`skipped_count`、`failed_count`、`rows[]` |
 | 当前事务语义 | 单个合同内部由 `generateForContract()` 事务包裹；批量层逐合同 try/catch，允许部分成功 |
 | 当前去重机制 | service 按 `contract_id + fee_type + period_start + period_end + is_deleted=false` 查重；数据库有相同维度唯一索引 |
-| 当前风险 | 部分成功、并发重复、失败行重试、batch 结果追溯和同 payload 不同 key 的语义仍未完整治理 |
+| 当前风险 | 已完成业务级去重 / 事务语义保护；仍缺少请求级 replay、batch history、batch result 明细和部分成功状态追溯 |
 
 ## 3. 当前生成逻辑分析
 
@@ -57,6 +57,8 @@ service 当前逻辑如下：
 - service 在保存前查询同一 `tenant_id / park_id / contract_id / fee_type / period_start / period_end / is_deleted=false` 的应收。
 - 如果已存在且 `force_regenerate=false`，返回 `skipped`。
 - 数据库存在唯一索引 `uk_biz_leasing_receivable_contract_period_active`，覆盖 `tenant_id, park_id, contract_id, fee_type, period_start, period_end`，并且只约束未删除且 `contract_id IS NOT NULL` 的记录。
+
+E2-5B-4A 后，新增记录采用业务维度去重优先的写入方式：如果插入时遇到同合同、同费用项、同账期的并发唯一竞争，会回查既有应收并返回 `skipped`，而不是把底层唯一约束错误作为 failed row 暴露给调用方。
 
 当前响应能表达：
 
@@ -99,7 +101,7 @@ service 当前逻辑如下：
 
 ### 并发执行风险
 
-并发同 payload 执行时，两个请求可能同时在 service 查重阶段看到不存在。数据库唯一索引会阻止最终重复插入，但当前代码没有专门把唯一冲突转译成 `skipped`。并发下可能出现某个合同行进入 failed 或整个单合同事务失败的情况。
+E2-5B-4A 已将新增应收的并发唯一竞争转译为业务 `skipped`：数据库唯一索引仍是兜底，但调用方不应看到底层唯一约束错误全文。
 
 ## 5. 幂等策略选型
 
@@ -179,17 +181,17 @@ service 当前逻辑如下：
 
 目标：
 
-- 明确 `failed_count > 0` 时的 HTTP 与业务状态语义。
-- 对并发唯一冲突做业务转译。
-- 确认 `generate_batch_no` 是否继续为空，还是先生成可追踪 batch no。
+- 已完成业务维度去重：`tenant_id + park_id + contract_id + fee_type + period_start + period_end + is_deleted=false`。
+- 已完成并发唯一冲突业务转译：同业务维度已存在时返回 `skipped`。
+- 已补充回归：same payload different key 不重复生成，快速重复调用返回 `skipped`。
 
 是否接入 interceptor：否。
 
 验收标准：
 
-- 重复执行不会创建重复账务。
-- 并发或唯一冲突不会泄露底层数据库错误。
-- 部分成功结果语义清晰。
+- 重复执行不会创建重复账务。已完成。
+- 并发或唯一冲突不会泄露底层数据库错误。已完成服务层转译，严格并发压测仍建议后置专项。
+- 部分成功结果语义保持 created / skipped / failed 汇总，不改成全局大事务。已完成。
 
 ### E2-5B-4B：批量生成幂等接入 + 回归
 
@@ -200,7 +202,7 @@ service 当前逻辑如下：
 
 前置条件：
 
-- E2-5B-4A 完成。
+- E2-5B-4A 完成。已完成。
 - 明确 partial failed 是否可被缓存为 succeeded。
 
 验收标准：
