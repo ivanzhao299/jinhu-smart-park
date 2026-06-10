@@ -54,6 +54,7 @@ node scripts/e2e/first-release-regression.mjs
 - [仓库二次质量复审报告](release/repository-quality-audit-report.md)
 - [首发核心自动化回归包设计](testing/first-release-regression-plan.md)
 - [Migration history/checksum 设计](release/migration-history-checksum-design.md)
+- [大页面 / 大服务拆分设计](release/large-page-service-refactor-plan.md)
 - 架构专项资料：
   - [architecture/auth-center-roadmap.md](architecture/auth-center-roadmap.md)
   - [architecture/saas-rbac-std.md](architecture/saas-rbac-std.md)
