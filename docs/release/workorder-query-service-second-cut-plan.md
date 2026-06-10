@@ -275,3 +275,5 @@ controller 入口：
 - `stats`
 
 不建议一次迁移三个方法。`tenant360Workorders`、`unitWorkorders`、`recalculateOverdue`、日志写入、附件绑定、状态流转和幂等写入口继续暂缓。
+
+补充状态：第二刀 2A 已完成，`overdue` 与 `listSlaRules` 已迁移到 `WorkOrderQueryService`，并建议阶段性收口。下一步不直接实施 `stats`，应先进入 2B 设计。
