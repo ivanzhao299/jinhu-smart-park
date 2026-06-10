@@ -344,6 +344,7 @@ pnpm regression:leasing
 - 状态：已落地
 - 脚本：`scripts/e2e/first-release-leasing.mjs`
 - 执行命令：`node scripts/e2e/first-release-leasing.mjs`
+- 收口口径：首发租赁回归已覆盖账务幂等主链；统一 runner 应在 production-like 配置下执行，本地 development/mock 认证配置可能导致 SMS / WeChat 相关断言失败，不应直接等同于账务幂等回归失败。
 - 当前覆盖范围：
   - 登录
   - 读取合同列表

@@ -1,5 +1,7 @@
 # JinHu Smart Park 首发高风险写接口幂等覆盖扩展计划
 
+> 本轮首发幂等与账务风险治理已进入收口复核，最终阶段性结论见 [idempotency-accounting-risk-closure-review.md](./idempotency-accounting-risk-closure-review.md)。后续新增接口治理不再继续扩大本阶段范围，应另起小批量专项。
+
 ## 1. 目的
 
 本文用于盘点首发范围内高风险写接口的幂等覆盖现状，区分“仅要求带 `X-Idempotency-Key`”与“已具备真实 replay / conflict / failed retry 语义”的接口，并给出分批扩展建议。
@@ -381,14 +383,13 @@
 
 ## 11. 最终建议
 
-当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
+当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准；本轮是否收口请以 [idempotency-accounting-risk-closure-review.md](./idempotency-accounting-risk-closure-review.md) 为准。
 
-1. 下一批最该补的接口是：
-   - 批量生成接口 `POST /leasing/receivables/generate-batch` 已完成 E2-5B-4A 业务去重 / 事务语义保护和 E2-5B-4B 幂等接入；下一步建议按需推进 E2-5B-4C batch history / result 表设计
+1. 本轮首发账务 P0 主链建议阶段性收口，不再继续扩大本阶段接口范围。
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
    - 批量导入接口，以及批量生成的 batch history / result 表专项，直到需要正式运营追溯能力
    - 财务作废 / 冲销 / 反核销专项流程，直到 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 中的后续流程另行设计
    - 非首发模块接口
 3. 当前不需要先改幂等底层机制，现有 `IdempotencyInterceptor` 足以覆盖稳定 JSON 写接口；真正需要单独设计的是 multipart、批量接口和财务作废 / 冲销语义
-4. 当前不需要修改 `first-release regression runner`，优先扩展已有 `workorders` 和 `leasing` 子脚本即可
+4. 当前不需要修改 `first-release regression runner`，后续如扩展 P1 状态流转，优先扩展已有 `workorders` 和 `leasing` 子脚本即可
