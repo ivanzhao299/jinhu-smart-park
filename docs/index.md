@@ -57,6 +57,7 @@ node scripts/e2e/first-release-regression.mjs
 - [大页面 / 大服务拆分设计](release/large-page-service-refactor-plan.md)
 - [后端纯查询 Service 拆分设计](release/backend-query-service-refactor-plan.md)
 - [房源查询 Service 拆分收口复核](release/units-query-service-closure-review.md)
+- [工单查询 Service 拆分设计](release/workorder-query-service-refactor-plan.md)
 - [资产房源页面拆分收口复核](release/assets-units-refactor-closure-review.md)
 - [工单列表页面拆分收口复核](release/workorders-list-refactor-closure-review.md)
 - 架构专项资料：
