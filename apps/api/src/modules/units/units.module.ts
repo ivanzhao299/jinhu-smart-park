@@ -18,6 +18,7 @@ import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { UnitEntity } from "./entities/unit.entity";
 import { UnitStatusLogEntity } from "./entities/unit-status-log.entity";
 import { UnitsController } from "./units.controller";
+import { UnitsQueryService } from "./units-query.service";
 import { UnitsService } from "./units.service";
 
 @Module({
@@ -35,7 +36,7 @@ import { UnitsService } from "./units.service";
     IotModule
   ],
   controllers: [UnitsController],
-  providers: [UnitsService],
+  providers: [UnitsService, UnitsQueryService],
   exports: [UnitsService]
 })
 export class UnitsModule {}

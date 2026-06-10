@@ -39,6 +39,7 @@ import type { UnitQueryDto } from "./dto/unit-query.dto";
 import type { UpdateUnitDto } from "./dto/update-unit.dto";
 import { UnitEntity } from "./entities/unit.entity";
 import { UnitStatusLogEntity } from "./entities/unit-status-log.entity";
+import { UnitsQueryService } from "./units-query.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 
 const SORT_COLUMNS = new Set([
@@ -193,27 +194,34 @@ export class UnitsService {
     private readonly safetyHazardsService: SafetyHazardsService,
     private readonly safetyEmergencyService: SafetyEmergencyService,
     private readonly safetyWorkPermitsService: SafetyWorkPermitsService,
-    private readonly iotDashboardService: IotDashboardService
+    private readonly iotDashboardService: IotDashboardService,
+    private readonly unitsQueryService: UnitsQueryService
   ) {}
 
   async list(scope: TenantParkScope, query: UnitQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<UnitEntity>> {
-    const builder = this.scopedBuilder(scope)
-      .leftJoinAndSelect("unit.building", "building")
-      .leftJoinAndSelect("unit.floor", "floor");
-    await this.applyUnitDataScope(builder, scope, actor);
-    this.applyQuery(builder, query);
-    this.applyListSort(builder, query.sort);
-    const [items, total] = await builder
-      .skip((query.page - 1) * query.page_size)
-      .take(query.page_size)
-      .getManyAndCount();
-    const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "asset", "unit", items);
-    return { items: securedItems, total, page: query.page, page_size: query.page_size };
+    return this.unitsQueryService.list(scope, query, actor);
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UnitEntity> {
-    const entity = await this.findDetail(scope, id, actor);
-    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", entity);
+    return this.unitsQueryService.detail(scope, id, actor);
+  }
+
+  async listStatusLogs(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, query: UnitStatusLogQueryDto): Promise<PaginatedResult<UnitStatusLogEntity>> {
+    return this.unitsQueryService.listStatusLogs(scope, actor, unitId, query);
+  }
+
+  async statistics(scope: TenantParkScope, actor?: JwtPrincipal): Promise<{
+    totalUnits: number;
+    totalArea: number;
+    useArea: number;
+    vacantUnits: number;
+    rentedUnits: number;
+    occupancyRate: number;
+    byRentalStatus: Array<{ rentalStatus: number; count: number; area: number }>;
+    byUsageType: Array<{ usageType: number; count: number; area: number }>;
+    byBuilding: Array<{ buildingId: string; buildingCode: string; buildingName: string; count: number; area: number }>;
+  }> {
+    return this.unitsQueryService.statistics(scope, actor);
   }
 
   async workorders(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<UnitWorkOrdersNode> {
@@ -412,21 +420,6 @@ export class UnitsService {
       after_status: afterStatus,
       status_update_time: now.toISOString()
     };
-  }
-
-  async listStatusLogs(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, query: UnitStatusLogQueryDto): Promise<PaginatedResult<UnitStatusLogEntity>> {
-    await this.findDetail(scope, unitId, actor);
-    const [items, total] = await this.statusLogRepository
-      .createQueryBuilder("log")
-      .where("log.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("log.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("log.unit_id = :unitId", { unitId })
-      .andWhere("log.is_deleted = false")
-      .orderBy("log.op_time", "DESC")
-      .skip((query.page - 1) * query.page_size)
-      .take(query.page_size)
-      .getManyAndCount();
-    return { items, total, page: query.page, page_size: query.page_size };
   }
 
   getImportTemplate(): Buffer {
@@ -671,55 +664,6 @@ export class UnitsService {
       success: true,
       requestId: null
     });
-  }
-
-  async statistics(scope: TenantParkScope, actor?: JwtPrincipal): Promise<{
-    totalUnits: number;
-    totalArea: number;
-    useArea: number;
-    vacantUnits: number;
-    rentedUnits: number;
-    occupancyRate: number;
-    byRentalStatus: Array<{ rentalStatus: number; count: number; area: number }>;
-    byUsageType: Array<{ usageType: number; count: number; area: number }>;
-    byBuilding: Array<{ buildingId: string; buildingCode: string; buildingName: string; count: number; area: number }>;
-  }> {
-    const base = await this.applyUnitDataScope(this.scopedBuilder(scope), scope, actor);
-    const totalRow = await base
-      .select("count(*)::int", "totalUnits")
-      .addSelect("coalesce(sum(unit.unit_area), 0)::float", "totalArea")
-      .addSelect("coalesce(sum(unit.use_area), 0)::float", "useArea")
-      .addSelect("count(*) filter (where unit.rental_status = 10)::int", "vacantUnits")
-      .addSelect("count(*) filter (where unit.rental_status = 30)::int", "rentedUnits")
-      .getRawOne<{ totalUnits: number; totalArea: number; useArea: number; vacantUnits: number; rentedUnits: number }>();
-    const byRentalStatus = await this.groupStats(scope, "unit.rental_status", "rentalStatus", actor);
-    const byUsageType = await this.groupStats(scope, "unit.usage_type", "usageType", actor);
-    const byBuildingBuilder = await this.applyUnitDataScope(this.scopedBuilder(scope), scope, actor);
-    const byBuilding = await byBuildingBuilder
-      .innerJoin("unit.building", "building")
-      .select("unit.building_id", "buildingId")
-      .addSelect("building.building_code", "buildingCode")
-      .addSelect("building.building_name", "buildingName")
-      .addSelect("count(*)::int", "count")
-      .addSelect("coalesce(sum(unit.unit_area), 0)::float", "area")
-      .groupBy("unit.building_id")
-      .addGroupBy("building.building_code")
-      .addGroupBy("building.building_name")
-      .orderBy("building.buildingCode", "ASC")
-      .getRawMany<{ buildingId: string; buildingCode: string; buildingName: string; count: number; area: number }>();
-    const totalUnits = Number(totalRow?.totalUnits ?? 0);
-    const rentedUnits = Number(totalRow?.rentedUnits ?? 0);
-    return {
-      totalUnits,
-      totalArea: Number(totalRow?.totalArea ?? 0),
-      useArea: Number(totalRow?.useArea ?? 0),
-      vacantUnits: Number(totalRow?.vacantUnits ?? 0),
-      rentedUnits,
-      occupancyRate: totalUnits === 0 ? 0 : Number(((rentedUnits / totalUnits) * 100).toFixed(2)),
-      byRentalStatus,
-      byUsageType,
-      byBuilding
-    };
   }
 
   async assetStatistics(scope: TenantParkScope, query: AssetStatisticsQueryDto, actor?: JwtPrincipal): Promise<{
@@ -1615,20 +1559,6 @@ export class UnitsService {
     return { [field]: direction } as FindOptionsOrder<UnitEntity>;
   }
 
-  private applyListSort(builder: SelectQueryBuilder<UnitEntity>, sort?: string): void {
-    const raw = sort?.trim();
-    if (!raw) {
-      builder.orderBy("unit.updateTime", "DESC").addOrderBy("unit.createTime", "DESC");
-      return;
-    }
-    const [field, direction] = raw.startsWith("-") ? [raw.slice(1), "DESC" as const] : [raw, "ASC" as const];
-    if (!SORT_COLUMNS.has(field)) {
-      builder.orderBy("unit.updateTime", "DESC").addOrderBy("unit.createTime", "DESC");
-      return;
-    }
-    builder.orderBy(`unit.${field}`, direction);
-  }
-
   private toCsv(rows: Array<Array<string | number>>): string {
     return rows
       .map((row) =>
@@ -1640,17 +1570,6 @@ export class UnitsService {
           .join(",")
       )
       .join("\n");
-  }
-
-  private async groupStats(scope: TenantParkScope, column: string, alias: "rentalStatus" | "usageType", actor?: JwtPrincipal) {
-    const builder = await this.applyUnitDataScope(this.scopedBuilder(scope), scope, actor);
-    return builder
-      .select(column, alias)
-      .addSelect("count(*)::int", "count")
-      .addSelect("coalesce(sum(unit.unit_area), 0)::float", "area")
-      .groupBy(column)
-      .orderBy(column, "ASC")
-      .getRawMany<Record<typeof alias, number> & { count: number; area: number }>();
   }
 
   private emptyToNull(value: string | undefined): string | null {
