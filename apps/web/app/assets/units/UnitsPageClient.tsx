@@ -1,21 +1,31 @@
 "use client";
-import { Card, DataTable, Drawer, DrawerActions, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
+import { Card, DataTable, Drawer } from "@jinhu/ui";
 
-import { Download, Eye, FileDown, FileUp, History, Plus, RefreshCw, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult, type UserContext } from "@jinhu/shared";
+import { Download, FileDown, FileUp, Plus, X } from "lucide-react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
-import { AttachmentList } from "../../../components/files/AttachmentList";
-import { FileUploader } from "../../../components/files/FileUploader";
 import { API_PREFIX, apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { canEditField, canViewField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
 import { UnitFormDialog } from "./components/UnitFormDialog";
+import { UnitAttachmentsPanel } from "./components/UnitAttachmentsPanel";
+import { UnitDetailDrawer, type UnitDetailTab } from "./components/UnitDetailDrawer";
+import { DictBadge, DictSelect, TextField } from "./components/UnitPageFields";
 import { UnitsTable } from "./components/UnitsTable";
 import { UnitsToolbar } from "./components/UnitsToolbar";
+import {
+  dictLabel,
+  formatDateTime,
+  formatYmd,
+  getTransitionOptions,
+  UNIT_FIELD_PHOTO_URLS,
+  UNIT_FIELD_REF_PRICE,
+  UNIT_FIELD_REMARK
+} from "./lib/unit-page-utils";
 
 type EnabledStatus = 0 | 1;
 
@@ -259,16 +269,6 @@ interface ImportResult {
 const emptyPage: PaginatedResult<UnitRow> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyStatusLogPage: PaginatedResult<UnitStatusLogRow> = { items: [], page: 1, page_size: 20, total: 0 };
 
-const ALLOWED_RENTAL_STATUS_TARGETS = new Map<number, number[]>([
-  [10, [20, 50, 60]],
-  [20, [10, 30, 50]],
-  [30, [40, 50]],
-  [40, [30, 10]],
-  [50, [10, 60]],
-  [60, [10, 50]],
-  [70, []]
-]);
-
 const emptyForm: UnitFormState = {
   unitCode: "",
   buildingId: "",
@@ -284,10 +284,6 @@ const emptyForm: UnitFormState = {
   status: 1,
   remark: ""
 };
-
-const UNIT_FIELD_REF_PRICE = "ref_price";
-const UNIT_FIELD_REMARK = "remark";
-const UNIT_FIELD_PHOTO_URLS = "photo_urls";
 
 interface UnitsPageProps {
   title?: string;
@@ -741,7 +737,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
         ) : null}
 
         {detail ? (
-          <UnitDetailDrawer
+          <UnitDetailDrawerController
             unit={detail}
             dicts={dicts}
             onClose={() => setDetail(null)}
@@ -752,25 +748,13 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
         ) : null}
 
         {attachmentTarget ? (
-          <Drawer size="md" onClose={() => setAttachmentTarget(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">{attachmentTarget.unit.unitName} {attachmentTarget.mode === "photos" ? "照片" : "平面图"}</h2>
-              <button type="button" title="关闭" onClick={() => setAttachmentTarget(null)}><X size={16} /></button>
-            </div>
-            <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_UPDATE}>
-              <FileUploader
-                bizType={attachmentTarget.mode === "photos" ? "unit_photo" : "unit_floorplan"}
-                bizId={attachmentTarget.unit.id}
-                uploadPath={`/park-units/${attachmentTarget.unit.id}/${attachmentTarget.mode}`}
-                onUploaded={handleUploaded}
-              />
-            </PermissionGuard>
-            <AttachmentList
-              bizType={attachmentTarget.mode === "photos" ? "unit_photo" : "unit_floorplan"}
-              bizId={attachmentTarget.unit.id}
-              refreshKey={refreshKey}
-            />
-          </Drawer>
+          <UnitAttachmentsPanel
+            unit={attachmentTarget.unit}
+            mode={attachmentTarget.mode}
+            refreshKey={refreshKey}
+            onClose={() => setAttachmentTarget(null)}
+            onUploaded={handleUploaded}
+          />
         ) : null}
 
         {transitionTarget ? (
@@ -848,7 +832,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   );
 }
 
-function UnitDetailDrawer({
+function UnitDetailDrawerController({
   unit,
   dicts,
   onClose,
@@ -864,7 +848,7 @@ function UnitDetailDrawer({
   onOpenStatusLogs: () => void;
 }) {
   const authUser = useAuthUser();
-  const [activeTab, setActiveTab] = useState<"info" | "workorders" | "hazards" | "emergencies" | "workPermits" | "devices" | "deviceAlerts">("info");
+  const [activeTab, setActiveTab] = useState<UnitDetailTab>("info");
   const [workorders, setWorkorders] = useState<UnitWorkOrdersResponse | null>(null);
   const [workordersLoading, setWorkordersLoading] = useState(false);
   const [workordersError, setWorkordersError] = useState("");
@@ -960,644 +944,37 @@ function UnitDetailDrawer({
   }, [activeTab, unit.id, devices]);
 
   return (
-    <Drawer size="md" onClose={onClose}>
-      <DrawerHeader
-        eyebrow="房源详情"
-        title={unit.unitName}
-        description={`${unit.unitCode} · ${unit.building ? unit.building.buildingName : "未关联楼栋"} · ${unit.floor ? unit.floor.floorName : "未关联楼层"}`}
-        onClose={onClose}
-        closeIcon={<X size={18} />}
-      />
-      <DrawerActions>
-        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} type="button" onClick={onOpenTransition}>
-          <RefreshCw size={14} />状态流转
-        </PermissionButton>
-        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} type="button" onClick={onOpenStatusLogs}>
-          <History size={14} />状态日志
-        </PermissionButton>
-        {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
-        <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
-      </DrawerActions>
-      <div className="system-tabs">
-        <button className={activeTab === "info" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("info")}>基础信息</button>
-        <button className={activeTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workorders")}>关联工单</button>
-        <button className={activeTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("hazards")}>安全隐患</button>
-        <button className={activeTab === "emergencies" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("emergencies")}>应急事件</button>
-        <button className={activeTab === "workPermits" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workPermits")}>作业许可</button>
-        <button className={activeTab === "devices" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("devices")}>设备</button>
-        <button className={activeTab === "deviceAlerts" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("deviceAlerts")}>设备告警</button>
-      </div>
-      {activeTab === "info" ? (
-        <DrawerDetailGrid>
-          <DrawerDetailItem label="房源编码" value={unit.unitCode} />
-          <DrawerDetailItem label="房源名称" value={unit.unitName} />
-          <DrawerDetailItem label="楼栋" value={unit.building ? `${unit.building.buildingCode} ${unit.building.buildingName}` : "-"} />
-          <DrawerDetailItem label="楼层" value={unit.floor ? `${unit.floor.floorCode} ${unit.floor.floorName}` : "-"} />
-          <DrawerDetailItem label="用途" value={dictLabel(dicts.unit_usage_type, unit.usageType)} />
-          <DrawerDetailItem label="建筑面积" value={formatArea(unit.unitArea)} />
-          <DrawerDetailItem label="使用面积" value={formatArea(unit.useArea)} />
-          <DrawerDetailItem label="出租状态" value={<DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} />} />
-          <DrawerDetailItem label="状态更新时间" value={unit.statusUpdateTime ? formatDateTime(unit.statusUpdateTime) : "-"} />
-          <DrawerDetailItem label="锁定原因" value={unit.lockReason ?? "-"} />
-          <DrawerDetailItem label="锁定到期" value={unit.lockExpireTime ? formatDateTime(unit.lockExpireTime) : "-"} />
-          <DrawerDetailItem label="装修状态" value={<DictBadge items={dicts.unit_fitting_status} value={unit.fittingStatus} />} />
-          {canViewRefPrice ? <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.refPrice))} /> : null}
-          <DrawerDetailItem label="可租日期" value={unit.availableDate ?? "-"} />
-          <DrawerDetailItem label="状态" value={<StatusBadge status={unit.status} />} />
-          {canViewRemark ? <DrawerDetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
-        </DrawerDetailGrid>
-      ) : null}
-      {activeTab === "workorders" ? (
-        <UnitWorkordersPanel
-          data={workorders}
-          loading={workordersLoading}
-          error={workordersError}
-          dicts={dicts}
-          authUser={authUser}
-          canViewReporterMobile={canViewWorkOrderReporterMobile}
-        />
-      ) : null}
-      {activeTab === "hazards" ? (
-        <UnitHazardsPanel
-          data={hazards}
-          loading={hazardsLoading}
-          error={hazardsError}
-          dicts={dicts}
-        />
-      ) : null}
-      {activeTab === "emergencies" ? (
-        <UnitEmergenciesPanel
-          data={emergencies}
-          loading={emergenciesLoading}
-          error={emergenciesError}
-          dicts={dicts}
-        />
-      ) : null}
-      {activeTab === "workPermits" ? (
-        <UnitWorkPermitsPanel
-          data={workPermits}
-          loading={workPermitsLoading}
-          error={workPermitsError}
-          dicts={dicts}
-        />
-      ) : null}
-      {activeTab === "devices" ? (
-        <UnitDevicesPanel
-          data={devices}
-          loading={devicesLoading}
-          error={devicesError}
-          dicts={dicts}
-        />
-      ) : null}
-      {activeTab === "deviceAlerts" ? (
-        <UnitDeviceAlertsPanel
-          data={devices}
-          loading={devicesLoading}
-          error={devicesError}
-          dicts={dicts}
-        />
-      ) : null}
-      <DrawerFooter>
-        <button type="button" onClick={onClose}>关闭</button>
-      </DrawerFooter>
-    </Drawer>
+    <UnitDetailDrawer
+      unit={unit}
+      dicts={dicts}
+      activeTab={activeTab}
+      authUser={authUser}
+      canViewRefPrice={canViewRefPrice}
+      canViewRemark={canViewRemark}
+      canViewPhotoUrls={canViewPhotoUrls}
+      canViewWorkOrderReporterMobile={canViewWorkOrderReporterMobile}
+      workorders={workorders}
+      workordersLoading={workordersLoading}
+      workordersError={workordersError}
+      hazards={hazards}
+      hazardsLoading={hazardsLoading}
+      hazardsError={hazardsError}
+      emergencies={emergencies}
+      emergenciesLoading={emergenciesLoading}
+      emergenciesError={emergenciesError}
+      workPermits={workPermits}
+      workPermitsLoading={workPermitsLoading}
+      workPermitsError={workPermitsError}
+      devices={devices}
+      devicesLoading={devicesLoading}
+      devicesError={devicesError}
+      onTabChange={setActiveTab}
+      onClose={onClose}
+      onOpenAttachments={onOpenAttachments}
+      onOpenTransition={onOpenTransition}
+      onOpenStatusLogs={onOpenStatusLogs}
+    />
   );
-}
-
-function UnitWorkordersPanel({
-  data,
-  loading,
-  error,
-  dicts,
-  authUser,
-  canViewReporterMobile
-}: {
-  data: UnitWorkOrdersResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-  authUser: UserContext | null;
-  canViewReporterMobile: boolean;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载工单数据...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_items ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>工单总数</span></Card>
-        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
-        <Card><strong>{data?.summary.overdue_count ?? 0}</strong><span>超时</span></Card>
-      </div>
-      <DataTable >
-        <thead>
-          <tr>
-            <th>工单编号</th>
-            <th>标题</th>
-            <th>类型</th>
-            <th>优先级</th>
-            <th>状态</th>
-            <th>报告人</th>
-            <th>处理人</th>
-            <th>超时</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.wo_code}</td>
-              <td>{row.title}</td>
-              <td>{dictLabelText(dicts.workorder_type, row.wo_type)}</td>
-              <td><StringDictBadge items={dicts.workorder_priority} value={row.priority} /></td>
-              <td><StringDictBadge items={dicts.workorder_status} value={row.status} /></td>
-              <td>
-                {fieldText(row.reporter_name)}
-                {canViewReporterMobile ? ` / ${fieldText(maskField(authUser, "workorder", "work_order", "reporterMobile", row.reporter_mobile))}` : ""}
-              </td>
-              <td>{fieldText(row.assignee_name)}</td>
-              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超时" : "正常"}</span></td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/workorders/${row.id}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={9}>暂无关联工单</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function UnitHazardsPanel({
-  data,
-  loading,
-  error,
-  dicts
-}: {
-  data: UnitHazardsResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载隐患数据...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_items ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>隐患总数</span></Card>
-        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
-        <Card><strong>{data?.summary.overdue_count ?? 0}</strong><span>超期</span></Card>
-        <Card><strong>{data?.summary.major_count ?? 0}</strong><span>重大隐患</span></Card>
-      </div>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>隐患编号</th>
-            <th>标题</th>
-            <th>类型</th>
-            <th>风险</th>
-            <th>状态</th>
-            <th>位置</th>
-            <th>整改人</th>
-            <th>超期</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.hazard_code}</td>
-              <td>{row.title}</td>
-              <td>{dictLabelText(dicts.safety_hazard_type, row.hazard_type)}</td>
-              <td><StringDictBadge items={dicts.safety_risk_level} value={row.risk_level} /></td>
-              <td><StringDictBadge items={dicts.safety_hazard_status} value={row.status} /></td>
-              <td>{fieldText(row.location)}</td>
-              <td>{fieldText(row.rectify_user_name)}</td>
-              <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超期" : "正常"}</span></td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(row.id)}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={9}>暂无关联隐患</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function UnitEmergenciesPanel({
-  data,
-  loading,
-  error,
-  dicts
-}: {
-  data: UnitEmergenciesResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载应急事件...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_items ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>事件总数</span></Card>
-        <Card><strong>{data?.summary.open_count ?? 0}</strong><span>未闭环</span></Card>
-        <Card><strong>{data?.summary.closed_count ?? 0}</strong><span>已闭环</span></Card>
-        <Card><strong>{data?.summary.major_count ?? 0}</strong><span>重大事件</span></Card>
-      </div>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>事件编号</th>
-            <th>标题</th>
-            <th>类型</th>
-            <th>严重等级</th>
-            <th>响应等级</th>
-            <th>状态</th>
-            <th>位置</th>
-            <th>上报人</th>
-            <th>上报时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.emergency_code}</td>
-              <td>{row.title}</td>
-              <td>{dictLabelText(dicts.safety_emergency_incident_type, row.incident_type)}</td>
-              <td><StringDictBadge items={dicts.safety_emergency_severity} value={row.severity_level} /></td>
-              <td><StringDictBadge items={dicts.safety_emergency_response_level} value={row.response_level} /></td>
-              <td><StringDictBadge items={dicts.safety_emergency_status} value={row.status} /></td>
-              <td>{fieldText(row.location)}</td>
-              <td>{fieldText(row.reporter_name)}</td>
-              <td>{formatDateTime(row.report_time)}</td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/emergencies?emergency_id=${encodeURIComponent(row.id)}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={10}>暂无关联应急事件</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function UnitWorkPermitsPanel({
-  data,
-  loading,
-  error,
-  dicts
-}: {
-  data: UnitWorkPermitsResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载作业许可...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_items ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.total_count ?? 0}</strong><span>许可总数</span></Card>
-        <Card><strong>{data?.summary.in_progress_count ?? 0}</strong><span>开工中</span></Card>
-        <Card><strong>{data?.summary.violation_count ?? 0}</strong><span>违规次数</span></Card>
-        <Card><strong>{data?.summary.closed_count ?? 0}</strong><span>已闭环</span></Card>
-      </div>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>许可编号</th>
-            <th>类型</th>
-            <th>风险</th>
-            <th>状态</th>
-            <th>位置</th>
-            <th>申请人</th>
-            <th>施工方</th>
-            <th>监护人</th>
-            <th>作业时间</th>
-            <th>违规</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.permit_code}</td>
-              <td>{dictLabelText(dicts.safety_work_permit_type, row.permit_type)}</td>
-              <td><StringDictBadge items={dicts.safety_risk_level} value={row.risk_level} /></td>
-              <td><StringDictBadge items={dicts.safety_work_permit_status} value={row.status} /></td>
-              <td>{fieldText(row.location)}</td>
-              <td>{fieldText(row.apply_user_name)}</td>
-              <td>{fieldText(row.contractor_name)}</td>
-              <td>{fieldText(row.monitor_user_name)}</td>
-              <td>{`${formatDateTime(row.time_start)} - ${formatDateTime(row.time_end)}`}</td>
-              <td>{row.violation_count}</td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/work-permits?permit_id=${encodeURIComponent(row.id)}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={11}>暂无关联作业许可</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function UnitDevicesPanel({
-  data,
-  loading,
-  error,
-  dicts
-}: {
-  data: UnitDevicesResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载设备数据...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_devices ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.device_count ?? 0}</strong><span>设备总数</span></Card>
-        <Card><strong>{data?.summary.online_count ?? 0}</strong><span>在线设备</span></Card>
-        <Card><strong>{data?.summary.offline_count ?? 0}</strong><span>离线设备</span></Card>
-        <Card><strong>{data?.summary.active_alert_count ?? 0}</strong><span>活跃告警</span></Card>
-      </div>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>设备编号</th>
-            <th>设备名称</th>
-            <th>设备类型</th>
-            <th>在线状态</th>
-            <th>启停状态</th>
-            <th>位置</th>
-            <th>最近上报</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.device_code}</td>
-              <td>{row.device_name}</td>
-              <td>{dictLabelText(dicts.iot_device_type, row.device_type)}</td>
-              <td><StringDictBadge items={dicts.iot_device_status} value={row.online_status} /></td>
-              <td><StringDictBadge items={dicts.iot_device_status} value={row.status} /></td>
-              <td>{fieldText(row.location)}</td>
-              <td>{row.last_data_time ? formatDateTime(row.last_data_time) : "-"}</td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/iot/devices/${row.id}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={8}>暂无关联设备</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function UnitDeviceAlertsPanel({
-  data,
-  loading,
-  error,
-  dicts
-}: {
-  data: UnitDevicesResponse | null;
-  loading: boolean;
-  error: string;
-  dicts: Record<string, DictItemRow[]>;
-}) {
-  if (loading) {
-    return <p className="muted-text">正在加载设备告警...</p>;
-  }
-  if (error) {
-    return <p className="status-pill status-warning">{error}</p>;
-  }
-  const items = data?.recent_alerts ?? [];
-  return (
-    <section className="detail-stack">
-      <div className="system-grid">
-        <Card><strong>{data?.summary.active_alert_count ?? 0}</strong><span>活跃告警</span></Card>
-        <Card><strong>{data?.summary.device_count ?? 0}</strong><span>关联设备</span></Card>
-      </div>
-      <DataTable>
-        <thead>
-          <tr>
-            <th>告警编号</th>
-            <th>告警标题</th>
-            <th>设备</th>
-            <th>指标</th>
-            <th>级别</th>
-            <th>状态</th>
-            <th>触发值</th>
-            <th>最近触发</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((row) => (
-            <tr key={row.id}>
-              <td>{row.alert_code}</td>
-              <td>{row.alert_title}</td>
-              <td>{row.device_name || row.device_code}</td>
-              <td>{row.metric_code}</td>
-              <td><StringDictBadge items={dicts.iot_alert_level} value={row.alert_level} /></td>
-              <td><StringDictBadge items={dicts.iot_alert_status} value={row.status} /></td>
-              <td>{fieldText(row.trigger_value)}</td>
-              <td>{formatDateTime(row.last_trigger_time)}</td>
-              <td>
-                <button type="button" onClick={() => { window.location.href = `/iot/alerts?device_id=${encodeURIComponent(row.device_id)}`; }}>
-                  <Eye size={16} />
-                  查看
-                </button>
-              </td>
-            </tr>
-          ))}
-          {items.length === 0 ? <tr><td colSpan={9}>暂无设备告警</td></tr> : null}
-        </tbody>
-      </DataTable>
-    </section>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  required,
-  placeholder,
-  onChange
-}: {
-  label: string;
-  value: string;
-  required?: boolean;
-  placeholder?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      <input value={value} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  required,
-  onChange,
-  children
-}: {
-  label: string;
-  value: string;
-  required?: boolean;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      <select value={value} required={required} onChange={(event) => onChange(event.target.value)}>
-        {children}
-      </select>
-    </div>
-  );
-}
-
-function DictSelect({
-  label,
-  value,
-  required,
-  items = [],
-  onChange
-}: {
-  label: string;
-  value: string;
-  required?: boolean;
-  items?: DictItemRow[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <SelectField label={label} value={value} required={required} onChange={onChange}>
-      <option value="">{required ? "请选择" : "全部"}</option>
-      {items.map((item) => (
-        <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>
-      ))}
-    </SelectField>
-  );
-}
-
-function DictBadge({ items = [], value }: { items?: DictItemRow[]; value: number }) {
-  const item = items.find((option) => Number(option.itemValue) === value);
-  return <span className="status-pill">{item?.itemLabel ?? value}</span>;
-}
-
-function StringDictBadge({ items = [], value }: { items?: DictItemRow[]; value: string | null }) {
-  const item = items.find((option) => option.itemValue === value);
-  return <span className={`status-pill ${dictStatusClass(item?.tagType)}`}>{item?.itemLabel ?? value ?? "-"}</span>;
-}
-
-function StatusBadge({ status }: { status: EnabledStatus }) {
-  const option = status === 1
-    ? { label: "启用", className: "status-success" }
-    : { label: "停用", className: "status-danger" };
-  return <span className={`status-pill ${option.className}`}>{option.label}</span>;
-}
-
-function dictLabel(items: DictItemRow[] | undefined, value: number): string {
-  return items?.find((item) => Number(item.itemValue) === value)?.itemLabel ?? String(value);
-}
-
-function dictLabelText(items: DictItemRow[] | undefined, value: string | null): string {
-  return items?.find((item) => item.itemValue === value)?.itemLabel ?? value ?? "-";
-}
-
-function dictStatusClass(tagType?: string | null): string {
-  if (tagType === "success" || tagType === "warning" || tagType === "danger" || tagType === "primary" || tagType === "info") {
-    return `status-${tagType}`;
-  }
-  return "status-muted";
-}
-
-function getTransitionOptions(currentStatus: number, items: DictItemRow[] | undefined, canForceChangeStatus: boolean): DictItemRow[] {
-  const allowedValues = new Set(ALLOWED_RENTAL_STATUS_TARGETS.get(currentStatus) ?? []);
-  if (currentStatus === 30 && canForceChangeStatus) {
-    allowedValues.add(10);
-  }
-  return (items ?? []).filter((item) => allowedValues.has(Number(item.itemValue)));
-}
-
-function formatArea(value: string): string {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? `${parsed.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} ㎡` : String(value || "-");
-}
-
-function formatMoney(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? `${parsed.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 元` : String(value);
-}
-
-function maskUnitField(user: UserContext | null, fieldKey: string, value: unknown): unknown {
-  return maskField(user, "asset", "unit", fieldKey, value);
-}
-
-function fieldText(value: unknown): string {
-  return value === null || value === undefined || value === "" ? "-" : String(value);
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
 async function downloadFile(path: string, filename: string) {
@@ -1639,10 +1016,6 @@ async function downloadPostFile(path: string, filename: string, body: Record<str
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function formatYmd(value: Date): string {
-  return `${value.getFullYear()}${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}`;
 }
 
 function ForbiddenInline() {
