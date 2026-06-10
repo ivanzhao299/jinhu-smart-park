@@ -14,7 +14,7 @@
 - 后续拆分原则是不改变 controller 路由、不改变 DTO、不改变 entity、不改变数据库、不改变 API 返回结构、不改变权限语义。
 - 本轮不触碰账务、租赁合同、认证、幂等、migration、seed、测试脚本和 CI workflow。
 
-补充状态：`F后端-1：房源查询 service 拆分` 第一批已完成，基础查询入口已迁移到 `UnitsQueryService`，并建议阶段性收口。下一步建议进入 `F后端-2：工单查询 service 拆分设计`。
+补充状态：`F后端-1：房源查询 service 拆分` 第一批已完成，基础查询入口已迁移到 `UnitsQueryService`，并已阶段性收口。当前进入 `F后端-2：工单查询 service 拆分设计`。
 
 ## 3. 后端大 service 盘点
 
@@ -194,6 +194,8 @@
 ### F后端-2：工单查询 service 拆分设计
 
 在房源拆分稳定后，针对 `WorkOrdersService` 单独设计 query service 边界，明确哪些读入口可拆、哪些状态流转和日志写入必须保留。
+
+当前状态：已进入设计阶段。第一批建议只考虑 `list`、`detail`、`logs` 等纯查询入口，状态流转、日志写入、附件绑定、逾期重算和幂等写入口继续保留在原 service。
 
 ### F后端-3：工单查询 service 拆分
 
