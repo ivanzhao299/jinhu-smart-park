@@ -14,6 +14,8 @@
 - 当前阶段只做设计，不直接拆代码。
 - 第一批工单拆分应只处理纯查询，状态流转和副作用继续保留在 `WorkOrdersService`。
 
+补充状态：工单查询 service 第一批实施已完成，`list`、`detail`、`logs` 已迁移到 `WorkOrderQueryService`，并建议阶段性收口。第二刀候选为 `stats`、`overdue`、`listSlaRules`，需先单独设计。
+
 ## 3. 当前工单 service 现状
 
 以下行数来自 `wc -l` 实际统计。
@@ -255,3 +257,5 @@
 下一步推荐进入 `F后端-3：工单查询 service 拆分`，但第一批实施范围应严格限制为 `list`、`detail`、`logs`。
 
 `stats`、`overdue`、`listSlaRules` 可作为第二刀候选；`tenant360Workorders`、`unitWorkorders` 和所有状态流转 / 副作用逻辑暂缓。这样可以复用房源 query service 拆分经验，同时避免触碰工单状态语义和首发写入链路。
+
+当前状态：第一批实施已完成并建议阶段性收口；不建议直接进入第二刀实施，建议先进入第二刀设计。
