@@ -30,23 +30,27 @@ import { UnitExportDto } from "./dto/unit-export.dto";
 import { UnitStatusLogQueryDto } from "./dto/unit-status-log-query.dto";
 import { UnitQueryDto } from "./dto/unit-query.dto";
 import { UpdateUnitDto } from "./dto/update-unit.dto";
+import { UnitsQueryService } from "./units-query.service";
 import { UnitsService } from "./units.service";
 
 @Controller("park-units")
 @RequireModule("asset")
 export class UnitsController {
-  constructor(private readonly unitsService: UnitsService) {}
+  constructor(
+    private readonly unitsService: UnitsService,
+    private readonly unitsQueryService: UnitsQueryService
+  ) {}
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: UnitQueryDto) {
-    return this.unitsService.list(scope, query, user);
+    return this.unitsQueryService.list(scope, query, user);
   }
 
   @Get("statistics")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_STATISTICS_READ)
   statistics(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
-    return this.unitsService.statistics(scope, user);
+    return this.unitsQueryService.statistics(scope, user);
   }
 
   @Get("import-template")
@@ -140,7 +144,7 @@ export class UnitsController {
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.unitsService.detail(scope, id, user);
+    return this.unitsQueryService.detail(scope, id, user);
   }
 
   @Post()
@@ -205,7 +209,7 @@ export class UnitsController {
   @Get(":id/status-logs")
   @RequirePermissions(SYSTEM_PERMISSIONS.UNIT_STATUS_LOG)
   statusLogs(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Query() query: UnitStatusLogQueryDto) {
-    return this.unitsService.listStatusLogs(scope, user, id, query);
+    return this.unitsQueryService.listStatusLogs(scope, user, id, query);
   }
 
   @Delete(":id")
