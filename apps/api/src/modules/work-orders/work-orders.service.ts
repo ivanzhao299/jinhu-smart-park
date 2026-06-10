@@ -29,6 +29,7 @@ import type { WorkOrderStatsQueryDto } from "./dto/work-order-stats-query.dto";
 import { WorkOrderLogEntity } from "./entities/work-order-log.entity";
 import { WorkOrderSlaRuleEntity } from "./entities/work-order-sla-rule.entity";
 import { WorkOrderEntity } from "./entities/work-order.entity";
+import { WorkOrderQueryService } from "./work-order-query.service";
 
 const WORK_ORDER_STATUS_SUBMITTED = "10";
 const WORK_ORDER_STATUS_ASSIGNED = "20";
@@ -226,25 +227,16 @@ export class WorkOrdersService {
     private readonly dictItemsRepository: Repository<DictItemEntity>,
     private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
-    private readonly fieldPolicyService: FieldPolicyService
+    private readonly fieldPolicyService: FieldPolicyService,
+    private readonly workOrderQueryService: WorkOrderQueryService
   ) {}
 
   async list(scope: TenantParkScope, query: WorkOrderQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<WorkOrderEntity>> {
-    const builder = this.scopedBuilder(scope);
-    await this.applyDataScope(builder, actor);
-    this.applyQuery(builder, query);
-    this.applySort(builder, query.sort);
-    const [items, total] = await builder
-      .skip((query.page - 1) * query.page_size)
-      .take(query.page_size)
-      .getManyAndCount();
-    const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "workorder", "work_order", items);
-    return { items: securedItems, total, page: query.page, page_size: query.page_size };
+    return this.workOrderQueryService.list(scope, query, actor);
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<WorkOrderEntity> {
-    const entity = await this.findOne(scope, id, actor);
-    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "workorder", "work_order", entity);
+    return this.workOrderQueryService.detail(scope, id, actor);
   }
 
   async listSlaRules(scope: TenantParkScope, query: WorkOrderSlaRuleQueryDto): Promise<PaginatedResult<WorkOrderSlaRuleEntity>> {
@@ -429,22 +421,7 @@ export class WorkOrdersService {
   }
 
   async logs(scope: TenantParkScope, actor: JwtPrincipal, id: string, query: WorkOrderLogQueryDto): Promise<PaginatedResult<WorkOrderLogEntity>> {
-    await this.findOne(scope, id, actor);
-    const page = query.page ?? 1;
-    const pageSize = query.page_size ?? 50;
-    const order = query.order?.toUpperCase() === "ASC" ? "ASC" : "DESC";
-    const [items, total] = await this.workOrderLogsRepository
-      .createQueryBuilder("log")
-      .where("log.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("log.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("log.work_order_id = :id", { id })
-      .andWhere("log.is_deleted = false")
-      .orderBy("log.op_time", order)
-      .addOrderBy("log.create_time", order)
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-    return { items, total, page, page_size: pageSize };
+    return this.workOrderQueryService.logs(scope, actor, id, query);
   }
 
   async createLog(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: CreateWorkOrderLogDto): Promise<WorkOrderLogEntity> {

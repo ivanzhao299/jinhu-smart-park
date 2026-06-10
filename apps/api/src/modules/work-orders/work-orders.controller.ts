@@ -19,18 +19,22 @@ import { CreateWorkOrderLogDto, WorkOrderLogQueryDto } from "./dto/work-order-lo
 import { CreateWorkOrderSlaRuleDto, UpdateWorkOrderSlaRuleDto, WorkOrderSlaRuleQueryDto } from "./dto/work-order-sla-rule.dto";
 import { WorkOrderQueryDto } from "./dto/work-order-query.dto";
 import { WorkOrderStatsQueryDto } from "./dto/work-order-stats-query.dto";
+import { WorkOrderQueryService } from "./work-order-query.service";
 import { WorkOrdersService } from "./work-orders.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("work-orders")
 @RequireModule("workorder")
 export class WorkOrdersController {
-  constructor(private readonly workOrdersService: WorkOrdersService) {}
+  constructor(
+    private readonly workOrdersService: WorkOrdersService,
+    private readonly workOrderQueryService: WorkOrderQueryService
+  ) {}
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: WorkOrderQueryDto) {
-    return this.workOrdersService.list(scope, query, user);
+    return this.workOrderQueryService.list(scope, query, user);
   }
 
   @Get("sla-rules")
@@ -87,7 +91,7 @@ export class WorkOrdersController {
   @Get(":id/logs")
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_LOG_READ)
   logs(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Query() query: WorkOrderLogQueryDto) {
-    return this.workOrdersService.logs(scope, user, id, query);
+    return this.workOrderQueryService.logs(scope, user, id, query);
   }
 
   @Post(":id/logs")
@@ -100,7 +104,7 @@ export class WorkOrdersController {
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.workOrdersService.detail(scope, id, user);
+    return this.workOrderQueryService.detail(scope, id, user);
   }
 
   @Post()
