@@ -13,6 +13,7 @@ import { UserEntity } from "../users/entities/user.entity";
 import { WorkOrderLogEntity } from "./entities/work-order-log.entity";
 import { WorkOrderSlaRuleEntity } from "./entities/work-order-sla-rule.entity";
 import { WorkOrderEntity } from "./entities/work-order.entity";
+import { WorkOrderQueryService } from "./work-order-query.service";
 import { WorkOrdersController } from "./work-orders.controller";
 import { WorkOrdersService } from "./work-orders.service";
 
@@ -35,7 +36,7 @@ import { WorkOrdersService } from "./work-orders.service";
     FieldPoliciesModule
   ],
   controllers: [WorkOrdersController],
-  providers: [WorkOrdersService],
+  providers: [WorkOrdersService, WorkOrderQueryService],
   exports: [WorkOrdersService]
 })
 export class WorkOrdersModule {}
