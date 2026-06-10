@@ -14,7 +14,7 @@
 - 后续拆分原则是不改变 controller 路由、不改变 DTO、不改变 entity、不改变数据库、不改变 API 返回结构、不改变权限语义。
 - 本轮不触碰账务、租赁合同、认证、幂等、migration、seed、测试脚本和 CI workflow。
 
-补充状态：`F后端-1：房源查询 service 拆分` 第一批已完成，基础查询入口已迁移到 `UnitsQueryService`，并已阶段性收口。`F后端-2 / F后端-3：工单查询 service 设计与第一批拆分` 已完成，`list`、`detail`、`logs` 已迁移到 `WorkOrderQueryService` 并收口；工单 query service 第二刀 2A 已完成，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`；当前进入 `stats` 2B 设计阶段。
+补充状态：`F后端-1：房源查询 service 拆分` 第一批已完成，基础查询入口已迁移到 `UnitsQueryService`，并已阶段性收口。`F后端-2 / F后端-3：工单查询 service 设计与第一批拆分` 已完成，`list`、`detail`、`logs` 已迁移到 `WorkOrderQueryService` 并收口；工单 query service 第二刀 2A 已完成，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`；第二刀 2B 已完成，`stats` 已迁移到 `WorkOrderQueryService` 并进入收口复核。
 
 ## 3. 后端大 service 盘点
 
@@ -201,7 +201,7 @@
 
 只拆工单列表、详情、逾期列表、统计、日志列表、租户 / 房源聚合等查询入口，不拆派单和状态流转。
 
-当前状态：第一批只迁移 `list`、`detail`、`logs`，已完成并建议阶段性收口；第二刀 2A 已完成，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`。`stats` 已进入 2B 设计，设计收口前不直接实施。
+当前状态：第一批只迁移 `list`、`detail`、`logs`，已完成并建议阶段性收口；第二刀 2A 已完成，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`；第二刀 2B 已完成，`stats` 已迁移到 `WorkOrderQueryService` 并进入收口复核。跨模块聚合查询继续暂缓。
 
 ### F后端-4：账务 service 仅继续设计，不急于拆
 

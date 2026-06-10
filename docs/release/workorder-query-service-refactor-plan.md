@@ -14,7 +14,7 @@
 - 当前阶段只做设计，不直接拆代码。
 - 第一批工单拆分应只处理纯查询，状态流转和副作用继续保留在 `WorkOrdersService`。
 
-补充状态：工单查询 service 第一批实施已完成，`list`、`detail`、`logs` 已迁移到 `WorkOrderQueryService`，并建议阶段性收口。第二刀 2A 已实施，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`；`stats` 进入 2B 设计候选，实施前仍需单独确认统计口径风险。
+补充状态：工单查询 service 第一批实施已完成，`list`、`detail`、`logs` 已迁移到 `WorkOrderQueryService`，并建议阶段性收口。第二刀 2A 已实施，`overdue`、`listSlaRules` 已迁移到 `WorkOrderQueryService`。第二刀 2B 已实施，`stats` 已迁移到 `WorkOrderQueryService` 并进入收口复核；`tenant360Workorders` / `unitWorkorders` 继续暂缓。
 
 ## 3. 当前工单 service 现状
 
