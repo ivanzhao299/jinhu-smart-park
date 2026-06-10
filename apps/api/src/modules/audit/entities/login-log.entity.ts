@@ -28,7 +28,7 @@ export class LoginLogEntity extends AuditableEntity {
   @Column({ name: "fail_reason", type: "varchar", length: 255, nullable: true })
   failReason!: string | null;
 
-  @Column({ name: "request_id", type: "varchar", length: 64, nullable: true })
+  @Column({ name: "request_id", type: "varchar", length: 128, nullable: true })
   requestId!: string | null;
 
   @Column({ name: "ip_address", type: "varchar", length: 64, nullable: true })
