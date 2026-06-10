@@ -2,8 +2,6 @@
 
 import {
   Card,
-  DataTable,
-  DataTableActions,
   Drawer,
   DrawerDetailGrid,
   DrawerDetailItem,
@@ -20,22 +18,17 @@ import {
   CheckCircle2,
   Clock3,
   CornerDownLeft,
-  Edit3,
-  Eye,
   Hammer,
   PackageSearch,
   PlayCircle,
-  Plus,
   RefreshCw,
-  Search,
   Send,
   ShieldAlert,
   Shuffle,
   Star,
-  Trash2,
   X
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -44,6 +37,8 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { WorkOrdersPageActions, WorkOrdersToolbar } from "./components/WorkOrdersToolbar";
+import { WorkOrdersTable } from "./components/WorkOrdersTable";
 
 const WORKORDER_MODULE = "workorder";
 const WORK_ORDER_ENTITY = "work_order";
@@ -360,7 +355,6 @@ export default function WorkOrdersListPage() {
   const priorityItems = dicts.workorder_priority ?? [];
   const urgencyItems = dicts.workorder_urgency ?? [];
   const sourceItems = dicts.workorder_source_type ?? [];
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "createTime:DESC" });
@@ -757,153 +751,38 @@ export default function WorkOrdersListPage() {
             <strong>工单中心</strong>
             <span>手工创建报修、投诉、申请与咨询工单，后续接入派单和处理闭环</span>
           </div>
-          <div className="page-actions">
-            <button className="primary-button secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
-              <RefreshCw size={16} />
-              刷新
-            </button>
-            <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CREATE} type="button" onClick={openCreate}>
-              <Plus size={16} />
-              新增工单
-            </PermissionButton>
-          </div>
+          <WorkOrdersPageActions
+            onRefresh={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}
+            onCreate={openCreate}
+          />
         </header>
 
-        <Card>
-          <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
-            <div className="dashboard-grid">
-              <Field label="关键词">
-                <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编号 / 标题 / 位置 / 人员" />
-              </Field>
-              <Field label="状态">
-                <Select value={filters.status} onChange={(value) => setFilters((current) => ({ ...current, status: value }))} items={statusItems} allLabel="全部状态" />
-              </Field>
-              <Field label="工单类型">
-                <Select value={filters.woType} onChange={(value) => setFilters((current) => ({ ...current, woType: value }))} items={typeItems} allLabel="全部类型" />
-              </Field>
-              <Field label="优先级">
-                <Select value={filters.priority} onChange={(value) => setFilters((current) => ({ ...current, priority: value }))} items={priorityItems} allLabel="全部优先级" />
-              </Field>
-              <Field label="紧急程度">
-                <Select value={filters.urgency} onChange={(value) => setFilters((current) => ({ ...current, urgency: value }))} items={urgencyItems} allLabel="全部紧急程度" />
-              </Field>
-              <Field label="处理人">
-                <select value={filters.assigneeId} onChange={(event) => setFilters((current) => ({ ...current, assigneeId: event.target.value }))}>
-                  <option value="">全部处理人</option>
-                  {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
-                </select>
-              </Field>
-              <Field label="租户企业">
-                <select value={filters.parkTenantId} onChange={(event) => setFilters((current) => ({ ...current, parkTenantId: event.target.value }))}>
-                  <option value="">全部企业</option>
-                  {parkTenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.companyName}</option>)}
-                </select>
-              </Field>
-              <Field label="房源">
-                <select value={filters.unitId} onChange={(event) => setFilters((current) => ({ ...current, unitId: event.target.value }))}>
-                  <option value="">全部房源</option>
-                  {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.unitCode} {unit.unitName}</option>)}
-                </select>
-              </Field>
-              <Field label="是否超时">
-                <select value={filters.overdueOnly} onChange={(event) => setFilters((current) => ({ ...current, overdueOnly: event.target.value }))}>
-                  <option value="">全部</option>
-                  <option value="true">仅超时</option>
-                </select>
-              </Field>
-              <Field label="开始日期">
-                <input type="date" value={filters.startDate} onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))} />
-              </Field>
-              <Field label="结束日期">
-                <input type="date" value={filters.endDate} onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))} />
-              </Field>
-            </div>
-            <div className="filter-actions">
-              <button className="primary-button" type="submit">
-                <Search size={16} />
-                查询
-              </button>
-            </div>
-          </form>
-        </Card>
+        <WorkOrdersToolbar
+          filters={filters}
+          statusItems={statusItems}
+          typeItems={typeItems}
+          priorityItems={priorityItems}
+          urgencyItems={urgencyItems}
+          users={users}
+          parkTenants={parkTenants}
+          units={units}
+          onFilterChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+          onSubmit={() => void load(1).catch((error: Error) => setMessage(error.message))}
+        />
 
-        <Card className="table-scroll">
-          <DataTable>
-            <thead>
-              <tr>
-                <th>工单编号</th>
-                <th>标题</th>
-                <th>类型</th>
-                <th>优先级</th>
-                <th>状态</th>
-                <th>租户企业</th>
-                <th>位置</th>
-                <th>报告人</th>
-                <th>处理人</th>
-                <th>超时</th>
-                <th>创建时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageData.items.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.woCode}</td>
-                  <td>{row.title}</td>
-                  <td>{labelFor(typeItems, row.woType)}</td>
-                  <td><DictBadge items={priorityItems} value={row.priority} /></td>
-                  <td><DictBadge items={statusItems} value={row.status} /></td>
-                  <td>{row.parkTenant?.companyName ?? "-"}</td>
-                  <td>{row.location ?? row.unit?.unitName ?? row.roomLabel ?? "-"}</td>
-                  <td>{row.reporterName ?? "-"}</td>
-                  <td>{row.assigneeName ?? "-"}</td>
-                  <td>{row.overdueFlag ? <span className="status-pill status-danger">超时</span> : <span className="status-pill status-muted">正常</span>}</td>
-                  <td>{formatDateTime(row.createTime)}</td>
-                  <td>
-                    <DataTableActions>
-                      <button className="row-action-button" title="详情" type="button" onClick={() => openDetail(row)}>
-                        <Eye size={16} />
-                        详情
-                      </button>
-                      <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
-                        <Edit3 size={16} />
-                        编辑
-                      </PermissionButton>
-                      {canAssignWorkOrder(row) ? (
-                        <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ASSIGN} title="派单" type="button" onClick={() => openAssignment(row, "assign")}>
-                          <Send size={16} />
-                          派单
-                        </PermissionButton>
-                      ) : null}
-                      {canReassignWorkOrder(row) ? (
-                        <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REASSIGN} title="改派" type="button" onClick={() => openAssignment(row, "reassign")}>
-                          <Shuffle size={16} />
-                          改派
-                        </PermissionButton>
-                      ) : null}
-                      <PermissionButton className="row-action-button row-action-danger" permission={SYSTEM_PERMISSIONS.WORKORDER_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
-                        <Trash2 size={16} />
-                        删除
-                      </PermissionButton>
-                    </DataTableActions>
-                  </td>
-                </tr>
-              ))}
-              {pageData.items.length === 0 ? (
-                <tr>
-                  <td colSpan={12}>暂无工单数据</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </DataTable>
-          <div className="task-item">
-            <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-            <span>
-              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-              <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
-            </span>
-          </div>
-        </Card>
+        <WorkOrdersTable
+          pageData={pageData}
+          typeItems={typeItems}
+          priorityItems={priorityItems}
+          statusItems={statusItems}
+          canAssignWorkOrder={canAssignWorkOrder}
+          canReassignWorkOrder={canReassignWorkOrder}
+          onOpenDetail={openDetail}
+          onOpenEdit={openEdit}
+          onOpenAssignment={openAssignment}
+          onRemove={(row) => void remove(row).catch((error: Error) => setMessage(error.message))}
+          onPageChange={(page) => void load(page).catch((error: Error) => setMessage(error.message))}
+        />
 
         {showForm ? (
           <Drawer size="lg" onClose={() => setShowForm(false)}>
