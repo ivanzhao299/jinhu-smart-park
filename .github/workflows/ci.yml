@@ -2,6 +2,13 @@ name: CI
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -51,6 +58,7 @@ jobs:
 
   release-smoke:
     name: Release Smoke
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-release-smoke'))
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
