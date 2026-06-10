@@ -1,24 +1,19 @@
 "use client";
 
-import {
-  Card,
-  Drawer,
-  DrawerFooter,
-  DrawerForm,
-  DrawerFormGrid,
-  DrawerHeader
-} from "@jinhu/ui";
-import { X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { Card } from "@jinhu/ui";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
-import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
+import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
 import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
+import { WorkOrderExceptionActionDialog } from "./components/WorkOrderExceptionActionDialog";
 import { WorkOrderFormDialog } from "./components/WorkOrderFormDialog";
+import { WorkOrderProcessActionDialog } from "./components/WorkOrderProcessActionDialog";
 import { WorkOrdersPageActions, WorkOrdersToolbar } from "./components/WorkOrdersToolbar";
 import { WorkOrdersTable } from "./components/WorkOrdersTable";
 
@@ -827,220 +822,51 @@ export default function WorkOrdersListPage() {
         ) : null}
 
         {assignment ? (
-          <Drawer size="md" onClose={() => setAssignment(null)}>
-            <DrawerHeader
-              eyebrow={assignment.mode === "assign" ? "工单派单" : "工单改派"}
-              title={assignment.row.woCode}
-              description={assignment.mode === "assign" ? "选择处理人并记录派单说明。" : "改派必须填写原因，系统会写入工单日志。"}
-              onClose={() => setAssignment(null)}
-              closeIcon={<X size={16} />}
-            />
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}>
-              <DrawerFormGrid single>
-                <Field label="处理人">
-                  <select required value={assignmentForm.assigneeId} onChange={(event) => setAssignmentForm((current) => ({ ...current, assigneeId: event.target.value }))}>
-                    <option value="">请选择处理人</option>
-                    {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
-                  </select>
-                </Field>
-                <TextAreaField
-                  label={assignment.mode === "assign" ? "派单说明" : "改派原因"}
-                  value={assignmentForm.reason}
-                  required={assignment.mode === "reassign"}
-                  onChange={(value) => setAssignmentForm((current) => ({ ...current, reason: value }))}
-                />
-              </DrawerFormGrid>
-              <DrawerFooter>
-                <button type="button" onClick={() => setAssignment(null)}>取消</button>
-                <button className="primary-button" type="submit">{assignment.mode === "assign" ? "确认派单" : "确认改派"}</button>
-              </DrawerFooter>
-            </DrawerForm>
-          </Drawer>
+          <WorkOrderAssignDialog
+            assignment={assignment}
+            form={assignmentForm}
+            users={users}
+            onClose={() => setAssignment(null)}
+            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}
+            onFormChange={(patch) => setAssignmentForm((current) => ({ ...current, ...patch }))}
+          />
         ) : null}
 
         {processAction ? (
-          <Drawer size="md" onClose={() => setProcessAction(null)}>
-            <DrawerHeader
-              eyebrow={processAction.mode === "wait-material" ? "标记待物料" : "完成处理"}
-              title={processAction.row.woCode}
-              description={processAction.mode === "wait-material" ? "记录缺料原因，工单进入待物料状态。" : "填写处理说明，可上传处理后的现场图片。"}
-              onClose={() => setProcessAction(null)}
-              closeIcon={<X size={16} />}
-            />
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitProcessAction(event).catch((error: Error) => setMessage(error.message))}>
-              <DrawerFormGrid single>
-                {processAction.mode === "wait-material" ? (
-                  <TextAreaField
-                    label="待物料原因"
-                    value={processForm.reason}
-                    required
-                    onChange={(value) => setProcessForm((current) => ({ ...current, reason: value }))}
-                  />
-                ) : (
-                  <>
-                    <TextAreaField
-                      label="处理说明"
-                      value={processForm.resolveNote}
-                      required
-                      onChange={(value) => setProcessForm((current) => ({ ...current, resolveNote: value }))}
-                    />
-                    <div className="work-panel">
-                      <h2 className="panel-title">处理图片</h2>
-                      <FileUploader bizType={WORKORDER_FINISH_FILE_BIZ_TYPE} bizId={processAction.row.id} onUploaded={handleFinishFileUploaded} />
-                      <p className="muted-text">已选择 {processForm.imageFileIds.length} 个处理附件</p>
-                    </div>
-                  </>
-                )}
-              </DrawerFormGrid>
-              <DrawerFooter>
-                <button type="button" onClick={() => setProcessAction(null)}>取消</button>
-                <button className="primary-button" type="submit">{processAction.mode === "wait-material" ? "确认待物料" : "确认完成"}</button>
-              </DrawerFooter>
-            </DrawerForm>
-          </Drawer>
+          <WorkOrderProcessActionDialog
+            action={processAction}
+            form={processForm}
+            finishFileBizType={WORKORDER_FINISH_FILE_BIZ_TYPE}
+            onClose={() => setProcessAction(null)}
+            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitProcessAction(event).catch((error: Error) => setMessage(error.message))}
+            onFormChange={(patch) => setProcessForm((current) => ({ ...current, ...patch }))}
+            onFinishFileUploaded={handleFinishFileUploaded}
+          />
         ) : null}
 
         {closureAction ? (
-          <Drawer size="md" onClose={() => setClosureAction(null)}>
-            <DrawerHeader
-              eyebrow={closureAction.mode === "confirm" ? "确认完成" : closureAction.mode === "evaluate" ? "工单评价" : "关闭工单"}
-              title={closureAction.row.woCode}
-              description={
-                closureAction.mode === "confirm"
-                  ? "确认处理结果后，工单进入已确认状态。"
-                  : closureAction.mode === "evaluate"
-                    ? "填写满意度和评价内容，完成服务反馈。"
-                    : "关闭后工单进入闭环，不能继续处理或评价。"
-              }
-              onClose={() => setClosureAction(null)}
-              closeIcon={<X size={16} />}
-            />
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitClosureAction(event).catch((error: Error) => setMessage(error.message))}>
-              <DrawerFormGrid single>
-                {closureAction.mode === "confirm" ? (
-                  <TextAreaField
-                    label="确认说明"
-                    value={closureForm.confirmNote}
-                    onChange={(value) => setClosureForm((current) => ({ ...current, confirmNote: value }))}
-                  />
-                ) : null}
-                {closureAction.mode === "evaluate" ? (
-                  <>
-                    <NumberField
-                      label="满意度"
-                      value={closureForm.satisfaction}
-                      min={1}
-                      max={5}
-                      onChange={(value) => setClosureForm((current) => ({ ...current, satisfaction: value }))}
-                    />
-                    <TextAreaField
-                      label="评价内容"
-                      value={closureForm.evaluation}
-                      onChange={(value) => setClosureForm((current) => ({ ...current, evaluation: value }))}
-                    />
-                  </>
-                ) : null}
-                {closureAction.mode === "close" ? (
-                  <TextAreaField
-                    label="关闭原因"
-                    value={closureForm.reason}
-                    required
-                    onChange={(value) => setClosureForm((current) => ({ ...current, reason: value }))}
-                  />
-                ) : null}
-              </DrawerFormGrid>
-              <DrawerFooter>
-                <button type="button" onClick={() => setClosureAction(null)}>取消</button>
-                <button className="primary-button" type="submit">
-                  {closureAction.mode === "confirm" ? "确认完成" : closureAction.mode === "evaluate" ? "提交评价" : "确认关闭"}
-                </button>
-              </DrawerFooter>
-            </DrawerForm>
-          </Drawer>
+          <WorkOrderCloseDialog
+            action={closureAction}
+            form={closureForm}
+            onClose={() => setClosureAction(null)}
+            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitClosureAction(event).catch((error: Error) => setMessage(error.message))}
+            onFormChange={(patch) => setClosureForm((current) => ({ ...current, ...patch }))}
+          />
         ) : null}
 
         {exceptionAction ? (
-          <Drawer size="md" onClose={() => setExceptionAction(null)}>
-            <DrawerHeader
-              eyebrow={exceptionAction.mode === "cancel" ? "取消工单" : exceptionAction.mode === "return" ? "退回工单" : "驳回工单"}
-              title={exceptionAction.row.woCode}
-              description={
-                exceptionAction.mode === "cancel"
-                  ? "取消后工单进入已取消状态，只保留历史记录。"
-                  : exceptionAction.mode === "return"
-                    ? "退回后工单进入已退回状态，可重新派单。"
-                    : "驳回后工单进入已退回状态，等待补充或重新处理。"
-              }
-              onClose={() => setExceptionAction(null)}
-              closeIcon={<X size={16} />}
-            />
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitExceptionAction(event).catch((error: Error) => setMessage(error.message))}>
-              <DrawerFormGrid single>
-                <TextAreaField
-                  label={exceptionAction.mode === "cancel" ? "取消原因" : exceptionAction.mode === "return" ? "退回原因" : "驳回原因"}
-                  value={exceptionForm.reason}
-                  required
-                  onChange={(value) => setExceptionForm((current) => ({ ...current, reason: value }))}
-                />
-              </DrawerFormGrid>
-              <DrawerFooter>
-                <button type="button" onClick={() => setExceptionAction(null)}>取消</button>
-                <button className="primary-button" type="submit">
-                  {exceptionAction.mode === "cancel" ? "确认取消" : exceptionAction.mode === "return" ? "确认退回" : "确认驳回"}
-                </button>
-              </DrawerFooter>
-            </DrawerForm>
-          </Drawer>
+          <WorkOrderExceptionActionDialog
+            action={exceptionAction}
+            form={exceptionForm}
+            onClose={() => setExceptionAction(null)}
+            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitExceptionAction(event).catch((error: Error) => setMessage(error.message))}
+            onFormChange={(patch) => setExceptionForm((current) => ({ ...current, ...patch }))}
+          />
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}
       </main>
     </PermissionGuard>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  min = 0,
-  max,
-  onChange
-}: {
-  label: string;
-  value: string;
-  min?: number;
-  max?: number;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field label={label}>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step="1"
-        value={value}
-        onFocus={(event) => event.target.select()}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </Field>
-  );
-}
-
-function TextAreaField({ label, value, required, onChange }: { label: string; value: string; required?: boolean; onChange: (value: string) => void }) {
-  return (
-    <Field label={label}>
-      <textarea value={value} required={required} rows={4} onChange={(event) => onChange(event.target.value)} />
-    </Field>
   );
 }
 
