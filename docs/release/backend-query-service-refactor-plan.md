@@ -210,3 +210,5 @@
 ## 12. 结论
 
 下一步推荐进入 `F后端-1：房源查询 service 拆分`，并把实施范围限制在 `UnitsQueryService` 的纯查询迁移。第一批不碰工单状态流转、不碰账务、不碰合同主链、不碰认证、幂等、migration、seed、测试脚本和 CI。
+
+补充状态：房源 query service 和工单 query service 已阶段性收口。工单 `tenant360Workorders` / `unitWorkorders` 与房源跨模块大聚合继续暂缓，后续不继续直接拆跨模块聚合；如需评估，仅先做只读设计。
