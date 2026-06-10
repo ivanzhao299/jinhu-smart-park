@@ -92,8 +92,10 @@ function buildNextMonthMinusOneDay() {
   return date.toISOString().slice(0, 10);
 }
 
-function buildBillingMonth() {
-  return new Date().toISOString().slice(0, 7);
+function buildBillingMonth(offsetMonths = 0) {
+  const date = new Date();
+  date.setUTCMonth(date.getUTCMonth() + offsetMonths);
+  return date.toISOString().slice(0, 7);
 }
 
 function buildSuffix() {
@@ -1049,6 +1051,36 @@ function assertNoUnexpectedBatchFailures(label, data) {
   return true;
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function assertSameBatchGenerationResult(label, actual, expected) {
+  const fields = ["generated_count", "skipped_count", "failed_count"];
+  for (const field of fields) {
+    if (actual[field] !== expected[field]) {
+      fail(`${label} expected ${field}=${expected[field]}, got ${actual[field]}`);
+      return false;
+    }
+  }
+  const actualRows = stableJson(actual.rows);
+  const expectedRows = stableJson(expected.rows);
+  if (actualRows !== expectedRows) {
+    fail(`${label} expected cached rows to match first response; first=${expectedRows}; replay=${actualRows}`);
+    return false;
+  }
+  return true;
+}
+
 async function exerciseReceivableBatchGenerationDedupe(authHeaders, contractId) {
   const payload = {
     contract_ids: [contractId],
@@ -1058,12 +1090,23 @@ async function exerciseReceivableBatchGenerationDedupe(authHeaders, contractId) 
   const before = await queryReceivables(authHeaders, contractId);
   if (before === null) return false;
 
+  const missingKey = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch missing idempotency key", missingKey.response.status, 400, missingKey.body)) return false;
+
+  const firstKey = buildIdempotencyKey("generate-batch-first");
   const first = await request("/leasing/receivables/generate-batch", {
     method: "POST",
     headers: {
       ...authHeaders,
       "content-type": "application/json",
-      "x-idempotency-key": buildIdempotencyKey("generate-batch-first")
+      "x-idempotency-key": firstKey
     },
     body: JSON.stringify(payload)
   });
@@ -1086,6 +1129,41 @@ async function exerciseReceivableBatchGenerationDedupe(authHeaders, contractId) 
     fail(`Batch generation first request created unexpected duplicate receivables; before=${before.length}, after=${afterFirst.length}, generated=${firstData.generated_count}`);
     return false;
   }
+
+  const replay = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": firstKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch replay", replay.response.status, [200, 201], replay.body)) return false;
+  const replayData = validateBatchGenerationResult("POST /leasing/receivables/generate-batch replay", replay.body);
+  if (!replayData || !assertSameBatchGenerationResult("POST /leasing/receivables/generate-batch replay", replayData, firstData)) return false;
+
+  const afterReplay = await queryReceivables(authHeaders, contractId);
+  if (afterReplay === null) return false;
+  if (afterReplay.length !== afterFirst.length) {
+    fail(`Batch generation replay changed receivable count from ${afterFirst.length} to ${afterReplay.length}`);
+    return false;
+  }
+  pass("POST /leasing/receivables/generate-batch replay returned first generated result without duplicates");
+
+  const conflict = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": firstKey
+    },
+    body: JSON.stringify({
+      ...payload,
+      billing_month: buildBillingMonth(1)
+    })
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch conflict", conflict.response.status, 409, conflict.body)) return false;
 
   const repeat = await request("/leasing/receivables/generate-batch", {
     method: "POST",
@@ -1129,6 +1207,34 @@ async function exerciseReceivableBatchGenerationDedupe(authHeaders, contractId) 
     return false;
   }
   pass("POST /leasing/receivables/generate-batch quick repeat skipped existing receivables");
+
+  const failedPayload = {
+    contract_ids: [contractId],
+    billing_month: "not-a-month"
+  };
+  const failedKey = buildIdempotencyKey("generate-batch-failed-retry");
+  const failedFirst = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": failedKey
+    },
+    body: JSON.stringify(failedPayload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch failed request", failedFirst.response.status, 400, failedFirst.body)) return false;
+
+  const failedRetry = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": failedKey
+    },
+    body: JSON.stringify(failedPayload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch failed request retry", failedRetry.response.status, 400, failedRetry.body)) return false;
+  pass("POST /leasing/receivables/generate-batch failed request retry remained failed instead of replaying success");
 
   return true;
 }

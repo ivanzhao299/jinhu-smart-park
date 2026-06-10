@@ -126,7 +126,7 @@
 | 接口 | 业务动作 | 当前幂等状态 | 风险等级 | 是否建议补齐 | 原因 |
 |---|---|---|---|---|---|
 | `POST /leasing/contracts/:contractId/generate-receivables` | 按合同生成应收 | 已接 interceptor | 已覆盖 | 否 | 首批已完成 |
-| `POST /leasing/receivables/generate-batch` | 批量生成应收 | 仅 guard | P0 | E2-5B-4A 已完成，后续评估 E2-5B-4B | 重复生成可能造成重复账务；已补业务去重 / 事务语义保护，仍未接 interceptor |
+| `POST /leasing/receivables/generate-batch` | 批量生成应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-4A 已完成业务去重 / 事务语义保护；E2-5B-4B 已完成 replay / conflict / failed retry |
 | `POST /leasing/receivables/recalculate-overdue` | 重算逾期 | 仅 guard | P1 | 暂缓 | 风险次于生成与核销 |
 | `POST /leasing/receivables` | 手工新增应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `PUT /leasing/receivables/:id` | 修改应收 | 已接 interceptor | 已覆盖 | 否 | E2-5B-2C 已完成，字段 / 状态保护仍生效 |
@@ -141,7 +141,7 @@
 | `PUT /leasing/payments/:id` | 修改收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-1 已完成 |
 | `DELETE /leasing/payments/:id` | 删除收款 | 已接 interceptor | 已覆盖 | 否 | E2-5B-3B 已完成；payment status log 仍待治理 |
 
-> E2-5B-1 / E2-5B-2C / E2-5B-3B 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、`DELETE /leasing/receivables/:id` 与 `DELETE /leasing/payments/:id` 已接入真实幂等并完成 replay / conflict 回归；删除类接口仍保持 softDelete + void 语义，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口已完成 E2-5B-4A 业务去重 / 事务语义保护，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)，仍未接入真实幂等。
+> E2-5B-1 / E2-5B-2C / E2-5B-3B / E2-5B-4B 实施结论：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、`DELETE /leasing/receivables/:id`、`DELETE /leasing/payments/:id` 与 `POST /leasing/receivables/generate-batch` 已接入真实幂等并完成 replay / conflict 回归；删除类接口仍保持 softDelete + void 语义，详见 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md)；批量生成接口仍保留业务去重 / 事务语义保护，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)。
 
 ## 5. 第一批建议补齐范围
 
@@ -253,13 +253,13 @@
 
 ### E2-5：应收 / 收款编辑删除专项设计
 
-- 目标：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、删除类接口和批量生成业务去重 / 事务语义保护已完成；批量生成请求级 replay 进入 E2-5B-4B 后续评估
+- 目标：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、删除类接口和批量生成接口已完成真实幂等接入；批量生成仍保留业务去重 / 事务语义保护
 - 建议文件：
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts`
   - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 风险：资金账务接口不能只看 JSON fingerprint，还需要确认已核销 / 已开票 / 作废状态保护
-- 验收标准：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id` 与删除类接口已由 `first-release-leasing.mjs` 覆盖 replay / conflict；批量生成已覆盖 same payload different key 不重复生成，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)
+- 验收标准：`POST /leasing/receivables`、`PUT /leasing/receivables/:id`、`PUT /leasing/payments/:id`、删除类接口与批量生成接口已由 `first-release-leasing.mjs` 覆盖 replay / conflict；批量生成额外覆盖 same payload different key 不重复生成，详见 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)
 
 ### E2-5B-2A / E2-5B-2B / E2-5B-2C：应收修改业务状态保护与幂等接入
 
@@ -294,12 +294,12 @@
   - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
   - `scripts/e2e/first-release-leasing.mjs`
 - 当前设计文档：[receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md)
-- 风险：该接口按多个合同批量生成应收，允许单合同失败并继续处理后续合同；E2-5B-4A 已补业务级去重和唯一冲突转译，但直接接入请求级 replay 仍可能掩盖 partial success / skipped / failed 语义
+- 风险：该接口按多个合同批量生成应收，允许单合同失败并继续处理后续合同；E2-5B-4A 已补业务级去重和唯一冲突转译，E2-5B-4B 已接入请求级 replay，但 2xx + failed row 仍会作为成功批次缓存，batch history / result 表仍是后续治理项
 - 后续拆分：
   - E2-5B-4A：已完成批量生成业务去重 / 事务语义保护，确认重复同合同同账期不会重复生成
-  - E2-5B-4B：批量生成幂等接入 + 回归，在语义稳定后补 missing key / replay / conflict
+  - E2-5B-4B：已完成批量生成幂等接入 + 回归，覆盖 missing key / first / replay / conflict / failed retry
   - E2-5B-4C：batch history / result 表设计，如需追溯 created / skipped / failed 明细再实施
-- 验收标准：contract + fee type + period 等业务唯一维度已作为去重依据；same payload different key 不重复生成；后续再决定是否接入 `IdempotencyInterceptor`
+- 验收标准：contract + fee type + period 等业务唯一维度已作为去重依据；same key replay 返回首次 generated 结果；same payload different key 不重复生成并返回 skipped；same key different body 返回 `409`
 
 ### E2-6：文件写接口专项设计
 
@@ -362,7 +362,7 @@
   - `PUT /leasing/payments/:id` 已完成
   - `PUT /leasing/receivables/:id` 已完成状态保护和 interceptor 接入
   - 删除类接口已完成语义保护和 interceptor 接入
-  - 批量生成接口已完成 E2-5B-4A 业务去重 / 事务语义保护，后续评估 E2-5B-4B
+  - 批量生成接口已完成 E2-5B-4A 业务去重 / 事务语义保护和 E2-5B-4B interceptor 接入
 - 验收标准：
   - 重复核销、重复新增应收、重复修改收款均已被拦截或复用
   - 已核销 / 已开票 / 作废场景有明确业务状态保护
@@ -384,10 +384,10 @@
 当前状态快照与剩余缺口请以 [idempotency-coverage-review.md](./idempotency-coverage-review.md) 为准。
 
 1. 下一批最该补的接口是：
-   - 批量生成接口 `POST /leasing/receivables/generate-batch` 已完成 E2-5B-4A 业务去重 / 事务语义保护；下一步建议评估 E2-5B-4B 幂等接入是否仍有必要
+   - 批量生成接口 `POST /leasing/receivables/generate-batch` 已完成 E2-5B-4A 业务去重 / 事务语义保护和 E2-5B-4B 幂等接入；下一步建议按需推进 E2-5B-4C batch history / result 表设计
 2. 不要马上补的接口是：
    - 文件上传类 multipart 接口
-   - 批量导入 / 批量生成接口，直到 [receivable-batch-generation-idempotency-design.md](./receivable-batch-generation-idempotency-design.md) 中的业务去重和部分成功语义确认
+   - 批量导入接口，以及批量生成的 batch history / result 表专项，直到需要正式运营追溯能力
    - 财务作废 / 冲销 / 反核销专项流程，直到 [receivable-payment-delete-void-design.md](./receivable-payment-delete-void-design.md) 中的后续流程另行设计
    - 非首发模块接口
 3. 当前不需要先改幂等底层机制，现有 `IdempotencyInterceptor` 足以覆盖稳定 JSON 写接口；真正需要单独设计的是 multipart、批量接口和财务作废 / 冲销语义

@@ -27,6 +27,7 @@ export class LeasingReceivablesController {
   }
 
   @Post("generate-batch")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.LEASING_RECEIVABLE_GENERATE_BATCH)
   @AuditLog({ module: "租赁应收", resource: "biz.leasing_receivable", action: "批量生成", bizType: "biz_leasing_receivable" })
   generateBatch(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: GenerateReceivablesBatchDto) {
