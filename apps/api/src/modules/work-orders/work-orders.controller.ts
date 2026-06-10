@@ -85,7 +85,7 @@ export class WorkOrdersController {
   @Get("stats")
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_STATS)
   stats(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: WorkOrderStatsQueryDto) {
-    return this.workOrdersService.stats(scope, query, user);
+    return this.workOrderQueryService.stats(scope, query, user);
   }
 
   @Get(":id/logs")

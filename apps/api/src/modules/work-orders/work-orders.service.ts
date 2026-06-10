@@ -299,11 +299,7 @@ export class WorkOrdersService {
   }
 
   async stats(scope: TenantParkScope, query: WorkOrderStatsQueryDto, actor?: JwtPrincipal): Promise<WorkOrderStatsResult> {
-    const builder = this.scopedBuilder(scope);
-    await this.applyDataScope(builder, actor);
-    this.applyStatsQuery(builder, query);
-    const workOrders = await builder.getMany();
-    return this.buildStatsResult(workOrders);
+    return this.workOrderQueryService.stats(scope, query, actor);
   }
 
   async tenant360Workorders(scope: TenantParkScope, actor: JwtPrincipal, parkTenantId: string): Promise<WorkOrderTenant360Node> {
@@ -997,133 +993,6 @@ export class WorkOrdersService {
     if (query.end_date) builder.andWhere("workOrder.create_time < (:endDate::date + INTERVAL '1 day')", { endDate: query.end_date });
   }
 
-  private applyStatsQuery(builder: SelectQueryBuilder<WorkOrderEntity>, query: WorkOrderStatsQueryDto): void {
-    if (query.wo_type) builder.andWhere("workOrder.wo_type = :woType", { woType: query.wo_type });
-    if (query.building_id) builder.andWhere("workOrder.building_id = :buildingId", { buildingId: query.building_id });
-    if (query.assignee_id) builder.andWhere("workOrder.assignee_id = :assigneeId", { assigneeId: query.assignee_id });
-    if (query.park_tenant_id) builder.andWhere("workOrder.park_tenant_id = :parkTenantId", { parkTenantId: query.park_tenant_id });
-    if (query.start_date) builder.andWhere("workOrder.create_time >= :startDate", { startDate: query.start_date });
-    if (query.end_date) builder.andWhere("workOrder.create_time < (:endDate::date + INTERVAL '1 day')", { endDate: query.end_date });
-  }
-
-  private buildStatsResult(workOrders: WorkOrderEntity[]): WorkOrderStatsResult {
-    const now = new Date();
-    const inProgressStatuses = new Set([WORK_ORDER_STATUS_ACCEPTED, WORK_ORDER_STATUS_PROCESSING, WORK_ORDER_STATUS_WAIT_MATERIAL]);
-    const doneStatuses = new Set([WORK_ORDER_STATUS_FINISHED, WORK_ORDER_STATUS_CONFIRMED, WORK_ORDER_STATUS_EVALUATED, WORK_ORDER_STATUS_CLOSED]);
-    const dispatchDurations: number[] = [];
-    const finishDurations: number[] = [];
-    const satisfactionValues: number[] = [];
-    const assigneeMap = new Map<
-      string,
-      {
-        assignee_id: string | null;
-        assignee_name: string;
-        count: number;
-        done_count: number;
-        overdue_count: number;
-        finishDurations: number[];
-        overdueDurations: number[];
-      }
-    >();
-
-    for (const workOrder of workOrders) {
-      const dispatchDuration = this.optionalMinutesBetween(workOrder.createTime, workOrder.dispatchTime);
-      if (dispatchDuration !== null) dispatchDurations.push(dispatchDuration);
-
-      const finishBase = workOrder.acceptTime ?? workOrder.dispatchTime ?? workOrder.createTime;
-      const finishDuration = this.optionalMinutesBetween(finishBase, workOrder.finishTime);
-      if (finishDuration !== null) finishDurations.push(finishDuration);
-
-      if (typeof workOrder.satisfaction === "number") {
-        satisfactionValues.push(workOrder.satisfaction);
-      }
-
-      const assigneeKey = workOrder.assigneeId ?? "__unassigned__";
-      const assigneeBucket =
-        assigneeMap.get(assigneeKey) ??
-        {
-          assignee_id: workOrder.assigneeId ?? null,
-          assignee_name: workOrder.assigneeName ?? "未派单",
-          count: 0,
-          done_count: 0,
-          overdue_count: 0,
-          finishDurations: [],
-          overdueDurations: []
-        };
-      assigneeBucket.count += 1;
-      if (doneStatuses.has(workOrder.status)) assigneeBucket.done_count += 1;
-      if (workOrder.overdueFlag) {
-        assigneeBucket.overdue_count += 1;
-        assigneeBucket.overdueDurations.push(this.calculateOverdueMinutes(workOrder, now));
-      }
-      if (finishDuration !== null) assigneeBucket.finishDurations.push(finishDuration);
-      assigneeMap.set(assigneeKey, assigneeBucket);
-    }
-
-    const summary: WorkOrderStatsSummary = {
-      total_count: workOrders.length,
-      pending_count: workOrders.filter((item) => item.status === WORK_ORDER_STATUS_SUBMITTED).length,
-      assigned_count: workOrders.filter((item) => item.status === WORK_ORDER_STATUS_ASSIGNED).length,
-      in_progress_count: workOrders.filter((item) => inProgressStatuses.has(item.status)).length,
-      done_count: workOrders.filter((item) => doneStatuses.has(item.status)).length,
-      overdue_count: workOrders.filter((item) => item.overdueFlag).length,
-      closed_count: workOrders.filter((item) => item.status === WORK_ORDER_STATUS_CLOSED).length,
-      avg_dispatch_minutes: this.average(dispatchDurations),
-      avg_finish_minutes: this.average(finishDurations),
-      avg_satisfaction: this.average(satisfactionValues)
-    };
-
-    const byAssignee = Array.from(assigneeMap.values())
-      .map((bucket) => ({
-        assignee_id: bucket.assignee_id,
-        assignee_name: bucket.assignee_name,
-        count: bucket.count,
-        done_count: bucket.done_count,
-        overdue_count: bucket.overdue_count,
-        avg_finish_minutes: this.average(bucket.finishDurations)
-      }))
-      .sort((left, right) => right.count - left.count || right.done_count - left.done_count)
-      .slice(0, 20);
-
-    const overdueTop = Array.from(assigneeMap.values())
-      .filter((bucket) => bucket.overdue_count > 0)
-      .map((bucket) => ({
-        assignee_id: bucket.assignee_id,
-        assignee_name: bucket.assignee_name,
-        overdue_count: bucket.overdue_count,
-        max_overdue_minutes: bucket.overdueDurations.length > 0 ? Math.max(...bucket.overdueDurations) : 0
-      }))
-      .sort((left, right) => right.overdue_count - left.overdue_count || right.max_overdue_minutes - left.max_overdue_minutes)
-      .slice(0, 10);
-
-    return {
-      summary,
-      by_status: this.groupCount(workOrders, (item) => item.status),
-      by_type: this.groupCount(workOrders, (item) => item.woType),
-      by_priority: this.groupCount(workOrders, (item) => item.priority),
-      by_assignee: byAssignee,
-      overdue_top: overdueTop
-    };
-  }
-
-  private groupCount(items: WorkOrderEntity[], selector: (item: WorkOrderEntity) => string | null | undefined): WorkOrderStatsBucket[] {
-    const counts = new Map<string, number>();
-    for (const item of items) {
-      const key = selector(item)?.trim() || "-";
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .map(([key, count]) => ({ key, count }))
-      .sort((left, right) => right.count - left.count);
-  }
-
-  private optionalMinutesBetween(start?: Date | null, end?: Date | null): number | null {
-    if (!start || !end) return null;
-    const minutes = (end.getTime() - start.getTime()) / 60000;
-    if (!Number.isFinite(minutes) || minutes < 0) return null;
-    return Math.round(minutes * 100) / 100;
-  }
-
   private average(values: number[]): number {
     if (values.length === 0) return 0;
     const total = values.reduce((sum, value) => sum + value, 0);
@@ -1152,23 +1021,6 @@ export class WorkOrdersService {
       create_time: workOrder.createTime,
       update_time: workOrder.updateTime
     }));
-  }
-
-  private calculateOverdueMinutes(workOrder: WorkOrderEntity, now: Date): number {
-    const dispatchSlaMin = workOrder.slaDispatchMin ?? DEFAULT_DISPATCH_SLA_MIN;
-    const finishSlaMin = workOrder.slaFinishMin ?? DEFAULT_FINISH_SLA_MIN;
-    let dueAt: Date | null = null;
-    if (workOrder.status === WORK_ORDER_STATUS_SUBMITTED && workOrder.createTime) {
-      dueAt = new Date(workOrder.createTime.getTime() + dispatchSlaMin * 60000);
-    } else if (
-      [WORK_ORDER_STATUS_ASSIGNED, WORK_ORDER_STATUS_ACCEPTED, WORK_ORDER_STATUS_PROCESSING, WORK_ORDER_STATUS_WAIT_MATERIAL].includes(workOrder.status)
-    ) {
-      const baseTime = workOrder.acceptTime ?? workOrder.dispatchTime ?? workOrder.createTime;
-      if (baseTime) dueAt = new Date(baseTime.getTime() + finishSlaMin * 60000);
-    }
-    if (!dueAt) return 0;
-    const minutes = (now.getTime() - dueAt.getTime()) / 60000;
-    return minutes > 0 ? Math.round(minutes * 100) / 100 : 0;
   }
 
   private applySort(builder: SelectQueryBuilder<WorkOrderEntity>, sort?: string): void {
