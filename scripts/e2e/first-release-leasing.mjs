@@ -92,6 +92,10 @@ function buildNextMonthMinusOneDay() {
   return date.toISOString().slice(0, 10);
 }
 
+function buildBillingMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
 function buildSuffix() {
   return testRunId.replace(/[^a-zA-Z0-9_-]/g, "");
 }
@@ -301,6 +305,42 @@ async function ensureUnit(authHeaders, buildingId, floorId) {
   return created;
 }
 
+async function createBatchGenerationUnit(authHeaders, buildingId, floorId) {
+  const codes = buildCodes("BUNIT");
+  const create = await request("/park-units", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-create-unit")
+    },
+    body: JSON.stringify({
+      unitCode: codes.code,
+      buildingId,
+      floorId,
+      unitName: `First release batch unit ${codes.suffix}`,
+      usageType: 10,
+      unitArea: 100,
+      useArea: 90,
+      rentalStatus: 10,
+      fittingStatus: 10,
+      refPrice: 1000,
+      status: 1,
+      remark: `first release batch generation regression ${testRunId}`
+    })
+  });
+  if (!expectStatus("POST /park-units batch generation unit", create.response.status, [200, 201], create.body)) {
+    return null;
+  }
+  const created = unwrapData(create.body);
+  if (!created?.id) {
+    fail(`POST /park-units batch generation unit did not return id; body=${summarizeBody(create.body)}`);
+    return null;
+  }
+  pass(`Created batch generation unit ${created.unitName ?? created.unitCode} (${created.id})`);
+  return created;
+}
+
 async function uploadContractFile(authHeaders, label) {
   const form = new FormData();
   form.append("biz_type", "leasing_contract");
@@ -341,12 +381,13 @@ async function ensureContractFiles(authHeaders) {
   return { contractPdfFileId, scanPdfFileId };
 }
 
-function buildContractPayload(parkTenantId) {
+function buildContractPayload(parkTenantId, options = {}) {
   const startDate = buildDate(0);
   const endDate = buildNextMonthMinusOneDay();
+  const label = options.label ? ` ${options.label}` : "";
   return {
     contract_code: buildCodes("CONTRACT").code,
-    contract_name: `First release leasing contract ${testRunId}`,
+    contract_name: `First release leasing contract${label} ${testRunId}`,
     contract_type: "10",
     park_tenant_id: parkTenantId,
     source_type: "manual",
@@ -363,7 +404,7 @@ function buildContractPayload(parkTenantId) {
     payment_advance_days: 0,
     property_fee_unit_price: 0,
     status: "10",
-    remark: `first release leasing regression ${testRunId}`
+    remark: `first release leasing regression${label} ${testRunId}`
   };
 }
 
@@ -513,6 +554,29 @@ async function ensureContract(authHeaders, parkTenantId) {
   return created;
 }
 
+async function createBatchGenerationContract(authHeaders, parkTenantId) {
+  const payload = buildContractPayload(parkTenantId, { label: "batch generation" });
+  const create = await request("/leasing/contracts", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-create-contract")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts batch generation contract", create.response.status, [200, 201], create.body)) {
+    return null;
+  }
+  const created = unwrapData(create.body);
+  if (!created?.id) {
+    fail(`POST /leasing/contracts batch generation contract did not return id; body=${summarizeBody(create.body)}`);
+    return null;
+  }
+  pass(`Created batch generation contract ${created.contractName ?? created.contractCode} (${created.id})`);
+  return created;
+}
+
 function buildContractUnitLinkPayload(unit) {
   return {
     unit_id: unit.id,
@@ -560,6 +624,29 @@ async function ensureContractUnitLink(authHeaders, contractId, unit) {
     return null;
   }
   pass(`Linked contract to unit (${created.id})`);
+  return created;
+}
+
+async function createBatchGenerationContractUnitLink(authHeaders, contractId, unit) {
+  const payload = buildContractUnitLinkPayload(unit);
+  const link = await request(`/leasing/contracts/${contractId}/units`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-create-contract-unit-link")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:contractId/units batch generation link", link.response.status, [200, 201], link.body)) {
+    return null;
+  }
+  const created = unwrapData(link.body);
+  if (!created?.id) {
+    fail(`POST /leasing/contracts/:contractId/units batch generation link did not return id; body=${summarizeBody(link.body)}`);
+    return null;
+  }
+  pass(`Linked batch generation contract to unit (${created.id})`);
   return created;
 }
 
@@ -696,6 +783,54 @@ async function transitionContractToSigned(authHeaders, contractId, files) {
   return true;
 }
 
+async function transitionBatchGenerationContractToSigned(authHeaders, contractId, files) {
+  const submit = await request(`/leasing/contracts/${contractId}/submit`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-submit-contract")
+    },
+    body: JSON.stringify({
+      opinion: `First release batch generation submit ${testRunId}`
+    })
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/submit batch generation", submit.response.status, [200, 201], submit.body)) return false;
+
+  const approve = await request(`/leasing/contracts/${contractId}/approve`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-approve-contract")
+    },
+    body: JSON.stringify({
+      opinion: `First release batch generation approve ${testRunId}`
+    })
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/approve batch generation", approve.response.status, [200, 201], approve.body)) return false;
+
+  const archive = await request(`/leasing/contracts/${contractId}/archive`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-archive-contract")
+    },
+    body: JSON.stringify({
+      contract_pdf_file_id: files.contractPdfFileId,
+      scan_pdf_file_id: files.scanPdfFileId,
+      sign_date: buildDate(0),
+      effective_date: buildDate(0),
+      opinion: `First release batch generation archive ${testRunId}`,
+      remark: `First release batch generation regression ${testRunId}`
+    })
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/archive batch generation", archive.response.status, [200, 201], archive.body)) return false;
+
+  return true;
+}
+
 function buildEffectivePayload() {
   return {
     effective_date: buildDate(0),
@@ -771,6 +906,44 @@ async function exerciseContractEffectiveIdempotency(authHeaders, contractId) {
   return true;
 }
 
+async function makeBatchGenerationContractEffective(authHeaders, contractId) {
+  const payload = {
+    effective_date: buildDate(0),
+    opinion: `First release batch generation effective ${testRunId}`
+  };
+  const effective = await request(`/leasing/contracts/${contractId}/effective`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("batch-effective-contract")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/contracts/:id/effective batch generation", effective.response.status, [200, 201], effective.body)) return false;
+  const data = unwrapData(effective.body);
+  if (!data?.id) {
+    fail(`POST /leasing/contracts/:id/effective batch generation did not return contract data; body=${summarizeBody(effective.body)}`);
+    return false;
+  }
+  pass(`Batch generation contract moved to effective status (${data.id})`);
+  return true;
+}
+
+async function prepareBatchGenerationContract(authHeaders, parkTenantId, buildingId, floorId, files) {
+  const unit = await createBatchGenerationUnit(authHeaders, buildingId, floorId);
+  if (!unit?.id) return null;
+  const contract = await createBatchGenerationContract(authHeaders, parkTenantId);
+  if (!contract?.id) return null;
+  const linked = await createBatchGenerationContractUnitLink(authHeaders, contract.id, unit);
+  if (!linked?.id) return null;
+  const signed = await transitionBatchGenerationContractToSigned(authHeaders, contract.id, files);
+  if (!signed) return null;
+  const effective = await makeBatchGenerationContractEffective(authHeaders, contract.id);
+  if (!effective) return null;
+  return contract;
+}
+
 async function generateReceivables(authHeaders, contractId) {
   const before = await queryReceivables(authHeaders, contractId);
   if (before === null) return null;
@@ -843,6 +1016,121 @@ async function generateReceivables(authHeaders, contractId) {
   }
 
   return data;
+}
+
+function validateBatchGenerationResult(label, body) {
+  const data = unwrapData(body);
+  if (!data || typeof data !== "object") {
+    fail(`${label} did not return an object body; body=${summarizeBody(body)}`);
+    return null;
+  }
+  for (const field of ["generated_count", "skipped_count", "failed_count"]) {
+    if (typeof data[field] !== "number") {
+      fail(`${label} did not return numeric ${field}; body=${summarizeBody(body)}`);
+      return null;
+    }
+    if (data[field] < 0) {
+      fail(`${label} returned negative ${field}: ${data[field]}`);
+      return null;
+    }
+  }
+  if (!Array.isArray(data.rows)) {
+    fail(`${label} did not return rows array; body=${summarizeBody(body)}`);
+    return null;
+  }
+  return data;
+}
+
+function assertNoUnexpectedBatchFailures(label, data) {
+  if (data.failed_count !== 0) {
+    fail(`${label} returned unexpected failed rows; body=${summarizeBody(data)}`);
+    return false;
+  }
+  return true;
+}
+
+async function exerciseReceivableBatchGenerationDedupe(authHeaders, contractId) {
+  const payload = {
+    contract_ids: [contractId],
+    billing_month: buildBillingMonth()
+  };
+
+  const before = await queryReceivables(authHeaders, contractId);
+  if (before === null) return false;
+
+  const first = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("generate-batch-first")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch first request", first.response.status, [200, 201], first.body)) return false;
+  const firstData = validateBatchGenerationResult("POST /leasing/receivables/generate-batch first request", first.body);
+  if (!firstData || !assertNoUnexpectedBatchFailures("POST /leasing/receivables/generate-batch first request", firstData)) return false;
+  if (firstData.generated_count <= 0) {
+    fail(`POST /leasing/receivables/generate-batch first request expected created rows, got generated=${firstData.generated_count}; body=${summarizeBody(first.body)}`);
+    return false;
+  }
+  pass(`POST /leasing/receivables/generate-batch first request generated=${firstData.generated_count}, skipped=${firstData.skipped_count}`);
+
+  const afterFirst = await queryReceivables(authHeaders, contractId);
+  if (afterFirst === null) return false;
+  if (afterFirst.length < before.length + firstData.generated_count) {
+    fail(`Batch generation first request did not make generated rows visible; before=${before.length}, after=${afterFirst.length}, generated=${firstData.generated_count}`);
+    return false;
+  }
+  if (afterFirst.length > before.length + firstData.generated_count) {
+    fail(`Batch generation first request created unexpected duplicate receivables; before=${before.length}, after=${afterFirst.length}, generated=${firstData.generated_count}`);
+    return false;
+  }
+
+  const repeat = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("generate-batch-repeat")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch same payload different key", repeat.response.status, [200, 201], repeat.body)) return false;
+  const repeatData = validateBatchGenerationResult("POST /leasing/receivables/generate-batch same payload different key", repeat.body);
+  if (!repeatData || !assertNoUnexpectedBatchFailures("POST /leasing/receivables/generate-batch same payload different key", repeatData)) return false;
+  if (repeatData.skipped_count <= 0) {
+    fail(`POST /leasing/receivables/generate-batch repeat expected skipped rows, got ${repeatData.skipped_count}; body=${summarizeBody(repeat.body)}`);
+    return false;
+  }
+
+  const afterRepeat = await queryReceivables(authHeaders, contractId);
+  if (afterRepeat === null) return false;
+  if (afterRepeat.length !== afterFirst.length) {
+    fail(`Batch generation same payload different key changed receivable count from ${afterFirst.length} to ${afterRepeat.length}`);
+    return false;
+  }
+  pass("POST /leasing/receivables/generate-batch same payload different key skipped existing receivables without duplicates");
+
+  const quickRepeat = await request("/leasing/receivables/generate-batch", {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("generate-batch-quick-repeat")
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!expectStatus("POST /leasing/receivables/generate-batch quick repeat", quickRepeat.response.status, [200, 201], quickRepeat.body)) return false;
+  const quickRepeatData = validateBatchGenerationResult("POST /leasing/receivables/generate-batch quick repeat", quickRepeat.body);
+  if (!quickRepeatData || !assertNoUnexpectedBatchFailures("POST /leasing/receivables/generate-batch quick repeat", quickRepeatData)) return false;
+  if (quickRepeatData.skipped_count <= 0) {
+    fail(`POST /leasing/receivables/generate-batch quick repeat expected skipped rows, got ${quickRepeatData.skipped_count}`);
+    return false;
+  }
+  pass("POST /leasing/receivables/generate-batch quick repeat skipped existing receivables");
+
+  return true;
 }
 
 async function queryReceivables(authHeaders, contractId) {
@@ -1791,6 +2079,11 @@ async function run() {
     return;
   }
   pass(`Contract detail after effective confirmed ${contract.id}`);
+
+  const batchGenerationContract = await prepareBatchGenerationContract(authHeaders, parkTenant.id, building.id, floor.id, files);
+  if (!batchGenerationContract?.id) return;
+  const batchGenerationDedupeOk = await exerciseReceivableBatchGenerationDedupe(authHeaders, batchGenerationContract.id);
+  if (!batchGenerationDedupeOk) return;
 
   const receivableGeneration = await generateReceivables(authHeaders, contract.id);
   if (!receivableGeneration) return;

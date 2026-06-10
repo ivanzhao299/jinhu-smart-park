@@ -356,6 +356,7 @@ pnpm regression:leasing
   - 合同提交 / 审批 / 归档
   - 合同生效幂等：missing key / first request / replay / conflict
   - 应收生成幂等：missing key / first request / replay / conflict
+  - 批量生成应收业务去重 / 事务语义保护：same payload different key 不重复生成，快速重复调用返回 skipped；暂未接入 `IdempotencyInterceptor`
   - 应收查询
   - 应收创建幂等：missing key / first request / replay / conflict
   - 应收修改幂等：missing key / first request / replay / conflict
@@ -368,6 +369,7 @@ pnpm regression:leasing
   - 收款查询
   - `PUT /leasing/receivables/:id` 已接入 `IdempotencyInterceptor`，并保留字段 / 状态保护回归
   - `DELETE /leasing/receivables/:id` 与 `DELETE /leasing/payments/:id` 已接入 `IdempotencyInterceptor`，但仍只代表 softDelete + void，不代表冲销 / 反核销流程
+  - `POST /leasing/receivables/generate-batch` 已完成业务去重 / 事务语义保护回归；并发专项压测和请求级 replay / conflict 留到 E2-5B-4B
 - 对租赁链路数据依赖的说明：
   - 当前本地库未发现可直接复用的 park tenant / building / floor / unit 数据，因此脚本会自动创建一条带 `TEST_RUN_ID` 前缀的最小闭环数据。
   - 脚本优先查询已有同名测试数据，若不存在则自举创建。
@@ -381,7 +383,7 @@ pnpm regression:leasing
   - 豁免
   - 发票
   - 欠费账龄
-  - 多合同批量生成
+  - 多合同批量生成的严格并发压测、batch history / result 明细和请求级 replay / conflict
   - 浏览器 E2E
 
 #### C2-5：first-release regression runner / 统一入口

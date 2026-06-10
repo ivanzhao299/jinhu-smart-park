@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, type EntityManager, type ObjectLiteral, type Repository, type SelectQueryBuilder } from "typeorm";
 import { type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
@@ -372,7 +373,7 @@ export class LeasingReceivablesService {
           period_start: dto.billing_month,
           period_end: dto.billing_month,
           status: "failed",
-          message: error instanceof Error ? error.message : "Generate receivables failed"
+          message: this.safeGenerationFailureMessage(error)
         });
       }
     }
@@ -761,16 +762,7 @@ export class LeasingReceivablesService {
     forceRegenerate: boolean
   ): Promise<ReceivableGenerationRow> {
     const repository = manager.getRepository(LeasingReceivableEntity);
-    const existing = await repository
-      .createQueryBuilder("receivable")
-      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("receivable.contract_id = :contractId", { contractId: contract.id })
-      .andWhere("receivable.fee_type = :feeType", { feeType: spec.feeType })
-      .andWhere("receivable.period_start = :periodStart", { periodStart: spec.periodStart })
-      .andWhere("receivable.period_end = :periodEnd", { periodEnd: spec.periodEnd })
-      .andWhere("receivable.is_deleted = false")
-      .getOne();
+    const existing = await this.findExistingGeneratedReceivable(repository, scope, contract.id, spec);
 
     if (existing) {
       if (!forceRegenerate) {
@@ -803,7 +795,9 @@ export class LeasingReceivablesService {
 
     const arCode = await this.resolveArCode(scope, actor.sub);
     const status = this.deriveGeneratedStatus(spec);
-    const entity = repository.create({
+    const receivableId = randomUUID();
+    const entity = {
+      id: receivableId,
       tenantId: scope.tenantId,
       parkId: scope.parkId,
       code: arCode,
@@ -822,16 +816,65 @@ export class LeasingReceivablesService {
       invoiceStatus: INVOICE_STATUS_NONE,
       overdueDays: this.calculateOverdueDays(spec.dueDate, spec.amountDue),
       status,
-      sourceType: "contract",
+      sourceType: "contract" as const,
       sourceId: contract.id,
       generateBatchNo: null,
       remark: spec.remark,
       createBy: actor.sub,
       updateBy: actor.sub
-    });
-    const saved = await repository.save(entity);
-    await this.createStatusLog(manager, scope, actor, saved, null, status, "generate", "合同应收生成");
-    return this.toGenerationRow(contract.id, spec, "generated", "Generated", saved);
+    };
+    await repository
+      .createQueryBuilder()
+      .insert()
+      .into(LeasingReceivableEntity)
+      .values(entity)
+      .orIgnore()
+      .execute();
+
+    const saved = await repository.findOne({ where: { id: receivableId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
+    if (saved) {
+      await this.createStatusLog(manager, scope, actor, saved, null, status, "generate", "合同应收生成");
+      return this.toGenerationRow(contract.id, spec, "generated", "Generated", saved);
+    }
+
+    const duplicate = await this.findExistingGeneratedReceivable(repository, scope, contract.id, spec);
+    if (duplicate) {
+      return this.toGenerationRow(contract.id, spec, "skipped", "Receivable already exists", duplicate);
+    }
+
+    throw new ConflictException("Receivable generation conflict; please retry");
+  }
+
+  private findExistingGeneratedReceivable(
+    repository: Repository<LeasingReceivableEntity>,
+    scope: TenantParkScope,
+    contractId: string,
+    spec: ReceivableGenerationSpec
+  ): Promise<LeasingReceivableEntity | null> {
+    return repository
+      .createQueryBuilder("receivable")
+      .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("receivable.contract_id = :contractId", { contractId })
+      .andWhere("receivable.fee_type = :feeType", { feeType: spec.feeType })
+      .andWhere("receivable.period_start = :periodStart", { periodStart: spec.periodStart })
+      .andWhere("receivable.period_end = :periodEnd", { periodEnd: spec.periodEnd })
+      .andWhere("receivable.is_deleted = false")
+      .getOne();
+  }
+
+  private safeGenerationFailureMessage(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (typeof response === "string") return response;
+      if (response && typeof response === "object" && "message" in response) {
+        const message = (response as { message?: unknown }).message;
+        if (Array.isArray(message)) return message.join("; ");
+        if (typeof message === "string") return message;
+      }
+      return error.message;
+    }
+    return "Generate receivables failed";
   }
 
   private async createStatusLog(
