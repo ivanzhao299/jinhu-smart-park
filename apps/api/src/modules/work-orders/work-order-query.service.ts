@@ -7,7 +7,9 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { WorkOrderLogQueryDto } from "./dto/work-order-log.dto";
 import type { WorkOrderQueryDto } from "./dto/work-order-query.dto";
+import type { WorkOrderSlaRuleQueryDto } from "./dto/work-order-sla-rule.dto";
 import { WorkOrderLogEntity } from "./entities/work-order-log.entity";
+import { WorkOrderSlaRuleEntity } from "./entities/work-order-sla-rule.entity";
 import { WorkOrderEntity } from "./entities/work-order.entity";
 
 const DEFAULT_SORT_COLUMN = "workOrder.createTime";
@@ -45,6 +47,8 @@ export class WorkOrderQueryService {
     private readonly workOrdersRepository: Repository<WorkOrderEntity>,
     @InjectRepository(WorkOrderLogEntity)
     private readonly workOrderLogsRepository: Repository<WorkOrderLogEntity>,
+    @InjectRepository(WorkOrderSlaRuleEntity)
+    private readonly workOrderSlaRulesRepository: Repository<WorkOrderSlaRuleEntity>,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService
   ) {}
@@ -84,6 +88,29 @@ export class WorkOrderQueryService {
       .take(pageSize)
       .getManyAndCount();
     return { items, total, page, page_size: pageSize };
+  }
+
+  async overdue(scope: TenantParkScope, query: WorkOrderQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<WorkOrderEntity>> {
+    const overdueQuery = { ...query, overdue_only: true };
+    return this.list(scope, overdueQuery, actor);
+  }
+
+  async listSlaRules(scope: TenantParkScope, query: WorkOrderSlaRuleQueryDto): Promise<PaginatedResult<WorkOrderSlaRuleEntity>> {
+    const builder = this.workOrderSlaRulesRepository
+      .createQueryBuilder("rule")
+      .where("rule.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("rule.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("rule.is_deleted = false");
+    if (query.wo_type) builder.andWhere("rule.wo_type = :woType", { woType: query.wo_type });
+    if (query.urgency) builder.andWhere("rule.urgency = :urgency", { urgency: query.urgency });
+    if (query.priority) builder.andWhere("rule.priority = :priority", { priority: query.priority });
+    if (query.status) builder.andWhere("rule.status = :status", { status: query.status });
+    const [items, total] = await builder
+      .orderBy("rule.update_time", "DESC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
+    return { items, total, page: query.page, page_size: query.page_size };
   }
 
   private scopedBuilder(scope: TenantParkScope): SelectQueryBuilder<WorkOrderEntity> {

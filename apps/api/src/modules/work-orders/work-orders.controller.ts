@@ -40,7 +40,7 @@ export class WorkOrdersController {
   @Get("sla-rules")
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_SLA_READ)
   listSlaRules(@CurrentScope() scope: TenantParkScope, @Query() query: WorkOrderSlaRuleQueryDto) {
-    return this.workOrdersService.listSlaRules(scope, query);
+    return this.workOrderQueryService.listSlaRules(scope, query);
   }
 
   @Post("sla-rules")
@@ -79,7 +79,7 @@ export class WorkOrdersController {
   @Get("overdue")
   @RequirePermissions(SYSTEM_PERMISSIONS.WORKORDER_OVERDUE)
   overdue(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: WorkOrderQueryDto) {
-    return this.workOrdersService.overdue(scope, query, user);
+    return this.workOrderQueryService.overdue(scope, query, user);
   }
 
   @Get("stats")
