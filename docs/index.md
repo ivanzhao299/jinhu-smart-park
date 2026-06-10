@@ -55,6 +55,7 @@ node scripts/e2e/first-release-regression.mjs
 - [首发核心自动化回归包设计](testing/first-release-regression-plan.md)
 - [Migration history/checksum 设计](release/migration-history-checksum-design.md)
 - [大页面 / 大服务拆分设计](release/large-page-service-refactor-plan.md)
+- [阶段五-F 重构治理总结报告](release/stage-5f-refactor-summary.md)
 - [后端纯查询 Service 拆分设计](release/backend-query-service-refactor-plan.md)
 - [房源查询 Service 拆分收口复核](release/units-query-service-closure-review.md)
 - [工单查询 Service 拆分设计](release/workorder-query-service-refactor-plan.md)
