@@ -63,6 +63,7 @@ node scripts/e2e/first-release-regression.mjs
 - [工单查询 Service 第二刀 2A 收口复核](release/workorder-query-service-2a-closure-review.md)
 - [工单查询 Service 第二刀 2B stats 设计](release/workorder-query-service-stats-plan.md)
 - [工单查询 Service 第二刀 2B stats 收口复核](release/workorder-query-service-stats-closure-review.md)
+- [工单 Query Service 阶段性总结](release/workorder-query-service-stage-summary.md)
 - [资产房源页面拆分收口复核](release/assets-units-refactor-closure-review.md)
 - [工单列表页面拆分收口复核](release/workorders-list-refactor-closure-review.md)
 - 架构专项资料：
