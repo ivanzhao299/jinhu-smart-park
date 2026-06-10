@@ -94,6 +94,23 @@ export interface WorkOrderRow {
   } | null;
 }
 
+export interface WorkOrderLogRow {
+  id: string;
+  code: string | null;
+  logCode: string | null;
+  workOrderId: string;
+  action: string;
+  beforeStatus: string | null;
+  afterStatus: string | null;
+  operatorId: string | null;
+  operatorName: string | null;
+  reason: string | null;
+  content: string | null;
+  attachmentFileIds: string[];
+  opTime: string;
+  remark: string | null;
+}
+
 export interface WorkOrderFormState {
   woCode: string;
   title: string;
@@ -118,6 +135,12 @@ export interface WorkOrderFormState {
   remark: string;
 }
 
+export interface WorkOrderLogFormState {
+  reason: string;
+  content: string;
+  attachmentFileIds: string[];
+}
+
 export interface FilterState {
   keyword: string;
   status: string;
@@ -135,3 +158,7 @@ export interface FilterState {
 
 export type WorkOrdersPageData = PaginatedResult<WorkOrderRow>;
 export type AssignmentMode = "assign" | "reassign";
+export type ProcessActionMode = "wait-material" | "finish";
+export type ClosureActionMode = "confirm" | "evaluate" | "close";
+export type ExceptionActionMode = "cancel" | "return" | "reject";
+export type DetailTab = "profile" | "logs";

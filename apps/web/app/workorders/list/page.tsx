@@ -3,40 +3,21 @@
 import {
   Card,
   Drawer,
-  DrawerDetailGrid,
-  DrawerDetailItem,
   DrawerFooter,
   DrawerForm,
   DrawerFormGrid,
-  DrawerHeader,
-  DrawerTabButton,
-  DrawerTabs
+  DrawerHeader
 } from "@jinhu/ui";
-import {
-  Archive,
-  Ban,
-  CheckCircle2,
-  Clock3,
-  CornerDownLeft,
-  Hammer,
-  PackageSearch,
-  PlayCircle,
-  RefreshCw,
-  Send,
-  ShieldAlert,
-  Shuffle,
-  Star,
-  X
-} from "lucide-react";
+import { X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
-import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
 import { WorkOrderFormDialog } from "./components/WorkOrderFormDialog";
 import { WorkOrdersPageActions, WorkOrdersToolbar } from "./components/WorkOrdersToolbar";
 import { WorkOrdersTable } from "./components/WorkOrdersTable";
@@ -805,179 +786,44 @@ export default function WorkOrdersListPage() {
         ) : null}
 
         {detail ? (
-          <Drawer size="lg" onClose={() => setDetail(null)}>
-            <DrawerHeader
-              eyebrow="工单详情"
-              title={detail.title}
-              description={`${detail.woCode} · ${labelFor(statusItems, detail.status)} · ${detail.reporterName ?? "-"}`}
-              onClose={() => setDetail(null)}
-              closeIcon={<X size={16} />}
-            />
-            {canAssignWorkOrder(detail) || canReassignWorkOrder(detail) || canAcceptWorkOrder(authUser, detail) || canStartWorkOrder(authUser, detail) || canWaitMaterialWorkOrder(authUser, detail) || canFinishWorkOrder(authUser, detail) || canConfirmWorkOrder(authUser, detail) || canEvaluateWorkOrder(authUser, detail) || canCloseWorkOrder(authUser, detail) || canCancelWorkOrder(detail) || canReturnWorkOrder(authUser, detail) || canRejectWorkOrder(authUser, detail) ? (
-              <div className="drawer-action-bar">
-                {canAssignWorkOrder(detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ASSIGN} type="button" onClick={() => openAssignment(detail, "assign")}>
-                    <Send size={16} />
-                    派单
-                  </PermissionButton>
-                ) : null}
-                {canReassignWorkOrder(detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REASSIGN} type="button" onClick={() => openAssignment(detail, "reassign")}>
-                    <Shuffle size={16} />
-                    改派
-                  </PermissionButton>
-                ) : null}
-                {canAcceptWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_ACCEPT} type="button" onClick={() => void submitDirectProcessAction(detail, "accept").catch((error: Error) => setMessage(error.message))}>
-                    <CheckCircle2 size={16} />
-                    接单
-                  </PermissionButton>
-                ) : null}
-                {canStartWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_START} type="button" onClick={() => void submitDirectProcessAction(detail, "start").catch((error: Error) => setMessage(error.message))}>
-                    <PlayCircle size={16} />
-                    {detail.status === "45" ? "恢复处理" : "开始处理"}
-                  </PermissionButton>
-                ) : null}
-                {canWaitMaterialWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_WAIT_MATERIAL} type="button" onClick={() => openProcessAction(detail, "wait-material")}>
-                    <PackageSearch size={16} />
-                    待物料
-                  </PermissionButton>
-                ) : null}
-                {canFinishWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_FINISH} type="button" onClick={() => openProcessAction(detail, "finish")}>
-                    <Hammer size={16} />
-                    完成处理
-                  </PermissionButton>
-                ) : null}
-                {canConfirmWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CONFIRM} type="button" onClick={() => openClosureAction(detail, "confirm")}>
-                    <CheckCircle2 size={16} />
-                    确认完成
-                  </PermissionButton>
-                ) : null}
-                {canEvaluateWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_EVALUATE} type="button" onClick={() => openClosureAction(detail, "evaluate")}>
-                    <Star size={16} />
-                    评价
-                  </PermissionButton>
-                ) : null}
-                {canCloseWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CLOSE} type="button" onClick={() => openClosureAction(detail, "close")}>
-                    <Archive size={16} />
-                    关闭
-                  </PermissionButton>
-                ) : null}
-                {canCancelWorkOrder(detail) ? (
-                  <PermissionButton className="drawer-action-button danger-button" permission={SYSTEM_PERMISSIONS.WORKORDER_CANCEL} type="button" onClick={() => openExceptionAction(detail, "cancel")}>
-                    <Ban size={16} />
-                    取消
-                  </PermissionButton>
-                ) : null}
-                {canReturnWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_RETURN} type="button" onClick={() => openExceptionAction(detail, "return")}>
-                    <CornerDownLeft size={16} />
-                    退回
-                  </PermissionButton>
-                ) : null}
-                {canRejectWorkOrder(authUser, detail) ? (
-                  <PermissionButton className="drawer-action-button danger-button" permission={SYSTEM_PERMISSIONS.WORKORDER_REJECT} type="button" onClick={() => openExceptionAction(detail, "reject")}>
-                    <ShieldAlert size={16} />
-                    驳回
-                  </PermissionButton>
-                ) : null}
-              </div>
-            ) : null}
-            <DrawerTabs>
-              <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
-              <DrawerTabButton active={detailTab === "logs"} onClick={() => {
-                setDetailTab("logs");
-                void loadWorkOrderLogs(detail.id).catch((error: Error) => setMessage(error.message));
-              }}>
-                <Clock3 size={16} />
-                时间线 / 操作日志
-              </DrawerTabButton>
-            </DrawerTabs>
-            {detailTab === "profile" ? (
-              <DrawerDetailGrid>
-                <DrawerDetailItem label="工单编号" value={detail.woCode} />
-                <DrawerDetailItem label="类型" value={labelFor(typeItems, detail.woType)} />
-                <DrawerDetailItem label="优先级" value={<DictBadge items={priorityItems} value={detail.priority} />} />
-                <DrawerDetailItem label="状态" value={<DictBadge items={statusItems} value={detail.status} />} />
-                <DrawerDetailItem label="租户企业" value={detail.parkTenant?.companyName ?? "-"} />
-                <DrawerDetailItem label="房源" value={detail.unit ? `${detail.unit.unitCode} ${detail.unit.unitName}` : "-"} />
-                <DrawerDetailItem label="位置" value={detail.location ?? detail.roomLabel ?? "-"} />
-                <DrawerDetailItem label="报告人" value={detail.reporterName ?? "-"} />
-                <DrawerDetailItem label="报告电话" value={fieldText(authUser, canViewReporterMobile, FIELD_REPORTER_MOBILE, detail.reporterMobile)} />
-                <DrawerDetailItem label="处理人" value={detail.assigneeName ?? "-"} />
-                <DrawerDetailItem label="是否超时" value={detail.overdueFlag ? "超时" : "正常"} />
-                <DrawerDetailItem label="接单时间" value={formatDateTime(detail.acceptTime)} />
-                <DrawerDetailItem label="开始处理" value={formatDateTime(detail.startTime)} />
-                <DrawerDetailItem label="待物料时间" value={formatDateTime(detail.waitMaterialTime)} />
-                <DrawerDetailItem label="完成时间" value={formatDateTime(detail.finishTime)} />
-                <DrawerDetailItem label="确认时间" value={formatDateTime(detail.confirmTime)} />
-                <DrawerDetailItem label="关闭时间" value={formatDateTime(detail.closeTime)} />
-                <DrawerDetailItem label="创建时间" value={formatDateTime(detail.createTime)} />
-                <DrawerDetailItem label="处理说明" value={detail.resolveNote ?? "-"} />
-                <DrawerDetailItem label="满意度" value={detail.satisfaction ? `${detail.satisfaction} / 5` : "-"} />
-                <DrawerDetailItem label="评价" value={fieldText(authUser, canViewEvaluation, FIELD_EVALUATION, detail.evaluation)} />
-                <DrawerDetailItem label="问题描述" value={fieldText(authUser, canViewDescription, FIELD_DESCRIPTION, detail.description)} />
-                <DrawerDetailItem label="备注" value={detail.remark ?? "-"} />
-              </DrawerDetailGrid>
-            ) : null}
-            {detailTab === "logs" ? (
-              <section className="work-panel">
-                <div className="task-item">
-                  <h3 className="panel-title">时间线</h3>
-                  <button type="button" onClick={() => void loadWorkOrderLogs(detail.id).catch((error: Error) => setMessage(error.message))}>
-                    <RefreshCw size={16} />
-                    刷新
-                  </button>
-                </div>
-                <div className="timeline-list">
-                  {workOrderLogs.map((log) => (
-                    <article className="timeline-item" key={log.id}>
-                      <div className="timeline-dot" />
-                      <div className="timeline-content">
-                        <div className="timeline-head">
-                          <strong>{actionLabel(log.action)}</strong>
-                          <span>{formatDateTime(log.opTime)}</span>
-                        </div>
-                        <p>{log.operatorName ?? "-"}</p>
-                        {log.beforeStatus || log.afterStatus ? (
-                          <p className="muted-text">
-                            状态：{labelFor(statusItems, log.beforeStatus)} → {labelFor(statusItems, log.afterStatus)}
-                          </p>
-                        ) : null}
-                        {log.reason ? <p>原因：{log.reason}</p> : null}
-                        {log.content ? <p>{log.content}</p> : null}
-                        {log.attachmentFileIds.length > 0 ? <p className="muted-text">附件：{log.attachmentFileIds.length} 个</p> : null}
-                      </div>
-                    </article>
-                  ))}
-                  {workOrderLogs.length === 0 ? <p className="muted-text">暂无操作日志</p> : null}
-                </div>
-                <PermissionGuard permission={SYSTEM_PERMISSIONS.WORKORDER_LOG_CREATE} module={WORKORDER_MODULE} fallback={null}>
-                  <form className="form-stack" onSubmit={(event) => void submitWorkOrderLog(event).catch((error: Error) => setMessage(error.message))}>
-                    <DrawerFormGrid single>
-                      <TextField label="补充原因" value={logForm.reason} onChange={(value) => setLogForm((current) => ({ ...current, reason: value }))} />
-                      <TextAreaField label="补充内容" value={logForm.content} required onChange={(value) => setLogForm((current) => ({ ...current, content: value }))} />
-                      <div className="work-panel">
-                        <h3 className="panel-title">日志附件</h3>
-                        <FileUploader bizType={WORKORDER_LOG_FILE_BIZ_TYPE} bizId={detail.id} onUploaded={handleLogFileUploaded} />
-                        <p className="muted-text">已选择 {logForm.attachmentFileIds.length} 个附件</p>
-                      </div>
-                    </DrawerFormGrid>
-                    <DrawerFooter>
-                      <button type="button" onClick={() => setLogForm(emptyLogForm)}>清空</button>
-                      <button className="primary-button" type="submit">补充日志</button>
-                    </DrawerFooter>
-                  </form>
-                </PermissionGuard>
-              </section>
-            ) : null}
-          </Drawer>
+          <WorkOrderDetailDrawer
+            detail={detail}
+            detailTab={detailTab}
+            logs={workOrderLogs}
+            logForm={logForm}
+            module={WORKORDER_MODULE}
+            logFileBizType={WORKORDER_LOG_FILE_BIZ_TYPE}
+            statusItems={statusItems}
+            typeItems={typeItems}
+            priorityItems={priorityItems}
+            reporterMobileText={fieldText(authUser, canViewReporterMobile, FIELD_REPORTER_MOBILE, detail.reporterMobile)}
+            evaluationText={fieldText(authUser, canViewEvaluation, FIELD_EVALUATION, detail.evaluation)}
+            descriptionText={fieldText(authUser, canViewDescription, FIELD_DESCRIPTION, detail.description)}
+            canAssign={canAssignWorkOrder(detail)}
+            canReassign={canReassignWorkOrder(detail)}
+            canAccept={canAcceptWorkOrder(authUser, detail)}
+            canStart={canStartWorkOrder(authUser, detail)}
+            canWaitMaterial={canWaitMaterialWorkOrder(authUser, detail)}
+            canFinish={canFinishWorkOrder(authUser, detail)}
+            canConfirm={canConfirmWorkOrder(authUser, detail)}
+            canEvaluate={canEvaluateWorkOrder(authUser, detail)}
+            canClose={canCloseWorkOrder(authUser, detail)}
+            canCancel={canCancelWorkOrder(detail)}
+            canReturn={canReturnWorkOrder(authUser, detail)}
+            canReject={canRejectWorkOrder(authUser, detail)}
+            onClose={() => setDetail(null)}
+            onTabChange={setDetailTab}
+            onRefreshLogs={() => void loadWorkOrderLogs(detail.id).catch((error: Error) => setMessage(error.message))}
+            onOpenAssignment={openAssignment}
+            onDirectProcessAction={(row, action) => void submitDirectProcessAction(row, action).catch((error: Error) => setMessage(error.message))}
+            onOpenProcessAction={openProcessAction}
+            onOpenClosureAction={openClosureAction}
+            onOpenExceptionAction={openExceptionAction}
+            onSubmitLog={(event: FormEvent<HTMLFormElement>) => void submitWorkOrderLog(event).catch((error: Error) => setMessage(error.message))}
+            onLogFormChange={(patch) => setLogForm((current) => ({ ...current, ...patch }))}
+            onClearLogForm={() => setLogForm(emptyLogForm)}
+            onLogFileUploaded={handleLogFileUploaded}
+          />
         ) : null}
 
         {assignment ? (
@@ -1162,26 +1008,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function TextField({
-  label,
-  value,
-  required,
-  placeholder,
-  onChange
-}: {
-  label: string;
-  value: string;
-  required?: boolean;
-  placeholder?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field label={label}>
-      <input value={value} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </Field>
-  );
-}
-
 function NumberField({
   label,
   value,
@@ -1216,57 +1042,6 @@ function TextAreaField({ label, value, required, onChange }: { label: string; va
       <textarea value={value} required={required} rows={4} onChange={(event) => onChange(event.target.value)} />
     </Field>
   );
-}
-
-function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | null }) {
-  const item = items.find((candidate) => candidate.itemValue === value);
-  return <span className={`status-pill ${statusClass(item?.tagType)}`}>{item?.itemLabel ?? value ?? "-"}</span>;
-}
-
-function labelFor(items: DictItemRow[], value?: string | null): string {
-  if (!value) return "-";
-  return items.find((item) => item.itemValue === value)?.itemLabel ?? value;
-}
-
-function statusClass(tagType?: string | null): string {
-  switch (tagType) {
-    case "success":
-      return "status-success";
-    case "warning":
-      return "status-warning";
-    case "danger":
-      return "status-danger";
-    case "primary":
-      return "status-primary";
-    case "info":
-      return "status-info";
-    default:
-      return "status-muted";
-  }
-}
-
-function actionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    create: "创建工单",
-    update: "更新工单",
-    assign: "派单",
-    reassign: "改派",
-    accept: "接单",
-    start: "开始处理",
-    wait_material: "待物料",
-    resume: "恢复处理",
-    finish: "完成处理",
-    confirm: "确认完成",
-    evaluate: "评价",
-    close: "关闭",
-    cancel: "取消",
-    return: "退回",
-    reject: "驳回",
-    overdue: "超时标记",
-    overdue_clear: "清除超时",
-    system: "补充日志"
-  };
-  return labels[action] ?? action;
 }
 
 function displayUserName(user?: UserRow): string {
@@ -1346,13 +1121,6 @@ function canRejectWorkOrder(user: ReturnType<typeof useAuthUser>, row: WorkOrder
 function hasPermission(user: ReturnType<typeof useAuthUser>, permission: string): boolean {
   if (!user) return false;
   return user.is_super === true || user.permissions.includes("*") || user.permissions.includes(permission);
-}
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("zh-CN", { hour12: false });
 }
 
 function fieldText(user: ReturnType<typeof useAuthUser>, canView: boolean, fieldKey: string, value: unknown): string {
