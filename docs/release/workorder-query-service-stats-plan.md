@@ -251,3 +251,5 @@ controller 当前仍调用 `WorkOrdersService.stats(scope, query, user)`。
 `stats` 适合迁移到 `WorkOrderQueryService`，但风险等级为 P1-B，必须单独作为第二刀 2B 小批实施。
 
 下一步建议进入 `stats` 实施前的最小方案确认，实施时只迁移 `stats`，保留 `WorkOrdersService.stats` facade，不触碰跨模块聚合、状态流转、日志写入、附件绑定、逾期重算、SLA 写入和幂等写入口。
+
+补充状态：2B `stats` 已完成实施，迁移前后真实接口响应 `data` 对照完全一致，已进入收口复核。
