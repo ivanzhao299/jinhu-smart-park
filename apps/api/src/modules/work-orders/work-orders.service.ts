@@ -240,21 +240,7 @@ export class WorkOrdersService {
   }
 
   async listSlaRules(scope: TenantParkScope, query: WorkOrderSlaRuleQueryDto): Promise<PaginatedResult<WorkOrderSlaRuleEntity>> {
-    const builder = this.workOrderSlaRulesRepository
-      .createQueryBuilder("rule")
-      .where("rule.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("rule.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("rule.is_deleted = false");
-    if (query.wo_type) builder.andWhere("rule.wo_type = :woType", { woType: query.wo_type });
-    if (query.urgency) builder.andWhere("rule.urgency = :urgency", { urgency: query.urgency });
-    if (query.priority) builder.andWhere("rule.priority = :priority", { priority: query.priority });
-    if (query.status) builder.andWhere("rule.status = :status", { status: query.status });
-    const [items, total] = await builder
-      .orderBy("rule.update_time", "DESC")
-      .skip((query.page - 1) * query.page_size)
-      .take(query.page_size)
-      .getManyAndCount();
-    return { items, total, page: query.page, page_size: query.page_size };
+    return this.workOrderQueryService.listSlaRules(scope, query);
   }
 
   async createSlaRule(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateWorkOrderSlaRuleDto): Promise<WorkOrderSlaRuleEntity> {
@@ -309,8 +295,7 @@ export class WorkOrdersService {
   }
 
   async overdue(scope: TenantParkScope, query: WorkOrderQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<WorkOrderEntity>> {
-    const overdueQuery = { ...query, overdue_only: true };
-    return this.list(scope, overdueQuery, actor);
+    return this.workOrderQueryService.overdue(scope, query, actor);
   }
 
   async stats(scope: TenantParkScope, query: WorkOrderStatsQueryDto, actor?: JwtPrincipal): Promise<WorkOrderStatsResult> {
