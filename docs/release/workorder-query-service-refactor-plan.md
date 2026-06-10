@@ -258,4 +258,4 @@
 
 `stats`、`overdue`、`listSlaRules` 可作为第二刀候选；`tenant360Workorders`、`unitWorkorders` 和所有状态流转 / 副作用逻辑暂缓。这样可以复用房源 query service 拆分经验，同时避免触碰工单状态语义和首发写入链路。
 
-当前状态：第一批实施已完成并建议阶段性收口；第二刀 2A 已实施并进入收口复核。2B：`stats` 已进入设计，设计收口前不直接实施。
+当前状态：第一批 `list` / `detail` / `logs` 已完成并收口；第二刀 2A `overdue` / `listSlaRules` 已完成并收口；第二刀 2B `stats` 已完成并收口。工单 query service 主要只读查询已完成拆分，当前进入阶段性总结；`tenant360Workorders` / `unitWorkorders` 继续作为跨模块聚合暂缓。
