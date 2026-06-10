@@ -61,7 +61,7 @@ export class OpLogEntity extends AuditableEntity {
   @Column({ name: "error_msg", type: "varchar", length: 1000, nullable: true })
   errorMsg!: string | null;
 
-  @Column({ name: "request_id", type: "varchar", length: 64, nullable: true })
+  @Column({ name: "request_id", type: "varchar", length: 128, nullable: true })
   requestId!: string | null;
 
   @Column({ name: "idempotency_key", type: "varchar", length: 128, nullable: true })
