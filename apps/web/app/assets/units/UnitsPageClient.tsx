@@ -14,12 +14,10 @@ import { hasPermission } from "../../../lib/permissions";
 import { UnitFormDialog } from "./components/UnitFormDialog";
 import { UnitAttachmentsPanel } from "./components/UnitAttachmentsPanel";
 import { UnitDetailDrawer, type UnitDetailTab } from "./components/UnitDetailDrawer";
-import { DictBadge, DictSelect, TextField } from "./components/UnitPageFields";
+import { UnitStatusDrawer } from "./components/UnitStatusDrawer";
 import { UnitsTable } from "./components/UnitsTable";
 import { UnitsToolbar } from "./components/UnitsToolbar";
 import {
-  dictLabel,
-  formatDateTime,
   formatYmd,
   getTransitionOptions,
   UNIT_FIELD_PHOTO_URLS,
@@ -758,72 +756,25 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
         ) : null}
 
         {transitionTarget ? (
-          <Drawer size="md" onClose={() => setTransitionTarget(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">{transitionTarget.unitName} {transitionPanelMode === "change" ? "状态流转" : "状态日志"}</h2>
-              <button type="button" title="关闭" onClick={() => setTransitionTarget(null)}><X size={16} /></button>
-            </div>
-            <div className="task-item">
-              <span>当前状态</span>
-              <strong><DictBadge items={dicts.unit_rental_status} value={transitionTarget.rentalStatus} /></strong>
-            </div>
-            {canChangeStatus && transitionPanelMode === "change" ? (
-              <form className="form-stack" onSubmit={(event) => void submitTransition(event).catch((error: Error) => setMessage(error.message))}>
-                <DictSelect
-                  label="目标状态"
-                  value={transitionStatus}
-                  required
-                  items={getTransitionOptions(transitionTarget.rentalStatus, dicts.unit_rental_status, canForceChangeStatus)}
-                  onChange={setTransitionStatus}
-                />
-                <TextField label="流转原因" value={transitionReason} required onChange={setTransitionReason} />
-                {Number(transitionStatus) === 20 ? (
-                  <>
-                    <TextField label="锁定原因" value={transitionLockReason} onChange={setTransitionLockReason} />
-                    <div className="field">
-                      <label>锁定到期时间</label>
-                      <input type="datetime-local" value={transitionLockExpireTime} onChange={(event) => setTransitionLockExpireTime(event.target.value)} />
-                    </div>
-                  </>
-                ) : null}
-                <button className="primary-button" type="submit" disabled={!transitionStatus}>确认流转</button>
-              </form>
-            ) : null}
-            <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG}>
-              <Card >
-                <h3 className="panel-title">状态日志</h3>
-                <DataTable >
-                  <thead><tr><th>原状态</th><th>新状态</th><th>原因</th><th>来源</th><th>操作人</th><th>时间</th></tr></thead>
-                  <tbody>
-                    {statusLogPage.items.map((log) => (
-                      <tr key={log.id}>
-                        <td>{dictLabel(dicts.unit_rental_status, log.beforeStatus)}</td>
-                        <td>{dictLabel(dicts.unit_rental_status, log.afterStatus)}</td>
-                        <td>{log.reason || "-"}</td>
-                        <td>{log.sourceType}</td>
-                        <td>{log.operatorName ?? log.createBy ?? "-"}</td>
-                        <td>{formatDateTime(log.opTime ?? log.createTime)}</td>
-                      </tr>
-                    ))}
-                    {statusLogPage.items.length === 0 ? <tr><td colSpan={6}>暂无状态日志</td></tr> : null}
-                  </tbody>
-                </DataTable>
-                <div className="task-item">
-                  <span>共 {statusLogPage.total} 条，第 {statusLogPage.page} / {Math.max(1, Math.ceil(statusLogPage.total / statusLogPage.page_size))} 页</span>
-                  <span>
-                    <button type="button" disabled={statusLogPage.page <= 1} onClick={() => void loadStatusLogs(transitionTarget.id, Math.max(1, statusLogPage.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-                    <button
-                      type="button"
-                      disabled={statusLogPage.page >= Math.max(1, Math.ceil(statusLogPage.total / statusLogPage.page_size))}
-                      onClick={() => void loadStatusLogs(transitionTarget.id, statusLogPage.page + 1).catch((error: Error) => setMessage(error.message))}
-                    >
-                      下一页
-                    </button>
-                  </span>
-                </div>
-              </Card>
-            </PermissionGuard>
-          </Drawer>
+          <UnitStatusDrawer
+            unit={transitionTarget}
+            panelMode={transitionPanelMode}
+            dicts={dicts}
+            canChangeStatus={canChangeStatus}
+            canForceChangeStatus={canForceChangeStatus}
+            transitionStatus={transitionStatus}
+            transitionReason={transitionReason}
+            transitionLockReason={transitionLockReason}
+            transitionLockExpireTime={transitionLockExpireTime}
+            statusLogPage={statusLogPage}
+            onClose={() => setTransitionTarget(null)}
+            onSubmit={(event) => void submitTransition(event).catch((error: Error) => setMessage(error.message))}
+            onTransitionStatusChange={setTransitionStatus}
+            onTransitionReasonChange={setTransitionReason}
+            onTransitionLockReasonChange={setTransitionLockReason}
+            onTransitionLockExpireTimeChange={setTransitionLockExpireTime}
+            onStatusLogPageChange={(page) => void loadStatusLogs(transitionTarget.id, page).catch((error: Error) => setMessage(error.message))}
+          />
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}
