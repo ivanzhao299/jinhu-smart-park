@@ -1,8 +1,6 @@
 import { Drawer, DrawerActions, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 import type { UserContext } from "@jinhu/shared";
-import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
-import { History, RefreshCw, X } from "lucide-react";
-import { PermissionButton } from "../../../../components/auth/PermissionButton";
+import { X } from "lucide-react";
 import type {
   DictItemRow,
   UnitAttachmentMode,
@@ -17,6 +15,7 @@ import { UnitDetailSummary } from "./UnitDetailSummary";
 import { UnitDeviceAlertsPanel, UnitDevicesPanel } from "./UnitIotPanel";
 import { UnitRelatedWorkordersPanel } from "./UnitRelatedWorkordersPanel";
 import { UnitEmergenciesPanel, UnitHazardsPanel, UnitWorkPermitsPanel } from "./UnitSecurityPanel";
+import { UnitStatusActions } from "./UnitStatusActions";
 
 export type UnitDetailTab = "info" | "workorders" | "hazards" | "emergencies" | "workPermits" | "devices" | "deviceAlerts";
 
@@ -89,12 +88,11 @@ export function UnitDetailDrawer({
         closeIcon={<X size={18} />}
       />
       <DrawerActions>
-        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} type="button" onClick={onOpenTransition}>
-          <RefreshCw size={14} />状态流转
-        </PermissionButton>
-        <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} type="button" onClick={onOpenStatusLogs}>
-          <History size={14} />状态日志
-        </PermissionButton>
+        <UnitStatusActions
+          variant="drawer"
+          onOpenTransition={onOpenTransition}
+          onOpenStatusLogs={onOpenStatusLogs}
+        />
         {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
         <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
       </DrawerActions>

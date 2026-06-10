@@ -1,11 +1,12 @@
 import { Card, DataTable } from "@jinhu/ui";
 import type { UserContext } from "@jinhu/shared";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
-import { Edit3, Eye, FileImage, History, RefreshCw, Trash2 } from "lucide-react";
+import { Edit3, Eye, FileImage, Trash2 } from "lucide-react";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
 import { dictLabel, formatArea, formatDateTime, formatMoney, maskUnitField, UNIT_FIELD_REF_PRICE } from "../lib/unit-page-utils";
 import type { DictItemRow, UnitPage, UnitRow } from "../types";
 import { DictBadge } from "./UnitPageFields";
+import { UnitStatusActions } from "./UnitStatusActions";
 
 export function UnitsTable({
   pageData,
@@ -82,12 +83,10 @@ export function UnitsTable({
                       <FileImage size={16} />
                     </PermissionButton>
                   ) : null}
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} title="状态流转" type="button" onClick={() => onOpenTransition(row)}>
-                    <RefreshCw size={16} />
-                  </PermissionButton>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} title="状态日志" type="button" onClick={() => onOpenStatusLogs(row)}>
-                    <History size={16} />
-                  </PermissionButton>
+                  <UnitStatusActions
+                    onOpenTransition={() => onOpenTransition(row)}
+                    onOpenStatusLogs={() => onOpenStatusLogs(row)}
+                  />
                   <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_DELETE} title="删除" type="button" onClick={() => onRemove(row)}>
                     <Trash2 size={16} />
                   </PermissionButton>
