@@ -193,3 +193,5 @@ return this.list(scope, overdueQuery, actor);
 ## 11. 结论
 
 工单 query service 第二刀 2A 已达到阶段性收口标准。建议停止本轮继续迁移，将下一阶段切换到 `stats` 的 2B 设计；在 2B 设计完成前，不直接实施 `stats` 拆分。
+
+补充状态：下一阶段已进入 2B：`stats` 设计。
