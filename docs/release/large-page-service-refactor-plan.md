@@ -283,6 +283,12 @@
 
 ## 9. 后续实施拆分
 
+### 当前实施状态
+
+- `apps/web/app/assets/units/UnitsPageClient.tsx` 第一阶段展示层拆分已完成并阶段性收口。
+- 收口复核见：[assets-units-refactor-closure-review.md](assets-units-refactor-closure-review.md)。
+- 下一候选建议切换到 `apps/web/app/workorders/list/page.tsx`，优先拆表格、筛选、创建表单和展示层操作区，不触碰工单状态流转语义。
+
 ### F1：前端低风险大页面拆分
 
 - 目标：拆 `UnitsPageClient.tsx` 或 `workorders/list/page.tsx`。
