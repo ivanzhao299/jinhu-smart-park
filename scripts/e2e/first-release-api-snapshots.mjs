@@ -67,6 +67,9 @@ function summarizeBody(body) {
 }
 
 function summarizeSnapshot(value) {
+  if (value === undefined) {
+    return "<missing>";
+  }
   return JSON.stringify(value, null, 2).slice(0, 1200);
 }
 
@@ -275,6 +278,12 @@ function keyFieldsSnapshot(name, data) {
   if (name === "workorders.stats") {
     return normalizeValue(data, { preserveArrays: true });
   }
+  if (name === "workorders.overdue") {
+    return listSnapshot(data, ["woCode", "wo_code", "title", "status", "woType", "wo_type", "priority", "overdueFlag", "overdue_flag", "overdueReason", "overdue_reason"]);
+  }
+  if (name === "workorders.slaRules") {
+    return listSnapshot(data, ["woType", "wo_type", "urgency", "priority", "dispatchSlaMin", "dispatch_sla_min", "finishSlaMin", "finish_sla_min", "status"]);
+  }
   if (name === "units.list") {
     return listSnapshot(data, ["unitCode", "unit_code", "unitName", "unit_name", "unitNo", "unit_no", "rentalStatus", "rental_status", "usageType", "usage_type"]);
   }
@@ -356,6 +365,24 @@ async function collectSnapshots(authHeaders) {
   const workorderStats = await fetchJson("GET /work-orders/stats", "/work-orders/stats", authHeaders);
   if (!workorderStats) return null;
   snapshots["workorders.stats"] = buildSnapshot("workorders.stats", workorderStats, { preserveArrays: true });
+
+  const workordersOverdueResult = await request("/work-orders/overdue?page=1&page_size=10", { headers: authHeaders });
+  if (!expectStatus("GET /work-orders/overdue", workordersOverdueResult.response.status, 200, workordersOverdueResult.body)) return null;
+  const workordersOverdue = extractList(workordersOverdueResult.body);
+  if (!workordersOverdue) {
+    fail(`GET /work-orders/overdue body is not a paginated object or array; body=${summarizeBody(workordersOverdueResult.body)}`);
+    return null;
+  }
+  snapshots["workorders.overdue"] = buildSnapshot("workorders.overdue", workordersOverdue, { list: true });
+
+  const workorderSlaRulesResult = await request("/work-orders/sla-rules?page=1&page_size=10", { headers: authHeaders });
+  if (!expectStatus("GET /work-orders/sla-rules", workorderSlaRulesResult.response.status, 200, workorderSlaRulesResult.body)) return null;
+  const workorderSlaRules = extractList(workorderSlaRulesResult.body);
+  if (!workorderSlaRules) {
+    fail(`GET /work-orders/sla-rules body is not a paginated object or array; body=${summarizeBody(workorderSlaRulesResult.body)}`);
+    return null;
+  }
+  snapshots["workorders.slaRules"] = buildSnapshot("workorders.slaRules", workorderSlaRules, { list: true });
 
   const unitsListResult = await request("/park-units?page=1&page_size=10", { headers: authHeaders });
   if (!expectStatus("GET /park-units", unitsListResult.response.status, 200, unitsListResult.body)) return null;

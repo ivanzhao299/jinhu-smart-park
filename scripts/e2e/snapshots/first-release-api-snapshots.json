@@ -80,11 +80,11 @@
         "buildingId": "<normalized>",
         "cancelTime": null,
         "closeTime": null,
-        "code": "WO-20260611T015221787Z-b8903013",
+        "code": "WO-20260611T024057182Z-375e408e",
         "confirmTime": null,
         "createBy": "<normalized>",
         "createTime": "<normalized>",
-        "description": "First release work order regression 20260611T015221787Z-b8903013",
+        "description": "First release work order regression 20260611T024057182Z-375e408e",
         "deviceId": "<normalized>",
         "dispatchTime": "<normalized>",
         "evaluation": null,
@@ -121,7 +121,7 @@
         "startTime": null,
         "status": "20",
         "tenantId": "<normalized>",
-        "title": "Regression work order 20260611T015221787Z-b8903013",
+        "title": "Regression work order 20260611T024057182Z-375e408e",
         "unit": null,
         "unitId": "<normalized>",
         "updateBy": "<normalized>",
@@ -135,7 +135,7 @@
           "first_item": null
         },
         "waitMaterialTime": null,
-        "woCode": "WO-20260611T015221787Z-b8903013",
+        "woCode": "WO-20260611T024057182Z-375e408e",
         "woSubType": null,
         "woType": "repair"
       }
@@ -150,11 +150,11 @@
       "buildingId": "<normalized>",
       "cancelTime": null,
       "closeTime": null,
-      "code": "WO-20260611T015221787Z-b8903013",
+      "code": "WO-20260611T024057182Z-375e408e",
       "confirmTime": null,
       "createBy": "<normalized>",
       "createTime": "<normalized>",
-      "description": "First release work order regression 20260611T015221787Z-b8903013",
+      "description": "First release work order regression 20260611T024057182Z-375e408e",
       "deviceId": "<normalized>",
       "dispatchTime": "<normalized>",
       "evaluation": null,
@@ -191,7 +191,7 @@
       "startTime": null,
       "status": "20",
       "tenantId": "<normalized>",
-      "title": "Regression work order 20260611T015221787Z-b8903013",
+      "title": "Regression work order 20260611T024057182Z-375e408e",
       "unit": null,
       "unitId": "<normalized>",
       "updateBy": "<normalized>",
@@ -205,7 +205,7 @@
         "first_item": null
       },
       "waitMaterialTime": null,
-      "woCode": "WO-20260611T015221787Z-b8903013",
+      "woCode": "WO-20260611T024057182Z-375e408e",
       "woSubType": null,
       "woType": "repair"
     },
@@ -252,13 +252,13 @@
           "first_item": null
         },
         "beforeStatus": "10",
-        "code": "WOL-202606-000029",
-        "content": "First release work order assignment 20260611T015221787Z-b8903013",
+        "code": "WOL-202606-000031",
+        "content": "First release work order assignment 20260611T024057182Z-375e408e",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "id": "<normalized>",
         "isDeleted": false,
-        "logCode": "WOL-202606-000029",
+        "logCode": "WOL-202606-000031",
         "opTime": "<normalized>",
         "operatorId": "<normalized>",
         "operatorName": "Local Admin",
@@ -271,8 +271,8 @@
           "beforeAssigneeId": "<normalized>",
           "beforeAssigneeName": null,
           "sourceType": "manual",
-          "title": "Regression work order 20260611T015221787Z-b8903013",
-          "woCode": "WO-20260611T015221787Z-b8903013"
+          "title": "Regression work order 20260611T024057182Z-375e408e",
+          "woCode": "WO-20260611T024057182Z-375e408e"
         },
         "reason": null,
         "remark": null,
@@ -297,7 +297,7 @@
           "assignee_id": "<normalized>",
           "assignee_name": "Local Admin",
           "avg_finish_minutes": 0,
-          "count": 10,
+          "count": 11,
           "done_count": 0,
           "overdue_count": 0
         },
@@ -312,7 +312,7 @@
       ],
       "by_priority": [
         {
-          "count": 11,
+          "count": 12,
           "key": "medium"
         },
         {
@@ -322,7 +322,7 @@
       ],
       "by_status": [
         {
-          "count": 11,
+          "count": 12,
           "key": "20"
         },
         {
@@ -332,13 +332,13 @@
       ],
       "by_type": [
         {
-          "count": 18,
+          "count": 19,
           "key": "repair"
         }
       ],
       "overdue_top": [],
       "summary": {
-        "assigned_count": 11,
+        "assigned_count": 12,
         "avg_dispatch_minutes": 0,
         "avg_finish_minutes": 0,
         "avg_satisfaction": 0,
@@ -347,7 +347,65 @@
         "in_progress_count": 0,
         "overdue_count": 0,
         "pending_count": 7,
-        "total_count": 18
+        "total_count": 19
+      }
+    },
+    "workorders.overdue": {
+      "pagination": {
+        "page": 1,
+        "page_size": 10,
+        "total": "<normalized-number>",
+        "total_pages": null
+      },
+      "item_count_category": "empty",
+      "item_fields": [],
+      "first_item": null
+    },
+    "workorders.slaRules": {
+      "pagination": {
+        "page": 1,
+        "page_size": 10,
+        "total": "<normalized-number>",
+        "total_pages": null
+      },
+      "item_count_category": "many",
+      "item_fields": [
+        "createBy",
+        "createTime",
+        "dispatchSlaMin",
+        "escalateRoleCode",
+        "finishSlaMin",
+        "id",
+        "isDeleted",
+        "parkId",
+        "priority",
+        "remark",
+        "status",
+        "tenantId",
+        "updateBy",
+        "updateTime",
+        "urgency",
+        "version",
+        "woType"
+      ],
+      "first_item": {
+        "createBy": "<normalized>",
+        "createTime": "<normalized>",
+        "dispatchSlaMin": 30,
+        "escalateRoleCode": "PROPERTY_MANAGER",
+        "finishSlaMin": 1440,
+        "id": "<normalized>",
+        "isDeleted": false,
+        "parkId": "<normalized>",
+        "priority": "medium",
+        "remark": "Production-safe complaint SLA rule seed",
+        "status": "enabled",
+        "tenantId": "<normalized>",
+        "updateBy": "<normalized>",
+        "updateTime": "<normalized>",
+        "urgency": "normal",
+        "version": 1,
+        "woType": "complaint"
       }
     },
     "units.list": {
