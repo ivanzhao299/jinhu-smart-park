@@ -4,7 +4,18 @@
 
 本文用于设计 snapshot bootstrap 固定关联补强方案，使固定样本不再依赖 fresh dev seed 中的第一个可用 building / floor。
 
-本阶段只做设计，不修改 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，不修改默认 baseline，不生成 numeric baseline，不修改 seed / migration，不修改业务代码，不接入 CI。
+本阶段起初只做设计，不修改 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，不修改默认 baseline，不生成 numeric baseline，不修改 seed / migration，不修改业务代码，不接入 CI。
+
+后续 SB-1 已实施 `scripts/e2e/bootstrap-api-snapshot-data.mjs` 的最小脚本能力：
+
+- 支持 `SNAPSHOT_BUILDING_NO`，默认 `SNAPSHOT-BLD-001`。
+- 支持 `SNAPSHOT_FLOOR_NO`，默认 `SNAPSHOT-FLR-001`。
+- 支持 `ALLOW_SNAPSHOT_REPAIR`，默认 `false`。
+- bootstrap 会创建或复用 snapshot building / floor。
+- `SNAPSHOT-UNIT-001` 必须关联 snapshot building / floor。
+- `SNAPSHOT-WO-001` 如响应暴露 unit association，则必须关联 `SNAPSHOT-UNIT-001`。
+- 关联不一致时默认 fail，不自动 repair。
+- numeric baseline 仍未生成。
 
 ## 2. 背景
 
@@ -275,6 +286,8 @@ ALLOW_SNAPSHOT_REPAIR=false
 ## 9. 后续实施建议
 
 ### SB-1：bootstrap 固定 building / floor 创建设计落地
+
+状态：已实施。
 
 - 只改 `scripts/e2e/bootstrap-api-snapshot-data.mjs`。
 - 新增查找 / 创建 snapshot building。
