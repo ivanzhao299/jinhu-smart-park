@@ -35,6 +35,7 @@
 - 接口快照 list / stats 波动治理设计：[testing/api-snapshot-list-stats-stability-plan.md](testing/api-snapshot-list-stats-stability-plan.md)
 - workorders.list 快照降级收口复核：[testing/api-snapshot-workorders-list-closure-review.md](testing/api-snapshot-workorders-list-closure-review.md)
 - workorders.stats 快照拆分策略设计：[testing/api-snapshot-workorders-stats-split-plan.md](testing/api-snapshot-workorders-stats-split-plan.md)
+- workorders.stats schema snapshot 收口复核：[testing/api-snapshot-workorders-stats-schema-closure-review.md](testing/api-snapshot-workorders-stats-schema-closure-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)

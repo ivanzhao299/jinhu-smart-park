@@ -457,3 +457,5 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 `workorders.stats` 快照拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。建议默认转向 schema snapshot，numeric snapshot 后续作为手动专项或隔离环境检查处理。
 
 ST-1 已实施：默认 `workorders.stats` 已转为 schema snapshot，不再对 `summary` 和 `by_*` numeric count 做 exact comparison。numeric stats 专项模式尚未实施，后续作为 ST-2 单独处理。
+
+ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。当前建议阶段性收口 stats schema snapshot，后续进入 numeric 专项模式设计。

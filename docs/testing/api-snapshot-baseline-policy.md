@@ -169,6 +169,8 @@ stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`
 
 当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。numeric 专项模式尚未实施。
 
+ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。在 ST-2 完成前，`workorders.stats` numeric baseline 不应作为默认 baseline 维护对象。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
