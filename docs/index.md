@@ -21,6 +21,7 @@
 - 测试运行手册：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发核心回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 接口快照与查询响应对照设计：[testing/api-snapshot-regression-plan.md](testing/api-snapshot-regression-plan.md)
+- 接口快照脚本初版收口复核：[testing/api-snapshot-initial-closure-review.md](testing/api-snapshot-initial-closure-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)

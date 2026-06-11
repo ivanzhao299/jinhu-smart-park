@@ -417,3 +417,5 @@ scripts/e2e/snapshots/
 - 新增 baseline 文件 `scripts/e2e/snapshots/first-release-api-snapshots.json`。
 - 第一版覆盖工单和房源核心只读查询。
 - 当前手动运行，不接入 CI。
+- 初版已进入收口复核，复核文档为 `docs/testing/api-snapshot-initial-closure-review.md`。
+- 下一步优先建议制定 baseline 维护规则和快照使用规范。
