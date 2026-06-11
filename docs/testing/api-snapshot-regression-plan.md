@@ -449,3 +449,5 @@ snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。当
 bootstrap 收口复核见 `docs/testing/api-snapshot-bootstrap-closure-review.md`。当前 bootstrap 已可准备固定样本，下一步建议单独审查 baseline 是否切换到固定样本。
 
 固定样本 baseline 更新审查见 `docs/testing/api-snapshot-fixed-baseline-review.md`。当前 baseline 可通过 `SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001` 和 `SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001` 切换到固定详情样本；写入型 e2e 后 `workorders.list/stats` 仍可能波动，后续需继续收口。
+
+固定样本 baseline 收口复核见 `docs/testing/api-snapshot-fixed-baseline-closure-review.md`。当前固定样本 baseline 可阶段性收口，但 `workorders.list / workorders.stats` 的写入后波动需后续单独治理。

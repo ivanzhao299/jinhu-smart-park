@@ -155,6 +155,8 @@ node scripts/e2e/first-release-regression.mjs
 
 注意：如果相关 e2e 会写入新数据，运行后可能再次影响 snapshot。此时需要重新判断差异来源，并在必要时重新 update baseline 后再运行普通快照检查。
 
+对于固定样本 baseline，写入型 e2e 后出现 `workorders.list` 或 `workorders.stats` 差异时，不应直接 update baseline。应先判断是否由写入测试新增或流转工单造成；如果是，应记录为 list / stats 快照波动治理项，而不是把每次写入后的计数变化固化为 baseline。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
