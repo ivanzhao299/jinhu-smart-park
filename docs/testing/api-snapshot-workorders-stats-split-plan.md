@@ -208,6 +208,13 @@ baseline 维护建议：
 - 明确固定数据集前置检查。
 - 明确 numeric baseline 更新审查要求。
 
+实施状态：
+
+- 已启动 ST-2 只读设计。
+- numeric 专项模式设计文档见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。
+- 当前建议保留 numeric 专项模式，但保持非默认、显式启用、独立 baseline、暂不接入常规 CI。
+- 当前仍不实现脚本、不新增 numeric baseline、不修改现有 baseline。
+
 ## 11. 暂缓范围
 
 继续暂缓：

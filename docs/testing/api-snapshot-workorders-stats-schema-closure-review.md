@@ -117,8 +117,10 @@ baseline 更新复核结论：
 - 是否需要固定数据集或隔离环境。
 - numeric baseline 更新如何审查。
 
+ST-2 设计文档见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。ST-2 仍应保持只读设计和分步实施：先明确 numeric 专项模式边界，再评估脚本小实现、独立 baseline 建立和手动 workflow。
+
 ## 11. 结论
 
 `workorders.stats` schema snapshot 已达到阶段性收口标准。
 
-当前建议收口 ST-1，继续暂缓 CI，下一阶段进入 ST-2：stats numeric 专项模式设计。
+当前建议收口 ST-1，继续暂缓 CI，下一阶段进入 ST-2：stats numeric 专项模式设计。numeric 专项模式不应回退为默认快照，也不应由写入型 e2e 后的数据直接生成 baseline。

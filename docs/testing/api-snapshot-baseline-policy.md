@@ -171,6 +171,8 @@ stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`
 
 ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。在 ST-2 完成前，`workorders.stats` numeric baseline 不应作为默认 baseline 维护对象。
 
+ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。后续如实现 numeric baseline，建议使用独立文件 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。numeric baseline 更新必须说明数据来源、运行顺序、是否 reset、是否独立库、是否运行过写入型 e2e，并逐项解释 `summary` 和各 group count 的变化。numeric baseline 不得由写入型 e2e 后的数据直接生成或更新，也不得与 schema 策略调整混在同一 PR 中审查。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
