@@ -410,4 +410,4 @@ baseline 更新前应补充判断：
 
 下一步优先设计固定业务标识机制，减少对列表第一条和当前测试库滚动数据的依赖。暂不扩接口范围，暂不接 CI，暂不修改脚本、baseline、业务代码或 seed。
 
-后续同步：固定业务标识机制已落地，文档入口为 `docs/testing/api-snapshot-business-key-plan.md`，收口复核见 `docs/testing/api-snapshot-business-key-closure-review.md`。当前脚本已支持 `SNAPSHOT_WORKORDER_NO`、`SNAPSHOT_UNIT_NO` 和显式 `ALLOW_SNAPSHOT_FALLBACK=true`，但仍未接入 CI，也未新增 seed 或 snapshot 专用账号。固定测试数据设计见 `docs/testing/api-snapshot-fixed-data-plan.md`，下一步建议继续设计 snapshot bootstrap。
+后续同步：固定业务标识机制已落地，文档入口为 `docs/testing/api-snapshot-business-key-plan.md`，收口复核见 `docs/testing/api-snapshot-business-key-closure-review.md`。当前脚本已支持 `SNAPSHOT_WORKORDER_NO`、`SNAPSHOT_UNIT_NO` 和显式 `ALLOW_SNAPSHOT_FALLBACK=true`，但仍未接入 CI，也未新增 seed 或 snapshot 专用账号。固定测试数据设计见 `docs/testing/api-snapshot-fixed-data-plan.md`，snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。bootstrap 是中期稳定数据方案，当前阶段只设计不实现。
