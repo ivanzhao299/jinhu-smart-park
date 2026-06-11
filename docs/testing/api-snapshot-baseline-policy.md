@@ -167,6 +167,8 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。拆分后，schema baseline 可在确认结构变化后更新；numeric baseline 只能在固定数据集、隔离环境或明确 reset 后更新，并必须说明数据来源和运行顺序。
 
+当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。numeric 专项模式尚未实施。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：

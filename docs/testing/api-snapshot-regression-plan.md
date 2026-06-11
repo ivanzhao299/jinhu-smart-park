@@ -455,3 +455,5 @@ bootstrap 收口复核见 `docs/testing/api-snapshot-bootstrap-closure-review.md
 list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-stability-plan.md`。当前已先实施 `workorders.list` 降级策略，不再强依赖默认列表第一条完整归一化样本；写入型 e2e 后仍不建议要求 full normalized snapshot 全量通过，因为 `workorders.stats` numeric 快照仍会随测试库数据变化。后续应优先单独治理 stats，将 schema 与 numeric 对照拆分。
 
 `workorders.stats` 快照拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。建议默认转向 schema snapshot，numeric snapshot 后续作为手动专项或隔离环境检查处理。
+
+ST-1 已实施：默认 `workorders.stats` 已转为 schema snapshot，不再对 `summary` 和 `by_*` numeric count 做 exact comparison。numeric stats 专项模式尚未实施，后续作为 ST-2 单独处理。
