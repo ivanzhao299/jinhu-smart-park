@@ -70,8 +70,7 @@ SB-3 已完成以下验证：
 - 使用 `UPDATE_SNAPSHOTS=true` 更新默认 baseline。
 - 更新后默认 schema 普通检查通过，输出 `First-release API snapshots match baseline`。
 - `git diff --check` 通过。
-- `pnpm lint` 通过。
-- `pnpm typecheck` 通过。
+- `pnpm lint` / `pnpm typecheck` / `pnpm build`：未执行。本阶段为纯文档复核，未修改代码、脚本或类型相关文件。
 
 ## 7. 当前未做事项
 
