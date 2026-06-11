@@ -372,6 +372,15 @@ function statsArraySchema(value) {
   };
 }
 
+function overdueTopSchema(value) {
+  const items = Array.isArray(value) ? value : [];
+  return {
+    type: Array.isArray(value) ? "array" : typeof value,
+    item_count_category: itemCountCategory(items),
+    item_fields: arrayItemFields(items)
+  };
+}
+
 function normalizeWorkorderStatsSchema(stats) {
   const summary = isPlainObject(stats?.summary) ? stats.summary : {};
   return {
@@ -388,11 +397,7 @@ function normalizeWorkorderStatsSchema(stats) {
       by_status: statsArraySchema(stats?.by_status),
       by_type: statsArraySchema(stats?.by_type)
     },
-    overdue_top: {
-      type: Array.isArray(stats?.overdue_top) ? "array" : typeof stats?.overdue_top,
-      item_count_category: itemCountCategory(Array.isArray(stats?.overdue_top) ? stats.overdue_top : []),
-      item_fields: arrayItemFields(Array.isArray(stats?.overdue_top) ? stats.overdue_top : [])
-    }
+    overdue_top: overdueTopSchema(stats?.overdue_top)
   };
 }
 
@@ -403,7 +408,8 @@ function normalizeWorkorderStatsNumeric(stats) {
     by_status: normalizeValue(Array.isArray(stats?.by_status) ? stats.by_status : [], { preserveArrays: true }),
     by_priority: normalizeValue(Array.isArray(stats?.by_priority) ? stats.by_priority : [], { preserveArrays: true }),
     by_type: normalizeValue(Array.isArray(stats?.by_type) ? stats.by_type : [], { preserveArrays: true }),
-    by_assignee: normalizeValue(Array.isArray(stats?.by_assignee) ? stats.by_assignee : [], { preserveArrays: true })
+    by_assignee: normalizeValue(Array.isArray(stats?.by_assignee) ? stats.by_assignee : [], { preserveArrays: true }),
+    overdue_top: overdueTopSchema(stats?.overdue_top)
   };
 }
 
@@ -586,6 +592,9 @@ function paginationSnapshot(data) {
 }
 
 function buildSnapshot(name, data, options = {}) {
+  if (name === "workorders.stats") {
+    return normalizeWorkorderStats(data);
+  }
   if (snapshotMode === "schema") {
     return schemaOf(data);
   }
@@ -594,9 +603,6 @@ function buildSnapshot(name, data, options = {}) {
   }
   if (name === "workorders.list" && options.list) {
     return workordersListSnapshot(data, options);
-  }
-  if (name === "workorders.stats") {
-    return normalizeWorkorderStats(data);
   }
   if (options.list) {
     return listSnapshot(data);
