@@ -433,3 +433,9 @@ scripts/e2e/snapshots/
 - 新增或更新 baseline 必须遵循 `docs/testing/api-snapshot-baseline-policy.md`。
 - 第一批工单扩展已实施，当前 baseline 已覆盖 9 个 snapshot。
 - 第一批工单扩展收口复核见 `docs/testing/api-snapshot-workorder-extra-closure-review.md`。
+
+## 17. 数据稳定性策略
+
+接口快照数据稳定性策略见 `docs/testing/api-snapshot-data-stability-plan.md`。
+
+后续继续扩展接口覆盖前，建议先解决数据稳定性问题，尤其是写入型 e2e、列表第一条样本、stats 数值和本地脏数据对 baseline 的影响。
