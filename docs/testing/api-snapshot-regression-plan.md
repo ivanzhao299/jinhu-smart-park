@@ -410,3 +410,10 @@ scripts/e2e/snapshots/
 建议先完成本文档作为接口快照和查询响应对照机制的设计基线。
 
 下一步可新增快照脚本初版，初期手动运行，不进入常规 CI。第一批优先覆盖工单和房源核心查询，尤其是已完成 query service 拆分的 `work-orders` 和 `park-units` 只读接口。待归一化规则和 baseline 稳定后，再考虑扩展到用户、楼栋、楼层、资产兼容读面和更多聚合查询。
+
+## 15. 初版脚本落地状态
+
+- 新增 `scripts/e2e/first-release-api-snapshots.mjs`。
+- 新增 baseline 文件 `scripts/e2e/snapshots/first-release-api-snapshots.json`。
+- 第一版覆盖工单和房源核心只读查询。
+- 当前手动运行，不接入 CI。
