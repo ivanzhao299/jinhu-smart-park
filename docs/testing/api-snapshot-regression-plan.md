@@ -447,3 +447,5 @@ scripts/e2e/snapshots/
 snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。当前已新增 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，通过手动、幂等、API 优先的方式准备固定快照样本；该脚本不接入 CI，不修改 seed，不更新快照 baseline。
 
 bootstrap 收口复核见 `docs/testing/api-snapshot-bootstrap-closure-review.md`。当前 bootstrap 已可准备固定样本，下一步建议单独审查 baseline 是否切换到固定样本。
+
+固定样本 baseline 更新审查见 `docs/testing/api-snapshot-fixed-baseline-review.md`。当前 baseline 可通过 `SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001` 和 `SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001` 切换到固定详情样本；写入型 e2e 后 `workorders.list/stats` 仍可能波动，后续需继续收口。

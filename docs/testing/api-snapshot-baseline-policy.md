@@ -97,6 +97,8 @@
 - 如果后续启用固定业务标识，更新 baseline 前必须确认 `SNAPSHOT_WORKORDER_NO` / `SNAPSHOT_UNIT_NO` 对应样本存在。
 - 如果后续使用固定测试数据，更新 baseline 前必须确认固定样本来源清楚，且 `SNAPSHOT-WO-001` / `SNAPSHOT-UNIT-001` 或等价样本未被写入型 e2e 修改。
 - 如果后续使用 snapshot bootstrap，更新 baseline 前必须确认 bootstrap 已按预期运行，重复运行具备幂等性，且固定样本状态符合 `docs/testing/api-snapshot-bootstrap-plan.md` 的设计约束。
+- 固定样本 baseline 更新必须使用固定编号环境变量，例如 `SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001` 和 `SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001`。
+- 固定样本 baseline 更新必须记录审查文档，说明固定样本、执行命令、diff 范围、敏感信息检查和写入型 e2e 后的稳定性结论。
 - 使用 `ALLOW_SNAPSHOT_FALLBACK=true` 生成的 baseline 不应提交。
 
 建议普通检查命令：
@@ -115,9 +117,26 @@ node scripts/e2e/first-release-api-snapshots.mjs
 UPDATE_SNAPSHOTS=true node scripts/e2e/first-release-api-snapshots.mjs
 ```
 
+固定样本 baseline 更新命令：
+
+```bash
+SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001 \
+SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001 \
+UPDATE_SNAPSHOTS=true \
+node scripts/e2e/first-release-api-snapshots.mjs
+```
+
 更新后必须再执行普通检查：
 
 ```bash
+node scripts/e2e/first-release-api-snapshots.mjs
+```
+
+固定样本 baseline 更新后必须使用同样固定编号执行普通检查：
+
+```bash
+SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001 \
+SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001 \
 node scripts/e2e/first-release-api-snapshots.mjs
 ```
 
@@ -209,6 +228,8 @@ Reviewer 重点：
 ```
 
 如果 baseline 变化来自测试数据而不是接口结构变化，PR 必须明确说明数据来源和为什么该变化可接受。
+
+固定样本 baseline 更新应附审查文档，例如 `docs/testing/api-snapshot-fixed-baseline-review.md`。
 
 ## 10. Reviewer 检查重点
 
