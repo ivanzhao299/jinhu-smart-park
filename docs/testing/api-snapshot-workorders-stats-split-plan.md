@@ -214,6 +214,8 @@ baseline 维护建议：
 - numeric 专项模式设计文档见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。
 - 当前建议保留 numeric 专项模式，并保持非默认、显式启用、独立 baseline、暂不接入常规 CI。
 - ST-2A 已实现最小脚本能力。
+- ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。
+- ST-2B 为后续步骤：在隔离固定数据集下建立 numeric baseline。
 - 当前仍不新增 numeric baseline、不修改现有 baseline。
 
 ## 11. 暂缓范围
@@ -234,4 +236,4 @@ baseline 维护建议：
 
 默认快照已转向 schema 检查，降低写入型 e2e 后的误报。numeric stats 保留为后续手动专项，仅在固定数据集或隔离环境中运行。
 
-下一步建议进入 ST-2：stats numeric 专项模式设计 / 实施。
+下一步建议进入 ST-2B：在隔离固定数据集下建立 stats numeric baseline，并单独审查 numeric diff。

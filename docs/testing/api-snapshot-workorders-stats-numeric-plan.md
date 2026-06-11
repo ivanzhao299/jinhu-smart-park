@@ -4,7 +4,7 @@
 
 本文用于设计 `workorders.stats.numeric` 专项模式。在默认 `workorders.stats` schema snapshot 稳定后，补充统计数值口径保护，避免默认快照继续受写入型 e2e 后的 count 波动影响。
 
-ST-2A 已完成脚本小能力实现：支持显式 numeric stats 模式和独立 numeric baseline path。本阶段仍不新增 numeric baseline、不接入 CI、不修改业务代码。
+ST-2A 已完成脚本小能力实现：支持显式 numeric stats 模式和独立 numeric baseline path。本阶段仍不新增 numeric baseline、不接入 CI、不修改业务代码。ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。
 
 ## 2. 背景
 
@@ -187,6 +187,7 @@ numeric baseline 更新必须遵循更严格规则：
 - 默认仍为 schema。
 - 未接入 CI。
 - 未提交 numeric baseline。
+- 已进入收口复核，复核文档见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。
 
 ### ST-2B：numeric baseline 建立
 
@@ -224,3 +225,4 @@ numeric baseline 更新必须遵循更严格规则：
 - baseline 更新必须额外设置 `ALLOW_STATS_NUMERIC_SNAPSHOT=true`。
 - numeric snapshot 暂不进入常规 CI。
 - ST-2A 已完成最小脚本能力；下一步进入 ST-2B：在隔离数据集下建立 numeric baseline。
+- numeric baseline 尚未建立，必须留到 ST-2B 在隔离固定数据集下单独完成。
