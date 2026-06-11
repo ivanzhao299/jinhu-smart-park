@@ -173,6 +173,8 @@ ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-
 
 ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。numeric baseline 使用独立文件 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`，不得混入默认 baseline PR。numeric baseline 更新必须单独 PR，说明数据来源、运行顺序、是否 reset、是否独立库、是否运行过写入型 e2e，并逐项解释 `summary` 和各 group count 的变化。numeric baseline 不得由写入型 e2e 后的数据直接生成或更新，也不得与 schema 策略调整混在同一 PR 中审查。
 
+ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。numeric baseline 文件只能在 ST-2B 的隔离固定数据集下建立，不得在 ST-2A 收口、普通修复 PR 或默认 schema baseline PR 中提交。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
