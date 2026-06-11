@@ -242,3 +242,5 @@ baseline 检查未发现：
 本轮新增 `workorders.overdue` 和 `workorders.slaRules` 两个只读快照，baseline 已扩展到 9 个 snapshot。新增 snapshot 未发现敏感信息或动态原值；既有工单快照变化由 `first-release-workorders.mjs` 写入新工单造成，来源清楚且已通过 update 后普通检查验证。
 
 下一步建议优先设计快照数据稳定性策略，再评估 `/assets/units` 兼容路径扩展。不建议立即接入 CI，也不建议立即继续扩大接口覆盖范围。
+
+后续同步：已进入快照数据稳定性策略设计，文档入口为 `docs/testing/api-snapshot-data-stability-plan.md`。

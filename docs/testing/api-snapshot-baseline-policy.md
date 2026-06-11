@@ -92,6 +92,8 @@
 - 如涉及统计接口，先做关键字段人工对照。
 - 如涉及归一化规则，确认动态字段不会进入 baseline。
 - 如运行过会写数据的 e2e，确认这类写入是否会影响 snapshot first item 或统计值。
+- 确认差异是否来自写入型 e2e、本地手动脏数据、测试库重置、seed / bootstrap 变化、排序变化或不同租户 / 园区 / 账号上下文。
+- 如果数据不稳定，应先参考 `docs/testing/api-snapshot-data-stability-plan.md` 判断是否需要重置测试库、固定查询条件或调整快照锚点，不应直接更新 baseline。
 
 建议普通检查命令：
 
