@@ -165,6 +165,8 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 `workorders.stats` numeric baseline 不应随本地写入型 e2e 的统计变化在 list 稳定性 PR 中更新；stats schema / numeric 拆分应作为后续单独治理项。
 
+stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。拆分后，schema baseline 可在确认结构变化后更新；numeric baseline 只能在固定数据集、隔离环境或明确 reset 后更新，并必须说明数据来源和运行顺序。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
@@ -284,6 +286,8 @@ Reviewer 应重点检查：
 ### stats 数值变化怎么办
 
 先确认是否运行过会写数据的 e2e，或测试库数据是否变化。若统计口径未变，只是测试数据变化，需要说明数据来源；若统计口径变更，需要对应设计或业务说明。
+
+对于 `workorders.stats`，写入型 e2e 后的 numeric count 变化不应直接固化为 baseline。后续应优先使用 schema snapshot 作为默认稳定检查，numeric snapshot 作为手动专项检查。
 
 ### 本地数据导致快照变化怎么办
 
