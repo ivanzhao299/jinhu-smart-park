@@ -342,3 +342,14 @@ pnpm typecheck
 - `/assets/units` 和 `/assets/units/:id` 兼容路径仍作为下一批候选，不在本轮实现范围内。
 
 后续如继续扩展第二批，应单独审查 `/assets/units` 与 `/park-units` 的字段差异和 baseline diff，不应默认两者返回结构一致。
+
+## 15. 第一批收口复核状态
+
+第一批工单只读查询扩展已进入收口复核，复核文档为 `docs/testing/api-snapshot-workorder-extra-closure-review.md`。
+
+当前判断：
+
+- 本轮扩展可阶段性收口。
+- 当前不继续扩 `/assets/units` 兼容路径。
+- 当前不接入 CI。
+- 下一步优先建议设计快照数据稳定性策略。

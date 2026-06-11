@@ -24,6 +24,7 @@
 - 接口快照脚本初版收口复核：[testing/api-snapshot-initial-closure-review.md](testing/api-snapshot-initial-closure-review.md)
 - 接口快照 Baseline 维护规则：[testing/api-snapshot-baseline-policy.md](testing/api-snapshot-baseline-policy.md)
 - 接口快照小范围扩展设计：[testing/api-snapshot-small-expansion-plan.md](testing/api-snapshot-small-expansion-plan.md)
+- 接口快照工单扩展收口复核：[testing/api-snapshot-workorder-extra-closure-review.md](testing/api-snapshot-workorder-extra-closure-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)
