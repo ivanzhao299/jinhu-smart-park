@@ -4,12 +4,29 @@
   "mode": "normalized",
   "snapshots": {
     "workorders.list": {
+      "snapshot_type": "workorders.list.stable",
+      "top_level_keys": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "data_shape": {
+        "type": "paginated-list",
+        "items": "array"
+      },
       "pagination": {
         "page": 1,
         "page_size": 10,
         "total": "<normalized-number>",
         "total_pages": null
       },
+      "pagination_keys": [
+        "page",
+        "page_size",
+        "total",
+        "total_pages"
+      ],
       "item_count_category": "many",
       "item_fields": [
         "acceptTime",
@@ -70,75 +87,8 @@
         "woSubType",
         "woType"
       ],
-      "first_item": {
-        "acceptTime": null,
-        "assigneeId": "<normalized>",
-        "assigneeName": "Local Admin",
-        "assignerId": "<normalized>",
-        "assignerName": "Local Admin",
-        "building": null,
-        "buildingId": "<normalized>",
-        "cancelTime": null,
-        "closeTime": null,
-        "code": "WO-20260611T035850441Z-a533bc82",
-        "confirmTime": null,
-        "createBy": "<normalized>",
-        "createTime": "<normalized>",
-        "description": "First release work order regression 20260611T035850441Z-a533bc82",
-        "deviceId": "<normalized>",
-        "dispatchTime": "<normalized>",
-        "evaluation": null,
-        "finishTime": null,
-        "floor": null,
-        "floorId": "<normalized>",
-        "id": "<normalized>",
-        "imageFileIds": {
-          "type": "array",
-          "item_count_category": "empty",
-          "item_fields": [],
-          "first_item": null
-        },
-        "isDeleted": false,
-        "location": null,
-        "overdueFlag": false,
-        "overdueReason": null,
-        "parkId": "<normalized>",
-        "parkTenant": null,
-        "parkTenantId": "<normalized>",
-        "priority": "medium",
-        "remark": null,
-        "reporterId": "<normalized>",
-        "reporterMobile": null,
-        "reporterName": "Local Admin",
-        "resolveNote": null,
-        "robotId": "<normalized>",
-        "roomLabel": null,
-        "satisfaction": null,
-        "slaDispatchMin": 30,
-        "slaFinishMin": 240,
-        "sourceId": "<normalized>",
-        "sourceType": "manual",
-        "startTime": null,
-        "status": "20",
-        "tenantId": "<normalized>",
-        "title": "Regression work order 20260611T035850441Z-a533bc82",
-        "unit": null,
-        "unitId": "<normalized>",
-        "updateBy": "<normalized>",
-        "updateTime": "<normalized>",
-        "urgency": "normal",
-        "version": 2,
-        "videoFileIds": {
-          "type": "array",
-          "item_count_category": "empty",
-          "item_fields": [],
-          "first_item": null
-        },
-        "waitMaterialTime": null,
-        "woCode": "WO-20260611T035850441Z-a533bc82",
-        "woSubType": null,
-        "woType": "repair"
-      }
+      "contains_snapshot_workorder": true,
+      "snapshot_workorder_key": "SNAPSHOT-WO-001"
     },
     "workorders.detail": {
       "acceptTime": null,
@@ -360,7 +310,7 @@
           "assignee_id": "<normalized>",
           "assignee_name": "Local Admin",
           "avg_finish_minutes": 0,
-          "count": 12,
+          "count": 13,
           "done_count": 0,
           "overdue_count": 0
         },
@@ -375,7 +325,7 @@
       ],
       "by_priority": [
         {
-          "count": 14,
+          "count": 15,
           "key": "medium"
         },
         {
@@ -385,7 +335,7 @@
       ],
       "by_status": [
         {
-          "count": 13,
+          "count": 14,
           "key": "20"
         },
         {
@@ -395,13 +345,13 @@
       ],
       "by_type": [
         {
-          "count": 21,
+          "count": 22,
           "key": "repair"
         }
       ],
       "overdue_top": [],
       "summary": {
-        "assigned_count": 13,
+        "assigned_count": 14,
         "avg_dispatch_minutes": 0,
         "avg_finish_minutes": 0,
         "avg_satisfaction": 0,
@@ -410,7 +360,7 @@
         "in_progress_count": 0,
         "overdue_count": 0,
         "pending_count": 8,
-        "total_count": 21
+        "total_count": 22
       }
     },
     "workorders.overdue": {
