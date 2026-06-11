@@ -4,7 +4,7 @@
 
 本文用于设计 `workorders.stats.numeric` 专项模式。在默认 `workorders.stats` schema snapshot 稳定后，补充统计数值口径保护，避免默认快照继续受写入型 e2e 后的 count 波动影响。
 
-本阶段只做文档设计，不修改快照脚本、不新增 numeric baseline、不接入 CI、不修改业务代码。
+ST-2A 已完成脚本小能力实现：支持显式 numeric stats 模式和独立 numeric baseline path。本阶段仍不新增 numeric baseline、不接入 CI、不修改业务代码。
 
 ## 2. 背景
 
@@ -68,7 +68,7 @@ ST-1 已完成：默认 `workorders.stats` 已从 exact numeric payload 转为 s
 
 ## 6. 运行模式设计
 
-建议后续实现时增加显式模式：
+脚本已支持显式模式：
 
 ```text
 SNAPSHOT_STATS_MODE=schema|numeric
@@ -92,11 +92,11 @@ SNAPSHOT_STATS_MODE=numeric ALLOW_STATS_NUMERIC_SNAPSHOT=true node scripts/e2e/f
 - `numeric` 必须显式设置，不能由 `SNAPSHOT_MODE=normalized` 隐式触发。
 - `ALLOW_STATS_NUMERIC_SNAPSHOT=true` 用于防止误用，尤其防止误更新 numeric baseline。
 - 未设置防误用变量时，不允许 numeric update baseline。
-- 如果后续只运行 numeric 检查而不更新 baseline，也应在输出中清晰标明当前使用 numeric 专项模式。
+- numeric 模式下脚本会输出当前 stats snapshot mode 和 baseline path。
 
 ## 7. baseline 文件设计
 
-建议使用独立 baseline 文件：
+脚本已为 numeric 模式使用独立 baseline 文件：
 
 ```text
 scripts/e2e/snapshots/first-release-api-snapshots.numeric.json
@@ -129,7 +129,7 @@ scripts/e2e/snapshots/first-release-api-snapshots.numeric.json
 - 需要脚本支持额外 baseline path。
 - 需要额外文档说明和维护入口。
 
-建议选择方案 B。
+ST-2A 已选择并实现方案 B。本轮未提交 `first-release-api-snapshots.numeric.json`。
 
 ## 8. 运行前置条件
 
@@ -181,11 +181,12 @@ numeric baseline 更新必须遵循更严格规则：
 
 ### ST-2A：numeric 模式脚本设计 / 小实现
 
-- 增加 `SNAPSHOT_STATS_MODE`。
-- 增加 `ALLOW_STATS_NUMERIC_SNAPSHOT` 防误用变量。
-- 增加 numeric baseline path 支持。
+- 已增加 `SNAPSHOT_STATS_MODE=schema|numeric`。
+- 已增加 `ALLOW_STATS_NUMERIC_SNAPSHOT` 防误用变量。
+- 已增加 numeric baseline path 支持。
 - 默认仍为 schema。
-- 不接入 CI。
+- 未接入 CI。
+- 未提交 numeric baseline。
 
 ### ST-2B：numeric baseline 建立
 
@@ -203,7 +204,6 @@ numeric baseline 更新必须遵循更严格规则：
 
 本阶段继续暂缓：
 
-- 直接实现脚本。
 - 直接新增 numeric baseline。
 - 更新现有 baseline。
 - 接入 CI。
@@ -223,4 +223,4 @@ numeric baseline 更新必须遵循更严格规则：
 - numeric 模式通过 `SNAPSHOT_STATS_MODE=numeric` 显式启用。
 - baseline 更新必须额外设置 `ALLOW_STATS_NUMERIC_SNAPSHOT=true`。
 - numeric snapshot 暂不进入常规 CI。
-- 下一步进入 ST-2A：numeric 模式脚本设计 / 小实现。
+- ST-2A 已完成最小脚本能力；下一步进入 ST-2B：在隔离数据集下建立 numeric baseline。

@@ -167,11 +167,11 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。拆分后，schema baseline 可在确认结构变化后更新；numeric baseline 只能在固定数据集、隔离环境或明确 reset 后更新，并必须说明数据来源和运行顺序。
 
-当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。numeric 专项模式尚未实施。
+当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。ST-2A 已实现 numeric 专项模式的最小脚本能力，但尚未提交 numeric baseline。
 
 ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。在 ST-2 完成前，`workorders.stats` numeric baseline 不应作为默认 baseline 维护对象。
 
-ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。后续如实现 numeric baseline，建议使用独立文件 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。numeric baseline 更新必须说明数据来源、运行顺序、是否 reset、是否独立库、是否运行过写入型 e2e，并逐项解释 `summary` 和各 group count 的变化。numeric baseline 不得由写入型 e2e 后的数据直接生成或更新，也不得与 schema 策略调整混在同一 PR 中审查。
+ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。numeric baseline 使用独立文件 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`，不得混入默认 baseline PR。numeric baseline 更新必须单独 PR，说明数据来源、运行顺序、是否 reset、是否独立库、是否运行过写入型 e2e，并逐项解释 `summary` 和各 group count 的变化。numeric baseline 不得由写入型 e2e 后的数据直接生成或更新，也不得与 schema 策略调整混在同一 PR 中审查。
 
 ## 8. baseline 更新后检查清单
 

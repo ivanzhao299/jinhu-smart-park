@@ -4,7 +4,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const snapshotPath = resolve(rootDir, "scripts/e2e/snapshots/first-release-api-snapshots.json");
+const schemaSnapshotPath = resolve(rootDir, "scripts/e2e/snapshots/first-release-api-snapshots.json");
+const numericSnapshotPath = resolve(rootDir, "scripts/e2e/snapshots/first-release-api-snapshots.numeric.json");
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001/api/v1";
 const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
 const adminPassword = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
@@ -12,10 +13,14 @@ const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "1000
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const updateSnapshots = process.env.UPDATE_SNAPSHOTS === "true";
 const snapshotMode = process.env.SNAPSHOT_MODE ?? "normalized";
+const snapshotStatsMode = process.env.SNAPSHOT_STATS_MODE ?? "schema";
 const snapshotWorkorderNo = process.env.SNAPSHOT_WORKORDER_NO?.trim() ?? "";
 const snapshotUnitNo = process.env.SNAPSHOT_UNIT_NO?.trim() ?? "";
 const allowSnapshotFallback = process.env.ALLOW_SNAPSHOT_FALLBACK === "true";
+const allowStatsNumericSnapshot = process.env.ALLOW_STATS_NUMERIC_SNAPSHOT === "true";
+const snapshotPath = snapshotStatsMode === "numeric" ? numericSnapshotPath : schemaSnapshotPath;
 const allowedSnapshotModes = new Set(["schema", "key-fields", "normalized"]);
+const allowedSnapshotStatsModes = new Set(["schema", "numeric"]);
 const SNAPSHOT_LOOKUP_PAGE_SIZE = 10;
 const MAX_SNAPSHOT_LOOKUP_PAGES = 10;
 
@@ -391,6 +396,24 @@ function normalizeWorkorderStatsSchema(stats) {
   };
 }
 
+function normalizeWorkorderStatsNumeric(stats) {
+  return {
+    snapshot_type: "workorders.stats.numeric",
+    summary: normalizeValue(stats?.summary ?? {}),
+    by_status: normalizeValue(Array.isArray(stats?.by_status) ? stats.by_status : [], { preserveArrays: true }),
+    by_priority: normalizeValue(Array.isArray(stats?.by_priority) ? stats.by_priority : [], { preserveArrays: true }),
+    by_type: normalizeValue(Array.isArray(stats?.by_type) ? stats.by_type : [], { preserveArrays: true }),
+    by_assignee: normalizeValue(Array.isArray(stats?.by_assignee) ? stats.by_assignee : [], { preserveArrays: true })
+  };
+}
+
+function normalizeWorkorderStats(stats) {
+  if (snapshotStatsMode === "numeric") {
+    return normalizeWorkorderStatsNumeric(stats);
+  }
+  return normalizeWorkorderStatsSchema(stats);
+}
+
 function isDynamicField(key) {
   if (dynamicFieldNames.has(key)) return true;
   if (key.endsWith("_id")) return true;
@@ -500,7 +523,7 @@ function keyFieldsSnapshot(name, data) {
     return listSnapshot(data, ["action", "actionType", "action_type", "content", "operatorName", "operator_name"]);
   }
   if (name === "workorders.stats") {
-    return normalizeWorkorderStatsSchema(data);
+    return normalizeWorkorderStats(data);
   }
   if (name === "workorders.overdue") {
     return listSnapshot(data, ["woCode", "wo_code", "title", "status", "woType", "wo_type", "priority", "overdueFlag", "overdue_flag", "overdueReason", "overdue_reason"]);
@@ -573,7 +596,7 @@ function buildSnapshot(name, data, options = {}) {
     return workordersListSnapshot(data, options);
   }
   if (name === "workorders.stats") {
-    return normalizeWorkorderStatsSchema(data);
+    return normalizeWorkorderStats(data);
   }
   if (options.list) {
     return listSnapshot(data);
@@ -702,11 +725,21 @@ async function run() {
     fail(`Unsupported SNAPSHOT_MODE=${snapshotMode}; expected schema, key-fields, or normalized`);
     return;
   }
+  if (!allowedSnapshotStatsModes.has(snapshotStatsMode)) {
+    fail(`Unsupported SNAPSHOT_STATS_MODE=${snapshotStatsMode}; expected schema or numeric`);
+    return;
+  }
+  if (snapshotStatsMode === "numeric" && !allowStatsNumericSnapshot) {
+    fail("SNAPSHOT_STATS_MODE=numeric requires ALLOW_STATS_NUMERIC_SNAPSHOT=true");
+    return;
+  }
 
   info(`API base: ${apiBaseUrl}`);
   info(`Tenant/Park: ${tenantId}/${parkId}`);
   info(`Snapshot mode: ${snapshotMode}`);
+  info(`Stats snapshot mode: ${snapshotStatsMode}`);
   info(`Update snapshots: ${updateSnapshots ? "true" : "false"}`);
+  info(`Snapshot baseline: ${snapshotPath}`);
 
   const loginOk = await login(adminUsername, adminPassword);
   if (!expectStatus("POST /auth/login", loginOk.response.status, 200, loginOk.body)) return;
@@ -732,6 +765,12 @@ async function run() {
 
   const expected = await readBaseline();
   if (!expected) {
+    if (snapshotStatsMode === "numeric") {
+      fail(
+        `Numeric snapshot baseline not found at ${snapshotPath}. Create it only from an isolated fixed dataset with SNAPSHOT_STATS_MODE=numeric ALLOW_STATS_NUMERIC_SNAPSHOT=true UPDATE_SNAPSHOTS=true node scripts/e2e/first-release-api-snapshots.mjs`
+      );
+      return;
+    }
     fail(`Snapshot baseline not found at ${snapshotPath}. Run UPDATE_SNAPSHOTS=true node scripts/e2e/first-release-api-snapshots.mjs`);
     return;
   }
