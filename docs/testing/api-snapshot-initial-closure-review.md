@@ -249,3 +249,5 @@ SNAPSHOT_MODE=normalized node scripts/e2e/first-release-api-snapshots.mjs
 下一阶段不建议马上改脚本或扩大范围，优先建议补充 baseline 维护规则和快照使用规范，再决定是否小范围扩展 `overdue`、`sla-rules` 和 `/assets/units` 兼容路径。
 
 后续同步：已进入 baseline 维护规则设计，文档入口为 `docs/testing/api-snapshot-baseline-policy.md`。
+
+后续同步：已进入接口快照小范围扩展设计，文档入口为 `docs/testing/api-snapshot-small-expansion-plan.md`。建议第一批优先评估 `workorders.overdue` 和 `workorders.slaRules`，资产兼容路径 `/assets/units` 与 `/assets/units/:id` 单独作为第二批复核。
