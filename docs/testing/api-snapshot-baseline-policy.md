@@ -161,7 +161,9 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 `workorders.list` 降级后，baseline 更新不应再因为默认列表第一条完整样本变化而触发。只有字段集合、pagination 结构、顶层响应结构、固定工单命中语义或明确设计的 list 快照策略变化，才应考虑更新 `workorders.list` baseline。
 
-`contains_snapshot_workorder` 应通过工单列表实际支持的 `keyword` 查询参数定位固定工单，并按 `woCode / code` 精确匹配。不要因为固定工单被新工单挤出默认第一页而更新 baseline；这类问题应修复查询或快照策略。
+`contains_snapshot_workorder` 应通过工单列表实际支持的 `keyword` 查询参数分页定位固定工单，并在每页结果中按 `woCode / code` 精确匹配。不要因为固定工单被新工单挤出默认第一页而更新 baseline；这类问题应修复查询或快照策略。
+
+`workorders.stats` numeric baseline 不应随本地写入型 e2e 的统计变化在 list 稳定性 PR 中更新；stats schema / numeric 拆分应作为后续单独治理项。
 
 ## 8. baseline 更新后检查清单
 

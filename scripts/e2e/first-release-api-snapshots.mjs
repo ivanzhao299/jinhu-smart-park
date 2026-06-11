@@ -16,6 +16,8 @@ const snapshotWorkorderNo = process.env.SNAPSHOT_WORKORDER_NO?.trim() ?? "";
 const snapshotUnitNo = process.env.SNAPSHOT_UNIT_NO?.trim() ?? "";
 const allowSnapshotFallback = process.env.ALLOW_SNAPSHOT_FALLBACK === "true";
 const allowedSnapshotModes = new Set(["schema", "key-fields", "normalized"]);
+const SNAPSHOT_LOOKUP_PAGE_SIZE = 10;
+const MAX_SNAPSHOT_LOOKUP_PAGES = 10;
 
 const normalizedValue = "<normalized>";
 const normalizedNumber = "<normalized-number>";
@@ -213,27 +215,42 @@ async function selectWorkorderSnapshotSampleForKey(authHeaders, fallbackItems) {
   }
 
   info(`Querying workorder snapshot sample by keyword: ${snapshotWorkorderNo}`);
-  const result = await request(`/work-orders?keyword=${encodeURIComponent(snapshotWorkorderNo)}&page=1&page_size=10`, { headers: authHeaders });
-  if (!expectStatus("GET /work-orders snapshot key lookup", result.response.status, 200, result.body)) {
-    return { sample: null, containsSnapshotWorkorder: false };
-  }
+  for (let page = 1; page <= MAX_SNAPSHOT_LOOKUP_PAGES; page += 1) {
+    const result = await request(
+      `/work-orders?keyword=${encodeURIComponent(snapshotWorkorderNo)}&page=${page}&page_size=${SNAPSHOT_LOOKUP_PAGE_SIZE}`,
+      { headers: authHeaders }
+    );
+    if (!expectStatus(`GET /work-orders snapshot key lookup page ${page}`, result.response.status, 200, result.body)) {
+      return { sample: null, containsSnapshotWorkorder: false };
+    }
 
-  const data = extractList(result.body);
-  if (!data) {
-    fail(`GET /work-orders snapshot key lookup body is not a paginated object or array; body=${summarizeBody(result.body)}`);
-    return { sample: null, containsSnapshotWorkorder: false };
-  }
+    const data = extractList(result.body);
+    if (!data) {
+      fail(`GET /work-orders snapshot key lookup page ${page} body is not a paginated object or array; body=${summarizeBody(result.body)}`);
+      return { sample: null, containsSnapshotWorkorder: false };
+    }
 
-  const matched = findByBusinessKey(data.items, snapshotWorkorderNo, ["woCode", "code"]);
-  if (matched) {
-    const matchedField = matched.woCode === snapshotWorkorderNo ? "woCode" : "code";
-    info(`Matched workorder snapshot sample by ${matchedField}: ${summarizeSample(matched, ["woCode", "code", "title"])}`);
-    return { sample: matched, containsSnapshotWorkorder: true };
+    const matched = findByBusinessKey(data.items, snapshotWorkorderNo, ["woCode", "code"]);
+    if (matched) {
+      const matchedField = matched.woCode === snapshotWorkorderNo ? "woCode" : "code";
+      info(`Matched workorder snapshot sample by ${matchedField} on lookup page ${page}: ${summarizeSample(matched, ["woCode", "code", "title"])}`);
+      return { sample: matched, containsSnapshotWorkorder: true };
+    }
+
+    if (data.items.length === 0) {
+      break;
+    }
+    if (typeof data.total_pages === "number" && page >= data.total_pages) {
+      break;
+    }
+    if (data.items.length < SNAPSHOT_LOOKUP_PAGE_SIZE) {
+      break;
+    }
   }
 
   if (allowSnapshotFallback) {
     warn(
-      `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found by keyword lookup; falling back to first item because ALLOW_SNAPSHOT_FALLBACK=true; fallback=${summarizeSample(
+      `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found by keyword lookup within ${MAX_SNAPSHOT_LOOKUP_PAGES} page(s); falling back to first item because ALLOW_SNAPSHOT_FALLBACK=true; fallback=${summarizeSample(
         fallbackItems[0],
         ["woCode", "code", "title"]
       )}`
@@ -242,7 +259,7 @@ async function selectWorkorderSnapshotSampleForKey(authHeaders, fallbackItems) {
   }
 
   fail(
-    `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found and fallback is disabled; checked keyword lookup plus fields=woCode/code; first available=${summarizeSample(
+    `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found and fallback is disabled; checked keyword lookup up to ${MAX_SNAPSHOT_LOOKUP_PAGES} page(s) plus fields=woCode/code; first available=${summarizeSample(
       fallbackItems[0],
       ["woCode", "code", "title"]
     )}`
