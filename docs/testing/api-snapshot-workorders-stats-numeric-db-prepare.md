@@ -37,6 +37,17 @@ jinhu_smart_park_snapshot_numeric
 
 该库只用于 `workorders.stats.numeric` baseline 建立和复核。建立 baseline 前必须完成 migration、必要 seed、API 指向隔离库、snapshot bootstrap，并通过门禁 SQL。
 
+SB-1 后，隔离库准备必须使用新版 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，确保 snapshot building / floor / unit / workorder 关联固定：
+
+```text
+SNAPSHOT-BLD-001
+SNAPSHOT-FLR-001
+SNAPSHOT-UNIT-001
+SNAPSHOT-WO-001
+```
+
+如果已有 `SNAPSHOT-UNIT-001` 或 `SNAPSHOT-WO-001` 关联不一致，bootstrap 默认应 fail，不应静默修复或继续生成 numeric baseline。
+
 ## 4. 命令草案
 
 ### 4.1 只读检查当前数据库列表
@@ -118,12 +129,14 @@ pnpm dev:api
 `bootstrap-api-snapshot-data.mjs` 通过 API 写入固定样本。执行前必须确认 API 已指向 `jinhu_smart_park_snapshot_numeric`。
 
 ```bash
+SNAPSHOT_BUILDING_NO=SNAPSHOT-BLD-001 \
+SNAPSHOT_FLOOR_NO=SNAPSHOT-FLR-001 \
 SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001 \
 SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001 \
 node scripts/e2e/bootstrap-api-snapshot-data.mjs
 ```
 
-该命令会通过 API 修改隔离库，预期确保固定样本存在；如果样本已存在，不应重复创建。
+该命令会通过 API 修改隔离库，预期确保固定 building / floor / unit / workorder 存在；如果样本已存在，不应重复创建。若固定 unit / workorder 已存在但关联不一致，应先处理关联稳定性问题，不得继续生成 numeric baseline。
 
 ## 5. 生成 numeric baseline 前门禁 SQL
 
@@ -205,7 +218,7 @@ limit 20;
 - 已在隔离库完成必要 seed。
 - API 已明确指向隔离库。
 - 已执行 snapshot bootstrap。
-- 固定样本 `SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001` 存在。
+- 固定样本 `SNAPSHOT-BLD-001`、`SNAPSHOT-FLR-001`、`SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001` 存在且关联一致。
 - 门禁 SQL 确认 `WO-%` 回归污染工单数为 0。
 - 生成 baseline 前未运行 `first-release-workorders.mjs`。
 - 生成 baseline 前未运行其它会创建、派单、关闭或删除工单的写入型 e2e。
