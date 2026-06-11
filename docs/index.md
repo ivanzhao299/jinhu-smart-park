@@ -27,6 +27,7 @@
 - 接口快照工单扩展收口复核：[testing/api-snapshot-workorder-extra-closure-review.md](testing/api-snapshot-workorder-extra-closure-review.md)
 - 接口快照数据稳定性策略设计：[testing/api-snapshot-data-stability-plan.md](testing/api-snapshot-data-stability-plan.md)
 - 接口快照固定业务标识机制设计：[testing/api-snapshot-business-key-plan.md](testing/api-snapshot-business-key-plan.md)
+- 接口快照固定业务标识机制收口复核：[testing/api-snapshot-business-key-closure-review.md](testing/api-snapshot-business-key-closure-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)
