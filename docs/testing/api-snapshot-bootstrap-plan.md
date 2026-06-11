@@ -407,6 +407,12 @@ node scripts/e2e/first-release-api-snapshots.mjs
 - 不影响普通回归。
 - baseline diff 可解释。
 
+当前状态：
+
+- bootstrap 脚本已实施并进入收口复核。
+- 收口复核文档见 `docs/testing/api-snapshot-bootstrap-closure-review.md`。
+- 固定编号快照定位已验证，baseline 更新应作为下一阶段单独审查。
+
 ### SB-5：workflow / release-smoke label 设计
 
 暂缓。
@@ -423,3 +429,5 @@ node scripts/e2e/first-release-api-snapshots.mjs
 `scripts/e2e/bootstrap-api-snapshot-data.mjs` 已在后续实施阶段新增。
 
 bootstrap 采用 API 方式，手动运行，幂等准备 `SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001`。初版不修改 production seed、dev seed、baseline、CI 或 package 配置。固定样本准备完成并复核稳定后，再评估是否引入 snapshot 只读账号、手动 workflow 或 release-smoke label。
+
+后续同步：bootstrap 收口复核见 `docs/testing/api-snapshot-bootstrap-closure-review.md`。当前建议下一步进入 baseline 更新审查。

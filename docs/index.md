@@ -30,6 +30,7 @@
 - 接口快照固定业务标识机制收口复核：[testing/api-snapshot-business-key-closure-review.md](testing/api-snapshot-business-key-closure-review.md)
 - 接口快照固定测试数据设计：[testing/api-snapshot-fixed-data-plan.md](testing/api-snapshot-fixed-data-plan.md)
 - 接口快照 Bootstrap 设计与实施状态：[testing/api-snapshot-bootstrap-plan.md](testing/api-snapshot-bootstrap-plan.md)
+- 接口快照 Bootstrap 收口复核：[testing/api-snapshot-bootstrap-closure-review.md](testing/api-snapshot-bootstrap-closure-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)
