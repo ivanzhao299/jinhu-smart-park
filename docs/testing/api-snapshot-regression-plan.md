@@ -431,3 +431,4 @@ scripts/e2e/snapshots/
 - 第二批再评估 `/assets/units` 和 `/assets/units/:id` 兼容路径。
 - 扩展阶段仍保持手动运行，不接入常规 CI。
 - 新增或更新 baseline 必须遵循 `docs/testing/api-snapshot-baseline-policy.md`。
+- 第一批工单扩展已实施，当前 baseline 已覆盖 9 个 snapshot。

@@ -330,3 +330,15 @@ pnpm typecheck
 - `GET /assets/units/:id`
 
 本轮不修改脚本、不修改 baseline、不接入 CI。后续实施时应先普通检查，再 update baseline，再普通检查，并按 baseline 维护规则审查 diff。
+
+## 14. 第一批实施状态
+
+第一批工单只读查询扩展已实施：
+
+- 已新增 `workorders.overdue`。
+- 已新增 `workorders.slaRules`。
+- baseline 已扩展到 9 个 snapshot。
+- 当前仍保持手动运行，不接入 CI。
+- `/assets/units` 和 `/assets/units/:id` 兼容路径仍作为下一批候选，不在本轮实现范围内。
+
+后续如继续扩展第二批，应单独审查 `/assets/units` 与 `/park-units` 的字段差异和 baseline diff，不应默认两者返回结构一致。
