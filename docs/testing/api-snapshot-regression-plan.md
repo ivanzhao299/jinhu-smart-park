@@ -445,3 +445,5 @@ scripts/e2e/snapshots/
 固定测试数据设计见 `docs/testing/api-snapshot-fixed-data-plan.md`。后续建议先设计 snapshot bootstrap，明确 `SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001` 的数据来源，再评估进一步扩大快照使用范围。
 
 snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。当前已新增 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，通过手动、幂等、API 优先的方式准备固定快照样本；该脚本不接入 CI，不修改 seed，不更新快照 baseline。
+
+bootstrap 收口复核见 `docs/testing/api-snapshot-bootstrap-closure-review.md`。当前 bootstrap 已可准备固定样本，下一步建议单独审查 baseline 是否切换到固定样本。
