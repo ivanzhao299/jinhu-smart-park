@@ -440,4 +440,4 @@ scripts/e2e/snapshots/
 
 后续继续扩展接口覆盖前，建议先解决数据稳定性问题，尤其是写入型 e2e、列表第一条样本、stats 数值和本地脏数据对 baseline 的影响。
 
-固定业务标识机制设计见 `docs/testing/api-snapshot-business-key-plan.md`。后续脚本可支持 `SNAPSHOT_WORKORDER_NO` 和 `SNAPSHOT_UNIT_NO`，减少对列表第一条的依赖。
+固定业务标识机制设计见 `docs/testing/api-snapshot-business-key-plan.md`。当前脚本已支持 `SNAPSHOT_WORKORDER_NO` 和 `SNAPSHOT_UNIT_NO`，可减少对列表第一条的依赖；未设置时仍保持原有样本策略以兼容现有 baseline。

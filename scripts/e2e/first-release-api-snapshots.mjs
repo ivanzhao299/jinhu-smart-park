@@ -12,6 +12,9 @@ const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "1000
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const updateSnapshots = process.env.UPDATE_SNAPSHOTS === "true";
 const snapshotMode = process.env.SNAPSHOT_MODE ?? "normalized";
+const snapshotWorkorderNo = process.env.SNAPSHOT_WORKORDER_NO?.trim() ?? "";
+const snapshotUnitNo = process.env.SNAPSHOT_UNIT_NO?.trim() ?? "";
+const allowSnapshotFallback = process.env.ALLOW_SNAPSHOT_FALLBACK === "true";
 const allowedSnapshotModes = new Set(["schema", "key-fields", "normalized"]);
 
 const normalizedValue = "<normalized>";
@@ -45,6 +48,10 @@ function info(message) {
 
 function pass(message) {
   console.log(`[PASS] ${message}`);
+}
+
+function warn(message) {
+  console.warn(`[WARN] ${message}`);
 }
 
 function fail(message) {
@@ -148,7 +155,87 @@ function getEntityId(label, item) {
   if (typeof item?.id === "string" && item.id.length > 0) {
     return item.id;
   }
-  fail(`${label} first item did not include a usable id; item=${summarizeBody(item)}`);
+  fail(`${label} snapshot sample did not include a usable id; item=${summarizeBody(item)}`);
+  return null;
+}
+
+function summarizeSample(item, fields) {
+  if (!isPlainObject(item)) return "<invalid>";
+  const parts = [];
+  for (const field of fields) {
+    const value = item[field];
+    if (typeof value === "string" && value.length > 0) {
+      parts.push(`${field}=${value}`);
+    }
+  }
+  return parts.length > 0 ? parts.join(", ") : "<no diagnostic fields>";
+}
+
+function findByBusinessKey(items, businessKey, fields) {
+  return items.find((item) => fields.some((field) => item?.[field] === businessKey)) ?? null;
+}
+
+function selectWorkorderSnapshotSample(items) {
+  if (!snapshotWorkorderNo) {
+    return items[0];
+  }
+
+  info(`Using workorder snapshot key: ${snapshotWorkorderNo}`);
+  const matched = findByBusinessKey(items, snapshotWorkorderNo, ["woCode", "code"]);
+  if (matched) {
+    const matchedField = matched.woCode === snapshotWorkorderNo ? "woCode" : "code";
+    info(`Matched workorder snapshot sample by ${matchedField}: ${summarizeSample(matched, ["woCode", "code", "title"])}`);
+    return matched;
+  }
+
+  if (allowSnapshotFallback) {
+    warn(
+      `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found; falling back to first item because ALLOW_SNAPSHOT_FALLBACK=true; fallback=${summarizeSample(
+        items[0],
+        ["woCode", "code", "title"]
+      )}`
+    );
+    return items[0];
+  }
+
+  fail(
+    `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found and fallback is disabled; checked fields=woCode/code; first available=${summarizeSample(
+      items[0],
+      ["woCode", "code", "title"]
+    )}`
+  );
+  return null;
+}
+
+function selectUnitSnapshotSample(items) {
+  if (!snapshotUnitNo) {
+    return items[0];
+  }
+
+  info(`Using unit snapshot key: ${snapshotUnitNo}`);
+  const matched = findByBusinessKey(items, snapshotUnitNo, ["unitCode", "code"]);
+  if (matched) {
+    const matchedField = matched.unitCode === snapshotUnitNo ? "unitCode" : "code";
+    info(`Matched unit snapshot sample by ${matchedField}: ${summarizeSample(matched, ["unitCode", "code", "unitName"])}`);
+    return matched;
+  }
+
+  if (allowSnapshotFallback) {
+    warn(
+      `SNAPSHOT_UNIT_NO=${snapshotUnitNo} was not found; falling back to first item because ALLOW_SNAPSHOT_FALLBACK=true; fallback=${summarizeSample(
+        items[0],
+        ["unitCode", "code", "unitName"]
+      )}`
+    );
+    return items[0];
+  }
+
+  fail(
+    `SNAPSHOT_UNIT_NO=${snapshotUnitNo} was not found and fallback is disabled; checked fields=unitCode/code; first available=${summarizeSample(
+      items[0],
+      ["unitCode", "code", "unitName"]
+    )}`
+  );
   return null;
 }
 
@@ -345,7 +432,9 @@ async function collectSnapshots(authHeaders) {
   if (!expectStatus("GET /work-orders", workordersListResult.response.status, 200, workordersListResult.body)) return null;
   const workordersList = assertNonEmptyPaginated("GET /work-orders response", workordersListResult.body);
   if (!workordersList) return null;
-  const workOrderId = getEntityId("GET /work-orders", workordersList.items[0]);
+  const workorderSample = selectWorkorderSnapshotSample(workordersList.items);
+  if (!workorderSample) return null;
+  const workOrderId = getEntityId("GET /work-orders", workorderSample);
   if (!workOrderId) return null;
   snapshots["workorders.list"] = buildSnapshot("workorders.list", workordersList, { list: true });
 
@@ -388,7 +477,9 @@ async function collectSnapshots(authHeaders) {
   if (!expectStatus("GET /park-units", unitsListResult.response.status, 200, unitsListResult.body)) return null;
   const unitsList = assertNonEmptyPaginated("GET /park-units response", unitsListResult.body);
   if (!unitsList) return null;
-  const unitId = getEntityId("GET /park-units", unitsList.items[0]);
+  const unitSample = selectUnitSnapshotSample(unitsList.items);
+  if (!unitSample) return null;
+  const unitId = getEntityId("GET /park-units", unitSample);
   if (!unitId) return null;
   snapshots["units.list"] = buildSnapshot("units.list", unitsList, { list: true });
 

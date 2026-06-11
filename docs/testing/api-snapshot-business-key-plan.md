@@ -365,3 +365,22 @@ ALLOW_SNAPSHOT_FALLBACK=true
 下一步优先设计并实现脚本对 `SNAPSHOT_WORKORDER_NO`、`SNAPSHOT_UNIT_NO` 和显式 fallback 的支持。默认策略应为找不到固定业务标识即 FAIL，不静默回退到列表第一条。
 
 本阶段不修改脚本、不修改 baseline、不新增 seed、不新增账号、不接入 CI。
+
+## 14. 实施状态
+
+固定业务标识机制已在 `scripts/e2e/first-release-api-snapshots.mjs` 中落地。
+
+当前支持：
+
+- `SNAPSHOT_WORKORDER_NO`：按工单 `woCode` / `code` 精确匹配详情和日志样本。
+- `SNAPSHOT_UNIT_NO`：按房源 `unitCode` / `code` 精确匹配详情样本。
+- `ALLOW_SNAPSHOT_FALLBACK=true`：仅用于本地临时调试，允许找不到指定业务编号时 fallback 到列表第一条。
+
+当前默认行为：
+
+- 未设置固定业务编号时，继续沿用列表第一条样本策略，保持现有 baseline 兼容。
+- 设置固定业务编号但找不到目标记录时默认 FAIL。
+- 只有显式设置 `ALLOW_SNAPSHOT_FALLBACK=true` 时才 fallback，并输出 `[WARN]`。
+- fallback 生成的 baseline 不建议提交。
+
+本轮实施未修改业务代码，未修改 baseline，未新增 seed，未接入 CI。
