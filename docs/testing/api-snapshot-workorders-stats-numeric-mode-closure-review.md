@@ -89,7 +89,51 @@ numeric 模式继续使用现有 `normalizeValue` 归一化动态字段，例如
 
 这些验证覆盖了 ST-2A 的核心风险：默认 schema 行为保持、写入型 e2e 后默认快照稳定、numeric 模式不会误用默认 baseline、numeric baseline 缺失时不会静默通过。
 
-## 8. 当前未做事项
+## 8. Follow-up 修复记录
+
+ST-2A merge 后补充修复了两个 P2 边界问题。
+
+### 8.1 stats numeric 优先级
+
+`workorders.stats` 专用处理已前置于全局 `SNAPSHOT_MODE`。
+
+更新后：
+
+- `SNAPSHOT_MODE=schema + SNAPSHOT_STATS_MODE=numeric + ALLOW_STATS_NUMERIC_SNAPSHOT=true` 会进入 numeric 专项路径。
+- `workorders.stats` 不会被全局 `SNAPSHOT_MODE=schema` 提前截获。
+- numeric 模式会使用 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。
+- 其它 snapshot 仍遵守全局 `SNAPSHOT_MODE`。
+
+该组合验证已按预期失败于 numeric baseline 缺失，而不是静默生成普通 schema stats。
+
+### 8.2 overdue_top schema-only shape
+
+numeric 模式已保留 `overdue_top` 的 schema-only shape：
+
+- `overdue_top.type`。
+- `overdue_top.item_count_category`。
+- `overdue_top.item_fields`。
+
+numeric 模式不对 `overdue_top` 的具体数值做强校验。`overdue_top` shape 已提取为 `overdueTopSchema()`，schema / numeric 两种 stats 输出复用同一逻辑，避免两套 shape 规则漂移。
+
+### 8.3 follow-up 验证
+
+follow-up 修复已完成验证：
+
+- `node --check scripts/e2e/first-release-api-snapshots.mjs` 通过。
+- 默认固定编号快照检查通过。
+- `node scripts/e2e/first-release-workorders.mjs` 通过。
+- 写入型 e2e 后默认固定编号快照检查通过。
+- numeric 防误用验证按预期失败。
+- numeric baseline 缺失验证按预期失败，并使用 `.numeric.json` path。
+- `SNAPSHOT_MODE=schema + SNAPSHOT_STATS_MODE=numeric` 组合验证按预期进入 numeric 专项路径。
+- `git diff --check` 通过。
+- `pnpm lint` 通过。
+- `pnpm typecheck` 通过。
+
+follow-up 未新增 numeric baseline，未修改默认 baseline，未修改业务代码，未接入 CI，未修改 package.json / pnpm-lock.yaml。
+
+## 9. 当前未做事项
 
 本阶段未做：
 
@@ -102,7 +146,7 @@ numeric 模式继续使用现有 `normalizeValue` 归一化动态字段，例如
 - 未新增依赖。
 - 未扩展新接口。
 
-## 9. 剩余风险
+## 10. 剩余风险
 
 当前剩余风险：
 
@@ -112,7 +156,7 @@ numeric 模式继续使用现有 `normalizeValue` 归一化动态字段，例如
 - manual workflow 尚未评估。
 - numeric 模式不应进入普通 CI。
 
-## 10. 收口判断
+## 11. 收口判断
 
 建议判断：
 
@@ -127,12 +171,13 @@ numeric 模式继续使用现有 `normalizeValue` 归一化动态字段，例如
 - 默认 schema 模式保持稳定，且仍使用默认 baseline。
 - numeric 模式必须显式启用并设置防误用变量。
 - numeric 模式已使用独立 baseline path。
+- numeric 模式边界已通过 follow-up 修复：stats 专用逻辑优先于全局 `SNAPSHOT_MODE`，且保留 `overdue_top` schema-only shape。
 - numeric baseline 缺失行为清楚，不会误读默认 baseline。
 - 本阶段没有提交 numeric baseline，避免把当前本地数据状态固化为基线。
 
-## 11. 后续建议
+## 12. 后续建议
 
-ST-2B 建议在隔离数据集下建立 numeric baseline：
+ST-2B 建议先准备 numeric baseline 建立门禁和隔离数据集，再建立 numeric baseline：
 
 - 明确数据来源。
 - 明确是否执行数据库 reset。
@@ -143,8 +188,8 @@ ST-2B 建议在隔离数据集下建立 numeric baseline：
 
 后续 ST-2C 再评估是否需要 manual workflow 或 release candidate 前专项检查。
 
-## 12. 结论
+## 13. 结论
 
-ST-2A 已达到阶段性收口标准。
+ST-2A 已达到阶段性收口标准，follow-up 修复后的 numeric 模式边界也已纳入收口结论。
 
-当前建议收口 ST-2A，保持默认 `workorders.stats.schema` 作为普通快照路径，继续将 `workorders.stats.numeric` 作为显式专项模式。下一步进入 ST-2B：在隔离固定数据集下建立 numeric baseline，并单独审查 numeric diff。
+当前建议收口 ST-2A，保持默认 `workorders.stats.schema` 作为普通快照路径，继续将 `workorders.stats.numeric` 作为显式专项模式。下一步进入 ST-2B：numeric baseline 建立门禁 / 隔离数据集准备，并在满足前置条件后单独建立 numeric baseline、单独审查 numeric diff。
