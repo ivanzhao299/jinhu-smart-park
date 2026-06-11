@@ -96,6 +96,7 @@
 - 如果数据不稳定，应先参考 `docs/testing/api-snapshot-data-stability-plan.md` 判断是否需要重置测试库、固定查询条件或调整快照锚点，不应直接更新 baseline。
 - 如果后续启用固定业务标识，更新 baseline 前必须确认 `SNAPSHOT_WORKORDER_NO` / `SNAPSHOT_UNIT_NO` 对应样本存在。
 - 如果后续使用固定测试数据，更新 baseline 前必须确认固定样本来源清楚，且 `SNAPSHOT-WO-001` / `SNAPSHOT-UNIT-001` 或等价样本未被写入型 e2e 修改。
+- 如果后续使用 snapshot bootstrap，更新 baseline 前必须确认 bootstrap 已按预期运行，重复运行具备幂等性，且固定样本状态符合 `docs/testing/api-snapshot-bootstrap-plan.md` 的设计约束。
 - 使用 `ALLOW_SNAPSHOT_FALLBACK=true` 生成的 baseline 不应提交。
 
 建议普通检查命令：

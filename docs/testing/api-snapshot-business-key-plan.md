@@ -388,3 +388,5 @@ ALLOW_SNAPSHOT_FALLBACK=true
 收口复核见 `docs/testing/api-snapshot-business-key-closure-review.md`。当前建议固定业务标识机制阶段性收口，下一步进入固定测试数据设计。
 
 固定测试数据设计见 `docs/testing/api-snapshot-fixed-data-plan.md`。固定业务标识机制需要稳定样本数据支撑，后续应明确 `SNAPSHOT-WO-001`、`SNAPSHOT-UNIT-001` 或等价固定样本的数据来源。
+
+snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。后续固定业务标识建议依赖 bootstrap 准备稳定样本。
