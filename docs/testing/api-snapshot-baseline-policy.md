@@ -175,6 +175,8 @@ ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-n
 
 ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。numeric baseline 文件只能在 ST-2B 的隔离固定数据集下建立，不得在 ST-2A 收口、普通修复 PR 或默认 schema baseline PR 中提交。
 
+ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。建立 numeric baseline 前必须确认使用隔离库或 reset 后测试库、已执行 migration / seed / snapshot bootstrap、固定样本存在、未运行写入型 e2e，并且 numeric baseline 将以单独 PR 提交。numeric baseline 不得由共享污染库生成。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：

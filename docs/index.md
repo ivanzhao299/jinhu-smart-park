@@ -38,6 +38,7 @@
 - workorders.stats schema snapshot 收口复核：[testing/api-snapshot-workorders-stats-schema-closure-review.md](testing/api-snapshot-workorders-stats-schema-closure-review.md)
 - workorders.stats numeric 专项模式设计：[testing/api-snapshot-workorders-stats-numeric-plan.md](testing/api-snapshot-workorders-stats-numeric-plan.md)
 - workorders.stats numeric 模式脚本能力收口复核：[testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md](testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md)
+- workorders.stats numeric baseline 建立门禁：[testing/api-snapshot-workorders-stats-numeric-baseline-gate.md](testing/api-snapshot-workorders-stats-numeric-baseline-gate.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)

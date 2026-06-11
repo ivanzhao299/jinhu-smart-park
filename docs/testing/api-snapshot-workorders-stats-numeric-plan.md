@@ -192,6 +192,7 @@ numeric baseline 更新必须遵循更严格规则：
 
 ### ST-2B：numeric baseline 建立
 
+- 先完成 ST-2B-0：numeric baseline 建立门禁，见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。
 - 在隔离数据集下生成 numeric baseline。
 - 单独审查 numeric diff。
 - PR 说明数据来源、运行顺序、是否 reset、是否独立库。
@@ -227,4 +228,5 @@ numeric baseline 更新必须遵循更严格规则：
 - numeric snapshot 暂不进入常规 CI。
 - ST-2A 已完成最小脚本能力；下一步进入 ST-2B：在隔离数据集下建立 numeric baseline。
 - follow-up 已修复 stats numeric 优先级和 numeric 模式下 `overdue_top` schema-only shape 保留。
+- ST-2B 需要先完成 baseline 建立门禁，不应直接生成 numeric baseline。
 - numeric baseline 尚未建立，必须留到 ST-2B 在隔离固定数据集下单独完成。
