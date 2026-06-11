@@ -240,6 +240,7 @@ node scripts/e2e/first-release-users-assets.mjs
 - `workorders.list` 不再保存默认第一页第一条完整归一化样本。
 - 当前保留 `snapshot_type`、顶层字段集合、data shape、pagination 结构、pagination 字段集合、item 字段集合、`item_count_category`、固定工单是否出现在列表中以及固定工单业务编号。
 - `pagination.total / total_pages` 继续归一化，不强校验具体数值。
+- `contains_snapshot_workorder` 已改为通过 `/work-orders?keyword=<SNAPSHOT_WORKORDER_NO>` 查询固定工单，并在结果中按 `woCode / code` 精确匹配，不再只检查默认第一页 items。
 - 本次未修改 `workorders.stats` 策略。
 - `workorders.list` 降级策略已进入收口复核，复核文档见 `docs/testing/api-snapshot-workorders-list-closure-review.md`。
 

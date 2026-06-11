@@ -207,6 +207,49 @@ function selectWorkorderSnapshotSample(items) {
   return null;
 }
 
+async function selectWorkorderSnapshotSampleForKey(authHeaders, fallbackItems) {
+  if (!snapshotWorkorderNo) {
+    return { sample: fallbackItems[0], containsSnapshotWorkorder: null };
+  }
+
+  info(`Querying workorder snapshot sample by keyword: ${snapshotWorkorderNo}`);
+  const result = await request(`/work-orders?keyword=${encodeURIComponent(snapshotWorkorderNo)}&page=1&page_size=10`, { headers: authHeaders });
+  if (!expectStatus("GET /work-orders snapshot key lookup", result.response.status, 200, result.body)) {
+    return { sample: null, containsSnapshotWorkorder: false };
+  }
+
+  const data = extractList(result.body);
+  if (!data) {
+    fail(`GET /work-orders snapshot key lookup body is not a paginated object or array; body=${summarizeBody(result.body)}`);
+    return { sample: null, containsSnapshotWorkorder: false };
+  }
+
+  const matched = findByBusinessKey(data.items, snapshotWorkorderNo, ["woCode", "code"]);
+  if (matched) {
+    const matchedField = matched.woCode === snapshotWorkorderNo ? "woCode" : "code";
+    info(`Matched workorder snapshot sample by ${matchedField}: ${summarizeSample(matched, ["woCode", "code", "title"])}`);
+    return { sample: matched, containsSnapshotWorkorder: true };
+  }
+
+  if (allowSnapshotFallback) {
+    warn(
+      `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found by keyword lookup; falling back to first item because ALLOW_SNAPSHOT_FALLBACK=true; fallback=${summarizeSample(
+        fallbackItems[0],
+        ["woCode", "code", "title"]
+      )}`
+    );
+    return { sample: fallbackItems[0], containsSnapshotWorkorder: false };
+  }
+
+  fail(
+    `SNAPSHOT_WORKORDER_NO=${snapshotWorkorderNo} was not found and fallback is disabled; checked keyword lookup plus fields=woCode/code; first available=${summarizeSample(
+      fallbackItems[0],
+      ["woCode", "code", "title"]
+    )}`
+  );
+  return { sample: null, containsSnapshotWorkorder: false };
+}
+
 function selectUnitSnapshotSample(items) {
   if (!snapshotUnitNo) {
     return items[0];
@@ -394,12 +437,7 @@ function listSnapshot(data, keyFields = []) {
   };
 }
 
-function containsBusinessKey(items, businessKey, fields) {
-  if (!businessKey) return null;
-  return Boolean(findByBusinessKey(items, businessKey, fields));
-}
-
-function workordersListSnapshot(data) {
+function workordersListSnapshot(data, options = {}) {
   const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   const firstItem = items.length > 0 ? items[0] : null;
   const pagination = paginationSnapshot(data);
@@ -415,7 +453,7 @@ function workordersListSnapshot(data) {
     pagination_keys: sortedKeys(pagination),
     item_count_category: itemCountCategory(items),
     item_fields: firstItem && isPlainObject(firstItem) ? sortedKeys(firstItem) : [],
-    contains_snapshot_workorder: containsBusinessKey(items, snapshotWorkorderNo, ["woCode", "code"]),
+    contains_snapshot_workorder: options.containsSnapshotWorkorder ?? null,
     snapshot_workorder_key: snapshotWorkorderNo || null
   };
 }
@@ -438,7 +476,7 @@ function buildSnapshot(name, data, options = {}) {
     return keyFieldsSnapshot(name, data);
   }
   if (name === "workorders.list" && options.list) {
-    return workordersListSnapshot(data);
+    return workordersListSnapshot(data, options);
   }
   if (options.list) {
     return listSnapshot(data);
@@ -461,11 +499,13 @@ async function collectSnapshots(authHeaders) {
   if (!expectStatus("GET /work-orders", workordersListResult.response.status, 200, workordersListResult.body)) return null;
   const workordersList = assertNonEmptyPaginated("GET /work-orders response", workordersListResult.body);
   if (!workordersList) return null;
-  const workorderSample = selectWorkorderSnapshotSample(workordersList.items);
+  const { sample: workorderSample, containsSnapshotWorkorder } = snapshotWorkorderNo
+    ? await selectWorkorderSnapshotSampleForKey(authHeaders, workordersList.items)
+    : { sample: selectWorkorderSnapshotSample(workordersList.items), containsSnapshotWorkorder: null };
   if (!workorderSample) return null;
   const workOrderId = getEntityId("GET /work-orders", workorderSample);
   if (!workOrderId) return null;
-  snapshots["workorders.list"] = buildSnapshot("workorders.list", workordersList, { list: true });
+  snapshots["workorders.list"] = buildSnapshot("workorders.list", workordersList, { list: true, containsSnapshotWorkorder });
 
   const workorderDetail = await fetchJson("GET /work-orders/:id", `/work-orders/${workOrderId}`, authHeaders);
   if (!workorderDetail) return null;

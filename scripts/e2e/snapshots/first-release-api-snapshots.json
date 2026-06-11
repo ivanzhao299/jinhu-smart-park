@@ -310,7 +310,7 @@
           "assignee_id": "<normalized>",
           "assignee_name": "Local Admin",
           "avg_finish_minutes": 0,
-          "count": 13,
+          "count": 12,
           "done_count": 0,
           "overdue_count": 0
         },
@@ -325,7 +325,7 @@
       ],
       "by_priority": [
         {
-          "count": 15,
+          "count": 14,
           "key": "medium"
         },
         {
@@ -335,7 +335,7 @@
       ],
       "by_status": [
         {
-          "count": 14,
+          "count": 13,
           "key": "20"
         },
         {
@@ -345,13 +345,13 @@
       ],
       "by_type": [
         {
-          "count": 22,
+          "count": 21,
           "key": "repair"
         }
       ],
       "overdue_top": [],
       "summary": {
-        "assigned_count": 14,
+        "assigned_count": 13,
         "avg_dispatch_minutes": 0,
         "avg_finish_minutes": 0,
         "avg_satisfaction": 0,
@@ -360,7 +360,7 @@
         "in_progress_count": 0,
         "overdue_count": 0,
         "pending_count": 8,
-        "total_count": 22
+        "total_count": 21
       }
     },
     "workorders.overdue": {
