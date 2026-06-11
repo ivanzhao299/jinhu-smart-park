@@ -409,3 +409,5 @@ baseline 更新前应补充判断：
 当前建议先收口数据稳定性策略。
 
 下一步优先设计固定业务标识机制，减少对列表第一条和当前测试库滚动数据的依赖。暂不扩接口范围，暂不接 CI，暂不修改脚本、baseline、业务代码或 seed。
+
+后续同步：已进入固定业务标识机制设计，文档入口为 `docs/testing/api-snapshot-business-key-plan.md`。短期优先设计 `SNAPSHOT_WORKORDER_NO`、`SNAPSHOT_UNIT_NO` 和显式 fallback 策略。
