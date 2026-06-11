@@ -157,6 +157,8 @@ node scripts/e2e/first-release-regression.mjs
 
 对于固定样本 baseline，写入型 e2e 后出现 `workorders.list` 或 `workorders.stats` 差异时，不应直接 update baseline。应先判断是否由写入测试新增或流转工单造成；如果是，应记录为 list / stats 快照波动治理项，而不是把每次写入后的计数变化固化为 baseline。
 
+list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-stability-plan.md`。在治理完成前，写入型 e2e 后的 list 首条变化或 stats 计数变化不应作为 baseline 更新理由。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：

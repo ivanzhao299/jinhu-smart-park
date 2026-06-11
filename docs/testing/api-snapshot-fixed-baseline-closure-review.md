@@ -216,3 +216,5 @@ list / stats 快照波动治理设计
 接口快照固定样本 baseline 已完成阶段性切换，可以阶段性收口。
 
 `workorders.detail / workorders.logs` 已指向固定工单，`units.detail / units.list` 已指向固定房源。`workorders.list / workorders.stats` 在写入型 e2e 后的波动来源明确，不阻塞当前固定样本 baseline 收口，但应作为下一阶段风险治理重点。下一步建议单独设计 list / stats 快照波动治理策略，暂不接入 CI，暂不修改脚本或 baseline。
+
+后续同步：list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-stability-plan.md`。
