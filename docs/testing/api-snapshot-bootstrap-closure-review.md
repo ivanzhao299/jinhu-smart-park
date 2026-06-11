@@ -185,3 +185,5 @@ scripts/e2e/snapshots/first-release-api-snapshots.json
 接口快照 bootstrap 脚本已满足阶段性目标，可以阶段性收口。
 
 当前固定样本已经可通过 API 幂等准备，快照脚本也能通过固定编号定位样本。由于 baseline 尚未切换到固定样本，固定编号快照对照失败是可解释的预期差异。下一步应单独进行 baseline 更新审查，而不是在 bootstrap 收口阶段修改 baseline、seed、CI 或业务代码。
+
+后续同步：固定样本 baseline 更新审查见 `docs/testing/api-snapshot-fixed-baseline-review.md`。

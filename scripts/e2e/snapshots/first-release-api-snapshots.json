@@ -80,11 +80,11 @@
         "buildingId": "<normalized>",
         "cancelTime": null,
         "closeTime": null,
-        "code": "WO-20260611T024057182Z-375e408e",
+        "code": "WO-20260611T035850441Z-a533bc82",
         "confirmTime": null,
         "createBy": "<normalized>",
         "createTime": "<normalized>",
-        "description": "First release work order regression 20260611T024057182Z-375e408e",
+        "description": "First release work order regression 20260611T035850441Z-a533bc82",
         "deviceId": "<normalized>",
         "dispatchTime": "<normalized>",
         "evaluation": null,
@@ -121,7 +121,7 @@
         "startTime": null,
         "status": "20",
         "tenantId": "<normalized>",
-        "title": "Regression work order 20260611T024057182Z-375e408e",
+        "title": "Regression work order 20260611T035850441Z-a533bc82",
         "unit": null,
         "unitId": "<normalized>",
         "updateBy": "<normalized>",
@@ -135,7 +135,7 @@
           "first_item": null
         },
         "waitMaterialTime": null,
-        "woCode": "WO-20260611T024057182Z-375e408e",
+        "woCode": "WO-20260611T035850441Z-a533bc82",
         "woSubType": null,
         "woType": "repair"
       }
@@ -143,23 +143,60 @@
     "workorders.detail": {
       "acceptTime": null,
       "assigneeId": "<normalized>",
-      "assigneeName": "Local Admin",
+      "assigneeName": null,
       "assignerId": "<normalized>",
-      "assignerName": "Local Admin",
-      "building": null,
+      "assignerName": null,
+      "building": {
+        "buildArea": "1000.00",
+        "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
+        "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
+        "createBy": "<normalized>",
+        "createTime": "<normalized>",
+        "floorCount": 1,
+        "id": "<normalized>",
+        "isDeleted": false,
+        "parkId": "<normalized>",
+        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "sortNo": 1,
+        "status": 1,
+        "tenantId": "<normalized>",
+        "updateBy": "<normalized>",
+        "updateTime": "<normalized>",
+        "version": 1
+      },
       "buildingId": "<normalized>",
       "cancelTime": null,
       "closeTime": null,
-      "code": "WO-20260611T024057182Z-375e408e",
+      "code": "SNAPSHOT-WO-001",
       "confirmTime": null,
       "createBy": "<normalized>",
       "createTime": "<normalized>",
-      "description": "First release work order regression 20260611T024057182Z-375e408e",
+      "description": "Fixed work order for API snapshot regression.",
       "deviceId": "<normalized>",
-      "dispatchTime": "<normalized>",
+      "dispatchTime": null,
       "evaluation": null,
       "finishTime": null,
-      "floor": null,
+      "floor": {
+        "buildingId": "<normalized>",
+        "createBy": "<normalized>",
+        "createTime": "<normalized>",
+        "floorArea": "1000.00",
+        "floorCode": "FLR-20260610T095948539Z-8ECBF6C1-07525F5E",
+        "floorName": "First release floor 20260610T095948539Z-8ECBF6C1",
+        "floorNo": 1,
+        "id": "<normalized>",
+        "isDeleted": false,
+        "layoutFileId": "<normalized>",
+        "layoutUrl": null,
+        "parkId": "<normalized>",
+        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "sortNo": 1,
+        "status": 1,
+        "tenantId": "<normalized>",
+        "updateBy": "<normalized>",
+        "updateTime": "<normalized>",
+        "version": 1
+      },
       "floorId": "<normalized>",
       "id": "<normalized>",
       "imageFileIds": {
@@ -182,22 +219,54 @@
       "reporterName": "Local Admin",
       "resolveNote": null,
       "robotId": "<normalized>",
-      "roomLabel": null,
+      "roomLabel": "Snapshot Unit 001",
       "satisfaction": null,
       "slaDispatchMin": 30,
       "slaFinishMin": 240,
       "sourceId": "<normalized>",
       "sourceType": "manual",
       "startTime": null,
-      "status": "20",
+      "status": "10",
       "tenantId": "<normalized>",
-      "title": "Regression work order 20260611T024057182Z-375e408e",
-      "unit": null,
+      "title": "Snapshot work order 001",
+      "unit": {
+        "availableDate": null,
+        "buildingId": "<normalized>",
+        "code": "SNAPSHOT-UNIT-001",
+        "createBy": "<normalized>",
+        "createTime": "<normalized>",
+        "fittingStatus": 10,
+        "floorId": "<normalized>",
+        "floorplanFileId": "<normalized>",
+        "floorplanUrl": null,
+        "id": "<normalized>",
+        "isDeleted": false,
+        "lockExpireTime": null,
+        "lockReason": null,
+        "parkId": "<normalized>",
+        "photoFileIds": null,
+        "photoUrls": null,
+        "refPrice": "1000.00",
+        "remark": "api snapshot fixed unit",
+        "rentalStatus": 10,
+        "status": 1,
+        "statusUpdateBy": "<normalized>",
+        "statusUpdateTime": null,
+        "tenantId": "<normalized>",
+        "unitArea": "100.00",
+        "unitCode": "SNAPSHOT-UNIT-001",
+        "unitName": "Snapshot Unit 001",
+        "updateBy": "<normalized>",
+        "updateTime": "<normalized>",
+        "usageType": 10,
+        "useArea": "90.00",
+        "version": 1
+      },
       "unitId": "<normalized>",
       "updateBy": "<normalized>",
       "updateTime": "<normalized>",
       "urgency": "normal",
-      "version": 2,
+      "version": 1,
       "videoFileIds": {
         "type": "array",
         "item_count_category": "empty",
@@ -205,7 +274,7 @@
         "first_item": null
       },
       "waitMaterialTime": null,
-      "woCode": "WO-20260611T024057182Z-375e408e",
+      "woCode": "SNAPSHOT-WO-001",
       "woSubType": null,
       "woType": "repair"
     },
@@ -216,7 +285,7 @@
         "total": "<normalized-number>",
         "total_pages": null
       },
-      "item_count_category": "many",
+      "item_count_category": "one",
       "item_fields": [
         "action",
         "afterStatus",
@@ -243,36 +312,30 @@
         "workOrderId"
       ],
       "first_item": {
-        "action": "assign",
-        "afterStatus": "20",
+        "action": "create",
+        "afterStatus": "10",
         "attachmentFileIds": {
           "type": "array",
           "item_count_category": "empty",
           "item_fields": [],
           "first_item": null
         },
-        "beforeStatus": "10",
-        "code": "WOL-202606-000031",
-        "content": "First release work order assignment 20260611T024057182Z-375e408e",
+        "beforeStatus": null,
+        "code": "WOL-202606-000032",
+        "content": "手工创建工单",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "id": "<normalized>",
         "isDeleted": false,
-        "logCode": "WOL-202606-000031",
+        "logCode": "WOL-202606-000032",
         "opTime": "<normalized>",
         "operatorId": "<normalized>",
         "operatorName": "Local Admin",
         "parkId": "<normalized>",
         "payload": {
-          "assigneeId": "<normalized>",
-          "assigneeName": "Local Admin",
-          "assignerId": "<normalized>",
-          "assignerName": "Local Admin",
-          "beforeAssigneeId": "<normalized>",
-          "beforeAssigneeName": null,
           "sourceType": "manual",
-          "title": "Regression work order 20260611T024057182Z-375e408e",
-          "woCode": "WO-20260611T024057182Z-375e408e"
+          "title": "Snapshot work order 001",
+          "woCode": "SNAPSHOT-WO-001"
         },
         "reason": null,
         "remark": null,
@@ -297,7 +360,7 @@
           "assignee_id": "<normalized>",
           "assignee_name": "Local Admin",
           "avg_finish_minutes": 0,
-          "count": 11,
+          "count": 12,
           "done_count": 0,
           "overdue_count": 0
         },
@@ -305,14 +368,14 @@
           "assignee_id": "<normalized>",
           "assignee_name": "未派单",
           "avg_finish_minutes": 0,
-          "count": 7,
+          "count": 8,
           "done_count": 0,
           "overdue_count": 0
         }
       ],
       "by_priority": [
         {
-          "count": 12,
+          "count": 14,
           "key": "medium"
         },
         {
@@ -322,23 +385,23 @@
       ],
       "by_status": [
         {
-          "count": 12,
+          "count": 13,
           "key": "20"
         },
         {
-          "count": 7,
+          "count": 8,
           "key": "10"
         }
       ],
       "by_type": [
         {
-          "count": 19,
+          "count": 21,
           "key": "repair"
         }
       ],
       "overdue_top": [],
       "summary": {
-        "assigned_count": 12,
+        "assigned_count": 13,
         "avg_dispatch_minutes": 0,
         "avg_finish_minutes": 0,
         "avg_satisfaction": 0,
@@ -346,8 +409,8 @@
         "done_count": 0,
         "in_progress_count": 0,
         "overdue_count": 0,
-        "pending_count": 7,
-        "total_count": 19
+        "pending_count": 8,
+        "total_count": 21
       }
     },
     "workorders.overdue": {
@@ -472,7 +535,7 @@
           "version": 1
         },
         "buildingId": "<normalized>",
-        "code": "BUNIT-20260610T095948539Z-8ECBF6C1-A4160849",
+        "code": "SNAPSHOT-UNIT-001",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "fittingStatus": 10,
@@ -508,20 +571,20 @@
         "photoFileIds": null,
         "photoUrls": null,
         "refPrice": "1000.00",
-        "remark": "first release batch generation regression 20260610T095948539Z-8ecbf6c1",
-        "rentalStatus": 30,
+        "remark": "api snapshot fixed unit",
+        "rentalStatus": 10,
         "status": 1,
         "statusUpdateBy": "<normalized>",
-        "statusUpdateTime": "<normalized>",
+        "statusUpdateTime": null,
         "tenantId": "<normalized>",
         "unitArea": "100.00",
-        "unitCode": "BUNIT-20260610T095948539Z-8ECBF6C1-A4160849",
-        "unitName": "First release batch unit 20260610T095948539Z-8ECBF6C1",
+        "unitCode": "SNAPSHOT-UNIT-001",
+        "unitName": "Snapshot Unit 001",
         "updateBy": "<normalized>",
         "updateTime": "<normalized>",
         "usageType": 10,
         "useArea": "90.00",
-        "version": 2
+        "version": 1
       }
     },
     "units.detail": {
@@ -545,7 +608,7 @@
         "version": 1
       },
       "buildingId": "<normalized>",
-      "code": "BUNIT-20260610T095948539Z-8ECBF6C1-A4160849",
+      "code": "SNAPSHOT-UNIT-001",
       "createBy": "<normalized>",
       "createTime": "<normalized>",
       "fittingStatus": 10,
@@ -582,20 +645,20 @@
       "photoFileIds": null,
       "photoUrls": null,
       "refPrice": "1000.00",
-      "remark": "first release batch generation regression 20260610T095948539Z-8ecbf6c1",
-      "rentalStatus": 30,
+      "remark": "api snapshot fixed unit",
+      "rentalStatus": 10,
       "status": 1,
       "statusUpdateBy": "<normalized>",
-      "statusUpdateTime": "<normalized>",
+      "statusUpdateTime": null,
       "tenantId": "<normalized>",
       "unitArea": "100.00",
-      "unitCode": "BUNIT-20260610T095948539Z-8ECBF6C1-A4160849",
-      "unitName": "First release batch unit 20260610T095948539Z-8ECBF6C1",
+      "unitCode": "SNAPSHOT-UNIT-001",
+      "unitName": "Snapshot Unit 001",
       "updateBy": "<normalized>",
       "updateTime": "<normalized>",
       "usageType": 10,
       "useArea": "90.00",
-      "version": 2
+      "version": 1
     },
     "units.statistics": {
       "byBuilding": [
@@ -663,14 +726,19 @@
           "count": 2
         },
         {
-          "area": 200,
+          "area": 300,
           "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
           "buildingId": "<normalized>",
           "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
-          "count": 2
+          "count": 3
         }
       ],
       "byRentalStatus": [
+        {
+          "area": 100,
+          "count": 1,
+          "rentalStatus": 10
+        },
         {
           "area": 1500,
           "count": 15,
@@ -679,17 +747,17 @@
       ],
       "byUsageType": [
         {
-          "area": 1500,
-          "count": 15,
+          "area": 1600,
+          "count": 16,
           "usageType": 10
         }
       ],
-      "occupancyRate": 100,
+      "occupancyRate": 93.75,
       "rentedUnits": 15,
-      "totalArea": 1500,
-      "totalUnits": 15,
-      "useArea": 1350,
-      "vacantUnits": 0
+      "totalArea": 1600,
+      "totalUnits": 16,
+      "useArea": 1440,
+      "vacantUnits": 1
     }
   }
 }
