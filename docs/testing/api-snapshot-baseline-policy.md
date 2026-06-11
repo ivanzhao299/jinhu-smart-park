@@ -159,6 +159,8 @@ node scripts/e2e/first-release-regression.mjs
 
 list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-stability-plan.md`。在治理完成前，写入型 e2e 后的 list 首条变化或 stats 计数变化不应作为 baseline 更新理由。
 
+`workorders.list` 降级后，baseline 更新不应再因为默认列表第一条完整样本变化而触发。只有字段集合、pagination 结构、顶层响应结构、固定工单命中语义或明确设计的 list 快照策略变化，才应考虑更新 `workorders.list` baseline。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
