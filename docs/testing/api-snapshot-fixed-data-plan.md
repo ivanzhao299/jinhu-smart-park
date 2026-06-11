@@ -412,4 +412,4 @@ node scripts/e2e/first-release-api-snapshots.mjs
 
 当前不建议修改 production seed、dev seed、快照脚本或 baseline。短期可继续依赖现有固定业务标识机制进行只读验证；中期应设计并实现一个手动、幂等、仅用于本地 / 测试环境的 snapshot bootstrap，用于确保 `SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001` 存在。固定数据稳定前，不建议接入 CI 或继续扩大快照覆盖范围。
 
-后续同步：snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。该设计建议后续新增 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，但当前阶段不实现脚本。
+后续同步：snapshot bootstrap 设计见 `docs/testing/api-snapshot-bootstrap-plan.md`。后续实施阶段已新增 `scripts/e2e/bootstrap-api-snapshot-data.mjs`，用于手动、幂等地检查或创建 `SNAPSHOT-WO-001` 和 `SNAPSHOT-UNIT-001`。该脚本不修改 seed，不接入 CI，不更新快照 baseline。
