@@ -250,6 +250,12 @@ node scripts/e2e/first-release-users-assets.mjs
 - stats numeric snapshot 仅手动专项运行。
 - baseline 文件或脚本输出需要明确区分 schema 与 numeric。
 
+设计状态：
+
+- `workorders.stats` 快照拆分策略已独立成文，见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。
+- 建议下一步进入 ST-1，将默认 `workorders.stats` 转为 schema snapshot。
+- `workorders.stats` numeric baseline 仍不应由写入型 e2e 后的数据直接更新。
+
 ### LS-3：运行模式扩展
 
 可考虑支持：
@@ -308,4 +314,4 @@ baseline 维护建议：
 
 建议先收口本文设计。
 
-下一步优先做 list 快照降级策略设计或实施，再单独设计 stats numeric 检查策略。当前固定样本 baseline 可以继续作为详情和日志快照锚点，但 `workorders.list / workorders.stats` 不应继续以 full normalized 数值对照作为写入型 e2e 后的稳定要求。
+下一步优先做 `workorders.stats` schema snapshot 实施。当前固定样本 baseline 可以继续作为详情和日志快照锚点，但 `workorders.stats` 不应继续以 full normalized 数值对照作为写入型 e2e 后的稳定要求。
