@@ -4,7 +4,7 @@
 
 本文用于治理 `workorders.stats` numeric 计数在写入型 e2e 后的波动问题，明确后续是否将 stats 快照拆分为 schema snapshot 与 numeric snapshot。
 
-本文先用于设计；后续 ST-1 已按本文方向实施默认 stats schema snapshot。当前仍不实现 numeric 专项模式，不接入 CI。
+本文先用于设计；后续 ST-1 已按本文方向实施默认 stats schema snapshot。ST-2A 已实现 numeric 专项模式的最小脚本能力，仍不提交 numeric baseline，不接入 CI。
 
 ## 2. 背景
 
@@ -154,7 +154,7 @@ SNAPSHOT_STABILITY_MODE=stable|full
 - 写入型 e2e 后只允许 schema 检查。
 - full numeric 检查必须说明数据前置状态。
 
-本阶段不实现环境变量和脚本逻辑。
+ST-2A 已实现 `SNAPSHOT_STATS_MODE=schema|numeric` 和 numeric 独立 baseline path。默认仍为 `schema`，numeric 仍作为显式专项模式。
 
 ## 8. baseline 维护规则
 
@@ -212,8 +212,9 @@ baseline 维护建议：
 
 - 已启动 ST-2 只读设计。
 - numeric 专项模式设计文档见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。
-- 当前建议保留 numeric 专项模式，但保持非默认、显式启用、独立 baseline、暂不接入常规 CI。
-- 当前仍不实现脚本、不新增 numeric baseline、不修改现有 baseline。
+- 当前建议保留 numeric 专项模式，并保持非默认、显式启用、独立 baseline、暂不接入常规 CI。
+- ST-2A 已实现最小脚本能力。
+- 当前仍不新增 numeric baseline、不修改现有 baseline。
 
 ## 11. 暂缓范围
 
