@@ -4,7 +4,7 @@
 
 本文用于治理 `workorders.list` 和 `workorders.stats` 在写入型 e2e 后的快照波动问题，明确后续是否需要调整快照脚本策略、运行顺序和 baseline 维护规则。
 
-本阶段只做文档设计，不修改快照脚本、不修改 baseline、不修改 bootstrap 脚本、不修改业务代码、不接入 CI。
+本文先完成治理设计；后续已按该设计先实施 `workorders.list` 降级策略。`workorders.stats` 仍保持原 numeric 快照策略，作为后续单独治理项。
 
 ## 2. 背景
 
@@ -234,6 +234,14 @@ node scripts/e2e/first-release-users-assets.mjs
 - 不再强依赖第一条完整样本。
 - 保留 pagination 字段结构、item 字段集合和关键字段存在性。
 
+实施状态：
+
+- 已实施 `workorders.list` 稳定快照策略。
+- `workorders.list` 不再保存默认第一页第一条完整归一化样本。
+- 当前保留 `snapshot_type`、顶层字段集合、data shape、pagination 结构、pagination 字段集合、item 字段集合、`item_count_category`、固定工单是否出现在列表中以及固定工单业务编号。
+- `pagination.total / total_pages` 继续归一化，不强校验具体数值。
+- 本次未修改 `workorders.stats` 策略。
+
 ### LS-2：stats 拆分策略
 
 - stats schema snapshot 默认运行。
@@ -274,9 +282,9 @@ baseline 维护建议：
 
 原因：
 
-- `workorders.list` 仍受列表首条和排序影响。
 - `workorders.stats` 仍受写入型 e2e 和当前测试库数据影响。
-- list / stats 策略治理完成前，full normalized snapshot 误报风险较高。
+- `workorders.list` 已降低对首条样本和排序的依赖，但仍建议继续观察固定工单是否能稳定出现在第一页。
+- stats 策略治理完成前，full normalized snapshot 误报风险仍较高。
 
 后续可考虑：
 
@@ -288,8 +296,6 @@ baseline 维护建议：
 
 继续暂缓：
 
-- 直接修改快照脚本。
-- 直接更新 baseline。
 - 接入 CI。
 - 增加更多接口。
 - 写入接口快照。

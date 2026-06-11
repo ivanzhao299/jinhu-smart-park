@@ -394,6 +394,32 @@ function listSnapshot(data, keyFields = []) {
   };
 }
 
+function containsBusinessKey(items, businessKey, fields) {
+  if (!businessKey) return null;
+  return Boolean(findByBusinessKey(items, businessKey, fields));
+}
+
+function workordersListSnapshot(data) {
+  const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+  const firstItem = items.length > 0 ? items[0] : null;
+  const pagination = paginationSnapshot(data);
+
+  return {
+    snapshot_type: "workorders.list.stable",
+    top_level_keys: sortedKeys(data),
+    data_shape: {
+      type: isPlainObject(data) ? "paginated-list" : Array.isArray(data) ? "array" : typeof data,
+      items: Array.isArray(items) ? "array" : typeof items
+    },
+    pagination,
+    pagination_keys: sortedKeys(pagination),
+    item_count_category: itemCountCategory(items),
+    item_fields: firstItem && isPlainObject(firstItem) ? sortedKeys(firstItem) : [],
+    contains_snapshot_workorder: containsBusinessKey(items, snapshotWorkorderNo, ["woCode", "code"]),
+    snapshot_workorder_key: snapshotWorkorderNo || null
+  };
+}
+
 function paginationSnapshot(data) {
   if (!isPlainObject(data)) return null;
   return {
@@ -410,6 +436,9 @@ function buildSnapshot(name, data, options = {}) {
   }
   if (snapshotMode === "key-fields") {
     return keyFieldsSnapshot(name, data);
+  }
+  if (name === "workorders.list" && options.list) {
+    return workordersListSnapshot(data);
   }
   if (options.list) {
     return listSnapshot(data);
