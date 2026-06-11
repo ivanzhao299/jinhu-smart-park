@@ -198,3 +198,5 @@ SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001 SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001 node sc
 - 评估是否需要将 `workorders.stats` 的数值快照降级为结构或 key fields 校验。
 - 暂不接入 CI。
 - 暂不继续扩更多接口。
+
+后续同步：固定样本 baseline 收口复核见 `docs/testing/api-snapshot-fixed-baseline-closure-review.md`。`workorders.list / workorders.stats` 波动已作为后续治理项。
