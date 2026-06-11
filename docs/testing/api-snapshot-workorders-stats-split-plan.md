@@ -4,7 +4,7 @@
 
 本文用于治理 `workorders.stats` numeric 计数在写入型 e2e 后的波动问题，明确后续是否将 stats 快照拆分为 schema snapshot 与 numeric snapshot。
 
-本文只做设计，不修改快照脚本、不修改 baseline、不修改 bootstrap 脚本、不接入 CI。
+本文先用于设计；后续 ST-1 已按本文方向实施默认 stats schema snapshot。当前仍不实现 numeric 专项模式，不接入 CI。
 
 ## 2. 背景
 
@@ -12,7 +12,9 @@
 
 当前剩余 mismatch 集中在 `workorders.stats`。`first-release-workorders.mjs` 会通过 `POST /work-orders` 创建新工单，并通过 `POST /work-orders/:id/assign` 派单。新增和派单会影响 stats summary 和分组统计。
 
-当前 `workorders.stats` 仍为 exact numeric baseline。`compareSnapshots` 会对 baseline 与实际响应做 `JSON.stringify(..., null, 2)` 后的精确比较，因此写入型 e2e 后的计数变化会直接导致 mismatch。
+实施前，`workorders.stats` 仍为 exact numeric baseline。`compareSnapshots` 会对 baseline 与实际响应做 `JSON.stringify(..., null, 2)` 后的精确比较，因此写入型 e2e 后的计数变化会直接导致 mismatch。
+
+ST-1 实施后，默认 `workorders.stats` 已转为 schema snapshot，不再保存 numeric count 具体值。
 
 ## 3. 当前 workorders.stats 快照内容
 
@@ -22,7 +24,7 @@
 GET /work-orders/stats
 ```
 
-在 normalized 模式下，脚本通过 `normalizeValue(data, { preserveArrays: true })` 保存完整归一化统计结构和数组内容。
+ST-1 实施前，在 normalized 模式下，脚本通过 `normalizeValue(data, { preserveArrays: true })` 保存完整归一化统计结构和数组内容。
 
 当前 baseline 覆盖：
 
@@ -33,7 +35,7 @@ GET /work-orders/stats
 - `by_assignee`
 - `overdue_top`
 
-其中包含具体 numeric count，例如：
+旧 numeric baseline 中包含具体 numeric count，例如：
 
 - `summary.total_count`
 - `summary.assigned_count`
@@ -189,6 +191,14 @@ baseline 维护建议：
 - 不引入 CI。
 - 不修改业务代码。
 
+实施状态：
+
+- 已实施。
+- 默认 `workorders.stats` 输出 `snapshot_type=workorders.stats.schema`。
+- 当前保留顶层字段集合、summary 字段集合、summary numeric 字段名与类型、各分组 item 字段集合、各分组 numeric 字段名与类型、分组 item count category、`overdue_top` shape。
+- 当前不保存 `summary.total_count`、`summary.assigned_count`、`by_status[].count`、`by_priority[].count`、`by_type[].count`、`by_assignee[].count` 等具体数值。
+- 写入型 e2e 后默认快照检查不再因 stats numeric count 变化失败。
+
 ### ST-2：stats numeric 专项模式设计 / 实施
 
 - 决定是否保留 numeric baseline。
@@ -213,6 +223,6 @@ baseline 维护建议：
 
 建议拆分 `workorders.stats` schema / numeric。
 
-默认快照应转向 schema 检查，降低写入型 e2e 后的误报。numeric stats 保留为手动专项，仅在固定数据集或隔离环境中运行。
+默认快照已转向 schema 检查，降低写入型 e2e 后的误报。numeric stats 保留为后续手动专项，仅在固定数据集或隔离环境中运行。
 
-下一步建议进入 ST-1：stats schema snapshot 实施。
+下一步建议进入 ST-2：stats numeric 专项模式设计 / 实施。

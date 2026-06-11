@@ -297,70 +297,125 @@
       }
     },
     "workorders.stats": {
-      "by_assignee": [
-        {
-          "assignee_id": "<normalized>",
-          "assignee_name": "Audit Regression Admin",
-          "avg_finish_minutes": 0,
-          "count": 1,
-          "done_count": 0,
-          "overdue_count": 0
-        },
-        {
-          "assignee_id": "<normalized>",
-          "assignee_name": "Local Admin",
-          "avg_finish_minutes": 0,
-          "count": 13,
-          "done_count": 0,
-          "overdue_count": 0
-        },
-        {
-          "assignee_id": "<normalized>",
-          "assignee_name": "未派单",
-          "avg_finish_minutes": 0,
-          "count": 8,
-          "done_count": 0,
-          "overdue_count": 0
-        }
+      "snapshot_type": "workorders.stats.schema",
+      "top_level_keys": [
+        "by_assignee",
+        "by_priority",
+        "by_status",
+        "by_type",
+        "overdue_top",
+        "summary"
       ],
-      "by_priority": [
-        {
-          "count": 15,
-          "key": "medium"
-        },
-        {
-          "count": 7,
-          "key": "high"
-        }
-      ],
-      "by_status": [
-        {
-          "count": 14,
-          "key": "20"
-        },
-        {
-          "count": 8,
-          "key": "10"
-        }
-      ],
-      "by_type": [
-        {
-          "count": 22,
-          "key": "repair"
-        }
-      ],
-      "overdue_top": [],
       "summary": {
-        "assigned_count": 14,
-        "avg_dispatch_minutes": 0,
-        "avg_finish_minutes": 0,
-        "avg_satisfaction": 0,
-        "closed_count": 0,
-        "done_count": 0,
-        "in_progress_count": 0,
-        "overdue_count": 0,
-        "pending_count": 8,
-        "total_count": 22
+        "keys": [
+          "assigned_count",
+          "avg_dispatch_minutes",
+          "avg_finish_minutes",
+          "avg_satisfaction",
+          "closed_count",
+          "done_count",
+          "in_progress_count",
+          "overdue_count",
+          "pending_count",
+          "total_count"
+        ],
+        "numeric_fields": [
+          "assigned_count",
+          "avg_dispatch_minutes",
+          "avg_finish_minutes",
+          "avg_satisfaction",
+          "closed_count",
+          "done_count",
+          "in_progress_count",
+          "overdue_count",
+          "pending_count",
+          "total_count"
+        ],
+        "numeric_field_types": {
+          "assigned_count": "number",
+          "avg_dispatch_minutes": "number",
+          "avg_finish_minutes": "number",
+          "avg_satisfaction": "number",
+          "closed_count": "number",
+          "done_count": "number",
+          "in_progress_count": "number",
+          "overdue_count": "number",
+          "pending_count": "number",
+          "total_count": "number"
+        }
+      },
+      "groups": {
+        "by_assignee": {
+          "type": "array",
+          "item_count_category": "many",
+          "item_fields": [
+            "assignee_id",
+            "assignee_name",
+            "avg_finish_minutes",
+            "count",
+            "done_count",
+            "overdue_count"
+          ],
+          "numeric_fields": [
+            "avg_finish_minutes",
+            "count",
+            "done_count",
+            "overdue_count"
+          ],
+          "numeric_field_types": {
+            "avg_finish_minutes": "number",
+            "count": "number",
+            "done_count": "number",
+            "overdue_count": "number"
+          }
+        },
+        "by_priority": {
+          "type": "array",
+          "item_count_category": "many",
+          "item_fields": [
+            "count",
+            "key"
+          ],
+          "numeric_fields": [
+            "count"
+          ],
+          "numeric_field_types": {
+            "count": "number"
+          }
+        },
+        "by_status": {
+          "type": "array",
+          "item_count_category": "many",
+          "item_fields": [
+            "count",
+            "key"
+          ],
+          "numeric_fields": [
+            "count"
+          ],
+          "numeric_field_types": {
+            "count": "number"
+          }
+        },
+        "by_type": {
+          "type": "array",
+          "item_count_category": "one",
+          "item_fields": [
+            "count",
+            "key"
+          ],
+          "numeric_fields": [
+            "count"
+          ],
+          "numeric_field_types": {
+            "count": "number"
+          }
+        }
+      },
+      "overdue_top": {
+        "type": "array",
+        "item_count_category": "empty",
+        "item_fields": []
       }
     },
     "workorders.overdue": {

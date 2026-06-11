@@ -314,6 +314,83 @@ function sortedKeys(value) {
   return Object.keys(value).sort();
 }
 
+function numericFieldTypes(value) {
+  const result = {};
+  if (!isPlainObject(value)) return result;
+  for (const key of sortedKeys(value)) {
+    if (typeof value[key] === "number") {
+      result[key] = "number";
+    }
+  }
+  return result;
+}
+
+function numericFields(value) {
+  return Object.keys(numericFieldTypes(value));
+}
+
+function arrayItemFields(items) {
+  if (!Array.isArray(items)) return [];
+  const fields = new Set();
+  for (const item of items) {
+    if (!isPlainObject(item)) continue;
+    for (const key of Object.keys(item)) {
+      fields.add(key);
+    }
+  }
+  return Array.from(fields).sort();
+}
+
+function arrayNumericFieldTypes(items) {
+  const result = {};
+  if (!Array.isArray(items)) return result;
+  for (const item of items) {
+    if (!isPlainObject(item)) continue;
+    for (const key of sortedKeys(item)) {
+      if (typeof item[key] === "number") {
+        result[key] = "number";
+      }
+    }
+  }
+  return result;
+}
+
+function statsArraySchema(value) {
+  const items = Array.isArray(value) ? value : [];
+  const numericFieldTypeMap = arrayNumericFieldTypes(items);
+  return {
+    type: Array.isArray(value) ? "array" : typeof value,
+    item_count_category: itemCountCategory(items),
+    item_fields: arrayItemFields(items),
+    numeric_fields: Object.keys(numericFieldTypeMap),
+    numeric_field_types: numericFieldTypeMap
+  };
+}
+
+function normalizeWorkorderStatsSchema(stats) {
+  const summary = isPlainObject(stats?.summary) ? stats.summary : {};
+  return {
+    snapshot_type: "workorders.stats.schema",
+    top_level_keys: sortedKeys(stats),
+    summary: {
+      keys: sortedKeys(summary),
+      numeric_fields: numericFields(summary),
+      numeric_field_types: numericFieldTypes(summary)
+    },
+    groups: {
+      by_assignee: statsArraySchema(stats?.by_assignee),
+      by_priority: statsArraySchema(stats?.by_priority),
+      by_status: statsArraySchema(stats?.by_status),
+      by_type: statsArraySchema(stats?.by_type)
+    },
+    overdue_top: {
+      type: Array.isArray(stats?.overdue_top) ? "array" : typeof stats?.overdue_top,
+      item_count_category: itemCountCategory(Array.isArray(stats?.overdue_top) ? stats.overdue_top : []),
+      item_fields: arrayItemFields(Array.isArray(stats?.overdue_top) ? stats.overdue_top : [])
+    }
+  };
+}
+
 function isDynamicField(key) {
   if (dynamicFieldNames.has(key)) return true;
   if (key.endsWith("_id")) return true;
@@ -423,7 +500,7 @@ function keyFieldsSnapshot(name, data) {
     return listSnapshot(data, ["action", "actionType", "action_type", "content", "operatorName", "operator_name"]);
   }
   if (name === "workorders.stats") {
-    return normalizeValue(data, { preserveArrays: true });
+    return normalizeWorkorderStatsSchema(data);
   }
   if (name === "workorders.overdue") {
     return listSnapshot(data, ["woCode", "wo_code", "title", "status", "woType", "wo_type", "priority", "overdueFlag", "overdue_flag", "overdueReason", "overdue_reason"]);
@@ -494,6 +571,9 @@ function buildSnapshot(name, data, options = {}) {
   }
   if (name === "workorders.list" && options.list) {
     return workordersListSnapshot(data, options);
+  }
+  if (name === "workorders.stats") {
+    return normalizeWorkorderStatsSchema(data);
   }
   if (options.list) {
     return listSnapshot(data);
