@@ -241,6 +241,7 @@ node scripts/e2e/first-release-users-assets.mjs
 - 当前保留 `snapshot_type`、顶层字段集合、data shape、pagination 结构、pagination 字段集合、item 字段集合、`item_count_category`、固定工单是否出现在列表中以及固定工单业务编号。
 - `pagination.total / total_pages` 继续归一化，不强校验具体数值。
 - 本次未修改 `workorders.stats` 策略。
+- `workorders.list` 降级策略已进入收口复核，复核文档见 `docs/testing/api-snapshot-workorders-list-closure-review.md`。
 
 ### LS-2：stats 拆分策略
 
