@@ -247,3 +247,5 @@ SNAPSHOT_MODE=normalized node scripts/e2e/first-release-api-snapshots.mjs
 当前脚本和 baseline 已满足初版目标：手动运行、覆盖工单和房源核心只读查询、具备归一化能力、能对照 baseline、未接入 CI、未扰动业务代码和既有测试脚本。
 
 下一阶段不建议马上改脚本或扩大范围，优先建议补充 baseline 维护规则和快照使用规范，再决定是否小范围扩展 `overdue`、`sla-rules` 和 `/assets/units` 兼容路径。
+
+后续同步：已进入 baseline 维护规则设计，文档入口为 `docs/testing/api-snapshot-baseline-policy.md`。

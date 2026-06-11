@@ -419,3 +419,4 @@ scripts/e2e/snapshots/
 - 当前手动运行，不接入 CI。
 - 初版已进入收口复核，复核文档为 `docs/testing/api-snapshot-initial-closure-review.md`。
 - 下一步优先建议制定 baseline 维护规则和快照使用规范。
+- baseline 更新需遵循 `docs/testing/api-snapshot-baseline-policy.md`。
