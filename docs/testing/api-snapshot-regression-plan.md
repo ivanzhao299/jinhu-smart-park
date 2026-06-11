@@ -420,3 +420,14 @@ scripts/e2e/snapshots/
 - 初版已进入收口复核，复核文档为 `docs/testing/api-snapshot-initial-closure-review.md`。
 - 下一步优先建议制定 baseline 维护规则和快照使用规范。
 - baseline 更新需遵循 `docs/testing/api-snapshot-baseline-policy.md`。
+
+## 16. 小范围扩展计划
+
+接口快照小范围扩展设计见 `docs/testing/api-snapshot-small-expansion-plan.md`。
+
+扩展建议：
+
+- 第一批优先扩展 `GET /work-orders/overdue` 和 `GET /work-orders/sla-rules`。
+- 第二批再评估 `/assets/units` 和 `/assets/units/:id` 兼容路径。
+- 扩展阶段仍保持手动运行，不接入常规 CI。
+- 新增或更新 baseline 必须遵循 `docs/testing/api-snapshot-baseline-policy.md`。

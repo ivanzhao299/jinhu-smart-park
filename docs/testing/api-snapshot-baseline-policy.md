@@ -270,6 +270,8 @@ Reviewer 应重点检查：
 4. 不直接进入常规 CI。
 5. 后续再评估用户、楼栋、楼层和兼容资产路径快照。
 
+小范围扩展设计见 `docs/testing/api-snapshot-small-expansion-plan.md`。扩展 snapshot 时，baseline 更新仍必须按本文执行：先普通检查，再 `UPDATE_SNAPSHOTS=true`，再普通检查，并在 PR 中说明新增 snapshot、更新原因、diff 复核结论和敏感 / 动态字段检查结果。
+
 ## 14. 结论
 
 接口快照 baseline 更新必须是受控的测试维护行为，而不是测试失败后的自动反应。
