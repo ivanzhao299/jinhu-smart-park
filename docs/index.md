@@ -41,6 +41,7 @@
 - workorders.stats numeric baseline 建立门禁：[testing/api-snapshot-workorders-stats-numeric-baseline-gate.md](testing/api-snapshot-workorders-stats-numeric-baseline-gate.md)
 - snapshot bootstrap 固定关联实施收口复核：[testing/api-snapshot-bootstrap-association-closure-review.md](testing/api-snapshot-bootstrap-association-closure-review.md)
 - fresh 隔离库默认 schema baseline 对齐设计：[testing/api-snapshot-fresh-schema-baseline-alignment-plan.md](testing/api-snapshot-fresh-schema-baseline-alignment-plan.md)
+- fresh schema baseline 对齐审查：[testing/api-snapshot-fresh-schema-baseline-alignment-review.md](testing/api-snapshot-fresh-schema-baseline-alignment-review.md)
 - 测试总览旧文档：[testing/README.md](testing/README.md)
 - 现有阶段性测试材料：
   - [testing/files-center-test-plan.md](testing/files-center-test-plan.md)

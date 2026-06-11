@@ -27,7 +27,7 @@
         "total",
         "total_pages"
       ],
-      "item_count_category": "many",
+      "item_count_category": "one",
       "item_fields": [
         "acceptTime",
         "assigneeId",
@@ -98,15 +98,15 @@
       "assignerName": null,
       "building": {
         "buildArea": "1000.00",
-        "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
-        "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
+        "buildingCode": "SNAPSHOT-BLD-001",
+        "buildingName": "Snapshot Building",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "floorCount": 1,
         "id": "<normalized>",
         "isDeleted": false,
         "parkId": "<normalized>",
-        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "remark": "api snapshot fixed building",
         "sortNo": 1,
         "status": 1,
         "tenantId": "<normalized>",
@@ -131,15 +131,15 @@
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "floorArea": "1000.00",
-        "floorCode": "FLR-20260610T095948539Z-8ECBF6C1-07525F5E",
-        "floorName": "First release floor 20260610T095948539Z-8ECBF6C1",
+        "floorCode": "SNAPSHOT-FLR-001",
+        "floorName": "Snapshot Floor",
         "floorNo": 1,
         "id": "<normalized>",
         "isDeleted": false,
         "layoutFileId": "<normalized>",
         "layoutUrl": null,
         "parkId": "<normalized>",
-        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "remark": "api snapshot fixed floor",
         "sortNo": 1,
         "status": 1,
         "tenantId": "<normalized>",
@@ -166,7 +166,7 @@
       "remark": null,
       "reporterId": "<normalized>",
       "reporterMobile": null,
-      "reporterName": "Local Admin",
+      "reporterName": "系统管理员",
       "resolveNote": null,
       "robotId": "<normalized>",
       "roomLabel": "Snapshot Unit 001",
@@ -271,16 +271,16 @@
           "first_item": null
         },
         "beforeStatus": null,
-        "code": "WOL-202606-000032",
+        "code": "WOL-202606-000001",
         "content": "手工创建工单",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "id": "<normalized>",
         "isDeleted": false,
-        "logCode": "WOL-202606-000032",
+        "logCode": "WOL-202606-000001",
         "opTime": "<normalized>",
         "operatorId": "<normalized>",
-        "operatorName": "Local Admin",
+        "operatorName": "系统管理员",
         "parkId": "<normalized>",
         "payload": {
           "sourceType": "manual",
@@ -347,7 +347,7 @@
       "groups": {
         "by_assignee": {
           "type": "array",
-          "item_count_category": "many",
+          "item_count_category": "one",
           "item_fields": [
             "assignee_id",
             "assignee_name",
@@ -371,7 +371,7 @@
         },
         "by_priority": {
           "type": "array",
-          "item_count_category": "many",
+          "item_count_category": "one",
           "item_fields": [
             "count",
             "key"
@@ -385,7 +385,7 @@
         },
         "by_status": {
           "type": "array",
-          "item_count_category": "many",
+          "item_count_category": "one",
           "item_fields": [
             "count",
             "key"
@@ -523,15 +523,15 @@
         "availableDate": null,
         "building": {
           "buildArea": "1000.00",
-          "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
-          "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
+          "buildingCode": "SNAPSHOT-BLD-001",
+          "buildingName": "Snapshot Building",
           "createBy": "<normalized>",
           "createTime": "<normalized>",
           "floorCount": 1,
           "id": "<normalized>",
           "isDeleted": false,
           "parkId": "<normalized>",
-          "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+          "remark": "api snapshot fixed building",
           "sortNo": 1,
           "status": 1,
           "tenantId": "<normalized>",
@@ -549,15 +549,15 @@
           "createBy": "<normalized>",
           "createTime": "<normalized>",
           "floorArea": "1000.00",
-          "floorCode": "FLR-20260610T095948539Z-8ECBF6C1-07525F5E",
-          "floorName": "First release floor 20260610T095948539Z-8ECBF6C1",
+          "floorCode": "SNAPSHOT-FLR-001",
+          "floorName": "Snapshot Floor",
           "floorNo": 1,
           "id": "<normalized>",
           "isDeleted": false,
           "layoutFileId": "<normalized>",
           "layoutUrl": null,
           "parkId": "<normalized>",
-          "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+          "remark": "api snapshot fixed floor",
           "sortNo": 1,
           "status": 1,
           "tenantId": "<normalized>",
@@ -596,15 +596,15 @@
       "availableDate": null,
       "building": {
         "buildArea": "1000.00",
-        "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
-        "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
+        "buildingCode": "SNAPSHOT-BLD-001",
+        "buildingName": "Snapshot Building",
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "floorCount": 1,
         "id": "<normalized>",
         "isDeleted": false,
         "parkId": "<normalized>",
-        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "remark": "api snapshot fixed building",
         "sortNo": 1,
         "status": 1,
         "tenantId": "<normalized>",
@@ -622,15 +622,15 @@
         "createBy": "<normalized>",
         "createTime": "<normalized>",
         "floorArea": "1000.00",
-        "floorCode": "FLR-20260610T095948539Z-8ECBF6C1-07525F5E",
-        "floorName": "First release floor 20260610T095948539Z-8ECBF6C1",
+        "floorCode": "SNAPSHOT-FLR-001",
+        "floorName": "Snapshot Floor",
         "floorNo": 1,
         "id": "<normalized>",
         "isDeleted": false,
         "layoutFileId": "<normalized>",
         "layoutUrl": null,
         "parkId": "<normalized>",
-        "remark": "first release leasing regression 20260610T095948539Z-8ecbf6c1",
+        "remark": "api snapshot fixed floor",
         "sortNo": 1,
         "status": 1,
         "tenantId": "<normalized>",
@@ -669,100 +669,71 @@
       "byBuilding": [
         {
           "area": 100,
-          "buildingCode": "BLD-20260609T092739991Z-98BAE3C8-164950F6",
+          "buildingCode": "SNAPSHOT-BLD-001",
           "buildingId": "<normalized>",
-          "buildingName": "First release building 20260609T092739991Z-98BAE3C8",
+          "buildingName": "Snapshot Building",
           "count": 1
         },
         {
-          "area": 100,
-          "buildingCode": "BLD-20260609T093256552Z-8035DBB2-71C1E7B6",
+          "area": 1124,
+          "buildingCode": "JH-B01",
           "buildingId": "<normalized>",
-          "buildingName": "First release building 20260609T093256552Z-8035DBB2",
+          "buildingName": "1号楼",
+          "count": 4
+        },
+        {
+          "area": 220,
+          "buildingCode": "JH-B02",
+          "buildingId": "<normalized>",
+          "buildingName": "2号楼",
           "count": 1
-        },
-        {
-          "area": 100,
-          "buildingCode": "BLD-20260609T093309641Z-B3F3ED93-E89EB4B1",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260609T093309641Z-B3F3ED93",
-          "count": 1
-        },
-        {
-          "area": 100,
-          "buildingCode": "BLD-20260609T095118027Z-039B2843-560776D1",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260609T095118027Z-039B2843",
-          "count": 1
-        },
-        {
-          "area": 100,
-          "buildingCode": "BLD-20260609T095134872Z-FC841A46-304A3C76",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260609T095134872Z-FC841A46",
-          "count": 1
-        },
-        {
-          "area": 200,
-          "buildingCode": "BLD-20260610T040250727Z-AA0133E1-08044337",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260610T040250727Z-AA0133E1",
-          "count": 2
-        },
-        {
-          "area": 200,
-          "buildingCode": "BLD-20260610T082515203Z-4C8E18C1-8C3C6FE5",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260610T082515203Z-4C8E18C1",
-          "count": 2
-        },
-        {
-          "area": 200,
-          "buildingCode": "BLD-20260610T085252345Z-DCCA841C-35972509",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260610T085252345Z-DCCA841C",
-          "count": 2
-        },
-        {
-          "area": 200,
-          "buildingCode": "BLD-20260610T091833824Z-7F228C9F-B65A496F",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260610T091833824Z-7F228C9F",
-          "count": 2
-        },
-        {
-          "area": 300,
-          "buildingCode": "BLD-20260610T095948539Z-8ECBF6C1-2F6880F3",
-          "buildingId": "<normalized>",
-          "buildingName": "First release building 20260610T095948539Z-8ECBF6C1",
-          "count": 3
         }
       ],
       "byRentalStatus": [
         {
-          "area": 100,
+          "area": 156,
           "count": 1,
-          "rentalStatus": 10
+          "rentalStatus": 20
         },
         {
-          "area": 1500,
-          "count": 15,
+          "area": 520,
+          "count": 1,
           "rentalStatus": 30
+        },
+        {
+          "area": 768,
+          "count": 4,
+          "rentalStatus": 10
         }
       ],
       "byUsageType": [
         {
-          "area": 1600,
-          "count": 16,
+          "area": 220,
+          "count": 1,
+          "usageType": 40
+        },
+        {
+          "area": 320,
+          "count": 1,
+          "usageType": 50
+        },
+        {
+          "area": 384,
+          "count": 3,
           "usageType": 10
+        },
+        {
+          "area": 520,
+          "count": 1,
+          "usageType": 20
         }
       ],
-      "occupancyRate": 93.75,
-      "rentedUnits": 15,
-      "totalArea": 1600,
-      "totalUnits": 16,
-      "useArea": 1440,
-      "vacantUnits": 1
+      "occupancyRate": 16.67,
+      "rentedUnits": 1,
+      "totalArea": 1444,
+      "totalUnits": 6,
+      "useArea": 1308,
+      "vacantUnits": 4
     }
   }
 }
