@@ -384,3 +384,5 @@ ALLOW_SNAPSHOT_FALLBACK=true
 - fallback 生成的 baseline 不建议提交。
 
 本轮实施未修改业务代码，未修改 baseline，未新增 seed，未接入 CI。
+
+收口复核见 `docs/testing/api-snapshot-business-key-closure-review.md`。当前建议固定业务标识机制阶段性收口，下一步进入固定测试数据设计。
