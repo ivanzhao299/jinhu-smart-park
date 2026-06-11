@@ -194,6 +194,7 @@ baseline 维护建议：
 实施状态：
 
 - 已实施。
+- 已进入收口复核，复核文档见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。
 - 默认 `workorders.stats` 输出 `snapshot_type=workorders.stats.schema`。
 - 当前保留顶层字段集合、summary 字段集合、summary numeric 字段名与类型、各分组 item 字段集合、各分组 numeric 字段名与类型、分组 item count category、`overdue_top` shape。
 - 当前不保存 `summary.total_count`、`summary.assigned_count`、`by_status[].count`、`by_priority[].count`、`by_type[].count`、`by_assignee[].count` 等具体数值。
