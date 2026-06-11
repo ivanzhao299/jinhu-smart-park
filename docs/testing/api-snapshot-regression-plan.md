@@ -463,3 +463,5 @@ ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-
 ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。当前 numeric snapshot 是非默认、显式启用、独立 baseline 的手动专项检查方向；默认回归继续使用 stats schema snapshot，numeric snapshot 不属于普通回归默认路径，暂不进入常规 CI。
 
 ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。当前 numeric 模式可通过 `SNAPSHOT_STATS_MODE=numeric` 显式触发，但尚未建立 numeric baseline；默认 regression 仍应运行 schema 模式。
+
+ST-2A follow-up 已修复 numeric 专项优先级：`SNAPSHOT_MODE=schema + SNAPSHOT_STATS_MODE=numeric` 会进入 stats numeric 路径。numeric 模式同时保留 `overdue_top` schema-only shape；默认 regression 仍不运行 numeric baseline。
