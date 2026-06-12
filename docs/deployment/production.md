@@ -4,6 +4,8 @@ Production troubleshooting reference: [troubleshooting.md](./troubleshooting.md)
 
 First release readiness checklist: [first-release-readiness-checklist.md](../release/first-release-readiness-checklist.md)
 
+First release readiness gap analysis: [first-release-readiness-gap-analysis.md](../release/first-release-readiness-gap-analysis.md)
+
 This is the first production-grade deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment

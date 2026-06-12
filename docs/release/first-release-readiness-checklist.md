@@ -6,6 +6,8 @@
 
 本文只整理发布前人工核对项和结果记录模板，不通过 checklist 自动更新 baseline。
 
+Readiness gap analysis: [first-release-readiness-gap-analysis.md](./first-release-readiness-gap-analysis.md)
+
 ## 2. 使用方式
 
 使用方式：
