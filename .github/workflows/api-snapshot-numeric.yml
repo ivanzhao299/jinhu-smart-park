@@ -1,0 +1,280 @@
+name: API Snapshot Numeric
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: api-snapshot-numeric-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
+  APP_ENV: ci
+  APP_PORT: 3002
+  API_PREFIX: api/v1
+  API_BASE_URL: http://127.0.0.1:3002/api/v1
+  WEB_ORIGIN: http://127.0.0.1:3000
+  POSTGRES_DB: jinhu_smart_park_snapshot_numeric_ci
+  POSTGRES_USER: jinhu
+  POSTGRES_PASSWORD: JinhuSnapshotNumericDb#2026
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: 5432
+  POSTGRES_PUBLISHED_PORT: 5432
+  POSTGRES_CTN: jinhu-smart-park-prod-postgres
+  TENANT_ID: 10000001
+  PARK_ID: 20000001
+  DEFAULT_TENANT_CODE: jinhu
+  DEFAULT_TENANT_ID: 10000001
+  DEFAULT_PARK_ID: 20000001
+  ADMIN_USERNAME: admin
+  ADMIN_PASSWORD: Jinhu@123456
+  JWT_SECRET: JinhuSnapshotNumericJwtSecret#2026_LongAndRandom
+  JWT_EXPIRES_IN: 8h
+  BCRYPT_SALT_ROUNDS: 10
+  FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
+  AUTH_SMS_FIXED_CODE: ""
+  AUTH_SMS_CODE_VISIBLE: "false"
+  AUTH_WECHAT_MOCK_ENABLED: "false"
+  SNAPSHOT_BUILDING_NO: SNAPSHOT-BLD-001
+  SNAPSHOT_FLOOR_NO: SNAPSHOT-FLR-001
+  SNAPSHOT_WORKORDER_NO: SNAPSHOT-WO-001
+  SNAPSHOT_UNIT_NO: SNAPSHOT-UNIT-001
+
+jobs:
+  workorders-stats-numeric:
+    name: Workorders Stats Numeric Snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.12.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create log directory
+        run: mkdir -p /tmp/api-snapshot-numeric-logs
+
+      - name: Start PostgreSQL
+        run: docker compose -f "$COMPOSE_FILE" up -d postgres
+
+      - name: Wait for PostgreSQL health
+        run: |
+          for _ in $(seq 1 30); do
+            status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$POSTGRES_CTN" 2>/dev/null || true)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PostgreSQL container did not become healthy in time" >&2
+          exit 1
+
+      - name: Run migration
+        run: |
+          set -o pipefail
+          POSTGRES_DB="$POSTGRES_DB" pnpm db:migrate 2>&1 | tee /tmp/api-snapshot-numeric-logs/db-migrate.log
+
+      - name: Run development seed
+        run: |
+          set -o pipefail
+          POSTGRES_DB="$POSTGRES_DB" ALLOW_DEV_SEED=yes pnpm db:seed:dev 2>&1 | tee /tmp/api-snapshot-numeric-logs/db-seed-dev.log
+
+      - name: Start API
+        run: |
+          POSTGRES_DB="$POSTGRES_DB" \
+          POSTGRES_HOST="$POSTGRES_HOST" \
+          POSTGRES_PORT="$POSTGRES_PORT" \
+          POSTGRES_USER="$POSTGRES_USER" \
+          POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+          APP_PORT="$APP_PORT" \
+          API_PREFIX="$API_PREFIX" \
+          WEB_ORIGIN="$WEB_ORIGIN" \
+          JWT_SECRET="$JWT_SECRET" \
+          JWT_EXPIRES_IN="$JWT_EXPIRES_IN" \
+          BCRYPT_SALT_ROUNDS="$BCRYPT_SALT_ROUNDS" \
+          FILE_STORAGE_LOCAL_ROOT="$FILE_STORAGE_LOCAL_ROOT" \
+          AUTH_SMS_FIXED_CODE="$AUTH_SMS_FIXED_CODE" \
+          AUTH_SMS_CODE_VISIBLE="$AUTH_SMS_CODE_VISIBLE" \
+          AUTH_WECHAT_MOCK_ENABLED="$AUTH_WECHAT_MOCK_ENABLED" \
+          DEFAULT_TENANT_CODE="$DEFAULT_TENANT_CODE" \
+          DEFAULT_TENANT_ID="$DEFAULT_TENANT_ID" \
+          DEFAULT_PARK_ID="$DEFAULT_PARK_ID" \
+          pnpm dev:api > /tmp/api-snapshot-numeric-logs/api.log 2>&1 &
+          echo "$!" > /tmp/api-snapshot-numeric-logs/api.pid
+
+      - name: Wait for API health and readiness
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS "$API_BASE_URL/health" >/dev/null && curl -fsS "$API_BASE_URL/ready" >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "API did not become ready in time" >&2
+          tail -200 /tmp/api-snapshot-numeric-logs/api.log >&2 || true
+          exit 1
+
+      - name: Bootstrap snapshot data
+        run: |
+          set -o pipefail
+          API_BASE_URL="$API_BASE_URL" node scripts/e2e/bootstrap-api-snapshot-data.mjs 2>&1 | tee /tmp/api-snapshot-numeric-logs/bootstrap-api-snapshot-data.log
+
+      - name: Check fixed snapshot data gate
+        run: |
+          set -o pipefail
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL' 2>&1 | tee /tmp/api-snapshot-numeric-logs/fixed-data-gate.log
+          SELECT current_database();
+
+          SELECT count(*) AS snapshot_buildings
+          FROM biz_building
+          WHERE is_deleted = false
+            AND building_code = 'SNAPSHOT-BLD-001';
+
+          SELECT count(*) AS snapshot_floors
+          FROM biz_floor
+          WHERE is_deleted = false
+            AND floor_code = 'SNAPSHOT-FLR-001';
+
+          SELECT count(*) AS snapshot_units
+          FROM biz_unit
+          WHERE is_deleted = false
+            AND unit_code = 'SNAPSHOT-UNIT-001';
+
+          SELECT count(*) AS snapshot_workorders
+          FROM biz_work_order
+          WHERE is_deleted = false
+            AND wo_code = 'SNAPSHOT-WO-001';
+
+          SELECT count(*) AS regression_workorders
+          FROM biz_work_order
+          WHERE is_deleted = false
+            AND wo_code LIKE 'WO-%';
+
+          SELECT count(*) AS fixed_association_chain
+          FROM biz_work_order wo
+          JOIN biz_unit unit ON unit.id = wo.unit_id AND unit.is_deleted = false
+          JOIN biz_floor floor ON floor.id = unit.floor_id AND floor.is_deleted = false
+          JOIN biz_building building ON building.id = unit.building_id AND building.is_deleted = false
+          WHERE wo.is_deleted = false
+            AND wo.wo_code = 'SNAPSHOT-WO-001'
+            AND unit.unit_code = 'SNAPSHOT-UNIT-001'
+            AND floor.floor_code = 'SNAPSHOT-FLR-001'
+            AND building.building_code = 'SNAPSHOT-BLD-001';
+
+          DO $$
+          DECLARE
+            snapshot_buildings int;
+            snapshot_floors int;
+            snapshot_units int;
+            snapshot_workorders int;
+            regression_workorders int;
+            fixed_association_chain int;
+          BEGIN
+            SELECT count(*) INTO snapshot_buildings
+            FROM biz_building
+            WHERE is_deleted = false
+              AND building_code = 'SNAPSHOT-BLD-001';
+
+            SELECT count(*) INTO snapshot_floors
+            FROM biz_floor
+            WHERE is_deleted = false
+              AND floor_code = 'SNAPSHOT-FLR-001';
+
+            SELECT count(*) INTO snapshot_units
+            FROM biz_unit
+            WHERE is_deleted = false
+              AND unit_code = 'SNAPSHOT-UNIT-001';
+
+            SELECT count(*) INTO snapshot_workorders
+            FROM biz_work_order
+            WHERE is_deleted = false
+              AND wo_code = 'SNAPSHOT-WO-001';
+
+            SELECT count(*) INTO regression_workorders
+            FROM biz_work_order
+            WHERE is_deleted = false
+              AND wo_code LIKE 'WO-%';
+
+            SELECT count(*) INTO fixed_association_chain
+            FROM biz_work_order wo
+            JOIN biz_unit unit ON unit.id = wo.unit_id AND unit.is_deleted = false
+            JOIN biz_floor floor ON floor.id = unit.floor_id AND floor.is_deleted = false
+            JOIN biz_building building ON building.id = unit.building_id AND building.is_deleted = false
+            WHERE wo.is_deleted = false
+              AND wo.wo_code = 'SNAPSHOT-WO-001'
+              AND unit.unit_code = 'SNAPSHOT-UNIT-001'
+              AND floor.floor_code = 'SNAPSHOT-FLR-001'
+              AND building.building_code = 'SNAPSHOT-BLD-001';
+
+            IF snapshot_buildings <> 1
+              OR snapshot_floors <> 1
+              OR snapshot_units <> 1
+              OR snapshot_workorders <> 1
+              OR regression_workorders <> 0
+              OR fixed_association_chain <> 1 THEN
+              RAISE EXCEPTION
+                'Snapshot numeric gate failed: buildings=%, floors=%, units=%, workorders=%, regression_workorders=%, fixed_association_chain=%',
+                snapshot_buildings,
+                snapshot_floors,
+                snapshot_units,
+                snapshot_workorders,
+                regression_workorders,
+                fixed_association_chain;
+            END IF;
+          END $$;
+          SQL
+
+      - name: Run default schema snapshot check
+        run: |
+          set -o pipefail
+          API_BASE_URL="$API_BASE_URL" \
+          SNAPSHOT_WORKORDER_NO="$SNAPSHOT_WORKORDER_NO" \
+          SNAPSHOT_UNIT_NO="$SNAPSHOT_UNIT_NO" \
+          node scripts/e2e/first-release-api-snapshots.mjs 2>&1 | tee /tmp/api-snapshot-numeric-logs/default-schema-snapshot.log
+
+      - name: Run numeric snapshot check
+        run: |
+          set -o pipefail
+          API_BASE_URL="$API_BASE_URL" \
+          SNAPSHOT_STATS_MODE=numeric \
+          ALLOW_STATS_NUMERIC_SNAPSHOT=true \
+          SNAPSHOT_WORKORDER_NO="$SNAPSHOT_WORKORDER_NO" \
+          SNAPSHOT_UNIT_NO="$SNAPSHOT_UNIT_NO" \
+          node scripts/e2e/first-release-api-snapshots.mjs 2>&1 | tee /tmp/api-snapshot-numeric-logs/numeric-snapshot.log
+
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' > /tmp/api-snapshot-numeric-logs/docker-ps.txt || true
+          docker compose -f "$COMPOSE_FILE" ps > /tmp/api-snapshot-numeric-logs/docker-compose-ps.txt || true
+          docker logs "$POSTGRES_CTN" > /tmp/api-snapshot-numeric-logs/postgres.log 2>&1 || true
+          if [ -f /tmp/api-snapshot-numeric-logs/api.pid ]; then
+            kill "$(cat /tmp/api-snapshot-numeric-logs/api.pid)" >/dev/null 2>&1 || true
+          fi
+
+      - name: Upload API snapshot numeric logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: api-snapshot-numeric-logs
+          path: /tmp/api-snapshot-numeric-logs
+          if-no-files-found: warn
+
+      - name: Tear down services
+        if: always()
+        run: docker compose -f "$COMPOSE_FILE" down -v
