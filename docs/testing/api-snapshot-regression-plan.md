@@ -467,3 +467,5 @@ ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-c
 ST-2A follow-up 已修复 numeric 专项优先级：`SNAPSHOT_MODE=schema + SNAPSHOT_STATS_MODE=numeric` 会进入 stats numeric 路径。numeric 模式同时保留 `overdue_top` schema-only shape；默认 regression 仍不运行 numeric baseline。
 
 ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。ST-2B-1C 已在 fresh 隔离固定数据集下建立 numeric baseline；该 baseline 仍不进入默认 regression，不进入普通 CI，后续更新必须继续确认隔离库或 reset 后测试库、固定样本、运行顺序和 diff 审查责任。
+
+ST-2C manual workflow 评估见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md`。当前建议短期继续本地手动执行 numeric 检查，中期可设计 `workflow_dispatch`；不接入普通 PR CI，不允许 workflow 自动 `UPDATE_SNAPSHOTS=true`。

@@ -167,7 +167,7 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 stats 拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。拆分后，schema baseline 可在确认结构变化后更新；numeric baseline 只能在固定数据集、隔离环境或明确 reset 后更新，并必须说明数据来源和运行顺序。
 
-当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。ST-2A 已实现 numeric 专项模式的最小脚本能力，但尚未提交 numeric baseline。
+当前 ST-1 已实施，默认 `workorders.stats` baseline 为 schema baseline。该 baseline 可在 stats 响应结构、字段集合或 numeric 字段类型发生预期变化时更新；具体 numeric count 仍不得由写入型 e2e 后的数据直接更新。ST-2A 已实现 numeric 专项模式的最小脚本能力，ST-2B-1C 已在 fresh 隔离固定数据集下建立 numeric baseline。
 
 ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。在 ST-2 完成前，`workorders.stats` numeric baseline 不应作为默认 baseline 维护对象。
 
@@ -176,6 +176,8 @@ ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-n
 ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。numeric baseline 文件只能在 ST-2B 的隔离固定数据集下建立，不得在 ST-2A 收口、普通修复 PR 或默认 schema baseline PR 中提交。
 
 ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。建立 numeric baseline 前必须确认使用隔离库或 reset 后测试库、已执行 migration / seed / snapshot bootstrap、固定样本存在、未运行写入型 e2e，并且 numeric baseline 将以单独 PR 提交。numeric baseline 不得由共享污染库生成。
+
+ST-2C manual workflow 评估见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md`。manual workflow 如后续实现，只允许检查 numeric baseline，不允许执行 `UPDATE_SNAPSHOTS=true`，不允许自动提交 baseline 更新；numeric baseline 更新仍必须单独 PR、单独审查。
 
 ## 8. baseline 更新后检查清单
 
@@ -280,6 +282,7 @@ Reviewer 应重点检查：
 - baseline 维护规则稳定后，可考虑接入手动 workflow 或 release-smoke label。
 - 进入 CI 前必须先降低误报率。
 - 进入 CI 前必须明确测试数据来源和 baseline 更新审批规则。
+- `workorders.stats.numeric` 如后续进入 manual workflow，也只能使用 `workflow_dispatch` 检查，不允许自动更新 baseline。
 
 不建议在当前阶段直接纳入常规 PR CI。原因是当前 baseline 仍可能受本地或测试环境数据、会写数据的 e2e、统计值波动影响。
 
