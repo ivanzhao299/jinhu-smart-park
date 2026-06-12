@@ -115,6 +115,20 @@ item_fields = []
 
 `overdue_top` 不做 numeric 强校验，仅保留 shape 检查。
 
+numeric baseline 同时保留 `workorders.logs` 的列表结构，但 numeric 路径会将按月份生成的工单日志业务编号归一化：
+
+```text
+WOL-YYYYMM-*
+```
+
+归一化为：
+
+```text
+<normalized-workorder-log-code>
+```
+
+该归一化仅用于 numeric snapshot 路径，避免 numeric 专项检查因日志月份流水号变化失败。
+
 ## 6. numeric count 审查
 
 fresh 固定数据集中 active 工单数为 1，且唯一 active 工单为：
@@ -152,17 +166,18 @@ numeric baseline 中对应：
 
 diff 审查结论：
 
-- 只新增 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。
+- 更新 `scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。
 - 未修改默认 baseline `scripts/e2e/snapshots/first-release-api-snapshots.json`。
 - 包含 `workorders.stats.numeric`。
 - 包含 `summary / by_status / by_priority / by_type / by_assignee / overdue_top`。
 - `overdue_top` 为 schema-only shape。
+- `workorders.logs.code` / `workorders.logs.logCode` 使用 `<normalized-workorder-log-code>`，不再冻结具体 `WOL-YYYYMM-*`。
 - 未发现 token / password / Bearer。
 - 未发现 request id / trace id。
 - 未发现原始 UUID。
 - 未发现 ISO 时间戳。
 - 未发现文件 URL / signed URL。
-- 未修改快照脚本。
+- 快照脚本仅做 numeric snapshot 路径下的 `workorders.logs` 日志编号归一化。
 - 未生成其它 baseline 文件。
 
 ## 8. 当前未做事项
@@ -170,7 +185,7 @@ diff 审查结论：
 本阶段未做：
 
 - 未修改默认 baseline。
-- 未修改 `scripts/e2e/first-release-api-snapshots.mjs`。
+- 未修改业务接口脚本以外的 e2e 脚本。
 - 未修改 `scripts/e2e/bootstrap-api-snapshot-data.mjs`。
 - 未修改业务代码。
 - 未运行写入型 e2e。
