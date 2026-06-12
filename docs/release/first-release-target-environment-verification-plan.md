@@ -6,6 +6,8 @@
 
 本文不是部署脚本，不替代 `docs/deployment/production.md`，不写真实密钥、真实数据库密码或真实管理员密码。
 
+Dry-run record template: [first-release-target-environment-verification-dry-run.md](./first-release-target-environment-verification-dry-run.md)
+
 ## 2. 使用边界
 
 使用边界：

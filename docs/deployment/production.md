@@ -8,6 +8,8 @@ First release readiness gap analysis: [first-release-readiness-gap-analysis.md](
 
 First release target environment verification plan: [first-release-target-environment-verification-plan.md](../release/first-release-target-environment-verification-plan.md)
 
+First release target environment verification dry-run: [first-release-target-environment-verification-dry-run.md](../release/first-release-target-environment-verification-dry-run.md)
+
 This is the first production-grade deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment
