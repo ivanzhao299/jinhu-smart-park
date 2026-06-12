@@ -181,6 +181,8 @@ ST-2C manual workflow 评估见 `docs/testing/api-snapshot-workorders-stats-nume
 
 ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design.md`。workflow 设计应固定为检查模式，不暴露 `UPDATE_SNAPSHOTS` 输入，不允许连接生产或共享污染库。
 
+ST-2C-1A 设计收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design-closure-review.md`。后续 workflow 小实现阶段仍必须禁止 `UPDATE_SNAPSHOTS=true`，禁止生成或提交 baseline。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：
