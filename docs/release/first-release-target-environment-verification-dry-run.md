@@ -6,6 +6,8 @@
 
 本文不是正式发布记录，不包含真实密钥、真实数据库密码、真实管理员密码或真实 token，不用于更新 baseline。
 
+Execution record template: [first-release-target-environment-verification-execution-record.md](./first-release-target-environment-verification-execution-record.md)
+
 ## 2. 使用边界
 
 使用边界：
@@ -158,6 +160,6 @@ Next owner:
 
 ## 10. 阶段性结论
 
-dry-run 通过后，下一步才进入实际 target environment verification 或 release candidate 执行。
+dry-run 通过后，下一步才进入实际 target environment verification 或 release candidate 执行。实际执行记录应填写 `docs/release/first-release-target-environment-verification-execution-record.md`。
 
 如果 dry-run 中任一 P0 项失败或无法解释，不应继续发布。

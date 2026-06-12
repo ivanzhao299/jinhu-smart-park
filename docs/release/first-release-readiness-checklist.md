@@ -12,6 +12,8 @@ Target environment verification plan: [first-release-target-environment-verifica
 
 Target environment verification dry-run: [first-release-target-environment-verification-dry-run.md](./first-release-target-environment-verification-dry-run.md)
 
+Target environment verification execution record: [first-release-target-environment-verification-execution-record.md](./first-release-target-environment-verification-execution-record.md)
+
 ## 2. 使用方式
 
 使用方式：
