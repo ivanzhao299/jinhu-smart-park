@@ -483,3 +483,5 @@ ST-2C-1C 手动试运行已通过：`API Snapshot Numeric` run `#1` succeeded，
 api snapshot numeric baseline / manual workflow 阶段性总结见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-workflow-summary.md`。当前 `workorders.stats` schema / numeric 拆分、fixed dataset、numeric baseline 与 manual workflow 已形成闭环；numeric 仍为 release candidate 前人工专项检查，不属于普通 PR / push CI。
 
 first release API snapshot / release gate 总复盘见 `docs/testing/first-release-api-snapshot-release-gate-review.md`。首版发布前建议将默认 API snapshot 作为结构回归 gate，将 `API Snapshot Numeric` manual workflow 作为 release candidate 前 stats numeric 专项 gate；numeric workflow 仍不属于普通 PR / push CI。
+
+first release readiness 总清单见 `docs/release/first-release-readiness-checklist.md`。发布前应在 readiness checklist 中记录默认 API snapshot、`API Snapshot Numeric` manual workflow、baseline 未自动更新和 release gate 结果。

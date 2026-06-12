@@ -72,6 +72,7 @@ node scripts/e2e/first-release-regression.mjs
 
 ## 5. 发布与回滚
 
+- [First Release Readiness 总清单](release/first-release-readiness-checklist.md)
 - [生产上线 SOP](release/production-release-sop.md)
 - [生产回滚 SOP](release/production-rollback-sop.md)
 - [Go-Live Checklist](release/production-go-live-checklist.md)
