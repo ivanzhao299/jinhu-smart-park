@@ -8,6 +8,8 @@
 
 Dry-run record template: [first-release-target-environment-verification-dry-run.md](./first-release-target-environment-verification-dry-run.md)
 
+Execution record template: [first-release-target-environment-verification-execution-record.md](./first-release-target-environment-verification-execution-record.md)
+
 ## 2. 使用边界
 
 使用边界：

@@ -10,6 +10,8 @@ First release target environment verification plan: [first-release-target-enviro
 
 First release target environment verification dry-run: [first-release-target-environment-verification-dry-run.md](../release/first-release-target-environment-verification-dry-run.md)
 
+First release target environment verification execution record: [first-release-target-environment-verification-execution-record.md](../release/first-release-target-environment-verification-execution-record.md)
+
 This is the first production-grade deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment
