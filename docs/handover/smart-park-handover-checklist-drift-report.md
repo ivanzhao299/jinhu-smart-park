@@ -121,6 +121,10 @@
 
 ## 9. 验证命令与结果
 
+- `一致` 后续处理状态：
+  - 已根据本报告更新 `docs/handover/smart-park-handover-checklist.md` 至当前 `main` 最新基线。
+  - 已在 `docs/index.md` 增加 handover 入口。
+  - 未修改 workflow、scripts、database、apps、packages、package / lockfile 或 snapshot baseline。
 - `一致` 工作流使用说明：
   - 使用 `using-superpowers` 作为启动流程。
   - 使用 `code-review-and-quality` 做最终差异与只读范围复核。
