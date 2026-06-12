@@ -74,6 +74,7 @@ node scripts/e2e/first-release-regression.mjs
 
 - [First Release Readiness 总清单](release/first-release-readiness-checklist.md)
 - [First Release Readiness 差距分析](release/first-release-readiness-gap-analysis.md)
+- [First Release Target Environment Verification Plan](release/first-release-target-environment-verification-plan.md)
 - [生产上线 SOP](release/production-release-sop.md)
 - [生产回滚 SOP](release/production-rollback-sop.md)
 - [Go-Live Checklist](release/production-go-live-checklist.md)

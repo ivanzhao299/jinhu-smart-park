@@ -8,6 +8,8 @@
 
 Readiness gap analysis: [first-release-readiness-gap-analysis.md](./first-release-readiness-gap-analysis.md)
 
+Target environment verification plan: [first-release-target-environment-verification-plan.md](./first-release-target-environment-verification-plan.md)
+
 ## 2. 使用方式
 
 使用方式：
