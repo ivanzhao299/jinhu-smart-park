@@ -3,7 +3,7 @@
 ## 1. 审计范围
 
 - `新增补充` 本次只读审计对比对象为 `docs/handover/smart-park-handover-checklist.md` 与当前仓库工作区内容。
-- `新增补充` 审计时间基于当前工作区命令结果；未连接生产服务器，未验证 `/opt/jinhu-smart-park` 的真实目录形态。
+- `新增补充` 审计时间基于当前工作区命令结果；未连接生产服务器，未验证 `<production-deploy-path>` 的真实目录形态。
 - `不建议自动修改` 原移交清单未被修改；本报告仅记录差异与建议。
 - `需人工确认` `docs/handover/smart-park-handover-checklist.md` 当前在 Git 状态中显示为未跟踪文件，后续提交前需要确认是否应同时纳入版本管理。
 
@@ -13,7 +13,7 @@
 - `需更新` CI/CD 章节需要更新：当前已有 `.github/workflows/api-snapshot-numeric.yml`，`ci.yml` 也包含 `release-smoke` job。
 - `需更新` 部署风险描述需要修正：`deploy-production.yml` 当前未使用远端 `git pull`，已经改为 GitHub Actions 端 `rsync -az --delete` 同步后在远端执行 `pnpm prod:deploy && pnpm prod:health`。
 - `新增补充` 首版 readiness、target environment verification、API snapshot / numeric baseline / manual workflow 相关文档已新增，应纳入移交清单。
-- `需人工确认` 生产目录 `/opt/jinhu-smart-park` 是否仍不是 git worktree，本次仅从移交清单旧描述与 workflow 当前实现推断，未做远端核验。
+- `需人工确认` 生产目录 `<production-deploy-path>` 是否仍不是 git worktree，本次仅从移交清单旧描述与 workflow 当前实现推断，未做远端核验。
 
 ## 3. 已过期内容
 

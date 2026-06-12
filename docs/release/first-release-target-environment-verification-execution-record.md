@@ -248,7 +248,7 @@ Notes:
 - artifact / logs。
 - baseline 未修改。
 - 未运行 `UPDATE_SNAPSHOTS=true`。
-- deployment traceability marker：`/opt/jinhu-smart-park/.release.json` 存在。
+- deployment traceability marker：`<production-deploy-path>/.release.json` 存在。
 - `.release.json` 的 `commit` 等于本次 GitHub Actions 部署 commit。
 - `.release.json` 只包含非敏感字段：`commit`、`ref`、`run_id`、`run_number`、`workflow`、`deployed_at_utc`。
 - `.release.json` 不包含 secrets、数据库连接串、`.env.production` 内容、管理员密码或 token。
@@ -256,7 +256,7 @@ Notes:
 验证命令：
 
 ```bash
-cd /opt/jinhu-smart-park
+cd <production-deploy-path>
 cat .release.json
 ```
 
