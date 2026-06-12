@@ -26,6 +26,7 @@ const MAX_SNAPSHOT_LOOKUP_PAGES = 10;
 
 const normalizedValue = "<normalized>";
 const normalizedNumber = "<normalized-number>";
+const normalizedWorkorderLogCode = "<normalized-workorder-log-code>";
 const dynamicFieldNames = new Set([
   "id",
   "uuid",
@@ -560,6 +561,39 @@ function listSnapshot(data, keyFields = []) {
   };
 }
 
+function normalizeWorkorderLogCodeForNumeric(value) {
+  if (typeof value === "string" && /^WOL-\d{6}-\d+$/.test(value)) {
+    return normalizedWorkorderLogCode;
+  }
+  return normalizeValue(value, { preserveArrays: true });
+}
+
+function normalizeWorkorderLogForNumeric(item) {
+  const normalized = normalizeValue(item);
+  if (!isPlainObject(normalized) || !isPlainObject(item)) {
+    return normalized;
+  }
+
+  for (const key of ["code", "logCode", "log_code"]) {
+    if (key in item) {
+      normalized[key] = normalizeWorkorderLogCodeForNumeric(item[key]);
+    }
+  }
+
+  return normalized;
+}
+
+function workordersLogsNumericSnapshot(data) {
+  const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+  const firstItem = items.length > 0 ? items[0] : null;
+  return {
+    pagination: paginationSnapshot(data),
+    item_count_category: itemCountCategory(items),
+    item_fields: firstItem && isPlainObject(firstItem) ? sortedKeys(firstItem) : [],
+    first_item: normalizeWorkorderLogForNumeric(firstItem)
+  };
+}
+
 function workordersListSnapshot(data, options = {}) {
   const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   const firstItem = items.length > 0 ? items[0] : null;
@@ -594,6 +628,9 @@ function paginationSnapshot(data) {
 function buildSnapshot(name, data, options = {}) {
   if (name === "workorders.stats") {
     return normalizeWorkorderStats(data);
+  }
+  if (snapshotStatsMode === "numeric" && name === "workorders.logs" && options.list) {
+    return workordersLogsNumericSnapshot(data);
   }
   if (snapshotMode === "schema") {
     return schemaOf(data);
