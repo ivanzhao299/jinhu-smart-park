@@ -1,27 +1,36 @@
 # 金湖智慧园区数字运营 SaaS 平台移交清单
 
-生成日期：2026-05-31  
-当前阶段：S9-F.1 Energy Billing Adjustment & Reversal 已完成  
+生成日期：2026-06-12
+当前阶段：First Release Readiness / Target Environment Verification 文档体系与 API Snapshot Numeric release gate 已完成；真实目标环境执行记录仍待填写
 当前生产域名：https://park.cnjinhu.top  
 代码仓库：git@github.com:ivanzhao299/jinhu-smart-park.git
 
-> 安全原则：本文档不保存任何明文密码、私钥、数据库密码、JWT 密钥、第三方 token。所有密钥应通过 1Password、Bitwarden、企业微信密封消息或线下密封交接。
+> 安全原则：本文档不保存任何明文密码、私钥、数据库密码、JWT 密钥、第三方 token、管理员密码或完整敏感连接串。所有密钥应通过 1Password、Bitwarden、企业微信密封消息或线下密封交接。
 
 ## 1. 当前基线
 
-- 最新本地/远端分支：`main`
+- 当前工作分支：`docs/update-smart-park-handover-checklist`
+- 当前 `main` / `origin/main` / `HEAD`：`2f2a1cfa2c4691f8c1afc786feaedc6b2842e6ca`
 - 最近提交：
-  - `fdf612c chore: fully prune production docker build cache`
-  - `ad3268e chore: prune old docker artifacts after production deploy`
-  - `3ea8453 ci: build shared types before workspace checks`
-  - `8b17998 perf: improve app shell loading and add ci workflows`
+  - `2f2a1cf Merge pull request #133 from ivanzhao299/docs/audit-handover-checklist-drift`
+  - `0fe26d8 docs: audit smart park handover checklist drift`
+  - `9b5d18a Merge pull request #132 from ivanzhao299/docs/first-release-target-env-verification-execution`
+  - `54138a6 docs: add first release verification execution record`
+  - `7df40d6 Merge pull request #131 from ivanzhao299/docs/first-release-target-env-verification-dry-run`
+  - `bec1a55 docs: add first release target environment dry-run`
+  - `c5de6c7 Merge pull request #130 from ivanzhao299/docs/first-release-target-env-verification-plan`
+  - `9fbb989 docs: add first release target environment verification plan`
+  - `641050a Merge pull request #129 from ivanzhao299/docs/first-release-readiness-gap-analysis`
+  - `6314aa6 docs: add first release readiness gap analysis`
 - 已建立重要 tag：
-  - `v1-smartpark-s9e-baseline-freeze`
-  - `v1-smartpark-s9f-energy-billing`
   - `v1-smartpark-s9f1-energy-adjustment`
-- 当前 migration 数量：137
-- 当前 smoke/e2e 脚本数量：25
-- 当前前端 `page.tsx` 页面数量：86
+  - `v1-smartpark-s9f-energy-billing`
+  - `v1-smartpark-s9e-baseline-freeze`
+- 当前 migration 数量：141
+- 当前最新 migration：`database/migrations/000140_expand_audit_request_id.sql`
+- 当前 smoke/e2e 脚本数量：35
+- 当前前端 `page.tsx` 页面数量：110
+- 当前 handover drift 审计报告：`docs/handover/smart-park-handover-checklist-drift-report.md`
 
 ## 2. 已完成模块范围
 
@@ -45,7 +54,9 @@
 - S9-F：能源分摊与租户账单联动
 - S9-F.1：能源账单调整与红冲机制
 - S8-C / S8-D / S8-E / S8-F：视频安防点位、平台适配、取证、告警大屏
-- 机器人模块：萤石清洁机器人接入骨架与可见性 seed
+- 机器人模块：萤石清洁机器人接入骨架、可见性 seed、设备同步权限补丁
+- 首版发布治理：readiness checklist、gap analysis、target environment verification plan / dry-run / execution record
+- API snapshot release gate：默认 schema snapshot、`workorders.stats.numeric` 专项 baseline、manual workflow
 
 ## 3. 仓库与开发权限移交
 
@@ -74,10 +85,13 @@ GitHub Actions Secrets 需要移交/核对：
 - `PROD_SSH_KEY`
 - `PROD_DEPLOY_PATH`
 
-注意：当前生产目录 `/opt/jinhu-smart-park` 不是 git worktree。现有 `deploy-production.yml` 使用 `git pull --ff-only`，团队需要二选一：
+部署权限注意：
 
-1. 将生产目录改造为 git checkout。
-2. 或把 workflow 改为 rsync/scp artifact 部署。
+- 当前 `.github/workflows/deploy-production.yml` 已不是远端 `git pull` 部署。
+- 当前 workflow 在 GitHub Actions runner 侧 checkout 后执行 `rsync -az --delete` 到 `PROD_DEPLOY_PATH`。
+- 同步完成后，workflow 在远端执行 `PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health`。
+- `/opt/jinhu-smart-park` 是否仍不是 git worktree，需要接手团队远端人工确认；当前仓库只可确认 workflow 不再依赖远端 git worktree。
+- 需要确认 rsync 排除项、远端 `.env.production`、上传/存储目录和数据目录不会被覆盖或误删。
 
 ## 4. 服务器与生产权限移交
 
@@ -175,6 +189,13 @@ curl -s https://park.cnjinhu.top/api/v1/health
 - 不要发普通微信群。
 - 不要写入项目文档。
 - 不要截图保存。
+- 不要在 issue、PR、CI log、handover 文档或 release 记录中写真实密码、真实 token、真实 JWT secret 或完整敏感连接串。
+
+生产安全变量必须确认：
+
+- `AUTH_SMS_FIXED_CODE` 为空。
+- `AUTH_SMS_CODE_VISIBLE=false`。
+- `AUTH_WECHAT_MOCK_ENABLED=false`。
 
 ## 7. 数据库权限移交
 
@@ -202,8 +223,21 @@ pnpm prod:deploy
 数据库注意事项：
 
 - migrations 是 forward-only。
+- 当前 migration 数量为 141。
+- 最新 migration 为 `000140_expand_audit_request_id.sql`。
+- 当前尾部 migration 包括：
+  - `000132_robot_ezviz_cleaning_integration.sql`
+  - `000133_s9d_iot_scene_center.sql`
+  - `000134_robot_cleaning_visibility_seed.sql`
+  - `000135_s9e_energy_meter_monitor.sql`
+  - `000136_idempotency_request.sql`
+  - `000136_s9f_energy_billing_allocation.sql`
+  - `000137_s9f1_energy_billing_adjustment_reversal.sql`
+  - `000138_robot_ezviz_device_sync_permission_patch.sql`
+  - `000139_sys_schema_migration_history.sql`
+  - `000140_expand_audit_request_id.sql`
+- 仓库存在重复 `000136_*` migration 历史，新 migration 编号需要额外小心。
 - 每次生产 migration 前必须备份。
-- S8/S9 migration 编号已连续到 `000137_s9f1_energy_billing_adjustment_reversal.sql`。
 - 不允许直接修改历史 migration。
 
 ## 8. Docker 与部署权限移交
@@ -222,28 +256,39 @@ Compose 文件：
 
 部署流程：
 
-1. 构建 API/Web 镜像。
-2. 启动 PostgreSQL。
-3. 执行 migration。
-4. 可选执行 production seed。
-5. 启动 API/Web。
-6. 执行健康检查。
-7. 清理旧 Docker container、未使用镜像、build cache。
+1. GitHub Actions 通过 `rsync -az --delete` 同步仓库文件到生产目录。
+2. 远端执行 `PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health`。
+3. 构建 API/Web 镜像。
+4. 启动 PostgreSQL。
+5. 执行 migration。
+6. 可选执行 production seed。
+7. 启动 API/Web。
+8. 执行健康检查。
+9. 清理旧 Docker container、未使用镜像、build cache。
 
 磁盘策略：
 
-- 当前部署后会自动运行 `scripts/prod-docker-cleanup.sh`。
+- 当前部署后会自动运行 Docker 清理逻辑。
 - 只保留当前运行容器使用的镜像。
 - 清空 Docker build cache。
 - 不清理 volumes，避免删除 PostgreSQL 数据。
 
+部署风险与人工确认：
+
+- `deploy-production.yml` 当前不再远端执行 `git pull`。
+- `/opt/jinhu-smart-park` 是否为 git worktree 仍需远端人工确认，但当前 workflow 已不依赖这一点。
+- 需要人工确认远端目录内 `.env.production`、文件存储、上传目录、数据库 volume、日志目录不会被 rsync 删除或覆盖。
+- 当前 deploy workflow 是源码 rsync + 远端构建/部署，不是完整 build artifact 发布方案；是否要进一步改造为 artifact/registry 发布可作为后续运维优化。
+
 ## 9. CI/CD 移交
 
-CI 文件：
+CI / workflow 文件：
 
 - `.github/workflows/ci.yml`
+- `.github/workflows/api-snapshot-numeric.yml`
+- `.github/workflows/deploy-production.yml`
 
-CI 执行：
+`ci.yml` verify job 执行：
 
 - `pnpm install --frozen-lockfile`
 - `pnpm lint`
@@ -251,23 +296,133 @@ CI 执行：
 - `pnpm typecheck`
 - `pnpm build`
 
-手动生产部署 workflow：
+`ci.yml` release-smoke job：
 
-- `.github/workflows/deploy-production.yml`
+- 触发方式：`workflow_dispatch`，或 PR 带 `run-release-smoke` label。
+- 依赖 verify job。
+- 启动 PostgreSQL。
+- 执行 `pnpm db:migrate`。
+- 执行 `ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod`。
+- 执行 `pnpm db:bootstrap:admin`。
+- 执行 `pnpm db:check:init`。
+- 启动 API。
+- 执行 `scripts/verify-api-login-dockerexec.sh`。
+- 上传 release-smoke logs artifact。
 
-当前风险：
+`api-snapshot-numeric.yml` manual workflow：
 
-- `deploy-production.yml` 默认远端执行 `git pull`。
-- 生产目录当前不是 git worktree，需要团队在接手后修正部署方式。
+- workflow 名称：`API Snapshot Numeric`。
+- 触发方式：`workflow_dispatch`。
+- 不接入普通 `push` / `pull_request` CI。
+- 使用 isolated DB 和 fixed dataset。
+- 执行默认 schema snapshot 与 `workorders.stats.numeric` 专项 snapshot。
+- 上传 `api-snapshot-numeric-logs` artifact。
 
-建议修正：
+`deploy-production.yml` 手动生产部署：
 
-- 使用 GitHub Actions build artifact。
-- 通过 rsync 小包同步到生产。
-- 或在生产服务器建立裸仓库/工作树。
-- 保留 SSH 小包参数，避免握手被服务器阻断。
+- workflow 名称：`Deploy Production`。
+- 触发方式：`workflow_dispatch`。
+- 使用 `production` environment。
+- 使用 `PROD_HOST`、`PROD_USER`、`PROD_SSH_KEY`、`PROD_DEPLOY_PATH`。
+- 当前部署方式为 runner checkout 后 `rsync -az --delete` 到生产目录。
+- 远端执行 `PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health`。
 
-## 10. 系统账号与后台权限移交
+## 10. API snapshot / release gate 移交
+
+核心文档：
+
+- `docs/testing/api-snapshot-regression-plan.md`
+- `docs/testing/api-snapshot-baseline-policy.md`
+- `docs/testing/first-release-api-snapshot-release-gate-review.md`
+- `docs/testing/api-snapshot-workorders-stats-numeric-baseline-workflow-summary.md`
+- `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-runbook.md`
+
+当前状态：
+
+- 默认 API snapshot 已稳定。
+- `workorders.list` 已从易波动样本快照转为 stable 结构快照。
+- `workorders.stats` 默认路径为 `workorders.stats.schema`。
+- 默认 schema snapshot 不冻结动态 numeric count。
+- `workorders.stats.numeric` 已拆分为专项检查。
+- numeric baseline 使用独立文件：`scripts/e2e/snapshots/first-release-api-snapshots.numeric.json`。
+- fixed dataset 使用：
+  - `SNAPSHOT-BLD-001`
+  - `SNAPSHOT-FLR-001`
+  - `SNAPSHOT-UNIT-001`
+  - `SNAPSHOT-WO-001`
+- fixed dataset 链路为 building -> floor -> unit -> workorder。
+- `API Snapshot Numeric` manual workflow 已纳入 GitHub Actions。
+- readiness gap analysis 记录 `API Snapshot Numeric` Run `#1` succeeded；release candidate 前仍建议按需重新触发。
+
+默认 schema snapshot：
+
+```bash
+node scripts/e2e/first-release-api-snapshots.mjs
+```
+
+numeric snapshot 专项检查：
+
+```bash
+SNAPSHOT_STATS_MODE=numeric \
+ALLOW_STATS_NUMERIC_SNAPSHOT=true \
+SNAPSHOT_WORKORDER_NO=SNAPSHOT-WO-001 \
+SNAPSHOT_UNIT_NO=SNAPSHOT-UNIT-001 \
+node scripts/e2e/first-release-api-snapshots.mjs
+```
+
+baseline 维护规则：
+
+- baseline 不是测试失败后的兜底文件。
+- baseline 更新必须单独 PR。
+- baseline 更新必须说明原因、预期响应变化和验证证据。
+- 禁止因为本地脏数据、认证失败、环境错误、动态字段未归一化或不明原因失败而更新 baseline。
+- 目标环境和 release checklist 中不得执行 `UPDATE_SNAPSHOTS=true`。
+
+## 11. First release readiness / target environment verification 移交
+
+核心文档：
+
+- `docs/release/first-release-readiness-checklist.md`
+- `docs/release/first-release-readiness-gap-analysis.md`
+- `docs/release/first-release-target-environment-verification-plan.md`
+- `docs/release/first-release-target-environment-verification-dry-run.md`
+- `docs/release/first-release-target-environment-verification-execution-record.md`
+
+当前状态：
+
+- readiness checklist 已建立。
+- readiness gap analysis 已建立。
+- target environment verification plan 已建立。
+- dry-run 记录模板已建立。
+- execution record 模板已建立。
+- actual run 当前状态：`docs/release/first-release-target-environment-verification-execution-record.md` 中 P0 项仍为 `NOT_RUN`，`Final decision` 待填写。
+- 当前主要缺口仍集中在真实目标环境验证、生产初始化执行、auth smoke、文件存储、备份回滚与发布后 smoke。
+
+验证顺序建议：
+
+1. 环境变量与密钥验证。
+2. 数据库连接验证。
+3. migration 验证。
+4. production seed 验证。
+5. 初始化闭环验证。
+6. bootstrap admin 验证。
+7. auth smoke 验证。
+8. mock 禁用验证。
+9. 文件存储验证。
+10. 备份 / 回滚验证。
+11. 常规 CI / release gate 结果确认。
+12. 默认 API snapshot 结果确认。
+13. `API Snapshot Numeric` 结果确认。
+14. 发布后 smoke 验证。
+
+强制边界：
+
+- 不通过 P0 项不得进入正式发布。
+- 不记录真实生产密钥、真实数据库密码、真实管理员密码、真实 token 或完整敏感连接串。
+- 不在目标环境验证流程中自动更新 snapshot baseline。
+- migration 失败、auth smoke 失败、文件存储失败或发布后 smoke 失败，应停止或进入回滚判断。
+
+## 12. 系统账号与后台权限移交
 
 必须移交：
 
@@ -293,7 +448,7 @@ CI 执行：
 5. 修改原始交接密码。
 6. 关闭不需要的临时账号。
 
-## 11. 业务 RBAC 权限范围移交
+## 13. 业务 RBAC 权限范围移交
 
 后台需要确保以下权限域由接手团队掌握：
 
@@ -316,7 +471,7 @@ CI 执行：
 - 财务主管角色。
 - 物业主管角色。
 
-## 12. 外部平台权限移交
+## 14. 外部平台权限移交
 
 按当前/后续功能，需要准备或移交：
 
@@ -334,7 +489,7 @@ CI 执行：
 - AI 服务商密钥，如后续启用。
 - 短信、邮件、企业微信、公众号/小程序等通知渠道，如后续启用。
 
-## 13. 本地开发启动
+## 15. 本地开发启动
 
 依赖：
 
@@ -362,19 +517,22 @@ pnpm build
 pnpm test:e2e
 ```
 
-## 14. 关键目录说明
+## 16. 关键目录说明
 
 - `apps/api/src/modules`：后端业务模块。
 - `apps/web/app`：Next.js App Router 页面。
 - `apps/web/components`：前端组件。
 - `database/migrations`：数据库 migration。
 - `database/seeds`：生产/开发 seed。
-- `scripts/e2e`：smoke/e2e 脚本。
+- `scripts/e2e`：smoke/e2e、first release regression、API snapshot 脚本。
+- `scripts/e2e/snapshots`：API snapshot baseline 文件。
 - `infra/docker`：Docker 与 Compose。
 - `docs/deployment`：部署文档。
-- `docs/handover`：交接文档。
+- `docs/release`：发布、readiness、target environment verification 文档。
+- `docs/testing`：测试、API snapshot、release gate 文档。
+- `docs/handover`：交接文档与 drift report。
 
-## 15. 生产验收入口
+## 17. 生产验收入口
 
 生产 URL：
 
@@ -391,23 +549,41 @@ pnpm test:e2e
 5. 查看操作日志是否写入。
 6. 验证无权限账号无法访问管理页面。
 7. 验证模块禁用后菜单和 API 均不可访问。
+8. 执行或复核 first release target environment verification P0 项。
+9. 复核 `API Snapshot Numeric` manual workflow 结果和日志 artifact。
 
-## 16. 测试脚本清单
+## 18. 测试脚本清单
 
-主要 smoke 脚本：
+当前 `scripts/e2e` 顶层脚本数量：35。
 
-- `s1-smoke.mjs`
+First release / API snapshot 脚本：
+
+- `bootstrap-api-snapshot-data.mjs`
+- `first-release-api-snapshots.mjs`
+- `first-release-auth-health.mjs`
+- `first-release-files.mjs`
+- `first-release-idempotency.mjs`
+- `first-release-leasing.mjs`
+- `first-release-menu-whitelist.mjs`
+- `first-release-regression.mjs`
+- `first-release-users-assets.mjs`
+- `first-release-workorders.mjs`
+
+阶段 smoke 脚本：
+
 - `s1-rbac-std-fix-smoke.mjs`
+- `s1-smoke.mjs`
 - `s2b-smoke.mjs`
 - `s3a-park-tenant-smoke.mjs`
 - `s3b-leasing-crm-smoke.mjs`
 - `s3c-contract-smoke.mjs`
+- `s3d-invoice-smoke.mjs`
 - `s3d-payment-smoke.mjs`
 - `s3d-waiver-smoke.mjs`
-- `s3d-invoice-smoke.mjs`
 - `s3e-contract-lifecycle-smoke.mjs`
 - `s5a-safety-smoke.mjs`
 - `s5b-emergency-permit-smoke.mjs`
+- `s6a-mqtt-parser-smoke.mjs`
 - `s8c-video-camera-smoke.mjs`
 - `s8d-video-preview-platform-smoke.mjs`
 - `s8e-video-evidence-inspection-smoke.mjs`
@@ -421,17 +597,53 @@ pnpm test:e2e
 - `s9f-energy-billing-tenant-smoke.mjs`
 - `s9f1-energy-billing-adjustment-reversal-smoke.mjs`
 
-## 17. 已知技术债
+Package script 注意：
 
-- `deploy-production.yml` 与当前生产目录形态不完全匹配，需要改造为 artifact/rsync 或生产 git worktree。
-- 服务器 SSH 对大包和频繁握手敏感，部署脚本应继续小包化。
+- `pnpm test:e2e` 当前只串联部分 S1/S2/S3/S5 smoke。
+- S6/S8/S9、first-release regression 和 API snapshot 需要按直接 node 命令或对应 GitHub Actions workflow 执行。
+- package scripts 中当前没有 API snapshot 专用 npm script。
+
+## 19. 前端页面范围
+
+当前 `apps/web/app/**/page.tsx` 数量：110。
+
+当前页面范围覆盖：
+
+- dashboard / 403 / login / root
+- system 管理
+- assets 资产
+- leasing / finance
+- contracts
+- workorders
+- safety
+- IoT
+- video-security
+- energy
+- robots
+- admin 下的 organizations、roles、users、iot、video-security、energy
+
+需要持续注意：
+
+- 前端页面数量增长快，新增页面需要同步菜单、RBAC、模块授权和 smoke。
+- S8/S9、energy、robots、admin 页面建议浏览器实际打开验证。
+- 页面存在普通业务入口与 admin 入口并行的情况，移交时需要确认接手团队理解菜单挂载和权限差异。
+
+## 20. 已知技术债与风险
+
+- `/opt/jinhu-smart-park` 是否仍非 git worktree 需要远端人工确认。
+- 当前 `deploy-production.yml` 已改为 rsync 同步，不再远端 `git pull`；旧的 git worktree 不匹配风险已不应按原描述保留。
+- 当前部署仍是源码 rsync + 远端构建/部署，不是完整 artifact/registry 部署；后续可继续评估 artifact 或镜像仓库发布。
+- 服务器 SSH 对大包和频繁握手敏感，部署同步仍应控制输出和传输量。
+- rsync 目标目录、排除项、`.env.production`、上传目录、存储目录和数据目录需要发布前人工复核。
+- 目标环境 P0 verification 仍未实际填写完成。
 - S8/S9 页面很多，后续每次新增功能必须用浏览器实际打开验证。
 - 部分高级能力为适配层或模拟执行：真实设备控制、真实厂家视频平台、真实机器人控制、MQTT/Redis/TimescaleDB 高可用需要后续生产化。
 - 前端菜单与页面挂载需要持续 smoke，避免“写了页面但菜单不可见”。
 - 数据权限/字段权限已有接入点，后续新增模块必须严格复用。
 - 能源账单已具备调整/红冲，但真实财务结算、开票、缴费、对账仍需后续联调财务流程。
+- API snapshot baseline 更新必须独立 PR，避免把真实回归误更新为 baseline。
 
-## 18. 接手后第一天建议事项
+## 21. 接手后第一天建议事项
 
 1. 团队成员加入 GitHub 仓库。
 2. 配置团队自己的 SSH key，不再共用个人 key。
@@ -440,17 +652,21 @@ pnpm test:e2e
 5. 执行一次 `pnpm lint && pnpm typecheck && pnpm build`。
 6. 抽检生产页面。
 7. 备份生产数据库。
-8. 修正 GitHub Actions 生产部署方式。
-9. 建立每日备份和监控告警。
-10. 冻结当前版本为接手基线。
+8. 人工确认 `/opt/jinhu-smart-park` 目录形态、rsync 排除项和生产 `.env.production` 保留情况。
+9. 执行或补齐 target environment verification execution record。
+10. 复核 `API Snapshot Numeric` manual workflow 和 release-smoke 结果。
+11. 建立每日备份和监控告警。
+12. 冻结当前版本为接手基线。
 
-## 19. 后续阶段建议
+## 22. 后续阶段建议
 
 建议下一阶段先做运维与质量补强，再继续业务扩展：
 
-1. CI/CD artifact 部署改造。
-2. 生产数据库自动备份与恢复演练。
-3. 页面挂载与菜单可见性自动化巡检。
-4. RBAC/模块授权自动 smoke。
-5. 生产日志、容器指标、磁盘空间监控。
-6. 再进入 S9-G 或 S10 业务模块。
+1. 生产数据库自动备份与恢复演练。
+2. 页面挂载与菜单可见性自动化巡检。
+3. RBAC/模块授权自动 smoke。
+4. 生产日志、容器指标、磁盘空间监控。
+5. 评估 artifact / registry 发布方案。
+6. 完成真实目标环境 P0 verification 并归档 execution record。
+7. 按需在 release candidate 前重新触发 `API Snapshot Numeric` manual workflow。
+8. 再进入 S9-G 或 S10 业务模块。

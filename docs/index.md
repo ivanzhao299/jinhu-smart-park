@@ -5,6 +5,7 @@
 ## 1. 新人接手
 
 - 项目总入口：[README.md](../README.md)
+- 当前移交清单：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
 - 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 生产部署入口：[deployment/production.md](deployment/production.md)
@@ -110,8 +111,11 @@ node scripts/e2e/first-release-regression.mjs
   - [architecture/saas-rbac-std.md](architecture/saas-rbac-std.md)
   - [architecture/supplement-integration.md](architecture/supplement-integration.md)
 
-## 7. 历史 Handover 资料
+## 7. Handover 资料
 
-早期 handover、阶段性审查和上线签字模板等材料位于仓库外项目交接目录中，不作为本 Git 仓库正式文档入口。
+- 当前移交清单：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
+- 移交清单 drift 审计报告：[handover/smart-park-handover-checklist-drift-report.md](handover/smart-park-handover-checklist-drift-report.md)
+
+早期 handover、阶段性审查和上线签字模板等材料如仍位于仓库外项目交接目录中，应以当前仓库内清单和本索引为准。
 
 当前仓库内的正式文档入口以 [README.md](../README.md) 和本索引为准。
