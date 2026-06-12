@@ -42,6 +42,7 @@
 - workorders.stats numeric baseline 建立审查：[testing/api-snapshot-workorders-stats-numeric-baseline-review.md](testing/api-snapshot-workorders-stats-numeric-baseline-review.md)
 - workorders.stats numeric baseline 收口复核：[testing/api-snapshot-workorders-stats-numeric-baseline-closure-review.md](testing/api-snapshot-workorders-stats-numeric-baseline-closure-review.md)
 - workorders.stats numeric manual workflow 评估：[testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md](testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md)
+- workorders.stats numeric manual workflow 评估收口复核：[testing/api-snapshot-workorders-stats-numeric-manual-workflow-closure-review.md](testing/api-snapshot-workorders-stats-numeric-manual-workflow-closure-review.md)
 - snapshot bootstrap 固定关联实施收口复核：[testing/api-snapshot-bootstrap-association-closure-review.md](testing/api-snapshot-bootstrap-association-closure-review.md)
 - fresh 隔离库默认 schema baseline 对齐设计：[testing/api-snapshot-fresh-schema-baseline-alignment-plan.md](testing/api-snapshot-fresh-schema-baseline-alignment-plan.md)
 - fresh schema baseline 对齐审查：[testing/api-snapshot-fresh-schema-baseline-alignment-review.md](testing/api-snapshot-fresh-schema-baseline-alignment-review.md)
