@@ -179,6 +179,8 @@ ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-s
 
 ST-2C manual workflow 评估见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md`。manual workflow 如后续实现，只允许检查 numeric baseline，不允许执行 `UPDATE_SNAPSHOTS=true`，不允许自动提交 baseline 更新；numeric baseline 更新仍必须单独 PR、单独审查。
 
+ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design.md`。workflow 设计应固定为检查模式，不暴露 `UPDATE_SNAPSHOTS` 输入，不允许连接生产或共享污染库。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：

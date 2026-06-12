@@ -179,6 +179,8 @@ manual workflow 只检查，不更新 baseline。
 
 ST-2C 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-closure-review.md`。当前建议 ST-2C 阶段性收口，短期继续本地手动执行。
 
+ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design.md`。该阶段只做设计，不修改 `.github/workflows`。
+
 ## 11. 暂缓范围
 
 继续暂缓：

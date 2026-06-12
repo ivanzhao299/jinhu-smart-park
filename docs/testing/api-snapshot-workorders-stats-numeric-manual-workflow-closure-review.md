@@ -107,3 +107,5 @@ ST-2C 可阶段性收口。
 短期继续本地手动 numeric 检查。
 
 中期可进入 ST-2C-1：manual workflow 设计。ST-2C-1 仍应先设计，不直接实现 workflow；只有设计收口后，才考虑 workflow 小实现。
+
+ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design.md`。
