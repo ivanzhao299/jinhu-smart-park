@@ -59,7 +59,7 @@ Final decision:
 | P0-7 | mock 禁用 | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
 | P0-8 | 文件存储 | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
 | P0-9 | 备份与回滚 | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
-| P0-10 | release gate | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
+| P0-10 | release gate / deployment traceability | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
 | P0-11 | 发布后 smoke | NOT_RUN | 待填写 | 待填写 | 待填写 | 待填写 |
 
 ## 6. 详细记录：环境变量与密钥
@@ -234,6 +234,7 @@ Status:
 Checked by:
 Checked at:
 Evidence:
+Deployment release marker:
 Blocking:
 Notes:
 ```
@@ -247,6 +248,23 @@ Notes:
 - artifact / logs。
 - baseline 未修改。
 - 未运行 `UPDATE_SNAPSHOTS=true`。
+- deployment traceability marker：`/opt/jinhu-smart-park/.release.json` 存在。
+- `.release.json` 的 `commit` 等于本次 GitHub Actions 部署 commit。
+- `.release.json` 只包含非敏感字段：`commit`、`ref`、`run_id`、`run_number`、`workflow`、`deployed_at_utc`。
+- `.release.json` 不包含 secrets、数据库连接串、`.env.production` 内容、管理员密码或 token。
+
+验证命令：
+
+```bash
+cd /opt/jinhu-smart-park
+cat .release.json
+```
+
+阻塞规则：
+
+- 如果 `.release.json` 缺失，P0-10 标记为 `BLOCKED`。
+- 如果 `.release.json` 的 `commit` 与 GitHub Actions 部署 commit 不匹配，P0-10 标记为 `BLOCKED`。
+- 如果 `.release.json` 包含 secrets、数据库连接串、`.env.production` 内容、管理员密码或 token，P0-10 标记为 `BLOCKED`。
 
 ## 14. 详细记录：发布后 smoke
 
