@@ -4,7 +4,7 @@
 
 本文用于记录 ST-2B-1C 隔离固定数据集下建立 `workorders.stats.numeric` baseline 的执行环境、命令、diff 审查和结论。
 
-本阶段只新增 numeric baseline 文件和审查文档，不修改快照脚本，不修改默认 baseline，不修改业务代码，不接入 CI。
+baseline 初建阶段只新增 numeric baseline 文件和审查文档，不修改快照脚本，不修改默认 baseline，不修改业务代码，不接入 CI。后续 P2 稳定性修复仅在 numeric snapshot 路径归一化 `workorders.logs` 日志编号。
 
 ## 2. 执行前提
 
@@ -33,7 +33,7 @@ http://localhost:3002/api/v1
   - `SNAPSHOT-UNIT-001` 关联 `SNAPSHOT-BLD-001 / SNAPSHOT-FLR-001`
   - `SNAPSHOT-WO-001` 关联 `SNAPSHOT-UNIT-001`
 
-本阶段未运行 `node scripts/e2e/first-release-workorders.mjs`，未运行其它写入型工单 e2e，未修改脚本，未接入 CI。
+baseline 初建阶段未运行 `node scripts/e2e/first-release-workorders.mjs`，未运行其它写入型工单 e2e，未修改脚本，未接入 CI。
 
 ## 3. 执行命令
 

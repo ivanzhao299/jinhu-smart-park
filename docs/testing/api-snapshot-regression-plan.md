@@ -456,14 +456,14 @@ list / stats 快照波动治理设计见 `docs/testing/api-snapshot-list-stats-s
 
 `workorders.stats` 快照拆分策略见 `docs/testing/api-snapshot-workorders-stats-split-plan.md`。建议默认转向 schema snapshot，numeric snapshot 后续作为手动专项或隔离环境检查处理。
 
-ST-1 已实施：默认 `workorders.stats` 已转为 schema snapshot，不再对 `summary` 和 `by_*` numeric count 做 exact comparison。ST-2A 已实现 numeric stats 专项模式的最小脚本能力，但未提交 numeric baseline。
+ST-1 已实施：默认 `workorders.stats` 已转为 schema snapshot，不再对 `summary` 和 `by_*` numeric count 做 exact comparison。ST-2A 已实现 numeric stats 专项模式的最小脚本能力；ST-2B-1C 已在 fresh 隔离固定数据集下建立 numeric baseline。
 
 ST-1 收口复核见 `docs/testing/api-snapshot-workorders-stats-schema-closure-review.md`。当前建议阶段性收口 stats schema snapshot，后续进入 numeric 专项模式设计。
 
 ST-2 numeric 专项模式设计见 `docs/testing/api-snapshot-workorders-stats-numeric-plan.md`。当前 numeric snapshot 是非默认、显式启用、独立 baseline 的手动专项检查方向；默认回归继续使用 stats schema snapshot，numeric snapshot 不属于普通回归默认路径，暂不进入常规 CI。
 
-ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。当前 numeric 模式可通过 `SNAPSHOT_STATS_MODE=numeric` 显式触发，但尚未建立 numeric baseline；默认 regression 仍应运行 schema 模式。
+ST-2A 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-mode-closure-review.md`。当前 numeric 模式可通过 `SNAPSHOT_STATS_MODE=numeric` 显式触发，numeric baseline 已建立但仍不属于默认 regression；默认 regression 仍应运行 schema 模式。
 
 ST-2A follow-up 已修复 numeric 专项优先级：`SNAPSHOT_MODE=schema + SNAPSHOT_STATS_MODE=numeric` 会进入 stats numeric 路径。numeric 模式同时保留 `overdue_top` schema-only shape；默认 regression 仍不运行 numeric baseline。
 
-ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。当前 numeric baseline 尚未建立；进入 ST-2B-1 前必须先确认隔离库或 reset 后测试库、固定样本、运行顺序和 diff 审查责任。
+ST-2B-0 numeric baseline 建立门禁见 `docs/testing/api-snapshot-workorders-stats-numeric-baseline-gate.md`。ST-2B-1C 已在 fresh 隔离固定数据集下建立 numeric baseline；该 baseline 仍不进入默认 regression，不进入普通 CI，后续更新必须继续确认隔离库或 reset 后测试库、固定样本、运行顺序和 diff 审查责任。
