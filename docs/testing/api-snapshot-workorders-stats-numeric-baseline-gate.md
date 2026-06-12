@@ -145,3 +145,5 @@ numeric baseline diff 必须检查：
 ST-2B-0 已完成门禁确认。ST-2B-1C 已在 fresh 隔离固定数据集下建立 numeric baseline。
 
 后续更新 numeric baseline 时，仍必须在隔离固定数据集下执行，并按本文规则单独审查、单独提交。
+
+如后续实现 `workorders.stats.numeric` manual workflow，workflow 仍必须满足本文门禁：使用 fresh / reset 后固定数据集，确认固定样本唯一和关联链路成立，确认 `WO-% = 0`，且不得执行 `UPDATE_SNAPSHOTS=true`。
