@@ -2,7 +2,7 @@
 
 生成日期：2026-06-12
 当前阶段：First Release Readiness / Target Environment Verification 文档体系与 API Snapshot Numeric release gate 已完成；真实目标环境执行记录仍待填写
-当前生产域名：https://park.cnjinhu.top  
+当前生产域名：https://<production-domain>
 代码仓库：git@github.com:ivanzhao299/jinhu-smart-park.git
 
 > 安全原则：本文档不保存任何明文密码、私钥、数据库密码、JWT 密钥、第三方 token、管理员密码或完整敏感连接串。所有密钥应通过 1Password、Bitwarden、企业微信密封消息或线下密封交接。
@@ -90,17 +90,17 @@ GitHub Actions Secrets 需要移交/核对：
 - 当前 `.github/workflows/deploy-production.yml` 已不是远端 `git pull` 部署。
 - 当前 workflow 在 GitHub Actions runner 侧 checkout 后执行 `rsync -az --delete` 到 `PROD_DEPLOY_PATH`。
 - 同步完成后，workflow 在远端执行 `PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health`。
-- `/opt/jinhu-smart-park` 是否仍不是 git worktree，需要接手团队远端人工确认；当前仓库只可确认 workflow 不再依赖远端 git worktree。
+- `<production-deploy-path>` 是否仍不是 git worktree，需要接手团队远端人工确认；当前仓库只可确认 workflow 不再依赖远端 git worktree。
 - 需要确认 rsync 排除项、远端 `.env.production`、上传/存储目录和数据目录不会被覆盖或误删。
 
 ## 4. 服务器与生产权限移交
 
 生产服务器：
 
-- IP：`47.236.122.224`
-- SSH 用户：`root`
-- 生产路径：`/opt/jinhu-smart-park`
-- 生产域名：`park.cnjinhu.top`
+- IP：`<production-server-ip>`
+- SSH 用户：`<ssh-user>`
+- 生产路径：`<production-deploy-path>`
+- 生产域名：`<production-domain>`
 - Web 容器端口：宿主机 `3410`
 - API 容器端口：宿主机 `3411`
 - PostgreSQL 宿主机端口：`5433`
@@ -131,7 +131,7 @@ ssh -i ~/.ssh/id_ed25519 \
   -o IPQoS=none \
   -o Compression=no \
   -o Ciphers=aes128-ctr \
-  root@47.236.122.224
+  <ssh-user>@<production-server-ip>
 ```
 
 小文件同步示例：
@@ -139,15 +139,15 @@ ssh -i ~/.ssh/id_ed25519 \
 ```bash
 rsync -avR --bwlimit=64 \
   -e "ssh -i ~/.ssh/id_ed25519 -o IPQoS=none -o Compression=no -o Ciphers=aes128-ctr" \
-  scripts/prod-deploy.sh root@47.236.122.224:/opt/jinhu-smart-park/
+  scripts/prod-deploy.sh <ssh-user>@<production-server-ip>:<production-deploy-path>/
 ```
 
 ## 5. 域名、DNS 与 HTTPS 权限移交
 
 必须移交：
 
-- `cnjinhu.top` 域名解析平台管理权限。
-- `park.cnjinhu.top` DNS 记录管理权限。
+- `<company-domain>` 域名解析平台管理权限。
+- `<production-domain>` DNS 记录管理权限。
 - HTTPS 证书申请/续期权限。
 - Nginx 站点配置权限。
 - 如使用 Certbot：Certbot 配置和续期任务权限。
@@ -155,15 +155,15 @@ rsync -avR --bwlimit=64 \
 当前外部健康检查：
 
 ```bash
-curl -I https://park.cnjinhu.top/login
-curl -s https://park.cnjinhu.top/api/v1/health
+curl -I https://<production-domain>/login
+curl -s https://<production-domain>/api/v1/health
 ```
 
 ## 6. 生产环境变量与密钥移交
 
 生产环境文件：
 
-- `/opt/jinhu-smart-park/.env.production`
+- `<production-deploy-path>/.env.production`
 - 模板：`.env.production.example`
 
 必须通过安全渠道移交：
@@ -276,7 +276,7 @@ Compose 文件：
 部署风险与人工确认：
 
 - `deploy-production.yml` 当前不再远端执行 `git pull`。
-- `/opt/jinhu-smart-park` 是否为 git worktree 仍需远端人工确认，但当前 workflow 已不依赖这一点。
+- `<production-deploy-path>` 是否为 git worktree 仍需远端人工确认，但当前 workflow 已不依赖这一点。
 - 需要人工确认远端目录内 `.env.production`、文件存储、上传目录、数据库 volume、日志目录不会被 rsync 删除或覆盖。
 - 当前 deploy workflow 是源码 rsync + 远端构建/部署，不是完整 build artifact 发布方案；是否要进一步改造为 artifact/registry 发布可作为后续运维优化。
 
@@ -536,9 +536,9 @@ pnpm test:e2e
 
 生产 URL：
 
-- Web：https://park.cnjinhu.top
-- Login：https://park.cnjinhu.top/login
-- API health：https://park.cnjinhu.top/api/v1/health
+- Web：https://<production-domain>
+- Login：https://<production-domain>/login
+- API health：https://<production-domain>/api/v1/health
 
 交接验收建议：
 
@@ -630,7 +630,7 @@ Package script 注意：
 
 ## 20. 已知技术债与风险
 
-- `/opt/jinhu-smart-park` 是否仍非 git worktree 需要远端人工确认。
+- `<production-deploy-path>` 是否仍非 git worktree 需要远端人工确认。
 - 当前 `deploy-production.yml` 已改为 rsync 同步，不再远端 `git pull`；旧的 git worktree 不匹配风险已不应按原描述保留。
 - 当前部署仍是源码 rsync + 远端构建/部署，不是完整 artifact/registry 部署；后续可继续评估 artifact 或镜像仓库发布。
 - 服务器 SSH 对大包和频繁握手敏感，部署同步仍应控制输出和传输量。
@@ -652,7 +652,7 @@ Package script 注意：
 5. 执行一次 `pnpm lint && pnpm typecheck && pnpm build`。
 6. 抽检生产页面。
 7. 备份生产数据库。
-8. 人工确认 `/opt/jinhu-smart-park` 目录形态、rsync 排除项和生产 `.env.production` 保留情况。
+8. 人工确认 `<production-deploy-path>` 目录形态、rsync 排除项和生产 `.env.production` 保留情况。
 9. 执行或补齐 target environment verification execution record。
 10. 复核 `API Snapshot Numeric` manual workflow 和 release-smoke 结果。
 11. 建立每日备份和监控告警。
