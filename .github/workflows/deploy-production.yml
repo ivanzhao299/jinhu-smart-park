@@ -26,6 +26,19 @@ jobs:
       - name: Trust production host
         run: ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Write release marker
+        run: |
+          cat > .release.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_number": "${GITHUB_RUN_NUMBER}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "deployed_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
       - name: Deploy
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}

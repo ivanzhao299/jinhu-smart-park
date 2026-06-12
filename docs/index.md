@@ -69,6 +69,7 @@ node scripts/e2e/first-release-regression.mjs
 ## 4. 部署与运维
 
 - 生产部署说明：[deployment/production.md](deployment/production.md)
+- 部署版本追溯：见 [deployment/production.md](deployment/production.md) 的 Deployment Traceability 小节
 - 运维排障手册：[deployment/troubleshooting.md](deployment/troubleshooting.md)
 
 ## 5. 发布与回滚

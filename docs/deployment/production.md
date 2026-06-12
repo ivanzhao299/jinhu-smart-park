@@ -146,6 +146,39 @@ The deploy script:
 6. Runs API/Web health checks.
 7. Prunes old Docker containers, unused images, and build cache.
 
+## 2.1 Deployment Traceability
+
+The production directory may not be a git worktree. In that case, operators must not rely on `git rev-parse HEAD`, `git status`, or `.git` metadata inside `/opt/jinhu-smart-park` to prove which release candidate is deployed.
+
+The `Deploy Production` GitHub Actions workflow writes a non-sensitive `.release.json` file on the runner before rsync. The file is synced to the production directory together with the source tree and records the GitHub Actions deployment identity.
+
+Expected fields:
+
+- `commit`
+- `ref`
+- `run_id`
+- `run_number`
+- `workflow`
+- `deployed_at_utc`
+
+The marker must not contain secrets, database connection strings, `.env.production` contents, production host/user/path values, admin passwords, or tokens.
+
+Post-deploy verification:
+
+```bash
+cd /opt/jinhu-smart-park
+cat .release.json
+```
+
+Pass criteria:
+
+- `.release.json` exists.
+- `commit` equals the GitHub Actions deployment commit.
+- the file contains only the expected non-sensitive fields.
+- the file does not contain secrets, database connection strings, `.env.production` contents, admin passwords, or tokens.
+
+The first release target environment verification actual run should record this check under release gate / deployment traceability. If `.release.json` is missing or the `commit` does not match the deployment commit, mark the release gate as `BLOCKED`.
+
 Migration behavior:
 
 - Successfully applied migration files are skipped on rerun.
@@ -175,7 +208,7 @@ Manual cleanup:
 pnpm prod:cleanup
 ```
 
-## 2.1 Local File Storage Operations
+## 2.2 Local File Storage Operations
 
 The first release keeps local file storage enabled.
 
