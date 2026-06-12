@@ -183,6 +183,8 @@ ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-nu
 
 ST-2C-1A 设计收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design-closure-review.md`。后续 workflow 小实现阶段仍必须禁止 `UPDATE_SNAPSHOTS=true`，禁止生成或提交 baseline。
 
+ST-2C-1B 已新增 `.github/workflows/api-snapshot-numeric.yml`。该 workflow 只允许检查 numeric baseline，不允许更新 baseline，不允许自动提交 baseline diff；如 numeric baseline 需要更新，仍必须单独 PR、单独审查。
+
 ## 8. baseline 更新后检查清单
 
 更新后必须检查：

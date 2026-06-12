@@ -267,3 +267,13 @@ workflow 中禁止：
 后续若实现，应仅使用 `workflow_dispatch`，并由 workflow 内部自建数据库和 API。workflow 只允许检查，不允许 baseline 更新。
 
 ST-2C-1A 设计收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design-closure-review.md`。设计收口后，可进入 ST-2C-1B：manual workflow 小实现。
+
+ST-2C-1B 已实现最小 workflow：
+
+```text
+.github/workflows/api-snapshot-numeric.yml
+```
+
+该 workflow 仅支持 `workflow_dispatch`，不接入 `pull_request`、`push` 或 `schedule`。执行步骤为安装依赖、启动 PostgreSQL、执行 migration / dev seed、启动 API、执行 snapshot bootstrap、运行默认 schema snapshot、运行 numeric snapshot，并上传日志 artifact。
+
+该 workflow 不允许 `UPDATE_SNAPSHOTS=true`，不运行 `first-release-workorders.mjs`，不自动提交 baseline，不连接生产数据库，不依赖外部 API。

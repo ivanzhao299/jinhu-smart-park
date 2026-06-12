@@ -475,3 +475,5 @@ ST-2C 收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual
 ST-2C-1 manual workflow 设计见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design.md`。设计建议仅 `workflow_dispatch`，workflow 内部自建数据库和 API，先跑默认 schema，再跑 numeric；仍不属于普通回归。
 
 ST-2C-1A 设计收口复核见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-design-closure-review.md`。设计可阶段性收口；如进入小实现，仍应只新增专用 `workflow_dispatch`，不接入 PR / push。
+
+ST-2C-1B 已新增专用 manual workflow：`.github/workflows/api-snapshot-numeric.yml`。该 workflow 仅手动触发，用于 release candidate 前 numeric 专项检查；不属于普通 PR CI，不属于 push CI，不允许 `UPDATE_SNAPSHOTS=true`。
