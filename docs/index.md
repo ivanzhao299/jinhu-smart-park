@@ -48,6 +48,7 @@
 - workorders.stats numeric manual workflow 小实现：[../.github/workflows/api-snapshot-numeric.yml](../.github/workflows/api-snapshot-numeric.yml)
 - workorders.stats numeric manual workflow 运行手册：[testing/api-snapshot-workorders-stats-numeric-manual-workflow-runbook.md](testing/api-snapshot-workorders-stats-numeric-manual-workflow-runbook.md)
 - workorders.stats numeric baseline / manual workflow 阶段性总结：[testing/api-snapshot-workorders-stats-numeric-baseline-workflow-summary.md](testing/api-snapshot-workorders-stats-numeric-baseline-workflow-summary.md)
+- first release API snapshot / release gate 总复盘：[testing/first-release-api-snapshot-release-gate-review.md](testing/first-release-api-snapshot-release-gate-review.md)
 - snapshot bootstrap 固定关联实施收口复核：[testing/api-snapshot-bootstrap-association-closure-review.md](testing/api-snapshot-bootstrap-association-closure-review.md)
 - fresh 隔离库默认 schema baseline 对齐设计：[testing/api-snapshot-fresh-schema-baseline-alignment-plan.md](testing/api-snapshot-fresh-schema-baseline-alignment-plan.md)
 - fresh schema baseline 对齐审查：[testing/api-snapshot-fresh-schema-baseline-alignment-review.md](testing/api-snapshot-fresh-schema-baseline-alignment-review.md)
