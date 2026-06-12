@@ -277,3 +277,5 @@ ST-2C-1B 已实现最小 workflow：
 该 workflow 仅支持 `workflow_dispatch`，不接入 `pull_request`、`push` 或 `schedule`。执行步骤为安装依赖、启动 PostgreSQL、执行 migration / dev seed、启动 API、执行 snapshot bootstrap、运行默认 schema snapshot、运行 numeric snapshot，并上传日志 artifact。
 
 该 workflow 不允许 `UPDATE_SNAPSHOTS=true`，不运行 `first-release-workorders.mjs`，不自动提交 baseline，不连接生产数据库，不依赖外部 API。
+
+ST-2C-1C 已完成手动试运行：`API Snapshot Numeric` run `#1` succeeded，耗时 `2m 48s`。该 workflow 可作为 release candidate 前 manual 检查入口，运行手册见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-runbook.md`。
