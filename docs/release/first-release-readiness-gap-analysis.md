@@ -136,7 +136,7 @@
 
 ## 8. 下一步建议
 
-建议进入 `first release target environment verification plan`。
+建议进入 `first release target environment verification plan`：`docs/release/first-release-target-environment-verification-plan.md`。
 
 目标：
 
