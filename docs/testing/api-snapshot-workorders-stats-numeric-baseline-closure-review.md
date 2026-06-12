@@ -167,3 +167,5 @@ ST-2C 建议只评估 manual workflow，不直接接入 CI。
 - manual workflow 是否具备独立库或 reset 能力。
 - 是否复用 `SNAPSHOT_STATS_MODE=numeric` 和 `ALLOW_STATS_NUMERIC_SNAPSHOT=true`。
 - 是否保持 numeric baseline 更新单独审查。
+
+ST-2C manual workflow 评估见 `docs/testing/api-snapshot-workorders-stats-numeric-manual-workflow-plan.md`。
