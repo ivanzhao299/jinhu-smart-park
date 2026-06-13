@@ -88,6 +88,7 @@ node scripts/e2e/first-release-regression.mjs
 - [生产部署说明](docs/deployment/production.md)
 - [生产上线 SOP](docs/release/production-release-sop.md)
 - [生产回滚 SOP](docs/release/production-rollback-sop.md)
+- [安全模块生产发布归档](docs/release/safety-module-production-release-record.md)
 - [生产 Migration 执行策略](docs/release/production-migration-execution-policy.md)
 - [Go-Live Checklist](docs/release/production-go-live-checklist.md)
 - [生产就绪度检查](docs/release/production-go-live-readiness.md)
