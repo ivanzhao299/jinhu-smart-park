@@ -18,7 +18,6 @@
 - 非首发模块
 - 对象存储
 - IoT / 能耗 / 视频 / 机器人
-- `/safety/my-inspect-tasks` 现场执行专属入口
 - 安全应急、作业许可等未纳入安全巡检与隐患整改核心开放范围的扩展能力
 - 全量状态流转
 - 全量幂等覆盖
@@ -261,7 +260,7 @@ curl -X POST -H "X-Idempotency-Key: <KEY>" -H "Authorization: Bearer <TOKEN>" ..
 - `/ready` 通过
 - 登录通过
 - `release-smoke` 通过
-- 安全巡检与隐患整改核心菜单开放前，`node scripts/e2e/s5a-safety-smoke.mjs` 通过
+- 安全巡检与隐患整改核心菜单及 `/safety/my-inspect-tasks` 开放前，`node scripts/e2e/s5a-safety-smoke.mjs` 通过
 - 文件存储持久化验证通过
 - 幂等关键接口验证通过
 - 无 P0 阻断问题

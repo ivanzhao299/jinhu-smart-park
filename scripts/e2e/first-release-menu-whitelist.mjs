@@ -56,6 +56,7 @@ function run() {
     "/safety/inspect-templates",
     "/safety/inspect-plans",
     "/safety/inspect-tasks",
+    "/safety/my-inspect-tasks",
     "/safety/hazards",
     "/safety/hazards/overdue"
   ];
@@ -73,7 +74,6 @@ function run() {
     "/safety/emergency-plans",
     "/safety/emergencies",
     "/safety/work-permits",
-    "/safety/my-inspect-tasks",
     "/leasing/leads",
     "/leasing/lead-pool",
     "/leasing/funnel",
