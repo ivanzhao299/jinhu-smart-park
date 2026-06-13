@@ -57,7 +57,15 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/workorders/list",
   "/workorders/sla-rules",
   "/workorders/overdue",
-  "/workorders/stats"
+  "/workorders/stats",
+  "/safety/dashboard",
+  "/safety/inspect-points",
+  "/safety/inspect-templates",
+  "/safety/inspect-plans",
+  "/safety/inspect-tasks",
+  "/safety/my-inspect-tasks",
+  "/safety/hazards",
+  "/safety/hazards/overdue"
 ] as const;
 
 const FIRST_RELEASE_MENU_PATH_SET = new Set<string>(FIRST_RELEASE_MENU_PATHS);

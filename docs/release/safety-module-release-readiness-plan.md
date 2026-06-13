@@ -15,7 +15,7 @@
 - 已有数据库结构：S5-A migration 已创建巡检点、巡检模板、巡检计划、巡检任务、隐患、隐患状态日志等核心表。
 - 已有后端接口：NestJS 模块已注册，核心 controller 均接入 `@RequireModule("safety")` 和 `@RequirePermissions(...)`。
 - 已有前端页面：`apps/web/app/safety/*` 页面已存在，主要通过 `apiRequest("/safety/...")` 调用真实 API。
-- 已有菜单定义但首发隐藏：`apps/web/lib/menu.ts` 已定义“安全管理”菜单，但 `FIRST_RELEASE_MENU_PATHS` 当前未包含 `/safety/*`。
+- 已有菜单定义且 PR 2 开始开放核心菜单：`apps/web/lib/menu.ts` 已定义“安全管理”菜单，`FIRST_RELEASE_MENU_PATHS` 仅纳入第一阶段核心 `/safety/*` 路径。
 - 已有权限与角色 seed：`packages/shared/src/index.ts` 定义权限常量，S5-A migration 已插入权限、角色权限、数据权限规则。
 - 已有 smoke 脚本：`scripts/e2e/s5a-safety-smoke.mjs` 覆盖巡检、隐患整改、转工单、统计等主链路。
 - 未发现安全页面使用静态 mock 数据替代真实 API；但 `000092` 会插入默认巡检模板和检查项，需要明确生产口径。

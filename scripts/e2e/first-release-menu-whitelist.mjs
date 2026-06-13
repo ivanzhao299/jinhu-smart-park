@@ -50,7 +50,15 @@ function run() {
     "/leasing/receivables",
     "/leasing/payments",
     "/workorders",
-    "/workorders/list"
+    "/workorders/list",
+    "/safety/dashboard",
+    "/safety/inspect-points",
+    "/safety/inspect-templates",
+    "/safety/inspect-plans",
+    "/safety/inspect-tasks",
+    "/safety/my-inspect-tasks",
+    "/safety/hazards",
+    "/safety/hazards/overdue"
   ];
   for (const path of requiredPaths) {
     if (!assert(whitelistBlock.includes(path), `whitelist includes ${path}`)) return;
@@ -61,7 +69,11 @@ function run() {
     "/energy/dashboard",
     "/robots/overview",
     "/admin/video-security/dashboard",
-    "/safety/dashboard",
+    "/safety/emergency-dashboard",
+    "/safety/emergency-contacts",
+    "/safety/emergency-plans",
+    "/safety/emergencies",
+    "/safety/work-permits",
     "/leasing/leads",
     "/leasing/lead-pool",
     "/leasing/funnel",
