@@ -84,7 +84,7 @@
 ## 4. P0：正式开放前必须完成
 
 1. 菜单开放确认
-   - 决定开放的最小菜单范围：建议先开放 `安全看板`、`巡检点位`、`巡检模板`、`巡检计划`、`巡检任务`、`我的巡检`、`隐患整改`、`超期隐患`。
+   - 决定开放的最小菜单范围：先开放 `安全看板`、`巡检点位`、`巡检模板`、`巡检计划`、`巡检任务`、`隐患整改`、`超期隐患`。
    - 更新 `apps/web/lib/menu.ts` 的 `FIRST_RELEASE_MENU_PATHS`，仅加入已验收路径。
    - 同步更新 `scripts/e2e/first-release-menu-whitelist.mjs` 对安全菜单的预期。
 
@@ -159,16 +159,18 @@
    - `/safety/inspect-templates`
    - `/safety/inspect-plans`
    - `/safety/inspect-tasks`
-   - `/safety/my-inspect-tasks`
    - `/safety/hazards`
    - `/safety/hazards/overdue`
 
-2. 暂不因本计划开放应急和作业许可菜单：
+2. 暂不因本计划开放现场执行专属入口、应急和作业许可菜单：
+   - `/safety/my-inspect-tasks`
    - `/safety/emergency-dashboard`
    - `/safety/emergency-contacts`
    - `/safety/emergency-plans`
    - `/safety/emergencies`
    - `/safety/work-permits`
+
+   `/safety/my-inspect-tasks` 暂缓原因：现场执行角色权限与页面依赖接口仍需后续权限适配 PR 统一确认。
 
 3. 菜单开放修改必须同步：
    - `apps/web/lib/menu.ts`
