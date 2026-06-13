@@ -4,7 +4,7 @@ JinHu Smart Park 是一个面向产业园区数字运营场景的 SaaS 平台，
 
 当前阶段：首发基线已形成，仓库正在进行上线前质量加固与文档收口。  
 首发范围聚焦系统管理、资产、租赁、工单、文件、认证和基础运维能力。  
-`IoT`、能耗、视频、机器人、安全等模块仍视为二期范围，需要单独验收后启用。
+`IoT`、能耗、视频、机器人等模块仍视为二期范围；安全巡检与隐患整改模块正在按 [安全模块上线整改计划](docs/release/safety-module-release-readiness-plan.md) 独立验收，完成 P0 后可纳入生产开放范围。
 
 ## 1. 快速入口
 
@@ -107,6 +107,7 @@ node scripts/e2e/first-release-regression.mjs
 - 菜单白名单控制的是首发展示入口
 - 隐藏菜单不等于代码已经删除
 - 二期模块启用前仍需独立验收和回归
+- 安全巡检与隐患整改模块开放前需按 [安全模块上线整改计划](docs/release/safety-module-release-readiness-plan.md) 完成 P0 验收
 
 ## 7. 重要约束
 
