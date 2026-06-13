@@ -3,8 +3,8 @@
 JinHu Smart Park 是一个面向产业园区数字运营场景的 SaaS 平台，当前采用 `pnpm workspace` monorepo 组织，核心技术栈包括 `Next.js`、`NestJS`、`PostgreSQL`、`Docker Compose`。
 
 当前阶段：首发基线已形成，仓库正在进行上线前质量加固与文档收口。  
-首发范围聚焦系统管理、资产、租赁、工单、文件、认证和基础运维能力。  
-`IoT`、能耗、视频、机器人等模块仍视为二期范围；安全巡检与隐患整改模块正在按 [安全模块上线整改计划](docs/release/safety-module-release-readiness-plan.md) 独立验收，完成 P0 后可纳入生产开放范围。
+首发范围聚焦系统管理、资产、租赁、工单、文件、认证、安全巡检与隐患整改核心菜单和基础运维能力。
+`IoT`、能耗、视频、机器人等模块仍视为二期范围；安全“我的巡检”现场执行入口、应急、作业许可等安全扩展能力仍暂缓开放。
 
 ## 1. 快速入口
 
@@ -107,7 +107,8 @@ node scripts/e2e/first-release-regression.mjs
 - 菜单白名单控制的是首发展示入口
 - 隐藏菜单不等于代码已经删除
 - 二期模块启用前仍需独立验收和回归
-- 安全巡检与隐患整改模块开放前需按 [安全模块上线整改计划](docs/release/safety-module-release-readiness-plan.md) 完成 P0 验收
+- 安全巡检与隐患整改核心菜单已进入生产开放验收范围，开放口径见 [安全模块上线整改计划](docs/release/safety-module-release-readiness-plan.md)
+- 安全“我的巡检”现场执行入口、应急、作业许可等安全扩展能力仍暂缓开放
 
 ## 7. 重要约束
 

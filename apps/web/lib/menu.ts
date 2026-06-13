@@ -57,7 +57,14 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/workorders/list",
   "/workorders/sla-rules",
   "/workorders/overdue",
-  "/workorders/stats"
+  "/workorders/stats",
+  "/safety/dashboard",
+  "/safety/inspect-points",
+  "/safety/inspect-templates",
+  "/safety/inspect-plans",
+  "/safety/inspect-tasks",
+  "/safety/hazards",
+  "/safety/hazards/overdue"
 ] as const;
 
 const FIRST_RELEASE_MENU_PATH_SET = new Set<string>(FIRST_RELEASE_MENU_PATHS);
@@ -229,7 +236,7 @@ export const dashboardMenus: MenuNode[] = [
       { label: "巡检任务", href: "/safety/inspect-tasks", permission: "safety_inspect_task:read", module: "safety" },
       { label: "我的巡检", href: "/safety/my-inspect-tasks", permission: "safety_inspect_task:my", module: "safety" },
       { label: "隐患整改", href: "/safety/hazards", permission: "safety_hazard:read", module: "safety" },
-      { label: "超期隐患", href: "/safety/hazards/overdue", permission: "safety_hazard:overdue", module: "safety" },
+      { label: "超期隐患", href: "/safety/hazards/overdue", permission: "safety_hazard:read", module: "safety" },
       { label: "应急联系人", href: "/safety/emergency-contacts", permission: "safety_emergency_contact:read", module: "safety" },
       { label: "应急预案", href: "/safety/emergency-plans", permission: "safety_emergency_plan:read", module: "safety" },
       { label: "应急事件", href: "/safety/emergencies", permission: "safety_emergency:read", module: "safety" },
