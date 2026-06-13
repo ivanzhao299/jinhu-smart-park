@@ -37,7 +37,7 @@
 - 对象存储
 - IoT / 能耗 / 视频 / 机器人
 - 安全应急、作业许可等安全扩展能力
-- 安全现场执行专属入口 `/safety/my-inspect-tasks`
+- 安全现场执行专属入口 `/safety/my-inspect-tasks` 菜单开放
 - 全量状态流转
 - 全量幂等覆盖
 
@@ -251,7 +251,7 @@ bash scripts/verify-api-login-dockerexec.sh
 - 安全巡检与隐患整改核心菜单已进入开放验收范围
 - 仅开放 [安全模块上线整改计划](safety-module-release-readiness-plan.md) 第 7 节第一阶段路径
 - 安全模块上线前人工验收和归档记录见 [安全巡检与隐患整改模块上线验收记录](safety-module-release-acceptance-record.md)
-- `/safety/my-inspect-tasks` 因现场执行角色权限与页面依赖接口不一致，暂缓到后续权限适配 PR
+- `/safety/my-inspect-tasks` 已完成权限适配，菜单仍暂缓到后续独立开放 PR
 - 不自动开放应急、作业许可等扩展菜单
 
 说明：

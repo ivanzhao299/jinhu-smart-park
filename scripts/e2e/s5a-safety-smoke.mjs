@@ -255,6 +255,109 @@ WHERE id = ${sqlLiteral(userId)}
   AND username LIKE 's5a_smoke_normal_%';`);
 }
 
+async function createSmokeFieldUser(adminToken) {
+  const username = `s5a_smoke_field_${stamp}`;
+  const roleId = randomUUID();
+  const created = await jsonRequest("/users", adminToken, "POST", {
+    username,
+    displayName: `S5A Smoke Field ${stamp}`,
+    password: normalPassword,
+    status: "enabled",
+    remark: smokeRemark
+  }, "field-user-create");
+  assertStatus("create smoke field user", created.response.status, 201);
+  assertUniformResponse("create smoke field user", created.body);
+  const userId = created.body.data?.id;
+  assert(userId, "smoke field user response missing id");
+
+  await dbScalar(`
+INSERT INTO sys_role (
+  id, tenant_id, park_id, code, name, role_type, role_scope, data_scope,
+  is_system, is_builtin, is_super, status, is_enabled, remark
+) VALUES (
+  ${sqlLiteral(roleId)},
+  ${sqlLiteral(tenantId)},
+  ${sqlLiteral(parkId)},
+  ${sqlLiteral(`S5A_FIELD_${stamp}`)},
+  ${sqlLiteral(`S5A Smoke Field Role ${stamp}`)},
+  'custom',
+  'park',
+  '50',
+  false,
+  false,
+  false,
+  'enabled',
+  true,
+  ${sqlLiteral(smokeRemark)}
+);`);
+
+  await dbScalar(`
+INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, remark)
+SELECT ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, permission.id, ${sqlLiteral(smokeRemark)}
+FROM sys_permission permission
+WHERE permission.tenant_id = ${sqlLiteral(tenantId)}
+  AND permission.park_id = ${sqlLiteral(parkId)}
+  AND permission.is_deleted = false
+  AND permission.code IN (
+    'safety_inspect_task:my',
+    'safety_inspect_task:start',
+    'safety_inspect_task:check_in',
+    'safety_inspect_task:submit_results'
+  );`);
+
+  const grantedCount = Number(await dbScalar(`
+SELECT count(*)
+FROM rel_role_perm role_perm
+JOIN sys_permission permission ON permission.id = role_perm.permission_id
+WHERE role_perm.tenant_id = ${sqlLiteral(tenantId)}
+  AND role_perm.park_id = ${sqlLiteral(parkId)}
+  AND role_perm.role_id = ${sqlLiteral(roleId)}
+  AND role_perm.is_deleted = false
+  AND permission.code IN (
+    'safety_inspect_task:my',
+    'safety_inspect_task:start',
+    'safety_inspect_task:check_in',
+    'safety_inspect_task:submit_results'
+  );`));
+  assert(grantedCount === 4, `smoke field role expected 4 permissions, got ${grantedCount}`);
+
+  await dbScalar(`
+INSERT INTO rel_user_role (tenant_id, park_id, user_id, role_id, remark)
+VALUES (${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(userId)}, ${sqlLiteral(roleId)}, ${sqlLiteral(smokeRemark)});`);
+
+  return { id: userId, username, roleId };
+}
+
+async function cleanupSmokeFieldUser(fieldUser) {
+  if (!fieldUser?.id) return;
+  await dbScalar(`
+UPDATE rel_user_role
+SET is_deleted = true, update_time = now()
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND user_id = ${sqlLiteral(fieldUser.id)};`);
+  if (fieldUser.roleId) {
+    await dbScalar(`
+UPDATE rel_role_perm
+SET is_deleted = true, update_time = now()
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND role_id = ${sqlLiteral(fieldUser.roleId)};`);
+    await dbScalar(`
+UPDATE sys_role
+SET is_deleted = true, update_time = now()
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND id = ${sqlLiteral(fieldUser.roleId)}
+  AND code LIKE 'S5A_FIELD_%';`);
+  }
+  await dbScalar(`
+UPDATE sys_user
+SET is_deleted = true, update_time = now()
+WHERE id = ${sqlLiteral(fieldUser.id)}
+  AND username LIKE 's5a_smoke_field_%';`);
+}
+
 function hasPermission(userContext, permission) {
   const permissions = new Set(userContext?.permissions ?? []);
   return userContext?.is_super === true || userContext?.isSuper === true || permissions.has("*") || permissions.has(permission);
@@ -330,6 +433,41 @@ WHERE id = ${sqlLiteral(foreignHazardId)};`);
   }
 }
 
+async function withForeignInspectTask(handlerId, callback) {
+  const foreignTenantId = `safety-smoke-tenant-${stamp}`;
+  const foreignParkId = `safety-smoke-park-${stamp}`;
+  const foreignTaskId = randomUUID();
+
+  await dbScalar(`
+INSERT INTO biz_safety_inspect_task (
+  id, tenant_id, park_id, code, task_code, template_id, point_id, handler_id,
+  handler_name, plan_time, due_time, status, remark
+) VALUES (
+  ${sqlLiteral(foreignTaskId)},
+  ${sqlLiteral(foreignTenantId)},
+  ${sqlLiteral(foreignParkId)},
+  ${sqlLiteral(`S5A-XT-${stamp}`)},
+  ${sqlLiteral(`S5A-XT-${stamp}`)},
+  ${sqlLiteral(randomUUID())},
+  ${sqlLiteral(randomUUID())},
+  ${sqlLiteral(handlerId)},
+  ${sqlLiteral(`S5A foreign handler ${stamp}`)},
+  now(),
+  now() + interval '1 day',
+  '10',
+  ${sqlLiteral(smokeRemark)}
+);`);
+
+  try {
+    await callback({ foreignTaskId });
+  } finally {
+    await dbScalar(`
+UPDATE biz_safety_inspect_task
+SET is_deleted = true, update_time = now()
+WHERE id = ${sqlLiteral(foreignTaskId)};`);
+  }
+}
+
 async function main() {
   await ensureApiStarted();
 
@@ -387,6 +525,8 @@ async function main() {
     await cleanupSmokeNormalUser(smokeNormalUser.id);
   }
 
+  const smokeFieldUser = await createSmokeFieldUser(adminToken);
+  try {
   await withForeignSafetyRows(async ({ foreignPointId, foreignHazardId }) => {
     const foreignPointRead = await request(`/safety/inspect-points/${foreignPointId}`, { headers: { authorization: `Bearer ${adminToken}` } });
     assertStatus("foreign scope inspect point cannot be read", foreignPointRead.response.status, 404);
@@ -473,6 +613,80 @@ async function main() {
   const item = itemCreate.body.data;
   assert(item?.id, "inspect item response missing id");
 
+  const fieldTaskCreate = await jsonRequest("/safety/inspect-tasks", adminToken, "POST", {
+    template_id: template.id,
+    point_id: point.id,
+    handler_id: smokeFieldUser.id,
+    plan_time: new Date(stamp + 2).toISOString(),
+    due_time: new Date(stamp + 24 * 60 * 60 * 1000 + 2).toISOString(),
+    remark: smokeRemark
+  }, "field-task-create");
+  assertStatus("admin creates field user's inspect task", fieldTaskCreate.response.status, 201);
+  assertUniformResponse("admin creates field user's inspect task", fieldTaskCreate.body);
+  const fieldTask = fieldTaskCreate.body.data;
+  assert(fieldTask?.id, "field inspect task response missing id");
+
+  const fieldLogin = await login(smokeFieldUser.username, normalPassword);
+  assertStatus("smoke field login", fieldLogin.response.status, 200);
+  assertUniformResponse("smoke field login", fieldLogin.body);
+  const fieldToken = fieldLogin.body.data.accessToken;
+  assert(fieldToken, "smoke field login missing accessToken");
+
+  const fieldDeniedPlans = await request("/safety/inspect-plans?page=1&page_size=10", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read inspect plans", fieldDeniedPlans.response.status, 403);
+  const fieldDeniedTemplates = await request("/safety/inspect-templates?page=1&page_size=10", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read inspect templates", fieldDeniedTemplates.response.status, 403);
+  const fieldDeniedPoints = await request("/safety/inspect-points?page=1&page_size=10", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read inspect points", fieldDeniedPoints.response.status, 403);
+  const fieldDeniedUsers = await request("/users?page=1&page_size=10", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read users list", fieldDeniedUsers.response.status, 403);
+  const fieldDeniedAdminTasks = await request("/safety/inspect-tasks?page=1&page_size=10", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read management inspect tasks", fieldDeniedAdminTasks.response.status, 403);
+  const fieldDeniedTaskDetail = await request(`/safety/inspect-tasks/${fieldTask.id}`, { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read management inspect task detail", fieldDeniedTaskDetail.response.status, 403);
+  const fieldDeniedTemplateItems = await request(`/safety/inspect-templates/${template.id}/items?page=1&page_size=10`, { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read management inspect template items", fieldDeniedTemplateItems.response.status, 403);
+
+  const fieldMyTasks = await request("/safety/my-inspect-tasks?page=1&page_size=20", { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user reads my inspect tasks", fieldMyTasks.response.status, 200);
+  assertUniformResponse("field user reads my inspect tasks", fieldMyTasks.body);
+  assert(asArray(fieldMyTasks.body.data?.items).some((task) => task.id === fieldTask.id), "field my tasks does not include own task");
+  assert(asArray(fieldMyTasks.body.data?.items).every((task) => task.handlerId === smokeFieldUser.id), "field my tasks returned another user's task");
+
+  const fieldMyDetail = await request(`/safety/my-inspect-tasks/${fieldTask.id}`, { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user reads own my-task detail", fieldMyDetail.response.status, 200);
+  assertUniformResponse("field user reads own my-task detail", fieldMyDetail.body);
+  assert(fieldMyDetail.body.data?.id === fieldTask.id, "field my-task detail returned unexpected task");
+  assert(asArray(fieldMyDetail.body.data?.items).some((row) => row.id === item.id), "field my-task detail missing inspect items");
+
+  const fieldStart = await jsonRequest(`/safety/inspect-tasks/${fieldTask.id}/start`, fieldToken, "POST", undefined, "field-task-start");
+  assertStatus("field user starts own inspect task", fieldStart.response.status, 201);
+  const fieldCheckIn = await jsonRequest(`/safety/inspect-tasks/${fieldTask.id}/check-in`, fieldToken, "POST", {}, "field-task-check-in");
+  assertStatus("field user checks in own inspect task", fieldCheckIn.response.status, 201);
+  const fieldSubmit = await jsonRequest(`/safety/inspect-tasks/${fieldTask.id}/submit-results`, fieldToken, "POST", {
+    results: [
+      {
+        item_id: item.id,
+        result: "normal",
+        value_text: "S5A field smoke normal item",
+        photo_file_ids: [],
+        create_hazard: false
+      }
+    ],
+    finish_task: true
+  }, "field-task-submit");
+  assertStatus("field user submits own inspect task results", fieldSubmit.response.status, 201);
+  assertUniformResponse("field user submits own inspect task results", fieldSubmit.body);
+  assert(fieldSubmit.body.data?.status === "30", "field submitted task should be completed");
+  assert(fieldSubmit.body.data?.result === "normal", "field submitted task should be normal");
+
+  await withForeignInspectTask(smokeFieldUser.id, async ({ foreignTaskId }) => {
+    const foreignMyDetail = await request(`/safety/my-inspect-tasks/${foreignTaskId}`, { headers: { authorization: `Bearer ${fieldToken}` } });
+    assertStatus("field user cannot read foreign-scope my-task detail", foreignMyDetail.response.status, 404);
+    const foreignStart = await jsonRequest(`/safety/inspect-tasks/${foreignTaskId}/start`, fieldToken, "POST", undefined, "field-foreign-task-start");
+    assertStatus("field user cannot start foreign-scope task", foreignStart.response.status, 404);
+  });
+
   const planCreate = await jsonRequest("/safety/inspect-plans", adminToken, "POST", {
     plan_name: `S5A smoke plan ${stamp}`,
     template_id: template.id,
@@ -518,6 +732,11 @@ async function main() {
   assertStatus("my inspect tasks", myTasks.response.status, 200);
   assertUniformResponse("my inspect tasks", myTasks.body);
   assert(asArray(myTasks.body.data?.items).every((task) => task.handlerId === adminId), "my inspect tasks returned another user's task");
+
+  const otherTaskDetail = await request(`/safety/my-inspect-tasks/${generatedTaskId}`, { headers: { authorization: `Bearer ${fieldToken}` } });
+  assertStatus("field user cannot read another user's my-task detail", otherTaskDetail.response.status, 403);
+  const otherTaskStart = await jsonRequest(`/safety/inspect-tasks/${generatedTaskId}/start`, fieldToken, "POST", undefined, "field-other-task-start");
+  assertStatus("field user cannot start another user's task", otherTaskStart.response.status, 403);
 
   const startTask = await jsonRequest(`/safety/inspect-tasks/${generatedTaskId}/start`, adminToken, "POST", undefined, "task-start");
   assertStatus("admin starts generated inspect task", startTask.response.status, 201);
@@ -866,6 +1085,9 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   AND park_id = ${sqlLiteral(parkId)}
   AND create_time >= to_timestamp(${Math.floor(stamp / 1000)})
   AND (module ILIKE '%安全%' OR module ILIKE '%附件%' OR module ILIKE '%工单%');`, 5);
+  } finally {
+    await cleanupSmokeFieldUser(smokeFieldUser);
+  }
 
   logStep("S5-A safety smoke passed");
 }
