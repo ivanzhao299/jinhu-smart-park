@@ -63,6 +63,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/safety/inspect-templates",
   "/safety/inspect-plans",
   "/safety/inspect-tasks",
+  "/safety/my-inspect-tasks",
   "/safety/hazards",
   "/safety/hazards/overdue"
 ] as const;
