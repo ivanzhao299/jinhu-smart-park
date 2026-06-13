@@ -113,6 +113,8 @@ rsync -a --delete <FILE_STORAGE_LOCAL_ROOT>/ <backup_dir>/jinhu_files/
 
 以下命令模板中的占位符由运维按环境填写，禁止在文档中明文放入真实密钥。
 
+通过 GitHub Actions `Deploy Production` 执行远端部署时，`rsync` 和远端 `ssh` 命令必须使用统一 SSH keepalive 参数，避免 Docker build 拉取基础镜像或执行 `apt-get install` 时间较长时触发 `client_loop: send disconnect: Broken pipe`。当前 workflow 使用 `ServerAliveInterval=30`、`ServerAliveCountMax=20`、`TCPKeepAlive=yes`、`ConnectTimeout=30`。
+
 ### 7.1 拉取最新镜像
 
 ```bash

@@ -49,8 +49,9 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
         run: |
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           rsync -az --delete \
-            -e "ssh -p $PROD_SSH_PORT" \
+            -e "ssh $SSH_OPTS" \
             --exclude='.git/' \
             --exclude='.env' \
             --exclude='.env.*' \
@@ -69,4 +70,4 @@ jobs:
             --exclude='storage/' \
             --exclude='data/' \
             ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
-          ssh -p "$PROD_SSH_PORT" "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health"
