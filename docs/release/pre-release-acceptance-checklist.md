@@ -250,6 +250,7 @@ bash scripts/verify-api-login-dockerexec.sh
 
 - 安全巡检与隐患整改核心菜单已进入开放验收范围
 - 仅开放 [安全模块上线整改计划](safety-module-release-readiness-plan.md) 第 7 节第一阶段路径
+- 安全模块上线前人工验收和归档记录见 [安全巡检与隐患整改模块上线验收记录](safety-module-release-acceptance-record.md)
 - `/safety/my-inspect-tasks` 因现场执行角色权限与页面依赖接口不一致，暂缓到后续权限适配 PR
 - 不自动开放应急、作业许可等扩展菜单
 
