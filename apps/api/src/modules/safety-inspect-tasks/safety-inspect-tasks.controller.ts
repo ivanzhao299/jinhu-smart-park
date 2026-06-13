@@ -24,6 +24,12 @@ export class SafetyInspectTasksController {
     return this.service.myTasks(scope, query, user);
   }
 
+  @Get("my-inspect-tasks/:id")
+  @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY)
+  myTaskDetail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.service.myTaskDetail(scope, id, user);
+  }
+
   @Get("inspect-tasks")
   @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: SafetyInspectTaskQueryDto) {

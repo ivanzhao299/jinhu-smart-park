@@ -54,6 +54,10 @@ export interface GenerateSafetyInspectTasksResult {
   rows: GenerateSafetyInspectTasksResultRow[];
 }
 
+export type MySafetyInspectTaskDetail = SafetyInspectTaskEntity & {
+  items: SafetyInspectItemEntity[];
+};
+
 @Injectable()
 export class SafetyInspectTasksService {
   constructor(
@@ -99,6 +103,19 @@ export class SafetyInspectTasksService {
 
   async myTasks(scope: TenantParkScope, query: SafetyInspectTaskQueryDto, actor: JwtPrincipal): Promise<PaginatedResult<SafetyInspectTaskEntity>> {
     return this.list(scope, { ...query, handler_id: actor.sub }, actor);
+  }
+
+  async myTaskDetail(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<MySafetyInspectTaskDetail> {
+    const entity = await this.findOne(scope, id, actor);
+    if (entity.handlerId !== actor.sub) {
+      throw new ForbiddenException("Only task handler can view this inspect task");
+    }
+    const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+    const items = await this.itemsRepository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, templateId: entity.templateId, isDeleted: false, status: "enabled" },
+      order: { sortNo: "ASC", createTime: "ASC" }
+    });
+    return Object.assign(securedTask, { items });
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<SafetyInspectTaskEntity> {

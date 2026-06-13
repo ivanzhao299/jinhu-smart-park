@@ -134,6 +134,7 @@ interface InspectTaskRow {
   point?: InspectPointRow | null;
   handler?: UserRow | null;
   results?: InspectTaskResultRow[];
+  items?: InspectItemRow[];
 }
 
 interface TaskForm {
@@ -202,6 +203,10 @@ const emptyFilters: Filters = { keyword: "", status: "", pointId: "", handlerId:
 const emptyTaskForm: TaskForm = { taskCode: "", planId: "", templateId: "", pointId: "", handlerId: "", planTime: "", dueTime: "", remark: "" };
 const emptyGenerateForm: GenerateForm = { planId: "", planTime: "", dueTime: "" };
 const emptyCheckInForm: CheckInForm = { qrCode: "", gpsLng: "", gpsLat: "", photoFileIds: "" };
+const fallbackItemResultItems: DictItemRow[] = [
+  { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
+  { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
+];
 
 export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const authUser = useAuthUser();
@@ -227,7 +232,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
   const statusItems = dicts.safety_inspect_task_status ?? [];
-  const itemResultItems = dicts.safety_inspect_item_result ?? [];
+  const itemResultItems = dicts.safety_inspect_item_result ?? fallbackItemResultItems;
   const pointMap = useMemo(() => new Map(points.map((item) => [item.id, item])), [points]);
   const templateMap = useMemo(() => new Map(templates.map((item) => [item.id, item])), [templates]);
   const permission = mode === "mine" ? SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY : SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ;
@@ -289,8 +294,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }, []);
 
   useEffect(() => {
+    if (mode === "mine") return;
     void Promise.all([loadDicts(), loadRefs()]).catch((error: Error) => setMessage(error.message));
-  }, [loadDicts, loadRefs]);
+  }, [loadDicts, loadRefs, mode]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -321,12 +327,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openDetail(row: InspectTaskRow) {
-    const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${row.id}`, { token: getAccessToken() });
+    const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
     setViewing(response.data);
   }
 
   async function openExecute(row: InspectTaskRow) {
-    const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${row.id}`, { token: getAccessToken() });
+    const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
     const task = response.data;
     setExecuting(task);
     setCheckInForm({
@@ -335,6 +341,10 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       gpsLat: task.gpsLat ?? "",
       photoFileIds: task.photoFileIds?.join(",") ?? ""
     });
+    if (mode === "mine") {
+      applyTemplateItems(task.items ?? [], task.results ?? []);
+      return;
+    }
     await loadTemplateItems(task.templateId, task.results ?? []);
   }
 
@@ -342,9 +352,13 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=100`, {
       token: getAccessToken()
     });
-    setTemplateItems(response.data.items);
+    applyTemplateItems(response.data.items, existingResults);
+  }
+
+  function applyTemplateItems(items: InspectItemRow[], existingResults: InspectTaskResultRow[]) {
+    setTemplateItems(items);
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
-    setResultInputs(Object.fromEntries(response.data.items.map((item) => {
+    setResultInputs(Object.fromEntries(items.map((item) => {
       const existing = existingMap.get(item.id);
       return [item.id, {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
@@ -458,6 +472,13 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     setViewing(response.data);
     setMessage("巡检结果已提交");
     await load();
+    if (mode === "mine") {
+      const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
+      setExecuting(detail.data);
+      setViewing(detail.data);
+      applyTemplateItems(detail.data.items ?? [], detail.data.results ?? []);
+      return;
+    }
     await loadTemplateItems(response.data.templateId, response.data.results ?? []);
   }
 
@@ -500,7 +521,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="任务编码 / 点位 / 模板" />
               </Field>
               <SelectField label="状态" value={filters.status} items={statusItems} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
-              <SimpleSelect label="巡检点" value={filters.pointId} allLabel="全部点位" options={points.map((item) => ({ value: item.id, label: `${item.pointCode} ${item.pointName}` }))} onChange={(value) => setFilters((current) => ({ ...current, pointId: value }))} />
+              {mode === "all" ? (
+                <SimpleSelect label="巡检点" value={filters.pointId} allLabel="全部点位" options={points.map((item) => ({ value: item.id, label: `${item.pointCode} ${item.pointName}` }))} onChange={(value) => setFilters((current) => ({ ...current, pointId: value }))} />
+              ) : null}
               {mode === "all" ? (
                 <SimpleSelect label="责任人" value={filters.handlerId} allLabel="全部责任人" options={users.map((item) => ({ value: item.id, label: displayUser(item) }))} onChange={(value) => setFilters((current) => ({ ...current, handlerId: value }))} />
               ) : null}
@@ -672,7 +695,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
               <DrawerDetailItem label="状态" value={<StatusPill dictCode="safety_inspect_task_status" value={viewing.status} dicts={dicts} />} />
               <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
             </DrawerDetailGrid>
-            <VideoEvidencePanel sourceType="INSPECTION" sourceId={viewing.id} />
+            {mode === "all" ? <VideoEvidencePanel sourceType="INSPECTION" sourceId={viewing.id} /> : null}
             <Card>
               <h3>检查结果</h3>
               <DataTable>
@@ -916,6 +939,10 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
     photoFileIds: "",
     createHazard: false
   };
+}
+
+function taskDetailEndpoint(mode: PageMode, id: string): string {
+  return mode === "mine" ? `/safety/my-inspect-tasks/${id}` : `/safety/inspect-tasks/${id}`;
 }
 
 function fillBrowserLocation(setCheckInForm: (updater: (current: CheckInForm) => CheckInForm) => void) {
