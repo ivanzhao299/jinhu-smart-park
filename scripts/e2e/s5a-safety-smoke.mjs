@@ -15,7 +15,6 @@ const tenantId = process.env.E2E_TENANT_ID ?? "10000001";
 const parkId = process.env.E2E_PARK_ID ?? "20000001";
 const adminUser = process.env.E2E_ADMIN_USERNAME ?? "admin";
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "Jinhu@123456";
-const normalUser = process.env.E2E_NORMAL_USERNAME ?? "s1_user";
 const normalPassword = process.env.E2E_NORMAL_PASSWORD ?? "Jinhu@123456";
 const stamp = Date.now();
 const smokeRemark = `S5A safety smoke ${stamp}`;
@@ -232,6 +231,105 @@ LIMIT 1;`);
   return { unitId, buildingId: buildingId || undefined, floorId: floorId || undefined, parkTenantId };
 }
 
+async function createSmokeNormalUser(adminToken) {
+  const username = `s5a_smoke_normal_${stamp}`;
+  const created = await jsonRequest("/users", adminToken, "POST", {
+    username,
+    displayName: `S5A Smoke Normal ${stamp}`,
+    password: normalPassword,
+    status: "enabled",
+    remark: smokeRemark
+  }, "normal-user-create");
+  assertStatus("create smoke normal user", created.response.status, 201);
+  assertUniformResponse("create smoke normal user", created.body);
+  assert(created.body.data?.id, "smoke normal user response missing id");
+  return { id: created.body.data.id, username };
+}
+
+async function cleanupSmokeNormalUser(userId) {
+  if (!userId) return;
+  await dbScalar(`
+UPDATE sys_user
+SET is_deleted = true, update_time = now()
+WHERE id = ${sqlLiteral(userId)}
+  AND username LIKE 's5a_smoke_normal_%';`);
+}
+
+function hasPermission(userContext, permission) {
+  const permissions = new Set(userContext?.permissions ?? []);
+  return userContext?.is_super === true || userContext?.isSuper === true || permissions.has("*") || permissions.has(permission);
+}
+
+function emergencyPayload(label) {
+  return {
+    incident_type: "fire",
+    severity_level: "30",
+    title: `S5A ${label} emergency ${stamp}`,
+    description: `S5A ${label} emergency conversion smoke`,
+    reason: `S5A ${label} emergency conversion`
+  };
+}
+
+async function withForeignSafetyRows(callback) {
+  const foreignTenantId = `safety-smoke-tenant-${stamp}`;
+  const foreignParkId = `safety-smoke-park-${stamp}`;
+  const foreignPointId = randomUUID();
+  const foreignHazardId = randomUUID();
+
+  await dbScalar(`
+INSERT INTO biz_safety_inspect_point (
+  id, tenant_id, park_id, code, point_code, point_name, point_type, risk_level,
+  location, check_method, status, remark
+) VALUES (
+  ${sqlLiteral(foreignPointId)},
+  ${sqlLiteral(foreignTenantId)},
+  ${sqlLiteral(foreignParkId)},
+  ${sqlLiteral(`S5A-XP-${stamp}`)},
+  ${sqlLiteral(`S5A-XP-${stamp}`)},
+  ${sqlLiteral(`S5A foreign point ${stamp}`)},
+  'fire',
+  '10',
+  ${sqlLiteral(`S5A foreign point location ${stamp}`)},
+  'manual',
+  'enabled',
+  ${sqlLiteral(smokeRemark)}
+);`);
+
+  await dbScalar(`
+INSERT INTO biz_safety_hazard (
+  id, tenant_id, park_id, code, hazard_code, hazard_title, title, hazard_type,
+  risk_level, source_type, location, description, status, remark
+) VALUES (
+  ${sqlLiteral(foreignHazardId)},
+  ${sqlLiteral(foreignTenantId)},
+  ${sqlLiteral(foreignParkId)},
+  ${sqlLiteral(`S5A-XH-${stamp}`)},
+  ${sqlLiteral(`S5A-XH-${stamp}`)},
+  ${sqlLiteral(`S5A foreign hazard ${stamp}`)},
+  ${sqlLiteral(`S5A foreign hazard ${stamp}`)},
+  'fire',
+  '10',
+  'manual',
+  ${sqlLiteral(`S5A foreign hazard location ${stamp}`)},
+  ${sqlLiteral("S5A foreign hazard isolation fixture")},
+  '10',
+  ${sqlLiteral(smokeRemark)}
+);`);
+
+  try {
+    await callback({ foreignPointId, foreignHazardId });
+  } finally {
+    await dbScalar(`
+UPDATE biz_safety_inspect_point
+SET is_deleted = true, update_time = now()
+WHERE id = ${sqlLiteral(foreignPointId)};`);
+    await dbScalar(`
+UPDATE biz_safety_hazard
+SET is_deleted = true, update_time = now()
+WHERE id = ${sqlLiteral(foreignHazardId)};`);
+  }
+}
+
 async function main() {
   await ensureApiStarted();
 
@@ -241,27 +339,77 @@ async function main() {
   const adminToken = adminLogin.body.data.accessToken;
   assert(adminToken, "admin login missing accessToken");
 
-  const normalLogin = await login(normalUser, normalPassword);
-  assertStatus("normal login", normalLogin.response.status, 200);
-  assertUniformResponse("normal login", normalLogin.body);
-  const normalToken = normalLogin.body.data.accessToken;
-  assert(normalToken, "normal login missing accessToken");
-
   const adminMe = await request("/users/me", { headers: { authorization: `Bearer ${adminToken}` } });
   assertStatus("admin users/me", adminMe.response.status, 200);
   assertUniformResponse("admin users/me", adminMe.body);
   const adminId = adminMe.body.data?.id;
   assert(adminId, "admin users/me missing id");
+  for (const permission of [
+    "safety_inspect_point:create",
+    "safety_inspect_task:read",
+    "safety_hazard:read",
+    "safety_hazard:rectify",
+    "safety_hazard:to_emergency",
+    "safety_statistics:read"
+  ]) {
+    assert(hasPermission(adminMe.body.data, permission), `admin safety token missing ${permission}`);
+  }
 
   const { unitId, buildingId, floorId, parkTenantId } = await getAssetAndTenantFixtures();
   const safetyPhoto = await uploadSmokeFile(adminToken, "safety_smoke", "safety-photo");
 
-  const normalCreatePoint = await jsonRequest("/safety/inspect-points", normalToken, "POST", {
-    point_name: `normal denied ${stamp}`,
-    point_type: "fire",
-    risk_level: "10"
-  }, "normal-point-create");
-  assertStatus("normal user cannot create safety point", normalCreatePoint.response.status, 403);
+  const smokeNormalUser = await createSmokeNormalUser(adminToken);
+  try {
+    const normalLogin = await login(smokeNormalUser.username, normalPassword);
+    assertStatus("smoke normal login", normalLogin.response.status, 200);
+    assertUniformResponse("smoke normal login", normalLogin.body);
+    const normalToken = normalLogin.body.data.accessToken;
+    assert(normalToken, "smoke normal login missing accessToken");
+
+    const normalCreatePoint = await jsonRequest("/safety/inspect-points", normalToken, "POST", {
+      point_name: `normal denied ${stamp}`,
+      point_type: "fire",
+      risk_level: "10"
+    }, "normal-point-create");
+    assertStatus("normal user cannot create safety point", normalCreatePoint.response.status, 403);
+
+    const normalCreateHazard = await jsonRequest("/safety/hazards", normalToken, "POST", {
+      hazard_type: "fire",
+      risk_level: "10",
+      title: `normal denied hazard ${stamp}`,
+      location: `normal denied location ${stamp}`
+    }, "normal-hazard-create");
+    assertStatus("normal user cannot create safety hazard", normalCreateHazard.response.status, 403);
+
+    const normalStatistics = await request("/safety/statistics", { headers: { authorization: `Bearer ${normalToken}` } });
+    assertStatus("normal user cannot read safety statistics", normalStatistics.response.status, 403);
+  } finally {
+    await cleanupSmokeNormalUser(smokeNormalUser.id);
+  }
+
+  await withForeignSafetyRows(async ({ foreignPointId, foreignHazardId }) => {
+    const foreignPointRead = await request(`/safety/inspect-points/${foreignPointId}`, { headers: { authorization: `Bearer ${adminToken}` } });
+    assertStatus("foreign scope inspect point cannot be read", foreignPointRead.response.status, 404);
+
+    const foreignPointUpdate = await jsonRequest(`/safety/inspect-points/${foreignPointId}`, adminToken, "PUT", {
+      point_name: `S5A forbidden point update ${stamp}`,
+      point_type: "fire",
+      risk_level: "10",
+      status: "enabled"
+    }, "foreign-point-update");
+    assertStatus("foreign scope inspect point cannot be updated", foreignPointUpdate.response.status, 404);
+
+    const foreignHazardRead = await request(`/safety/hazards/${foreignHazardId}`, { headers: { authorization: `Bearer ${adminToken}` } });
+    assertStatus("foreign scope hazard cannot be read", foreignHazardRead.response.status, 404);
+
+    const foreignHazardUpdate = await jsonRequest(`/safety/hazards/${foreignHazardId}`, adminToken, "PUT", {
+      title: `S5A forbidden hazard update ${stamp}`,
+      hazard_type: "fire",
+      risk_level: "10",
+      location: `S5A forbidden hazard location ${stamp}`
+    }, "foreign-hazard-update");
+    assertStatus("foreign scope hazard cannot be updated", foreignHazardUpdate.response.status, 404);
+  });
 
   const pointPayload = {
     point_name: `S5A smoke point ${stamp}`,
@@ -360,6 +508,11 @@ async function main() {
   }, "plan-generate-duplicate");
   assertStatus("duplicate inspect task generation is skipped", duplicateGenerate.response.status, 201);
   assert(duplicateGenerate.body.data?.skipped_count >= 1, "duplicate generation did not skip existing task");
+
+  const inspectTasks = await request(`/safety/inspect-tasks?page=1&page_size=50&plan_id=${plan.id}`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("inspect tasks list", inspectTasks.response.status, 200);
+  assertUniformResponse("inspect tasks list", inspectTasks.body);
+  assert(asArray(inspectTasks.body.data?.items).some((task) => task.id === generatedTaskId), "inspect tasks list does not include generated task");
 
   const myTasks = await request("/safety/my-inspect-tasks?page=1&page_size=20", { headers: { authorization: `Bearer ${adminToken}` } });
   assertStatus("my inspect tasks", myTasks.response.status, 200);
@@ -511,6 +664,26 @@ LIMIT 1;`);
   }, "hazard-close-again");
   assertStatus("closed hazard cannot close again", closeAgain.response.status, 400);
 
+  const rectifyClosed = await jsonRequest(`/safety/hazards/${hazard.id}/rectify`, adminToken, "POST", {
+    rectify_note: "closed hazard cannot rectify",
+    after_photo_file_ids: [safetyPhoto.id]
+  }, "hazard-rectify-closed");
+  assertStatus("closed hazard cannot rectify again", rectifyClosed.response.status, 400);
+
+  const recheckClosed = await jsonRequest(`/safety/hazards/${hazard.id}/recheck`, adminToken, "POST", {
+    recheck_result: "pass",
+    reason: "closed hazard cannot recheck"
+  }, "hazard-recheck-closed");
+  assertStatus("closed hazard cannot recheck again", recheckClosed.response.status, 400);
+
+  const upgradeClosed = await jsonRequest(`/safety/hazards/${hazard.id}/upgrade`, adminToken, "POST", {
+    reason: "closed hazard cannot upgrade"
+  }, "hazard-upgrade-closed");
+  assertStatus("closed hazard cannot upgrade", upgradeClosed.response.status, 400);
+
+  const emergencyClosed = await jsonRequest(`/safety/hazards/${hazard.id}/to-emergency`, adminToken, "POST", emergencyPayload("closed-hazard"), "hazard-emergency-closed");
+  assertStatus("closed hazard cannot convert to emergency", emergencyClosed.response.status, 400);
+
   const workOrderHazardCreate = await jsonRequest("/safety/hazards", adminToken, "POST", {
     hazard_type: "fire",
     risk_level: "20",
@@ -560,6 +733,31 @@ LIMIT 1;`);
     description: "duplicate"
   }, "hazard-create-workorder-duplicate");
   assertStatus("hazard cannot convert to work order twice", duplicateConvert.response.status, 409);
+
+  const emergencyHazardCreate = await jsonRequest("/safety/hazards", adminToken, "POST", {
+    hazard_type: "fire",
+    risk_level: "30",
+    title: `S5A emergency hazard ${stamp}`,
+    description: "S5A hazard to emergency smoke",
+    unit_id: unitId,
+    park_tenant_id: parkTenantId,
+    location: `S5A emergency hazard location ${stamp}`,
+    rectify_deadline: "2026-12-31T18:00:00+08:00",
+    before_photo_file_ids: [safetyPhoto.id],
+    remark: smokeRemark
+  }, "hazard-for-emergency");
+  assertStatus("admin creates major hazard for emergency", emergencyHazardCreate.response.status, 201);
+  const emergencyHazard = emergencyHazardCreate.body.data;
+  assert(emergencyHazard?.id, "emergency hazard response missing id");
+
+  const convertEmergency = await jsonRequest(`/safety/hazards/${emergencyHazard.id}/to-emergency`, adminToken, "POST", emergencyPayload("major-hazard"), "hazard-to-emergency");
+  assertStatus("admin converts hazard to emergency", convertEmergency.response.status, 201);
+  assertUniformResponse("admin converts hazard to emergency", convertEmergency.body);
+  assert(convertEmergency.body.data?.emergency_id, "hazard conversion did not return emergency_id");
+  assert(convertEmergency.body.data?.hazard?.status === "92", "hazard converted to emergency should be status 92");
+
+  const duplicateEmergency = await jsonRequest(`/safety/hazards/${emergencyHazard.id}/to-emergency`, adminToken, "POST", emergencyPayload("duplicate-major-hazard"), "hazard-to-emergency-duplicate");
+  assertStatus("hazard cannot convert to emergency twice", duplicateEmergency.response.status, 409);
 
   const majorHazardCreate = await jsonRequest("/safety/hazards", adminToken, "POST", {
     hazard_type: "fire",

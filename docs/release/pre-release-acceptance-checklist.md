@@ -439,6 +439,7 @@ bash scripts/verify-api-login-dockerexec.sh
 - `/ready` 通过
 - 登录通过
 - `release-smoke` 通过
+- 安全巡检与隐患整改开放前，`node scripts/e2e/s5a-safety-smoke.mjs` 通过
 - 文件存储持久化验证通过
 - 幂等关键接口验证通过
 - 无 P0 阻断问题

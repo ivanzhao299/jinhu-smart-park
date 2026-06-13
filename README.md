@@ -58,6 +58,7 @@ pnpm dev:web
 pnpm lint
 pnpm typecheck
 pnpm build
+node scripts/e2e/s5a-safety-smoke.mjs
 node scripts/e2e/first-release-regression.mjs
 ```
 
@@ -67,6 +68,7 @@ node scripts/e2e/first-release-regression.mjs
 - `typecheck`：独立类型检查
 - `build`：API 与 Web 构建验证
 - `release-smoke`：CI 生产基线冒烟
+- `s5a-safety-smoke`：安全巡检与隐患整改核心链路开放前冒烟
 - `first-release regression runner`：首发核心自动化回归统一入口
 
 运行 `first-release-regression` 前请先确保：
