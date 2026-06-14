@@ -764,11 +764,11 @@ textarea:disabled {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 44px;
+  width: 34px;
   height: 34px;
   border-radius: var(--phoenix-radius-md);
   overflow: hidden;
-  padding: 4px 5px;
+  padding: 3px;
   background: var(--brand-logo-surface);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--phoenix-color-primary) 22%, transparent);
 }
@@ -3764,7 +3764,7 @@ textarea:disabled {
 .signin-brand-row {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   width: fit-content;
   padding: 0;
   background: transparent;
@@ -3777,17 +3777,14 @@ textarea:disabled {
 .signin-symbol {
   display: grid;
   place-items: center;
-  width: 76px;
-  height: 46px;
-  border: 1px solid rgba(0, 112, 168, 0.15);
-  border-radius: var(--radius-sm);
-  background: #ffffff;
+  width: 56px;
+  height: 48px;
 }
 
 .signin-symbol img {
   display: block;
-  width: 64px;
-  height: 34px;
+  width: 56px;
+  height: 44px;
   object-fit: contain;
 }
 
@@ -3827,23 +3824,12 @@ textarea:disabled {
 }
 
 .signin-card-header {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-  min-height: 58px;
+  display: block;
   margin-bottom: 28px;
 }
 
 .signin-card-header img {
-  display: block;
-  width: 96px;
-  height: 60px;
-  border: 1px solid rgba(0, 112, 168, 0.18);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  background: #ffffff;
-  object-fit: contain;
+  display: none;
 }
 
 .signin-card-header h2 {
@@ -4638,12 +4624,11 @@ textarea:disabled {
   }
 
   .signin-card-header {
-    grid-template-columns: 84px minmax(0, 1fr);
+    display: block;
   }
 
   .signin-card-header img {
-    width: 84px;
-    height: 54px;
+    display: none;
   }
 
   .signin-card-header h2 {

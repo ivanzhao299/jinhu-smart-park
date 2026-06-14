@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_图层_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 327.04 259.25">
+  <!-- Generator: Adobe Illustrator 30.0.0, SVG Export Plug-In . SVG Version: 2.1.1 Build 123)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: url(#_未命名的渐变_2);
+      }
+
+      .st1 {
+        fill: url(#_未命名的渐变_5);
+      }
+
+      .st2 {
+        fill: url(#_未命名的渐变_4);
+      }
+
+      .st3 {
+        fill: url(#_未命名的渐变_3);
+      }
+
+      .st4 {
+        fill: url(#_未命名的渐变_6);
+      }
+
+      .st5 {
+        fill: url(#_未命名的渐变);
+      }
+    </style>
+    <linearGradient id="_未命名的渐变" data-name="未命名的渐变" x1="30.39" y1="125.48" x2="242.22" y2="125.48" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#80b8e4"/>
+      <stop offset=".02" stop-color="#76b2df"/>
+      <stop offset=".07" stop-color="#56a1d0"/>
+      <stop offset=".14" stop-color="#3b92c3"/>
+      <stop offset=".21" stop-color="#2586b9"/>
+      <stop offset=".3" stop-color="#147db1"/>
+      <stop offset=".4" stop-color="#0876ac"/>
+      <stop offset=".55" stop-color="#0173a8"/>
+      <stop offset=".97" stop-color="#0072a8"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_2" data-name="未命名的渐变 2" x1="38.15" y1="104.35" x2="141.76" y2="104.35" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#80b8e4"/>
+      <stop offset=".08" stop-color="#5ea5d4"/>
+      <stop offset=".16" stop-color="#4195c6"/>
+      <stop offset=".26" stop-color="#2988bb"/>
+      <stop offset=".37" stop-color="#167eb2"/>
+      <stop offset=".5" stop-color="#0977ac"/>
+      <stop offset=".66" stop-color="#0273a9"/>
+      <stop offset="1" stop-color="#0072a8"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_3" data-name="未命名的渐变 3" x1="213.08" y1="189.05" x2="244.06" y2="189.05" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#85bf23"/>
+      <stop offset=".06" stop-color="#7bbc25"/>
+      <stop offset=".51" stop-color="#39a835"/>
+      <stop offset=".83" stop-color="#0f9c40"/>
+      <stop offset="1" stop-color="#009844"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_4" data-name="未命名的渐变 4" x1="243.42" y1="207.67" x2="274.4" y2="207.67" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#85bf23"/>
+      <stop offset=".06" stop-color="#7bbc25"/>
+      <stop offset=".51" stop-color="#39a835"/>
+      <stop offset=".83" stop-color="#0f9c40"/>
+      <stop offset="1" stop-color="#009844"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_5" data-name="未命名的渐变 5" x1="245.38" y1="172.06" x2="276.36" y2="172.06" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#85bf23"/>
+      <stop offset=".06" stop-color="#7bbc25"/>
+      <stop offset=".51" stop-color="#39a835"/>
+      <stop offset=".83" stop-color="#0f9c40"/>
+      <stop offset="1" stop-color="#009844"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_6" data-name="未命名的渐变 6" x1="275.73" y1="190.69" x2="306.71" y2="190.69" gradientTransform="translate(0 262) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#85bf23"/>
+      <stop offset=".06" stop-color="#7bbc25"/>
+      <stop offset=".51" stop-color="#39a835"/>
+      <stop offset=".83" stop-color="#0f9c40"/>
+      <stop offset="1" stop-color="#009844"/>
+    </linearGradient>
+  </defs>
+  <path class="st5" d="M31.32,177.29c-4.21-18.07,3.29-85.73,78.36-111.07,42.01-14.18,77.74-7.32,101.26,4.36-1.71,6.54-3.43,16.2-3.43,16.2l24.77-.31c22.12,23.68,14.33,114.34-96.74,127.74-33.41,4.03-25.7-14.8-25.08-17.45s20.56-59.84,20.56-59.84l-2.34-7.15h30.38s3.12-9.8,4.67-13.23,3.97-5.85,8.18-5.78c4.21.08,20.87,0,20.87,0,0,0-4.36,12.15-5.53,14.96-1.17,2.8-4.52,4.44-8.33,4.44h-13.32l-17.29,51.02s27.16-7.06,46.47-26.28c19.32-19.21,24.2-47.67-.93-64.91-25.13-17.24-59.47-17.05-94.46-3.69-26.76,10.22-69.26,41.74-68.08,90.98h0Z"/>
+  <path class="st0" d="M38.69,162.39s.99,20.98,20.2,28.14c2.08-5.61,20.1-59.61,20.1-59.61l-5.82-8.41h32.92s2.86-8.41,3.74-10.9,4.67-7.27,8.98-7.27h22.95s-4.26,11.58-5.4,14.12-5.04,5.35-9.19,5.35h-15.73l-8,27.47,19.63-1.92s-19.39,13.45-22.12,16.21c-2.73,2.77-3.93,5.76-5.37,10.44-1.44,4.67-8.39,23.93-10.05,28.39-1.66,4.47-8.52,8.15-15.47,5.87-6.96-2.28-36.25-10.23-31.36-47.88h-.01Z"/>
+  <g>
+    <path class="st3" d="M213.09,82.81h21.6c2.1,0,6.1-3.4,6.67-6.21.57-2.8,2.7-13.5,2.7-13.5,0,0-17.19.26-20.1.26s-7.54,2.11-8.57,7.01c-.86,4.08-2.31,12.44-2.31,12.44h0Z"/>
+    <path class="st2" d="M243.43,64.19h21.6c2.1,0,6.1-3.4,6.67-6.21.57-2.8,2.7-13.5,2.7-13.5,0,0-17.19.26-20.1.26s-7.54,2.11-8.57,7.01c-.86,4.08-2.31,12.44-2.31,12.44h0Z"/>
+    <path class="st1" d="M245.39,99.8h21.6c2.1,0,6.1-3.4,6.67-6.21.57-2.8,2.7-13.5,2.7-13.5,0,0-17.19.26-20.1.26s-7.54,2.11-8.57,7.01c-.86,4.08-2.31,12.44-2.31,12.44h0Z"/>
+    <path class="st4" d="M275.74,81.17h21.6c2.1,0,6.1-3.4,6.67-6.21.57-2.8,2.7-13.5,2.7-13.5,0,0-17.19.26-20.1.26s-7.54,2.11-8.57,7.01c-.86,4.08-2.31,12.44-2.31,12.44h0Z"/>
+  </g>
+</svg>

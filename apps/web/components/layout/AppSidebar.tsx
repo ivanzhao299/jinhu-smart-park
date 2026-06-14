@@ -78,7 +78,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       <div className="sidebar-brand-row">
         <div className="brand">
           <span className="brand-mark">
-            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhupark-logo.svg" />
+            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhupark-symbol.svg" />
           </span>
           <span className="brand-title">金湖科创产业园</span>
         </div>

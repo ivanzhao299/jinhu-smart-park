@@ -71,7 +71,7 @@ export default function LoginPage() {
       <section className="signin-identity" aria-label="金湖科创产业园">
         <div className="signin-brand-row">
           <span className="signin-symbol">
-            <img alt="金湖科创产业园" src="/brand/jinhupark-logo.svg" />
+            <img alt="金湖科创产业园" src="/brand/jinhupark-symbol.svg" />
           </span>
           <span>金湖科创产业园</span>
         </div>
@@ -83,7 +83,6 @@ export default function LoginPage() {
 
       <section className="signin-card" aria-label="登录">
         <div className="signin-card-header">
-          <img alt="金湖科创产业园" src="/brand/jinhupark-logo.svg" />
           <div>
             <h2>登录</h2>
             <p>首发阶段仅支持账号密码登录</p>
