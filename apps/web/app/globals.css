@@ -358,13 +358,28 @@ textarea:disabled {
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
   overflow: hidden;
-  background: var(--phoenix-color-bg);
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg-sidebar) 0,
+      var(--bg-sidebar) var(--sidebar-width),
+      var(--phoenix-color-bg) var(--sidebar-width),
+      var(--phoenix-color-bg) 100%
+    );
   transition: grid-template-columns 0.18s var(--ease);
 }
 
 .dashboard-shell.sidebar-collapsed,
 :root[data-sidebar-collapsed="true"] .dashboard-shell {
   grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg-sidebar) 0,
+      var(--bg-sidebar) var(--sidebar-collapsed-width),
+      var(--phoenix-color-bg) var(--sidebar-collapsed-width),
+      var(--phoenix-color-bg) 100%
+    );
 }
 
 .dashboard-shell[data-loading="true"],
