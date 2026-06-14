@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Form, Input } from "antd";
-import { LockKeyhole, LogIn, UserRound } from "lucide-react";
+import { Activity, Building2, LockKeyhole, LogIn, ShieldCheck, UserRound, Waves } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { apiRequest } from "../../lib/api-client";
@@ -70,24 +70,30 @@ export default function LoginPage() {
 
   return (
     <main className="signin-page">
+      <div className="signin-background" aria-hidden="true" />
       <section className="signin-identity" aria-label="金湖科创产业园">
         <div className="signin-brand-row">
-          <span className="signin-symbol">
-            <img alt="金湖科创产业园" src="/brand/jinhupark-symbol.svg" />
-          </span>
-          <span>金湖科创产业园</span>
+          <img alt="金湖科创产业园" src="/brand/jinhupark-logo.svg" />
         </div>
         <div className="signin-copy">
-          <h1>数字运营平台</h1>
-          <span>资产、招商、合同、财务和运营协同管理</span>
+          <span className="signin-kicker">Smart Park Operation Cloud</span>
+          <h1>让园区运营进入实时协同时代</h1>
+          <p>资产、招商、合同、财务、安全巡检、IoT 设备与现场工单统一在线，构建金湖科创产业园数字运营中枢。</p>
+          <div className="signin-capabilities" aria-label="平台能力">
+            <span><Building2 size={16} /> 资产空间</span>
+            <span><ShieldCheck size={16} /> 安全闭环</span>
+            <span><Activity size={16} /> 设备态势</span>
+            <span><Waves size={16} /> 能源监测</span>
+          </div>
         </div>
       </section>
 
       <section className="signin-card" aria-label="登录">
         <div className="signin-card-header">
           <div>
-            <h2>登录</h2>
-            <p>首发阶段仅支持账号密码登录</p>
+            <span className="signin-card-eyebrow">Secure Access</span>
+            <h2>进入运营控制台</h2>
+            <p>使用平台账号登录，系统会自动匹配所属租户与默认园区。</p>
           </div>
         </div>
         <Form<LoginFormValues> className="signin-form" layout="vertical" onFinish={handlePasswordSubmit}>

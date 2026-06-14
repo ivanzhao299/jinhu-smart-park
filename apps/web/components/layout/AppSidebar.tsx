@@ -80,7 +80,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           <span className="brand-mark">
             <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhupark-symbol.svg" />
           </span>
-          <span className="brand-title">金湖科创产业园</span>
+          <img alt="金湖科创产业园" className="brand-title-logo" src="/brand/jinhupark-logo.svg" />
         </div>
         <button
           aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}

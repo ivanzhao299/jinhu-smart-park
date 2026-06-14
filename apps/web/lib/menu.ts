@@ -194,7 +194,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "safety",
     children: [
       { label: "安全看板", href: "/safety/dashboard", permission: "safety_statistics:read", module: "safety" },
-      { label: "现场工作台", href: "/operations/terminal", permission: "safety_inspect_task:my", module: "safety" },
+      { label: "现场工作台", href: "/operations/terminal", permission: "safety:operations-terminal", module: "safety" },
       { label: "应急作业看板", href: "/safety/emergency-dashboard", permission: "safety_emergency_statistics:read", module: "safety" },
       { label: "巡检点位", href: "/safety/inspect-points", permission: "safety_inspect_point:read", module: "safety" },
       { label: "巡检模板", href: "/safety/inspect-templates", permission: "safety_inspect_template:read", module: "safety" },

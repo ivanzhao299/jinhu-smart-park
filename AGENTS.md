@@ -77,6 +77,23 @@ Direct node regression entries:
 - Preserve existing project patterns before adding new abstractions.
 - Avoid changing release, production, auth, database, or financial behavior without checking the related scripts and docs.
 
+## Frontend Design System Rules
+
+- New and refactored pages must use the shared Design System surface classes in `apps/web/app/globals.css` before adding page-local visual styling.
+- Prefer `ds-page`, `ds-hero`, `ds-panel`, `ds-command-grid`, `ds-command-card`, `ds-scene-grid`, `ds-scene-card`, `ds-kpi-grid`, `ds-kpi-card`, `ds-table-shell`, `ds-mobile-record-list`, and `ds-mobile-record` for production work surfaces.
+- Page-local CSS should only express domain-specific layout or small exceptions; it must not redefine unrelated colors, shadows, borders, table styling, or button systems.
+- Field-operation and high-frequency terminal pages must be mobile-first: verify a 390px-class viewport, avoid horizontal overflow, and provide card-based mobile records instead of forcing desktop tables.
+- After meaningful frontend changes, use the in-app browser to inspect the affected page on desktop and mobile before reporting completion.
+
+## Frontend Mobile And Field-Operation Baseline
+
+- Every new or modified frontend page must consider mobile rendering from the beginning, not as a later cleanup.
+- High-frequency field-operation pages, especially inspections, work orders, hazards, robot operations, device checks, and operations terminal flows, should be designed mobile-first for phone usage.
+- Forms used on site must support touch-friendly controls, clear primary actions, stable layout, photo upload, location/GPS fields when relevant, and fast completion on small screens.
+- Responsive validation should include at least desktop and phone-width browser checks when the page is user-facing or operationally important.
+- Avoid desktop-only tables for mobile-critical workflows; provide stacked cards, compact summaries, drawers, or task-style layouts when needed.
+- After significant frontend changes, use the browser tool to inspect the actual page before reporting completion, including mobile viewport checks when practical.
+
 ## Environment And Production Configuration Rules
 
 - Do not commit secrets, tokens, production passwords, or private credentials.

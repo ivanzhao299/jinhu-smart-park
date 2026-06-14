@@ -19,16 +19,16 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
       theme={{
         algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: {
-          colorPrimary: isDark ? "#4A78B5" : "#1F3864",
-          colorInfo: isDark ? "#64B5F6" : "#1976D2",
-          colorSuccess: isDark ? "#66BB6A" : "#2E7D32",
-          colorWarning: isDark ? "#FFD54F" : "#F9A825",
-          colorError: isDark ? "#EF5350" : "#C62828",
-          colorBgLayout: isDark ? "#121212" : "#FAFAFA",
-          colorBgContainer: isDark ? "#1E1E1E" : "#FFFFFF",
-          colorBorder: isDark ? "#424242" : "#E0E0E0",
-          colorText: isDark ? "#FAFAFA" : "#212121",
-          colorTextSecondary: isDark ? "#BDBDBD" : "#757575",
+          colorPrimary: isDark ? "#16A6D9" : "#0B7FAB",
+          colorInfo: isDark ? "#60A5FA" : "#2563EB",
+          colorSuccess: isDark ? "#22C55E" : "#1F8A5B",
+          colorWarning: isDark ? "#F59E0B" : "#D97706",
+          colorError: isDark ? "#EF4444" : "#C2410C",
+          colorBgLayout: isDark ? "#07111C" : "#F3F6FA",
+          colorBgContainer: isDark ? "#0E1C2A" : "#FFFFFF",
+          colorBorder: isDark ? "#1E3A4C" : "#D7DEE8",
+          colorText: isDark ? "#E5EEF6" : "#17212B",
+          colorTextSecondary: isDark ? "#9FB0C3" : "#637083",
           borderRadius: 8,
           fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
         },
@@ -44,9 +44,9 @@ export function DesignSystemProvider({ children }: DesignSystemProviderProps) {
             borderRadiusLG: 12
           },
           Table: {
-            borderColor: isDark ? "#424242" : "#E0E0E0",
-            headerBg: isDark ? "#2C2C2C" : "#F5F5F5",
-            headerColor: isDark ? "#FAFAFA" : "#212121"
+            borderColor: isDark ? "#1E3A4C" : "#D7DEE8",
+            headerBg: isDark ? "#132437" : "#E9EEF5",
+            headerColor: isDark ? "#E5EEF6" : "#17212B"
           }
         }
       }}

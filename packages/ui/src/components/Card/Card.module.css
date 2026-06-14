@@ -1,9 +1,9 @@
 .card {
   min-width: 0;
   max-width: 100%;
-  border: 1px solid var(--phoenix-color-border);
-  border-radius: var(--radius-lg, var(--phoenix-radius-lg));
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
+  border-radius: 14px;
   background: var(--phoenix-color-surface);
-  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
-  padding: var(--phoenix-space-4);
+  box-shadow: var(--shadow-card, var(--shadow-sm, var(--phoenix-shadow-sm)));
+  padding: 18px;
 }

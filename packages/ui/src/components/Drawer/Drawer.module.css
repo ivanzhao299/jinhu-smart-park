@@ -13,7 +13,8 @@
   border: 0;
   border-radius: 0;
   padding: 0;
-  background: color-mix(in srgb, var(--phoenix-color-text) 28%, transparent);
+  background: color-mix(in srgb, var(--phoenix-color-text) 32%, transparent);
+  backdrop-filter: blur(4px);
   box-shadow: none;
   cursor: default;
   pointer-events: auto;
@@ -33,11 +34,11 @@
   bottom: var(--drawer-offset);
   width: min(var(--drawer-width), calc(100vw - (var(--drawer-offset) * 2)));
   overflow: auto;
-  border: 1px solid var(--jinhu-color-border-soft, var(--phoenix-color-border));
-  border-radius: var(--radius-lg, var(--phoenix-radius-lg, var(--phoenix-radius-md)));
+  border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
+  border-radius: 16px;
   background: var(--phoenix-color-surface);
-  box-shadow: var(--phoenix-shadow-lg);
-  padding: var(--phoenix-space-4);
+  box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
+  padding: 18px;
   color: var(--phoenix-color-text);
   font-size: 14px;
   line-height: 1.5;
@@ -51,16 +52,17 @@
 
 .drawerHeader {
   position: sticky;
-  top: calc(var(--phoenix-space-4) * -1);
+  top: -18px;
   z-index: 3;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 32px;
   gap: var(--phoenix-space-3);
   align-items: start;
-  margin: calc(var(--phoenix-space-4) * -1) calc(var(--phoenix-space-4) * -1) 0;
-  border-bottom: 1px solid var(--phoenix-color-border);
-  padding: 14px 16px 12px;
-  background: var(--phoenix-color-surface);
+  margin: -18px -18px 0;
+  border-bottom: 1px solid var(--border-soft, var(--phoenix-color-border));
+  padding: 16px 18px 14px;
+  background: color-mix(in srgb, var(--phoenix-color-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .drawerHeaderContent {
@@ -80,7 +82,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--phoenix-color-text);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -103,8 +105,8 @@
   justify-content: center;
   width: 32px;
   min-height: 32px;
-  border: 1px solid var(--phoenix-color-border);
-  border-radius: var(--radius-sm, var(--phoenix-radius-sm));
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
+  border-radius: 10px;
   padding: 0;
   background: var(--phoenix-color-surface);
   color: var(--phoenix-color-text);
@@ -169,8 +171,8 @@
 
 .drawerForm {
   display: grid;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 16px;
+  margin-top: 16px;
   padding-bottom: 72px;
 }
 
@@ -190,7 +192,7 @@
 .drawerFormGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .drawerFormGridSingle {
@@ -199,15 +201,16 @@
 
 .drawerFooter {
   position: sticky;
-  bottom: calc(var(--phoenix-space-4) * -1);
+  bottom: -18px;
   z-index: 3;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin: 4px calc(var(--phoenix-space-4) * -1) calc(var(--phoenix-space-4) * -1);
-  border-top: 1px solid var(--phoenix-color-border);
-  padding: 12px 16px;
-  background: var(--phoenix-color-surface);
+  margin: 4px -18px -18px;
+  border-top: 1px solid var(--border-soft, var(--phoenix-color-border));
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--phoenix-color-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .drawerDetailGrid {
@@ -223,8 +226,35 @@
   gap: 10px;
   align-items: start;
   min-height: 34px;
-  border-bottom: 1px solid color-mix(in srgb, var(--phoenix-color-border) 72%, transparent);
+  border-bottom: 1px solid var(--border-soft, color-mix(in srgb, var(--phoenix-color-border) 72%, transparent));
   padding: 8px 0;
+}
+
+@media (max-width: 760px) {
+  .drawerPanel {
+    --drawer-offset: 0;
+
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 92svh;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .drawerFormGrid,
+  .drawerDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .drawerFooter {
+    justify-content: stretch;
+  }
+
+  .drawerFooter > * {
+    flex: 1;
+  }
 }
 
 .drawerDetailLabel {

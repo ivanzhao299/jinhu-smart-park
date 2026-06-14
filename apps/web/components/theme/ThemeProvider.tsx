@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light' | 'system';
+type Theme = 'dark' | 'light' | 'system' | 'enterprise-light' | 'command-dark';
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -25,7 +25,7 @@ export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProvide
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem('jinhu_theme') as Theme | null;
-    if (savedTheme) {
+    if (savedTheme && ['dark', 'light', 'system', 'enterprise-light', 'command-dark'].includes(savedTheme)) {
       setThemeState(savedTheme);
     }
   }, []);
@@ -40,12 +40,14 @@ export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProvide
       if (currentTheme === 'system') {
         isDark = mediaQuery.matches;
       } else {
-        isDark = currentTheme === 'dark';
+        isDark = currentTheme === 'dark' || currentTheme === 'command-dark';
       }
 
       setResolvedTheme(isDark ? 'dark' : 'light');
 
-      if (isDark) {
+      if (currentTheme === 'enterprise-light' || currentTheme === 'command-dark') {
+        document.documentElement.dataset.theme = currentTheme;
+      } else if (isDark) {
         document.documentElement.dataset.theme = 'dark';
       } else {
         document.documentElement.dataset.theme = 'light';
