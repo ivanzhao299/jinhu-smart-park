@@ -33,45 +33,6 @@ export interface MenuNode {
   children?: MenuNode[];
 }
 
-export const FIRST_RELEASE_MENU_PATHS = [
-  "/dashboard",
-  "/system/orgs",
-  "/system/users",
-  "/system/roles",
-  "/system/permissions",
-  "/system/dicts",
-  "/system/modules",
-  "/system/tenants",
-  "/system/audit/op-logs",
-  "/system/audit/login-logs",
-  "/assets/parks",
-  "/assets/buildings",
-  "/assets/floors",
-  "/assets/units",
-  "/assets/unit-status-board",
-  "/assets/statistics",
-  "/leasing/tenants",
-  "/leasing/contracts",
-  "/leasing/receivables",
-  "/leasing/payments",
-  "/workorders",
-  "/workorders/list",
-  "/workorders/sla-rules",
-  "/workorders/overdue",
-  "/workorders/stats",
-  "/safety/dashboard",
-  "/operations/terminal",
-  "/safety/inspect-points",
-  "/safety/inspect-templates",
-  "/safety/inspect-plans",
-  "/safety/inspect-tasks",
-  "/safety/my-inspect-tasks",
-  "/safety/hazards",
-  "/safety/hazards/overdue"
-] as const;
-
-const FIRST_RELEASE_MENU_PATH_SET = new Set<string>(FIRST_RELEASE_MENU_PATHS);
-
 const MENU_ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
   "building-2": Building2,
@@ -273,8 +234,7 @@ export const dashboardMenus: MenuNode[] = [
 
 export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
   const menus = normalizeMenuTree(userMenus);
-  const mergedMenus = menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
-  return filterFirstReleaseMenus(mergedMenus);
+  return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
 
 export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
@@ -347,30 +307,6 @@ function mergeWithDashboardMenus(userMenus: MenuNode[]): MenuNode[] {
       ? { ...merged, children: [...(merged.children ?? []), ...extraChildren] }
       : merged;
   });
-}
-
-function filterFirstReleaseMenus(menus: MenuNode[]): MenuNode[] {
-  return menus
-    .map(filterFirstReleaseMenuNode)
-    .filter((menu): menu is MenuNode => Boolean(menu));
-}
-
-function filterFirstReleaseMenuNode(menu: MenuNode): MenuNode | undefined {
-  const children = menu.children
-    ?.map(filterFirstReleaseMenuNode)
-    .filter((child): child is MenuNode => Boolean(child));
-  const hrefAllowed = !menu.href || FIRST_RELEASE_MENU_PATH_SET.has(menu.href);
-  const hasChildren = Boolean(children?.length);
-
-  if (!hrefAllowed && !hasChildren) {
-    return undefined;
-  }
-
-  return {
-    ...menu,
-    href: hrefAllowed ? menu.href : undefined,
-    children: hasChildren ? children : undefined
-  };
 }
 
 function mergeCanonicalMenu(

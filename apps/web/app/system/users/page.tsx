@@ -137,6 +137,7 @@ export default function UsersPage() {
       await apiRequest<UserRow>(`/users/${editingUser.id}`, {
         method: "PATCH",
         token,
+        idempotencyKey: createIdempotencyKey("user-update"),
         body: {
           tenantId: body.tenantId,
           parkId: body.parkId,

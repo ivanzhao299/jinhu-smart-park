@@ -110,6 +110,7 @@ export default function RolesPage() {
   const [formState, setFormState] = useState<RoleFormState>(emptyForm);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"permissions" | "dataScopes" | "fieldPolicies">("permissions");
+  const [workspace, setWorkspace] = useState<"config" | "list">("config");
 
   const flatRoles = useMemo(() => flattenRoles(roleTree), [roleTree]);
   const flatPermissions = useMemo(() => flattenPermissions(permissionTree), [permissionTree]);
@@ -314,74 +315,81 @@ export default function RolesPage() {
         </form>
       </section>
 
-      <section className="system-split">
-        <Card >
-          <h2 className="panel-title"><FolderTree size={18} />角色树</h2>
-          <div className="tree-list">
-            {roleTree.map((role) => <RoleTreeItem key={role.id} role={role} selectedId={selectedRoleId} onSelect={(id) => void selectRole(id).catch(showError)} onCreateChild={openCreateForm} />)}
-          </div>
-        </Card>
+      <div className="system-tabs">
+        <TabButton active={workspace === "config"} onClick={() => setWorkspace("config")}><ShieldCheck size={16} />角色配置</TabButton>
+        <TabButton active={workspace === "list"} onClick={() => setWorkspace("list")}><FolderTree size={16} />角色列表</TabButton>
+      </div>
 
-        <Card >
-          {selectedRole ? (
-            <div className="detail-stack">
-              <div className="system-toolbar">
-                <div>
-                  <h2 className="panel-title">{selectedRole.name}</h2>
-                  <p className="muted-text">{selectedRole.code}</p>
-                  <RoleTags role={selectedRole} />
-                </div>
-                <div className="system-actions">
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                  {selectedRole.isTemplate ? <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_COPY} type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</PermissionButton> : null}
-                  {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
-                </div>
-              </div>
-
-              <div className="system-grid-three">
-                <Meta label="角色范围" value={selectedRole.roleScope} />
-                <Meta label="角色类型" value={selectedRole.roleType} />
-                <Meta label="数据范围" value={selectedRole.dataScope} />
-              </div>
-
-              <div className="system-tabs">
-                <TabButton active={activeTab === "permissions"} onClick={() => setActiveTab("permissions")}><KeyRound size={16} />权限树</TabButton>
-                <TabButton active={activeTab === "dataScopes"} onClick={() => setActiveTab("dataScopes")}><Layers3 size={16} />数据权限</TabButton>
-                <TabButton active={activeTab === "fieldPolicies"} onClick={() => setActiveTab("fieldPolicies")}><ShieldCheck size={16} />字段策略</TabButton>
-              </div>
-
-              {activeTab === "permissions" ? <PermissionBinding tree={permissionTree} selectedIds={selectedPermissionIds} total={flatPermissions.length} onToggle={togglePermission} onSave={() => void savePermissions().catch(showError)} /> : null}
-              {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
-              {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
+      {workspace === "config" ? (
+        <section className="system-split role-config-layout">
+          <Card className="role-panel">
+            <h2 className="panel-title"><FolderTree size={18} />角色树</h2>
+            <div className="tree-list role-tree-panel">
+              {roleTree.map((role) => <RoleTreeItem key={role.id} role={role} selectedId={selectedRoleId} onSelect={(id) => void selectRole(id).catch(showError)} onCreateChild={openCreateForm} />)}
             </div>
-          ) : <p className="status-pill">请选择一个角色</p>}
-        </Card>
-      </section>
+          </Card>
 
-      <Card >
-        <h2 className="panel-title">角色列表</h2>
-        <div className="table-scroll">
-          <DataTable >
-            <thead><tr><th>编码</th><th>名称</th><th>上级</th><th>范围</th><th>数据范围</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
-            <tbody>
-              {data.items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.code}</td>
-                  <td>{item.name}</td>
-                  <td>{item.parentId ? flatRoles.find((role) => role.id === item.parentId)?.name ?? "-" : "-"}</td>
-                  <td>{item.roleScope}</td>
-                  <td><span className="status-pill">{item.dataScope}</span></td>
-                  <td><RoleTags role={item} /></td>
-                  <td><StatusBadge status={item.status} /></td>
-                  <td><button type="button" onClick={() => void selectRole(item.id).catch(showError)}>查看</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        </div>
-        <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
-      </Card>
+          <Card className="role-panel">
+            {selectedRole ? (
+              <div className="detail-stack">
+                <div className="system-toolbar">
+                  <div>
+                    <h2 className="panel-title">{selectedRole.name}</h2>
+                    <p className="muted-text">{selectedRole.code}</p>
+                    <RoleTags role={selectedRole} />
+                  </div>
+                  <div className="system-actions">
+                    <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
+                    <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
+                    {selectedRole.isTemplate ? <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_COPY} type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</PermissionButton> : null}
+                    {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
+                  </div>
+                </div>
+
+                <div className="system-grid-three">
+                  <Meta label="角色范围" value={selectedRole.roleScope} />
+                  <Meta label="角色类型" value={selectedRole.roleType} />
+                  <Meta label="数据范围" value={selectedRole.dataScope} />
+                </div>
+
+                <div className="system-tabs">
+                  <TabButton active={activeTab === "permissions"} onClick={() => setActiveTab("permissions")}><KeyRound size={16} />权限树</TabButton>
+                  <TabButton active={activeTab === "dataScopes"} onClick={() => setActiveTab("dataScopes")}><Layers3 size={16} />数据权限</TabButton>
+                  <TabButton active={activeTab === "fieldPolicies"} onClick={() => setActiveTab("fieldPolicies")}><ShieldCheck size={16} />字段策略</TabButton>
+                </div>
+
+                {activeTab === "permissions" ? <PermissionBinding tree={permissionTree} selectedIds={selectedPermissionIds} total={flatPermissions.length} onToggle={togglePermission} onSave={() => void savePermissions().catch(showError)} /> : null}
+                {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
+                {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
+              </div>
+            ) : <p className="status-pill">请选择一个角色</p>}
+          </Card>
+        </section>
+      ) : (
+        <Card >
+          <h2 className="panel-title">角色列表</h2>
+          <div className="table-scroll">
+            <DataTable >
+              <thead><tr><th>编码</th><th>名称</th><th>上级</th><th>范围</th><th>数据范围</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                {data.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.code}</td>
+                    <td>{item.name}</td>
+                    <td>{item.parentId ? flatRoles.find((role) => role.id === item.parentId)?.name ?? "-" : "-"}</td>
+                    <td>{item.roleScope}</td>
+                    <td><span className="status-pill">{item.dataScope}</span></td>
+                    <td><RoleTags role={item} /></td>
+                    <td><StatusBadge status={item.status} /></td>
+                    <td><button type="button" onClick={() => { setWorkspace("config"); void selectRole(item.id).catch(showError); }}>配置</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          </div>
+          <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
+        </Card>
+      )}
 
       {formOpen ? (
         <Drawer size="md" onClose={() => setFormOpen(false)}>
@@ -425,7 +433,7 @@ function PermissionBinding({ tree, selectedIds, total, onToggle, onSave }: { tre
         <span className="status-pill">已选择 {selectedIds.length} / {total}</span>
         <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS} className="primary-button" type="button" onClick={onSave}><Save size={16} />保存权限</PermissionButton>
       </div>
-      <div className="tree-list">{tree.map((permission) => <PermissionTreeItem key={permission.id} permission={permission} selectedIds={selectedIds} onToggle={onToggle} />)}</div>
+      <div className="tree-list role-binding-scroll">{tree.map((permission) => <PermissionTreeItem key={permission.id} permission={permission} selectedIds={selectedIds} onToggle={onToggle} />)}</div>
     </section>
   );
 }
@@ -451,7 +459,7 @@ function BindingPanel<T extends { id: string; status: string }>({ title, emptyTe
         <span className="status-pill">{title}：已选择 {selectedIds.length} / {items.length}</span>
         <PermissionButton permission={savePermission} className="primary-button" type="button" onClick={onSave}><Save size={16} />保存绑定</PermissionButton>
       </div>
-      <div className="binding-list">
+      <div className="binding-list role-binding-scroll">
         {items.length === 0 ? <p className="status-pill">{emptyText}</p> : null}
         {items.map((item) => (
           <label key={item.id} className="binding-row">

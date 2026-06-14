@@ -5,6 +5,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 RUN corepack enable
 WORKDIR /app
+RUN pnpm config set registry https://registry.npmmirror.com
 
 RUN sed -i \
   -e 's|deb.debian.org/debian|mirrors.aliyun.com/debian|g' \
@@ -22,7 +23,7 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @jinhu/web... install --frozen-lockfile
 
 FROM deps AS build
 

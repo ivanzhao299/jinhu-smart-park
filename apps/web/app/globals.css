@@ -973,6 +973,21 @@ textarea:disabled {
   align-items: start;
 }
 
+.role-config-layout {
+  align-items: stretch;
+}
+
+.role-tree-panel,
+.role-binding-scroll {
+  max-height: min(62vh, 680px);
+  overflow: auto;
+  padding-right: var(--phoenix-space-1);
+}
+
+.role-panel {
+  min-height: 0;
+}
+
 .system-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
