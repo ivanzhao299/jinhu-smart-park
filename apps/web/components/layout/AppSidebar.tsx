@@ -20,7 +20,6 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const user = useAuthUser();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [suppressPreview, setSuppressPreview] = useState(false);
   const sourceMenus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
   const menus = useMemo(
     () =>
@@ -57,7 +56,6 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const toggleGroup = (label: string) => {
     if (collapsed && !isPreviewing) {
       setPreviewOpen(true);
-      setSuppressPreview(false);
     }
     setOpenGroup((current) => (current === label ? null : label));
   };
@@ -73,19 +71,8 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           setPreviewOpen(false);
         }
       }}
-      onFocus={() => {
-        if (collapsed && !suppressPreview) {
-          setPreviewOpen(true);
-        }
-      }}
-      onMouseEnter={() => {
-        if (collapsed && !suppressPreview) {
-          setPreviewOpen(true);
-        }
-      }}
       onMouseLeave={() => {
         setPreviewOpen(false);
-        setSuppressPreview(false);
       }}
     >
       <div className="sidebar-brand-row">
@@ -105,10 +92,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             onCollapsedChange(nextCollapsed);
             if (nextCollapsed) {
               setPreviewOpen(false);
-              setSuppressPreview(true);
               event.currentTarget.blur();
-            } else {
-              setSuppressPreview(false);
             }
           }}
         >

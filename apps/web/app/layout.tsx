@@ -36,6 +36,14 @@ export default function RootLayout({ children }: RootLayoutProps) {
                     d.dataset.theme = t;
                   }
                 } catch (e) {}
+                try {
+                  var collapsed = localStorage.getItem('jinhu_sidebar_collapsed') === '1';
+                  if (collapsed) {
+                    document.documentElement.dataset.sidebarCollapsed = 'true';
+                  } else {
+                    delete document.documentElement.dataset.sidebarCollapsed;
+                  }
+                } catch (e) {}
               })();
             `
           }}

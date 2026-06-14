@@ -25,6 +25,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
+    setSidebarCollapsed(readSidebarCollapsedPreference());
     const token = getToken();
     if (!token) {
       clearSession();
@@ -47,13 +48,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       });
   }, [router]);
 
-  useEffect(() => {
-    setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
-  }, []);
-
   const handleSidebarCollapsedChange = (collapsed: boolean) => {
     setSidebarCollapsed(collapsed);
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    writeSidebarCollapsedPreference(collapsed);
   };
 
   const menus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
@@ -72,7 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [ready, requiredMenu, router, user]);
 
   if (!ready || !user) {
-    return <main className="content">加载中...</main>;
+    return <DashboardShellSkeleton collapsed={sidebarCollapsed} />;
   }
 
   return (
@@ -87,4 +84,73 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     </AuthUserContext.Provider>
   );
+}
+
+function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}`} data-loading="true">
+      <aside className="app-sidebar dashboard-sidebar-skeleton" aria-hidden="true">
+        <div className="sidebar-brand-row">
+          <div className="brand">
+            <span className="brand-mark skeleton" />
+            <span className="skeleton-line sidebar-brand-skeleton-title" />
+          </div>
+          <span className="sidebar-collapse-button skeleton" />
+        </div>
+        <nav className="sidebar-menu">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <span className="menu-group-title sidebar-menu-skeleton-line skeleton" key={index} />
+          ))}
+        </nav>
+      </aside>
+      <div className="dashboard-main">
+        <header className="app-header">
+          <div className="header-title">
+            <span className="skeleton-line skeleton-line-sm" />
+            <span className="skeleton-line" />
+          </div>
+          <div className="header-actions">
+            <span className="header-icon-button skeleton" />
+            <span className="user-avatar skeleton" />
+          </div>
+        </header>
+        <nav className="breadcrumb" aria-label="breadcrumb">
+          <span className="skeleton-line skeleton-line-sm" />
+        </nav>
+        <main className="page-container">
+          <section className="page-header">
+            <div className="header-title">
+              <span className="skeleton-line skeleton-line-lg" />
+              <span className="skeleton-line" />
+            </div>
+          </section>
+          <section className="page-content dashboard-page-skeleton">
+            <span className="skeleton-line skeleton-line-lg" />
+            <span className="skeleton-line" />
+            <span className="skeleton-line" />
+            <span className="skeleton-line skeleton-line-sm" />
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function readSidebarCollapsedPreference(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+function writeSidebarCollapsedPreference(collapsed: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  if (collapsed) {
+    document.documentElement.dataset.sidebarCollapsed = "true";
+  } else {
+    delete document.documentElement.dataset.sidebarCollapsed;
+  }
 }
