@@ -21,7 +21,7 @@ export function SystemShell({ children }: SystemShellProps) {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
-            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhu-park-symbol.png" />
+            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhupark-logo.svg" />
           </span>
           <span>系统管理</span>
         </div>

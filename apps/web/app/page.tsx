@@ -23,7 +23,7 @@ export default function DashboardPage() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
-            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhu-park-symbol.png" />
+            <img alt="金湖科创产业园" className="brand-mark-image" src="/brand/jinhupark-logo.svg" />
           </span>
           <span>金湖科创产业园</span>
         </div>
