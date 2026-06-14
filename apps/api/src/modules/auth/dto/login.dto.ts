@@ -1,13 +1,15 @@
-import { IsString, MaxLength, MinLength } from "class-validator";
+import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class LoginDto {
+  @IsOptional()
   @IsString()
   @MaxLength(64)
-  tenantId!: string;
+  tenantId?: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(64)
-  parkId!: string;
+  parkId?: string;
 
   @IsString()
   username!: string;

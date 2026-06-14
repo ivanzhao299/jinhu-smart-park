@@ -152,6 +152,25 @@ export class UsersService {
     });
   }
 
+  findLoginCandidatesByUsername(username: string): Promise<UserEntity[]> {
+    return this.usersRepository.find({
+      where: {
+        username,
+        isDeleted: false
+      },
+      relations: {
+        roleLinks: {
+          role: {
+            permissionLinks: {
+              permission: true
+            }
+          }
+        }
+      },
+      order: { tenantId: "ASC", parkId: "ASC", createTime: "ASC" }
+    });
+  }
+
   findByIdInScope(id: string, scope: TenantParkScope): Promise<UserEntity | null> {
     return this.usersRepository.findOne({
       where: {

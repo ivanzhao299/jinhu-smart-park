@@ -118,34 +118,86 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(dto: LoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
-    await this.tenantsService.assertTenantActive(dto.tenantId);
-    const user = await this.usersService.findByUsernameInScope(dto.username, {
-      tenantId: dto.tenantId,
-      parkId: dto.parkId
-    });
-    if (!user || user.isDeleted || !user.isEnabled) {
+    const username = dto.username.trim();
+    const scopedLogin = dto.tenantId && dto.parkId;
+    const candidates = scopedLogin
+      ? [
+          await this.usersService.findByUsernameInScope(username, {
+            tenantId: dto.tenantId!,
+            parkId: dto.parkId!
+          })
+        ].filter((user): user is UserEntity => Boolean(user))
+      : await this.usersService.findLoginCandidatesByUsername(username);
+
+    if (candidates.length === 0) {
       await this.recordLoginEvent(
-        { tenantId: dto.tenantId, parkId: dto.parkId, username: dto.username, loginMethod: "password" },
+        { tenantId: dto.tenantId ?? "unknown", parkId: dto.parkId ?? "unknown", username, loginMethod: "password" },
         meta,
         null,
         false,
         "Invalid username or password"
       );
-      throw new UnauthorizedException("Invalid username or password");
+      throw new UnauthorizedException("账号或密码错误");
     }
 
-    const passwordMatched = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordMatched) {
+    const matchedUsers: UserEntity[] = [];
+    for (const user of candidates) {
+      if (await bcrypt.compare(dto.password, user.passwordHash)) {
+        matchedUsers.push(user);
+      }
+    }
+
+    if (matchedUsers.length === 0) {
+      const firstCandidate = candidates[0]!;
       await this.recordLoginEvent(
-        { tenantId: dto.tenantId, parkId: dto.parkId, username: dto.username, loginMethod: "password" },
+        { tenantId: firstCandidate.tenantId, parkId: firstCandidate.parkId, username, loginMethod: "password" },
         meta,
-        user.id,
+        firstCandidate.id,
         false,
         "Invalid username or password"
       );
-      throw new UnauthorizedException("Invalid username or password");
+      throw new UnauthorizedException("账号或密码错误");
     }
 
+    const enabledUsers = matchedUsers.filter((user) => !user.isDeleted && user.isEnabled && user.status !== "disabled");
+    if (enabledUsers.length === 0) {
+      const firstMatchedUser = matchedUsers[0]!;
+      await this.recordLoginEvent(
+        { tenantId: firstMatchedUser.tenantId, parkId: firstMatchedUser.parkId, username, loginMethod: "password" },
+        meta,
+        firstMatchedUser.id,
+        false,
+        "User is disabled"
+      );
+      throw new UnauthorizedException("账号已停用，请联系管理员");
+    }
+
+    for (const user of enabledUsers) {
+      await this.tenantsService.assertTenantActive(user.tenantId);
+    }
+
+    if (enabledUsers.length > 1) {
+      const tenantIds = [...new Set(enabledUsers.map((user) => user.tenantId))];
+      if (tenantIds.length > 1) {
+        const firstUser = enabledUsers[0]!;
+        await this.recordLoginEvent(
+          { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
+          meta,
+          firstUser.id,
+          false,
+          "Multiple tenant contexts require administrator cleanup"
+        );
+        throw new ConflictException("该账号关联多个租户，请联系管理员设置唯一登录租户");
+      }
+      const ticket = await this.createLoginTicket(tenantIds[0]!, "password", enabledUsers.map((user) => user.id));
+      return {
+        requiresContextSelection: true,
+        loginTicket: ticket,
+        contexts: enabledUsers.map((user) => this.toContextOption(user))
+      };
+    }
+
+    const user = enabledUsers[0]!;
     await this.ensureIdentity(user, "password", user.username);
     return this.issueLoginResult(user, meta, "password", user.username);
   }

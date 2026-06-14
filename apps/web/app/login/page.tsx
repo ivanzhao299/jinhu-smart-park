@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Form, Input } from "antd";
-import { Building2, LockKeyhole, LogIn, MapPinned, UserRound } from "lucide-react";
+import { LockKeyhole, LogIn, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { apiRequest } from "../../lib/api-client";
@@ -12,6 +12,7 @@ interface LoginResult {
   refreshToken?: string;
   tokenType?: "Bearer";
   expiresIn?: string;
+  requiresContextSelection?: boolean;
   user?: {
     id: string;
     username: string;
@@ -23,8 +24,6 @@ interface LoginResult {
 }
 
 interface LoginFormValues {
-  tenantId: string;
-  parkId: string;
   username: string;
   password: string;
 }
@@ -37,6 +36,9 @@ export default function LoginPage() {
   const completeLogin = useCallback(
     async (result: LoginResult) => {
       if (!result.accessToken) {
+        if (result.requiresContextSelection) {
+          throw new Error("该账号关联多个园区，请联系管理员设置默认登录园区");
+        }
         throw new Error("登录响应缺少访问令牌");
       }
       setToken(result.accessToken);
@@ -89,14 +91,6 @@ export default function LoginPage() {
           </div>
         </div>
         <Form<LoginFormValues> className="signin-form" layout="vertical" onFinish={handlePasswordSubmit}>
-          <div className="signin-scope-grid">
-            <Form.Item label="租户 ID" name="tenantId" rules={[{ required: true, message: "请输入租户 ID" }]}>
-              <Input autoComplete="organization" placeholder="tenant_id" prefix={<Building2 size={16} />} size="large" />
-            </Form.Item>
-            <Form.Item label="园区 ID" name="parkId" rules={[{ required: true, message: "请输入园区 ID" }]}>
-              <Input autoComplete="off" placeholder="park_id" prefix={<MapPinned size={16} />} size="large" />
-            </Form.Item>
-          </div>
           <Form.Item label="账号" name="username" rules={[{ required: true, message: "请输入账号" }]}>
             <Input autoComplete="username" placeholder="请输入账号" prefix={<UserRound size={16} />} size="large" />
           </Form.Item>
