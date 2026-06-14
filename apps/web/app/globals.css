@@ -4933,6 +4933,35 @@ textarea:disabled {
   margin: 0;
 }
 
+.terminal-empty-state,
+.terminal-loading-state {
+  color: var(--phoenix-text-muted);
+  display: grid;
+  gap: var(--phoenix-space-2);
+  justify-items: center;
+  padding: var(--phoenix-space-6);
+  text-align: center;
+}
+
+.terminal-empty-state p,
+.terminal-loading-state p {
+  color: var(--phoenix-text);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.terminal-empty-state span {
+  max-width: 520px;
+}
+
+.terminal-loading-dot {
+  background: var(--phoenix-primary);
+  border-radius: 999px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--phoenix-primary) 14%, transparent);
+  height: 12px;
+  width: 12px;
+}
+
 .terminal-drawer-summary,
 .terminal-drawer-actions,
 .terminal-check-item-actions {

@@ -9,8 +9,6 @@ import {
   DrawerForm,
   DrawerFormGrid,
   DrawerHeader,
-  EmptyState,
-  LoadingState,
   StatusPill
 } from "@jinhu/ui";
 import {
@@ -38,6 +36,24 @@ import { getAccessToken } from "../../../lib/authz";
 import { hasPermission } from "../../../lib/permissions";
 
 const SAFETY_MODULE = "safety";
+
+function TerminalEmptyState({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="terminal-empty-state">
+      <p>{title}</p>
+      {description ? <span>{description}</span> : null}
+    </div>
+  );
+}
+
+function TerminalLoadingState({ title }: { title: string }) {
+  return (
+    <div className="terminal-loading-state">
+      <span className="terminal-loading-dot" aria-hidden="true" />
+      <p>{title}</p>
+    </div>
+  );
+}
 
 interface DictTypeRow {
   id: string;
@@ -415,7 +431,7 @@ export default function OperationsTerminalPage() {
   }
 
   return (
-    <PermissionGuard permission="safety_inspect_task:my" module={SAFETY_MODULE} fallback={<main className="page-container"><Card><EmptyState title="无权访问现场工作台" description="请联系管理员开通巡检或工单权限。" /></Card></main>}>
+    <PermissionGuard permission="safety_inspect_task:my" module={SAFETY_MODULE} fallback={<main className="page-container"><Card><TerminalEmptyState title="无权访问现场工作台" description="请联系管理员开通巡检或工单权限。" /></Card></main>}>
       <main className="page-container operations-terminal-page">
         <section className="page-header operations-terminal-hero">
           <div>
@@ -470,7 +486,7 @@ export default function OperationsTerminalPage() {
         {message ? <p className="form-error terminal-message">{message}</p> : null}
 
         {loading ? (
-          <Card><LoadingState title="正在加载现场任务" /></Card>
+          <Card><TerminalLoadingState title="正在加载现场任务" /></Card>
         ) : (
           <>
             <Card id="today-inspections" className="terminal-section">
@@ -513,7 +529,7 @@ export default function OperationsTerminalPage() {
                   {todayTasks.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
-                        <EmptyState
+                        <TerminalEmptyState
                           title="今天暂无巡检任务"
                           description={canGenerate ? "可点击生成今日任务，或到巡检计划中调整责任人。" : "请联系物业或安全负责人生成今日任务。"}
                         />
@@ -556,7 +572,7 @@ export default function OperationsTerminalPage() {
                     </tr>
                   ))}
                   {recentWorkOrders.length === 0 ? (
-                    <tr><td colSpan={5}><EmptyState title="暂无最近工单" /></td></tr>
+                    <tr><td colSpan={5}><TerminalEmptyState title="暂无最近工单" /></td></tr>
                   ) : null}
                 </tbody>
               </DataTable>
@@ -641,7 +657,7 @@ export default function OperationsTerminalPage() {
                     </section>
                   );
                 })}
-                {(executing.items ?? []).length === 0 ? <EmptyState title="暂无检查项" /> : null}
+                {(executing.items ?? []).length === 0 ? <TerminalEmptyState title="暂无检查项" /> : null}
               </div>
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={() => setExecuting(null)}>关闭</button>

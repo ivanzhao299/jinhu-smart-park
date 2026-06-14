@@ -15,7 +15,7 @@ upsert_permissions AS (
          permissions.sort_no, 'enabled', true, true, true, 'Operations terminal page seed'
   FROM permissions
   CROSS JOIN seed_scope
-  ON CONFLICT (tenant_id, park_id, code) WHERE is_deleted = false DO UPDATE SET
+  ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO UPDATE SET
     name = EXCLUDED.name,
     resource = EXCLUDED.resource,
     action = EXCLUDED.action,
@@ -107,34 +107,26 @@ templates(template_code, template_name, template_type, description, sort_no) AS 
     ('OPS-EQUIPMENT-DAILY', '设备设施巡检', 'other', '电梯、配电箱、照明、门禁、监控、道闸、水泵和机房设施检查。', 30),
     ('OPS-PARKING-DAILY', '停车与秩序巡检', 'public_area', '车辆乱停、占道、道闸、停车标识和外来车辆秩序检查。', 40),
     ('OPS-ELECTRIC-DAILY', '用电安全巡检', 'electrical', '私拉乱接、配电箱、违规充电、大功率设备和线路隐患检查。', 50)
-),
-upsert_templates AS (
-  INSERT INTO biz_safety_inspect_template (
-    tenant_id, park_id, code, template_code, template_name, template_type, description, status, create_by, update_by, remark
-  )
-  SELECT seed_scope.tenant_id, seed_scope.park_id, templates.template_code, templates.template_code,
-         templates.template_name, templates.template_type, templates.description, 'enabled',
-         'ops-terminal-seed', 'ops-terminal-seed', '现场工作台首批巡检模板'
-  FROM templates
-  CROSS JOIN seed_scope
-  ON CONFLICT (tenant_id, park_id, template_code) WHERE is_deleted = false DO UPDATE SET
-    template_name = EXCLUDED.template_name,
-    template_type = EXCLUDED.template_type,
-    description = EXCLUDED.description,
-    status = 'enabled',
-    remark = EXCLUDED.remark,
-    update_by = EXCLUDED.update_by,
-    update_time = now()
-  RETURNING id, template_code
-),
-all_templates AS (
-  SELECT template.id, template.template_code
-  FROM biz_safety_inspect_template template
-  JOIN seed_scope
-    ON template.tenant_id = seed_scope.tenant_id
-   AND template.park_id = seed_scope.park_id
-  WHERE template.template_code IN (SELECT template_code FROM templates)
-    AND template.is_deleted = false
+)
+INSERT INTO biz_safety_inspect_template (
+  tenant_id, park_id, code, template_code, template_name, template_type, description, status, create_by, update_by, remark
+)
+SELECT seed_scope.tenant_id, seed_scope.park_id, templates.template_code, templates.template_code,
+       templates.template_name, templates.template_type, templates.description, 'enabled',
+       NULL, NULL, '现场工作台首批巡检模板'
+FROM templates
+CROSS JOIN seed_scope
+ON CONFLICT (tenant_id, park_id, template_code) WHERE is_deleted = false DO UPDATE SET
+  template_name = EXCLUDED.template_name,
+  template_type = EXCLUDED.template_type,
+  description = EXCLUDED.description,
+  status = 'enabled',
+  remark = EXCLUDED.remark,
+  update_by = EXCLUDED.update_by,
+  update_time = now();
+
+WITH seed_scope AS (
+  SELECT '10000001' AS tenant_id, '20000001' AS park_id
 ),
 items(template_code, item_code, item_name, hazard_type, risk_level, sort_no, standard_desc) AS (
   VALUES
@@ -176,12 +168,16 @@ INSERT INTO biz_safety_inspect_item (
   tenant_id, park_id, template_id, item_code, item_name, item_type, hazard_type,
   default_risk_level, required, sort_no, standard_desc, status, create_by, update_by, remark
 )
-SELECT seed_scope.tenant_id, seed_scope.park_id, all_templates.id, items.item_code, items.item_name,
+SELECT seed_scope.tenant_id, seed_scope.park_id, template.id, items.item_code, items.item_name,
        'normal_abnormal', items.hazard_type, items.risk_level, true, items.sort_no,
-       items.standard_desc, 'enabled', 'ops-terminal-seed', 'ops-terminal-seed', '现场工作台首批检查项'
+       items.standard_desc, 'enabled', NULL, NULL, '现场工作台首批检查项'
 FROM items
-JOIN all_templates ON all_templates.template_code = items.template_code
 CROSS JOIN seed_scope
+JOIN biz_safety_inspect_template template
+  ON template.tenant_id = seed_scope.tenant_id
+ AND template.park_id = seed_scope.park_id
+ AND template.template_code = items.template_code
+ AND template.is_deleted = false
 ON CONFLICT (tenant_id, park_id, template_id, item_code) WHERE is_deleted = false AND item_code IS NOT NULL DO UPDATE SET
   item_name = EXCLUDED.item_name,
   item_type = EXCLUDED.item_type,
@@ -214,8 +210,8 @@ INSERT INTO biz_safety_inspect_point (
 SELECT seed_scope.tenant_id, seed_scope.park_id, points.point_code, points.point_code,
        points.point_name, points.point_type, points.risk_level, points.location,
        points.point_code, points.check_method, points.required_photo_count, false,
-       points.required_gps, 'enabled', points.sort_no, 'ops-terminal-seed',
-       'ops-terminal-seed', '现场工作台首批通用巡检点位'
+       points.required_gps, 'enabled', points.sort_no, NULL,
+       NULL, '现场工作台首批通用巡检点位'
 FROM points
 CROSS JOIN seed_scope
 ON CONFLICT (tenant_id, park_id, point_code) WHERE is_deleted = false DO UPDATE SET
@@ -272,7 +268,7 @@ SELECT seed_scope.tenant_id, seed_scope.park_id, resolved.plan_code, resolved.pl
        resolved.plan_name, resolved.template_id, resolved.point_ids, 'daily', NULL,
        CURRENT_DATE, NULL, '[]'::jsonb, resolved.handler_role_codes,
        date_trunc('day', now()) + interval '9 hours', NULL, 'enabled',
-       'ops-terminal-seed', 'ops-terminal-seed', '现场工作台首批每日巡检计划'
+       NULL, NULL, '现场工作台首批每日巡检计划'
 FROM resolved
 CROSS JOIN seed_scope
 ON CONFLICT (tenant_id, park_id, plan_code) WHERE is_deleted = false DO UPDATE SET
