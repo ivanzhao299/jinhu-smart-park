@@ -57,20 +57,20 @@ class User:
 
 
 ORGS = (
-    Org("JH_GROUP", "山东金湖集团有限公司", "group", None, 10, "zhao_yongwei"),
-    Org("JH_EXEC", "集团管理层", "department", "JH_GROUP", 20, "zhao_yongwei"),
-    Org("JH_HR_ADMIN", "人力资源与综合行政管理部", "department", "JH_GROUP", 30, "wu_enguo"),
-    Org("JH_FINANCE", "财务管理部", "department", "JH_GROUP", 40, "liu_hantao"),
-    Org("JH_LEGAL", "法律合规管理部", "department", "JH_GROUP", 50, "jiang_beiping"),
-    Org("JH_ENGINEERING_PROPERTY", "工程建设与物业管理部", "department", "JH_GROUP", 60, "li_rongjie"),
-    Org("JH_LEASING_OPERATIONS", "招商与园区运营管理部", "department", "JH_GROUP", 70, "song_qianchang"),
-    Org("JH_SUBSIDIARIES", "成员公司及项目负责人", "department", "JH_GROUP", 80, "xu_wanxi"),
-    Org("JH_PRESIDENT_OFFICE", "总裁办公室", "department", "JH_GROUP", 90, "wang_xinxin"),
-    Org("JH_LY_GK_TECH_PARK", "临沂国控科技产业园开发有限公司", "company", "JH_SUBSIDIARIES", 110, "cheng_xiaojie"),
-    Org("JH_NEW_MATERIALS", "山东金湖新材料科技有限公司", "company", "JH_SUBSIDIARIES", 120, "song_yongshan"),
-    Org("JH_REAL_ESTATE", "山东金湖置业有限公司", "company", "JH_SUBSIDIARIES", 130, "jiang_beiping"),
-    Org("JH_HUIJIN_ZHICHUANG", "汇金智创（山东）产业发展有限公司", "company", "JH_SUBSIDIARIES", 140, "xu_wanxi"),
-    Org("JH_SHUAIKE_AUTO", "山东帅科自动化科技有限公司", "company", "JH_SUBSIDIARIES", 150, "wang_lejin"),
+    Org("JH_GROUP", "山东金湖集团有限公司", "group", None, 10, "zhaoyongwei"),
+    Org("JH_EXEC", "集团管理层", "department", "JH_GROUP", 20, "zhaoyongwei"),
+    Org("JH_HR_ADMIN", "人力资源与综合行政管理部", "department", "JH_GROUP", 30, "wuenguo"),
+    Org("JH_FINANCE", "财务管理部", "department", "JH_GROUP", 40, "liuhantao"),
+    Org("JH_LEGAL", "法律合规管理部", "department", "JH_GROUP", 50, "jiangbeiping"),
+    Org("JH_ENGINEERING_PROPERTY", "工程建设与物业管理部", "department", "JH_GROUP", 60, "lirongjie"),
+    Org("JH_LEASING_OPERATIONS", "招商与园区运营管理部", "department", "JH_GROUP", 70, "songqianchang"),
+    Org("JH_SUBSIDIARIES", "成员公司及项目负责人", "department", "JH_GROUP", 80, "xuwanxi"),
+    Org("JH_PRESIDENT_OFFICE", "总裁办公室", "department", "JH_GROUP", 90, "wangxinxin"),
+    Org("JH_LY_GK_TECH_PARK", "临沂国控科技产业园开发有限公司", "company", "JH_SUBSIDIARIES", 110, "chengxiaojie"),
+    Org("JH_NEW_MATERIALS", "山东金湖新材料科技有限公司", "company", "JH_SUBSIDIARIES", 120, "songyongshan"),
+    Org("JH_REAL_ESTATE", "山东金湖置业有限公司", "company", "JH_SUBSIDIARIES", 130, "jiangbeiping"),
+    Org("JH_HUIJIN_ZHICHUANG", "汇金智创（山东）产业发展有限公司", "company", "JH_SUBSIDIARIES", 140, "xuwanxi"),
+    Org("JH_SHUAIKE_AUTO", "山东帅科自动化科技有限公司", "company", "JH_SUBSIDIARIES", 150, "wanglejin"),
 )
 
 
@@ -96,25 +96,25 @@ POSTS = (
 
 
 USERS = (
-    User("zhao_yongwei", "赵永伟", "JH_EXEC", "GROUP_PRESIDENT", ("EXECUTIVE", "OPERATIONS_OWNER"), "全面负责集团发展战略、经营管理及重大事项决策"),
-    User("xu_wanxi", "许万玺", "JH_EXEC", "GROUP_VP", ("EXECUTIVE", "OPERATIONS_OWNER", "INVEST_MANAGER", "PROPERTY_MANAGER"), "分管重点项目、产业园招商运营、工程建设及综合协调；兼汇金智创总经理"),
-    User("wu_enguo", "吴恩国", "JH_HR_ADMIN", "HR_ADMIN_MANAGER", ("SYSTEM_ADMIN",), "负责人力资源管理体系、人员规划、薪酬绩效、劳动关系、社保及综合行政管理"),
-    User("yuan_haitao", "苑海涛", "JH_HR_ADMIN", "HR_ASSISTANT", ("AUDITOR",), "协助劳动关系、社会保险、人事事务及生产后勤协调"),
-    User("liu_xia", "刘霞", "JH_HR_ADMIN", "ADMIN_DEPUTY_DIRECTOR", ("SYSTEM_ADMIN", "AUDITOR"), "负责档案、证章、会议组织、行政支持、统计报送及后勤协调"),
-    User("liu_hantao", "刘汉涛", "JH_FINANCE", "FINANCE_MANAGER", ("FINANCE_MANAGER",), "负责财务管理、资金运作、税务管理、融资协调及财务监督"),
-    User("wang_yanxiu", "王艳秀", "JH_FINANCE", "FINANCE_DEPUTY_MANAGER", ("FINANCE_SPECIALIST",), "协助财务核算、资金执行及相关财务管理"),
-    User("jiang_beiping", "蒋北平", "JH_LEGAL", "LEGAL_COMPLIANCE_MANAGER", ("EXECUTIVE", "AUDITOR"), "负责法律事务、合规管理、合同审查、涉法涉诉及风险防控；兼金湖置业经营管理"),
-    User("li_rongjie", "李荣杰", "JH_ENGINEERING_PROPERTY", "ENGINEERING_PROPERTY_MANAGER", ("PROPERTY_MANAGER", "SAFETY_MANAGER", "IOT_MANAGER"), "负责工程建设管理及园区物业运营管理体系运行"),
-    User("shao_minghong", "邵明洪", "JH_ENGINEERING_PROPERTY", "ENGINEERING_PROJECT_MANAGER", ("PROPERTY_STAFF", "MAINTENANCE_ENGINEER"), "负责工程项目技术、质量、进度、验收及结算管理"),
-    User("zheng_ziyong", "郑子勇", "JH_ENGINEERING_PROPERTY", "INSTALLATION_ENGINEER", ("MAINTENANCE_ENGINEER", "IOT_OPERATOR"), "负责机电安装及相关专业技术管理"),
-    User("song_qianchang", "宋乾昌", "JH_LEASING_OPERATIONS", "LEASING_LEAD", ("INVEST_MANAGER",), "负责园区招商策划、实施、客户服务及招商运营管理"),
-    User("chen_guohui", "陈国辉", "JH_LEASING_OPERATIONS", "PROPERTY_SITE_MANAGER", ("PROPERTY_MANAGER", "SAFETY_MANAGER"), "负责园区物业现场运营、服务管理及物业团队建设"),
-    User("cheng_xiaojie", "程效杰", "JH_LY_GK_TECH_PARK", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "临沂国控科技产业园开发有限公司总经理"),
-    User("song_yongshan", "宋永山", "JH_NEW_MATERIALS", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "山东金湖新材料科技有限公司总经理"),
-    User("wang_lejin", "王乐金", "JH_SHUAIKE_AUTO", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "山东帅科自动化科技有限公司总经理"),
-    User("wang_xinxin", "王欣欣", "JH_PRESIDENT_OFFICE", "PRESIDENT_OFFICE_DEPUTY", ("SYSTEM_ADMIN", "EXECUTIVE"), "负责总裁办公室综合事务及集团民宿业务运营管理"),
-    User("li_xiaobin", "李晓斌", "JH_PRESIDENT_OFFICE", "PRESIDENT_ASSISTANT", ("EXECUTIVE",), "协助总裁处理日常事务、新业务拓展及综合协调"),
-    User("zhao_weichen", "赵炜晨", "JH_PRESIDENT_OFFICE", "PRESIDENT_OFFICE_ASSISTANT", ("AUDITOR",), "协助总裁、副总裁开展日常事务协调及相关执行工作"),
+    User("zhaoyongwei", "赵永伟", "JH_EXEC", "GROUP_PRESIDENT", ("EXECUTIVE", "OPERATIONS_OWNER"), "全面负责集团发展战略、经营管理及重大事项决策"),
+    User("xuwanxi", "许万玺", "JH_EXEC", "GROUP_VP", ("EXECUTIVE", "OPERATIONS_OWNER", "INVEST_MANAGER", "PROPERTY_MANAGER"), "分管重点项目、产业园招商运营、工程建设及综合协调；兼汇金智创总经理"),
+    User("wuenguo", "吴恩国", "JH_HR_ADMIN", "HR_ADMIN_MANAGER", ("SYSTEM_ADMIN",), "负责人力资源管理体系、人员规划、薪酬绩效、劳动关系、社保及综合行政管理"),
+    User("yuanhaitao", "苑海涛", "JH_HR_ADMIN", "HR_ASSISTANT", ("AUDITOR",), "协助劳动关系、社会保险、人事事务及生产后勤协调"),
+    User("liuxia", "刘霞", "JH_HR_ADMIN", "ADMIN_DEPUTY_DIRECTOR", ("SYSTEM_ADMIN", "AUDITOR"), "负责档案、证章、会议组织、行政支持、统计报送及后勤协调"),
+    User("liuhantao", "刘汉涛", "JH_FINANCE", "FINANCE_MANAGER", ("FINANCE_MANAGER",), "负责财务管理、资金运作、税务管理、融资协调及财务监督"),
+    User("wangyanxiu", "王艳秀", "JH_FINANCE", "FINANCE_DEPUTY_MANAGER", ("FINANCE_SPECIALIST",), "协助财务核算、资金执行及相关财务管理"),
+    User("jiangbeiping", "蒋北平", "JH_LEGAL", "LEGAL_COMPLIANCE_MANAGER", ("EXECUTIVE", "AUDITOR"), "负责法律事务、合规管理、合同审查、涉法涉诉及风险防控；兼金湖置业经营管理"),
+    User("lirongjie", "李荣杰", "JH_ENGINEERING_PROPERTY", "ENGINEERING_PROPERTY_MANAGER", ("PROPERTY_MANAGER", "SAFETY_MANAGER", "IOT_MANAGER"), "负责工程建设管理及园区物业运营管理体系运行"),
+    User("shaominghong", "邵明洪", "JH_ENGINEERING_PROPERTY", "ENGINEERING_PROJECT_MANAGER", ("PROPERTY_STAFF", "MAINTENANCE_ENGINEER"), "负责工程项目技术、质量、进度、验收及结算管理"),
+    User("zhengziyong", "郑子勇", "JH_ENGINEERING_PROPERTY", "INSTALLATION_ENGINEER", ("MAINTENANCE_ENGINEER", "IOT_OPERATOR"), "负责机电安装及相关专业技术管理"),
+    User("songqianchang", "宋乾昌", "JH_LEASING_OPERATIONS", "LEASING_LEAD", ("INVEST_MANAGER",), "负责园区招商策划、实施、客户服务及招商运营管理"),
+    User("chenguohui", "陈国辉", "JH_LEASING_OPERATIONS", "PROPERTY_SITE_MANAGER", ("PROPERTY_MANAGER", "SAFETY_MANAGER"), "负责园区物业现场运营、服务管理及物业团队建设"),
+    User("chengxiaojie", "程效杰", "JH_LY_GK_TECH_PARK", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "临沂国控科技产业园开发有限公司总经理"),
+    User("songyongshan", "宋永山", "JH_NEW_MATERIALS", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "山东金湖新材料科技有限公司总经理"),
+    User("wanglejin", "王乐金", "JH_SHUAIKE_AUTO", "SUBSIDIARY_GENERAL_MANAGER", ("EXECUTIVE",), "山东帅科自动化科技有限公司总经理"),
+    User("wangxinxin", "王欣欣", "JH_PRESIDENT_OFFICE", "PRESIDENT_OFFICE_DEPUTY", ("SYSTEM_ADMIN", "EXECUTIVE"), "负责总裁办公室综合事务及集团民宿业务运营管理"),
+    User("lixiaobin", "李晓斌", "JH_PRESIDENT_OFFICE", "PRESIDENT_ASSISTANT", ("EXECUTIVE",), "协助总裁处理日常事务、新业务拓展及综合协调"),
+    User("zhaoweichen", "赵炜晨", "JH_PRESIDENT_OFFICE", "PRESIDENT_OFFICE_ASSISTANT", ("AUDITOR",), "协助总裁、副总裁开展日常事务协调及相关执行工作"),
 )
 
 
@@ -158,6 +158,7 @@ def build_sql(hashes: dict[str, str]) -> str:
             update_org_parents(),
             upsert_posts(),
             upsert_users(hashes),
+            upsert_password_identities(),
             set_org_leaders(),
             upsert_user_orgs(),
             upsert_user_roles(),
@@ -251,6 +252,59 @@ DO UPDATE SET display_name = EXCLUDED.display_name,
               update_by = EXCLUDED.update_by,
               update_time = now(),
               remark = EXCLUDED.remark;
+"""
+
+
+def upsert_password_identities() -> str:
+    values = ",\n".join(f"({q(user.username)})" for user in USERS)
+    return f"""
+WITH src(username) AS (
+  VALUES
+{values}
+),
+resolved AS (
+  SELECT users.id AS user_id, users.username, users.display_name, users.mobile, users.email, users.avatar_url
+  FROM src
+  JOIN sys_user users
+    ON users.tenant_id = {q(TENANT_ID)}
+   AND users.park_id = {q(PARK_ID)}
+   AND users.username = src.username
+   AND users.is_deleted = false
+),
+updated AS (
+  UPDATE sys_user_identity identity
+     SET provider_user_id = resolved.username,
+         mobile = resolved.mobile,
+         email = resolved.email,
+         nickname = resolved.display_name,
+         avatar_url = resolved.avatar_url,
+         bind_status = 'bound',
+         is_deleted = false,
+         update_by = resolved.user_id,
+         update_time = now(),
+         remark = {q(source_remark())}
+    FROM resolved
+   WHERE identity.tenant_id = {q(TENANT_ID)}
+     AND identity.park_id = {q(PARK_ID)}
+     AND identity.user_id = resolved.user_id
+     AND identity.provider = 'password'
+   RETURNING identity.id
+)
+INSERT INTO sys_user_identity (
+  tenant_id, park_id, user_id, provider, provider_user_id, mobile, email,
+  nickname, avatar_url, bind_status, create_by, update_by, remark
+)
+SELECT {q(TENANT_ID)}, {q(PARK_ID)}, user_id, 'password', username, mobile, email,
+       display_name, avatar_url, 'bound', user_id, user_id, {q(source_remark())}
+FROM resolved
+WHERE NOT EXISTS (
+  SELECT 1 FROM sys_user_identity identity
+   WHERE identity.tenant_id = {q(TENANT_ID)}
+     AND identity.park_id = {q(PARK_ID)}
+     AND identity.user_id = resolved.user_id
+     AND identity.provider = 'password'
+     AND identity.is_deleted = false
+);
 """
 
 
