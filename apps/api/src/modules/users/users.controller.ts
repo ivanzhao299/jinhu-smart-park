@@ -28,7 +28,7 @@ export class UsersController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_CREATE)
   @AuditLog({ module: "用户管理", resource: "system.user", action: "新增", captureBody: true })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateUserDto) {
-    return this.usersService.create(scope, user.sub, dto);
+    return this.usersService.create(scope, user, dto);
   }
 
   @Get("me")
@@ -52,7 +52,7 @@ export class UsersController {
     @Param("id") id: string,
     @Body() dto: UpdateUserDto
   ) {
-    return this.usersService.update(scope, user.sub, id, dto);
+    return this.usersService.update(scope, user, id, dto);
   }
 
   @Delete(":id")

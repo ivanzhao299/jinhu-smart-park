@@ -28,6 +28,7 @@ import { TenantModuleEntity } from "../saas-modules/entities/tenant-module.entit
 import { UserEntity } from "../users/entities/user.entity";
 import { UserParkEntity } from "../users/entities/user-park.entity";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
+import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
 import type { UpdateTenantDto } from "./dto/update-tenant.dto";
 import { TenantEntity } from "./entities/tenant.entity";
@@ -53,6 +54,8 @@ export interface TenantView {
   maxUsers: number;
   maxParks: number;
   planCode: string | null;
+  defaultParkId: string | null;
+  expireWarning: string | null;
   featureConfig: Record<string, unknown>;
   userCount: number;
   parkCount: number;
@@ -60,6 +63,21 @@ export interface TenantView {
   createTime: Date;
   updateTime: Date;
   remark: string | null;
+}
+
+export interface TenantParkOption {
+  id: string;
+  tenantId: string;
+  parkId: string;
+  parkCode: string;
+  parkName: string;
+  status: number;
+}
+
+export interface TenantLoginSettingsView {
+  tenant: TenantView;
+  parks: TenantParkOption[];
+  enabledModuleCodes: string[];
 }
 
 @Injectable()
@@ -120,6 +138,38 @@ export class TenantsService {
   async detail(actor: JwtPrincipal, id: string): Promise<TenantView> {
     this.assertSuper(actor);
     return this.toView(await this.getTenantById(id));
+  }
+
+  async loginSettings(actor: JwtPrincipal, id: string): Promise<TenantLoginSettingsView> {
+    this.assertSuper(actor);
+    const tenant = await this.getTenantById(id);
+    return this.toLoginSettingsView(this.dataSource.manager, tenant);
+  }
+
+  private async toLoginSettingsView(manager: EntityManager, tenant: TenantEntity): Promise<TenantLoginSettingsView> {
+    const [parks, modules] = await Promise.all([
+      manager.getRepository(ParkEntity).find({
+        where: { tenantId: tenant.tenantId, isDeleted: false },
+        order: { createTime: "ASC" }
+      }),
+      manager.getRepository(TenantModuleEntity).find({
+        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" },
+        relations: { module: true },
+        order: { createTime: "ASC" }
+      })
+    ]);
+    return {
+      tenant: await this.toView(tenant, manager),
+      parks: parks.map((park) => ({
+        id: park.id,
+        tenantId: park.tenantId,
+        parkId: park.parkId,
+        parkCode: park.parkCode,
+        parkName: park.parkName,
+        status: park.status
+      })),
+      enabledModuleCodes: modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code))
+    };
   }
 
   async create(actorScope: TenantParkScope, actorId: string, actor: JwtPrincipal, dto: CreateTenantDto): Promise<TenantView> {
@@ -213,6 +263,56 @@ export class TenantsService {
       updateBy: actorId
     });
     return this.toView(await this.tenantRepository.save(tenant));
+  }
+
+  async updateLoginSettings(
+    actorScope: TenantParkScope,
+    actorId: string,
+    actor: JwtPrincipal,
+    id: string,
+    dto: UpdateTenantLoginSettingsDto
+  ): Promise<TenantLoginSettingsView> {
+    this.assertSuper(actor);
+    return this.dataSource.transaction(async (manager) => {
+      const tenantRepository = manager.getRepository(TenantEntity);
+      const tenant = await tenantRepository.findOne({ where: { id, isDeleted: false } });
+      if (!tenant) {
+        throw new NotFoundException("Tenant not found");
+      }
+      const defaultParkId = dto.defaultParkId?.trim() || null;
+      if (defaultParkId) {
+        await this.assertParkBelongsToTenant(manager, tenant.tenantId, defaultParkId);
+      }
+      if (dto.status !== undefined) {
+        tenant.status = this.toStatusNumber(dto.status);
+      }
+      if (dto.expireTime !== undefined) {
+        tenant.expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
+      }
+      if (dto.planCode !== undefined) {
+        tenant.planCode = dto.planCode;
+      }
+      tenant.featureConfig = {
+        ...(tenant.featureConfig ?? {}),
+        ...(dto.featureConfig ?? {}),
+        defaultParkId
+      };
+      tenant.updateBy = actorId;
+      await tenantRepository.save(tenant);
+
+      if (dto.moduleCodes !== undefined) {
+        const plan = await this.resolvePlan(manager, actorScope, dto.planCode ?? tenant.planCode);
+        const moduleCodes = this.normalizeCodes(dto.moduleCodes);
+        const targetParkId = defaultParkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
+        const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId: tenant.tenantId, parkId: targetParkId }, actorId);
+        const modules = await this.resolveStandardModules(manager, moduleCodes);
+        await this.upsertTenantModules(manager, tenant, targetParkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
+        const role = await this.getOrCreateTenantAdminRole(manager, tenant, targetParkId, actorId);
+        await this.applyTenantAdminPermissions(manager, { tenantId: tenant.tenantId, parkId: targetParkId }, role, permissions, moduleCodes, [], actorId);
+      }
+
+      return this.toLoginSettingsView(manager, tenant);
+    });
   }
 
   async enable(actor: JwtPrincipal, actorId: string, id: string): Promise<TenantView> {
@@ -801,6 +901,14 @@ export class TenantsService {
   }
 
   private async resolveDefaultParkId(manager: EntityManager, tenantId: string): Promise<string> {
+    const tenant = await manager.getRepository(TenantEntity).findOne({ where: { tenantId, isDeleted: false } });
+    const configuredParkId = this.resolveConfiguredDefaultParkId(tenant);
+    if (configuredParkId) {
+      const exists = await manager.getRepository(ParkEntity).exists({ where: { tenantId, parkId: configuredParkId, isDeleted: false } });
+      if (exists) {
+        return configuredParkId;
+      }
+    }
     const park = await manager.getRepository(ParkEntity).findOne({
       where: { tenantId, isDeleted: false },
       order: { createTime: "ASC" }
@@ -838,6 +946,8 @@ export class TenantsService {
       maxUsers: tenant.maxUsers,
       maxParks: tenant.maxParks,
       planCode: tenant.planCode,
+      defaultParkId: this.resolveConfiguredDefaultParkId(tenant),
+      expireWarning: this.resolveExpireWarning(tenant),
       featureConfig: tenant.featureConfig ?? {},
       userCount,
       parkCount,
@@ -846,6 +956,35 @@ export class TenantsService {
       updateTime: tenant.updateTime,
       remark: tenant.remark
     };
+  }
+
+  private resolveConfiguredDefaultParkId(tenant: TenantEntity | null): string | null {
+    const value = tenant?.featureConfig?.defaultParkId;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private resolveExpireWarning(tenant: TenantEntity): string | null {
+    if (tenant.status === 2) {
+      return "账号所属租户已过期，请联系管理员续费";
+    }
+    if (!tenant.expireTime) {
+      return null;
+    }
+    const days = Math.ceil((tenant.expireTime.getTime() - Date.now()) / 86400000);
+    if (days < 0) {
+      return "账号所属租户已过期，请联系管理员续费";
+    }
+    if (days <= 30) {
+      return `租户将在 ${days} 天后到期，请及时续费`;
+    }
+    return null;
+  }
+
+  private async assertParkBelongsToTenant(manager: EntityManager, tenantId: string, parkId: string): Promise<void> {
+    const exists = await manager.getRepository(ParkEntity).exists({ where: { tenantId, parkId, isDeleted: false } });
+    if (!exists) {
+      throw new NotFoundException("Default park not found in target tenant");
+    }
   }
 
   private assertSuper(actor: JwtPrincipal): void {

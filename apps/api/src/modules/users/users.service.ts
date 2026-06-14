@@ -37,6 +37,10 @@ export interface UserView {
   status: string;
   tenantId: string;
   parkId: string;
+  tenantName: string | null;
+  parkName: string | null;
+  accessibleParks: UserParkContext[];
+  loginContextStatus: "ready" | "missing_default_park" | "default_park_not_accessible" | "tenant_disabled" | "tenant_expired";
   createTime: Date;
   updateTime: Date;
   remark: string | null;
@@ -75,20 +79,27 @@ export class UsersService {
   ) {}
 
   async list(scope: TenantParkScope, query: PaginationQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<UserView>> {
+    const queryTenantId = typeof (query as PaginationQueryDto & { tenantId?: string }).tenantId === "string" ? (query as PaginationQueryDto & { tenantId?: string }).tenantId : "";
+    const queryParkId = typeof (query as PaginationQueryDto & { parkId?: string }).parkId === "string" ? (query as PaginationQueryDto & { parkId?: string }).parkId : "";
     const statusWhere =
       query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
-    const baseWhere = await this.dataScopeService.buildFindWhere<UserEntity>(
-      scope,
-      actor,
-      "tenant",
-      {
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      isDeleted: false,
-      ...statusWhere
-      },
-      { tenant: "tenantId", park: "parkId" }
-    );
+    const superUser = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
+    const rawBaseWhere = superUser
+      ? {
+          ...(queryTenantId ? { tenantId: queryTenantId } : {}),
+          ...(queryParkId ? { parkId: queryParkId } : {}),
+          isDeleted: false,
+          ...statusWhere
+        }
+      : {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false,
+          ...statusWhere
+        };
+    const baseWhere = superUser
+      ? rawBaseWhere
+      : await this.dataScopeService.buildFindWhere<UserEntity>(scope, actor, "tenant", rawBaseWhere, { tenant: "tenantId", park: "parkId" });
     const where = query.keyword
       ? [
           { ...baseWhere, username: ILike(`%${query.keyword}%`) },
@@ -101,14 +112,15 @@ export class UsersService {
       skip: (query.page - 1) * query.page_size,
       take: query.page_size
     });
-    const views = items.map((item) => this.toView(item));
+    const views = await this.toViews(items);
     const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "system", "user", views);
     return { items: securedItems, total, page: query.page, page_size: query.page_size };
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateUserDto): Promise<UserView> {
-    await this.assertUsernameAvailable(scope, dto.username);
-    await this.assertTenantUserLimit(scope);
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateUserDto): Promise<UserView> {
+    const targetScope = await this.resolveUserTargetScope(scope, actor, dto.tenantId, dto.parkId);
+    await this.assertUsernameAvailable(targetScope, dto.username);
+    await this.assertTenantUserLimit(targetScope);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
     const user = await this.usersRepository.save(
@@ -123,13 +135,18 @@ export class UsersService {
         isEnabled: dto.status !== "disabled",
         status: dto.status ?? "enabled",
         remark: dto.remark ?? null,
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        createBy: actorId,
-        updateBy: actorId
+        tenantId: targetScope.tenantId,
+        parkId: targetScope.parkId,
+        createBy: actor.sub,
+        updateBy: actor.sub
       })
     );
-    return this.toView(user);
+    await this.syncUserParks(user.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
+    const [view] = await this.toViews([user]);
+    if (!view) {
+      throw new NotFoundException("User not found");
+    }
+    return view;
   }
 
   findByUsernameInScope(username: string, scope: TenantParkScope): Promise<UserEntity | null> {
@@ -253,9 +270,12 @@ export class UsersService {
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UserView> {
-    const user = await this.getEntityInScope(scope, id);
-    const view = this.toView(user);
-    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "system", "user", view);
+    const user = await this.getEntityForActor(scope, id, actor);
+    const [view] = await this.toViews([user]);
+    if (!view) {
+      throw new NotFoundException("User not found");
+    }
+    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "system", "user", view) as Promise<UserView>;
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {
@@ -339,9 +359,15 @@ export class UsersService {
     };
   }
 
-  async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateUserDto): Promise<UserView> {
-    const user = await this.getEntityInScope(scope, id);
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = await this.resolveUserTargetScope({ tenantId: user.tenantId, parkId: user.parkId }, actor, dto.tenantId, dto.parkId);
+    if (targetScope.tenantId !== user.tenantId || targetScope.parkId !== user.parkId) {
+      await this.assertUsernameAvailable(targetScope, user.username);
+    }
     Object.assign(user, {
+      tenantId: targetScope.tenantId,
+      parkId: targetScope.parkId,
       displayName: dto.displayName ?? user.displayName,
       mobile: dto.mobile ?? user.mobile,
       email: dto.email ?? user.email,
@@ -350,9 +376,17 @@ export class UsersService {
       status: dto.status ?? user.status,
       isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
       remark: dto.remark ?? user.remark,
-      updateBy: actorId
+      updateBy: actor.sub
     });
-    return this.toView(await this.usersRepository.save(user));
+    const saved = await this.usersRepository.save(user);
+    if (dto.accessibleParkIds !== undefined || dto.parkId !== undefined || dto.tenantId !== undefined) {
+      await this.syncUserParks(saved.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
+    }
+    const [view] = await this.toViews([saved]);
+    if (!view) {
+      throw new NotFoundException("User not found");
+    }
+    return view;
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
@@ -411,6 +445,103 @@ export class UsersService {
     return { id };
   }
 
+  private async getEntityForActor(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UserEntity> {
+    if (actor?.isSuper || actor?.permissions.includes("*")) {
+      const user = await this.usersRepository.findOne({ where: { id, isDeleted: false } });
+      if (!user) {
+        throw new NotFoundException("User not found");
+      }
+      return user;
+    }
+    return this.getEntityInScope(scope, id);
+  }
+
+  private async resolveUserTargetScope(
+    fallbackScope: TenantParkScope,
+    actor: JwtPrincipal,
+    tenantId?: string,
+    parkId?: string
+  ): Promise<TenantParkScope> {
+    if (!(actor.isSuper || actor.permissions.includes("*"))) {
+      return fallbackScope;
+    }
+    const resolvedTenantId = tenantId?.trim() || fallbackScope.tenantId;
+    const resolvedParkId = parkId?.trim() || (await this.resolveTenantDefaultParkId(resolvedTenantId));
+    await this.assertParkBelongsToTenant(resolvedTenantId, resolvedParkId);
+    return { tenantId: resolvedTenantId, parkId: resolvedParkId };
+  }
+
+  private async resolveTenantDefaultParkId(tenantId: string): Promise<string> {
+    const tenant = await this.tenantRepository.findOne({ where: { tenantId, isDeleted: false } });
+    const configuredParkId = tenant?.featureConfig?.defaultParkId;
+    if (typeof configuredParkId === "string" && configuredParkId.trim()) {
+      const configuredPark = await this.parksRepository.findOne({ where: { tenantId, parkId: configuredParkId.trim(), isDeleted: false } });
+      if (configuredPark) {
+        return configuredPark.parkId;
+      }
+    }
+    const park = await this.parksRepository.findOne({ where: { tenantId, isDeleted: false }, order: { createTime: "ASC" } });
+    if (!park) {
+      throw new NotFoundException("Tenant park not found");
+    }
+    return park.parkId;
+  }
+
+  private async assertParkBelongsToTenant(tenantId: string, parkId: string): Promise<void> {
+    const exists = await this.parksRepository.exists({ where: { tenantId, parkId, isDeleted: false } });
+    if (!exists) {
+      throw new NotFoundException("Park not found in target tenant");
+    }
+  }
+
+  private async syncUserParks(
+    userId: string,
+    tenantId: string,
+    defaultParkId: string,
+    requestedParkIds: string[] | undefined,
+    actorId: string
+  ): Promise<void> {
+    const parkIds = [...new Set([defaultParkId, ...(requestedParkIds ?? [])].map((item) => item.trim()).filter(Boolean))];
+    const parks = await this.parksRepository.find({ where: { tenantId, parkId: In(parkIds), isDeleted: false } });
+    if (parks.length !== parkIds.length) {
+      throw new NotFoundException("Accessible park not found in target tenant");
+    }
+    await this.userParkRepository.update({ userId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
+    await this.userParkRepository.save(
+      parkIds.map((parkId) =>
+        this.userParkRepository.create({
+          userId,
+          tenantId,
+          parkId,
+          isDefault: parkId === defaultParkId,
+          status: "enabled",
+          createBy: actorId,
+          updateBy: actorId,
+          remark: "User login context binding"
+        })
+      )
+    );
+  }
+
+  private resolveLoginContextStatus(
+    user: UserEntity,
+    tenant: TenantEntity | null,
+    park: ParkEntity | null,
+    explicitLinks: UserParkEntity[]
+  ): UserView["loginContextStatus"] {
+    if (!tenant || tenant.status === 0) {
+      return "tenant_disabled";
+    }
+    if (tenant.status === 2 || (tenant.expireTime && tenant.expireTime.getTime() <= Date.now())) {
+      return "tenant_expired";
+    }
+    if (!park) {
+      return "missing_default_park";
+    }
+    const hasDefaultAccess = explicitLinks.length === 0 || explicitLinks.some((link) => link.parkId === user.parkId && link.status === "enabled");
+    return hasDefaultAccess ? "ready" : "default_park_not_accessible";
+  }
+
   private async assertUsernameAvailable(scope: TenantParkScope, username: string): Promise<void> {
     const exists = await this.usersRepository.exists({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, username, isDeleted: false }
@@ -433,25 +564,54 @@ export class UsersService {
     }
   }
 
-  private toView(user: UserEntity): UserView {
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      mobile: user.mobile,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
-      gender: user.gender,
-      lastLoginIp: user.lastLoginIp,
-      lastLoginTime: user.lastLoginTime,
-      isEnabled: user.isEnabled,
-      status: user.status,
-      tenantId: user.tenantId,
-      parkId: user.parkId,
-      createTime: user.createTime,
-      updateTime: user.updateTime,
-      remark: user.remark
-    };
+  private async toViews(users: UserEntity[]): Promise<UserView[]> {
+    if (users.length === 0) {
+      return [];
+    }
+    const tenantIds = [...new Set(users.map((user) => user.tenantId))];
+    const parkIds = [...new Set(users.map((user) => user.parkId))];
+    const [tenants, parks, parkLinks] = await Promise.all([
+      this.tenantRepository.find({ where: { tenantId: In(tenantIds), isDeleted: false } }),
+      this.parksRepository.find({ where: { tenantId: In(tenantIds), parkId: In(parkIds), isDeleted: false } }),
+      this.userParkRepository.find({ where: { userId: In(users.map((user) => user.id)), isDeleted: false, status: "enabled" }, order: { isDefault: "DESC", createTime: "ASC" } })
+    ]);
+    const tenantMap = new Map(tenants.map((tenant) => [tenant.tenantId, tenant]));
+    const parkMap = new Map(parks.map((park) => [`${park.tenantId}:${park.parkId}`, park]));
+    const accessibleByUser = new Map<string, UserParkContext[]>();
+    await Promise.all(
+      users.map(async (user) => {
+        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId));
+      })
+    );
+
+    return users.map((user) => {
+      const tenant = tenantMap.get(user.tenantId) ?? null;
+      const park = parkMap.get(`${user.tenantId}:${user.parkId}`) ?? null;
+      const accessibleParks = accessibleByUser.get(user.id) ?? [];
+      const explicitLinks = parkLinks.filter((link) => link.userId === user.id && link.tenantId === user.tenantId);
+      return {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        mobile: user.mobile,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        gender: user.gender,
+        lastLoginIp: user.lastLoginIp,
+        lastLoginTime: user.lastLoginTime,
+        isEnabled: user.isEnabled,
+        status: user.status,
+        tenantId: user.tenantId,
+        parkId: user.parkId,
+        tenantName: tenant?.tenantName ?? null,
+        parkName: park?.parkName ?? null,
+        accessibleParks,
+        loginContextStatus: this.resolveLoginContextStatus(user, tenant, park, explicitLinks),
+        createTime: user.createTime,
+        updateTime: user.updateTime,
+        remark: user.remark
+      };
+    });
   }
 
   private expandPermissionAliases(permissions: string[]): string[] {

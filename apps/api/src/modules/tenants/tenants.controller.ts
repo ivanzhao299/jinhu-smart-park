@@ -7,6 +7,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
+import { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
 import { UpdateTenantDto } from "./dto/update-tenant.dto";
 import { TenantsService } from "./tenants.service";
@@ -36,6 +37,24 @@ export class TenantsController {
     @Body() dto: CreateTenantDto
   ) {
     return this.tenantsService.create(scope, user.sub, user, dto);
+  }
+
+  @Get(":id/login-settings")
+  @RequirePermissions(SYSTEM_PERMISSIONS.TENANT_READ)
+  loginSettings(@CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.tenantsService.loginSettings(user, id);
+  }
+
+  @Patch(":id/login-settings")
+  @RequirePermissions(SYSTEM_PERMISSIONS.TENANT_MANAGE)
+  @AuditLog({ module: "租户管理", resource: "system.tenant", action: "登录配置", bizType: "tenant", bizIdParam: "id", captureBody: true })
+  updateLoginSettings(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: UpdateTenantLoginSettingsDto
+  ) {
+    return this.tenantsService.updateLoginSettings(scope, user.sub, user, id, dto);
   }
 
   @Get(":id")

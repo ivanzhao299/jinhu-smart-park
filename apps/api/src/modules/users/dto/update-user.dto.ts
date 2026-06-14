@@ -1,6 +1,21 @@
-import { IsEmail, IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsArray, IsEmail, IsIn, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdateUserDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  tenantId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  parkId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  accessibleParkIds?: string[];
+
   @IsOptional()
   @IsString()
   @MaxLength(100)

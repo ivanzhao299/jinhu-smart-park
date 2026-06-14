@@ -5021,6 +5021,25 @@ textarea:disabled {
   max-width: 160px;
 }
 
+.check-row {
+  align-items: center;
+  border: 1px solid var(--phoenix-color-border);
+  border-radius: var(--phoenix-radius-md);
+  display: flex;
+  gap: var(--phoenix-space-3);
+  min-height: 44px;
+  padding: var(--phoenix-space-3) var(--phoenix-space-4);
+}
+
+.check-row input {
+  inline-size: 16px;
+}
+
+.check-row span {
+  color: var(--phoenix-color-text);
+  font-weight: var(--font-weight-medium);
+}
+
 @media (max-width: 640px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
