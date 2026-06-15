@@ -5679,21 +5679,21 @@ textarea:disabled {
 
 .sidebar-brand-row {
   grid-template-columns: minmax(0, 1fr) 34px;
-  min-height: 66px;
-  margin-bottom: 18px;
-  padding: 6px 0 14px;
+  min-height: 56px;
+  margin-bottom: 12px;
+  padding: 4px 0 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 10%, transparent);
 }
 
 .sidebar-brand-row .brand {
   display: flex;
   align-items: center;
-  min-height: 46px;
+  min-height: 40px;
 }
 
 .brand-title-logo {
   display: block;
-  width: min(158px, 100%);
+  width: min(136px, 100%);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 18px color-mix(in srgb, var(--bg-sidebar) 46%, transparent));
@@ -5706,18 +5706,18 @@ textarea:disabled {
 }
 
 .sidebar-menu {
-  gap: 5px;
-  padding-bottom: 24px;
+  gap: 3px;
+  padding-bottom: 18px;
 }
 
 .menu-group {
-  gap: 4px;
+  gap: 2px;
 }
 
 .app-sidebar .menu-group-title {
-  min-height: 40px;
-  border-radius: 12px;
-  padding: 0 11px;
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 0 10px;
   color: color-mix(in srgb, var(--phoenix-sidebar-text) 68%, transparent);
   font-size: 13px;
 }
@@ -5740,17 +5740,17 @@ textarea:disabled {
 }
 
 .menu-group-items {
-  gap: 3px;
-  padding: 5px 0 7px 18px;
+  gap: 2px;
+  padding: 3px 0 5px 16px;
 }
 
 .nav-link {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 34px;
-  border-radius: 10px;
-  padding: 0 10px 0 16px;
+  min-height: 30px;
+  border-radius: 9px;
+  padding: 0 9px 0 14px;
   color: color-mix(in srgb, var(--phoenix-sidebar-text) 60%, transparent);
   font-size: 12px;
   font-weight: 620;
