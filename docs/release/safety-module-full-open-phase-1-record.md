@@ -35,6 +35,14 @@ Migration `database/migrations/000144_safety_full_open_permission_menu_patch.sql
 
 The migration does not delete historical permissions, does not clear role permissions, and does not modify business data.
 
+Codex Review follow-up is tracked in `database/migrations/000145_safety_phase1_review_followup.sql` and the related page guard updates:
+
+- operations terminal page guard now uses `safety_inspect_task:my`, matching the menu entry;
+- overdue hazard view now allows `overdue_only=true` access through `safety_hazard:overdue` while the normal hazard list remains protected by `safety_hazard:read`;
+- emergency/work-permit statistics permission metadata now points to `/api/v1/safety/emergency-work-permit-statistics`.
+
+The follow-up migration only corrects API path metadata for `safety_emergency_statistics:read` and `safety_work_permit_statistics:read`; it does not change role grants or business data.
+
 ## 6. Verification Method
 
 Administrator:

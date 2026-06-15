@@ -328,6 +328,7 @@ export default function SafetyHazardsPage() {
   const canViewDescription = canViewField(authUser, SAFETY_MODULE, HAZARD_ENTITY, "description");
   const canViewBeforePhotos = canViewField(authUser, SAFETY_MODULE, HAZARD_ENTITY, "beforePhotoFileIds");
   const canViewAfterPhotos = canViewField(authUser, SAFETY_MODULE, HAZARD_ENTITY, "afterPhotoFileIds");
+  const pagePermission = filters.overdueOnly ? SYSTEM_PERMISSIONS.SAFETY_HAZARD_OVERDUE : SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ;
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
@@ -339,8 +340,8 @@ export default function SafetyHazardsPage() {
     if (filters.buildingId) params.set("building_id", filters.buildingId);
     if (filters.unitId) params.set("unit_id", filters.unitId);
     if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
-    if (filters.overdueOnly) params.set("overdue_only", "true");
-    const response = await apiRequest<PaginatedResult<HazardRow>>(`/safety/hazards?${params.toString()}`, {
+    const endpoint = filters.overdueOnly ? "/safety/hazards/overdue" : "/safety/hazards";
+    const response = await apiRequest<PaginatedResult<HazardRow>>(`${endpoint}?${params.toString()}`, {
       token: getAccessToken()
     });
     setPageData(response.data);
@@ -718,7 +719,7 @@ export default function SafetyHazardsPage() {
   }
 
   return (
-    <PermissionGuard permission={SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ} module={SAFETY_MODULE} fallback={<ForbiddenInline />}>
+    <PermissionGuard permission={pagePermission} module={SAFETY_MODULE} fallback={<ForbiddenInline />}>
       <main className="content">
         <header className="header">
           <div className="header-title">

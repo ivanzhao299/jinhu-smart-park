@@ -17,6 +17,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 
 - Phase 1 has been merged into the target test branch or environment.
 - `database/migrations/000144_safety_full_open_permission_menu_patch.sql` has been executed in the test database.
+- Phase 2b access smoke must include `database/migrations/000145_safety_phase1_review_followup.sql` after `000144` so page guards and statistics API metadata match the reviewed permission model.
 - Test database fixtures are ready.
 - Test accounts are ready and do not use real production passwords.
 - API service is running and reachable.
