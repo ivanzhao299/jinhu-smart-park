@@ -43,6 +43,13 @@ Codex Review follow-up is tracked in `database/migrations/000145_safety_phase1_r
 
 The follow-up migration only corrects API path metadata for `safety_emergency_statistics:read` and `safety_work_permit_statistics:read`; it does not change role grants or business data.
 
+PR #149 follow-up keeps the overdue hazard entry on its own route:
+
+- `/safety/hazards/overdue` no longer redirects to `/safety/hazards?overdue_only=true`;
+- `/safety/hazards/overdue` renders the shared hazard page client in forced overdue mode, so layout/menu guards match `safety_hazard:overdue`;
+- `/safety/hazards` still renders the normal hazard page and remains protected by `safety_hazard:read`;
+- overdue hazard data continues to load through `/safety/hazards/overdue`, not the normal hazard list endpoint.
+
 ## 6. Verification Method
 
 Administrator:

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { HazardsPageClient } from "../../../../components/safety/HazardsPageClient";
 
 export default function SafetyHazardsOverduePage() {
-  redirect("/safety/hazards?overdue_only=true");
+  return <HazardsPageClient initialOverdueOnly />;
 }

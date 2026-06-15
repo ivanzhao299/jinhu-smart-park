@@ -28,6 +28,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Full phase 2b verification requires the complete account matrix: admin, normal, unauthorized, enterprise, overdue hazard, dual-statistics, and single-statistics.
 - Partial matrix mode is only for script debugging and requires `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true`; it cannot be recorded as a complete phase 2b pass.
 - Full phase 2b verification requires `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID` to detect same-park cross-enterprise data leaks.
+- Before running phase 2b, confirm `/safety/hazards/overdue` stays on the overdue route and is not redirected into `/safety/hazards?overdue_only=true`, otherwise the layout guard may apply the normal hazard permission.
 
 ## 4. Account Matrix
 
