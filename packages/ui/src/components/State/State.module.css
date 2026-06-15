@@ -4,10 +4,10 @@
   width: 100%;
   min-height: 96px;
   padding: var(--phoenix-space-5);
-  border: 1px dashed var(--phoenix-color-border);
-  border-radius: var(--radius-md, var(--phoenix-radius-md));
-  background: color-mix(in srgb, var(--phoenix-color-surface-muted) 70%, var(--phoenix-color-surface));
-  color: var(--phoenix-color-text-muted);
+  border: 1px dashed var(--border-soft, var(--phoenix-color-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-subtle, var(--phoenix-color-surface-muted)) 70%, var(--bg-card, var(--phoenix-color-surface)));
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   display: grid;
   justify-items: center;
   align-content: center;
@@ -22,12 +22,12 @@
 
 .icon {
   display: inline-flex;
-  color: var(--phoenix-color-primary);
+  color: var(--color-primary, var(--phoenix-color-primary));
 }
 
 .title {
   margin: 0;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
@@ -48,8 +48,8 @@
 .loadingIndicator {
   width: 28px;
   height: 28px;
-  border: 2px solid var(--phoenix-color-border);
-  border-top-color: var(--phoenix-color-primary);
+  border: 2px solid var(--border-soft, var(--phoenix-color-border));
+  border-top-color: var(--color-primary, var(--phoenix-color-primary));
   border-radius: 999px;
   animation: spin 900ms linear infinite;
 }

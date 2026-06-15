@@ -3,7 +3,7 @@
   max-width: 100%;
   border: 1px solid var(--border-soft, var(--phoenix-color-border));
   border-radius: 14px;
-  background: var(--phoenix-color-surface);
+  background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-card, var(--shadow-sm, var(--phoenix-shadow-sm)));
   padding: 18px;
 }

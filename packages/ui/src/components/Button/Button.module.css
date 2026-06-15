@@ -3,8 +3,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--phoenix-space-2);
-  border-radius: var(--radius-md, var(--phoenix-radius-md));
-  font-weight: 600;
+  border-radius: 10px;
+  font-weight: 720;
   cursor: pointer;
   transition: var(--phoenix-transition);
   border: 1px solid transparent;
@@ -18,51 +18,51 @@
 
 /* Sizes */
 .sm {
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--phoenix-space-3);
   font-size: 13px;
 }
 
 .md {
-  min-height: 36px;
+  min-height: var(--control-height, 38px);
   padding: 0 var(--phoenix-space-4);
   font-size: 14px;
 }
 
 .lg {
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 var(--phoenix-space-5);
   font-size: 15px;
 }
 
 /* Variants */
 .primary {
-  background: var(--phoenix-color-primary);
+  background: linear-gradient(135deg, var(--color-primary, var(--phoenix-color-primary)), color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 72%, var(--color-accent, var(--phoenix-color-primary))));
   color: var(--phoenix-color-on-primary);
-  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 18%, transparent);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--phoenix-color-primary-hover);
+  background: linear-gradient(135deg, var(--color-primary-hover, var(--phoenix-color-primary-hover)), var(--color-primary, var(--phoenix-color-primary)));
   box-shadow: var(--shadow-md, var(--phoenix-shadow-md));
   transform: translateY(-1px);
 }
 
 .secondary {
-  background: var(--phoenix-color-surface);
-  color: var(--phoenix-color-text);
-  border-color: var(--phoenix-color-border);
-  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  background: var(--bg-card, var(--phoenix-color-surface));
+  color: var(--text-primary, var(--phoenix-color-text));
+  border-color: var(--border-soft, var(--phoenix-color-border));
+  box-shadow: none;
 }
 
 .secondary:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--phoenix-color-primary) 35%, var(--phoenix-color-border));
-  background: color-mix(in srgb, var(--phoenix-color-primary) 6%, var(--phoenix-color-surface));
-  color: var(--phoenix-color-primary);
+  border-color: color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 35%, var(--border-soft, var(--phoenix-color-border)));
+  background: color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 6%, var(--bg-card, var(--phoenix-color-surface)));
+  color: var(--color-primary, var(--phoenix-color-primary));
 }
 
 .danger {
-  background: var(--phoenix-color-danger);
+  background: var(--status-danger, var(--phoenix-color-danger));
   color: var(--phoenix-color-on-primary);
   box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
 }

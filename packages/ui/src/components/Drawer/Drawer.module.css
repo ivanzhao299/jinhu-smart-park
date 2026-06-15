@@ -13,7 +13,7 @@
   border: 0;
   border-radius: 0;
   padding: 0;
-  background: color-mix(in srgb, var(--phoenix-color-text) 32%, transparent);
+  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 32%, transparent);
   backdrop-filter: blur(4px);
   box-shadow: none;
   cursor: default;
@@ -21,7 +21,7 @@
 }
 
 .drawerBackdrop:hover {
-  background: color-mix(in srgb, var(--phoenix-color-text) 30%, transparent);
+  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 30%, transparent);
 }
 
 .drawerPanel {
@@ -36,10 +36,10 @@
   overflow: auto;
   border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
   border-radius: 16px;
-  background: var(--phoenix-color-surface);
+  background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
   padding: 18px;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: 14px;
   line-height: 1.5;
   pointer-events: auto;
@@ -61,7 +61,7 @@
   margin: -18px -18px 0;
   border-bottom: 1px solid var(--border-soft, var(--phoenix-color-border));
   padding: 16px 18px 14px;
-  background: color-mix(in srgb, var(--phoenix-color-surface) 94%, transparent);
+  background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -81,7 +81,7 @@
 .drawerTitle {
   overflow: hidden;
   margin: 0;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: 20px;
   font-weight: 760;
   line-height: 1.25;
@@ -92,7 +92,7 @@
 .drawerDescription {
   overflow: hidden;
   margin: 0;
-  color: var(--phoenix-color-text-muted);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 12px;
   line-height: 1.45;
   text-overflow: ellipsis;
@@ -108,8 +108,8 @@
   border: 1px solid var(--border-soft, var(--phoenix-color-border));
   border-radius: 10px;
   padding: 0;
-  background: var(--phoenix-color-surface);
-  color: var(--phoenix-color-text);
+  background: var(--bg-card, var(--phoenix-color-surface));
+  color: var(--text-primary, var(--phoenix-color-text));
   box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
   cursor: pointer;
   transition: var(--phoenix-transition);
@@ -128,7 +128,7 @@
   margin: 0 calc(var(--phoenix-space-4) * -1);
   border-bottom: 1px solid var(--phoenix-color-border);
   padding: 9px 16px;
-  background: var(--bg-muted, var(--phoenix-color-surface-muted));
+  background: var(--surface-subtle, var(--bg-muted, var(--phoenix-color-surface-muted)));
 }
 
 .drawerTabs {
@@ -141,7 +141,7 @@
   margin: 0 calc(var(--phoenix-space-4) * -1);
   border-bottom: 1px solid var(--phoenix-color-border);
   padding: 9px 16px;
-  background: var(--phoenix-color-surface);
+  background: var(--bg-card, var(--phoenix-color-surface));
 }
 
 .drawerTabButton {
@@ -153,8 +153,8 @@
   border: 1px solid var(--phoenix-color-border);
   border-radius: var(--radius-sm, var(--phoenix-radius-sm));
   padding: 0 10px;
-  background: var(--phoenix-color-surface);
-  color: var(--phoenix-color-text);
+  background: var(--bg-card, var(--phoenix-color-surface));
+  color: var(--text-primary, var(--phoenix-color-text));
   box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
   cursor: pointer;
   font-size: 12px;
@@ -183,7 +183,7 @@
 
 .drawerSectionTitle {
   margin: 0;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: 13px;
   font-weight: 760;
   line-height: 1.4;
@@ -209,7 +209,7 @@
   margin: 4px -18px -18px;
   border-top: 1px solid var(--border-soft, var(--phoenix-color-border));
   padding: 14px 18px;
-  background: color-mix(in srgb, var(--phoenix-color-surface) 94%, transparent);
+  background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
 

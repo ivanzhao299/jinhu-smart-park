@@ -3,9 +3,9 @@
   max-width: var(--page-max-width, 100%);
   min-width: 0;
   margin: 0 auto;
-  padding: var(--page-padding, var(--phoenix-space-5));
+  padding: var(--page-padding, 22px);
   display: grid;
-  gap: var(--page-gap, var(--phoenix-space-4));
+  gap: var(--page-gap, 18px);
 }
 
 .pageHeader,
@@ -13,14 +13,14 @@
 .contentCard {
   min-width: 0;
   max-width: 100%;
-  border: 1px solid var(--phoenix-color-border);
-  border-radius: var(--radius-lg, var(--phoenix-radius-lg));
-  background: var(--phoenix-color-surface);
-  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
+  border-radius: 14px;
+  background: var(--bg-card, var(--phoenix-color-surface));
+  box-shadow: var(--shadow-card, var(--shadow-sm, var(--phoenix-shadow-sm)));
 }
 
 .pageHeader {
-  padding: var(--phoenix-space-5);
+  padding: 18px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -35,7 +35,7 @@
 
 .eyebrow {
   margin: 0;
-  color: var(--phoenix-color-primary);
+  color: var(--color-primary, var(--phoenix-color-primary));
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
@@ -43,7 +43,7 @@
 
 .title {
   margin: 0;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: var(--page-title-size, 24px);
   font-weight: 760;
   line-height: 1.25;
@@ -52,7 +52,7 @@
 
 .description {
   margin: 0;
-  color: var(--phoenix-color-text-muted);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 14px;
   line-height: 1.65;
 }
@@ -66,11 +66,12 @@
 }
 
 .filterPanel {
-  padding: var(--phoenix-space-4);
+  padding: 16px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: end;
   gap: var(--phoenix-space-3);
+  background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 92%, var(--surface-tint, var(--phoenix-color-surface-muted)));
 }
 
 .filterActions {
@@ -80,7 +81,7 @@
 }
 
 .contentCard {
-  padding: var(--phoenix-space-4);
+  padding: 18px;
   display: grid;
   gap: var(--phoenix-space-3);
 }
@@ -101,7 +102,7 @@
 
 .contentTitle {
   margin: 0;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
   font-size: 16px;
   font-weight: 720;
   line-height: 1.35;
@@ -110,17 +111,17 @@
 
 .contentDescription {
   margin: 0;
-  color: var(--phoenix-color-text-muted);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 13px;
   line-height: 1.55;
 }
 
 .notice {
   min-width: 0;
-  border: 1px solid var(--phoenix-color-border);
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
   border-radius: var(--radius-md, var(--phoenix-radius-md));
-  background: var(--phoenix-color-surface-muted);
-  color: var(--phoenix-color-text);
+  background: var(--surface-subtle, var(--phoenix-color-surface-muted));
+  color: var(--text-primary, var(--phoenix-color-text));
   padding: var(--phoenix-space-3) var(--phoenix-space-4);
   display: flex;
   align-items: center;
@@ -150,7 +151,7 @@
   justify-content: space-between;
   gap: var(--phoenix-space-3);
   padding-top: var(--phoenix-space-2);
-  color: var(--phoenix-color-text-muted);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 13px;
 }
 
@@ -162,7 +163,7 @@
 
 @media (max-width: 760px) {
   .pageShell {
-    padding: var(--phoenix-space-3);
+    padding: 14px;
   }
 
   .pageHeader,

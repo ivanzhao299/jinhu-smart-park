@@ -5,7 +5,7 @@
   overflow-x: auto;
   border: 1px solid var(--border-soft, var(--phoenix-color-border));
   border-radius: 14px;
-  background: var(--phoenix-color-surface);
+  background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-card, var(--shadow-sm, var(--phoenix-shadow-sm)));
 }
 
@@ -19,7 +19,7 @@
 .table th,
 .table td {
   border-bottom: 1px solid var(--border-soft, var(--phoenix-color-border));
-  padding: 10px 12px;
+  padding: 10px 14px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
@@ -29,13 +29,15 @@
   background: var(--surface-subtle, var(--bg-muted, var(--phoenix-color-surface-muted)));
   color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 760;
+  height: 42px;
 }
 
 .table td {
   max-width: 240px;
   overflow: hidden;
   font-size: 13px;
+  height: 48px;
   text-overflow: ellipsis;
 }
 
@@ -44,7 +46,7 @@
 }
 
 .table tbody tr:hover {
-  background: color-mix(in srgb, var(--phoenix-color-primary) 5%, var(--phoenix-color-surface));
+  background: color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 5%, var(--bg-card, var(--phoenix-color-surface)));
 }
 
 .actions {

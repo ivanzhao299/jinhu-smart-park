@@ -1,14 +1,15 @@
 .metricCard {
-  padding: var(--phoenix-space-4);
-  border: 1px solid var(--jinhu-color-border-soft, var(--phoenix-color-border));
-  border-radius: var(--phoenix-radius-lg, var(--phoenix-radius-md));
-  background: var(--phoenix-color-surface);
-  box-shadow: var(--phoenix-shadow-sm);
+  padding: 16px;
+  border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
+  border-radius: 16px;
+  background: var(--bg-card, var(--phoenix-color-surface));
+  box-shadow: var(--shadow-card, var(--phoenix-shadow-sm));
   transition: var(--phoenix-transition);
 }
 
 .metricCard:hover {
-  box-shadow: var(--phoenix-shadow-md);
+  border-color: var(--border-focus, color-mix(in srgb, var(--phoenix-color-primary) 34%, var(--phoenix-color-border)));
+  box-shadow: var(--shadow-md, var(--phoenix-shadow-md));
   transform: translateY(-2px);
 }
 
@@ -16,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--phoenix-space-2);
-  color: var(--phoenix-color-text-muted);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 13px;
   font-weight: 500;
   margin: 0;
@@ -24,7 +25,7 @@
 
 .icon {
   display: inline-flex;
-  color: var(--phoenix-color-primary);
+  color: var(--color-primary, var(--phoenix-color-primary));
 }
 
 .value {
@@ -33,5 +34,5 @@
   font-size: 24px;
   font-weight: 650;
   line-height: 1.2;
-  color: var(--phoenix-color-text);
+  color: var(--text-primary, var(--phoenix-color-text));
 }
