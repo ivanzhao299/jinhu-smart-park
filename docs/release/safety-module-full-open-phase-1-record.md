@@ -50,6 +50,13 @@ PR #149 follow-up keeps the overdue hazard entry on its own route:
 - `/safety/hazards` still renders the normal hazard page and remains protected by `safety_hazard:read`;
 - overdue hazard data continues to load through `/safety/hazards/overdue`, not the normal hazard list endpoint.
 
+PR #153 follow-up 2 keeps the overdue-only page usable for read-only accounts:
+
+- overdue-only users can open the hazard detail drawer without calling the normal hazard status-log API;
+- the status-log area displays a permission note when the account lacks `safety_hazard:read`;
+- dictionary `401/403` responses are tolerated as optional display metadata, so missing dictionary permissions do not block the overdue hazard list;
+- non-permission dictionary failures still surface as page errors.
+
 ## 6. Verification Method
 
 Administrator:
