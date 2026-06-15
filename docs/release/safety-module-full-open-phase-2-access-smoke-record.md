@@ -294,3 +294,34 @@ Final decision: Phase 2b local fixture rerun v2 and access smoke passed after en
 Blocking issues: None for local fixture rerun v2. Staging/test environment should repeat with its own non-production data before release sign-off.
 Follow-up owner: Safety module release owner
 ```
+
+## 16. Staging/Test Run Attempt Record
+
+```text
+Branch: test/safety-access-smoke-staging-run
+Commit: fd2a63a
+Environment: Not configured
+Date: 2026-06-15
+API base URL: Not configured
+Database target: Not configured
+Migration 000144: File present in branch; staging/test execution not verified
+Migration 000145: File present in branch; staging/test execution not verified
+Fixture command: Not executed
+Fixture exit code: Not applicable
+Smoke command: Not executed
+Smoke exit code: Not applicable
+ADMIN result: Not run
+NORMAL result: Not run
+UNAUTHORIZED result: Not run
+ENTERPRISE result: Not run
+OVERDUE_HAZARD result: Not run
+DUAL_STATISTICS result: Not run
+SINGLE_STATISTICS result: Not run
+High-risk permission result: Not run
+Production guard result: Not evaluated beyond local script syntax checks
+Partial matrix override: Not used
+Enterprise scope unverified override: Not used
+Final decision: Blocked before staging/test fixture execution
+Blocking issues: No SAFETY_FIXTURE_* or SAFETY_SMOKE_* staging/test environment variables were present in the current shell, so the operator could not confirm the API target, database target, migration execution state, fixture write permission, or seven-account smoke matrix for a non-production staging/test environment.
+Follow-up owner: Staging/test environment operator
+```
