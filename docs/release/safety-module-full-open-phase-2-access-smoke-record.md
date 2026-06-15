@@ -132,6 +132,8 @@ Follow-up owner:
 
 If this access smoke passes in a prepared test environment, phase 2 can be closed and the project can move to phase 3: role-based open matrix and data-scope focused verification.
 
+Phase 3 role matrix and data scope verification design is tracked in `docs/release/safety-module-role-matrix-data-scope-verification-plan.md`.
+
 ## 10. Phase 2b Execution Record
 
 ```text

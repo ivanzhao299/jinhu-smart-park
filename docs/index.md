@@ -81,6 +81,7 @@ node scripts/e2e/first-release-regression.mjs
 - [First Release Target Environment Verification Execution Record](release/first-release-target-environment-verification-execution-record.md)
 - [Safety Module Full-open Phase 1 Record](release/safety-module-full-open-phase-1-record.md)
 - [Safety Module Full-open Phase 2 Access Smoke Record](release/safety-module-full-open-phase-2-access-smoke-record.md)
+- [Safety Module Role Matrix and Data Scope Verification Plan](release/safety-module-role-matrix-data-scope-verification-plan.md)
 - [生产上线 SOP](release/production-release-sop.md)
 - [生产回滚 SOP](release/production-rollback-sop.md)
 - [Go-Live Checklist](release/production-go-live-checklist.md)
