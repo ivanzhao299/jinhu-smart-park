@@ -14,6 +14,8 @@ Target environment verification dry-run: [first-release-target-environment-verif
 
 Target environment verification execution record: [first-release-target-environment-verification-execution-record.md](./first-release-target-environment-verification-execution-record.md)
 
+Safety module full-open phase 1 record: [safety-module-full-open-phase-1-record.md](./safety-module-full-open-phase-1-record.md)
+
 ## 2. 使用方式
 
 使用方式：
