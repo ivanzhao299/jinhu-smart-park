@@ -256,3 +256,41 @@ Final decision: Phase 2b local fixture rerun and access smoke passed after tenan
 Blocking issues: None for local fixture rerun. Staging/test environment should repeat with its own non-production data before release sign-off.
 Follow-up owner: Safety module release owner
 ```
+
+## 15. Fixture Run Rerun V2 Record
+
+```text
+Branch: test/safety-access-smoke-fixture-run-rerun-v2
+Commit: c388b9d
+Environment: local
+Date: 2026-06-15
+API base URL: http://127.0.0.1:3001/api/v1
+API startup note: Local API was started with POSTGRES_PORT=5432 to match the local Docker Postgres port mapping.
+Migration 000144: succeeded in local migration history
+Migration 000145: succeeded in local migration history
+Fixture command: SAFETY_FIXTURE_ENVIRONMENT=local SAFETY_FIXTURE_ALLOW_WRITE=yes pnpm safety:fixtures:access
+Fixture rerun result: Passed; seven smoke users, roles, in-scope enterprise, out-of-scope enterprise, in-scope hazard, and out-of-scope hazard prepared.
+Enterprise scope rule result: Stable; existing SAFETY_SMOKE_ENTERPRISE_SCOPE passed preflight with park=20000001, dimension=tenant_company, scope_type=custom, status=enabled, and the expected enterprise scope.
+Fixture duplicate/pollution check: Passed; active fixture counts were 7 users, 7 roles, 2 enterprises, and 2 hazards.
+Account matrix: Complete; ADMIN, NORMAL, UNAUTHORIZED, ENTERPRISE, OVERDUE_HAZARD, DUAL_STATISTICS, and SINGLE_STATISTICS configured.
+Enterprise expected tenant: 10000001
+Enterprise expected park: 20000001
+Enterprise expected enterprise: e84e57dc-c4dd-496e-8ff0-a210cdcb65e7
+Smoke command: pnpm safety:smoke:access
+Smoke exit code: 0
+ADMIN result: Passed; login, /auth/me, safety/video menu entries, and read APIs returned expected 2xx results.
+NORMAL result: Passed; safety_inspect_task:my present, operations terminal visible, my inspect tasks API returned 200, manage_all absent.
+UNAUTHORIZED result: Passed; protected menu entries hidden, overdue hazard and emergency statistics APIs rejected with 403, high-risk permissions absent.
+ENTERPRISE result: Passed; non-super, constrained data scope, scoped hazards endpoint returned verifiable tenant, park, and enterprise fields matching expectations.
+OVERDUE_HAZARD result: Passed; overdue hazards visible/readable, normal hazards hidden and direct API rejected with 403, safety_hazard:read absent.
+DUAL_STATISTICS result: Passed; both statistics read permissions present, emergency dashboard visible, statistics API returned 200.
+SINGLE_STATISTICS result: Passed; exactly one statistics permission present, emergency dashboard hidden, statistics API rejected with 403.
+High-risk permission result: Passed for all non-admin smoke users.
+Production guard result: Passed; smoke target accepted only local API target.
+Preflight result: Passed; enterprise scope preflight did not block the valid stable local fixture.
+Partial matrix override: Not used.
+Enterprise scope unverified override: Not used.
+Final decision: Phase 2b local fixture rerun v2 and access smoke passed after enterprise scope preflight hardening; recommend moving to phase 4 release acceptance summary or repeating this gate in staging/test for release-grade evidence.
+Blocking issues: None for local fixture rerun v2. Staging/test environment should repeat with its own non-production data before release sign-off.
+Follow-up owner: Safety module release owner
+```
