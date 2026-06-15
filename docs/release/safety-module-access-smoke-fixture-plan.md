@@ -236,19 +236,21 @@ SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID
 
 Every returned scoped endpoint record must expose verifiable tenant, park, and enterprise fields. A response with no records, records without recognizable scope fields, or records without an enterprise boundary field must remain blocked for full phase 2b.
 
-## 8. Recommended fixture preparation approach
+## 8. Fixture preparation approach
 
-The recommended next implementation step is to add a dedicated local/test fixture preparation script. Manual SQL is possible but risky because the role matrix is easy to over-grant, and the enterprise scope proof requires both positive and negative data.
-
-Suggested script:
+A dedicated local/test fixture preparation script is available:
 
 ```text
 scripts/e2e/prepare-safety-access-smoke-fixtures.mjs
 ```
 
-This should be a separate, explicitly approved change. It should not be added during the current documentation-only planning step.
+It can also be run through:
 
-The fixture should create dedicated records with stable prefixes such as:
+```bash
+pnpm safety:fixtures:access
+```
+
+Manual SQL remains possible but is not recommended because the role matrix is easy to over-grant, and the enterprise scope proof requires both positive and negative data. The fixture script creates dedicated records with stable prefixes such as:
 
 ```text
 SAFETY_SMOKE_ADMIN
@@ -260,9 +262,9 @@ SAFETY_SMOKE_DUAL_STATISTICS
 SAFETY_SMOKE_SINGLE_STATISTICS
 ```
 
-It should be idempotent and should upsert or safely replace only same-prefix smoke fixture data. It should not alter existing production-safe seed records or built-in role definitions.
+The script is idempotent: it creates or updates the same `SAFETY_SMOKE_` users, roles, enterprise records, data scope rule, and hazard records. It safely replaces only same-prefix smoke role bindings and role permission bindings. It does not alter existing production-safe seed records, built-in role definitions, migration files, or seed files.
 
-## 9. Proposed fixture script contract
+## 9. Fixture script contract
 
 ### Inputs
 
@@ -270,24 +272,53 @@ Required:
 
 ```text
 SAFETY_FIXTURE_ENVIRONMENT=local|test|ci
-SAFETY_FIXTURE_CONFIRM=prepare-local-safety-smoke
-SAFETY_FIXTURE_TENANT_ID
-SAFETY_FIXTURE_PARK_ID
+SAFETY_FIXTURE_ALLOW_WRITE=yes
 ```
 
-Database connection should use the project's existing local/test environment variables, for example `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. The script must reject production-like hosts, database names, URLs, and environments before opening a database connection.
+Optional scope and target inputs:
+
+```text
+SAFETY_FIXTURE_TENANT_ID
+SAFETY_FIXTURE_PARK_ID
+SAFETY_FIXTURE_API_BASE_URL
+SAFETY_FIXTURE_DB_MODE=docker|direct
+```
+
+If tenant and park are omitted, the script uses the S1 local defaults:
+
+```text
+SAFETY_FIXTURE_TENANT_ID=10000001
+SAFETY_FIXTURE_PARK_ID=20000001
+```
+
+Database connection uses the project's existing local/test environment variables. In default `docker` mode it uses `docker compose -f infra/docker/docker-compose.yml exec -T postgres psql`. In `direct` mode it uses `DATABASE_URL` or `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+
+### Production guard
+
+The script refuses to run unless all guard checks pass:
+
+- `SAFETY_FIXTURE_ENVIRONMENT` must be `local`, `test`, or `ci`.
+- `SAFETY_FIXTURE_ALLOW_WRITE` must be exactly `yes`.
+- `NODE_ENV`, `APP_ENV`, fixture environment, API base URL, database URL, database host, database name, and Docker compose file path must not contain production-like markers such as `prod` or `production`.
+- API and direct database hosts must be clearly local/private or named non-production hosts such as `dev`, `test`, `staging`, `ci`, `qa`, or `uat`.
+- Docker mode refuses production compose files such as `docker-compose.prod.yml`.
 
 Optional:
 
 ```text
-SAFETY_FIXTURE_API_BASE_URL
-SAFETY_FIXTURE_OVERWRITE=true
-SAFETY_FIXTURE_PRINT_EXPORTS=true
+BCRYPT_SALT_ROUNDS
+COMPOSE_FILE
+POSTGRES_USER
+POSTGRES_DB
+POSTGRES_HOST
+POSTGRES_PORT
+POSTGRES_PASSWORD
+DATABASE_URL
 ```
 
 ### Outputs
 
-The script should print a redacted summary:
+The script prints a summary:
 
 ```text
 Environment:
@@ -302,7 +333,7 @@ Out-of-scope hazard:
 High-risk permissions granted to non-admin users: 0
 ```
 
-It may print a local-only shell export block for the current operator:
+It prints a local/test-only shell export block for the current operator:
 
 ```bash
 export SAFETY_SMOKE_ENVIRONMENT=local
@@ -328,6 +359,20 @@ export SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID="..."
 
 Passwords must be generated for local/test only and printed only to the operator's terminal. The script must not write them into repository files.
 
+### What the script prepares
+
+- `SAFETY_SMOKE_ADMIN` with `SAFETY_SMOKE_ADMIN_ROLE`; the role is super-admin for local/test fixture verification only.
+- `SAFETY_SMOKE_NORMAL` with `safety:operations-terminal`, `safety:my-inspect-tasks`, and `safety_inspect_task:my`.
+- `SAFETY_SMOKE_UNAUTHORIZED` with no safety or video permissions.
+- `SAFETY_SMOKE_ENTERPRISE` with `safety:hazards`, `safety_hazard:read`, and a `tenant_company` data scope rule constrained to the in-scope fixture enterprise.
+- `SAFETY_SMOKE_OVERDUE_HAZARD` with `safety:hazards-overdue` and `safety_hazard:overdue`, explicitly without `safety:hazards` or `safety_hazard:read`.
+- `SAFETY_SMOKE_DUAL_STATISTICS` with `safety:emergency-dashboard`, `safety_emergency_statistics:read`, and `safety_work_permit_statistics:read`.
+- `SAFETY_SMOKE_SINGLE_STATISTICS` with exactly one statistics read permission and no emergency dashboard menu permission.
+- In-scope and out-of-scope fixture enterprises.
+- In-scope and out-of-scope fixture hazards with verifiable `tenant_id`, `park_id`, and `park_tenant_id`.
+
+After writing, the script queries final effective role permissions for all non-admin smoke users. If any user has a permission from the smoke denylist, the script exits non-zero.
+
 ### Forbidden behavior
 
 The script must not:
@@ -340,6 +385,7 @@ The script must not:
 - Grant both statistics permissions to the `SINGLE_STATISTICS` fixture role.
 - Enable `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true` or `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true`.
 - Log password hashes, tokens, encrypted video platform secrets, or raw database credentials.
+- Treat fixture preparation as smoke success. Fixture success only means the environment is ready for `pnpm safety:smoke:access`.
 
 ## 10. Environment variables
 

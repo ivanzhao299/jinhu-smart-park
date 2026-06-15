@@ -32,6 +32,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true` is only a debug override; any run using it must end as blocked/debug-only and cannot be recorded as a full pass.
 - Phase 2b should also verify the overdue hazard user can open a hazard detail drawer without status-log or dictionary permission failures.
 - If local/test fixture data is not ready, use `docs/release/safety-module-access-smoke-fixture-plan.md` as the preparation plan; this is a blocked pre-smoke state, not a phase 2b pass.
+- Local/test operators can prepare the required fixture data with `pnpm safety:fixtures:access` after setting `SAFETY_FIXTURE_ENVIRONMENT=local|test|ci` and `SAFETY_FIXTURE_ALLOW_WRITE=yes`; fixture success is not smoke success.
 
 ## 4. Account Matrix
 
@@ -171,4 +172,17 @@ Smoke result: Blocked before fixture preparation
 Blocking issues: No safe existing command creates the complete seven-account smoke matrix or same-park cross-enterprise scoped safety data. Existing local safety records are not sufficient to prove enterprise boundary checks.
 Fixture plan: docs/release/safety-module-access-smoke-fixture-plan.md
 Final decision: Do not record phase 2b as passed until local/test fixtures are prepared and the full smoke returns 0.
+```
+
+## 12. Fixture Script Record
+
+```text
+Branch: test/safety-access-smoke-fixtures
+Fixture command: pnpm safety:fixtures:access
+Fixture script: scripts/e2e/prepare-safety-access-smoke-fixtures.mjs
+Allowed environments: local, test, ci
+Write confirmation: SAFETY_FIXTURE_ALLOW_WRITE=yes
+Smoke command: Not executed by fixture script
+Smoke result: Not proven by fixture script
+Final decision: Run the fixture script only against local/test/ci, export the generated SAFETY_SMOKE_* values, start the non-production API, then execute pnpm safety:smoke:access separately.
 ```
