@@ -818,11 +818,10 @@ export class UsersService {
 
   private buildMenuTree(permissions: string[]): UserMenuTreeNode[] {
     const granted = new Set(permissions);
-    const canAccess = (permission?: string) => !permission || granted.has("*") || granted.has(permission);
     const filter = (nodes: UserMenuTreeNode[]): UserMenuTreeNode[] =>
       nodes.reduce<UserMenuTreeNode[]>((items, node) => {
         const children = node.children ? filter(node.children) : undefined;
-        if (!canAccess(node.permission) && (!children || children.length === 0)) {
+        if (!this.canAccessMenuNode(granted, node) && (!children || children.length === 0)) {
           return items;
         }
         items.push({ ...node, children });
@@ -839,15 +838,15 @@ export class UsersService {
       .sort((left, right) => (left.level - right.level) || (left.sortNo - right.sortNo) || left.createTime.getTime() - right.createTime.getTime());
 
     if (menuPermissions.length === 0 || granted.has("*")) {
-      const seededMenu = this.buildSeededMenuTree(menuPermissions);
+      const seededMenu = this.buildSeededMenuTree(menuPermissions, granted);
       return seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
     }
 
-    const seededMenu = this.buildSeededMenuTree(menuPermissions);
+    const seededMenu = this.buildSeededMenuTree(menuPermissions, granted);
     return seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
   }
 
-  private buildSeededMenuTree(menuPermissions: PermissionEntity[]): UserMenuTreeNode[] {
+  private buildSeededMenuTree(menuPermissions: PermissionEntity[], granted: Set<string>): UserMenuTreeNode[] {
     const childrenByParent = new Map<string | null, PermissionEntity[]>();
     for (const permission of menuPermissions) {
       const siblings = childrenByParent.get(permission.parentId) ?? [];
@@ -856,11 +855,11 @@ export class UsersService {
     }
 
     const toNode = (permission: PermissionEntity): UserMenuTreeNode => {
-      const children = (childrenByParent.get(permission.id) ?? []).map(toNode);
+      const children = (childrenByParent.get(permission.id) ?? []).map(toNode).filter((child) => this.canAccessMenuNode(granted, child) || Boolean(child.children?.length));
       const node: UserMenuTreeNode = {
         label: permission.name,
         href: permission.frontendRoute ?? undefined,
-        permission: permission.code,
+        permission: this.resolveMenuPermission(permission.frontendRoute ?? undefined, permission.code),
         module: this.inferModuleCode(permission.frontendRoute ?? undefined, permission.code),
         icon: permission.icon ?? undefined,
         children: children.length > 0 ? children : undefined
@@ -868,9 +867,35 @@ export class UsersService {
       return node;
     };
 
-    const roots = (childrenByParent.get(null) ?? []).map(toNode);
+    const roots = (childrenByParent.get(null) ?? []).map(toNode).filter((node) => this.canAccessMenuNode(granted, node) || Boolean(node.children?.length));
     const hasNavigableNode = roots.some((node) => node.href || node.children?.some((child) => child.href));
     return hasNavigableNode ? roots : [];
+  }
+
+  private canAccessMenuNode(granted: Set<string>, node: UserMenuTreeNode): boolean {
+    if (granted.has("*")) {
+      return true;
+    }
+    if (node.href === "/safety/emergency-dashboard") {
+      return granted.has("safety_emergency_statistics:read") && granted.has("safety_work_permit_statistics:read");
+    }
+    if (!node.permission) {
+      return true;
+    }
+    return granted.has(node.permission);
+  }
+
+  private resolveMenuPermission(frontendRoute: string | undefined, permissionCode: string): string {
+    if (frontendRoute === "/operations/terminal") {
+      return "safety_inspect_task:my";
+    }
+    if (frontendRoute === "/safety/hazards/overdue") {
+      return "safety_hazard:overdue";
+    }
+    if (frontendRoute === "/safety/emergency-dashboard") {
+      return "safety_emergency_statistics:read";
+    }
+    return permissionCode;
   }
 
   private inferModuleCode(frontendRoute?: string, permissionCode?: string): string | undefined {
