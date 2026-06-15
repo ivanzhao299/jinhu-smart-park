@@ -24,6 +24,7 @@
     "test:e2e:s5a-safety": "node scripts/e2e/s5a-safety-smoke.mjs",
     "test:e2e:s5b-emergency-permit": "node scripts/e2e/s5b-emergency-permit-smoke.mjs",
     "safety:smoke:access": "node scripts/e2e/safety-module-access-smoke.mjs",
+    "safety:fixtures:access": "node scripts/e2e/prepare-safety-access-smoke-fixtures.mjs",
     "test:e2e:s8c-video-camera": "node scripts/e2e/s8c-video-camera-smoke.mjs",
     "test:e2e:s8d-video-preview-platform": "node scripts/e2e/s8d-video-preview-platform-smoke.mjs",
     "test:e2e:s8e-video-evidence-inspection": "node scripts/e2e/s8e-video-evidence-inspection-smoke.mjs",
