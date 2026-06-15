@@ -18,6 +18,8 @@ Safety module full-open phase 1 record: [safety-module-full-open-phase-1-record.
 
 Safety module full-open phase 2 access smoke record: [safety-module-full-open-phase-2-access-smoke-record.md](./safety-module-full-open-phase-2-access-smoke-record.md)
 
+Safety module full-open release acceptance summary: [safety-module-full-open-release-acceptance-summary.md](./safety-module-full-open-release-acceptance-summary.md)
+
 ## 2. 使用方式
 
 使用方式：
