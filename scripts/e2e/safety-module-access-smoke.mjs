@@ -371,7 +371,9 @@ async function verifyOverdueHazardUser() {
   if (!context) return null;
   assertHasPermission("overdue hazard user", context.userContext, "safety_hazard:overdue");
   assertMenuContains("overdue hazard user", context.userContext, "/safety/hazards/overdue");
+  assertMenuHidden("overdue hazard user", context.userContext, "/safety/hazards");
   await expectReadAllowed("overdue hazard user overdue hazards", context.token, "/safety/hazards/overdue?page=1&page_size=1");
+  await expectRejected("overdue hazard user normal hazards API", context.token, "/safety/hazards?page=1&page_size=1");
   assertLacksPermission("overdue hazard user", context.userContext, "safety_hazard:read");
   assertNoHighRiskPermissions("overdue hazard user", context.userContext);
   return context;
@@ -433,8 +435,7 @@ function verifyEnterpriseScopedData(data) {
   const records = extractRecords(data);
   if (records.length === 0) {
     if (allowEnterpriseScopeUnverified) {
-      skip("enterprise scoped endpoint returned no records; SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true");
-      blockedReasons.push("enterprise scoped endpoint returned no records");
+      markEnterpriseScopeBlocked("enterprise scoped endpoint returned no records");
       return;
     }
     fail("enterprise scoped endpoint returned no records, so data scope could not be verified");
@@ -442,26 +443,41 @@ function verifyEnterpriseScopedData(data) {
   }
 
   let scopedFieldCount = 0;
-  for (const record of records) {
+  for (const [index, record] of records.entries()) {
     const scopes = extractScopeFields(record);
-    const presentScopeFieldCount = Object.values(scopes).filter((value) => value !== undefined).length;
-    if (presentScopeFieldCount === 0) continue;
+    const presentScopeFieldCount = countPrimaryScopeFields(scopes);
+    if (presentScopeFieldCount === 0) {
+      handleUnverifiableEnterpriseRecord(index, record, "missing recognizable tenant, park, and enterprise scope fields");
+      continue;
+    }
     scopedFieldCount += presentScopeFieldCount;
-    verifyScopeValue("tenant", scopes.tenantId, expectedEnterpriseScope.tenantId, record);
-    verifyScopeValue("park", scopes.parkId, expectedEnterpriseScope.parkId, record);
-    verifyScopeValue("enterprise", scopes.enterpriseId, expectedEnterpriseScope.enterpriseId, record);
+    verifyScopeValue("tenant", scopes.tenantId, expectedEnterpriseScope.tenantId, record, index);
+    verifyScopeValue("park", scopes.parkId, expectedEnterpriseScope.parkId, record, index);
+    verifyScopeValue("enterprise", scopes.enterpriseId, expectedEnterpriseScope.enterpriseId, record, index);
   }
 
   if (scopedFieldCount === 0) {
     if (allowEnterpriseScopeUnverified) {
-      skip("enterprise scoped endpoint returned records without recognizable scope fields; scope remains unverified by explicit override");
-      blockedReasons.push("enterprise scoped endpoint returned no recognizable scope fields");
+      markEnterpriseScopeBlocked("enterprise scoped endpoint returned no recognizable scope fields");
       return;
     }
     fail("enterprise scoped endpoint returned records without recognizable tenant/park/enterprise scope fields");
     return;
   }
   pass(`enterprise scoped endpoint exposed ${scopedFieldCount} recognizable scope field(s)`);
+}
+
+function countPrimaryScopeFields(scopes) {
+  return [scopes.tenantId, scopes.parkId, scopes.enterpriseId].filter((value) => value !== undefined).length;
+}
+
+function handleUnverifiableEnterpriseRecord(index, record, reason) {
+  const message = `enterprise scoped record #${index + 1} ${reason}; record=${summarizeBody(record)}`;
+  if (allowEnterpriseScopeUnverified) {
+    markEnterpriseScopeBlocked(message);
+    return;
+  }
+  fail(message);
 }
 
 function extractRecords(data) {
@@ -489,16 +505,35 @@ function firstDefined(record, keys) {
   return undefined;
 }
 
-function verifyScopeValue(name, actual, expected, record) {
+function verifyScopeValue(name, actual, expected, record, index) {
   if (!actual) {
-    fail(`enterprise scoped record missing ${name} scope field; record=${summarizeBody(record)}`);
+    const message = `enterprise scoped record #${index + 1} missing ${name} scope field; record=${summarizeBody(record)}`;
+    if (allowEnterpriseScopeUnverified) {
+      markEnterpriseScopeBlocked(message);
+      return;
+    }
+    fail(message);
+    return;
+  }
+  if (expected === undefined) {
+    const message = `enterprise scoped record #${index + 1} cannot verify ${name} scope because expected value is not configured`;
+    if (allowEnterpriseScopeUnverified) {
+      markEnterpriseScopeBlocked(message);
+      return;
+    }
+    fail(message);
     return;
   }
   if (actual !== expected) {
-    fail(`enterprise scoped record ${name} scope mismatch: expected ${expected}, got ${actual}; record=${summarizeBody(record)}`);
+    fail(`enterprise scoped record #${index + 1} ${name} scope mismatch: expected ${expected}, got ${actual}; record=${summarizeBody(record)}`);
     return;
   }
-  pass(`enterprise scoped record ${name} scope matches ${expected}`);
+  pass(`enterprise scoped record #${index + 1} ${name} scope matches ${expected}`);
+}
+
+function markEnterpriseScopeBlocked(message) {
+  skip(`${message}; SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true, result is debug-only`);
+  blockedReasons.push(message);
 }
 
 async function main() {
