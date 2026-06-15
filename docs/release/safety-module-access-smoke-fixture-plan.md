@@ -262,7 +262,7 @@ SAFETY_SMOKE_DUAL_STATISTICS
 SAFETY_SMOKE_SINGLE_STATISTICS
 ```
 
-The script is idempotent: it creates or updates the same `SAFETY_SMOKE_` users, roles, enterprise records, data scope rule, and hazard records. It safely replaces only same-prefix smoke role bindings and role permission bindings. It does not alter existing production-safe seed records, built-in role definitions, migration files, or seed files.
+The script is idempotent: it creates or updates the same `SAFETY_SMOKE_` users, roles, enterprise records, data scope rule, and hazard records. It safely replaces only same-prefix smoke role bindings and role permission bindings. Role and permission lookups follow the tenant-wide RBAC uniqueness model (`tenant_id + code`), and the enterprise data-scope rule lookup follows `tenant_id + rule_code`; park-scoped fixture users, enterprises, and hazards still include `park_id`. It does not alter existing production-safe seed records, built-in role definitions, migration files, or seed files.
 
 ## 9. Fixture script contract
 
