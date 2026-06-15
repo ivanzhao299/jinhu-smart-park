@@ -661,28 +661,37 @@ VALUES (${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, $
 
 async function ensureDataScopeRule(enterpriseId) {
   const ruleCode = "SAFETY_SMOKE_ENTERPRISE_SCOPE";
-  const existingId = await dbScalar(`
-SELECT id::text
+  const config = { tenantCompanyIds: [enterpriseId], ids: [enterpriseId] };
+  const existingRule = await dbScalar(`
+SELECT jsonb_build_object(
+  'id', id::text,
+  'parkId', park_id,
+  'scopeConfig', scope_config
+)::text
 FROM sys_data_scope_rule
 WHERE tenant_id = ${sqlLiteral(tenantId)}
   AND rule_code = ${sqlLiteral(ruleCode)}
   AND is_deleted = false
 ORDER BY create_time ASC
 LIMIT 1;`);
-  const config = { tenantCompanyIds: [enterpriseId], ids: [enterpriseId] };
-  if (existingId) {
-    await dbExec(`
-UPDATE sys_data_scope_rule
-SET rule_name = 'Safety smoke enterprise scope',
-    park_id = ${sqlLiteral(parkId)},
-    dimension = 'tenant_company',
-    scope_type = 'custom',
-    scope_config = ${sqlJson(config)},
-    status = 'enabled',
-    update_time = now(),
-    remark = ${sqlLiteral(smokeRemark)}
-WHERE id = ${sqlLiteral(existingId)};`);
-    return existingId;
+  if (existingRule) {
+    const parsed = JSON.parse(existingRule);
+    const existingParkId = parsed.parkId === null || parsed.parkId === undefined ? null : String(parsed.parkId);
+    const existingEnterpriseIds = extractScopeEnterpriseIds(parsed.scopeConfig);
+    const expectedEnterpriseIds = extractScopeEnterpriseIds(config);
+    const samePark = existingParkId === String(parkId);
+    const sameEnterpriseScope = sameStringSet(existingEnterpriseIds, expectedEnterpriseIds);
+
+    if (!samePark || !sameEnterpriseScope) {
+      fail(
+        `BLOCKED: ${ruleCode} already exists for tenant ${tenantId} with park=${existingParkId ?? "NULL"} ` +
+          `enterpriseScope=${[...existingEnterpriseIds].join(",") || "EMPTY"}; current fixture requests ` +
+          `park=${parkId} enterpriseScope=${[...expectedEnterpriseIds].join(",")}. ` +
+          "Tenant-wide enterprise scope rules cannot be retargeted across parks. Use the original fixture park or create a separate fixture design."
+      );
+    }
+
+    return parsed.id;
   }
   const id = randomUUID();
   await dbExec(`
@@ -693,6 +702,27 @@ INSERT INTO sys_data_scope_rule (
   'Safety smoke enterprise scope', 'tenant_company', 'custom', ${sqlJson(config)}, 'enabled', ${sqlLiteral(smokeRemark)}
 );`);
   return id;
+}
+
+function extractScopeEnterpriseIds(scopeConfig) {
+  const ids = new Set();
+  for (const key of ["tenantCompanyIds", "ids"]) {
+    const value = scopeConfig && scopeConfig[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== null && item !== undefined && String(item).trim()) ids.add(String(item));
+      }
+    }
+  }
+  return ids;
+}
+
+function sameStringSet(left, right) {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
 }
 
 async function assertNoHighRiskForNonAdmin() {
