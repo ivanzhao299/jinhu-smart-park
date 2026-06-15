@@ -16,6 +16,8 @@ Target environment verification execution record: [first-release-target-environm
 
 Safety module full-open phase 1 record: [safety-module-full-open-phase-1-record.md](./safety-module-full-open-phase-1-record.md)
 
+Safety module full-open phase 2 access smoke record: [safety-module-full-open-phase-2-access-smoke-record.md](./safety-module-full-open-phase-2-access-smoke-record.md)
+
 ## 2. 使用方式
 
 使用方式：
