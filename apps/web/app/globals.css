@@ -5679,38 +5679,21 @@ textarea:disabled {
 
 .sidebar-brand-row {
   grid-template-columns: minmax(0, 1fr) 34px;
-  min-height: 52px;
+  min-height: 66px;
   margin-bottom: 18px;
-  padding: 4px 0 12px;
+  padding: 6px 0 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 10%, transparent);
 }
 
 .sidebar-brand-row .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.brand-mark {
-  display: inline-grid;
-  flex: 0 0 36px;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 14%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--phoenix-sidebar-text) 8%, transparent);
-}
-
-.brand-mark-image {
-  width: 25px;
-  height: 25px;
-  object-fit: contain;
+  min-height: 46px;
 }
 
 .brand-title-logo {
   display: block;
-  width: 124px;
+  width: min(158px, 100%);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 18px color-mix(in srgb, var(--bg-sidebar) 46%, transparent));
