@@ -5,14 +5,9 @@
 
 .terminalHero {
   align-items: stretch;
-  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 18%, var(--phoenix-color-border));
-  border-radius: 18px;
-  box-shadow: var(--shadow-panel, var(--phoenix-shadow-md));
   display: grid;
   gap: var(--phoenix-space-6);
-  grid-template-columns: minmax(0, 1fr) auto;
   overflow: hidden;
-  padding: clamp(22px, 4vw, 34px);
   position: relative;
 }
 
@@ -75,39 +70,19 @@
   min-width: 260px;
 }
 
+.heroControl {
+  min-width: 0;
+}
+
 .primaryCommand,
 .secondaryCommand {
   align-items: center;
-  border-radius: 12px;
   cursor: pointer;
   display: inline-flex;
   font-weight: var(--font-weight-semibold);
   gap: var(--phoenix-space-2);
   justify-content: center;
-  min-height: 46px;
-  padding: 0 var(--phoenix-space-5);
-  transition: var(--phoenix-transition);
   white-space: nowrap;
-}
-
-.primaryCommand {
-  background: linear-gradient(135deg, var(--phoenix-color-primary), color-mix(in srgb, var(--phoenix-color-primary) 70%, var(--phoenix-color-accent)));
-  border: 1px solid var(--phoenix-color-primary);
-  box-shadow: var(--phoenix-shadow-sm);
-  color: var(--phoenix-color-on-primary);
-}
-
-.secondaryCommand {
-  background: var(--phoenix-color-surface);
-  border: 1px solid var(--phoenix-color-border);
-  color: var(--phoenix-color-text);
-}
-
-.primaryCommand:hover,
-.primaryCommand:focus-visible,
-.secondaryCommand:hover,
-.secondaryCommand:focus-visible {
-  transform: translateY(-1px);
 }
 
 .kpiGrid {
@@ -116,20 +91,11 @@
 }
 
 .commandPanel {
-  background: var(--phoenix-color-surface);
-  border: 1px solid var(--border-soft, var(--phoenix-color-border));
-  border-radius: 16px;
-  box-shadow: var(--shadow-card, var(--phoenix-shadow-sm));
   display: grid;
-  gap: var(--phoenix-space-3);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  padding: var(--phoenix-space-4);
 }
 
 .sceneGrid {
   display: grid;
-  gap: var(--phoenix-space-3);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .configLink {
@@ -159,42 +125,17 @@
 
 .commandButton,
 .sceneButton {
-  align-items: center;
-  background: var(--phoenix-color-surface);
-  border: 1px solid var(--border-soft, var(--phoenix-color-border));
-  border-radius: 15px;
-  color: var(--phoenix-color-text);
   cursor: pointer;
-  display: flex;
-  gap: var(--phoenix-space-3);
-  min-height: 86px;
-  padding: var(--phoenix-space-4);
   text-align: left;
-  transition: var(--phoenix-transition);
   width: 100%;
-}
-
-.commandButton:hover,
-.commandButton:focus-visible,
-.sceneButton:hover,
-.sceneButton:focus-visible {
-  background: color-mix(in srgb, var(--phoenix-color-primary) 6%, var(--phoenix-color-surface));
-  border-color: color-mix(in srgb, var(--phoenix-color-primary) 40%, var(--phoenix-color-border));
-  transform: translateY(-1px);
 }
 
 .commandIcon,
 .sceneIcon {
   align-items: center;
-  background: color-mix(in srgb, var(--phoenix-color-primary) 10%, var(--phoenix-color-surface));
-  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 18%, var(--phoenix-color-border));
-  border-radius: 14px;
-  color: var(--phoenix-color-primary);
   display: inline-flex;
   flex: 0 0 auto;
-  height: 44px;
   justify-content: center;
-  width: 44px;
 }
 
 .commandButton > span:last-child,
@@ -206,7 +147,6 @@
 
 .commandButton strong,
 .sceneButton strong {
-  font-size: var(--font-size-panel-title);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -239,25 +179,15 @@
 
 .sceneCount {
   align-items: center;
-  background: var(--phoenix-color-surface-muted);
-  border-radius: 999px;
-  color: var(--phoenix-color-text);
   display: inline-flex;
   flex: 0 0 auto;
   font-weight: var(--font-weight-semibold);
-  height: 34px;
   justify-content: center;
-  min-width: 48px;
-  padding: 0 var(--phoenix-space-3);
 }
 
 .kpiCard {
-  border-left: 4px solid color-mix(in srgb, var(--phoenix-color-primary) 64%, var(--phoenix-color-border));
-  border-radius: 16px;
-  box-shadow: var(--shadow-card, var(--phoenix-shadow-sm));
   display: grid;
   gap: var(--phoenix-space-2);
-  min-height: 104px;
 }
 
 .kpiCard span {
@@ -492,8 +422,6 @@
 
   .terminalHero {
     grid-template-columns: 1fr;
-    border-radius: 18px;
-    padding: 18px;
   }
 
   .heroCopy {
@@ -510,8 +438,6 @@
 
   .heroActions {
     align-items: stretch;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-self: stretch;
     min-width: 0;
     width: 100%;
@@ -529,21 +455,6 @@
   .commandButton {
     align-content: start;
     align-items: start;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 1fr;
-    min-height: 120px;
-    padding: 12px;
-  }
-
-  .commandIcon {
-    height: 38px;
-    width: 38px;
-  }
-
-  .sceneButton {
-    min-height: 76px;
-    padding: 12px;
   }
 
   .sceneGrid,

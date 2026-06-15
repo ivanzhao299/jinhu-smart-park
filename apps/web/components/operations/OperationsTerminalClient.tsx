@@ -343,31 +343,44 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
   const content = (
       <PageShell className={`${styles.page} ds-page ds-terminal-page`}>
-        <section className={`${styles.terminalHero} ds-hero ds-hero-production`}>
+        <section className={`${styles.terminalHero} ds-hero ds-hero-production ds-terminal-hero`}>
           <div className={`${styles.heroCopy} ds-hero-copy`}>
+            <span className="ds-eyebrow">FIELD OPERATIONS</span>
             <h1>园区现场工作台</h1>
-            <div className={`${styles.heroMeta} ds-hero-meta`}>
-              <span><Activity size={16} /> 今日任务 {todayTasks.length}</span>
-              <span><ClipboardCheck size={16} /> 完成率 {completionRate}%</span>
+            <div className={`${styles.heroMeta} ds-hero-meta ds-terminal-status`}>
+              <span><Activity size={16} /> 今日 {todayTasks.length}</span>
+              <span><ClipboardCheck size={16} /> 完成 {completionRate}%</span>
               <span><AlertTriangle size={16} /> 异常 {abnormalTasks.length}</span>
             </div>
           </div>
-          <div className={`${styles.heroActions} ds-action-bar`}>
-            <button className={`${styles.secondaryCommand} ds-button ds-button-secondary`} type="button" onClick={() => void loadAll()}>
-              <RefreshCw size={18} />
-              刷新数据
-            </button>
-            {previewMode ? (
-              <button className={`${styles.primaryCommand} ds-button ds-button-primary`} type="button" onClick={() => openWorkOrder()}>
-                <FilePlus2 size={18} />
-                新建现场工单
+          <div className={`${styles.heroControl} ds-terminal-control`}>
+            <div className="ds-terminal-control-metrics">
+              <span>
+                <strong>{pendingTasks.length}</strong>
+                待执行
+              </span>
+              <span>
+                <strong>{runningTasks.length}</strong>
+                执行中
+              </span>
+            </div>
+            <div className={`${styles.heroActions} ds-action-bar`}>
+              <button className={`${styles.secondaryCommand} ds-button ds-button-secondary`} type="button" onClick={() => void loadAll()}>
+                <RefreshCw size={18} />
+                刷新
               </button>
-            ) : (
-              <PermissionButton className={`${styles.primaryCommand} ds-button ds-button-primary`} permission="workorder:create" type="button" onClick={() => openWorkOrder()}>
-                <FilePlus2 size={18} />
-                新建现场工单
-              </PermissionButton>
-            )}
+              {previewMode ? (
+                <button className={`${styles.primaryCommand} ds-button ds-button-primary`} type="button" onClick={() => openWorkOrder()}>
+                  <FilePlus2 size={18} />
+                  新建工单
+                </button>
+              ) : (
+                <PermissionButton className={`${styles.primaryCommand} ds-button ds-button-primary`} permission="workorder:create" type="button" onClick={() => openWorkOrder()}>
+                  <FilePlus2 size={18} />
+                  新建工单
+                </PermissionButton>
+              )}
+            </div>
           </div>
         </section>
 
@@ -376,14 +389,14 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
             <span className={`${styles.commandIcon} ds-command-icon`}><ClipboardCheck size={22} /></span>
             <span className="ds-command-copy">
               <strong>{TERMINAL_QUICK_ACTIONS[0].label}</strong>
-              <small>{todayTasks.length} 项 · {completionRate}%</small>
+              <small>{todayTasks.length} 项 / {completionRate}%</small>
             </span>
           </button>
           <button className={`${styles.commandButton} ds-command-card`} type="button" onClick={() => void locate(setCheckInForm, setMessage)}>
             <span className={`${styles.commandIcon} ds-command-icon`}><LocateFixed size={22} /></span>
             <span className="ds-command-copy">
               <strong>定位打卡</strong>
-              <small>经纬度</small>
+              <small>GPS 打卡</small>
             </span>
           </button>
           {previewMode ? (
@@ -391,7 +404,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               <span className={`${styles.commandIcon} ds-command-icon`}><Wrench size={22} /></span>
               <span className="ds-command-copy">
                 <strong>{TERMINAL_QUICK_ACTIONS[1].label}</strong>
-                <small>诉求 / 报修</small>
+                <small>业主诉求</small>
               </span>
             </button>
           ) : (
@@ -399,7 +412,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               <span className={`${styles.commandIcon} ds-command-icon`}><Wrench size={22} /></span>
               <span className="ds-command-copy">
                 <strong>{TERMINAL_QUICK_ACTIONS[1].label}</strong>
-                <small>诉求 / 报修</small>
+                <small>业主诉求</small>
               </span>
             </PermissionButton>
           )}
@@ -408,14 +421,14 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               <span className={`${styles.commandIcon} ds-command-icon`}><Sparkles size={22} /></span>
               <span className="ds-command-copy">
                 <strong>生成今日任务</strong>
-                <small>按计划</small>
+                <small>计划生成</small>
               </span>
             </button>
           ) : null}
         </section>
 
         <ContentCard
-          className="ds-panel"
+          className="ds-panel ds-section-panel"
           title="巡检与上报场景"
           actions={(
             <>
@@ -443,7 +456,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
           </section>
         </ContentCard>
 
-        <section className={`${styles.kpiGrid} ds-kpi-grid`}>
+        <section className={`${styles.kpiGrid} ds-kpi-grid ds-terminal-kpi-grid`}>
           <TerminalKpi label="今日任务" value={todayTasks.length} helper="已分配给当前账号" />
           <TerminalKpi label="待执行" value={pendingTasks.length} helper="需要开始并打卡" />
           <TerminalKpi label="执行中" value={runningTasks.length} helper="已开始未完成" />
@@ -453,12 +466,12 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
         {message ? <FeedbackNotice className={styles.message}>{message}</FeedbackNotice> : null}
 
         {loading ? (
-          <ContentCard className="ds-panel">
+          <ContentCard className="ds-panel ds-section-panel">
             <LoadingState title="正在加载现场任务" />
           </ContentCard>
         ) : (
           <>
-            <ContentCard className="ds-panel" id="today-inspections" title="今日巡检任务" actions={<StatusPill value={`${completionRate}%`} />}>
+            <ContentCard className="ds-panel ds-section-panel" id="today-inspections" title="今日巡检任务" actions={<StatusPill value={`${completionRate}%`} />}>
               <div className={`${styles.mobileTaskList} ds-mobile-record-list`}>
                 {todayTasks.map((task) => (
                   <article className={`${styles.mobileTaskCard} ds-mobile-record`} key={task.id}>
@@ -538,7 +551,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
             </ContentCard>
 
             <ContentCard
-              className="ds-panel"
+              className="ds-panel ds-section-panel"
               title="最近工单"
               actions={(
                 previewMode ? (
