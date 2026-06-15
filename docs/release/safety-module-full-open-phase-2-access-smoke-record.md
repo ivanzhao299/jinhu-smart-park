@@ -221,3 +221,38 @@ Final decision: Phase 2b local access smoke passed; recommend phase 2b local ver
 Blocking issues: None for local fixture-run. Staging/test environment should repeat with its own non-production data before release sign-off.
 Follow-up owner: Safety module release owner
 ```
+
+## 14. Fixture Run Rerun Record
+
+```text
+Branch: test/safety-access-smoke-fixture-run-rerun
+Commit: 88675b3
+Environment: local
+Date: 2026-06-15
+API base URL: http://127.0.0.1:3001/api/v1
+API startup note: Local API was started with POSTGRES_PORT=5432 to match the local Docker Postgres port mapping.
+Migration 000144: succeeded in local migration history
+Migration 000145: succeeded in local migration history
+Fixture command: SAFETY_FIXTURE_ENVIRONMENT=local SAFETY_FIXTURE_ALLOW_WRITE=yes pnpm safety:fixtures:access
+Fixture rerun result: Passed; tenant-wide role, permission, and data-scope upserts completed without duplicate-key errors.
+Account matrix: Complete; ADMIN, NORMAL, UNAUTHORIZED, ENTERPRISE, OVERDUE_HAZARD, DUAL_STATISTICS, and SINGLE_STATISTICS configured.
+Enterprise expected tenant: 10000001
+Enterprise expected park: 20000001
+Enterprise expected enterprise: e84e57dc-c4dd-496e-8ff0-a210cdcb65e7
+Smoke command: pnpm safety:smoke:access
+Smoke exit code: 0
+ADMIN result: Passed; login, /auth/me, safety/video menu entries, and read APIs returned expected 2xx results.
+NORMAL result: Passed; safety_inspect_task:my present, operations terminal visible, my inspect tasks API returned 200, manage_all absent.
+UNAUTHORIZED result: Passed; protected menu entries hidden, overdue hazard and emergency statistics APIs rejected with 403, high-risk permissions absent.
+ENTERPRISE result: Passed; non-super, constrained data scope, scoped hazards endpoint returned verifiable tenant, park, and enterprise fields matching expectations.
+OVERDUE_HAZARD result: Passed; overdue hazards visible/readable, normal hazards hidden and direct API rejected with 403, safety_hazard:read absent.
+DUAL_STATISTICS result: Passed; both statistics read permissions present, emergency dashboard visible, statistics API returned 200.
+SINGLE_STATISTICS result: Passed; exactly one statistics permission present, emergency dashboard hidden, statistics API rejected with 403.
+High-risk permission result: Passed for all non-admin smoke users.
+Production guard result: Passed; smoke target accepted only local API target.
+Partial matrix override: Not used.
+Enterprise scope unverified override: Not used.
+Final decision: Phase 2b local fixture rerun and access smoke passed after tenant-wide upsert follow-up; recommend phase 2b local verification closure and proceed to phase 3 role matrix/data-scope专项验证.
+Blocking issues: None for local fixture rerun. Staging/test environment should repeat with its own non-production data before release sign-off.
+Follow-up owner: Safety module release owner
+```
