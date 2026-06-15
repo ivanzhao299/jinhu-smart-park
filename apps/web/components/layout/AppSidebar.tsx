@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,7 +14,7 @@ interface AppSidebarProps {
   onCollapsedChange: (collapsed: boolean) => void;
 }
 
-export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
+export function AppSidebar({ collapsed }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthUser();
@@ -75,26 +75,10 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
         setPreviewOpen(false);
       }}
     >
-      <div className="sidebar-brand-row">
+      <div className="sidebar-brand-row" aria-label="金湖科创产业园">
         <div className="brand">
           <img alt="金湖科创产业园" className="brand-title-logo" src="/brand/jinhupark-logo.svg" />
         </div>
-        <button
-          aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
-          className="sidebar-collapse-button"
-          title={collapsed ? "展开侧边栏" : "收起侧边栏"}
-          type="button"
-          onClick={(event) => {
-            const nextCollapsed = !collapsed;
-            onCollapsedChange(nextCollapsed);
-            if (nextCollapsed) {
-              setPreviewOpen(false);
-              event.currentTarget.blur();
-            }
-          }}
-        >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
       </div>
       <nav className="sidebar-menu">
         {menus.map((menu) => (

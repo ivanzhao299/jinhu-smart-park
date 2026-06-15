@@ -77,7 +77,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
         <div className="dashboard-main">
-          <AppHeader />
+          <AppHeader sidebarCollapsed={sidebarCollapsed} onSidebarCollapsedChange={handleSidebarCollapsedChange} />
           <AppBreadcrumb />
           {children}
         </div>
@@ -95,7 +95,6 @@ function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
             <span className="brand-mark skeleton" />
             <span className="skeleton-line sidebar-brand-skeleton-title" />
           </div>
-          <span className="sidebar-collapse-button skeleton" />
         </div>
         <nav className="sidebar-menu">
           {Array.from({ length: 10 }).map((_, index) => (
@@ -105,9 +104,12 @@ function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
       </aside>
       <div className="dashboard-main">
         <header className="app-header">
-          <div className="header-title">
-            <span className="skeleton-line skeleton-line-sm" />
-            <span className="skeleton-line" />
+          <div className="header-leading">
+            <span className="header-icon-button header-sidebar-toggle skeleton" />
+            <div className="header-title">
+              <span className="skeleton-line skeleton-line-sm" />
+              <span className="skeleton-line" />
+            </div>
           </div>
           <div className="header-actions">
             <span className="header-icon-button skeleton" />
