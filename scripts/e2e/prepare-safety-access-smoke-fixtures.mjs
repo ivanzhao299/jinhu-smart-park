@@ -20,6 +20,7 @@ const postgresDb = process.env.POSTGRES_DB ?? "jinhu_smart_park";
 const postgresHost = process.env.POSTGRES_HOST ?? "localhost";
 const postgresPort = process.env.POSTGRES_PORT ?? "5432";
 const smokeRemark = "SAFETY_SMOKE fixture for local/test access smoke";
+const enterpriseScopeRuleCode = "SAFETY_SMOKE_ENTERPRISE_SCOPE";
 
 const requiredMigrations = [
   "000144_safety_full_open_permission_menu_patch.sql",
@@ -355,6 +356,20 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   pass(`tenant ${tenantId} and park ${parkId} are present`);
 }
 
+async function preflightEnterpriseScopeRule() {
+  const existingRule = await loadEnterpriseScopeRule();
+  if (!existingRule) return;
+  const existingEnterpriseId = await loadParkTenantId("SAFETY_SMOKE_ENTERPRISE_IN");
+  if (!existingEnterpriseId) {
+    fail(
+      `BLOCKED: ${enterpriseScopeRuleCode} already exists for tenant ${tenantId}, but current fixture park ${parkId} ` +
+        "does not have SAFETY_SMOKE_ENTERPRISE_IN yet. Refusing to create new fixture data because the tenant-wide scope rule cannot be safely validated before writes."
+    );
+  }
+  validateEnterpriseScopeRule(existingRule, { tenantCompanyIds: [existingEnterpriseId], ids: [existingEnterpriseId] });
+  pass("existing safety smoke enterprise scope rule is stable");
+}
+
 async function cleanupDuplicateFixtureRows() {
   await dbExec(`
 WITH ranked_users AS (
@@ -546,15 +561,7 @@ async function ensureEnterpriseFixture() {
 }
 
 async function ensureParkTenant(code, companyName, creditCode) {
-  const existingId = await dbScalar(`
-SELECT id::text
-FROM biz_park_tenant
-WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND park_id = ${sqlLiteral(parkId)}
-  AND park_tenant_code = ${sqlLiteral(code)}
-  AND is_deleted = false
-ORDER BY create_time ASC
-LIMIT 1;`);
+  const existingId = await loadParkTenantId(code);
   if (existingId) {
     await dbExec(`
 UPDATE biz_park_tenant
@@ -579,6 +586,18 @@ INSERT INTO biz_park_tenant (
   '[]'::jsonb, '10', 'manual', ${sqlLiteral(smokeRemark)}
 );`);
   return id;
+}
+
+async function loadParkTenantId(code) {
+  return dbScalar(`
+SELECT id::text
+FROM biz_park_tenant
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND park_tenant_code = ${sqlLiteral(code)}
+  AND is_deleted = false
+ORDER BY create_time ASC
+LIMIT 1;`);
 }
 
 async function ensureHazard(hazardCode, title, parkTenantId, overdue) {
@@ -660,58 +679,74 @@ VALUES (${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, $
 }
 
 async function ensureDataScopeRule(enterpriseId) {
-  const ruleCode = "SAFETY_SMOKE_ENTERPRISE_SCOPE";
   const config = { tenantCompanyIds: [enterpriseId], ids: [enterpriseId] };
-  const existingRule = await dbScalar(`
-SELECT jsonb_build_object(
-  'id', id::text,
-  'parkId', park_id,
-  'scopeConfig', scope_config
-)::text
-FROM sys_data_scope_rule
-WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND rule_code = ${sqlLiteral(ruleCode)}
-  AND is_deleted = false
-ORDER BY create_time ASC
-LIMIT 1;`);
+  const existingRule = await loadEnterpriseScopeRule();
   if (existingRule) {
-    const parsed = JSON.parse(existingRule);
-    const existingParkId = parsed.parkId === null || parsed.parkId === undefined ? null : String(parsed.parkId);
-    const existingEnterpriseIds = extractScopeEnterpriseIds(parsed.scopeConfig);
-    const expectedEnterpriseIds = extractScopeEnterpriseIds(config);
-    const samePark = existingParkId === String(parkId);
-    const sameEnterpriseScope = sameStringSet(existingEnterpriseIds, expectedEnterpriseIds);
-
-    if (!samePark || !sameEnterpriseScope) {
-      fail(
-        `BLOCKED: ${ruleCode} already exists for tenant ${tenantId} with park=${existingParkId ?? "NULL"} ` +
-          `enterpriseScope=${[...existingEnterpriseIds].join(",") || "EMPTY"}; current fixture requests ` +
-          `park=${parkId} enterpriseScope=${[...expectedEnterpriseIds].join(",")}. ` +
-          "Tenant-wide enterprise scope rules cannot be retargeted across parks. Use the original fixture park or create a separate fixture design."
-      );
-    }
-
-    return parsed.id;
+    validateEnterpriseScopeRule(existingRule, config);
+    return existingRule.id;
   }
   const id = randomUUID();
   await dbExec(`
 INSERT INTO sys_data_scope_rule (
   id, tenant_id, park_id, rule_code, rule_name, dimension, scope_type, scope_config, status, remark
 ) VALUES (
-  ${sqlLiteral(id)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(ruleCode)},
+  ${sqlLiteral(id)}, ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(enterpriseScopeRuleCode)},
   'Safety smoke enterprise scope', 'tenant_company', 'custom', ${sqlJson(config)}, 'enabled', ${sqlLiteral(smokeRemark)}
 );`);
   return id;
 }
 
+async function loadEnterpriseScopeRule() {
+  const row = await dbScalar(`
+SELECT jsonb_build_object(
+  'id', id::text,
+  'parkId', park_id,
+  'dimension', dimension,
+  'scopeType', scope_type,
+  'status', status,
+  'scopeConfig', scope_config
+)::text
+FROM sys_data_scope_rule
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND rule_code = ${sqlLiteral(enterpriseScopeRuleCode)}
+  AND is_deleted = false
+ORDER BY create_time ASC
+LIMIT 1;`);
+  return row ? JSON.parse(row) : null;
+}
+
+function validateEnterpriseScopeRule(rule, expectedConfig) {
+  const existingParkId = rule.parkId === null || rule.parkId === undefined ? null : String(rule.parkId);
+  const existingEnterpriseIds = extractScopeEnterpriseIds(rule.scopeConfig);
+  const expectedEnterpriseIds = expectedConfig ? extractScopeEnterpriseIds(expectedConfig) : existingEnterpriseIds;
+  const samePark = existingParkId === String(parkId);
+  const sameEnterpriseScope = sameStringSet(existingEnterpriseIds, expectedEnterpriseIds);
+  const validDimension = rule.dimension === "tenant_company";
+  const validScopeType = rule.scopeType === "custom";
+  const validStatus = isEnabledStatus(rule.status);
+
+  if (!validDimension || !validScopeType || !validStatus || !samePark || !sameEnterpriseScope) {
+    fail(
+      `BLOCKED: ${enterpriseScopeRuleCode} already exists for tenant ${tenantId} with ` +
+        `park=${existingParkId ?? "NULL"}, dimension=${rule.dimension ?? "NULL"}, scopeType=${rule.scopeType ?? "NULL"}, ` +
+        `status=${rule.status ?? "NULL"}, enterpriseScope=${[...existingEnterpriseIds].join(",") || "EMPTY"}; ` +
+        `current fixture requests park=${parkId} enterpriseScope=${[...expectedEnterpriseIds].join(",") || "EMPTY"}. ` +
+        "Tenant-wide enterprise scope rules are immutable fixture state and cannot be repaired or retargeted automatically."
+    );
+  }
+}
+
+function isEnabledStatus(status) {
+  return ["enabled", "active"].includes(String(status ?? "").toLowerCase());
+}
+
 function extractScopeEnterpriseIds(scopeConfig) {
   const ids = new Set();
-  for (const key of ["tenantCompanyIds", "ids"]) {
-    const value = scopeConfig && scopeConfig[key];
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item !== null && item !== undefined && String(item).trim()) ids.add(String(item));
-      }
+  // Keep this aligned with DataScopeService.idsForDimension(): tenantCompanyIds ?? ids.
+  const value = scopeConfig && (Array.isArray(scopeConfig.tenantCompanyIds) ? scopeConfig.tenantCompanyIds : scopeConfig.ids);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (item !== null && item !== undefined && String(item).trim()) ids.add(String(item));
     }
   }
   return ids;
@@ -772,6 +807,7 @@ async function prepareFixtures() {
   await assertRequiredMigrations();
   await assertTablesAndPermissions();
   await ensureTenantAndPark();
+  await preflightEnterpriseScopeRule();
   await cleanupDuplicateFixtureRows();
 
   const enterpriseFixture = await ensureEnterpriseFixture();
