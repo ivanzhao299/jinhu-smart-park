@@ -116,3 +116,31 @@ Follow-up owner:
 ## 9. Phase Conclusion
 
 If this access smoke passes in a prepared test environment, phase 2 can be closed and the project can move to phase 3: role-based open matrix and data-scope focused verification.
+
+## 10. Phase 2b Execution Record
+
+```text
+Branch: test/safety-access-smoke-execution
+Commit: 4cd0fda
+Environment: Not configured
+API base URL: Not configured
+Migration 000144: File present in branch; execution in target environment not verified
+Migration 000145: File present in branch; execution in target environment not verified
+Admin account: Not configured
+Normal account: Not configured
+Unauthorized account: Not configured
+Enterprise account: Not configured
+Enterprise expected tenant: Not configured
+Enterprise expected park: Not configured
+Enterprise expected enterprise: Not configured
+Smoke command: Not executed
+Smoke exit code: Not applicable
+Admin result: Not run
+Normal result: Not run
+Unauthorized result: Not run
+Enterprise result: Not run
+High-risk permission result: Not run
+Final decision: Blocked before smoke execution
+Blocking issues: Missing SAFETY_SMOKE_ENVIRONMENT, SAFETY_SMOKE_API_BASE_URL, full account matrix, enterprise scope expectations, API readiness confirmation, migration execution confirmation, and enterprise scoped test data confirmation.
+Follow-up owner: Test environment operator
+```
