@@ -21,10 +21,11 @@ import { PermissionButton } from "../auth/PermissionButton";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { FileUploader } from "../files/FileUploader";
 import { VideoEvidencePanel } from "../video/VideoEvidencePanel";
-import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { canViewField, maskField } from "../../lib/field-policy";
+import { hasPermission } from "../../lib/permissions";
 
 const SAFETY_MODULE = "safety";
 const HAZARD_ENTITY = "safety_hazard";
@@ -335,6 +336,8 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   const canViewAfterPhotos = canViewField(authUser, SAFETY_MODULE, HAZARD_ENTITY, "afterPhotoFileIds");
   const effectiveOverdueOnly = forcedOverdueOnly === true || filters.overdueOnly;
   const pagePermission = effectiveOverdueOnly ? SYSTEM_PERMISSIONS.SAFETY_HAZARD_OVERDUE : SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ;
+  const canReadHazards = hasPermission(authUser, SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ);
+  const canLoadStatusLogs = !effectiveOverdueOnly || canReadHazards;
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
@@ -354,16 +357,22 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   }, [effectiveOverdueOnly, filters]);
 
   const loadStatusLogs = useCallback(async (hazardId: string) => {
+    if (!canLoadStatusLogs) {
+      setStatusLogs([]);
+      return;
+    }
     const response = await apiRequest<HazardStatusLogRow[]>(`/safety/hazards/${hazardId}/status-logs`, {
       token: getAccessToken()
     });
     setStatusLogs(response.data);
-  }, []);
+  }, [canLoadStatusLogs]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
+    const typeResponse = await optionalReadRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100");
+    if (!typeResponse) {
+      setDicts({});
+      return;
+    }
     const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "safety_hazard_type",
@@ -378,9 +387,8 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
     const entries = await Promise.all(codes.map(async (code) => {
       const dictTypeId = typeMap.get(code);
       if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
+      const response = await optionalReadRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`);
+      if (!response) return [code, []] as const;
       return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
     }));
     setDicts(Object.fromEntries(entries));
@@ -520,6 +528,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
 
   function openView(row: HazardRow) {
     setViewing(row);
+    setStatusLogs([]);
     void loadStatusLogs(row.id).catch((error: Error) => setMessage(error.message));
   }
 
@@ -1007,13 +1016,16 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
             <section className="work-panel">
               <div className="task-item">
                 <h3 className="panel-title">整改时间线</h3>
-                <button type="button" onClick={() => void loadStatusLogs(viewing.id).catch((error: Error) => setMessage(error.message))}>
-                  <RefreshCw size={16} />
-                  刷新
-                </button>
+                {canLoadStatusLogs ? (
+                  <button type="button" onClick={() => void loadStatusLogs(viewing.id).catch((error: Error) => setMessage(error.message))}>
+                    <RefreshCw size={16} />
+                    刷新
+                  </button>
+                ) : null}
               </div>
               <div className="timeline-list">
-                {statusLogs.map((log) => (
+                {!canLoadStatusLogs ? <p className="muted-text">当前权限不包含普通隐患状态日志。</p> : null}
+                {canLoadStatusLogs ? statusLogs.map((log) => (
                   <article className="timeline-item" key={log.id}>
                     <div className="timeline-dot" />
                     <div className="timeline-content">
@@ -1028,8 +1040,8 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
                       {log.reason ? <p>{log.reason}</p> : null}
                     </div>
                   </article>
-                ))}
-                {statusLogs.length === 0 ? <p className="muted-text">暂无整改状态日志</p> : null}
+                )) : null}
+                {canLoadStatusLogs && statusLogs.length === 0 ? <p className="muted-text">暂无整改状态日志</p> : null}
               </div>
             </section>
           </Drawer>
@@ -1245,6 +1257,37 @@ function buildPayload(form: HazardForm) {
     status: form.status || "10",
     remark: form.remark.trim() || undefined
   };
+}
+
+async function optionalReadRequest<T>(path: string) {
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  const token = getAccessToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_PREFIX}${path}`, { headers });
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+
+  const payload = await readOptionalJson<T>(response);
+  if (!response.ok) {
+    throw new Error(payload?.message ?? `Request failed with HTTP ${response.status}`);
+  }
+  if (!payload) {
+    throw new Error("Invalid API response payload");
+  }
+  return payload;
+}
+
+async function readOptionalJson<T>(response: Response): Promise<{ data: T; message?: string } | undefined> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined;
+  }
+  return response.json().catch(() => undefined) as Promise<{ data: T; message?: string } | undefined>;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

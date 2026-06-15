@@ -30,6 +30,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Full phase 2b verification requires `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID` to detect same-park cross-enterprise data leaks.
 - Before running phase 2b, confirm `/safety/hazards/overdue` stays on the overdue route and is not redirected into `/safety/hazards?overdue_only=true`, otherwise the layout guard may apply the normal hazard permission.
 - `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true` is only a debug override; any run using it must end as blocked/debug-only and cannot be recorded as a full pass.
+- Phase 2b should also verify the overdue hazard user can open a hazard detail drawer without status-log or dictionary permission failures.
 
 ## 4. Account Matrix
 
@@ -67,6 +68,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Full runs compare enterprise scope fields against `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID`; tenant/park-only checks are not sufficient.
 - Every enterprise scoped endpoint record must expose verifiable tenant, park, and enterprise scope fields in full runs; records without recognizable fields or without an enterprise field fail the smoke.
 - The overdue hazard account must prove both sides of the permission boundary: `/safety/hazards/overdue` is allowed and `/safety/hazards` is hidden or rejected.
+- The overdue hazard account should open a list item detail successfully; lacking `safety_hazard:read` must not trigger a status-log `403` page error, and lacking dictionary permissions must only degrade labels.
 - High-risk actions are not opened to normal roles.
 - The smoke script returns `0`.
 
