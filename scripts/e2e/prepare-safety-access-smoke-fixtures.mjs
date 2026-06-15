@@ -723,7 +723,7 @@ function validateEnterpriseScopeRule(rule, expectedConfig) {
   const sameEnterpriseScope = sameStringSet(existingEnterpriseIds, expectedEnterpriseIds);
   const validDimension = rule.dimension === "tenant_company";
   const validScopeType = rule.scopeType === "custom";
-  const validStatus = isEnabledStatus(rule.status);
+  const validStatus = rule.status === "enabled";
 
   if (!validDimension || !validScopeType || !validStatus || !samePark || !sameEnterpriseScope) {
     fail(
@@ -736,14 +736,10 @@ function validateEnterpriseScopeRule(rule, expectedConfig) {
   }
 }
 
-function isEnabledStatus(status) {
-  return ["enabled", "active"].includes(String(status ?? "").toLowerCase());
-}
-
 function extractScopeEnterpriseIds(scopeConfig) {
   const ids = new Set();
   // Keep this aligned with DataScopeService.idsForDimension(): tenantCompanyIds ?? ids.
-  const value = scopeConfig && (Array.isArray(scopeConfig.tenantCompanyIds) ? scopeConfig.tenantCompanyIds : scopeConfig.ids);
+  const value = scopeConfig ? (scopeConfig.tenantCompanyIds ?? scopeConfig.ids) : undefined;
   if (Array.isArray(value)) {
     for (const item of value) {
       if (item !== null && item !== undefined && String(item).trim()) ids.add(String(item));
