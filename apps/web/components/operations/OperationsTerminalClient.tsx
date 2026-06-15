@@ -14,7 +14,7 @@ import {
 import { Activity, AlertTriangle, ClipboardCheck, FilePlus2, LocateFixed, Plus, RefreshCw, Sparkles, Wrench } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../auth/PermissionButton";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
@@ -654,7 +654,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   }
 
   return (
-    <PermissionGuard permission="safety:operations-terminal" module={SAFETY_MODULE} fallback={<PageShell><Card><EmptyState title="无权访问现场工作台" /></Card></PageShell>}>
+    <PermissionGuard permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY} module={SAFETY_MODULE} fallback={<PageShell><Card><EmptyState title="无权访问现场工作台" /></Card></PageShell>}>
       {content}
     </PermissionGuard>
   );
