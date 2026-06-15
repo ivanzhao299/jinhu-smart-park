@@ -329,7 +329,6 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM sys_permission permission
   WHERE permission.tenant_id = ${sqlLiteral(tenantId)}
-    AND permission.park_id = ${sqlLiteral(parkId)}
     AND permission.code = required.code
     AND permission.is_deleted = false
     AND permission.is_enabled = true
@@ -365,14 +364,6 @@ WITH ranked_users AS (
     AND park_id = ${sqlLiteral(parkId)}
     AND username LIKE 'SAFETY_SMOKE_%'
     AND is_deleted = false
-),
-ranked_roles AS (
-  SELECT id, row_number() OVER (PARTITION BY code ORDER BY create_time ASC, id ASC) AS rn
-  FROM sys_role
-  WHERE tenant_id = ${sqlLiteral(tenantId)}
-    AND park_id = ${sqlLiteral(parkId)}
-    AND code LIKE 'SAFETY_SMOKE_%'
-    AND is_deleted = false
 )
 UPDATE sys_user
 SET is_deleted = true, update_time = now(), remark = ${sqlLiteral(`${smokeRemark}; duplicate disabled`)}
@@ -382,7 +373,6 @@ WITH ranked_roles AS (
   SELECT id, row_number() OVER (PARTITION BY code ORDER BY create_time ASC, id ASC) AS rn
   FROM sys_role
   WHERE tenant_id = ${sqlLiteral(tenantId)}
-    AND park_id = ${sqlLiteral(parkId)}
     AND code LIKE 'SAFETY_SMOKE_%'
     AND is_deleted = false
 )
@@ -398,7 +388,6 @@ async function ensureRole(kind) {
 SELECT id::text
 FROM sys_role
 WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND park_id = ${sqlLiteral(parkId)}
   AND code = ${sqlLiteral(spec.code)}
   AND is_deleted = false
 ORDER BY create_time ASC
@@ -407,6 +396,7 @@ LIMIT 1;`);
     await dbExec(`
 UPDATE sys_role
 SET name = ${sqlLiteral(spec.name)},
+    park_id = ${sqlLiteral(parkId)},
     role_type = 'custom',
     role_scope = 'park',
     data_scope = ${sqlLiteral(spec.dataScope)},
@@ -443,7 +433,6 @@ SET is_deleted = true,
     update_time = now(),
     remark = ${sqlLiteral(`${smokeRemark}; replaced`)}
 WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND park_id = ${sqlLiteral(parkId)}
   AND role_id = ${sqlLiteral(roleId)}
   AND is_deleted = false;`);
   if (permissions.length === 0) return;
@@ -452,7 +441,6 @@ INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, remark)
 SELECT ${sqlLiteral(tenantId)}, ${sqlLiteral(parkId)}, ${sqlLiteral(roleId)}, permission.id, ${sqlLiteral(smokeRemark)}
 FROM sys_permission permission
 WHERE permission.tenant_id = ${sqlLiteral(tenantId)}
-  AND permission.park_id = ${sqlLiteral(parkId)}
   AND permission.code IN (${permissions.map(sqlLiteral).join(", ")})
   AND permission.is_deleted = false
   AND permission.is_enabled = true;`);
@@ -461,7 +449,6 @@ SELECT count(*)
 FROM rel_role_perm link
 JOIN sys_permission permission ON permission.id = link.permission_id
 WHERE link.tenant_id = ${sqlLiteral(tenantId)}
-  AND link.park_id = ${sqlLiteral(parkId)}
   AND link.role_id = ${sqlLiteral(roleId)}
   AND link.is_deleted = false
   AND permission.code IN (${permissions.map(sqlLiteral).join(", ")});`));
@@ -665,7 +652,6 @@ SET is_deleted = true,
     update_time = now(),
     remark = ${sqlLiteral(`${smokeRemark}; replaced`)}
 WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND park_id = ${sqlLiteral(parkId)}
   AND role_id = ${sqlLiteral(roleId)}
   AND is_deleted = false;`);
   await dbExec(`
@@ -679,7 +665,6 @@ async function ensureDataScopeRule(enterpriseId) {
 SELECT id::text
 FROM sys_data_scope_rule
 WHERE tenant_id = ${sqlLiteral(tenantId)}
-  AND park_id = ${sqlLiteral(parkId)}
   AND rule_code = ${sqlLiteral(ruleCode)}
   AND is_deleted = false
 ORDER BY create_time ASC
@@ -689,6 +674,7 @@ LIMIT 1;`);
     await dbExec(`
 UPDATE sys_data_scope_rule
 SET rule_name = 'Safety smoke enterprise scope',
+    park_id = ${sqlLiteral(parkId)},
     dimension = 'tenant_company',
     scope_type = 'custom',
     scope_config = ${sqlJson(config)},
