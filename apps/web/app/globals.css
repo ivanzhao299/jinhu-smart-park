@@ -5670,7 +5670,7 @@ textarea:disabled {
 }
 
 .app-sidebar {
-  padding: 16px 12px;
+  padding: 13px 12px;
   background:
     radial-gradient(circle at 28% 0%, color-mix(in srgb, var(--color-primary) 24%, transparent), transparent 16rem),
     linear-gradient(180deg, color-mix(in srgb, var(--bg-sidebar) 86%, var(--color-primary)) 0%, var(--bg-sidebar) 62%),
@@ -5679,21 +5679,21 @@ textarea:disabled {
 
 .sidebar-brand-row {
   grid-template-columns: minmax(0, 1fr) 34px;
-  min-height: 56px;
-  margin-bottom: 12px;
-  padding: 4px 0 10px;
+  min-height: 48px;
+  margin-bottom: 8px;
+  padding: 2px 0 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 10%, transparent);
 }
 
 .sidebar-brand-row .brand {
   display: flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 34px;
 }
 
 .brand-title-logo {
   display: block;
-  width: min(136px, 100%);
+  width: min(116px, 100%);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 18px color-mix(in srgb, var(--bg-sidebar) 46%, transparent));
@@ -5706,18 +5706,18 @@ textarea:disabled {
 }
 
 .sidebar-menu {
-  gap: 3px;
-  padding-bottom: 18px;
+  gap: 1px;
+  padding-bottom: 14px;
 }
 
 .menu-group {
-  gap: 2px;
+  gap: 1px;
 }
 
 .app-sidebar .menu-group-title {
-  min-height: 36px;
+  min-height: 32px;
   border-radius: 10px;
-  padding: 0 10px;
+  padding: 0 9px;
   color: color-mix(in srgb, var(--phoenix-sidebar-text) 68%, transparent);
   font-size: 13px;
 }
@@ -5740,15 +5740,15 @@ textarea:disabled {
 }
 
 .menu-group-items {
-  gap: 2px;
-  padding: 3px 0 5px 16px;
+  gap: 1px;
+  padding: 2px 0 4px 14px;
 }
 
 .nav-link {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 30px;
+  min-height: 27px;
   border-radius: 9px;
   padding: 0 9px 0 14px;
   color: color-mix(in srgb, var(--phoenix-sidebar-text) 60%, transparent);

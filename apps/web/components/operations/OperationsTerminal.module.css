@@ -145,6 +145,13 @@
   min-width: 0;
 }
 
+.sceneTitle {
+  align-items: center;
+  display: flex;
+  gap: var(--phoenix-space-2);
+  min-width: 0;
+}
+
 .commandButton strong,
 .sceneButton strong {
   font-weight: var(--font-weight-semibold);
@@ -162,19 +169,18 @@
 
 .sceneCycle {
   align-items: center;
-  background: color-mix(in srgb, var(--phoenix-color-accent) 10%, var(--phoenix-color-surface));
-  border: 1px solid color-mix(in srgb, var(--phoenix-color-accent) 20%, var(--phoenix-color-border));
+  background: color-mix(in srgb, var(--phoenix-color-text-muted) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-text-muted) 12%, transparent);
   border-radius: 999px;
-  color: var(--phoenix-color-accent);
+  color: var(--phoenix-color-text-muted);
   display: inline-flex;
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
   justify-content: center;
   line-height: 1;
-  margin-top: var(--phoenix-space-1);
-  min-height: 26px;
-  padding: 0 var(--phoenix-space-2);
-  width: fit-content;
+  min-height: 20px;
+  padding: 0 7px;
 }
 
 .sceneCount {

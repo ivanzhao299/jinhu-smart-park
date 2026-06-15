@@ -445,9 +445,11 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
                 <button className={`${styles.sceneButton} ds-scene-card`} type="button" key={scene.key} onClick={() => openWorkOrder(scene)}>
                   <span className={`${styles.sceneIcon} ds-scene-icon`}><Icon size={22} /></span>
                   <span className={`${styles.sceneText} ds-scene-copy`}>
-                    <strong>{scene.label}</strong>
+                    <strong className={styles.sceneTitle}>
+                      {scene.label}
+                      <span className={styles.sceneCycle}>{scene.recommendedCycle}</span>
+                    </strong>
                     <small>{scene.description}</small>
-                    <span className={styles.sceneCycle}>{scene.recommendedCycle}</span>
                   </span>
                   <span className={`${styles.sceneCount} ds-count-badge`}>{count}</span>
                 </button>
