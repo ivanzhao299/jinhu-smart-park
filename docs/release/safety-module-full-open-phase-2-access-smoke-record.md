@@ -25,8 +25,9 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - API service is running and reachable.
 - Web menu source has been confirmed as `/auth/me` or `/users/me` user context menus.
 - Test accounts are scoped to the intended tenant and park.
-- Full phase 2b verification requires the complete account matrix: admin, normal, unauthorized, and enterprise.
+- Full phase 2b verification requires the complete account matrix: admin, normal, unauthorized, enterprise, overdue hazard, dual-statistics, and single-statistics.
 - Partial matrix mode is only for script debugging and requires `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true`; it cannot be recorded as a complete phase 2b pass.
+- Full phase 2b verification requires `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID` to detect same-park cross-enterprise data leaks.
 
 ## 4. Account Matrix
 
@@ -34,9 +35,9 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 | --- | --- | --- | --- |
 | Admin | Full entry verification | `SUPER_ADMIN` | All target entries visible |
 | Normal inspect user | Operations terminal verification | `safety_inspect_task:my` | Operations terminal visible |
-| Overdue hazard user | Overdue hazard verification | `safety_hazard:overdue` | Overdue hazards visible |
-| Dual-statistics user | Emergency/work-permit dashboard verification | `safety_emergency_statistics:read` and `safety_work_permit_statistics:read` | Emergency dashboard visible |
-| Single-statistics user | Negative verification | Only one statistics read permission | Hidden or rejected |
+| Overdue hazard user | Overdue hazard permission verification | `safety_hazard:overdue` | Overdue hazards visible and readable |
+| Dual-statistics user | Emergency/work-permit dashboard positive verification | `safety_emergency_statistics:read` and `safety_work_permit_statistics:read` | Emergency dashboard visible and readable |
+| Single-statistics user | Emergency/work-permit dashboard negative verification | Exactly one statistics read permission | Dashboard hidden and API rejected |
 | Unauthorized user | Rejection verification | No safety permission | Hidden or rejected |
 | Enterprise user | Data scope verification | Enterprise-side minimum permission | Only related data visible |
 
@@ -61,6 +62,7 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Users without required permissions cannot see the entries or receive a rejection on direct API access.
 - All allowed read checks return HTTP `2xx`; any `4xx` or `5xx` response is a failure unless explicitly allowlisted in the script.
 - Enterprise users read a real scoped safety endpoint and cannot cross tenant, park, or enterprise data boundaries.
+- Full runs compare enterprise scope fields against `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID`; tenant/park-only checks are not sufficient.
 - High-risk actions are not opened to normal roles.
 - The smoke script returns `0`.
 
@@ -72,7 +74,7 @@ SAFETY_SMOKE_ENTERPRISE_EXPECTED_PARK_ID
 SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID
 ```
 
-If the scoped endpoint has no records or no recognizable scope fields, full phase 2b verification fails by default. `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true` may be used only for debugging and must not be treated as full release evidence.
+If the scoped endpoint has no records or no recognizable scope fields, full phase 2b verification fails by default. `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true` may be used only for debugging; any run with this flag is partial/debug-only and must not return or be recorded as a complete phase 2b pass.
 
 ## 7. Stop Conditions
 
@@ -82,8 +84,11 @@ If the scoped endpoint has no records or no recognizable scope fields, full phas
 - Unauthorized users can access protected entries.
 - Enterprise users can see data outside their allowed scope.
 - Enterprise scoped endpoint cannot prove scope and no explicit debug override is set.
+- `SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID` is missing.
 - Normal users receive high-risk permissions.
 - Required account matrix is incomplete without `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true`.
+- Specialized overdue hazard, dual-statistics, or single-statistics accounts are missing or fail their dedicated assertions.
+- Enterprise scope override is enabled; the run is debug-only and cannot be release evidence.
 - `SAFETY_SMOKE_ENVIRONMENT` is missing or the API target is production-like.
 - The smoke script returns non-zero.
 

@@ -15,7 +15,7 @@ const expectedEnterpriseScope = {
   enterpriseId: process.env.SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID
 };
 
-const accountKinds = ["ADMIN", "NORMAL", "UNAUTHORIZED", "ENTERPRISE"];
+const accountKinds = ["ADMIN", "NORMAL", "UNAUTHORIZED", "ENTERPRISE", "OVERDUE_HAZARD", "DUAL_STATISTICS", "SINGLE_STATISTICS"];
 const accounts = Object.fromEntries(accountKinds.map((kind) => [kind, accountFromEnv(kind)]));
 
 const adminMenuHrefs = [
@@ -87,6 +87,7 @@ const highRiskPermissions = [
 
 let failures = 0;
 const skippedAccounts = [];
+const blockedReasons = [];
 
 function accountFromEnv(kind) {
   return {
@@ -232,7 +233,7 @@ function validateAccountMatrix() {
     if (account.username && account.password) continue;
     const message = `${kind.toLowerCase()} account is not configured`;
     if (kind === "ADMIN" || !allowPartialMatrix) {
-      fail(`${message}; full phase 2b smoke requires ADMIN, NORMAL, UNAUTHORIZED, and ENTERPRISE accounts`);
+      fail(`${message}; full phase 2b smoke requires ADMIN, NORMAL, UNAUTHORIZED, ENTERPRISE, OVERDUE_HAZARD, DUAL_STATISTICS, and SINGLE_STATISTICS accounts`);
       ok = false;
     } else {
       skippedAccounts.push(kind);
@@ -241,6 +242,20 @@ function validateAccountMatrix() {
   }
   if (allowPartialMatrix && skippedAccounts.length > 0) {
     console.log(`[INFO] partial matrix skips: ${skippedAccounts.join(", ")}; do not use this run as complete phase 2b evidence`);
+    blockedReasons.push(`partial account matrix: ${skippedAccounts.join(", ")}`);
+  }
+  if (!expectedEnterpriseScope.enterpriseId) {
+    const message = "SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID is required for full phase 2b enterprise cross-subject scope verification";
+    if (allowEnterpriseScopeUnverified) {
+      skip(`${message}; SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true, result is debug-only`);
+      blockedReasons.push("enterprise expected enterprise id missing");
+    } else {
+      fail(message);
+      ok = false;
+    }
+  }
+  if (allowEnterpriseScopeUnverified) {
+    blockedReasons.push("enterprise scope unverified override enabled");
   }
   return ok;
 }
@@ -350,6 +365,47 @@ async function verifyUnauthorizedUser() {
   return context;
 }
 
+async function verifyOverdueHazardUser() {
+  if (shouldSkipAccount("OVERDUE_HAZARD")) return null;
+  const context = await loginAndFetchContext(accounts.OVERDUE_HAZARD, "overdue hazard user");
+  if (!context) return null;
+  assertHasPermission("overdue hazard user", context.userContext, "safety_hazard:overdue");
+  assertMenuContains("overdue hazard user", context.userContext, "/safety/hazards/overdue");
+  await expectReadAllowed("overdue hazard user overdue hazards", context.token, "/safety/hazards/overdue?page=1&page_size=1");
+  assertLacksPermission("overdue hazard user", context.userContext, "safety_hazard:read");
+  assertNoHighRiskPermissions("overdue hazard user", context.userContext);
+  return context;
+}
+
+async function verifyDualStatisticsUser() {
+  if (shouldSkipAccount("DUAL_STATISTICS")) return null;
+  const context = await loginAndFetchContext(accounts.DUAL_STATISTICS, "dual statistics user");
+  if (!context) return null;
+  assertHasPermission("dual statistics user", context.userContext, "safety_emergency_statistics:read");
+  assertHasPermission("dual statistics user", context.userContext, "safety_work_permit_statistics:read");
+  assertMenuContains("dual statistics user", context.userContext, "/safety/emergency-dashboard");
+  await expectReadAllowed("dual statistics user emergency work permit statistics", context.token, "/safety/emergency-work-permit-statistics");
+  assertNoHighRiskPermissions("dual statistics user", context.userContext);
+  return context;
+}
+
+async function verifySingleStatisticsUser() {
+  if (shouldSkipAccount("SINGLE_STATISTICS")) return null;
+  const context = await loginAndFetchContext(accounts.SINGLE_STATISTICS, "single statistics user");
+  if (!context) return null;
+  const hasEmergencyStats = hasPermission(context.userContext, "safety_emergency_statistics:read");
+  const hasPermitStats = hasPermission(context.userContext, "safety_work_permit_statistics:read");
+  if (hasEmergencyStats === hasPermitStats) {
+    fail("single statistics user must have exactly one of safety_emergency_statistics:read or safety_work_permit_statistics:read");
+  } else {
+    pass("single statistics user has exactly one emergency/work-permit statistics permission");
+  }
+  assertMenuHidden("single statistics user", context.userContext, "/safety/emergency-dashboard");
+  await expectRejected("single statistics user direct API", context.token, "/safety/emergency-work-permit-statistics");
+  assertNoHighRiskPermissions("single statistics user", context.userContext);
+  return context;
+}
+
 async function verifyEnterpriseUser() {
   if (shouldSkipAccount("ENTERPRISE")) return null;
   const context = await loginAndFetchContext(accounts.ENTERPRISE, "enterprise user");
@@ -378,6 +434,7 @@ function verifyEnterpriseScopedData(data) {
   if (records.length === 0) {
     if (allowEnterpriseScopeUnverified) {
       skip("enterprise scoped endpoint returned no records; SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true");
+      blockedReasons.push("enterprise scoped endpoint returned no records");
       return;
     }
     fail("enterprise scoped endpoint returned no records, so data scope could not be verified");
@@ -387,18 +444,18 @@ function verifyEnterpriseScopedData(data) {
   let scopedFieldCount = 0;
   for (const record of records) {
     const scopes = extractScopeFields(record);
-    if (Object.keys(scopes).length === 0) continue;
-    scopedFieldCount += Object.keys(scopes).length;
+    const presentScopeFieldCount = Object.values(scopes).filter((value) => value !== undefined).length;
+    if (presentScopeFieldCount === 0) continue;
+    scopedFieldCount += presentScopeFieldCount;
     verifyScopeValue("tenant", scopes.tenantId, expectedEnterpriseScope.tenantId, record);
     verifyScopeValue("park", scopes.parkId, expectedEnterpriseScope.parkId, record);
-    if (expectedEnterpriseScope.enterpriseId) {
-      verifyScopeValue("enterprise", scopes.enterpriseId, expectedEnterpriseScope.enterpriseId, record);
-    }
+    verifyScopeValue("enterprise", scopes.enterpriseId, expectedEnterpriseScope.enterpriseId, record);
   }
 
   if (scopedFieldCount === 0) {
     if (allowEnterpriseScopeUnverified) {
       skip("enterprise scoped endpoint returned records without recognizable scope fields; scope remains unverified by explicit override");
+      blockedReasons.push("enterprise scoped endpoint returned no recognizable scope fields");
       return;
     }
     fail("enterprise scoped endpoint returned records without recognizable tenant/park/enterprise scope fields");
@@ -452,15 +509,19 @@ async function main() {
   await verifyAdmin();
   await verifyNormalUser();
   await verifyUnauthorizedUser();
+  await verifyOverdueHazardUser();
+  await verifyDualStatisticsUser();
+  await verifySingleStatisticsUser();
   await verifyEnterpriseUser();
 
   if (failures > 0) {
     throw new Error(`safety module access smoke failed: ${failures} failure(s), ${skippedAccounts.length} skipped account type(s)`);
   }
-  if (skippedAccounts.length > 0) {
-    console.log(`[PASS] partial safety module access smoke completed with skipped account type(s): ${skippedAccounts.join(", ")}`);
-    console.log("[INFO] partial matrix result is for debugging only and is not complete phase 2b release evidence");
-    return;
+  if (blockedReasons.length > 0) {
+    for (const reason of blockedReasons) {
+      console.error(`[BLOCKED] ${reason}`);
+    }
+    throw new Error("safety module access smoke result is partial/debug-only and cannot be used as full phase 2b evidence");
   }
   console.log("[PASS] full safety module access smoke completed");
 }
