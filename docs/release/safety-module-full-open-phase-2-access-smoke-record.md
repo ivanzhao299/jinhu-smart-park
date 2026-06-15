@@ -12,6 +12,8 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Do not expand role permissions.
 - Do not update snapshot baselines.
 - Do not treat this smoke as a full security acceptance test.
+- The script must reject production-like API targets before login.
+- `SAFETY_SMOKE_ENVIRONMENT` is required and must be one of `local`, `test`, `staging`, or `ci`.
 
 ## 3. Preconditions
 
@@ -23,6 +25,8 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - API service is running and reachable.
 - Web menu source has been confirmed as `/auth/me` or `/users/me` user context menus.
 - Test accounts are scoped to the intended tenant and park.
+- Full phase 2b verification requires the complete account matrix: admin, normal, unauthorized, and enterprise.
+- Partial matrix mode is only for script debugging and requires `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true`; it cannot be recorded as a complete phase 2b pass.
 
 ## 4. Account Matrix
 
@@ -55,9 +59,20 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Admin checks pass.
 - Users with required permissions can see the corresponding entries.
 - Users without required permissions cannot see the entries or receive a rejection on direct API access.
-- Enterprise users cannot cross tenant, park, or enterprise data boundaries.
+- All allowed read checks return HTTP `2xx`; any `4xx` or `5xx` response is a failure unless explicitly allowlisted in the script.
+- Enterprise users read a real scoped safety endpoint and cannot cross tenant, park, or enterprise data boundaries.
 - High-risk actions are not opened to normal roles.
 - The smoke script returns `0`.
+
+Enterprise scope expectations may be provided with:
+
+```text
+SAFETY_SMOKE_ENTERPRISE_EXPECTED_TENANT_ID
+SAFETY_SMOKE_ENTERPRISE_EXPECTED_PARK_ID
+SAFETY_SMOKE_ENTERPRISE_EXPECTED_ENTERPRISE_ID
+```
+
+If the scoped endpoint has no records or no recognizable scope fields, full phase 2b verification fails by default. `SAFETY_SMOKE_ALLOW_ENTERPRISE_SCOPE_UNVERIFIED=true` may be used only for debugging and must not be treated as full release evidence.
 
 ## 7. Stop Conditions
 
@@ -66,7 +81,10 @@ This phase verifies the actual access result after the phase 1 safety menu and p
 - Any of the three phase 1 aligned entries violates the expected permission rule.
 - Unauthorized users can access protected entries.
 - Enterprise users can see data outside their allowed scope.
+- Enterprise scoped endpoint cannot prove scope and no explicit debug override is set.
 - Normal users receive high-risk permissions.
+- Required account matrix is incomplete without `SAFETY_SMOKE_ALLOW_PARTIAL_MATRIX=true`.
+- `SAFETY_SMOKE_ENVIRONMENT` is missing or the API target is production-like.
 - The smoke script returns non-zero.
 
 ## 8. Verification Result Template
