@@ -63,6 +63,8 @@ The first release only shows the whitelist menu entries below.
 - This PR does not change the backend permission model
 - Directly visiting a non-release URL keeps the current behavior in the first version
 - Non-release modules must go through a separate acceptance pass before being added back to the whitelist
+- The source of truth for visible menu paths is `apps/web/lib/menu.ts` `FIRST_RELEASE_MENU_PATHS`
+- `scripts/e2e/first-release-menu-whitelist.mjs` verifies required first-release paths and forbidden hidden paths
 
 Visible first-release menu scope:
 
@@ -95,6 +97,17 @@ Visible first-release menu scope:
   - `/workorders/sla-rules`
   - `/workorders/overdue`
   - `/workorders/stats`
+- Onsite terminal:
+  - `/operations/terminal`
+- Safety core:
+  - `/safety/dashboard`
+  - `/safety/inspect-points`
+  - `/safety/inspect-templates`
+  - `/safety/inspect-plans`
+  - `/safety/inspect-tasks`
+  - `/safety/my-inspect-tasks`
+  - `/safety/hazards`
+  - `/safety/hazards/overdue`
 
 Hidden first-release menus include:
 
@@ -111,7 +124,11 @@ Hidden first-release menus include:
 - `/energy/*`
 - `/robots/*`
 - `/admin/video-security/*`
-- `/safety/*`
+- `/safety/emergency-dashboard`
+- `/safety/emergency-contacts`
+- `/safety/emergency-plans`
+- `/safety/emergencies`
+- `/safety/work-permits`
 - `/system/data-scopes`
 - `/system/field-policies`
 - `/system/code-rules`

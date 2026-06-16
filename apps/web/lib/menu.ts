@@ -83,6 +83,45 @@ const DISABLED_PLACEHOLDER_HREFS = new Set([
   "/ai/assistant"
 ]);
 
+export const FIRST_RELEASE_MENU_PATHS = [
+  "/dashboard",
+  "/assets/parks",
+  "/assets/buildings",
+  "/assets/floors",
+  "/assets/units",
+  "/assets/unit-status-board",
+  "/assets/statistics",
+  "/leasing/tenants",
+  "/leasing/contracts",
+  "/leasing/receivables",
+  "/leasing/payments",
+  "/workorders",
+  "/workorders/list",
+  "/workorders/sla-rules",
+  "/workorders/overdue",
+  "/workorders/stats",
+  "/operations/terminal",
+  "/safety/dashboard",
+  "/safety/inspect-points",
+  "/safety/inspect-templates",
+  "/safety/inspect-plans",
+  "/safety/inspect-tasks",
+  "/safety/my-inspect-tasks",
+  "/safety/hazards",
+  "/safety/hazards/overdue",
+  "/system/orgs",
+  "/system/users",
+  "/system/roles",
+  "/system/permissions",
+  "/system/dicts",
+  "/system/modules",
+  "/system/tenants",
+  "/system/audit/op-logs",
+  "/system/audit/login-logs"
+] as const;
+
+export const FIRST_RELEASE_MENU_PATH_SET = new Set<string>(FIRST_RELEASE_MENU_PATHS);
+
 export const dashboardMenus: MenuNode[] = [
   {
     label: "总览",
@@ -233,7 +272,31 @@ export const dashboardMenus: MenuNode[] = [
 
 export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
   const menus = normalizeMenuTree(userMenus);
+  const mergedMenus = menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
+  return filterFirstReleaseMenus(mergedMenus);
+}
+
+export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  const menus = normalizeMenuTree(userMenus);
   return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
+}
+
+export function filterFirstReleaseMenus(menus: MenuNode[]): MenuNode[] {
+  const filteredMenus: MenuNode[] = [];
+  for (const menu of menus) {
+    const children = menu.children ? filterFirstReleaseMenus(menu.children) : undefined;
+    if (menu.href && !FIRST_RELEASE_MENU_PATH_SET.has(menu.href) && !children?.length) {
+      continue;
+    }
+    if (!menu.href && !children?.length) {
+      continue;
+    }
+    filteredMenus.push({
+      ...menu,
+      children: children && children.length > 0 ? children : undefined
+    });
+  }
+  return filteredMenus;
 }
 
 export function normalizeMenuTree(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
