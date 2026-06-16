@@ -584,11 +584,15 @@ def clear_active_task(
     if not context_key:
         return ActiveTask(None, "none")
 
-    previous = resolve_active_task(repo_root, platform_input, platform)
     context_path = _context_path(repo_root, context_key)
-    if context_path.is_file():
-        _remove_file(context_path)
-    return previous
+    if not context_path.is_file():
+        return ActiveTask(None, "session", context_key)
+
+    context = _read_json(context_path) or {}
+    task_ref = _string_value(context.get("current_task"))
+    previous = _active_from_ref(task_ref, repo_root, "session", context_key)
+    _remove_file(context_path)
+    return previous or ActiveTask(None, "session", context_key)
 
 
 def clear_task_from_sessions(task_path: str, repo_root: Path) -> int:

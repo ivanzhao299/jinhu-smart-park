@@ -213,37 +213,37 @@ def cmd_list(args: argparse.Namespace) -> int:
         nonlocal count
         t = all_tasks[dir_name]
 
-        # Apply --mine filter
+        show_task = True
         if filter_mine and (t.assignee or "-") != developer:
-            return
-
-        # Apply --status filter
+            show_task = False
         if filter_status and t.status != filter_status:
-            return
+            show_task = False
 
-        relative_path = f"{DIR_WORKFLOW}/{DIR_TASKS}/{dir_name}"
-        marker = ""
-        if relative_path == current_task:
-            marker = f" {colored('<- current', Colors.GREEN)}"
+        if show_task:
+            relative_path = f"{DIR_WORKFLOW}/{DIR_TASKS}/{dir_name}"
+            marker = ""
+            if relative_path == current_task:
+                marker = f" {colored('<- current', Colors.GREEN)}"
 
-        # Children progress
-        progress = children_progress(t.children, all_statuses)
+            # Children progress
+            progress = children_progress(t.children, all_statuses)
 
-        # Package tag
-        pkg_tag = f" @{t.package}" if t.package else ""
+            # Package tag
+            pkg_tag = f" @{t.package}" if t.package else ""
 
-        prefix = "  " * indent + "  - "
+            prefix = "  " * indent + "  - "
 
-        if filter_mine:
-            print(f"{prefix}{dir_name}/ ({t.status}){pkg_tag}{progress}{marker}")
-        else:
-            print(f"{prefix}{dir_name}/ ({t.status}){pkg_tag}{progress} [{colored(t.assignee or '-', Colors.CYAN)}]{marker}")
-        count += 1
+            if filter_mine:
+                print(f"{prefix}{dir_name}/ ({t.status}){pkg_tag}{progress}{marker}")
+            else:
+                print(f"{prefix}{dir_name}/ ({t.status}){pkg_tag}{progress} [{colored(t.assignee or '-', Colors.CYAN)}]{marker}")
+            count += 1
 
         # Print children indented
+        child_indent = indent + 1 if show_task else indent
         for child_name in t.children:
             if child_name in all_tasks:
-                _print_task(child_name, indent + 1)
+                _print_task(child_name, child_indent)
 
     # Display only top-level tasks (those without a parent)
     for dir_name in sorted(all_tasks.keys()):

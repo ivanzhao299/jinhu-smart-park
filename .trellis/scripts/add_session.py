@@ -362,7 +362,7 @@ def _auto_commit_workspace(repo_root: Path) -> None:
         print("[OK] No workspace changes to commit.", file=sys.stderr)
         return
 
-    rc, _, commit_err = run_git(["commit", "-m", commit_msg], cwd=repo_root)
+    rc, _, commit_err = run_git(["commit", "-m", commit_msg, "--only", "--", *paths], cwd=repo_root)
     if rc == 0:
         print(f"[OK] Auto-committed: {commit_msg}", file=sys.stderr)
     else:

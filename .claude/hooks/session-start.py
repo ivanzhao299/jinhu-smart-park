@@ -67,6 +67,20 @@ def _normalize_windows_shell_path(path_str: str) -> str:
     return path_str
 
 
+def _resolve_project_root(candidate: Path) -> Path:
+    """Walk upward from a candidate cwd to the directory containing .trellis."""
+    current = candidate.resolve()
+    if current.is_file():
+        current = current.parent
+
+    while True:
+        if (current / ".trellis").is_dir():
+            return current
+        if current == current.parent:
+            return candidate.resolve()
+        current = current.parent
+
+
 FIRST_REPLY_NOTICE = """<first-reply-notice>
 First visible reply: say once in Chinese that Trellis SessionStart context is loaded, then answer directly.
 This notice is one-shot: do not repeat it after the first assistant reply in the same session.
@@ -744,10 +758,10 @@ def main():
     for var in project_dir_env_vars:
         val = os.environ.get(var)
         if val:
-            project_dir = Path(_normalize_windows_shell_path(val)).resolve()
+            project_dir = _resolve_project_root(Path(_normalize_windows_shell_path(val)))
             break
     if project_dir is None:
-        project_dir = Path(_normalize_windows_shell_path(hook_input.get("cwd", "."))).resolve()
+        project_dir = _resolve_project_root(Path(_normalize_windows_shell_path(hook_input.get("cwd", "."))))
 
     trellis_dir = project_dir / ".trellis"
     context_key = _resolve_context_key(trellis_dir, hook_input)

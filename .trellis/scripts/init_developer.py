@@ -22,13 +22,21 @@ from common.paths import (
 from common.developer import init_developer
 
 
+def print_usage() -> None:
+    print(f"Usage: {sys.argv[0]} <developer-name>")
+    print()
+    print("Example:")
+    print(f"  {sys.argv[0]} john")
+
+
 def main() -> None:
     """CLI entry point."""
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <developer-name>")
-        print()
-        print("Example:")
-        print(f"  {sys.argv[0]} john")
+    if len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help"):
+        print_usage()
+        sys.exit(0)
+
+    if len(sys.argv) != 2:
+        print_usage()
         sys.exit(1)
 
     name = sys.argv[1]
