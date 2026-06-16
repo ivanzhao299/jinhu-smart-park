@@ -236,28 +236,30 @@ export default function WorkOrderSlaRulesPage() {
           <DataTable>
             <thead>
               <tr>
-                <th>工单类型</th>
-                <th>紧急程度</th>
-                <th>优先级</th>
-                <th>派单 SLA</th>
-                <th>处理 SLA</th>
+                <th>规则对象</th>
+                <th>优先级 / 紧急程度</th>
+                <th>SLA 时限</th>
                 <th>升级角色</th>
-                <th>状态</th>
-                <th>更新时间</th>
+                <th>状态 / 更新时间</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{labelFor(typeItems, row.woType)}</td>
-                  <td>{labelFor(urgencyItems, row.urgency)}</td>
-                  <td><DictBadge items={priorityItems} value={row.priority} /></td>
-                  <td>{row.dispatchSlaMin} 分钟</td>
-                  <td>{row.finishSlaMin} 分钟</td>
+                  <td>
+                    <StackedCell title={labelFor(typeItems, row.woType)} meta={row.remark ?? "工单 SLA 规则"} />
+                  </td>
+                  <td>
+                    <StackedCell title={<DictBadge items={priorityItems} value={row.priority} />} meta={labelFor(urgencyItems, row.urgency)} />
+                  </td>
+                  <td>
+                    <StackedCell title={`派单 ${row.dispatchSlaMin} 分钟`} meta={`处理 ${row.finishSlaMin} 分钟`} />
+                  </td>
                   <td>{row.escalateRoleCode ?? "-"}</td>
-                  <td><StatusBadge value={row.status} /></td>
-                  <td>{formatDateTime(row.updateTime)}</td>
+                  <td>
+                    <StackedCell title={<StatusBadge value={row.status} />} meta={formatDateTime(row.updateTime)} />
+                  </td>
                   <td>
                     <DataTableActions>
                       <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.WORKORDER_SLA_UPDATE} type="button" onClick={() => openEdit(row)}>
@@ -274,7 +276,7 @@ export default function WorkOrderSlaRulesPage() {
               ))}
               {pageData.items.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>暂无 SLA 规则</td>
+                  <td colSpan={6}>暂无 SLA 规则</td>
                 </tr>
               ) : null}
             </tbody>
@@ -365,6 +367,15 @@ function NumberField({
         onChange={(event) => onChange(event.target.value)}
       />
     </Field>
+  );
+}
+
+function StackedCell({ title, meta }: { title: ReactNode; meta?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{title}</strong>
+      {meta ? <small>{meta}</small> : null}
+    </span>
   );
 }
 

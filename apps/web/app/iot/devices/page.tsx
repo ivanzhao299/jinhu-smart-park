@@ -686,36 +686,45 @@ export default function IotDevicesPage() {
           <DataTable>
             <thead>
               <tr>
-                <th>设备编码</th>
-                <th>设备名称</th>
-                <th>类型</th>
-                <th>网关</th>
-                <th>厂家设备 ID</th>
-                <th>位置</th>
-                <th>房源</th>
-                <th>租户企业</th>
+                <th>设备</th>
+                <th>类型 / 厂家</th>
+                <th>网关 / 位置</th>
+                <th>房源 / 租户</th>
                 <th>状态</th>
-                <th>在线</th>
-                <th>最近数据</th>
-                <th>关键指标</th>
+                <th>最近数据 / 指标</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td><Link className="text-link" href={`/iot/devices/${row.id}`}>{row.deviceCode}</Link></td>
-                  <td><Link className="text-link" href={`/iot/devices/${row.id}`}>{row.deviceName}</Link></td>
-                  <td><StatusPill dictCode="iot_device_type" value={row.deviceType} dicts={dicts} /></td>
-                  <td>{gatewayLabel(gateways, row.gatewayId)}</td>
-                  <td>{row.vendorDeviceId ?? "-"}</td>
-                  <td>{row.location ?? "-"}</td>
-                  <td>{unitLabel(units, row.unitId)}</td>
-                  <td>{parkTenantLabel(parkTenants, row.parkTenantId)}</td>
-                  <td><StatusPill dictCode="iot_device_status" value={row.status} dicts={dicts} /></td>
-                  <td><StatusPill dictCode="iot_device_status" value={row.onlineStatus} dicts={dicts} /></td>
-                  <td>{formatDateTime(row.lastDataTime)}</td>
-                  <td>{formatLatestPreview(row.latestMetrics)}</td>
+                  <td>
+                    <StackedCell
+                      title={<Link className="text-link" href={`/iot/devices/${row.id}`}>{row.deviceName}</Link>}
+                      meta={<Link className="text-link" href={`/iot/devices/${row.id}`}>{row.deviceCode}</Link>}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={<StatusPill dictCode="iot_device_type" value={row.deviceType} dicts={dicts} />}
+                      meta={row.vendorDeviceId ? `${row.vendorName ?? "厂家"} ${row.vendorDeviceId}` : row.vendorName ?? "-"}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell title={gatewayLabel(gateways, row.gatewayId)} meta={row.location ?? "-"} />
+                  </td>
+                  <td>
+                    <StackedCell title={unitLabel(units, row.unitId)} meta={parkTenantLabel(parkTenants, row.parkTenantId)} />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={<StatusPill dictCode="iot_device_status" value={row.status} dicts={dicts} />}
+                      meta={<StatusPill dictCode="iot_device_status" value={row.onlineStatus} dicts={dicts} />}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell title={formatDateTime(row.lastDataTime)} meta={formatLatestPreview(row.latestMetrics)} />
+                  </td>
                   <td>
                     <DataTableActions>
                       <button className="table-action-button" type="button" onClick={() => openView(row)}><Eye size={16} />查看</button>
@@ -731,7 +740,7 @@ export default function IotDevicesPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.items.length === 0 ? <tr><td colSpan={13}><EmptyState /></td></tr> : null}
+              {pageData.items.length === 0 ? <tr><td colSpan={7}><EmptyState /></td></tr> : null}
             </tbody>
           </DataTable>
           <div className="task-item">
@@ -1282,6 +1291,15 @@ function unitLabel(items: UnitRow[], id?: string | null) {
 function parkTenantLabel(items: ParkTenantRow[], id?: string | null) {
   if (!id) return "-";
   return items.find((row) => row.id === id)?.companyName ?? id;
+}
+
+function StackedCell({ title, meta }: { title: ReactNode; meta?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{title}</strong>
+      {meta ? <small>{meta}</small> : null}
+    </span>
+  );
 }
 
 function metricLabel(items: IotMetricRow[], id?: string | null, metricCode?: string | null) {

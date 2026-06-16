@@ -258,41 +258,40 @@ export default function WorkOrderOverduePage() {
           <DataTable>
             <thead>
               <tr>
-                <th>工单编号</th>
-                <th>标题</th>
-                <th>类型</th>
-                <th>优先级</th>
-                <th>状态</th>
-                <th>处理人</th>
-                <th>租户企业</th>
-                <th>位置</th>
+                <th>工单</th>
+                <th>类型 / 优先级</th>
+                <th>状态 / 处理人</th>
+                <th>位置 / 租户</th>
                 <th>SLA</th>
-                <th>超时原因</th>
-                <th>创建时间</th>
+                <th>超时 / 创建时间</th>
               </tr>
             </thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.woCode}</td>
-                  <td>{row.title}</td>
-                  <td>{labelFor(typeItems, row.woType)}</td>
-                  <td><DictBadge items={priorityItems} value={row.priority} /></td>
-                  <td><DictBadge items={statusItems} value={row.status} /></td>
-                  <td>{row.assigneeName ?? "-"}</td>
-                  <td>{row.parkTenant?.companyName ?? "-"}</td>
-                  <td>{row.location ?? row.unit?.unitName ?? "-"}</td>
                   <td>
-                    <span className="status-pill status-danger">超时</span>
-                    <span>派单 {row.slaDispatchMin ?? 30} / 处理 {row.slaFinishMin ?? 240} 分钟</span>
+                    <StackedCell title={row.woCode} meta={row.title} />
                   </td>
-                  <td>{row.overdueReason ?? "-"}</td>
-                  <td>{formatDateTime(row.createTime)}</td>
+                  <td>
+                    <StackedCell title={labelFor(typeItems, row.woType)} meta={<DictBadge items={priorityItems} value={row.priority} />} />
+                  </td>
+                  <td>
+                    <StackedCell title={<DictBadge items={statusItems} value={row.status} />} meta={row.assigneeName ?? "未分配"} />
+                  </td>
+                  <td>
+                    <StackedCell title={row.location ?? row.unit?.unitName ?? "-"} meta={row.parkTenant?.companyName ?? "-"} />
+                  </td>
+                  <td>
+                    <StackedCell title={<span className="status-pill status-danger">超时</span>} meta={`派单 ${row.slaDispatchMin ?? 30} / 处理 ${row.slaFinishMin ?? 240} 分钟`} />
+                  </td>
+                  <td>
+                    <StackedCell title={row.overdueReason ?? "未记录原因"} meta={formatDateTime(row.createTime)} />
+                  </td>
                 </tr>
               ))}
               {pageData.items.length === 0 ? (
                 <tr>
-                  <td colSpan={11}>暂无超时工单</td>
+                  <td colSpan={6}>暂无超时工单</td>
                 </tr>
               ) : null}
             </tbody>
@@ -318,6 +317,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+
+function StackedCell({ title, meta }: { title: ReactNode; meta?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{title}</strong>
+      {meta ? <small>{meta}</small> : null}
+    </span>
   );
 }
 
