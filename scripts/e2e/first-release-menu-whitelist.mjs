@@ -37,10 +37,10 @@ function run() {
   const source = readFileSync(menuPath, "utf8");
   const whitelistBlock = extractWhitelistBlock(source);
 
-  if (!assert(source.includes("FIRST_RELEASE_MENU_PATHS"), "FIRST_RELEASE_MENU_PATHS exists")) return;
-  if (!assert(source.includes("FIRST_RELEASE_MENU_PATH_SET"), "FIRST_RELEASE_MENU_PATH_SET exists")) return;
-  if (!assert(source.includes("filterFirstReleaseMenus(mergedMenus)"), "menu filtering still uses whitelist gate")) return;
-  if (!assert(source.includes("FIRST_RELEASE_MENU_PATH_SET.has(menu.href)"), "menu filter references whitelist set")) return;
+  if (!assert(source.includes("FIRST_RELEASE_MENU_PATHS"), "legacy FIRST_RELEASE_MENU_PATHS remains available for compatibility checks")) return;
+  if (!assert(source.includes("FIRST_RELEASE_MENU_PATH_SET"), "legacy FIRST_RELEASE_MENU_PATH_SET remains available for compatibility checks")) return;
+  if (!assert(!source.includes("return filterFirstReleaseMenus(mergedMenus)"), "runtime dashboard menu no longer uses the first-release whitelist gate")) return;
+  if (!assert(source.includes("export function filterFirstReleaseMenus"), "legacy menu filter helper remains isolated and explicit")) return;
 
   const requiredPaths = [
     "/dashboard",
@@ -65,13 +65,12 @@ function run() {
     if (!assert(whitelistBlock.includes(path), `whitelist includes ${path}`)) return;
   }
 
-  const forbiddenPaths = [
+  const expandedPaths = [
     "/iot/dashboard",
     "/energy/dashboard",
     "/robots/overview",
     "/robots/cleaning",
     "/admin/video-security/dashboard",
-    "/safety/emergency-dashboard",
     "/safety/emergency-contacts",
     "/safety/emergency-plans",
     "/safety/emergencies",
@@ -82,12 +81,12 @@ function run() {
     "/leasing/refunds",
     "/leasing/invoices"
   ];
-  for (const path of forbiddenPaths) {
-    if (!assert(!whitelistBlock.includes(path), `whitelist excludes ${path}`)) return;
+  for (const path of expandedPaths) {
+    if (!assert(source.includes(path), `expanded menu definition includes ${path}`)) return;
   }
 
-  if (!assert(source.includes("/leasing/leads"), "menu file still contains non-first-release menu definitions")) return;
-  if (!assert(source.includes("/iot/dashboard"), "menu file still contains hidden modules for filtering")) return;
+  if (!assert(source.includes("/leasing/leads"), "menu file contains leasing lead menu definitions")) return;
+  if (!assert(source.includes("/iot/dashboard"), "menu file contains IoT menu definitions")) return;
 
   console.log("[PASS] first release menu whitelist regression completed");
 }

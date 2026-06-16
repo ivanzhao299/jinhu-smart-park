@@ -1,7 +1,6 @@
 import { Activity, ArrowRight, Bot, Building2, ClipboardCheck, ShieldCheck, Wrench, Zap } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { FIRST_RELEASE_MENU_PATH_SET } from "../../../lib/menu";
 
 const kpis = [
   { label: "运营资产", value: "空间台账", meta: "园区 / 楼栋 / 房源统一管理", icon: Building2 },
@@ -16,8 +15,6 @@ const quickEntries: Array<{ title: string; description: string; href: Route; ico
   { title: "安全看板", description: "查看巡检完成率、隐患闭环率、重大与超期风险。", href: "/safety/dashboard", icon: ShieldCheck },
   { title: "清洁机器人", description: "接入萤石清洁机器人，管理任务、控制与回调数据。", href: "/robots/cleaning", icon: Bot }
 ];
-
-const firstReleaseQuickEntries = quickEntries.filter((entry) => FIRST_RELEASE_MENU_PATH_SET.has(entry.href));
 
 const workstreams = [
   "资产、招商、合同、财务形成一套经营主线",
@@ -75,7 +72,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="dashboard-entry-grid">
-            {firstReleaseQuickEntries.map((entry) => {
+            {quickEntries.map((entry) => {
               const Icon = entry.icon;
               return (
                 <Link className="dashboard-entry-card" href={entry.href} key={entry.href}>

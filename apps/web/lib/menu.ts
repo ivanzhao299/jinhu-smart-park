@@ -272,8 +272,7 @@ export const dashboardMenus: MenuNode[] = [
 
 export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
   const menus = normalizeMenuTree(userMenus);
-  const mergedMenus = menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
-  return filterFirstReleaseMenus(mergedMenus);
+  return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
 
 export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
