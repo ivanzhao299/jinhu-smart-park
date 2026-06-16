@@ -309,7 +309,7 @@ pnpm regression:leasing
 - 当前落地：`scripts/e2e/first-release-menu-whitelist.mjs`
 - 首发菜单 contract：`apps/web/lib/menu.ts` 的 `FIRST_RELEASE_MENU_PATHS`、`FIRST_RELEASE_MENU_PATH_SET` 和 `filterFirstReleaseMenus`
 - 执行命令：`node scripts/e2e/first-release-menu-whitelist.mjs`
-- 验证方式：读取首发菜单 contract，断言 dashboard、system、assets、leasing、workorders 和 8 个 safety 核心路径在白名单内，IoT、能耗、机器人、视频安防、safety 应急 / 作业许可、招商扩展、退款和发票路径不在白名单内。
+- 验证方式：读取首发菜单 contract，断言 dashboard、system、assets、leasing、workorders、现场工作台和 8 个 safety 核心路径在白名单内，IoT、能耗、机器人、视频安防、safety 应急 / 作业许可、招商扩展、退款和发票路径不在白名单内。
 - 风险点：适合做静态/轻量检查，不建议升级成浏览器 E2E。
 
 ### C2-5：workorders / leasing regression

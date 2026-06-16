@@ -97,6 +97,8 @@ Visible first-release menu scope:
   - `/workorders/sla-rules`
   - `/workorders/overdue`
   - `/workorders/stats`
+- Onsite terminal:
+  - `/operations/terminal`
 - Safety core:
   - `/safety/dashboard`
   - `/safety/inspect-points`

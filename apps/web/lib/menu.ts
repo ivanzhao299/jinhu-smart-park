@@ -100,6 +100,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/workorders/sla-rules",
   "/workorders/overdue",
   "/workorders/stats",
+  "/operations/terminal",
   "/safety/dashboard",
   "/safety/inspect-points",
   "/safety/inspect-templates",
@@ -273,6 +274,11 @@ export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNo
   const menus = normalizeMenuTree(userMenus);
   const mergedMenus = menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
   return filterFirstReleaseMenus(mergedMenus);
+}
+
+export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  const menus = normalizeMenuTree(userMenus);
+  return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
 
 export function filterFirstReleaseMenus(menus: MenuNode[]): MenuNode[] {
