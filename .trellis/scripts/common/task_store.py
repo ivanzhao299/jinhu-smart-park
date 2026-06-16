@@ -251,9 +251,11 @@ def cmd_create(args: argparse.Namespace) -> int:
         return 1
 
     if task_dir.exists():
-        print(colored(f"Warning: Task directory already exists: {dir_name}", Colors.YELLOW), file=sys.stderr)
-    else:
-        task_dir.mkdir(parents=True)
+        print(colored(f"Error: Task directory already exists: {dir_name}", Colors.RED), file=sys.stderr)
+        print("Use a new slug if you intend to create a new task.", file=sys.stderr)
+        return 1
+
+    task_dir.mkdir(parents=True)
 
     today = datetime.now().strftime("%Y-%m-%d")
 
@@ -403,31 +405,35 @@ def cmd_archive(args: argparse.Namespace) -> int:
     # Names of child task dirs whose task.json gets modified below; passed
     # into safe_archive_paths_to_add so they're staged in this commit.
     modified_children: list[str] = []
-    if task_json_path.is_file():
-        data = read_json(task_json_path)
-        if data:
-            data["status"] = "completed"
-            data["completedAt"] = today
-            write_json(task_json_path, data)
+    if not task_json_path.is_file():
+        print(colored(f"Error: task.json not found: {task_dir}", Colors.RED), file=sys.stderr)
+        print("Refusing to archive a directory that is not a Trellis task.", file=sys.stderr)
+        return 1
 
-            # Handle subtask relationships on archive.
-            # Keep this task in its parent's children list so progress
-            # counters (children_progress) stay consistent — children
-            # missing from the active set are treated as completed.
-            task_children = data.get("children", [])
+    data = read_json(task_json_path)
+    if data:
+        data["status"] = "completed"
+        data["completedAt"] = today
+        write_json(task_json_path, data)
 
-            # If this is a parent, clear parent field in all children
-            if task_children:
-                for child_name in task_children:
-                    child_dir_path = find_task_by_name(child_name, tasks_dir)
-                    if child_dir_path:
-                        child_json = child_dir_path / FILE_TASK_JSON
-                        if child_json.is_file():
-                            child_data = read_json(child_json)
-                            if child_data:
-                                child_data["parent"] = None
-                                write_json(child_json, child_data)
-                                modified_children.append(child_dir_path.name)
+        # Handle subtask relationships on archive.
+        # Keep this task in its parent's children list so progress
+        # counters (children_progress) stay consistent — children
+        # missing from the active set are treated as completed.
+        task_children = data.get("children", [])
+
+        # If this is a parent, clear parent field in all children
+        if task_children:
+            for child_name in task_children:
+                child_dir_path = find_task_by_name(child_name, tasks_dir)
+                if child_dir_path:
+                    child_json = child_dir_path / FILE_TASK_JSON
+                    if child_json.is_file():
+                        child_data = read_json(child_json)
+                        if child_data:
+                            child_data["parent"] = None
+                            write_json(child_json, child_data)
+                            modified_children.append(child_dir_path.name)
 
     # Clear any session that still points at this task before the path moves.
     from .active_task import clear_task_from_sessions
@@ -540,7 +546,8 @@ def _auto_commit_archive(
         return True
 
     commit_msg = f"chore(task): archive {task_name}"
-    rc, _, err = run_git(["commit", "-m", commit_msg], cwd=repo_root)
+    commit_paths = [*paths, source_rel]
+    rc, _, err = run_git(["commit", "-m", commit_msg, "--only", "--", *commit_paths], cwd=repo_root)
     if rc == 0:
         print(f"[OK] Auto-committed: {commit_msg}", file=sys.stderr)
         return True
