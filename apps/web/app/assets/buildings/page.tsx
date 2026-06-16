@@ -199,12 +199,17 @@ export default function BuildingsPage() {
                   <td>{formatDateTime(row.updateTime)}</td>
                   <td>
                     <span className="data-table-actions">
-                    <button title="详情" type="button" onClick={() => setDetail(row)}><Eye size={16} /></button>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.BUILDING_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
+                    <button className="ds-row-action ds-row-action-view" title="详情" type="button" onClick={() => setDetail(row)}>
+                      <Eye size={16} />
+                      <span className="ds-row-action-label">详情</span>
+                    </button>
+                    <PermissionButton className="ds-row-action ds-row-action-edit" permission={SYSTEM_PERMISSIONS.BUILDING_UPDATE} title="编辑" type="button" onClick={() => openEdit(row)}>
                       <Edit3 size={16} />
+                      <span className="ds-row-action-label">编辑</span>
                     </PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.BUILDING_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.BUILDING_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
                       <Trash2 size={16} />
+                      <span className="ds-row-action-label">删除</span>
                     </PermissionButton>
                     </span>
                   </td>

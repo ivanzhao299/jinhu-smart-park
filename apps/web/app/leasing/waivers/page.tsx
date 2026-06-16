@@ -2,7 +2,7 @@
 import { DataTable, Drawer, Card } from "@jinhu/ui";
 
 import { CheckCircle2, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -107,6 +107,16 @@ const emptyForm: WaiverFormState = {
   reason: "",
   remark: ""
 };
+
+function StackedCell({ title, meta, extra }: { title: ReactNode; meta?: ReactNode; extra?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{title}</strong>
+      {meta ? <small>{meta}</small> : null}
+      {extra ? <small>{extra}</small> : null}
+    </span>
+  );
+}
 
 export default function LeasingWaiversPage() {
   const authUser = useAuthUser();
@@ -371,32 +381,47 @@ export default function LeasingWaiversPage() {
           <DataTable >
             <thead>
               <tr>
-                <th>豁免单号</th>
-                <th>租户企业</th>
-                <th>应收单号</th>
-                <th>费用类型</th>
-                <th>应收状态</th>
-                <th>豁免金额</th>
-                <th>申请原因</th>
-                <th>审批状态</th>
-                <th>申请时间</th>
-                <th>审批记录</th>
+                <th>豁免单</th>
+                <th>租户 / 应收</th>
+                <th>费用 / 应收状态</th>
+                <th>金额 / 时间</th>
+                <th>原因 / 审批</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.waiverCode}</td>
-                  <td>{row.parkTenant?.companyName ?? row.receivable?.parkTenant?.companyName ?? "-"}</td>
-                  <td>{row.receivable?.arCode ?? "-"}</td>
-                  <td>{row.receivable ? dictLabel("leasing_fee_type", row.receivable.feeType, dicts) : "-"}</td>
-                  <td>{row.receivable ? <StatusPill dictCode="leasing_receivable_status" value={row.receivable.status} dicts={dicts} /> : "-"}</td>
-                  <td>{formatWaiverAmount(row.waiverAmount, canViewWaiverAmount, authUser)}</td>
-                  <td>{row.reason}</td>
-                  <td><StatusPill dictCode="leasing_waiver_status" value={row.status} dicts={dicts} /></td>
-                  <td>{formatDateTime(row.applyTime)}</td>
-                  <td>{formatApproveRecords(row.approveRecords)}</td>
+                  <td>
+                    <StackedCell
+                      title={row.waiverCode}
+                      meta={<StatusPill dictCode="leasing_waiver_status" value={row.status} dicts={dicts} />}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={row.parkTenant?.companyName ?? row.receivable?.parkTenant?.companyName ?? "-"}
+                      meta={row.receivable?.arCode ? `应收 ${row.receivable.arCode}` : "未关联应收"}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={row.receivable ? dictLabel("leasing_fee_type", row.receivable.feeType, dicts) : "-"}
+                      meta={row.receivable ? <StatusPill dictCode="leasing_receivable_status" value={row.receivable.status} dicts={dicts} /> : "-"}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={formatWaiverAmount(row.waiverAmount, canViewWaiverAmount, authUser)}
+                      meta={formatDateTime(row.applyTime)}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      title={row.reason}
+                      meta={formatApproveRecords(row.approveRecords)}
+                    />
+                  </td>
                   <td>
                     <span className="data-table-actions">
                       {canApprove && row.status === PENDING_WAIVER_STATUS ? (

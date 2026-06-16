@@ -93,19 +93,19 @@ export default function OpLogsPage() {
       <Card >
         <h2 className="panel-title">操作日志列表</h2>
         <div className="native-table-wrap">
-          <table className="native-table">
+          <table className="native-table ds-data-table">
             <thead><tr><th>模块</th><th>动作</th><th>用户</th><th>业务</th><th>IP</th><th>结果</th><th>时间</th><th>操作</th></tr></thead>
             <tbody>
               {data.items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.module}</td>
-                  <td>{item.action}</td>
-                  <td>{item.realName ?? item.username ?? "-"}</td>
-                  <td>{item.bizType ?? "-"} / {item.bizId ?? "-"}</td>
-                  <td>{item.clientIp ?? "-"}</td>
-                  <td><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
-                  <td>{item.opTime ?? item.createTime}</td>
-                  <td>
+                  <td data-label="模块">{item.module}</td>
+                  <td data-label="动作">{item.action}</td>
+                  <td data-label="用户">{item.realName ?? item.username ?? "-"}</td>
+                  <td data-label="业务">{item.bizType ?? "-"} / {item.bizId ?? "-"}</td>
+                  <td data-label="IP">{item.clientIp ?? "-"}</td>
+                  <td data-label="结果"><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
+                  <td data-label="时间">{item.opTime ?? item.createTime}</td>
+                  <td data-label="操作">
                     <span className="data-table-actions">
                       <PermissionButton permission={SYSTEM_PERMISSIONS.AUDIT_READ} type="button" title="详情" onClick={() => void openDetail(item.id).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
                     </span>

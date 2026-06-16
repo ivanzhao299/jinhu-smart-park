@@ -97,7 +97,7 @@ export default function OrgsPage() {
       <Card >
         <h2 className="panel-title">组织列表</h2>
         <div className="native-table-wrap">
-          <table className="native-table">
+          <table className="native-table ds-data-table">
             <thead>
               <tr>
                 <th>编码</th>
@@ -110,11 +110,11 @@ export default function OrgsPage() {
             <tbody>
               {data.items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.orgCode}</td>
-                  <td>{item.orgName}</td>
-                  <td>{item.orgType}</td>
-                  <td><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
-                  <td>
+                  <td data-label="编码">{item.orgCode}</td>
+                  <td data-label="名称">{item.orgName}</td>
+                  <td data-label="类型">{item.orgType}</td>
+                  <td data-label="状态"><span className="status-pill">{item.status === "enabled" ? "启用" : "停用"}</span></td>
+                  <td data-label="操作">
                     <span className="data-table-actions">
                       <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton>
                       <PermissionButton permission={SYSTEM_PERMISSIONS.ORG_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton>

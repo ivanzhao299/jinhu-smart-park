@@ -1,4 +1,4 @@
-import { Card, DataTable } from "@jinhu/ui";
+import { Card, DataTable, DataTableActions } from "@jinhu/ui";
 import type { UserContext } from "@jinhu/shared";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { Edit3, Eye, FileImage, Trash2 } from "lucide-react";
@@ -38,70 +38,89 @@ export function UnitsTable({
   const totalPages = Math.max(1, Math.ceil(pageData.total / pageData.page_size));
 
   return (
-    <Card className=" table-scroll">
-      <DataTable >
+    <Card className="ds-table-card table-scroll">
+      <DataTable className="units-fit-table">
         <thead>
           <tr>
-            <th>房源编码</th>
-            <th>房源名称</th>
-            <th>楼栋</th>
-            <th>楼层</th>
-            <th>用途</th>
-            <th>建筑面积</th>
-            <th>使用面积</th>
-            <th>出租状态</th>
-            <th>装修状态</th>
-            <th>参考租金</th>
-            <th>可租日期</th>
-            <th>更新时间</th>
-            <th>操作</th>
+            <th className="units-col-info">房源信息</th>
+            <th className="units-col-location">位置</th>
+            <th className="units-col-purpose">用途</th>
+            <th className="units-col-area">面积</th>
+            <th className="units-col-status">状态</th>
+            <th className="units-col-lease">租赁信息</th>
+            <th className="units-col-actions">操作</th>
           </tr>
         </thead>
         <tbody>
           {pageData.items.map((row) => (
             <tr key={row.id}>
-              <td>{row.unitCode}</td>
-              <td>{row.unitName}</td>
-              <td>{row.building ? `${row.building.buildingCode} ${row.building.buildingName}` : "-"}</td>
-              <td>{row.floor ? `${row.floor.floorCode} ${row.floor.floorName}` : "-"}</td>
-              <td>{dictLabel(dicts.unit_usage_type, row.usageType)}</td>
-              <td>{formatArea(row.unitArea)}</td>
-              <td>{formatArea(row.useArea)}</td>
-              <td><DictBadge items={dicts.unit_rental_status} value={row.rentalStatus} /></td>
-              <td><DictBadge items={dicts.unit_fitting_status} value={row.fittingStatus} /></td>
-              <td>{canViewRefPrice ? formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, row.refPrice)) : "-"}</td>
-              <td>{row.availableDate ?? "-"}</td>
-              <td>{formatDateTime(row.updateTime)}</td>
-              <td>
-                <span className="data-table-actions">
-                  <button title="详情" type="button" onClick={() => onView(row)}><Eye size={16} /></button>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="编辑" type="button" onClick={() => onEdit(row)}>
-                    <Edit3 size={16} />
+              <td className="units-col-info">
+                <div className="ds-cell-stack">
+                  <span className="ds-cell-title">{row.unitName}</span>
+                  <span className="ds-cell-meta">{row.unitCode}</span>
+                </div>
+              </td>
+              <td className="units-col-location">
+                <div className="ds-cell-stack">
+                  <span>{row.building ? `${row.building.buildingCode} ${row.building.buildingName}` : "-"}</span>
+                  <span className="ds-cell-meta">{row.floor ? `${row.floor.floorCode} ${row.floor.floorName}` : "-"}</span>
+                </div>
+              </td>
+              <td className="units-col-purpose">{dictLabel(dicts.unit_usage_type, row.usageType)}</td>
+              <td className="units-col-area">
+                <div className="ds-cell-stack">
+                  <span>{formatArea(row.unitArea)}</span>
+                  <span className="ds-cell-meta">使用 {formatArea(row.useArea)}</span>
+                </div>
+              </td>
+              <td className="units-col-status">
+                <div className="ds-cell-stack">
+                  <DictBadge items={dicts.unit_rental_status} value={row.rentalStatus} />
+                  <DictBadge items={dicts.unit_fitting_status} value={row.fittingStatus} />
+                </div>
+              </td>
+              <td className="units-col-lease">
+                <div className="ds-cell-stack">
+                  <span>{canViewRefPrice ? formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, row.refPrice)) : "-"}</span>
+                  <span className="ds-cell-meta">{row.availableDate ? `可租 ${row.availableDate}` : `更新 ${formatDateTime(row.updateTime)}`}</span>
+                </div>
+              </td>
+              <td className="units-col-actions">
+                <DataTableActions className="data-table-actions">
+                  <button aria-label="查看详情" className="ds-row-action ds-row-action-view" title="查看详情" type="button" onClick={() => onView(row)}>
+                    <Eye size={20} />
+                    <span className="ds-row-action-label">详情</span>
+                  </button>
+                  <PermissionButton aria-label="编辑房源" className="ds-row-action ds-row-action-edit" permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="编辑房源" type="button" onClick={() => onEdit(row)}>
+                    <Edit3 size={20} />
+                    <span className="ds-row-action-label">编辑</span>
                   </PermissionButton>
                   {canEditPhotoUrls ? (
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="附件" type="button" onClick={() => onOpenAttachments(row)}>
-                      <FileImage size={16} />
+                    <PermissionButton aria-label="管理附件" className="ds-row-action ds-row-action-file" permission={SYSTEM_PERMISSIONS.UNIT_UPDATE} title="管理附件" type="button" onClick={() => onOpenAttachments(row)}>
+                      <FileImage size={20} />
+                      <span className="ds-row-action-label">附件</span>
                     </PermissionButton>
                   ) : null}
                   <UnitStatusActions
                     onOpenTransition={() => onOpenTransition(row)}
                     onOpenStatusLogs={() => onOpenStatusLogs(row)}
                   />
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.UNIT_DELETE} title="删除" type="button" onClick={() => onRemove(row)}>
-                    <Trash2 size={16} />
+                  <PermissionButton aria-label="删除房源" className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.UNIT_DELETE} title="删除房源" type="button" onClick={() => onRemove(row)}>
+                    <Trash2 size={20} />
+                    <span className="ds-row-action-label">删除</span>
                   </PermissionButton>
-                </span>
+                </DataTableActions>
               </td>
             </tr>
           ))}
           {pageData.items.length === 0 ? (
             <tr>
-              <td colSpan={13}>暂无房源数据</td>
+              <td colSpan={7}>暂无房源数据</td>
             </tr>
           ) : null}
         </tbody>
       </DataTable>
-      <div className="task-item">
+      <div className="task-item ds-table-footer">
         <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
         <span>
           <button type="button" disabled={pageData.page <= 1} onClick={() => onPageChange(Math.max(1, pageData.page - 1))}>上一页</button>

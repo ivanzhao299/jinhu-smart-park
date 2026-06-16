@@ -115,7 +115,23 @@ export default function DictsPage() {
           <thead><tr><th>编码</th><th>名称</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             {types.items.map((item) => (
-              <tr key={item.id}><td>{item.dictCode}</td><td>{item.dictName}</td><td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td><td><span className="data-table-actions"><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_TYPE_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_TYPE_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton></span></td></tr>
+              <tr key={item.id}>
+                <td>{item.dictCode}</td>
+                <td>{item.dictName}</td>
+                <td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td>
+                <td>
+                  <span className="data-table-actions">
+                    <PermissionButton className="ds-row-action ds-row-action-view" permission={SYSTEM_PERMISSIONS.DICT_TYPE_DETAIL} type="button" title="详情">
+                      <Eye size={16} />
+                      <span className="ds-row-action-label">详情</span>
+                    </PermissionButton>
+                    <PermissionButton className="ds-row-action ds-row-action-edit" permission={SYSTEM_PERMISSIONS.DICT_TYPE_UPDATE} type="button" title="编辑">
+                      <Edit3 size={16} />
+                      <span className="ds-row-action-label">编辑</span>
+                    </PermissionButton>
+                  </span>
+                </td>
+              </tr>
             ))}
           </tbody>
         </DataTable>
@@ -130,7 +146,24 @@ export default function DictsPage() {
           <thead><tr><th>标签</th><th>值</th><th>标签类型</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             {items.items.map((item) => (
-              <tr key={item.id}><td>{item.itemLabel}</td><td>{item.itemValue}</td><td>{item.tagType ?? "-"}</td><td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td><td><span className="data-table-actions"><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_ITEM_DETAIL} type="button" title="详情"><Eye size={16} /></PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.DICT_ITEM_UPDATE} type="button" title="编辑"><Edit3 size={16} /></PermissionButton></span></td></tr>
+              <tr key={item.id}>
+                <td>{item.itemLabel}</td>
+                <td>{item.itemValue}</td>
+                <td>{item.tagType ?? "-"}</td>
+                <td><span className="status-pill status-success">{item.status === "enabled" ? "启用" : "停用"}</span></td>
+                <td>
+                  <span className="data-table-actions">
+                    <PermissionButton className="ds-row-action ds-row-action-view" permission={SYSTEM_PERMISSIONS.DICT_ITEM_DETAIL} type="button" title="详情">
+                      <Eye size={16} />
+                      <span className="ds-row-action-label">详情</span>
+                    </PermissionButton>
+                    <PermissionButton className="ds-row-action ds-row-action-edit" permission={SYSTEM_PERMISSIONS.DICT_ITEM_UPDATE} type="button" title="编辑">
+                      <Edit3 size={16} />
+                      <span className="ds-row-action-label">编辑</span>
+                    </PermissionButton>
+                  </span>
+                </td>
+              </tr>
             ))}
           </tbody>
         </DataTable>

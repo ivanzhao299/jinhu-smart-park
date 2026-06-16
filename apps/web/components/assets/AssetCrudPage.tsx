@@ -170,7 +170,7 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
       </section>
 
       <section className="work-panel table-scroll">
-        <table className="data-table">
+        <table className="data-table ds-data-table">
           <thead>
             <tr>
               {config.columns.map((column) => <th key={column.key}>{column.label}</th>)}
@@ -180,8 +180,8 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
           <tbody>
             {pageData.items.map((row) => (
               <tr key={String(row.id)}>
-                {config.columns.map((column) => <td key={column.key}>{renderCell(row, column)}</td>)}
-                <td>
+                {config.columns.map((column) => <td key={column.key} data-label={column.label}>{renderCell(row, column)}</td>)}
+                <td data-label="操作">
                   <span className="data-table-actions">
                   <PermissionButton permission={config.detailPermission} title="详情" type="button" onClick={() => setDetail(row)}><Eye size={16} /></PermissionButton>
                   <PermissionButton permission={config.updatePermission} title="编辑" type="button" onClick={() => { setEditing(row); setShowForm(true); }}><Edit3 size={16} /></PermissionButton>

@@ -1,8 +1,8 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { Card, DataTable, DataTableActions, Drawer } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { FileUploader } from "../../../components/files/FileUploader";
@@ -655,48 +655,65 @@ export default function LeasingCheckoutsPage() {
           <DataTable >
             <thead>
               <tr>
-                <th>退租单号</th>
-                <th>合同</th>
-                <th>租户企业</th>
-                <th>退租类型</th>
-                <th>计划退租日</th>
-                <th>释放房源状态</th>
-                <th>结算状态</th>
-                <th>状态</th>
-                <th>应退金额</th>
+                <th>退租单</th>
+                <th>合同 / 租户</th>
+                <th>类型 / 日期</th>
+                <th>房源 / 结算</th>
+                <th>状态 / 金额</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {pageData.items.length === 0 ? (
-                <tr><td colSpan={10}>暂无退租申请</td></tr>
+                <tr><td colSpan={6}>暂无退租申请</td></tr>
               ) : pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.checkoutCode}</td>
-                  <td>{row.contract ? `${row.contract.contractCode} ${row.contract.contractName}` : row.contractId}</td>
-                  <td>{row.parkTenant?.companyName ?? row.contract?.parkTenant?.companyName ?? row.parkTenantId}</td>
-                  <td><DictBadge items={checkoutTypeItems} value={row.checkoutType} /></td>
-                  <td>{formatDate(row.plannedCheckoutDate)}</td>
-                  <td><DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} /></td>
-                  <td><DictBadge items={settlementStatusItems} value={row.settlementStatus} /></td>
-                  <td><DictBadge items={checkoutStatusItems} value={row.status} /></td>
-                  <td>{moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", row.refundAmount)}</td>
                   <td>
-                    <div className="row-actions">
-                      <button className="icon-button" type="button" onClick={() => openEdit(row)} title="查看">
+                    <StackedCell primary={row.checkoutCode} secondary={row.code ?? "退租申请"} />
+                  </td>
+                  <td>
+                    <StackedCell
+                      primary={row.contract ? `${row.contract.contractCode} ${row.contract.contractName}` : row.contractId}
+                      secondary={row.parkTenant?.companyName ?? row.contract?.parkTenant?.companyName ?? row.parkTenantId}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      primary={<DictBadge items={checkoutTypeItems} value={row.checkoutType} />}
+                      secondary={`计划 ${formatDate(row.plannedCheckoutDate)}`}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      primary={<DictBadge items={releaseStatusItems} value={row.releaseUnitStatus} />}
+                      secondary={<DictBadge items={settlementStatusItems} value={row.settlementStatus} />}
+                    />
+                  </td>
+                  <td>
+                    <StackedCell
+                      primary={<DictBadge items={checkoutStatusItems} value={row.status} />}
+                      secondary={`应退 ${moneyText(authUser, CHECKOUT_ENTITY, "refundAmount", row.refundAmount)}`}
+                    />
+                  </td>
+                  <td>
+                    <DataTableActions>
+                      <button className="ds-row-action ds-row-action-view" type="button" onClick={() => openEdit(row)} title="查看">
                         <Eye size={16} />
+                        <span className="ds-row-action-label">查看</span>
                       </button>
                       {canUpdate && row.status === "10" ? (
-                        <button className="icon-button" type="button" onClick={() => openEdit(row)} title="编辑">
+                        <button className="ds-row-action ds-row-action-edit" type="button" onClick={() => openEdit(row)} title="编辑">
                           <Edit3 size={16} />
+                          <span className="ds-row-action-label">编辑</span>
                         </button>
                       ) : null}
                       {canDelete && ["10", "50"].includes(row.status) ? (
-                        <button className="icon-button" type="button" onClick={() => void remove(row)} title="删除">
+                        <button className="ds-row-action ds-row-action-danger" type="button" onClick={() => void remove(row)} title="删除">
                           <Trash2 size={16} />
+                          <span className="ds-row-action-label">删除</span>
                         </button>
                       ) : null}
-                    </div>
+                    </DataTableActions>
                   </td>
                 </tr>
               ))}
@@ -845,6 +862,15 @@ export default function LeasingCheckoutsPage() {
 function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | null }) {
   const item = items.find((entry) => entry.itemValue === String(value ?? ""));
   return <span className={`status-badge status-${item?.tagType ?? "default"}`}>{item?.itemLabel ?? value ?? "-"}</span>;
+}
+
+function StackedCell({ primary, secondary }: { primary: ReactNode; secondary?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{primary}</strong>
+      {secondary ? <small>{secondary}</small> : null}
+    </span>
+  );
 }
 
 function TextField({ label, value, onChange, disabled, required, placeholder }: {

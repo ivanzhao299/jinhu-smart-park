@@ -7,3 +7,8 @@
   box-shadow: var(--shadow-card, var(--shadow-sm, var(--phoenix-shadow-sm)));
   padding: 18px;
 }
+
+.card:global(.ds-table-card) {
+  overflow: hidden;
+  padding: 0;
+}

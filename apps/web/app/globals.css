@@ -248,7 +248,7 @@ button {
   cursor: pointer;
 }
 
-button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not([data-drawer-backdrop]) {
+button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not(.ds-row-action):not([data-drawer-backdrop]) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -266,13 +266,13 @@ button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-butto
   transition: var(--phoenix-transition);
 }
 
-button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not([data-drawer-backdrop]):hover {
+button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not(.ds-row-action):not([data-drawer-backdrop]):hover {
   border-color: color-mix(in srgb, var(--phoenix-color-primary) 34%, var(--jinhu-color-border));
   background: color-mix(in srgb, var(--phoenix-color-primary) 7%, var(--phoenix-color-surface));
   color: var(--phoenix-color-primary);
 }
 
-button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not([data-drawer-backdrop]):disabled {
+button:not(.ant-btn):not(.primary-button):not(.secondary-button):not(.icon-button):not(.menu-group-title):not(.sidebar-collapse-button):not(.ds-button):not(.ds-command-card):not(.ds-scene-card):not(.ds-mobile-record-action):not(.ds-row-action):not([data-drawer-backdrop]):disabled {
   cursor: not-allowed;
   opacity: 0.52;
 }
@@ -3137,17 +3137,11 @@ textarea:disabled {
 
 .robot-list-table th:last-child,
 .robot-list-table td:last-child {
-  width: 260px;
-  min-width: 260px;
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  background: var(--phoenix-color-surface);
-  box-shadow: -1px 0 0 var(--phoenix-color-border);
+  width: 190px;
+  min-width: 190px;
 }
 
 .robot-list-table th:last-child {
-  z-index: 2;
   background: var(--phoenix-color-surface-muted);
 }
 
@@ -3165,10 +3159,10 @@ textarea:disabled {
 }
 
 .robot-cleaning-page .robot-row-actions .table-action-button {
-  min-height: 30px;
-  padding: 0 var(--phoenix-space-2);
+  min-height: 32px;
+  padding: 0 9px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-button);
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -4438,12 +4432,24 @@ textarea:disabled {
 
 .data-table-actions {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
   justify-content: flex-end;
   max-width: 100%;
   white-space: nowrap;
+}
+
+.ds-table-card {
+  background: var(--bg-card);
+}
+
+.ds-table-card .task-item,
+.ds-table-footer {
+  margin-top: 0;
+  border-top: 1px solid var(--border-soft);
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--bg-card) 94%, var(--surface-subtle));
 }
 
 .signin-page {
@@ -6001,6 +6007,236 @@ select {
   border-bottom-color: var(--border-soft);
 }
 
+/* Data table baseline: compact production tables with stable horizontal actions. */
+.data-table-actions,
+.ds-table-card .data-table-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: min(100%, 214px);
+  max-width: 214px;
+}
+
+.data-table-actions button:not(.primary-button),
+.data-table-actions a:not(.primary-button),
+.work-panel td:last-child button:not(.primary-button),
+.work-panel td:last-child a:not(.primary-button) {
+  width: auto;
+  min-width: 64px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 12px;
+  padding: 0 9px;
+}
+
+.data-table-actions button:not(.primary-button) svg,
+.data-table-actions a:not(.primary-button) svg,
+.work-panel td:last-child button:not(.primary-button) svg,
+.work-panel td:last-child a:not(.primary-button) svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  stroke-width: 2.25;
+}
+
+.ds-row-action-label {
+  color: currentColor;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ds-cell-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.ds-cell-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-cell-meta {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-table-actions button.ds-row-action:not(.primary-button),
+.data-table-actions a.ds-row-action:not(.primary-button) {
+  --row-action-color: var(--color-primary);
+  --row-action-bg: color-mix(in srgb, var(--row-action-color) 10%, var(--bg-card));
+  --row-action-border: color-mix(in srgb, var(--row-action-color) 30%, var(--border-soft));
+  border-color: var(--row-action-border);
+  background: var(--row-action-bg);
+  color: var(--row-action-color);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-card) 44%, transparent);
+}
+
+.data-table-actions button.ds-row-action:not(.primary-button):hover,
+.data-table-actions button.ds-row-action:not(.primary-button):focus-visible,
+.data-table-actions a.ds-row-action:not(.primary-button):hover,
+.data-table-actions a.ds-row-action:not(.primary-button):focus-visible {
+  border-color: color-mix(in srgb, var(--row-action-color) 54%, var(--border-soft));
+  background: color-mix(in srgb, var(--row-action-color) 16%, var(--bg-card));
+  color: var(--row-action-color);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--row-action-color) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-view,
+.data-table-actions a.ds-row-action.ds-row-action-view {
+  --row-action-color: var(--status-info);
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-edit,
+.data-table-actions a.ds-row-action.ds-row-action-edit {
+  --row-action-color: var(--color-primary);
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-file,
+.data-table-actions a.ds-row-action.ds-row-action-file {
+  --row-action-color: var(--status-success);
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-status,
+.data-table-actions a.ds-row-action.ds-row-action-status {
+  --row-action-color: var(--status-warning);
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-history,
+.data-table-actions a.ds-row-action.ds-row-action-history {
+  --row-action-color: color-mix(in srgb, var(--color-primary) 64%, var(--status-info));
+}
+
+.data-table-actions button.ds-row-action.ds-row-action-danger,
+.data-table-actions a.ds-row-action.ds-row-action-danger {
+  --row-action-color: var(--status-danger);
+}
+
+.ds-table-card table th:last-child,
+.ds-table-card table td:last-child {
+  position: sticky;
+  right: 0;
+  width: 166px;
+  min-width: 166px;
+  background: var(--bg-card);
+  box-shadow: -12px 0 20px color-mix(in srgb, var(--bg-app) 70%, transparent);
+  text-align: right;
+  z-index: 1;
+}
+
+.ds-table-card table th:last-child {
+  background: var(--surface-subtle);
+  z-index: 2;
+}
+
+.ds-table-card table td:last-child {
+  overflow: visible;
+}
+
+.ds-table-card table.units-fit-table {
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+.units-fit-table .units-col-info {
+  width: 23%;
+}
+
+.units-fit-table .units-col-location {
+  width: 18%;
+}
+
+.units-fit-table .units-col-purpose {
+  width: 9%;
+}
+
+.units-fit-table .units-col-area {
+  width: 13%;
+}
+
+.units-fit-table .units-col-status {
+  width: 12%;
+}
+
+.units-fit-table .units-col-lease {
+  width: 14%;
+}
+
+.units-fit-table .units-col-actions {
+  width: 214px;
+}
+
+.ds-table-card table.units-fit-table th.units-col-actions,
+.ds-table-card table.units-fit-table td.units-col-actions {
+  position: static;
+  right: auto;
+  min-width: 214px;
+  width: 214px;
+  background: inherit;
+  box-shadow: none;
+  text-align: right;
+}
+
+@media (max-width: 1280px) {
+  .units-fit-table .units-col-purpose,
+  .units-fit-table .units-col-area,
+  .units-fit-table .units-col-lease {
+    display: none;
+  }
+
+  .units-fit-table .units-col-info {
+    width: auto;
+  }
+
+  .units-fit-table .units-col-location {
+    width: 150px;
+  }
+
+  .units-fit-table .units-col-status {
+    width: 92px;
+  }
+
+  .units-fit-table .units-col-actions {
+    width: 214px;
+  }
+}
+
+@media (max-width: 760px) {
+  .units-fit-table .units-col-location {
+    display: none;
+  }
+
+  .units-fit-table .units-col-info {
+    width: auto;
+  }
+
+  .units-fit-table .units-col-status {
+    width: 92px;
+  }
+
+  .units-fit-table .units-col-actions {
+    width: 214px;
+  }
+}
+
 .dashboard-home {
   gap: 18px;
 }
@@ -6395,5 +6631,365 @@ select {
   .work-panel {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Design System table migration baseline: tables fit the page by default. */
+.ds-table-shell {
+  width: 100%;
+  max-width: 100%;
+}
+
+.page-content table:not(.allow-horizontal-table),
+.filter-bar table:not(.allow-horizontal-table),
+.table-scroll table:not(.allow-horizontal-table),
+.native-table:not(.allow-horizontal-table),
+.data-table:not(.allow-horizontal-table),
+.ds-data-table:not(.allow-horizontal-table) {
+  width: 100%;
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+.page-content th,
+.page-content td,
+.table-scroll th,
+.table-scroll td,
+.native-table th,
+.native-table td,
+.data-table th,
+.data-table td,
+.ds-data-table th,
+.ds-data-table td {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.page-content th:last-child,
+.page-content td:last-child,
+.table-scroll th:last-child,
+.table-scroll td:last-child,
+.native-table th:last-child,
+.native-table td:last-child,
+.data-table th:last-child,
+.data-table td:last-child,
+.ds-data-table th:last-child,
+.ds-data-table td:last-child {
+  width: 166px;
+  min-width: 166px;
+  max-width: 214px;
+  overflow: visible;
+  text-align: right;
+}
+
+.data-table-actions button[title]:has(svg):not(:has(.ds-row-action-label))::after,
+.data-table-actions a[title]:has(svg):not(:has(.ds-row-action-label))::after {
+  display: inline-block;
+  color: currentColor;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+  content: attr(title);
+}
+
+.data-table-actions button[aria-label]:has(svg):not(:has(.ds-row-action-label))::after,
+.data-table-actions a[aria-label]:has(svg):not(:has(.ds-row-action-label))::after {
+  content: attr(aria-label);
+}
+
+.data-table-actions button:not(.primary-button),
+.data-table-actions a:not(.primary-button) {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 960px) {
+  .page-content th,
+  .page-content td,
+  .table-scroll th,
+  .table-scroll td,
+  .native-table th,
+  .native-table td,
+  .data-table th,
+  .data-table td,
+  .ds-data-table th,
+  .ds-data-table td {
+    padding: 10px 11px;
+    font-size: 12px;
+  }
+
+  .page-content th:last-child,
+  .page-content td:last-child,
+  .table-scroll th:last-child,
+  .table-scroll td:last-child,
+  .native-table th:last-child,
+  .native-table td:last-child,
+  .data-table th:last-child,
+  .data-table td:last-child,
+  .ds-data-table th:last-child,
+  .ds-data-table td:last-child {
+    width: 146px;
+    min-width: 146px;
+    max-width: 178px;
+  }
+
+  .data-table-actions,
+  .ds-table-card .data-table-actions {
+    width: min(100%, 166px);
+    max-width: 166px;
+  }
+
+  .data-table-actions button:not(.primary-button),
+  .data-table-actions a:not(.primary-button) {
+    min-width: 62px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 8px;
+  }
+}
+
+/* Design System migration: table actions must remain readable, even for legacy primary buttons. */
+.data-table-actions .primary-button,
+.lead-table-card .data-table-actions .primary-button {
+  width: auto;
+  min-width: 64px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 12px;
+  padding: 0 9px;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card));
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 760;
+  gap: 6px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-card) 44%, transparent);
+}
+
+.data-table-actions .primary-button:hover,
+.data-table-actions .primary-button:focus-visible,
+.lead-table-card .data-table-actions .primary-button:hover,
+.lead-table-card .data-table-actions .primary-button:focus-visible {
+  border-color: color-mix(in srgb, var(--color-primary) 48%, var(--border-soft));
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--bg-card));
+  color: var(--color-primary);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+/* Design System migration: legacy row action classes map to the same readable table actions. */
+.row-actions,
+.data-table-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.table-action-button,
+.row-action-button,
+.data-table-actions .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 12px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-card));
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-action-button:hover,
+.table-action-button:focus-visible,
+.row-action-button:hover,
+.row-action-button:focus-visible,
+.data-table-actions .icon-button:hover,
+.data-table-actions .icon-button:focus-visible {
+  border-color: color-mix(in srgb, var(--color-primary) 46%, var(--border));
+  background: color-mix(in srgb, var(--color-primary) 13%, var(--bg-card));
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.table-action-button.danger,
+.row-action-button-danger,
+.row-action-danger,
+.data-table-actions .danger {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--border));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--bg-card));
+  color: var(--color-danger);
+}
+
+.table-action-button--primary {
+  border-color: color-mix(in srgb, var(--color-primary) 44%, var(--border));
+  background: color-mix(in srgb, var(--color-primary) 13%, var(--bg-card));
+}
+
+.data-table-actions .icon-button[title]:has(svg):not(:has(.ds-row-action-label))::after,
+.row-actions .icon-button[title]:has(svg):not(:has(.ds-row-action-label))::after,
+.row-actions button[title]:has(svg):not(:has(.ds-row-action-label))::after,
+.row-actions a[title]:has(svg):not(:has(.ds-row-action-label))::after {
+  display: inline-block;
+  color: currentColor;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+  content: attr(title);
+}
+
+.ds-table-stacked-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ds-table-stacked-cell strong,
+.ds-table-stacked-cell small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-table-stacked-cell strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.ds-table-stacked-cell small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.table-scroll table:not(.allow-horizontal-table) td:has(.ds-table-stacked-cell) {
+  vertical-align: middle;
+}
+
+/* Mobile DataTable baseline: convert dense tables into readable field records. */
+@media (max-width: 720px) {
+  .ds-table-shell {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table),
+  .ds-data-table:not(.allow-horizontal-table) thead,
+  .ds-data-table:not(.allow-horizontal-table) tbody,
+  .ds-data-table:not(.allow-horizontal-table) tr,
+  .ds-data-table:not(.allow-horizontal-table) th,
+  .ds-data-table:not(.allow-horizontal-table) td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody tr {
+    border: 1px solid var(--border-soft);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody tr:hover {
+    background: var(--bg-card);
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody td {
+    display: grid;
+    grid-template-columns: minmax(86px, 34%) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 42px;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 10px 12px;
+    text-align: left;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody td:last-child {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    border-bottom: 0;
+    text-align: left;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody td::before {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 760;
+    line-height: 1.35;
+    content: attr(data-label);
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody td[colspan] {
+    display: block;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) tbody td[colspan]::before {
+    display: none;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) .data-table-actions {
+    justify-content: flex-start;
+    width: 100%;
+    max-width: none;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) .data-table-actions button,
+  .ds-data-table:not(.allow-horizontal-table) .data-table-actions a,
+  .ds-data-table:not(.allow-horizontal-table) .table-action-button,
+  .ds-data-table:not(.allow-horizontal-table) .row-action-button {
+    min-width: 72px;
+    min-height: 36px;
+  }
+
+  .ds-data-table:not(.allow-horizontal-table) .ds-table-stacked-cell strong,
+  .ds-data-table:not(.allow-horizontal-table) .ds-table-stacked-cell small {
+    white-space: normal;
   }
 }

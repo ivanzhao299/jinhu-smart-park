@@ -11,16 +11,17 @@ export function UnitStatusActions({
   onOpenTransition: () => void;
   onOpenStatusLogs: () => void;
 }) {
-  const className = variant === "drawer" ? "drawer-action-button" : undefined;
-  const iconSize = variant === "drawer" ? 14 : 16;
+  const transitionClassName = variant === "drawer" ? "drawer-action-button" : "ds-row-action ds-row-action-status";
+  const logClassName = variant === "drawer" ? "drawer-action-button" : "ds-row-action ds-row-action-history";
+  const iconSize = variant === "drawer" ? 14 : 20;
 
   return (
     <>
-      <PermissionButton className={className} permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} title={variant === "table" ? "状态流转" : undefined} type="button" onClick={onOpenTransition}>
-        <RefreshCw size={iconSize} />{variant === "drawer" ? "状态流转" : null}
+      <PermissionButton aria-label="状态流转" className={transitionClassName} permission={SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS} title={variant === "table" ? "状态流转" : undefined} type="button" onClick={onOpenTransition}>
+        <RefreshCw size={iconSize} />{variant === "drawer" ? "状态流转" : <span className="ds-row-action-label">流转</span>}
       </PermissionButton>
-      <PermissionButton className={className} permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} title={variant === "table" ? "状态日志" : undefined} type="button" onClick={onOpenStatusLogs}>
-        <History size={iconSize} />{variant === "drawer" ? "状态日志" : null}
+      <PermissionButton aria-label="状态日志" className={logClassName} permission={SYSTEM_PERMISSIONS.UNIT_STATUS_LOG} title={variant === "table" ? "状态日志" : undefined} type="button" onClick={onOpenStatusLogs}>
+        <History size={iconSize} />{variant === "drawer" ? "状态日志" : <span className="ds-row-action-label">日志</span>}
       </PermissionButton>
     </>
   );

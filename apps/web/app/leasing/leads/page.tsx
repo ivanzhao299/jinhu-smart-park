@@ -1274,6 +1274,7 @@ export default function LeasingLeadsPage() {
                       <span className="data-table-actions lead-row-actions">
                         <button aria-label="查看线索" className="primary-button row-action-button" title="查看" type="button" onClick={() => void openDetail(row)}>
                           <Eye size={16} />
+                          <span className="ds-row-action-label">查看</span>
                         </button>
                         <PermissionButton aria-label="编辑线索" className="primary-button row-action-button" permission={LEAD_PERMISSIONS.update} title="编辑" type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={16} />

@@ -75,18 +75,18 @@ export default function LoginLogsPage() {
       <Card >
         <h2 className="panel-title">登录日志列表</h2>
         <div className="native-table-wrap">
-          <table className="native-table">
+          <table className="native-table ds-data-table">
             <thead><tr><th>用户</th><th>IP</th><th>登录方式</th><th>结果</th><th>失败原因</th><th>请求 ID</th><th>时间</th></tr></thead>
             <tbody>
               {data.items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.username}</td>
-                  <td>{item.loginIp ?? "-"}</td>
-                  <td>{item.loginMethod ?? "-"}</td>
-                  <td><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
-                  <td>{item.failReason ?? "-"}</td>
-                  <td>{item.requestId ?? "-"}</td>
-                  <td>{item.loginTime ?? item.createTime}</td>
+                  <td data-label="用户">{item.username}</td>
+                  <td data-label="IP">{item.loginIp ?? "-"}</td>
+                  <td data-label="登录方式">{item.loginMethod ?? "-"}</td>
+                  <td data-label="结果"><span className="status-pill">{item.result === "fail" ? "失败" : "成功"}</span></td>
+                  <td data-label="失败原因">{item.failReason ?? "-"}</td>
+                  <td data-label="请求 ID">{item.requestId ?? "-"}</td>
+                  <td data-label="时间">{item.loginTime ?? item.createTime}</td>
                 </tr>
               ))}
             </tbody>
