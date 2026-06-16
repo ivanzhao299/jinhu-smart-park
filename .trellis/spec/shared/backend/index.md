@@ -1,38 +1,36 @@
-# Backend Development Guidelines
+# @jinhu/shared Specs
 
-> Best practices for backend development in this project.
+`@jinhu/shared` is the cross-app contract package used by both API and Web. It should contain shared types, permission constants, status enums, and response contracts that both sides need.
 
----
+Reference files:
+- `packages/shared/src/index.ts`
+- `apps/api/src/shared/interceptors/response.interceptor.ts`
+- `apps/web/lib/api-client.ts`
 
-## Overview
+## Contract Ownership
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+Keep shared contracts stable and explicit:
 
----
+- `ApiResponse<T>` must match API response wrapping and frontend parsing.
+- `PaginatedResult<T>` must match list endpoints and list page clients.
+- `TenantParkScope` must match API scope decorators and service signatures.
+- Permission constants in `SYSTEM_PERMISSIONS` are consumed by both controllers and UI permission gates.
 
-## Guidelines Index
+When adding a permission or cross-layer enum, update this package first and then update API/Web consumers in the same task.
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+## Naming And Compatibility
 
----
+This package currently preserves a mix of camelCase and snake_case fields for compatibility with API payloads and UI usage. Do not "clean up" field names unless the API contract, Web consumers, seeds, and smoke tests are migrated together.
 
-## How to Fill These Guidelines
+Reference files:
+- `packages/shared/src/index.ts`
+- `apps/web/lib/auth-context.tsx`
+- `apps/api/src/shared/types/jwt-principal.ts`
 
-For each guideline file:
+## Verification
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+Shared changes can affect both apps. Prefer:
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- `pnpm --filter @jinhu/shared build`
+- `pnpm typecheck`
+- Targeted API/Web tests or smoke scripts for changed contracts

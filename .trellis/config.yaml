@@ -109,7 +109,8 @@ channel:
 # codex:
 #   dispatch_mode: inline  # or "sub-agent" to dispatch trellis-* sub-agents
 
-# Auto-detected monorepo packages
+# Project monorepo packages. Keep these keys aligned with `.trellis/spec/<key>/`.
+# `default_package` must be a package key, not the package.json display name.
 packages:
   api:
     path: apps/api

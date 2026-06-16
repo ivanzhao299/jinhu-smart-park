@@ -23,6 +23,7 @@ These guides help you **ask the right questions before coding**.
 |-------|---------|-------------|
 | [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | Identify patterns and reduce duplication | When you notice repeated patterns |
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
+| [Project Operations Guide](./project-operations.md) | Apply release, seed, migration, smoke, and documentation-sync rules | When a change touches operations, deployment, tests, env, or release behavior |
 
 ---
 
@@ -50,6 +51,15 @@ These guides help you **ask the right questions before coding**.
 - [ ] Multiple branches update the same derived state from `kind` / `action`
 
 → Read [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md)
+
+### When to Think About Project Operations
+
+- [ ] You are changing environment variables, deployment scripts, migrations, or seeds
+- [ ] You are changing release flow, first-release scope, auth behavior, or menu visibility
+- [ ] You are changing a smoke/regression script or the expected verification path
+- [ ] You are touching financial, idempotency, or production-initialization behavior
+
+→ Read [Project Operations Guide](./project-operations.md)
 
 ### When Verifying AI Cross-Review Results
 

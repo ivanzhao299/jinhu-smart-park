@@ -1,39 +1,16 @@
-# Frontend Development Guidelines
+# @jinhu/shared Frontend Usage
 
-> Best practices for frontend development in this project.
+Frontend code should import shared contracts and permission constants from `@jinhu/shared` instead of duplicating them locally.
 
----
+Reference files:
+- `packages/shared/src/index.ts`
+- `apps/web/lib/api-client.ts`
+- `apps/web/components/auth/PermissionGuard.tsx`
+- `apps/web/app/assets/units/UnitsPageClient.tsx`
 
-## Overview
+Rules:
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
-
----
-
-## Guidelines Index
-
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
-
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Use `ApiResponse<T>` and `PaginatedResult<T>` for API helper return types.
+- Use `SYSTEM_PERMISSIONS` for permission-gated buttons, panels, and route actions.
+- Keep UI-only row/form types local to the page when they are not shared API contracts.
+- Do not add React components or browser-only helpers to `@jinhu/shared`; those belong in `apps/web` or `@jinhu/ui`.

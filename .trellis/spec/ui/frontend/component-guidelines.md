@@ -1,59 +1,26 @@
-# Component Guidelines
+# @jinhu/ui Component Specs
 
-> How components are built in this project.
+`@jinhu/ui` is a shared React component package. Components live in `packages/ui/src/components/<Component>/<Component>.tsx` with optional CSS modules beside them.
 
----
+Reference files:
+- `packages/ui/src/components/Button/Button.tsx`
+- `packages/ui/src/components/Button/Button.module.css`
+- `packages/ui/src/components/DataTable/DataTable.tsx`
+- `packages/ui/src/index.ts`
 
-## Overview
+## Component Shape
 
-<!--
-Document your project's component conventions here.
+- Export named components and prop interfaces.
+- Prefer `forwardRef` when the DOM node is useful to consumers, as in `Button`.
+- Keep component styling in CSS modules imported as `styles`.
+- Re-export public components from `packages/ui/src/index.ts`.
 
-Questions to answer:
-- What component patterns do you use?
-- How are props defined?
-- How do you handle composition?
-- What accessibility standards apply?
--->
+## Styling
 
-(To be filled by the team)
+CSS modules should use design tokens from `apps/web/app/globals.css` such as `--phoenix-*`, `--color-*`, `--bg-*`, `--border-*`, and `--shadow-*`. Keep package components generic enough for reuse across pages.
 
----
+Reference files:
+- `apps/web/app/globals.css`
+- `packages/ui/src/components/Button/Button.module.css`
 
-## Component Structure
-
-<!-- Standard structure of a component file -->
-
-(To be filled by the team)
-
----
-
-## Props Conventions
-
-<!-- How props should be defined and typed -->
-
-(To be filled by the team)
-
----
-
-## Styling Patterns
-
-<!-- How styles are applied (CSS modules, styled-components, Tailwind, etc.) -->
-
-(To be filled by the team)
-
----
-
-## Accessibility
-
-<!-- A11y requirements and patterns -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Component-related mistakes your team has made -->
-
-(To be filled by the team)
+Avoid hard-coding app-specific routes, permissions, API paths, or business module names in `@jinhu/ui`.

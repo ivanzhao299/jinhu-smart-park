@@ -1,39 +1,98 @@
-# Frontend Development Guidelines
+# @jinhu/web Frontend Specs
 
-> Best practices for frontend development in this project.
+These rules describe the current Next.js management frontend in `apps/web`.
 
----
+## Package Boundary
 
-## Overview
+- Routes live under `apps/web/app`.
+- Shared app components live under `apps/web/components`.
+- API/auth/menu helpers live under `apps/web/lib`.
+- Global design tokens and design-system surface classes live in `apps/web/app/globals.css`.
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
+Reference files:
+- `apps/web/app/layout.tsx`
+- `apps/web/app/(dashboard)/layout.tsx`
+- `apps/web/components/layout/DashboardLayout.tsx`
+- `apps/web/lib/api-client.ts`
 
----
+## Route And Client Component Shape
 
-## Guidelines Index
+Many routes keep `page.tsx` as a thin server component that renders a client component. Use this when a page needs local state, effects, browser APIs, forms, drawers, or API calls.
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
+Reference files:
+- `apps/web/app/assets/units/page.tsx`
+- `apps/web/app/assets/units/UnitsPageClient.tsx`
+- `apps/web/app/safety/inspect-tasks/page.tsx`
+- `apps/web/app/safety/inspect-tasks/InspectTasksPageClient.tsx`
 
----
+Use `"use client"` only in files that need client behavior. Keep presentational subcomponents under a route-local `components/` directory when they are specific to that workflow.
 
-## How to Fill These Guidelines
+Reference files:
+- `apps/web/app/assets/units/components/UnitsTable.tsx`
+- `apps/web/app/workorders/list/components/WorkOrdersToolbar.tsx`
 
-For each guideline file:
+## API Calls And Idempotency
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+Use `apiRequest` for JSON APIs and `apiFormRequest` for `FormData`. Do not hand-roll fetch wrappers unless the shared helper cannot express the request.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+Write operations that map to idempotent API routes should pass `createIdempotencyKey("<domain-action>")`.
 
----
+Reference files:
+- `apps/web/lib/api-client.ts`
+- `apps/web/components/assets/AssetCrudPage.tsx`
+- `apps/web/app/assets/units/UnitsPageClient.tsx`
 
-**Language**: All documentation should be written in **English**.
+Authentication token access should go through `getAccessToken()` or the auth context utilities.
+
+Reference files:
+- `apps/web/lib/authz.ts`
+- `apps/web/lib/auth-context.tsx`
+
+## Permissions And Modules
+
+Use `PermissionGuard` and `PermissionButton` for permission-gated UI instead of open-coding permission checks in JSX. Use shared constants from `@jinhu/shared` where available.
+
+Reference files:
+- `apps/web/components/auth/PermissionGuard.tsx`
+- `apps/web/components/auth/PermissionButton.tsx`
+- `apps/web/app/assets/units/UnitsPageClient.tsx`
+- `packages/shared/src/index.ts`
+
+## Design System And Layout
+
+Prefer existing design-system surface classes from `apps/web/app/globals.css`: `ds-page`, `ds-panel`, `ds-command-grid`, `ds-command-card`, `ds-kpi-grid`, `ds-table-shell`, `ds-mobile-record-list`, and related tokens.
+
+Legacy pages still use classes such as `content`, `header`, `work-panel`, `dashboard-grid`, and `data-table`. When modifying a production work surface, follow nearby page conventions and avoid unrelated visual rewrites.
+
+Reference files:
+- `apps/web/app/globals.css`
+- `apps/web/components/assets/AssetCrudPage.tsx`
+- `apps/web/app/workorders/list/components/WorkOrdersTable.tsx`
+
+Operational and field-use pages must be mobile-aware. Prefer card/mobile record views over desktop-only tables for inspection, work order, hazard, terminal, device, and operations flows.
+
+Reference files:
+- `AGENTS.md`
+- `apps/web/components/operations/OperationsTerminalClient.tsx`
+- `apps/web/app/safety/my-inspect-tasks/page.tsx`
+
+## Local Types
+
+Pages commonly define local row/form interfaces near the page client when the API type is not exported from `@jinhu/shared`. Keep these interfaces specific and explicit rather than using broad `any`.
+
+Reference files:
+- `apps/web/app/assets/units/UnitsPageClient.tsx`
+- `apps/web/app/workorders/list/types.ts`
+- `apps/web/components/assets/AssetCrudPage.tsx`
+
+## Verification
+
+For frontend changes, choose the smallest reliable checks:
+
+- `pnpm --filter @jinhu/web lint`
+- `pnpm --filter @jinhu/web build`
+- Browser inspection for meaningful page/UI changes, including a phone-width viewport for operational pages
+
+Reference files:
+- `AGENTS.md`
+- `docs/testing/how-to-run-tests.md`

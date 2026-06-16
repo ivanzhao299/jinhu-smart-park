@@ -21,12 +21,14 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill guidelines for @jinhu/api
-- [ ] Fill guidelines for @jinhu/web
-- [ ] Fill guidelines for @jinhu/config
-- [ ] Fill guidelines for @jinhu/shared
-- [ ] Fill guidelines for @jinhu/ui
-- [ ] Add code examples
+- [x] Fill guidelines for @jinhu/api
+- [x] Fill guidelines for @jinhu/web
+- [x] Fill guidelines for @jinhu/config
+- [x] Fill guidelines for @jinhu/shared
+- [x] Fill guidelines for @jinhu/ui
+- [x] Add code examples
+
+Completed in the first source-backed pass by replacing template placeholders with focused specs that cite existing files in `apps/api`, `apps/web`, `packages/shared`, `packages/ui`, `packages/config`, `database/migrations`, `scripts`, `docs`, and `AGENTS.md`.
 
 ---
 

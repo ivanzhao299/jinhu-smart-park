@@ -1,39 +1,14 @@
-# Frontend Development Guidelines
+# @jinhu/config Specs
 
-> Best practices for frontend development in this project.
+`@jinhu/config` is a small shared configuration package. It currently exports the base TypeScript config only.
 
----
+Reference files:
+- `packages/config/package.json`
+- `packages/config/tsconfig/base.json`
 
-## Overview
+Rules:
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
-
----
-
-## Guidelines Index
-
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
-
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Keep this package configuration-only.
+- Do not add runtime application code, React components, NestJS providers, or environment secrets here.
+- Export new shared config through `package.json` `exports` so workspace consumers can import it by package subpath.
+- Verify config changes by running the relevant consumer command, usually `pnpm typecheck` or a narrower package typecheck.

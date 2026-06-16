@@ -3,7 +3,7 @@
   "hashes": {
     ".trellis/agents/check.md": "edb4f57361407249a53bf5998ebf91c40d2b969e826a2c5e1b4e813a08bcb175",
     ".trellis/agents/implement.md": "66e25ad046c94869442834bc3cdfbd5a9a7412d3ff54561d64d2886552c27e87",
-    ".trellis/config.yaml": "b6b5e7612495ffb1a84cae9ca67666431eecf8f62840db104c6d68b2d21ec1f4",
+    ".trellis/config.yaml": "3e295bf4310763240647f40b3aeee7a7c6d134142cdc826e02d850ca2407fc43",
     ".trellis/scripts/__init__.py": "1242be5b972094c2e141aecbe81a4efd478f6534e3d5e28306374e6a18fcf46c",
     ".trellis/scripts/add_session.py": "6e406a0a9f32d4a50b1b5ca8115cbd06c359011f0e166c41dc5fab34698a4006",
     ".trellis/scripts/common/__init__.py": "3d5e9347141f0296319a5beb29d69ae714c5a474b9078caeb3edd7c5f6562e22",
@@ -32,6 +32,13 @@
     ".trellis/scripts/hooks/linear_sync.py": "e09cc4ce4699aada908808718698f33f705a3edf55c4dcf8f777ad892f80ca79",
     ".trellis/scripts/init_developer.py": "f9e6c0d882406e81c8cd6b1c5abb204b0befc0069ff89cf650cd536a80f8c60e",
     ".trellis/scripts/task.py": "6c65801a1f56648fd4765a1d216493d3094827c1db4761e55fdaa548c1801798",
-    ".trellis/workflow.md": "dfd132985732d36cd1b9bc4e2670db580fd2df260298a3eefbdbab26d17da321"
+    ".trellis/workflow.md": "dfd132985732d36cd1b9bc4e2670db580fd2df260298a3eefbdbab26d17da321",
+    "AGENTS.md": "2b80a78241d54bcbef5ca6cbc1f43b88a4cd4eb209c8a091e7ab32fef6cc12f4",
+    ".claude/skills/trellis-channel/references/command-reference.md": "c4df3d940d89814310bfdaded20e84dd1d6b96786f6772688de7a123338d3c8e",
+    ".claude/skills/trellis-meta/references/local-architecture/workspace-memory.md": "e6427b46aba744563c2444b30df4043cd856561b7709ec2dece26095416421fd",
+    ".cursor/skills/trellis-channel/references/command-reference.md": "c4df3d940d89814310bfdaded20e84dd1d6b96786f6772688de7a123338d3c8e",
+    ".cursor/skills/trellis-meta/references/local-architecture/workspace-memory.md": "e6427b46aba744563c2444b30df4043cd856561b7709ec2dece26095416421fd",
+    ".agents/skills/trellis-channel/references/command-reference.md": "c4df3d940d89814310bfdaded20e84dd1d6b96786f6772688de7a123338d3c8e",
+    ".agents/skills/trellis-meta/references/local-architecture/workspace-memory.md": "e6427b46aba744563c2444b30df4043cd856561b7709ec2dece26095416421fd"
   }
 }
