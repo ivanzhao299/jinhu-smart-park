@@ -410,6 +410,16 @@ const emptyForm: ContractFormState = {
   remark: ""
 };
 
+function StackedCell({ title, meta, extra }: { title: ReactNode; meta?: ReactNode; extra?: ReactNode }) {
+  return (
+    <span className="ds-table-stacked-cell">
+      <strong>{title}</strong>
+      {meta ? <small>{meta}</small> : null}
+      {extra ? <small>{extra}</small> : null}
+    </span>
+  );
+}
+
 const emptyUnitForm: ContractUnitFormState = {
   relId: "",
   unitId: "",
@@ -1163,42 +1173,44 @@ export default function LeasingContractsPage() {
             <DataTable >
               <thead>
                 <tr>
-                  <th>合同编号</th>
-                  <th>合同名称</th>
+                  <th>合同</th>
                   <th>租户企业</th>
-                  <th>合同类型</th>
-                  <th>来源</th>
-                  <th>租期</th>
-                  <th>总面积</th>
-                  <th>月租金</th>
-                  <th>合同总金额</th>
-                  <th>押金</th>
-                  <th>付款周期</th>
-                  <th>状态</th>
-                  <th>更新时间</th>
+                  <th>类型 / 来源</th>
+                  <th>租期 / 面积</th>
+                  <th>金额</th>
+                  <th>状态 / 更新时间</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {pageData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={14}>暂无合同数据</td>
+                    <td colSpan={7}>暂无合同数据</td>
                   </tr>
                 ) : pageData.items.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.contractCode}</td>
-                    <td>{row.contractName}</td>
-                    <td>{row.parkTenant?.companyName ?? tenantName(parkTenants, row.parkTenantId)}</td>
-                    <td>{labelFor(typeItems, row.contractType)}</td>
-                    <td>{labelFor(sourceTypeItems, row.sourceType)}</td>
-                    <td>{formatDate(row.startDate)} 至 {formatDate(row.endDate)}</td>
-                    <td>{formatArea(row.totalArea)}</td>
-                    <td>{moneyText(authUser, canViewRentPerMonth, "rentPerMonth", row.rentPerMonth)}</td>
-                    <td>{moneyText(authUser, canViewTotalAmount, "totalAmount", row.totalAmount)}</td>
-                    <td>{moneyText(authUser, canViewDepositAmount, "depositAmount", row.depositAmount)}</td>
-                    <td>{labelFor(paymentItems, row.paymentPeriod)}</td>
-                    <td><DictBadge items={statusItems} value={row.status} /></td>
-                    <td>{formatDateTime(row.updateTime)}</td>
+                    <td>
+                      <StackedCell title={row.contractCode} meta={row.contractName} />
+                    </td>
+                    <td>
+                      <StackedCell title={row.parkTenant?.companyName ?? tenantName(parkTenants, row.parkTenantId)} />
+                    </td>
+                    <td>
+                      <StackedCell title={labelFor(typeItems, row.contractType)} meta={`来源 ${labelFor(sourceTypeItems, row.sourceType)}`} extra={`周期 ${labelFor(paymentItems, row.paymentPeriod)}`} />
+                    </td>
+                    <td>
+                      <StackedCell title={`${formatDate(row.startDate)} 至 ${formatDate(row.endDate)}`} meta={`面积 ${formatArea(row.totalArea)}`} />
+                    </td>
+                    <td>
+                      <StackedCell
+                        title={`月租 ${moneyText(authUser, canViewRentPerMonth, "rentPerMonth", row.rentPerMonth)}`}
+                        meta={`总额 ${moneyText(authUser, canViewTotalAmount, "totalAmount", row.totalAmount)}`}
+                        extra={`押金 ${moneyText(authUser, canViewDepositAmount, "depositAmount", row.depositAmount)}`}
+                      />
+                    </td>
+                    <td>
+                      <StackedCell title={<DictBadge items={statusItems} value={row.status} />} meta={formatDateTime(row.updateTime)} />
+                    </td>
                     <td>
                       <span className="data-table-actions">
                         <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.update} type="button" onClick={() => openEdit(row)}>
