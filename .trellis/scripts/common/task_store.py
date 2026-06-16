@@ -448,7 +448,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
         # Auto-commit unless --no-commit
         if not getattr(args, "no_commit", False):
-            if not _auto_commit_archive(dir_name, repo_root, modified_children):
+            if not _auto_commit_archive(dir_name, repo_root, archive_dest, modified_children):
                 print(
                     colored(
                         "Archive moved on disk, but git auto-commit did not complete. "
@@ -473,6 +473,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 def _auto_commit_archive(
     task_name: str,
     repo_root: Path,
+    archive_dest: Path,
     modified_children: list[str] | None = None,
 ) -> bool:
     """Stage Trellis-owned task paths and commit after archive.
@@ -506,7 +507,10 @@ def _auto_commit_archive(
     source_was_tracked = rc == 0 and bool(tracked_out.strip())
 
     paths = safe_archive_paths_to_add(
-        repo_root, task_name=task_name, modified_children=modified_children
+        repo_root,
+        task_name=task_name,
+        archive_dest=archive_dest,
+        modified_children=modified_children,
     )
     if not paths:
         print("[OK] No task changes to commit.", file=sys.stderr)
@@ -537,8 +541,12 @@ def _auto_commit_archive(
         cwd=repo_root,
     )
 
+    diff_paths = [*paths]
+    if source_was_tracked:
+        diff_paths.append(source_rel)
+
     rc, _, _ = run_git(
-        ["diff", "--cached", "--quiet", "--", *paths, source_rel],
+        ["diff", "--cached", "--quiet", "--", *diff_paths],
         cwd=repo_root,
     )
     if rc == 0:
@@ -546,7 +554,9 @@ def _auto_commit_archive(
         return True
 
     commit_msg = f"chore(task): archive {task_name}"
-    commit_paths = [*paths, source_rel]
+    commit_paths = [*paths]
+    if source_was_tracked:
+        commit_paths.append(source_rel)
     rc, _, err = run_git(["commit", "-m", commit_msg, "--only", "--", *commit_paths], cwd=repo_root)
     if rc == 0:
         print(f"[OK] Auto-committed: {commit_msg}", file=sys.stderr)
