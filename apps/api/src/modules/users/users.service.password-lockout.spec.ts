@@ -155,6 +155,36 @@ test("users service refreshes latest lockout state under a row lock", async () =
   assert.equal(result.passwordFailedCount, 3);
 });
 
+test("users service refresh preserves existing login relations", async () => {
+  const now = new Date("2026-06-17T08:00:00.000Z");
+  const roleLinks = [{ id: "role-link-1" }];
+  const originalUser = makeUser({ roleLinks: roleLinks as never });
+  const latestUser = makeUser({
+    passwordFailedCount: 3,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T07:59:00.000Z"),
+    passwordLockedUntil: null,
+    lastPasswordFailedAt: new Date("2026-06-17T07:59:30.000Z")
+  });
+  const repository = {
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+        callback({
+          getRepository: () => ({
+            findOne: async () => latestUser,
+            save: async (user: UserEntity) => user
+          })
+        })
+    }
+  };
+  const service = createUsersService(repository);
+
+  const result = await service.refreshPasswordLockoutState(originalUser, now);
+
+  assert.equal(result, originalUser);
+  assert.equal(result.roleLinks, roleLinks);
+  assert.equal(result.passwordFailedCount, latestUser.passwordFailedCount);
+});
+
 test("users service refresh clears expired lockout state under the row lock", async () => {
   const now = new Date("2026-06-17T08:20:00.000Z");
   const staleUser = makeUser();
@@ -186,4 +216,82 @@ test("users service refresh clears expired lockout state under the row lock", as
   assert.equal(savedUsers[0]?.passwordFailedCount, 0);
   assert.equal(result.passwordLockedUntil, null);
   assert.equal(result.passwordFailedWindowStartedAt, null);
+});
+
+test("users service finalizes successful login by clearing only an unchanged rechecked state", async () => {
+  const now = new Date("2026-06-17T08:20:00.000Z");
+  const recheckedUser = makeUser({
+    passwordFailedCount: 2,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T08:10:00.000Z"),
+    lastPasswordFailedAt: new Date("2026-06-17T08:15:00.000Z")
+  });
+  const latestUser = makeUser({
+    passwordFailedCount: recheckedUser.passwordFailedCount,
+    passwordFailedWindowStartedAt: recheckedUser.passwordFailedWindowStartedAt,
+    passwordLockedUntil: recheckedUser.passwordLockedUntil,
+    lastPasswordFailedAt: recheckedUser.lastPasswordFailedAt
+  });
+  const savedUsers: UserEntity[] = [];
+  const repository = {
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+        callback({
+          getRepository: () => ({
+            findOne: async () => latestUser,
+            save: async (user: UserEntity) => {
+              savedUsers.push(user);
+              return user;
+            }
+          })
+        })
+    }
+  };
+  const service = createUsersService(repository);
+  const config = normalizePasswordLockoutConfig({ enabled: true, resetOnSuccess: true });
+
+  const result = await service.finalizePasswordLoginSuccess(recheckedUser, config, now);
+
+  assert.equal(result.allowed, true);
+  assert.equal(savedUsers[0]?.passwordFailedCount, 0);
+  assert.equal(result.user.passwordFailedCount, 0);
+  assert.equal(result.user.passwordFailedWindowStartedAt, null);
+});
+
+test("users service refuses successful login when the row changed after recheck", async () => {
+  const now = new Date("2026-06-17T08:20:00.000Z");
+  const recheckedUser = makeUser({
+    passwordFailedCount: 2,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T08:10:00.000Z"),
+    lastPasswordFailedAt: new Date("2026-06-17T08:15:00.000Z")
+  });
+  const latestUser = makeUser({
+    passwordFailedCount: 5,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T08:10:00.000Z"),
+    passwordLockedUntil: new Date("2026-06-17T08:35:00.000Z"),
+    lastPasswordFailedAt: new Date("2026-06-17T08:20:00.000Z")
+  });
+  const savedUsers: UserEntity[] = [];
+  const repository = {
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+        callback({
+          getRepository: () => ({
+            findOne: async () => latestUser,
+            save: async (user: UserEntity) => {
+              savedUsers.push(user);
+              return user;
+            }
+          })
+        })
+    }
+  };
+  const service = createUsersService(repository);
+  const config = normalizePasswordLockoutConfig({ enabled: true, resetOnSuccess: true });
+
+  const result = await service.finalizePasswordLoginSuccess(recheckedUser, config, now);
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.lockoutActive, true);
+  assert.deepEqual(savedUsers, []);
+  assert.equal(result.user.passwordLockedUntil?.getTime(), latestUser.passwordLockedUntil?.getTime());
 });

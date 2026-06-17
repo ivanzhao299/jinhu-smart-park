@@ -67,6 +67,12 @@ export interface PasswordFailureRecordResult {
   lockoutTriggered: boolean;
 }
 
+export interface PasswordLoginSuccessResult {
+  user: UserEntity;
+  allowed: boolean;
+  lockoutActive: boolean;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -471,10 +477,51 @@ export class UsersService {
       const currentState = this.toPasswordLockoutState(lockedUser);
       const state = resetExpiredPasswordLock(currentState, now);
       if (this.samePasswordLockoutState(currentState, state)) {
-        return lockedUser;
+        return Object.assign(user, currentState);
       }
       Object.assign(lockedUser, state);
-      return repository.save(lockedUser);
+      await repository.save(lockedUser);
+      return Object.assign(user, state);
+    });
+  }
+
+  async finalizePasswordLoginSuccess(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<PasswordLoginSuccessResult> {
+    if (!config.enabled) {
+      return { user, allowed: true, lockoutActive: false };
+    }
+    const expectedState = this.toPasswordLockoutState(user);
+
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return { user, allowed: false, lockoutActive: false };
+      }
+
+      const currentState = this.toPasswordLockoutState(lockedUser);
+      const latestState = resetExpiredPasswordLock(currentState, now);
+      if (!this.samePasswordLockoutState(currentState, latestState)) {
+        Object.assign(lockedUser, latestState);
+        await repository.save(lockedUser);
+      }
+      Object.assign(user, latestState);
+
+      const lockoutActive = isPasswordLocked(latestState, now);
+      if (lockoutActive || !this.samePasswordLockoutState(latestState, expectedState)) {
+        return { user, allowed: false, lockoutActive };
+      }
+
+      if (!config.resetOnSuccess) {
+        return { user, allowed: true, lockoutActive: false };
+      }
+
+      const clearState = clearPasswordLockoutState();
+      Object.assign(lockedUser, clearState);
+      await repository.save(lockedUser);
+      return { user: Object.assign(user, clearState), allowed: true, lockoutActive: false };
     });
   }
 

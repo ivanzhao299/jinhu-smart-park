@@ -215,10 +215,23 @@ export class AuthService implements OnModuleInit {
       await this.tenantsService.assertTenantActive(user.tenantId);
     }
 
-    if (enabledUsers.length > 1) {
-      const tenantIds = [...new Set(enabledUsers.map((user) => user.tenantId))];
+    const finalizedUsers = await this.finalizePasswordLoginUsers(enabledUsers, passwordLockoutConfig, now);
+    if (finalizedUsers.length === 0) {
+      const firstUser = enabledUsers[0]!;
+      await this.recordLoginEvent(
+        { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
+        meta,
+        firstUser.id,
+        false,
+        "Password lockout active"
+      );
+      throw new UnauthorizedException("账号或密码错误");
+    }
+
+    if (finalizedUsers.length > 1) {
+      const tenantIds = [...new Set(finalizedUsers.map((user) => user.tenantId))];
       if (tenantIds.length > 1) {
-        const firstUser = enabledUsers[0]!;
+        const firstUser = finalizedUsers[0]!;
         await this.recordLoginEvent(
           { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
           meta,
@@ -228,17 +241,15 @@ export class AuthService implements OnModuleInit {
         );
         throw new ConflictException("该账号关联多个租户，请联系管理员设置唯一登录租户");
       }
-      const ticket = await this.createLoginTicket(tenantIds[0]!, "password", enabledUsers.map((user) => user.id));
-      await this.clearPasswordFailuresAfterSuccess(enabledUsers, passwordLockoutConfig);
+      const ticket = await this.createLoginTicket(tenantIds[0]!, "password", finalizedUsers.map((user) => user.id));
       return {
         requiresContextSelection: true,
         loginTicket: ticket,
-        contexts: enabledUsers.map((user) => this.toContextOption(user))
+        contexts: finalizedUsers.map((user) => this.toContextOption(user))
       };
     }
 
-    const user = enabledUsers[0]!;
-    await this.clearPasswordFailuresAfterSuccess([user], passwordLockoutConfig);
+    const user = finalizedUsers[0]!;
     await this.ensureIdentity(user, "password", user.username);
     return this.issueLoginResult(user, meta, "password", user.username);
   }
@@ -538,10 +549,42 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("Selected user context is unavailable");
     }
 
+    const loginMethod = ticket.provider;
+    let selectedUser = user;
+    if (loginMethod === "password") {
+      const passwordLockoutConfig = this.getPasswordLockoutConfig();
+      const now = new Date();
+      if (passwordLockoutConfig.enabled) {
+        selectedUser = await this.usersService.refreshPasswordLockoutState(selectedUser, now);
+        if (this.usersService.isPasswordLocked(selectedUser, now)) {
+          await this.recordLoginEvent(
+            { tenantId: selectedUser.tenantId, parkId: selectedUser.parkId, username: selectedUser.username, loginMethod: "password" },
+            meta,
+            selectedUser.id,
+            false,
+            "Password lockout active"
+          );
+          throw new UnauthorizedException("账号或密码错误");
+        }
+      }
+      const finalized = await this.usersService.finalizePasswordLoginSuccess(selectedUser, passwordLockoutConfig, now);
+      if (!finalized.allowed) {
+        await this.recordLoginEvent(
+          { tenantId: finalized.user.tenantId, parkId: finalized.user.parkId, username: finalized.user.username, loginMethod: "password" },
+          meta,
+          finalized.user.id,
+          false,
+          finalized.lockoutActive ? "Password lockout active" : "Invalid username or password"
+        );
+        throw new UnauthorizedException("账号或密码错误");
+      }
+      selectedUser = finalized.user;
+    }
+
     ticket.used = true;
     ticket.usedTime = new Date();
     await this.loginTicketRepository.save(ticket);
-    return this.issueLoginResult(user, meta, "mobile", user.username);
+    return this.issueLoginResult(selectedUser, meta, loginMethod, selectedUser.username);
   }
 
   async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
@@ -700,11 +743,15 @@ export class AuthService implements OnModuleInit {
     return results;
   }
 
-  private async clearPasswordFailuresAfterSuccess(users: UserEntity[], config: PasswordLockoutConfig): Promise<void> {
-    if (!config.enabled || !config.resetOnSuccess) {
-      return;
+  private async finalizePasswordLoginUsers(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<UserEntity[]> {
+    const finalizedUsers: UserEntity[] = [];
+    for (const user of users) {
+      const result = await this.usersService.finalizePasswordLoginSuccess(user, config, now);
+      if (result.allowed) {
+        finalizedUsers.push(result.user);
+      }
     }
-    await Promise.all(users.map((user) => this.usersService.clearPasswordFailures(user.id)));
+    return finalizedUsers;
   }
 
   private getPasswordLockoutConfig(): PasswordLockoutConfig {

@@ -17,9 +17,15 @@ interface AuthServiceLockoutFixture {
     latestUsers: Map<string, UserEntity>;
     refreshPasswordLockoutStateCalls: string[];
     recordSuccessfulLoginCalls: string[];
+    finalizePasswordLoginSuccessCalls: string[];
+    concurrentLockOnSuccessIds: Set<string>;
   };
   auditMessages: string[];
   auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }>;
+  loginTicketRepository: {
+    ticket: { tenantId: string; parkId: string; provider: string; ticket: string; used: boolean; usedTime: Date | null; contextPayload: Record<string, unknown> } | null;
+    savedTickets: Array<{ used: boolean; usedTime: Date | null }>;
+  };
 }
 
 async function makeUser(overrides: Partial<UserEntity> = {}): Promise<UserEntity> {
@@ -58,8 +64,11 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     latestUsers: new Map<string, UserEntity>(),
     refreshPasswordLockoutStateCalls: [] as string[],
     recordSuccessfulLoginCalls: [] as string[],
+    finalizePasswordLoginSuccessCalls: [] as string[],
+    concurrentLockOnSuccessIds: new Set<string>(),
     findLoginCandidatesByUsername: async () => candidates,
     findByUsernameInScope: async () => candidates[0] ?? null,
+    findByIdInScope: async (id: string) => candidates.find((candidate) => candidate.id === id) ?? null,
     recordPasswordFailure: async (user: UserEntity) => {
       usersService.recordPasswordFailureCalls.push(user.id);
       return { user, lockoutTriggered: usersService.lockoutTriggeredUserIds.has(user.id) };
@@ -76,7 +85,23 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     isPasswordLocked: (user: UserEntity, now: Date) => Boolean(user.passwordLockedUntil && user.passwordLockedUntil.getTime() > now.getTime()),
     refreshPasswordLockoutState: async (user: UserEntity) => {
       usersService.refreshPasswordLockoutStateCalls.push(user.id);
-      return usersService.latestUsers.get(user.id) ?? user;
+      const latestUser = usersService.latestUsers.get(user.id);
+      return latestUser
+        ? Object.assign(user, {
+            passwordFailedCount: latestUser.passwordFailedCount,
+            passwordFailedWindowStartedAt: latestUser.passwordFailedWindowStartedAt,
+            passwordLockedUntil: latestUser.passwordLockedUntil,
+            lastPasswordFailedAt: latestUser.lastPasswordFailedAt
+          })
+        : user;
+    },
+    finalizePasswordLoginSuccess: async (user: UserEntity) => {
+      usersService.finalizePasswordLoginSuccessCalls.push(user.id);
+      if (usersService.concurrentLockOnSuccessIds.has(user.id)) {
+        const lockedUser = { ...user, passwordLockedUntil: new Date(Date.now() + 60_000) } as UserEntity;
+        return { user: lockedUser, allowed: false, lockoutActive: true };
+      }
+      return { user, allowed: true, lockoutActive: false };
     },
     recordSuccessfulLogin: async (_scope: unknown, userId: string) => {
       usersService.recordSuccessfulLoginCalls.push(userId);
@@ -84,6 +109,16 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
   };
   const auditMessages: string[] = [];
   const auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }> = [];
+  const loginTicketRepository = {
+    ticket: null as AuthServiceLockoutFixture["loginTicketRepository"]["ticket"],
+    savedTickets: [] as Array<{ used: boolean; usedTime: Date | null }>,
+    findOne: async () => loginTicketRepository.ticket,
+    save: async (ticket: { used: boolean; usedTime: Date | null }) => {
+      loginTicketRepository.savedTickets.push({ used: ticket.used, usedTime: ticket.usedTime });
+      return ticket;
+    },
+    create: (value: unknown) => value
+  };
   const service = new AuthService(
     usersService as never,
     { signAsync: async () => "access-token" } as never,
@@ -105,11 +140,11 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     { exists: async () => true, update: async () => undefined, save: async () => undefined, create: (value: unknown) => value } as never,
     { save: async () => undefined, create: (value: unknown) => value } as never,
     {} as never,
-    {} as never,
-    { save: async () => undefined, create: (value: unknown) => value } as never
+    { save: async () => undefined, create: (value: unknown) => value } as never,
+    loginTicketRepository as never
   );
 
-  return { service, usersService, auditMessages, auditRecords };
+  return { service, usersService, auditMessages, auditRecords, loginTicketRepository };
 }
 
 function loginDto(password: string, partial: Partial<LoginDto> = {}): LoginDto {
@@ -203,6 +238,32 @@ test("auth service rejects a correct password when latest lockout state becomes 
   assert.equal(auditMessages.at(-1), "Password lockout active");
 });
 
+test("auth service preserves login relations after refreshing lockout state", async () => {
+  const user = await makeUser({ roleLinks: [] });
+  const refreshedBaseUser = { ...user, roleLinks: undefined } as unknown as UserEntity;
+  const { service, usersService } = createFixture([user]);
+  usersService.latestUsers.set(user.id, refreshedBaseUser);
+
+  const result = await service.login(loginDto("Correct#2026"), { ipAddress: "127.0.0.1", userAgent: null });
+
+  assert.equal(result.accessToken, "access-token");
+  assert.deepEqual(result.user?.permissions, ["system:user:me"]);
+});
+
+test("auth service rejects success when a concurrent failure locks the user after recheck", async () => {
+  const user = await makeUser();
+  const { service, usersService, auditMessages } = createFixture([user]);
+  usersService.concurrentLockOnSuccessIds.add(user.id);
+
+  await assert.rejects(
+    () => service.login(loginDto("Correct#2026"), { ipAddress: "127.0.0.1", userAgent: null }),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(usersService.recordSuccessfulLoginCalls, []);
+  assert.equal(auditMessages.at(-1), "Password lockout active");
+});
+
 test("auth service excludes latest locked users from context selection", async () => {
   const first = await makeUser({ id: "00000000-0000-0000-0000-000000000001", parkId: "20000001" });
   const second = await makeUser({ id: "00000000-0000-0000-0000-000000000002", parkId: "20000002" });
@@ -230,7 +291,7 @@ test("auth service clears password failures after a successful login", async () 
   const result = await service.login(loginDto("Correct#2026"), { ipAddress: "127.0.0.1", userAgent: null });
 
   assert.equal(result.accessToken, "access-token");
-  assert.deepEqual(usersService.clearPasswordFailuresCalls, [user.id]);
+  assert.deepEqual(usersService.finalizePasswordLoginSuccessCalls, [user.id]);
   assert.equal(auditMessages.at(-1), "success");
 });
 
@@ -263,6 +324,58 @@ test("auth service attributes invalid password audit to first actually updated c
     parkId: second.parkId,
     message: "Invalid username or password"
   });
+});
+
+test("auth service rechecks password lockout before consuming password context tickets", async () => {
+  const user = await makeUser({ passwordLockedUntil: null });
+  const latestLockedUser = await makeUser({ passwordLockedUntil: new Date(Date.now() + 60_000) });
+  const { service, usersService, loginTicketRepository, auditMessages } = createFixture([user]);
+  usersService.latestUsers.set(user.id, latestLockedUser);
+  loginTicketRepository.ticket = {
+    tenantId: user.tenantId,
+    parkId: user.parkId,
+    provider: "password",
+    ticket: "ticket-1",
+    used: false,
+    usedTime: null,
+    contextPayload: { userIds: [user.id] }
+  };
+
+  await assert.rejects(
+    () =>
+      service.selectContext(
+        { tenantId: user.tenantId, parkId: user.parkId, userId: user.id, ticket: "ticket-1" },
+        { ipAddress: "127.0.0.1", userAgent: null }
+      ),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(loginTicketRepository.savedTickets, []);
+  assert.deepEqual(usersService.recordSuccessfulLoginCalls, []);
+  assert.equal(auditMessages.at(-1), "Password lockout active");
+});
+
+test("auth service allows unlocked password context tickets", async () => {
+  const user = await makeUser();
+  const { service, usersService, loginTicketRepository } = createFixture([user]);
+  loginTicketRepository.ticket = {
+    tenantId: user.tenantId,
+    parkId: user.parkId,
+    provider: "password",
+    ticket: "ticket-1",
+    used: false,
+    usedTime: null,
+    contextPayload: { userIds: [user.id] }
+  };
+
+  const result = await service.selectContext(
+    { tenantId: user.tenantId, parkId: user.parkId, userId: user.id, ticket: "ticket-1" },
+    { ipAddress: "127.0.0.1", userAgent: null }
+  );
+
+  assert.equal(result.accessToken, "access-token");
+  assert.equal(loginTicketRepository.savedTickets[0]?.used, true);
+  assert.deepEqual(usersService.finalizePasswordLoginSuccessCalls, [user.id]);
 });
 
 test("auth service does not clear password failures for disabled users", async () => {
