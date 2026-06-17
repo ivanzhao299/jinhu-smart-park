@@ -57,14 +57,15 @@ If API startup fails after this change, check the auth mock variables first. A p
 
 ### 1.1.1 Public Auth Rate Limits
 
-Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint has both:
+Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint uses a credential-scoped bucket by default and can optionally use an IP-only bucket:
 
 - a credential-scoped bucket, keyed by endpoint, resolved client IP, and a hashed credential identifier
-- an IP-only bucket, keyed by endpoint and resolved client IP, to reduce username / token / ticket rotation bypasses
+- an opt-in IP-only bucket, keyed by endpoint and resolved client IP, to reduce username / token / ticket rotation bypasses when the proxy chain makes `request.ip` trustworthy
 
 The supported variables are:
 
 - `AUTH_RATE_LIMIT_MAX_BUCKETS`
+- `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED`
 - `AUTH_RATE_LIMIT_LOGIN_LIMIT`
 - `AUTH_RATE_LIMIT_LOGIN_WINDOW_MS`
 - `AUTH_RATE_LIMIT_LOGIN_IP_LIMIT`
@@ -522,7 +523,7 @@ Defaults:
 - API readiness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/ready`, defaulting to `http://127.0.0.1:3001/api/v1/ready`
 - Web login URL: `http://127.0.0.1:3000/login`
 
-When `API_PUBLISHED_HOST=0.0.0.0` or `::`, the healthcheck script uses `127.0.0.1` for local curl-style checks. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
+When `API_PUBLISHED_HOST=0.0.0.0` or `::`, the healthcheck script uses `127.0.0.1` for local curl-style checks. IPv6 literal hosts such as `::1` or `fd00::1` are bracketed in generated URLs. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
 
 ## 5. Reverse Proxy
 
@@ -535,12 +536,20 @@ Keep `WEB_ORIGIN` aligned with the browser-facing origin.
 
 If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so Express resolves `request.ip` before auth rate-limit bucketing.
 
-- Production compose default: `APP_TRUST_PROXY=1`, because Web rewrites `/api/*` to the private API service and one trusted hop preserves per-client auth IP buckets
-- Local direct API default: empty, trust proxy disabled
+- Default: empty, trust proxy disabled
 - Single trusted reverse proxy hop: `APP_TRUST_PROXY=1`
 - Two trusted hops: `APP_TRUST_PROXY=2`
 - Express named ranges such as `loopback,linklocal,uniquelocal` are accepted when appropriate
 - Avoid `APP_TRUST_PROXY=true` unless the deployment intentionally trusts all upstream proxies
+
+Auth credential-scoped rate-limit buckets are enabled by default. IP-only buckets are disabled by default through `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=false`; this avoids turning all traffic behind the Web container into one shared deployment-level IP bucket.
+
+Only enable `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=true` when `request.ip` reliably represents the browser client. For the default Next.js rewrite path, that requires an outer Web / reverse proxy layer that strips or overwrites incoming `X-Forwarded-For` before the request reaches API. A trusted one-hop deployment can then set both:
+
+```env
+APP_TRUST_PROXY=1
+AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=true
+```
 
 The production compose file binds the API published port to `API_PUBLISHED_HOST`, defaulting to `127.0.0.1`, so public traffic should enter through Web / reverse proxy paths instead of directly reaching the API port.
 

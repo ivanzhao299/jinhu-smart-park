@@ -62,7 +62,7 @@ test("auth rate limiter isolates different endpoints and IP addresses", () => {
 });
 
 test("auth rate limiter blocks identifier rotation with an IP-only bucket", () => {
-  const limiter = createService(() => 1_000);
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 2, ipWindowMs: 1_000 });
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-b", ipLimit: 2, ipWindowMs: 1_000 });
@@ -73,8 +73,31 @@ test("auth rate limiter blocks identifier rotation with an IP-only bucket", () =
   );
 });
 
-test("auth rate limiter keeps credential buckets effective under a higher IP bucket", () => {
+test("auth rate limiter leaves IP-only buckets disabled by default", () => {
   const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 2, ipWindowMs: 1_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-b", ipLimit: 2, ipWindowMs: 1_000 });
+
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-c", ipLimit: 2, ipWindowMs: 1_000 }),
+    undefined
+  );
+});
+
+test("auth rate limiter leaves IP-only buckets disabled when configured false", () => {
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "false" });
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 1, ipWindowMs: 1_000 });
+
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-b", ipLimit: 1, ipWindowMs: 1_000 }),
+    undefined
+  );
+});
+
+test("auth rate limiter keeps credential buckets effective under a higher IP bucket", () => {
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
   limiter.assertAllowed({
     endpoint: "login",
@@ -129,7 +152,7 @@ test("auth rate limiter keeps credential identifiers case-sensitive", () => {
 });
 
 test("auth rate limiter still normalizes endpoint and IP key parts", () => {
-  const limiter = createService(() => 1_000);
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
   limiter.assertAllowed({
     endpoint: "LOGIN",
@@ -153,7 +176,7 @@ test("auth rate limiter still normalizes endpoint and IP key parts", () => {
 });
 
 test("auth rate limiter IP-only bucket isolates different IP addresses", () => {
-  const limiter = createService(() => 1_000);
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 1, ipWindowMs: 1_000 });
 
@@ -190,7 +213,7 @@ test("auth rate limiter can clear in-memory state for deterministic tests", () =
 
 test("auth rate limiter prunes expired buckets", () => {
   let now = 1_000;
-  const limiter = createService(() => now);
+  const limiter = createService(() => now, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", windowMs: 1_000, ipWindowMs: 1_000 });
   assert.equal(limiter.getBucketCountForTest(), 2);
@@ -202,7 +225,7 @@ test("auth rate limiter prunes expired buckets", () => {
 });
 
 test("auth rate limiter caps bucket map size", () => {
-  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_MAX_BUCKETS: "3" });
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true", AUTH_RATE_LIMIT_MAX_BUCKETS: "3" });
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", windowMs: 10_000, ipWindowMs: 10_000 });
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 10_000, ipWindowMs: 10_000 });

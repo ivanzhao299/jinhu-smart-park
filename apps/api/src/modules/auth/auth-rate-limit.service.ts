@@ -50,12 +50,14 @@ export class AuthRateLimitService {
     const currentTime = this.now();
     this.pruneExpired(currentTime);
 
-    this.consumeBucket({
-      key: this.buildIpKey(endpoint, request.ipAddress),
-      limit: request.ipLimit ?? this.getIpLimit(endpoint),
-      windowMs: request.ipWindowMs ?? this.getIpWindowMs(endpoint),
-      currentTime
-    });
+    if (this.isIpBucketsEnabled()) {
+      this.consumeBucket({
+        key: this.buildIpKey(endpoint, request.ipAddress),
+        limit: request.ipLimit ?? this.getIpLimit(endpoint),
+        windowMs: request.ipWindowMs ?? this.getIpWindowMs(endpoint),
+        currentTime
+      });
+    }
     this.consumeBucket({
       key: this.buildCredentialKey(endpoint, request.ipAddress, request.identifier),
       limit: request.limit ?? this.getLimit(endpoint),
@@ -136,6 +138,11 @@ export class AuthRateLimitService {
   private getMaxBuckets(): number {
     const configured = Number(this.configService.get<string>("AUTH_RATE_LIMIT_MAX_BUCKETS", ""));
     return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_BUCKETS;
+  }
+
+  private isIpBucketsEnabled(): boolean {
+    const configured = (this.configService.get<string>("AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED", "") ?? "").trim().toLowerCase();
+    return ["1", "true", "yes", "on"].includes(configured);
   }
 
   private buildIpKey(endpoint: string, ipAddress: string | null): string {
