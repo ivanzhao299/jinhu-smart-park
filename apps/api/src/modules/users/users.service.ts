@@ -62,6 +62,11 @@ export interface UserLoginContextCandidate {
   mobile: string | null;
 }
 
+export interface PasswordFailureRecordResult {
+  user: UserEntity;
+  lockoutTriggered: boolean;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -408,6 +413,7 @@ export class UsersService {
     const user = await this.getEntityInScope(scope, id);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     user.passwordHash = await bcrypt.hash(dto.password, saltRounds);
+    Object.assign(user, clearPasswordLockoutState());
     user.updateBy = actorId;
     await this.usersRepository.save(user);
     return { id };
@@ -420,19 +426,26 @@ export class UsersService {
     );
   }
 
-  async recordPasswordFailure(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<UserEntity> {
-    const currentState = resetExpiredPasswordLock(this.toPasswordLockoutState(user), now);
-    const result = evaluatePasswordFailure(currentState, config, now);
-    await this.usersRepository.update(
-      { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
-      {
-        passwordFailedCount: result.state.passwordFailedCount,
-        passwordFailedWindowStartedAt: result.state.passwordFailedWindowStartedAt,
-        passwordLockedUntil: result.state.passwordLockedUntil,
-        lastPasswordFailedAt: result.state.lastPasswordFailedAt
+  async recordPasswordFailure(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<PasswordFailureRecordResult> {
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return { user, lockoutTriggered: false };
       }
-    );
-    return Object.assign(user, result.state);
+      if (this.isPasswordLocked(lockedUser, now)) {
+        return { user: lockedUser, lockoutTriggered: false };
+      }
+
+      const currentState = resetExpiredPasswordLock(this.toPasswordLockoutState(lockedUser), now);
+      const result = evaluatePasswordFailure(currentState, config, now);
+      Object.assign(lockedUser, result.state);
+      const savedUser = await repository.save(lockedUser);
+      return { user: savedUser, lockoutTriggered: result.lockoutTriggered };
+    });
   }
 
   async clearPasswordFailures(userId: string): Promise<void> {

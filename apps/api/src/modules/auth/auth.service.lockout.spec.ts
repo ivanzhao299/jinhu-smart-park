@@ -13,8 +13,10 @@ interface AuthServiceLockoutFixture {
     recordPasswordFailureCalls: string[];
     clearPasswordFailuresCalls: string[];
     clearExpiredPasswordLockCalls: string[];
+    lockoutTriggeredUserIds: Set<string>;
   };
   auditMessages: string[];
+  auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }>;
 }
 
 async function makeUser(overrides: Partial<UserEntity> = {}): Promise<UserEntity> {
@@ -49,11 +51,12 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     recordPasswordFailureCalls: [] as string[],
     clearPasswordFailuresCalls: [] as string[],
     clearExpiredPasswordLockCalls: [] as string[],
+    lockoutTriggeredUserIds: new Set<string>(),
     findLoginCandidatesByUsername: async () => candidates,
     findByUsernameInScope: async () => candidates[0] ?? null,
     recordPasswordFailure: async (user: UserEntity) => {
       usersService.recordPasswordFailureCalls.push(user.id);
-      return user;
+      return { user, lockoutTriggered: usersService.lockoutTriggeredUserIds.has(user.id) };
     },
     clearPasswordFailures: async (userId: string) => {
       usersService.clearPasswordFailuresCalls.push(userId);
@@ -68,6 +71,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     recordSuccessfulLogin: async () => undefined
   };
   const auditMessages: string[] = [];
+  const auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }> = [];
   const service = new AuthService(
     usersService as never,
     { signAsync: async () => "access-token" } as never,
@@ -75,8 +79,14 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
       get: (key: string, fallback?: string) => config[key] ?? fallback
     } as never,
     {
-      recordLogin: async (input: { message: string | null }) => {
+      recordLogin: async (input: { userId: string | null; tenantId: string; parkId: string; message: string | null }) => {
         auditMessages.push(input.message ?? "");
+        auditRecords.push({
+          userId: input.userId,
+          tenantId: input.tenantId,
+          parkId: input.parkId,
+          message: input.message
+        });
       }
     } as never,
     { assertTenantActive: async () => undefined } as never,
@@ -87,7 +97,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     {} as never
   );
 
-  return { service, usersService, auditMessages };
+  return { service, usersService, auditMessages, auditRecords };
 }
 
 function loginDto(password: string, partial: Partial<LoginDto> = {}): LoginDto {
@@ -112,6 +122,31 @@ test("auth service records password failures for every unscoped candidate when p
 
   assert.deepEqual(usersService.recordPasswordFailureCalls, [first.id, second.id]);
   assert.equal(auditMessages.at(-1), "Invalid username or password");
+});
+
+test("auth service audits the candidate that actually triggers password lockout", async () => {
+  const first = await makeUser({ id: "00000000-0000-0000-0000-000000000001", parkId: "20000001" });
+  const second = await makeUser({ id: "00000000-0000-0000-0000-000000000002", parkId: "20000002" });
+  const { service, usersService, auditRecords } = createFixture([first, second]);
+  usersService.lockoutTriggeredUserIds.add(second.id);
+
+  await assert.rejects(
+    () => service.login(loginDto("Wrong#2026", { tenantId: undefined, parkId: undefined }), { ipAddress: "127.0.0.1", userAgent: null }),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(usersService.recordPasswordFailureCalls, [first.id, second.id]);
+  assert.deepEqual(
+    auditRecords.filter((record) => record.message === "Password lockout triggered"),
+    [
+      {
+        userId: second.id,
+        tenantId: second.tenantId,
+        parkId: second.parkId,
+        message: "Password lockout triggered"
+      }
+    ]
+  );
 });
 
 test("auth service does not create password failure state for unknown usernames", async () => {

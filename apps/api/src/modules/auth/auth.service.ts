@@ -23,7 +23,7 @@ import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
 import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
 import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
-import { UsersService } from "../users/users.service";
+import { UsersService, type PasswordFailureRecordResult } from "../users/users.service";
 import type { UserEntity } from "../users/entities/user.entity";
 
 export interface LoginContextOption {
@@ -155,14 +155,29 @@ export class AuthService implements OnModuleInit {
 
     if (matchedUsers.length === 0) {
       const firstCandidate = candidates[0]!;
-      const message = await this.recordPasswordFailures(candidates, passwordLockoutConfig, now);
-      await this.recordLoginEvent(
-        { tenantId: firstCandidate.tenantId, parkId: firstCandidate.parkId, username, loginMethod: "password" },
-        meta,
-        firstCandidate.id,
-        false,
-        message
-      );
+      const failureResults = await this.recordPasswordFailures(candidates, passwordLockoutConfig, now);
+      const lockoutTriggeredResults = failureResults.filter((result) => result.lockoutTriggered);
+      if (lockoutTriggeredResults.length > 0) {
+        await Promise.all(
+          lockoutTriggeredResults.map((result) =>
+            this.recordLoginEvent(
+              { tenantId: result.user.tenantId, parkId: result.user.parkId, username, loginMethod: "password" },
+              meta,
+              result.user.id,
+              false,
+              "Password lockout triggered"
+            )
+          )
+        );
+      } else {
+        await this.recordLoginEvent(
+          { tenantId: firstCandidate.tenantId, parkId: firstCandidate.parkId, username, loginMethod: "password" },
+          meta,
+          firstCandidate.id,
+          false,
+          "Invalid username or password"
+        );
+      }
       throw new UnauthorizedException("账号或密码错误");
     }
 
@@ -668,22 +683,19 @@ export class AuthService implements OnModuleInit {
     });
   }
 
-  private async recordPasswordFailures(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<string> {
+  private async recordPasswordFailures(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<PasswordFailureRecordResult[]> {
     if (!config.enabled) {
-      return "Invalid username or password";
+      return [];
     }
 
-    let lockoutTriggered = false;
+    const results: PasswordFailureRecordResult[] = [];
     for (const user of users) {
       if (this.usersService.isPasswordLocked(user, now)) {
         continue;
       }
-      const updatedUser = await this.usersService.recordPasswordFailure(user, config, now);
-      if (this.usersService.isPasswordLocked(updatedUser, now)) {
-        lockoutTriggered = true;
-      }
+      results.push(await this.usersService.recordPasswordFailure(user, config, now));
     }
-    return lockoutTriggered ? "Password lockout triggered" : "Invalid username or password";
+    return results;
   }
 
   private async clearPasswordFailuresAfterSuccess(users: UserEntity[], config: PasswordLockoutConfig): Promise<void> {
