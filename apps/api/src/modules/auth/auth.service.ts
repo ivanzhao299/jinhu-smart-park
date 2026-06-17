@@ -531,6 +531,14 @@ export class AuthService implements OnModuleInit {
     return this.issueLoginResult(user, meta, "refresh_token", user.username);
   }
 
+  isSmsLoginEnabled(): boolean {
+    return !this.isProduction();
+  }
+
+  isWechatLoginEnabled(): boolean {
+    return !this.isProduction();
+  }
+
   async logout(user: JwtPrincipal, refreshToken?: string): Promise<{ userId: string }> {
     if (refreshToken) {
       const tokenHash = this.hashToken(refreshToken);
@@ -920,13 +928,13 @@ export class AuthService implements OnModuleInit {
   }
 
   private assertSmsLoginEnabled(): void {
-    if (this.isProduction()) {
+    if (!this.isSmsLoginEnabled()) {
       throw new BadRequestException("短信验证码登录未启用");
     }
   }
 
   private assertWechatLoginEnabled(): void {
-    if (this.isProduction()) {
+    if (!this.isWechatLoginEnabled()) {
       throw new BadRequestException("微信扫码登录未启用");
     }
   }

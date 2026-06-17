@@ -30,6 +30,7 @@ At minimum set:
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `FILE_STORAGE_LOCAL_ROOT`
+- `API_PUBLISHED_HOST`, if the API published port must bind somewhere other than `127.0.0.1`
 - published ports if `3000`, `3001`, or `5432` are already occupied
 
 Do not commit `.env.production`.
@@ -53,6 +54,69 @@ The first release supports password login only.
   - `AUTH_WECHAT_SCOPE`
 
 If API startup fails after this change, check the auth mock variables first. A production environment with any of the dangerous mock flags enabled is expected to fail fast during bootstrap.
+
+### 1.1.1 Public Auth Rate Limits
+
+Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint uses stable and credential-scoped buckets by default and can optionally use an IP-only bucket:
+
+- a stable pre-validation bucket, keyed by endpoint and resolved client source, so malformed public auth requests are counted before DTO validation
+- a credential-scoped bucket, keyed by endpoint, resolved client IP, and a hashed credential identifier
+- an opt-in IP-only bucket, keyed by endpoint and resolved client IP, to reduce username / token / ticket rotation bypasses when the proxy chain makes `request.ip` trustworthy
+
+The supported variables are:
+
+- `AUTH_RATE_LIMIT_MAX_BUCKETS`
+- `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED`
+- `AUTH_RATE_LIMIT_LOGIN_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_LOGIN_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_LOGIN_IP_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_STABLE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_WINDOW_MS`
+
+The default `AUTH_RATE_LIMIT_LOGIN_LIMIT` is 60 attempts per minute so the existing serial smoke scripts can perform their reachability checks without tripping the credential bucket. Operators can lower or raise it per deployment.
+
+The token refresh endpoint also uses a stable bucket through `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_LIMIT`, so random refresh-token rotation cannot bypass every limiter when IP-only buckets are disabled.
+
+`AUTH_RATE_LIMIT_MAX_BUCKETS` bounds the process-local bucket map. Expired buckets are pruned before each auth limit check. If the bucket map is still full after pruning, new auth limit buckets fail closed with HTTP 429 instead of evicting active buckets.
+
+This limiter is intentionally process-local for WP3 stage A. Multi-instance production deployments must treat it as transitional protection and should move to Redis/DB backed counters in a later WP3 phase.
 
 ## 1.2 First-Release Menu Scope
 
@@ -474,9 +538,11 @@ MODE=full pnpm prod:health
 Defaults:
 
 - `MODE=liveness`
-- API liveness URL: `http://127.0.0.1:3001/api/v1/health`
-- API readiness URL: `http://127.0.0.1:3001/api/v1/ready`
+- API liveness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/health`, defaulting to `http://127.0.0.1:3001/api/v1/health`
+- API readiness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/ready`, defaulting to `http://127.0.0.1:3001/api/v1/ready`
 - Web login URL: `http://127.0.0.1:3000/login`
+
+When `API_PUBLISHED_HOST=0.0.0.0`, the healthcheck script uses `127.0.0.1` for local curl-style checks. When `API_PUBLISHED_HOST=::`, it uses IPv6 loopback `::1`. IPv6 literal hosts such as `::1` or `fd00::1` are bracketed in generated URLs. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
 
 ## 5. Reverse Proxy
 
@@ -486,6 +552,29 @@ For a public domain, terminate TLS at Nginx, Caddy, or a cloud load balancer:
 - `/api/*` can either go through Next.js rewrites or directly proxy to API
 
 Keep `WEB_ORIGIN` aligned with the browser-facing origin.
+
+If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so Express resolves `request.ip` before auth rate-limit bucketing.
+
+- Default: empty, trust proxy disabled
+- Single trusted reverse proxy hop: `APP_TRUST_PROXY=1`
+- Two trusted hops: `APP_TRUST_PROXY=2`
+- Express named ranges such as `loopback,linklocal,uniquelocal` are accepted when appropriate
+- Avoid `APP_TRUST_PROXY=true` unless the deployment intentionally trusts all upstream proxies
+
+Auth credential-scoped rate-limit buckets are enabled by default. IP-only buckets are disabled by default through `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=false`; this avoids turning all traffic behind the Web container into one shared deployment-level IP bucket.
+
+Only enable `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=true` when `request.ip` reliably represents the browser client. For the default Next.js rewrite path, that requires an outer Web / reverse proxy layer that strips or overwrites incoming `X-Forwarded-For` before the request reaches API. A trusted one-hop deployment can then set both:
+
+```env
+APP_TRUST_PROXY=1
+AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED=true
+```
+
+The production compose file binds the API published port to `API_PUBLISHED_HOST`, defaulting to `127.0.0.1`, so public traffic should enter through Web / reverse proxy paths instead of directly reaching the API port.
+
+If `APP_TRUST_PROXY=1` or another trust-proxy setting is enabled, keep `API_PUBLISHED_HOST` bound to localhost or another trusted private interface. If the API port must be externally reachable, restrict it with firewall or private-network rules before enabling trust proxy; otherwise direct clients can spoof forwarded IP headers and bypass IP-only auth rate-limit buckets and audit IP attribution.
+
+Do not rely on manually supplied `X-Forwarded-For` values without an explicit trusted proxy setting and a non-public API listener.
 
 ## 6. Optional Infrastructure
 

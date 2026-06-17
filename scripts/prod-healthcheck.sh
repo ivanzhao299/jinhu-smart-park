@@ -13,9 +13,32 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 API_PORT="${API_PUBLISHED_PORT:-${APP_PORT:-3001}}"
+API_HOST="${API_PUBLISHED_HOST:-127.0.0.1}"
+case "$API_HOST" in
+  "0.0.0.0")
+    API_HEALTH_HOST="127.0.0.1"
+    ;;
+  "::")
+    API_HEALTH_HOST="::1"
+    ;;
+  *)
+    API_HEALTH_HOST="$API_HOST"
+    ;;
+esac
+case "$API_HEALTH_HOST" in
+  \[*\])
+    API_HEALTH_URL_HOST="$API_HEALTH_HOST"
+    ;;
+  *:*)
+    API_HEALTH_URL_HOST="[$API_HEALTH_HOST]"
+    ;;
+  *)
+    API_HEALTH_URL_HOST="$API_HEALTH_HOST"
+    ;;
+esac
 WEB_PORT_VALUE="${WEB_PUBLISHED_PORT:-${WEB_PORT:-3000}}"
-API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:$API_PORT/api/v1/health}"
-API_READY_URL="${API_READY_URL:-http://127.0.0.1:$API_PORT/api/v1/ready}"
+API_HEALTH_URL="${API_HEALTH_URL:-http://$API_HEALTH_URL_HOST:$API_PORT/api/v1/health}"
+API_READY_URL="${API_READY_URL:-http://$API_HEALTH_URL_HOST:$API_PORT/api/v1/ready}"
 WEB_HEALTH_URL="${WEB_HEALTH_URL:-http://127.0.0.1:$WEB_PORT_VALUE/login}"
 
 fetch_url() {
