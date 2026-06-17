@@ -1,18 +1,21 @@
 import type { Request } from "express";
 
-export function isAuthTrustedProxyEnabled(value: string | undefined): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return Boolean(normalized) && !["0", "false", "no", "off"].includes(normalized);
+export function parseTrustProxySetting(value: string | undefined): boolean | number | string | undefined {
+  const normalized = (value ?? "").trim();
+  const lowered = normalized.toLowerCase();
+  if (!normalized || ["0", "false", "no", "off"].includes(lowered)) {
+    return undefined;
+  }
+  const numeric = Number(normalized);
+  if (Number.isInteger(numeric) && numeric > 0) {
+    return numeric;
+  }
+  if (["true", "yes", "on"].includes(lowered)) {
+    return true;
+  }
+  return normalized;
 }
 
-export function resolveAuthClientIp(request: Request, trustProxySetting: string | undefined): string | null {
-  if (isAuthTrustedProxyEnabled(trustProxySetting)) {
-    const forwardedFor = request.headers["x-forwarded-for"];
-    const firstForwarded = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-    const clientIp = firstForwarded?.split(",")[0]?.trim();
-    if (clientIp) {
-      return clientIp;
-    }
-  }
+export function resolveAuthClientIp(request: Request): string | null {
   return request.ip ?? null;
 }

@@ -54,6 +54,49 @@ The first release supports password login only.
 
 If API startup fails after this change, check the auth mock variables first. A production environment with any of the dangerous mock flags enabled is expected to fail fast during bootstrap.
 
+### 1.1.1 Public Auth Rate Limits
+
+Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint has both:
+
+- a credential-scoped bucket, keyed by endpoint, resolved client IP, and a hashed credential identifier
+- an IP-only bucket, keyed by endpoint and resolved client IP, to reduce username / token / ticket rotation bypasses
+
+The supported variables are:
+
+- `AUTH_RATE_LIMIT_MAX_BUCKETS`
+- `AUTH_RATE_LIMIT_LOGIN_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_LOGIN_IP_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_WINDOW_MS`
+
+`AUTH_RATE_LIMIT_MAX_BUCKETS` bounds the process-local bucket map. Expired buckets are pruned before each auth limit check.
+
+This limiter is intentionally process-local for WP3 stage A. Multi-instance production deployments must treat it as transitional protection and should move to Redis/DB backed counters in a later WP3 phase.
+
 ## 1.2 First-Release Menu Scope
 
 The first release only shows the whitelist menu entries below.
@@ -486,6 +529,16 @@ For a public domain, terminate TLS at Nginx, Caddy, or a cloud load balancer:
 - `/api/*` can either go through Next.js rewrites or directly proxy to API
 
 Keep `WEB_ORIGIN` aligned with the browser-facing origin.
+
+If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so Express resolves `request.ip` before auth rate-limit bucketing.
+
+- Default: empty, trust proxy disabled
+- Single trusted reverse proxy hop: `APP_TRUST_PROXY=1`
+- Two trusted hops: `APP_TRUST_PROXY=2`
+- Express named ranges such as `loopback,linklocal,uniquelocal` are accepted when appropriate
+- Avoid `APP_TRUST_PROXY=true` unless the deployment intentionally trusts all upstream proxies
+
+Do not rely on manually supplied `X-Forwarded-For` values without an explicit trusted proxy setting.
 
 ## 6. Optional Infrastructure
 

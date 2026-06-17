@@ -2,18 +2,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
-
-function parseTrustProxySetting(value: string | undefined): boolean | number | string | undefined {
-  const normalized = (value ?? "").trim();
-  if (!normalized || ["0", "false", "no", "off"].includes(normalized.toLowerCase())) {
-    return undefined;
-  }
-  if (["1", "true", "yes", "on"].includes(normalized.toLowerCase())) {
-    return true;
-  }
-  const numeric = Number(normalized);
-  return Number.isInteger(numeric) && numeric > 0 ? numeric : normalized;
-}
+import { parseTrustProxySetting } from "./modules/auth/auth-client-ip";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

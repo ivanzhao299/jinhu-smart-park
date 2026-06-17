@@ -1,5 +1,4 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 import { ClsService } from "nestjs-cls";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
@@ -28,7 +27,6 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     private readonly cls: ClsService,
-    private readonly configService: ConfigService,
     private readonly authRateLimitService: AuthRateLimitService
   ) {}
 
@@ -42,7 +40,7 @@ export class AuthController {
       identifier: dto.username
     });
     return this.authService.login(dto, {
-      ipAddress: request.ip ?? null,
+      ipAddress: this.getIpAddress(request),
       userAgent: request.headers["user-agent"] ?? null,
       requestId: this.cls.getId() ?? null
     });
@@ -67,7 +65,7 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "mobile-login",
       ipAddress: this.getIpAddress(request),
-      identifier: dto.mobile
+      identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
     });
     return this.authService.mobileLogin(dto, this.getMeta(request));
   }
@@ -151,6 +149,6 @@ export class AuthController {
   }
 
   private getIpAddress(request: Request): string | null {
-    return resolveAuthClientIp(request, this.configService.get<string>("APP_TRUST_PROXY", ""));
+    return resolveAuthClientIp(request);
   }
 }

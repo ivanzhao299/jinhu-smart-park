@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpException, HttpStatus } from "@nestjs/common";
-import { resolveAuthClientIp } from "./auth-client-ip";
+import { parseTrustProxySetting, resolveAuthClientIp } from "./auth-client-ip";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 
 function createService(now: () => number, config: Record<string, string> = {}) {
@@ -185,7 +185,62 @@ test("auth rate limiter separates tenant-scoped mobile code identifiers", () => 
   );
 });
 
-test("auth client IP ignores forwarded header unless trust proxy is enabled", () => {
+test("auth rate limiter separates tenant-scoped mobile login identifiers", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "mobile-login",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:13800000000",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "mobile-login",
+      ipAddress: "10.0.0.1",
+      identifier: "tenant-b:park-a:13800000000",
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("auth rate limiter shares mobile login quota inside the same tenant park mobile scope", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "mobile-login",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:13800000000",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "mobile-login",
+        ipAddress: "10.0.0.1",
+        identifier: "tenant-a:park-a:13800000000",
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("auth client IP uses Express resolved request.ip and does not parse spoofed forwarded headers", () => {
   const request = {
     ip: "172.18.0.4",
     headers: {
@@ -193,7 +248,20 @@ test("auth client IP ignores forwarded header unless trust proxy is enabled", ()
     }
   };
 
-  assert.equal(resolveAuthClientIp(request as never, ""), "172.18.0.4");
-  assert.equal(resolveAuthClientIp(request as never, "false"), "172.18.0.4");
-  assert.equal(resolveAuthClientIp(request as never, "loopback,linklocal,uniquelocal"), "203.0.113.10");
+  assert.equal(resolveAuthClientIp(request as never), "172.18.0.4");
+});
+
+test("auth trust proxy parser preserves numeric hop counts", () => {
+  assert.equal(parseTrustProxySetting(undefined), undefined);
+  assert.equal(parseTrustProxySetting(""), undefined);
+  assert.equal(parseTrustProxySetting("0"), undefined);
+  assert.equal(parseTrustProxySetting("false"), undefined);
+  assert.equal(parseTrustProxySetting("no"), undefined);
+  assert.equal(parseTrustProxySetting("off"), undefined);
+  assert.equal(parseTrustProxySetting("1"), 1);
+  assert.equal(parseTrustProxySetting("2"), 2);
+  assert.equal(parseTrustProxySetting("true"), true);
+  assert.equal(parseTrustProxySetting("yes"), true);
+  assert.equal(parseTrustProxySetting("on"), true);
+  assert.equal(parseTrustProxySetting("loopback,linklocal,uniquelocal"), "loopback,linklocal,uniquelocal");
 });
