@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpException, HttpStatus } from "@nestjs/common";
+import { resolveAuthClientIp } from "./auth-client-ip";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 
-function createService(now: () => number) {
+function createService(now: () => number, config: Record<string, string> = {}) {
   const service = new AuthRateLimitService(
     {
-      get: (_key: string, fallback?: string) => fallback
+      get: (key: string, fallback?: string) => config[key] ?? fallback
     } as never
   );
   service.setClockForTest(now);
@@ -17,8 +18,14 @@ test("auth rate limiter allows requests within threshold", () => {
   let now = 1_000;
   const limiter = createService(() => now);
 
-  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 2, windowMs: 1_000 }), undefined);
-  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 2, windowMs: 1_000 }), undefined);
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 2, windowMs: 1_000 }),
+    undefined
+  );
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 2, windowMs: 1_000 }),
+    undefined
+  );
   now += 1;
 });
 
@@ -43,8 +50,65 @@ test("auth rate limiter isolates different endpoints and IP addresses", () => {
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 });
 
-  assert.equal(limiter.assertAllowed({ endpoint: "refresh", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }), undefined);
-  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "admin", limit: 1, windowMs: 1_000 }), undefined);
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "refresh", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }),
+    undefined
+  );
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "admin", limit: 1, windowMs: 1_000 }),
+    undefined
+  );
+});
+
+test("auth rate limiter blocks identifier rotation with an IP-only bucket", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 2, ipWindowMs: 1_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-b", ipLimit: 2, ipWindowMs: 1_000 });
+
+  assert.throws(
+    () => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-c", ipLimit: 2, ipWindowMs: 1_000 }),
+    HttpException
+  );
+});
+
+test("auth rate limiter keeps credential buckets effective under a higher IP bucket", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: "admin",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: "admin",
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("auth rate limiter IP-only bucket isolates different IP addresses", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin-a", ipLimit: 1, ipWindowMs: 1_000 });
+
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "admin-b", ipLimit: 1, ipWindowMs: 1_000 }),
+    undefined
+  );
 });
 
 test("auth rate limiter allows requests after window reset", () => {
@@ -54,7 +118,10 @@ test("auth rate limiter allows requests after window reset", () => {
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 });
   now = 2_001;
 
-  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }), undefined);
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }),
+    undefined
+  );
 });
 
 test("auth rate limiter can clear in-memory state for deterministic tests", () => {
@@ -63,5 +130,70 @@ test("auth rate limiter can clear in-memory state for deterministic tests", () =
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 });
   limiter.clear();
 
-  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }), undefined);
+  assert.equal(
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", limit: 1, windowMs: 1_000 }),
+    undefined
+  );
+});
+
+test("auth rate limiter prunes expired buckets", () => {
+  let now = 1_000;
+  const limiter = createService(() => now);
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin", windowMs: 1_000, ipWindowMs: 1_000 });
+  assert.equal(limiter.getBucketCountForTest(), 2);
+
+  now = 2_001;
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "next", windowMs: 1_000, ipWindowMs: 1_000 });
+
+  assert.equal(limiter.getBucketCountForTest(), 2);
+});
+
+test("auth rate limiter caps bucket map size", () => {
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_MAX_BUCKETS: "3" });
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", windowMs: 10_000, ipWindowMs: 10_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 10_000, ipWindowMs: 10_000 });
+
+  assert.equal(limiter.getBucketCountForTest(), 3);
+});
+
+test("auth rate limiter separates tenant-scoped mobile code identifiers", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "mobile-send-code",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:13800000000",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "mobile-send-code",
+      ipAddress: "10.0.0.1",
+      identifier: "tenant-b:park-a:13800000000",
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("auth client IP ignores forwarded header unless trust proxy is enabled", () => {
+  const request = {
+    ip: "172.18.0.4",
+    headers: {
+      "x-forwarded-for": "203.0.113.10, 172.18.0.3"
+    }
+  };
+
+  assert.equal(resolveAuthClientIp(request as never, ""), "172.18.0.4");
+  assert.equal(resolveAuthClientIp(request as never, "false"), "172.18.0.4");
+  assert.equal(resolveAuthClientIp(request as never, "loopback,linklocal,uniquelocal"), "203.0.113.10");
 });

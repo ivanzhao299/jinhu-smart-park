@@ -8,6 +8,8 @@ export interface AuthRateLimitRequest {
   identifier?: string | null;
   limit?: number;
   windowMs?: number;
+  ipLimit?: number;
+  ipWindowMs?: number;
 }
 
 interface RateBucket {
@@ -16,6 +18,7 @@ interface RateBucket {
 }
 
 const DEFAULT_WINDOW_MS = 60_000;
+const DEFAULT_MAX_BUCKETS = 10_000;
 const DEFAULT_LIMITS: Record<string, number> = {
   login: 20,
   "token-refresh": 60,
@@ -24,6 +27,15 @@ const DEFAULT_LIMITS: Record<string, number> = {
   "mobile-login": 20,
   "wechat-authorize": 20,
   "wechat-callback": 20
+};
+const DEFAULT_IP_LIMITS: Record<string, number> = {
+  login: 100,
+  "token-refresh": 300,
+  "select-context": 150,
+  "mobile-send-code": 30,
+  "mobile-login": 100,
+  "wechat-authorize": 100,
+  "wechat-callback": 100
 };
 
 @Injectable()
@@ -35,14 +47,51 @@ export class AuthRateLimitService {
 
   assertAllowed(request: AuthRateLimitRequest): void {
     const endpoint = this.normalizePart(request.endpoint || "unknown");
-    const windowMs = request.windowMs ?? this.getWindowMs(endpoint);
-    const limit = request.limit ?? this.getLimit(endpoint);
-    const key = this.buildKey(endpoint, request.ipAddress, request.identifier);
     const currentTime = this.now();
+    this.pruneExpired(currentTime);
+
+    this.consumeBucket({
+      key: this.buildIpKey(endpoint, request.ipAddress),
+      limit: request.ipLimit ?? this.getIpLimit(endpoint),
+      windowMs: request.ipWindowMs ?? this.getIpWindowMs(endpoint),
+      currentTime
+    });
+    this.consumeBucket({
+      key: this.buildCredentialKey(endpoint, request.ipAddress, request.identifier),
+      limit: request.limit ?? this.getLimit(endpoint),
+      windowMs: request.windowMs ?? this.getWindowMs(endpoint),
+      currentTime
+    });
+  }
+
+  clear(): void {
+    this.buckets.clear();
+  }
+
+  setClockForTest(now: () => number): void {
+    this.now = now;
+  }
+
+  getBucketCountForTest(): number {
+    return this.buckets.size;
+  }
+
+  private consumeBucket({
+    key,
+    limit,
+    windowMs,
+    currentTime
+  }: {
+    key: string;
+    limit: number;
+    windowMs: number;
+    currentTime: number;
+  }): void {
     const bucket = this.buckets.get(key);
 
     if (!bucket || bucket.resetAt <= currentTime) {
       this.buckets.set(key, { count: 1, resetAt: currentTime + windowMs });
+      this.enforceMaxBuckets();
       return;
     }
 
@@ -60,18 +109,16 @@ export class AuthRateLimitService {
     bucket.count += 1;
   }
 
-  clear(): void {
-    this.buckets.clear();
-  }
-
-  setClockForTest(now: () => number): void {
-    this.now = now;
-  }
-
   private getLimit(endpoint: string): number {
     const configKey = `AUTH_RATE_LIMIT_${endpoint.toUpperCase().replace(/-/g, "_")}_LIMIT`;
     const configured = Number(this.configService.get<string>(configKey, ""));
     return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_LIMITS[endpoint] ?? 20;
+  }
+
+  private getIpLimit(endpoint: string): number {
+    const configKey = `AUTH_RATE_LIMIT_${endpoint.toUpperCase().replace(/-/g, "_")}_IP_LIMIT`;
+    const configured = Number(this.configService.get<string>(configKey, ""));
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_IP_LIMITS[endpoint] ?? 100;
   }
 
   private getWindowMs(endpoint: string): number {
@@ -80,14 +127,51 @@ export class AuthRateLimitService {
     return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_WINDOW_MS;
   }
 
-  private buildKey(endpoint: string, ipAddress: string | null, identifier?: string | null): string {
+  private getIpWindowMs(endpoint: string): number {
+    const configKey = `AUTH_RATE_LIMIT_${endpoint.toUpperCase().replace(/-/g, "_")}_IP_WINDOW_MS`;
+    const configured = Number(this.configService.get<string>(configKey, ""));
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_WINDOW_MS;
+  }
+
+  private getMaxBuckets(): number {
+    const configured = Number(this.configService.get<string>("AUTH_RATE_LIMIT_MAX_BUCKETS", ""));
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_BUCKETS;
+  }
+
+  private buildIpKey(endpoint: string, ipAddress: string | null): string {
     // Stage A uses single-process in-memory buckets only. Multi-instance deployments
     // should replace this with Redis/DB backed counters in a later WP3 phase.
-    return [
-      endpoint,
-      this.normalizePart(ipAddress ?? "unknown-ip"),
-      this.hashIdentifier(identifier ?? "anonymous")
-    ].join(":");
+    return [endpoint, this.normalizePart(ipAddress ?? "unknown-ip"), "ip"].join(":");
+  }
+
+  private buildCredentialKey(endpoint: string, ipAddress: string | null, identifier?: string | null): string {
+    return [endpoint, this.normalizePart(ipAddress ?? "unknown-ip"), "credential", this.hashIdentifier(identifier ?? "anonymous")].join(":");
+  }
+
+  private pruneExpired(currentTime: number): void {
+    for (const [key, bucket] of this.buckets) {
+      if (bucket.resetAt <= currentTime) {
+        this.buckets.delete(key);
+      }
+    }
+  }
+
+  private enforceMaxBuckets(): void {
+    const maxBuckets = this.getMaxBuckets();
+    if (this.buckets.size <= maxBuckets) {
+      return;
+    }
+    let oldestKey: string | null = null;
+    let oldestResetAt = Number.POSITIVE_INFINITY;
+    for (const [key, bucket] of this.buckets) {
+      if (bucket.resetAt < oldestResetAt) {
+        oldestKey = key;
+        oldestResetAt = bucket.resetAt;
+      }
+    }
+    if (oldestKey) {
+      this.buckets.delete(oldestKey);
+    }
   }
 
   private normalizePart(value: string): string {

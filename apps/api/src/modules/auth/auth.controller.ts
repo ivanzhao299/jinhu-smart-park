@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 import { ClsService } from "nestjs-cls";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
@@ -7,6 +8,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { Public } from "../../shared/decorators/public.decorator";
+import { resolveAuthClientIp } from "./auth-client-ip";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 import { AuthService } from "./auth.service";
 import { type BindIdentityResult, type LoginResult, type MobileCodeResult, type WechatAuthorizeResult, type WechatCallbackResult } from "./auth.service";
@@ -26,6 +28,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     private readonly cls: ClsService,
+    private readonly configService: ConfigService,
     private readonly authRateLimitService: AuthRateLimitService
   ) {}
 
@@ -52,7 +55,7 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "mobile-send-code",
       ipAddress: this.getIpAddress(request),
-      identifier: dto.mobile
+      identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
     });
     return this.authService.sendMobileCode(dto, this.getMeta(request));
   }
@@ -148,6 +151,6 @@ export class AuthController {
   }
 
   private getIpAddress(request: Request): string | null {
-    return request.ip ?? null;
+    return resolveAuthClientIp(request, this.configService.get<string>("APP_TRUST_PROXY", ""));
   }
 }
