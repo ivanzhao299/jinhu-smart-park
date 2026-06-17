@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { parseTrustProxySetting, resolveAuthClientIp } from "./auth-client-ip";
-import { buildPasswordLoginRateLimitIdentifier } from "./auth.controller";
+import { AuthPreValidationRateLimitMiddleware, resolvePublicAuthEndpoint } from "./auth-prevalidation-rate-limit.middleware";
+import { AuthController, buildPasswordLoginRateLimitIdentifier } from "./auth.controller";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 
 function createService(now: () => number, config: Record<string, string> = {}) {
@@ -46,6 +47,16 @@ test("auth rate limiter rejects requests over threshold with HTTP 429", () => {
   }, HttpException);
 });
 
+test("auth rate limiter uses a login default high enough for smoke runs", () => {
+  const limiter = createService(() => 1_000);
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin" });
+  }
+
+  assert.throws(() => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "admin" }), HttpException);
+});
+
 test("auth rate limiter isolates different endpoints and IP addresses", () => {
   const limiter = createService(() => 1_000);
 
@@ -59,6 +70,65 @@ test("auth rate limiter isolates different endpoints and IP addresses", () => {
     limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "admin", limit: 1, windowMs: 1_000 }),
     undefined
   );
+});
+
+test("auth rate limiter stable bucket limits refresh token rotation", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertStableAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", bucket: "refresh-attempt", limit: 2, windowMs: 1_000 });
+  limiter.assertStableAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", bucket: "refresh-attempt", limit: 2, windowMs: 1_000 });
+
+  assert.throws(
+    () => limiter.assertStableAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", bucket: "refresh-attempt", limit: 2, windowMs: 1_000 }),
+    HttpException
+  );
+});
+
+test("auth rate limiter keeps refresh token credential buckets alongside stable bucket", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertStableAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", bucket: "refresh-attempt", limit: 10, windowMs: 1_000 });
+  limiter.assertAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", identifier: "refresh-token-a", limit: 1, windowMs: 1_000 });
+
+  assert.throws(() => limiter.assertAllowed({ endpoint: "token-refresh", ipAddress: "10.0.0.1", identifier: "refresh-token-a", limit: 1, windowMs: 1_000 }), HttpException);
+});
+
+test("auth pre-validation middleware resolves public auth endpoints before DTO validation", () => {
+  assert.equal(
+    resolvePublicAuthEndpoint({ method: "POST", path: "/auth/login", url: "/auth/login", originalUrl: "/api/v1/auth/login" } as never),
+    "login"
+  );
+  assert.equal(
+    resolvePublicAuthEndpoint({ method: "POST", path: "/api/v1/auth/mobile/send-code", url: "/api/v1/auth/mobile/send-code", originalUrl: "/api/v1/auth/mobile/send-code" } as never),
+    "mobile-send-code"
+  );
+});
+
+test("auth pre-validation middleware counts invalid login bodies using a stable bucket", () => {
+  const calls: Array<{ endpoint: string; bucket: string; ipAddress: string | null }> = [];
+  const middleware = new AuthPreValidationRateLimitMiddleware({
+    assertStableAllowed: (request: { endpoint: string; bucket: string; ipAddress: string | null }) => calls.push(request)
+  } as never);
+  let nextCalled = false;
+
+  middleware.use(
+    {
+      method: "POST",
+      path: "/auth/login",
+      url: "/auth/login",
+      originalUrl: "/api/v1/auth/login",
+      ip: "10.0.0.1",
+      headers: {},
+      body: { username: "admin" }
+    } as never,
+    {} as never,
+    () => {
+      nextCalled = true;
+    }
+  );
+
+  assert.equal(nextCalled, true);
+  assert.deepEqual(calls, [{ endpoint: "login", bucket: "pre-validation", ipAddress: "10.0.0.1" }]);
 });
 
 test("auth rate limiter blocks identifier rotation with an IP-only bucket", () => {
@@ -342,6 +412,53 @@ test("auth rate limiter separates tenant-scoped mobile code identifiers", () => 
     }),
     undefined
   );
+});
+
+test("auth controller skips high-cardinality mobile code bucket when SMS auth is disabled", async () => {
+  let credentialBucketCalled = false;
+  const controller = new AuthController(
+    {
+      isSmsLoginEnabled: () => false,
+      sendMobileCode: () => Promise.reject(new Error("sms disabled"))
+    } as never,
+    {} as never,
+    { getId: () => null } as never,
+    {
+      assertAllowed: () => {
+        credentialBucketCalled = true;
+      }
+    } as never
+  );
+
+  await assert.rejects(() =>
+    controller.sendMobileCode(
+      { tenantId: "tenant-a", parkId: "park-a", mobile: "13800000000" },
+      { ip: "10.0.0.1", headers: {} } as never
+    )
+  );
+
+  assert.equal(credentialBucketCalled, false);
+});
+
+test("auth controller applies mobile code credential bucket when SMS auth is enabled", async () => {
+  let credentialBucketCalled = false;
+  const controller = new AuthController(
+    {
+      isSmsLoginEnabled: () => true,
+      sendMobileCode: () => Promise.resolve({ mobile: "138****0000", expiresIn: 300, message: "Verification code sent" })
+    } as never,
+    {} as never,
+    { getId: () => null } as never,
+    {
+      assertAllowed: () => {
+        credentialBucketCalled = true;
+      }
+    } as never
+  );
+
+  await controller.sendMobileCode({ tenantId: "tenant-a", parkId: "park-a", mobile: "13800000000" }, { ip: "10.0.0.1", headers: {} } as never);
+
+  assert.equal(credentialBucketCalled, true);
 });
 
 test("auth rate limiter separates tenant-scoped password login identifiers", () => {

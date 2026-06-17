@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
@@ -7,6 +7,7 @@ import { AuditModule } from "../audit/audit.module";
 import { TenantsModule } from "../tenants/tenants.module";
 import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
+import { AuthPreValidationRateLimitMiddleware } from "./auth-prevalidation-rate-limit.middleware";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 import { AuthService } from "./auth.service";
 import { AuthLoginTicketEntity } from "./entities/auth-login-ticket.entity";
@@ -41,7 +42,19 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     UsersModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRateLimitService, JwtStrategy],
+  providers: [AuthService, AuthRateLimitService, AuthPreValidationRateLimitMiddleware, JwtStrategy],
   exports: [AuthService]
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(AuthPreValidationRateLimitMiddleware).forRoutes(
+      { path: "auth/login", method: RequestMethod.POST },
+      { path: "auth/token/refresh", method: RequestMethod.POST },
+      { path: "auth/select-context", method: RequestMethod.POST },
+      { path: "auth/mobile/send-code", method: RequestMethod.POST },
+      { path: "auth/mobile/login", method: RequestMethod.POST },
+      { path: "auth/wechat/authorize", method: RequestMethod.POST },
+      { path: "auth/wechat/callback", method: RequestMethod.POST }
+    );
+  }
+}

@@ -12,6 +12,14 @@ export interface AuthRateLimitRequest {
   ipWindowMs?: number;
 }
 
+export interface AuthStableRateLimitRequest {
+  endpoint: string;
+  ipAddress: string | null;
+  bucket: string;
+  limit?: number;
+  windowMs?: number;
+}
+
 interface RateBucket {
   count: number;
   resetAt: number;
@@ -20,7 +28,7 @@ interface RateBucket {
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_BUCKETS = 10_000;
 const DEFAULT_LIMITS: Record<string, number> = {
-  login: 20,
+  login: 60,
   "token-refresh": 60,
   "select-context": 30,
   "mobile-send-code": 5,
@@ -36,6 +44,15 @@ const DEFAULT_IP_LIMITS: Record<string, number> = {
   "mobile-login": 100,
   "wechat-authorize": 100,
   "wechat-callback": 100
+};
+const DEFAULT_STABLE_LIMITS: Record<string, number> = {
+  login: 300,
+  "token-refresh": 300,
+  "select-context": 150,
+  "mobile-send-code": 60,
+  "mobile-login": 150,
+  "wechat-authorize": 150,
+  "wechat-callback": 150
 };
 
 @Injectable()
@@ -62,6 +79,18 @@ export class AuthRateLimitService {
       key: this.buildCredentialKey(endpoint, request.ipAddress, request.identifier),
       limit: request.limit ?? this.getLimit(endpoint),
       windowMs: request.windowMs ?? this.getWindowMs(endpoint),
+      currentTime
+    });
+  }
+
+  assertStableAllowed(request: AuthStableRateLimitRequest): void {
+    const endpoint = this.normalizePart(request.endpoint || "unknown");
+    const currentTime = this.now();
+    this.pruneExpired(currentTime);
+    this.consumeBucket({
+      key: this.buildStableKey(endpoint, request.ipAddress, request.bucket),
+      limit: request.limit ?? this.getStableLimit(endpoint),
+      windowMs: request.windowMs ?? this.getStableWindowMs(endpoint),
       currentTime
     });
   }
@@ -130,6 +159,18 @@ export class AuthRateLimitService {
     return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_WINDOW_MS;
   }
 
+  private getStableLimit(endpoint: string): number {
+    const configKey = `AUTH_RATE_LIMIT_${endpoint.toUpperCase().replace(/-/g, "_")}_STABLE_LIMIT`;
+    const configured = Number(this.configService.get<string>(configKey, ""));
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_STABLE_LIMITS[endpoint] ?? 150;
+  }
+
+  private getStableWindowMs(endpoint: string): number {
+    const configKey = `AUTH_RATE_LIMIT_${endpoint.toUpperCase().replace(/-/g, "_")}_STABLE_WINDOW_MS`;
+    const configured = Number(this.configService.get<string>(configKey, ""));
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_WINDOW_MS;
+  }
+
   private getMaxBuckets(): number {
     const configured = Number(this.configService.get<string>("AUTH_RATE_LIMIT_MAX_BUCKETS", ""));
     return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_BUCKETS;
@@ -148,6 +189,10 @@ export class AuthRateLimitService {
 
   private buildCredentialKey(endpoint: string, ipAddress: string | null, identifier?: string | null): string {
     return [endpoint, this.normalizePart(ipAddress ?? "unknown-ip"), "credential", this.hashIdentifier(identifier ?? "anonymous")].join(":");
+  }
+
+  private buildStableKey(endpoint: string, ipAddress: string | null, bucket: string): string {
+    return [endpoint, this.normalizePart(ipAddress ?? "unknown-ip"), "stable", this.normalizePart(bucket)].join(":");
   }
 
   private pruneExpired(currentTime: number): void {

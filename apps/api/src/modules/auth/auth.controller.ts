@@ -50,11 +50,13 @@ export class AuthController {
   @Post("mobile/send-code")
   @HttpCode(200)
   sendMobileCode(@Body() dto: MobileSendCodeDto, @Req() request: Request): Promise<MobileCodeResult> {
-    this.authRateLimitService.assertAllowed({
-      endpoint: "mobile-send-code",
-      ipAddress: this.getIpAddress(request),
-      identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
-    });
+    if (this.authService.isSmsLoginEnabled()) {
+      this.authRateLimitService.assertAllowed({
+        endpoint: "mobile-send-code",
+        ipAddress: this.getIpAddress(request),
+        identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
+      });
+    }
     return this.authService.sendMobileCode(dto, this.getMeta(request));
   }
 
@@ -62,11 +64,13 @@ export class AuthController {
   @Post("mobile/login")
   @HttpCode(200)
   mobileLogin(@Body() dto: MobileLoginDto, @Req() request: Request): Promise<LoginResult> {
-    this.authRateLimitService.assertAllowed({
-      endpoint: "mobile-login",
-      ipAddress: this.getIpAddress(request),
-      identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
-    });
+    if (this.authService.isSmsLoginEnabled()) {
+      this.authRateLimitService.assertAllowed({
+        endpoint: "mobile-login",
+        ipAddress: this.getIpAddress(request),
+        identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
+      });
+    }
     return this.authService.mobileLogin(dto, this.getMeta(request));
   }
 
@@ -74,11 +78,13 @@ export class AuthController {
   @Post("wechat/authorize")
   @HttpCode(200)
   createWechatAuthorization(@Body() dto: WechatAuthorizeDto, @Req() request: Request): Promise<WechatAuthorizeResult> {
-    this.authRateLimitService.assertAllowed({
-      endpoint: "wechat-authorize",
-      ipAddress: this.getIpAddress(request),
-      identifier: [dto.tenantId, dto.parkId ?? "all-parks"].join(":")
-    });
+    if (this.authService.isWechatLoginEnabled()) {
+      this.authRateLimitService.assertAllowed({
+        endpoint: "wechat-authorize",
+        ipAddress: this.getIpAddress(request),
+        identifier: [dto.tenantId, dto.parkId ?? "all-parks"].join(":")
+      });
+    }
     return this.authService.createWechatAuthorization(dto, this.getMeta(request));
   }
 
@@ -86,11 +92,13 @@ export class AuthController {
   @Post("wechat/callback")
   @HttpCode(200)
   wechatCallback(@Body() dto: WechatCallbackDto, @Req() request: Request): Promise<WechatCallbackResult> {
-    this.authRateLimitService.assertAllowed({
-      endpoint: "wechat-callback",
-      ipAddress: this.getIpAddress(request),
-      identifier: dto.state
-    });
+    if (this.authService.isWechatLoginEnabled()) {
+      this.authRateLimitService.assertAllowed({
+        endpoint: "wechat-callback",
+        ipAddress: this.getIpAddress(request),
+        identifier: dto.state
+      });
+    }
     return this.authService.wechatCallback(dto, this.getMeta(request));
   }
 
@@ -118,6 +126,11 @@ export class AuthController {
   @Post("token/refresh")
   @HttpCode(200)
   refresh(@Body() dto: RefreshTokenDto, @Req() request: Request): Promise<LoginResult> {
+    this.authRateLimitService.assertStableAllowed({
+      endpoint: "token-refresh",
+      ipAddress: this.getIpAddress(request),
+      bucket: "refresh-attempt"
+    });
     this.authRateLimitService.assertAllowed({
       endpoint: "token-refresh",
       ipAddress: this.getIpAddress(request),

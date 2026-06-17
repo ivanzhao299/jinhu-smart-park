@@ -57,8 +57,9 @@ If API startup fails after this change, check the auth mock variables first. A p
 
 ### 1.1.1 Public Auth Rate Limits
 
-Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint uses a credential-scoped bucket by default and can optionally use an IP-only bucket:
+Public authentication endpoints use in-process rate-limit buckets as a first-release safety control. Each protected endpoint uses stable and credential-scoped buckets by default and can optionally use an IP-only bucket:
 
+- a stable pre-validation bucket, keyed by endpoint and resolved client source, so malformed public auth requests are counted before DTO validation
 - a credential-scoped bucket, keyed by endpoint, resolved client IP, and a hashed credential identifier
 - an opt-in IP-only bucket, keyed by endpoint and resolved client IP, to reduce username / token / ticket rotation bypasses when the proxy chain makes `request.ip` trustworthy
 
@@ -68,32 +69,50 @@ The supported variables are:
 - `AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED`
 - `AUTH_RATE_LIMIT_LOGIN_LIMIT`
 - `AUTH_RATE_LIMIT_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_LOGIN_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_LOGIN_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_LOGIN_IP_LIMIT`
 - `AUTH_RATE_LIMIT_LOGIN_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_TOKEN_REFRESH_LIMIT`
 - `AUTH_RATE_LIMIT_TOKEN_REFRESH_WINDOW_MS`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_LIMIT`
 - `AUTH_RATE_LIMIT_TOKEN_REFRESH_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_SELECT_CONTEXT_LIMIT`
 - `AUTH_RATE_LIMIT_SELECT_CONTEXT_WINDOW_MS`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_SELECT_CONTEXT_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_LIMIT`
 - `AUTH_RATE_LIMIT_SELECT_CONTEXT_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_LIMIT`
 - `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_LIMIT`
 - `AUTH_RATE_LIMIT_MOBILE_SEND_CODE_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MOBILE_LOGIN_LIMIT`
 - `AUTH_RATE_LIMIT_MOBILE_LOGIN_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_MOBILE_LOGIN_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_LIMIT`
 - `AUTH_RATE_LIMIT_MOBILE_LOGIN_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_LIMIT`
 - `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_LIMIT`
 - `AUTH_RATE_LIMIT_WECHAT_AUTHORIZE_IP_WINDOW_MS`
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_LIMIT`
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_WINDOW_MS`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_STABLE_LIMIT`
+- `AUTH_RATE_LIMIT_WECHAT_CALLBACK_STABLE_WINDOW_MS`
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_LIMIT`
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_WINDOW_MS`
+
+The default `AUTH_RATE_LIMIT_LOGIN_LIMIT` is 60 attempts per minute so the existing serial smoke scripts can perform their reachability checks without tripping the credential bucket. Operators can lower or raise it per deployment.
+
+The token refresh endpoint also uses a stable bucket through `AUTH_RATE_LIMIT_TOKEN_REFRESH_STABLE_LIMIT`, so random refresh-token rotation cannot bypass every limiter when IP-only buckets are disabled.
 
 `AUTH_RATE_LIMIT_MAX_BUCKETS` bounds the process-local bucket map. Expired buckets are pruned before each auth limit check. If the bucket map is still full after pruning, new auth limit buckets fail closed with HTTP 429 instead of evicting active buckets.
 
