@@ -28,8 +28,6 @@ RUN set -eux; \
     done; \
   }; \
   if [ -n "$APT_MIRROR" ]; then \
-    apt_install ca-certificates; \
-    rm -rf /var/lib/apt/lists/*; \
     mirror="${APT_MIRROR%/}"; \
     sed -i -E \
       -e "s|https?://deb.debian.org/debian-security|${mirror}/debian-security|g" \
