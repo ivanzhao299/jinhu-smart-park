@@ -518,9 +518,11 @@ MODE=full pnpm prod:health
 Defaults:
 
 - `MODE=liveness`
-- API liveness URL: `http://127.0.0.1:3001/api/v1/health`
-- API readiness URL: `http://127.0.0.1:3001/api/v1/ready`
+- API liveness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/health`, defaulting to `http://127.0.0.1:3001/api/v1/health`
+- API readiness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/ready`, defaulting to `http://127.0.0.1:3001/api/v1/ready`
 - Web login URL: `http://127.0.0.1:3000/login`
+
+When `API_PUBLISHED_HOST=0.0.0.0` or `::`, the healthcheck script uses `127.0.0.1` for local curl-style checks. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
 
 ## 5. Reverse Proxy
 
@@ -533,7 +535,8 @@ Keep `WEB_ORIGIN` aligned with the browser-facing origin.
 
 If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so Express resolves `request.ip` before auth rate-limit bucketing.
 
-- Default: empty, trust proxy disabled
+- Production compose default: `APP_TRUST_PROXY=1`, because Web rewrites `/api/*` to the private API service and one trusted hop preserves per-client auth IP buckets
+- Local direct API default: empty, trust proxy disabled
 - Single trusted reverse proxy hop: `APP_TRUST_PROXY=1`
 - Two trusted hops: `APP_TRUST_PROXY=2`
 - Express named ranges such as `loopback,linklocal,uniquelocal` are accepted when appropriate

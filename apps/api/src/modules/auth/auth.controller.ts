@@ -37,7 +37,7 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "login",
       ipAddress: this.getIpAddress(request),
-      identifier: [dto.tenantId ?? "unscoped-tenant", dto.parkId ?? "all-parks", dto.username].join(":")
+      identifier: buildPasswordLoginRateLimitIdentifier(dto)
     });
     return this.authService.login(dto, {
       ipAddress: this.getIpAddress(request),
@@ -151,4 +151,11 @@ export class AuthController {
   private getIpAddress(request: Request): string | null {
     return resolveAuthClientIp(request);
   }
+}
+
+export function buildPasswordLoginRateLimitIdentifier(dto: Pick<LoginDto, "tenantId" | "parkId" | "username">): string {
+  if (dto.tenantId && dto.parkId) {
+    return [dto.tenantId, dto.parkId, dto.username].join(":");
+  }
+  return ["unscoped-tenant", "all-parks", dto.username].join(":");
 }

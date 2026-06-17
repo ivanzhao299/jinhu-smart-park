@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpException, HttpStatus } from "@nestjs/common";
 import { parseTrustProxySetting, resolveAuthClientIp } from "./auth-client-ip";
+import { buildPasswordLoginRateLimitIdentifier } from "./auth.controller";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 
 function createService(now: () => number, config: Record<string, string> = {}) {
@@ -242,7 +243,7 @@ test("auth rate limiter separates tenant-scoped password login identifiers", () 
   limiter.assertAllowed({
     endpoint: "login",
     ipAddress: "10.0.0.1",
-    identifier: "tenant-a:park-a:admin",
+    identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-a", username: "admin" }),
     limit: 1,
     windowMs: 1_000,
     ipLimit: 10,
@@ -253,7 +254,34 @@ test("auth rate limiter separates tenant-scoped password login identifiers", () 
     limiter.assertAllowed({
       endpoint: "login",
       ipAddress: "10.0.0.1",
-      identifier: "tenant-b:park-a:admin",
+      identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-b", parkId: "park-a", username: "admin" }),
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("auth rate limiter separates different fully scoped password login identifiers", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-a", username: "admin" }),
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "login",
+      ipAddress: "10.0.0.1",
+      identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-b", username: "admin" }),
       limit: 1,
       windowMs: 1_000,
       ipLimit: 10,
@@ -269,7 +297,7 @@ test("auth rate limiter shares password login quota inside the same tenant park 
   limiter.assertAllowed({
     endpoint: "login",
     ipAddress: "10.0.0.1",
-    identifier: "tenant-a:park-a:admin",
+    identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-a", username: "admin" }),
     limit: 1,
     windowMs: 1_000,
     ipLimit: 10,
@@ -281,7 +309,7 @@ test("auth rate limiter shares password login quota inside the same tenant park 
       limiter.assertAllowed({
         endpoint: "login",
         ipAddress: "10.0.0.1",
-        identifier: "tenant-a:park-a:admin",
+        identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-a", username: "admin" }),
         limit: 1,
         windowMs: 1_000,
         ipLimit: 10,
@@ -297,7 +325,7 @@ test("auth rate limiter uses stable sentinels for unscoped password login identi
   limiter.assertAllowed({
     endpoint: "login",
     ipAddress: "10.0.0.1",
-    identifier: "unscoped-tenant:all-parks:admin",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
     limit: 1,
     windowMs: 1_000,
     ipLimit: 10,
@@ -309,13 +337,96 @@ test("auth rate limiter uses stable sentinels for unscoped password login identi
       limiter.assertAllowed({
         endpoint: "login",
         ipAddress: "10.0.0.1",
-        identifier: "unscoped-tenant:all-parks:admin",
+        identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
         limit: 1,
         windowMs: 1_000,
         ipLimit: 10,
         ipWindowMs: 1_000
       }),
     HttpException
+  );
+});
+
+test("auth rate limiter treats tenant-only password login as unscoped", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", username: "admin" }),
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("auth rate limiter treats park-only password login as unscoped", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: buildPasswordLoginRateLimitIdentifier({ parkId: "park-a", username: "admin" }),
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("auth rate limiter separates fully scoped password login from unscoped login", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "login",
+      ipAddress: "10.0.0.1",
+      identifier: buildPasswordLoginRateLimitIdentifier({ tenantId: "tenant-a", parkId: "park-a", username: "admin" }),
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
   );
 });
 
