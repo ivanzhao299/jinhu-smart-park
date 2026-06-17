@@ -8,7 +8,9 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "node --test --require ts-node/register \"src/**/*.spec.ts\"",
+    "test:coverage": "NODE_V8_COVERAGE=coverage/api node --test --experimental-test-coverage --require ts-node/register \"src/**/*.spec.ts\""
   },
   "dependencies": {
     "@jinhu/shared": "workspace:*",

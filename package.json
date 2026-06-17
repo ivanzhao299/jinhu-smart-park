@@ -11,6 +11,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm run test:e2e",
+    "test:unit": "pnpm --filter @jinhu/api test:unit",
+    "test:coverage": "pnpm --filter @jinhu/api test:coverage",
     "test:e2e": "node scripts/e2e/s1-smoke.mjs && node scripts/e2e/s1-rbac-std-fix-smoke.mjs && node scripts/e2e/s2b-smoke.mjs && node scripts/e2e/s3a-park-tenant-smoke.mjs && node scripts/e2e/s3b-leasing-crm-smoke.mjs && node scripts/e2e/s3c-contract-smoke.mjs && node scripts/e2e/s3d-payment-smoke.mjs && node scripts/e2e/s3d-waiver-smoke.mjs && node scripts/e2e/s3d-invoice-smoke.mjs && node scripts/e2e/s3e-contract-lifecycle-smoke.mjs && node scripts/e2e/s5a-safety-smoke.mjs && node scripts/e2e/s5b-emergency-permit-smoke.mjs",
     "test:e2e:s1-rbac-std-fix": "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
     "test:e2e:s2b": "node scripts/e2e/s2b-smoke.mjs",
