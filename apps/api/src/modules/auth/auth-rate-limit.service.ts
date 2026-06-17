@@ -92,20 +92,15 @@ export class AuthRateLimitService {
     const bucket = this.buckets.get(key);
 
     if (!bucket || bucket.resetAt <= currentTime) {
+      if (!bucket && this.buckets.size >= this.getMaxBuckets()) {
+        this.throwTooManyRequests();
+      }
       this.buckets.set(key, { count: 1, resetAt: currentTime + windowMs });
-      this.enforceMaxBuckets();
       return;
     }
 
     if (bucket.count >= limit) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: "Too many authentication attempts, please try again later",
-          error: "Too Many Requests"
-        },
-        HttpStatus.TOO_MANY_REQUESTS
-      );
+      this.throwTooManyRequests();
     }
 
     bucket.count += 1;
@@ -163,24 +158,6 @@ export class AuthRateLimitService {
     }
   }
 
-  private enforceMaxBuckets(): void {
-    const maxBuckets = this.getMaxBuckets();
-    if (this.buckets.size <= maxBuckets) {
-      return;
-    }
-    let oldestKey: string | null = null;
-    let oldestResetAt = Number.POSITIVE_INFINITY;
-    for (const [key, bucket] of this.buckets) {
-      if (bucket.resetAt < oldestResetAt) {
-        oldestKey = key;
-        oldestResetAt = bucket.resetAt;
-      }
-    }
-    if (oldestKey) {
-      this.buckets.delete(oldestKey);
-    }
-  }
-
   private normalizePart(value: string): string {
     return value.trim().toLowerCase().slice(0, 256) || "empty";
   }
@@ -191,5 +168,16 @@ export class AuthRateLimitService {
 
   private normalizeCredentialPart(value: string): string {
     return value.trim().slice(0, 256) || "empty";
+  }
+
+  private throwTooManyRequests(): never {
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        message: "Too many authentication attempts, please try again later",
+        error: "Too Many Requests"
+      },
+      HttpStatus.TOO_MANY_REQUESTS
+    );
   }
 }

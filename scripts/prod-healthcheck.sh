@@ -15,8 +15,11 @@ fi
 API_PORT="${API_PUBLISHED_PORT:-${APP_PORT:-3001}}"
 API_HOST="${API_PUBLISHED_HOST:-127.0.0.1}"
 case "$API_HOST" in
-  "0.0.0.0"|"::")
+  "0.0.0.0")
     API_HEALTH_HOST="127.0.0.1"
+    ;;
+  "::")
+    API_HEALTH_HOST="::1"
     ;;
   *)
     API_HEALTH_HOST="$API_HOST"

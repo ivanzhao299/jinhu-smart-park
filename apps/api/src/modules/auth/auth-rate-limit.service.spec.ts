@@ -151,6 +151,57 @@ test("auth rate limiter keeps credential identifiers case-sensitive", () => {
   );
 });
 
+test("password login rate limit identifier trims username like auth login", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
+    limit: 1,
+    windowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: buildPasswordLoginRateLimitIdentifier({ username: " admin " }),
+        limit: 1,
+        windowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("password login rate limit identifier keeps username case-sensitive after trim", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: buildPasswordLoginRateLimitIdentifier({ username: "admin" }),
+    limit: 1,
+    windowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "login",
+      ipAddress: "10.0.0.1",
+      identifier: buildPasswordLoginRateLimitIdentifier({ username: " Admin " }),
+      limit: 1,
+      windowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("password login rate limit identifier uses a stable sentinel for blank username", () => {
+  assert.equal(buildPasswordLoginRateLimitIdentifier({ username: "   " }), "unscoped-tenant:all-parks:empty-username");
+});
+
 test("auth rate limiter still normalizes endpoint and IP key parts", () => {
   const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true" });
 
@@ -224,11 +275,44 @@ test("auth rate limiter prunes expired buckets", () => {
   assert.equal(limiter.getBucketCountForTest(), 2);
 });
 
-test("auth rate limiter caps bucket map size", () => {
+test("auth rate limiter fails closed for new keys when bucket map is full", () => {
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_MAX_BUCKETS: "2" });
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", windowMs: 10_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 10_000 });
+
+  assert.equal(limiter.getBucketCountForTest(), 2);
+  assert.throws(() => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.3", identifier: "c", windowMs: 10_000 }), HttpException);
+  assert.equal(limiter.getBucketCountForTest(), 2);
+});
+
+test("auth rate limiter keeps active buckets after bucket map cap is reached", () => {
+  const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_MAX_BUCKETS: "2" });
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", limit: 1, windowMs: 10_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", limit: 1, windowMs: 10_000 });
+  assert.throws(() => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.3", identifier: "c", limit: 1, windowMs: 10_000 }), HttpException);
+
+  assert.throws(() => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", limit: 1, windowMs: 10_000 }), HttpException);
+});
+
+test("auth rate limiter frees bucket capacity after expired buckets are pruned", () => {
+  let now = 1_000;
+  const limiter = createService(() => now, { AUTH_RATE_LIMIT_MAX_BUCKETS: "2" });
+
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", windowMs: 1_000 });
+  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 1_000 });
+  now = 2_001;
+
+  assert.equal(limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.3", identifier: "c", windowMs: 1_000 }), undefined);
+  assert.equal(limiter.getBucketCountForTest(), 1);
+});
+
+test("auth rate limiter caps bucket map size when IP-only buckets are enabled", () => {
   const limiter = createService(() => 1_000, { AUTH_RATE_LIMIT_IP_BUCKETS_ENABLED: "true", AUTH_RATE_LIMIT_MAX_BUCKETS: "3" });
 
   limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.1", identifier: "a", windowMs: 10_000, ipWindowMs: 10_000 });
-  limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 10_000, ipWindowMs: 10_000 });
+  assert.throws(() => limiter.assertAllowed({ endpoint: "login", ipAddress: "10.0.0.2", identifier: "b", windowMs: 10_000, ipWindowMs: 10_000 }), HttpException);
 
   assert.equal(limiter.getBucketCountForTest(), 3);
 });

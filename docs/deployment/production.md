@@ -95,7 +95,7 @@ The supported variables are:
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_LIMIT`
 - `AUTH_RATE_LIMIT_WECHAT_CALLBACK_IP_WINDOW_MS`
 
-`AUTH_RATE_LIMIT_MAX_BUCKETS` bounds the process-local bucket map. Expired buckets are pruned before each auth limit check.
+`AUTH_RATE_LIMIT_MAX_BUCKETS` bounds the process-local bucket map. Expired buckets are pruned before each auth limit check. If the bucket map is still full after pruning, new auth limit buckets fail closed with HTTP 429 instead of evicting active buckets.
 
 This limiter is intentionally process-local for WP3 stage A. Multi-instance production deployments must treat it as transitional protection and should move to Redis/DB backed counters in a later WP3 phase.
 
@@ -523,7 +523,7 @@ Defaults:
 - API readiness URL: `http://$API_PUBLISHED_HOST:$API_PUBLISHED_PORT/api/v1/ready`, defaulting to `http://127.0.0.1:3001/api/v1/ready`
 - Web login URL: `http://127.0.0.1:3000/login`
 
-When `API_PUBLISHED_HOST=0.0.0.0` or `::`, the healthcheck script uses `127.0.0.1` for local curl-style checks. IPv6 literal hosts such as `::1` or `fd00::1` are bracketed in generated URLs. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
+When `API_PUBLISHED_HOST=0.0.0.0`, the healthcheck script uses `127.0.0.1` for local curl-style checks. When `API_PUBLISHED_HOST=::`, it uses IPv6 loopback `::1`. IPv6 literal hosts such as `::1` or `fd00::1` are bracketed in generated URLs. Operators can still override `API_HEALTH_URL` and `API_READY_URL` for custom network paths.
 
 ## 5. Reverse Proxy
 

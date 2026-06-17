@@ -154,8 +154,9 @@ export class AuthController {
 }
 
 export function buildPasswordLoginRateLimitIdentifier(dto: Pick<LoginDto, "tenantId" | "parkId" | "username">): string {
+  const username = dto.username.trim() || "empty-username";
   if (dto.tenantId && dto.parkId) {
-    return [dto.tenantId, dto.parkId, dto.username].join(":");
+    return [dto.tenantId, dto.parkId, username].join(":");
   }
-  return ["unscoped-tenant", "all-parks", dto.username].join(":");
+  return ["unscoped-tenant", "all-parks", username].join(":");
 }
