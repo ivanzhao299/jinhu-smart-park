@@ -14,6 +14,9 @@ interface AuthServiceLockoutFixture {
     clearPasswordFailuresCalls: string[];
     clearExpiredPasswordLockCalls: string[];
     lockoutTriggeredUserIds: Set<string>;
+    latestUsers: Map<string, UserEntity>;
+    refreshPasswordLockoutStateCalls: string[];
+    recordSuccessfulLoginCalls: string[];
   };
   auditMessages: string[];
   auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }>;
@@ -52,6 +55,9 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     clearPasswordFailuresCalls: [] as string[],
     clearExpiredPasswordLockCalls: [] as string[],
     lockoutTriggeredUserIds: new Set<string>(),
+    latestUsers: new Map<string, UserEntity>(),
+    refreshPasswordLockoutStateCalls: [] as string[],
+    recordSuccessfulLoginCalls: [] as string[],
     findLoginCandidatesByUsername: async () => candidates,
     findByUsernameInScope: async () => candidates[0] ?? null,
     recordPasswordFailure: async (user: UserEntity) => {
@@ -68,7 +74,13 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
         : user;
     },
     isPasswordLocked: (user: UserEntity, now: Date) => Boolean(user.passwordLockedUntil && user.passwordLockedUntil.getTime() > now.getTime()),
-    recordSuccessfulLogin: async () => undefined
+    refreshPasswordLockoutState: async (user: UserEntity) => {
+      usersService.refreshPasswordLockoutStateCalls.push(user.id);
+      return usersService.latestUsers.get(user.id) ?? user;
+    },
+    recordSuccessfulLogin: async (_scope: unknown, userId: string) => {
+      usersService.recordSuccessfulLoginCalls.push(userId);
+    }
   };
   const auditMessages: string[] = [];
   const auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }> = [];
@@ -94,7 +106,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     { save: async () => undefined, create: (value: unknown) => value } as never,
     {} as never,
     {} as never,
-    {} as never
+    { save: async () => undefined, create: (value: unknown) => value } as never
   );
 
   return { service, usersService, auditMessages, auditRecords };
@@ -174,6 +186,43 @@ test("auth service rejects a correct password while the user is locked", async (
   assert.equal(auditMessages.at(-1), "Password lockout active");
 });
 
+test("auth service rejects a correct password when latest lockout state becomes active", async () => {
+  const staleUser = await makeUser({ passwordLockedUntil: null });
+  const latestLockedUser = await makeUser({ passwordLockedUntil: new Date(Date.now() + 60_000) });
+  const { service, usersService, auditMessages } = createFixture([staleUser]);
+  usersService.latestUsers.set(staleUser.id, latestLockedUser);
+
+  await assert.rejects(
+    () => service.login(loginDto("Correct#2026"), { ipAddress: "127.0.0.1", userAgent: null }),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(usersService.refreshPasswordLockoutStateCalls, [staleUser.id]);
+  assert.deepEqual(usersService.clearPasswordFailuresCalls, []);
+  assert.deepEqual(usersService.recordSuccessfulLoginCalls, []);
+  assert.equal(auditMessages.at(-1), "Password lockout active");
+});
+
+test("auth service excludes latest locked users from context selection", async () => {
+  const first = await makeUser({ id: "00000000-0000-0000-0000-000000000001", parkId: "20000001" });
+  const second = await makeUser({ id: "00000000-0000-0000-0000-000000000002", parkId: "20000002" });
+  const third = await makeUser({ id: "00000000-0000-0000-0000-000000000003", parkId: "20000003" });
+  const latestSecond = await makeUser({ ...second, passwordLockedUntil: new Date(Date.now() + 60_000) });
+  const { service, usersService } = createFixture([first, second, third]);
+  usersService.latestUsers.set(second.id, latestSecond);
+
+  const result = await service.login(loginDto("Correct#2026", { tenantId: undefined, parkId: undefined }), {
+    ipAddress: "127.0.0.1",
+    userAgent: null
+  });
+
+  assert.equal(result.requiresContextSelection, true);
+  assert.deepEqual(
+    result.contexts?.map((context) => context.userId),
+    [first.id, third.id]
+  );
+});
+
 test("auth service clears password failures after a successful login", async () => {
   const user = await makeUser({ passwordFailedCount: 2, passwordFailedWindowStartedAt: new Date(), lastPasswordFailedAt: new Date() });
   const { service, usersService, auditMessages } = createFixture([user]);
@@ -195,6 +244,25 @@ test("auth service skips password failure state when lockout is disabled", async
   );
 
   assert.deepEqual(usersService.recordPasswordFailureCalls, []);
+});
+
+test("auth service attributes invalid password audit to first actually updated candidate", async () => {
+  const first = await makeUser({ id: "00000000-0000-0000-0000-000000000001", parkId: "20000001", passwordLockedUntil: new Date(Date.now() + 60_000) });
+  const second = await makeUser({ id: "00000000-0000-0000-0000-000000000002", parkId: "20000002" });
+  const { service, usersService, auditRecords } = createFixture([first, second]);
+
+  await assert.rejects(
+    () => service.login(loginDto("Wrong#2026", { tenantId: undefined, parkId: undefined }), { ipAddress: "127.0.0.1", userAgent: null }),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(usersService.recordPasswordFailureCalls, [second.id]);
+  assert.deepEqual(auditRecords.at(-1), {
+    userId: second.id,
+    tenantId: second.tenantId,
+    parkId: second.parkId,
+    message: "Invalid username or password"
+  });
 });
 
 test("auth service does not clear password failures for disabled users", async () => {

@@ -457,22 +457,29 @@ export class UsersService {
     return isPasswordLocked(this.toPasswordLockoutState(user), now);
   }
 
-  async clearExpiredPasswordLockIfNeeded(user: UserEntity, now = new Date()): Promise<UserEntity> {
-    const currentState = this.toPasswordLockoutState(user);
-    const state = resetExpiredPasswordLock(currentState, now);
-    if (this.samePasswordLockoutState(currentState, state)) {
-      return user;
-    }
-    await this.usersRepository.update(
-      { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
-      {
-        passwordFailedCount: state.passwordFailedCount,
-        passwordFailedWindowStartedAt: state.passwordFailedWindowStartedAt,
-        passwordLockedUntil: state.passwordLockedUntil,
-        lastPasswordFailedAt: state.lastPasswordFailedAt
+  async refreshPasswordLockoutState(user: UserEntity, now = new Date()): Promise<UserEntity> {
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return user;
       }
-    );
-    return Object.assign(user, state);
+
+      const currentState = this.toPasswordLockoutState(lockedUser);
+      const state = resetExpiredPasswordLock(currentState, now);
+      if (this.samePasswordLockoutState(currentState, state)) {
+        return lockedUser;
+      }
+      Object.assign(lockedUser, state);
+      return repository.save(lockedUser);
+    });
+  }
+
+  async clearExpiredPasswordLockIfNeeded(user: UserEntity, now = new Date()): Promise<UserEntity> {
+    return this.refreshPasswordLockoutState(user, now);
   }
 
   async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {

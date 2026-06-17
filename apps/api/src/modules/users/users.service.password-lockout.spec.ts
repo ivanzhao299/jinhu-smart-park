@@ -121,3 +121,69 @@ test("users service reset password clears password lockout state", async () => {
   assert.equal(savedUser.lastPasswordFailedAt, null);
   assert.equal(await bcrypt.compare("NewPassword#2026", savedUser.passwordHash), true);
 });
+
+test("users service refreshes latest lockout state under a row lock", async () => {
+  const now = new Date("2026-06-17T08:00:00.000Z");
+  const staleUser = makeUser({ passwordLockedUntil: null });
+  const latestUser = makeUser({
+    passwordFailedCount: 3,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T07:59:00.000Z"),
+    passwordLockedUntil: new Date("2026-06-17T08:15:00.000Z"),
+    lastPasswordFailedAt: new Date("2026-06-17T08:00:00.000Z")
+  });
+  let capturedLockMode: string | undefined;
+  const repository = {
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+        callback({
+          getRepository: () => ({
+            findOne: async (options: { lock?: { mode?: string } }) => {
+              capturedLockMode = options.lock?.mode;
+              return latestUser;
+            },
+            save: async (user: UserEntity) => user
+          })
+        })
+    }
+  };
+  const service = createUsersService(repository);
+
+  const result = await service.refreshPasswordLockoutState(staleUser, now);
+
+  assert.equal(capturedLockMode, "pessimistic_write");
+  assert.equal(result.passwordLockedUntil?.getTime(), latestUser.passwordLockedUntil?.getTime());
+  assert.equal(result.passwordFailedCount, 3);
+});
+
+test("users service refresh clears expired lockout state under the row lock", async () => {
+  const now = new Date("2026-06-17T08:20:00.000Z");
+  const staleUser = makeUser();
+  const latestUser = makeUser({
+    passwordFailedCount: 5,
+    passwordFailedWindowStartedAt: new Date("2026-06-17T07:55:00.000Z"),
+    passwordLockedUntil: new Date("2026-06-17T08:15:00.000Z"),
+    lastPasswordFailedAt: new Date("2026-06-17T08:00:00.000Z")
+  });
+  const savedUsers: UserEntity[] = [];
+  const repository = {
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+        callback({
+          getRepository: () => ({
+            findOne: async () => latestUser,
+            save: async (user: UserEntity) => {
+              savedUsers.push(user);
+              return user;
+            }
+          })
+        })
+    }
+  };
+  const service = createUsersService(repository);
+
+  const result = await service.refreshPasswordLockoutState(staleUser, now);
+
+  assert.equal(savedUsers[0]?.passwordFailedCount, 0);
+  assert.equal(result.passwordLockedUntil, null);
+  assert.equal(result.passwordFailedWindowStartedAt, null);
+});

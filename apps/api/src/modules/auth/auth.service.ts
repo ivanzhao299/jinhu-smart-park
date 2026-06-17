@@ -131,9 +131,7 @@ export class AuthService implements OnModuleInit {
           })
         ].filter((user): user is UserEntity => Boolean(user))
       : await this.usersService.findLoginCandidatesByUsername(username);
-    const candidates = passwordLockoutConfig.enabled
-      ? await Promise.all(rawCandidates.map((user) => this.usersService.clearExpiredPasswordLockIfNeeded(user, now)))
-      : rawCandidates;
+    const candidates = rawCandidates;
 
     if (candidates.length === 0) {
       await this.recordLoginEvent(
@@ -170,10 +168,11 @@ export class AuthService implements OnModuleInit {
           )
         );
       } else {
+        const auditCandidate = failureResults[0]?.user ?? firstCandidate;
         await this.recordLoginEvent(
-          { tenantId: firstCandidate.tenantId, parkId: firstCandidate.parkId, username, loginMethod: "password" },
+          { tenantId: auditCandidate.tenantId, parkId: auditCandidate.parkId, username, loginMethod: "password" },
           meta,
-          firstCandidate.id,
+          auditCandidate.id,
           false,
           "Invalid username or password"
         );
@@ -181,11 +180,14 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("账号或密码错误");
     }
 
+    const latestMatchedUsers = passwordLockoutConfig.enabled
+      ? await Promise.all(matchedUsers.map((user) => this.usersService.refreshPasswordLockoutState(user, now)))
+      : matchedUsers;
     const unlockedMatchedUsers = passwordLockoutConfig.enabled
-      ? matchedUsers.filter((user) => !this.usersService.isPasswordLocked(user, now))
+      ? latestMatchedUsers.filter((user) => !this.usersService.isPasswordLocked(user, now))
       : matchedUsers;
     if (unlockedMatchedUsers.length === 0) {
-      const firstMatchedUser = matchedUsers[0]!;
+      const firstMatchedUser = latestMatchedUsers[0]!;
       await this.recordLoginEvent(
         { tenantId: firstMatchedUser.tenantId, parkId: firstMatchedUser.parkId, username, loginMethod: "password" },
         meta,
