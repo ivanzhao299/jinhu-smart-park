@@ -63,6 +63,15 @@ Reference files:
 - `apps/api/src/modules/leasing-payments/dto/create-leasing-payment.dto.ts`
 - `apps/api/src/modules/leasing-receivables/dto/create-leasing-receivable.dto.ts`
 
+## File Upload Validation
+
+Read `file-upload.md` before changing multipart upload endpoints, file metadata persistence, feature-specific attachment upload routes, or file ID validation.
+
+Reference files:
+- `apps/api/src/modules/files/files.service.ts`
+- `apps/api/src/modules/files/files.controller.ts`
+- `packages/shared/src/index.ts`
+
 ## Response And Error Shape
 
 Successful responses are wrapped by `ResponseInterceptor` as:

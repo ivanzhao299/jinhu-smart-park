@@ -94,6 +94,14 @@ Direct node regression entries:
 - Avoid desktop-only tables for mobile-critical workflows; provide stacked cards, compact summaries, drawers, or task-style layouts when needed.
 - After significant frontend changes, use the browser tool to inspect the actual page before reporting completion, including mobile viewport checks when practical.
 
+## File Upload And Form-Control Baseline
+
+- All attachment upload controls must use the shared upload components and shared upload policies before page-local upload UI is considered.
+- Upload file type, file size, storage association, `biz_type`, `biz_id`, uploaded-file preview, click-to-enlarge behavior, and backend validation must be considered together.
+- Frontend upload validation is UX only; backend upload endpoints must enforce the same MIME and size rules.
+- Numeric, money, count, area, GPS, date, enum, and other constrained inputs must declare appropriate input type, min/max/step/options, select-on-focus behavior for number inputs, and matching backend DTO/service validation.
+- Do not expose native browser file-picker buttons as the visible production UI.
+
 ## Environment And Production Configuration Rules
 
 - Do not commit secrets, tokens, production passwords, or private credentials.

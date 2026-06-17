@@ -5,25 +5,18 @@ import { createReadStream } from "node:fs";
 import { extname } from "node:path";
 import type { Repository } from "typeorm";
 import { ILike } from "typeorm";
-import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import {
+  formatFileSize,
+  getFileUploadLimitForMime,
+  resolveFileUploadPolicy,
+  type PaginatedResult,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { AuditService } from "../audit/audit.service";
 import type { FileQueryDto } from "./dto/file-query.dto";
 import type { UploadFileDto } from "./dto/upload-file.dto";
 import { FileEntity } from "./entities/file.entity";
 import { FileStorageService } from "./storage/file-storage.service";
-
-const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
-  "video/mp4"
-]);
-
-const NORMAL_FILE_LIMIT = 20 * 1024 * 1024;
-const VIDEO_FILE_LIMIT = 100 * 1024 * 1024;
 
 export interface UploadedFilePayload {
   originalname: string;
@@ -55,7 +48,7 @@ export class FilesService {
     if (!file) {
       throw new BadRequestException("file is required");
     }
-    this.validateFile(file);
+    this.validateFile(dto.biz_type, file);
 
     const now = new Date();
     const day = this.formatDay(now);
@@ -165,13 +158,14 @@ export class FilesService {
     return createReadStream(absolutePath);
   }
 
-  private validateFile(file: UploadedFilePayload): void {
-    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      throw new UnsupportedMediaTypeException("Unsupported file type");
+  private validateFile(bizType: string, file: UploadedFilePayload): void {
+    const policy = resolveFileUploadPolicy(bizType);
+    if (!policy.mimeTypes.includes(file.mimetype)) {
+      throw new UnsupportedMediaTypeException(`${policy.label}不支持该文件类型`);
     }
-    const limit = file.mimetype === "video/mp4" ? VIDEO_FILE_LIMIT : NORMAL_FILE_LIMIT;
-    if (file.size > limit) {
-      throw new BadRequestException("File size exceeds limit");
+    const sizeLimit = getFileUploadLimitForMime(policy, file.mimetype);
+    if (file.size > sizeLimit) {
+      throw new BadRequestException(`${policy.label}大小不能超过 ${formatFileSize(sizeLimit)}`);
     }
   }
 

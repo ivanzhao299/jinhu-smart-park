@@ -2,7 +2,7 @@
 
 import { Download, Eye, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
+import { formatFileSize, SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { clearSession } from "../../lib/auth";
 import { getAccessToken } from "../../lib/authz";
@@ -12,12 +12,13 @@ import { FilePreview } from "./FilePreview";
 interface AttachmentListProps {
   bizType: string;
   bizId?: string;
+  compact?: boolean;
   refreshKey?: number;
 }
 
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
 
-export function AttachmentList({ bizType, bizId, refreshKey = 0 }: AttachmentListProps) {
+export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0 }: AttachmentListProps) {
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
   const [message, setMessage] = useState("");
@@ -93,7 +94,38 @@ export function AttachmentList({ bizType, bizId, refreshKey = 0 }: AttachmentLis
   }
 
   return (
-    <section className="work-panel">
+    <section className={compact ? "attachment-list attachment-list-compact" : "work-panel"}>
+      {compact ? (
+        <>
+          <div className="attachment-list-summary">
+            <strong>已上传平面图</strong>
+            <span>{data.total} 个文件</span>
+          </div>
+          {data.items.length > 0 ? (
+            <div className="attachment-compact-list">
+              {data.items.map((item) => (
+                <article className="attachment-compact-item" key={item.id}>
+                  <CompactAttachmentThumb file={item} fetchFileBlob={fetchFileBlob} onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))} />
+                  <div className="attachment-compact-main">
+                    <strong>{item.originalName}</strong>
+                    <span>{item.mimeType} · {formatFileSize(Number(item.fileSize))}</span>
+                  </div>
+                  <span className="attachment-compact-actions">
+                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}>预览</PermissionButton>
+                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}>下载</PermissionButton>
+                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="attachment-empty">暂无平面图文件</p>
+          )}
+          {message ? <p className="status-pill">{message}</p> : null}
+          <FilePreview file={previewFile} objectUrl={previewUrl} onClose={closePreview} />
+        </>
+      ) : (
+        <>
       <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(); }}>
         <div className="field">
           <label htmlFor="fileKeyword">附件关键词</label>
@@ -126,6 +158,62 @@ export function AttachmentList({ bizType, bizId, refreshKey = 0 }: AttachmentLis
       <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
       {message ? <p className="status-pill">{message}</p> : null}
       <FilePreview file={previewFile} objectUrl={previewUrl} onClose={closePreview} />
+        </>
+      )}
     </section>
+  );
+}
+
+function CompactAttachmentThumb({
+  file,
+  fetchFileBlob,
+  onPreview
+}: {
+  file: FileRecord;
+  fetchFileBlob: (file: FileRecord) => Promise<Blob>;
+  onPreview: () => void;
+}) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const isImage = file.mimeType.startsWith("image/");
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    if (!isImage) {
+      setThumbnailUrl(null);
+      return undefined;
+    }
+
+    void fetchFileBlob(file)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setThumbnailUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setThumbnailUrl(null);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.id, isImage]);
+
+  const suffix = file.originalName.includes(".") ? file.originalName.split(".").pop()?.slice(0, 4).toUpperCase() : "FILE";
+
+  if (thumbnailUrl) {
+    return (
+      <button className="attachment-thumb attachment-thumb-image" type="button" onClick={onPreview}>
+        <img alt={file.originalName} src={thumbnailUrl} />
+      </button>
+    );
+  }
+
+  return (
+    <button className="attachment-thumb" type="button" onClick={onPreview}>
+      {suffix}
+    </button>
   );
 }

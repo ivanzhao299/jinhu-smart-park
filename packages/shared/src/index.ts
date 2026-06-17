@@ -18,6 +18,142 @@ export interface PaginatedResult<T> {
   total: number;
 }
 
+export type FileUploadPolicyKey =
+  | "image"
+  | "video"
+  | "pdf"
+  | "spreadsheet"
+  | "floorplan"
+  | "contract"
+  | "receipt"
+  | "general";
+
+export interface FileUploadPolicy {
+  key: FileUploadPolicyKey;
+  label: string;
+  mimeTypes: string[];
+  maxSizeBytes: number;
+  mimeTypeMaxSizeBytes?: Record<string, number>;
+  storageHint: string;
+}
+
+export const FILE_UPLOAD_POLICIES: Record<FileUploadPolicyKey, FileUploadPolicy> = {
+  image: {
+    key: "image",
+    label: "图片",
+    mimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  video: {
+    key: "video",
+    label: "视频",
+    mimeTypes: ["video/mp4"],
+    maxSizeBytes: 100 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  pdf: {
+    key: "pdf",
+    label: "PDF",
+    mimeTypes: ["application/pdf"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  spreadsheet: {
+    key: "spreadsheet",
+    label: "表格",
+    mimeTypes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  floorplan: {
+    key: "floorplan",
+    label: "平面图",
+    mimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  contract: {
+    key: "contract",
+    label: "合同附件",
+    mimeTypes: ["application/pdf"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  receipt: {
+    key: "receipt",
+    label: "票据附件",
+    mimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    maxSizeBytes: 20 * 1024 * 1024,
+    storageHint: "tenant/park/day"
+  },
+  general: {
+    key: "general",
+    label: "通用附件",
+    mimeTypes: [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "video/mp4"
+    ],
+    maxSizeBytes: 20 * 1024 * 1024,
+    mimeTypeMaxSizeBytes: {
+      "video/mp4": 100 * 1024 * 1024
+    },
+    storageHint: "tenant/park/day"
+  }
+};
+
+export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
+  floorplan: "floorplan",
+  unit_floorplan: "floorplan",
+  safety_hazard_before: "image",
+  safety_hazard_after: "image",
+  safety_hazard_rectify: "image",
+  safety_inspect_task_checkin: "image",
+  safety_inspect_task_result: "image",
+  workorder_create: "image",
+  safety_work_permit_check: "image",
+  safety_emergency_event: "image",
+  safety_emergency_review: "pdf",
+  safety_emergency_plan: "pdf",
+  leasing_contract: "contract",
+  leasing_checkout: "receipt",
+  leasing_invoice: "receipt",
+  leasing_payment: "receipt"
+};
+
+export function resolveFileUploadPolicy(policyKeyOrBizType?: string | null): FileUploadPolicy {
+  if (!policyKeyOrBizType) {
+    return FILE_UPLOAD_POLICIES.general;
+  }
+  if (policyKeyOrBizType in FILE_UPLOAD_POLICIES) {
+    return FILE_UPLOAD_POLICIES[policyKeyOrBizType as FileUploadPolicyKey];
+  }
+  const mapped = FILE_UPLOAD_BIZ_POLICY_MAP[policyKeyOrBizType];
+  return mapped ? FILE_UPLOAD_POLICIES[mapped] : FILE_UPLOAD_POLICIES.general;
+}
+
+export function getFileUploadLimitForMime(policy: FileUploadPolicy, mimeType: string): number {
+  return policy.mimeTypeMaxSizeBytes?.[mimeType] ?? policy.maxSizeBytes;
+}
+
+export function formatFileSize(sizeBytes: number): string {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) return "0 B";
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = sizeBytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 export interface AuthUser {
   id: string;
   username: string;

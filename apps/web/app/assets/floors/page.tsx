@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
 
 import { Edit3, Eye, FileUp, Plus, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
@@ -88,6 +88,7 @@ export default function FloorsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const canViewLayoutUrl = canViewField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
   const canEditLayoutUrl = canEditField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
+  const editingFloor = editingId ? pageData.items.find((row) => row.id === editingId) ?? null : null;
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -307,46 +308,75 @@ export default function FloorsPage() {
 
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
-            <div className="task-item">
-              <h2 className="panel-title">{editingId ? "编辑楼层" : "新增楼层"}</h2>
-              <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
-            </div>
-            <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-              <div className="field">
-                <label htmlFor="floorFormBuilding">所属楼栋</label>
-                <select
-                  id="floorFormBuilding"
-                  required
-                  value={form.buildingId}
-                  onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value }))}
-                >
-                  <option value="">请选择楼栋</option>
-                  {buildings.map((building) => (
-                    <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
-                  ))}
-                </select>
-              </div>
-              <TextField label="楼层编码" value={form.floorCode} required placeholder="请输入或生成楼层编码" onChange={(value) => setForm((current) => ({ ...current, floorCode: value }))} />
-              <TextField label="楼层名称" value={form.floorName} required onChange={(value) => setForm((current) => ({ ...current, floorName: value }))} />
-              <NumberField label="楼层号" value={form.floorNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorNo: value }))} />
-              <NumberField label="面积" value={form.floorArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, floorArea: value }))} />
-              <NumberField label="排序号" value={form.sortNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, sortNo: value }))} />
-              <div className="field">
-                <label htmlFor="floorFormStatus">状态</label>
-                <select
-                  id="floorFormStatus"
-                  value={form.status}
-                  onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as FloorStatus }))}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
-              <button className="primary-button" type="submit">保存</button>
-              <button type="button" onClick={() => setShowForm(false)}>取消</button>
-            </form>
+            <DrawerHeader
+              title={editingId ? "编辑楼层" : "新增楼层"}
+              closeIcon={<X size={18} />}
+              onClose={() => setShowForm(false)}
+            />
+            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid>
+                <div className="field ds-form-span-all">
+                  <label htmlFor="floorFormBuilding">所属楼栋</label>
+                  <select
+                    id="floorFormBuilding"
+                    required
+                    value={form.buildingId}
+                    onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value }))}
+                  >
+                    <option value="">请选择楼栋</option>
+                    {buildings.map((building) => (
+                      <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
+                    ))}
+                  </select>
+                </div>
+                <TextField label="楼层编码" value={form.floorCode} required placeholder="请输入或生成楼层编码" onChange={(value) => setForm((current) => ({ ...current, floorCode: value }))} />
+                <TextField label="楼层名称" value={form.floorName} required onChange={(value) => setForm((current) => ({ ...current, floorName: value }))} />
+                <NumberField label="楼层号" value={form.floorNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorNo: value }))} />
+                <NumberField label="面积" value={form.floorArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, floorArea: value }))} />
+                <NumberField label="排序号" value={form.sortNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, sortNo: value }))} />
+                <div className="field">
+                  <label htmlFor="floorFormStatus">状态</label>
+                  <select
+                    id="floorFormStatus"
+                    value={form.status}
+                    onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as FloorStatus }))}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <TextField className="ds-form-span-all" label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
+              </DrawerFormGrid>
+              <DrawerSection title="平面图">
+                {editingFloor ? (
+                  <div className="ds-drawer-upload-panel">
+                    {canEditLayoutUrl ? (
+                      <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT}>
+                        <FileUploader
+                          bizType="floorplan"
+                          bizId={editingFloor.id}
+                          compact
+                          policyKey="floorplan"
+                          uploadPath={`/floors/${editingFloor.id}/layout`}
+                          onUploaded={handleLayoutUploaded}
+                        />
+                      </PermissionGuard>
+                    ) : null}
+                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} /> : null}
+                  </div>
+                ) : (
+                  <div className="ds-drawer-upload-placeholder">
+                    <FileUp size={18} />
+                    <span>保存楼层后上传平面图</span>
+                  </div>
+                )}
+              </DrawerSection>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="primary-button" type="submit">保存</button>
+              </DrawerFooter>
+            </DrawerForm>
           </Drawer>
         ) : null}
 
@@ -361,6 +391,7 @@ export default function FloorsPage() {
                 <FileUploader
                   bizType="floorplan"
                   bizId={layoutTarget.id}
+                  policyKey="floorplan"
                   uploadPath={`/floors/${layoutTarget.id}/layout`}
                   onUploaded={handleLayoutUploaded}
                 />
@@ -405,16 +436,18 @@ function TextField({
   value,
   required,
   placeholder,
+  className,
   onChange
 }: {
   label: string;
   value: string;
   required?: boolean;
   placeholder?: string;
+  className?: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="field">
+    <div className={className ? `field ${className}` : "field"}>
       <label>{label}</label>
       <input value={value} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </div>

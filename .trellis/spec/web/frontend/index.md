@@ -76,6 +76,16 @@ Reference files:
 - `apps/web/components/operations/OperationsTerminalClient.tsx`
 - `apps/web/app/safety/my-inspect-tasks/page.tsx`
 
+## File Uploads And Constrained Inputs
+
+Read `file-upload-and-form-controls.md` before changing upload controls, attachment lists, image/PDF/video previews, numeric inputs, money inputs, GPS fields, enum selects, or other constrained form elements.
+
+Reference files:
+- `apps/web/components/files/FileUploader.tsx`
+- `apps/web/components/files/AttachmentList.tsx`
+- `apps/web/components/files/FilePreview.tsx`
+- `packages/shared/src/index.ts`
+
 ## Local Types
 
 Pages commonly define local row/form interfaces near the page client when the API type is not exported from `@jinhu/shared`. Keep these interfaces specific and explicit rather than using broad `any`.

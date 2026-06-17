@@ -25,7 +25,7 @@
 }
 
 .drawerPanel {
-  --drawer-offset: var(--phoenix-space-3);
+  --drawer-offset: var(--phoenix-space-4);
   --drawer-width: 440px;
 
   position: absolute;
@@ -35,10 +35,10 @@
   width: min(var(--drawer-width), calc(100vw - (var(--drawer-offset) * 2)));
   overflow: auto;
   border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
-  padding: 18px;
+  padding: 24px;
   color: var(--text-primary, var(--phoenix-color-text));
   font-size: 14px;
   line-height: 1.5;
@@ -46,21 +46,21 @@
   animation: drawer-slide-in 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.size-md { --drawer-width: 600px; }
-.size-lg { --drawer-width: 720px; }
+.size-md { --drawer-width: 760px; }
+.size-lg { --drawer-width: 800px; }
 .size-xl { --drawer-width: 900px; }
 
 .drawerHeader {
   position: sticky;
-  top: -18px;
+  top: -24px;
   z-index: 3;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 40px;
   gap: var(--phoenix-space-3);
   align-items: start;
-  margin: -18px -18px 0;
+  margin: -24px -24px 0;
   border-bottom: 1px solid var(--border-soft, var(--phoenix-color-border));
-  padding: 16px 18px 14px;
+  padding: 24px 28px 20px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
@@ -82,7 +82,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--text-primary, var(--phoenix-color-text));
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -103,16 +103,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  min-height: 32px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
   border: 1px solid var(--border-soft, var(--phoenix-color-border));
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 0;
   background: var(--bg-card, var(--phoenix-color-surface));
   color: var(--text-primary, var(--phoenix-color-text));
   box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
   cursor: pointer;
+  font-size: 22px;
+  font-weight: 680;
+  line-height: 1;
   transition: var(--phoenix-transition);
+}
+
+.drawerCloseButton svg {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  stroke-width: 2.25;
 }
 
 .drawerCloseButton:hover {
@@ -171,8 +182,8 @@
 
 .drawerForm {
   display: grid;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 28px;
+  margin-top: 24px;
   padding-bottom: 72px;
 }
 
@@ -192,7 +203,7 @@
 .drawerFormGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 20px 22px;
 }
 
 .drawerFormGridSingle {
@@ -201,14 +212,14 @@
 
 .drawerFooter {
   position: sticky;
-  bottom: -18px;
+  bottom: -24px;
   z-index: 3;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin: 4px -18px -18px;
+  gap: 10px;
+  margin: 0 -24px -24px;
   border-top: 1px solid var(--border-soft, var(--phoenix-color-border));
-  padding: 14px 18px;
+  padding: 18px 28px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
