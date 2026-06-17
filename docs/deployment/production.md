@@ -30,6 +30,7 @@ At minimum set:
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `FILE_STORAGE_LOCAL_ROOT`
+- `API_PUBLISHED_HOST`, if the API published port must bind somewhere other than `127.0.0.1`
 - published ports if `3000`, `3001`, or `5432` are already occupied
 
 Do not commit `.env.production`.
@@ -538,7 +539,11 @@ If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so 
 - Express named ranges such as `loopback,linklocal,uniquelocal` are accepted when appropriate
 - Avoid `APP_TRUST_PROXY=true` unless the deployment intentionally trusts all upstream proxies
 
-Do not rely on manually supplied `X-Forwarded-For` values without an explicit trusted proxy setting.
+The production compose file binds the API published port to `API_PUBLISHED_HOST`, defaulting to `127.0.0.1`, so public traffic should enter through Web / reverse proxy paths instead of directly reaching the API port.
+
+If `APP_TRUST_PROXY=1` or another trust-proxy setting is enabled, keep `API_PUBLISHED_HOST` bound to localhost or another trusted private interface. If the API port must be externally reachable, restrict it with firewall or private-network rules before enabling trust proxy; otherwise direct clients can spoof forwarded IP headers and bypass IP-only auth rate-limit buckets and audit IP attribution.
+
+Do not rely on manually supplied `X-Forwarded-For` values without an explicit trusted proxy setting and a non-public API listener.
 
 ## 6. Optional Infrastructure
 

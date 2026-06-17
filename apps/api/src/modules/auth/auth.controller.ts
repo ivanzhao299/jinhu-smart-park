@@ -37,7 +37,7 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "login",
       ipAddress: this.getIpAddress(request),
-      identifier: dto.username
+      identifier: [dto.tenantId ?? "unscoped-tenant", dto.parkId ?? "all-parks", dto.username].join(":")
     });
     return this.authService.login(dto, {
       ipAddress: this.getIpAddress(request),
@@ -77,7 +77,7 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "wechat-authorize",
       ipAddress: this.getIpAddress(request),
-      identifier: dto.tenantId
+      identifier: [dto.tenantId, dto.parkId ?? "all-parks"].join(":")
     });
     return this.authService.createWechatAuthorization(dto, this.getMeta(request));
   }

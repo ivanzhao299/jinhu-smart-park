@@ -100,6 +100,57 @@ test("auth rate limiter keeps credential buckets effective under a higher IP buc
   );
 });
 
+test("auth rate limiter keeps credential identifiers case-sensitive", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:admin",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "login",
+      ipAddress: "10.0.0.1",
+      identifier: "tenant-a:park-a:Admin",
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("auth rate limiter still normalizes endpoint and IP key parts", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "LOGIN",
+    ipAddress: "LOCALHOST",
+    identifier: "admin-a",
+    ipLimit: 1,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "localhost",
+        identifier: "admin-b",
+        ipLimit: 1,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
 test("auth rate limiter IP-only bucket isolates different IP addresses", () => {
   const limiter = createService(() => 1_000);
 
@@ -182,6 +233,89 @@ test("auth rate limiter separates tenant-scoped mobile code identifiers", () => 
       ipWindowMs: 1_000
     }),
     undefined
+  );
+});
+
+test("auth rate limiter separates tenant-scoped password login identifiers", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:admin",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.equal(
+    limiter.assertAllowed({
+      endpoint: "login",
+      ipAddress: "10.0.0.1",
+      identifier: "tenant-b:park-a:admin",
+      limit: 1,
+      windowMs: 1_000,
+      ipLimit: 10,
+      ipWindowMs: 1_000
+    }),
+    undefined
+  );
+});
+
+test("auth rate limiter shares password login quota inside the same tenant park username scope", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: "tenant-a:park-a:admin",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: "tenant-a:park-a:admin",
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
+  );
+});
+
+test("auth rate limiter uses stable sentinels for unscoped password login identifiers", () => {
+  const limiter = createService(() => 1_000);
+
+  limiter.assertAllowed({
+    endpoint: "login",
+    ipAddress: "10.0.0.1",
+    identifier: "unscoped-tenant:all-parks:admin",
+    limit: 1,
+    windowMs: 1_000,
+    ipLimit: 10,
+    ipWindowMs: 1_000
+  });
+
+  assert.throws(
+    () =>
+      limiter.assertAllowed({
+        endpoint: "login",
+        ipAddress: "10.0.0.1",
+        identifier: "unscoped-tenant:all-parks:admin",
+        limit: 1,
+        windowMs: 1_000,
+        ipLimit: 10,
+        ipWindowMs: 1_000
+      }),
+    HttpException
   );
 });
 

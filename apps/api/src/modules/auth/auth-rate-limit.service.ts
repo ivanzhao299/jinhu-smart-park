@@ -179,6 +179,10 @@ export class AuthRateLimitService {
   }
 
   private hashIdentifier(value: string): string {
-    return createHash("sha256").update(this.normalizePart(value)).digest("hex");
+    return createHash("sha256").update(this.normalizeCredentialPart(value)).digest("hex");
+  }
+
+  private normalizeCredentialPart(value: string): string {
+    return value.trim().slice(0, 256) || "empty";
   }
 }
