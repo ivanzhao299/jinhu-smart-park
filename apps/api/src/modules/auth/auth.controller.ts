@@ -7,6 +7,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { Public } from "../../shared/decorators/public.decorator";
+import { AuthRateLimitService } from "./auth-rate-limit.service";
 import { AuthService } from "./auth.service";
 import { type BindIdentityResult, type LoginResult, type MobileCodeResult, type WechatAuthorizeResult, type WechatCallbackResult } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
@@ -24,13 +25,19 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
-    private readonly cls: ClsService
+    private readonly cls: ClsService,
+    private readonly authRateLimitService: AuthRateLimitService
   ) {}
 
   @Public()
   @Post("login")
   @HttpCode(200)
   login(@Body() dto: LoginDto, @Req() request: Request): Promise<LoginResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "login",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.username
+    });
     return this.authService.login(dto, {
       ipAddress: request.ip ?? null,
       userAgent: request.headers["user-agent"] ?? null,
@@ -42,6 +49,11 @@ export class AuthController {
   @Post("mobile/send-code")
   @HttpCode(200)
   sendMobileCode(@Body() dto: MobileSendCodeDto, @Req() request: Request): Promise<MobileCodeResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "mobile-send-code",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.mobile
+    });
     return this.authService.sendMobileCode(dto, this.getMeta(request));
   }
 
@@ -49,6 +61,11 @@ export class AuthController {
   @Post("mobile/login")
   @HttpCode(200)
   mobileLogin(@Body() dto: MobileLoginDto, @Req() request: Request): Promise<LoginResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "mobile-login",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.mobile
+    });
     return this.authService.mobileLogin(dto, this.getMeta(request));
   }
 
@@ -56,6 +73,11 @@ export class AuthController {
   @Post("wechat/authorize")
   @HttpCode(200)
   createWechatAuthorization(@Body() dto: WechatAuthorizeDto, @Req() request: Request): Promise<WechatAuthorizeResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "wechat-authorize",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.tenantId
+    });
     return this.authService.createWechatAuthorization(dto, this.getMeta(request));
   }
 
@@ -63,6 +85,11 @@ export class AuthController {
   @Post("wechat/callback")
   @HttpCode(200)
   wechatCallback(@Body() dto: WechatCallbackDto, @Req() request: Request): Promise<WechatCallbackResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "wechat-callback",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.state
+    });
     return this.authService.wechatCallback(dto, this.getMeta(request));
   }
 
@@ -78,6 +105,11 @@ export class AuthController {
   @Post("select-context")
   @HttpCode(200)
   selectContext(@Body() dto: SelectContextDto, @Req() request: Request): Promise<LoginResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "select-context",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.ticket
+    });
     return this.authService.selectContext(dto, this.getMeta(request));
   }
 
@@ -85,6 +117,11 @@ export class AuthController {
   @Post("token/refresh")
   @HttpCode(200)
   refresh(@Body() dto: RefreshTokenDto, @Req() request: Request): Promise<LoginResult> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "token-refresh",
+      ipAddress: this.getIpAddress(request),
+      identifier: dto.refreshToken
+    });
     return this.authService.refresh(dto, this.getMeta(request));
   }
 
@@ -104,9 +141,13 @@ export class AuthController {
 
   private getMeta(request: Request) {
     return {
-      ipAddress: request.ip ?? null,
+      ipAddress: this.getIpAddress(request),
       userAgent: request.headers["user-agent"] ?? null,
       requestId: this.cls.getId() ?? null
     };
+  }
+
+  private getIpAddress(request: Request): string | null {
+    return request.ip ?? null;
   }
 }
