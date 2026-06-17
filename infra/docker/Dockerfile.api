@@ -1,19 +1,45 @@
 FROM node:22-bookworm-slim AS deps
 
+ARG APT_MIRROR=
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 RUN corepack enable
 WORKDIR /app
 
-RUN sed -i \
-  -e 's|deb.debian.org/debian|mirrors.aliyun.com/debian|g' \
-  -e 's|security.debian.org/debian-security|mirrors.aliyun.com/debian-security|g' \
-  /etc/apt/sources.list.d/debian.sources
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+  printf '%s\n' \
+    'Acquire::Retries "5";' \
+    'Acquire::http::Timeout "30";' \
+    'Acquire::https::Timeout "30";' \
+    > /etc/apt/apt.conf.d/80-retries-timeouts; \
+  apt_install() { \
+    for attempt in 1 2 3; do \
+      apt-get update \
+        && apt-get install -y --no-install-recommends --fix-missing "$@" \
+        && return 0; \
+      if [ "$attempt" = "3" ]; then \
+        return 1; \
+      fi; \
+      rm -rf /var/lib/apt/lists/*; \
+      sleep $((attempt * 5)); \
+    done; \
+  }; \
+  if [ -n "$APT_MIRROR" ]; then \
+    apt_install ca-certificates; \
+    rm -rf /var/lib/apt/lists/*; \
+    mirror="${APT_MIRROR%/}"; \
+    sed -i -E \
+      -e "s|https?://deb.debian.org/debian-security|${mirror}/debian-security|g" \
+      -e "s|https?://security.debian.org/debian-security|${mirror}/debian-security|g" \
+      -e "s|https?://deb.debian.org/debian|${mirror}/debian|g" \
+      /etc/apt/sources.list.d/debian.sources; \
+    apt_install python3 make g++; \
+  else \
+    apt_install ca-certificates python3 make g++; \
+  fi; \
+  rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/package.json
