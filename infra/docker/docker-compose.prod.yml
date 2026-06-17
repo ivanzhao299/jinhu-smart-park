@@ -23,6 +23,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.api
+      args:
+        APT_MIRROR: ${APT_MIRROR:-}
     container_name: jinhu-smart-park-prod-api
     restart: unless-stopped
     depends_on:
@@ -79,6 +81,7 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile.web
       args:
+        APT_MIRROR: ${APT_MIRROR:-}
         NEXT_PUBLIC_API_TARGET: ${NEXT_PUBLIC_API_TARGET:-http://api:3001}
         NEXT_PUBLIC_API_PREFIX: ${NEXT_PUBLIC_API_PREFIX:-/api/v1}
     container_name: jinhu-smart-park-prod-web
