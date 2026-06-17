@@ -22,6 +22,7 @@ import { AuthOauthStateEntity } from "./entities/auth-oauth-state.entity";
 import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
 import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
 import { UserIdentityEntity } from "./entities/user-identity.entity";
+import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
 import { UsersService } from "../users/users.service";
 import type { UserEntity } from "../users/entities/user.entity";
 
@@ -119,8 +120,10 @@ export class AuthService implements OnModuleInit {
 
   async login(dto: LoginDto, meta: LoginRequestMeta): Promise<LoginResult> {
     const username = dto.username.trim();
+    const passwordLockoutConfig = this.getPasswordLockoutConfig();
+    const now = new Date();
     const scopedLogin = dto.tenantId && dto.parkId;
-    const candidates = scopedLogin
+    const rawCandidates = scopedLogin
       ? [
           await this.usersService.findByUsernameInScope(username, {
             tenantId: dto.tenantId!,
@@ -128,6 +131,9 @@ export class AuthService implements OnModuleInit {
           })
         ].filter((user): user is UserEntity => Boolean(user))
       : await this.usersService.findLoginCandidatesByUsername(username);
+    const candidates = passwordLockoutConfig.enabled
+      ? await Promise.all(rawCandidates.map((user) => this.usersService.clearExpiredPasswordLockIfNeeded(user, now)))
+      : rawCandidates;
 
     if (candidates.length === 0) {
       await this.recordLoginEvent(
@@ -149,19 +155,35 @@ export class AuthService implements OnModuleInit {
 
     if (matchedUsers.length === 0) {
       const firstCandidate = candidates[0]!;
+      const message = await this.recordPasswordFailures(candidates, passwordLockoutConfig, now);
       await this.recordLoginEvent(
         { tenantId: firstCandidate.tenantId, parkId: firstCandidate.parkId, username, loginMethod: "password" },
         meta,
         firstCandidate.id,
         false,
-        "Invalid username or password"
+        message
       );
       throw new UnauthorizedException("账号或密码错误");
     }
 
-    const enabledUsers = matchedUsers.filter((user) => !user.isDeleted && user.isEnabled && user.status !== "disabled");
-    if (enabledUsers.length === 0) {
+    const unlockedMatchedUsers = passwordLockoutConfig.enabled
+      ? matchedUsers.filter((user) => !this.usersService.isPasswordLocked(user, now))
+      : matchedUsers;
+    if (unlockedMatchedUsers.length === 0) {
       const firstMatchedUser = matchedUsers[0]!;
+      await this.recordLoginEvent(
+        { tenantId: firstMatchedUser.tenantId, parkId: firstMatchedUser.parkId, username, loginMethod: "password" },
+        meta,
+        firstMatchedUser.id,
+        false,
+        "Password lockout active"
+      );
+      throw new UnauthorizedException("账号或密码错误");
+    }
+
+    const enabledUsers = unlockedMatchedUsers.filter((user) => !user.isDeleted && user.isEnabled && user.status !== "disabled");
+    if (enabledUsers.length === 0) {
+      const firstMatchedUser = unlockedMatchedUsers[0]!;
       await this.recordLoginEvent(
         { tenantId: firstMatchedUser.tenantId, parkId: firstMatchedUser.parkId, username, loginMethod: "password" },
         meta,
@@ -190,6 +212,7 @@ export class AuthService implements OnModuleInit {
         throw new ConflictException("该账号关联多个租户，请联系管理员设置唯一登录租户");
       }
       const ticket = await this.createLoginTicket(tenantIds[0]!, "password", enabledUsers.map((user) => user.id));
+      await this.clearPasswordFailuresAfterSuccess(enabledUsers, passwordLockoutConfig);
       return {
         requiresContextSelection: true,
         loginTicket: ticket,
@@ -198,6 +221,7 @@ export class AuthService implements OnModuleInit {
     }
 
     const user = enabledUsers[0]!;
+    await this.clearPasswordFailuresAfterSuccess([user], passwordLockoutConfig);
     await this.ensureIdentity(user, "password", user.username);
     return this.issueLoginResult(user, meta, "password", user.username);
   }
@@ -642,6 +666,57 @@ export class AuthService implements OnModuleInit {
       message,
       requestId: meta.requestId ?? null
     });
+  }
+
+  private async recordPasswordFailures(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<string> {
+    if (!config.enabled) {
+      return "Invalid username or password";
+    }
+
+    let lockoutTriggered = false;
+    for (const user of users) {
+      if (this.usersService.isPasswordLocked(user, now)) {
+        continue;
+      }
+      const updatedUser = await this.usersService.recordPasswordFailure(user, config, now);
+      if (this.usersService.isPasswordLocked(updatedUser, now)) {
+        lockoutTriggered = true;
+      }
+    }
+    return lockoutTriggered ? "Password lockout triggered" : "Invalid username or password";
+  }
+
+  private async clearPasswordFailuresAfterSuccess(users: UserEntity[], config: PasswordLockoutConfig): Promise<void> {
+    if (!config.enabled || !config.resetOnSuccess) {
+      return;
+    }
+    await Promise.all(users.map((user) => this.usersService.clearPasswordFailures(user.id)));
+  }
+
+  private getPasswordLockoutConfig(): PasswordLockoutConfig {
+    return normalizePasswordLockoutConfig({
+      enabled: this.readBooleanConfig("AUTH_PASSWORD_LOCKOUT_ENABLED", true),
+      failureLimit: this.readNumberConfig("AUTH_PASSWORD_LOCKOUT_FAILURE_LIMIT"),
+      windowMs: this.readNumberConfig("AUTH_PASSWORD_LOCKOUT_WINDOW_MS"),
+      durationMs: this.readNumberConfig("AUTH_PASSWORD_LOCKOUT_DURATION_MS"),
+      resetOnSuccess: this.readBooleanConfig("AUTH_PASSWORD_LOCKOUT_RESET_ON_SUCCESS", true)
+    });
+  }
+
+  private readNumberConfig(key: string): number | undefined {
+    const configured = Number(this.configService.get<string>(key, ""));
+    return Number.isFinite(configured) ? configured : undefined;
+  }
+
+  private readBooleanConfig(key: string, fallback: boolean): boolean {
+    const configured = (this.configService.get<string>(key, "") ?? "").trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(configured)) {
+      return true;
+    }
+    if (["0", "false", "no", "off"].includes(configured)) {
+      return false;
+    }
+    return fallback;
   }
 
   private async createRefreshToken(user: UserEntity, meta: LoginRequestMeta): Promise<string> {

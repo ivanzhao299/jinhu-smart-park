@@ -16,6 +16,13 @@ import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
+import {
+  clearPasswordLockoutState,
+  evaluatePasswordFailure,
+  isPasswordLocked,
+  resetExpiredPasswordLock,
+  type PasswordLockoutConfig
+} from "../auth/auth-password-lockout.policy";
 import type { AssignRolesDto } from "./dto/assign-roles.dto";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
@@ -413,6 +420,48 @@ export class UsersService {
     );
   }
 
+  async recordPasswordFailure(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<UserEntity> {
+    const currentState = resetExpiredPasswordLock(this.toPasswordLockoutState(user), now);
+    const result = evaluatePasswordFailure(currentState, config, now);
+    await this.usersRepository.update(
+      { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+      {
+        passwordFailedCount: result.state.passwordFailedCount,
+        passwordFailedWindowStartedAt: result.state.passwordFailedWindowStartedAt,
+        passwordLockedUntil: result.state.passwordLockedUntil,
+        lastPasswordFailedAt: result.state.lastPasswordFailedAt
+      }
+    );
+    return Object.assign(user, result.state);
+  }
+
+  async clearPasswordFailures(userId: string): Promise<void> {
+    const state = clearPasswordLockoutState();
+    await this.usersRepository.update({ id: userId, isDeleted: false }, state);
+  }
+
+  isPasswordLocked(user: UserEntity, now: Date): boolean {
+    return isPasswordLocked(this.toPasswordLockoutState(user), now);
+  }
+
+  async clearExpiredPasswordLockIfNeeded(user: UserEntity, now = new Date()): Promise<UserEntity> {
+    const currentState = this.toPasswordLockoutState(user);
+    const state = resetExpiredPasswordLock(currentState, now);
+    if (this.samePasswordLockoutState(currentState, state)) {
+      return user;
+    }
+    await this.usersRepository.update(
+      { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+      {
+        passwordFailedCount: state.passwordFailedCount,
+        passwordFailedWindowStartedAt: state.passwordFailedWindowStartedAt,
+        passwordLockedUntil: state.passwordLockedUntil,
+        lastPasswordFailedAt: state.lastPasswordFailedAt
+      }
+    );
+    return Object.assign(user, state);
+  }
+
   async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {
     await this.getEntityInScope(scope, id);
     const roles = await this.rolesRepository.find({
@@ -549,6 +598,24 @@ export class UsersService {
     if (exists) {
       throw new ConflictException("Username already exists");
     }
+  }
+
+  private toPasswordLockoutState(user: UserEntity) {
+    return {
+      passwordFailedCount: user.passwordFailedCount,
+      passwordFailedWindowStartedAt: user.passwordFailedWindowStartedAt,
+      passwordLockedUntil: user.passwordLockedUntil,
+      lastPasswordFailedAt: user.lastPasswordFailedAt
+    };
+  }
+
+  private samePasswordLockoutState(left: ReturnType<UsersService["toPasswordLockoutState"]>, right: ReturnType<UsersService["toPasswordLockoutState"]>): boolean {
+    return (
+      left.passwordFailedCount === right.passwordFailedCount &&
+      left.passwordFailedWindowStartedAt?.getTime() === right.passwordFailedWindowStartedAt?.getTime() &&
+      left.passwordLockedUntil?.getTime() === right.passwordLockedUntil?.getTime() &&
+      left.lastPasswordFailedAt?.getTime() === right.lastPasswordFailedAt?.getTime()
+    );
   }
 
   private async assertTenantUserLimit(scope: TenantParkScope): Promise<void> {
