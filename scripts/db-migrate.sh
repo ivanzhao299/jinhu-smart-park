@@ -9,9 +9,14 @@ POSTGRES_DB="${POSTGRES_DB:-jinhu_smart_park}"
 MIGRATION_EXECUTED_BY="${MIGRATION_EXECUTED_BY:-${USER:-unknown}}"
 BATCH_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 HISTORY_TABLE="public.sys_schema_migration_history"
+STANDARD_HISTORY_TABLE="public.schema_migrations"
+MIGRATION_BASELINE_ON_NONEMPTY_DB="${MIGRATION_BASELINE_ON_NONEMPTY_DB:-yes}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/jinhu-db-migrate.XXXXXX")"
 FILES_LIST="$TMP_DIR/migrations.txt"
+MANIFEST_LIST="$TMP_DIR/migration-manifest.txt"
+HISTORY_SUCCEEDED_LIST="$TMP_DIR/history-succeeded.txt"
+MISSING_MANIFEST_LIST="$TMP_DIR/migration-missing.txt"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
 sql_escape() {
@@ -45,6 +50,74 @@ CREATE TABLE IF NOT EXISTS public.sys_schema_migration_history (
 );
 CREATE INDEX IF NOT EXISTS idx_sys_schema_migration_history_status_finished_at
   ON public.sys_schema_migration_history (status, finished_at);
+
+CREATE TABLE IF NOT EXISTS public.schema_migrations (
+  id BIGSERIAL PRIMARY KEY,
+  filename varchar(255) NOT NULL UNIQUE,
+  checksum varchar(64) NOT NULL,
+  status varchar(16) NOT NULL CHECK (status IN ('running', 'succeeded', 'failed')),
+  started_at timestamptz NOT NULL,
+  finished_at timestamptz,
+  error_message text,
+  executed_by varchar(255) NOT NULL,
+  batch_id varchar(32) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_schema_migrations_status_finished_at
+  ON public.schema_migrations (status, finished_at);
+
+INSERT INTO public.schema_migrations (
+  filename,
+  checksum,
+  status,
+  started_at,
+  finished_at,
+  error_message,
+  executed_by,
+  batch_id,
+  created_at,
+  updated_at
+)
+SELECT
+  filename,
+  checksum,
+  status,
+  started_at,
+  finished_at,
+  error_message,
+  executed_by,
+  batch_id,
+  created_at,
+  updated_at
+FROM public.sys_schema_migration_history
+ON CONFLICT (filename) DO NOTHING;
+
+INSERT INTO public.sys_schema_migration_history (
+  filename,
+  checksum,
+  status,
+  started_at,
+  finished_at,
+  error_message,
+  executed_by,
+  batch_id,
+  created_at,
+  updated_at
+)
+SELECT
+  filename,
+  checksum,
+  status,
+  started_at,
+  finished_at,
+  error_message,
+  executed_by,
+  batch_id,
+  created_at,
+  updated_at
+FROM public.schema_migrations
+ON CONFLICT (filename) DO NOTHING;
 SQL
 }
 
@@ -55,7 +128,9 @@ ensure_dependency() {
   fi
 }
 
-write_history_row() {
+write_history_row_for_table() {
+  target_table="$1"
+  shift
   filename="$1"
   checksum="$2"
   status="$3"
@@ -77,14 +152,14 @@ write_history_row() {
 
   existing_row="$(psql_query <<SQL
 SELECT status || '|' || checksum
-FROM ${HISTORY_TABLE}
+FROM ${target_table}
 WHERE filename = '${filename_sql}';
 SQL
 )"
 
   if [ -n "$existing_row" ]; then
     psql_exec <<SQL
-UPDATE ${HISTORY_TABLE}
+UPDATE ${target_table}
 SET
   checksum = '${checksum_sql}',
   status = '${status_sql}',
@@ -98,7 +173,7 @@ WHERE filename = '${filename_sql}';
 SQL
   else
     psql_exec <<SQL
-INSERT INTO ${HISTORY_TABLE} (
+INSERT INTO ${target_table} (
   filename,
   checksum,
   status,
@@ -125,6 +200,86 @@ SQL
   fi
 }
 
+write_history_row() {
+  write_history_row_for_table "$HISTORY_TABLE" "$@"
+  write_history_row_for_table "$STANDARD_HISTORY_TABLE" "$@"
+}
+
+build_migration_manifest() {
+  : > "$MANIFEST_LIST"
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    filename="${file##*/}"
+    current_checksum="$(sha256sum "$file" | awk '{ print $1 }')"
+    printf '%s|%s\n' "$filename" "$current_checksum" >> "$MANIFEST_LIST"
+  done < "$FILES_LIST"
+  LC_ALL=C sort -o "$MANIFEST_LIST" "$MANIFEST_LIST"
+}
+
+public_user_table_count() {
+  psql_query <<'SQL'
+SELECT count(*)
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind IN ('r', 'p')
+  AND c.relname NOT IN (
+    'sys_schema_migration_history',
+    'schema_migrations',
+    'spatial_ref_sys'
+  );
+SQL
+}
+
+baseline_nonempty_database_if_needed() {
+  history_count="$(psql_query <<SQL
+SELECT count(*)
+FROM ${HISTORY_TABLE};
+SQL
+)"
+
+  if [ "$history_count" != "0" ]; then
+    return 0
+  fi
+
+  if [ "$MIGRATION_BASELINE_ON_NONEMPTY_DB" != "yes" ]; then
+    return 0
+  fi
+
+  user_table_count="$(public_user_table_count)"
+  if [ "$user_table_count" = "0" ]; then
+    return 0
+  fi
+
+  baseline_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  baseline_count=0
+  echo "BASELINE: non-empty database detected with empty migration history."
+  echo "BASELINE: marking existing migration files as succeeded without executing SQL."
+  while IFS='|' read -r filename checksum; do
+    [ -n "$filename" ] || continue
+    write_history_row "$filename" "$checksum" "succeeded" "$baseline_at" "$baseline_at" "auto baseline for existing non-empty database"
+    baseline_count=$((baseline_count + 1))
+  done < "$MANIFEST_LIST"
+  echo "BASELINE: $baseline_count migration files recorded."
+}
+
+fast_skip_if_manifest_fully_succeeded() {
+  psql_query <<SQL | LC_ALL=C sort > "$HISTORY_SUCCEEDED_LIST"
+SELECT filename || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE status = 'succeeded';
+SQL
+
+  comm -23 "$MANIFEST_LIST" "$HISTORY_SUCCEEDED_LIST" > "$MISSING_MANIFEST_LIST"
+  if [ ! -s "$MISSING_MANIFEST_LIST" ]; then
+    echo "Migration batch id: $BATCH_ID"
+    echo "Migration executed by: $MIGRATION_EXECUTED_BY"
+    echo "Migration file count: $total_count"
+    echo "No new migrations. All migration files are already recorded as succeeded; execution skipped."
+    exit 0
+  fi
+}
+
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "Migration directory not found: $MIGRATIONS_DIR" >&2
   exit 1
@@ -132,6 +287,7 @@ fi
 
 ensure_dependency sha256sum
 ensure_dependency awk
+ensure_dependency comm
 
 find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort > "$FILES_LIST"
 
@@ -141,6 +297,7 @@ if [ ! -s "$FILES_LIST" ]; then
 fi
 
 bootstrap_history_table
+build_migration_manifest
 
 duplicate_prefixes="$(awk '
 {
@@ -170,6 +327,9 @@ skipped_count=0
 success_count=0
 failed_count=0
 last_success_file=""
+
+baseline_nonempty_database_if_needed
+fast_skip_if_manifest_fully_succeeded
 
 echo "Migration batch id: $BATCH_ID"
 echo "Migration executed by: $MIGRATION_EXECUTED_BY"

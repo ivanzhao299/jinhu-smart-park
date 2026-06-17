@@ -382,6 +382,14 @@ AUTH_WECHAT_MOCK_ENABLED=false \
 pnpm db:check:init
 ```
 
+Migration execution behavior:
+
+- `pnpm db:migrate` always bootstraps the migration record tables `public.sys_schema_migration_history` and `public.schema_migrations`.
+- If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command exits immediately and does not re-run individual migrations.
+- If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
+- If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.
+- Set `MIGRATION_BASELINE_ON_NONEMPTY_DB=no` only for controlled diagnostics where automatic baseline must be disabled.
+
 If you are using the production compose file directly, pass both compose-related variables explicitly:
 
 ```bash

@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Form, Input } from "antd";
-import { Building2, LockKeyhole, LogIn, ShieldCheck, UserRound } from "lucide-react";
+import { Building2, FileText, LockKeyhole, LogIn, PlugZap, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { apiRequest } from "../../lib/api-client";
@@ -78,10 +78,12 @@ export default function LoginPage() {
         <div className="signin-copy">
           <span className="signin-kicker">Smart Park Cloud</span>
           <h1>园区数字运营平台</h1>
-          <p>面向资产、现场、安全与设备运行的统一工作入口。</p>
           <div className="signin-capabilities" aria-label="平台能力">
             <span><Building2 size={16} /> 资产运营</span>
+            <span><Store size={16} /> 招商租赁</span>
+            <span><FileText size={16} /> 财务合同</span>
             <span><ShieldCheck size={16} /> 现场安全</span>
+            <span><PlugZap size={16} /> 设备能源</span>
           </div>
         </div>
       </section>

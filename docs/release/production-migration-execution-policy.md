@@ -2,28 +2,33 @@
 
 ## 1. 目的
 
-本文件用于在当前 SQL-first migration 机制尚未引入 execution history、checksum、失败状态追踪和自动回滚能力前，规范生产上线时 migration 的执行、记录、失败处理和风险接受口径。
+本文件用于规范当前 SQL-first migration 机制下的生产上线执行、记录、失败处理和风险接受口径。
 
-本文件属于首发上线前的强缓解文档，不替代后续 migration runner 治理工作。
+当前 migration runner 已具备 execution history、checksum、失败状态追踪、首次 baseline 和无新增迁移快速跳过能力。本文件保留为生产执行 SOP 与风险边界说明，不替代数据库备份、发布冻结和人工复核。
 
 ## 2. 当前机制说明
 
 - 当前 migration 由 `scripts/db-migrate.sh` 执行。
 - 当前 migration 以 `database/migrations` 目录下的 SQL 文件为输入。
-- 当前执行方式为按文件名顺序逐个执行 SQL 文件。
-- 当前没有完整的 execution history 表用于记录某个 migration 是否已经执行、何时执行、执行结果如何。
+- 当前执行方式为按文件名顺序执行未成功记录过的 SQL 文件。
+- 当前使用 `public.sys_schema_migration_history` 作为兼容主记录表，同时维护标准命名表 `public.schema_migrations`。
+- 每个 migration 成功后记录 `filename`、`checksum`、`status`、开始/结束时间、执行人和批次。
+- 部署前会先生成 migration manifest；如果 manifest 中所有文件都已按相同 checksum 记录为 `succeeded`，脚本直接退出，不再逐个陪跑。
+- 如果目标库已有业务表但 migration history 为空，脚本会自动 baseline：把当前仓库所有 migration 文件标记为已成功，不执行旧 SQL，以保护已有生产数据。
+- 如果目标库为空，脚本不会 baseline，会从第一条 migration 正常初始化。
 - 当前没有自动 down migration 机制。
 - 当前生产发布采用 **forward-only** 策略。
 - `production seed` 与 `migration` 是不同职责：
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
 
-当前最小治理状态：
+当前治理状态：
 
-- `scripts/db-migrate.sh` 已引入 `sys_schema_migration_history` 记录表。
-- 成功执行的 migration 会跳过。
+- `scripts/db-migrate.sh` 已引入 `sys_schema_migration_history` 与 `schema_migrations` 记录表。
+- 成功执行的 migration 会跳过；无新增 migration 时会整体快速跳过。
 - `checksum` 不一致会阻断继续执行。
 - `failed` 状态允许在人工确认后修正并重试。
+- 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 
 ## 3. 已知风险
@@ -31,8 +36,8 @@
 当前已知风险如下：
 
 - migration 编号重复风险。
-- 已执行文件无法通过系统表确认。
-- 文件内容事后修改无法自动识别。
+- 已执行文件可以通过 `schema_migrations` 或 `sys_schema_migration_history` 查询确认。
+- 文件内容事后修改会通过 checksum 不一致自动阻断。
 - 半执行失败后需要人工判断数据库状态。
 - 重复执行是否安全依赖 SQL 自身幂等性。
 - 回滚主要依赖数据库备份恢复。
@@ -45,8 +50,8 @@
 
 补充说明：
 
-- `scripts/db-migrate.sh` 仅输出 `Applying migration: <filename>` 到控制台，不会把成功/失败记录落到系统表。
-- 一旦某个 SQL 执行失败，当前只能依赖命令日志、控制台输出、数据库现场和人工核查判断后续动作。
+- `scripts/db-migrate.sh` 会把 running / succeeded / failed 状态写入 migration 记录表。
+- 一旦某个 SQL 执行失败，脚本会写入 failed 状态和错误摘要，并停止后续迁移；后续仍需要人工核查数据库现场后再重试。
 
 ## 4. 风险接受口径
 

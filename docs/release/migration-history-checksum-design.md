@@ -35,11 +35,16 @@
 - 本文件负责 history + checksum 的最小实现设计，进一步定义“怎么把机制做出来”。
 - 两份文档合在一起，形成从风险接受、执行冻结到机制演进的完整路径。
 
-当前最小实现已经落地到 `scripts/db-migrate.sh` 与 `database/migrations/000139_sys_schema_migration_history.sql`。本文件保留为实现契约、验收口径和后续治理路线的统一参考。
+当前实现已经落地到 `scripts/db-migrate.sh` 与 `database/migrations/000139_sys_schema_migration_history.sql`。脚本会维护兼容主表 `public.sys_schema_migration_history` 和标准命名表 `public.schema_migrations`，并支持非空库首次 baseline、checksum 阻断和无新增 migration 快速跳过。本文件保留为实现契约、验收口径和后续治理路线的统一参考。
 
 ## 2. History 表结构设计
 
-建议新增一张专门的 migration 记录表，例如 `sys_schema_migration_history`。
+当前维护两张同结构 migration 记录表：
+
+- `public.sys_schema_migration_history`：历史兼容主表，保留给既有脚本、测试和文档引用。
+- `public.schema_migrations`：标准命名记录表，供新运维习惯和后续工具查询。
+
+脚本启动时会确保两张表存在，并互相补齐缺失记录。写入 running / succeeded / failed 状态时会双写，避免旧链路和新查询口径分裂。
 
 ### 2.1 表目标
 
@@ -53,41 +58,52 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | `uuid` | 主键 |
-| `migration_name` | `varchar` | migration 文件名，例如 `000136_idempotency_request.sql` |
-| `migration_order` | `integer` | 执行顺序，通常取文件排序位置 |
+| `id` | `bigserial` | 主键 |
+| `filename` | `varchar(255)` | migration 文件名，例如 `000136_idempotency_request.sql` |
 | `checksum` | `varchar` | 文件内容的稳定摘要 |
 | `status` | `varchar` | `running` / `succeeded` / `failed` |
 | `started_at` | `timestamptz` | 开始执行时间 |
 | `finished_at` | `timestamptz` | 结束时间 |
 | `executed_by` | `varchar` | 执行人或执行标识 |
-| `executed_commit` | `varchar` | 发布 commit |
 | `error_message` | `text` | 失败摘要 |
-| `error_sqlstate` | `varchar` | 可选，数据库错误码 |
 | `batch_id` | `varchar` | 一次发布批次标识 |
-| `is_current` | `boolean` | 可选，标记当前最新执行记录 |
 | `created_at` | `timestamptz` | 创建时间 |
 | `updated_at` | `timestamptz` | 更新时间 |
 
 ### 2.3 索引与约束建议
 
-建议至少配置以下约束：
+当前至少配置以下约束和索引：
 
-- `unique(migration_name, checksum)`，用于识别“同名同内容”是否已成功执行。
+- `unique(filename)`，用于确保一个 migration 文件只有一个当前状态。
 - `index(status, finished_at)`，用于查询执行中、失败和最近成功记录。
-- `index(migration_name)`，便于快速定位某个文件。
-
-若希望更严格，可增加：
-
-- `unique(migration_name, status)` 的业务约束需要谨慎，避免一个文件保留多次失败记录时受到限制。
+- `checksum` 与 `filename` 配合用于识别“同名文件内容被修改”的风险。
 
 ### 2.4 记录粒度建议
 
-建议保留多条历史记录，而不是只保留一条“最新状态”：
+当前实现保留每个文件一条当前状态记录：
 
-- 同一 migration 文件可以有多次 `failed` 记录。
-- 同一 migration 文件可以有一次或多次 `running` 尝试。
-- 至少保留最终成功记录，便于审计。
+- 成功后保留 `succeeded` 记录和 checksum。
+- 失败后保留 `failed` 记录和错误摘要。
+- 重试同一文件会更新当前记录，避免生产 runner 因重复历史行产生歧义。
+
+后续如需完整审计流水，可在不改变当前表语义的基础上新增 append-only history detail 表。
+
+## 2.5 首次 Baseline 与快速跳过
+
+脚本启动时会生成当前 `database/migrations/*.sql` 的 manifest，内容为 `filename|sha256`。
+
+首次 baseline 规则：
+
+- 若 migration history 为空，且 `public` schema 中已存在非 migration 业务表，判定为“已有数据的生产库 / 存量库”。
+- 在这种情况下，脚本把当前 manifest 中所有 migration 标记为 `succeeded`，不执行任何旧 SQL。
+- 这样可以避免历史建表、历史 seed、历史修补 migration 在已有库上重复执行。
+- 若数据库为空，则不 baseline，正常从第一条 migration 开始初始化。
+
+快速跳过规则：
+
+- 若当前 manifest 中的所有文件都已在 history 中以相同 checksum 记录为 `succeeded`，脚本直接退出。
+- 纯代码部署或没有新增 migration 的部署不会逐个陪跑 migration。
+- 若 manifest 有缺失或 checksum 不一致，则进入逐文件执行 / 校验流程。
 
 ## 3. Checksum 计算规则
 
