@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { InternalServerErrorException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
+import { ForbiddenException, InternalServerErrorException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import {
   applyRefreshTokenCookie,
@@ -55,10 +55,11 @@ function createResponse(): ControllerFixture["response"] {
   } as ControllerFixture["response"];
 }
 
-function createRequest(cookie?: string) {
+function createRequest(cookie?: string, headers: Record<string, string> = {}) {
   return {
     headers: {
       "user-agent": "node-test",
+      ...headers,
       ...(cookie ? { cookie } : {})
     },
     ip: "127.0.0.1"
@@ -288,7 +289,7 @@ test("refresh accepts matching cookie and body tokens and rotates the cookie", a
 
   const result = await controller.refresh(
     { refreshToken: "cookie-refresh" },
-    createRequest("sp_refresh_token=cookie-refresh") as never,
+    createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -326,7 +327,7 @@ test("refresh ignores short body token when cookie token is present", async () =
 
   const result = await controller.refresh(
     { refreshToken: "short" },
-    createRequest("sp_refresh_token=current-cookie-refresh") as never,
+    createRequest("sp_refresh_token=current-cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -341,7 +342,7 @@ test("refresh ignores non-string body token when cookie token is present", async
 
   const result = await controller.refresh(
     { refreshToken: 123 } as never,
-    createRequest("sp_refresh_token=current-cookie-refresh") as never,
+    createRequest("sp_refresh_token=current-cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -379,7 +380,7 @@ test("refresh uses cookie token when body token differs without clearing cookie"
 
   const result = await controller.refresh(
     { refreshToken: "stale-body-refresh" },
-    createRequest("sp_refresh_token=new-cookie-refresh") as never,
+    createRequest("sp_refresh_token=new-cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -389,12 +390,39 @@ test("refresh uses cookie token when body token differs without clearing cookie"
   assert.equal(response.clearCookieCalls.length, 0);
 });
 
+test("refresh with cookie and invalid Origin rejects before token refresh", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    () =>
+      controller.refresh(
+        {},
+        createRequest("sp_refresh_token=cookie-refresh", { origin: "https://evil.example" }) as never,
+        response as never
+      ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("refresh with no cookie keeps body fallback without Origin", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+  const bodyRefreshToken = "b".repeat(32);
+
+  await controller.refresh({ refreshToken: bodyRefreshToken }, createRequest() as never, response as never);
+
+  assert.deepEqual(authService.refreshTokens, [bodyRefreshToken]);
+  assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
+});
+
 test("refresh unauthorized failure preserves the refresh cookie", async () => {
   const { controller, authService, response } = createFixture();
   authService.refreshError = new UnauthorizedException("Refresh token expired");
 
   await assert.rejects(
-    () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
+    () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never, response as never),
     UnauthorizedException
   );
 
@@ -406,7 +434,7 @@ test("refresh server failure preserves the refresh cookie", async () => {
   authService.refreshError = new InternalServerErrorException("database unavailable");
 
   await assert.rejects(
-    () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
+    () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never, response as never),
     InternalServerErrorException
   );
 
@@ -432,7 +460,7 @@ test("logout uses cookie token and clears cookie", async () => {
   const result = await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
     { refreshToken: bodyRefreshToken },
-    createRequest(`sp_refresh_token=${cookieRefreshToken}`) as never,
+    createRequest(`sp_refresh_token=${cookieRefreshToken}`, { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -448,7 +476,7 @@ test("logout revokes matching cookie and body token only once", async () => {
   await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
     { refreshToken },
-    createRequest(`sp_refresh_token=${refreshToken}`) as never,
+    createRequest(`sp_refresh_token=${refreshToken}`, { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -499,11 +527,29 @@ test("logout ignores invalid body token fallback", async () => {
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
+test("logout with cookie and invalid Origin rejects before token revoke and does not clear cookie", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    () =>
+      controller.logout(
+        { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
+        {},
+        createRequest("sp_refresh_token=cookie-refresh", { origin: "https://evil.example" }) as never,
+        response as never
+      ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.logoutTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
 test("public cookie logout is rate limited before revoking cookie token", async () => {
   const { controller, authService, response, rateLimitCalls } = createFixture();
 
   const result = await controller.logoutCookie(
-    createRequest("sp_refresh_token=cookie-refresh") as never,
+    createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 
@@ -521,10 +567,27 @@ test("public cookie logout rate limit failure does not revoke or clear cookie", 
   };
 
   await assert.rejects(
-    () => controller.logoutCookie(createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
+    () => controller.logoutCookie(createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never, response as never),
     limiterError
   );
 
+  assert.deepEqual(authService.logoutCookieTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("public cookie logout with invalid Origin is rate limited but does not revoke or clear cookie", async () => {
+  const { controller, authService, response, rateLimitCalls } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    () =>
+      controller.logoutCookie(
+        createRequest("sp_refresh_token=cookie-refresh", { origin: "https://evil.example" }) as never,
+        response as never
+      ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(rateLimitCalls, [{ endpoint: "logout-cookie", bucket: "logout-cookie", ipAddress: "127.0.0.1" }]);
   assert.deepEqual(authService.logoutCookieTokens, []);
   assert.equal(response.clearCookieCalls.length, 0);
 });
@@ -544,7 +607,7 @@ test("public cookie logout hides revoke failures while clearing cookie", async (
   authService.logoutCookieError = new UnauthorizedException("Refresh token expired");
 
   const result = await controller.logoutCookie(
-    createRequest("sp_refresh_token=cookie-refresh") as never,
+    createRequest("sp_refresh_token=cookie-refresh", { origin: "http://localhost:3000" }) as never,
     response as never
   );
 

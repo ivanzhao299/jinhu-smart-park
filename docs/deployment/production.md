@@ -144,12 +144,21 @@ The supported variables are:
 - `AUTH_REFRESH_COOKIE_SECURE`, default `true` in production compose and `false` in local examples
 - `AUTH_REFRESH_COOKIE_DOMAIN`, default empty, which leaves the cookie host-only
 - `AUTH_REFRESH_TOKEN_BODY_COMPAT`, default `true`, which keeps body `refreshToken` responses and accepts body refresh-token request fallback during the compatibility period
+- `AUTH_COOKIE_ORIGIN_CHECK_ENABLED`, default `true`, which enables Origin / Referer checks for cookie-bearing refresh / logout requests
+- `AUTH_ALLOWED_ORIGINS`, default empty; when empty, the API falls back to `WEB_ORIGIN`
+- `AUTH_COOKIE_ORIGIN_ALLOW_MISSING`, default `false`, which rejects cookie-bearing refresh / logout requests without both `Origin` and `Referer`
 
 Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKIE_SAMESITE=none` is required for a cross-site Web / API deployment, Secure is mandatory and the API helper will force the cookie to Secure. Keep `AUTH_REFRESH_COOKIE_DOMAIN` empty unless a same-parent-domain deployment explicitly requires a shared domain and the security impact has been reviewed.
 
 `POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` only when the cookie is absent and `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`. If both sources are present and differ, the cookie token wins; this preserves newer rotated cookies when an older JS-readable body token is still present in another tab. Refresh 401 errors from stale retries do not clear the cookie, so a later stale response cannot delete a newer rotated cookie that already reached the browser.
 
 `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, revokes both distinct cookie and body tokens when both are present, and always sends a clear-cookie header. `POST /api/v1/auth/logout-cookie` is public and exists only to revoke the refresh cookie token when possible and clear the HttpOnly cookie after an access JWT has expired; it does not require an access token and returns a generic success response without exposing token state.
+
+Cookie-bearing `POST /api/v1/auth/token/refresh`, `POST /api/v1/auth/logout`, and `POST /api/v1/auth/logout-cookie` requests are protected by Origin / Referer allowlist checks. The API compares the request `Origin` first, then the `Referer` origin, against `AUTH_ALLOWED_ORIGINS` or `WEB_ORIGIN` when the allowlist is empty. Invalid origins are rejected before refresh token service work and do not revoke or clear the cookie. Requests without a refresh cookie keep the body refresh-token compatibility path, so non-browser clients without `Origin` can continue to use body fallback while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`.
+
+Keep `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` in production. Set `AUTH_COOKIE_ORIGIN_CHECK_ENABLED=false` only as an emergency rollback for a confirmed origin configuration issue. If multiple browser-facing origins are required, set `AUTH_ALLOWED_ORIGINS` as a comma-separated exact origin list, for example `https://app.example,https://admin.example`.
+
+`AUTH_ALLOWED_ORIGINS` only controls the refresh-cookie Origin / Referer hardening decision. It does not change the API CORS policy by itself. The current API CORS configuration still uses `WEB_ORIGIN`; deployments that need multiple browser-facing origins must keep CORS and `AUTH_ALLOWED_ORIGINS` aligned, or add explicit multi-origin CORS support in a separate reviewed change before relying on additional browser origins.
 
 The Web app now sends API requests with credentials so the browser can carry `sp_refresh_token`. It no longer writes refresh tokens to `sessionStorage` or `localStorage`; session writes clear the legacy `jinhu_refresh_token` key while preserving the existing access token and user storage strategy. Access token in-memory migration is intentionally left for a later WP3 step.
 
