@@ -70,10 +70,10 @@ export async function logoutSession(): Promise<void> {
   const token = getToken();
   const legacyRefreshToken = getRefreshToken();
   try {
+    await postLogoutCookie().catch(() => undefined);
     if (token) {
       await postLogout(token, legacyRefreshToken).catch(() => undefined);
     }
-    await postLogoutCookie().catch(() => undefined);
   } finally {
     clearSession();
   }

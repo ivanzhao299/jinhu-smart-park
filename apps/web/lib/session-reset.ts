@@ -70,8 +70,17 @@ export function clearLocalSessionStorage(): void {
 function isCurrentAccessToken(requestToken: string): boolean {
   const sessionToken = sessionStorage.getItem(TOKEN_KEY) ?? "";
   const localToken = localStorage.getItem(TOKEN_KEY) ?? "";
+  if (sessionToken && localToken && sessionToken !== localToken) {
+    if (localToken === requestToken) {
+      clearSessionStorageOnly();
+      return true;
+    }
+    if (sessionToken === requestToken) {
+      clearSessionStorageOnly();
+    }
+    return false;
+  }
   if (localToken && localToken !== requestToken) {
-    reconcileStaleSessionStorage(requestToken, sessionToken);
     return false;
   }
   if (sessionToken && sessionToken !== requestToken) {
@@ -84,10 +93,7 @@ function hasStoredAccessToken(): boolean {
   return Boolean(sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY));
 }
 
-function reconcileStaleSessionStorage(requestToken: string, sessionToken: string): void {
-  if (sessionToken !== requestToken) {
-    return;
-  }
+function clearSessionStorageOnly(): void {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);

@@ -100,6 +100,33 @@ test("handleUnauthorizedSessionReset treats session-only matches as stale when l
   assert.equal(location.href, "");
 });
 
+test("handleUnauthorizedSessionReset resets when localStorage token is the failed current token", async () => {
+  const { session, local, location } = installBrowserStorage();
+  session.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", "{\"id\":\"old\"}");
+  session.setItem("jinhu_refresh_token", "old-refresh");
+  local.setItem("jinhu_access_token", "current-token");
+  local.setItem("jinhu_auth_user", "{\"id\":\"current\"}");
+  local.setItem("jinhu_refresh_token", "legacy-refresh");
+  const calls = installFetchRecorder();
+
+  const handled = await handleUnauthorizedSessionReset({
+    path: "/users/me",
+    requestToken: "current-token",
+    redirect: true
+  });
+
+  assert.equal(handled, true);
+  assert.equal(calls[0]?.input, "/api/v1/auth/logout-cookie");
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(session.getItem("jinhu_refresh_token"), null);
+  assert.equal(local.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_auth_user"), null);
+  assert.equal(local.getItem("jinhu_refresh_token"), null);
+  assert.equal(location.href, "/login");
+});
+
 test("handleUnauthorizedSessionReset does not remove unrelated session token while ignoring stale requests", async () => {
   const { session, local, location } = installBrowserStorage();
   session.setItem("jinhu_access_token", "other-token");
