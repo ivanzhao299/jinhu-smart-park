@@ -46,7 +46,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       }
       return false;
     };
-    const loadCurrentUser = (requestToken: string) => fetchCurrentUser()
+    const loadCurrentUser = (requestToken: string) => fetchCurrentUser({ requestToken })
       .then((currentUser) => {
         if (reloadIfTokenChanged(requestToken)) {
           return;
