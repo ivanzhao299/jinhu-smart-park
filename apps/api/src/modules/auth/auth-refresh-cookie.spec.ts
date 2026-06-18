@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
+import { InternalServerErrorException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import {
   applyRefreshTokenCookie,
@@ -9,7 +9,7 @@ import {
   readRefreshTokenCookie
 } from "./auth-refresh-cookie";
 import type { LoginResult, WechatCallbackResult } from "./auth.service";
-import type { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 interface CookieCall {
   name: string;
@@ -63,6 +63,15 @@ function createRequest(cookie?: string) {
     },
     ip: "127.0.0.1"
   };
+}
+
+async function validateRefreshTokenDto(body: Record<string, unknown>): Promise<RefreshTokenDto> {
+  const pipe = new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true
+  });
+  return pipe.transform(body, { type: "body", metatype: RefreshTokenDto }) as Promise<RefreshTokenDto>;
 }
 
 function loginResult(refreshToken = "refresh-next"): LoginResult {
@@ -187,6 +196,14 @@ test("refresh token cookie parser reads only the configured cookie", () => {
   assert.equal(readRefreshTokenCookie(createRequest("other=abc") as never, config), null);
 });
 
+test("refresh token DTO allows invalid body tokens for cookie-first handling", async () => {
+  const shortToken = await validateRefreshTokenDto({ refreshToken: "short" });
+  const nonStringToken = await validateRefreshTokenDto({ refreshToken: 123 });
+
+  assert.equal(shortToken.refreshToken, "short");
+  assert.equal(nonStringToken.refreshToken, 123);
+});
+
 test("login sets HttpOnly refresh cookie while keeping body refresh token during compatibility", async () => {
   const { controller, response } = createFixture();
 
@@ -282,23 +299,78 @@ test("refresh accepts matching cookie and body tokens and rotates the cookie", a
 
 test("refresh falls back to body token when cookie is absent", async () => {
   const { controller, authService, response } = createFixture();
+  const bodyRefreshToken = "b".repeat(32);
 
-  await controller.refresh({ refreshToken: "body-refresh" }, createRequest() as never, response as never);
+  await controller.refresh({ refreshToken: bodyRefreshToken }, createRequest() as never, response as never);
 
-  assert.deepEqual(authService.refreshTokens, ["body-refresh"]);
+  assert.deepEqual(authService.refreshTokens, [bodyRefreshToken]);
   assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
 });
 
 test("refresh rejects body fallback when body compatibility is disabled", async () => {
   const { controller, authService, response } = createFixture({ AUTH_REFRESH_TOKEN_BODY_COMPAT: "false" });
+  const bodyRefreshToken = "b".repeat(32);
 
   await assert.rejects(
-    () => controller.refresh({ refreshToken: "body-refresh" }, createRequest() as never, response as never),
+    () => controller.refresh({ refreshToken: bodyRefreshToken }, createRequest() as never, response as never),
     UnauthorizedException
   );
 
   assert.deepEqual(authService.refreshTokens, []);
   assert.equal(response.cookieCalls.length, 0);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("refresh ignores short body token when cookie token is present", async () => {
+  const { controller, authService, response } = createFixture();
+
+  const result = await controller.refresh(
+    { refreshToken: "short" },
+    createRequest("sp_refresh_token=current-cookie-refresh") as never,
+    response as never
+  );
+
+  assert.equal(result.refreshToken, "rotated-refresh");
+  assert.deepEqual(authService.refreshTokens, ["current-cookie-refresh"]);
+  assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("refresh ignores non-string body token when cookie token is present", async () => {
+  const { controller, authService, response } = createFixture();
+
+  const result = await controller.refresh(
+    { refreshToken: 123 } as never,
+    createRequest("sp_refresh_token=current-cookie-refresh") as never,
+    response as never
+  );
+
+  assert.equal(result.refreshToken, "rotated-refresh");
+  assert.deepEqual(authService.refreshTokens, ["current-cookie-refresh"]);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("refresh rejects short body token when cookie is absent", async () => {
+  const { controller, authService, response } = createFixture();
+
+  await assert.rejects(
+    () => controller.refresh({ refreshToken: "short" }, createRequest() as never, response as never),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("refresh rejects non-string body token when cookie is absent", async () => {
+  const { controller, authService, response } = createFixture();
+
+  await assert.rejects(
+    () => controller.refresh({ refreshToken: 123 } as never, createRequest() as never, response as never),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
@@ -354,44 +426,48 @@ test("refresh missing token clears the refresh cookie", async () => {
 
 test("logout uses cookie token and clears cookie", async () => {
   const { controller, authService, response } = createFixture();
+  const bodyRefreshToken = "b".repeat(32);
+  const cookieRefreshToken = "c".repeat(32);
 
   const result = await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
-    { refreshToken: "body-refresh" },
-    createRequest("sp_refresh_token=cookie-refresh") as never,
+    { refreshToken: bodyRefreshToken },
+    createRequest(`sp_refresh_token=${cookieRefreshToken}`) as never,
     response as never
   );
 
   assert.deepEqual(result, { userId: "00000000-0000-0000-0000-000000000001" });
-  assert.deepEqual(authService.logoutTokens, ["cookie-refresh", "body-refresh"]);
+  assert.deepEqual(authService.logoutTokens, [cookieRefreshToken, bodyRefreshToken]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
 test("logout revokes matching cookie and body token only once", async () => {
   const { controller, authService, response } = createFixture();
+  const refreshToken = "s".repeat(32);
 
   await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
-    { refreshToken: "same-refresh" },
-    createRequest("sp_refresh_token=same-refresh") as never,
+    { refreshToken },
+    createRequest(`sp_refresh_token=${refreshToken}`) as never,
     response as never
   );
 
-  assert.deepEqual(authService.logoutTokens, ["same-refresh"]);
+  assert.deepEqual(authService.logoutTokens, [refreshToken]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
 test("logout falls back to body token when cookie is absent", async () => {
   const { controller, authService, response } = createFixture();
+  const bodyRefreshToken = "b".repeat(32);
 
   await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
-    { refreshToken: "body-refresh" },
+    { refreshToken: bodyRefreshToken },
     createRequest() as never,
     response as never
   );
 
-  assert.deepEqual(authService.logoutTokens, ["body-refresh"]);
+  assert.deepEqual(authService.logoutTokens, [bodyRefreshToken]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
@@ -401,6 +477,20 @@ test("logout ignores body token when body compatibility is disabled", async () =
   await controller.logout(
     { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
     { refreshToken: "body-refresh" },
+    createRequest() as never,
+    response as never
+  );
+
+  assert.deepEqual(authService.logoutTokens, [undefined]);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("logout ignores invalid body token fallback", async () => {
+  const { controller, authService, response } = createFixture();
+
+  await controller.logout(
+    { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
+    { refreshToken: 123 } as never,
     createRequest() as never,
     response as never
   );

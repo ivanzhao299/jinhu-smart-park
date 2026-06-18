@@ -246,14 +246,14 @@ export class AuthController {
 
   private resolveRefreshTokenForRefresh(
     cookieRefreshToken: string | null,
-    bodyRefreshToken: string | undefined,
+    bodyRefreshToken: unknown,
     response: Response,
     cookieConfig: RefreshCookieConfig
   ): string {
     if (cookieRefreshToken) {
       return cookieRefreshToken;
     }
-    const refreshToken = cookieConfig.bodyCompat ? bodyRefreshToken : undefined;
+    const refreshToken = cookieConfig.bodyCompat ? this.readBodyRefreshToken(bodyRefreshToken) : undefined;
     if (!refreshToken) {
       clearRefreshTokenCookie(response, cookieConfig);
       throw new UnauthorizedException("Refresh token expired");
@@ -263,13 +263,23 @@ export class AuthController {
 
   private resolveRefreshTokensForLogout(
     cookieRefreshToken: string | null,
-    bodyRefreshToken: string | undefined,
+    bodyRefreshToken: unknown,
     cookieConfig: RefreshCookieConfig
   ): string[] {
-    const tokens = [cookieRefreshToken, cookieConfig.bodyCompat ? bodyRefreshToken : undefined].filter(
+    const tokens = [cookieRefreshToken, cookieConfig.bodyCompat ? this.readBodyRefreshToken(bodyRefreshToken) : undefined].filter(
       (token): token is string => Boolean(token)
     );
     return [...new Set(tokens)];
+  }
+
+  private readBodyRefreshToken(bodyRefreshToken: unknown): string | undefined {
+    if (typeof bodyRefreshToken !== "string") {
+      return undefined;
+    }
+    if (bodyRefreshToken.length < 32 || bodyRefreshToken.length > 256) {
+      return undefined;
+    }
+    return bodyRefreshToken;
   }
 }
 
