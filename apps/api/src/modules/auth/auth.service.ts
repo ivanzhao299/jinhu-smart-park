@@ -23,7 +23,7 @@ import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
 import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
 import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
-import { UsersService, type PasswordFailureRecordResult } from "../users/users.service";
+import { UsersService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/users.service";
 import type { UserEntity } from "../users/entities/user.entity";
 
 export interface LoginContextOption {
@@ -131,7 +131,9 @@ export class AuthService implements OnModuleInit {
           })
         ].filter((user): user is UserEntity => Boolean(user))
       : await this.usersService.findLoginCandidatesByUsername(username);
-    const candidates = rawCandidates;
+    const candidates = passwordLockoutConfig.enabled
+      ? await Promise.all(rawCandidates.map((user) => this.usersService.refreshPasswordLockoutState(user, now)))
+      : rawCandidates;
 
     if (candidates.length === 0) {
       await this.recordLoginEvent(
@@ -144,16 +146,36 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("账号或密码错误");
     }
 
+    const lockedCandidates = passwordLockoutConfig.enabled
+      ? candidates.filter((user) => this.usersService.isPasswordLocked(user, now))
+      : [];
+    if (lockedCandidates.length > 0) {
+      await Promise.all(
+        lockedCandidates.map((user) =>
+          this.recordLoginEvent(
+            { tenantId: user.tenantId, parkId: user.parkId, username, loginMethod: "password" },
+            meta,
+            user.id,
+            false,
+            "Password lockout active"
+          )
+        )
+      );
+    }
+    const passwordCandidates = passwordLockoutConfig.enabled
+      ? candidates.filter((user) => !this.usersService.isPasswordLocked(user, now))
+      : candidates;
+
     const matchedUsers: UserEntity[] = [];
-    for (const user of candidates) {
+    for (const user of passwordCandidates) {
       if (await bcrypt.compare(dto.password, user.passwordHash)) {
         matchedUsers.push(user);
       }
     }
 
     if (matchedUsers.length === 0) {
-      const firstCandidate = candidates[0]!;
-      const failureResults = await this.recordPasswordFailures(candidates, passwordLockoutConfig, now);
+      const firstCandidate = passwordCandidates[0] ?? lockedCandidates[0] ?? candidates[0]!;
+      const failureResults = await this.recordPasswordFailures(passwordCandidates, passwordLockoutConfig, now);
       const lockoutTriggeredResults = failureResults.filter((result) => result.lockoutTriggered);
       if (lockoutTriggeredResults.length > 0) {
         await Promise.all(
@@ -168,14 +190,16 @@ export class AuthService implements OnModuleInit {
           )
         );
       } else {
-        const auditCandidate = failureResults[0]?.user ?? firstCandidate;
-        await this.recordLoginEvent(
-          { tenantId: auditCandidate.tenantId, parkId: auditCandidate.parkId, username, loginMethod: "password" },
-          meta,
-          auditCandidate.id,
-          false,
-          "Invalid username or password"
-        );
+        const auditCandidate = failureResults[0]?.user ?? (passwordCandidates.length > 0 ? firstCandidate : null);
+        if (auditCandidate) {
+          await this.recordLoginEvent(
+            { tenantId: auditCandidate.tenantId, parkId: auditCandidate.parkId, username, loginMethod: "password" },
+            meta,
+            auditCandidate.id,
+            false,
+            "Invalid username or password"
+          );
+        }
       }
       throw new UnauthorizedException("账号或密码错误");
     }
@@ -215,23 +239,10 @@ export class AuthService implements OnModuleInit {
       await this.tenantsService.assertTenantActive(user.tenantId);
     }
 
-    const finalizedUsers = await this.finalizePasswordLoginUsers(enabledUsers, passwordLockoutConfig, now);
-    if (finalizedUsers.length === 0) {
-      const firstUser = enabledUsers[0]!;
-      await this.recordLoginEvent(
-        { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
-        meta,
-        firstUser.id,
-        false,
-        "Password lockout active"
-      );
-      throw new UnauthorizedException("账号或密码错误");
-    }
-
-    if (finalizedUsers.length > 1) {
-      const tenantIds = [...new Set(finalizedUsers.map((user) => user.tenantId))];
+    if (enabledUsers.length > 1) {
+      const tenantIds = [...new Set(enabledUsers.map((user) => user.tenantId))];
       if (tenantIds.length > 1) {
-        const firstUser = finalizedUsers[0]!;
+        const firstUser = enabledUsers[0]!;
         await this.recordLoginEvent(
           { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
           meta,
@@ -241,6 +252,25 @@ export class AuthService implements OnModuleInit {
         );
         throw new ConflictException("该账号关联多个租户，请联系管理员设置唯一登录租户");
       }
+    }
+
+    const finalizeResults = await this.finalizePasswordLoginUsers(enabledUsers, passwordLockoutConfig, now);
+    const finalizedUsers = finalizeResults.filter((result) => result.allowed).map((result) => result.user);
+    if (finalizedUsers.length === 0) {
+      const firstResult = finalizeResults[0];
+      const firstUser = firstResult?.user ?? enabledUsers[0]!;
+      await this.recordLoginEvent(
+        { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
+        meta,
+        firstUser.id,
+        false,
+        firstResult?.lockoutActive ? "Password lockout active" : "Invalid username or password"
+      );
+      throw new UnauthorizedException("账号或密码错误");
+    }
+
+    if (finalizedUsers.length > 1) {
+      const tenantIds = [...new Set(finalizedUsers.map((user) => user.tenantId))];
       const ticket = await this.createLoginTicket(tenantIds[0]!, "password", finalizedUsers.map((user) => user.id));
       return {
         requiresContextSelection: true,
@@ -743,15 +773,13 @@ export class AuthService implements OnModuleInit {
     return results;
   }
 
-  private async finalizePasswordLoginUsers(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<UserEntity[]> {
-    const finalizedUsers: UserEntity[] = [];
+  private async finalizePasswordLoginUsers(users: UserEntity[], config: PasswordLockoutConfig, now: Date): Promise<PasswordLoginSuccessResult[]> {
+    const results: PasswordLoginSuccessResult[] = [];
     for (const user of users) {
       const result = await this.usersService.finalizePasswordLoginSuccess(user, config, now);
-      if (result.allowed) {
-        finalizedUsers.push(result.user);
-      }
+      results.push(result);
     }
-    return finalizedUsers;
+    return results;
   }
 
   private getPasswordLockoutConfig(): PasswordLockoutConfig {
