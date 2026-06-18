@@ -151,6 +151,50 @@ test("request without refresh cookie allows body compatibility path without Orig
   assert.doesNotThrow(() => assertRefreshCookieOriginAllowed(createRequest() as never, false, config));
 });
 
+test("request without refresh cookie rejects invalid Origin", () => {
+  const config = getCookieOriginConfig(createConfig({ WEB_ORIGIN: "https://app.example" }) as never);
+
+  assert.throws(
+    () => assertRefreshCookieOriginAllowed(createRequest({ origin: "https://evil.example" }) as never, false, config),
+    ForbiddenException
+  );
+});
+
+test("request without refresh cookie rejects invalid Referer", () => {
+  const config = getCookieOriginConfig(createConfig({ WEB_ORIGIN: "https://app.example" }) as never);
+
+  assert.throws(
+    () =>
+      assertRefreshCookieOriginAllowed(
+        createRequest({ referer: "https://evil.example/profile" }) as never,
+        false,
+        config
+      ),
+    ForbiddenException
+  );
+});
+
+test("request without refresh cookie allows valid Origin", () => {
+  const config = getCookieOriginConfig(createConfig({ WEB_ORIGIN: "https://app.example" }) as never);
+
+  assert.doesNotThrow(() =>
+    assertRefreshCookieOriginAllowed(createRequest({ origin: "https://app.example" }) as never, false, config)
+  );
+});
+
+test("disabled cookie origin check allows no-cookie invalid Origin", () => {
+  const config = getCookieOriginConfig(
+    createConfig({
+      AUTH_COOKIE_ORIGIN_CHECK_ENABLED: "false",
+      WEB_ORIGIN: "https://app.example"
+    }) as never
+  );
+
+  assert.doesNotThrow(() =>
+    assertRefreshCookieOriginAllowed(createRequest({ origin: "https://evil.example" }) as never, false, config)
+  );
+});
+
 test("OPTIONS preflight is not blocked", () => {
   const config = getCookieOriginConfig(createConfig({ WEB_ORIGIN: "https://app.example" }) as never);
 

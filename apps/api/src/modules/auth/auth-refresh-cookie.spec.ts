@@ -417,6 +417,38 @@ test("refresh with no cookie keeps body fallback without Origin", async () => {
   assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
 });
 
+test("refresh with no cookie and invalid Origin rejects without clearing cookie", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    () => controller.refresh({}, createRequest(undefined, { origin: "https://evil.example" }) as never, response as never),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
+  assert.equal(response.cookieCalls.length, 0);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("refresh with no cookie invalid Origin and body token rejects before token refresh", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+  const bodyRefreshToken = "b".repeat(32);
+
+  await assert.rejects(
+    () =>
+      controller.refresh(
+        { refreshToken: bodyRefreshToken },
+        createRequest(undefined, { origin: "https://evil.example" }) as never,
+        response as never
+      ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
+  assert.equal(response.cookieCalls.length, 0);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
 test("refresh unauthorized failure preserves the refresh cookie", async () => {
   const { controller, authService, response } = createFixture();
   authService.refreshError = new UnauthorizedException("Refresh token expired");
@@ -545,6 +577,25 @@ test("logout with cookie and invalid Origin rejects before token revoke and does
   assert.equal(response.clearCookieCalls.length, 0);
 });
 
+test("logout with no cookie invalid Origin and body fallback rejects before token revoke", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+  const bodyRefreshToken = "b".repeat(32);
+
+  await assert.rejects(
+    () =>
+      controller.logout(
+        { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
+        { refreshToken: bodyRefreshToken },
+        createRequest(undefined, { origin: "https://evil.example" }) as never,
+        response as never
+      ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.logoutTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
 test("public cookie logout is rate limited before revoking cookie token", async () => {
   const { controller, authService, response, rateLimitCalls } = createFixture();
 
@@ -584,6 +635,19 @@ test("public cookie logout with invalid Origin is rate limited but does not revo
         createRequest("sp_refresh_token=cookie-refresh", { origin: "https://evil.example" }) as never,
         response as never
       ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(rateLimitCalls, [{ endpoint: "logout-cookie", bucket: "logout-cookie", ipAddress: "127.0.0.1" }]);
+  assert.deepEqual(authService.logoutCookieTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
+});
+
+test("public cookie logout with no cookie and invalid Origin does not revoke or clear cookie", async () => {
+  const { controller, authService, response, rateLimitCalls } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    () => controller.logoutCookie(createRequest(undefined, { origin: "https://evil.example" }) as never, response as never),
     ForbiddenException
   );
 

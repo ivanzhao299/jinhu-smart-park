@@ -25,7 +25,7 @@ export function assertRefreshCookieOriginAllowed(
   hasRefreshCookie: boolean,
   config: CookieOriginConfig
 ): void {
-  if (!config.enabled || request.method?.toUpperCase() === "OPTIONS" || !hasRefreshCookie) {
+  if (!config.enabled || request.method?.toUpperCase() === "OPTIONS") {
     return;
   }
 
@@ -49,11 +49,13 @@ export function assertRefreshCookieOriginAllowed(
     return;
   }
 
-  if (config.allowMissing) {
+  if (hasRefreshCookie && config.allowMissing) {
     return;
   }
 
-  throw new ForbiddenException("Invalid request origin");
+  if (hasRefreshCookie) {
+    throw new ForbiddenException("Invalid request origin");
+  }
 }
 
 function assertAllowedOrigin(origin: string, config: CookieOriginConfig): void {
