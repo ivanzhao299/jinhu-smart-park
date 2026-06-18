@@ -68,9 +68,10 @@ export function clearSession(): void {
 
 export async function logoutSession(): Promise<void> {
   const token = getToken();
+  const legacyRefreshToken = getRefreshToken();
   try {
     if (token) {
-      await postLogout(token).catch(() => undefined);
+      await postLogout(token, legacyRefreshToken).catch(() => undefined);
     }
     await postLogoutCookie().catch(() => undefined);
   } finally {
@@ -102,15 +103,19 @@ function removeRefreshTokenStorage(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
-async function postLogout(token: string): Promise<void> {
+async function postLogout(token: string, legacyRefreshToken: string): Promise<void> {
   const headers = new Headers();
   headers.set("Accept", "application/json");
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("X-Idempotency-Key", createIdempotencyKey("logout"));
+  if (legacyRefreshToken) {
+    headers.set("Content-Type", "application/json");
+  }
   await fetch(`${API_PREFIX}/auth/logout`, {
     method: "POST",
     credentials: "include",
-    headers
+    headers,
+    body: legacyRefreshToken ? JSON.stringify({ refreshToken: legacyRefreshToken }) : undefined
   });
 }
 

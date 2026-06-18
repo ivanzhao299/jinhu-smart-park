@@ -107,7 +107,7 @@ test("clearSession removes legacy refresh token storage", () => {
   assert.equal(local.getItem("jinhu_refresh_token"), null);
 });
 
-test("logoutSession uses cookie logout flow without sending refresh token body", async () => {
+test("logoutSession sends legacy refresh token body for old sessions", async () => {
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_access_token", "access-token");
   session.setItem("jinhu_refresh_token", "legacy-refresh");
@@ -120,12 +120,26 @@ test("logoutSession uses cookie logout flow without sending refresh token body",
   assert.equal(calls[0]?.input, "/api/v1/auth/logout");
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(calls[0]?.init?.credentials, "include");
-  assert.equal(calls[0]?.init?.body, undefined);
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ refreshToken: "legacy-refresh" }));
   assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer access-token");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("Content-Type"), "application/json");
   assert.equal(calls[1]?.input, "/api/v1/auth/logout-cookie");
   assert.equal(calls[1]?.init?.method, "POST");
   assert.equal(calls[1]?.init?.credentials, "include");
   assert.equal(session.getItem("jinhu_access_token"), null);
   assert.equal(session.getItem("jinhu_refresh_token"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+});
+
+test("logoutSession omits body and content type when no legacy refresh token exists", async () => {
+  const { session } = installBrowserStorage();
+  session.setItem("jinhu_access_token", "access-token");
+  const calls = installFetchRecorder();
+
+  await logoutSession();
+
+  assert.equal(calls[0]?.input, "/api/v1/auth/logout");
+  assert.equal(calls[0]?.init?.body, undefined);
+  assert.equal(new Headers(calls[0]?.init?.headers).get("Content-Type"), null);
+  assert.equal(calls[1]?.input, "/api/v1/auth/logout-cookie");
 });
