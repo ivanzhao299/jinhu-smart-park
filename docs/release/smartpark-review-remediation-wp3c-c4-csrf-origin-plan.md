@@ -184,26 +184,26 @@ if request method is OPTIONS:
 if endpoint is not in C4-B protected endpoint list:
   allow
 
-if refresh cookie is absent:
-  allow body compatibility path
-
 if Origin is present:
   allow only when Origin is in allowlist
 
 if Referer is present:
   parse Referer origin and allow only when in allowlist
 
-if AUTH_COOKIE_ORIGIN_ALLOW_MISSING is true:
+if refresh cookie is present and AUTH_COOKIE_ORIGIN_ALLOW_MISSING is true:
   allow
+
+if refresh cookie is absent:
+  allow body compatibility path only when Origin and Referer are both absent
 
 reject
 ```
 
 Endpoint handling details:
 
-- `token/refresh`: verify before calling `AuthService.refresh()` when cookie token is present. If cookie absent and body fallback is used, keep compatibility.
-- `logout-cookie`: verify before `authService.logoutRefreshToken()` when cookie token is present. No cookie should still return generic clear-cookie success.
-- Protected `logout`: verify when cookie token is present. Body-only legacy logout remains compatible while body compat is enabled.
+- `token/refresh`: verify before calling `AuthService.refresh()` and before any set-cookie / clear-cookie response. If cookie absent and body fallback is used without browser origin headers, keep compatibility.
+- `logout-cookie`: verify before `authService.logoutRefreshToken()` and before clear-cookie response. No cookie without browser origin headers should still return generic clear-cookie success.
+- Protected `logout`: verify before token revoke and clear-cookie response. Body-only legacy logout remains compatible while body compat is enabled and no browser origin headers are present.
 
 Guard placement:
 
@@ -375,4 +375,3 @@ Before C4-B implementation, confirm:
 - Whether `AUTH_REFRESH_COOKIE_DOMAIN` must be shared across subdomains.
 - Whether C4-C should add double-submit CSRF token before disabling `AUTH_REFRESH_TOKEN_BODY_COMPAT`.
 - When the compatibility window for body refresh-token responses can end.
-

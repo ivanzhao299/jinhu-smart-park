@@ -9,6 +9,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { Public } from "../../shared/decorators/public.decorator";
 import { resolveAuthClientIp } from "./auth-client-ip";
+import { assertRefreshCookieOriginAllowed, getCookieOriginConfig } from "./auth-cookie-origin";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
 import {
   applyRefreshTokenCookie,
@@ -157,6 +158,7 @@ export class AuthController {
   ): Promise<LoginResult> {
     const cookieConfig = getRefreshCookieConfig(this.configService);
     const cookieRefreshToken = readRefreshTokenCookie(request, cookieConfig);
+    this.assertRefreshCookieOriginAllowed(request, Boolean(cookieRefreshToken));
     const bodyRefreshToken = dto.refreshToken;
     const refreshToken = this.resolveRefreshTokenForRefresh(cookieRefreshToken, bodyRefreshToken, response, cookieConfig);
     this.authRateLimitService.assertStableAllowed({
@@ -190,7 +192,9 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ): Promise<{ userId: string }> {
     const cookieConfig = getRefreshCookieConfig(this.configService);
-    const refreshTokens = this.resolveRefreshTokensForLogout(readRefreshTokenCookie(request, cookieConfig), dto?.refreshToken, cookieConfig);
+    const cookieRefreshToken = readRefreshTokenCookie(request, cookieConfig);
+    this.assertRefreshCookieOriginAllowed(request, Boolean(cookieRefreshToken));
+    const refreshTokens = this.resolveRefreshTokensForLogout(cookieRefreshToken, dto?.refreshToken, cookieConfig);
     try {
       if (refreshTokens.length === 0) {
         return await this.authService.logout(user);
@@ -216,6 +220,7 @@ export class AuthController {
     });
     const cookieConfig = getRefreshCookieConfig(this.configService);
     const refreshToken = readRefreshTokenCookie(request, cookieConfig);
+    this.assertRefreshCookieOriginAllowed(request, Boolean(refreshToken));
     try {
       if (refreshToken) {
         await this.authService.logoutRefreshToken(refreshToken);
@@ -242,6 +247,10 @@ export class AuthController {
 
   private withRefreshCookie(result: LoginResult, response: Response, cookieConfig = getRefreshCookieConfig(this.configService)): LoginResult {
     return applyRefreshTokenCookie(result, response, cookieConfig);
+  }
+
+  private assertRefreshCookieOriginAllowed(request: Request, hasRefreshCookie: boolean): void {
+    assertRefreshCookieOriginAllowed(request, hasRefreshCookie, getCookieOriginConfig(this.configService));
   }
 
   private resolveRefreshTokenForRefresh(
