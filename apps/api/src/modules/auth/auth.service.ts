@@ -618,6 +618,9 @@ export class AuthService implements OnModuleInit {
   }
 
   async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    if (!dto.refreshToken) {
+      throw new UnauthorizedException("Refresh token expired");
+    }
     const tokenHash = this.hashToken(dto.refreshToken);
     const refreshToken = await this.refreshTokenRepository.findOne({
       where: {
@@ -669,6 +672,18 @@ export class AuthService implements OnModuleInit {
       );
     }
     return { userId: user.sub };
+  }
+
+  async logoutRefreshToken(refreshToken: string): Promise<void> {
+    const tokenHash = this.hashToken(refreshToken);
+    await this.refreshTokenRepository.update(
+      {
+        tokenHash,
+        revoked: false,
+        isDeleted: false
+      },
+      { revoked: true, revokedTime: new Date(), updateBy: null }
+    );
   }
 
   private async issueLoginResult(

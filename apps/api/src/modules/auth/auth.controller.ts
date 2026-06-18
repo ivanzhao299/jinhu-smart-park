@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from "@nestjs/common";
-import type { Request } from "express";
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import type { Request, Response } from "express";
 import { ClsService } from "nestjs-cls";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
@@ -9,6 +10,13 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { Public } from "../../shared/decorators/public.decorator";
 import { resolveAuthClientIp } from "./auth-client-ip";
 import { AuthRateLimitService } from "./auth-rate-limit.service";
+import {
+  applyRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  getRefreshCookieConfig,
+  readRefreshTokenCookie,
+  type RefreshCookieConfig
+} from "./auth-refresh-cookie";
 import { AuthService } from "./auth.service";
 import { type BindIdentityResult, type LoginResult, type MobileCodeResult, type WechatAuthorizeResult, type WechatCallbackResult } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
@@ -27,23 +35,25 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     private readonly cls: ClsService,
-    private readonly authRateLimitService: AuthRateLimitService
+    private readonly authRateLimitService: AuthRateLimitService,
+    private readonly configService: ConfigService
   ) {}
 
   @Public()
   @Post("login")
   @HttpCode(200)
-  login(@Body() dto: LoginDto, @Req() request: Request): Promise<LoginResult> {
+  async login(@Body() dto: LoginDto, @Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<LoginResult> {
     this.authRateLimitService.assertAllowed({
       endpoint: "login",
       ipAddress: this.getIpAddress(request),
       identifier: buildPasswordLoginRateLimitIdentifier(dto)
     });
-    return this.authService.login(dto, {
+    const result = await this.authService.login(dto, {
       ipAddress: this.getIpAddress(request),
       userAgent: request.headers["user-agent"] ?? null,
       requestId: this.cls.getId() ?? null
     });
+    return this.withRefreshCookie(result, response);
   }
 
   @Public()
@@ -63,7 +73,11 @@ export class AuthController {
   @Public()
   @Post("mobile/login")
   @HttpCode(200)
-  mobileLogin(@Body() dto: MobileLoginDto, @Req() request: Request): Promise<LoginResult> {
+  async mobileLogin(
+    @Body() dto: MobileLoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<LoginResult> {
     if (this.authService.isSmsLoginEnabled()) {
       this.authRateLimitService.assertAllowed({
         endpoint: "mobile-login",
@@ -71,7 +85,8 @@ export class AuthController {
         identifier: [dto.tenantId, dto.parkId ?? "all-parks", dto.mobile].join(":")
       });
     }
-    return this.authService.mobileLogin(dto, this.getMeta(request));
+    const result = await this.authService.mobileLogin(dto, this.getMeta(request));
+    return this.withRefreshCookie(result, response);
   }
 
   @Public()
@@ -91,7 +106,11 @@ export class AuthController {
   @Public()
   @Post("wechat/callback")
   @HttpCode(200)
-  wechatCallback(@Body() dto: WechatCallbackDto, @Req() request: Request): Promise<WechatCallbackResult> {
+  async wechatCallback(
+    @Body() dto: WechatCallbackDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<WechatCallbackResult> {
     if (this.authService.isWechatLoginEnabled()) {
       this.authRateLimitService.assertAllowed({
         endpoint: "wechat-callback",
@@ -99,7 +118,8 @@ export class AuthController {
         identifier: dto.state
       });
     }
-    return this.authService.wechatCallback(dto, this.getMeta(request));
+    const result = await this.authService.wechatCallback(dto, this.getMeta(request));
+    return this.withRefreshCookie(result, response);
   }
 
   @Post("wechat/bind")
@@ -113,19 +133,32 @@ export class AuthController {
   @Public()
   @Post("select-context")
   @HttpCode(200)
-  selectContext(@Body() dto: SelectContextDto, @Req() request: Request): Promise<LoginResult> {
+  async selectContext(
+    @Body() dto: SelectContextDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<LoginResult> {
     this.authRateLimitService.assertAllowed({
       endpoint: "select-context",
       ipAddress: this.getIpAddress(request),
       identifier: dto.ticket
     });
-    return this.authService.selectContext(dto, this.getMeta(request));
+    const result = await this.authService.selectContext(dto, this.getMeta(request));
+    return this.withRefreshCookie(result, response);
   }
 
   @Public()
   @Post("token/refresh")
   @HttpCode(200)
-  refresh(@Body() dto: RefreshTokenDto, @Req() request: Request): Promise<LoginResult> {
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<LoginResult> {
+    const cookieConfig = getRefreshCookieConfig(this.configService);
+    const cookieRefreshToken = readRefreshTokenCookie(request, cookieConfig);
+    const bodyRefreshToken = dto.refreshToken;
+    const refreshToken = this.resolveRefreshTokenForRefresh(cookieRefreshToken, bodyRefreshToken, response, cookieConfig);
     this.authRateLimitService.assertStableAllowed({
       endpoint: "token-refresh",
       ipAddress: this.getIpAddress(request),
@@ -134,9 +167,10 @@ export class AuthController {
     this.authRateLimitService.assertAllowed({
       endpoint: "token-refresh",
       ipAddress: this.getIpAddress(request),
-      identifier: dto.refreshToken
+      identifier: refreshToken
     });
-    return this.authService.refresh(dto, this.getMeta(request));
+    const result = await this.authService.refresh({ refreshToken }, this.getMeta(request));
+    return this.withRefreshCookie(result, response, cookieConfig);
   }
 
   @Get("me")
@@ -149,8 +183,49 @@ export class AuthController {
   @HttpCode(200)
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
   @AuditLog({ module: "认证中心", resource: "system.auth", action: "退出登录" })
-  logout(@CurrentUser() user: JwtPrincipal, @Body() dto: Partial<RefreshTokenDto>): Promise<{ userId: string }> {
-    return this.authService.logout(user, dto?.refreshToken);
+  async logout(
+    @CurrentUser() user: JwtPrincipal,
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<{ userId: string }> {
+    const cookieConfig = getRefreshCookieConfig(this.configService);
+    const refreshTokens = this.resolveRefreshTokensForLogout(readRefreshTokenCookie(request, cookieConfig), dto?.refreshToken, cookieConfig);
+    try {
+      if (refreshTokens.length === 0) {
+        return await this.authService.logout(user);
+      }
+      let result: { userId: string } | null = null;
+      for (const refreshToken of refreshTokens) {
+        result = await this.authService.logout(user, refreshToken);
+      }
+      return result ?? { userId: user.sub };
+    } finally {
+      clearRefreshTokenCookie(response, cookieConfig);
+    }
+  }
+
+  @Public()
+  @Post("logout-cookie")
+  @HttpCode(200)
+  async logoutCookie(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<{ cleared: true }> {
+    this.authRateLimitService.assertStableAllowed({
+      endpoint: "logout-cookie",
+      ipAddress: this.getIpAddress(request),
+      bucket: "logout-cookie"
+    });
+    const cookieConfig = getRefreshCookieConfig(this.configService);
+    const refreshToken = readRefreshTokenCookie(request, cookieConfig);
+    try {
+      if (refreshToken) {
+        await this.authService.logoutRefreshToken(refreshToken);
+      }
+    } catch {
+      // Keep the endpoint idempotent and avoid exposing refresh-token state.
+    } finally {
+      clearRefreshTokenCookie(response, cookieConfig);
+    }
+    return { cleared: true };
   }
 
   private getMeta(request: Request) {
@@ -163,6 +238,48 @@ export class AuthController {
 
   private getIpAddress(request: Request): string | null {
     return resolveAuthClientIp(request);
+  }
+
+  private withRefreshCookie(result: LoginResult, response: Response, cookieConfig = getRefreshCookieConfig(this.configService)): LoginResult {
+    return applyRefreshTokenCookie(result, response, cookieConfig);
+  }
+
+  private resolveRefreshTokenForRefresh(
+    cookieRefreshToken: string | null,
+    bodyRefreshToken: unknown,
+    response: Response,
+    cookieConfig: RefreshCookieConfig
+  ): string {
+    if (cookieRefreshToken) {
+      return cookieRefreshToken;
+    }
+    const refreshToken = cookieConfig.bodyCompat ? this.readBodyRefreshToken(bodyRefreshToken) : undefined;
+    if (!refreshToken) {
+      clearRefreshTokenCookie(response, cookieConfig);
+      throw new UnauthorizedException("Refresh token expired");
+    }
+    return refreshToken;
+  }
+
+  private resolveRefreshTokensForLogout(
+    cookieRefreshToken: string | null,
+    bodyRefreshToken: unknown,
+    cookieConfig: RefreshCookieConfig
+  ): string[] {
+    const tokens = [cookieRefreshToken, cookieConfig.bodyCompat ? this.readBodyRefreshToken(bodyRefreshToken) : undefined].filter(
+      (token): token is string => Boolean(token)
+    );
+    return [...new Set(tokens)];
+  }
+
+  private readBodyRefreshToken(bodyRefreshToken: unknown): string | undefined {
+    if (typeof bodyRefreshToken !== "string") {
+      return undefined;
+    }
+    if (bodyRefreshToken.length < 32 || bodyRefreshToken.length > 256) {
+      return undefined;
+    }
+    return bodyRefreshToken;
   }
 }
 
