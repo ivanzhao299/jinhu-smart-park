@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UnauthorizedException } from "@nestjs/common";
+import { InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import {
   applyRefreshTokenCookie,
@@ -22,7 +22,7 @@ interface ControllerFixture {
   authService: {
     refreshTokens: string[];
     logoutTokens: Array<string | undefined>;
-    failRefresh: boolean;
+    refreshError: Error | null;
     wechatCallback: () => Promise<WechatCallbackResult>;
   };
   response: {
@@ -86,15 +86,15 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
   const authService = {
     refreshTokens: [] as string[],
     logoutTokens: [] as Array<string | undefined>,
-    failRefresh: false,
+    refreshError: null,
     login: async () => loginResult("login-refresh"),
     mobileLogin: async () => loginResult("mobile-refresh"),
     selectContext: async () => loginResult("context-refresh"),
     wechatCallback: async () => loginResult("wechat-refresh"),
     refresh: async (dto: RefreshTokenDto) => {
       authService.refreshTokens.push(dto.refreshToken!);
-      if (authService.failRefresh) {
-        throw new UnauthorizedException("Refresh token expired");
+      if (authService.refreshError) {
+        throw authService.refreshError;
       }
       return loginResult("rotated-refresh");
     },
@@ -130,6 +130,28 @@ test("refresh cookie config defaults to HttpOnly path-scoped Lax cookie", () => 
   assert.equal(config.maxAgeMs, 30 * 24 * 60 * 60 * 1000);
   assert.equal(config.domain, undefined);
   assert.equal(config.bodyCompat, true);
+});
+
+test("refresh cookie path derives from API prefix when explicit path is empty", () => {
+  const config = getRefreshCookieConfig(
+    createConfig({
+      API_PREFIX: "api/private",
+      AUTH_REFRESH_COOKIE_PATH: ""
+    }) as never
+  );
+
+  assert.equal(config.path, "/api/private/auth");
+});
+
+test("refresh cookie path honors explicit override", () => {
+  const config = getRefreshCookieConfig(
+    createConfig({
+      API_PREFIX: "api/private",
+      AUTH_REFRESH_COOKIE_PATH: "/custom/auth"
+    }) as never
+  );
+
+  assert.equal(config.path, "/custom/auth");
 });
 
 test("refresh cookie SameSite=None forces Secure", () => {
@@ -253,6 +275,19 @@ test("refresh falls back to body token when cookie is absent", async () => {
   assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
 });
 
+test("refresh rejects body fallback when body compatibility is disabled", async () => {
+  const { controller, authService, response } = createFixture({ AUTH_REFRESH_TOKEN_BODY_COMPAT: "false" });
+
+  await assert.rejects(
+    () => controller.refresh({ refreshToken: "body-refresh" }, createRequest() as never, response as never),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(authService.refreshTokens, []);
+  assert.equal(response.cookieCalls.length, 0);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
 test("refresh rejects mismatched cookie and body tokens and clears cookie", async () => {
   const { controller, response } = createFixture();
 
@@ -265,9 +300,9 @@ test("refresh rejects mismatched cookie and body tokens and clears cookie", asyn
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
-test("refresh failure clears the refresh cookie", async () => {
+test("refresh unauthorized failure clears the refresh cookie", async () => {
   const { controller, authService, response } = createFixture();
-  authService.failRefresh = true;
+  authService.refreshError = new UnauthorizedException("Refresh token expired");
 
   await assert.rejects(
     () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
@@ -275,6 +310,18 @@ test("refresh failure clears the refresh cookie", async () => {
   );
 
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("refresh server failure preserves the refresh cookie", async () => {
+  const { controller, authService, response } = createFixture();
+  authService.refreshError = new InternalServerErrorException("database unavailable");
+
+  await assert.rejects(
+    () => controller.refresh({}, createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
+    InternalServerErrorException
+  );
+
+  assert.equal(response.clearCookieCalls.length, 0);
 });
 
 test("logout uses cookie token and clears cookie", async () => {
@@ -303,6 +350,20 @@ test("logout falls back to body token when cookie is absent", async () => {
   );
 
   assert.deepEqual(authService.logoutTokens, ["body-refresh"]);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("logout ignores body token when body compatibility is disabled", async () => {
+  const { controller, authService, response } = createFixture({ AUTH_REFRESH_TOKEN_BODY_COMPAT: "false" });
+
+  await controller.logout(
+    { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
+    { refreshToken: "body-refresh" },
+    createRequest() as never,
+    response as never
+  );
+
+  assert.deepEqual(authService.logoutTokens, [undefined]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 

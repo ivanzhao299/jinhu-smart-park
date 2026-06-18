@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpException, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { ClsService } from "nestjs-cls";
@@ -14,7 +14,8 @@ import {
   applyRefreshTokenCookie,
   clearRefreshTokenCookie,
   getRefreshCookieConfig,
-  readRefreshTokenCookie
+  readRefreshTokenCookie,
+  type RefreshCookieConfig
 } from "./auth-refresh-cookie";
 import { AuthService } from "./auth.service";
 import { type BindIdentityResult, type LoginResult, type MobileCodeResult, type WechatAuthorizeResult, type WechatCallbackResult } from "./auth.service";
@@ -157,7 +158,7 @@ export class AuthController {
     const cookieConfig = getRefreshCookieConfig(this.configService);
     const cookieRefreshToken = readRefreshTokenCookie(request, cookieConfig);
     const bodyRefreshToken = dto.refreshToken;
-    const refreshToken = this.resolveRefreshTokenForRefresh(cookieRefreshToken, bodyRefreshToken, response);
+    const refreshToken = this.resolveRefreshTokenForRefresh(cookieRefreshToken, bodyRefreshToken, response, cookieConfig);
     this.authRateLimitService.assertStableAllowed({
       endpoint: "token-refresh",
       ipAddress: this.getIpAddress(request),
@@ -172,7 +173,9 @@ export class AuthController {
       const result = await this.authService.refresh({ refreshToken }, this.getMeta(request));
       return this.withRefreshCookie(result, response, cookieConfig);
     } catch (error) {
-      clearRefreshTokenCookie(response, cookieConfig);
+      if (this.shouldClearRefreshCookie(error)) {
+        clearRefreshTokenCookie(response, cookieConfig);
+      }
       throw error;
     }
   }
@@ -194,7 +197,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ): Promise<{ userId: string }> {
     const cookieConfig = getRefreshCookieConfig(this.configService);
-    const refreshToken = readRefreshTokenCookie(request, cookieConfig) ?? dto?.refreshToken;
+    const refreshToken = readRefreshTokenCookie(request, cookieConfig) ?? (cookieConfig.bodyCompat ? dto?.refreshToken : undefined);
     try {
       return await this.authService.logout(user, refreshToken);
     } finally {
@@ -218,18 +221,26 @@ export class AuthController {
     return applyRefreshTokenCookie(result, response, cookieConfig);
   }
 
-  private resolveRefreshTokenForRefresh(cookieRefreshToken: string | null, bodyRefreshToken: string | undefined, response: Response): string {
-    const cookieConfig = getRefreshCookieConfig(this.configService);
+  private resolveRefreshTokenForRefresh(
+    cookieRefreshToken: string | null,
+    bodyRefreshToken: string | undefined,
+    response: Response,
+    cookieConfig: RefreshCookieConfig
+  ): string {
     if (cookieRefreshToken && bodyRefreshToken && cookieRefreshToken !== bodyRefreshToken) {
       clearRefreshTokenCookie(response, cookieConfig);
       throw new UnauthorizedException("Refresh token expired");
     }
-    const refreshToken = cookieRefreshToken ?? bodyRefreshToken;
+    const refreshToken = cookieRefreshToken ?? (cookieConfig.bodyCompat ? bodyRefreshToken : undefined);
     if (!refreshToken) {
       clearRefreshTokenCookie(response, cookieConfig);
       throw new UnauthorizedException("Refresh token expired");
     }
     return refreshToken;
+  }
+
+  private shouldClearRefreshCookie(error: unknown): boolean {
+    return error instanceof HttpException && error.getStatus() === 401;
   }
 }
 

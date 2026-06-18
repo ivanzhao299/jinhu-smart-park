@@ -139,15 +139,17 @@ The API sets an HttpOnly refresh-token cookie when login, mobile / WeChat login,
 The supported variables are:
 
 - `AUTH_REFRESH_COOKIE_NAME`, default `sp_refresh_token`
-- `AUTH_REFRESH_COOKIE_PATH`, default `/api/v1/auth`
+- `AUTH_REFRESH_COOKIE_PATH`, default empty; when empty, the API derives `/${API_PREFIX}/auth` (default `/api/v1/auth`)
 - `AUTH_REFRESH_COOKIE_SAMESITE`, default `lax`; supported values are `lax`, `strict`, and `none`
 - `AUTH_REFRESH_COOKIE_SECURE`, default `true` in production compose and `false` in local examples
 - `AUTH_REFRESH_COOKIE_DOMAIN`, default empty, which leaves the cookie host-only
-- `AUTH_REFRESH_TOKEN_BODY_COMPAT`, default `true`, which keeps body `refreshToken` during the compatibility period
+- `AUTH_REFRESH_TOKEN_BODY_COMPAT`, default `true`, which keeps body `refreshToken` responses and accepts body refresh-token request fallback during the compatibility period
 
 Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKIE_SAMESITE=none` is required for a cross-site Web / API deployment, Secure is mandatory and the API helper will force the cookie to Secure. Keep `AUTH_REFRESH_COOKIE_DOMAIN` empty unless a same-parent-domain deployment explicitly requires a shared domain and the security impact has been reviewed.
 
-`POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` when the cookie is absent. If both sources are present and differ, the API rejects the refresh request and clears the cookie to avoid dual-source ambiguity. `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token when needed, and always sends a clear-cookie header.
+`POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` only when `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`. If both sources are present and differ, the API rejects the refresh request and clears the cookie to avoid dual-source ambiguity. `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, and always sends a clear-cookie header.
+
+When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshToken` in response bodies and stops accepting body refresh-token fallback on refresh / logout requests. Keep this enabled until C3 Web storage migration and C4 CSRF / Origin hardening are complete.
 
 C2 only implements the API cookie contract. C3 must update Web fetch credentials and remove refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
 
