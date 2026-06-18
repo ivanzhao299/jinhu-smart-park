@@ -16,6 +16,13 @@ import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
+import {
+  clearPasswordLockoutState,
+  evaluatePasswordFailure,
+  isPasswordLocked,
+  resetExpiredPasswordLock,
+  type PasswordLockoutConfig
+} from "../auth/auth-password-lockout.policy";
 import type { AssignRolesDto } from "./dto/assign-roles.dto";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
@@ -53,6 +60,17 @@ export interface UserLoginContextCandidate {
   tenantId: string;
   parkId: string;
   mobile: string | null;
+}
+
+export interface PasswordFailureRecordResult {
+  user: UserEntity;
+  lockoutTriggered: boolean;
+}
+
+export interface PasswordLoginSuccessResult {
+  user: UserEntity;
+  allowed: boolean;
+  lockoutActive: boolean;
 }
 
 @Injectable()
@@ -401,6 +419,7 @@ export class UsersService {
     const user = await this.getEntityInScope(scope, id);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     user.passwordHash = await bcrypt.hash(dto.password, saltRounds);
+    Object.assign(user, clearPasswordLockoutState());
     user.updateBy = actorId;
     await this.usersRepository.save(user);
     return { id };
@@ -411,6 +430,103 @@ export class UsersService {
       { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       { lastLoginIp: ipAddress, lastLoginTime: new Date() }
     );
+  }
+
+  async recordPasswordFailure(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<PasswordFailureRecordResult> {
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return { user, lockoutTriggered: false };
+      }
+      if (this.isPasswordLocked(lockedUser, now)) {
+        return { user: lockedUser, lockoutTriggered: false };
+      }
+
+      const currentState = resetExpiredPasswordLock(this.toPasswordLockoutState(lockedUser), now);
+      const result = evaluatePasswordFailure(currentState, config, now);
+      Object.assign(lockedUser, result.state);
+      const savedUser = await repository.save(lockedUser);
+      return { user: savedUser, lockoutTriggered: result.lockoutTriggered };
+    });
+  }
+
+  async clearPasswordFailures(userId: string): Promise<void> {
+    const state = clearPasswordLockoutState();
+    await this.usersRepository.update({ id: userId, isDeleted: false }, state);
+  }
+
+  isPasswordLocked(user: UserEntity, now: Date): boolean {
+    return isPasswordLocked(this.toPasswordLockoutState(user), now);
+  }
+
+  async refreshPasswordLockoutState(user: UserEntity, now = new Date()): Promise<UserEntity> {
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return user;
+      }
+
+      const currentState = this.toPasswordLockoutState(lockedUser);
+      const state = resetExpiredPasswordLock(currentState, now);
+      if (this.samePasswordLockoutState(currentState, state)) {
+        return Object.assign(user, currentState);
+      }
+      Object.assign(lockedUser, state);
+      await repository.save(lockedUser);
+      return Object.assign(user, state);
+    });
+  }
+
+  async finalizePasswordLoginSuccess(user: UserEntity, config: PasswordLockoutConfig, now = new Date()): Promise<PasswordLoginSuccessResult> {
+    if (!config.enabled) {
+      return { user, allowed: true, lockoutActive: false };
+    }
+    const expectedState = this.toPasswordLockoutState(user);
+
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserEntity);
+      const lockedUser = await repository.findOne({
+        where: { id: user.id, tenantId: user.tenantId, parkId: user.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUser) {
+        return { user, allowed: false, lockoutActive: false };
+      }
+
+      const currentState = this.toPasswordLockoutState(lockedUser);
+      const latestState = resetExpiredPasswordLock(currentState, now);
+      if (!this.samePasswordLockoutState(currentState, latestState)) {
+        Object.assign(lockedUser, latestState);
+        await repository.save(lockedUser);
+      }
+      Object.assign(user, latestState);
+
+      const lockoutActive = isPasswordLocked(latestState, now);
+      if (lockoutActive || !this.samePasswordLockoutState(latestState, expectedState)) {
+        return { user, allowed: false, lockoutActive };
+      }
+
+      if (!config.resetOnSuccess) {
+        return { user, allowed: true, lockoutActive: false };
+      }
+
+      const clearState = clearPasswordLockoutState();
+      Object.assign(lockedUser, clearState);
+      await repository.save(lockedUser);
+      return { user: Object.assign(user, clearState), allowed: true, lockoutActive: false };
+    });
+  }
+
+  async clearExpiredPasswordLockIfNeeded(user: UserEntity, now = new Date()): Promise<UserEntity> {
+    return this.refreshPasswordLockoutState(user, now);
   }
 
   async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {
@@ -549,6 +665,24 @@ export class UsersService {
     if (exists) {
       throw new ConflictException("Username already exists");
     }
+  }
+
+  private toPasswordLockoutState(user: UserEntity) {
+    return {
+      passwordFailedCount: user.passwordFailedCount,
+      passwordFailedWindowStartedAt: user.passwordFailedWindowStartedAt,
+      passwordLockedUntil: user.passwordLockedUntil,
+      lastPasswordFailedAt: user.lastPasswordFailedAt
+    };
+  }
+
+  private samePasswordLockoutState(left: ReturnType<UsersService["toPasswordLockoutState"]>, right: ReturnType<UsersService["toPasswordLockoutState"]>): boolean {
+    return (
+      left.passwordFailedCount === right.passwordFailedCount &&
+      left.passwordFailedWindowStartedAt?.getTime() === right.passwordFailedWindowStartedAt?.getTime() &&
+      left.passwordLockedUntil?.getTime() === right.passwordLockedUntil?.getTime() &&
+      left.lastPasswordFailedAt?.getTime() === right.lastPasswordFailedAt?.getTime()
+    );
   }
 
   private async assertTenantUserLimit(scope: TenantParkScope): Promise<void> {

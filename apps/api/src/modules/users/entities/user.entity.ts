@@ -32,6 +32,18 @@ export class UserEntity extends AuditableEntity {
   @Column({ name: "last_login_time", type: "timestamptz", nullable: true })
   lastLoginTime!: Date | null;
 
+  @Column({ name: "password_failed_count", type: "integer", default: 0 })
+  passwordFailedCount!: number;
+
+  @Column({ name: "password_failed_window_started_at", type: "timestamptz", nullable: true })
+  passwordFailedWindowStartedAt!: Date | null;
+
+  @Column({ name: "password_locked_until", type: "timestamptz", nullable: true })
+  passwordLockedUntil!: Date | null;
+
+  @Column({ name: "last_password_failed_at", type: "timestamptz", nullable: true })
+  lastPasswordFailedAt!: Date | null;
+
   @Column({ name: "is_enabled", type: "boolean", default: true })
   isEnabled!: boolean;
 

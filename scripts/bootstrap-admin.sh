@@ -352,7 +352,7 @@ EOF
   psql_exec "UPDATE sys_user SET display_name = $admin_name_literal, is_enabled = true, status = 'enabled', update_by = NULL, remark = 'bootstrap-admin ensured' WHERE id = '$user_id';"
   if is_truthy "$ALLOW_PASSWORD_RESET"; then
     password_hash=$(generate_password_hash)
-    psql_exec "UPDATE sys_user SET password_hash = $(sql_literal "$password_hash"), update_by = NULL, remark = 'bootstrap-admin password reset' WHERE id = '$user_id';"
+    psql_exec "UPDATE sys_user SET password_hash = $(sql_literal "$password_hash"), password_failed_count = 0, password_failed_window_started_at = NULL, password_locked_until = NULL, last_password_failed_at = NULL, update_by = NULL, remark = 'bootstrap-admin password reset' WHERE id = '$user_id';"
     created_state=updated-password
   fi
 fi

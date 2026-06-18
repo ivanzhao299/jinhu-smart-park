@@ -118,6 +118,20 @@ The token refresh endpoint also uses a stable bucket through `AUTH_RATE_LIMIT_TO
 
 This limiter is intentionally process-local for WP3 stage A. Multi-instance production deployments must treat it as transitional protection and should move to Redis/DB backed counters in a later WP3 phase.
 
+### 1.1.2 Password Failure Lockout
+
+Password login now stores failure counters on `sys_user`, so the `000146_auth_password_lockout.sql` migration must be applied before enabling this release. The default policy is:
+
+- `AUTH_PASSWORD_LOCKOUT_ENABLED=true`
+- `AUTH_PASSWORD_LOCKOUT_FAILURE_LIMIT=5`
+- `AUTH_PASSWORD_LOCKOUT_WINDOW_MS=900000`
+- `AUTH_PASSWORD_LOCKOUT_DURATION_MS=900000`
+- `AUTH_PASSWORD_LOCKOUT_RESET_ON_SUCCESS=true`
+
+The lockout is user scoped. Unknown usernames do not create lockout records. When a known user's password failures reach the configured threshold within the window, `password_locked_until` is set and password login is rejected until the lock expires. A correct password during the lock window is still rejected. Public login responses continue to use the generic account-or-password error so the endpoint does not reveal whether the account exists or is locked.
+
+Successful password login clears the failure counters when `AUTH_PASSWORD_LOCKOUT_RESET_ON_SUCCESS=true`. Set `AUTH_PASSWORD_LOCKOUT_ENABLED=false` only as an emergency rollback; public auth rate limits remain a separate first layer of protection.
+
 ## 1.2 First-Release Menu Scope
 
 The first release only shows the whitelist menu entries below.
@@ -424,6 +438,7 @@ Safety constraints:
 - scripts must not print password hashes
 - repeated bootstrap runs must not create duplicate users
 - if a password reset is really needed, set `ALLOW_PASSWORD_RESET=yes` explicitly
+- bootstrap admin password reset also clears password lockout state
 
 ### check-init-baseline Return Codes
 
