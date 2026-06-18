@@ -8,7 +8,9 @@ const USER_KEY = "jinhu_auth_user";
 
 const AUTH_SESSION_RESET_EXCLUDED_PATHS = new Set([
   "/auth/login",
+  "/auth/mobile/send-code",
   "/auth/mobile/login",
+  "/auth/wechat/authorize",
   "/auth/wechat/callback",
   "/auth/select-context",
   "/auth/token/refresh",
@@ -35,19 +37,23 @@ export async function handleUnauthorizedSessionReset({
     return false;
   }
 
-  const storedToken = getStoredAccessToken();
   if (requestToken) {
-    if (requestToken !== storedToken) {
+    if (!isCurrentAccessToken(requestToken)) {
       return false;
     }
-  } else if (storedToken) {
+  } else if (hasStoredAccessToken()) {
     return false;
   }
 
   clearLocalSessionStorage();
-  await postLogoutCookie();
-  if (redirect) {
-    window.location.href = "/login";
+  try {
+    await postLogoutCookie();
+  } catch {
+    // Cookie cleanup is best-effort; local session reset must still complete.
+  } finally {
+    if (redirect) {
+      window.location.href = "/login";
+    }
   }
   return true;
 }
@@ -61,8 +67,20 @@ export function clearLocalSessionStorage(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-function getStoredAccessToken(): string {
-  return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY) ?? "";
+function isCurrentAccessToken(requestToken: string): boolean {
+  const sessionToken = sessionStorage.getItem(TOKEN_KEY) ?? "";
+  const localToken = localStorage.getItem(TOKEN_KEY) ?? "";
+  if (localToken && localToken !== requestToken) {
+    return false;
+  }
+  if (sessionToken && sessionToken !== requestToken) {
+    return false;
+  }
+  return sessionToken === requestToken || localToken === requestToken;
+}
+
+function hasStoredAccessToken(): boolean {
+  return Boolean(sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY));
 }
 
 function normalizeApiPath(path: string): string {
