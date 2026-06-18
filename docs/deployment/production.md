@@ -430,6 +430,7 @@ Safety constraints:
 - scripts must not print password hashes
 - repeated bootstrap runs must not create duplicate users
 - if a password reset is really needed, set `ALLOW_PASSWORD_RESET=yes` explicitly
+- bootstrap admin password reset also clears password lockout state
 
 ### check-init-baseline Return Codes
 
