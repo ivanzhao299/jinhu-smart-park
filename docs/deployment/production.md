@@ -134,7 +134,7 @@ Successful password login clears the failure counters when `AUTH_PASSWORD_LOCKOU
 
 ### 1.1.3 Refresh Token Cookie Contract
 
-The API sets an HttpOnly refresh-token cookie when login, mobile / WeChat login, or context selection returns a refresh token. During the WP3-C compatibility period the response body still includes `refreshToken` by default, so existing Web storage and smoke scripts continue to work until the Web-side C3 migration removes JS-readable refresh-token storage.
+The API sets an HttpOnly refresh-token cookie when login, mobile / WeChat login, or context selection returns a refresh token. During the WP3-C compatibility period the response body still includes `refreshToken` by default, so existing smoke scripts and non-browser clients can continue to work while browser traffic moves to the cookie flow.
 
 The supported variables are:
 
@@ -151,9 +151,13 @@ Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKI
 
 `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, revokes both distinct cookie and body tokens when both are present, and always sends a clear-cookie header. `POST /api/v1/auth/logout-cookie` is public and exists only to revoke the refresh cookie token when possible and clear the HttpOnly cookie after an access JWT has expired; it does not require an access token and returns a generic success response without exposing token state.
 
-When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshToken` in response bodies and stops accepting body refresh-token fallback on refresh / logout requests. Keep this enabled until C3 Web storage migration and C4 CSRF / Origin hardening are complete.
+The Web app now sends API requests with credentials so the browser can carry `sp_refresh_token`. It no longer writes refresh tokens to `sessionStorage` or `localStorage`; session writes clear the legacy `jinhu_refresh_token` key while preserving the existing access token and user storage strategy. Access token in-memory migration is intentionally left for a later WP3 step.
 
-C2 only implements the API cookie contract. C3 must update Web fetch credentials and remove refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
+Web logout first attempts `POST /api/v1/auth/logout` with the Bearer access token and cookie credentials, without sending a body `refreshToken`. It then calls public `POST /api/v1/auth/logout-cookie` as a cookie cleanup fallback, which covers expired access-token sessions. Local access token, user, and legacy refresh-token storage are cleared after the logout attempt.
+
+When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshToken` in response bodies and stops accepting body refresh-token fallback on refresh / logout requests. Keep this enabled until C4 CSRF / Origin hardening is complete and any non-browser clients that still depend on body refresh tokens have been migrated.
+
+C2 implemented the API cookie contract. C3 updates Web fetch credentials and removes refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
 
 ## 1.2 First-Release Menu Scope
 

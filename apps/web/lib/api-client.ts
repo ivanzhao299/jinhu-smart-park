@@ -36,6 +36,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const response = await fetch(`${API_PREFIX}${path}`, {
     ...options,
+    credentials: "include",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
@@ -73,6 +74,7 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
 
   const response = await fetch(`${API_PREFIX}${path}`, {
     ...options,
+    credentials: "include",
     headers,
     body: options.body
   });

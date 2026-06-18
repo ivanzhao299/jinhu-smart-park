@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserContext } from "@jinhu/shared";
-import { apiRequest } from "./api-client";
+import { API_PREFIX, apiRequest, createIdempotencyKey } from "./api-client";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -38,14 +38,12 @@ export function getRefreshToken(): string {
   return sessionStorage.getItem(REFRESH_TOKEN_KEY) ?? localStorage.getItem(REFRESH_TOKEN_KEY) ?? "";
 }
 
-export function setSession(token: string, user: UserContext, refreshToken?: string): void {
+export function setSession(token: string, user: UserContext, _refreshToken?: string): void {
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  if (refreshToken) {
-    setRefreshToken(refreshToken);
-  }
+  removeRefreshTokenStorage();
 }
 
 export function setToken(token: string): void {
@@ -54,8 +52,8 @@ export function setToken(token: string): void {
 }
 
 export function setRefreshToken(token: string): void {
-  sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  void token;
+  removeRefreshTokenStorage();
 }
 
 export function clearSession(): void {
@@ -66,6 +64,18 @@ export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+export async function logoutSession(): Promise<void> {
+  const token = getToken();
+  try {
+    if (token) {
+      await postLogout(token).catch(() => undefined);
+    }
+    await postLogoutCookie().catch(() => undefined);
+  } finally {
+    clearSession();
+  }
 }
 
 export async function fetchCurrentUser(): Promise<UserContext> {
@@ -85,4 +95,31 @@ export async function fetchCurrentUser(): Promise<UserContext> {
       });
   }
   return currentUserRequest;
+}
+
+function removeRefreshTokenStorage(): void {
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+async function postLogout(token: string): Promise<void> {
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("X-Idempotency-Key", createIdempotencyKey("logout"));
+  await fetch(`${API_PREFIX}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers
+  });
+}
+
+async function postLogoutCookie(): Promise<void> {
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  await fetch(`${API_PREFIX}/auth/logout-cookie`, {
+    method: "POST",
+    credentials: "include",
+    headers
+  });
 }
