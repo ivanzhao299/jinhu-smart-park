@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@jinhu/shared";
+import { handleUnauthorizedSessionReset } from "./session-reset";
 
 export const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api/v1";
 
@@ -36,13 +37,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const response = await fetch(`${API_PREFIX}${path}`, {
     ...options,
+    credentials: "include",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   });
 
   const payload = (await readApiResponse<T>(response));
   if (!response.ok) {
-    handleUnauthorized(response.status);
+    await handleUnauthorized(response.status, path, options.token);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
 
@@ -73,13 +75,14 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
 
   const response = await fetch(`${API_PREFIX}${path}`, {
     ...options,
+    credentials: "include",
     headers,
     body: options.body
   });
 
   const payload = await readApiResponse<T>(response);
   if (!response.ok) {
-    handleUnauthorized(response.status);
+    await handleUnauthorized(response.status, path, options.token);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
   if (!payload) {
@@ -92,17 +95,11 @@ export function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function handleUnauthorized(status: number): void {
-  if (status !== 401 || typeof window === "undefined") {
+async function handleUnauthorized(status: number, path: string, requestToken?: string): Promise<void> {
+  if (status !== 401) {
     return;
   }
-  sessionStorage.removeItem("jinhu_access_token");
-  sessionStorage.removeItem("jinhu_refresh_token");
-  sessionStorage.removeItem("jinhu_auth_user");
-  localStorage.removeItem("jinhu_access_token");
-  localStorage.removeItem("jinhu_refresh_token");
-  localStorage.removeItem("jinhu_auth_user");
-  window.location.href = "/login";
+  await handleUnauthorizedSessionReset({ path, requestToken });
 }
 
 async function readApiResponse<T>(response: Response): Promise<ApiResponse<T> | undefined> {

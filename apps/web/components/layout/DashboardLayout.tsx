@@ -37,15 +37,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       setUser(storedUser);
       setReady(true);
     }
-    fetchCurrentUser()
+    const reloadIfTokenChanged = (requestToken: string): boolean => {
+      const latestToken = getToken();
+      if (requestToken !== latestToken && latestToken) {
+        setReady(false);
+        void loadCurrentUser(latestToken);
+        return true;
+      }
+      return false;
+    };
+    const loadCurrentUser = (requestToken: string) => fetchCurrentUser({ requestToken })
       .then((currentUser) => {
+        if (reloadIfTokenChanged(requestToken)) {
+          return;
+        }
         setUser(currentUser);
         setReady(true);
       })
       .catch(() => {
+        if (reloadIfTokenChanged(requestToken)) {
+          return;
+        }
         clearSession();
         router.replace("/login");
       });
+    void loadCurrentUser(token);
   }, [router]);
 
   const handleSidebarCollapsedChange = (collapsed: boolean) => {
