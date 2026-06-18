@@ -43,7 +43,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const payload = (await readApiResponse<T>(response));
   if (!response.ok) {
-    handleUnauthorized(response.status);
+    handleUnauthorized(response.status, path);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
 
@@ -81,7 +81,7 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
 
   const payload = await readApiResponse<T>(response);
   if (!response.ok) {
-    handleUnauthorized(response.status);
+    handleUnauthorized(response.status, path);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
   if (!payload) {
@@ -94,17 +94,44 @@ export function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function handleUnauthorized(status: number): void {
+function handleUnauthorized(status: number, path: string): void {
   if (status !== 401 || typeof window === "undefined") {
     return;
   }
+  clearLocalSessionStorage();
+  if (shouldClearRefreshCookieOnUnauthorized(path)) {
+    void postLogoutCookie().catch(() => undefined);
+  }
+  window.location.href = "/login";
+}
+
+function clearLocalSessionStorage(): void {
   sessionStorage.removeItem("jinhu_access_token");
   sessionStorage.removeItem("jinhu_refresh_token");
   sessionStorage.removeItem("jinhu_auth_user");
   localStorage.removeItem("jinhu_access_token");
   localStorage.removeItem("jinhu_refresh_token");
   localStorage.removeItem("jinhu_auth_user");
-  window.location.href = "/login";
+}
+
+function shouldClearRefreshCookieOnUnauthorized(path: string): boolean {
+  const normalizedPath = normalizeApiPath(path);
+  return normalizedPath !== "/auth/token/refresh" && normalizedPath !== "/auth/logout-cookie";
+}
+
+function normalizeApiPath(path: string): string {
+  const prefixedPath = path.startsWith(API_PREFIX) ? path.slice(API_PREFIX.length) : path;
+  return prefixedPath.startsWith("/") ? prefixedPath : `/${prefixedPath}`;
+}
+
+async function postLogoutCookie(): Promise<void> {
+  await fetch(`${API_PREFIX}/auth/logout-cookie`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json"
+    }
+  });
 }
 
 async function readApiResponse<T>(response: Response): Promise<ApiResponse<T> | undefined> {
