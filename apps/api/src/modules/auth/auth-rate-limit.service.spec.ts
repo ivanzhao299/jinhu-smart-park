@@ -427,7 +427,8 @@ test("auth controller skips high-cardinality mobile code bucket when SMS auth is
       assertAllowed: () => {
         credentialBucketCalled = true;
       }
-    } as never
+    } as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
   );
 
   await assert.rejects(() =>
@@ -453,7 +454,8 @@ test("auth controller applies mobile code credential bucket when SMS auth is ena
       assertAllowed: () => {
         credentialBucketCalled = true;
       }
-    } as never
+    } as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
   );
 
   await controller.sendMobileCode({ tenantId: "tenant-a", parkId: "park-a", mobile: "13800000000" }, { ip: "10.0.0.1", headers: {} } as never);

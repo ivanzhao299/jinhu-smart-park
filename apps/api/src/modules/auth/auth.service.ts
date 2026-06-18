@@ -618,6 +618,9 @@ export class AuthService implements OnModuleInit {
   }
 
   async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
+    if (!dto.refreshToken) {
+      throw new UnauthorizedException("Refresh token expired");
+    }
     const tokenHash = this.hashToken(dto.refreshToken);
     const refreshToken = await this.refreshTokenRepository.findOne({
       where: {

@@ -132,6 +132,25 @@ The lockout is user scoped. Unknown usernames do not create lockout records. Whe
 
 Successful password login clears the failure counters when `AUTH_PASSWORD_LOCKOUT_RESET_ON_SUCCESS=true`. Set `AUTH_PASSWORD_LOCKOUT_ENABLED=false` only as an emergency rollback; public auth rate limits remain a separate first layer of protection.
 
+### 1.1.3 Refresh Token Cookie Contract
+
+The API sets an HttpOnly refresh-token cookie when login, mobile / WeChat login, or context selection returns a refresh token. During the WP3-C compatibility period the response body still includes `refreshToken` by default, so existing Web storage and smoke scripts continue to work until the Web-side C3 migration removes JS-readable refresh-token storage.
+
+The supported variables are:
+
+- `AUTH_REFRESH_COOKIE_NAME`, default `sp_refresh_token`
+- `AUTH_REFRESH_COOKIE_PATH`, default `/api/v1/auth`
+- `AUTH_REFRESH_COOKIE_SAMESITE`, default `lax`; supported values are `lax`, `strict`, and `none`
+- `AUTH_REFRESH_COOKIE_SECURE`, default `true` in production compose and `false` in local examples
+- `AUTH_REFRESH_COOKIE_DOMAIN`, default empty, which leaves the cookie host-only
+- `AUTH_REFRESH_TOKEN_BODY_COMPAT`, default `true`, which keeps body `refreshToken` during the compatibility period
+
+Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKIE_SAMESITE=none` is required for a cross-site Web / API deployment, Secure is mandatory and the API helper will force the cookie to Secure. Keep `AUTH_REFRESH_COOKIE_DOMAIN` empty unless a same-parent-domain deployment explicitly requires a shared domain and the security impact has been reviewed.
+
+`POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` when the cookie is absent. If both sources are present and differ, the API rejects the refresh request and clears the cookie to avoid dual-source ambiguity. `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token when needed, and always sends a clear-cookie header.
+
+C2 only implements the API cookie contract. C3 must update Web fetch credentials and remove refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
+
 ## 1.2 First-Release Menu Scope
 
 The first release only shows the whitelist menu entries below.
