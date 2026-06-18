@@ -209,6 +209,11 @@ export class AuthController {
   @Post("logout-cookie")
   @HttpCode(200)
   async logoutCookie(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<{ cleared: true }> {
+    this.authRateLimitService.assertStableAllowed({
+      endpoint: "logout-cookie",
+      ipAddress: this.getIpAddress(request),
+      bucket: "logout-cookie"
+    });
     const cookieConfig = getRefreshCookieConfig(this.configService);
     const refreshToken = readRefreshTokenCookie(request, cookieConfig);
     try {
@@ -245,11 +250,10 @@ export class AuthController {
     response: Response,
     cookieConfig: RefreshCookieConfig
   ): string {
-    if (cookieRefreshToken && bodyRefreshToken && cookieRefreshToken !== bodyRefreshToken) {
-      clearRefreshTokenCookie(response, cookieConfig);
-      throw new UnauthorizedException("Refresh token expired");
+    if (cookieRefreshToken) {
+      return cookieRefreshToken;
     }
-    const refreshToken = cookieRefreshToken ?? (cookieConfig.bodyCompat ? bodyRefreshToken : undefined);
+    const refreshToken = cookieConfig.bodyCompat ? bodyRefreshToken : undefined;
     if (!refreshToken) {
       clearRefreshTokenCookie(response, cookieConfig);
       throw new UnauthorizedException("Refresh token expired");

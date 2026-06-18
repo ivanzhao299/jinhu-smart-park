@@ -31,6 +31,7 @@ interface ControllerFixture {
     cookieCalls: CookieCall[];
     clearCookieCalls: CookieCall[];
   };
+  rateLimitCalls: Array<{ endpoint: string; bucket: string; ipAddress: string | null }>;
 }
 
 function createConfig(values: Record<string, string> = {}) {
@@ -116,17 +117,20 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
     isWechatLoginEnabled: () => false
   };
   const response = createResponse();
+  const rateLimitCalls: Array<{ endpoint: string; bucket: string; ipAddress: string | null }> = [];
   const controller = new AuthController(
     authService as never,
     { getCurrentUserContext: async () => ({}) } as never,
     { getId: () => "request-id" } as never,
     {
       assertAllowed: () => undefined,
-      assertStableAllowed: () => undefined
+      assertStableAllowed: (request: { endpoint: string; bucket: string; ipAddress: string | null }) => {
+        rateLimitCalls.push(request);
+      }
     } as never,
     createConfig(config) as never
   );
-  return { controller, authService, response };
+  return { controller, authService, response, rateLimitCalls };
 }
 
 test("refresh cookie config defaults to HttpOnly path-scoped Lax cookie", () => {
@@ -298,16 +302,19 @@ test("refresh rejects body fallback when body compatibility is disabled", async 
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
-test("refresh rejects mismatched cookie and body tokens and clears cookie", async () => {
-  const { controller, response } = createFixture();
+test("refresh uses cookie token when body token differs without clearing cookie", async () => {
+  const { controller, authService, response } = createFixture();
 
-  await assert.rejects(
-    () => controller.refresh({ refreshToken: "body-refresh" }, createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
-    UnauthorizedException
+  const result = await controller.refresh(
+    { refreshToken: "stale-body-refresh" },
+    createRequest("sp_refresh_token=new-cookie-refresh") as never,
+    response as never
   );
 
-  assert.equal(response.cookieCalls.length, 0);
-  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+  assert.equal(result.refreshToken, "rotated-refresh");
+  assert.deepEqual(authService.refreshTokens, ["new-cookie-refresh"]);
+  assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
+  assert.equal(response.clearCookieCalls.length, 0);
 });
 
 test("refresh unauthorized failure preserves the refresh cookie", async () => {
@@ -402,8 +409,8 @@ test("logout ignores body token when body compatibility is disabled", async () =
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
-test("public cookie logout revokes cookie token and clears cookie without current user", async () => {
-  const { controller, authService, response } = createFixture();
+test("public cookie logout is rate limited before revoking cookie token", async () => {
+  const { controller, authService, response, rateLimitCalls } = createFixture();
 
   const result = await controller.logoutCookie(
     createRequest("sp_refresh_token=cookie-refresh") as never,
@@ -411,8 +418,25 @@ test("public cookie logout revokes cookie token and clears cookie without curren
   );
 
   assert.deepEqual(result, { cleared: true });
+  assert.deepEqual(rateLimitCalls, [{ endpoint: "logout-cookie", bucket: "logout-cookie", ipAddress: "127.0.0.1" }]);
   assert.deepEqual(authService.logoutCookieTokens, ["cookie-refresh"]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("public cookie logout rate limit failure does not revoke or clear cookie", async () => {
+  const { controller, authService, response } = createFixture();
+  const limiterError = new UnauthorizedException("rate limited");
+  (controller as unknown as { authRateLimitService: { assertStableAllowed: () => never } }).authRateLimitService.assertStableAllowed = () => {
+    throw limiterError;
+  };
+
+  await assert.rejects(
+    () => controller.logoutCookie(createRequest("sp_refresh_token=cookie-refresh") as never, response as never),
+    limiterError
+  );
+
+  assert.deepEqual(authService.logoutCookieTokens, []);
+  assert.equal(response.clearCookieCalls.length, 0);
 });
 
 test("public cookie logout clears cookie when no token exists", async () => {
