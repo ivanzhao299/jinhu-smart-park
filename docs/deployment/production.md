@@ -147,7 +147,9 @@ The supported variables are:
 
 Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKIE_SAMESITE=none` is required for a cross-site Web / API deployment, Secure is mandatory and the API helper will force the cookie to Secure. Keep `AUTH_REFRESH_COOKIE_DOMAIN` empty unless a same-parent-domain deployment explicitly requires a shared domain and the security impact has been reviewed.
 
-`POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` only when `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`. If both sources are present and differ, the API rejects the refresh request and clears the cookie to avoid dual-source ambiguity. `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, and always sends a clear-cookie header.
+`POST /api/v1/auth/token/refresh` reads `sp_refresh_token` from the cookie first and falls back to the body `refreshToken` only when `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`. If both sources are present and differ, the API rejects the refresh request and clears the cookie to avoid dual-source ambiguity. Refresh 401 errors from stale retries do not clear the cookie, so a later stale response cannot delete a newer rotated cookie that already reached the browser.
+
+`POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, revokes both distinct cookie and body tokens when both are present, and always sends a clear-cookie header. `POST /api/v1/auth/logout-cookie` is public and exists only to revoke the refresh cookie token when possible and clear the HttpOnly cookie after an access JWT has expired; it does not require an access token and returns a generic success response without exposing token state.
 
 When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshToken` in response bodies and stops accepting body refresh-token fallback on refresh / logout requests. Keep this enabled until C3 Web storage migration and C4 CSRF / Origin hardening are complete.
 

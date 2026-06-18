@@ -22,6 +22,8 @@ interface ControllerFixture {
   authService: {
     refreshTokens: string[];
     logoutTokens: Array<string | undefined>;
+    logoutCookieTokens: string[];
+    logoutCookieError: Error | null;
     refreshError: Error | null;
     wechatCallback: () => Promise<WechatCallbackResult>;
   };
@@ -86,6 +88,8 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
   const authService = {
     refreshTokens: [] as string[],
     logoutTokens: [] as Array<string | undefined>,
+    logoutCookieTokens: [] as string[],
+    logoutCookieError: null,
     refreshError: null,
     login: async () => loginResult("login-refresh"),
     mobileLogin: async () => loginResult("mobile-refresh"),
@@ -101,6 +105,12 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
     logout: async (_user: unknown, refreshToken?: string) => {
       authService.logoutTokens.push(refreshToken);
       return { userId: "00000000-0000-0000-0000-000000000001" };
+    },
+    logoutRefreshToken: async (refreshToken: string) => {
+      authService.logoutCookieTokens.push(refreshToken);
+      if (authService.logoutCookieError) {
+        throw authService.logoutCookieError;
+      }
     },
     isSmsLoginEnabled: () => false,
     isWechatLoginEnabled: () => false
@@ -300,7 +310,7 @@ test("refresh rejects mismatched cookie and body tokens and clears cookie", asyn
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
-test("refresh unauthorized failure clears the refresh cookie", async () => {
+test("refresh unauthorized failure preserves the refresh cookie", async () => {
   const { controller, authService, response } = createFixture();
   authService.refreshError = new UnauthorizedException("Refresh token expired");
 
@@ -309,7 +319,7 @@ test("refresh unauthorized failure clears the refresh cookie", async () => {
     UnauthorizedException
   );
 
-  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+  assert.equal(response.clearCookieCalls.length, 0);
 });
 
 test("refresh server failure preserves the refresh cookie", async () => {
@@ -324,6 +334,17 @@ test("refresh server failure preserves the refresh cookie", async () => {
   assert.equal(response.clearCookieCalls.length, 0);
 });
 
+test("refresh missing token clears the refresh cookie", async () => {
+  const { controller, response } = createFixture();
+
+  await assert.rejects(
+    () => controller.refresh({}, createRequest() as never, response as never),
+    UnauthorizedException
+  );
+
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
 test("logout uses cookie token and clears cookie", async () => {
   const { controller, authService, response } = createFixture();
 
@@ -335,7 +356,21 @@ test("logout uses cookie token and clears cookie", async () => {
   );
 
   assert.deepEqual(result, { userId: "00000000-0000-0000-0000-000000000001" });
-  assert.deepEqual(authService.logoutTokens, ["cookie-refresh"]);
+  assert.deepEqual(authService.logoutTokens, ["cookie-refresh", "body-refresh"]);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("logout revokes matching cookie and body token only once", async () => {
+  const { controller, authService, response } = createFixture();
+
+  await controller.logout(
+    { sub: "00000000-0000-0000-0000-000000000001", tenantId: "10000001", parkId: "20000001" } as never,
+    { refreshToken: "same-refresh" },
+    createRequest("sp_refresh_token=same-refresh") as never,
+    response as never
+  );
+
+  assert.deepEqual(authService.logoutTokens, ["same-refresh"]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 
@@ -364,6 +399,43 @@ test("logout ignores body token when body compatibility is disabled", async () =
   );
 
   assert.deepEqual(authService.logoutTokens, [undefined]);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("public cookie logout revokes cookie token and clears cookie without current user", async () => {
+  const { controller, authService, response } = createFixture();
+
+  const result = await controller.logoutCookie(
+    createRequest("sp_refresh_token=cookie-refresh") as never,
+    response as never
+  );
+
+  assert.deepEqual(result, { cleared: true });
+  assert.deepEqual(authService.logoutCookieTokens, ["cookie-refresh"]);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("public cookie logout clears cookie when no token exists", async () => {
+  const { controller, authService, response } = createFixture();
+
+  const result = await controller.logoutCookie(createRequest() as never, response as never);
+
+  assert.deepEqual(result, { cleared: true });
+  assert.deepEqual(authService.logoutCookieTokens, []);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+});
+
+test("public cookie logout hides revoke failures while clearing cookie", async () => {
+  const { controller, authService, response } = createFixture();
+  authService.logoutCookieError = new UnauthorizedException("Refresh token expired");
+
+  const result = await controller.logoutCookie(
+    createRequest("sp_refresh_token=cookie-refresh") as never,
+    response as never
+  );
+
+  assert.deepEqual(result, { cleared: true });
+  assert.deepEqual(authService.logoutCookieTokens, ["cookie-refresh"]);
   assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
 });
 

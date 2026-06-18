@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpException, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { ClsService } from "nestjs-cls";
@@ -169,15 +169,8 @@ export class AuthController {
       ipAddress: this.getIpAddress(request),
       identifier: refreshToken
     });
-    try {
-      const result = await this.authService.refresh({ refreshToken }, this.getMeta(request));
-      return this.withRefreshCookie(result, response, cookieConfig);
-    } catch (error) {
-      if (this.shouldClearRefreshCookie(error)) {
-        clearRefreshTokenCookie(response, cookieConfig);
-      }
-      throw error;
-    }
+    const result = await this.authService.refresh({ refreshToken }, this.getMeta(request));
+    return this.withRefreshCookie(result, response, cookieConfig);
   }
 
   @Get("me")
@@ -197,12 +190,37 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ): Promise<{ userId: string }> {
     const cookieConfig = getRefreshCookieConfig(this.configService);
-    const refreshToken = readRefreshTokenCookie(request, cookieConfig) ?? (cookieConfig.bodyCompat ? dto?.refreshToken : undefined);
+    const refreshTokens = this.resolveRefreshTokensForLogout(readRefreshTokenCookie(request, cookieConfig), dto?.refreshToken, cookieConfig);
     try {
-      return await this.authService.logout(user, refreshToken);
+      if (refreshTokens.length === 0) {
+        return await this.authService.logout(user);
+      }
+      let result: { userId: string } | null = null;
+      for (const refreshToken of refreshTokens) {
+        result = await this.authService.logout(user, refreshToken);
+      }
+      return result ?? { userId: user.sub };
     } finally {
       clearRefreshTokenCookie(response, cookieConfig);
     }
+  }
+
+  @Public()
+  @Post("logout-cookie")
+  @HttpCode(200)
+  async logoutCookie(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<{ cleared: true }> {
+    const cookieConfig = getRefreshCookieConfig(this.configService);
+    const refreshToken = readRefreshTokenCookie(request, cookieConfig);
+    try {
+      if (refreshToken) {
+        await this.authService.logoutRefreshToken(refreshToken);
+      }
+    } catch {
+      // Keep the endpoint idempotent and avoid exposing refresh-token state.
+    } finally {
+      clearRefreshTokenCookie(response, cookieConfig);
+    }
+    return { cleared: true };
   }
 
   private getMeta(request: Request) {
@@ -239,8 +257,15 @@ export class AuthController {
     return refreshToken;
   }
 
-  private shouldClearRefreshCookie(error: unknown): boolean {
-    return error instanceof HttpException && error.getStatus() === 401;
+  private resolveRefreshTokensForLogout(
+    cookieRefreshToken: string | null,
+    bodyRefreshToken: string | undefined,
+    cookieConfig: RefreshCookieConfig
+  ): string[] {
+    const tokens = [cookieRefreshToken, cookieConfig.bodyCompat ? bodyRefreshToken : undefined].filter(
+      (token): token is string => Boolean(token)
+    );
+    return [...new Set(tokens)];
   }
 }
 

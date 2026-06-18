@@ -674,6 +674,18 @@ export class AuthService implements OnModuleInit {
     return { userId: user.sub };
   }
 
+  async logoutRefreshToken(refreshToken: string): Promise<void> {
+    const tokenHash = this.hashToken(refreshToken);
+    await this.refreshTokenRepository.update(
+      {
+        tokenHash,
+        revoked: false,
+        isDeleted: false
+      },
+      { revoked: true, revokedTime: new Date(), updateBy: null }
+    );
+  }
+
   private async issueLoginResult(
     user: UserEntity,
     meta: LoginRequestMeta,
