@@ -78,6 +78,33 @@ test("handleUnauthorizedSessionReset supports direct-fetch protected 401 cleanup
 test("handleUnauthorizedSessionReset treats session-only matches as stale when localStorage has a newer token", async () => {
   const { session, local, location } = installBrowserStorage();
   session.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", "{\"id\":\"old\"}");
+  session.setItem("jinhu_refresh_token", "old-refresh");
+  local.setItem("jinhu_access_token", "new-token");
+  local.setItem("jinhu_auth_user", "{\"id\":\"new\"}");
+  const calls = installFetchRecorder();
+
+  const handled = await handleUnauthorizedSessionReset({
+    path: "/users/me",
+    requestToken: "old-token",
+    redirect: true
+  });
+
+  assert.equal(handled, false);
+  assert.equal(calls.length, 0);
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(session.getItem("jinhu_refresh_token"), null);
+  assert.equal(local.getItem("jinhu_access_token"), "new-token");
+  assert.equal(local.getItem("jinhu_auth_user"), "{\"id\":\"new\"}");
+  assert.equal(location.href, "");
+});
+
+test("handleUnauthorizedSessionReset does not remove unrelated session token while ignoring stale requests", async () => {
+  const { session, local, location } = installBrowserStorage();
+  session.setItem("jinhu_access_token", "other-token");
+  session.setItem("jinhu_auth_user", "{\"id\":\"other\"}");
+  session.setItem("jinhu_refresh_token", "other-refresh");
   local.setItem("jinhu_access_token", "new-token");
   const calls = installFetchRecorder();
 
@@ -89,7 +116,9 @@ test("handleUnauthorizedSessionReset treats session-only matches as stale when l
 
   assert.equal(handled, false);
   assert.equal(calls.length, 0);
-  assert.equal(session.getItem("jinhu_access_token"), "old-token");
+  assert.equal(session.getItem("jinhu_access_token"), "other-token");
+  assert.equal(session.getItem("jinhu_auth_user"), "{\"id\":\"other\"}");
+  assert.equal(session.getItem("jinhu_refresh_token"), "other-refresh");
   assert.equal(local.getItem("jinhu_access_token"), "new-token");
   assert.equal(location.href, "");
 });
