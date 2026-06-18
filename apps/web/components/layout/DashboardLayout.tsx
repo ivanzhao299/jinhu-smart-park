@@ -43,6 +43,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         setReady(true);
       })
       .catch(() => {
+        if (token !== getToken()) {
+          return;
+        }
         clearSession();
         router.replace("/login");
       });

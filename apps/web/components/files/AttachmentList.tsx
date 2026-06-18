@@ -4,8 +4,8 @@ import { Download, Eye, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatFileSize, SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
-import { clearSession } from "../../lib/auth";
 import { getAccessToken } from "../../lib/authz";
+import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
 
@@ -40,13 +40,16 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
   }, [bizType, bizId, refreshKey]);
 
   async function fetchFileBlob(file: FileRecord): Promise<Blob> {
+    const token = getAccessToken();
     const response = await fetch(`${API_PREFIX}/files/${file.id}/download`, {
-      headers: { Authorization: `Bearer ${getAccessToken()}` }
+      headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
       if (response.status === 401) {
-        clearSession();
-        window.location.href = "/login";
+        await handleUnauthorizedSessionReset({
+          path: `/files/${file.id}/download`,
+          requestToken: token
+        });
       }
       setMessage("文件下载失败");
       throw new Error("文件下载失败");
