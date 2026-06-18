@@ -76,7 +76,6 @@ export default function LoginPage() {
           <img alt="金湖科创产业园" src="/brand/jinhupark-logo.svg" />
         </div>
         <div className="signin-copy">
-          <span className="signin-kicker">Smart Park Cloud</span>
           <h1>园区数字运营平台</h1>
           <div className="signin-capabilities" aria-label="平台能力">
             <span><Building2 size={16} /> 资产运营</span>
