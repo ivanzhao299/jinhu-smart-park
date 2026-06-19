@@ -1,0 +1,7 @@
+/*
+ * Runtime design-system overrides.
+ *
+ * This file is intentionally served as a static asset so production can apply
+ * small visual fixes without rebuilding the Next.js image. Keep durable styles
+ * in app/globals.css; use this file only for hot production UI polish.
+ */

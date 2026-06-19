@@ -50,6 +50,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="/runtime-design-system.css" />
       </head>
       <body>
         <ThemeProvider>

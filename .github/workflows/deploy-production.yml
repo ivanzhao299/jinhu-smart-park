@@ -2,6 +2,18 @@ name: Deploy Production
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_mode:
+        description: "Deployment mode. auto detects changed files; fast-css only syncs runtime CSS."
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - fast-css
+          - web
+          - api
+          - full
 
 concurrency:
   group: deploy-production
@@ -17,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -42,32 +56,80 @@ jobs:
           }
           EOF
 
+      - name: Resolve deployment mode
+        id: deploy-mode
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          REQUESTED_DEPLOY_MODE: ${{ inputs.deploy_mode }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          requested="${REQUESTED_DEPLOY_MODE:-auto}"
+          resolved="$requested"
+          previous_commit="$(ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "node -e \"try{const r=require('$PROD_DEPLOY_PATH/.release.json'); process.stdout.write(r.commit||'')}catch(e){}\"" || true)"
+          if [ "$requested" = "auto" ]; then
+            if [ -n "$previous_commit" ] && git cat-file -e "$previous_commit^{commit}" 2>/dev/null; then
+              changed_files="$(git diff --name-only "$previous_commit" "$GITHUB_SHA" || true)"
+            else
+              changed_files=""
+            fi
+            if [ -z "$changed_files" ]; then
+              resolved="full"
+            elif printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/public/runtime-design-system\.css|\.release\.json)$' >/dev/null; then
+              if printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/|packages/ui/|docs/|README\.md|AGENTS\.md|\.trellis/)' >/dev/null; then
+                if printf "%s\n" "$changed_files" | grep -Ev '^(apps/api/|docs/|README\.md|AGENTS\.md|\.trellis/)' >/dev/null; then
+                  resolved="full"
+                else
+                  resolved="api"
+                fi
+              else
+                resolved="web"
+              fi
+            else
+              resolved="fast-css"
+            fi
+          fi
+          printf "requested=%s\nresolved=%s\nprevious_commit=%s\n" "$requested" "$resolved" "$previous_commit"
+          echo "mode=$resolved" >> "$GITHUB_OUTPUT"
+
       - name: Deploy
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PROD_DEPLOY_MODE: ${{ steps.deploy-mode.outputs.mode }}
         run: |
+          set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
-          rsync -az --delete \
-            -e "ssh $SSH_OPTS" \
-            --exclude='.git/' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            --exclude='node_modules/' \
-            --exclude='**/node_modules/' \
-            --exclude='.next/' \
-            --exclude='**/.next/' \
-            --exclude='dist/' \
-            --exclude='**/dist/' \
-            --exclude='coverage/' \
-            --exclude='**/coverage/' \
-            --exclude='logs/' \
-            --exclude='tmp/' \
-            --exclude='temp/' \
-            --exclude='uploads/' \
-            --exclude='storage/' \
-            --exclude='data/' \
-            ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
-          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy && pnpm prod:health"
+          if [ "$PROD_DEPLOY_MODE" = "fast-css" ]; then
+            rsync -azR \
+              -e "ssh $SSH_OPTS" \
+              .release.json apps/web/public/runtime-design-system.css \
+              "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
+          else
+            rsync -az --delete \
+              -e "ssh $SSH_OPTS" \
+              --exclude='.git/' \
+              --exclude='.env' \
+              --exclude='.env.*' \
+              --exclude='node_modules/' \
+              --exclude='**/node_modules/' \
+              --exclude='.next/' \
+              --exclude='**/.next/' \
+              --exclude='dist/' \
+              --exclude='**/dist/' \
+              --exclude='coverage/' \
+              --exclude='**/coverage/' \
+              --exclude='logs/' \
+              --exclude='tmp/' \
+              --exclude='temp/' \
+              --exclude='uploads/' \
+              --exclude='storage/' \
+              --exclude='data/' \
+              ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
+          fi
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=no pnpm prod:deploy && pnpm prod:health"

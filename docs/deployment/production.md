@@ -267,7 +267,7 @@ First-time deployments that need the production core seed can use:
 RUN_PRODUCTION_SEED=yes pnpm prod:deploy
 ```
 
-The deploy script:
+The default full deploy script:
 
 1. Builds API and Web images.
 2. Starts PostgreSQL.
@@ -275,7 +275,27 @@ The deploy script:
 4. Optionally runs production seed.
 5. Starts API and Web.
 6. Runs API/Web health checks.
-7. Prunes old Docker containers, unused images, and build cache.
+7. Prunes stopped Docker containers and unused images.
+
+### Deployment Modes
+
+The `Deploy Production` GitHub Actions workflow supports a `deploy_mode` input:
+
+- `auto`: default. Compares the previous production `.release.json` commit with the current commit and chooses the safest mode.
+- `fast-css`: syncs `.release.json` and `apps/web/public/runtime-design-system.css` only, then copies the CSS into the running Web container. It does not rebuild images, restart containers, run migrations, or seed data.
+- `web`: builds and restarts the Web container only. It does not run migrations.
+- `api`: builds and restarts the API container, then runs migrations and optional production seed.
+- `full`: builds API and Web, runs migrations and optional production seed, starts API/Web, and runs health checks.
+
+Use `fast-css` only for runtime design-system polish inside `apps/web/public/runtime-design-system.css`. Durable UI changes in React components, `globals.css`, or page CSS still require `web` or `full` because they are bundled by Next.js.
+
+Docker cleanup keeps the images used by current production containers and prunes unused images. Docker build cache is preserved by default so rebuilds stay warm. To reclaim build cache under disk pressure, run:
+
+```bash
+PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:cleanup
+```
+
+Pruning build cache is safe for runtime data, but it makes the next Docker build slower.
 
 ## 2.1 Deployment Traceability
 
@@ -327,7 +347,7 @@ Idempotency cleanup:
 - Cleanup failures are logged and do not stop the API process.
 - Idempotency records are an anti-replay cache and are not meant to be retained forever.
 
-The cleanup keeps the images used by the currently running production containers and removes historical build cache. It does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
+The cleanup keeps the images used by the currently running production containers and does not remove Docker volumes, so PostgreSQL data is preserved. Disable automatic cleanup only when debugging image layers:
 
 ```bash
 PRUNE_DOCKER_AFTER_DEPLOY=no pnpm prod:deploy

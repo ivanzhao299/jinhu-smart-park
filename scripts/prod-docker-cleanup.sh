@@ -4,6 +4,8 @@ set -eu
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.production}"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.prod.yml}"
+PRUNE_DOCKER_BUILD_CACHE="${PRUNE_DOCKER_BUILD_CACHE:-no}"
+DOCKER_BUILD_CACHE_KEEP_STORAGE="${DOCKER_BUILD_CACHE_KEEP_STORAGE:-5gb}"
 
 if [ ! -f "$ENV_FILE" ]; then
   printf "Missing production env file: %s\n" "$ENV_FILE" >&2
@@ -27,8 +29,15 @@ docker container prune -f
 printf "\nPruning unused images. Current container images are kept by Docker automatically.\n"
 docker image prune -af
 
-printf "\nPruning build cache. Production does not keep historical build cache by default.\n"
-docker builder prune -af
+case "$PRUNE_DOCKER_BUILD_CACHE" in
+  yes|true|1)
+    printf "\nPruning Docker build cache with keep-storage=%s.\n" "$DOCKER_BUILD_CACHE_KEEP_STORAGE"
+    docker builder prune -af --keep-storage "$DOCKER_BUILD_CACHE_KEEP_STORAGE"
+    ;;
+  *)
+    printf "\nKeeping Docker build cache for faster rebuilds. Set PRUNE_DOCKER_BUILD_CACHE=yes to prune it.\n"
+    ;;
+esac
 
 printf "\nDocker disk usage after cleanup:\n"
 docker system df || true
