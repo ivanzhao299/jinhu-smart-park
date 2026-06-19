@@ -4,6 +4,8 @@ set -eu
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.production}"
 MODE="${MODE:-liveness}"
+HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-30}"
+HEALTHCHECK_INTERVAL_SECONDS="${HEALTHCHECK_INTERVAL_SECONDS:-2}"
 
 if [ -f "$ENV_FILE" ]; then
   set -a
@@ -61,6 +63,25 @@ check_url() {
   return 1
 }
 
+check_url_with_retry() {
+  label="$1"
+  url="$2"
+  attempt=1
+  while [ "$attempt" -le "$HEALTHCHECK_ATTEMPTS" ]; do
+    if fetch_url "$url"; then
+      printf "%s OK: %s\n" "$label" "$url"
+      return 0
+    fi
+    if [ "$attempt" -lt "$HEALTHCHECK_ATTEMPTS" ]; then
+      printf "%s not ready yet (%s/%s): %s\n" "$label" "$attempt" "$HEALTHCHECK_ATTEMPTS" "$url" >&2
+      sleep "$HEALTHCHECK_INTERVAL_SECONDS"
+    fi
+    attempt=$((attempt + 1))
+  done
+  printf "%s FAIL after %s attempts: %s\n" "$label" "$HEALTHCHECK_ATTEMPTS" "$url" >&2
+  return 1
+}
+
 printf "Running production healthcheck in MODE=%s\n" "$MODE"
 
 case "$MODE" in
@@ -77,15 +98,15 @@ case "$MODE" in
     fi
     ;;
   full)
-    if ! check_url "API liveness" "$API_HEALTH_URL"; then
+    if ! check_url_with_retry "API liveness" "$API_HEALTH_URL"; then
       printf "FULL CHECK FAIL\n" >&2
       exit 1
     fi
-    if ! check_url "API readiness" "$API_READY_URL"; then
+    if ! check_url_with_retry "API readiness" "$API_READY_URL"; then
       printf "FULL CHECK FAIL\n" >&2
       exit 1
     fi
-    if ! check_url "WEB login" "$WEB_HEALTH_URL"; then
+    if ! check_url_with_retry "WEB login" "$WEB_HEALTH_URL"; then
       printf "FULL CHECK FAIL\n" >&2
       exit 1
     fi
