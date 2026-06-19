@@ -115,6 +115,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/system/permissions",
   "/system/dicts",
   "/system/modules",
+  "/system/branding",
   "/system/tenants",
   "/system/audit/op-logs",
   "/system/audit/login-logs"
@@ -260,6 +261,7 @@ export const dashboardMenus: MenuNode[] = [
       { label: "数据权限", href: "/system/data-scopes", permission: "data_scope:read", module: "system" },
       { label: "字段权限", href: "/system/field-policies", permission: "field_policy:read", module: "system" },
       { label: "编码规则", href: "/system/code-rules", permission: "system:code-rule:read", module: "system" },
+      { label: "品牌设置", href: "/system/branding", permission: "system:read", module: "system" },
       { label: "租户管理", href: "/system/tenants", permission: "tenant:read", module: "system" },
       { label: "模块授权", href: "/system/modules", permission: "module:read", module: "system" },
       { label: "字典管理", href: "/system/dicts", permission: "dict:read", module: "system" },

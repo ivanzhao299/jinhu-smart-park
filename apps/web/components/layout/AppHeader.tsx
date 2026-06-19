@@ -2,11 +2,11 @@
 
 import { Button } from "antd";
 import { Building2, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useAppBranding } from "../branding/useAppBranding";
+import { THEME_OPTIONS, useTheme } from "../theme/ThemeProvider";
 import { useAuthUser } from "../../lib/auth-context";
 import { UserMenu } from "./UserMenu";
-
-const THEME_KEY = "jinhu_theme";
 
 interface AppHeaderProps {
   sidebarCollapsed: boolean;
@@ -15,24 +15,16 @@ interface AppHeaderProps {
 
 export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHeaderProps) {
   const user = useAuthUser();
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const storedTheme = localStorage.getItem(THEME_KEY);
-    if (storedTheme === "dark" || storedTheme === "light") {
-      return storedTheme;
-    }
-    return "light";
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
+  const branding = useAppBranding();
+  const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
+  const themeValues = useMemo(() => THEME_OPTIONS.map((option) => option.value), []);
 
   const roleNames = user?.roles.map((role) => role.role_name).join(" / ") || "-";
   const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "-";
+  const handleThemeChange = () => {
+    const currentIndex = themeValues.indexOf(theme);
+    setTheme(themeValues[(currentIndex + 1) % themeValues.length] ?? "enterprise-light");
+  };
 
   return (
     <header className="app-header">
@@ -46,7 +38,7 @@ export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHea
           onClick={() => onSidebarCollapsedChange(!sidebarCollapsed)}
         />
         <div className="header-title">
-          <strong>金湖科创产业园 SaaS</strong>
+          <strong>{branding.systemName}</strong>
           <span>
             <Building2 size={14} />
             园区：{currentParkName} · 角色：{roleNames}
@@ -55,12 +47,12 @@ export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHea
       </div>
       <div className="header-actions">
         <Button
-          aria-label="切换主题"
+          aria-label={`切换主题，当前为${themeLabel}`}
           className="header-icon-button"
-          icon={theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          title="切换主题"
+          icon={resolvedTheme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          title={`切换主题：${themeLabel}`}
           type="text"
-          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          onClick={handleThemeChange}
         />
         <UserMenu />
       </div>

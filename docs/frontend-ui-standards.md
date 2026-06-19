@@ -39,11 +39,13 @@ Style rules:
 - Do not use inline styles.
 - Do not hardcode colors in page components.
 - Do not add page-specific layout selectors to `app/globals.css` unless the layout cannot be expressed with shared UI primitives.
+- Do not redefine an existing global selector later in `app/globals.css` just to override it. Extend the shared primitive or introduce a scoped `ds-*` primitive instead.
 - Do not define page-local `EmptyState`, `MetricCard`, `StatusPill`, pagination, or content-card variants.
 - Prefer CSS Modules inside `@jinhu/ui` for reusable UI patterns.
 - Keep page-specific CSS small and limited to domain-specific composition.
 - Buttons must be grouped through `ActionGroup` or `DataTableActions`; avoid random button placement.
 - Page width, card spacing, table density, and empty states must be inherited from the shared primitives.
+- Native checkboxes must use the global `input[type="checkbox"]` design-system style. Do not use `accent-color` or page-local checked-state styling for normal form checkboxes.
 
 Current baseline sample:
 
@@ -55,6 +57,7 @@ Known migration backlog:
 - Some system pages still use raw `<table>` layouts instead of `DataTable`.
 - Some `/admin/*` routes are alias pages with duplicated route surfaces; keep them only when compatibility is intentional.
 - `app/globals.css` still contains many page-specific selectors and should be gradually reduced after page migration.
+- `app/globals.css` must be periodically audited for repeated selectors. Repeated selectors are allowed only for documented responsive/theme overrides; accidental repeated base selectors must be consolidated.
 
 ## Drawer Standard
 

@@ -321,19 +321,22 @@ export default function RolesPage() {
       </div>
 
       {workspace === "config" ? (
-        <section className="system-split role-config-layout">
-          <Card className="role-panel">
-            <h2 className="panel-title"><FolderTree size={18} />角色树</h2>
+        <section className="system-split role-config-layout ds-config-workbench">
+          <Card className="role-panel role-tree-card">
+            <div className="ds-panel-heading">
+              <h2 className="panel-title"><FolderTree size={18} />角色树</h2>
+              <span className="ds-subtle-count">共 {flatRoles.length} 个</span>
+            </div>
             <div className="tree-list role-tree-panel">
               {roleTree.map((role) => <RoleTreeItem key={role.id} role={role} selectedId={selectedRoleId} onSelect={(id) => void selectRole(id).catch(showError)} onCreateChild={openCreateForm} />)}
             </div>
           </Card>
 
-          <Card className="role-panel">
+          <Card className="role-panel role-detail-card">
             {selectedRole ? (
               <div className="detail-stack">
-                <div className="system-toolbar">
-                  <div>
+                <div className="system-toolbar role-detail-header">
+                  <div className="role-detail-title">
                     <h2 className="panel-title">{selectedRole.name}</h2>
                     <p className="muted-text">{selectedRole.code}</p>
                     <RoleTags role={selectedRole} />
@@ -346,7 +349,7 @@ export default function RolesPage() {
                   </div>
                 </div>
 
-                <div className="system-grid-three">
+                <div className="system-grid-three role-meta-grid">
                   <Meta label="角色范围" value={selectedRole.roleScope} />
                   <Meta label="角色类型" value={selectedRole.roleType} />
                   <Meta label="数据范围" value={selectedRole.dataScope} />
@@ -416,10 +419,10 @@ export default function RolesPage() {
 
 function RoleTreeItem({ role, selectedId, onSelect, onCreateChild }: { role: RoleNode; selectedId: string; onSelect: (id: string) => void; onCreateChild: (id: string) => void }) {
   return (
-    <div className="tree-list">
+    <div className="role-tree-node">
       <div className={`tree-row${selectedId === role.id ? " active" : ""}`}>
         <button type="button" onClick={() => onSelect(role.id)}><FolderTree size={15} />{role.name}</button>
-        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} /></PermissionButton>
+        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} />子角色</PermissionButton>
       </div>
       {role.children && role.children.length > 0 ? <div className="tree-children">{role.children.map((child) => <RoleTreeItem key={child.id} role={child} selectedId={selectedId} onSelect={onSelect} onCreateChild={onCreateChild} />)}</div> : null}
     </div>
@@ -443,8 +446,7 @@ function PermissionTreeItem({ permission, selectedIds, onToggle }: { permission:
     <div className="tree-list">
       <label className="permission-row">
         <input type="checkbox" checked={selectedIds.includes(permission.id)} onChange={(event) => onToggle(permission, event.target.checked)} />
-        <span>{permission.name}</span>
-        <span className="muted-text">{permission.code}</span>
+        <span className="role-binding-content"><strong>{permission.name}</strong><small>{permission.code}</small></span>
         <span className="status-pill">{permission.permissionType ?? `type-${permission.permType ?? 40}`}</span>
       </label>
       {permission.children && permission.children.length > 0 ? <div className="tree-children">{permission.children.map((child) => <PermissionTreeItem key={child.id} permission={child} selectedIds={selectedIds} onToggle={onToggle} />)}</div> : null}
@@ -464,7 +466,7 @@ function BindingPanel<T extends { id: string; status: string }>({ title, emptyTe
         {items.map((item) => (
           <label key={item.id} className="binding-row">
             <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => onToggle(item.id, event.target.checked)} />
-            <span className="detail-stack">{renderItem(item)}</span>
+            <span className="role-binding-content">{renderItem(item)}</span>
             <StatusBadge status={item.status} />
           </label>
         ))}

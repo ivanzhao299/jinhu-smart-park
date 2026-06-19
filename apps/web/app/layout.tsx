@@ -30,6 +30,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
                 try {
                   var t = localStorage.getItem('jinhu_theme') || localStorage.getItem('app_theme') || 'light';
                   var d = document.documentElement;
+                  var supportedThemes = ['dark', 'light', 'system', 'enterprise-light', 'harbor-blue', 'forest-green', 'graphite-gold', 'command-dark'];
+                  if (supportedThemes.indexOf(t) === -1) {
+                    t = 'light';
+                  }
                   if (t === 'system') {
                     d.dataset.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                   } else {

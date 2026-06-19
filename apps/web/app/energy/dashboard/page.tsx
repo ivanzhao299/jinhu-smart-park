@@ -134,7 +134,7 @@ export default function EnergyDashboardPage() {
 
   return (
     <PermissionGuard module={ENERGY_MODULE} permission={SYSTEM_PERMISSIONS.ENERGY_DASHBOARD_READ} fallback={<Forbidden />}>
-      <main className="page-container">
+      <main className="page-container energy-dashboard-page">
         <Card className="page-header">
           <div>
             <h1>能源监测看板</h1>
@@ -234,28 +234,30 @@ export default function EnergyDashboardPage() {
 }
 
 function MetricPanel({ title, rows, idKey, dicts }: { title: string; rows: GroupRow[]; idKey: "building_id" | "park_tenant_id"; dicts: DictMap }) {
+  const maxConsumption = Math.max(...rows.map((row) => Number(row.consumption) || 0), 1);
+
   return (
-    <Card className="asset-stat-panel">
+    <Card className="asset-stat-panel energy-rank-panel">
       <h2 className="panel-title">{title}</h2>
       {rows.length ? (
-        <DataTable>
-          <thead>
-            <tr>
-              <th>归集对象</th>
-              <th>表计类型</th>
-              <th>确认用量</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={`${row[idKey] ?? "unbound"}-${row.meter_type}`}>
-                <td>{row[idKey] ?? "未绑定"}</td>
-                <td><StatusPill dictCode="energy_meter_type" value={row.meter_type} dicts={dicts} /></td>
-                <td>{formatDecimal(row.consumption)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </DataTable>
+        <ul className="energy-rank-list">
+          {rows.map((row, index) => {
+            const consumption = Number(row.consumption) || 0;
+            const label = row[idKey] ?? "未绑定";
+            return (
+              <li className="energy-rank-item" key={`${label}-${row.meter_type}-${index}`}>
+                <div className="energy-rank-meta">
+                  <strong>{label}</strong>
+                  <StatusPill dictCode="energy_meter_type" value={row.meter_type} dicts={dicts} />
+                </div>
+                <div className="energy-rank-value">
+                  <span>{formatDecimal(row.consumption)}</span>
+                  <progress aria-label={`${label}确认用量`} max={maxConsumption} value={consumption} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : <EmptyState text="暂无确认读数" />}
     </Card>
   );
@@ -263,10 +265,12 @@ function MetricPanel({ title, rows, idKey, dicts }: { title: string; rows: Group
 
 function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="stat-card">
-      <div className="stat-icon">{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="asset-stat-card">
+      <div className="asset-stat-card-header">
+        <span>{label}</span>
+        <span className="asset-stat-card-icon">{icon}</span>
+      </div>
+      <strong className="asset-stat-card-value">{value}</strong>
     </div>
   );
 }

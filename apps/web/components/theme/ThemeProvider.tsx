@@ -1,8 +1,36 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type Theme = 'dark' | 'light' | 'system' | 'enterprise-light' | 'command-dark';
+export type Theme =
+  | 'dark'
+  | 'light'
+  | 'system'
+  | 'enterprise-light'
+  | 'harbor-blue'
+  | 'forest-green'
+  | 'graphite-gold'
+  | 'command-dark';
+
+export const THEME_OPTIONS: Array<{ value: Theme; label: string; mode: 'light' | 'dark' }> = [
+  { value: 'enterprise-light', label: '企业浅色', mode: 'light' },
+  { value: 'harbor-blue', label: '深海蓝', mode: 'light' },
+  { value: 'forest-green', label: '森绿', mode: 'light' },
+  { value: 'graphite-gold', label: '石墨金', mode: 'light' },
+  { value: 'command-dark', label: '指挥深色', mode: 'dark' },
+  { value: 'system', label: '跟随系统', mode: 'light' }
+];
+
+const THEME_VALUES = new Set<Theme>([
+  'dark',
+  'light',
+  'system',
+  'enterprise-light',
+  'harbor-blue',
+  'forest-green',
+  'graphite-gold',
+  'command-dark'
+]);
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -13,6 +41,7 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: 'dark' | 'light';
+  themeLabel: string;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -25,7 +54,7 @@ export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProvide
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem('jinhu_theme') as Theme | null;
-    if (savedTheme && ['dark', 'light', 'system', 'enterprise-light', 'command-dark'].includes(savedTheme)) {
+    if (savedTheme && THEME_VALUES.has(savedTheme)) {
       setThemeState(savedTheme);
     }
   }, []);
@@ -45,10 +74,10 @@ export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProvide
 
       setResolvedTheme(isDark ? 'dark' : 'light');
 
-      if (currentTheme === 'enterprise-light' || currentTheme === 'command-dark') {
+      if (currentTheme === 'system') {
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+      } else if (THEME_VALUES.has(currentTheme)) {
         document.documentElement.dataset.theme = currentTheme;
-      } else if (isDark) {
-        document.documentElement.dataset.theme = 'dark';
       } else {
         document.documentElement.dataset.theme = 'light';
       }
@@ -71,8 +100,12 @@ export function ThemeProvider({ children, defaultTheme = 'light' }: ThemeProvide
     localStorage.setItem('jinhu_theme', newTheme);
   };
 
+  const themeLabel = useMemo(() => {
+    return THEME_OPTIONS.find((option) => option.value === theme)?.label ?? (theme === 'dark' ? '深色' : '浅色');
+  }, [theme]);
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, themeLabel }}>
       {children}
     </ThemeContext.Provider>
   );

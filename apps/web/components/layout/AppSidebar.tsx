@@ -5,6 +5,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useAppBranding } from "../branding/useAppBranding";
 import { useAuthUser } from "../../lib/auth-context";
 import { getDashboardMenus, type MenuNode } from "../../lib/menu";
 import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
@@ -18,6 +19,7 @@ export function AppSidebar({ collapsed }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthUser();
+  const branding = useAppBranding();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const sourceMenus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
@@ -75,9 +77,9 @@ export function AppSidebar({ collapsed }: AppSidebarProps) {
         setPreviewOpen(false);
       }}
     >
-      <div className="sidebar-brand-row" aria-label="金湖科创产业园">
+      <div className="sidebar-brand-row" aria-label={branding.logoAlt}>
         <div className="brand">
-          <img alt="金湖科创产业园" className="brand-title-logo" src="/brand/jinhupark-logo.svg" />
+          <img alt={branding.logoAlt} className="brand-title-logo" src="/brand/jinhupark-logo.svg" />
         </div>
       </div>
       <nav className="sidebar-menu">
