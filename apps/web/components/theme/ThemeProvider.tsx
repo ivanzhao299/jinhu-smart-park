@@ -10,6 +10,8 @@ export type Theme =
   | 'harbor-blue'
   | 'forest-green'
   | 'graphite-gold'
+  | 'violet-dusk'
+  | 'terra-cotta'
   | 'command-dark';
 
 export const THEME_OPTIONS: Array<{ value: Theme; label: string; mode: 'light' | 'dark' }> = [
@@ -17,6 +19,8 @@ export const THEME_OPTIONS: Array<{ value: Theme; label: string; mode: 'light' |
   { value: 'harbor-blue', label: '深海蓝', mode: 'light' },
   { value: 'forest-green', label: '森绿', mode: 'light' },
   { value: 'graphite-gold', label: '石墨金', mode: 'light' },
+  { value: 'violet-dusk', label: '暮紫', mode: 'light' },
+  { value: 'terra-cotta', label: '暖岩', mode: 'light' },
   { value: 'command-dark', label: '指挥深色', mode: 'dark' },
   { value: 'system', label: '跟随系统', mode: 'light' }
 ];
@@ -29,6 +33,8 @@ const THEME_VALUES = new Set<Theme>([
   'harbor-blue',
   'forest-green',
   'graphite-gold',
+  'violet-dusk',
+  'terra-cotta',
   'command-dark'
 ]);
 

@@ -150,7 +150,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--phoenix-space-3);
-  padding-top: var(--phoenix-space-2);
+  padding: 18px 34px 20px 18px;
   color: var(--text-secondary, var(--phoenix-color-text-muted));
   font-size: 13px;
 }

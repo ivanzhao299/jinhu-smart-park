@@ -2,9 +2,8 @@
 
 import { Button } from "antd";
 import { Building2, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
-import { useMemo } from "react";
 import { useAppBranding } from "../branding/useAppBranding";
-import { THEME_OPTIONS, useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "../theme/ThemeProvider";
 import { useAuthUser } from "../../lib/auth-context";
 import { UserMenu } from "./UserMenu";
 
@@ -17,13 +16,11 @@ export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHea
   const user = useAuthUser();
   const branding = useAppBranding();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
-  const themeValues = useMemo(() => THEME_OPTIONS.map((option) => option.value), []);
 
   const roleNames = user?.roles.map((role) => role.role_name).join(" / ") || "-";
   const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "-";
   const handleThemeChange = () => {
-    const currentIndex = themeValues.indexOf(theme);
-    setTheme(themeValues[(currentIndex + 1) % themeValues.length] ?? "enterprise-light");
+    setTheme(theme === "command-dark" || theme === "dark" ? "enterprise-light" : "command-dark");
   };
 
   return (
@@ -47,10 +44,10 @@ export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHea
       </div>
       <div className="header-actions">
         <Button
-          aria-label={`切换主题，当前为${themeLabel}`}
+          aria-label={`切换深浅色，当前为${themeLabel}`}
           className="header-icon-button"
           icon={resolvedTheme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          title={`切换主题：${themeLabel}`}
+          title={`切换深浅色：${themeLabel}`}
           type="text"
           onClick={handleThemeChange}
         />

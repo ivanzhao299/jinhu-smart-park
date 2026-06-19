@@ -15,10 +15,8 @@ export function AppBreadcrumb() {
 
   return (
     <nav className="breadcrumb" aria-label="breadcrumb">
-      <span>后台</span>
       {parent ? (
         <>
-          <ChevronRight size={14} />
           <span>{parent.label}</span>
         </>
       ) : null}

@@ -77,6 +77,14 @@ Direct node regression entries:
 - Preserve existing project patterns before adding new abstractions.
 - Avoid changing release, production, auth, database, or financial behavior without checking the related scripts and docs.
 
+## Production Deployment Cleanup Rule
+
+- Every production deployment must run Docker cleanup after the service health check.
+- Use `PRUNE_DOCKER_AFTER_DEPLOY=yes pnpm prod:deploy` or the equivalent CI deployment command.
+- Keep only images used by current running containers plus necessary active runtime state; prune stopped containers and unused images after deploy.
+- Build cache may be preserved for speed by default, but when disk pressure or the user asks for full cleanup, run with `PRUNE_DOCKER_BUILD_CACHE=yes`.
+- Do not skip post-deploy cleanup silently; if cleanup is skipped or fails, report it explicitly.
+
 ## Frontend Design System Rules
 
 - New and refactored pages must use the shared Design System surface classes in `apps/web/app/globals.css` before adding page-local visual styling.

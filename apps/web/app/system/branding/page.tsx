@@ -38,6 +38,11 @@ function BrandingSettings() {
   const updateField = <K extends keyof BrandingFormState>(key: K, value: BrandingFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
+  const previewTheme = (value: Theme) => {
+    setMessage("");
+    updateField("theme", value);
+    setTheme(value);
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -106,7 +111,7 @@ function BrandingSettings() {
             </label>
             <label>
               全局配色方案
-              <select value={form.theme} onChange={(event) => updateField("theme", event.target.value as Theme)}>
+              <select value={form.theme} onChange={(event) => previewTheme(event.target.value as Theme)}>
                 {THEME_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -124,7 +129,7 @@ function BrandingSettings() {
                 data-theme-option={option.value}
                 key={option.value}
                 type="button"
-                onClick={() => updateField("theme", option.value)}
+                onClick={() => previewTheme(option.value)}
               >
                 <Palette size={16} />
                 <span>{option.label}</span>

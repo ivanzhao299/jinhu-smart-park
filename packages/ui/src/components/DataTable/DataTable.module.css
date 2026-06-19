@@ -51,8 +51,8 @@
 
 .table td:has(.actions),
 .table td:has(:global(.data-table-actions)) {
-  width: 166px;
-  min-width: 166px;
+  width: 196px;
+  min-width: 196px;
   max-width: none;
   overflow: visible;
   text-align: right;
@@ -69,10 +69,10 @@
 .actions {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
   justify-content: flex-end;
-  width: min(100%, 166px);
-  max-width: 166px;
+  width: min(100%, 196px);
+  max-width: 196px;
   white-space: nowrap;
 }

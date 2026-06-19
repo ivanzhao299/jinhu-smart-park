@@ -289,13 +289,13 @@ The `Deploy Production` GitHub Actions workflow supports a `deploy_mode` input:
 
 Use `fast-css` only for runtime design-system polish inside `apps/web/public/runtime-design-system.css`. Durable UI changes in React components, `globals.css`, or page CSS still require `web` or `full` because they are bundled by Next.js.
 
-Docker cleanup keeps the images used by current production containers and prunes unused images. Docker build cache is preserved by default so rebuilds stay warm. To reclaim build cache under disk pressure, run:
+Docker cleanup is a required post-deploy step. The deployment command should run with `PRUNE_DOCKER_AFTER_DEPLOY=yes` so the server keeps only images used by the current running containers plus active runtime state, and prunes stopped containers and unused images after health checks pass. Build cache is preserved by default so rebuilds stay warm. To reclaim build cache under disk pressure, run:
 
 ```bash
 PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:cleanup
 ```
 
-Pruning build cache is safe for runtime data, but it makes the next Docker build slower.
+Pruning build cache is safe for runtime data, but it makes the next Docker build slower. If cleanup is skipped or fails, the deployment report must call that out explicitly.
 
 ## 2.1 Deployment Traceability
 
