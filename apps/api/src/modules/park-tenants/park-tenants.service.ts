@@ -11,6 +11,7 @@ import { LeasingCheckoutEntity } from "../leasing-checkouts/entities/leasing-che
 import { LeasingRefundEntity } from "../leasing-checkouts/entities/leasing-refund.entity";
 import { LeasingContractChangeEntity } from "../leasing-contract-changes/entities/leasing-contract-change.entity";
 import { LeasingContractEntity } from "../leasing-contracts/entities/leasing-contract.entity";
+import { LeasingContractUnitEntity } from "../leasing-contracts/entities/leasing-contract-unit.entity";
 import { LeasingInvoiceReceivableEntity } from "../leasing-invoices/entities/leasing-invoice-receivable.entity";
 import { LeasingInvoiceEntity } from "../leasing-invoices/entities/leasing-invoice.entity";
 import { LeasingPaymentReceivableEntity } from "../leasing-payments/entities/leasing-payment-receivable.entity";
@@ -55,6 +56,8 @@ export class ParkTenantsService {
     private readonly qualificationsRepository: Repository<ParkTenantQualificationEntity>,
     @InjectRepository(LeasingContractEntity)
     private readonly contractsRepository: Repository<LeasingContractEntity>,
+    @InjectRepository(LeasingContractUnitEntity)
+    private readonly contractUnitsRepository: Repository<LeasingContractUnitEntity>,
     @InjectRepository(LeasingContractChangeEntity)
     private readonly contractChangesRepository: Repository<LeasingContractChangeEntity>,
     @InjectRepository(LeasingCheckoutEntity)
@@ -225,7 +228,8 @@ export class ParkTenantsService {
       hazards,
       emergency,
       workPermits,
-      devices
+      devices,
+      relatedUnitsRaw
     ] = await Promise.all([
       this.contactsRepository
         .createQueryBuilder("contact")
@@ -274,7 +278,40 @@ export class ParkTenantsService {
       this.safetyHazardsService.tenant360Hazards(scope, actor, id),
       this.safetyEmergencyService.tenant360Emergencies(scope, actor, id),
       this.safetyWorkPermitsService.tenant360WorkPermits(scope, actor, id),
-      this.iotDashboardService.tenant360Devices(scope, actor, id)
+      this.iotDashboardService.tenant360Devices(scope, actor, id),
+      this.contractUnitsRepository
+        .createQueryBuilder("cu")
+        .select([
+          "cu.unit_id AS unit_id",
+          "cu.unit_code AS unit_code",
+          "cu.unit_name AS unit_name",
+          "cu.area AS area",
+          "cu.start_date AS start_date",
+          "cu.end_date AS end_date",
+          "cu.status AS link_status",
+          "c.id AS contract_id",
+          "c.contract_code AS contract_code",
+          "c.status AS contract_status",
+          "u.building_id AS building_id",
+          "u.floor_id AS floor_id",
+          "b.building_name AS building_name",
+          "f.floor_name AS floor_name"
+        ])
+        .innerJoin(
+          "biz_leasing_contract",
+          "c",
+          "c.id = cu.contract_id AND c.is_deleted = false AND c.park_tenant_id = :tenantParkTenantId",
+          { tenantParkTenantId: id }
+        )
+        .leftJoin("biz_unit", "u", "u.id = cu.unit_id AND u.is_deleted = false")
+        .leftJoin("biz_building", "b", "b.id = u.building_id AND b.is_deleted = false")
+        .leftJoin("biz_floor", "f", "f.id = u.floor_id AND f.is_deleted = false")
+        .where("cu.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("cu.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("cu.is_deleted = false")
+        .orderBy("cu.status", "DESC")
+        .addOrderBy("cu.start_date", "DESC")
+        .getRawMany()
     ]);
     const receivablesRaw = receivablesAllRaw.slice(0, 5);
     const paymentsRaw = paymentsAllRaw.slice(0, 5);
@@ -390,7 +427,7 @@ export class ParkTenantsService {
       contacts,
       qualifications: this.sanitizeQualificationFiles(qualifications),
       riskLogs,
-      relatedUnits: [],
+      relatedUnits: relatedUnitsRaw,
       contracts: {
         available: true,
         items: contracts,
