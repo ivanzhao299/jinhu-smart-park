@@ -52,6 +52,13 @@ interface BoardUnit {
   usage_type: number;
   usage_type_name: string;
   ref_price?: number | string | null;
+  current_tenant_id: string | null;
+  current_tenant_name: string | null;
+  current_contract_id: string | null;
+  current_contract_code: string | null;
+  current_contract_status: string | null;
+  lease_start_date: string | null;
+  lease_end_date: string | null;
 }
 
 interface BoardFloor {
@@ -410,6 +417,9 @@ export default function UnitStatusBoardPage() {
                           <span>{unit.usage_type_name}</span>
                           {canViewRefPrice ? <strong>{formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.ref_price))}</strong> : null}
                         </div>
+                        <div className="unit-card-tenant">
+                          <span className="muted-text" title={unit.current_tenant_name ?? "空置"}>{unit.current_tenant_name ?? "空置"}</span>
+                        </div>
                       </button>
                     ))}
                     {floor.units.length === 0 ? <span>本楼层暂无匹配房源</span> : null}
@@ -623,6 +633,11 @@ function UnitDetailDrawer({
           <DrawerDetailItem label="用途" value={unit.usage_type_name} />
           {canViewRefPrice ? (
             <DrawerDetailItem label="参考租金" value={formatMoney(maskUnitField(authUser, UNIT_FIELD_REF_PRICE, unit.ref_price))} />
+          ) : null}
+          <DrawerDetailItem label="当前租户" value={unit.current_tenant_name ?? "空置"} />
+          {unit.current_contract_code ? <DrawerDetailItem label="合同编号" value={unit.current_contract_code} /> : null}
+          {unit.lease_start_date || unit.lease_end_date ? (
+            <DrawerDetailItem label="租期" value={`${unit.lease_start_date ?? "-"} 至 ${unit.lease_end_date ?? "-"}`} />
           ) : null}
         </DrawerDetailGrid>
       ) : null}

@@ -44,6 +44,11 @@ export function UnitDetailSummary({
       <DrawerDetailItem label="可租日期" value={unit.availableDate ?? "-"} />
       <DrawerDetailItem label="状态" value={<StatusBadge status={unit.status} />} />
       {canViewRemark ? <DrawerDetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, unit.remark))} /> : null}
+      <DrawerDetailItem label="当前租户" value={unit.currentTenantName ?? "空置"} />
+      {unit.currentContractCode ? <DrawerDetailItem label="合同编号" value={unit.currentContractCode} /> : null}
+      {unit.leaseStartDate || unit.leaseEndDate ? (
+        <DrawerDetailItem label="租期" value={`${unit.leaseStartDate ?? "-"} 至 ${unit.leaseEndDate ?? "-"}`} />
+      ) : null}
     </DrawerDetailGrid>
   );
 }

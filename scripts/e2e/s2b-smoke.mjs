@@ -746,6 +746,8 @@ async function run() {
   const boardUnits = board.body.data.buildings.flatMap((item) => item.floors.flatMap((floor) => floor.units));
   assert(boardUnits.length > 0, "unit status board units missing");
   assert(boardUnits.every((item) => item.code && item.unit_code && item.rental_status_name && item.usage_type_name), "unit status board unit fields missing");
+  assert(boardUnits.every((item) => "current_tenant_name" in item), "unit status board unit must expose current_tenant_name field");
+  assert(boardUnits.filter((item) => item.rental_status === 30).every((item) => item.current_tenant_name !== undefined), "rented units must have current_tenant_name");
 
   const boardByStatus = await request(`/assets/unit-status-board?rental_status=10`, { headers: { authorization: `Bearer ${adminToken}` } });
   assertStatus("unit status board by rental status", boardByStatus.response.status, 200);
