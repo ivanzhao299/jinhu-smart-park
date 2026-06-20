@@ -53,9 +53,56 @@ export class UnitsQueryService {
     return { items: securedItems, total, page: query.page, page_size: query.page_size };
   }
 
-  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UnitEntity> {
+  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal) {
     const entity = await this.findDetail(scope, id, actor);
-    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", entity);
+    const [secured, tenantInfo] = await Promise.all([
+      this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", entity),
+      this.queryCurrentTenantForUnit(scope, id)
+    ]);
+    return {
+      ...secured,
+      currentTenantId: tenantInfo?.current_tenant_id ?? null,
+      currentTenantName: tenantInfo?.current_tenant_name ?? null,
+      currentContractId: tenantInfo?.current_contract_id ?? null,
+      currentContractCode: tenantInfo?.current_contract_code ?? null,
+      currentContractStatus: tenantInfo?.current_contract_status ?? null,
+      leaseStartDate: tenantInfo?.lease_start_date ?? null,
+      leaseEndDate: tenantInfo?.lease_end_date ?? null
+    };
+  }
+
+  private async queryCurrentTenantForUnit(scope: TenantParkScope, unitId: string) {
+    const rows = await this.unitsRepository.manager.query(
+      `SELECT
+         pt.id AS current_tenant_id,
+         pt.company_name AS current_tenant_name,
+         c.id AS current_contract_id,
+         c.contract_code AS current_contract_code,
+         c.status AS current_contract_status,
+         cu.start_date AS lease_start_date,
+         cu.end_date AS lease_end_date
+       FROM rel_leasing_contract_unit cu
+       INNER JOIN biz_leasing_contract c
+         ON c.id = cu.contract_id AND c.is_deleted = false
+         AND c.tenant_id = $1 AND c.park_id = $2 AND c.status = '75'
+       INNER JOIN biz_park_tenant pt
+         ON pt.id = c.park_tenant_id AND pt.is_deleted = false
+       WHERE cu.tenant_id = $1 AND cu.park_id = $2
+         AND cu.is_deleted = false AND cu.status = 1
+         AND cu.unit_id = $3
+       ORDER BY cu.start_date DESC
+       LIMIT 1`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<{
+      current_tenant_id: string;
+      current_tenant_name: string;
+      current_contract_id: string;
+      current_contract_code: string;
+      current_contract_status: string;
+      lease_start_date: string;
+      lease_end_date: string;
+    }>;
+    return rows[0] ?? null;
   }
 
   async listStatusLogs(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, query: UnitStatusLogQueryDto): Promise<PaginatedResult<UnitStatusLogEntity>> {
