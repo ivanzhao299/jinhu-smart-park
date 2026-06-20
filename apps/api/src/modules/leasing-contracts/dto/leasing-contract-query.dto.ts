@@ -48,4 +48,11 @@ export class LeasingContractQueryDto {
   @IsOptional()
   @IsDateString()
   end_date?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value !== undefined ? Number(value) : undefined))
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  expire_in_days?: number;
 }

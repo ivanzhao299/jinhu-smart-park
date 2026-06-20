@@ -749,6 +749,27 @@ WHERE unit_id IN (${sqlLiteral(unitA.id)}::uuid, ${sqlLiteral(unitB.id)}::uuid)
   assert(tenant360.body.data.receivables.available === true, "tenant 360 receivables should be available after S3-D-A");
   assert(Array.isArray(tenant360.body.data.receivables.recent_items), "tenant 360 receivables should expose a real receivable list");
 
+  // expire_in_days filter: adminContract has end_date 2027-05-31 (~345 days away)
+  const expireWide = await request(`/leasing/contracts?expire_in_days=365`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("expire_in_days=365 returns 200", expireWide.response.status, 200);
+  assertUniformResponse("expire_in_days=365 response", expireWide.body);
+  assert(expireWide.body.data.items.some((item) => item.id === adminContract.id), "expire_in_days=365 should include effective contract expiring in ~345 days");
+
+  const expireNarrow = await request(`/leasing/contracts?expire_in_days=30`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("expire_in_days=30 returns 200", expireNarrow.response.status, 200);
+  assertUniformResponse("expire_in_days=30 response", expireNarrow.body);
+  assert(!expireNarrow.body.data.items.some((item) => item.id === adminContract.id), "expire_in_days=30 should not include contract expiring in ~345 days");
+
+  const expireNegative = await request(`/leasing/contracts?expire_in_days=-1`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("expire_in_days=-1 rejected with 400", expireNegative.response.status, 400);
+
+  const expireOverMax = await request(`/leasing/contracts?expire_in_days=400`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("expire_in_days=400 rejected with 400", expireOverMax.response.status, 400);
+
+  const expireWithStatus = await request(`/leasing/contracts?expire_in_days=365&status=10`, { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("expire_in_days with explicit status=10 returns 200", expireWithStatus.response.status, 200);
+  assert(!expireWithStatus.body.data.items.some((item) => item.id === adminContract.id), "expire_in_days with status=10 should not include effective contract");
+
   const leadWithTenant = await jsonRequest(
     "/leasing/leads",
     adminToken,
