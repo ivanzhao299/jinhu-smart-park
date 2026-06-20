@@ -141,6 +141,16 @@ type UnitFilterQuery = Pick<UnitExportDto, "building_id" | "floor_id" | "usage_t
 
 type AssetStatisticsFilterQuery = Pick<AssetStatisticsQueryDto, "building_id" | "floor_id" | "usage_type">;
 
+export interface UnitCurrentTenant {
+  current_tenant_id: string;
+  current_tenant_name: string;
+  current_contract_id: string;
+  current_contract_code: string;
+  current_contract_status: string;
+  lease_start_date: string;
+  lease_end_date: string;
+}
+
 export interface UnitStatusBoardUnit {
   unit_id: string;
   code: string;
@@ -152,6 +162,13 @@ export interface UnitStatusBoardUnit {
   usage_type: number;
   usage_type_name: string;
   ref_price?: number | string | null;
+  current_tenant_id: string | null;
+  current_tenant_name: string | null;
+  current_contract_id: string | null;
+  current_contract_code: string | null;
+  current_contract_status: string | null;
+  lease_start_date: string | null;
+  lease_end_date: string | null;
 }
 
 export interface UnitStatusBoardFloor {
@@ -826,6 +843,8 @@ export class UnitsService {
       builder.getMany(),
       this.loadUnitDictLabelMaps(scope)
     ]);
+    const unitIds = units.map((u) => u.id);
+    const tenantMap = await this.queryCurrentTenantsForUnits(scope, unitIds);
     const buildings = new Map<string, UnitStatusBoardBuilding>();
 
     for (const unit of units) {
@@ -857,6 +876,7 @@ export class UnitsService {
         buildingNode.floors.push(floorNode);
       }
 
+      const tenantInfo = tenantMap.get(unit.id) ?? null;
       const unitPayload = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", {
         unit_id: unit.id,
         code: unit.code ?? unit.unitCode,
@@ -867,12 +887,46 @@ export class UnitsService {
         rental_status_name: labels.rentalStatuses.get(unit.rentalStatus) ?? String(unit.rentalStatus),
         usage_type: unit.usageType,
         usage_type_name: labels.usageTypes.get(unit.usageType) ?? String(unit.usageType),
-        ref_price: this.rawNumber(unit.refPrice)
+        ref_price: this.rawNumber(unit.refPrice),
+        current_tenant_id: tenantInfo?.current_tenant_id ?? null,
+        current_tenant_name: tenantInfo?.current_tenant_name ?? null,
+        current_contract_id: tenantInfo?.current_contract_id ?? null,
+        current_contract_code: tenantInfo?.current_contract_code ?? null,
+        current_contract_status: tenantInfo?.current_contract_status ?? null,
+        lease_start_date: tenantInfo?.lease_start_date ?? null,
+        lease_end_date: tenantInfo?.lease_end_date ?? null
       });
       floorNode.units.push(unitPayload);
     }
 
     return { buildings: [...buildings.values()] };
+  }
+
+  private async queryCurrentTenantsForUnits(scope: TenantParkScope, unitIds: string[]): Promise<Map<string, UnitCurrentTenant & { unit_id: string }>> {
+    if (unitIds.length === 0) return new Map();
+    const rows = await this.unitsRepository.manager.query(
+      `SELECT DISTINCT ON (cu.unit_id)
+         cu.unit_id,
+         pt.id AS current_tenant_id,
+         pt.company_name AS current_tenant_name,
+         c.id AS current_contract_id,
+         c.contract_code AS current_contract_code,
+         c.status AS current_contract_status,
+         cu.start_date AS lease_start_date,
+         cu.end_date AS lease_end_date
+       FROM rel_leasing_contract_unit cu
+       INNER JOIN biz_leasing_contract c
+         ON c.id = cu.contract_id AND c.is_deleted = false
+         AND c.tenant_id = $1 AND c.park_id = $2 AND c.status = '75'
+       INNER JOIN biz_park_tenant pt
+         ON pt.id = c.park_tenant_id AND pt.is_deleted = false
+       WHERE cu.tenant_id = $1 AND cu.park_id = $2
+         AND cu.is_deleted = false AND cu.status = 1
+         AND cu.unit_id = ANY($3::uuid[])
+       ORDER BY cu.unit_id, cu.start_date DESC`,
+      [scope.tenantId, scope.parkId, unitIds]
+    ) as Array<UnitCurrentTenant & { unit_id: string }>;
+    return new Map(rows.map((row) => [row.unit_id, row]));
   }
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
