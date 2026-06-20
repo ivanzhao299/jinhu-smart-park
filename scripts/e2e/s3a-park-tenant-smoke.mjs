@@ -507,7 +507,8 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   assert(adminTenant360.body.data.contacts.length === 2, "tenant 360 contacts should use real contact data");
   assert(adminTenant360.body.data.qualifications.some((item) => item.id === qualification.body.data.id), "tenant 360 qualifications should use real qualification data");
   assert(adminTenant360.body.data.riskLogs.some((item) => item.afterRiskLevel === "40"), "tenant 360 risk logs should use real risk log data");
-  assert(Array.isArray(adminTenant360.body.data.relatedUnits) && adminTenant360.body.data.relatedUnits.length === 0, "tenant 360 should not invent related units");
+  assert(Array.isArray(adminTenant360.body.data.relatedUnits), "tenant 360 relatedUnits must be an array");
+  assert(adminTenant360.body.data.relatedUnits.length === 0, "new tenant 360 should have no related units when no contracts exist");
   assert(adminTenant360.body.data.contracts.available === true, "tenant 360 contracts should be available after S3-C-A contract module");
   assert(Array.isArray(adminTenant360.body.data.contracts.items), "tenant 360 contracts should expose a real contract item list");
   assert(adminTenant360.body.data.contracts.summary?.contract_count === 0, "new tenant 360 contract summary should start at zero");
