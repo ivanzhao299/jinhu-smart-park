@@ -132,4 +132,4 @@ jobs:
               --exclude='data/' \
               ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
           fi
-          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=no pnpm prod:deploy && pnpm prod:health"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health"
