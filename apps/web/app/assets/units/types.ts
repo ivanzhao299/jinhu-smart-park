@@ -56,6 +56,13 @@ export interface UnitRow {
   status: EnabledStatus;
   remark: string | null;
   updateTime: string;
+  currentTenantId?: string | null;
+  currentTenantName?: string | null;
+  currentContractId?: string | null;
+  currentContractCode?: string | null;
+  currentContractStatus?: string | null;
+  leaseStartDate?: string | null;
+  leaseEndDate?: string | null;
 }
 
 export interface UnitFormState {
