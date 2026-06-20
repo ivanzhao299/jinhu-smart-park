@@ -877,7 +877,7 @@ export class UnitsService {
       }
 
       const tenantInfo = tenantMap.get(unit.id) ?? null;
-      const unitPayload = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", {
+      const unitBase = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "asset", "unit", {
         unit_id: unit.id,
         code: unit.code ?? unit.unitCode,
         unit_code: unit.unitCode,
@@ -887,7 +887,10 @@ export class UnitsService {
         rental_status_name: labels.rentalStatuses.get(unit.rentalStatus) ?? String(unit.rentalStatus),
         usage_type: unit.usageType,
         usage_type_name: labels.usageTypes.get(unit.usageType) ?? String(unit.usageType),
-        ref_price: this.rawNumber(unit.refPrice),
+        ref_price: this.rawNumber(unit.refPrice)
+      });
+      const unitPayload = {
+        ...unitBase,
         current_tenant_id: tenantInfo?.current_tenant_id ?? null,
         current_tenant_name: tenantInfo?.current_tenant_name ?? null,
         current_contract_id: tenantInfo?.current_contract_id ?? null,
@@ -895,7 +898,7 @@ export class UnitsService {
         current_contract_status: tenantInfo?.current_contract_status ?? null,
         lease_start_date: tenantInfo?.lease_start_date ?? null,
         lease_end_date: tenantInfo?.lease_end_date ?? null
-      });
+      };
       floorNode.units.push(unitPayload);
     }
 
