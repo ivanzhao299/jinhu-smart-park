@@ -32,16 +32,19 @@
   top: var(--drawer-offset);
   right: var(--drawer-offset);
   bottom: var(--drawer-offset);
+  display: flex;
+  flex-direction: column;
   width: min(var(--drawer-width), calc(100vw - (var(--drawer-offset) * 2)));
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
-  border-radius: 20px;
+  border-radius: 18px;
   background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
   padding: 0;
   color: var(--text-primary, var(--phoenix-color-text));
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.45;
   pointer-events: auto;
   animation: drawer-slide-in 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -50,17 +53,60 @@
 .size-lg { --drawer-width: 800px; }
 .size-xl { --drawer-width: 900px; }
 
+.drawerPanel:global(.ds-compact-drawer) {
+  --drawer-width: 680px;
+
+  border-radius: 14px;
+  font-size: 12px;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerHeader {
+  padding: 16px 22px 6px;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerTitle {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerCloseButton {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerCloseButton svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerForm {
+  gap: 9px;
+  padding: 6px 22px 0;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerFormGrid {
+  gap: 10px 12px;
+}
+
+.drawerPanel:global(.ds-compact-drawer) .drawerFooter {
+  gap: 8px;
+  margin: 6px -22px 0;
+  padding: 9px 22px 12px;
+}
+
 .drawerHeader {
-  position: sticky;
-  top: 0;
+  position: relative;
+  flex: 0 0 auto;
   z-index: 3;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--phoenix-space-3);
+  gap: 12px;
   align-items: center;
   margin: 0;
   border-bottom: 0;
-  padding: 28px 30px 14px;
+  padding: 22px 28px 10px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
@@ -82,7 +128,7 @@
   overflow: hidden;
   margin: 0;
   color: var(--text-primary, var(--phoenix-color-text));
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -103,27 +149,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 0;
-  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 4%, transparent);
+  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 3%, transparent);
   color: var(--text-secondary, var(--phoenix-color-text-muted));
   box-shadow: none;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 520;
   line-height: 1;
   transition: var(--phoenix-transition);
 }
 
 .drawerCloseButton svg {
-  width: 22px !important;
-  height: 22px !important;
-  min-width: 22px;
-  stroke-width: 2.25;
+  width: 19px !important;
+  height: 19px !important;
+  min-width: 19px;
+  stroke-width: 2.2;
 }
 
 .drawerCloseButton:hover {
@@ -133,6 +179,7 @@
 }
 
 .drawerActions {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -144,8 +191,8 @@
 }
 
 .drawerTabs {
-  position: sticky;
-  top: 58px;
+  position: relative;
+  flex: 0 0 auto;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
@@ -183,9 +230,25 @@
 
 .drawerForm {
   display: grid;
-  gap: 28px;
+  flex: 1 1 auto;
+  gap: 18px;
+  min-height: 0;
   margin-top: 0;
-  padding: 14px 30px 96px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 28px 0;
+  scrollbar-gutter: stable;
+}
+
+.drawerPanel > :global(form.form-stack),
+.drawerPanel > :global(.drawer-scroll-content) {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 28px 0;
+  scrollbar-gutter: stable;
 }
 
 .drawerSection {
@@ -204,7 +267,7 @@
 .drawerFormGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 22px;
+  gap: 14px 16px;
 }
 
 .drawerFormGridSingle {
@@ -215,19 +278,20 @@
   position: sticky;
   bottom: 0;
   z-index: 3;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin: 0;
-  border-top: 0;
-  padding: 16px 30px 24px;
+  gap: 8px;
+  margin: 14px -28px 0;
+  border-top: 1px solid var(--border-soft, color-mix(in srgb, var(--phoenix-color-border) 78%, transparent));
+  padding: 12px 28px 16px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
 
 .drawerFooter > * {
   flex: 0 0 auto;
-  min-width: 92px;
+  min-width: 76px;
 }
 
 .drawerDetailGrid {
@@ -267,6 +331,8 @@
 
   .drawerFooter {
     justify-content: stretch;
+    margin-right: -28px;
+    margin-left: -28px;
   }
 
   .drawerFooter > * {

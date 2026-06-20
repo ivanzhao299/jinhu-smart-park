@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { Ban, CheckCircle2, Download, Edit3, Plus, RefreshCw, Send, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -873,8 +873,8 @@ export default function LeasingContractsPage() {
     await load(pageData.page);
   }
 
-  async function submitUnit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitUnit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!editing) return;
     const body = {
       unit_id: unitForm.unitId,
@@ -1213,40 +1213,40 @@ export default function LeasingContractsPage() {
                     </td>
                     <td>
                       <span className="data-table-actions">
-                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.update} type="button" onClick={() => openEdit(row)}>
+                        <PermissionButton className="ds-row-action ds-row-action-edit" permission={CONTRACT_PERMISSIONS.update} type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={16} />
                           编辑
                         </PermissionButton>
                         {["10", "50"].includes(row.status) ? (
-                          <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.submit} type="button" onClick={() => void submitContractApproval(row).catch((error: Error) => setMessage(error.message))}>
+                          <PermissionButton className="ds-row-action ds-row-action-status" permission={CONTRACT_PERMISSIONS.submit} type="button" onClick={() => void submitContractApproval(row).catch((error: Error) => setMessage(error.message))}>
                             <Send size={16} />
                             提交
                           </PermissionButton>
                         ) : null}
                         {row.status === "30" ? (
                           <>
-                            <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.approve} type="button" onClick={() => void approveContract(row).catch((error: Error) => setMessage(error.message))}>
+                            <PermissionButton className="ds-row-action ds-row-action-file" permission={CONTRACT_PERMISSIONS.approve} type="button" onClick={() => void approveContract(row).catch((error: Error) => setMessage(error.message))}>
                               <CheckCircle2 size={16} />
                               通过
                             </PermissionButton>
-                            <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.reject} type="button" onClick={() => void rejectContract(row).catch((error: Error) => setMessage(error.message))}>
+                            <PermissionButton className="ds-row-action ds-row-action-danger" permission={CONTRACT_PERMISSIONS.reject} type="button" onClick={() => void rejectContract(row).catch((error: Error) => setMessage(error.message))}>
                               驳回
                             </PermissionButton>
                           </>
                         ) : null}
                         {["10", "30", "50"].includes(row.status) ? (
-                          <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.void} type="button" onClick={() => void voidContract(row).catch((error: Error) => setMessage(error.message))}>
+                          <PermissionButton className="ds-row-action ds-row-action-danger" permission={CONTRACT_PERMISSIONS.void} type="button" onClick={() => void voidContract(row).catch((error: Error) => setMessage(error.message))}>
                             <Ban size={16} />
                             作废
                           </PermissionButton>
                         ) : null}
                         {row.status === "70" ? (
-                          <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.effective} type="button" onClick={() => openEdit(row)}>
+                          <PermissionButton className="ds-row-action ds-row-action-file" permission={CONTRACT_PERMISSIONS.effective} type="button" onClick={() => openEdit(row)}>
                             <CheckCircle2 size={16} />
                             生效
                           </PermissionButton>
                         ) : null}
-                        <PermissionButton className="primary-button" permission={CONTRACT_PERMISSIONS.delete} type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                        <PermissionButton className="ds-row-action ds-row-action-danger" permission={CONTRACT_PERMISSIONS.delete} type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
                           <Trash2 size={16} />
                           删除
                         </PermissionButton>
@@ -1258,22 +1258,16 @@ export default function LeasingContractsPage() {
             </DataTable>
             <div className="system-toolbar">
               <span className="muted-text">共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-              <span className="page-actions">
-                <button className="primary-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1)}>上一页</button>
-                <button className="primary-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1)}>下一页</button>
+              <span className="pagination-actions">
+                <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1)}>上一页</button>
+                <button className="pagination-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1)}>下一页</button>
               </span>
             </div>
           </Card>
 
           {showForm ? (
-            <Drawer size="lg" onClose={() => setShowForm(false)}>
-              <div className="system-toolbar">
-                <h2>{editing ? "合同详情" : "新增合同草稿"}</h2>
-                <button className="primary-button" type="button" onClick={() => setShowForm(false)}>
-                  <X size={16} />
-                  关闭
-                </button>
-              </div>
+            <Drawer className="ds-compact-drawer contract-drawer" size="lg" onClose={() => setShowForm(false)}>
+              <DrawerHeader title={editing ? "合同详情" : "新增合同草稿"} onClose={() => setShowForm(false)} closeIcon={<X size={18} />} />
               {coreDisabled ? <p className="status-pill status-warning">当前合同状态不允许编辑核心金额与日期字段</p> : null}
               {editing ? (
                 <ContractDetailTabs activeTab={contractDetailTab} onChange={setContractDetailTab} />
@@ -1554,7 +1548,7 @@ export default function LeasingContractsPage() {
                 </section>
               ) : null}
               {(!editing || contractDetailTab === "profile" || contractDetailTab === "units") ? (
-              <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
                 {(!editing || contractDetailTab === "profile") ? (
                 <div className="system-grid">
                   <TextField label="合同编号" value={form.contractCode} onChange={(value) => setFormValue("contractCode", value, setForm)} placeholder="留空自动生成" disabled={coreDisabled} />
@@ -1579,8 +1573,8 @@ export default function LeasingContractsPage() {
                   {canEditScanPdf ? <TextField label="扫描件文件 ID" value={form.scanPdfFileId} onChange={(value) => setFormValue("scanPdfFileId", value, setForm)} /> : null}
                 </div>
                 ) : null}
-                {(!editing || contractDetailTab === "units") ? (
-                <Card >
+                {(editing && contractDetailTab === "units") ? (
+                <Card className="contract-unit-panel">
                   <div className="system-toolbar">
                     <h3>合同房源</h3>
                     <span className="page-actions">
@@ -1592,14 +1586,13 @@ export default function LeasingContractsPage() {
                       ) : null}
                     </span>
                   </div>
-                  <div className="system-grid">
+                  <div className="contract-summary-grid">
                     <MetricTile label="总面积" value={formatArea(form.totalArea)} />
                     <MetricTile label="月租金" value={moneyText(authUser, canViewRentPerMonth, "rentPerMonth", form.rentPerMonth)} />
                     <MetricTile label="合同总金额" value={moneyText(authUser, canViewTotalAmount, "totalAmount", form.totalAmount)} />
                     <MetricTile label="押金金额" value={moneyText(authUser, canViewDepositAmount, "depositAmount", form.depositAmount)} />
                   </div>
-                  {!editing ? <p className="status-pill status-muted">请先保存合同草稿，再维护合同房源。</p> : null}
-                  {editing && canReadContractUnits ? (
+                  {canReadContractUnits ? (
                     <>
                       <div className="system-grid-three">
                         <BuildingSelect label="楼栋" value={unitFilters.buildingId} onChange={(value) => updateUnitFilter("buildingId", value)} items={buildings} allowEmpty />
@@ -1607,7 +1600,7 @@ export default function LeasingContractsPage() {
                         <SelectField label="出租状态" value={unitFilters.rentalStatus} onChange={(value) => updateUnitFilter("rentalStatus", value)} options={unitRentalStatusItems} allowEmpty />
                       </div>
                       {(unitForm.relId ? canUpdateContractUnits : canCreateContractUnits) ? (
-                        <form className="form-stack" onSubmit={(event) => void submitUnit(event).catch((error: Error) => setMessage(error.message))}>
+                        <div className="form-stack">
                           <div className="system-grid">
                             <UnitSelect label="房源" value={unitForm.unitId} onChange={(value) => setUnitFormValue("unitId", value, setUnitForm)} items={unitOptions} required />
                             <NumberField label="关联面积" value={unitForm.area} onChange={(value) => setUnitFormValue("area", value, setUnitForm)} placeholder={selectedUnitArea(unitOptions, unitForm.unitId)} />
@@ -1619,10 +1612,10 @@ export default function LeasingContractsPage() {
                             <TextField label="备注" value={unitForm.remark} onChange={(value) => setUnitFormValue("remark", value, setUnitForm)} />
                           </div>
                           <div className="page-actions">
-                            <button className="primary-button" type="submit">{unitForm.relId ? "保存房源" : "添加房源"}</button>
+                            <button className="primary-button" type="button" onClick={() => void submitUnit().catch((error: Error) => setMessage(error.message))}>{unitForm.relId ? "保存房源" : "添加房源"}</button>
                             {unitForm.relId ? <button className="primary-button" type="button" onClick={() => setUnitForm(emptyUnitForm)}>取消编辑</button> : null}
                           </div>
-                        </form>
+                        </div>
                       ) : null}
                       <div className="table-scroll">
                         <DataTable >
@@ -1655,13 +1648,13 @@ export default function LeasingContractsPage() {
                                 <td>
                                   <span className="data-table-actions">
                                     {canUpdateContractUnits ? (
-                                      <button className="primary-button" type="button" onClick={() => openUnitEdit(row)}>
+                                      <button className="ds-row-action ds-row-action-edit" type="button" onClick={() => openUnitEdit(row)}>
                                         <Edit3 size={16} />
                                         编辑
                                       </button>
                                     ) : null}
                                     {canDeleteContractUnits ? (
-                                      <button className="primary-button" type="button" onClick={() => void removeUnit(row).catch((error: Error) => setMessage(error.message))}>
+                                      <button className="ds-row-action ds-row-action-danger" type="button" onClick={() => void removeUnit(row).catch((error: Error) => setMessage(error.message))}>
                                         <Trash2 size={16} />
                                         删除
                                       </button>
@@ -1679,15 +1672,17 @@ export default function LeasingContractsPage() {
                 ) : null}
                 {(!editing || contractDetailTab === "profile") ? (
                 <>
-                <TextAreaField label="滞纳金规则" value={form.lateFeeRule} onChange={(value) => setFormValue("lateFeeRule", value, setForm)} disabled={coreDisabled} />
-                <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
-                <div className="page-actions">
-                  <button className="primary-button" type="submit">保存</button>
-                  <button className="primary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                <div className="system-grid contract-note-grid">
+                  <TextAreaField label="滞纳金规则" value={form.lateFeeRule} onChange={(value) => setFormValue("lateFeeRule", value, setForm)} disabled={coreDisabled} />
+                  <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
                 </div>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                  <button className="primary-button" type="submit">保存</button>
+                </DrawerFooter>
                 </>
                 ) : null}
-              </form>
+              </DrawerForm>
               ) : null}
             </Drawer>
           ) : null}
@@ -2480,7 +2475,7 @@ function UnitSelect({ label, value, onChange, items, required }: {
 
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <section className="metric-card">
+    <section className="metric-card contract-metric">
       <span>{label}</span>
       <strong className="metric-value">{value || "-"}</strong>
     </section>

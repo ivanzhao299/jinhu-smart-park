@@ -51,8 +51,8 @@
 
 .table td:has(.actions),
 .table td:has(:global(.data-table-actions)) {
-  width: 196px;
-  min-width: 196px;
+  width: 166px;
+  min-width: 166px;
   max-width: none;
   overflow: visible;
   text-align: right;
@@ -68,11 +68,17 @@
 
 .actions {
   display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-wrap: nowrap;
+  gap: 6px;
   align-items: center;
   justify-content: flex-end;
-  width: min(100%, 196px);
-  max-width: 196px;
+  width: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
+}
+
+.actions::-webkit-scrollbar {
+  display: none;
 }
