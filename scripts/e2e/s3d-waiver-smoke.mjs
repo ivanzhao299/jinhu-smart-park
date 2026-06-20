@@ -21,6 +21,11 @@ const stamp = Date.now();
 const smokeRemark = `S3D waiver smoke ${stamp}`;
 let apiProcess = null;
 
+function futureDateStr(daysFromNow) {
+  const d = new Date(Date.now() + daysFromNow * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
 function getPnpmBin() {
   if (process.env.PNPM_BIN) return process.env.PNPM_BIN;
   const bundled = resolve(rootDir, ".tools/pnpm");
@@ -170,9 +175,9 @@ async function main() {
     const result = await jsonRequest("/leasing/receivables", adminToken, "POST", {
       park_tenant_id: parkTenant.id,
       fee_type: "90",
-      period_start: "2026-05-01",
-      period_end: "2026-05-31",
-      due_date: "2026-05-31",
+      period_start: futureDateStr(365),
+      period_end: futureDateStr(395),
+      due_date: futureDateStr(395),
       amount_due: amountDue,
       late_fee: 0,
       source_type: "manual",
