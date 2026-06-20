@@ -384,6 +384,13 @@ interface ReceivableGenerationResult {
   rows: ReceivableGenerationRow[];
 }
 
+const EXPIRE_CHIPS = [
+  { label: "7天内到期", value: "7" },
+  { label: "30天内到期", value: "30" },
+  { label: "60天内到期", value: "60" },
+  { label: "90天内到期", value: "90" }
+] as const;
+
 const emptyPage: PaginatedResult<LeasingContractRow> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyForm: ContractFormState = {
   contractCode: "",
@@ -477,7 +484,7 @@ export default function LeasingContractsPage() {
   const [contractRefunds, setContractRefunds] = useState<ContractRefundRow[]>([]);
   const [receivableGenerationResult, setReceivableGenerationResult] = useState<ReceivableGenerationResult | null>(null);
   const [message, setMessage] = useState("");
-  const [filters, setFilters] = useState({ keyword: "", status: "", contractType: "", parkTenantId: "", startDate: "", endDate: "" });
+  const [filters, setFilters] = useState({ keyword: "", status: "", contractType: "", parkTenantId: "", startDate: "", endDate: "", expireInDays: "" });
   const [unitFilters, setUnitFilters] = useState({ buildingId: "", floorId: "", rentalStatus: "" });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<LeasingContractRow | null>(null);
@@ -557,6 +564,7 @@ export default function LeasingContractsPage() {
     if (filters.parkTenantId) params.set("park_tenant_id", filters.parkTenantId);
     if (filters.startDate) params.set("start_date", filters.startDate);
     if (filters.endDate) params.set("end_date", filters.endDate);
+    if (filters.expireInDays) params.set("expire_in_days", filters.expireInDays);
     const response = await apiRequest<PaginatedResult<LeasingContractRow>>(`/leasing/contracts?${params.toString()}`, {
       token: getAccessToken()
     });
@@ -1164,6 +1172,19 @@ export default function LeasingContractsPage() {
                   查询
                 </button>
               </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px", alignItems: "center" }}>
+              <span style={{ fontSize: "13px", color: "var(--color-text-secondary, #666)", whiteSpace: "nowrap" }}>到期预警</span>
+              {EXPIRE_CHIPS.map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  className={filters.expireInDays === chip.value ? "primary-button" : undefined}
+                  onClick={() => updateFilter("expireInDays", filters.expireInDays === chip.value ? "" : chip.value)}
+                >
+                  {chip.label}
+                </button>
+              ))}
             </div>
           </section>
 
