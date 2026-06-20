@@ -56,7 +56,7 @@ export function UnitHazardsPanel({
               <td>{fieldText(row.rectify_user_name)}</td>
               <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超期" : "正常"}</span></td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(row.id)}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/safety/hazards?hazard_id=${encodeURIComponent(row.id)}`; }}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -124,7 +124,7 @@ export function UnitEmergenciesPanel({
               <td>{fieldText(row.reporter_name)}</td>
               <td>{formatDateTime(row.report_time)}</td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/emergencies?emergency_id=${encodeURIComponent(row.id)}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/safety/emergencies?emergency_id=${encodeURIComponent(row.id)}`; }}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -194,7 +194,7 @@ export function UnitWorkPermitsPanel({
               <td>{`${formatDateTime(row.time_start)} - ${formatDateTime(row.time_end)}`}</td>
               <td>{row.violation_count}</td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/safety/work-permits?permit_id=${encodeURIComponent(row.id)}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/safety/work-permits?permit_id=${encodeURIComponent(row.id)}`; }}>
                   <Eye size={16} />
                   查看
                 </button>

@@ -39,7 +39,7 @@ export function WorkOrderAssignDialog({ assignment, form, users, onClose, onSubm
           />
         </DrawerFormGrid>
         <DrawerFooter>
-          <button type="button" onClick={onClose}>取消</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit">{assignment.mode === "assign" ? "确认派单" : "确认改派"}</button>
         </DrawerFooter>
       </DrawerForm>

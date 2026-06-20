@@ -47,7 +47,7 @@ export function UnitStatusDrawer({
     <Drawer size="md" onClose={onClose}>
       <div className="task-item">
         <h2 className="panel-title">{unit.unitName} {panelMode === "change" ? "状态流转" : "状态日志"}</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
+        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
       </div>
       <div className="task-item">
         <span>当前状态</span>

@@ -245,7 +245,7 @@ export default function UsersPage() {
         </div>
         <div className="task-item">
           <span>第 {data.page} 页</span>
-          <span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span>
+          <span><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1)}>下一页</button></span>
         </div>
       </Card>
 
@@ -293,7 +293,7 @@ export default function UsersPage() {
             </div>
             <div className="system-actions">
               <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
-              <button type="button" onClick={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}><XCircle size={16} />取消</button>
+              <button className="secondary-button" type="button" onClick={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}><XCircle size={16} />取消</button>
             </div>
           </form>
         </Drawer>

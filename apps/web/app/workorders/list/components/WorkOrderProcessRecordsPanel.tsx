@@ -38,7 +38,7 @@ export function WorkOrderProcessRecordsPanel({
     <section className="work-panel">
       <div className="task-item">
         <h3 className="panel-title">时间线</h3>
-        <button type="button" onClick={onRefresh}>
+        <button className="secondary-button" type="button" onClick={onRefresh}>
           <RefreshCw size={16} />
           刷新
         </button>
@@ -78,7 +78,7 @@ export function WorkOrderProcessRecordsPanel({
             </div>
           </DrawerFormGrid>
           <DrawerFooter>
-            <button type="button" onClick={onClearLogForm}>清空</button>
+            <button className="secondary-button" type="button" onClick={onClearLogForm}>清空</button>
             <button className="primary-button" type="submit">补充日志</button>
           </DrawerFooter>
         </form>

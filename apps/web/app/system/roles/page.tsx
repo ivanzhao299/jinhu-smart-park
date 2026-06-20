@@ -384,20 +384,20 @@ export default function RolesPage() {
                     <td><span className="status-pill">{item.dataScope}</span></td>
                     <td><RoleTags role={item} /></td>
                     <td><StatusBadge status={item.status} /></td>
-                    <td><button type="button" onClick={() => { setWorkspace("config"); void selectRole(item.id).catch(showError); }}>配置</button></td>
+                    <td><button className="inline-action-button" type="button" onClick={() => { setWorkspace("config"); void selectRole(item.id).catch(showError); }}>配置</button></td>
                   </tr>
                 ))}
               </tbody>
             </DataTable>
           </div>
-          <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
+          <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
         </Card>
       )}
 
       {formOpen ? (
         <Drawer size="md" onClose={() => setFormOpen(false)}>
           <form className="form-stack" onSubmit={(event) => void submitRole(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{formMode === "create" ? "新增自定义角色" : "编辑角色"}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
+            <div className="system-toolbar"><h2 className="panel-title">{formMode === "create" ? "新增自定义角色" : "编辑角色"}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
             <div className="field"><label>角色编码</label><input required value={formState.code} onChange={(event) => setFormState({ ...formState, code: event.target.value })} disabled={formMode === "edit" && Boolean(selectedRole?.isBuiltin)} /></div>
             <div className="field"><label>角色名称</label><input required value={formState.name} onChange={(event) => setFormState({ ...formState, name: event.target.value })} /></div>
             <div className="field"><label>上级角色</label><select value={formState.parentId} onChange={(event) => setFormState({ ...formState, parentId: event.target.value })}><option value="">无</option>{flatRoles.filter((role) => role.id !== formState.id).map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
@@ -421,7 +421,7 @@ function RoleTreeItem({ role, selectedId, onSelect, onCreateChild }: { role: Rol
   return (
     <div className="role-tree-node">
       <div className={`tree-row${selectedId === role.id ? " active" : ""}`}>
-        <button type="button" onClick={() => onSelect(role.id)}><FolderTree size={15} />{role.name}</button>
+        <button className="inline-action-button" type="button" onClick={() => onSelect(role.id)}><FolderTree size={15} />{role.name}</button>
         <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} />子角色</PermissionButton>
       </div>
       {role.children && role.children.length > 0 ? <div className="tree-children">{role.children.map((child) => <RoleTreeItem key={child.id} role={child} selectedId={selectedId} onSelect={onSelect} onCreateChild={onCreateChild} />)}</div> : null}

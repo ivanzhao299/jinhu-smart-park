@@ -128,8 +128,8 @@ export default function OrgsPage() {
         <div className="task-item">
           <span>共 {data.total} 条，第 {data.page} 页</span>
           <span>
-            <button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button>
-            <button type="button" onClick={() => void load(data.page + 1)}>下一页</button>
+            <button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button>
+            <button className="pagination-button" type="button" onClick={() => void load(data.page + 1)}>下一页</button>
           </span>
         </div>
       </Card>
@@ -143,7 +143,7 @@ export default function OrgsPage() {
             <div className="field"><label>类型</label><input name="orgType" defaultValue="department" /></div>
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             <button className="primary-button" type="submit">保存</button>
-            <button type="button" onClick={() => setShowCreate(false)}>取消</button>
+            <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
           </form>
         </section>
       ) : null}

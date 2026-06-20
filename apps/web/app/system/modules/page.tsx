@@ -292,7 +292,7 @@ export default function ModulesPage() {
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             <div className="system-actions">
               <button className="primary-button" type="submit"><PackageCheck size={16} />保存</button>
-              <button type="button" onClick={() => setShowPlan(false)}>取消</button>
+              <button className="secondary-button" type="button" onClick={() => setShowPlan(false)}>取消</button>
             </div>
           </form>
         </Drawer>

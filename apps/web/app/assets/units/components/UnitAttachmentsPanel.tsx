@@ -24,7 +24,7 @@ export function UnitAttachmentsPanel({
     <Drawer size="md" onClose={onClose}>
       <div className="task-item">
         <h2 className="panel-title">{unit.unitName} {mode === "photos" ? "照片" : "平面图"}</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
+        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
       </div>
       <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_UPDATE}>
         <FileUploader

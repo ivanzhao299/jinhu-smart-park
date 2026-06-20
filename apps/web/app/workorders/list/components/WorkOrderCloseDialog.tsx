@@ -62,7 +62,7 @@ export function WorkOrderCloseDialog({ action, form, onClose, onSubmit, onFormCh
           ) : null}
         </DrawerFormGrid>
         <DrawerFooter>
-          <button type="button" onClick={onClose}>取消</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit">
             {action.mode === "confirm" ? "确认完成" : action.mode === "evaluate" ? "提交评价" : "确认关闭"}
           </button>

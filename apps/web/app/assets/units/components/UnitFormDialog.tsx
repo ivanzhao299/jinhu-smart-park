@@ -41,7 +41,7 @@ export function UnitFormDialog({
     <Drawer size="lg" onClose={onClose}>
       <div className="task-item">
         <h2 className="panel-title">{editingId ? "编辑房源" : "新增房源"}</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
+        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
       </div>
       <form className="form-stack" onSubmit={onSubmit}>
         <SelectField label="所属楼栋" value={form.buildingId} required onChange={onBuildingChange}>
@@ -86,7 +86,7 @@ export function UnitFormDialog({
           <DetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, form.remark))} />
         ) : null}
         <button className="primary-button" type="submit">保存</button>
-        <button type="button" onClick={onClose}>取消</button>
+        <button className="secondary-button" type="button" onClick={onClose}>取消</button>
       </form>
     </Drawer>
   );

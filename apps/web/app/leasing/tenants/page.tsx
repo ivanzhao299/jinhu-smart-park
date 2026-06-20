@@ -1149,7 +1149,7 @@ export default function LeasingTenantsPage() {
               <span>园区入驻企业主档案</span>
             </div>
             <div className="page-actions">
-              <button type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
+              <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
                 <RefreshCw size={16} />
                 刷新
               </button>
@@ -1236,9 +1236,9 @@ export default function LeasingTenantsPage() {
             </DataTable>
             <div className="task-item">
               <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-              <span>
-                <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
-                <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
+              <span className="pagination-actions">
+                <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
+                <button className="pagination-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
               </span>
             </div>
           </Card>
@@ -1247,7 +1247,7 @@ export default function LeasingTenantsPage() {
             <Drawer size="lg" onClose={() => setShowForm(false)}>
               <div className="task-item">
                 <h2 className="panel-title">{editing ? "编辑租户企业" : "新增租户企业"}</h2>
-                <button title="关闭" type="button" onClick={() => setShowForm(false)}><X size={16} /></button>
+                <button className="drawer-close-button" title="关闭" type="button" onClick={() => setShowForm(false)}><X size={16} /></button>
               </div>
               <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
                 <TextField label="企业编码" value={form.parkTenantCode} placeholder="为空时按编码规则生成" onChange={(value) => setFormValue(setForm, "parkTenantCode", value)} />
@@ -1285,7 +1285,7 @@ export default function LeasingTenantsPage() {
                 <TextAreaField label="经营范围" value={form.businessScope} onChange={(value) => setFormValue(setForm, "businessScope", value)} />
                 <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue(setForm, "remark", value)} />
                 <button className="primary-button" type="submit">保存</button>
-                <button type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
               </form>
             </Drawer>
           ) : null}
@@ -1294,7 +1294,7 @@ export default function LeasingTenantsPage() {
             <Drawer size="lg" onClose={() => setDetail(null)}>
               <div className="task-item">
                 <h2 className="panel-title">租户 360</h2>
-                <button title="关闭" type="button" onClick={() => setDetail(null)}><X size={16} /></button>
+                <button className="drawer-close-button" title="关闭" type="button" onClick={() => setDetail(null)}><X size={16} /></button>
               </div>
               <div className="system-tabs">
                 <button className={detailTab === "profile" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("profile")}>基础信息</button>
@@ -1369,7 +1369,7 @@ export default function LeasingTenantsPage() {
                       <TextField label="风险标签" value={riskForm.riskTags} placeholder="多个标签用逗号分隔" onChange={(value) => setRiskFormValue(setRiskForm, "riskTags", value)} />
                       <TextAreaField label="变更原因" value={riskForm.reason} required onChange={(value) => setRiskFormValue(setRiskForm, "reason", value)} />
                       <button className="primary-button" type="submit">保存风险变更</button>
-                      <button type="button" onClick={() => setShowRiskForm(false)}>取消</button>
+                      <button className="secondary-button" type="button" onClick={() => setShowRiskForm(false)}>取消</button>
                     </form>
                   ) : null}
 
@@ -1456,7 +1456,7 @@ export default function LeasingTenantsPage() {
                   <CheckboxField label="应急联系人" checked={contactForm.isEmergency} onChange={(value) => setContactFormBool(setContactForm, "isEmergency", value)} />
                   <TextAreaField label="联系人备注" value={contactForm.remark} onChange={(value) => setContactFormValue(setContactForm, "remark", value)} />
                   <button className="primary-button" type="submit">保存联系人</button>
-                  <button type="button" onClick={() => setShowContactForm(false)}>取消</button>
+                  <button className="secondary-button" type="button" onClick={() => setShowContactForm(false)}>取消</button>
                 </form>
               ) : null}
 
@@ -1552,7 +1552,7 @@ export default function LeasingTenantsPage() {
                     </SelectField>
                     <TextAreaField label="资质备注" value={qualificationForm.remark} onChange={(value) => setQualificationFormValue(setQualificationForm, "remark", value)} />
                     <button className="primary-button" type="submit">保存资质</button>
-                    <button type="button" onClick={() => setShowQualificationForm(false)}>取消</button>
+                    <button className="secondary-button" type="button" onClick={() => setShowQualificationForm(false)}>取消</button>
                   </form>
                 </section>
               ) : null}
@@ -2272,7 +2272,7 @@ function Tenant360WorkordersPanel({
               <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超时" : "正常"}</span></td>
               <td>{formatDateTime(row.update_time)}</td>
               <td>
-                <button type="button" onClick={() => onOpenWorkOrder(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenWorkOrder(row)}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -2350,7 +2350,7 @@ function Tenant360HazardsPanel({
               <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超期" : "正常"}</span></td>
               <td>{formatDateTime(row.update_time)}</td>
               <td>
-                <button type="button" onClick={() => onOpenHazard(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenHazard(row)}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -2419,7 +2419,7 @@ function Tenant360EmergencyPanel({
               <td>{fieldText(row.reporter_name)}</td>
               <td>{formatDateTime(row.report_time)}</td>
               <td>
-                <button type="button" onClick={() => onOpenEmergency(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenEmergency(row)}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -2488,7 +2488,7 @@ function Tenant360WorkPermitsPanel({
               <td>{formatDateRange(row.time_start, row.time_end)}</td>
               <td>{row.violation_count}</td>
               <td>
-                <button type="button" onClick={() => onOpenWorkPermit(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenWorkPermit(row)}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -2555,7 +2555,7 @@ function Tenant360DevicesPanel({
               <td>{fieldText(row.location)}</td>
               <td>{row.last_data_time ? formatDateTime(row.last_data_time) : "-"}</td>
               <td>
-                <button type="button" onClick={() => onOpenDevice(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenDevice(row)}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -2591,7 +2591,7 @@ function Tenant360DevicesPanel({
               <td>{fieldText(row.trigger_value)}</td>
               <td>{formatDateTime(row.last_trigger_time)}</td>
               <td>
-                <button type="button" onClick={() => onOpenAlert(row)}>
+                <button className="inline-action-button" type="button" onClick={() => onOpenAlert(row)}>
                   <Eye size={16} />
                   查看
                 </button>

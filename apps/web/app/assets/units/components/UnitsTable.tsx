@@ -122,9 +122,10 @@ export function UnitsTable({
       </DataTable>
       <div className="task-item ds-table-footer">
         <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-        <span>
-          <button type="button" disabled={pageData.page <= 1} onClick={() => onPageChange(Math.max(1, pageData.page - 1))}>上一页</button>
+        <span className="pagination-actions">
+          <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => onPageChange(Math.max(1, pageData.page - 1))}>上一页</button>
           <button
+            className="pagination-button"
             type="button"
             disabled={pageData.page >= totalPages}
             onClick={() => onPageChange(pageData.page + 1)}

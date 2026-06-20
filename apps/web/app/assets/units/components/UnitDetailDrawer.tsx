@@ -165,7 +165,7 @@ export function UnitDetailDrawer({
         />
       ) : null}
       <DrawerFooter>
-        <button type="button" onClick={onClose}>关闭</button>
+        <button className="secondary-button" type="button" onClick={onClose}>关闭</button>
       </DrawerFooter>
     </Drawer>
   );

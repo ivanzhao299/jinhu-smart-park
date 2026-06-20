@@ -1,24 +1,22 @@
 "use client";
 
 import { Button } from "antd";
-import { Building2, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import type { ReactNode } from "react";
 import { useAppBranding } from "../branding/useAppBranding";
 import { useTheme } from "../theme/ThemeProvider";
-import { useAuthUser } from "../../lib/auth-context";
 import { UserMenu } from "./UserMenu";
 
 interface AppHeaderProps {
+  breadcrumb?: ReactNode;
   sidebarCollapsed: boolean;
   onSidebarCollapsedChange: (collapsed: boolean) => void;
 }
 
-export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHeaderProps) {
-  const user = useAuthUser();
+export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChange }: AppHeaderProps) {
   const branding = useAppBranding();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
 
-  const roleNames = user?.roles.map((role) => role.role_name).join(" / ") || "-";
-  const currentParkName = user?.current_park?.park_name ?? user?.park_name ?? user?.park_id ?? "-";
   const handleThemeChange = () => {
     setTheme(theme === "command-dark" || theme === "dark" ? "enterprise-light" : "command-dark");
   };
@@ -34,13 +32,11 @@ export function AppHeader({ sidebarCollapsed, onSidebarCollapsedChange }: AppHea
           type="text"
           onClick={() => onSidebarCollapsedChange(!sidebarCollapsed)}
         />
-        <div className="header-title">
+        <div className="header-brand-lockup">
+          <img alt={branding.logoAlt} className="header-brand-symbol" src="/brand/jinhupark-symbol.svg" />
           <strong>{branding.systemName}</strong>
-          <span>
-            <Building2 size={14} />
-            园区：{currentParkName} · 角色：{roleNames}
-          </span>
         </div>
+        {breadcrumb ? <div className="header-context-line header-breadcrumb-slot">{breadcrumb}</div> : null}
       </div>
       <div className="header-actions">
         <Button

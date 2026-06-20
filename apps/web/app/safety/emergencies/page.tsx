@@ -896,7 +896,7 @@ export default function SafetyEmergenciesPage() {
                       <Plus size={16} />
                       追加记录
                     </PermissionButton>
-                    <button type="button" onClick={() => void loadTimeline(viewing.id).catch((error: Error) => setMessage(error.message))}>
+                    <button className="secondary-button" type="button" onClick={() => void loadTimeline(viewing.id).catch((error: Error) => setMessage(error.message))}>
                       <RefreshCw size={16} />
                       刷新
                     </button>

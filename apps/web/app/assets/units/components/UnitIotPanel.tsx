@@ -54,7 +54,7 @@ export function UnitDevicesPanel({
               <td>{fieldText(row.location)}</td>
               <td>{row.last_data_time ? formatDateTime(row.last_data_time) : "-"}</td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/iot/devices/${row.id}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/iot/devices/${row.id}`; }}>
                   <Eye size={16} />
                   查看
                 </button>
@@ -118,7 +118,7 @@ export function UnitDeviceAlertsPanel({
               <td>{fieldText(row.trigger_value)}</td>
               <td>{formatDateTime(row.last_trigger_time)}</td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/iot/alerts?device_id=${encodeURIComponent(row.device_id)}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/iot/alerts?device_id=${encodeURIComponent(row.device_id)}`; }}>
                   <Eye size={16} />
                   查看
                 </button>

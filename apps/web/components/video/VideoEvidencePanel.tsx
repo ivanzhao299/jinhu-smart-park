@@ -177,7 +177,7 @@ export function VideoEvidencePanel({
           <h3 className="panel-title">{title}</h3>
           <p className="muted-text">关联摄像头、截图取证和历史证据，取证操作会写入审计日志。</p>
         </div>
-        <button type="button" onClick={() => void loadItems()}>
+        <button className="secondary-button" type="button" onClick={() => void loadItems()}>
           <RefreshCw size={16} />
           刷新
         </button>

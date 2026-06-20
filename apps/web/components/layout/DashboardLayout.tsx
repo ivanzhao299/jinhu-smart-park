@@ -91,10 +91,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <AuthUserContext.Provider value={user}>
       <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+        <AppHeader
+          breadcrumb={<AppBreadcrumb variant="inline" />}
+          sidebarCollapsed={sidebarCollapsed}
+          onSidebarCollapsedChange={handleSidebarCollapsedChange}
+        />
         <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
         <div className="dashboard-main">
-          <AppHeader sidebarCollapsed={sidebarCollapsed} onSidebarCollapsedChange={handleSidebarCollapsedChange} />
-          <AppBreadcrumb />
           {children}
         </div>
       </div>
@@ -105,6 +108,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
   return (
     <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}`} data-loading="true">
+      <header className="app-header">
+        <div className="header-leading">
+          <span className="header-icon-button header-sidebar-toggle skeleton" />
+          <span className="header-brand-symbol skeleton" />
+          <div className="header-title">
+            <span className="skeleton-line skeleton-line-sm" />
+            <span className="skeleton-line" />
+          </div>
+        </div>
+        <div className="header-actions">
+          <span className="header-icon-button skeleton" />
+          <span className="user-avatar skeleton" />
+        </div>
+      </header>
       <aside className="app-sidebar dashboard-sidebar-skeleton" aria-hidden="true">
         <div className="sidebar-brand-row">
           <div className="brand">
@@ -119,22 +136,6 @@ function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
         </nav>
       </aside>
       <div className="dashboard-main">
-        <header className="app-header">
-          <div className="header-leading">
-            <span className="header-icon-button header-sidebar-toggle skeleton" />
-            <div className="header-title">
-              <span className="skeleton-line skeleton-line-sm" />
-              <span className="skeleton-line" />
-            </div>
-          </div>
-          <div className="header-actions">
-            <span className="header-icon-button skeleton" />
-            <span className="user-avatar skeleton" />
-          </div>
-        </header>
-        <nav className="breadcrumb" aria-label="breadcrumb">
-          <span className="skeleton-line skeleton-line-sm" />
-        </nav>
         <main className="page-container">
           <section className="page-header">
             <div className="header-title">

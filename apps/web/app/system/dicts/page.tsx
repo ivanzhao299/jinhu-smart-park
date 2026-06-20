@@ -135,7 +135,7 @@ export default function DictsPage() {
             ))}
           </tbody>
         </DataTable>
-        <div className="task-item"><span>共 {types.total} 条，第 {types.page} 页</span><span><button type="button" onClick={() => void loadTypes(Math.max(1, types.page - 1))}>上一页</button><button type="button" onClick={() => void loadTypes(types.page + 1)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {types.total} 条，第 {types.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void loadTypes(Math.max(1, types.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void loadTypes(types.page + 1)}>下一页</button></span></div>
       </Card>
       <Card >
         <div className="task-item">
@@ -167,7 +167,7 @@ export default function DictsPage() {
             ))}
           </tbody>
         </DataTable>
-        <div className="task-item"><span>共 {items.total} 条，第 {items.page} 页</span><span><button type="button" onClick={() => void loadItems(Math.max(1, items.page - 1))}>上一页</button><button type="button" onClick={() => void loadItems(items.page + 1)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {items.total} 条，第 {items.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void loadItems(Math.max(1, items.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void loadItems(items.page + 1)}>下一页</button></span></div>
       </Card>
       {showCreate ? (
         <Drawer size="md" onClose={() => setShowCreate(false)}>
@@ -176,7 +176,7 @@ export default function DictsPage() {
             <div className="field"><label>编码</label><input name="dictCode" /></div>
             <div className="field"><label>名称</label><input name="dictName" /></div>
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button type="button" onClick={() => setShowCreate(false)}>取消</button></div>
+            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button></div>
           </form>
         </Drawer>
       ) : null}
@@ -189,7 +189,7 @@ export default function DictsPage() {
             <div className="field"><label>值</label><input name="itemValue" /></div>
             <div className="field"><label>标签类型</label><input name="tagType" /></div>
             <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button type="button" onClick={() => setShowCreateItem(false)}>取消</button></div>
+            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button className="secondary-button" type="button" onClick={() => setShowCreateItem(false)}>取消</button></div>
           </form>
         </Drawer>
       ) : null}

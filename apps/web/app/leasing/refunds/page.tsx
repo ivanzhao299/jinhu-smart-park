@@ -248,8 +248,8 @@ export default function LeasingRefundsPage() {
         </DataTable>
         <div className="pagination-bar">
           <span>共 {pageData.total} 条，第 {pageData.page} 页</span>
-          <button type="button" disabled={loading || pageData.page <= 1} onClick={() => void load(pageData.page - 1)}>上一页</button>
-          <button type="button" disabled={loading || pageData.page * pageData.page_size >= pageData.total} onClick={() => void load(pageData.page + 1)}>下一页</button>
+          <button className="pagination-button" type="button" disabled={loading || pageData.page <= 1} onClick={() => void load(pageData.page - 1)}>上一页</button>
+          <button className="pagination-button" type="button" disabled={loading || pageData.page * pageData.page_size >= pageData.total} onClick={() => void load(pageData.page + 1)}>下一页</button>
         </div>
       </Card>
     </main>

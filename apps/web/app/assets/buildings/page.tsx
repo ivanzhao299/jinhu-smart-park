@@ -1,8 +1,18 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import {
+  Card,
+  DataTable,
+  Drawer,
+  DrawerDetailGrid,
+  DrawerDetailItem,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader
+} from "@jinhu/ui";
 
-import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { Edit3, Eye, Plus, Search, Trash2 } from "lucide-react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -224,9 +234,10 @@ export default function BuildingsPage() {
           </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
-            <span>
-              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
+            <span className="pagination-actions">
+              <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
               <button
+                className="pagination-button"
                 type="button"
                 disabled={pageData.page >= Math.max(1, Math.ceil(pageData.total / pageData.page_size))}
                 onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}
@@ -239,51 +250,54 @@ export default function BuildingsPage() {
 
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
-            <div className="task-item">
-              <h2 className="panel-title">{editingId ? "编辑楼栋" : "新增楼栋"}</h2>
-              <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
-            </div>
-            <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-              <TextField label="楼栋编码" value={form.buildingCode} required placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
-              <TextField label="楼栋名称" value={form.buildingName} required onChange={(value) => setForm((current) => ({ ...current, buildingName: value }))} />
-              <NumberField label="楼层数" value={form.floorCount} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorCount: value }))} />
-              <NumberField label="建筑面积" value={form.buildArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, buildArea: value }))} />
-              <NumberField label="排序号" value={form.sortNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, sortNo: value }))} />
-              <div className="field">
-                <label htmlFor="buildingFormStatus">状态</label>
-                <select
-                  id="buildingFormStatus"
-                  value={form.status}
-                  onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as BuildingStatus }))}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
-              <button className="primary-button" type="submit">保存</button>
-              <button type="button" onClick={() => setShowForm(false)}>取消</button>
-            </form>
+            <DrawerHeader title={editingId ? "编辑楼栋" : "新增楼栋"} onClose={() => setShowForm(false)} />
+            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid>
+                <TextField label="楼栋编码" value={form.buildingCode} required placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
+                <TextField label="楼栋名称" value={form.buildingName} required onChange={(value) => setForm((current) => ({ ...current, buildingName: value }))} />
+                <NumberField label="楼层数" value={form.floorCount} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorCount: value }))} />
+                <NumberField label="建筑面积" value={form.buildArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, buildArea: value }))} />
+                <NumberField label="排序号" value={form.sortNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, sortNo: value }))} />
+                <div className="field">
+                  <label htmlFor="buildingFormStatus">状态</label>
+                  <select
+                    id="buildingFormStatus"
+                    value={form.status}
+                    onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as BuildingStatus }))}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </DrawerFormGrid>
+              <DrawerFormGrid single>
+                <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="primary-button" type="submit">保存</button>
+              </DrawerFooter>
+            </DrawerForm>
           </Drawer>
         ) : null}
 
         {detail ? (
           <Drawer size="md" onClose={() => setDetail(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">楼栋详情</h2>
-              <button type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
-            </div>
-            <div className="form-stack">
-              <DetailItem label="楼栋编码" value={detail.buildingCode} />
-              <DetailItem label="楼栋名称" value={detail.buildingName} />
-              <DetailItem label="楼层数" value={detail.floorCount} />
-              <DetailItem label="建筑面积" value={formatArea(detail.buildArea)} />
-              <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
-              <DetailItem label="排序号" value={detail.sortNo} />
-              <DetailItem label="更新时间" value={formatDateTime(detail.updateTime)} />
-              <DetailItem label="备注" value={detail.remark ?? "-"} />
-            </div>
+            <DrawerHeader title="楼栋详情" onClose={() => setDetail(null)} />
+            <DrawerDetailGrid>
+              <DrawerDetailItem label="楼栋编码" value={detail.buildingCode} />
+              <DrawerDetailItem label="楼栋名称" value={detail.buildingName} />
+              <DrawerDetailItem label="楼层数" value={detail.floorCount} />
+              <DrawerDetailItem label="建筑面积" value={formatArea(detail.buildArea)} />
+              <DrawerDetailItem label="状态" value={<StatusBadge status={detail.status} />} />
+              <DrawerDetailItem label="排序号" value={detail.sortNo} />
+              <DrawerDetailItem label="更新时间" value={formatDateTime(detail.updateTime)} />
+              <DrawerDetailItem label="备注" value={detail.remark ?? "-"} />
+            </DrawerDetailGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
+            </DrawerFooter>
           </Drawer>
         ) : null}
 
@@ -338,15 +352,6 @@ function NumberField({
         onFocus={(event) => event.target.select()}
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

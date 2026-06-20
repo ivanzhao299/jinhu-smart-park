@@ -385,8 +385,8 @@ export default function SafetyInspectTemplatesPage() {
           </DataTable>
           <div className="pagination">
             <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-            <button type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1).catch((error: Error) => setMessage(error.message))}>上一页</button>
-            <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
+            <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1).catch((error: Error) => setMessage(error.message))}>上一页</button>
+            <button className="pagination-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
           </div>
         </Card>
 

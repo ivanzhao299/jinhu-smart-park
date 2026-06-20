@@ -38,7 +38,7 @@
   border-radius: 20px;
   background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
-  padding: 24px;
+  padding: 0;
   color: var(--text-primary, var(--phoenix-color-text));
   font-size: 14px;
   line-height: 1.5;
@@ -52,15 +52,15 @@
 
 .drawerHeader {
   position: sticky;
-  top: -24px;
+  top: 0;
   z-index: 3;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--phoenix-space-3);
-  align-items: start;
-  margin: -24px -24px 0;
-  border-bottom: 1px solid var(--border-soft, var(--phoenix-color-border));
-  padding: 24px 28px 20px;
+  align-items: center;
+  margin: 0;
+  border-bottom: 0;
+  padding: 28px 30px 14px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
 }
@@ -103,18 +103,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  border: 1px solid var(--border-soft, var(--phoenix-color-border));
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   padding: 0;
-  background: var(--bg-card, var(--phoenix-color-surface));
-  color: var(--text-primary, var(--phoenix-color-text));
-  box-shadow: var(--shadow-sm, var(--phoenix-shadow-sm));
+  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 4%, transparent);
+  color: var(--text-secondary, var(--phoenix-color-text-muted));
+  box-shadow: none;
   cursor: pointer;
-  font-size: 22px;
-  font-weight: 680;
+  font-size: 24px;
+  font-weight: 520;
   line-height: 1;
   transition: var(--phoenix-transition);
 }
@@ -127,7 +127,8 @@
 }
 
 .drawerCloseButton:hover {
-  border-color: color-mix(in srgb, var(--phoenix-color-primary) 34%, var(--phoenix-color-border));
+  border-color: color-mix(in srgb, var(--phoenix-color-primary) 22%, transparent);
+  background: color-mix(in srgb, var(--phoenix-color-primary) 9%, transparent);
   color: var(--phoenix-color-primary);
 }
 
@@ -183,8 +184,8 @@
 .drawerForm {
   display: grid;
   gap: 28px;
-  margin-top: 24px;
-  padding-bottom: 72px;
+  margin-top: 0;
+  padding: 14px 30px 96px;
 }
 
 .drawerSection {
@@ -212,16 +213,21 @@
 
 .drawerFooter {
   position: sticky;
-  bottom: -24px;
+  bottom: 0;
   z-index: 3;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin: 0 -24px -24px;
-  border-top: 1px solid var(--border-soft, var(--phoenix-color-border));
-  padding: 18px 28px;
+  margin: 0;
+  border-top: 0;
+  padding: 16px 30px 24px;
   background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
   backdrop-filter: blur(14px);
+}
+
+.drawerFooter > * {
+  flex: 0 0 auto;
+  min-width: 92px;
 }
 
 .drawerDetailGrid {

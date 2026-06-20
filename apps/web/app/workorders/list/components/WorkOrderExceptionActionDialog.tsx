@@ -37,7 +37,7 @@ export function WorkOrderExceptionActionDialog({ action, form, onClose, onSubmit
           />
         </DrawerFormGrid>
         <DrawerFooter>
-          <button type="button" onClick={onClose}>取消</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit">
             {action.mode === "cancel" ? "确认取消" : action.mode === "return" ? "确认退回" : "确认驳回"}
           </button>

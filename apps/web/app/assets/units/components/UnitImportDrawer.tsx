@@ -21,7 +21,7 @@ export function UnitImportDrawer({
     <Drawer size="md" onClose={onClose}>
       <div className="task-item">
         <h2 className="panel-title">房源批量导入</h2>
-        <button type="button" title="关闭" onClick={onClose}><X size={16} /></button>
+        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
       </div>
       <form className="form-stack" onSubmit={onSubmit}>
         <div className="field">
@@ -34,7 +34,7 @@ export function UnitImportDrawer({
           />
         </div>
         <button className="primary-button" type="submit">开始导入</button>
-        <button type="button" onClick={onDownloadTemplate}>下载模板</button>
+        <button className="secondary-button" type="button" onClick={onDownloadTemplate}>下载模板</button>
       </form>
       {importResult ? <UnitImportResultPanel importResult={importResult} /> : null}
     </Drawer>

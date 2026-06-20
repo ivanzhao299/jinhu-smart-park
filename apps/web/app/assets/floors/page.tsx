@@ -254,7 +254,7 @@ export default function FloorsPage() {
                     {!canViewLayoutUrl ? (
                       <span className="status-pill status-muted">无权限</span>
                     ) : row.layoutFileId ? (
-                      <button type="button" onClick={() => setLayoutTarget(row)}>查看</button>
+                      <button className="inline-action-button" type="button" onClick={() => setLayoutTarget(row)}>查看</button>
                     ) : (
                       <span className="status-pill status-muted">未上传</span>
                     )}
@@ -293,9 +293,10 @@ export default function FloorsPage() {
           </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
-            <span>
-              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
+            <span className="pagination-actions">
+              <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
               <button
+                className="pagination-button"
                 type="button"
                 disabled={pageData.page >= Math.max(1, Math.ceil(pageData.total / pageData.page_size))}
                 onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}
@@ -384,7 +385,7 @@ export default function FloorsPage() {
           <Drawer size="md" onClose={() => setLayoutTarget(null)}>
             <div className="task-item">
               <h2 className="panel-title">{layoutTarget.floorName} 平面图</h2>
-              <button type="button" title="关闭" onClick={() => setLayoutTarget(null)}><X size={16} /></button>
+              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setLayoutTarget(null)}><X size={16} /></button>
             </div>
             {canEditLayoutUrl ? (
               <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT}>
@@ -405,7 +406,7 @@ export default function FloorsPage() {
           <Drawer size="md" onClose={() => setDetail(null)}>
             <div className="task-item">
               <h2 className="panel-title">楼层详情</h2>
-              <button type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
+              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
             </div>
             <div className="form-stack">
               <DetailItem label="楼栋" value={detail.building ? `${detail.building.buildingCode} ${detail.building.buildingName}` : "-"} />

@@ -291,7 +291,7 @@ export default function PermissionsPage() {
       {createDefaults ? (
         <Drawer size="md" onClose={() => setCreateDefaults(null)}>
           <form className="form-stack" onSubmit={(event) => void createPermission(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{createDefaults.title}</h2><button aria-label="关闭" title="关闭" type="button" onClick={() => setCreateDefaults(null)}><X size={16} /></button></div>
+            <div className="system-toolbar"><h2 className="panel-title">{createDefaults.title}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setCreateDefaults(null)}><X size={16} /></button></div>
             <div className="field"><label>编码</label><input name="code" placeholder="system:example:read" required /></div>
             <div className="field"><label>名称</label><input name="name" required /></div>
             <div className="field"><label>上级权限</label><select name="parentId" defaultValue={createDefaults.parentId}><option value="">无</option>{flatTree.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>

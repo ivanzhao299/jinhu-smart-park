@@ -37,9 +37,10 @@ export function UnitStatusLogsPanel({
         </DataTable>
         <div className="task-item">
           <span>共 {statusLogPage.total} 条，第 {statusLogPage.page} / {totalPages} 页</span>
-          <span>
-            <button type="button" disabled={statusLogPage.page <= 1} onClick={() => onPageChange(Math.max(1, statusLogPage.page - 1))}>上一页</button>
+          <span className="pagination-actions">
+            <button className="pagination-button" type="button" disabled={statusLogPage.page <= 1} onClick={() => onPageChange(Math.max(1, statusLogPage.page - 1))}>上一页</button>
             <button
+              className="pagination-button"
               type="button"
               disabled={statusLogPage.page >= totalPages}
               onClick={() => onPageChange(statusLogPage.page + 1)}

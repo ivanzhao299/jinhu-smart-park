@@ -64,7 +64,7 @@ export function UnitRelatedWorkordersPanel({
               <td>{fieldText(row.assignee_name)}</td>
               <td><span className={`status-pill ${row.overdue_flag ? "status-danger" : "status-success"}`}>{row.overdue_flag ? "超时" : "正常"}</span></td>
               <td>
-                <button type="button" onClick={() => { window.location.href = `/workorders/${row.id}`; }}>
+                <button className="inline-action-button" type="button" onClick={() => { window.location.href = `/workorders/${row.id}`; }}>
                   <Eye size={16} />
                   查看
                 </button>

@@ -43,7 +43,7 @@ export default function AttachmentsPage() {
         <section className="login-panel floating-panel">
           <div className="task-item">
             <h2 className="panel-title">上传附件</h2>
-            <button type="button" onClick={() => setShowCreate(false)}>关闭</button>
+            <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>关闭</button>
           </div>
           <FileUploader bizType={effectiveBizType} onUploaded={() => { setRefreshKey((value) => value + 1); setShowCreate(false); }} />
         </section>

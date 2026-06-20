@@ -59,7 +59,7 @@ export function WorkOrderProcessActionDialog({
           )}
         </DrawerFormGrid>
         <DrawerFooter>
-          <button type="button" onClick={onClose}>取消</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit">{action.mode === "wait-material" ? "确认待物料" : "确认完成"}</button>
         </DrawerFooter>
       </DrawerForm>

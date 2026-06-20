@@ -91,7 +91,7 @@ export function WorkOrderFormDialog({
           <TextAreaField label="备注" value={form.remark} onChange={(value) => onFormChange({ remark: value })} />
         </DrawerFormGrid>
         <DrawerFooter>
-          <button type="button" onClick={onClose}>取消</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
           <button className="primary-button" type="submit">保存</button>
         </DrawerFooter>
       </DrawerForm>

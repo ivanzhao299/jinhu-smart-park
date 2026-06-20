@@ -194,9 +194,9 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
         </table>
         <div className="task-item">
           <span>共 {pageData.total} 条，第 {pageData.page} 页</span>
-          <span>
-            <button type="button" onClick={() => void load(Math.max(1, pageData.page - 1))}>上一页</button>
-            <button type="button" onClick={() => void load(pageData.page + 1)}>下一页</button>
+          <span className="pagination-actions">
+            <button className="pagination-button" type="button" onClick={() => void load(Math.max(1, pageData.page - 1))}>上一页</button>
+            <button className="pagination-button" type="button" onClick={() => void load(pageData.page + 1)}>下一页</button>
           </span>
         </div>
       </section>
@@ -207,7 +207,7 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
           <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
             {config.fields.map((field) => <AssetFormField key={field.name} field={field} row={editing} options={sourceOptions[field.name] ?? field.options ?? []} />)}
             <button className="primary-button" type="submit">保存</button>
-            <button type="button" onClick={() => { setShowForm(false); setEditing(null); }}>取消</button>
+            <button className="secondary-button" type="button" onClick={() => { setShowForm(false); setEditing(null); }}>取消</button>
           </form>
         </section>
       ) : null}
@@ -218,7 +218,7 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
           {config.columns.map((column) => (
             <div className="task-item" key={column.key}><span>{column.label}</span><strong>{renderCell(detail, column)}</strong></div>
           ))}
-          <button type="button" onClick={() => setDetail(null)}>关闭</button>
+          <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
         </section>
       ) : null}
 

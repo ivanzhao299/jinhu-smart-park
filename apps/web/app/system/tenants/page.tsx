@@ -277,7 +277,7 @@ export default function TenantsPage() {
             </div>
             <div className="system-actions">
               <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
-              <button type="button" onClick={() => setShowCreate(false)}>取消</button>
+              <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
             </div>
           </form>
         </Drawer>
@@ -336,7 +336,7 @@ export default function TenantsPage() {
             </div>
             <div className="system-actions">
               <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存配置</button>
-              <button type="button" onClick={() => setSettings(null)}>关闭</button>
+              <button className="secondary-button" type="button" onClick={() => setSettings(null)}>关闭</button>
             </div>
           </form>
         </Drawer>

@@ -251,9 +251,10 @@ export default function ParksPage() {
           </DataTable>
           <div className="task-item">
             <span>共 {pageData.total} 条，第 {pageData.page} / {Math.max(1, Math.ceil(pageData.total / pageData.page_size))} 页</span>
-            <span>
-              <button type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
+            <span className="pagination-actions">
+              <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(Math.max(1, pageData.page - 1)).catch((error: Error) => setMessage(error.message))}>上一页</button>
               <button
+                className="pagination-button"
                 type="button"
                 disabled={pageData.page >= Math.max(1, Math.ceil(pageData.total / pageData.page_size))}
                 onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}
@@ -268,7 +269,7 @@ export default function ParksPage() {
           <Drawer size="md" onClose={() => setShowForm(false)}>
             <div className="task-item">
               <h2 className="panel-title">{editingId ? "编辑园区" : "新增园区"}</h2>
-              <button type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
+              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
             </div>
             <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <TextField label="园区编码" value={form.parkCode} required onChange={(value) => setForm((current) => ({ ...current, parkCode: value }))} />
@@ -295,7 +296,7 @@ export default function ParksPage() {
               </div>
               <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
               <button className="primary-button" type="submit">保存</button>
-              <button type="button" onClick={() => setShowForm(false)}>取消</button>
+              <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
             </form>
           </Drawer>
         ) : null}
@@ -304,7 +305,7 @@ export default function ParksPage() {
           <Drawer size="md" onClose={() => setDetail(null)}>
             <div className="task-item">
               <h2 className="panel-title">园区详情</h2>
-              <button type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
+              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
             </div>
             <div className="form-stack">
               <DetailItem label="园区编码" value={detail.parkCode} />

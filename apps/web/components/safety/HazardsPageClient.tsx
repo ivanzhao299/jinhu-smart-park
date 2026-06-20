@@ -854,8 +854,8 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
           </DataTable>
           <div className="pagination">
             <span>共 {pageData.total} 条，第 {pageData.page} / {totalPages} 页</span>
-            <button type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1).catch((error: Error) => setMessage(error.message))}>上一页</button>
-            <button type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
+            <button className="pagination-button" type="button" disabled={pageData.page <= 1} onClick={() => void load(pageData.page - 1).catch((error: Error) => setMessage(error.message))}>上一页</button>
+            <button className="pagination-button" type="button" disabled={pageData.page >= totalPages} onClick={() => void load(pageData.page + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
           </div>
         </Card>
 
@@ -1017,7 +1017,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
               <div className="task-item">
                 <h3 className="panel-title">整改时间线</h3>
                 {canLoadStatusLogs ? (
-                  <button type="button" onClick={() => void loadStatusLogs(viewing.id).catch((error: Error) => setMessage(error.message))}>
+                  <button className="secondary-button" type="button" onClick={() => void loadStatusLogs(viewing.id).catch((error: Error) => setMessage(error.message))}>
                     <RefreshCw size={16} />
                     刷新
                   </button>

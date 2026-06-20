@@ -158,7 +158,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
           ))}
         </tbody>
       </table>
-      <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
+      <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
       {message ? <p className="status-pill">{message}</p> : null}
       <FilePreview file={previewFile} objectUrl={previewUrl} onClose={closePreview} />
         </>

@@ -115,11 +115,11 @@ export default function OpLogsPage() {
             </tbody>
           </table>
         </div>
-        <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1)}>下一页</button></span></div>
       </Card>
       {detail ? (
         <section className="login-panel floating-panel floating-panel-wide">
-          <div className="task-item"><h2 className="panel-title">操作日志详情</h2><button type="button" onClick={() => setDetail(null)}>关闭</button></div>
+          <div className="task-item"><h2 className="panel-title">操作日志详情</h2><button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button></div>
           <p>请求 ID：{detail.requestId ?? "-"}</p>
           <p>资源：{detail.resource ?? "-"}</p>
           <p>错误：{detail.errorMsg ?? "-"}</p>
