@@ -1293,6 +1293,23 @@ export default function LeasingContractsPage() {
               {editing ? (
                 <ContractDetailTabs activeTab={contractDetailTab} onChange={setContractDetailTab} />
               ) : null}
+              {editing ? (
+                <ContractFinanceSummary
+                  contractTotalAmount={editing.totalAmount}
+                  receivables={contractReceivables}
+                  payments={contractPayments}
+                  invoices={contractInvoices}
+                  canViewTotalAmount={canViewTotalAmount}
+                  canReadReceivables={canReadReceivables}
+                  canViewAmountDue={canViewReceivableAmountDue}
+                  canViewAmountPaid={canViewReceivableAmountPaid}
+                  canViewAmountRemain={canViewReceivableAmountRemain}
+                  canReadPayments={canReadPayments}
+                  canViewPayAmount={canViewPaymentAmount}
+                  canReadInvoices={canReadInvoices}
+                  canViewInvoiceAmount={canViewInvoiceAmount}
+                />
+              ) : null}
               {editing && contractDetailTab === "profile" ? (
                 <ContractOverview
                   contract={editing}
@@ -2500,6 +2517,77 @@ function MetricTile({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong className="metric-value">{value || "-"}</strong>
     </section>
+  );
+}
+
+function ContractFinanceSummary({
+  contractTotalAmount,
+  receivables,
+  payments,
+  invoices,
+  canViewTotalAmount,
+  canReadReceivables,
+  canViewAmountDue,
+  canViewAmountPaid,
+  canViewAmountRemain,
+  canReadPayments,
+  canViewPayAmount,
+  canReadInvoices,
+  canViewInvoiceAmount,
+}: {
+  contractTotalAmount?: string | null;
+  receivables: ContractReceivableRow[];
+  payments: ContractPaymentRow[];
+  invoices: ContractInvoiceRow[];
+  canViewTotalAmount: boolean;
+  canReadReceivables: boolean;
+  canViewAmountDue: boolean;
+  canViewAmountPaid: boolean;
+  canViewAmountRemain: boolean;
+  canReadPayments: boolean;
+  canViewPayAmount: boolean;
+  canReadInvoices: boolean;
+  canViewInvoiceAmount: boolean;
+}) {
+  const totalDue = canReadReceivables && canViewAmountDue
+    ? receivables.reduce((s, r) => s + (Number(r.amountDue) || 0), 0)
+    : null;
+  const totalWaived = canReadReceivables && canViewAmountPaid
+    ? receivables.reduce((s, r) => s + (Number(r.amountWaived) || 0), 0)
+    : null;
+  const totalRemain = canReadReceivables && canViewAmountRemain
+    ? receivables.reduce((s, r) => s + (Number(r.amountRemain) || 0), 0)
+    : null;
+  const overdueRemain = canReadReceivables && canViewAmountRemain
+    ? receivables.filter((r) => r.overdueDays > 0).reduce((s, r) => s + (Number(r.amountRemain) || 0), 0)
+    : null;
+  const totalPayAmount = canReadPayments && canViewPayAmount
+    ? payments.reduce((s, p) => s + (Number(p.payAmount) || 0), 0)
+    : null;
+  const lastPayTime = canReadPayments && payments.length > 0 ? (payments[0]?.payTime ?? null) : null;
+  const totalInvoiced = canReadInvoices && canViewInvoiceAmount
+    ? invoices.reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    : null;
+
+  function fmt(v: number | null): string {
+    return v === null ? "-" : v.toFixed(2);
+  }
+
+  return (
+    <div style={{ padding: "8px 16px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div className="contract-summary-grid">
+        <MetricTile label="合同总金额" value={canViewTotalAmount ? formatMoney(contractTotalAmount) : "-"} />
+        <MetricTile label="已生成应收" value={fmt(totalDue)} />
+        <MetricTile label="已收款" value={fmt(totalPayAmount)} />
+        <MetricTile label="未收金额" value={fmt(totalRemain)} />
+      </div>
+      <div className="contract-summary-grid">
+        <MetricTile label="已减免" value={fmt(totalWaived)} />
+        <MetricTile label="已开票" value={fmt(totalInvoiced)} />
+        <MetricTile label="逾期金额" value={fmt(overdueRemain)} />
+        <MetricTile label="最近收款" value={lastPayTime ? formatDate(lastPayTime) : (canReadPayments ? "暂无" : "-")} />
+      </div>
+    </div>
   );
 }
 
