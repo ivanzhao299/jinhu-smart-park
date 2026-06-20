@@ -1306,6 +1306,14 @@ export class LeasingContractsService {
     if (query.renewal_from_contract_id) builder.andWhere("contract.renewal_from_contract_id = :renewalFromContractId", { renewalFromContractId: query.renewal_from_contract_id });
     if (query.start_date) builder.andWhere("contract.start_date >= :startDate", { startDate: query.start_date });
     if (query.end_date) builder.andWhere("contract.end_date <= :endDate", { endDate: query.end_date });
+    if (query.expire_in_days !== undefined) {
+      builder
+        .andWhere("contract.end_date >= CURRENT_DATE")
+        .andWhere("contract.end_date <= (CURRENT_DATE + CAST(:expireInDays AS integer))", { expireInDays: query.expire_in_days });
+      if (!query.status) {
+        builder.andWhere("contract.status = :expireDefaultStatus", { expireDefaultStatus: CONTRACT_STATUS_EFFECTIVE });
+      }
+    }
   }
 
   private applySort(builder: SelectQueryBuilder<LeasingContractEntity>, sort?: string): void {
