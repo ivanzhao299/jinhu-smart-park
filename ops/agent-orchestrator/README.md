@@ -18,6 +18,7 @@ The first version turns a natural-language request into a persistent intake file
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
 | `scripts/doctor.mjs` | Unified diagnostics for git/worktrees, queue/locks/results, Codex runner state, integration readiness, and validation status. |
+| `scripts/daemon.mjs` | Local watcher/daemon layer that observes doctor state and can run explicitly approved LOW-risk fixes or guarded auto-cycle steps. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
 | `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
 | `scripts/reconcile-task-results.mjs` | Regenerates queue/result/lock state from evidence files and result files. |
@@ -33,6 +34,7 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/audit-all-results.mjs` | Audits all DONE task results with the same path-boundary rules. |
 | `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
 | `runs/` | Generated dispatch reports, per-agent prompt files, and agent run plans. |
+| `daemon/` | Local daemon examples and runtime state/log location. `state.json` and run logs are runtime artifacts and should not be committed. |
 
 ## 1. Intake: Natural Language To Current Request
 
@@ -510,6 +512,45 @@ Use `doctor --deep` only when a slower local verification pass is acceptable:
 ```bash
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor --deep
 ```
+
+## 4G. Local Daemon / Watcher
+
+`daemon` is the local service-style wrapper around doctor and the guarded agent pipeline. It is meant to reduce repeated manual status checks and make the next safe action visible without immediately running agents or merges.
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --once
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --watch
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --fix-dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --fix-apply
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --auto-cycle
+```
+
+Mode behavior:
+
+- `--dry-run` calls doctor, builds a daemon action plan, prints it, and writes nothing.
+- `--once` performs one observation loop and writes nothing.
+- `--watch` repeats observation until Ctrl+C. Default interval is 30 seconds; use `--interval 10`, `--interval 30`, or `--interval 60`.
+- `--fix-dry-run` lists LOW-risk fixes from doctor and writes nothing.
+- `--fix-apply` delegates only doctor-approved LOW-risk repairs: restore generated `runs/agent-run-plan.md`, remove locks for missing tasks, remove locks for DONE tasks, and remove exact duplicate locks.
+- `--auto-cycle` is the only mode that may run guarded pipeline actions. It is not enabled by default.
+
+Daemon never performs production deploy, production migration, production seed, database reset, database cleanup, destructive production file operations, or unattended production operations. It does not auto-handle HIGH-risk changes, business dirty files, non-queue merge conflicts, Docker/deploy/auth changes, or production data operations.
+
+When automatic actions actually run, daemon writes runtime artifacts under:
+
+```bash
+ops/agent-orchestrator/daemon/runs/YYYYMMDD-HHMMSS.log
+ops/agent-orchestrator/daemon/state.json
+```
+
+`state.json` records last run time, status, action, error, branch, head, active Codex processes, and next actions. Commit only `state.json.example`; do not commit local runtime state or daemon logs.
+
+Current V1 daemon is a local watcher. Future extensions may add:
+
+- git hooks such as `post-merge` or `post-checkout` to sync agent worktrees after main changes.
+- a macOS `launchd` plist to start the watcher automatically.
+- a shared doctor library instead of invoking `doctor --json` as a child process.
 
 ## 5. Agent Completion Flow
 

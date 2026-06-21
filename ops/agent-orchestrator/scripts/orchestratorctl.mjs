@@ -36,6 +36,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
@@ -488,6 +489,9 @@ switch (command) {
     break;
   case "doctor":
     runScript("ops/agent-orchestrator/scripts/doctor.mjs", rest);
+    break;
+  case "daemon":
+    runScript("ops/agent-orchestrator/scripts/daemon.mjs", rest);
     break;
   case "full-cycle": {
     const apply = hasFlag(rest, "--apply");

@@ -1,0 +1,13 @@
+{
+  "last_run_at": "2026-06-21T00:00:00.000Z",
+  "last_status": "GO",
+  "last_action": "observe",
+  "last_error": "",
+  "last_branch": "main",
+  "last_head": "0000000 example",
+  "active_codex_processes": [],
+  "next_action": [
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+  ],
+  "mode": "once"
+}
