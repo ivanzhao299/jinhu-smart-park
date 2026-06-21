@@ -164,10 +164,11 @@ C5-B 推荐交付：
 - 新增 `scripts/e2e/auth-cookie-origin-smoke.mjs`，默认手动执行。C5-B 已选择该路径作为独立 smoke 入口，不默认接入 release smoke。
 - 脚本支持 `API_BASE_URL`、`WEB_ORIGIN`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`DEFAULT_TENANT_ID`、`DEFAULT_PARK_ID`。
 - 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`；`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN` 默认 `true`，仅在未来明确关闭 body compatibility 的验证窗口中可显式设为 `false`。
-- 脚本内部实现轻量 cookie jar，保存 `Set-Cookie`，后续请求仅在 cookie Path / Domain 匹配 request URL 时发送 `Cookie` header。脚本会验证 auth refresh / logout endpoint 的 Path coverage，但不模拟浏览器 `Secure` 策略。
-- 脚本要求 refresh `Set-Cookie` 含 `HttpOnly`，并比较 refresh 前后的 cookie value 以确认 rotation，比较失败时不输出 token。
+- 脚本内部实现轻量 cookie jar，以完整 browser scope 存储 cookie：name、Path、host-only / Domain scope 都属于 storage key；后续请求仅在 cookie scope 匹配 request URL 时发送 `Cookie` header。脚本会验证 auth refresh / logout endpoint 的 Path coverage，但不模拟浏览器 `Secure` 策略。
+- 脚本要求 refresh `Set-Cookie` 含 `HttpOnly`，比较 refresh 前后的 cookie value 以确认 rotation，并用旧 refresh token 走 body fallback 断言 401，证明旧 token 已失效。失败日志不输出 token。
 - 脚本用 strict browser-style scope matching 验证 `Clear-Cookie`：clear response 必须匹配原 refresh cookie 的 Path 与 host-only / Domain scope，且响应应用后 jar 不应再向 auth endpoint 发送 refresh cookie。
-- 脚本在 invalid Origin / Referer 403 后会用同一个 jar 发起 valid-origin refresh 或 logout-cookie，确认被拒绝请求没有 revoke 或 rotate 原 refresh token。
+- 脚本在 invalid Origin / Referer 403 以及 missing-header 403 后会用同一个 jar 或同一个 live body token 发起 valid refresh / logout-cookie，确认被拒绝请求没有 revoke 或 rotate 原 refresh token。
+- 脚本在 body-token logout 后会用同一个 body refresh token 重试 body fallback refresh 并期望 401；cookie + body logout 使用第二次登录产生的 distinct body refresh token，验证 cookie token 和 distinct body token 都被覆盖。
 - 用 Node fetch 验证 JSON status，用 response headers 验证 `set-cookie`；必要时用 curl 作为部署手册里的人工交叉验证，不作为脚本依赖。
 - 不要求启动真实 Web；HTTP-level smoke 只需要真实 API 和数据库。Browser / storage 行为另列人工验证或 Web unit。
 - 不默认纳入 `first-release-regression.mjs`，除非后续团队确认环境稳定且不会误触登录限流。
@@ -193,20 +194,20 @@ node scripts/e2e/auth-cookie-origin-smoke.mjs
 | login success | 200、accessToken 存在、body refreshToken 在 compat=true 下存在、`Set-Cookie sp_refresh_token` 存在且含 HttpOnly / Path |
 | `/users/me` or `/auth/me` | Bearer access token 返回 200 |
 | wrong password | 401，不应更新 cookie jar |
-| cookie refresh valid Origin | 200，返回新 access token，refresh cookie Path / Domain 覆盖 refresh endpoint，`Set-Cookie` 含 HttpOnly 且 cookie value 改变 |
-| second refresh with rotated cookie | 200，证明 jar 更新，并再次验证 cookie value 改变 |
-| body fallback no cookie | 200，compat=true 下可用 |
+| cookie refresh valid Origin | 200，返回新 access token，refresh cookie Path / Domain 覆盖 refresh endpoint，`Set-Cookie` 含 HttpOnly，cookie value 改变，旧 token body fallback retry 为 401 |
+| second refresh with rotated cookie | 200，证明 jar 更新，再次验证 cookie value 改变和旧 token 401 |
+| body fallback no cookie | 200，compat=true 下可用；invalid Origin no-cookie + live body token 403 后同 token no-Origin refresh 必须仍成功 |
 | cookie + body same | 200 |
 | cookie + body different | 200，cookie 优先，不 clear cookie |
 | invalid Origin with cookie | 403，不 revoke、不 set、不 clear；随后同 jar valid Origin refresh 必须成功并 rotation |
 | invalid Origin without cookie + body | 403，不 set、不 clear |
 | valid Referer fallback | 200 |
 | invalid Referer without Origin | 403，不 set、不 clear；随后同 jar valid Origin refresh 必须成功并 rotation |
-| missing Origin/Referer with cookie | 403 when `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` |
+| missing Origin/Referer with cookie | 403 when `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false`；随后同 jar valid Origin refresh 必须成功并 rotation |
 | protected logout valid Origin | 200，`Clear-Cookie` scope 匹配原 refresh cookie，jar 不再向 auth endpoint replay |
 | protected logout invalid Origin | 403，不 clear cookie；随后同 jar valid Origin refresh 必须成功并 rotation |
-| protected logout no cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在 |
-| protected logout cookie + body token | 200，compat=true 下 `Clear-Cookie` scope 匹配原 refresh cookie，jar 不再 replay |
+| protected logout no cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在；同 body token retry refresh 必须为 401 |
+| protected logout cookie + distinct body token | 200，compat=true 下 `Clear-Cookie` scope 匹配原 refresh cookie，jar 不再 replay；distinct body token retry refresh 必须为 401 |
 | logout-cookie valid Origin | 200，`Clear-Cookie` scope 匹配原 refresh cookie，jar 不再 replay |
 | logout-cookie invalid Origin | 403，不 clear cookie；随后同 jar valid Origin logout-cookie 必须成功并清理 cookie |
 

@@ -50,22 +50,19 @@ class CookieJar {
         continue;
       }
       if (isClearingCookie(parsed)) {
-        const stored = this.cookies.get(parsed.name);
-        if (stored && cookieScopesMatchForClear(stored, parsed)) {
-          this.cookies.delete(parsed.name);
-        }
+        this.cookies.delete(cookieStorageKey(parsed));
         continue;
       }
-      this.cookies.set(parsed.name, parsed);
+      this.cookies.set(cookieStorageKey(parsed), parsed);
     }
   }
 
   header(requestUrl) {
     const segments = [];
     const now = Date.now();
-    for (const [name, cookie] of this.cookies.entries()) {
+    for (const [key, cookie] of this.cookies.entries()) {
       if (cookie.expiresAt && cookie.expiresAt <= now) {
-        this.cookies.delete(name);
+        this.cookies.delete(key);
         continue;
       }
       if (!cookieMatchesRequest(cookie, requestUrl)) {
@@ -77,29 +74,40 @@ class CookieJar {
   }
 
   has(name) {
-    return this.cookies.has(name);
+    return Array.from(this.cookies.values()).some((cookie) => cookie.name === name);
   }
 
-  value(name) {
-    return this.cookies.get(name)?.value;
+  valueForRequest(name, requestUrl) {
+    return this.singleMatchingCookie(name, requestUrl)?.value;
   }
 
-  scope(name) {
-    const cookie = this.cookies.get(name);
+  scopeForRequest(name, requestUrl) {
+    const cookie = this.singleMatchingCookie(name, requestUrl);
     return cookie ? cookieScope(cookie) : undefined;
   }
 
   willSend(name, requestUrl) {
-    const cookie = this.cookies.get(name);
-    return Boolean(cookie && cookieMatchesRequest(cookie, requestUrl));
+    return this.matchingCookies(name, requestUrl).length > 0;
+  }
+
+  matchingCookies(name, requestUrl) {
+    return Array.from(this.cookies.values()).filter((cookie) => cookie.name === name && cookieMatchesRequest(cookie, requestUrl));
+  }
+
+  singleMatchingCookie(name, requestUrl) {
+    const matches = this.matchingCookies(name, requestUrl);
+    if (matches.length > 1) {
+      throw new SmokeAssertionError(`${name} has multiple matching cookie scopes for ${new URL(requestUrl).pathname}; scopes=${matches.map((cookie) => describeScope(cookieScope(cookie))).join(",")}`);
+    }
+    return matches[0];
   }
 
   describeCookieScope(name) {
-    const cookie = this.cookies.get(name);
-    if (!cookie) {
+    const cookies = Array.from(this.cookies.values()).filter((cookie) => cookie.name === name);
+    if (cookies.length === 0) {
       return `${name}:missing`;
     }
-    return `${name}:path=${cookie.path};domain=${cookie.hostOnly ? `host-only:${cookie.sourceHost}` : cookie.domain}`;
+    return cookies.map((cookie) => describeScope(cookieScope(cookie))).join(",");
   }
 }
 
@@ -293,14 +301,14 @@ function expectRefreshCookieNotSent(config, jar, path, label) {
   pass(`${label} refresh cookie no longer replays to ${path}`);
 }
 
-function snapshotCookieValue(jar, cookieName) {
-  return jar.value(cookieName);
+function snapshotCookieValue(config, jar, path) {
+  return jar.valueForRequest(config.refreshCookieName, `${config.apiBaseUrl}${path}`);
 }
 
-function snapshotCookieScope(jar, cookieName) {
-  const scope = jar.scope(cookieName);
+function snapshotCookieScope(config, jar, path) {
+  const scope = jar.scopeForRequest(config.refreshCookieName, `${config.apiBaseUrl}${path}`);
   if (!scope) {
-    throw new SmokeAssertionError(`expected stored cookie scope for ${cookieName}`);
+    throw new SmokeAssertionError(`expected stored cookie scope for ${config.refreshCookieName} at ${path}`);
   }
   return scope;
 }
@@ -322,7 +330,7 @@ function expectCookieValueChanged(before, after, label) {
 
 async function expectRefreshStillUsable(config, jar, label) {
   expectRefreshCookieWillBeSent(config, jar, "/auth/token/refresh", label);
-  const before = snapshotCookieValue(jar, config.refreshCookieName);
+  const before = snapshotCookieValue(config, jar, "/auth/token/refresh");
   const result = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -331,12 +339,12 @@ async function expectRefreshStillUsable(config, jar, label) {
   });
   expectStatus(result, 200, `${label} valid Origin refresh after rejection`);
   expectSetRefreshCookie(result, config.refreshCookieName, `${label} valid Origin refresh after rejection`);
-  expectCookieValueChanged(before, snapshotCookieValue(jar, config.refreshCookieName), `${label} valid Origin refresh after rejection`);
+  expectCookieValueChanged(before, snapshotCookieValue(config, jar, "/auth/token/refresh"), `${label} valid Origin refresh after rejection`);
 }
 
 async function expectLogoutCookieStillUsable(config, jar, label) {
   expectRefreshCookieWillBeSent(config, jar, "/auth/logout-cookie", label);
-  const storedScope = snapshotCookieScope(jar, config.refreshCookieName);
+  const storedScope = snapshotCookieScope(config, jar, "/auth/logout-cookie");
   const result = await requestJson(config, "/auth/logout-cookie", {
     method: "POST",
     origin: config.webOrigin,
@@ -344,6 +352,29 @@ async function expectLogoutCookieStillUsable(config, jar, label) {
   });
   expectStatus(result, 200, `${label} valid Origin logout-cookie after rejection`);
   expectRefreshCookieClearedFor(config, jar, "/auth/token/refresh", result, `${label} valid Origin logout-cookie after rejection`, storedScope);
+}
+
+async function expectBodyRefreshRejected(config, refreshToken, label) {
+  const jar = new CookieJar(`${label}-rejected-body-refresh`);
+  const result = await requestJson(config, "/auth/token/refresh", {
+    method: "POST",
+    jar,
+    body: { refreshToken }
+  });
+  expectStatus(result, 401, label);
+  expectNoRefreshCookieMutation(result, config.refreshCookieName, label);
+}
+
+async function expectBodyRefreshStillUsable(config, refreshToken, label) {
+  const jar = new CookieJar(`${label}-usable-body-refresh`);
+  const result = await requestJson(config, "/auth/token/refresh", {
+    method: "POST",
+    jar,
+    body: { refreshToken }
+  });
+  expectStatus(result, 200, label);
+  expectSetRefreshCookie(result, config.refreshCookieName, label);
+  await cleanupRefreshCookie(config, jar, label);
 }
 
 function extractData(body) {
@@ -459,13 +490,26 @@ async function runBodyCompatibilityChecks(config) {
   expectSetRefreshCookie(fallback, config.refreshCookieName, "body fallback refresh");
   await cleanupRefreshCookie(config, fallbackJar, "body fallback refresh");
 
+  const invalidBodySource = await login(config, "invalid-origin-body-source");
+  if (!invalidBodySource.refreshToken) {
+    if (config.expectBodyRefreshToken) {
+      throw new SmokeAssertionError("invalid Origin body source login did not return refreshToken");
+    }
+    skip("invalid Origin without cookie + body skipped because response body refreshToken is absent");
+    await cleanupRefreshCookie(config, invalidBodySource.jar, "invalid Origin body source");
+    await cleanupRefreshCookie(config, bodyLogin.jar, "body fallback source");
+    return;
+  }
+
   const invalid = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: EVIL_ORIGIN,
-    body: { refreshToken: bodyLogin.refreshToken }
+    body: { refreshToken: invalidBodySource.refreshToken }
   });
   expectStatus(invalid, 403, "invalid Origin without cookie + body refresh");
   expectNoRefreshCookieMutation(invalid, config.refreshCookieName, "invalid Origin without cookie + body refresh");
+  await expectBodyRefreshStillUsable(config, invalidBodySource.refreshToken, "invalid Origin without cookie + body refresh token survival");
+  await cleanupRefreshCookie(config, invalidBodySource.jar, "invalid Origin body source");
   await cleanupRefreshCookie(config, bodyLogin.jar, "body fallback source");
 }
 
@@ -492,30 +536,35 @@ async function runLegacyBodyLogoutChecks(config) {
   expectStatus(noCookieResult, 200, "legacy body protected logout without cookie");
   expectClearRefreshCookie(noCookieResult, config.refreshCookieName, "legacy body protected logout without cookie");
   expectRefreshCookieNotSent(config, noCookieJar, "/auth/token/refresh", "legacy body protected logout without cookie");
+  await expectBodyRefreshRejected(config, noCookie.refreshToken, "legacy body protected logout revoked body token");
   await cleanupRefreshCookie(config, noCookie.jar, "legacy body no-cookie source");
 
   const cookieAndBody = await login(config, "legacy-body-logout-cookie-source");
-  if (!cookieAndBody.refreshToken) {
+  const distinctBody = await login(config, "legacy-body-logout-distinct-body-source");
+  if (!distinctBody.refreshToken) {
     if (config.expectBodyRefreshToken) {
-      throw new SmokeAssertionError("legacy body logout cookie source did not return refreshToken");
+      throw new SmokeAssertionError("legacy body logout distinct body source did not return refreshToken");
     }
-    skip("legacy body logout cookie + body check skipped because response body refreshToken is absent");
+    skip("legacy body logout cookie + distinct body check skipped because response body refreshToken is absent");
     await cleanupRefreshCookie(config, cookieAndBody.jar, "legacy body cookie source");
+    await cleanupRefreshCookie(config, distinctBody.jar, "legacy body distinct body source");
     return;
   }
 
   expectRefreshCookieWillBeSent(config, cookieAndBody.jar, "/auth/logout", "legacy body protected logout with cookie");
-  const cookieAndBodyScope = snapshotCookieScope(cookieAndBody.jar, config.refreshCookieName);
+  const cookieAndBodyScope = snapshotCookieScope(config, cookieAndBody.jar, "/auth/logout");
   const cookieAndBodyResult = await requestJson(config, "/auth/logout", {
     method: "POST",
     origin: config.webOrigin,
     jar: cookieAndBody.jar,
     accessToken: cookieAndBody.accessToken,
     idempotencyKey: `auth-smoke-legacy-cookie-body-logout-${randomUUID()}`,
-    body: { refreshToken: cookieAndBody.refreshToken }
+    body: { refreshToken: distinctBody.refreshToken }
   });
-  expectStatus(cookieAndBodyResult, 200, "legacy body protected logout with cookie");
-  expectRefreshCookieClearedFor(config, cookieAndBody.jar, "/auth/token/refresh", cookieAndBodyResult, "legacy body protected logout with cookie", cookieAndBodyScope);
+  expectStatus(cookieAndBodyResult, 200, "legacy body protected logout with cookie + distinct body");
+  expectRefreshCookieClearedFor(config, cookieAndBody.jar, "/auth/token/refresh", cookieAndBodyResult, "legacy body protected logout with cookie + distinct body", cookieAndBodyScope);
+  await expectBodyRefreshRejected(config, distinctBody.refreshToken, "legacy body protected logout revoked distinct body token");
+  await cleanupRefreshCookie(config, distinctBody.jar, "legacy body distinct body source");
 }
 
 async function run() {
@@ -536,7 +585,7 @@ async function run() {
   expectNoRefreshCookieMutation(me, config.refreshCookieName, "GET /auth/me");
 
   expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie refresh with valid Origin");
-  const cookieBeforeRefreshOne = snapshotCookieValue(main.jar, config.refreshCookieName);
+  const cookieBeforeRefreshOne = snapshotCookieValue(config, main.jar, "/auth/token/refresh");
   const refreshOne = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -545,7 +594,8 @@ async function run() {
   });
   expectStatus(refreshOne, 200, "cookie refresh with valid Origin");
   expectSetRefreshCookie(refreshOne, config.refreshCookieName, "cookie refresh with valid Origin");
-  expectCookieValueChanged(cookieBeforeRefreshOne, snapshotCookieValue(main.jar, config.refreshCookieName), "cookie refresh with valid Origin");
+  expectCookieValueChanged(cookieBeforeRefreshOne, snapshotCookieValue(config, main.jar, "/auth/token/refresh"), "cookie refresh with valid Origin");
+  await expectBodyRefreshRejected(config, cookieBeforeRefreshOne, "old refresh token after first rotation");
   const accessAfterRefreshOne = extractAccessToken(refreshOne.body);
   if (!accessAfterRefreshOne) {
     throw new SmokeAssertionError("cookie refresh with valid Origin expected accessToken");
@@ -553,7 +603,7 @@ async function run() {
   pass("cookie refresh with valid Origin returned access token");
 
   expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "refresh rotation with updated cookie jar");
-  const cookieBeforeRefreshTwo = snapshotCookieValue(main.jar, config.refreshCookieName);
+  const cookieBeforeRefreshTwo = snapshotCookieValue(config, main.jar, "/auth/token/refresh");
   const refreshTwo = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -562,7 +612,8 @@ async function run() {
   });
   expectStatus(refreshTwo, 200, "refresh rotation with updated cookie jar");
   expectSetRefreshCookie(refreshTwo, config.refreshCookieName, "refresh rotation with updated cookie jar");
-  expectCookieValueChanged(cookieBeforeRefreshTwo, snapshotCookieValue(main.jar, config.refreshCookieName), "refresh rotation with updated cookie jar");
+  expectCookieValueChanged(cookieBeforeRefreshTwo, snapshotCookieValue(config, main.jar, "/auth/token/refresh"), "refresh rotation with updated cookie jar");
+  await expectBodyRefreshRejected(config, cookieBeforeRefreshTwo, "old refresh token after second rotation");
   const accessAfterRefreshTwo = extractAccessToken(refreshTwo.body);
   if (!accessAfterRefreshTwo) {
     throw new SmokeAssertionError("refresh rotation expected accessToken");
@@ -572,7 +623,7 @@ async function run() {
   await runBodyCompatibilityChecks(config);
 
   expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie + same body refresh");
-  const cookieBeforeSameBody = snapshotCookieValue(main.jar, config.refreshCookieName);
+  const cookieBeforeSameBody = snapshotCookieValue(config, main.jar, "/auth/token/refresh");
   const cookieBodySame = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -581,7 +632,8 @@ async function run() {
   });
   expectStatus(cookieBodySame, 200, "cookie + same body refresh uses cookie");
   expectSetRefreshCookie(cookieBodySame, config.refreshCookieName, "cookie + same body refresh");
-  expectCookieValueChanged(cookieBeforeSameBody, snapshotCookieValue(main.jar, config.refreshCookieName), "cookie + same body refresh");
+  expectCookieValueChanged(cookieBeforeSameBody, snapshotCookieValue(config, main.jar, "/auth/token/refresh"), "cookie + same body refresh");
+  await expectBodyRefreshRejected(config, cookieBeforeSameBody, "old refresh token after cookie + same body rotation");
 
   expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie + different body refresh");
   const cookieBodyDifferent = await requestJson(config, "/auth/token/refresh", {
@@ -641,11 +693,12 @@ async function run() {
   });
   expectStatus(missingResult, 403, "missing Origin/Referer with cookie refresh");
   expectNoRefreshCookieMutation(missingResult, config.refreshCookieName, "missing Origin/Referer with cookie refresh");
+  await expectRefreshStillUsable(config, missingSource.jar, "missing Origin/Referer with cookie refresh");
   await cleanupRefreshCookie(config, missingSource.jar, "missing Origin source");
 
   const logoutCookieValid = await login(config, "logout-cookie-valid-source");
   expectRefreshCookieWillBeSent(config, logoutCookieValid.jar, "/auth/logout-cookie", "logout-cookie valid Origin");
-  const logoutCookieValidScope = snapshotCookieScope(logoutCookieValid.jar, config.refreshCookieName);
+  const logoutCookieValidScope = snapshotCookieScope(config, logoutCookieValid.jar, "/auth/logout-cookie");
   const logoutCookieResult = await requestJson(config, "/auth/logout-cookie", {
     method: "POST",
     origin: config.webOrigin,
@@ -667,7 +720,7 @@ async function run() {
 
   const protectedLogout = await login(config, "protected-logout-source");
   expectRefreshCookieWillBeSent(config, protectedLogout.jar, "/auth/logout", "protected logout valid Origin");
-  const protectedLogoutScope = snapshotCookieScope(protectedLogout.jar, config.refreshCookieName);
+  const protectedLogoutScope = snapshotCookieScope(config, protectedLogout.jar, "/auth/logout");
   const protectedLogoutResult = await requestJson(config, "/auth/logout", {
     method: "POST",
     origin: config.webOrigin,
@@ -776,16 +829,14 @@ function cookieScope(cookie) {
   };
 }
 
+function cookieStorageKey(cookie) {
+  const scope = cookieScope(cookie);
+  const owner = scope.hostOnly ? `host:${scope.sourceHost}` : `domain:${scope.domain}`;
+  return `${scope.name}|${scope.path}|${owner}`;
+}
+
 function cookieScopesMatchForClear(storedCookie, clearingCookie) {
-  const stored = cookieScope(storedCookie);
-  const clearing = cookieScope(clearingCookie);
-  if (stored.name !== clearing.name || stored.path !== clearing.path) {
-    return false;
-  }
-  if (stored.hostOnly) {
-    return clearing.hostOnly && stored.sourceHost === clearing.sourceHost;
-  }
-  return !clearing.hostOnly && stored.domain === clearing.domain;
+  return cookieStorageKey(storedCookie) === cookieStorageKey(clearingCookie);
 }
 
 function domainMatches(requestHost, cookieDomain) {
