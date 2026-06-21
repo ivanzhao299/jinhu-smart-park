@@ -9,6 +9,7 @@
  *   DEFAULT_TENANT_ID, DEFAULT_PARK_ID
  *
  * Optional env:
+ *   AUTH_REFRESH_COOKIE_NAME=sp_refresh_token
  *   AUTH_SMOKE_WRONG_PASSWORD, AUTH_SMOKE_SKIP_WRONG_PASSWORD,
  *   AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN=false only for future no-compat mode
  *
@@ -68,7 +69,7 @@ class CookieJar {
       if (!cookieMatchesRequest(cookie, requestUrl)) {
         continue;
       }
-      segments.push(`${encodeURIComponent(name)}=${encodeURIComponent(cookie.value)}`);
+      segments.push(`${encodeURIComponent(cookie.name)}=${encodeURIComponent(cookie.value)}`);
     }
     return segments.join("; ");
   }
@@ -278,6 +279,20 @@ function expectNoRefreshCookieMutation(result, cookieName, label) {
   pass(`${label} did not mutate refresh cookie`);
 }
 
+function expectNoRefreshCookieSetOrReplay(config, result, jar, path, label) {
+  const mutations = getRefreshCookieMutations(result.setCookieHeaders, config.refreshCookieName, result.responseUrl);
+  const setMutations = mutations.filter((mutation) => !mutation.clear);
+  if (setMutations.length > 0) {
+    throw new SmokeAssertionError(`${label} expected no refresh Set-Cookie in no-compat rejection; mutations=${describeMutations(mutations)}`);
+  }
+  expectRefreshCookieNotSent(config, jar, path, label);
+  if (mutations.length > 0) {
+    pass(`${label} only cleared refresh cookie in no-compat rejection`);
+    return;
+  }
+  pass(`${label} did not set refresh cookie in no-compat rejection`);
+}
+
 function expectRefreshCookiePresent(jar, cookieName, label) {
   if (!jar.has(cookieName)) {
     throw new SmokeAssertionError(`${label} expected cookie jar to contain ${cookieName}`);
@@ -362,7 +377,11 @@ async function expectBodyRefreshRejected(config, refreshToken, label) {
     body: { refreshToken }
   });
   expectStatus(result, 401, label);
-  expectNoRefreshCookieMutation(result, config.refreshCookieName, label);
+  if (config.expectBodyRefreshToken) {
+    expectNoRefreshCookieMutation(result, config.refreshCookieName, label);
+    return;
+  }
+  expectNoRefreshCookieSetOrReplay(config, result, jar, "/auth/token/refresh", label);
 }
 
 async function expectBodyRefreshStillUsable(config, refreshToken, label) {

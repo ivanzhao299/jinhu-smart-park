@@ -163,6 +163,7 @@ C5-B 推荐交付：
 
 - 新增 `scripts/e2e/auth-cookie-origin-smoke.mjs`，默认手动执行。C5-B 已选择该路径作为独立 smoke 入口，不默认接入 release smoke。
 - 脚本支持 `API_BASE_URL`、`WEB_ORIGIN`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`DEFAULT_TENANT_ID`、`DEFAULT_PARK_ID`。
+- 脚本支持 `AUTH_REFRESH_COOKIE_NAME`，默认 `sp_refresh_token`。如果 API 使用自定义 refresh cookie name，运行 smoke 时必须设置同名；否则脚本会按默认 cookie name 查找 / replay refresh cookie 并误判失败。`AUTH_REFRESH_COOKIE_NAME` 只控制 smoke 查找的 cookie name，`AUTH_ALLOWED_ORIGINS` 只控制 Origin / Referer hardening，两者不是同一配置。
 - 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`；`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN` 默认 `true`，仅在未来明确关闭 body compatibility 的验证窗口中可显式设为 `false`。
 - 脚本内部实现轻量 cookie jar，以完整 browser scope 存储 cookie：name、Path、host-only / Domain scope 都属于 storage key；后续请求仅在 cookie scope 匹配 request URL 时发送 `Cookie` header。脚本会验证 auth refresh / logout endpoint 的 Path coverage，但不模拟浏览器 `Secure` 策略。
 - 脚本要求 refresh `Set-Cookie` 含 `HttpOnly`，比较 refresh 前后的 cookie value 以确认 rotation，并用旧 refresh token 走 body fallback 断言 401，证明旧 token 已失效。失败日志不输出 token。
@@ -178,6 +179,7 @@ Selected C5-B command:
 ```bash
 API_BASE_URL=http://localhost:3001/api/v1 \
 WEB_ORIGIN=http://localhost:3000 \
+AUTH_REFRESH_COOKIE_NAME=sp_refresh_token \
 ADMIN_USERNAME=<admin-username> \
 ADMIN_PASSWORD='<admin-password>' \
 DEFAULT_TENANT_ID=10000001 \

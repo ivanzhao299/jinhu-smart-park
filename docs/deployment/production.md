@@ -563,6 +563,7 @@ WP3-C / C5-B adds an optional HTTP-level smoke script for refresh cookie, Origin
 ```bash
 API_BASE_URL=http://127.0.0.1:3001/api/v1 \
 WEB_ORIGIN=http://localhost:3000 \
+AUTH_REFRESH_COOKIE_NAME=sp_refresh_token \
 ADMIN_USERNAME=<admin-username> \
 ADMIN_PASSWORD='<admin-password>' \
 DEFAULT_TENANT_ID=10000001 \
@@ -581,6 +582,7 @@ Required variables:
 
 Optional variables:
 
+- `AUTH_REFRESH_COOKIE_NAME`, default `sp_refresh_token`; set this to the same value as the API when the API uses a custom refresh cookie name. If the API and smoke disagree, login / refresh assertions will look for the wrong cookie and fail. This is separate from `AUTH_ALLOWED_ORIGINS`, which controls Origin / Referer hardening.
 - `AUTH_SMOKE_SKIP_WRONG_PASSWORD`, default `true`; set to `false` to run one wrong-password assertion. Keep the default in shared or production-like environments unless you have confirmed the account is not near the password lockout threshold.
 - `AUTH_SMOKE_WRONG_PASSWORD`, used only when the wrong-password assertion is enabled.
 - `AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`, default `true`; keep this default while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true` is required. Set it to `false` only for a future no-compatibility validation window where body `refreshToken` has intentionally been removed.
