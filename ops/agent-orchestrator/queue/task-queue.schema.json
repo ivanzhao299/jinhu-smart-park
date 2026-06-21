@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/ops/agent-orchestrator/task-queue.schema.json",
+  "title": "Jinhu Smart Park Orchestrator Task Queue",
+  "type": "object",
+  "required": ["version", "updated_at", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "string",
+      "enum": ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]
+    },
+    "taskStatus": {
+      "type": "string",
+      "enum": ["READY", "CLAIMED", "IN_PROGRESS", "DONE", "FAILED", "BLOCKED", "AUDITED"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["P0", "P1", "P2", "P3"]
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "pathList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "textList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "task_id",
+        "batch_id",
+        "title",
+        "owner",
+        "domain",
+        "priority",
+        "status",
+        "risk",
+        "allowed_paths",
+        "forbidden_paths",
+        "acceptance",
+        "validation_commands",
+        "requires_human_approval",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "#/$defs/agent"
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "status": {
+          "$ref": "#/$defs/taskStatus"
+        },
+        "risk": {
+          "$ref": "#/$defs/risk"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/pathList"
+        },
+        "forbidden_paths": {
+          "$ref": "#/$defs/pathList"
+        },
+        "acceptance": {
+          "$ref": "#/$defs/textList"
+        },
+        "validation_commands": {
+          "$ref": "#/$defs/textList"
+        },
+        "requires_human_approval": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
