@@ -26,9 +26,11 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/audit-agent-result.mjs` | Checks changed files against task path boundaries. |
 | `scripts/dispatch-ready-agents.mjs` | Central dispatcher that scans READY tasks, checks worktrees, claims one task per agent, and generates runner prompts. |
 | `scripts/check-dispatch-status.mjs` | Prints queue status, locks, and agent claim readiness. |
+| `scripts/check-agent-runner-env.mjs` | Checks Codex CLI availability, Node version, worktree presence, and active locks without writing files. |
+| `scripts/run-claimed-agent-prompts.mjs` | Reads CLAIMED tasks and generated prompts, then writes a plan-first agent execution plan. |
 | `scripts/audit-all-results.mjs` | Audits all DONE task results with the same path-boundary rules. |
 | `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
-| `runs/` | Generated dispatch reports and per-agent prompt files. |
+| `runs/` | Generated dispatch reports, per-agent prompt files, and agent run plans. |
 
 ## 1. Intake: Natural Language To Current Request
 
@@ -143,7 +145,92 @@ node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
 
 This prints READY, CLAIMED, IN_PROGRESS, DONE, FAILED, BLOCKED, and AUDITED tasks, plus active locks and whether each agent can claim another task.
 
-## 4C. One-Click Controller
+## 4B. Claimed Agent Prompt Runner
+
+After `dispatch-ready-agents.mjs` claims tasks and writes prompt files, the orchestrator can generate a centralized execution plan:
+
+```bash
+node ops/agent-orchestrator/scripts/check-agent-runner-env.mjs
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run
+```
+
+`check-agent-runner-env.mjs` is read-only. It checks:
+
+1. Whether the local `codex` command exists.
+2. The current Node.js version.
+3. Whether main and `agent-1` through `agent-5` worktrees exist and are clean.
+4. Whether `task-locks.json` has active locks.
+
+`run-claimed-agent-prompts.mjs` reads:
+
+```bash
+ops/agent-orchestrator/queue/task-locks.json
+ops/agent-orchestrator/queue/task-queue.json
+ops/agent-orchestrator/agents.config.json
+ops/agent-orchestrator/runs/<task_id>-<agent>.prompt.md
+```
+
+By default, it is plan-first and does not execute Codex:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs
+```
+
+or explicitly:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run
+```
+
+The script writes:
+
+```bash
+ops/agent-orchestrator/runs/agent-run-plan.md
+```
+
+The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. The suggested command is not executed by this version.
+
+`--apply` still does not run agents in this first version. It first checks that the Codex CLI exists, then writes the same plan-first command list:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply
+```
+
+If the CLI is missing, apply mode aborts with:
+
+```text
+Codex CLI not found; cannot auto-run agents
+```
+
+Current automation layering:
+
+1. Natural-language requirement -> `intake/current-request.md`, REQ, TECH, and `task-queue.json`.
+2. `dispatch-ready-agents.mjs` -> automatic claim plus prompt generation.
+3. `run-claimed-agent-prompts.mjs` -> centralized agent execution plan.
+4. A later Codex CLI integration may execute agents from the main control window after safety parameters are explicit.
+
+Unattended deploy, push, merge, migration, seed, backup, restore, rollback, Docker cleanup, and production data operations remain prohibited.
+
+## 4C. Agent Runner Prompt Files
+
+Generated prompt files are based on:
+
+```bash
+ops/agent-orchestrator/prompts/agent-worker-prompt.md
+```
+
+Each prompt tells the agent to:
+
+1. Identify itself and its worktree.
+2. Read task details from `task-queue.json`.
+3. Follow `allowed_paths` and `forbidden_paths`.
+4. Run the task's `validation_commands`.
+5. Record completion with `complete-task.mjs`.
+6. Create a local commit when the task allows it.
+7. Avoid merge and push.
+8. Report changed files, commands, checks, commit hash, and risks.
+
+## 4D. One-Click Controller
 
 `orchestratorctl.mjs` is the high-level entrypoint for the main control window.
 
@@ -222,25 +309,6 @@ Full-cycle apply performs reconcile, integration, and validation, then only sugg
 ```bash
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --apply
 ```
-
-## 4B. Agent Runner Prompt Files
-
-Generated prompt files are based on:
-
-```bash
-ops/agent-orchestrator/prompts/agent-worker-prompt.md
-```
-
-Each prompt tells the agent to:
-
-1. Identify itself and its worktree.
-2. Read task details from `task-queue.json`.
-3. Follow `allowed_paths` and `forbidden_paths`.
-4. Run the task's `validation_commands`.
-5. Record completion with `complete-task.mjs`.
-6. Create a local commit when the task allows it.
-7. Avoid merge and push.
-8. Report changed files, commands, checks, commit hash, and risks.
 
 ## 5. Agent Completion Flow
 
@@ -360,11 +428,12 @@ Full high-level flow:
 3. Generate READY tasks in `queue/task-queue.json`.
 4. Run `dispatch-ready-agents.mjs --dry-run` to preview dispatch.
 5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
-6. Give each agent its generated prompt from `runs/`.
-7. Agents complete work and record results with `complete-task.mjs`.
-8. Run `audit-all-results.mjs`.
-9. For passing tasks, run `check-merge-candidate.sh`, `pnpm typecheck`, and relevant e2e.
-10. Ask for human confirmation before merge or push.
+6. Run `run-claimed-agent-prompts.mjs --dry-run` to generate `runs/agent-run-plan.md`.
+7. Use the plan to start each agent manually, or wait for a future approved Codex CLI auto-run integration.
+8. Agents complete work and record results with `complete-task.mjs`.
+9. Run `audit-all-results.mjs`.
+10. For passing tasks, run `check-merge-candidate.sh`, `pnpm typecheck`, and relevant e2e.
+11. Ask for human confirmation before merge or push.
 
 One-click high-level flow:
 
@@ -407,4 +476,5 @@ The task queue can mark these with `requires_human_approval: true`.
 - Locking is advisory and recorded in `task-locks.json`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
+- `run-claimed-agent-prompts.mjs` generates a plan but does not execute Codex agents yet.
 - Merge, push, deploy, and production operations remain manual approval gates.
