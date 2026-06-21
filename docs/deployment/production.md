@@ -590,6 +590,8 @@ Safety notes:
 - The script uses Node built-in `fetch` and a lightweight cookie jar; it does not add dependencies.
 - The cookie jar replays cookies only when the stored refresh cookie Path and Domain match the request URL. It validates Path coverage for auth refresh / logout endpoints, but it does not simulate browser `Secure` handling.
 - The script asserts refresh `Set-Cookie` contains `HttpOnly` and that refresh-cookie rotation changes the cookie value without printing the old or new token.
+- The script validates `Clear-Cookie` with strict browser-style scope matching: the clear response must match the original refresh cookie Path and host-only / Domain scope, and the jar must stop replaying the cookie afterwards.
+- After invalid `Origin` / `Referer` rejections, the script verifies the same refresh cookie still works with a valid-origin refresh or logout-cookie request, proving the rejected request did not revoke or rotate the token.
 - The script covers invalid `Origin`, invalid `Referer` without `Origin`, protected logout invalid `Origin`, logout-cookie invalid `Origin`, and legacy body-token protected logout flows.
 - The script intentionally does not print raw access tokens, refresh tokens, cookie values, passwords, or Authorization headers.
 - It performs real login / refresh / logout requests and may create login audit rows plus refresh-token rows.

@@ -166,6 +166,8 @@ C5-B 推荐交付：
 - 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`；`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN` 默认 `true`，仅在未来明确关闭 body compatibility 的验证窗口中可显式设为 `false`。
 - 脚本内部实现轻量 cookie jar，保存 `Set-Cookie`，后续请求仅在 cookie Path / Domain 匹配 request URL 时发送 `Cookie` header。脚本会验证 auth refresh / logout endpoint 的 Path coverage，但不模拟浏览器 `Secure` 策略。
 - 脚本要求 refresh `Set-Cookie` 含 `HttpOnly`，并比较 refresh 前后的 cookie value 以确认 rotation，比较失败时不输出 token。
+- 脚本用 strict browser-style scope matching 验证 `Clear-Cookie`：clear response 必须匹配原 refresh cookie 的 Path 与 host-only / Domain scope，且响应应用后 jar 不应再向 auth endpoint 发送 refresh cookie。
+- 脚本在 invalid Origin / Referer 403 后会用同一个 jar 发起 valid-origin refresh 或 logout-cookie，确认被拒绝请求没有 revoke 或 rotate 原 refresh token。
 - 用 Node fetch 验证 JSON status，用 response headers 验证 `set-cookie`；必要时用 curl 作为部署手册里的人工交叉验证，不作为脚本依赖。
 - 不要求启动真实 Web；HTTP-level smoke 只需要真实 API 和数据库。Browser / storage 行为另列人工验证或 Web unit。
 - 不默认纳入 `first-release-regression.mjs`，除非后续团队确认环境稳定且不会误触登录限流。
@@ -196,17 +198,17 @@ node scripts/e2e/auth-cookie-origin-smoke.mjs
 | body fallback no cookie | 200，compat=true 下可用 |
 | cookie + body same | 200 |
 | cookie + body different | 200，cookie 优先，不 clear cookie |
-| invalid Origin with cookie | 403，不 revoke、不 set、不 clear |
+| invalid Origin with cookie | 403，不 revoke、不 set、不 clear；随后同 jar valid Origin refresh 必须成功并 rotation |
 | invalid Origin without cookie + body | 403，不 set、不 clear |
 | valid Referer fallback | 200 |
-| invalid Referer without Origin | 403，不 set、不 clear |
+| invalid Referer without Origin | 403，不 set、不 clear；随后同 jar valid Origin refresh 必须成功并 rotation |
 | missing Origin/Referer with cookie | 403 when `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` |
-| protected logout valid Origin | 200，`Clear-Cookie` 存在 |
-| protected logout invalid Origin | 403，不 clear cookie |
+| protected logout valid Origin | 200，`Clear-Cookie` scope 匹配原 refresh cookie，jar 不再向 auth endpoint replay |
+| protected logout invalid Origin | 403，不 clear cookie；随后同 jar valid Origin refresh 必须成功并 rotation |
 | protected logout no cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在 |
-| protected logout cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在 |
-| logout-cookie valid Origin | 200，`Clear-Cookie` 存在 |
-| logout-cookie invalid Origin | 403，不 clear cookie |
+| protected logout cookie + body token | 200，compat=true 下 `Clear-Cookie` scope 匹配原 refresh cookie，jar 不再 replay |
+| logout-cookie valid Origin | 200，`Clear-Cookie` scope 匹配原 refresh cookie，jar 不再 replay |
+| logout-cookie invalid Origin | 403，不 clear cookie；随后同 jar valid Origin logout-cookie 必须成功并清理 cookie |
 
 脚本不应输出 raw token、cookie value、密码或 secret。失败日志只输出 status、endpoint、sanitized response message 和是否存在 cookie header。
 

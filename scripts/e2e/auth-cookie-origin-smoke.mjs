@@ -50,7 +50,10 @@ class CookieJar {
         continue;
       }
       if (isClearingCookie(parsed)) {
-        this.cookies.delete(parsed.name);
+        const stored = this.cookies.get(parsed.name);
+        if (stored && cookieScopesMatchForClear(stored, parsed)) {
+          this.cookies.delete(parsed.name);
+        }
         continue;
       }
       this.cookies.set(parsed.name, parsed);
@@ -79,6 +82,11 @@ class CookieJar {
 
   value(name) {
     return this.cookies.get(name)?.value;
+  }
+
+  scope(name) {
+    const cookie = this.cookies.get(name);
+    return cookie ? cookieScope(cookie) : undefined;
   }
 
   willSend(name, requestUrl) {
@@ -215,7 +223,8 @@ async function requestJson(config, path, options = {}) {
     method: options.method ?? "GET",
     status: response.status,
     body,
-    setCookieHeaders
+    setCookieHeaders,
+    responseUrl: response.url || requestUrl
   };
 }
 
@@ -223,14 +232,14 @@ function expectStatus(result, expected, label) {
   const allowed = Array.isArray(expected) ? expected : [expected];
   if (!allowed.includes(result.status)) {
     throw new SmokeAssertionError(
-      `${label} expected HTTP ${allowed.join(" / ")}, got ${result.status}; body=${sanitizeBody(result.body)}; refreshCookieMutation=${describeRefreshCookieMutation(result.setCookieHeaders)}`
+      `${label} expected HTTP ${allowed.join(" / ")}, got ${result.status}; body=${sanitizeBody(result.body)}; refreshCookieMutation=${describeRefreshCookieMutation(result.setCookieHeaders, result.responseUrl)}`
     );
   }
   pass(`${label} HTTP ${result.status}`);
 }
 
 function expectSetRefreshCookie(result, cookieName, label) {
-  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName);
+  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName, result.responseUrl);
   const setMutations = mutations.filter((mutation) => !mutation.clear);
   if (setMutations.length === 0) {
     throw new SmokeAssertionError(`${label} expected refresh Set-Cookie; mutations=${describeMutations(mutations)}`);
@@ -241,16 +250,20 @@ function expectSetRefreshCookie(result, cookieName, label) {
   pass(`${label} set refresh cookie`);
 }
 
-function expectClearRefreshCookie(result, cookieName, label) {
-  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName);
-  if (!mutations.some((mutation) => mutation.clear)) {
+function expectClearRefreshCookie(result, cookieName, label, expectedScope) {
+  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName, result.responseUrl);
+  const clearMutations = mutations.filter((mutation) => mutation.clear);
+  if (clearMutations.length === 0) {
     throw new SmokeAssertionError(`${label} expected refresh Clear-Cookie; mutations=${describeMutations(mutations)}`);
+  }
+  if (expectedScope && !clearMutations.some((mutation) => cookieScopesMatchForClear(expectedScope, mutation))) {
+    throw new SmokeAssertionError(`${label} expected refresh Clear-Cookie matching stored scope; stored=${describeScope(expectedScope)}; mutations=${describeMutations(mutations)}`);
   }
   pass(`${label} cleared refresh cookie`);
 }
 
 function expectNoRefreshCookieMutation(result, cookieName, label) {
-  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName);
+  const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName, result.responseUrl);
   if (mutations.length > 0) {
     throw new SmokeAssertionError(`${label} expected no refresh cookie mutation; mutations=${describeMutations(mutations)}`);
   }
@@ -272,8 +285,29 @@ function expectRefreshCookieWillBeSent(config, jar, path, label) {
   pass(`${label} refresh cookie Path/Domain allows browser-style replay`);
 }
 
+function expectRefreshCookieNotSent(config, jar, path, label) {
+  const requestUrl = `${config.apiBaseUrl}${path}`;
+  if (jar.willSend(config.refreshCookieName, requestUrl)) {
+    throw new SmokeAssertionError(`${label} expected refresh cookie to be cleared for ${path}; scope=${jar.describeCookieScope(config.refreshCookieName)}`);
+  }
+  pass(`${label} refresh cookie no longer replays to ${path}`);
+}
+
 function snapshotCookieValue(jar, cookieName) {
   return jar.value(cookieName);
+}
+
+function snapshotCookieScope(jar, cookieName) {
+  const scope = jar.scope(cookieName);
+  if (!scope) {
+    throw new SmokeAssertionError(`expected stored cookie scope for ${cookieName}`);
+  }
+  return scope;
+}
+
+function expectRefreshCookieClearedFor(config, jar, path, result, label, storedScope) {
+  expectClearRefreshCookie(result, config.refreshCookieName, label, storedScope);
+  expectRefreshCookieNotSent(config, jar, path, label);
 }
 
 function expectCookieValueChanged(before, after, label) {
@@ -284,6 +318,32 @@ function expectCookieValueChanged(before, after, label) {
     throw new SmokeAssertionError(`${label} refresh cookie value did not rotate`);
   }
   pass(`${label} refresh cookie value rotated`);
+}
+
+async function expectRefreshStillUsable(config, jar, label) {
+  expectRefreshCookieWillBeSent(config, jar, "/auth/token/refresh", label);
+  const before = snapshotCookieValue(jar, config.refreshCookieName);
+  const result = await requestJson(config, "/auth/token/refresh", {
+    method: "POST",
+    origin: config.webOrigin,
+    jar,
+    body: {}
+  });
+  expectStatus(result, 200, `${label} valid Origin refresh after rejection`);
+  expectSetRefreshCookie(result, config.refreshCookieName, `${label} valid Origin refresh after rejection`);
+  expectCookieValueChanged(before, snapshotCookieValue(jar, config.refreshCookieName), `${label} valid Origin refresh after rejection`);
+}
+
+async function expectLogoutCookieStillUsable(config, jar, label) {
+  expectRefreshCookieWillBeSent(config, jar, "/auth/logout-cookie", label);
+  const storedScope = snapshotCookieScope(jar, config.refreshCookieName);
+  const result = await requestJson(config, "/auth/logout-cookie", {
+    method: "POST",
+    origin: config.webOrigin,
+    jar
+  });
+  expectStatus(result, 200, `${label} valid Origin logout-cookie after rejection`);
+  expectRefreshCookieClearedFor(config, jar, "/auth/token/refresh", result, `${label} valid Origin logout-cookie after rejection`, storedScope);
 }
 
 function extractData(body) {
@@ -431,6 +491,7 @@ async function runLegacyBodyLogoutChecks(config) {
   });
   expectStatus(noCookieResult, 200, "legacy body protected logout without cookie");
   expectClearRefreshCookie(noCookieResult, config.refreshCookieName, "legacy body protected logout without cookie");
+  expectRefreshCookieNotSent(config, noCookieJar, "/auth/token/refresh", "legacy body protected logout without cookie");
   await cleanupRefreshCookie(config, noCookie.jar, "legacy body no-cookie source");
 
   const cookieAndBody = await login(config, "legacy-body-logout-cookie-source");
@@ -444,6 +505,7 @@ async function runLegacyBodyLogoutChecks(config) {
   }
 
   expectRefreshCookieWillBeSent(config, cookieAndBody.jar, "/auth/logout", "legacy body protected logout with cookie");
+  const cookieAndBodyScope = snapshotCookieScope(cookieAndBody.jar, config.refreshCookieName);
   const cookieAndBodyResult = await requestJson(config, "/auth/logout", {
     method: "POST",
     origin: config.webOrigin,
@@ -453,7 +515,7 @@ async function runLegacyBodyLogoutChecks(config) {
     body: { refreshToken: cookieAndBody.refreshToken }
   });
   expectStatus(cookieAndBodyResult, 200, "legacy body protected logout with cookie");
-  expectClearRefreshCookie(cookieAndBodyResult, config.refreshCookieName, "legacy body protected logout with cookie");
+  expectRefreshCookieClearedFor(config, cookieAndBody.jar, "/auth/token/refresh", cookieAndBodyResult, "legacy body protected logout with cookie", cookieAndBodyScope);
 }
 
 async function run() {
@@ -542,6 +604,7 @@ async function run() {
   });
   expectStatus(invalidCookieResult, 403, "invalid Origin with cookie refresh");
   expectNoRefreshCookieMutation(invalidCookieResult, config.refreshCookieName, "invalid Origin with cookie refresh");
+  await expectRefreshStillUsable(config, invalidCookie.jar, "invalid Origin with cookie refresh");
   await cleanupRefreshCookie(config, invalidCookie.jar, "invalid Origin source");
 
   const invalidRefererSource = await login(config, "invalid-referer-source");
@@ -554,6 +617,7 @@ async function run() {
   });
   expectStatus(invalidRefererResult, 403, "invalid Referer without Origin refresh");
   expectNoRefreshCookieMutation(invalidRefererResult, config.refreshCookieName, "invalid Referer without Origin refresh");
+  await expectRefreshStillUsable(config, invalidRefererSource.jar, "invalid Referer without Origin refresh");
   await cleanupRefreshCookie(config, invalidRefererSource.jar, "invalid Referer source");
 
   const refererSource = await login(config, "referer-source");
@@ -581,13 +645,14 @@ async function run() {
 
   const logoutCookieValid = await login(config, "logout-cookie-valid-source");
   expectRefreshCookieWillBeSent(config, logoutCookieValid.jar, "/auth/logout-cookie", "logout-cookie valid Origin");
+  const logoutCookieValidScope = snapshotCookieScope(logoutCookieValid.jar, config.refreshCookieName);
   const logoutCookieResult = await requestJson(config, "/auth/logout-cookie", {
     method: "POST",
     origin: config.webOrigin,
     jar: logoutCookieValid.jar
   });
   expectStatus(logoutCookieResult, 200, "logout-cookie valid Origin");
-  expectClearRefreshCookie(logoutCookieResult, config.refreshCookieName, "logout-cookie valid Origin");
+  expectRefreshCookieClearedFor(config, logoutCookieValid.jar, "/auth/token/refresh", logoutCookieResult, "logout-cookie valid Origin", logoutCookieValidScope);
 
   const logoutCookieInvalid = await login(config, "logout-cookie-invalid-source");
   expectRefreshCookieWillBeSent(config, logoutCookieInvalid.jar, "/auth/logout-cookie", "logout-cookie invalid Origin");
@@ -598,10 +663,11 @@ async function run() {
   });
   expectStatus(logoutCookieInvalidResult, 403, "logout-cookie invalid Origin");
   expectNoRefreshCookieMutation(logoutCookieInvalidResult, config.refreshCookieName, "logout-cookie invalid Origin");
-  await cleanupRefreshCookie(config, logoutCookieInvalid.jar, "logout-cookie invalid source");
+  await expectLogoutCookieStillUsable(config, logoutCookieInvalid.jar, "logout-cookie invalid Origin");
 
   const protectedLogout = await login(config, "protected-logout-source");
   expectRefreshCookieWillBeSent(config, protectedLogout.jar, "/auth/logout", "protected logout valid Origin");
+  const protectedLogoutScope = snapshotCookieScope(protectedLogout.jar, config.refreshCookieName);
   const protectedLogoutResult = await requestJson(config, "/auth/logout", {
     method: "POST",
     origin: config.webOrigin,
@@ -611,7 +677,7 @@ async function run() {
     body: {}
   });
   expectStatus(protectedLogoutResult, 200, "protected logout valid Origin");
-  expectClearRefreshCookie(protectedLogoutResult, config.refreshCookieName, "protected logout valid Origin");
+  expectRefreshCookieClearedFor(config, protectedLogout.jar, "/auth/token/refresh", protectedLogoutResult, "protected logout valid Origin", protectedLogoutScope);
 
   const protectedLogoutInvalid = await login(config, "protected-logout-invalid-origin-source");
   expectRefreshCookieWillBeSent(config, protectedLogoutInvalid.jar, "/auth/logout", "protected logout invalid Origin");
@@ -625,6 +691,7 @@ async function run() {
   });
   expectStatus(protectedLogoutInvalidResult, 403, "protected logout invalid Origin");
   expectNoRefreshCookieMutation(protectedLogoutInvalidResult, config.refreshCookieName, "protected logout invalid Origin");
+  await expectRefreshStillUsable(config, protectedLogoutInvalid.jar, "protected logout invalid Origin");
   await cleanupRefreshCookie(config, protectedLogoutInvalid.jar, "protected logout invalid Origin source");
 
   await runLegacyBodyLogoutChecks(config);
@@ -699,6 +766,28 @@ function cookieMatchesRequest(cookie, requestUrl) {
   return pathMatches(url.pathname || "/", cookie.path || "/");
 }
 
+function cookieScope(cookie) {
+  return {
+    name: cookie.name,
+    path: cookie.path || "/",
+    domain: cookie.domain,
+    hostOnly: Boolean(cookie.hostOnly),
+    sourceHost: cookie.sourceHost
+  };
+}
+
+function cookieScopesMatchForClear(storedCookie, clearingCookie) {
+  const stored = cookieScope(storedCookie);
+  const clearing = cookieScope(clearingCookie);
+  if (stored.name !== clearing.name || stored.path !== clearing.path) {
+    return false;
+  }
+  if (stored.hostOnly) {
+    return clearing.hostOnly && stored.sourceHost === clearing.sourceHost;
+  }
+  return !clearing.hostOnly && stored.domain === clearing.domain;
+}
+
 function domainMatches(requestHost, cookieDomain) {
   if (!cookieDomain) {
     return false;
@@ -745,27 +834,34 @@ function isClearingCookie(cookie) {
   return typeof cookie.expiresAt === "number" && cookie.expiresAt <= Date.now();
 }
 
-function getRefreshCookieMutations(setCookieHeaders, cookieName = DEFAULT_REFRESH_COOKIE_NAME) {
+function getRefreshCookieMutations(setCookieHeaders, cookieName = DEFAULT_REFRESH_COOKIE_NAME, responseUrl) {
   return setCookieHeaders
-    .map((header) => parseSetCookie(header))
+    .map((header) => parseSetCookie(header, responseUrl))
     .filter((cookie) => cookie?.name === cookieName)
     .map((cookie) => ({
       name: cookie.name,
       clear: isClearingCookie(cookie),
       httpOnly: cookie.httpOnly,
-      path: cookie.path
+      path: cookie.path,
+      domain: cookie.domain,
+      hostOnly: cookie.hostOnly,
+      sourceHost: cookie.sourceHost
     }));
 }
 
-function describeRefreshCookieMutation(setCookieHeaders) {
-  return describeMutations(getRefreshCookieMutations(setCookieHeaders));
+function describeRefreshCookieMutation(setCookieHeaders, responseUrl) {
+  return describeMutations(getRefreshCookieMutations(setCookieHeaders, DEFAULT_REFRESH_COOKIE_NAME, responseUrl));
 }
 
 function describeMutations(mutations) {
   if (mutations.length === 0) {
     return "none";
   }
-  return mutations.map((mutation) => `${mutation.clear ? "clear" : "set"}:${mutation.name}:path=${mutation.path}`).join(",");
+  return mutations.map((mutation) => `${mutation.clear ? "clear" : "set"}:${describeScope(mutation)}`).join(",");
+}
+
+function describeScope(scope) {
+  return `${scope.name}:path=${scope.path};domain=${scope.hostOnly ? `host-only:${scope.sourceHost}` : scope.domain}`;
 }
 
 function sanitizeBody(body) {
