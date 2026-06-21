@@ -204,11 +204,18 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
 }
 
 async function uploadSmokeFile(token, bizType, label) {
+  const pdfBizTypes = new Set(["safety_emergency_plan", "safety_emergency_review"]);
+  const isPdf = pdfBizTypes.has(bizType);
+  const fileContent = isPdf
+    ? `%PDF-1.4\n% S5B smoke ${label} ${stamp}\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n`
+    : `S5B smoke ${label} ${stamp}`;
+  const mimeType = isPdf ? "application/pdf" : "image/png";
+  const extension = isPdf ? "pdf" : "png";
   const form = new FormData();
   form.append("biz_type", bizType);
   form.append("biz_id", randomUUID());
   form.append("remark", smokeRemark);
-  form.append("file", new Blob([`S5B smoke ${label} ${stamp}`], { type: "image/png" }), `${label}-${stamp}.png`);
+  form.append("file", new Blob([fileContent], { type: mimeType }), `${label}-${stamp}.${extension}`);
   const uploaded = await formRequest("/files", token, form, `upload-${label}`);
   assertStatus(`upload ${label}`, uploaded.response.status, 201);
   assertUniformResponse(`upload ${label}`, uploaded.body);
