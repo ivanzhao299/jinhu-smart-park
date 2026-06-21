@@ -161,12 +161,25 @@ scripts/e2e/auth-cookie-origin-smoke.mjs
 
 C5-B 推荐交付：
 
-- 新增 `scripts/e2e/auth-cookie-origin-smoke.mjs`，默认手动执行。
+- 新增 `scripts/e2e/auth-cookie-origin-smoke.mjs`，默认手动执行。C5-B 已选择该路径作为独立 smoke 入口，不默认接入 release smoke。
 - 脚本支持 `API_BASE_URL`、`WEB_ORIGIN`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`DEFAULT_TENANT_ID`、`DEFAULT_PARK_ID`。
+- 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`。
 - 脚本内部实现轻量 cookie jar，保存 `Set-Cookie`，后续请求发送 `Cookie` header。
 - 用 Node fetch 验证 JSON status，用 response headers 验证 `set-cookie`；必要时用 curl 作为部署手册里的人工交叉验证，不作为脚本依赖。
 - 不要求启动真实 Web；HTTP-level smoke 只需要真实 API 和数据库。Browser / storage 行为另列人工验证或 Web unit。
 - 不默认纳入 `first-release-regression.mjs`，除非后续团队确认环境稳定且不会误触登录限流。
+
+Selected C5-B command:
+
+```bash
+API_BASE_URL=http://localhost:3001/api/v1 \
+WEB_ORIGIN=http://localhost:3000 \
+ADMIN_USERNAME=<admin-username> \
+ADMIN_PASSWORD='<admin-password>' \
+DEFAULT_TENANT_ID=10000001 \
+DEFAULT_PARK_ID=20000001 \
+node scripts/e2e/auth-cookie-origin-smoke.mjs
+```
 
 ## 12. Smoke 脚本设计
 

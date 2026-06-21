@@ -556,6 +556,43 @@ Notes:
 - `ADMIN_PASSWORD` must be the real bootstrap admin password and must not be a weak default password.
 - The script does not use host `127.0.0.1:55432`, so it works even when host TCP access is restricted.
 
+### Auth Cookie / Origin Smoke
+
+WP3-C / C5-B adds an optional HTTP-level smoke script for refresh cookie, Origin / Referer hardening, body compatibility, logout, and logout-cookie behavior:
+
+```bash
+API_BASE_URL=http://127.0.0.1:3001/api/v1 \
+WEB_ORIGIN=http://localhost:3000 \
+ADMIN_USERNAME=<admin-username> \
+ADMIN_PASSWORD='<admin-password>' \
+DEFAULT_TENANT_ID=10000001 \
+DEFAULT_PARK_ID=20000001 \
+node scripts/e2e/auth-cookie-origin-smoke.mjs
+```
+
+Required variables:
+
+- `API_BASE_URL`
+- `WEB_ORIGIN`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `DEFAULT_TENANT_ID`
+- `DEFAULT_PARK_ID`
+
+Optional variables:
+
+- `AUTH_SMOKE_SKIP_WRONG_PASSWORD`, default `true`; set to `false` to run one wrong-password assertion. Keep the default in shared or production-like environments unless you have confirmed the account is not near the password lockout threshold.
+- `AUTH_SMOKE_WRONG_PASSWORD`, used only when the wrong-password assertion is enabled.
+- `AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`, default `false`; set to `true` only when the environment is expected to keep `AUTH_REFRESH_TOKEN_BODY_COMPAT=true` and the response body must include `refreshToken`.
+
+Safety notes:
+
+- The script uses Node built-in `fetch` and a lightweight cookie jar; it does not add dependencies.
+- The script intentionally does not print raw access tokens, refresh tokens, cookie values, passwords, or Authorization headers.
+- It performs real login / refresh / logout requests and may create login audit rows plus refresh-token rows.
+- It is not wired into the default release smoke path. Run it manually during C5-B validation, staging acceptance, or a production-like deployment verification window.
+- It cannot prove browser-only behavior such as `sessionStorage` / `localStorage`, real multi-tab races, `SameSite=None` cross-site cookie behavior, or browser CORS exposure. Verify those with a real browser when they matter.
+
 ## 4. Health Check Layers
 
 The production environment now has three different health / verification layers. They are intentionally not interchangeable.
