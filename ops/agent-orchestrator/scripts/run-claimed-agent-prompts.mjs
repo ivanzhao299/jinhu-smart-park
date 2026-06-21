@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { repoStatus } from "./lib/git-utils.mjs";
+import { parseStatusShort, repoStatus, statusShort } from "./lib/git-utils.mjs";
 import {
   detectCodexCli,
   detectCodexExecOptions,
@@ -21,10 +21,13 @@ const queuePath = join(orchestratorDir, "queue", "task-queue.json");
 const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 const runsDir = join(orchestratorDir, "runs");
 const runPlanPath = join(runsDir, "agent-run-plan.md");
+const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
 
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
   const execute = argv.includes("--execute");
+  const precheckOnly = argv.includes("--precheck-only");
+  const writePlan = argv.includes("--write-plan");
   const noWrite = argv.includes("--no-write");
   const dryRun = argv.includes("--dry-run") || !apply;
   if (argv.includes("--dry-run") && (apply || execute)) {
@@ -33,7 +36,15 @@ function parseArgs(argv) {
   if (execute && !apply) {
     throw new Error("--execute requires --apply.");
   }
-  return { apply, execute, dryRun, noWrite };
+  if (precheckOnly && (!apply || !execute)) {
+    throw new Error("--precheck-only requires --apply --execute.");
+  }
+  if (writePlan && noWrite) {
+    throw new Error("Use either --write-plan or --no-write, not both.");
+  }
+
+  const shouldWritePlan = !noWrite && (writePlan || (apply && !precheckOnly));
+  return { apply, execute, precheckOnly, writePlan, dryRun, noWrite, shouldWritePlan };
 }
 
 function shellQuote(value) {
@@ -59,7 +70,11 @@ function runLogFileFor(taskId, agentId) {
   };
 }
 
-function inspectWorktree(path) {
+function normalizeRepoPath(path) {
+  return String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function inspectWorktree(path, options = {}) {
   if (!path) {
     return { clean: false, detail: "missing worktree path" };
   }
@@ -70,9 +85,19 @@ function inspectWorktree(path) {
 
   try {
     const status = repoStatus(path);
+    const ignoredPaths = new Set((options.ignoredPaths ?? []).map(normalizeRepoPath));
+    const entries = parseStatusShort(statusShort(path));
+    const blockingEntries = entries.filter((entry) => !ignoredPaths.has(normalizeRepoPath(entry.path)));
+    const ignoredEntries = entries.filter((entry) => ignoredPaths.has(normalizeRepoPath(entry.path)));
+    const clean = status.clean || (ignoredEntries.length > 0 && blockingEntries.length === 0);
+
     return {
-      clean: status.clean,
-      detail: status.clean ? "clean" : status.statusOutput,
+      clean,
+      detail: clean
+        ? status.clean
+          ? "clean"
+          : `clean except ignored generated file(s): ${ignoredEntries.map((entry) => `${entry.code} ${entry.path}`).join("; ")}`
+        : blockingEntries.map((entry) => `${entry.code} ${entry.path}`).join("\n"),
       branch: status.branch,
       head: status.head
     };
@@ -359,7 +384,6 @@ const agents = normalizeAgentConfig(agentsConfig);
 const generatedAt = new Date().toISOString();
 const { claimed, skipped } = claimedLocks(queue, locks);
 const runnable = [];
-const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot);
 
 for (const item of claimed) {
   const agent = agents.get(item.task.owner);
@@ -404,7 +428,7 @@ const mode = args.execute ? "execute (serial guarded)" : args.apply ? "apply-pla
 const plan = buildRunPlan({ generatedAt, mode, codex, runnable, skipped });
 
 await mkdir(runsDir, { recursive: true });
-if (!args.noWrite) {
+if (args.shouldWritePlan) {
   await writeFile(runPlanPath, plan);
 }
 
@@ -422,7 +446,7 @@ if (!codex.found && codex.reason) {
 }
 console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
 console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
-console.log(`Run plan: ${args.noWrite ? "(not written; --no-write)" : "ops/agent-orchestrator/runs/agent-run-plan.md"}`);
+console.log(`Run plan: ${args.shouldWritePlan ? runPlanRelativePath : args.noWrite ? "(not written; --no-write)" : "(stdout only; pass --write-plan to write agent-run-plan.md)"}`);
 console.log("");
 console.log("Runnable claimed tasks:");
 if (runnable.length === 0) {
@@ -452,9 +476,19 @@ if (args.apply) {
   console.log("Dry-run: no Codex agent was executed and no agent worktree was modified.");
 }
 
+if (!args.shouldWritePlan) {
+  console.log("");
+  console.log("## Agent Run Plan Document");
+  console.log("");
+  console.log(plan);
+}
+
 if (args.execute) {
   console.log("");
   console.log("Guardrails: serial execution only; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
+    ignoredPaths: [runPlanRelativePath]
+  });
   try {
     assertExecutePreconditions({ codex, mainStatus, runnable, skipped });
   } catch (error) {
@@ -462,6 +496,12 @@ if (args.execute) {
     console.error("Execution precheck failed:");
     console.error(error.message);
     process.exit(1);
+  }
+
+  if (args.precheckOnly) {
+    console.log("");
+    console.log("Precheck-only: execution precheck passed; no Codex agent was executed.");
+    process.exit(0);
   }
 
   const results = [];

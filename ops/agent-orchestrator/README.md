@@ -27,7 +27,7 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/dispatch-ready-agents.mjs` | Central dispatcher that scans READY tasks, checks worktrees, claims one task per agent, and generates runner prompts. |
 | `scripts/check-dispatch-status.mjs` | Prints queue status, locks, and agent claim readiness. |
 | `scripts/check-agent-runner-env.mjs` | Checks Codex CLI availability, Node version, worktree presence, and active locks without writing files. |
-| `scripts/run-claimed-agent-prompts.mjs` | Reads CLAIMED tasks and generated prompts, then writes a plan-first agent execution plan. |
+| `scripts/run-claimed-agent-prompts.mjs` | Reads CLAIMED tasks and generated prompts, then prints or writes a plan-first agent execution plan. |
 | `scripts/commit-agent-results.mjs` | Reviews dirty agent worktrees after execution, validates task path boundaries, risk-ranks results, and commits LOW/MEDIUM agent outputs. |
 | `scripts/audit-all-results.mjs` | Audits all DONE task results with the same path-boundary rules. |
 | `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
@@ -168,7 +168,7 @@ Codex CLI detection uses this order:
 2. `codex` found on `PATH`.
 3. Codex Desktop bundled CLI at `/Applications/Codex.app/Contents/Resources/codex`.
 
-If none is found, the scripts print `Codex CLI not found`. The runner still writes `agent-run-plan.md`, but marks the plan as `cannot auto-run`.
+If none is found, the scripts print `Codex CLI not found`. The runner still prints the plan, but marks it as `cannot auto-run`.
 
 `run-claimed-agent-prompts.mjs` reads:
 
@@ -191,13 +191,19 @@ or explicitly:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run
 ```
 
-The script writes:
+Dry-run is no-write by default. It prints the plan to stdout and does not update:
 
 ```bash
 ops/agent-orchestrator/runs/agent-run-plan.md
 ```
 
-The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed by this version.
+To write the plan file during dry-run, pass `--write-plan` explicitly:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --write-plan
+```
+
+The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed in dry-run or single-flag apply mode.
 
 Codex CLI flags differ by version. The runner reads:
 
@@ -221,13 +227,15 @@ Single-flag apply mode is still plan-first and does not run agents:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply
 ```
 
+This mode writes or refreshes `ops/agent-orchestrator/runs/agent-run-plan.md` because the operator has explicitly left read-only dry-run mode. It still does not execute Codex.
+
 Real execution requires both flags:
 
 ```bash
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
 ```
 
-`--apply --execute` runs claimed tasks serially, never in parallel. Before executing it checks:
+`--apply --execute` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially, never in parallel. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
 
 1. Codex CLI is detected and executable.
 2. Main worktree is clean.
@@ -235,6 +243,12 @@ node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --exec
 4. `task-locks.json` has a matching active lock.
 5. `task-queue.json` status is `CLAIMED`.
 6. The prompt file exists and matches `<task_id>-<agent>.prompt.md`.
+
+Use `--apply --execute --precheck-only` to run the exact execution precheck without starting Codex:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute --precheck-only
+```
 
 Each task writes a log file:
 
@@ -544,7 +558,7 @@ Full high-level flow:
 3. Generate READY tasks in `queue/task-queue.json`.
 4. Run `dispatch-ready-agents.mjs --dry-run` to preview dispatch.
 5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
-6. Run `run-claimed-agent-prompts.mjs --dry-run` to generate `runs/agent-run-plan.md`.
+6. Run `run-claimed-agent-prompts.mjs --dry-run` to preview the plan without writing files; add `--write-plan` only when a plan file is intentionally needed.
 7. Either use the plan to start each agent manually, or run `run-claimed-agent-prompts.mjs --apply --execute` for guarded serial Codex CLI execution.
 8. After execution, inspect each agent worktree with `commit-agent-results.mjs --dry-run`; then use `commit-agent-results.mjs --apply` to create agent branch commits when risk is LOW/MEDIUM.
 9. Agents complete work and record results with `complete-task.mjs`.
