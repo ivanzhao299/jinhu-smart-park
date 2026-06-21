@@ -583,11 +583,14 @@ Optional variables:
 
 - `AUTH_SMOKE_SKIP_WRONG_PASSWORD`, default `true`; set to `false` to run one wrong-password assertion. Keep the default in shared or production-like environments unless you have confirmed the account is not near the password lockout threshold.
 - `AUTH_SMOKE_WRONG_PASSWORD`, used only when the wrong-password assertion is enabled.
-- `AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`, default `false`; set to `true` only when the environment is expected to keep `AUTH_REFRESH_TOKEN_BODY_COMPAT=true` and the response body must include `refreshToken`.
+- `AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`, default `true`; keep this default while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true` is required. Set it to `false` only for a future no-compatibility validation window where body `refreshToken` has intentionally been removed.
 
 Safety notes:
 
 - The script uses Node built-in `fetch` and a lightweight cookie jar; it does not add dependencies.
+- The cookie jar replays cookies only when the stored refresh cookie Path and Domain match the request URL. It validates Path coverage for auth refresh / logout endpoints, but it does not simulate browser `Secure` handling.
+- The script asserts refresh `Set-Cookie` contains `HttpOnly` and that refresh-cookie rotation changes the cookie value without printing the old or new token.
+- The script covers invalid `Origin`, invalid `Referer` without `Origin`, protected logout invalid `Origin`, logout-cookie invalid `Origin`, and legacy body-token protected logout flows.
 - The script intentionally does not print raw access tokens, refresh tokens, cookie values, passwords, or Authorization headers.
 - It performs real login / refresh / logout requests and may create login audit rows plus refresh-token rows.
 - It is not wired into the default release smoke path. Run it manually during C5-B validation, staging acceptance, or a production-like deployment verification window.

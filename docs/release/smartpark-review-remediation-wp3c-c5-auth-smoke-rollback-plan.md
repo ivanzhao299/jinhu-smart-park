@@ -163,8 +163,9 @@ C5-B 推荐交付：
 
 - 新增 `scripts/e2e/auth-cookie-origin-smoke.mjs`，默认手动执行。C5-B 已选择该路径作为独立 smoke 入口，不默认接入 release smoke。
 - 脚本支持 `API_BASE_URL`、`WEB_ORIGIN`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`DEFAULT_TENANT_ID`、`DEFAULT_PARK_ID`。
-- 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`。
-- 脚本内部实现轻量 cookie jar，保存 `Set-Cookie`，后续请求发送 `Cookie` header。
+- 脚本也支持 `AUTH_SMOKE_WRONG_PASSWORD`、`AUTH_SMOKE_SKIP_WRONG_PASSWORD`、`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`；`AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN` 默认 `true`，仅在未来明确关闭 body compatibility 的验证窗口中可显式设为 `false`。
+- 脚本内部实现轻量 cookie jar，保存 `Set-Cookie`，后续请求仅在 cookie Path / Domain 匹配 request URL 时发送 `Cookie` header。脚本会验证 auth refresh / logout endpoint 的 Path coverage，但不模拟浏览器 `Secure` 策略。
+- 脚本要求 refresh `Set-Cookie` 含 `HttpOnly`，并比较 refresh 前后的 cookie value 以确认 rotation，比较失败时不输出 token。
 - 用 Node fetch 验证 JSON status，用 response headers 验证 `set-cookie`；必要时用 curl 作为部署手册里的人工交叉验证，不作为脚本依赖。
 - 不要求启动真实 Web；HTTP-level smoke 只需要真实 API 和数据库。Browser / storage 行为另列人工验证或 Web unit。
 - 不默认纳入 `first-release-regression.mjs`，除非后续团队确认环境稳定且不会误触登录限流。
@@ -190,16 +191,20 @@ node scripts/e2e/auth-cookie-origin-smoke.mjs
 | login success | 200、accessToken 存在、body refreshToken 在 compat=true 下存在、`Set-Cookie sp_refresh_token` 存在且含 HttpOnly / Path |
 | `/users/me` or `/auth/me` | Bearer access token 返回 200 |
 | wrong password | 401，不应更新 cookie jar |
-| cookie refresh valid Origin | 200，返回新 access token，`Set-Cookie` rotation |
-| second refresh with rotated cookie | 200，证明 jar 更新 |
+| cookie refresh valid Origin | 200，返回新 access token，refresh cookie Path / Domain 覆盖 refresh endpoint，`Set-Cookie` 含 HttpOnly 且 cookie value 改变 |
+| second refresh with rotated cookie | 200，证明 jar 更新，并再次验证 cookie value 改变 |
 | body fallback no cookie | 200，compat=true 下可用 |
 | cookie + body same | 200 |
 | cookie + body different | 200，cookie 优先，不 clear cookie |
 | invalid Origin with cookie | 403，不 revoke、不 set、不 clear |
 | invalid Origin without cookie + body | 403，不 set、不 clear |
 | valid Referer fallback | 200 |
+| invalid Referer without Origin | 403，不 set、不 clear |
 | missing Origin/Referer with cookie | 403 when `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` |
 | protected logout valid Origin | 200，`Clear-Cookie` 存在 |
+| protected logout invalid Origin | 403，不 clear cookie |
+| protected logout no cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在 |
+| protected logout cookie + body token | 200，compat=true 下 `Clear-Cookie` 存在 |
 | logout-cookie valid Origin | 200，`Clear-Cookie` 存在 |
 | logout-cookie invalid Origin | 403，不 clear cookie |
 

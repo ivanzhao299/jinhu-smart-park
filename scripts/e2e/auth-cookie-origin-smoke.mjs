@@ -10,7 +10,7 @@
  *
  * Optional env:
  *   AUTH_SMOKE_WRONG_PASSWORD, AUTH_SMOKE_SKIP_WRONG_PASSWORD,
- *   AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN
+ *   AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN=false only for future no-compat mode
  *
  * Safety notes:
  *   This script performs real login / refresh / logout requests and may create
@@ -43,9 +43,9 @@ class CookieJar {
     this.cookies = new Map();
   }
 
-  applySetCookieHeaders(setCookieHeaders) {
+  applySetCookieHeaders(setCookieHeaders, responseUrl) {
     for (const header of setCookieHeaders) {
-      const parsed = parseSetCookie(header);
+      const parsed = parseSetCookie(header, responseUrl);
       if (!parsed) {
         continue;
       }
@@ -57,12 +57,15 @@ class CookieJar {
     }
   }
 
-  header() {
+  header(requestUrl) {
     const segments = [];
     const now = Date.now();
     for (const [name, cookie] of this.cookies.entries()) {
       if (cookie.expiresAt && cookie.expiresAt <= now) {
         this.cookies.delete(name);
+        continue;
+      }
+      if (!cookieMatchesRequest(cookie, requestUrl)) {
         continue;
       }
       segments.push(`${encodeURIComponent(name)}=${encodeURIComponent(cookie.value)}`);
@@ -72,6 +75,23 @@ class CookieJar {
 
   has(name) {
     return this.cookies.has(name);
+  }
+
+  value(name) {
+    return this.cookies.get(name)?.value;
+  }
+
+  willSend(name, requestUrl) {
+    const cookie = this.cookies.get(name);
+    return Boolean(cookie && cookieMatchesRequest(cookie, requestUrl));
+  }
+
+  describeCookieScope(name) {
+    const cookie = this.cookies.get(name);
+    if (!cookie) {
+      return `${name}:missing`;
+    }
+    return `${name}:path=${cookie.path};domain=${cookie.hostOnly ? `host-only:${cookie.sourceHost}` : cookie.domain}`;
   }
 }
 
@@ -127,7 +147,7 @@ function loadConfig() {
     parkId: readRequiredEnv("DEFAULT_PARK_ID"),
     wrongPassword: process.env.AUTH_SMOKE_WRONG_PASSWORD ?? `WrongPassword#${randomUUID().slice(0, 8)}`,
     skipWrongPassword: readBooleanEnv("AUTH_SMOKE_SKIP_WRONG_PASSWORD", true),
-    expectBodyRefreshToken: readBooleanEnv("AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN", false),
+    expectBodyRefreshToken: readBooleanEnv("AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN", true),
     refreshCookieName: process.env.AUTH_REFRESH_COOKIE_NAME?.trim() || DEFAULT_REFRESH_COOKIE_NAME
   };
 }
@@ -154,6 +174,7 @@ function normalizeOriginEnv(name, value) {
 }
 
 async function requestJson(config, path, options = {}) {
+  const requestUrl = `${config.apiBaseUrl}${path}`;
   const headers = new Headers(options.headers ?? {});
   headers.set("accept", "application/json");
   if (options.body !== undefined) {
@@ -171,12 +192,12 @@ async function requestJson(config, path, options = {}) {
   if (options.idempotencyKey) {
     headers.set("x-idempotency-key", options.idempotencyKey);
   }
-  const cookieHeader = options.jar?.header();
+  const cookieHeader = options.jar?.header(requestUrl);
   if (cookieHeader) {
     headers.set("cookie", cookieHeader);
   }
 
-  const response = await fetch(`${config.apiBaseUrl}${path}`, {
+  const response = await fetch(requestUrl, {
     method: options.method ?? "GET",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
@@ -187,7 +208,7 @@ async function requestJson(config, path, options = {}) {
     ? await response.json().catch(() => null)
     : await response.text().catch(() => "");
   if (options.jar) {
-    options.jar.applySetCookieHeaders(setCookieHeaders);
+    options.jar.applySetCookieHeaders(setCookieHeaders, response.url || requestUrl);
   }
   return {
     path,
@@ -210,8 +231,12 @@ function expectStatus(result, expected, label) {
 
 function expectSetRefreshCookie(result, cookieName, label) {
   const mutations = getRefreshCookieMutations(result.setCookieHeaders, cookieName);
-  if (!mutations.some((mutation) => !mutation.clear)) {
+  const setMutations = mutations.filter((mutation) => !mutation.clear);
+  if (setMutations.length === 0) {
     throw new SmokeAssertionError(`${label} expected refresh Set-Cookie; mutations=${describeMutations(mutations)}`);
+  }
+  if (!setMutations.some((mutation) => mutation.httpOnly)) {
+    throw new SmokeAssertionError(`${label} expected refresh Set-Cookie to be HttpOnly; mutations=${describeMutations(mutations)}`);
   }
   pass(`${label} set refresh cookie`);
 }
@@ -237,6 +262,28 @@ function expectRefreshCookiePresent(jar, cookieName, label) {
     throw new SmokeAssertionError(`${label} expected cookie jar to contain ${cookieName}`);
   }
   pass(`${label} cookie jar has refresh cookie`);
+}
+
+function expectRefreshCookieWillBeSent(config, jar, path, label) {
+  const requestUrl = `${config.apiBaseUrl}${path}`;
+  if (!jar.willSend(config.refreshCookieName, requestUrl)) {
+    throw new SmokeAssertionError(`${label} refresh cookie Path/Domain did not allow replay to ${path}; scope=${jar.describeCookieScope(config.refreshCookieName)}`);
+  }
+  pass(`${label} refresh cookie Path/Domain allows browser-style replay`);
+}
+
+function snapshotCookieValue(jar, cookieName) {
+  return jar.value(cookieName);
+}
+
+function expectCookieValueChanged(before, after, label) {
+  if (!before || !after) {
+    throw new SmokeAssertionError(`${label} expected refresh cookie value before and after rotation`);
+  }
+  if (before === after) {
+    throw new SmokeAssertionError(`${label} refresh cookie value did not rotate`);
+  }
+  pass(`${label} refresh cookie value rotated`);
 }
 
 function extractData(body) {
@@ -338,6 +385,7 @@ async function runBodyCompatibilityChecks(config) {
     }
     skip("body fallback refresh skipped because response body refreshToken is absent");
     skip("invalid Origin without cookie + body skipped because response body refreshToken is absent");
+    await cleanupRefreshCookie(config, bodyLogin.jar, "body fallback source");
     return;
   }
 
@@ -358,6 +406,54 @@ async function runBodyCompatibilityChecks(config) {
   });
   expectStatus(invalid, 403, "invalid Origin without cookie + body refresh");
   expectNoRefreshCookieMutation(invalid, config.refreshCookieName, "invalid Origin without cookie + body refresh");
+  await cleanupRefreshCookie(config, bodyLogin.jar, "body fallback source");
+}
+
+async function runLegacyBodyLogoutChecks(config) {
+  const noCookie = await login(config, "legacy-body-logout-no-cookie-source");
+  if (!noCookie.refreshToken) {
+    if (config.expectBodyRefreshToken) {
+      throw new SmokeAssertionError("legacy body logout no-cookie source did not return refreshToken");
+    }
+    skip("legacy body logout checks skipped because response body refreshToken is absent");
+    await cleanupRefreshCookie(config, noCookie.jar, "legacy body no-cookie source");
+    return;
+  }
+
+  const noCookieJar = new CookieJar("legacy-body-logout-no-cookie-result");
+  const noCookieResult = await requestJson(config, "/auth/logout", {
+    method: "POST",
+    origin: config.webOrigin,
+    jar: noCookieJar,
+    accessToken: noCookie.accessToken,
+    idempotencyKey: `auth-smoke-legacy-body-logout-${randomUUID()}`,
+    body: { refreshToken: noCookie.refreshToken }
+  });
+  expectStatus(noCookieResult, 200, "legacy body protected logout without cookie");
+  expectClearRefreshCookie(noCookieResult, config.refreshCookieName, "legacy body protected logout without cookie");
+  await cleanupRefreshCookie(config, noCookie.jar, "legacy body no-cookie source");
+
+  const cookieAndBody = await login(config, "legacy-body-logout-cookie-source");
+  if (!cookieAndBody.refreshToken) {
+    if (config.expectBodyRefreshToken) {
+      throw new SmokeAssertionError("legacy body logout cookie source did not return refreshToken");
+    }
+    skip("legacy body logout cookie + body check skipped because response body refreshToken is absent");
+    await cleanupRefreshCookie(config, cookieAndBody.jar, "legacy body cookie source");
+    return;
+  }
+
+  expectRefreshCookieWillBeSent(config, cookieAndBody.jar, "/auth/logout", "legacy body protected logout with cookie");
+  const cookieAndBodyResult = await requestJson(config, "/auth/logout", {
+    method: "POST",
+    origin: config.webOrigin,
+    jar: cookieAndBody.jar,
+    accessToken: cookieAndBody.accessToken,
+    idempotencyKey: `auth-smoke-legacy-cookie-body-logout-${randomUUID()}`,
+    body: { refreshToken: cookieAndBody.refreshToken }
+  });
+  expectStatus(cookieAndBodyResult, 200, "legacy body protected logout with cookie");
+  expectClearRefreshCookie(cookieAndBodyResult, config.refreshCookieName, "legacy body protected logout with cookie");
 }
 
 async function run() {
@@ -366,6 +462,7 @@ async function run() {
   info(`WEB_ORIGIN: ${config.webOrigin}`);
   info(`Tenant/Park: ${config.tenantId}/${config.parkId}`);
   info(`Wrong-password check: ${config.skipWrongPassword ? "skipped" : "enabled for one attempt"}`);
+  info(`Body refreshToken compatibility: ${config.expectBodyRefreshToken ? "required" : "optional"}`);
 
   const main = await login(config, "main");
 
@@ -376,6 +473,8 @@ async function run() {
   expectStatus(me, 200, "GET /auth/me with access token");
   expectNoRefreshCookieMutation(me, config.refreshCookieName, "GET /auth/me");
 
+  expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie refresh with valid Origin");
+  const cookieBeforeRefreshOne = snapshotCookieValue(main.jar, config.refreshCookieName);
   const refreshOne = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -384,12 +483,15 @@ async function run() {
   });
   expectStatus(refreshOne, 200, "cookie refresh with valid Origin");
   expectSetRefreshCookie(refreshOne, config.refreshCookieName, "cookie refresh with valid Origin");
+  expectCookieValueChanged(cookieBeforeRefreshOne, snapshotCookieValue(main.jar, config.refreshCookieName), "cookie refresh with valid Origin");
   const accessAfterRefreshOne = extractAccessToken(refreshOne.body);
   if (!accessAfterRefreshOne) {
     throw new SmokeAssertionError("cookie refresh with valid Origin expected accessToken");
   }
   pass("cookie refresh with valid Origin returned access token");
 
+  expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "refresh rotation with updated cookie jar");
+  const cookieBeforeRefreshTwo = snapshotCookieValue(main.jar, config.refreshCookieName);
   const refreshTwo = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -398,6 +500,7 @@ async function run() {
   });
   expectStatus(refreshTwo, 200, "refresh rotation with updated cookie jar");
   expectSetRefreshCookie(refreshTwo, config.refreshCookieName, "refresh rotation with updated cookie jar");
+  expectCookieValueChanged(cookieBeforeRefreshTwo, snapshotCookieValue(main.jar, config.refreshCookieName), "refresh rotation with updated cookie jar");
   const accessAfterRefreshTwo = extractAccessToken(refreshTwo.body);
   if (!accessAfterRefreshTwo) {
     throw new SmokeAssertionError("refresh rotation expected accessToken");
@@ -406,6 +509,19 @@ async function run() {
 
   await runBodyCompatibilityChecks(config);
 
+  expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie + same body refresh");
+  const cookieBeforeSameBody = snapshotCookieValue(main.jar, config.refreshCookieName);
+  const cookieBodySame = await requestJson(config, "/auth/token/refresh", {
+    method: "POST",
+    origin: config.webOrigin,
+    jar: main.jar,
+    body: { refreshToken: cookieBeforeSameBody }
+  });
+  expectStatus(cookieBodySame, 200, "cookie + same body refresh uses cookie");
+  expectSetRefreshCookie(cookieBodySame, config.refreshCookieName, "cookie + same body refresh");
+  expectCookieValueChanged(cookieBeforeSameBody, snapshotCookieValue(main.jar, config.refreshCookieName), "cookie + same body refresh");
+
+  expectRefreshCookieWillBeSent(config, main.jar, "/auth/token/refresh", "cookie + different body refresh");
   const cookieBodyDifferent = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: config.webOrigin,
@@ -417,6 +533,7 @@ async function run() {
   await cleanupRefreshCookie(config, main.jar, "main session");
 
   const invalidCookie = await login(config, "invalid-origin-cookie-source");
+  expectRefreshCookieWillBeSent(config, invalidCookie.jar, "/auth/token/refresh", "invalid Origin with cookie refresh");
   const invalidCookieResult = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     origin: EVIL_ORIGIN,
@@ -427,7 +544,20 @@ async function run() {
   expectNoRefreshCookieMutation(invalidCookieResult, config.refreshCookieName, "invalid Origin with cookie refresh");
   await cleanupRefreshCookie(config, invalidCookie.jar, "invalid Origin source");
 
+  const invalidRefererSource = await login(config, "invalid-referer-source");
+  expectRefreshCookieWillBeSent(config, invalidRefererSource.jar, "/auth/token/refresh", "invalid Referer refresh");
+  const invalidRefererResult = await requestJson(config, "/auth/token/refresh", {
+    method: "POST",
+    referer: `${EVIL_ORIGIN}/path`,
+    jar: invalidRefererSource.jar,
+    body: {}
+  });
+  expectStatus(invalidRefererResult, 403, "invalid Referer without Origin refresh");
+  expectNoRefreshCookieMutation(invalidRefererResult, config.refreshCookieName, "invalid Referer without Origin refresh");
+  await cleanupRefreshCookie(config, invalidRefererSource.jar, "invalid Referer source");
+
   const refererSource = await login(config, "referer-source");
+  expectRefreshCookieWillBeSent(config, refererSource.jar, "/auth/token/refresh", "valid Referer fallback refresh");
   const refererResult = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     referer: `${config.webOrigin}/dashboard`,
@@ -439,6 +569,7 @@ async function run() {
   await cleanupRefreshCookie(config, refererSource.jar, "valid Referer source");
 
   const missingSource = await login(config, "missing-origin-source");
+  expectRefreshCookieWillBeSent(config, missingSource.jar, "/auth/token/refresh", "missing Origin/Referer with cookie refresh");
   const missingResult = await requestJson(config, "/auth/token/refresh", {
     method: "POST",
     jar: missingSource.jar,
@@ -449,6 +580,7 @@ async function run() {
   await cleanupRefreshCookie(config, missingSource.jar, "missing Origin source");
 
   const logoutCookieValid = await login(config, "logout-cookie-valid-source");
+  expectRefreshCookieWillBeSent(config, logoutCookieValid.jar, "/auth/logout-cookie", "logout-cookie valid Origin");
   const logoutCookieResult = await requestJson(config, "/auth/logout-cookie", {
     method: "POST",
     origin: config.webOrigin,
@@ -458,6 +590,7 @@ async function run() {
   expectClearRefreshCookie(logoutCookieResult, config.refreshCookieName, "logout-cookie valid Origin");
 
   const logoutCookieInvalid = await login(config, "logout-cookie-invalid-source");
+  expectRefreshCookieWillBeSent(config, logoutCookieInvalid.jar, "/auth/logout-cookie", "logout-cookie invalid Origin");
   const logoutCookieInvalidResult = await requestJson(config, "/auth/logout-cookie", {
     method: "POST",
     origin: EVIL_ORIGIN,
@@ -468,6 +601,7 @@ async function run() {
   await cleanupRefreshCookie(config, logoutCookieInvalid.jar, "logout-cookie invalid source");
 
   const protectedLogout = await login(config, "protected-logout-source");
+  expectRefreshCookieWillBeSent(config, protectedLogout.jar, "/auth/logout", "protected logout valid Origin");
   const protectedLogoutResult = await requestJson(config, "/auth/logout", {
     method: "POST",
     origin: config.webOrigin,
@@ -478,6 +612,22 @@ async function run() {
   });
   expectStatus(protectedLogoutResult, 200, "protected logout valid Origin");
   expectClearRefreshCookie(protectedLogoutResult, config.refreshCookieName, "protected logout valid Origin");
+
+  const protectedLogoutInvalid = await login(config, "protected-logout-invalid-origin-source");
+  expectRefreshCookieWillBeSent(config, protectedLogoutInvalid.jar, "/auth/logout", "protected logout invalid Origin");
+  const protectedLogoutInvalidResult = await requestJson(config, "/auth/logout", {
+    method: "POST",
+    origin: EVIL_ORIGIN,
+    jar: protectedLogoutInvalid.jar,
+    accessToken: protectedLogoutInvalid.accessToken,
+    idempotencyKey: `auth-smoke-logout-invalid-${randomUUID()}`,
+    body: {}
+  });
+  expectStatus(protectedLogoutInvalidResult, 403, "protected logout invalid Origin");
+  expectNoRefreshCookieMutation(protectedLogoutInvalidResult, config.refreshCookieName, "protected logout invalid Origin");
+  await cleanupRefreshCookie(config, protectedLogoutInvalid.jar, "protected logout invalid Origin source");
+
+  await runLegacyBodyLogoutChecks(config);
 
   await runWrongPasswordCheck(config);
 
@@ -496,7 +646,7 @@ function splitCombinedSetCookie(value) {
   return value.split(/,(?=\s*[^;,=\s]+=[^;]*)/g).map((header) => header.trim()).filter(Boolean);
 }
 
-function parseSetCookie(header) {
+function parseSetCookie(header, responseUrl) {
   const segments = header.split(";").map((segment) => segment.trim()).filter(Boolean);
   const [nameValue, ...attributeSegments] = segments;
   if (!nameValue) {
@@ -515,16 +665,77 @@ function parseSetCookie(header) {
     const attrValue = index >= 0 ? segment.slice(index + 1).trim() : "true";
     attributes.set(key, attrValue);
   }
+  const sourceUrl = parseUrl(responseUrl);
+  const rawDomain = attributes.get("domain");
+  const normalizedDomain = rawDomain?.replace(/^\./, "").toLowerCase();
+  const sourceHost = sourceUrl?.hostname.toLowerCase();
   return {
     name,
     value,
-    path: attributes.get("path") ?? "/",
-    domain: attributes.get("domain"),
+    path: attributes.get("path") ?? defaultCookiePath(sourceUrl?.pathname ?? "/"),
+    domain: normalizedDomain,
+    hostOnly: !normalizedDomain,
+    sourceHost,
     maxAge: parseNumber(attributes.get("max-age")),
     expiresAt: parseExpires(attributes.get("expires")),
     httpOnly: attributes.has("httponly"),
     attributes
   };
+}
+
+function cookieMatchesRequest(cookie, requestUrl) {
+  const url = parseUrl(requestUrl);
+  if (!url) {
+    return false;
+  }
+  const requestHost = url.hostname.toLowerCase();
+  if (cookie.hostOnly) {
+    if (!cookie.sourceHost || requestHost !== cookie.sourceHost) {
+      return false;
+    }
+  } else if (!domainMatches(requestHost, cookie.domain)) {
+    return false;
+  }
+  return pathMatches(url.pathname || "/", cookie.path || "/");
+}
+
+function domainMatches(requestHost, cookieDomain) {
+  if (!cookieDomain) {
+    return false;
+  }
+  return requestHost === cookieDomain || requestHost.endsWith(`.${cookieDomain}`);
+}
+
+function pathMatches(requestPath, cookiePath) {
+  if (!cookiePath || cookiePath === "/") {
+    return true;
+  }
+  if (requestPath === cookiePath) {
+    return true;
+  }
+  if (!requestPath.startsWith(cookiePath)) {
+    return false;
+  }
+  return cookiePath.endsWith("/") || requestPath.charAt(cookiePath.length) === "/";
+}
+
+function defaultCookiePath(responsePath) {
+  if (!responsePath || !responsePath.startsWith("/")) {
+    return "/";
+  }
+  if (responsePath === "/") {
+    return "/";
+  }
+  const lastSlash = responsePath.lastIndexOf("/");
+  return lastSlash <= 0 ? "/" : responsePath.slice(0, lastSlash);
+}
+
+function parseUrl(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
 function isClearingCookie(cookie) {
