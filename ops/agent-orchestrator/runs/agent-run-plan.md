@@ -1,10 +1,10 @@
 # Agent Run Plan
 
-Generated at: 2026-06-21T10:08:48.370Z
+Generated at: 2026-06-21T10:10:19.011Z
 
 Mode: dry-run
 
-Codex CLI: found (/Applications/Codex.app/Contents/Resources/codex, codex-cli 0.142.0-alpha.1)
+Codex CLI: not found
 
 This plan is generated from CLAIMED tasks with active locks. It does not execute Codex, does not modify agent worktrees, does not merge, does not push, and does not run production operations.
 
