@@ -1,13 +1,7 @@
-import { Activity, ArrowRight, Bot, Building2, ClipboardCheck, ShieldCheck, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Bot, ClipboardCheck, ShieldCheck, Wrench } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-
-const kpis = [
-  { label: "运营资产", value: "空间台账", meta: "园区 / 楼栋 / 房源统一管理", icon: Building2 },
-  { label: "现场任务", value: "巡检闭环", meta: "打卡、拍照、隐患联动", icon: ClipboardCheck },
-  { label: "设备态势", value: "IoT 在线", meta: "设备、告警、规则联动", icon: Activity },
-  { label: "能耗管理", value: "计量账期", meta: "读数、分摊、调整红冲", icon: Zap }
-];
+import { DashboardMetrics } from "./DashboardMetrics";
 
 const quickEntries: Array<{ title: string; description: string; href: Route; icon: typeof ClipboardCheck }> = [
   { title: "现场工作台", description: "面向物业、安全、运营负责人，快速处理巡检、工单与现场上报。", href: "/operations/terminal", icon: ClipboardCheck },
@@ -47,21 +41,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="dashboard-kpi-grid" aria-label="核心能力">
-        {kpis.map((item) => {
-          const Icon = item.icon;
-          return (
-            <article className="dashboard-kpi-card" key={item.label}>
-              <span className="dashboard-kpi-icon"><Icon size={20} /></span>
-              <div>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-                <p>{item.meta}</p>
-              </div>
-            </article>
-          );
-        })}
-      </section>
+      <DashboardMetrics />
 
       <section className="dashboard-main-grid">
         <div className="page-content dashboard-entry-panel">
