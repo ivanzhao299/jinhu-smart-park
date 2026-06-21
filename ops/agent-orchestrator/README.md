@@ -14,7 +14,13 @@ The first version turns a natural-language request into a persistent intake file
 | `queue/task-queue.schema.json` | JSON schema for task queue entries. |
 | `queue/task-queue.json` | Current task pool. Agents claim READY tasks from here. |
 | `queue/task-locks.json` | Claim records written by `claim-task.mjs`. |
-| `queue/task-results.json` | Completion records written by `complete-task.mjs`. |
+| `queue/task-results.json` | Compatibility aggregate generated from task result records. |
+| `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
+| `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
+| `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
+| `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
+| `scripts/reconcile-task-results.mjs` | Regenerates queue/result/lock state from evidence files and result files. |
+| `scripts/run-validation-matrix.mjs` | Runs dispatch status, no-write result audit, typecheck, and targeted smoke checks. |
 | `scripts/claim-task.mjs` | Lets an agent claim its next READY task. |
 | `scripts/complete-task.mjs` | Records an agent result and marks the task DONE or FAILED. |
 | `scripts/audit-agent-result.mjs` | Checks changed files against task path boundaries. |
@@ -137,6 +143,86 @@ node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
 
 This prints READY, CLAIMED, IN_PROGRESS, DONE, FAILED, BLOCKED, and AUDITED tasks, plus active locks and whether each agent can claim another task.
 
+## 4C. One-Click Controller
+
+`orchestratorctl.mjs` is the high-level entrypoint for the main control window.
+
+Status is read-only:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs status
+```
+
+It prints main and agent worktree branch, HEAD, clean state, ahead/behind, runtime dirt, and non-runtime dirt.
+
+Reconcile is dry-run by default:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs reconcile --dry-run
+```
+
+It identifies runtime directories such as `storage/`, `.next/`, `coverage/`, and `tmp/`, and reports which agent branches are already included in `origin/main`.
+
+Apply mode is explicit:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs reconcile --apply
+```
+
+Apply mode backs up runtime directories to `/tmp/jinhu-orchestrator-backup/<agent>/<timestamp>/`, aborts on non-runtime dirt, and resets only agent worktrees whose HEAD is already an ancestor of `origin/main`.
+
+Integration planning is read-only:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run
+```
+
+It lists each agent branch with commits not in `origin/main`, changed files, and a risk class:
+
+- `LOW`: docs or orchestrator reports only.
+- `MEDIUM`: `scripts/e2e` or orchestrator automation.
+- `HIGH`: `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths.
+
+Integration apply never merges back to main or pushes:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --apply
+```
+
+It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from `origin/main`, attempts agent merges in LOW -> MEDIUM -> HIGH order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, and aborts on business-code conflicts.
+
+Validation runs the non-writing audit path:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
+```
+
+It runs:
+
+```bash
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run
+pnpm typecheck
+```
+
+If `scripts/e2e/s5b-emergency-permit-smoke.mjs` changed in the current branch, it also runs:
+
+```bash
+node scripts/e2e/s5b-emergency-permit-smoke.mjs
+```
+
+Full-cycle dry-run plans the whole flow without writes:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run
+```
+
+Full-cycle apply performs reconcile, integration, and validation, then only suggests that a human may consider merge/push:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --apply
+```
+
 ## 4B. Agent Runner Prompt Files
 
 Generated prompt files are based on:
@@ -190,7 +276,19 @@ The result JSON supports:
 - `failed_checks`
 - `notes`
 
-The script appends to `queue/task-results.json` and updates the task status to `DONE` or `FAILED`. It does not merge or push.
+The script writes the preferred per-task result file:
+
+```bash
+ops/agent-orchestrator/results/<task_id>.json
+```
+
+It also updates `queue/task-results.json` for backward compatibility and updates the task status to `DONE` or `FAILED`. It does not merge or push.
+
+`task-results.json` should be treated as a generated aggregate. When agent branches conflict on queue JSON files, the orchestrator should preserve the integration branch version and run:
+
+```bash
+node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply
+```
 
 ## 6. Orchestrator Audit Flow
 
@@ -215,7 +313,15 @@ To audit every DONE task result in one pass:
 node ops/agent-orchestrator/scripts/audit-all-results.mjs
 ```
 
-This reuses the same path-boundary logic as `audit-agent-result.mjs`, prints `AUDIT_PASS` or `AUDIT_FAIL` for each DONE task, and marks passing tasks `AUDITED`.
+This reuses the same path-boundary logic as `audit-agent-result.mjs` and prints `AUDIT_PASS` or `AUDIT_FAIL` for each DONE task.
+
+By default it is no-write and does not modify `task-queue.json`. `--dry-run` and `--no-write` are aliases for the default behavior.
+
+Only this explicit mode writes `AUDITED` status back to the queue:
+
+```bash
+node ops/agent-orchestrator/scripts/audit-all-results.mjs --write
+```
 
 ## 7. Merge Gate After Audit
 
@@ -243,6 +349,16 @@ Full high-level flow:
 8. Run `audit-all-results.mjs`.
 9. For passing tasks, run `check-merge-candidate.sh`, `pnpm typecheck`, and relevant e2e.
 10. Ask for human confirmation before merge or push.
+
+One-click high-level flow:
+
+1. Generate REQ / TECH / task queue from natural language.
+2. Preview dispatch or integration with dry-run commands.
+3. Run `orchestratorctl.mjs full-cycle --dry-run` for a no-write plan.
+4. Run `orchestratorctl.mjs full-cycle --apply` only when the operator accepts runtime backup/reset and integration branch creation.
+5. Review the integration branch and validation output.
+6. Ask for explicit human confirmation before merging to `main`.
+7. Ask for explicit human confirmation before pushing.
 
 ## 8. Actions Requiring Human Confirmation
 

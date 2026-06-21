@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 const VALID_AGENTS = new Set(["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]);
 const VALID_FINAL_STATUSES = new Set(["DONE", "FAILED"]);
@@ -10,6 +10,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
 const queuePath = join(orchestratorDir, "queue", "task-queue.json");
 const resultsPath = join(orchestratorDir, "queue", "task-results.json");
+const perTaskResultsDir = join(orchestratorDir, "results");
 
 function usage() {
   console.error(`Usage:
@@ -141,8 +142,7 @@ task.status = payload.status;
 task.updated_at = completedAt;
 queue.updated_at = completedAt;
 
-results.results ??= [];
-results.results.push({
+const resultRecord = {
   task_id: payload.task_id,
   agent: payload.agent,
   status: payload.status,
@@ -153,7 +153,18 @@ results.results.push({
   failed_checks: payload.failed_checks,
   notes: payload.notes ?? "",
   completed_at: completedAt
-});
+};
+
+await mkdir(perTaskResultsDir, { recursive: true });
+await writeJson(join(perTaskResultsDir, `${payload.task_id}.json`), resultRecord);
+
+results.results ??= [];
+const existingIndex = results.results.findIndex((result) => result.task_id === payload.task_id);
+if (existingIndex >= 0) {
+  results.results[existingIndex] = resultRecord;
+} else {
+  results.results.push(resultRecord);
+}
 results.updated_at = completedAt;
 
 await writeJson(queuePath, queue);
