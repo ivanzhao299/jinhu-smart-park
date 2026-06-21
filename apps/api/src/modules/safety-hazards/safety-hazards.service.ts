@@ -284,6 +284,23 @@ export class SafetyHazardsService {
     return this.detail(scope, saved.id, actor);
   }
 
+  async findBySource(
+    scope: TenantParkScope,
+    sourceType: string,
+    sourceId: string | null | undefined
+  ): Promise<SafetyHazardEntity | null> {
+    if (!sourceId) return null;
+    return this.hazardsRepository.findOne({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        sourceType,
+        sourceId,
+        isDeleted: false
+      }
+    });
+  }
+
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateSafetyHazardDto): Promise<SafetyHazardEntity> {
     const entity = await this.findOne(scope, id);
     const nextHazardType = dto.hazard_type ?? entity.hazardType ?? "";

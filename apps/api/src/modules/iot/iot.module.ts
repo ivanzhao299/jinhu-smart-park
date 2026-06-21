@@ -14,6 +14,7 @@ import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { SaaSModulesModule } from "../saas-modules/saas-modules.module";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import { SafetyHazardsModule } from "../safety-hazards/safety-hazards.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { IotAlertLogEntity } from "./entities/iot-alert-log.entity";
 import { IotAlertRuleEntity } from "./entities/iot-alert-rule.entity";
@@ -107,7 +108,8 @@ import { UnifiedActionExecutorService } from "./unified-action-executor.service"
     DataScopesModule,
     FieldPoliciesModule,
     SaaSModulesModule,
-    WorkOrdersModule
+    WorkOrdersModule,
+    SafetyHazardsModule
   ],
   controllers: [
     IotGatewaysController,

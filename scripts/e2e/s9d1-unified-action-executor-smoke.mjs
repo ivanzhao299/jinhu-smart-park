@@ -319,6 +319,52 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   AND create_time > NOW() - INTERVAL '30 minutes';`));
   assert(autoSceneLogs >= 1, "Rule trigger should auto-drive linked enabled AUTO scene");
 
+  // --- CREATE_SAFETY_HAZARD: normal creation ---
+  const hazardRule = await createRule(token, {
+    name: `S9D1 hazard rule ${stamp}`,
+    actions: [{ type: "CREATE_SAFETY_HAZARD", hazard_type: "other", risk_level: "10", title: `S9D1 IoT 隐患 ${stamp}`, description: "s9d1 smoke auto hazard", location: "s9d1 测试位置" }]
+  });
+  const hazardTest1 = await jsonRequest(`/iot/rules/${hazardRule.id}/test`, token, "POST", { trigger_payload: { source: "s9d1" } }, "hazard-rule-test-1");
+  assertStatus("CREATE_SAFETY_HAZARD first call", hazardTest1.response.status, 201);
+  const hazardResult1 = hazardTest1.body.data?.actionResult?.[0];
+  assert(hazardResult1?.execution_status === "SUCCESS", `CREATE_SAFETY_HAZARD should be SUCCESS, got ${hazardResult1?.execution_status}`);
+  assert(hazardResult1?.result_payload?.hazard_id, "result_payload must include hazard_id");
+  assert(hazardResult1?.result_payload?.hazard_code, "result_payload must include hazard_code");
+  assert(hazardResult1?.result_payload?.idempotent === false, "first creation: idempotent should be false");
+  logStep(`CREATE_SAFETY_HAZARD created: ${hazardResult1.result_payload.hazard_code}`);
+
+  // --- CREATE_SAFETY_HAZARD: idempotent call (same rule → same source_id) ---
+  const hazardTest2 = await jsonRequest(`/iot/rules/${hazardRule.id}/test`, token, "POST", { trigger_payload: { source: "s9d1" } }, "hazard-rule-test-2");
+  assertStatus("CREATE_SAFETY_HAZARD second call", hazardTest2.response.status, 201);
+  const hazardResult2 = hazardTest2.body.data?.actionResult?.[0];
+  assert(hazardResult2?.execution_status === "SUCCESS", `CREATE_SAFETY_HAZARD idempotent call should be SUCCESS, got ${hazardResult2?.execution_status}`);
+  assert(hazardResult2?.result_payload?.idempotent === true, "second call: idempotent should be true");
+  assert(hazardResult2?.result_payload?.hazard_id === hazardResult1.result_payload.hazard_id, "idempotent call must return same hazard_id");
+
+  const hazardDbCount = Number(await psql(`
+SELECT COUNT(*) FROM biz_safety_hazard
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND source_type = 'alert'
+  AND source_id = ${sqlLiteral(hazardRule.id)}
+  AND is_deleted = false;`));
+  assert(hazardDbCount === 1, `Idempotent: expected 1 hazard record, found ${hazardDbCount}`);
+  logStep("CREATE_SAFETY_HAZARD idempotency verified");
+
+  // --- CREATE_SAFETY_HAZARD: invalid hazard_type → FAILED ---
+  const invalidHazardRule = await createRule(token, {
+    name: `S9D1 invalid hazard rule ${stamp}`,
+    actions: [{ type: "CREATE_SAFETY_HAZARD", hazard_type: "INVALID_TYPE_XYZ", risk_level: "10", title: "invalid type test", description: "bad type", location: "test" }]
+  });
+  const hazardTestInvalid = await jsonRequest(`/iot/rules/${invalidHazardRule.id}/test`, token, "POST", { trigger_payload: { source: "s9d1" } }, "hazard-rule-invalid");
+  assertStatus("CREATE_SAFETY_HAZARD invalid type call", hazardTestInvalid.response.status, 201);
+  const hazardResultInvalid = hazardTestInvalid.body.data?.actionResult?.[0];
+  assert(hazardResultInvalid?.execution_status === "FAILED", `Invalid hazard_type should return FAILED, got ${hazardResultInvalid?.execution_status}`);
+  logStep("CREATE_SAFETY_HAZARD invalid hazard_type correctly returns FAILED");
+
+  // cleanup: soft-delete hazards created by this run
+  await psql(`UPDATE biz_safety_hazard SET is_deleted = true, update_time = NOW() WHERE tenant_id = ${sqlLiteral(tenantId)} AND park_id = ${sqlLiteral(parkId)} AND source_type = 'alert' AND source_id IN (${sqlLiteral(hazardRule.id)}, ${sqlLiteral(invalidHazardRule.id)}) AND is_deleted = false;`);
+
   logStep("S9-D.1 unified action executor smoke passed");
 }
 

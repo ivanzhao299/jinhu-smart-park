@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import { CodeRulesService } from "../code-rules/code-rules.service";
+import { SafetyHazardsService } from "../safety-hazards/safety-hazards.service";
+import type { SafetyHazardEntity } from "../safety-inspect-tasks/entities/safety-hazard.entity";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { IotAlertLogEntity } from "./entities/iot-alert-log.entity";
@@ -23,7 +25,6 @@ const ALLOWED_ACTION_TYPES = new Set<string>(UNIFIED_ACTION_TYPES);
 const SIMULATED_ACTION_TYPES = new Set<string>([
   "CREATE_VIDEO_ALERT",
   "CREATE_ENERGY_ALERT",
-  "CREATE_SAFETY_HAZARD",
   "CREATE_INSPECTION_TASK",
   "SEND_NOTIFICATION",
   "CONTROL_DEVICE",
@@ -51,7 +52,8 @@ export class UnifiedActionExecutorService {
     private readonly alertLogRepository: Repository<IotAlertLogEntity>,
     private readonly codeRulesService: CodeRulesService,
     private readonly realtimeService: IotRealtimeService,
-    private readonly workOrdersService: WorkOrdersService
+    private readonly workOrdersService: WorkOrdersService,
+    private readonly safetyHazardsService: SafetyHazardsService
   ) {}
 
   async executeAction(input: UnifiedActionExecutionInput, actor?: JwtPrincipal): Promise<UnifiedActionExecutionResult> {
@@ -74,6 +76,18 @@ export class UnifiedActionExecutorService {
       if (actionType === "CREATE_WORK_ORDER") {
         const workOrder = await this.createWorkOrder(input, actionPayload, contextPayload, actor);
         return this.result(actionType, "SUCCESS", { work_order_id: workOrder.id, wo_code: workOrder.woCode }, null, executedAt);
+      }
+      if (actionType === "CREATE_SAFETY_HAZARD") {
+        const hazard = await this.createSafetyHazard(input, actionPayload, contextPayload, actor);
+        const payload: Record<string, unknown> = {
+          hazard_id: hazard.entity.id,
+          hazard_code: hazard.entity.hazardCode,
+          status: hazard.entity.status,
+          source_type: "alert",
+          idempotent: hazard.idempotent
+        };
+        if (hazard.noSourceId) payload.no_source_id = true;
+        return this.result(actionType, "SUCCESS", payload, null, executedAt);
       }
       if (this.isDeviceControlAction(actionType)) {
         await this.assertTargetDeviceInScope(input, actionPayload, contextPayload);
@@ -226,6 +240,57 @@ export class UnifiedActionExecutorService {
       device_id: device?.id ?? this.readString(context, "device_id") ?? undefined,
       remark: `Unified action ${input.source_type}:${input.source_id ?? "-"}`
     });
+  }
+
+  private async createSafetyHazard(
+    input: UnifiedActionExecutionInput,
+    action: Record<string, unknown>,
+    context: Record<string, unknown>,
+    actor?: JwtPrincipal
+  ): Promise<{ entity: SafetyHazardEntity; idempotent: boolean; noSourceId: boolean }> {
+    const scope = this.scope(input);
+    const sourceId = input.source_id ?? null;
+
+    if (sourceId) {
+      const existing = await this.safetyHazardsService.findBySource(scope, "alert", sourceId);
+      if (existing) {
+        return { entity: existing, idempotent: true, noSourceId: false };
+      }
+    }
+
+    const principal = actor ?? this.systemActor(scope, input.source_type);
+    const sourceName = this.sourceName(input.source_type);
+    const deviceCode = this.readString(context, "device_code");
+    const title =
+      this.readString(action, "title") ??
+      (this.readString(context, "rule_name") ? `${this.readString(context, "rule_name")} 触发安全隐患` : null) ??
+      (deviceCode ? `设备 ${deviceCode} 触发安全隐患` : null) ??
+      `${sourceName} 触发安全隐患`;
+    const location =
+      this.readString(action, "location") ??
+      this.readString(context, "location") ??
+      (deviceCode ? `设备 ${deviceCode}` : null) ??
+      "待补充";
+    const description =
+      this.readString(action, "description") ??
+      `由 ${sourceName} 规则（${sourceId ?? "无编号"}）自动生成，请核实隐患情况并补充信息。`;
+
+    const entity = await this.safetyHazardsService.create(scope, principal, {
+      title,
+      hazard_type: this.readString(action, "hazard_type") ?? "other",
+      risk_level: this.readString(action, "risk_level") ?? "10",
+      description,
+      location,
+      source_type: "alert",
+      source_id: sourceId ?? undefined,
+      building_id: this.readString(action, "building_id") ?? this.readString(context, "building_id"),
+      floor_id: this.readString(action, "floor_id") ?? this.readString(context, "floor_id"),
+      unit_id: this.readString(action, "unit_id") ?? this.readString(context, "unit_id"),
+      park_tenant_id: this.readString(action, "park_tenant_id") ?? this.readString(context, "park_tenant_id"),
+      rectify_deadline: this.readString(action, "rectify_deadline")
+    });
+
+    return { entity, idempotent: false, noSourceId: !sourceId };
   }
 
   private async resolveDevice(
