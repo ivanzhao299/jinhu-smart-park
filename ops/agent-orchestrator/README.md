@@ -17,6 +17,7 @@ The first version turns a natural-language request into a persistent intake file
 | `queue/task-results.json` | Compatibility aggregate generated from task result records. |
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
+| `scripts/doctor.mjs` | Unified diagnostics for git/worktrees, queue/locks/results, Codex runner state, integration readiness, and validation status. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
 | `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
 | `scripts/reconcile-task-results.mjs` | Regenerates queue/result/lock state from evidence files and result files. |
@@ -455,6 +456,60 @@ Mode behavior:
 Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
 
 If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
+
+## 4F. Doctor Diagnostics
+
+`doctor` is the first command to run when the orchestrator feels stuck or noisy. It replaces repeated manual checks such as `git status`, `check-dispatch-status`, `ps`, run-log inspection, queue JSON inspection, and integration dry-run orientation.
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor --json
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor --fix-dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor --fix-apply
+```
+
+Default output is Markdown with:
+
+- `GO`, `CONDITIONAL_GO`, or `NO_GO` summary.
+- findings grouped by severity (`INFO`, `WARN`, `ERROR`, `BLOCKER`) and area (`git`, `queue`, `locks`, `runner`, `integration`, `validation`).
+- current next-action commands.
+
+`--json` emits structured data for automation:
+
+```json
+{
+  "status": "GO|CONDITIONAL_GO|NO_GO",
+  "findings": [],
+  "worktrees": {},
+  "queue": {},
+  "locks": {},
+  "runner": {},
+  "integration": {},
+  "validation": {},
+  "next_action": []
+}
+```
+
+Doctor checks:
+
+- main and `agent-1` through `agent-5` branch/head/status, ahead/behind, runtime dirty, non-runtime dirty, and unmerged agent commits.
+- queue task counts, duplicate locks, stale locks, DONE tasks with locks, CLAIMED tasks without locks, DONE results still shown as CLAIMED, and DONE queue entries missing result evidence.
+- Codex CLI path/version, running `codex exec` processes, recent `.run.log` files, non-zero exit codes, and run logs whose task result was not recorded.
+- integration candidates, LOW/MEDIUM/HIGH risk distribution, queue bookkeeping conflict risk, and integration branches not merged into main.
+- `check-dispatch-status.mjs` and `audit-all-results.mjs --dry-run` status. `pnpm typecheck` is skipped by default and runs only with `--deep`.
+
+Fix modes are intentionally narrow:
+
+- `--fix-dry-run` lists LOW-risk automatic repairs and writes nothing.
+- `--fix-apply` may restore `ops/agent-orchestrator/runs/agent-run-plan.md`, remove locks whose task no longer exists, remove locks for DONE tasks, and remove fully identical duplicate locks.
+- runtime dirty under `storage/`, `.next/`, `coverage/`, or `tmp/` is reported with backup guidance only; doctor does not delete runtime files.
+- doctor never fixes business-code changes, HIGH-risk changes, merge conflicts, pushes, deploys, production migrations, production seeds, database reset, or cleanup.
+
+Use `doctor --deep` only when a slower local verification pass is acceptable:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor --deep
+```
 
 ## 5. Agent Completion Flow
 

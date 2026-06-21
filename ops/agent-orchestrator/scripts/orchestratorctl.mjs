@@ -35,6 +35,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs reconcile --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
@@ -484,6 +485,9 @@ switch (command) {
     break;
   case "validate":
     runScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs");
+    break;
+  case "doctor":
+    runScript("ops/agent-orchestrator/scripts/doctor.mjs", rest);
     break;
   case "full-cycle": {
     const apply = hasFlag(rest, "--apply");

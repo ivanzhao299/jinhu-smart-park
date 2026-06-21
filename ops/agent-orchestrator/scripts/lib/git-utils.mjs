@@ -126,6 +126,16 @@ export function changedFilesNameStatus(worktreePath, base = "origin/main", head 
   return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
+export function localBranches(worktreePath) {
+  const result = git(worktreePath, ["branch", "--format=%(refname:short)"], { allowFailure: true });
+  if (result.status !== 0) return [];
+  return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+export function isBranchMergedInto(worktreePath, branch, target = "main") {
+  return isAncestor(worktreePath, branch, target);
+}
+
 export function classifyRisk(files) {
   const normalized = files.map((file) => file.replaceAll("\\", "/"));
 
