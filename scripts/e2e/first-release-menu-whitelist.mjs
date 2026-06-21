@@ -46,6 +46,8 @@ function run() {
     "/dashboard",
     "/system/users",
     "/assets/parks",
+    "/assets/unit-status-board",
+    "/assets/statistics",
     "/leasing/contracts",
     "/leasing/receivables",
     "/leasing/payments",
