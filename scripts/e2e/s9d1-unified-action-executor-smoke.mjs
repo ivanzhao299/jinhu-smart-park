@@ -51,6 +51,18 @@ function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function toQuery(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  }
+  return search.toString();
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`${apiBase}${path}`, options);
   const contentType = response.headers.get("content-type") ?? "";
@@ -140,6 +152,59 @@ async function psql(sql) {
   return stdout.trim();
 }
 
+async function getVisibilityFixtures() {
+  const linkedRow = await psql(`
+SELECT unit.id::text || '|' || unit.building_id::text || '|' || unit.floor_id::text || '|' || contract.park_tenant_id::text
+FROM biz_unit unit
+JOIN rel_leasing_contract_unit contract_unit
+  ON contract_unit.unit_id = unit.id
+  AND contract_unit.tenant_id = unit.tenant_id
+  AND contract_unit.park_id = unit.park_id
+  AND contract_unit.is_deleted = false
+  AND contract_unit.status = 1
+JOIN biz_leasing_contract contract
+  ON contract.id = contract_unit.contract_id
+  AND contract.tenant_id = unit.tenant_id
+  AND contract.park_id = unit.park_id
+  AND contract.is_deleted = false
+  AND contract.status = '75'
+JOIN biz_park_tenant park_tenant
+  ON park_tenant.id = contract.park_tenant_id
+  AND park_tenant.tenant_id = unit.tenant_id
+  AND park_tenant.park_id = unit.park_id
+  AND park_tenant.is_deleted = false
+WHERE unit.tenant_id = ${sqlLiteral(tenantId)}
+  AND unit.park_id = ${sqlLiteral(parkId)}
+  AND unit.is_deleted = false
+ORDER BY contract_unit.start_date DESC, unit.create_time ASC
+LIMIT 1;`);
+  if (linkedRow) {
+    const [unitId, buildingId, floorId, parkTenantId] = linkedRow.split("|");
+    return { unitId, buildingId: buildingId || undefined, floorId: floorId || undefined, parkTenantId };
+  }
+
+  const unitRow = await psql(`
+SELECT unit.id::text || '|' || unit.building_id::text || '|' || unit.floor_id::text
+FROM biz_unit unit
+WHERE unit.tenant_id = ${sqlLiteral(tenantId)}
+  AND unit.park_id = ${sqlLiteral(parkId)}
+  AND unit.is_deleted = false
+ORDER BY unit.create_time ASC
+LIMIT 1;`);
+  assert(unitRow, "No biz_unit fixture found for S9-D.1 hazard visibility smoke");
+  const [unitId, buildingId, floorId] = unitRow.split("|");
+  const parkTenantId = await psql(`
+SELECT id::text
+FROM biz_park_tenant
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND is_deleted = false
+ORDER BY create_time ASC
+LIMIT 1;`);
+  assert(parkTenantId, "No biz_park_tenant fixture found for S9-D.1 hazard visibility smoke");
+  return { unitId, buildingId: buildingId || undefined, floorId: floorId || undefined, parkTenantId };
+}
+
 async function createRule(token, { name, ruleType = "MANUAL", condition = { always: true }, actions, status = "ENABLED", deviceId }) {
   const created = await jsonRequest("/iot/rules", token, "POST", {
     rule_name: name,
@@ -183,6 +248,7 @@ async function main() {
   const token = adminLogin.body.data?.access_token ?? adminLogin.body.data?.accessToken;
   assert(token, "Admin login did not return an access token");
 
+  const visibilityFixtures = await getVisibilityFixtures();
   const device = await createDevice(token);
 
   const rule = await createRule(token, {
@@ -320,9 +386,25 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   assert(autoSceneLogs >= 1, "Rule trigger should auto-drive linked enabled AUTO scene");
 
   // --- CREATE_SAFETY_HAZARD: normal creation ---
+  const hazardTitle = `S9D1 IoT 隐患 ${stamp}`;
+  const hazardWindowStart = new Date(stamp - 60_000).toISOString();
+  const hazardWindowEnd = new Date(stamp + 60 * 60 * 1000).toISOString();
+  const hazardRectifyDeadline = new Date(stamp + 7 * 24 * 60 * 60 * 1000).toISOString();
   const hazardRule = await createRule(token, {
     name: `S9D1 hazard rule ${stamp}`,
-    actions: [{ type: "CREATE_SAFETY_HAZARD", hazard_type: "other", risk_level: "10", title: `S9D1 IoT 隐患 ${stamp}`, description: "s9d1 smoke auto hazard", location: "s9d1 测试位置" }]
+    actions: [{
+      type: "CREATE_SAFETY_HAZARD",
+      hazard_type: "other",
+      risk_level: "30",
+      title: hazardTitle,
+      description: "s9d1 smoke auto hazard",
+      location: "s9d1 测试位置",
+      park_tenant_id: visibilityFixtures.parkTenantId,
+      unit_id: visibilityFixtures.unitId,
+      building_id: visibilityFixtures.buildingId,
+      floor_id: visibilityFixtures.floorId,
+      rectify_deadline: hazardRectifyDeadline
+    }]
   });
   const hazardTest1 = await jsonRequest(`/iot/rules/${hazardRule.id}/test`, token, "POST", { trigger_payload: { source: "s9d1" } }, "hazard-rule-test-1");
   assertStatus("CREATE_SAFETY_HAZARD first call", hazardTest1.response.status, 201);
@@ -331,7 +413,77 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   assert(hazardResult1?.result_payload?.hazard_id, "result_payload must include hazard_id");
   assert(hazardResult1?.result_payload?.hazard_code, "result_payload must include hazard_code");
   assert(hazardResult1?.result_payload?.idempotent === false, "first creation: idempotent should be false");
-  logStep(`CREATE_SAFETY_HAZARD created: ${hazardResult1.result_payload.hazard_code}`);
+  const createdHazardId = hazardResult1.result_payload.hazard_id;
+  const createdHazardCode = hazardResult1.result_payload.hazard_code;
+  logStep(`CREATE_SAFETY_HAZARD created: ${createdHazardCode}`);
+
+  const hazardAssociationRow = await psql(`
+SELECT COALESCE(park_tenant_id::text, '') || '|' ||
+       COALESCE(unit_id::text, '') || '|' ||
+       COALESCE(building_id::text, '') || '|' ||
+       COALESCE(floor_id::text, '') || '|' ||
+       COALESCE(risk_level, '') || '|' ||
+       COALESCE(source_type, '')
+FROM biz_safety_hazard
+WHERE tenant_id = ${sqlLiteral(tenantId)}
+  AND park_id = ${sqlLiteral(parkId)}
+  AND id = ${sqlLiteral(createdHazardId)}
+  AND is_deleted = false
+LIMIT 1;`);
+  assert(hazardAssociationRow, "Created IoT hazard should be persisted before visibility checks");
+  const [persistedParkTenantId, persistedUnitId, persistedBuildingId, persistedFloorId, persistedRiskLevel, persistedSourceType] = hazardAssociationRow.split("|");
+  assert(persistedParkTenantId === visibilityFixtures.parkTenantId, "Created IoT hazard did not persist park_tenant_id");
+  assert(persistedUnitId === visibilityFixtures.unitId, "Created IoT hazard did not persist unit_id");
+  if (visibilityFixtures.buildingId) assert(persistedBuildingId === visibilityFixtures.buildingId, "Created IoT hazard did not persist building_id");
+  if (visibilityFixtures.floorId) assert(persistedFloorId === visibilityFixtures.floorId, "Created IoT hazard did not persist floor_id");
+  assert(persistedRiskLevel === "30", "Created IoT hazard should be major risk for statistics visibility");
+  assert(persistedSourceType === "alert", "Created IoT hazard should use alert source_type");
+
+  const hazardsList = await request(`/safety/hazards?${toQuery({
+    page: 1,
+    page_size: 50,
+    source_type: "alert",
+    keyword: createdHazardCode
+  })}`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("/safety/hazards includes IoT hazard", hazardsList.response.status, 200);
+  assertUniformResponse("/safety/hazards includes IoT hazard", hazardsList.body);
+  assert(asArray(hazardsList.body.data?.items).some((item) => item?.id === createdHazardId), "/safety/hazards should include created IoT hazard_id");
+  logStep("/safety/hazards visibility verified for created IoT hazard");
+
+  const tenant360 = await request(`/park-tenants/${visibilityFixtures.parkTenantId}/360`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("/park-tenants/:id/360 includes IoT hazard", tenant360.response.status, 200);
+  assertUniformResponse("/park-tenants/:id/360 includes IoT hazard", tenant360.body);
+  assert(
+    asArray(tenant360.body.data?.hazards?.recent_items).some((item) => item?.id === createdHazardId),
+    "/park-tenants/:id/360 hazards.recent_items should include created IoT hazard_id"
+  );
+  logStep("/park-tenants/:id/360 visibility verified for created IoT hazard");
+
+  const unitHazards = await request(`/park-units/${visibilityFixtures.unitId}/hazards`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("/park-units/:id/hazards includes IoT hazard", unitHazards.response.status, 200);
+  assertUniformResponse("/park-units/:id/hazards includes IoT hazard", unitHazards.body);
+  assert(
+    asArray(unitHazards.body.data?.recent_items).some((item) => item?.id === createdHazardId),
+    "/park-units/:id/hazards recent_items should include created IoT hazard_id"
+  );
+  logStep("/park-units/:id/hazards visibility verified for created IoT hazard");
+
+  const statistics = await request(`/safety/statistics?${toQuery({
+    start_date: hazardWindowStart,
+    end_date: hazardWindowEnd,
+    hazard_type: "other",
+    risk_level: "30",
+    building_id: visibilityFixtures.buildingId
+  })}`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("/safety/statistics counts IoT hazard", statistics.response.status, 200);
+  assertUniformResponse("/safety/statistics counts IoT hazard", statistics.body);
+  assert(statistics.body.data?.summary?.hazard_total >= 1, "/safety/statistics summary.hazard_total should count created IoT hazard");
+  assert(statistics.body.data?.summary?.major_hazard_count >= 1, "/safety/statistics summary.major_hazard_count should count created IoT hazard");
+  assert(
+    asArray(statistics.body.data?.recent_major_hazards).some((item) => item?.id === createdHazardId),
+    "/safety/statistics recent_major_hazards should include created IoT hazard_id"
+  );
+  logStep("/safety/statistics visibility verified for created IoT hazard");
 
   // --- CREATE_SAFETY_HAZARD: idempotent call (same rule → same source_id) ---
   const hazardTest2 = await jsonRequest(`/iot/rules/${hazardRule.id}/test`, token, "POST", { trigger_payload: { source: "s9d1" } }, "hazard-rule-test-2");
@@ -339,7 +491,7 @@ WHERE tenant_id = ${sqlLiteral(tenantId)}
   const hazardResult2 = hazardTest2.body.data?.actionResult?.[0];
   assert(hazardResult2?.execution_status === "SUCCESS", `CREATE_SAFETY_HAZARD idempotent call should be SUCCESS, got ${hazardResult2?.execution_status}`);
   assert(hazardResult2?.result_payload?.idempotent === true, "second call: idempotent should be true");
-  assert(hazardResult2?.result_payload?.hazard_id === hazardResult1.result_payload.hazard_id, "idempotent call must return same hazard_id");
+  assert(hazardResult2?.result_payload?.hazard_id === createdHazardId, "idempotent call must return same hazard_id");
 
   const hazardDbCount = Number(await psql(`
 SELECT COUNT(*) FROM biz_safety_hazard
