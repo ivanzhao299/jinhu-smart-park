@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { repoStatus } from "./lib/git-utils.mjs";
 import {
+  detectCodexCli,
   normalizeAgentConfig,
   readJson,
   taskById,
@@ -19,27 +19,6 @@ const repoRoot = dirname(dirname(orchestratorDir));
 const agentsConfigPath = join(orchestratorDir, "agents.config.json");
 const queuePath = join(orchestratorDir, "queue", "task-queue.json");
 const locksPath = join(orchestratorDir, "queue", "task-locks.json");
-
-function commandOutput(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.error || result.status !== 0) {
-    return null;
-  }
-  return result.stdout.trim();
-}
-
-function findCodex() {
-  const path = commandOutput("sh", ["-lc", "command -v codex"]);
-  if (!path) {
-    return { found: false, path: "", version: "" };
-  }
-
-  return {
-    found: true,
-    path,
-    version: commandOutput("codex", ["--version"]) ?? ""
-  };
-}
 
 function formatRepo(path) {
   if (!path) {
@@ -82,7 +61,7 @@ const config = await readJson(agentsConfigPath);
 const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
 const agents = normalizeAgentConfig(config);
-const codex = findCodex();
+const codex = detectCodexCli();
 const active = activeLocks(locks, queue);
 
 const repos = [
@@ -96,7 +75,16 @@ console.log(`Generated at: ${new Date().toISOString()}`);
 console.log("");
 console.log("## Runtime");
 console.log(`- node: ${process.version}`);
-console.log(`- codex CLI: ${codex.found ? `found (${codex.path}${codex.version ? `, ${codex.version}` : ""})` : "not found"}`);
+console.log(`- codex CLI: ${codex.found ? "found" : "not found"}`);
+console.log(`- codex CLI path: ${codex.path || "(not found)"}`);
+console.log(`- codex CLI source: ${codex.source}`);
+console.log(`- codex CLI version: ${codex.version || "(unavailable)"}`);
+if (codex.warning) {
+  console.log(`- codex CLI warning: ${codex.warning}`);
+}
+if (!codex.found && codex.reason) {
+  console.log(`- codex CLI reason: ${codex.reason}`);
+}
 console.log("");
 console.log("## Worktrees");
 for (const repo of repos) {

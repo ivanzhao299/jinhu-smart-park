@@ -1,4 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
+import { accessSync, constants } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 export const VALID_AGENTS = ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"];
@@ -16,6 +18,8 @@ export const ORCHESTRATOR_BOOKKEEPING_FILES = new Set([
   "ops/agent-orchestrator/queue/task-locks.json",
   "ops/agent-orchestrator/queue/task-results.json"
 ]);
+
+export const DEFAULT_CODEX_APP_CLI_PATH = "/Applications/Codex.app/Contents/Resources/codex";
 
 export async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -142,6 +146,73 @@ export function normalizeAgentConfig(config) {
   }
 
   return agents;
+}
+
+export function isExecutableFile(path) {
+  if (!path) return false;
+  try {
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function commandOutput(command, args = []) {
+  const result = spawnSync(command, args, { encoding: "utf8" });
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  return result.stdout.trim();
+}
+
+function codexVersion(path) {
+  return commandOutput(path, ["--version"]) ?? "";
+}
+
+export function detectCodexCli(env = process.env) {
+  const envPath = env.CODEX_CLI?.trim();
+  let warning = "";
+  if (envPath) {
+    if (isExecutableFile(envPath)) {
+      return {
+        found: true,
+        path: envPath,
+        source: "CODEX_CLI",
+        version: codexVersion(envPath)
+      };
+    }
+    warning = `CODEX_CLI is set but is not executable: ${envPath}`;
+  }
+
+  const pathCodex = commandOutput("sh", ["-lc", "command -v codex"]);
+  if (pathCodex && isExecutableFile(pathCodex)) {
+    return {
+      found: true,
+      path: pathCodex,
+      source: "PATH",
+      version: codexVersion(pathCodex),
+      warning
+    };
+  }
+
+  if (isExecutableFile(DEFAULT_CODEX_APP_CLI_PATH)) {
+    return {
+      found: true,
+      path: DEFAULT_CODEX_APP_CLI_PATH,
+      source: "Codex.app",
+      version: codexVersion(DEFAULT_CODEX_APP_CLI_PATH),
+      warning
+    };
+  }
+
+  return {
+    found: false,
+    path: "",
+    source: "none",
+    version: "",
+    reason: warning || "Codex CLI not found"
+  };
 }
 
 export async function readResultFiles(resultsDir) {

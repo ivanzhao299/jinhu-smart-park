@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { repoStatus } from "./lib/git-utils.mjs";
 import {
+  detectCodexCli,
   normalizeAgentConfig,
   readJson,
   taskById
@@ -27,26 +27,6 @@ function parseArgs(argv) {
     throw new Error("Use either --dry-run or --apply, not both.");
   }
   return { apply, dryRun };
-}
-
-function commandOutput(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.error || result.status !== 0) {
-    return null;
-  }
-  return result.stdout.trim();
-}
-
-function findCodex() {
-  const path = commandOutput("sh", ["-lc", "command -v codex"]);
-  if (!path) {
-    return { found: false, path: "", version: "" };
-  }
-  return {
-    found: true,
-    path,
-    version: commandOutput("codex", ["--version"]) ?? ""
-  };
 }
 
 function shellQuote(value) {
@@ -83,8 +63,12 @@ function inspectWorktree(path) {
 }
 
 function suggestedCommand(item) {
+  if (!item.codex.found) {
+    return "Codex CLI not found; cannot auto-run agents";
+  }
+
   return [
-    "codex",
+    shellQuote(item.codex.path),
     "exec",
     "--ask-for-approval",
     "on-request",
@@ -119,7 +103,16 @@ Generated at: ${generatedAt}
 
 Mode: ${mode}
 
-Codex CLI: ${codex.found ? `found (${codex.path}${codex.version ? `, ${codex.version}` : ""})` : "not found"}
+Codex CLI: ${codex.found ? "found" : "not found"}
+
+Codex CLI path: ${codex.path || "(not found)"}
+
+Codex CLI source: ${codex.source}
+
+Codex CLI version: ${codex.version || "(unavailable)"}
+${codex.warning ? `\nCodex CLI warning: ${codex.warning}` : ""}
+
+Auto-run capability: ${codex.found ? "plan-ready (absolute CLI path available)" : "cannot auto-run"}
 
 This plan is generated from CLAIMED tasks with active locks. It does not execute Codex, does not modify agent worktrees, does not merge, does not push, and does not run production operations.
 
@@ -191,7 +184,7 @@ try {
   process.exit(1);
 }
 
-const codex = findCodex();
+const codex = detectCodexCli();
 if (args.apply && !codex.found) {
   console.error("Codex CLI not found; cannot auto-run agents");
   process.exit(1);
@@ -230,7 +223,8 @@ for (const item of claimed) {
     promptFileAbsolute: promptFile.absolute,
     branch: worktree.branch,
     head: worktree.head,
-    clean: worktree.clean
+    clean: worktree.clean,
+    codex
   };
   runItem.command = suggestedCommand(runItem);
   runnable.push(runItem);
@@ -244,7 +238,16 @@ await writeFile(runPlanPath, plan);
 
 console.log(`# Claimed Agent Prompt Runner ${mode}`);
 console.log("");
-console.log(`Codex CLI: ${codex.found ? `found (${codex.path}${codex.version ? `, ${codex.version}` : ""})` : "not found"}`);
+console.log(`Codex CLI: ${codex.found ? "found" : "not found"}`);
+console.log(`Codex CLI path: ${codex.path || "(not found)"}`);
+console.log(`Codex CLI source: ${codex.source}`);
+console.log(`Codex CLI version: ${codex.version || "(unavailable)"}`);
+if (codex.warning) {
+  console.log(`Codex CLI warning: ${codex.warning}`);
+}
+if (!codex.found && codex.reason) {
+  console.log(`Codex CLI reason: ${codex.reason}`);
+}
 console.log(`Run plan: ops/agent-orchestrator/runs/agent-run-plan.md`);
 console.log("");
 console.log("Runnable claimed tasks:");

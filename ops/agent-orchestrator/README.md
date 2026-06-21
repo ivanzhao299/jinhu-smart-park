@@ -156,10 +156,18 @@ node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run
 
 `check-agent-runner-env.mjs` is read-only. It checks:
 
-1. Whether the local `codex` command exists.
+1. Whether the Codex CLI exists.
 2. The current Node.js version.
 3. Whether main and `agent-1` through `agent-5` worktrees exist and are clean.
 4. Whether `task-locks.json` has active locks.
+
+Codex CLI detection uses this order:
+
+1. `CODEX_CLI` environment variable, when set and executable.
+2. `codex` found on `PATH`.
+3. Codex Desktop bundled CLI at `/Applications/Codex.app/Contents/Resources/codex`.
+
+If none is found, the scripts print `Codex CLI not found`. The runner still writes `agent-run-plan.md`, but marks the plan as `cannot auto-run`.
 
 `run-claimed-agent-prompts.mjs` reads:
 
@@ -188,7 +196,7 @@ The script writes:
 ops/agent-orchestrator/runs/agent-run-plan.md
 ```
 
-The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. The suggested command is not executed by this version.
+The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed by this version.
 
 `--apply` still does not run agents in this first version. It first checks that the Codex CLI exists, then writes the same plan-first command list:
 
