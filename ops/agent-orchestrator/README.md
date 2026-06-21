@@ -16,7 +16,11 @@ The first version turns a natural-language request into a persistent intake file
 | `queue/task-locks.json` | Claim records written by `claim-task.mjs`. |
 | `queue/task-results.json` | Compatibility aggregate generated from task result records. |
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
+| `events/` | V2 append-only event store directories for task, result, lock, and audit events. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
+| `scripts/lib/event-store-utils.mjs` | Event-store utilities for append-only task events and compatibility read models. |
+| `scripts/bootstrap-event-store.mjs` | Dry-run/apply bootstrap adapter from legacy queue JSON to task events. |
+| `scripts/rebuild-queue-read-model.mjs` | Dry-run/apply read-model rebuild from task events back to compatible queue JSON. |
 | `scripts/doctor.mjs` | Unified diagnostics for git/worktrees, queue/locks/results, Codex runner state, integration readiness, and validation status. |
 | `scripts/daemon.mjs` | Local watcher/daemon layer that observes doctor state and can run explicitly approved LOW-risk fixes or guarded auto-cycle steps. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
@@ -87,6 +91,75 @@ Each task must follow `task-queue.schema.json` and include at least:
 - `updated_at`
 
 Initial status for claimable work is `READY`. Supported owners are `agent-1` through `agent-5`.
+
+## 3A. V2 Event Sourcing Queue Foundation
+
+Agent Platform V2 introduces an append-only event store so future parallel agents do not have to write shared queue JSON directly.
+
+Event directories:
+
+```bash
+ops/agent-orchestrator/events/
+ops/agent-orchestrator/events/tasks/
+ops/agent-orchestrator/events/results/
+ops/agent-orchestrator/events/locks/
+ops/agent-orchestrator/events/audits/
+```
+
+Task lifecycle events are stored as independent files:
+
+```bash
+ops/agent-orchestrator/events/tasks/<task_id>/<timestamp>-<event_type>-<event_hash>.json
+```
+
+Supported task event types:
+
+- `task.created`
+- `task.claimed`
+- `task.started`
+- `task.completed`
+- `task.failed`
+- `task.blocked`
+- `task.deferred`
+- `task.audited`
+- `task.integrated`
+- `task.reconciled`
+
+The event store is append-only. Do not edit old event files to repair state; append a new status or reconciliation event instead. Event files must not contain secrets, production passwords, tokens, production connection strings, or production-only account details.
+
+Current V2-A first phase keeps the existing queue files as the compatibility layer:
+
+```bash
+ops/agent-orchestrator/queue/task-queue.json
+ops/agent-orchestrator/queue/task-locks.json
+ops/agent-orchestrator/queue/task-results.json
+```
+
+Bootstrap from current queue JSON is dry-run by default:
+
+```bash
+node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run
+```
+
+Only write bootstrap events with explicit approval:
+
+```bash
+node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --apply
+```
+
+Read-model rebuild is also dry-run by default:
+
+```bash
+node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run
+```
+
+Only regenerate compatibility JSON with explicit approval:
+
+```bash
+node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --apply
+```
+
+This first phase does not change the core write path for `dispatch-ready-agents.mjs`, `claim-task.mjs`, `complete-task.mjs`, `audit-all-results.mjs`, or `integrate-agent-results.mjs`. Later V2 phases should move completion, claim, audit, and integration writes to events first, then regenerate the JSON read model centrally from the orchestrator.
 
 ## 4. Agent Claim Flow
 

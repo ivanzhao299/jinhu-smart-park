@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T14:18:43.836Z",
+  "updated_at": "2026-06-21T22:30:05.770Z",
   "results": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -426,6 +426,69 @@
       "failed_checks": [],
       "notes": "Task complete. Local commit could not be created because sandbox denied writing the shared git worktree index lock; commit hash intentionally left empty. Parallel execution above 1 remains blocked until event-sourced completion writes are available.",
       "completed_at": "2026-06-21T14:12:41.795Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "pending-main-commit",
+      "changed_files": [
+        "ops/agent-orchestrator/events/.gitkeep",
+        "ops/agent-orchestrator/events/tasks/.gitkeep",
+        "ops/agent-orchestrator/events/results/.gitkeep",
+        "ops/agent-orchestrator/events/locks/.gitkeep",
+        "ops/agent-orchestrator/events/audits/.gitkeep",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/events/.gitkeep",
+        "ops/agent-orchestrator/events/tasks/.gitkeep",
+        "ops/agent-orchestrator/events/results/.gitkeep",
+        "ops/agent-orchestrator/events/locks/.gitkeep",
+        "ops/agent-orchestrator/events/audits/.gitkeep",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "passed_checks": [
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "failed_checks": [],
+      "notes": "Implemented event-sourcing queue foundation with append-only event utilities, bootstrap/read-model dry-run scripts, compatibility documentation, and test plan. Bootstrap --apply and rebuild --apply were intentionally not run.",
+      "completed_at": "2026-06-21T22:30:05.770Z"
     }
   ]
 }

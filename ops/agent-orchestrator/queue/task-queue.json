@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-21T22:13:39.824Z",
+  "updated_at": "2026-06-21T22:30:05.770Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -706,10 +706,11 @@
       "owner": "agent-5",
       "domain": "orchestrator-event-sourcing",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "DONE",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
+        "docs/testing",
         "ops/agent-orchestrator/specs",
         "ops/agent-orchestrator/events",
         "ops/agent-orchestrator/scripts",
@@ -743,8 +744,13 @@
       ],
       "validation_commands": [
         "git status --short",
-        "node --check ops/agent-orchestrator/scripts/lib/queue-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
         "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
         "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
         "pnpm typecheck",
         "git diff --check",
@@ -757,13 +763,16 @@
         "typecheck passes"
       ],
       "expected_output_files": [
-        "docs/release/agent-platform-v2-event-sourcing-architecture.md",
-        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-EVENT-SOURCING.md",
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:45:00+08:00",
-      "updated_at": "2026-06-21T22:13:39.824Z"
+      "updated_at": "2026-06-21T22:30:05.770Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",

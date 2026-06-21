@@ -48,6 +48,19 @@ V2 第一轮只做规划和任务拆解：
 
 用 append-only 事件文件替代多个 Agent 对共享 JSON 文件的直接写入，降低 task queue、lock、result 的冲突概率，同时保留现有 JSON 文件作为兼容 read model。
 
+### 4.1A 第一阶段实现状态
+
+第一阶段已进入基础设施实现：
+
+- 已定义 `ops/agent-orchestrator/events/`、`events/tasks/`、`events/results/`、`events/locks/`、`events/audits/` 目录边界。
+- 已新增 `scripts/lib/event-store-utils.mjs`，提供 append-only task event、事件列表、queue/lock/result read model 汇总能力。
+- 已新增 `bootstrap-event-store.mjs`，默认 dry-run，从现有 `queue/*.json` 规划 deterministic bootstrap events，`--apply` 才写事件文件。
+- 已新增 `rebuild-queue-read-model.mjs`，默认 dry-run，从 events 汇总兼容 JSON diff summary，`--apply` 才写回 `task-queue.json`、`task-locks.json`、`task-results.json`。
+- 已新增正式设计文档 `docs/release/agent-platform-v2-event-sourcing-queue-design.md`。
+- 已新增测试计划 `docs/testing/agent-platform-v2-event-sourcing-test-plan.md`。
+
+当前阶段仍保持现有 `claim-task.mjs`、`dispatch-ready-agents.mjs`、`complete-task.mjs`、`audit-all-results.mjs`、`integrate-agent-results.mjs` 写路径不变。后续阶段再逐步把 claim、complete、audit、integrate 切到 event-first 写入。
+
 ### 4.2 事件目录设计
 
 ```text
@@ -60,10 +73,10 @@ ops/agent-orchestrator/events/
 
 建议文件粒度：
 
-- `events/tasks/<task_id>.task.json`
-- `events/locks/<task_id>.<agent>.lock.json`
-- `events/results/<task_id>.<agent>.result.json`
-- `events/audits/<task_id>.audit.json`
+- `events/tasks/<task_id>/<timestamp>-<event_type>-<event_hash>.json`
+- `events/locks/<task_id>.<agent>.lock.json`，后续阶段可作为 lock artifact 拆分目录。
+- `events/results/<task_id>.<agent>.result.json`，后续阶段可作为 result artifact 拆分目录。
+- `events/audits/<task_id>.audit.json`，后续阶段可作为 audit artifact 拆分目录。
 
 每个 task / result / audit 独立文件，避免多个 Agent 写同一个 JSON。
 
