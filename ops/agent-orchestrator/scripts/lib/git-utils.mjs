@@ -158,6 +158,39 @@ export function classifyRisk(files) {
   return low ? "LOW" : "MEDIUM";
 }
 
+export function classifyAgentResultRisk(files) {
+  const normalized = files.map((file) => file.replaceAll("\\", "/").replace(/^\.\//, ""));
+
+  const high = normalized.some((file) =>
+    file.startsWith("apps/") ||
+    file.startsWith("packages/") ||
+    file.startsWith("database/") ||
+    file.startsWith("infra/") ||
+    file.startsWith(".github/") ||
+    file === "Dockerfile" ||
+    file.startsWith("Dockerfile.") ||
+    file.startsWith("docker-compose") ||
+    file.includes("auth") ||
+    file.includes("deploy")
+  );
+  if (high) return "HIGH";
+
+  const medium = normalized.some((file) =>
+    file.startsWith("ops/agent-orchestrator/queue/") ||
+    file.startsWith("ops/agent-orchestrator/scripts/") ||
+    file.startsWith("docs/testing/") ||
+    file.startsWith("scripts/e2e/")
+  );
+  if (medium) return "MEDIUM";
+
+  const low = normalized.length > 0 && normalized.every((file) =>
+    file.startsWith("docs/") ||
+    file.startsWith("ops/agent-orchestrator/reports/") ||
+    file.startsWith("ops/agent-orchestrator/results/")
+  );
+  return low ? "LOW" : "MEDIUM";
+}
+
 export function repoStatus(worktreePath) {
   const output = statusShort(worktreePath);
   const entries = parseStatusShort(output);

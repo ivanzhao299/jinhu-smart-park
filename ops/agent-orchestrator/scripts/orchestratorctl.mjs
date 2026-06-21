@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   changedFilesAgainst,
   changedFilesNameStatus,
-  classifyRisk,
+  classifyAgentResultRisk,
   commitsNotIn,
   git,
   repoStatus
@@ -27,6 +27,7 @@ const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 const resultsPath = join(orchestratorDir, "queue", "task-results.json");
 const ACTIVE_LOCK_STATUSES = new Set(["CLAIMED", "IN_PROGRESS", "BLOCKED"]);
 const RISK_RANK = new Map([["LOW", 0], ["MEDIUM", 1], ["HIGH", 2]]);
+const AGENT_INTEGRATION_ORDER = ["agent-2", "agent-3", "agent-4", "agent-5", "agent-1"];
 
 function usage() {
   console.error(`Usage:
@@ -37,6 +38,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --push
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push`);
 }
@@ -100,6 +102,7 @@ function commandMode(args) {
   if (args.dryRun) return "dry-run";
   if (args.apply && args.execute && args.push) return "apply-execute-push";
   if (args.apply && args.execute) return "apply-execute";
+  if (args.apply && args.push) return "apply-push";
   return "apply-plan";
 }
 
@@ -142,11 +145,14 @@ function collectIntegrationCandidates(agents) {
       commits,
       files,
       nameStatus: changedFilesNameStatus(agent.path, "origin/main", "HEAD"),
-      risk: classifyRisk(files)
+      risk: classifyAgentResultRisk(files)
     });
   }
 
   candidates.sort((a, b) => {
+    const byAgent = AGENT_INTEGRATION_ORDER.indexOf(a.agent.id) - AGENT_INTEGRATION_ORDER.indexOf(b.agent.id);
+    if (byAgent !== 0) return byAgent;
+
     const byRisk = RISK_RANK.get(a.risk) - RISK_RANK.get(b.risk);
     if (byRisk !== 0) return byRisk;
     return a.agent.id.localeCompare(b.agent.id);
@@ -279,6 +285,7 @@ async function runReadOnlyPlans() {
   console.log("## Read-Only Pipeline Plan");
   requireScript("ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--dry-run", "--no-write"]);
+  requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", ["--plan"]);
 }
@@ -378,6 +385,35 @@ async function mergeIntegrationToMainAndPush(state, integrationBranch) {
   requireScript("ops/agent-orchestrator/scripts/check-dispatch-status.mjs", []);
 }
 
+async function integrateExistingAgentCommits(state, args) {
+  const candidates = collectIntegrationCandidates(state.agents);
+  printIntegrationCandidates(candidates);
+
+  const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
+  if (highRisk.length > 0) {
+    printOutcome("NO_GO", `HIGH-risk agent changes require human confirmation before integration:\n- ${highRisk.map((item) => item.agent.id).join("\n- ")}`);
+    process.exit(1);
+  }
+
+  requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
+
+  if (candidates.length === 0) {
+    printOutcome(args.push ? "GO" : "CONDITIONAL_GO", "No agent commits to integrate.");
+    return;
+  }
+
+  requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--apply"]);
+  const integrationBranch = currentBranch(state.mainPath);
+
+  if (args.push) {
+    await mergeIntegrationToMainAndPush(state, integrationBranch);
+    printOutcome("GO", "Agent cycle completed, integration validated, main pushed, and agents reconciled.");
+  } else {
+    printManualMergeCommands(state.mainPath, integrationBranch);
+    printOutcome("CONDITIONAL_GO", "Integration branch is ready after validation. Human review is still required before merge/push.");
+  }
+}
+
 async function agentCycleCommand(rest) {
   let args;
   try {
@@ -390,18 +426,19 @@ async function agentCycleCommand(rest) {
   const state = await readAgentCycleState();
   printAgentCyclePrecheck(state, args);
 
-  if (args.dryRun || !args.execute) {
+  if (args.dryRun) {
     await runReadOnlyPlans();
+    printOutcome("CONDITIONAL_GO", "Dry-run only; no files were modified.");
+    return;
+  }
+
+  if (!args.execute) {
     const blockers = precheckBlockers(state, args);
-    if (!args.dryRun && blockers.length > 0) {
-      printOutcome("CONDITIONAL_GO", `Apply plan only. Mutating steps are blocked until resolved:\n- ${blockers.join("\n- ")}`);
-      return;
+    if (blockers.length > 0) {
+      printOutcome("NO_GO", `Integration apply stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
+      process.exit(1);
     }
-    if (!args.dryRun && (state.mainStatus.ahead ?? 0) > 0 && !args.push) {
-      printOutcome("CONDITIONAL_GO", "Apply plan only. main is ahead of origin/main; pass --push before steps that require agent sync.");
-      return;
-    }
-    printOutcome("CONDITIONAL_GO", args.dryRun ? "Dry-run only; no files were modified." : "Apply without --execute is plan-first only; no Codex agent was executed and no push was attempted.");
+    await integrateExistingAgentCommits(state, args);
     return;
   }
 
@@ -421,41 +458,10 @@ async function agentCycleCommand(rest) {
   await dispatchReadyTasksIfAllowed(refreshedBeforeDispatch, args);
 
   requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--apply", "--execute"]);
+  requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--apply"]);
 
-  const refreshedAfterRun = await readAgentCycleState();
-  const candidates = collectIntegrationCandidates(refreshedAfterRun.agents);
-  printIntegrationCandidates(candidates);
-
-  const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
-  if (highRisk.length > 0) {
-    printOutcome("NO_GO", `HIGH-risk agent changes require human confirmation before integration:\n- ${highRisk.map((item) => item.agent.id).join("\n- ")}`);
-    process.exit(1);
-  }
-
-  requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
-
-  let integrationBranch = "";
-  if (candidates.length > 0) {
-    requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--apply"]);
-    integrationBranch = currentBranch(refreshedAfterRun.mainPath);
-  } else {
-    console.log("No agent commits to integrate.");
-  }
-
-  requireScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", []);
-
-  if (!integrationBranch) {
-    printOutcome(args.push ? "GO" : "CONDITIONAL_GO", "Validation passed and no integration branch was needed.");
-    return;
-  }
-
-  if (args.push) {
-    await mergeIntegrationToMainAndPush(refreshedAfterRun, integrationBranch);
-    printOutcome("GO", "Agent cycle completed, main pushed, and agents reconciled.");
-  } else {
-    printManualMergeCommands(refreshedAfterRun.mainPath, integrationBranch);
-    printOutcome("CONDITIONAL_GO", "Integration branch is ready after validation. Human review is still required before merge/push.");
-  }
+  const refreshedAfterCommit = await readAgentCycleState();
+  await integrateExistingAgentCommits(refreshedAfterCommit, args);
 }
 
 const argv = process.argv.slice(2);
