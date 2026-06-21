@@ -55,6 +55,8 @@ node scripts/e2e/first-release-workorders.mjs
 node scripts/e2e/first-release-leasing.mjs
 ```
 
+RBAC, first-release menu, dashboard visibility, denied-route, and permission consistency release checks are defined in [rbac-menu-dashboard-permission-release-checks.md](./rbac-menu-dashboard-permission-release-checks.md). Production use is read-only by default and requires release-owner approval before browser sampling.
+
 ## 4. 环境变量
 
 回归脚本主要使用以下环境变量：

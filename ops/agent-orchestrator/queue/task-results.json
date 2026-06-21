@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T18:30:00+08:00",
+  "updated_at": "2026-06-21T12:16:22.254Z",
   "results": [
     {
       "task_id": "TRIAL-20260621-001-A2-FINANCE",
@@ -187,6 +187,48 @@
       "failed_checks": [],
       "notes": "Evidence pack completed. Skipped node scripts/e2e/first-release-files.mjs, MODE=full pnpm prod:health, and bash scripts/verify-api-login-dockerexec.sh because no approved target environment, credentials, test data marker, or cleanup plan was provided. Release judgment remains No-Go until target evidence is collected. No merge or push.",
       "completed_at": "2026-06-21T09:16:00.346Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
+      "changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "failed_checks": [],
+      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
+      "completed_at": "2026-06-21T12:16:22.254Z"
     }
   ]
 }
