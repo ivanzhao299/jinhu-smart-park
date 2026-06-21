@@ -141,3 +141,27 @@ Current gate status remains **No-Go**:
 | `node scripts/e2e/first-release-menu-whitelist.mjs` | Pass | First-release menu whitelist regression completed. |
 
 The production templates still require `AUTH_SMS_FIXED_CODE` to be empty, `AUTH_SMS_CODE_VISIBLE=false`, and `AUTH_WECHAT_MOCK_ENABLED=false`. A production-like API target using those runtime values must pass auth health before the release can move out of No-Go.
+
+## 11. Follow-Up Evidence: TRIAL-20260621-001-A5-ROLLBACK
+
+Rollback, file, backup, and release-chain evidence was recorded for task `TRIAL-20260621-001-A5-ROLLBACK`.
+See [trial-launch-release-rollback-file-backup-evidence.md](./trial-launch-release-rollback-file-backup-evidence.md).
+
+The release-chain script existence checks passed:
+
+| Check | Result |
+|---|---|
+| `test -x scripts/db-migrate.sh` | Pass |
+| `test -x scripts/db-seed-prod.sh` | Pass |
+| `test -x scripts/check-init-baseline.sh` | Pass |
+| `test -x scripts/bootstrap-admin.sh` | Pass |
+| `test -x scripts/prod-healthcheck.sh` | Pass |
+| `test -x scripts/verify-api-login-dockerexec.sh` | Pass |
+
+The following validation commands were intentionally skipped because this run did not have an approved target environment, production-safe credentials, test data marker, and cleanup plan:
+
+- `node scripts/e2e/first-release-files.mjs`
+- `MODE=full pnpm prod:health`
+- `bash scripts/verify-api-login-dockerexec.sh`
+
+Current release judgment remains **No-Go** until target-environment evidence is recorded for migration, production seed, init baseline, bootstrap-admin, production health, container login verification, file upload/download, database backup, file backup, previous image tags, rollback owner, observation window, and Docker cleanup.

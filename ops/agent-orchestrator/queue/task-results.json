@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T16:53:17+08:00",
+  "updated_at": "2026-06-21T09:16:00.346Z",
   "results": [
     {
       "task_id": "TRIAL-20260621-001-A2-FINANCE",
@@ -152,6 +152,41 @@
       ],
       "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
       "completed_at": "2026-06-21T16:53:17+08:00"
+    },
+    {
+      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/release/production-readiness-dry-run-report.md",
+        "docs/release/trial-launch-release-rollback-file-backup-evidence.md",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "git diff --check"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Evidence pack completed. Skipped node scripts/e2e/first-release-files.mjs, MODE=full pnpm prod:health, and bash scripts/verify-api-login-dockerexec.sh because no approved target environment, credentials, test data marker, or cleanup plan was provided. Release judgment remains No-Go until target evidence is collected. No merge or push.",
+      "completed_at": "2026-06-21T09:16:00.346Z"
     }
   ]
 }
