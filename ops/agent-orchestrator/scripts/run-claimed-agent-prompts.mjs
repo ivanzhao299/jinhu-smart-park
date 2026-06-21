@@ -22,6 +22,40 @@ const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 const runsDir = join(orchestratorDir, "runs");
 const runPlanPath = join(runsDir, "agent-run-plan.md");
 const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
+const allowedParallelValues = new Set(["1", "2", "3", "5"]);
+
+function readOptionValue(argv, name) {
+  const flag = `--${name}`;
+  const values = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+
+    if (token === flag) {
+      const next = argv[index + 1];
+      if (!next || next.startsWith("--")) {
+        throw new Error(`${flag} requires one of: ${[...allowedParallelValues].join(", ")}.`);
+      }
+      values.push(next);
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith(`${flag}=`)) {
+      const value = token.slice(flag.length + 1);
+      if (!value) {
+        throw new Error(`${flag} requires one of: ${[...allowedParallelValues].join(", ")}.`);
+      }
+      values.push(value);
+    }
+  }
+
+  if (values.length > 1) {
+    throw new Error(`Use ${flag} only once.`);
+  }
+
+  return values[0];
+}
 
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
@@ -30,6 +64,8 @@ function parseArgs(argv) {
   const writePlan = argv.includes("--write-plan");
   const noWrite = argv.includes("--no-write");
   const dryRun = argv.includes("--dry-run") || !apply;
+  const parallelRaw = readOptionValue(argv, "parallel") ?? "1";
+
   if (argv.includes("--dry-run") && (apply || execute)) {
     throw new Error("Use either --dry-run or --apply, not both.");
   }
@@ -42,9 +78,12 @@ function parseArgs(argv) {
   if (writePlan && noWrite) {
     throw new Error("Use either --write-plan or --no-write, not both.");
   }
+  if (!allowedParallelValues.has(parallelRaw)) {
+    throw new Error(`Invalid --parallel value: ${parallelRaw}. Expected one of: ${[...allowedParallelValues].join(", ")}.`);
+  }
 
   const shouldWritePlan = !noWrite && (writePlan || (apply && !precheckOnly));
-  return { apply, execute, precheckOnly, writePlan, dryRun, noWrite, shouldWritePlan };
+  return { apply, execute, precheckOnly, writePlan, dryRun, noWrite, shouldWritePlan, parallel: Number(parallelRaw) };
 }
 
 function shellQuote(value) {
@@ -127,12 +166,56 @@ function suggestedCommand(item) {
   ].join(" ");
 }
 
-function buildRunPlan({ generatedAt, mode, codex, runnable, skipped }) {
+function buildParallelBatches(runnable, parallel) {
+  const batches = [];
+
+  for (let index = 0; index < runnable.length; index += parallel) {
+    batches.push({
+      index: batches.length + 1,
+      items: runnable.slice(index, index + parallel)
+    });
+  }
+
+  return batches;
+}
+
+function priorityRank(priority) {
+  const match = /^P(\d+)$/i.exec(String(priority ?? ""));
+  return match ? Number(match[1]) : 99;
+}
+
+function compareRunItems(left, right) {
+  return (
+    priorityRank(left.task.priority) - priorityRank(right.task.priority)
+    || String(left.task.created_at ?? "").localeCompare(String(right.task.created_at ?? ""))
+    || String(left.task.owner ?? "").localeCompare(String(right.task.owner ?? ""))
+    || String(left.task.task_id ?? "").localeCompare(String(right.task.task_id ?? ""))
+  );
+}
+
+function batchForTask(parallelBatches, taskId) {
+  for (const batch of parallelBatches) {
+    if (batch.items.some((item) => item.task.task_id === taskId)) {
+      return batch.index;
+    }
+  }
+  return "";
+}
+
+function buildRunPlan({ generatedAt, mode, parallel, parallelBatches, codex, runnable, skipped }) {
   const runnableRows = runnable.length === 0
-    ? "| _none_ | | | | | | | |"
+    ? "| _none_ | | | | | | | | |"
     : runnable.map((item) =>
-      `| ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative} | ${item.logFileRelative} | ${item.branch ?? ""} | ${item.clean ? "yes" : "no"} | \`${item.command}\` |`
+      `| ${batchForTask(parallelBatches, item.task.task_id)} | ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative} | ${item.logFileRelative} | ${item.branch ?? ""} | ${item.clean ? "yes" : "no"} | \`${item.command}\` |`
     ).join("\n");
+
+  const batchRows = parallelBatches.length === 0
+    ? "| _none_ | | | |"
+    : parallelBatches.map((batch) => {
+      const tasks = batch.items.map((item) => `${item.task.task_id} / ${item.task.owner}`).join("<br>");
+      const logs = batch.items.map((item) => item.logFileRelative).join("<br>");
+      return `| ${batch.index} | ${batch.items.length} | ${tasks} | ${logs} |`;
+    }).join("\n");
 
   const skippedRows = skipped.length === 0
     ? "| _none_ | | |"
@@ -147,6 +230,10 @@ function buildRunPlan({ generatedAt, mode, codex, runnable, skipped }) {
 Generated at: ${generatedAt}
 
 Mode: ${mode}
+
+Parallelism: ${parallel}
+
+Execution policy: ${parallel === 1 ? "serial safe mode" : "parallel preview only; --apply --execute --parallel > 1 is blocked until event-sourced completion writes are available"}
 
 Codex CLI: ${codex.found ? "found" : "not found"}
 
@@ -165,10 +252,16 @@ Auto-run capability: ${codex.found ? "plan-ready (absolute CLI path available)" 
 
 This plan is generated from CLAIMED tasks with active locks. It does not execute Codex, does not modify agent worktrees, does not merge, does not push, and does not run production operations.
 
+## Planned Parallel Batches
+
+| Batch | Runnable Count | Tasks | Log Files |
+|---|---:|---|---|
+${batchRows}
+
 ## Runnable Claimed Tasks
 
-| Task ID | Owner | Worktree | Prompt File | Log File | Branch | Clean | Suggested Command |
-|---|---|---|---|---|---|---|---|
+| Batch | Task ID | Owner | Worktree | Prompt File | Log File | Branch | Clean | Suggested Command |
+|---:|---|---|---|---|---|---|---|---|
 ${runnableRows}
 
 ## Skipped Items
@@ -186,7 +279,8 @@ ${commands}
 - Treat these commands as operator-reviewed plans until Codex CLI automation is explicitly approved.
 - Do not use unattended deploy, push, migration, seed, backup, restore, rollback, Docker cleanup, or production data operations.
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
-- \`--apply --execute\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, deploy, or mutate queue state.
+- \`--apply --execute --parallel 1\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, deploy, or mutate queue state.
+- \`--parallel > 1\` is accepted for planning and dry-run batch preview, but execution is blocked until task completion writes are event-sourced instead of shared queue JSON writes.
 `;
 }
 
@@ -231,11 +325,15 @@ function claimedLocks(queue, locks) {
   return { claimed, skipped };
 }
 
-function assertExecutePreconditions({ codex, mainStatus, runnable, skipped }) {
+function assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel }) {
   const failures = [];
 
   if (!codex.found) {
     failures.push("Codex CLI not found; cannot auto-run agents");
+  }
+
+  if (parallel > 1) {
+    failures.push("--apply --execute --parallel > 1 is blocked until event-sourced task completion/result writes are available");
   }
 
   if (!mainStatus.clean) {
@@ -341,8 +439,12 @@ async function runCodexTask(item) {
     worktree: item.worktreePath,
     prompt_file: item.promptFileRelative,
     log_file: item.logFileRelative,
+    started_at: startedAt,
+    finished_at: finishedAt,
     exit_code: exitCode,
-    success: exitCode === 0
+    status: exitCode === 0 ? "success" : "failed",
+    success: exitCode === 0,
+    failure_reason: exitCode === 0 ? "" : `Codex CLI exited with code ${exitCode}`
   };
 }
 
@@ -355,10 +457,15 @@ function printExecutionSummary(results) {
   }
 
   for (const result of results) {
-    console.log(`- ${result.task_id} | ${result.agent} | exit ${result.exit_code} | ${result.success ? "success" : "failed"}`);
+    console.log(`- ${result.task_id} | ${result.agent} | exit ${result.exit_code} | ${result.status}`);
     console.log(`  worktree: ${result.worktree}`);
     console.log(`  prompt: ${result.prompt_file}`);
     console.log(`  log: ${result.log_file}`);
+    console.log(`  started_at: ${result.started_at}`);
+    console.log(`  finished_at: ${result.finished_at}`);
+    if (result.failure_reason) {
+      console.log(`  failure_reason: ${result.failure_reason}`);
+    }
   }
 }
 
@@ -424,8 +531,17 @@ for (const item of claimed) {
   runnable.push(runItem);
 }
 
-const mode = args.execute ? "execute (serial guarded)" : args.apply ? "apply-plan (no execution without --execute)" : "dry-run";
-const plan = buildRunPlan({ generatedAt, mode, codex, runnable, skipped });
+runnable.sort(compareRunItems);
+
+const parallelBatches = buildParallelBatches(runnable, args.parallel);
+const mode = args.execute
+  ? args.parallel === 1
+    ? "execute (serial guarded)"
+    : "execute (parallel blocked pending event-sourced completion writes)"
+  : args.apply
+    ? "apply-plan (no execution without --execute)"
+    : "dry-run";
+const plan = buildRunPlan({ generatedAt, mode, parallel: args.parallel, parallelBatches, codex, runnable, skipped });
 
 await mkdir(runsDir, { recursive: true });
 if (args.shouldWritePlan) {
@@ -446,14 +562,28 @@ if (!codex.found && codex.reason) {
 }
 console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
 console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
+console.log(`Parallelism: ${args.parallel}`);
+console.log(`Execution policy: ${args.parallel === 1 ? "serial safe mode" : "parallel preview only until event-sourced completion writes are available"}`);
 console.log(`Run plan: ${args.shouldWritePlan ? runPlanRelativePath : args.noWrite ? "(not written; --no-write)" : "(stdout only; pass --write-plan to write agent-run-plan.md)"}`);
+console.log("");
+console.log("Planned parallel batches:");
+if (parallelBatches.length === 0) {
+  console.log("- none");
+} else {
+  for (const batch of parallelBatches) {
+    const tasks = batch.items.map((item) => `${item.task.task_id}/${item.task.owner}`).join(", ");
+    const logs = batch.items.map((item) => item.logFileRelative).join(", ");
+    console.log(`- batch ${batch.index}: ${tasks}`);
+    console.log(`  logs: ${logs}`);
+  }
+}
 console.log("");
 console.log("Runnable claimed tasks:");
 if (runnable.length === 0) {
   console.log("- none");
 } else {
   for (const item of runnable) {
-    console.log(`- ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative}`);
+    console.log(`- batch ${batchForTask(parallelBatches, item.task.task_id)} | ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative}`);
     console.log(`  command: ${item.command}`);
   }
 }
@@ -485,12 +615,12 @@ if (!args.shouldWritePlan) {
 
 if (args.execute) {
   console.log("");
-  console.log("Guardrails: serial execution only; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  console.log("Guardrails: --parallel 1 serial execution only until event-sourced completion writes are available; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
   const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
     ignoredPaths: [runPlanRelativePath]
   });
   try {
-    assertExecutePreconditions({ codex, mainStatus, runnable, skipped });
+    assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel: args.parallel });
   } catch (error) {
     console.error("");
     console.error("Execution precheck failed:");
