@@ -191,6 +191,17 @@ or explicitly:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run
 ```
 
+The runner accepts a bounded parallelism parameter:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 1
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 2
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 3
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 5
+```
+
+`--parallel` defaults to `1`. Values other than `1`, `2`, `3`, or `5` fail before any agent runs. Dry-run output includes the planned parallel batches and the per-task log files that would be used.
+
 Dry-run is no-write by default. It prints the plan to stdout and does not update:
 
 ```bash
@@ -203,7 +214,7 @@ To write the plan file during dry-run, pass `--write-plan` explicitly:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --write-plan
 ```
 
-The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed in dry-run or single-flag apply mode.
+The plan lists each runnable claimed task, planned batch, owner, worktree path, prompt file, run log, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed in dry-run or single-flag apply mode.
 
 Codex CLI flags differ by version. The runner reads:
 
@@ -235,7 +246,7 @@ Real execution requires both flags:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
 ```
 
-`--apply --execute` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially, never in parallel. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
+`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. This is the default and only executable safe mode until event-sourced completion/result writes are available. `--apply --execute --parallel 2`, `--parallel 3`, and `--parallel 5` are blocked by the execution precheck; use dry-run to preview those batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
 
 1. Codex CLI is detected and executable.
 2. Main worktree is clean.
@@ -243,6 +254,7 @@ node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --exec
 4. `task-locks.json` has a matching active lock.
 5. `task-queue.json` status is `CLAIMED`.
 6. The prompt file exists and matches `<task_id>-<agent>.prompt.md`.
+7. `--parallel` is `1` for real execution.
 
 Use `--apply --execute --precheck-only` to run the exact execution precheck without starting Codex:
 
@@ -256,7 +268,11 @@ Each task writes a log file:
 ops/agent-orchestrator/runs/<task_id>-<agent>.run.log
 ```
 
-If any Codex command exits non-zero, the runner stops and does not execute later tasks.
+Each run log records the task id, agent, worktree, prompt file, command, start time, finish time, exit code, stdout, and stderr. The console summary reports the task id, agent, worktree, prompt file, log file, start time, finish time, exit code, status, and failure reason.
+
+In serial execution, if any Codex command exits non-zero, the runner stops and does not execute later tasks. The planned parallel strategy for future event-first execution is to stop launching new tasks after the first failure while allowing already-started tasks to finish, then emit an aggregated summary with `success`, `failed`, `skipped`, and `not_started` statuses.
+
+Safe parallel completion requires the event-sourcing queue first. Without per-task result events and a read-model writer, multiple agents can still converge on shared queue/result JSON during completion or integration and create bookkeeping conflicts. Until completion state is written as independent events and legacy JSON is regenerated centrally, `--parallel > 1` remains a planning and dry-run preview mode only.
 
 If the CLI is missing in execute mode, the runner aborts with:
 
@@ -559,7 +575,7 @@ Full high-level flow:
 4. Run `dispatch-ready-agents.mjs --dry-run` to preview dispatch.
 5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
 6. Run `run-claimed-agent-prompts.mjs --dry-run` to preview the plan without writing files; add `--write-plan` only when a plan file is intentionally needed.
-7. Either use the plan to start each agent manually, or run `run-claimed-agent-prompts.mjs --apply --execute` for guarded serial Codex CLI execution.
+7. Either use the plan to start each agent manually, or run `run-claimed-agent-prompts.mjs --apply --execute --parallel 1` for guarded serial Codex CLI execution.
 8. After execution, inspect each agent worktree with `commit-agent-results.mjs --dry-run`; then use `commit-agent-results.mjs --apply` to create agent branch commits when risk is LOW/MEDIUM.
 9. Agents complete work and record results with `complete-task.mjs`.
 10. Run `audit-all-results.mjs`.
@@ -611,6 +627,7 @@ The task queue can mark these with `requires_human_approval: true`.
 - Locking is advisory and recorded in `task-locks.json`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
-- `run-claimed-agent-prompts.mjs --apply --execute` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
+- `run-claimed-agent-prompts.mjs --apply --execute --parallel 1` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
+- `run-claimed-agent-prompts.mjs --parallel 2|3|5` is currently a dry-run/plan preview path only; real parallel execution stays blocked until event-sourced completion writes are in place.
 - `commit-agent-results.mjs --apply` commits only eligible LOW/MEDIUM dirty agent outputs. It does not merge or push.
 - `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.
