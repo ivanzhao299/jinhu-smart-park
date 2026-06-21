@@ -127,6 +127,8 @@ node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs
 | Seed | production seed 与 dev seed 隔离、`ALLOW_PRODUCTION_SEED=yes`、首发基线 | `ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod`；`pnpm db:check:init` | 预发和生产必须执行；本地按需 | production seed 成功，dev seed 未误跑，基线检查通过或明确记录 | production seed 失败、误跑 dev seed、基线缺失 | Agent 5 / 发布负责人 |
 | 部署健康 | `/health`、`/ready`、Web `/login`、容器、磁盘、文件目录、Docker cleanup | `MODE=full pnpm prod:health`；`pnpm prod:deploy`；`pnpm prod:cleanup` | 预发和生产必须执行 | API liveness/readiness 和 Web login 通过，容器健康，磁盘和文件目录正常 | `/ready` 失败、容器 unhealthy、磁盘不足、部署后 cleanup 未执行或失败未记录 | Agent 5 / 运维 |
 
+Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dashboard-permission-release-gate.md](./rbac-menu-dashboard-permission-release-gate.md). Use it for super-admin, standard role, denied route, first-release menu, non-first-release exposure, dashboard visibility, and permission consistency evidence.
+
 ## 5. 发布前检查清单
 
 | 阶段 | 检查项 | 必须证据 | Go / No-Go |
