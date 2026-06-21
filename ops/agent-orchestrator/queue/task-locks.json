@@ -1,20 +1,10 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T10:01:28.385Z",
+  "updated_at": "2026-06-21T13:15:12.673Z",
   "locks": [
     {
       "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
       "agent": "agent-2",
-      "claimed_at": "2026-06-21T10:01:28.385Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
-      "agent": "agent-3",
-      "claimed_at": "2026-06-21T10:01:28.385Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
-      "agent": "agent-4",
       "claimed_at": "2026-06-21T10:01:28.385Z"
     },
     {

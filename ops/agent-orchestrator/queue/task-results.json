@@ -1,7 +1,44 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T12:11:37.366Z",
+  "updated_at": "2026-06-21T13:15:12.673Z",
   "results": [
+    {
+      "task_id": "TRIAL-20260621-001-A5-GATES",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "fedf4bd",
+      "changed_files": [
+        "docs/release/production-readiness-dry-run-report.md",
+        "docs/release/trial-launch-engineering-gates-auth-readiness.md"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-5",
+        "git status --short",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs"
+      ],
+      "passed_checks": [
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "GET /health",
+        "GET /ready",
+        "POST /auth/login correct password",
+        "GET /auth/me",
+        "POST /auth/login wrong password rejected"
+      ],
+      "failed_checks": [
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs"
+      ],
+      "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
+      "completed_at": "2026-06-21T16:53:17+08:00"
+    },
     {
       "task_id": "TRIAL-20260621-001-A2-FINANCE",
       "agent": "agent-2",
@@ -117,43 +154,6 @@
       "completed_at": "2026-06-21T16:53:17+08:00"
     },
     {
-      "task_id": "TRIAL-20260621-001-A5-GATES",
-      "agent": "agent-5",
-      "status": "DONE",
-      "commit_hash": "fedf4bd",
-      "changed_files": [
-        "docs/release/production-readiness-dry-run-report.md",
-        "docs/release/trial-launch-engineering-gates-auth-readiness.md"
-      ],
-      "commands_run": [
-        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-5",
-        "git status --short",
-        "pnpm lint",
-        "pnpm typecheck",
-        "pnpm build",
-        "node scripts/e2e/first-release-auth-health.mjs",
-        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs",
-        "node scripts/e2e/first-release-menu-whitelist.mjs"
-      ],
-      "passed_checks": [
-        "node scripts/e2e/first-release-menu-whitelist.mjs",
-        "GET /health",
-        "GET /ready",
-        "POST /auth/login correct password",
-        "GET /auth/me",
-        "POST /auth/login wrong password rejected"
-      ],
-      "failed_checks": [
-        "pnpm lint",
-        "pnpm typecheck",
-        "pnpm build",
-        "node scripts/e2e/first-release-auth-health.mjs",
-        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs"
-      ],
-      "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
-      "completed_at": "2026-06-21T16:53:17+08:00"
-    },
-    {
       "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
       "agent": "agent-5",
       "status": "DONE",
@@ -226,6 +226,48 @@
       "failed_checks": [],
       "notes": "Created production-safe IoT/safety runtime smoke plan and report. Required validations passed. Local commit was attempted but could not be created because the linked Git worktree index is outside the writable sandbox and index.lock creation was denied. No merge or push performed.",
       "completed_at": "2026-06-21T12:11:37.366Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
+      "changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "failed_checks": [],
+      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
+      "completed_at": "2026-06-21T12:16:22.254Z"
     }
   ]
 }
