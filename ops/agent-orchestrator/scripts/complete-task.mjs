@@ -2,6 +2,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { splitChangedFiles } from "./lib/queue-utils.mjs";
 
 const VALID_AGENTS = new Set(["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]);
 const VALID_FINAL_STATUSES = new Set(["DONE", "FAILED"]);
@@ -141,6 +142,7 @@ const completedAt = nowIso();
 task.status = payload.status;
 task.updated_at = completedAt;
 queue.updated_at = completedAt;
+const { agentChangedFiles, orchestratorChangedFiles } = splitChangedFiles(payload.changed_files);
 
 const resultRecord = {
   task_id: payload.task_id,
@@ -148,6 +150,8 @@ const resultRecord = {
   status: payload.status,
   commit_hash: payload.commit_hash ?? "",
   changed_files: payload.changed_files,
+  agent_changed_files: agentChangedFiles,
+  orchestrator_changed_files: orchestratorChangedFiles,
   commands_run: payload.commands_run,
   passed_checks: payload.passed_checks,
   failed_checks: payload.failed_checks,

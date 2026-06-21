@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFile, writeFile } from "node:fs/promises";
+import {
+  auditChangedFiles,
+  auditableChangedFiles,
+  latestResultFor,
+  nowIso,
+  readJson,
+  writeJson
+} from "./lib/queue-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -10,42 +17,6 @@ const resultsPath = join(orchestratorDir, "queue", "task-results.json");
 
 function usage() {
   console.error("Usage: node ops/agent-orchestrator/scripts/audit-agent-result.mjs <task_id>");
-}
-
-async function readJson(path) {
-  return JSON.parse(await readFile(path, "utf8"));
-}
-
-async function writeJson(path, value) {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function normalizePath(value) {
-  return String(value ?? "")
-    .replaceAll("\\", "/")
-    .replace(/^\.\//, "")
-    .replace(/\/+/g, "/")
-    .replace(/\/\*\*$/, "/")
-    .replace(/\/$/, "");
-}
-
-function pathMatches(filePath, rulePath) {
-  const file = normalizePath(filePath);
-  const rule = normalizePath(rulePath);
-
-  if (!file || !rule) {
-    return false;
-  }
-
-  return file === rule || file.startsWith(`${rule}/`);
-}
-
-function latestResultFor(results, taskId) {
-  return [...(results.results ?? [])].reverse().find((result) => result.task_id === taskId);
 }
 
 const taskId = process.argv[2];
@@ -73,26 +44,7 @@ if (!result) {
   process.exit(1);
 }
 
-const changedFiles = Array.isArray(result.changed_files) ? result.changed_files : [];
-const allowedPaths = Array.isArray(task.allowed_paths) ? task.allowed_paths : [];
-const forbiddenPaths = Array.isArray(task.forbidden_paths) ? task.forbidden_paths : [];
-const failures = [];
-
-if (allowedPaths.length === 0 && changedFiles.length > 0) {
-  failures.push("task has changed_files but no allowed_paths configured");
-}
-
-for (const file of changedFiles) {
-  const isAllowed = allowedPaths.some((allowedPath) => pathMatches(file, allowedPath));
-  if (!isAllowed) {
-    failures.push(`changed file outside allowed_paths: ${file}`);
-  }
-
-  const forbiddenMatch = forbiddenPaths.find((forbiddenPath) => pathMatches(file, forbiddenPath));
-  if (forbiddenMatch) {
-    failures.push(`changed file hits forbidden_paths (${forbiddenMatch}): ${file}`);
-  }
-}
+const failures = auditChangedFiles(task, result);
 
 if (failures.length > 0) {
   console.log("AUDIT_FAIL");
@@ -110,4 +62,4 @@ queue.updated_at = auditedAt;
 await writeJson(queuePath, queue);
 
 console.log("AUDIT_PASS");
-console.log(`Task ${taskId} changed ${changedFiles.length} file(s) within allowed paths and did not hit forbidden paths.`);
+console.log(`Task ${taskId} changed ${auditableChangedFiles(result).length} audited file(s) within allowed paths and did not hit forbidden paths.`);

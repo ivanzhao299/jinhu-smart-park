@@ -271,6 +271,8 @@ The result JSON supports:
 - `status`
 - `commit_hash`
 - `changed_files`
+- `agent_changed_files`
+- `orchestrator_changed_files`
 - `commands_run`
 - `passed_checks`
 - `failed_checks`
@@ -283,6 +285,19 @@ ops/agent-orchestrator/results/<task_id>.json
 ```
 
 It also updates `queue/task-results.json` for backward compatibility and updates the task status to `DONE` or `FAILED`. It does not merge or push.
+
+`complete-task.mjs` separates changed files into:
+
+- `agent_changed_files`: files the agent actually changed for task evidence or implementation.
+- `orchestrator_changed_files`: system bookkeeping files maintained by the queue workflow.
+
+The current bookkeeping files are:
+
+- `ops/agent-orchestrator/queue/task-queue.json`
+- `ops/agent-orchestrator/queue/task-locks.json`
+- `ops/agent-orchestrator/queue/task-results.json`
+
+Historical records may still have these files in `changed_files`; audit scripts ignore them for task path-boundary checks.
 
 `task-results.json` should be treated as a generated aggregate. When agent branches conflict on queue JSON files, the orchestrator should preserve the integration branch version and run:
 
@@ -300,8 +315,9 @@ node ops/agent-orchestrator/scripts/audit-agent-result.mjs TASK_ID
 
 The audit checks:
 
-1. Every changed file is inside the task's `allowed_paths`.
-2. No changed file matches the task's `forbidden_paths`.
+1. Every real agent-changed file is inside the task's `allowed_paths`.
+2. No real agent-changed file matches the task's `forbidden_paths`.
+3. Queue bookkeeping files are ignored for task path-boundary checks because they are maintained by the orchestrator workflow.
 
 If the audit passes, the script prints `AUDIT_PASS` and marks the task `AUDITED`.
 

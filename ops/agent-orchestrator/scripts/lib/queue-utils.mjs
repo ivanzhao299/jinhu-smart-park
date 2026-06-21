@@ -11,6 +11,12 @@ export const PRIORITY_RANK = new Map([
   ["P3", 3]
 ]);
 
+export const ORCHESTRATOR_BOOKKEEPING_FILES = new Set([
+  "ops/agent-orchestrator/queue/task-queue.json",
+  "ops/agent-orchestrator/queue/task-locks.json",
+  "ops/agent-orchestrator/queue/task-results.json"
+]);
+
 export async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
@@ -62,8 +68,27 @@ export function pathMatches(filePath, rulePath) {
   return file === rule || file.startsWith(`${rule}/`);
 }
 
+export function isOrchestratorBookkeepingFile(filePath) {
+  return ORCHESTRATOR_BOOKKEEPING_FILES.has(normalizePath(filePath));
+}
+
+export function splitChangedFiles(changedFiles) {
+  const files = Array.isArray(changedFiles) ? changedFiles : [];
+  return {
+    agentChangedFiles: files.filter((file) => !isOrchestratorBookkeepingFile(file)),
+    orchestratorChangedFiles: files.filter((file) => isOrchestratorBookkeepingFile(file))
+  };
+}
+
+export function auditableChangedFiles(result) {
+  if (Array.isArray(result?.agent_changed_files)) {
+    return result.agent_changed_files;
+  }
+  return splitChangedFiles(result?.changed_files).agentChangedFiles;
+}
+
 export function auditChangedFiles(task, result) {
-  const changedFiles = Array.isArray(result?.changed_files) ? result.changed_files : [];
+  const changedFiles = auditableChangedFiles(result);
   const allowedPaths = Array.isArray(task?.allowed_paths) ? task.allowed_paths : [];
   const forbiddenPaths = Array.isArray(task?.forbidden_paths) ? task.forbidden_paths : [];
   const failures = [];
