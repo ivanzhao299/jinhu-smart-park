@@ -28,6 +28,7 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/check-dispatch-status.mjs` | Prints queue status, locks, and agent claim readiness. |
 | `scripts/check-agent-runner-env.mjs` | Checks Codex CLI availability, Node version, worktree presence, and active locks without writing files. |
 | `scripts/run-claimed-agent-prompts.mjs` | Reads CLAIMED tasks and generated prompts, then writes a plan-first agent execution plan. |
+| `scripts/commit-agent-results.mjs` | Reviews dirty agent worktrees after execution, validates task path boundaries, risk-ranks results, and commits LOW/MEDIUM agent outputs. |
 | `scripts/audit-all-results.mjs` | Audits all DONE task results with the same path-boundary rules. |
 | `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
 | `runs/` | Generated dispatch reports, per-agent prompt files, and agent run plans. |
@@ -256,10 +257,31 @@ Current automation layering:
 3. `run-claimed-agent-prompts.mjs --dry-run` -> centralized agent execution plan.
 4. `run-claimed-agent-prompts.mjs --apply` -> plan-first confirmation mode, still no execution.
 5. `run-claimed-agent-prompts.mjs --apply --execute` -> guarded serial Codex CLI execution of already-CLAIMED tasks only.
+6. `commit-agent-results.mjs --dry-run` -> inspect dirty agent worktrees, validate task path boundaries, and classify LOW/MEDIUM/HIGH risk.
+7. `commit-agent-results.mjs --apply` -> commit eligible LOW/MEDIUM agent results to each agent branch without merge or push.
 
 The runner does not automatically claim new tasks, merge, push, deploy, run migrations, run seeds, clean production data, or modify main. Those are intentionally kept out of the automated runner so the orchestrator can audit agent results and preserve human gates around release and production operations.
 
-## 4C. Agent Runner Prompt Files
+## 4C. Agent Result Commit Step
+
+After Codex agents finish, their files may still be dirty in the agent worktrees. Those files are not merged directly into main. First, the orchestrator can inspect and, when safe, commit them to the corresponding agent branch:
+
+```bash
+node ops/agent-orchestrator/scripts/commit-agent-results.mjs --dry-run
+node ops/agent-orchestrator/scripts/commit-agent-results.mjs --apply
+```
+
+Dry-run mode scans `agent-1` through `agent-5`, resolves the active claimed/done task from `task-locks.json`, `task-results.json`, and `task-queue.json`, validates dirty files against `allowed_paths` and `forbidden_paths`, prints a risk level, and suggests the commit message. It does not commit.
+
+Apply mode commits only LOW and MEDIUM risk dirty worktrees. HIGH risk blocks the whole commit step. Queue bookkeeping files and the per-task result JSON are treated as orchestrator system files for task-boundary checks, while still contributing to risk classification.
+
+Risk classes:
+
+- `LOW`: `docs/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**`.
+- `MEDIUM`: `ops/agent-orchestrator/queue/**`, `ops/agent-orchestrator/scripts/**`, `docs/testing/**`, `scripts/e2e/**`.
+- `HIGH`: `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, auth, or deploy related paths.
+
+## 4D. Agent Runner Prompt Files
 
 Generated prompt files are based on:
 
@@ -278,7 +300,7 @@ Each prompt tells the agent to:
 7. Avoid merge and push.
 8. Report changed files, commands, checks, commit hash, and risks.
 
-## 4D. One-Click Controller
+## 4E. One-Click Controller
 
 `orchestratorctl.mjs` is the high-level entrypoint for the main control window.
 
@@ -371,8 +393,8 @@ Mode behavior:
 
 - `--dry-run` runs only read-only planning commands. It does not update `runs/agent-run-plan.md`, does not dispatch, does not execute Codex, does not merge, and does not push.
 - `--apply` is plan-first. It may print dispatch, runner, integration, and validation plans, but it does not execute Codex agents and does not push.
-- `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, then inspect agent commits, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
-- `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
+- `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, commit eligible LOW/MEDIUM dirty agent results to their agent branches, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
+- `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, commit eligible agent results, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
 
 Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
 
@@ -498,11 +520,11 @@ Full high-level flow:
 5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
 6. Run `run-claimed-agent-prompts.mjs --dry-run` to generate `runs/agent-run-plan.md`.
 7. Either use the plan to start each agent manually, or run `run-claimed-agent-prompts.mjs --apply --execute` for guarded serial Codex CLI execution.
-8. After execution, inspect each agent worktree with `git status --short`, read the generated `.run.log`, and confirm the agent used `complete-task.mjs`.
+8. After execution, inspect each agent worktree with `commit-agent-results.mjs --dry-run`; then use `commit-agent-results.mjs --apply` to create agent branch commits when risk is LOW/MEDIUM.
 9. Agents complete work and record results with `complete-task.mjs`.
 10. Run `audit-all-results.mjs`.
 11. For passing tasks, run `check-merge-candidate.sh`, `orchestratorctl.mjs integrate --dry-run`, `pnpm typecheck`, and relevant e2e.
-12. Ask for human confirmation before merge or push.
+12. Ask for human confirmation before merge or push unless using the explicit guarded `agent-cycle --apply --execute --push` path.
 
 One-click high-level flow:
 
@@ -550,4 +572,5 @@ The task queue can mark these with `requires_human_approval: true`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
 - `run-claimed-agent-prompts.mjs --apply --execute` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
+- `commit-agent-results.mjs --apply` commits only eligible LOW/MEDIUM dirty agent outputs. It does not merge or push.
 - `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.

@@ -279,6 +279,7 @@ async function runReadOnlyPlans() {
   console.log("## Read-Only Pipeline Plan");
   requireScript("ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--dry-run", "--no-write"]);
+  requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", ["--plan"]);
 }
@@ -421,9 +422,10 @@ async function agentCycleCommand(rest) {
   await dispatchReadyTasksIfAllowed(refreshedBeforeDispatch, args);
 
   requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--apply", "--execute"]);
+  requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--apply"]);
 
-  const refreshedAfterRun = await readAgentCycleState();
-  const candidates = collectIntegrationCandidates(refreshedAfterRun.agents);
+  const refreshedAfterCommit = await readAgentCycleState();
+  const candidates = collectIntegrationCandidates(refreshedAfterCommit.agents);
   printIntegrationCandidates(candidates);
 
   const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
@@ -437,7 +439,7 @@ async function agentCycleCommand(rest) {
   let integrationBranch = "";
   if (candidates.length > 0) {
     requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--apply"]);
-    integrationBranch = currentBranch(refreshedAfterRun.mainPath);
+    integrationBranch = currentBranch(refreshedAfterCommit.mainPath);
   } else {
     console.log("No agent commits to integrate.");
   }
@@ -450,10 +452,10 @@ async function agentCycleCommand(rest) {
   }
 
   if (args.push) {
-    await mergeIntegrationToMainAndPush(refreshedAfterRun, integrationBranch);
+    await mergeIntegrationToMainAndPush(refreshedAfterCommit, integrationBranch);
     printOutcome("GO", "Agent cycle completed, main pushed, and agents reconciled.");
   } else {
-    printManualMergeCommands(refreshedAfterRun.mainPath, integrationBranch);
+    printManualMergeCommands(refreshedAfterCommit.mainPath, integrationBranch);
     printOutcome("CONDITIONAL_GO", "Integration branch is ready after validation. Human review is still required before merge/push.");
   }
 }
