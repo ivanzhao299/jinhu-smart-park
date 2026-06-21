@@ -336,8 +336,8 @@ node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run
 
 It lists each agent branch with commits not in `origin/main`, changed files, and a risk class:
 
-- `LOW`: docs or orchestrator reports only.
-- `MEDIUM`: `scripts/e2e` or orchestrator automation.
+- `LOW`: `docs/**`, `ops/agent-orchestrator/reports/**`, or `ops/agent-orchestrator/results/**`.
+- `MEDIUM`: queue bookkeeping, orchestrator scripts, `docs/testing/**`, or `scripts/e2e/**`.
 - `HIGH`: `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths.
 
 Integration apply never merges back to main or pushes:
@@ -346,7 +346,31 @@ Integration apply never merges back to main or pushes:
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --apply
 ```
 
-It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from `origin/main`, attempts agent merges in LOW -> MEDIUM -> HIGH order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, and aborts on business-code conflicts.
+It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from the current clean `main`, attempts agent merges in `agent-2 -> agent-3 -> agent-4 -> agent-5` order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, and aborts on business-code conflicts.
+
+Current integration apply behavior:
+
+1. Requires the main worktree to be clean and on `main`.
+2. Requires candidate agent worktrees to be clean.
+3. Refuses HIGH-risk candidates; these require human review because they may alter business code, schema, infra, auth, CI, Docker, or deploy behavior.
+4. Creates `integration/orchestrator-auto-YYYYMMDD-HHMMSS` from current `main`.
+5. Merges agent branches in `agent-2 -> agent-3 -> agent-4 -> agent-5` order.
+6. Allows automatic conflict handling only for queue bookkeeping files:
+   - `ops/agent-orchestrator/queue/task-queue.json`
+   - `ops/agent-orchestrator/queue/task-locks.json`
+   - `ops/agent-orchestrator/queue/task-results.json`
+7. For queue bookkeeping conflicts, keeps the current integration branch version first, then runs `reconcile-task-results.mjs --apply` to rebuild queue state from merged result evidence.
+8. Stops on any non-bookkeeping conflict.
+9. After all agent merges, runs `check-dispatch-status.mjs`, `audit-all-results.mjs --dry-run`, and `pnpm typecheck`.
+10. Writes `ops/agent-orchestrator/reports/integration-auto-YYYYMMDD-HHMMSS.md`.
+
+After review, an integration branch can be brought back to main with:
+
+```bash
+git checkout main
+git merge --ff-only integration/orchestrator-auto-YYYYMMDD-HHMMSS
+git push origin main
+```
 
 Validation runs the non-writing audit path:
 
@@ -385,6 +409,7 @@ Agent-cycle is the guarded one-command pipeline for dispatching, running, auditi
 ```bash
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --push
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push
 ```
@@ -392,7 +417,8 @@ node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --ex
 Mode behavior:
 
 - `--dry-run` runs only read-only planning commands. It does not update `runs/agent-run-plan.md`, does not dispatch, does not execute Codex, does not merge, and does not push.
-- `--apply` is plan-first. It may print dispatch, runner, integration, and validation plans, but it does not execute Codex agents and does not push.
+- `--apply` does not execute Codex agents, but it may integrate already-committed LOW/MEDIUM agent results into a validated integration branch. It does not push.
+- `--apply --push` may integrate already-committed LOW/MEDIUM agent results, validate the integration branch, fast-forward main, push `origin/main`, and sync agents.
 - `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, commit eligible LOW/MEDIUM dirty agent results to their agent branches, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
 - `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, commit eligible agent results, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
 
@@ -533,9 +559,9 @@ One-click high-level flow:
 3. Run `orchestratorctl.mjs full-cycle --dry-run` for a no-write plan.
 4. Run `orchestratorctl.mjs full-cycle --apply` only when the operator accepts runtime backup/reset and integration branch creation.
 5. For agent execution, run `orchestratorctl.mjs agent-cycle --dry-run` first.
-6. Run `orchestratorctl.mjs agent-cycle --apply` for plan-first output.
+6. Run `orchestratorctl.mjs agent-cycle --apply` to integrate already-committed agent results without running Codex.
 7. Run `orchestratorctl.mjs agent-cycle --apply --execute` only when Codex agent execution is intended.
-8. Run `orchestratorctl.mjs agent-cycle --apply --execute --push` only when automatic main push and final agent sync are explicitly approved.
+8. Run `orchestratorctl.mjs agent-cycle --apply --push` or `orchestratorctl.mjs agent-cycle --apply --execute --push` only when automatic main push and final agent sync are explicitly approved.
 9. Review the integration branch and validation output before accepting any release decision.
 
 ## 8. Actions Requiring Human Confirmation
