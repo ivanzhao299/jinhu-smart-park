@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-21T13:15:12.912Z",
+  "updated_at": "2026-06-21T21:45:00+08:00",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -682,6 +682,269 @@
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:38:00+08:00",
       "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Event sourcing queue architecture and compatibility layer",
+      "owner": "agent-5",
+      "domain": "orchestrator-event-sourcing",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/events",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/queue",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs the V2 event-sourcing directory layout under ops/agent-orchestrator/events with tasks, results, locks, and audits subdirectories.",
+        "Defines event file naming, required fields, idempotency keys, ownership rules, and append-only write discipline.",
+        "Preserves existing task-queue.json, task-locks.json, and task-results.json as a compatibility read/write layer during migration.",
+        "Lists every script that must be adapted and defines backward-compatible migration phases.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/lib/queue-utils.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "JSON parse queue, locks, and results",
+        "check-dispatch-status remains compatible with current JSON queue",
+        "agent-cycle --dry-run remains no-write",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-event-sourcing-architecture.md",
+        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-EVENT-SOURCING.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:45:00+08:00",
+      "updated_at": "2026-06-21T21:45:00+08:00"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Event read model status aggregation and conflict-free results",
+      "owner": "agent-3",
+      "domain": "orchestrator-read-model",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/events",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/queue",
+        "ops/agent-orchestrator/results",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs read-model aggregation from event files into queue status without requiring multiple Agents to write one shared JSON file.",
+        "Defines conflict-free result and audit event shapes, including per-task result files and summary materialization.",
+        "Specifies adapter behavior for check-dispatch-status, audit-all-results, complete-task, reconcile-task-results, and integrate-agent-results.",
+        "Defines deterministic ordering, duplicate detection, corrupt-event handling, and no-write dry-run behavior.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Read model design covers READY, CLAIMED, DONE, FAILED, BLOCKED, and AUDITED statuses",
+        "Result and audit events avoid shared JSON write conflicts",
+        "Legacy queue JSON can still be generated from events",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:46:00+08:00",
+      "updated_at": "2026-06-21T21:45:00+08:00"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Parallel Codex runner CLI parameters logs and summary output",
+      "owner": "agent-4",
+      "domain": "orchestrator-parallel-runner",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/runs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs run-claimed-agent-prompts.mjs support for --parallel 1, --parallel 2, --parallel 3, and --parallel 5 with default --parallel 1.",
+        "Preserves serial safe mode and all existing no-deploy, no-push, no-merge, no-production-operation guardrails.",
+        "Defines per-agent prompt, worktree, run.log, exit code, and aggregated summary behavior.",
+        "Defines failure strategy: stop launching new tasks after first failure while allowing already-started tasks to finish.",
+        "Documents why event-sourcing queue is required before safe parallel execution can write completion state."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "--parallel defaults to 1",
+        "--parallel accepts only 1, 2, 3, or 5",
+        "Dry-run prints planned parallel batches without executing Codex",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-parallel-runner-plan.md",
+        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:47:00+08:00",
+      "updated_at": "2026-06-21T21:45:00+08:00"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Validation matrix regression plan and compatibility tests for V2 queue and runner",
+      "owner": "agent-2",
+      "domain": "orchestrator-validation-compatibility",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a V2 validation matrix covering legacy JSON compatibility, event read-model generation, dry-run no-write behavior, parallel runner options, and integration apply guardrails.",
+        "Defines regression cases for claim, complete, audit, dispatch, run, commit, integrate, reconcile, and validation scripts.",
+        "Specifies compatibility tests that prove existing JSON queue workflows still work while event files are introduced.",
+        "Defines negative tests for HIGH-risk paths, corrupt events, duplicate events, stale locks, Codex failure, and validation failure.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Validation plan covers V2-A and V2-B",
+        "Compatibility plan covers legacy queue JSON and event files",
+        "Negative tests cover HIGH risk and corrupt event inputs",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:48:00+08:00",
+      "updated_at": "2026-06-21T21:45:00+08:00"
     }
   ]
 }

@@ -5,7 +5,8 @@
 - Queue: `ops/agent-orchestrator/queue/task-queue.json`
 - Locks: `ops/agent-orchestrator/queue/task-locks.json`
 - Results: `ops/agent-orchestrator/queue/task-results.json`
-- Current active batch: `PROD-EVIDENCE-20260621-002`
+- Current active batch: `AGENT-PLATFORM-V2-20260621`
+- Previous active batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
 
 ## Batch TRIAL-20260621-001
@@ -135,6 +136,74 @@ node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run
 ```bash
 node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run
+pnpm typecheck
+git diff --check
+```
+
+## Batch AGENT-PLATFORM-V2-20260621
+
+Source request:
+
+- `docs/release/AGENT_PLATFORM_V2_PLAN.md`
+- `ops/agent-orchestrator/specs/REQ-AGENT-PLATFORM-V2.md`
+- `ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2.md`
+
+Batch goal: plan Agent Platform V2 so the current orchestrator can move from roughly 78% maturity to 85%+ by introducing event-sourced queue design and safe parallel Agent execution planning.
+
+This batch is planning-first. It does not execute Agents, merge, push, deploy, run production migration, run production seed, perform cleanup/reset, or modify business code.
+
+## V2 Scope
+
+| Area | Goal | Impact |
+|---|---|---|
+| V2-A Event Sourcing Queue | Replace multi-Agent writes to shared queue JSON with per-task/result/lock/audit event files and a generated read model. | Reduces queue bookkeeping conflicts and unlocks safe parallel completion writes. |
+| V2-B Parallel Agent Execution | Add planned support for `--parallel 1`, `--parallel 2`, `--parallel 3`, and `--parallel 5`, defaulting to serial `--parallel 1`. | Improves throughput while preserving safety and production-operation guardrails. |
+
+## V2 Tasks
+
+| Task ID | Agent | Domain | Priority | Risk | Status | Scope |
+|---|---|---|---|---|---|---|
+| `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` | agent-5 | orchestrator-event-sourcing | P0 | MEDIUM | READY | Event sourcing directory, schema, compatibility layer, migration phases, script retrofit map |
+| `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` | agent-3 | orchestrator-read-model | P0 | MEDIUM | READY | Read model aggregation, conflict-free results, audit/result event behavior |
+| `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | agent-4 | orchestrator-parallel-runner | P1 | MEDIUM | READY | `--parallel` CLI, per-Agent logs, aggregate summary, failure strategy |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | agent-2 | orchestrator-validation-compatibility | P1 | MEDIUM | READY | Validation matrix, regression plan, legacy JSON compatibility tests |
+
+## V2 Expected Output Files
+
+| Task ID | Expected output files |
+|---|---|
+| `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` | `docs/release/agent-platform-v2-event-sourcing-architecture.md`; `ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-EVENT-SOURCING.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md` |
+| `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` | `docs/release/agent-platform-v2-read-model-plan.md`; `docs/testing/agent-platform-v2-read-model-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md` |
+| `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | `docs/release/agent-platform-v2-parallel-runner-plan.md`; `docs/testing/agent-platform-v2-parallel-runner-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md` |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | `docs/testing/agent-platform-v2-validation-matrix.md`; `docs/release/agent-platform-v2-compatibility-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md` |
+
+## V2 Agents To Execute Later
+
+- `agent-2`: may claim `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`.
+- `agent-3`: may claim `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS`.
+- `agent-4`: may claim `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER`.
+- `agent-5`: may claim `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH`.
+
+## V2 Agents Not Assigned
+
+- `agent-1`: not assigned in this batch. V2-A and V2-B target orchestrator platform internals rather than assets, units, tenants, or space data.
+
+## V2 Guardrails
+
+1. Do not modify `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy files.
+2. Do not modify `database/migrations` or `database/seeds`.
+3. Do not execute Agents as part of this planning batch.
+4. Do not push, merge, deploy, run production migration, run production seed, run cleanup, or run reset.
+5. Do not allow multiple Agents to write the same queue JSON file in the V2 design.
+6. Keep `--parallel 1` as the default safe mode.
+7. Keep `--parallel > 1` behind event-sourcing/read-model readiness.
+
+## V2 Validation Commands
+
+```bash
+node -e "JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-queue.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-locks.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-results.json','utf8'));"
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
 pnpm typecheck
 git diff --check
 ```
