@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T05:59:02.745Z",
-  "locks": [
-    {
-      "task_id": "TRIAL-20260621-001-A2-FINANCE",
-      "agent": "agent-2",
-      "claimed_at": "2026-06-21T05:59:02.745Z"
-    }
-  ]
+  "updated_at": "2026-06-21T16:53:17+08:00",
+  "locks": []
 }
