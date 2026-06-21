@@ -94,19 +94,20 @@ export function isOrchestratorSystemFile(filePath, taskId = "") {
   return isOrchestratorBookkeepingFile(filePath) || isOrchestratorResultFile(filePath, taskId);
 }
 
-export function splitChangedFiles(changedFiles) {
+export function splitChangedFiles(changedFiles, taskId = "") {
   const files = Array.isArray(changedFiles) ? changedFiles : [];
   return {
-    agentChangedFiles: files.filter((file) => !isOrchestratorBookkeepingFile(file)),
-    orchestratorChangedFiles: files.filter((file) => isOrchestratorBookkeepingFile(file))
+    agentChangedFiles: files.filter((file) => !isOrchestratorSystemFile(file, taskId)),
+    orchestratorChangedFiles: files.filter((file) => isOrchestratorSystemFile(file, taskId))
   };
 }
 
 export function auditableChangedFiles(result) {
+  const taskId = result?.task_id ?? "";
   if (Array.isArray(result?.agent_changed_files)) {
-    return result.agent_changed_files;
+    return result.agent_changed_files.filter((file) => !isOrchestratorSystemFile(file, taskId));
   }
-  return splitChangedFiles(result?.changed_files).agentChangedFiles;
+  return splitChangedFiles(result?.changed_files, taskId).agentChangedFiles;
 }
 
 export function auditChangedFiles(task, result) {

@@ -566,7 +566,11 @@ The current bookkeeping files are:
 - `ops/agent-orchestrator/queue/task-locks.json`
 - `ops/agent-orchestrator/queue/task-results.json`
 
-Historical records may still have these files in `changed_files`; audit scripts ignore them for task path-boundary checks.
+Per-task result artifacts are also orchestrator-maintained:
+
+- `ops/agent-orchestrator/results/<task_id>.json`
+
+Historical records may still have queue bookkeeping files or per-task result artifacts in `changed_files` or `agent_changed_files`; audit scripts ignore them for task path-boundary checks. This does not relax forbidden or HIGH-risk business paths such as `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, or auth files.
 
 `task-results.json` should be treated as a generated aggregate. When agent branches conflict on queue JSON files, the orchestrator should preserve the integration branch version and run:
 
@@ -586,7 +590,7 @@ The audit checks:
 
 1. Every real agent-changed file is inside the task's `allowed_paths`.
 2. No real agent-changed file matches the task's `forbidden_paths`.
-3. Queue bookkeeping files are ignored for task path-boundary checks because they are maintained by the orchestrator workflow.
+3. Queue bookkeeping files and per-task result artifacts are ignored for task path-boundary checks because they are maintained by the orchestrator workflow.
 
 If the audit passes, the script prints `AUDIT_PASS` and marks the task `AUDITED`.
 
