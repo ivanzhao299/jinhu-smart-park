@@ -8,6 +8,7 @@ REPOS=(
   "AGENT2:$ROOT/jinhu-smart-park-agent-2"
   "AGENT3:$ROOT/jinhu-smart-park-agent-3"
   "AGENT4:$ROOT/jinhu-smart-park-agent-4"
+  "AGENT5:$ROOT/jinhu-smart-park-agent-5"
 )
 
 echo "========== SMART PARK AGENT STATUS =========="

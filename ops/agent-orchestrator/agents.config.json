@@ -33,6 +33,13 @@
       "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
       "branch": "agent-4-dashboard-mobile-rbac",
       "role": "驾驶舱、移动端、菜单权限、回归验收"
+    },
+    {
+      "id": "agent-5",
+      "name": "testing-release",
+      "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5",
+      "branch": "agent-5-testing-release",
+      "role": "测试回归、发布验收、生产稳定性检查"
     }
   ]
 }

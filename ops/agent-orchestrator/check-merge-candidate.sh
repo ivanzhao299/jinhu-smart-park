@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 agent-1|agent-2|agent-3|agent-4"
+  echo "Usage: $0 agent-1|agent-2|agent-3|agent-4|agent-5"
   exit 1
 fi
 
@@ -14,6 +14,7 @@ case "$AGENT" in
   agent-2) PATH_TO_CHECK="$ROOT/jinhu-smart-park-agent-2" ;;
   agent-3) PATH_TO_CHECK="$ROOT/jinhu-smart-park-agent-3" ;;
   agent-4) PATH_TO_CHECK="$ROOT/jinhu-smart-park-agent-4" ;;
+  agent-5) PATH_TO_CHECK="$ROOT/jinhu-smart-park-agent-5" ;;
   *) echo "Unknown agent: $AGENT"; exit 1 ;;
 esac
 

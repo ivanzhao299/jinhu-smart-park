@@ -9,6 +9,7 @@ AGENTS=(
   "$ROOT/jinhu-smart-park-agent-2"
   "$ROOT/jinhu-smart-park-agent-3"
   "$ROOT/jinhu-smart-park-agent-4"
+  "$ROOT/jinhu-smart-park-agent-5"
 )
 
 echo "========== SYNC AGENTS FROM MAIN =========="

@@ -58,3 +58,17 @@
 你的第一步：
 运行 ./ops/agent-orchestrator/check-status.sh
 然后基于输出给出下一步调度建议。
+
+补充 Agent 5：
+5. /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5
+   分支：agent-5-testing-release
+   范围：测试回归、发布验收、生产稳定性检查
+
+Agent 5 规则：
+- 不做业务功能开发。
+- 不直接修改业务 service。
+- 优先修改 docs、测试脚本、回归脚本、验收报告。
+- 可提出修复建议，但具体业务修复交给对应业务 Agent。
+- 负责维护上线验收矩阵、first-release regression、release smoke、菜单白名单、权限和生产初始化检查。
+- 负责发现测试不稳定、fixture 过期、生产发布风险、回滚缺口、初始化脚本缺口。
+- merge 和 push 必须由用户确认，不允许自动执行。
