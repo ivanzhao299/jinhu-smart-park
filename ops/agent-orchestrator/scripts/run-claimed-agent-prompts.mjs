@@ -25,6 +25,7 @@ const runPlanPath = join(runsDir, "agent-run-plan.md");
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
   const execute = argv.includes("--execute");
+  const noWrite = argv.includes("--no-write");
   const dryRun = argv.includes("--dry-run") || !apply;
   if (argv.includes("--dry-run") && (apply || execute)) {
     throw new Error("Use either --dry-run or --apply, not both.");
@@ -32,7 +33,7 @@ function parseArgs(argv) {
   if (execute && !apply) {
     throw new Error("--execute requires --apply.");
   }
-  return { apply, execute, dryRun };
+  return { apply, execute, dryRun, noWrite };
 }
 
 function shellQuote(value) {
@@ -403,7 +404,9 @@ const mode = args.execute ? "execute (serial guarded)" : args.apply ? "apply-pla
 const plan = buildRunPlan({ generatedAt, mode, codex, runnable, skipped });
 
 await mkdir(runsDir, { recursive: true });
-await writeFile(runPlanPath, plan);
+if (!args.noWrite) {
+  await writeFile(runPlanPath, plan);
+}
 
 console.log(`# Claimed Agent Prompt Runner ${mode}`);
 console.log("");
@@ -419,7 +422,7 @@ if (!codex.found && codex.reason) {
 }
 console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
 console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
-console.log(`Run plan: ops/agent-orchestrator/runs/agent-run-plan.md`);
+console.log(`Run plan: ${args.noWrite ? "(not written; --no-write)" : "ops/agent-orchestrator/runs/agent-run-plan.md"}`);
 console.log("");
 console.log("Runnable claimed tasks:");
 if (runnable.length === 0) {

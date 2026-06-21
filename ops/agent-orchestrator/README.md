@@ -358,6 +358,26 @@ Full-cycle apply performs reconcile, integration, and validation, then only sugg
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --apply
 ```
 
+Agent-cycle is the guarded one-command pipeline for dispatching, running, auditing, integrating, validating, and optionally pushing agent work:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push
+```
+
+Mode behavior:
+
+- `--dry-run` runs only read-only planning commands. It does not update `runs/agent-run-plan.md`, does not dispatch, does not execute Codex, does not merge, and does not push.
+- `--apply` is plan-first. It may print dispatch, runner, integration, and validation plans, but it does not execute Codex agents and does not push.
+- `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, then inspect agent commits, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
+- `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
+
+Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
+
+If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
+
 ## 5. Agent Completion Flow
 
 When an agent finishes, it records the result:
@@ -490,13 +510,15 @@ One-click high-level flow:
 2. Preview dispatch or integration with dry-run commands.
 3. Run `orchestratorctl.mjs full-cycle --dry-run` for a no-write plan.
 4. Run `orchestratorctl.mjs full-cycle --apply` only when the operator accepts runtime backup/reset and integration branch creation.
-5. Review the integration branch and validation output.
-6. Ask for explicit human confirmation before merging to `main`.
-7. Ask for explicit human confirmation before pushing.
+5. For agent execution, run `orchestratorctl.mjs agent-cycle --dry-run` first.
+6. Run `orchestratorctl.mjs agent-cycle --apply` for plan-first output.
+7. Run `orchestratorctl.mjs agent-cycle --apply --execute` only when Codex agent execution is intended.
+8. Run `orchestratorctl.mjs agent-cycle --apply --execute --push` only when automatic main push and final agent sync are explicitly approved.
+9. Review the integration branch and validation output before accepting any release decision.
 
 ## 8. Actions Requiring Human Confirmation
 
-These actions are never automatic:
+These actions require explicit human confirmation or an explicit guarded flag:
 
 - `git merge`
 - `git push`
@@ -508,6 +530,8 @@ These actions are never automatic:
 - auth, CI, Docker, deploy, SMS, or WeChat runtime configuration changes
 
 The task queue can mark these with `requires_human_approval: true`.
+
+`orchestratorctl.mjs agent-cycle --apply --execute --push` is the only orchestrator path that may push `main`, and only after preflight, agent execution, LOW/MEDIUM integration, and validation pass. It still does not deploy or run production data operations.
 
 ## 9. Agent Ownership
 
@@ -526,4 +550,4 @@ The task queue can mark these with `requires_human_approval: true`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
 - `run-claimed-agent-prompts.mjs --apply --execute` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
-- Merge, push, deploy, and production operations remain manual approval gates.
+- `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.
