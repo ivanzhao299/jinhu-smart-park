@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T13:15:12.912Z",
+  "updated_at": "2026-06-21T13:36:01.171Z",
   "locks": [
     {
       "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
@@ -11,6 +11,26 @@
       "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
       "agent": "agent-5",
       "claimed_at": "2026-06-21T10:01:28.385Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "agent": "agent-2",
+      "claimed_at": "2026-06-21T13:36:01.171Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "agent": "agent-3",
+      "claimed_at": "2026-06-21T13:36:01.171Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
+      "agent": "agent-4",
+      "claimed_at": "2026-06-21T13:36:01.171Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "agent": "agent-5",
+      "claimed_at": "2026-06-21T13:36:01.171Z"
     }
   ]
 }

@@ -88,7 +88,7 @@ Task JSON snapshot:
   ],
   "requires_human_approval": true,
   "created_at": "2026-06-21T18:37:00+08:00",
-  "updated_at": "2026-06-21T10:01:28.385Z"
+  "updated_at": "2026-06-21T13:36:01.171Z"
 }
 ```
 
