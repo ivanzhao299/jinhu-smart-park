@@ -1,16 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T13:43:21.096Z",
-  "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
-      "agent": "agent-3",
-      "claimed_at": "2026-06-21T13:36:01.171Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
-      "agent": "agent-4",
-      "claimed_at": "2026-06-21T13:36:01.171Z"
-    }
-  ]
+  "updated_at": "2026-06-21T14:18:43.760Z",
+  "locks": []
 }
