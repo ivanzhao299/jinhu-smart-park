@@ -76,6 +76,22 @@ export function isOrchestratorBookkeepingFile(filePath) {
   return ORCHESTRATOR_BOOKKEEPING_FILES.has(normalizePath(filePath));
 }
 
+export function taskResultFilePath(taskId) {
+  return `ops/agent-orchestrator/results/${taskId}.json`;
+}
+
+export function isOrchestratorResultFile(filePath, taskId = "") {
+  const normalized = normalizePath(filePath);
+  if (!normalized.startsWith("ops/agent-orchestrator/results/")) {
+    return false;
+  }
+  return taskId ? normalized === taskResultFilePath(taskId) : true;
+}
+
+export function isOrchestratorSystemFile(filePath, taskId = "") {
+  return isOrchestratorBookkeepingFile(filePath) || isOrchestratorResultFile(filePath, taskId);
+}
+
 export function splitChangedFiles(changedFiles) {
   const files = Array.isArray(changedFiles) ? changedFiles : [];
   return {
