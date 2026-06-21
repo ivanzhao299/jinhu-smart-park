@@ -1,8 +1,8 @@
 # Agent Run Plan
 
-Generated at: 2026-06-21T10:25:11.393Z
+Generated at: 2026-06-21T10:37:41.253Z
 
-Mode: dry-run
+Mode: apply-plan (no execution without --execute)
 
 Codex CLI: found
 
@@ -19,12 +19,12 @@ This plan is generated from CLAIMED tasks with active locks. It does not execute
 
 ## Runnable Claimed Tasks
 
-| Task ID | Owner | Worktree | Prompt File | Branch | Clean | Suggested Command |
-|---|---|---|---|---|---|---|
-| PROD-20260621-002-A2-FINANCE-GATE | agent-2 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2 | ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md | agent-2-leasing-finance | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'` |
-| PROD-20260621-002-A3-IOT-SAFETY-SMOKE | agent-3 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3 | ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md | agent-3-ops-iot-safety | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'` |
-| PROD-20260621-002-A4-RBAC-MENU-GATE | agent-4 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4 | ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md | agent-4-dashboard-mobile-rbac | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'` |
-| PROD-20260621-002-A5-PREFLIGHT-GATE | agent-5 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5 | ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md | agent-5-testing-release | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'` |
+| Task ID | Owner | Worktree | Prompt File | Log File | Branch | Clean | Suggested Command |
+|---|---|---|---|---|---|---|---|
+| PROD-20260621-002-A2-FINANCE-GATE | agent-2 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2 | ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md | ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.run.log | agent-2-leasing-finance | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'` |
+| PROD-20260621-002-A3-IOT-SAFETY-SMOKE | agent-3 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3 | ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md | ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.run.log | agent-3-ops-iot-safety | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'` |
+| PROD-20260621-002-A4-RBAC-MENU-GATE | agent-4 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4 | ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md | ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.run.log | agent-4-dashboard-mobile-rbac | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'` |
+| PROD-20260621-002-A5-PREFLIGHT-GATE | agent-5 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5 | ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md | ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.run.log | agent-5-testing-release | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'` |
 
 ## Skipped Items
 
@@ -64,3 +64,4 @@ This plan is generated from CLAIMED tasks with active locks. It does not execute
 - Treat these commands as operator-reviewed plans until Codex CLI automation is explicitly approved.
 - Do not use unattended deploy, push, migration, seed, backup, restore, rollback, Docker cleanup, or production data operations.
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
+- `--apply --execute` runs these tasks serially and writes one `.run.log` file per task; it does not merge, push, deploy, or mutate queue state.
