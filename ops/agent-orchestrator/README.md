@@ -198,6 +198,22 @@ ops/agent-orchestrator/runs/agent-run-plan.md
 
 The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed by this version.
 
+Codex CLI flags differ by version. The runner reads:
+
+```bash
+codex exec --help
+```
+
+and adapts the generated command:
+
+- If `-a` is supported, it adds `-a on-request`.
+- Else if `--approval-policy` is supported, it adds `--approval-policy on-request`.
+- Else it omits approval flags and records that the current CLI uses its default approval policy.
+- If `--sandbox` is supported, it adds `--sandbox workspace-write`.
+- Else it omits sandbox flags and records that the current CLI uses its default sandbox policy.
+
+The runner intentionally never emits the legacy `--ask-for-approval` flag because not every Codex CLI version supports it.
+
 Single-flag apply mode is still plan-first and does not run agents:
 
 ```bash

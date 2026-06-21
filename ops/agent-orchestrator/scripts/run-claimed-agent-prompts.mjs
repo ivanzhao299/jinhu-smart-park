@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { repoStatus } from "./lib/git-utils.mjs";
 import {
   detectCodexCli,
+  detectCodexExecOptions,
   normalizeAgentConfig,
   readJson,
   taskById
@@ -36,6 +37,11 @@ function parseArgs(argv) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function shellArg(value) {
+  const text = String(value);
+  return /^[A-Za-z0-9_./:=@+-]+$/.test(text) ? text : shellQuote(text);
 }
 
 function promptFileFor(taskId, agentId) {
@@ -86,10 +92,7 @@ function suggestedCommand(item) {
   return [
     shellQuote(item.codex.path),
     "exec",
-    "--ask-for-approval",
-    "on-request",
-    "--sandbox",
-    "workspace-write",
+    ...item.execOptions.args.map(shellArg),
     "-C",
     shellQuote(item.worktreePath),
     "-",
@@ -127,6 +130,10 @@ Codex CLI source: ${codex.source}
 
 Codex CLI version: ${codex.version || "(unavailable)"}
 ${codex.warning ? `\nCodex CLI warning: ${codex.warning}` : ""}
+
+Codex exec approval: ${codex.execOptions.approval.note}
+
+Codex exec sandbox: ${codex.execOptions.sandbox.note}
 
 Auto-run capability: ${codex.found ? "plan-ready (absolute CLI path available)" : "cannot auto-run"}
 
@@ -254,10 +261,7 @@ async function runCodexTask(item) {
 
   const child = spawn(item.codex.path, [
     "exec",
-    "--ask-for-approval",
-    "on-request",
-    "--sandbox",
-    "workspace-write",
+    ...item.execOptions.args,
     "-C",
     item.worktreePath,
     "-"
@@ -341,6 +345,7 @@ try {
 }
 
 const codex = detectCodexCli();
+codex.execOptions = detectCodexExecOptions(codex.path);
 if (args.execute && !codex.found) {
   console.error("Codex CLI not found; cannot auto-run agents");
   process.exit(1);
@@ -385,6 +390,7 @@ for (const item of claimed) {
     clean: worktree.clean,
     worktreeDetail: worktree.detail,
     codex,
+    execOptions: codex.execOptions,
     lock: item.lock,
     logFileRelative: logFile.relative,
     logFileAbsolute: logFile.absolute
@@ -411,6 +417,8 @@ if (codex.warning) {
 if (!codex.found && codex.reason) {
   console.log(`Codex CLI reason: ${codex.reason}`);
 }
+console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
+console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
 console.log(`Run plan: ops/agent-orchestrator/runs/agent-run-plan.md`);
 console.log("");
 console.log("Runnable claimed tasks:");

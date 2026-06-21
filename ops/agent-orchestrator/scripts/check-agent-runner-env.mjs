@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { repoStatus } from "./lib/git-utils.mjs";
 import {
   detectCodexCli,
+  detectCodexExecOptions,
   normalizeAgentConfig,
   readJson,
   taskById,
@@ -62,6 +63,7 @@ const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
 const agents = normalizeAgentConfig(config);
 const codex = detectCodexCli();
+codex.execOptions = detectCodexExecOptions(codex.path);
 const active = activeLocks(locks, queue);
 
 const repos = [
@@ -85,6 +87,8 @@ if (codex.warning) {
 if (!codex.found && codex.reason) {
   console.log(`- codex CLI reason: ${codex.reason}`);
 }
+console.log(`- codex exec approval: ${codex.execOptions.approval.note}`);
+console.log(`- codex exec sandbox: ${codex.execOptions.sandbox.note}`);
 console.log("");
 console.log("## Worktrees");
 for (const repo of repos) {

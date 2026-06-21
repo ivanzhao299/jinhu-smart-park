@@ -170,6 +170,75 @@ function codexVersion(path) {
   return commandOutput(path, ["--version"]) ?? "";
 }
 
+export function detectCodexExecOptions(codexPath) {
+  if (!codexPath || !isExecutableFile(codexPath)) {
+    return {
+      helpAvailable: false,
+      args: [],
+      approval: {
+        supported: false,
+        flag: "",
+        value: "on-request",
+        note: "Codex CLI is not executable; approval flag not detected"
+      },
+      sandbox: {
+        supported: false,
+        flag: "",
+        value: "workspace-write",
+        note: "Codex CLI is not executable; sandbox flag not detected"
+      },
+      help: ""
+    };
+  }
+
+  const result = spawnSync(codexPath, ["exec", "--help"], { encoding: "utf8" });
+  const help = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  const helpAvailable = !result.error && result.status === 0;
+  const supportsShortApproval = /(?:^|\n)\s+-a(?:,|\s)/.test(help);
+  const supportsApprovalPolicy = help.includes("--approval-policy");
+  const supportsSandbox = help.includes("--sandbox");
+  const args = [];
+  const approval = {
+    supported: false,
+    flag: "",
+    value: "on-request",
+    note: "current Codex CLI uses its default approval policy"
+  };
+  const sandbox = {
+    supported: false,
+    flag: "",
+    value: "workspace-write",
+    note: "current Codex CLI uses its default sandbox policy"
+  };
+
+  if (supportsShortApproval) {
+    approval.supported = true;
+    approval.flag = "-a";
+    approval.note = "using -a on-request";
+    args.push("-a", approval.value);
+  } else if (supportsApprovalPolicy) {
+    approval.supported = true;
+    approval.flag = "--approval-policy";
+    approval.note = "using --approval-policy on-request";
+    args.push("--approval-policy", approval.value);
+  }
+
+  if (supportsSandbox) {
+    sandbox.supported = true;
+    sandbox.flag = "--sandbox";
+    sandbox.note = "using --sandbox workspace-write";
+    args.push("--sandbox", sandbox.value);
+  }
+
+  return {
+    helpAvailable,
+    args,
+    approval,
+    sandbox,
+    help
+  };
+}
+
 export function detectCodexCli(env = process.env) {
   const envPath = env.CODEX_CLI?.trim();
   let warning = "";
