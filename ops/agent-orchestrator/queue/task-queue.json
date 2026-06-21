@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-21T09:16:00.346Z",
+  "updated_at": "2026-06-21T18:30:00+08:00",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -255,6 +255,433 @@
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
       "updated_at": "2026-06-21T09:16:00.346Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Production deployment preflight and release gate evidence table",
+      "owner": "agent-5",
+      "domain": "production-release-gate",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a production preflight evidence table covering release commit, clean worktree, CI references, engineering gates, target environment owner, approval state, and Go / Conditional-Go / No-Go inputs.",
+        "Maps each preflight item to source evidence, command shape, approval requirement, pass/fail/blocked status, and required owner.",
+        "Records that production deploy, migration, seed, bootstrap, backup, rollback, Docker cleanup, and production data operations are not executed by default.",
+        "Identifies any missing evidence as No-Go or Conditional-Go with owner and next action.",
+        "Does not modify business code, migration, seed, auth, CI, Docker, deploy, infra, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:30:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-DB-INIT-CHAIN",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Migration seed init baseline and bootstrap-admin evidence flow",
+      "owner": "agent-5",
+      "domain": "database-release-chain",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Defines an auditable release-chain flow for pnpm db:migrate, ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod, first db:check:init, db:bootstrap:admin, and second db:check:init.",
+        "Records command preconditions, required approvals, target-environment evidence fields, failure-stop behavior, and rollback/backup dependencies.",
+        "Separates production seed from dev seed and explicitly documents that no seed or migration is executed in this task without approval.",
+        "Includes a No-Go rule for migration failure, checksum/history conflict, seed failure, bootstrap-admin failure, or baseline failure.",
+        "Does not modify migrations, seeds, database schema, deploy scripts, production env, or business code."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -f docs/release/production-migration-execution-policy.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:32:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-BACKUP-ROLLBACK-CLEANUP",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Database backup file backup rollback tag and Docker cleanup evidence closure",
+      "owner": "agent-5",
+      "domain": "backup-rollback-cleanup",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates evidence requirements for PostgreSQL backup, file storage backup, previous API/Web image tags, release image tags, rollback owner, observation window, rollback triggers, and Docker cleanup result.",
+        "Defines what evidence proves backup readability and rollback readiness without storing secrets or production paths that expose credentials.",
+        "Records Docker cleanup as a post-health-check gate and requires explicit skip/failure reasons if cleanup cannot run.",
+        "Marks missing backup, rollback tag, rollback owner, or Docker cleanup evidence as No-Go.",
+        "Does not run backup, restore, rollback, Docker cleanup, deploy, migration, seed, or production data operations."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-rollback-sop.md",
+        "test -f docs/release/production-go-live-checklist.md",
+        "test -x scripts/prod-healthcheck.sh",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:33:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-HEALTH-FILE-SMOKE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Production health container login and file smoke dry-run plan",
+      "owner": "agent-5",
+      "domain": "release-smoke-health-files",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Defines dry-run and controlled-execution plans for MODE=full pnpm prod:health, bash scripts/verify-api-login-dockerexec.sh, and node scripts/e2e/first-release-files.mjs.",
+        "Documents required target, credentials, TEST_RUN_ID, cleanup plan, file storage root, and approval conditions before any production-like execution.",
+        "Separates read-only health/login checks from file upload/download/delete smoke and marks write-path smoke as approval-gated.",
+        "Records expected evidence for upload, download, delete, deleted-file rejection, and file backup linkage.",
+        "Does not run production health, container login verification, or file smoke against a real target in this task without approval."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "node --check scripts/e2e/first-release-files.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:34:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "IoT safety runtime smoke and production-safe inspection plan",
+      "owner": "agent-3",
+      "domain": "ops-iot-safety",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a production-safe IoT and safety release smoke plan covering safety access, S5A/S5B, S9A-S9F1, unified action executor, alert visibility, automatic hazard visibility, duplicate prevention, and energy reversal.",
+        "Classifies each command as local/pre-production full execution, production read-only sampling, or production write-path requiring approval.",
+        "Defines required test data marker, cleanup expectations, and evidence fields for any approved write-path smoke.",
+        "Records No-Go rules for automatic hazard invisibility, duplicate linked actions, safety access failure, or energy reversal failure.",
+        "Does not modify business code, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:35:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "RBAC menu dashboard and permission visibility release check plan",
+      "owner": "agent-4",
+      "domain": "rbac-menu-dashboard",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates RBAC, menu, dashboard, and permission visibility release checks for pre-production execution and production read-only sampling.",
+        "Maps super-admin, standard role, denied route, first-release menu whitelist, dashboard visibility, and permission consistency evidence to Go / No-Go criteria.",
+        "Documents required accounts, target URLs, screenshots or command logs, and human approvals for production sampling.",
+        "Records No-Go rules for unauthorized access, missing first-release menu, non-first-release menu exposure, or dashboard permission mismatch.",
+        "Does not modify apps/api, apps/web, packages, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:36:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Contract finance receivable payment invoice and audit release check plan",
+      "owner": "agent-2",
+      "domain": "leasing-finance-release",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a finance release check plan for contracts, receivables, payments, invoices, waivers, financial summaries, idempotency, delete/void protections, and audit-log sampling.",
+        "Classifies checks as local/pre-production full execution, production read-only sampling, or production write-path requiring approval.",
+        "Documents required test data marker, cleanup expectations, audit evidence fields, and finance owner sign-off.",
+        "Records No-Go rules for duplicate receivable/payment, unsafe financial delete, missing audit log, invoice/waiver failure, or idempotency conflict behavior failure.",
+        "Does not modify financial service code, DTOs, entities, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:37:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-ORCH-RELEASE-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Orchestrator release-gate automation design and dry-run integration",
+      "owner": "agent-5",
+      "domain": "orchestrator-release-gate",
+      "priority": "P2",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs or implements orchestrator-only dry-run release-gate automation that aggregates queue status, audit results, validation matrix, and production evidence checklist into a single report.",
+        "Ensures dry-run mode does not mutate task-queue.json, task-locks.json, task-results.json, business code, production config, or target environments.",
+        "Documents how future approved execution can attach production evidence without committing secrets.",
+        "Keeps merge, push, deploy, production data operations, migration, seed, backup, restore, rollback, and Docker cleanup behind human confirmation.",
+        "Does not modify business code, migrations, seeds, auth, CI, Docker, deploy, infra, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "node --check ops/agent-orchestrator/scripts/run-validation-matrix.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:38:00+08:00",
+      "updated_at": "2026-06-21T18:30:00+08:00"
     }
   ]
 }

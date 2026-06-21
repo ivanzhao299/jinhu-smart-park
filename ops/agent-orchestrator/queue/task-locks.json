@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T09:11:15.786Z",
-  "locks": [
-    {
-      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
-      "agent": "agent-5",
-      "claimed_at": "2026-06-21T09:11:15.786Z"
-    }
-  ]
+  "updated_at": "2026-06-21T18:30:00+08:00",
+  "locks": []
 }
