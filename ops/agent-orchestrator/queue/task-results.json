@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T13:43:21.096Z",
+  "updated_at": "2026-06-21T14:04:35.789Z",
   "results": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -341,6 +341,42 @@
       ],
       "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
       "completed_at": "2026-06-21T13:43:21.096Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "read model status coverage",
+        "result and audit conflict-free shapes",
+        "legacy queue generation from events",
+        "pnpm typecheck",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Validation passed. Local commit could not be created because sandbox blocks Git index writes under parent .git worktree index.lock. No merge or push performed.",
+      "completed_at": "2026-06-21T14:04:35.789Z"
     }
   ]
 }
