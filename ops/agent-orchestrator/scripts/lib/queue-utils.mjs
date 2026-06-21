@@ -5,6 +5,8 @@ import { join } from "node:path";
 
 export const VALID_AGENTS = ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"];
 export const VALID_AGENT_SET = new Set(VALID_AGENTS);
+export const TASK_STATUSES = ["READY", "CLAIMED", "IN_PROGRESS", "DONE", "FAILED", "BLOCKED", "AUDITED"];
+export const ACTIVE_LOCK_STATUSES = new Set(["CLAIMED", "IN_PROGRESS", "BLOCKED"]);
 
 export const PRIORITY_RANK = new Map([
   ["P0", 0],
