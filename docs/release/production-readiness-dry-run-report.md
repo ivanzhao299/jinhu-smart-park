@@ -123,3 +123,21 @@ Reasons:
 4. Full first-release regression and high-risk domain smoke checks remain unverified.
 
 Do not push or release until the blockers above are closed and the required follow-up checks produce passing evidence.
+
+## 10. Follow-Up Evidence: TRIAL-20260621-001-A5-GATES
+
+Follow-up evidence was recorded on 2026-06-21 for task `TRIAL-20260621-001-A5-GATES`.
+See [trial-launch-engineering-gates-auth-readiness.md](./trial-launch-engineering-gates-auth-readiness.md).
+
+Current gate status remains **No-Go**:
+
+| Gate | Result | Notes |
+|---|---|---|
+| `pnpm lint` | Blocked / Fail | `eslint: command not found`; local `node_modules` is missing. |
+| `pnpm typecheck` | Blocked / Fail | `tsc: command not found`; local `node_modules` is missing. |
+| `pnpm build` | Blocked / Fail | `tsc: command not found`; local `node_modules` is missing. |
+| `node scripts/e2e/first-release-auth-health.mjs` | Fail | Health/login basics passed, but SMS send-code and WeChat authorize unexpectedly returned HTTP 200. |
+| `AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs` | Fail | Same SMS and WeChat failures on the current local API target; the command does not reconfigure an already running API process. |
+| `node scripts/e2e/first-release-menu-whitelist.mjs` | Pass | First-release menu whitelist regression completed. |
+
+The production templates still require `AUTH_SMS_FIXED_CODE` to be empty, `AUTH_SMS_CODE_VISIBLE=false`, and `AUTH_WECHAT_MOCK_ENABLED=false`. A production-like API target using those runtime values must pass auth health before the release can move out of No-Go.
