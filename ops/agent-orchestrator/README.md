@@ -18,6 +18,11 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/claim-task.mjs` | Lets an agent claim its next READY task. |
 | `scripts/complete-task.mjs` | Records an agent result and marks the task DONE or FAILED. |
 | `scripts/audit-agent-result.mjs` | Checks changed files against task path boundaries. |
+| `scripts/dispatch-ready-agents.mjs` | Central dispatcher that scans READY tasks, checks worktrees, claims one task per agent, and generates runner prompts. |
+| `scripts/check-dispatch-status.mjs` | Prints queue status, locks, and agent claim readiness. |
+| `scripts/audit-all-results.mjs` | Audits all DONE task results with the same path-boundary rules. |
+| `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
+| `runs/` | Generated dispatch reports and per-agent prompt files. |
 
 ## 1. Intake: Natural Language To Current Request
 
@@ -93,6 +98,64 @@ If no task is available, it prints:
 No READY task for agent-x
 ```
 
+## 4A. Central Dispatch Flow
+
+The orchestrator can scan the READY queue and prepare agent work in one pass:
+
+```bash
+node ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs --dry-run
+```
+
+Dry-run mode prints which task each agent would claim, checks the configured worktree paths, and leaves `task-queue.json` and `task-locks.json` unchanged.
+
+When the orchestrator is ready to claim tasks and generate runner material:
+
+```bash
+node ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs
+```
+
+The dispatcher:
+
+1. Reads `queue/task-queue.json`.
+2. Groups READY tasks by `owner`.
+3. Selects at most one task per agent, using priority first and `created_at` second.
+4. Reads worktree paths from `agents.config.json`.
+5. Skips any agent whose worktree is not clean.
+6. Skips agents that already have an active lock.
+7. Marks selected tasks `CLAIMED`.
+8. Writes claim records to `queue/task-locks.json`.
+9. Generates one prompt per claimed task under `runs/<task_id>-<agent>.prompt.md`.
+10. Writes `runs/dispatch-report.md`.
+
+The dispatcher does not execute business development, e2e, merge, push, deploy, or production data operations.
+
+Check queue and lock status with:
+
+```bash
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+```
+
+This prints READY, CLAIMED, IN_PROGRESS, DONE, FAILED, BLOCKED, and AUDITED tasks, plus active locks and whether each agent can claim another task.
+
+## 4B. Agent Runner Prompt Files
+
+Generated prompt files are based on:
+
+```bash
+ops/agent-orchestrator/prompts/agent-worker-prompt.md
+```
+
+Each prompt tells the agent to:
+
+1. Identify itself and its worktree.
+2. Read task details from `task-queue.json`.
+3. Follow `allowed_paths` and `forbidden_paths`.
+4. Run the task's `validation_commands`.
+5. Record completion with `complete-task.mjs`.
+6. Create a local commit when the task allows it.
+7. Avoid merge and push.
+8. Report changed files, commands, checks, commit hash, and risks.
+
 ## 5. Agent Completion Flow
 
 When an agent finishes, it records the result:
@@ -146,6 +209,14 @@ If the audit passes, the script prints `AUDIT_PASS` and marks the task `AUDITED`
 
 If the audit fails, the script prints `AUDIT_FAIL` and each reason. Failed audits should become follow-up tasks or manual review items.
 
+To audit every DONE task result in one pass:
+
+```bash
+node ops/agent-orchestrator/scripts/audit-all-results.mjs
+```
+
+This reuses the same path-boundary logic as `audit-agent-result.mjs`, prints `AUDIT_PASS` or `AUDIT_FAIL` for each DONE task, and marks passing tasks `AUDITED`.
+
 ## 7. Merge Gate After Audit
 
 After `AUDIT_PASS`, the orchestrator may inspect merge readiness with the existing scripts:
@@ -159,6 +230,19 @@ pnpm typecheck
 Run relevant e2e commands based on the task domain. Do not suggest push if `pnpm typecheck` or relevant e2e fails.
 
 Only after human confirmation should the orchestrator run merge and push commands.
+
+Full high-level flow:
+
+1. Capture the user's natural-language request in `intake/current-request.md`.
+2. Generate REQ / TECH specs under `specs/`.
+3. Generate READY tasks in `queue/task-queue.json`.
+4. Run `dispatch-ready-agents.mjs --dry-run` to preview dispatch.
+5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
+6. Give each agent its generated prompt from `runs/`.
+7. Agents complete work and record results with `complete-task.mjs`.
+8. Run `audit-all-results.mjs`.
+9. For passing tasks, run `check-merge-candidate.sh`, `pnpm typecheck`, and relevant e2e.
+10. Ask for human confirmation before merge or push.
 
 ## 8. Actions Requiring Human Confirmation
 
