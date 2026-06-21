@@ -8,6 +8,9 @@
 - Current active batch: `AGENT-PLATFORM-V2-20260621`
 - Previous active batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
+- Current mainline focus: `AGENT_PLATFORM_V2` P0/P1 queue hardening and runner platform work.
+- Queue governance note: remaining `PROD-EVIDENCE-20260621-002` agent-5 tasks are temporarily `BLOCKED` while `AGENT_PLATFORM_V2` P0 work is in progress.
+- Expected next dispatch: `agent-2` claims `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`; `agent-5` claims `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH`.
 
 ## Batch TRIAL-20260621-001
 
@@ -58,25 +61,23 @@ Batch goal: prepare the next production-readiness automation layer for trial lau
 | Contract finance / receivable / payment / invoice / audit checks | Needs production-safe acceptance plan | Financial auditability and duplicate-prevention risk remains high | `PROD-20260621-002-A2-FINANCE-GATE` |
 | Orchestrator release-gate automation | Not yet unified as one command/report | Evidence is harder to audit and repeat | `PROD-20260621-002-A5-ORCH-RELEASE-GATE` |
 
-## Active Tasks
+## PROD Task State After V2 Prioritization
 
 | Task ID | Agent | Domain | Priority | Risk | Status | Human Approval | Scope |
 |---|---|---|---|---|---|---|---|
-| `PROD-20260621-002-A5-PREFLIGHT-GATE` | agent-5 | production-release-gate | P0 | CRITICAL | READY | Required for any target release evidence | Production preflight checklist and consolidated Go / Conditional-Go / No-Go gate table |
-| `PROD-20260621-002-A5-DB-INIT-CHAIN` | agent-5 | database-release-chain | P0 | CRITICAL | READY | Required before migration, seed, or bootstrap execution | Migration, production seed, init baseline, bootstrap-admin, second baseline evidence flow |
-| `PROD-20260621-002-A5-BACKUP-ROLLBACK-CLEANUP` | agent-5 | backup-rollback-cleanup | P0 | CRITICAL | READY | Required before backup, restore, rollback, or Docker cleanup | DB backup, file backup, rollback tags, rollback owner, observation window, Docker cleanup evidence |
-| `PROD-20260621-002-A5-HEALTH-FILE-SMOKE` | agent-5 | release-smoke-health-files | P1 | HIGH | READY | Required before production health/login/file smoke | Production health, container login verification, file upload/download/delete smoke dry-run |
-| `PROD-20260621-002-A3-IOT-SAFETY-SMOKE` | agent-3 | ops-iot-safety | P1 | HIGH | READY | Required before production write-path smoke | IoT/safety runtime smoke and production-safe inspection plan |
-| `PROD-20260621-002-A4-RBAC-MENU-GATE` | agent-4 | rbac-menu-dashboard | P1 | HIGH | READY | Required before production account/menu sampling | RBAC, menu, dashboard, permission visibility release checks |
-| `PROD-20260621-002-A2-FINANCE-GATE` | agent-2 | leasing-finance-release | P1 | HIGH | READY | Required before production financial write-path smoke | Contract finance, receivable, payment, invoice, audit-log release checks |
-| `PROD-20260621-002-A5-ORCH-RELEASE-GATE` | agent-5 | orchestrator-release-gate | P2 | HIGH | READY | Required before enabling release-gate automation that writes reports | Orchestrator dry-run release-gate aggregation design |
+| `PROD-20260621-002-A5-PREFLIGHT-GATE` | agent-5 | production-release-gate | P0 | CRITICAL | DONE | Required for any target release evidence | Production preflight checklist and consolidated Go / Conditional-Go / No-Go gate table completed as No-Go evidence. |
+| `PROD-20260621-002-A5-DB-INIT-CHAIN` | agent-5 | database-release-chain | P0 | CRITICAL | BLOCKED | Required before migration, seed, or bootstrap execution | Deferred while `AGENT_PLATFORM_V2` P0 work is in progress. |
+| `PROD-20260621-002-A5-BACKUP-ROLLBACK-CLEANUP` | agent-5 | backup-rollback-cleanup | P0 | CRITICAL | BLOCKED | Required before backup, restore, rollback, or Docker cleanup | Deferred while `AGENT_PLATFORM_V2` P0 work is in progress. |
+| `PROD-20260621-002-A5-HEALTH-FILE-SMOKE` | agent-5 | release-smoke-health-files | P1 | HIGH | BLOCKED | Required before production health/login/file smoke | Deferred while `AGENT_PLATFORM_V2` P0 work is in progress. |
+| `PROD-20260621-002-A3-IOT-SAFETY-SMOKE` | agent-3 | ops-iot-safety | P1 | HIGH | DONE | Required before production write-path smoke | IoT/safety runtime smoke and production-safe inspection plan completed. |
+| `PROD-20260621-002-A4-RBAC-MENU-GATE` | agent-4 | rbac-menu-dashboard | P1 | HIGH | DONE | Required before production account/menu sampling | RBAC, menu, dashboard, permission visibility release checks completed. |
+| `PROD-20260621-002-A2-FINANCE-GATE` | agent-2 | leasing-finance-release | P1 | HIGH | DONE | Required before production financial write-path smoke | Contract finance, receivable, payment, invoice, audit-log release checks completed. |
+| `PROD-20260621-002-A5-ORCH-RELEASE-GATE` | agent-5 | orchestrator-release-gate | P2 | HIGH | BLOCKED | Required before enabling release-gate automation that writes reports | Deferred while `AGENT_PLATFORM_V2` P0 work is in progress. |
 
 ## Agents To Execute
 
-- `agent-2`: execute `PROD-20260621-002-A2-FINANCE-GATE`.
-- `agent-3`: execute `PROD-20260621-002-A3-IOT-SAFETY-SMOKE`.
-- `agent-4`: execute `PROD-20260621-002-A4-RBAC-MENU-GATE`.
-- `agent-5`: execute `PROD-20260621-002-A5-PREFLIGHT-GATE`, `PROD-20260621-002-A5-DB-INIT-CHAIN`, `PROD-20260621-002-A5-BACKUP-ROLLBACK-CLEANUP`, `PROD-20260621-002-A5-HEALTH-FILE-SMOKE`, and `PROD-20260621-002-A5-ORCH-RELEASE-GATE` sequentially through dispatcher claims.
+- No `PROD-EVIDENCE-20260621-002` tasks should be claimed while `AGENT_PLATFORM_V2` P0/P1 work is the active mainline.
+- `agent-5` PROD evidence tasks may be unblocked only after `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` is completed/audited or the user explicitly resumes production evidence work.
 
 ## Agents Not Assigned
 
@@ -164,8 +165,8 @@ This batch is planning-first. It does not execute Agents, merge, push, deploy, r
 | Task ID | Agent | Domain | Priority | Risk | Status | Scope |
 |---|---|---|---|---|---|---|
 | `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` | agent-5 | orchestrator-event-sourcing | P0 | MEDIUM | READY | Event sourcing directory, schema, compatibility layer, migration phases, script retrofit map |
-| `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` | agent-3 | orchestrator-read-model | P0 | MEDIUM | READY | Read model aggregation, conflict-free results, audit/result event behavior |
-| `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | agent-4 | orchestrator-parallel-runner | P1 | MEDIUM | READY | `--parallel` CLI, per-Agent logs, aggregate summary, failure strategy |
+| `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` | agent-3 | orchestrator-read-model | P0 | MEDIUM | DONE | Read model aggregation, conflict-free results, audit/result event behavior |
+| `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | agent-4 | orchestrator-parallel-runner | P1 | MEDIUM | DONE | `--parallel` CLI, per-Agent logs, aggregate summary, failure strategy |
 | `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | agent-2 | orchestrator-validation-compatibility | P1 | MEDIUM | READY | Validation matrix, regression plan, legacy JSON compatibility tests |
 
 ## V2 Expected Output Files
@@ -177,12 +178,12 @@ This batch is planning-first. It does not execute Agents, merge, push, deploy, r
 | `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | `docs/release/agent-platform-v2-parallel-runner-plan.md`; `docs/testing/agent-platform-v2-parallel-runner-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md` |
 | `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | `docs/testing/agent-platform-v2-validation-matrix.md`; `docs/release/agent-platform-v2-compatibility-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md` |
 
-## V2 Agents To Execute Later
+## V2 Agents To Execute Next
 
 - `agent-2`: may claim `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`.
-- `agent-3`: may claim `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS`.
-- `agent-4`: may claim `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER`.
 - `agent-5`: may claim `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH`.
+- `agent-3`: no next V2 task; `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` is DONE.
+- `agent-4`: no next V2 task; `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` is DONE.
 
 ## V2 Agents Not Assigned
 
