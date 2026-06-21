@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { repoStatus } from "./lib/git-utils.mjs";
@@ -22,11 +23,15 @@ const runPlanPath = join(runsDir, "agent-run-plan.md");
 
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
+  const execute = argv.includes("--execute");
   const dryRun = argv.includes("--dry-run") || !apply;
-  if (apply && argv.includes("--dry-run")) {
+  if (argv.includes("--dry-run") && (apply || execute)) {
     throw new Error("Use either --dry-run or --apply, not both.");
   }
-  return { apply, dryRun };
+  if (execute && !apply) {
+    throw new Error("--execute requires --apply.");
+  }
+  return { apply, execute, dryRun };
 }
 
 function shellQuote(value) {
@@ -37,6 +42,13 @@ function promptFileFor(taskId, agentId) {
   return {
     relative: `ops/agent-orchestrator/runs/${taskId}-${agentId}.prompt.md`,
     absolute: join(repoRoot, "ops", "agent-orchestrator", "runs", `${taskId}-${agentId}.prompt.md`)
+  };
+}
+
+function runLogFileFor(taskId, agentId) {
+  return {
+    relative: `ops/agent-orchestrator/runs/${taskId}-${agentId}.run.log`,
+    absolute: join(repoRoot, "ops", "agent-orchestrator", "runs", `${taskId}-${agentId}.run.log`)
   };
 }
 
@@ -62,6 +74,10 @@ function inspectWorktree(path) {
   }
 }
 
+function isActiveClaimedLock(lock, task) {
+  return Boolean(lock && task && task.status === "CLAIMED" && lock.agent === task.owner && lock.task_id === task.task_id);
+}
+
 function suggestedCommand(item) {
   if (!item.codex.found) {
     return "Codex CLI not found; cannot auto-run agents";
@@ -84,9 +100,9 @@ function suggestedCommand(item) {
 
 function buildRunPlan({ generatedAt, mode, codex, runnable, skipped }) {
   const runnableRows = runnable.length === 0
-    ? "| _none_ | | | | | | |"
+    ? "| _none_ | | | | | | | |"
     : runnable.map((item) =>
-      `| ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative} | ${item.branch ?? ""} | ${item.clean ? "yes" : "no"} | \`${item.command}\` |`
+      `| ${item.task.task_id} | ${item.task.owner} | ${item.worktreePath} | ${item.promptFileRelative} | ${item.logFileRelative} | ${item.branch ?? ""} | ${item.clean ? "yes" : "no"} | \`${item.command}\` |`
     ).join("\n");
 
   const skippedRows = skipped.length === 0
@@ -118,8 +134,8 @@ This plan is generated from CLAIMED tasks with active locks. It does not execute
 
 ## Runnable Claimed Tasks
 
-| Task ID | Owner | Worktree | Prompt File | Branch | Clean | Suggested Command |
-|---|---|---|---|---|---|---|
+| Task ID | Owner | Worktree | Prompt File | Log File | Branch | Clean | Suggested Command |
+|---|---|---|---|---|---|---|---|
 ${runnableRows}
 
 ## Skipped Items
@@ -137,6 +153,7 @@ ${commands}
 - Treat these commands as operator-reviewed plans until Codex CLI automation is explicitly approved.
 - Do not use unattended deploy, push, migration, seed, backup, restore, rollback, Docker cleanup, or production data operations.
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
+- \`--apply --execute\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, deploy, or mutate queue state.
 `;
 }
 
@@ -170,10 +187,149 @@ function claimedLocks(queue, locks) {
       continue;
     }
 
+    if (!isActiveClaimedLock(lock, task)) {
+      skipped.push({ owner: lock.agent, task_id: lock.task_id, reason: "lock is not an active CLAIMED task" });
+      continue;
+    }
+
     claimed.push({ lock, task });
   }
 
   return { claimed, skipped };
+}
+
+function assertExecutePreconditions({ codex, mainStatus, runnable, skipped }) {
+  const failures = [];
+
+  if (!codex.found) {
+    failures.push("Codex CLI not found; cannot auto-run agents");
+  }
+
+  if (!mainStatus.clean) {
+    failures.push(`main worktree is not clean: ${mainStatus.detail}`);
+  }
+
+  if (runnable.length === 0) {
+    failures.push("no runnable CLAIMED task with active lock");
+  }
+
+  if (skipped.length > 0) {
+    failures.push(`cannot execute while skipped claimed items exist: ${skipped.map((item) => `${item.owner}/${item.task_id ?? ""} ${item.reason}`).join("; ")}`);
+  }
+
+  for (const item of runnable) {
+    if (!item.clean) {
+      failures.push(`${item.task.owner} worktree is not clean: ${item.worktreeDetail}`);
+    }
+    if (item.task.status !== "CLAIMED") {
+      failures.push(`${item.task.task_id} status is ${item.task.status}, not CLAIMED`);
+    }
+    if (!item.lock || item.lock.task_id !== item.task.task_id || item.lock.agent !== item.task.owner) {
+      failures.push(`${item.task.task_id} has no matching active lock`);
+    }
+    if (!existsSync(item.promptFileAbsolute)) {
+      failures.push(`${item.task.task_id} prompt file is missing: ${item.promptFileRelative}`);
+    }
+    const expectedPrompt = `ops/agent-orchestrator/runs/${item.task.task_id}-${item.task.owner}.prompt.md`;
+    if (item.promptFileRelative !== expectedPrompt) {
+      failures.push(`${item.task.task_id} prompt file path does not match task_id / agent`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(failures.join("\n"));
+  }
+}
+
+async function runCodexTask(item) {
+  const startedAt = new Date().toISOString();
+  const prompt = await readFile(item.promptFileAbsolute, "utf8");
+  let stdout = "";
+  let stderr = "";
+
+  console.log("");
+  console.log(`Executing ${item.task.task_id} (${item.task.owner})`);
+  console.log(`Command: ${item.command}`);
+  console.log(`Log file: ${item.logFileRelative}`);
+
+  const child = spawn(item.codex.path, [
+    "exec",
+    "--ask-for-approval",
+    "on-request",
+    "--sandbox",
+    "workspace-write",
+    "-C",
+    item.worktreePath,
+    "-"
+  ], {
+    cwd: repoRoot,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdout.on("data", (chunk) => {
+    const text = chunk.toString();
+    stdout += text;
+    process.stdout.write(text);
+  });
+  child.stderr.on("data", (chunk) => {
+    const text = chunk.toString();
+    stderr += text;
+    process.stderr.write(text);
+  });
+
+  child.stdin.end(prompt);
+
+  const exitCode = await new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => resolve(code ?? 1));
+  });
+
+  const finishedAt = new Date().toISOString();
+  const log = [
+    `task_id: ${item.task.task_id}`,
+    `agent: ${item.task.owner}`,
+    `worktree: ${item.worktreePath}`,
+    `prompt_file: ${item.promptFileRelative}`,
+    `command: ${item.command}`,
+    `started_at: ${startedAt}`,
+    `finished_at: ${finishedAt}`,
+    `exit_code: ${exitCode}`,
+    "",
+    "## STDOUT",
+    stdout || "(empty)",
+    "",
+    "## STDERR",
+    stderr || "(empty)",
+    ""
+  ].join("\n");
+
+  await writeFile(item.logFileAbsolute, log);
+
+  return {
+    task_id: item.task.task_id,
+    agent: item.task.owner,
+    worktree: item.worktreePath,
+    prompt_file: item.promptFileRelative,
+    log_file: item.logFileRelative,
+    exit_code: exitCode,
+    success: exitCode === 0
+  };
+}
+
+function printExecutionSummary(results) {
+  console.log("");
+  console.log("Execution summary:");
+  if (results.length === 0) {
+    console.log("- none");
+    return;
+  }
+
+  for (const result of results) {
+    console.log(`- ${result.task_id} | ${result.agent} | exit ${result.exit_code} | ${result.success ? "success" : "failed"}`);
+    console.log(`  worktree: ${result.worktree}`);
+    console.log(`  prompt: ${result.prompt_file}`);
+    console.log(`  log: ${result.log_file}`);
+  }
 }
 
 let args;
@@ -185,17 +341,19 @@ try {
 }
 
 const codex = detectCodexCli();
-if (args.apply && !codex.found) {
+if (args.execute && !codex.found) {
   console.error("Codex CLI not found; cannot auto-run agents");
   process.exit(1);
 }
 
 const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
-const agents = normalizeAgentConfig(await readJson(agentsConfigPath));
+const agentsConfig = await readJson(agentsConfigPath);
+const agents = normalizeAgentConfig(agentsConfig);
 const generatedAt = new Date().toISOString();
 const { claimed, skipped } = claimedLocks(queue, locks);
 const runnable = [];
+const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot);
 
 for (const item of claimed) {
   const agent = agents.get(item.task.owner);
@@ -205,6 +363,7 @@ for (const item of claimed) {
   }
 
   const promptFile = promptFileFor(item.task.task_id, item.task.owner);
+  const logFile = runLogFileFor(item.task.task_id, item.task.owner);
   if (!existsSync(promptFile.absolute)) {
     skipped.push({ owner: item.task.owner, task_id: item.task.task_id, reason: `missing prompt file ${promptFile.relative}` });
     continue;
@@ -224,13 +383,17 @@ for (const item of claimed) {
     branch: worktree.branch,
     head: worktree.head,
     clean: worktree.clean,
-    codex
+    worktreeDetail: worktree.detail,
+    codex,
+    lock: item.lock,
+    logFileRelative: logFile.relative,
+    logFileAbsolute: logFile.absolute
   };
   runItem.command = suggestedCommand(runItem);
   runnable.push(runItem);
 }
 
-const mode = args.apply ? "apply-plan (no agent execution in this version)" : "dry-run";
+const mode = args.execute ? "execute (serial guarded)" : args.apply ? "apply-plan (no execution without --execute)" : "dry-run";
 const plan = buildRunPlan({ generatedAt, mode, codex, runnable, skipped });
 
 await mkdir(runsDir, { recursive: true });
@@ -271,7 +434,36 @@ if (skipped.length === 0) {
 
 console.log("");
 if (args.apply) {
-  console.log("Apply requested, but this first version is plan-first only; no Codex agent was executed.");
+  if (!args.execute) {
+    console.log("Apply requested without --execute; plan-first only and no Codex agent was executed.");
+  }
 } else {
   console.log("Dry-run: no Codex agent was executed and no agent worktree was modified.");
+}
+
+if (args.execute) {
+  console.log("");
+  console.log("Guardrails: serial execution only; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  try {
+    assertExecutePreconditions({ codex, mainStatus, runnable, skipped });
+  } catch (error) {
+    console.error("");
+    console.error("Execution precheck failed:");
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  const results = [];
+  for (const item of runnable) {
+    const result = await runCodexTask(item);
+    results.push(result);
+    if (!result.success) {
+      console.error("");
+      console.error(`${result.task_id} failed with exit code ${result.exit_code}; stopping remaining tasks.`);
+      printExecutionSummary(results);
+      process.exit(result.exit_code || 1);
+    }
+  }
+
+  printExecutionSummary(results);
 }

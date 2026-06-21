@@ -147,7 +147,7 @@ This prints READY, CLAIMED, IN_PROGRESS, DONE, FAILED, BLOCKED, and AUDITED task
 
 ## 4B. Claimed Agent Prompt Runner
 
-After `dispatch-ready-agents.mjs` claims tasks and writes prompt files, the orchestrator can generate a centralized execution plan:
+After `dispatch-ready-agents.mjs` claims tasks and writes prompt files, the orchestrator can generate a centralized execution plan, or explicitly execute claimed prompts through the Codex CLI.
 
 ```bash
 node ops/agent-orchestrator/scripts/check-agent-runner-env.mjs
@@ -198,13 +198,36 @@ ops/agent-orchestrator/runs/agent-run-plan.md
 
 The plan lists each runnable claimed task, owner, worktree path, prompt file, and a suggested Codex CLI command. When the CLI is detected, the command uses the detected absolute executable path instead of a bare `codex` command. The suggested command is not executed by this version.
 
-`--apply` still does not run agents in this first version. It first checks that the Codex CLI exists, then writes the same plan-first command list:
+Single-flag apply mode is still plan-first and does not run agents:
 
 ```bash
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply
 ```
 
-If the CLI is missing, apply mode aborts with:
+Real execution requires both flags:
+
+```bash
+node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
+```
+
+`--apply --execute` runs claimed tasks serially, never in parallel. Before executing it checks:
+
+1. Codex CLI is detected and executable.
+2. Main worktree is clean.
+3. Each selected agent worktree is clean.
+4. `task-locks.json` has a matching active lock.
+5. `task-queue.json` status is `CLAIMED`.
+6. The prompt file exists and matches `<task_id>-<agent>.prompt.md`.
+
+Each task writes a log file:
+
+```bash
+ops/agent-orchestrator/runs/<task_id>-<agent>.run.log
+```
+
+If any Codex command exits non-zero, the runner stops and does not execute later tasks.
+
+If the CLI is missing in execute mode, the runner aborts with:
 
 ```text
 Codex CLI not found; cannot auto-run agents
@@ -214,10 +237,11 @@ Current automation layering:
 
 1. Natural-language requirement -> `intake/current-request.md`, REQ, TECH, and `task-queue.json`.
 2. `dispatch-ready-agents.mjs` -> automatic claim plus prompt generation.
-3. `run-claimed-agent-prompts.mjs` -> centralized agent execution plan.
-4. A later Codex CLI integration may execute agents from the main control window after safety parameters are explicit.
+3. `run-claimed-agent-prompts.mjs --dry-run` -> centralized agent execution plan.
+4. `run-claimed-agent-prompts.mjs --apply` -> plan-first confirmation mode, still no execution.
+5. `run-claimed-agent-prompts.mjs --apply --execute` -> guarded serial Codex CLI execution of already-CLAIMED tasks only.
 
-Unattended deploy, push, merge, migration, seed, backup, restore, rollback, Docker cleanup, and production data operations remain prohibited.
+The runner does not automatically claim new tasks, merge, push, deploy, run migrations, run seeds, clean production data, or modify main. Those are intentionally kept out of the automated runner so the orchestrator can audit agent results and preserve human gates around release and production operations.
 
 ## 4C. Agent Runner Prompt Files
 
@@ -437,11 +461,12 @@ Full high-level flow:
 4. Run `dispatch-ready-agents.mjs --dry-run` to preview dispatch.
 5. Run `dispatch-ready-agents.mjs` only when it is acceptable to claim tasks.
 6. Run `run-claimed-agent-prompts.mjs --dry-run` to generate `runs/agent-run-plan.md`.
-7. Use the plan to start each agent manually, or wait for a future approved Codex CLI auto-run integration.
-8. Agents complete work and record results with `complete-task.mjs`.
-9. Run `audit-all-results.mjs`.
-10. For passing tasks, run `check-merge-candidate.sh`, `pnpm typecheck`, and relevant e2e.
-11. Ask for human confirmation before merge or push.
+7. Either use the plan to start each agent manually, or run `run-claimed-agent-prompts.mjs --apply --execute` for guarded serial Codex CLI execution.
+8. After execution, inspect each agent worktree with `git status --short`, read the generated `.run.log`, and confirm the agent used `complete-task.mjs`.
+9. Agents complete work and record results with `complete-task.mjs`.
+10. Run `audit-all-results.mjs`.
+11. For passing tasks, run `check-merge-candidate.sh`, `orchestratorctl.mjs integrate --dry-run`, `pnpm typecheck`, and relevant e2e.
+12. Ask for human confirmation before merge or push.
 
 One-click high-level flow:
 
@@ -484,5 +509,5 @@ The task queue can mark these with `requires_human_approval: true`.
 - Locking is advisory and recorded in `task-locks.json`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
-- `run-claimed-agent-prompts.mjs` generates a plan but does not execute Codex agents yet.
+- `run-claimed-agent-prompts.mjs --apply --execute` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
 - Merge, push, deploy, and production operations remain manual approval gates.
