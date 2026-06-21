@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T13:15:12.912Z",
+  "updated_at": "2026-06-21T13:43:21.096Z",
   "results": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -268,6 +268,79 @@
       "failed_checks": [],
       "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
       "completed_at": "2026-06-21T12:16:22.254Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "d7c4ac7",
+      "changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short showed only planned allowed-path files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Finance release gate planning report was completed and integrated. This records task completion only; it does not assert production financial write-path evidence or production Go approval.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "3c6855c",
+      "changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status clean",
+        "release docs exist",
+        "git diff --check"
+      ],
+      "failed_checks": [
+        "pnpm typecheck failed in the agent checkout because local node_modules was missing and tsc was not found"
+      ],
+      "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
     }
   ]
 }

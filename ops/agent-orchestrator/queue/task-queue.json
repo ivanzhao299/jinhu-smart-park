@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-21T13:36:01.171Z",
+  "updated_at": "2026-06-21T13:43:21.096Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -263,7 +263,7 @@
       "owner": "agent-5",
       "domain": "production-release-gate",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "DONE",
       "risk": "CRITICAL",
       "allowed_paths": [
         "docs/release",
@@ -306,7 +306,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:30:00+08:00",
-      "updated_at": "2026-06-21T13:36:01.171Z"
+      "updated_at": "2026-06-21T13:43:21.096Z"
     },
     {
       "task_id": "PROD-20260621-002-A5-DB-INIT-CHAIN",
@@ -581,7 +581,7 @@
       "owner": "agent-2",
       "domain": "leasing-finance-release",
       "priority": "P1",
-      "status": "CLAIMED",
+      "status": "DONE",
       "risk": "HIGH",
       "allowed_paths": [
         "docs/release",
@@ -627,7 +627,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:37:00+08:00",
-      "updated_at": "2026-06-21T13:36:01.171Z"
+      "updated_at": "2026-06-21T13:43:21.096Z"
     },
     {
       "task_id": "PROD-20260621-002-A5-ORCH-RELEASE-GATE",
