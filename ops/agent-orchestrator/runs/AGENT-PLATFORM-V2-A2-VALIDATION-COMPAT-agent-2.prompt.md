@@ -1,0 +1,202 @@
+# Agent Worker Prompt
+
+You are `agent-2` (`leasing-finance`) for Jinhu Smart Park.
+
+Role: 招商、合同、应收、收款、发票、减免
+
+Working directory:
+
+```text
+/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2
+```
+
+Branch:
+
+```text
+agent-2-leasing-finance
+```
+
+## Current Task
+
+- Task ID: `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`
+- Batch ID: `AGENT-PLATFORM-V2-20260621`
+- Title: Validation matrix regression plan and compatibility tests for V2 queue and runner
+- Domain: orchestrator-validation-compatibility
+- Priority: P1
+- Risk: MEDIUM
+- Prompt file: `ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT-agent-2.prompt.md`
+
+Read the task details from:
+
+```bash
+ops/agent-orchestrator/queue/task-queue.json
+```
+
+Task JSON snapshot:
+
+```json
+{
+  "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+  "batch_id": "AGENT-PLATFORM-V2-20260621",
+  "title": "Validation matrix regression plan and compatibility tests for V2 queue and runner",
+  "owner": "agent-2",
+  "domain": "orchestrator-validation-compatibility",
+  "priority": "P1",
+  "status": "CLAIMED",
+  "risk": "MEDIUM",
+  "allowed_paths": [
+    "docs/release",
+    "docs/testing",
+    "ops/agent-orchestrator/specs",
+    "ops/agent-orchestrator/scripts",
+    "ops/agent-orchestrator/reports",
+    "ops/agent-orchestrator/README.md"
+  ],
+  "forbidden_paths": [
+    "apps/api",
+    "apps/web",
+    "packages",
+    "database",
+    "infra",
+    ".github",
+    "Dockerfile",
+    "docker-compose.yml",
+    "docker-compose.prod.yml",
+    "deploy",
+    "scripts/prod-deploy.sh",
+    "scripts/prod-docker-cleanup.sh",
+    ".env",
+    ".env.production",
+    ".env.production.local"
+  ],
+  "acceptance": [
+    "Creates a V2 validation matrix covering legacy JSON compatibility, event read-model generation, dry-run no-write behavior, parallel runner options, and integration apply guardrails.",
+    "Defines regression cases for claim, complete, audit, dispatch, run, commit, integrate, reconcile, and validation scripts.",
+    "Specifies compatibility tests that prove existing JSON queue workflows still work while event files are introduced.",
+    "Defines negative tests for HIGH-risk paths, corrupt events, duplicate events, stale locks, Codex failure, and validation failure.",
+    "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+  ],
+  "validation_commands": [
+    "git status --short",
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+    "pnpm typecheck",
+    "git diff --check",
+    "git status --short"
+  ],
+  "required_checks": [
+    "Validation plan covers V2-A and V2-B",
+    "Compatibility plan covers legacy queue JSON and event files",
+    "Negative tests cover HIGH risk and corrupt event inputs",
+    "typecheck passes"
+  ],
+  "expected_output_files": [
+    "docs/testing/agent-platform-v2-validation-matrix.md",
+    "docs/release/agent-platform-v2-compatibility-test-plan.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+  ],
+  "requires_human_approval": false,
+  "created_at": "2026-06-21T21:48:00+08:00",
+  "updated_at": "2026-06-21T22:13:39.824Z"
+}
+```
+
+## Required Boundaries
+
+Allowed paths:
+
+- docs/release
+- docs/testing
+- ops/agent-orchestrator/specs
+- ops/agent-orchestrator/scripts
+- ops/agent-orchestrator/reports
+- ops/agent-orchestrator/README.md
+
+Forbidden paths:
+
+- apps/api
+- apps/web
+- packages
+- database
+- infra
+- .github
+- Dockerfile
+- docker-compose.yml
+- docker-compose.prod.yml
+- deploy
+- scripts/prod-deploy.sh
+- scripts/prod-docker-cleanup.sh
+- .env
+- .env.production
+- .env.production.local
+
+Hard rules:
+
+1. Stay inside `allowed_paths`.
+2. Do not modify anything under `forbidden_paths`.
+3. Do not modify business code unless this task explicitly allows it and human approval has been recorded.
+4. Do not add migrations.
+5. Do not edit old migrations.
+6. Do not modify auth, CI, Docker, deploy, SMS, or WeChat runtime configuration.
+7. Do not commit secrets, tokens, passwords, production connection strings, or real production accounts.
+8. Do not run production deploy.
+9. Do not run destructive seed, cleanup, reset, truncate, prune, or database reset.
+10. Do not merge.
+11. Do not push.
+
+## Acceptance
+
+1. Creates a V2 validation matrix covering legacy JSON compatibility, event read-model generation, dry-run no-write behavior, parallel runner options, and integration apply guardrails.
+2. Defines regression cases for claim, complete, audit, dispatch, run, commit, integrate, reconcile, and validation scripts.
+3. Specifies compatibility tests that prove existing JSON queue workflows still work while event files are introduced.
+4. Defines negative tests for HIGH-risk paths, corrupt events, duplicate events, stale locks, Codex failure, and validation failure.
+5. Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent.
+
+## Validation Commands
+
+Run the task's applicable validation commands. If a command is unsafe for the current environment, skip it and record the reason.
+
+- `git status --short`
+- `node ops/agent-orchestrator/scripts/check-dispatch-status.mjs`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run`
+- `pnpm typecheck`
+- `git diff --check`
+- `git status --short`
+
+## Completion
+
+After completing the task:
+
+1. Run `git status --short`.
+2. Create a local commit if the task allows commit and validation is acceptable.
+3. Record the result with `complete-task.mjs`.
+
+Example:
+
+```bash
+node ops/agent-orchestrator/scripts/complete-task.mjs \
+  --task-id AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT \
+  --agent agent-2 \
+  --status DONE \
+  --commit-hash <local_commit_hash_or_empty> \
+  --changed-files <comma_separated_changed_files> \
+  --commands-run "<command summary>" \
+  --passed-checks "<passed checks>" \
+  --failed-checks "<failed checks if any>" \
+  --notes "<short notes and remaining risks>"
+```
+
+Use `FAILED` instead of `DONE` if required checks fail.
+
+## Final Report
+
+Report back with:
+
+1. Changed files.
+2. Commands run.
+3. Passed checks.
+4. Failed checks.
+5. Skipped checks and reasons.
+6. Commit hash.
+7. Remaining risks.
+8. Explicit statement: no merge and no push performed.
