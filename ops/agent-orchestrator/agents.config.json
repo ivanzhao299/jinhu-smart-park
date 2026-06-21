@@ -1,0 +1,38 @@
+{
+  "main": {
+    "name": "main",
+    "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "branch": "main",
+    "role": "主线合并、验证、推送"
+  },
+  "agents": [
+    {
+      "id": "agent-1",
+      "name": "assets-space",
+      "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+      "branch": "agent-1-assets-space",
+      "role": "资产、房源、租户、空间关联"
+    },
+    {
+      "id": "agent-2",
+      "name": "leasing-finance",
+      "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2",
+      "branch": "agent-2-leasing-finance",
+      "role": "招商、合同、应收、收款、发票、减免"
+    },
+    {
+      "id": "agent-3",
+      "name": "ops-iot-safety",
+      "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+      "branch": "agent-3-ops-iot-safety",
+      "role": "工单、安全、IoT、能耗、联动执行器"
+    },
+    {
+      "id": "agent-4",
+      "name": "dashboard-mobile-rbac",
+      "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
+      "branch": "agent-4-dashboard-mobile-rbac",
+      "role": "驾驶舱、移动端、菜单权限、回归验收"
+    }
+  ]
+}
