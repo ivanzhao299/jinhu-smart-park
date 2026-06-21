@@ -1,16 +1,16 @@
 # Agent Run Plan
 
-Generated at: 2026-06-21T10:15:23.217Z
+Generated at: 2026-06-21T10:25:11.393Z
 
 Mode: dry-run
 
 Codex CLI: found
 
-Codex CLI path: /Applications/Codex.app/Contents/Resources/codex
+Codex CLI path: /Users/mac/.local/bin/codex
 
 Codex CLI source: PATH
 
-Codex CLI version: codex-cli 0.142.0-alpha.1
+Codex CLI version: codex-cli 0.141.0
 
 
 Auto-run capability: plan-ready (absolute CLI path available)
@@ -21,10 +21,10 @@ This plan is generated from CLAIMED tasks with active locks. It does not execute
 
 | Task ID | Owner | Worktree | Prompt File | Branch | Clean | Suggested Command |
 |---|---|---|---|---|---|---|
-| PROD-20260621-002-A2-FINANCE-GATE | agent-2 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2 | ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md | agent-2-leasing-finance | yes | `'/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'` |
-| PROD-20260621-002-A3-IOT-SAFETY-SMOKE | agent-3 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3 | ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md | agent-3-ops-iot-safety | yes | `'/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'` |
-| PROD-20260621-002-A4-RBAC-MENU-GATE | agent-4 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4 | ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md | agent-4-dashboard-mobile-rbac | yes | `'/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'` |
-| PROD-20260621-002-A5-PREFLIGHT-GATE | agent-5 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5 | ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md | agent-5-testing-release | yes | `'/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'` |
+| PROD-20260621-002-A2-FINANCE-GATE | agent-2 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2 | ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md | agent-2-leasing-finance | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'` |
+| PROD-20260621-002-A3-IOT-SAFETY-SMOKE | agent-3 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3 | ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md | agent-3-ops-iot-safety | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'` |
+| PROD-20260621-002-A4-RBAC-MENU-GATE | agent-4 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4 | ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md | agent-4-dashboard-mobile-rbac | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'` |
+| PROD-20260621-002-A5-PREFLIGHT-GATE | agent-5 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5 | ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md | agent-5-testing-release | yes | `'/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'` |
 
 ## Skipped Items
 
@@ -38,25 +38,25 @@ This plan is generated from CLAIMED tasks with active locks. It does not execute
 
   ```bash
   cd '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2'
-  '/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'
+  '/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A2-FINANCE-GATE-agent-2.prompt.md'
   ```
 - agent-3 / PROD-20260621-002-A3-IOT-SAFETY-SMOKE
 
   ```bash
   cd '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3'
-  '/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'
+  '/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A3-IOT-SAFETY-SMOKE-agent-3.prompt.md'
   ```
 - agent-4 / PROD-20260621-002-A4-RBAC-MENU-GATE
 
   ```bash
   cd '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4'
-  '/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'
+  '/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A4-RBAC-MENU-GATE-agent-4.prompt.md'
   ```
 - agent-5 / PROD-20260621-002-A5-PREFLIGHT-GATE
 
   ```bash
   cd '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5'
-  '/Applications/Codex.app/Contents/Resources/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'
+  '/Users/mac/.local/bin/codex' exec --ask-for-approval on-request --sandbox workspace-write -C '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5' - < '/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runs/PROD-20260621-002-A5-PREFLIGHT-GATE-agent-5.prompt.md'
   ```
 
 ## Guardrails
