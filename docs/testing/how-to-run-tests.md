@@ -39,6 +39,8 @@ node scripts/e2e/first-release-regression.mjs
 - runner 只负责串行执行现有首发回归脚本
 - runner 不负责启动 API 或数据库
 
+生产或预生产 Go / No-Go 判断请同时参考 [生产验收矩阵与风险清单](../release/production-readiness-matrix.md)。该矩阵按必跑、财务相关必跑、安全 / IoT 相关必跑、发布前完整回归分层列出命令，并标注本地、预发、生产环境适用性。
+
 ## 3. 单独执行回归脚本
 
 可按需单独运行：

@@ -9,6 +9,7 @@
 - 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 生产部署入口：[deployment/production.md](deployment/production.md)
+- 生产验收矩阵：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
 
 ## 2. 开发与本地运行
 
@@ -20,6 +21,7 @@
 ## 3. 测试与回归
 
 - 测试运行手册：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
+- 生产验收矩阵与风险清单：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
 - 首发核心回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 接口快照与查询响应对照设计：[testing/api-snapshot-regression-plan.md](testing/api-snapshot-regression-plan.md)
 - 接口快照脚本初版收口复核：[testing/api-snapshot-initial-closure-review.md](testing/api-snapshot-initial-closure-review.md)
@@ -83,6 +85,7 @@ node scripts/e2e/first-release-regression.mjs
 - [Safety Module Full-open Phase 2 Access Smoke Record](release/safety-module-full-open-phase-2-access-smoke-record.md)
 - [Safety Module Full-open Release Acceptance Summary](release/safety-module-full-open-release-acceptance-summary.md)
 - [生产上线 SOP](release/production-release-sop.md)
+- [生产验收矩阵与风险清单](release/production-readiness-matrix.md)
 - [生产回滚 SOP](release/production-rollback-sop.md)
 - [Go-Live Checklist](release/production-go-live-checklist.md)
 - [Go-Live Readiness](release/production-go-live-readiness.md)
