@@ -1,6 +1,260 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-21T13:30:00+08:00",
-  "tasks": []
+  "updated_at": "2026-06-21T14:10:00+08:00",
+  "tasks": [
+    {
+      "task_id": "TRIAL-20260621-001-A5-GATES",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch engineering gates and auth readiness evidence",
+      "owner": "agent-5",
+      "domain": "release-readiness",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Records current evidence for pnpm lint, pnpm typecheck, pnpm build, and first-release readiness gates.",
+        "Records auth mock-disabled evidence without changing auth runtime code or production configuration.",
+        "Updates release readiness report with Pass, Fail, Blocked, or Not verified status for each gate.",
+        "Documents skipped checks with reason and required human approval when applicable.",
+        "Does not modify business code, migration, seed, auth runtime, CI, Docker, deploy, or production config."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-21T14:10:00+08:00"
+    },
+    {
+      "task_id": "TRIAL-20260621-001-A2-FINANCE",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch leasing finance idempotency and audit evidence",
+      "owner": "agent-2",
+      "domain": "leasing-finance",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents safe execution of contract, receivable, payment, invoice, waiver, idempotency, and audit checks.",
+        "Produces finance readiness evidence that maps each result to the production readiness matrix.",
+        "Documents any write-path data marker and cleanup approach before running local or pre-production smoke.",
+        "If a business behavior gap is found, reports it as a follow-up task instead of changing service code.",
+        "Does not modify business service, controller, DTO, entity, migration, seed, auth, CI, Docker, or deploy files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-21T14:10:00+08:00"
+    },
+    {
+      "task_id": "TRIAL-20260621-001-A3-IOT-SAFETY",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch safety IoT alert visibility and energy evidence",
+      "owner": "agent-3",
+      "domain": "ops-iot-safety",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents safe execution of S5 safety and S9 IoT / energy smoke coverage.",
+        "Records evidence for unified action executor, automatic hazard visibility, alert visibility, duplicate-prevention behavior, and energy billing reversal.",
+        "Documents write-path data safety and cleanup approach before running local or pre-production smoke.",
+        "If business behavior fails, reports the failing assertion and proposed follow-up instead of modifying service code.",
+        "Does not modify business service, controller, DTO, entity, migration, seed, auth, CI, Docker, deploy, or UI files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s5a-safety-smoke.mjs",
+        "node scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node scripts/e2e/safety-module-access-smoke.mjs",
+        "node scripts/e2e/s9a-iot-device-hub-smoke.mjs",
+        "node scripts/e2e/s9b-iot-runtime-alert-smoke.mjs",
+        "node scripts/e2e/s9c-iot-rule-engine-smoke.mjs",
+        "node scripts/e2e/s9d-iot-scene-center-smoke.mjs",
+        "node scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "node scripts/e2e/s9e-energy-meter-monitor-smoke.mjs",
+        "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
+        "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-21T14:10:00+08:00"
+    },
+    {
+      "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch RBAC menu and dashboard visibility evidence",
+      "owner": "agent-4",
+      "domain": "dashboard-rbac-menu",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents RBAC, role-permission, first-release menu whitelist, and dashboard visibility checks.",
+        "Maps each RBAC/menu result to the production readiness matrix and identifies any No-Go blocker.",
+        "Documents any production-only manual sampling that still requires human approval.",
+        "If a menu or permission implementation gap is found, reports a follow-up task instead of changing app code.",
+        "Does not modify apps/api, apps/web, packages, migration, seed, auth, CI, Docker, or deploy files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-21T14:10:00+08:00"
+    },
+    {
+      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch release smoke rollback file and backup evidence",
+      "owner": "agent-5",
+      "domain": "release-rollback",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates release-chain evidence for migration command shape, production seed approval, init baseline, bootstrap-admin, prod health, and container login verification.",
+        "Records file upload/download readiness and file backup evidence requirements without touching production data by default.",
+        "Records rollback owner, previous image tag evidence requirement, database backup evidence requirement, observation window, and Docker cleanup evidence requirement.",
+        "Clearly marks commands that require human approval before execution.",
+        "Does not run deploy, Docker cleanup, production seed, destructive cleanup, database reset, or production write-path e2e without human approval."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "node scripts/e2e/first-release-files.mjs",
+        "MODE=full pnpm prod:health",
+        "bash scripts/verify-api-login-dockerexec.sh",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-21T14:10:00+08:00"
+    }
+  ]
 }

@@ -1,70 +1,108 @@
 # Parallel Task Board
 
-## Batch 2026-06-21-C
+## Batch TRIAL-20260621-001
 
-Source documents:
+Source request:
+
+- `ops/agent-orchestrator/intake/current-request.md`
+- `ops/agent-orchestrator/specs/REQ-20260621-001.md`
+- `ops/agent-orchestrator/specs/TECH-20260621-001.md`
+
+Source readiness documents:
 
 - `docs/release/production-readiness-dry-run-report.md`
 - `docs/release/production-readiness-matrix.md`
 
-Batch goal: close the highest-impact production-readiness gaps found by the dry-run without high-risk business refactor. Tasks prioritize testing, configuration verification, release evidence, and documentation. Merge and push require user confirmation.
+Batch goal: advance Jinhu Smart Park toward a trial-launch-ready state by turning the most important No-Go, Conditional-Go, and unverified readiness gaps into machine-claimable tasks. This batch generates tasks only; it does not execute development, merge, push, deploy, or production data operations.
 
-## Selected Gaps
+## Selected Trial-Launch Gaps
 
-| Gap | Report status | Production impact | Batch task |
+| Gap | Report status | Production impact | Queue task |
 |---|---|---|---|
-| Engineering gates unavailable | No-Go / Blocked | Cannot prove `lint`, `typecheck`, or `build` release gate | C1 Agent 5 |
-| SMS and WeChat mock exposure | No-Go / Blocker | Production auth security risk | C2 Agent 5 |
-| Release chain, backup, rollback, file evidence missing | Not verified / No-Go before launch | Cannot prove target environment launch or recovery readiness | C3 Agent 5 |
-| Finance, idempotency, audit not verified | Not verified / High risk | First-release core financial auditability risk | C4 Agent 2 |
-| Safety, IoT, energy not verified | Not verified / High risk | Operations automation and safety launch risk | C5 Agent 3 |
+| Engineering gates and auth mock-disabled evidence | No-Go / Blocked | Cannot prove launch gate or auth production-safety behavior | `TRIAL-20260621-001-A5-GATES` |
+| Contract finance, idempotency, and audit evidence | Not verified / High risk | First-release financial auditability and duplicate-prevention risk | `TRIAL-20260621-001-A2-FINANCE` |
+| Safety, IoT, linked actions, alert visibility, and energy evidence | Not verified / High risk | Operations automation and safety launch risk | `TRIAL-20260621-001-A3-IOT-SAFETY` |
+| RBAC, role permissions, menu visibility, and dashboard/menu acceptance | Not verified / High risk | Trial-launch access-control and visible capability risk | `TRIAL-20260621-001-A4-RBAC-MENU` |
+| Release smoke, rollback, file, backup, and Docker cleanup evidence | Not verified / No-Go before launch | Cannot prove target environment launch or recovery readiness | `TRIAL-20260621-001-A5-ROLLBACK` |
+
+## Machine-Readable Queue
+
+The active task pool is:
+
+```bash
+ops/agent-orchestrator/queue/task-queue.json
+```
+
+All tasks in this batch are initialized with `status: READY` so the assigned agent can claim them through `claim-task.mjs`.
 
 ## Active Tasks
 
-| ID | Agent | Task File | Scope | Status | Commit Allowed | Merge / Push |
-|---|---|---|---|---|---|---|
-| C1 | agent-5 | `ops/agent-orchestrator/tasks/batch-2026-06-21-c-agent-5-engineering-gates.md` | Restore and record `pnpm lint`, `pnpm typecheck`, `pnpm build` readiness evidence | Ready to dispatch | Yes, docs/evidence only | User confirmation required |
-| C2 | agent-5 | `ops/agent-orchestrator/tasks/batch-2026-06-21-c-agent-5-auth-mock-readiness.md` | Verify SMS/WeChat mock-disabled behavior and auth readiness evidence | Ready to dispatch | Yes, docs or auth-health test diagnostics only | User confirmation required |
-| C3 | agent-5 | `ops/agent-orchestrator/tasks/batch-2026-06-21-c-agent-5-release-chain-rollback-files.md` | Release chain, file storage, backup, rollback, Docker cleanup evidence | Ready to dispatch | Yes, docs/evidence only | User confirmation required |
-| C4 | agent-2 | `ops/agent-orchestrator/tasks/batch-2026-06-21-c-agent-2-finance-idempotency-audit.md` | Finance, idempotency, audit regression evidence | Ready to dispatch | Yes, docs/e2e fixture-only | User confirmation required |
-| C5 | agent-3 | `ops/agent-orchestrator/tasks/batch-2026-06-21-c-agent-3-safety-iot-energy-evidence.md` | Safety, IoT, energy smoke evidence | Ready to dispatch | Yes, docs/e2e fixture-only | User confirmation required |
+| Task ID | Agent | Domain | Priority | Risk | Status | Human Approval | Scope |
+|---|---|---|---|---|---|---|---|
+| `TRIAL-20260621-001-A5-GATES` | agent-5 | release-readiness | P0 | CRITICAL | READY | Required for possible remediation / production-like checks | Engineering gates, auth mock-disabled evidence, readiness matrix tracking |
+| `TRIAL-20260621-001-A2-FINANCE` | agent-2 | leasing-finance | P1 | HIGH | READY | Required for possible business-code remediation or write-path smoke | Contract finance, receivables, payments, invoices, waivers, idempotency, audit |
+| `TRIAL-20260621-001-A3-IOT-SAFETY` | agent-3 | ops-iot-safety | P1 | HIGH | READY | Required for possible business-code remediation or write-path smoke | Safety, IoT, linked actions, hazard visibility, alert visibility, energy |
+| `TRIAL-20260621-001-A4-RBAC-MENU` | agent-4 | dashboard-rbac-menu | P1 | HIGH | READY | Required for possible app-code remediation or production sampling | RBAC, role permissions, menu visibility, dashboard/menu acceptance |
+| `TRIAL-20260621-001-A5-ROLLBACK` | agent-5 | release-rollback | P1 | HIGH | READY | Required for production-chain commands | Release smoke, file/backup evidence, rollback checklist, Docker cleanup evidence |
 
-## Not Selected For This Batch
+## Agents To Execute
 
-| Gap | Reason Deferred |
-|---|---|
-| Tenant/assets smoke not verified | Important, but lower immediate production risk than auth, gates, release chain, finance, safety/IoT. Can follow after Batch C or be covered by full first-release regression once gates are green. |
-| RBAC role/data-permission smoke not verified | Important, but auth blocker and engineering gates must be closed first. If C2 reveals RBAC/auth coupling, create a dedicated Agent 4 task. |
-| Menu whitelist | Already passed in the dry-run; repeat later in final release regression. |
-| Full first-release regression | Deferred until C1 engineering gates and C2 auth blocker are addressed, otherwise failures are expected and less actionable. |
+- `agent-2`: execute `TRIAL-20260621-001-A2-FINANCE`.
+- `agent-3`: execute `TRIAL-20260621-001-A3-IOT-SAFETY`.
+- `agent-4`: execute `TRIAL-20260621-001-A4-RBAC-MENU`.
+- `agent-5`: execute `TRIAL-20260621-001-A5-GATES` and `TRIAL-20260621-001-A5-ROLLBACK`.
 
-## Dispatch Order
+## Agents Not Assigned
 
-1. Dispatch C1 and C2 first because they are No-Go blockers.
-2. Dispatch C3 in parallel if Agent 5 capacity allows; otherwise after C1 finishes.
-3. Dispatch C4 and C5 in parallel after each agent confirms local/pre-production write-path safety.
-4. Do not sync, merge, or push any agent branch while any involved worktree is dirty.
-5. Do not suggest push if `pnpm typecheck` or relevant e2e fails.
+- `agent-1`: not assigned in this batch. The user did not request a direct assets, units, tenant, or space-data task; tenant/assets verification can be included later in full first-release regression if needed.
 
-## Suggested Orchestrator Commands
-
-Status and candidate checks:
+## Claim Commands
 
 ```bash
-./ops/agent-orchestrator/check-status.sh
-./ops/agent-orchestrator/check-merge-candidate.sh agent-5
-./ops/agent-orchestrator/check-merge-candidate.sh agent-2
-./ops/agent-orchestrator/check-merge-candidate.sh agent-3
+node ops/agent-orchestrator/scripts/claim-task.mjs agent-2
+node ops/agent-orchestrator/scripts/claim-task.mjs agent-3
+node ops/agent-orchestrator/scripts/claim-task.mjs agent-4
+node ops/agent-orchestrator/scripts/claim-task.mjs agent-5
 ```
 
-Dispatch prompts can be copied from each task file's Agent Passphrase section.
+Agent 5 has two READY tasks. It will claim the P0 gates task first, then the P1 rollback task after the first task is completed or manually reprioritized.
+
+## Completion And Audit
+
+Agents record results with:
+
+```bash
+node ops/agent-orchestrator/scripts/complete-task.mjs --result /path/to/result.json
+```
+
+The orchestrator audits results with:
+
+```bash
+node ops/agent-orchestrator/scripts/audit-agent-result.mjs <task_id>
+```
+
+Audit checks changed files against each task's `allowed_paths` and `forbidden_paths`.
 
 ## Global Guardrails
 
-1. No business code changes from orchestrator.
-2. No migration creation or old migration edits without explicit user approval.
-3. No auth, CI, Docker, deploy, SMS, WeChat runtime config changes in Batch C.
-4. No secrets, tokens, passwords, production connection strings, or real production accounts.
-5. No production write-path e2e without explicit user approval, test account, data marker, and cleanup plan.
-6. Local commits are allowed only inside each agent worktree and only within the task's allowed scope.
-7. Merge and push must be confirmed by the user.
+1. This batch prioritizes diagnostics, tests, documentation, validation evidence, and release reports.
+2. Do not modify `apps/api`, `apps/web`, `packages`, `database`, or `infra` unless a future human-approved task explicitly expands scope.
+3. Never modify `database/migrations` or `database/seeds` in this batch.
+4. Do not change auth, CI, Docker, deploy, SMS, or WeChat runtime configuration.
+5. Do not run production deploy.
+6. Do not run destructive seed, cleanup, reset, truncate, prune, or database reset.
+7. Do not run production write-path e2e without explicit approval, a test account, a data marker, and a cleanup plan.
+8. Merge and push require human confirmation.
+9. Do not suggest push if `pnpm typecheck` or relevant e2e fails.
+
+## Suggested Orchestrator Checks
+
+```bash
+./ops/agent-orchestrator/check-status.sh
+node ops/agent-orchestrator/scripts/audit-agent-result.mjs <task_id>
+./ops/agent-orchestrator/check-merge-candidate.sh agent-2
+./ops/agent-orchestrator/check-merge-candidate.sh agent-3
+./ops/agent-orchestrator/check-merge-candidate.sh agent-4
+./ops/agent-orchestrator/check-merge-candidate.sh agent-5
+pnpm typecheck
+```
