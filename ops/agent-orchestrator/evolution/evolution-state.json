@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_evolution_state",
+  "updated_at": "2026-06-22T00:00:00.000Z",
+  "observer_version": "v3-e-mvp",
+  "last_observed_at": null,
+  "last_planned_at": null,
+  "last_run_mode": "seeded",
+  "maturity": {
+    "current_score": 95,
+    "target_score": 98,
+    "status": "MVP"
+  },
+  "last_summary": {
+    "status": "INITIALIZED",
+    "pattern_count": 5,
+    "open_improvements": 4,
+    "resolved_improvements": 1,
+    "learning_entries": 5,
+    "top_recurring_failures": [
+      "PATTERN-002",
+      "PATTERN-001",
+      "PATTERN-004"
+    ]
+  },
+  "next_action": [
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run"
+  ]
+}

@@ -936,7 +936,32 @@ Routing examples:
 | `优化仪表盘页面样式和移动端适配` | `agent-4` | Matches dashboard/page/style/mobile/responsive UI keywords. If this becomes `apps/web/**` implementation, the generated task must require human approval. |
 | `整理 Runtime Memory 使用手册` | `agent-1` | Matches Runtime Memory documentation/manual/index ownership. |
 
-## 10. First-Version Limits
+## 10. Resident Observer / Evolution Center
+
+Resident Observer is a platform-level Evolution Center capability. It is not a worker agent and does not create an `agent-6`.
+
+Commands:
+
+- `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --dry-run`
+- `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --apply`
+- `node ops/agent-orchestrator/scripts/evolution-planner.mjs --dry-run`
+- `node ops/agent-orchestrator/scripts/evolution-planner.mjs --apply`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --apply`
+
+The observer reads doctor, check-dispatch-status, run logs, audit, integration, event store, queue, locks, results, and self-repair availability. Dry-run prints findings, matched failure patterns, root causes, improvement candidates, and suggested tasks without writing files. Apply mode records the latest observation into `ops/agent-orchestrator/evolution/evolution-state.json` and appends a learning entry.
+
+The Evolution Center data files are append-friendly:
+
+- `ops/agent-orchestrator/evolution/failure-patterns.json`
+- `ops/agent-orchestrator/evolution/learning-log.json`
+- `ops/agent-orchestrator/evolution/improvement-backlog.json`
+- `ops/agent-orchestrator/evolution/evolution-state.json`
+- `ops/agent-orchestrator/evolution/state.example.json`
+
+`doctor` includes an Evolution Center section with pattern count, open/resolved improvements, learning entries, and top recurring failures. Improvement candidates are review-first; they should not be inserted into the task queue without explicit approval.
+
+## 11. First-Version Limits
 
 - The queue is file-based and assumes one writer at a time.
 - Locking is advisory and recorded in `task-locks.json`.

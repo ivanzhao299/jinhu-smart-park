@@ -29,6 +29,7 @@ import {
   writeJson
 } from "./lib/queue-utils.mjs";
 import { buildEventStoreHealth } from "./lib/event-store-utils.mjs";
+import { buildEvolutionSummary, readEvolutionData } from "./lib/evolution-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -781,6 +782,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
   const runner = await inspectRunner(config, queue, results, perTaskResults, findings);
   const integration = inspectIntegration(config, worktrees, findings);
   const validation = inspectValidation(args, findings);
+  const evolution = buildEvolutionSummary(await readEvolutionData());
 
   const diagnosis = {
     generated_at: new Date().toISOString(),
@@ -798,6 +800,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
     runner,
     integration,
     validation,
+    evolution,
     fixes,
     applied_fixes: appliedFixes,
     next_action: []
@@ -868,6 +871,21 @@ function printMarkdown(diagnosis, args) {
   } else {
     for (const log of diagnosis.runner.recent_run_logs) {
       console.log(`- ${log.task_id} | ${log.agent} | exit=${log.exit_code ?? "?"} | task=${log.task_status} | result=${log.result_status} | ${log.path}`);
+    }
+  }
+  console.log("");
+
+  console.log("## Evolution Center");
+  console.log(`Pattern Count: ${diagnosis.evolution.pattern_count}`);
+  console.log(`Open Improvements: ${diagnosis.evolution.open_improvements}`);
+  console.log(`Resolved Improvements: ${diagnosis.evolution.resolved_improvements}`);
+  console.log(`Learning Entries: ${diagnosis.evolution.learning_entries}`);
+  console.log("Top Recurring Failures:");
+  if ((diagnosis.evolution.top_recurring_failures ?? []).length === 0) {
+    console.log("- none");
+  } else {
+    for (const pattern of diagnosis.evolution.top_recurring_failures) {
+      console.log(`- ${pattern.pattern_id}: ${pattern.title} | occurrences=${pattern.occurrences} | risk=${pattern.risk_level} | status=${pattern.status}`);
     }
   }
   console.log("");
@@ -953,6 +971,7 @@ if (args.json) {
     runner: diagnosis.runner,
     integration: diagnosis.integration,
     validation: diagnosis.validation,
+    evolution: diagnosis.evolution,
     fixes: diagnosis.fixes,
     applied_fixes: diagnosis.applied_fixes,
     next_action: diagnosis.next_action

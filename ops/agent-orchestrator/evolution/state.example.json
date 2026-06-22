@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_evolution_state_example",
+  "observer_version": "v3-e-mvp",
+  "last_observed_at": "2026-06-22T00:00:00.000Z",
+  "maturity": {
+    "current_score": 95,
+    "target_score": 98,
+    "status": "observing"
+  },
+  "summary": {
+    "pattern_count": 5,
+    "open_improvements": 4,
+    "resolved_improvements": 1,
+    "learning_entries": 5,
+    "top_recurring_failures": [
+      {
+        "pattern_id": "PATTERN-002",
+        "occurrences": 4,
+        "title": "Completed run missing queue/result finalization"
+      }
+    ]
+  },
+  "next_action": [
+    "Run observe --dry-run",
+    "Review improvement backlog",
+    "Approve low-risk improvement tasks before agent-cycle"
+  ]
+}

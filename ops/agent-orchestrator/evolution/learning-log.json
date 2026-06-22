@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_learning_log",
+  "updated_at": "2026-06-22T00:00:00.000Z",
+  "entries": [
+    {
+      "learning_id": "LEARN-20260622-001",
+      "pattern_id": "PATTERN-001",
+      "observed_at": "2026-06-22T00:00:00.000Z",
+      "source": "historical_reconciliation",
+      "incident": "Dry-run and dispatch artifacts dirtied main and blocked execute precheck.",
+      "root_cause": "Generated orchestrator artifacts were not separated from business dirty files.",
+      "resolution": "Make runner dry-run no-write and auto-commit event-first dispatch artifacts before execution.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/runs/agent-run-plan.md",
+        "ops/agent-orchestrator/events/tasks"
+      ],
+      "follow_up": "Keep doctor classification for dispatch artifacts visible.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-20260622-002",
+      "pattern_id": "PATTERN-002",
+      "observed_at": "2026-06-22T00:00:00.000Z",
+      "source": "historical_reconciliation",
+      "incident": "Successful run logs existed while task/result state stayed CLAIMED or MISSING.",
+      "root_cause": "Worker completion did not always materialize task-results and queue DONE state.",
+      "resolution": "Reconcile from run log, agent commit, and truthful result artifact without re-running agents.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/runs/*.run.log",
+        "ops/agent-orchestrator/results/*.json"
+      ],
+      "follow_up": "Prefer event-first complete-task writes and doctor detection.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-20260622-003",
+      "pattern_id": "PATTERN-003",
+      "observed_at": "2026-06-22T00:00:00.000Z",
+      "source": "historical_reconciliation",
+      "incident": "Natural-language tasks needed explicit router rules to avoid idle or misassigned agents.",
+      "root_cause": "Domain ownership lived in docs and scripts rather than a router-readable rule file.",
+      "resolution": "Introduce agent-router-rules.json and route-natural-language-task.mjs dry-run smoke.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/agent-router-rules.json",
+        "ops/agent-orchestrator/scripts/route-natural-language-task.mjs"
+      ],
+      "follow_up": "Unify router rules with the V3 agent registry.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-20260622-004",
+      "pattern_id": "PATTERN-004",
+      "observed_at": "2026-06-22T00:00:00.000Z",
+      "source": "historical_reconciliation",
+      "incident": "Duplicate and stale locks blocked V2 task execution.",
+      "root_cause": "Legacy lock JSON allowed multiple active rows for completed or replaced task states.",
+      "resolution": "Doctor detects duplicate, missing-task, and DONE-task locks; low-risk fix can remove safe rows.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/scripts/doctor.mjs"
+      ],
+      "follow_up": "Prefer event-derived locks and idempotent lock events.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-20260622-005",
+      "pattern_id": "PATTERN-005",
+      "observed_at": "2026-06-22T00:00:00.000Z",
+      "source": "historical_reconciliation",
+      "incident": "Queue JSON and event read model could disagree during the event-first transition.",
+      "root_cause": "Event-first adoption was staged while compatibility JSON remained writable.",
+      "resolution": "Add event store health checks, rebuild dry-run, and consistency reporting in doctor.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/events",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs"
+      ],
+      "follow_up": "Keep all state-changing scripts event-first before raising parallelism.",
+      "status": "ACTIVE"
+    }
+  ]
+}

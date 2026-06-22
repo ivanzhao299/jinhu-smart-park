@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_improvement_backlog",
+  "updated_at": "2026-06-22T00:00:00.000Z",
+  "improvements": [
+    {
+      "improvement_id": "IMPROVE-001",
+      "pattern_id": "PATTERN-001",
+      "title": "Keep generated runtime artifacts from blocking execution",
+      "status": "RESOLVED",
+      "priority": "P0",
+      "risk_level": "LOW",
+      "owner_recommendation": "agent-5",
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
+        "git status --short"
+      ]
+    },
+    {
+      "improvement_id": "IMPROVE-002",
+      "pattern_id": "PATTERN-002",
+      "title": "Truthful completion reconcile for successful agent runs",
+      "status": "OPEN",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "owner_recommendation": "agent-2",
+      "auto_fix_eligibility": "REQUIRES_EVIDENCE_RECONCILE",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run"
+      ]
+    },
+    {
+      "improvement_id": "IMPROVE-003",
+      "pattern_id": "PATTERN-003",
+      "title": "Unify router rules with the V3 agent registry",
+      "status": "OPEN",
+      "priority": "P1",
+      "risk_level": "LOW",
+      "owner_recommendation": "agent-4",
+      "auto_fix_eligibility": "PLANNING_ONLY",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"整理 Runtime Memory 使用手册\" --dry-run"
+      ]
+    },
+    {
+      "improvement_id": "IMPROVE-004",
+      "pattern_id": "PATTERN-004",
+      "title": "Event-derived lock model and duplicate lock guard",
+      "status": "OPEN",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "owner_recommendation": "agent-3",
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ]
+    },
+    {
+      "improvement_id": "IMPROVE-005",
+      "pattern_id": "PATTERN-005",
+      "title": "Promote event/read-model consistency checks into release gates",
+      "status": "OPEN",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "auto_fix_eligibility": "DRY_RUN_FIRST",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ]
+    }
+  ]
+}

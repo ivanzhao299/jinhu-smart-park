@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_failure_patterns",
+  "updated_at": "2026-06-22T00:00:00.000Z",
+  "patterns": [
+    {
+      "pattern_id": "PATTERN-001",
+      "title": "Runtime artifact dirty blocks integration",
+      "summary": "Generated orchestrator runtime artifacts can leave main dirty and block runner or integration prechecks.",
+      "symptoms": [
+        "main worktree is not clean after dry-run or dispatch",
+        "agent-cycle execute precheck stops on ops/agent-orchestrator/runs artifacts",
+        "integration is blocked even though no business file changed"
+      ],
+      "root_causes": [
+        "dry-run or dispatch wrote generated plan, prompt, queue, or event artifacts",
+        "precheck treated orchestrator-generated artifacts the same as business dirty files"
+      ],
+      "risk_level": "MEDIUM",
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "detection_sources": [
+        "doctor",
+        "git status",
+        "agent-cycle precheck"
+      ],
+      "matching_hints": [
+        "agent-run-plan.md",
+        "dispatch artifacts pending commit",
+        "main worktree is not clean"
+      ],
+      "recommended_improvements": [
+        "Keep dry-run no-write by default",
+        "Auto-commit event-first dispatch artifacts before runner execution",
+        "Doctor should classify runtime artifacts separately from business dirty files"
+      ],
+      "first_seen_at": "2026-06-21T00:00:00.000Z",
+      "last_seen_at": "2026-06-22T00:00:00.000Z",
+      "occurrences": 3,
+      "status": "ACTIVE"
+    },
+    {
+      "pattern_id": "PATTERN-002",
+      "title": "Completed run missing queue/result finalization",
+      "summary": "Agent run logs and result artifacts show success, but task queue/result state remains CLAIMED or READY.",
+      "symptoms": [
+        "run.log exit_code is 0",
+        "task result is MISSING or not DONE",
+        "task status remains CLAIMED or READY after successful agent work"
+      ],
+      "root_causes": [
+        "complete-task.mjs was not invoked by the worker",
+        "event/read-model rebuild did not materialize result status",
+        "reconcile did not trust successful run log plus committed evidence"
+      ],
+      "risk_level": "MEDIUM",
+      "auto_fix_eligibility": "REQUIRES_EVIDENCE_RECONCILE",
+      "detection_sources": [
+        "doctor",
+        "run logs",
+        "task-results",
+        "task-queue"
+      ],
+      "matching_hints": [
+        "run.log exit 0 but task result is not DONE",
+        "result=MISSING",
+        "task not DONE"
+      ],
+      "recommended_improvements": [
+        "Use truthful reconcile from run log, agent commit, report, and result artifact",
+        "Keep event-first complete writes idempotent",
+        "Surface missing completion as a doctor finding before integration"
+      ],
+      "first_seen_at": "2026-06-21T00:00:00.000Z",
+      "last_seen_at": "2026-06-22T00:00:00.000Z",
+      "occurrences": 4,
+      "status": "ACTIVE"
+    },
+    {
+      "pattern_id": "PATTERN-003",
+      "title": "Agent idle because router rule is missing",
+      "summary": "Natural-language work can fail to reach the right agent when domain keywords or fallback rules are incomplete.",
+      "symptoms": [
+        "agent is idle while related work exists",
+        "owner assignment is manual or inconsistent",
+        "unknown domain falls back without useful reason"
+      ],
+      "root_causes": [
+        "agent-router-rules.json lacks domain keywords",
+        "planner does not explain owner selection",
+        "agent registry and router rules are not fully unified"
+      ],
+      "risk_level": "LOW",
+      "auto_fix_eligibility": "PLANNING_ONLY",
+      "detection_sources": [
+        "router dry-run",
+        "planner output",
+        "task queue"
+      ],
+      "matching_hints": [
+        "fallback used",
+        "unknown domain",
+        "agent idle"
+      ],
+      "recommended_improvements": [
+        "Expand router keyword coverage",
+        "Route unknown work to agent-5 planning",
+        "Add routing smoke tests for common natural-language requests"
+      ],
+      "first_seen_at": "2026-06-21T00:00:00.000Z",
+      "last_seen_at": "2026-06-22T00:00:00.000Z",
+      "occurrences": 1,
+      "status": "ACTIVE"
+    },
+    {
+      "pattern_id": "PATTERN-004",
+      "title": "Duplicate lock blocks task execution",
+      "summary": "Duplicate or stale locks make READY/CLAIMED state ambiguous and can block otherwise runnable agents.",
+      "symptoms": [
+        "duplicate lock entries for one task and agent",
+        "DONE task still has an active lock",
+        "CLAIMED task has no matching clean runnable state"
+      ],
+      "root_causes": [
+        "legacy JSON lock writes were not idempotent",
+        "completed tasks did not clear locks",
+        "manual reconcile preserved old lock rows"
+      ],
+      "risk_level": "MEDIUM",
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "detection_sources": [
+        "doctor",
+        "task-locks",
+        "check-dispatch-status"
+      ],
+      "matching_hints": [
+        "duplicate lock",
+        "DONE task still has active lock",
+        "stale lock"
+      ],
+      "recommended_improvements": [
+        "Remove exact duplicate locks",
+        "Remove DONE task locks",
+        "Prefer event-derived lock read model"
+      ],
+      "first_seen_at": "2026-06-21T00:00:00.000Z",
+      "last_seen_at": "2026-06-22T00:00:00.000Z",
+      "occurrences": 2,
+      "status": "ACTIVE"
+    },
+    {
+      "pattern_id": "PATTERN-005",
+      "title": "Queue and event read-model inconsistency",
+      "summary": "Event store and compatibility JSON can drift, which makes dispatch, audit, and doctor disagree.",
+      "symptoms": [
+        "event queue read model differs from task-queue.json",
+        "event lock read model differs from task-locks.json",
+        "event result read model differs from task-results.json"
+      ],
+      "root_causes": [
+        "not every status write path was event-first",
+        "rebuild/read-model apply was skipped after event writes",
+        "legacy JSON was edited directly during reconcile"
+      ],
+      "risk_level": "MEDIUM",
+      "auto_fix_eligibility": "DRY_RUN_FIRST",
+      "detection_sources": [
+        "event store",
+        "doctor",
+        "rebuild-queue-read-model"
+      ],
+      "matching_hints": [
+        "read model differs",
+        "read model inconsistent",
+        "queue/read-model inconsistency"
+      ],
+      "recommended_improvements": [
+        "Run rebuild-queue-read-model.mjs --dry-run before apply",
+        "Move remaining write paths to event-first",
+        "Keep doctor event health visible in every cycle"
+      ],
+      "first_seen_at": "2026-06-21T00:00:00.000Z",
+      "last_seen_at": "2026-06-22T00:00:00.000Z",
+      "occurrences": 2,
+      "status": "ACTIVE"
+    }
+  ]
+}

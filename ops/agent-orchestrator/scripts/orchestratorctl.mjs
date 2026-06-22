@@ -36,6 +36,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs check-status
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run|--apply
@@ -645,6 +646,11 @@ async function dispatchCommand() {
       break;
     case "doctor":
       runDoctorCommand(rest);
+      break;
+    case "observe":
+      runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", [
+        hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+      ]);
       break;
     case "check-status":
       runShellScript("./ops/agent-orchestrator/check-status.sh", [], {
