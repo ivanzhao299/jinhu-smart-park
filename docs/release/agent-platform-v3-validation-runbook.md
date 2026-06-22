@@ -96,11 +96,11 @@ node - <<'NODE'
 const fs = require("fs");
 const schema = JSON.parse(fs.readFileSync("ops/agent-orchestrator/planner/planner-output.schema.json", "utf8"));
 const required = new Set(schema.required ?? []);
-for (const field of ["source_goal_id", "req_summary", "tech_summary", "tasks", "agent_assignments", "risk_assessment", "validation_commands", "expected_outputs"]) {
+for (const field of ["planner_output_id", "source_goal_id", "req_summary", "tech_summary", "tasks", "agent_assignments", "risk_assessment", "validation_commands", "expected_outputs"]) {
   if (!required.has(field)) throw new Error(`planner schema does not require ${field}`);
 }
 const taskRequired = new Set(schema.$defs?.taskCandidate?.required ?? []);
-for (const field of ["task_id", "owner", "domain", "priority", "risk", "allowed_paths", "forbidden_paths", "acceptance", "validation_commands", "requires_human_approval", "expected_output_files"]) {
+for (const field of ["task_id", "batch_id", "source_goal_id", "owner", "owner_assignment_reason", "domain", "priority", "status", "risk", "allowed_paths", "forbidden_paths", "acceptance", "validation_commands", "requires_human_approval", "expected_output_files", "created_at", "updated_at"]) {
   if (!taskRequired.has(field)) throw new Error(`planner task candidate does not require ${field}`);
 }
 console.log("planner contract check passed");
@@ -110,7 +110,7 @@ NODE
 Expected pass:
 
 - Planner schema requires REQ, TECH, task candidates, owner assignments, risk assessment, validation commands, and expected outputs.
-- Task candidates require owner, risk, path boundaries, acceptance, validation, approval, and output fields.
+- Task candidates require owner, owner-assignment reason, READY draft status, risk, path boundaries, acceptance, validation, approval, timestamps, and output fields.
 
 Fail interpretation:
 
@@ -124,11 +124,11 @@ const fs = require("fs");
 const file = process.env.PLANNER_OUTPUT;
 if (!file) throw new Error("set PLANNER_OUTPUT to a planner output draft");
 const output = JSON.parse(fs.readFileSync(file, "utf8"));
-for (const field of ["source_goal_id", "req_summary", "tech_summary", "tasks", "agent_assignments", "risk_assessment", "validation_commands", "expected_outputs"]) {
+for (const field of ["planner_output_id", "source_goal_id", "req_summary", "tech_summary", "tasks", "agent_assignments", "risk_assessment", "validation_commands", "expected_outputs"]) {
   if (output[field] === undefined) throw new Error(`missing planner output field: ${field}`);
 }
 for (const task of output.tasks ?? []) {
-  for (const field of ["task_id", "owner", "risk", "allowed_paths", "forbidden_paths", "acceptance", "validation_commands", "requires_human_approval", "expected_output_files"]) {
+  for (const field of ["task_id", "batch_id", "source_goal_id", "owner", "owner_assignment_reason", "status", "risk", "allowed_paths", "forbidden_paths", "acceptance", "validation_commands", "requires_human_approval", "expected_output_files", "created_at", "updated_at"]) {
     if (task[field] === undefined) throw new Error(`task ${task.task_id ?? "(unknown)"} missing ${field}`);
   }
 }

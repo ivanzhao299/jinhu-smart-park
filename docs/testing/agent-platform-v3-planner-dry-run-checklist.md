@@ -54,11 +54,11 @@ Every planner dry-run validation must preserve these invariants:
 | DRY-07 | Queue draft | Convert task candidates into draft queue rows only in memory or an approved draft artifact. | `ops/agent-orchestrator/queue/task-queue.json` is unchanged. |
 | DRY-08 | Event-first boundary | Confirm live queue writes are not attempted. | No `task.created`, lock, or result read-model file is written. |
 | DRY-09 | Agent assignments | Validate assignment owners and task ids reference known candidates. | Unknown owners or orphan task ids fail validation. |
-| DRY-10 | Dispatch preview | Validate dispatch modes are `dry-run`, `requires-human-approval`, or `ready-after-approval`. | Preview does not claim, lock, or execute tasks. |
+| DRY-10 | Dispatch preview | Validate each preview has task id, owner, and non-empty readiness text. | Preview does not claim, lock, or execute tasks. |
 | DRY-11 | Risk approval | Check `risk_assessment.requires_human_approval`, task `requires_human_approval`, and blocked paths. | Approval-required work remains blocked until explicit approval. |
 | DRY-12 | Path boundaries | Compare every expected output and allowed path against task boundaries. | Business, database, infra, auth, CI, Docker, deploy, and env paths are rejected unless a later approved task explicitly allows them. |
 | DRY-13 | Validation commands | Classify every proposed command by write risk. | Write, deploy, migration, seed, cleanup, reset, merge, push, and Agent execution commands are rejected for planner dry-run. |
-| DRY-14 | Expected outputs | Confirm output paths are drafts and have clear purposes. | Draft outputs stay inside approved planning paths. |
+| DRY-14 | Expected outputs | Confirm output paths are linked to known task candidates. | Draft outputs stay inside approved planning paths. |
 | DRY-15 | No-write evidence | Compare `git status --short` before and after dry-run checks. | Only expected planning/report/result files appear. |
 
 ## 5. Negative Checks
@@ -74,7 +74,7 @@ Future automated planner validation should include fixture cases for:
 | NEG-05 | Owner outside `agent-1` through `agent-5`. | Validation fails before dispatch preview. |
 | NEG-06 | Priority outside `P0` through `P3`. | Validation fails before queue draft. |
 | NEG-07 | Risk outside `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`. | Validation fails before approval gate. |
-| NEG-08 | Dispatch mode outside the declared enum. | Validation fails before dispatch preview. |
+| NEG-08 | Dispatch preview missing task id, owner, or readiness text. | Validation fails before dispatch preview. |
 | NEG-09 | Expected output under a forbidden path. | Validation fails path-boundary review. |
 | NEG-10 | Validation command contains deploy, migration, seed, reset, cleanup, merge, push, or Agent execution. | Validation plan is rejected for planner dry-run. |
 | NEG-11 | `requires_human_approval` is true but dispatch mode is treated as executable. | Validation fails approval gate. |
