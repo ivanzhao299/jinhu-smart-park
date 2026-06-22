@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T15:53:04.820Z",
+  "updated_at": "2026-06-22T15:53:16.205Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -1506,14 +1506,14 @@
       "requires_human_approval": false,
       "owner": "agent-5",
       "owner_assignment_reason": "preferred owner agent-5 validated against Agent Registry",
-      "status": "DONE",
+      "status": "AUDITED",
       "expected_output_files": [
         "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
         "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
-      "updated_at": "2026-06-22T15:53:04.820Z"
+      "updated_at": "2026-06-22T15:53:16.205Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
@@ -1556,14 +1556,14 @@
       "requires_human_approval": false,
       "owner": "agent-3",
       "owner_assignment_reason": "preferred owner agent-3 validated against Agent Registry",
-      "status": "DONE",
+      "status": "AUDITED",
       "expected_output_files": [
         "docs/testing/agent-studio-v3-planner-output-validation.md",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
         "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
-      "updated_at": "2026-06-22T15:53:04.689Z"
+      "updated_at": "2026-06-22T15:53:16.204Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
@@ -1606,14 +1606,14 @@
       "requires_human_approval": false,
       "owner": "agent-4",
       "owner_assignment_reason": "preferred owner agent-4 validated against Agent Registry",
-      "status": "DONE",
+      "status": "AUDITED",
       "expected_output_files": [
         "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md",
         "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
-      "updated_at": "2026-06-22T15:53:04.754Z"
+      "updated_at": "2026-06-22T15:53:16.204Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
@@ -1656,14 +1656,14 @@
       "requires_human_approval": false,
       "owner": "agent-2",
       "owner_assignment_reason": "preferred owner agent-2 validated against Agent Registry",
-      "status": "DONE",
+      "status": "AUDITED",
       "expected_output_files": [
         "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md",
         "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
-      "updated_at": "2026-06-22T15:52:25.973Z"
+      "updated_at": "2026-06-22T15:53:16.203Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
@@ -1705,14 +1705,14 @@
       "requires_human_approval": false,
       "owner": "agent-1",
       "owner_assignment_reason": "preferred owner agent-1 validated against Agent Registry",
-      "status": "DONE",
+      "status": "AUDITED",
       "expected_output_files": [
         "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md",
         "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md",
         "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
-      "updated_at": "2026-06-22T15:52:26.703Z"
+      "updated_at": "2026-06-22T15:53:16.202Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A1-PRODUCT-DOCS",
