@@ -1,0 +1,84 @@
+{
+  "event_id": "v3-round1:task:AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+  "owner": "agent-3",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-22T13:30:00.000Z",
+  "actor": "orchestrator",
+  "source": "v3-planning-task-queue",
+  "reason": "Create AGENT_PLATFORM_V3 planning task from approved V3 planning request.",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "v3-round1-created:AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Planner output schema and planning runtime flow",
+      "owner": "agent-3",
+      "domain": "planner-runtime-flow",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/planner",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/release/agent-platform-v3-planner-runtime.md describing how Planner output becomes REQ, TECH, task queue draft, dispatch plan, and validation plan.",
+        "Review ops/agent-orchestrator/planner/planner-output.schema.json and document dry-run planning boundaries.",
+        "Create docs/testing/agent-platform-v3-planner-dry-run-checklist.md with no-write planner validation checks.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md summarizing changed files, validation, and remaining risks.",
+        "Do not execute Agents, write queue from planner output, or modify business code."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/release/agent-platform-v3-planner-runtime.md",
+        "test -f docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/planner/planner-output.schema.json','utf8'));\"",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Planner runtime doc exists",
+        "Planner output schema parses as JSON",
+        "Planner dry-run checklist exists",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v3-planner-runtime.md",
+        "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T13:30:00.000Z"
+    }
+  }
+}

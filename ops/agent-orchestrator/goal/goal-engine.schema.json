@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/ops/agent-orchestrator/goal/goal-engine.schema.json",
+  "title": "Agent Orchestrator Goal Engine State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "goal_id",
+    "goal_title",
+    "goal_text",
+    "current_maturity",
+    "target_maturity",
+    "capability_scores",
+    "gaps",
+    "milestones",
+    "recommended_tasks",
+    "risks",
+    "status",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_maturity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "target_maturity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "current_state": {
+      "type": "string"
+    },
+    "target_state": {
+      "type": "string"
+    },
+    "capability_scores": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityScore"
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/milestone"
+      }
+    },
+    "recommended_tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendedTask"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "READY_FOR_REVIEW",
+        "APPROVED",
+        "IN_PROGRESS",
+        "BLOCKED",
+        "DONE",
+        "CANCELLED"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "string",
+      "enum": [
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ]
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "capabilityScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "name",
+        "current_score",
+        "target_score",
+        "evidence",
+        "gap_summary",
+        "risk_level"
+      ],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "current_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "target_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gap_summary": {
+          "type": "string"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/riskLevel"
+        }
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_id",
+        "capability_id",
+        "summary",
+        "impact",
+        "recommended_agent",
+        "priority",
+        "risk_level",
+        "required_approval"
+      ],
+      "properties": {
+        "gap_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommended_agent": {
+          "$ref": "#/$defs/agent"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "required_approval": {
+          "type": "boolean"
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "milestone_id",
+        "title",
+        "target_maturity",
+        "exit_criteria"
+      ],
+      "properties": {
+        "milestone_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_maturity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "exit_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "recommendedTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "title",
+        "owner",
+        "priority",
+        "risk_level",
+        "expected_output"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "#/$defs/agent"
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "expected_output": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "risk_id",
+        "summary",
+        "risk_level",
+        "mitigation"
+      ],
+      "properties": {
+        "risk_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_level": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "mitigation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -5,14 +5,15 @@
 - Queue: `ops/agent-orchestrator/queue/task-queue.json`
 - Locks: `ops/agent-orchestrator/queue/task-locks.json`
 - Results: `ops/agent-orchestrator/queue/task-results.json`
-- Current active batch: `AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622`
+- Current active batch: `AGENT-PLATFORM-V3-ROUND1-20260622`
+- Previous active batch: `AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622`
 - Previous platform round: `AGENT-PLATFORM-V2-ROUND2-20260622`
 - Previous platform batch: `AGENT-PLATFORM-V2-20260621`
-- Previous active batch: `PROD-EVIDENCE-20260621-002`
+- Previous production evidence batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
-- Current mainline focus: `AGENT_PLATFORM_V2` resource formation, readiness coverage, and router rules for natural-language task ownership.
+- Current mainline focus: `AGENT_PLATFORM_V3` Goal Engine, Planner Agent, Agent Registry, natural-language goal planning, gap analysis, and approval-gated autonomous loop planning.
 - Queue governance note: remaining `PROD-EVIDENCE-20260621-002` agent-5 tasks are temporarily `BLOCKED` while `AGENT_PLATFORM_V2` P0 work is in progress.
-- Expected next dispatch: none until a new task queue is generated. Future queue generation must set owner from `ops/agent-orchestrator/agent-router-rules.json`.
+- Expected next dispatch: V3 Round1 tasks for agent-1 through agent-5. Future queue generation must set owner from `ops/agent-orchestrator/agent-router-rules.json` or the V3 Agent Registry once approved.
 
 ## Agent Resource Formation
 
@@ -48,6 +49,80 @@ Examples:
 |---|---|---|
 | `优化仪表盘页面样式和移动端适配` | `agent-4` | Matches dashboard/page/style/mobile UI keywords. |
 | `整理 Runtime Memory 使用手册` | `agent-1` | Matches Runtime Memory documentation/manual/index keywords. |
+
+## Batch AGENT-PLATFORM-V3-ROUND1-20260622
+
+Source request:
+
+- `docs/release/AGENT_PLATFORM_V3_PLAN.md`
+- `ops/agent-orchestrator/specs/REQ-AGENT-PLATFORM-V3.md`
+- `ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V3.md`
+- `ops/agent-orchestrator/goal/goal-engine.schema.json`
+- `ops/agent-orchestrator/agent-registry/agent-registry.schema.json`
+- `ops/agent-orchestrator/planner/planner-output.schema.json`
+
+Batch goal: move Agent Orchestrator toward a goal-driven software factory platform by planning Goal Engine, Planner Agent, Agent Registry, natural-language goal to REQ/TECH/task queue, progress/gap analysis, and Autonomous Loop V1.
+
+This batch is planning-first. It does not execute Agents, merge, push, deploy, run production migration, run production seed, perform cleanup/reset, modify business code, or write production data.
+
+### V3 Round1 Scope
+
+| Area | Goal | Impact |
+|---|---|---|
+| V3-A Goal Engine | Convert natural-language goals into current state, target state, gaps, milestones, task candidates, risks, and recommended agents. | Gives the platform a measurable target and progress model. |
+| V3-B Planner Agent | Convert Goal Engine output into REQ, TECH, task queue draft, dispatch plan, and validation plan. | Reduces manual planning and makes generated work auditable. |
+| V3-C Agent Registry | Move agent metadata into a registry-backed dynamic agent pool. | Avoids hard-coded agent assumptions and supports future capacity/risk controls. |
+| V3-D Autonomous Loop V1 | Let daemon read goals, produce dry-run planner output, wait for approval, then enter agent-cycle. | Adds goal-aware automation without enabling unattended production operations. |
+
+### V3 Tasks
+
+| Task ID | Agent | Domain | Priority | Risk | Status | Scope |
+|---|---|---|---|---|---|---|
+| `AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH` | agent-5 | goal-engine-platform-architecture | P0 | MEDIUM | READY | Goal Engine architecture, schema review, gap-analysis contract |
+| `AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME` | agent-3 | planner-runtime-flow | P0 | MEDIUM | READY | Planner output schema usage, no-write planning flow, validation handoff |
+| `AGENT-PLATFORM-V3-A4-AGENT-REGISTRY` | agent-4 | agent-registry-dynamic-pool | P0 | MEDIUM | READY | Agent Registry, dynamic Agent Pool, router compatibility design |
+| `AGENT-PLATFORM-V3-A2-GOAL-VALIDATION` | agent-2 | goal-planner-registry-validation | P1 | MEDIUM | READY | Goal / Planner / Registry validation matrix and runbook |
+| `AGENT-PLATFORM-V3-A1-PRODUCT-DOCS` | agent-1 | agent-studio-product-docs | P1 | LOW | READY | ANKSEN Agent Studio productization and V3 user flow documentation |
+
+### V3 Expected Output Files
+
+| Task ID | Expected output files |
+|---|---|
+| `AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH` | `docs/release/agent-platform-v3-goal-engine-architecture.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json` |
+| `AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME` | `docs/release/agent-platform-v3-planner-runtime.md`; `docs/testing/agent-platform-v3-planner-dry-run-checklist.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.json` |
+| `AGENT-PLATFORM-V3-A4-AGENT-REGISTRY` | `docs/release/agent-platform-v3-agent-registry-design.md`; `docs/testing/agent-platform-v3-agent-registry-checklist.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.json` |
+| `AGENT-PLATFORM-V3-A2-GOAL-VALIDATION` | `docs/testing/agent-platform-v3-validation-matrix.md`; `docs/release/agent-platform-v3-validation-runbook.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json` |
+| `AGENT-PLATFORM-V3-A1-PRODUCT-DOCS` | `docs/release/anksen-agent-studio-v3-user-flow.md`; `docs/release/agent-platform-v3-productization-notes.md`; `docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.json` |
+
+### V3 Agents To Execute Next
+
+- `agent-1`: `AGENT-PLATFORM-V3-A1-PRODUCT-DOCS`
+- `agent-2`: `AGENT-PLATFORM-V3-A2-GOAL-VALIDATION`
+- `agent-3`: `AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME`
+- `agent-4`: `AGENT-PLATFORM-V3-A4-AGENT-REGISTRY`
+- `agent-5`: `AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH`
+
+### V3 Guardrails
+
+1. Do not modify `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, or auth files.
+2. Do not modify `database/migrations` or `database/seeds`.
+3. Do not execute Agents as part of this planning commit.
+4. Do not push, merge, deploy, run production migration, run production seed, run cleanup, or run reset.
+5. Generated planner output remains draft until human approval.
+6. Autonomous Loop V1 must stay approval-gated.
+
+### V3 Validation Commands
+
+```bash
+node -e "JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-queue.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-locks.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-results.json','utf8'));"
+node -e "JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-engine.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-state.example.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/agent-registry/agent-registry.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/agent-registry/agent-registry.example.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/planner/planner-output.schema.json','utf8'));"
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
+node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text "继续把 Agent Studio 提升到 98%" --dry-run
+git diff --check
+pnpm typecheck
+```
 
 ## Batch TRIAL-20260621-001
 

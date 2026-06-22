@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "goal_id": "GOAL-AGENT-STUDIO-98",
+  "goal_title": "Raise Agent Studio maturity to 98%",
+  "goal_text": "继续把 Agent Studio 提升到 98%",
+  "current_maturity": 95,
+  "target_maturity": 98,
+  "current_state": "Agent Orchestrator has event-first queue foundation, guarded parallel 2 execution, doctor diagnostics, router rules, and integration validation.",
+  "target_state": "Agent Studio can turn a natural-language goal into reviewed REQ, TECH, task queue, dispatch plan, validation plan, and approval-gated autonomous execution.",
+  "capability_scores": [
+    {
+      "capability_id": "goal-engine",
+      "name": "Goal Engine",
+      "current_score": 0,
+      "target_score": 90,
+      "evidence": [
+        "No committed goal schema before V3 planning"
+      ],
+      "gap_summary": "Need structured goal state, gap analysis, milestones, and recommended tasks.",
+      "risk_level": "MEDIUM"
+    },
+    {
+      "capability_id": "planner-agent",
+      "name": "Planner Agent",
+      "current_score": 20,
+      "target_score": 85,
+      "evidence": [
+        "Manual REQ / TECH / task-queue generation exists",
+        "Natural-language route dry-run exists"
+      ],
+      "gap_summary": "Need structured planner output that can create REQ, TECH, queue drafts, dispatch plans, and validation plans.",
+      "risk_level": "MEDIUM"
+    },
+    {
+      "capability_id": "agent-registry",
+      "name": "Agent Registry",
+      "current_score": 35,
+      "target_score": 85,
+      "evidence": [
+        "agent-router-rules.json exists",
+        "agent-1 to agent-5 lanes are documented"
+      ],
+      "gap_summary": "Need registry-backed dynamic agent pool metadata instead of hard-coded assumptions.",
+      "risk_level": "MEDIUM"
+    },
+    {
+      "capability_id": "autonomous-loop",
+      "name": "Autonomous Loop V1",
+      "current_score": 55,
+      "target_score": 80,
+      "evidence": [
+        "daemon watcher exists",
+        "agent-cycle exists",
+        "approval-gated execution guardrails exist"
+      ],
+      "gap_summary": "Need goal-aware daemon planning loop that stops for human approval before execution.",
+      "risk_level": "HIGH"
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "GAP-GOAL-ENGINE-SCHEMA",
+      "capability_id": "goal-engine",
+      "summary": "No committed goal state contract.",
+      "impact": "The platform cannot consistently track goal progress or required maturity gaps.",
+      "recommended_agent": "agent-5",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    },
+    {
+      "gap_id": "GAP-PLANNER-OUTPUT",
+      "capability_id": "planner-agent",
+      "summary": "Planner output is not yet machine-readable.",
+      "impact": "REQ, TECH, task queue, dispatch plan, and validation plan are still manually assembled.",
+      "recommended_agent": "agent-3",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    },
+    {
+      "gap_id": "GAP-AGENT-REGISTRY",
+      "capability_id": "agent-registry",
+      "summary": "Agent pool metadata is still router-rule first.",
+      "impact": "New agents or paused agents cannot be represented without updating static routing assumptions.",
+      "recommended_agent": "agent-4",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    },
+    {
+      "gap_id": "GAP-GOAL-VALIDATION",
+      "capability_id": "autonomous-loop",
+      "summary": "No validation matrix for Goal / Planner / Registry artifacts.",
+      "impact": "Generated planning output cannot be accepted safely without repeatable checks.",
+      "recommended_agent": "agent-2",
+      "priority": "P1",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    }
+  ],
+  "milestones": [
+    {
+      "milestone_id": "V3-M1",
+      "title": "Goal and planner contracts reviewed",
+      "target_maturity": 96,
+      "exit_criteria": [
+        "Goal Engine schema exists",
+        "Planner output schema exists",
+        "Agent Registry schema exists",
+        "V3 task queue is generated"
+      ]
+    },
+    {
+      "milestone_id": "V3-M2",
+      "title": "Approval-gated goal loop planned",
+      "target_maturity": 98,
+      "exit_criteria": [
+        "Daemon loop plan includes human approval boundary",
+        "Validation matrix covers goal, planner, registry, and queue artifacts",
+        "Generated tasks can be routed through registry or router rules"
+      ]
+    }
+  ],
+  "recommended_tasks": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
+      "title": "Goal Engine architecture and schema",
+      "owner": "agent-5",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "Goal Engine architecture, schema review, and gap-analysis contract"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+      "title": "Planner output schema and planning runtime flow",
+      "owner": "agent-3",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "Planner output schema usage and dry-run planning flow"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-A4-AGENT-REGISTRY",
+      "title": "Agent Registry and dynamic Agent Pool design",
+      "owner": "agent-4",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "Agent Registry design and router compatibility mapping"
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-AUTO-LOOP-OVERREACH",
+      "summary": "A goal-driven loop could accidentally look like unattended execution.",
+      "risk_level": "HIGH",
+      "mitigation": "Keep V3 Autonomous Loop V1 approval-gated and dry-run first."
+    },
+    {
+      "risk_id": "RISK-GENERATED-TASK-SCOPE",
+      "summary": "Generated tasks may propose high-risk business or production paths.",
+      "risk_level": "HIGH",
+      "mitigation": "Require router/registry path checks and human approval for high-risk scope."
+    }
+  ],
+  "status": "DRAFT",
+  "created_at": "2026-06-22T13:30:00.000Z",
+  "updated_at": "2026-06-22T13:30:00.000Z"
+}

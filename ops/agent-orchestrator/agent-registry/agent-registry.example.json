@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-22T13:30:00.000Z",
+  "agents": [
+    {
+      "agent_id": "agent-1",
+      "display_name": "Agent 1 - Runtime Docs and Portal",
+      "role": "Assets, documentation, portal/UI assistance, Runtime documentation index.",
+      "domains": [
+        "asset-docs-portal-runtime-index",
+        "runtime-documentation",
+        "product-docs"
+      ],
+      "keywords": [
+        "asset",
+        "space",
+        "tenant",
+        "portal",
+        "docs",
+        "documentation",
+        "copy",
+        "index",
+        "manual",
+        "runtime memory",
+        "product docs",
+        "资产",
+        "空间",
+        "租户",
+        "门户",
+        "文档",
+        "手册",
+        "索引"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 40,
+      "fallback_order": 4
+    },
+    {
+      "agent_id": "agent-2",
+      "display_name": "Agent 2 - Validation and Compatibility",
+      "role": "Validation, compatibility, finance, test matrix, Doctor/Audit/Typecheck runbooks.",
+      "domains": [
+        "validation-compat-finance-test-matrix",
+        "goal-validation",
+        "regression-runbooks"
+      ],
+      "keywords": [
+        "validation",
+        "test",
+        "typecheck",
+        "audit",
+        "doctor",
+        "compatibility",
+        "matrix",
+        "finance",
+        "contract",
+        "payment",
+        "invoice",
+        "runbook",
+        "验证",
+        "测试",
+        "审计",
+        "兼容",
+        "矩阵",
+        "财务"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 30,
+      "fallback_order": 3
+    },
+    {
+      "agent_id": "agent-3",
+      "display_name": "Agent 3 - Runtime Planner and Ops Data",
+      "role": "IoT, safety, work order, energy, runtime data, read-model consistency, and planner runtime flow.",
+      "domains": [
+        "ops-iot-safety-work-order-energy-runtime-data",
+        "planner-runtime",
+        "read-model"
+      ],
+      "keywords": [
+        "iot",
+        "safety",
+        "work-order",
+        "energy",
+        "runtime-data",
+        "read-model",
+        "planner",
+        "runtime",
+        "workflow",
+        "设备",
+        "安全",
+        "工单",
+        "能耗",
+        "运行数据",
+        "规划器"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/planner/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 20,
+      "fallback_order": 5
+    },
+    {
+      "agent_id": "agent-4",
+      "display_name": "Agent 4 - UI, Registry, RBAC and Selector",
+      "role": "Frontend, UI/UX, dashboard, mobile, menus, RBAC, Agent Registry, smart selector, and regression acceptance.",
+      "domains": [
+        "frontend-ui-ux-dashboard-mobile-rbac-selector",
+        "agent-registry",
+        "dynamic-agent-pool"
+      ],
+      "keywords": [
+        "frontend",
+        "ui",
+        "ux",
+        "dashboard",
+        "mobile",
+        "rbac",
+        "permission",
+        "selector",
+        "registry",
+        "agent pool",
+        "前端",
+        "界面",
+        "仪表盘",
+        "移动端",
+        "权限",
+        "注册表"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/agent-registry/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 10,
+      "fallback_order": 2
+    },
+    {
+      "agent_id": "agent-5",
+      "display_name": "Agent 5 - Planning, Release and Platform",
+      "role": "Fallback planning, release acceptance, production readiness, orchestrator platform architecture, and Goal Engine ownership.",
+      "domains": [
+        "planning-release-platform-gates",
+        "goal-engine",
+        "platform-architecture"
+      ],
+      "keywords": [
+        "unknown",
+        "planning",
+        "goal",
+        "release",
+        "gate",
+        "readiness",
+        "production",
+        "orchestrator",
+        "platform",
+        "architecture",
+        "daemon",
+        "autonomous",
+        "规划",
+        "目标",
+        "发布",
+        "门禁",
+        "平台",
+        "架构"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/goal/**",
+        "ops/agent-orchestrator/specs/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 50,
+      "fallback_order": 1
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/ops/agent-orchestrator/agent-registry/agent-registry.schema.json",
+  "title": "Agent Orchestrator Agent Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "updated_at",
+    "agents"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/agent"
+      }
+    }
+  },
+  "$defs": {
+    "riskLimit": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "PAUSED",
+        "MAINTENANCE",
+        "DISABLED"
+      ]
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "display_name",
+        "role",
+        "domains",
+        "keywords",
+        "allowed_paths",
+        "forbidden_paths",
+        "max_parallel_tasks",
+        "risk_limit",
+        "status",
+        "priority",
+        "fallback_order"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "pattern": "^agent-[0-9]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domains": {
+          "$ref": "#/$defs/stringList"
+        },
+        "keywords": {
+          "$ref": "#/$defs/stringList"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringList"
+        },
+        "forbidden_paths": {
+          "$ref": "#/$defs/stringList"
+        },
+        "max_parallel_tasks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "risk_limit": {
+          "$ref": "#/$defs/riskLimit"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fallback_order": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
