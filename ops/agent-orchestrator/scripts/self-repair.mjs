@@ -121,7 +121,10 @@ function normalizePath(path) {
 }
 
 function mainDirtyEntries(diagnosis) {
-  return diagnosis?.worktrees?.main?.nonRuntimeDirty ?? [];
+  return [
+    ...(diagnosis?.worktrees?.main?.runtimeDirty ?? []),
+    ...(diagnosis?.worktrees?.main?.nonRuntimeDirty ?? [])
+  ];
 }
 
 function isRunPlanEntry(entry) {
@@ -136,6 +139,11 @@ function hasMainDirtyOutsideRunPlan(diagnosis) {
   return mainDirtyEntries(diagnosis).some((entry) => !isRunPlanEntry(entry));
 }
 
+function isRunPlanOnlyMainDirty(diagnosis) {
+  const dirty = mainDirtyEntries(diagnosis);
+  return dirty.length > 0 && dirty.every((entry) => isRunPlanEntry(entry));
+}
+
 function needsReadModelRepair(diagnosis) {
   if (!diagnosis) return false;
   if (diagnosis.event_store && diagnosis.event_store.read_model_consistent === false) return true;
@@ -145,8 +153,22 @@ function needsReadModelRepair(diagnosis) {
   );
 }
 
+function actionableDoctorFixes(diagnosis) {
+  return (diagnosis?.fixes ?? []).filter((fix) => fix.type !== "runtime_dirty_backup_suggestion");
+}
+
 function actionableDoctorFixCount(diagnosis) {
-  return (diagnosis?.fixes ?? []).filter((fix) => fix.type !== "runtime_dirty_backup_suggestion").length;
+  return actionableDoctorFixes(diagnosis).length;
+}
+
+function isRunPlanOnlyRepair(diagnosis) {
+  const fixes = actionableDoctorFixes(diagnosis);
+  return (
+    isRunPlanOnlyMainDirty(diagnosis) &&
+    fixes.length > 0 &&
+    fixes.every((fix) => fix.type === "restore_run_plan") &&
+    !needsReadModelRepair(diagnosis)
+  );
 }
 
 function statusIsRepairable(diagnosis, checkStatus) {
@@ -240,30 +262,40 @@ if (args.dryRun) {
   const checkStatus = runCheckStatus();
   printDiagnosis(1, doctor.diagnosis, checkStatus);
   const repairable = doctor.ok && statusIsRepairable(doctor.diagnosis, checkStatus);
+  const blockedByMixedRunPlanDirty = doctor.ok && hasRunPlanDirty(doctor.diagnosis) && hasMainDirtyOutsideRunPlan(doctor.diagnosis);
+  const runPlanOnlyRepair = doctor.ok && isRunPlanOnlyRepair(doctor.diagnosis);
   const plannedActions = [];
-  if (doctor.ok && (doctor.diagnosis.fixes ?? []).some((fix) => fix.type === "restore_run_plan")) {
+  if (blockedByMixedRunPlanDirty) {
+    plannedActions.push(`would block because ${RUN_PLAN_RELATIVE_PATH} is dirty with other main-worktree files`);
+  } else if (runPlanOnlyRepair) {
     plannedActions.push(`would restore ${RUN_PLAN_RELATIVE_PATH}`);
+    plannedActions.push("would stop after isolated run-plan restore; no reconcile-worktrees or finalize apply");
+  } else {
+    if (doctor.ok && actionableDoctorFixCount(doctor.diagnosis) > 0) {
+      plannedActions.push("would run doctor --fix-apply when actionable LOW-risk fixes exist");
+    }
+    plannedActions.push(
+      "would run reconcile-worktrees.mjs --apply",
+      "would run reconcile-task-results.mjs --apply when queue/event read model repair is needed",
+      "would rerun finalize --apply after repair"
+    );
   }
-  plannedActions.push(
-    "would run doctor --fix-apply when actionable LOW-risk fixes exist",
-    "would run reconcile-worktrees.mjs --apply",
-    "would run reconcile-task-results.mjs --apply when queue/event read model repair is needed",
-    "would rerun finalize --apply after repair"
-  );
+  const success = doctor.ok && !hasHighRiskOrBusinessDirty(doctor.diagnosis) && !blockedByMixedRunPlanDirty;
   printResult({
     mode: "dry-run",
-    success: doctor.ok && !hasHighRiskOrBusinessDirty(doctor.diagnosis),
+    success,
     rounds: 0,
     actions: plannedActions,
     reason: args.reason,
     finalFinalize: null,
-    skippedReason: repairable ? "" : doctor.error || "not repairable by LOW-risk self-repair"
+    skippedReason: repairable && !blockedByMixedRunPlanDirty ? "" : doctor.error || "not repairable by LOW-risk self-repair"
   });
-  process.exit(doctor.ok && !hasHighRiskOrBusinessDirty(doctor.diagnosis) ? 0 : 1);
+  process.exit(success ? 0 : 1);
 }
 
 let rounds = 0;
 let blockedReason = "";
+let isolatedRunPlanRepair = null;
 
 for (let round = 1; round <= args.maxRounds; round += 1) {
   rounds = round;
@@ -284,6 +316,16 @@ for (let round = 1; round <= args.maxRounds; round += 1) {
   const repairable = doctor.ok && statusIsRepairable(doctor.diagnosis, checkStatus);
   if (!repairable) {
     console.log("No LOW-risk repair action needed before final finalize.");
+    break;
+  }
+
+  if (doctor.ok && isRunPlanOnlyRepair(doctor.diagnosis)) {
+    const result = runLogged("node", ["ops/agent-orchestrator/scripts/doctor.mjs", "--fix-apply"], actions);
+    const afterDoctor = runDoctorJson();
+    isolatedRunPlanRepair = {
+      success: result.status === 0 && afterDoctor.ok && !hasRunPlanDirty(afterDoctor.diagnosis),
+      skippedReason: "isolated run-plan repair; skipped reconcile-worktrees and finalize apply to avoid broader actions"
+    };
     break;
   }
 
@@ -309,6 +351,19 @@ if (blockedReason) {
     skippedReason: blockedReason
   });
   process.exit(1);
+}
+
+if (isolatedRunPlanRepair) {
+  printResult({
+    mode: "apply",
+    success: isolatedRunPlanRepair.success,
+    rounds,
+    actions,
+    reason: args.reason,
+    finalFinalize: null,
+    skippedReason: isolatedRunPlanRepair.skippedReason
+  });
+  process.exit(isolatedRunPlanRepair.success ? 0 : 1);
 }
 
 const finalFinalize = runFinalFinalize(actions);
