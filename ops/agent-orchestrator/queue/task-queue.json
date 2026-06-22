@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T05:42:28.913Z",
+  "updated_at": "2026-06-22T05:46:05.975Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -978,7 +978,7 @@
       "owner": "agent-5",
       "domain": "orchestrator-runtime-memory-architecture",
       "priority": "P0",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1035,7 +1035,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:42:28.913Z"
+      "updated_at": "2026-06-22T05:46:05.975Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
@@ -1044,7 +1044,7 @@
       "owner": "agent-3",
       "domain": "orchestrator-runtime-inventory-generator",
       "priority": "P0",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1101,7 +1101,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:42:28.913Z"
+      "updated_at": "2026-06-22T05:46:05.975Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
@@ -1110,7 +1110,7 @@
       "owner": "agent-4",
       "domain": "orchestrator-smart-e2e-selector",
       "priority": "P0",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1167,7 +1167,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:42:28.913Z"
+      "updated_at": "2026-06-22T05:46:05.975Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
@@ -1176,7 +1176,7 @@
       "owner": "agent-2",
       "domain": "orchestrator-runtime-selector-validation",
       "priority": "P1",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1233,7 +1233,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:42:28.913Z"
+      "updated_at": "2026-06-22T05:46:05.975Z"
     }
   ]
 }

@@ -1,5 +1,26 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T05:15:05.337Z",
-  "locks": []
+  "updated_at": "2026-06-22T05:46:05.975Z",
+  "locks": [
+    {
+      "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
+      "agent": "agent-2",
+      "claimed_at": "2026-06-22T05:46:05.975Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
+      "agent": "agent-3",
+      "claimed_at": "2026-06-22T05:46:05.975Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+      "agent": "agent-4",
+      "claimed_at": "2026-06-22T05:46:05.975Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
+      "agent": "agent-5",
+      "claimed_at": "2026-06-22T05:46:05.975Z"
+    }
+  ]
 }
