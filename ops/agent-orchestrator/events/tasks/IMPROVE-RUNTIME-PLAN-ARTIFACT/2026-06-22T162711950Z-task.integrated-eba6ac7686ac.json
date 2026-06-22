@@ -1,0 +1,35 @@
+{
+  "event_id": "task.integrated:020458698158c137ad661ea3",
+  "event_type": "task.integrated",
+  "task_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": null,
+  "created_at": "2026-06-22T16:27:11.950Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-5 result into integration/orchestrator-auto-20260623-002711",
+  "changed_files": [
+    "docs/testing/evolution-runtime-plan-artifact-checklist.md",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT/2026-06-22T162517598Z-task.failed-07558f45e22d.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+    "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+    "ops/agent-orchestrator/scripts/self-repair.mjs"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "5a402281dce4c71287321f4a80b106dd00a23ba74c6c9bd8a051dec404e03434",
+    "agent_id": "agent-5",
+    "agent_branch": "agent-5-testing-release",
+    "agent_head": "c9b9efa707ec3bb78ff2e107d0bed9b119c132d3",
+    "integration_branch": "integration/orchestrator-auto-20260623-002711",
+    "merge_commit": "190a32dc0387ecd6b065d5ce399ab0930e5f939c"
+  }
+}

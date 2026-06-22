@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T16:18:09.795Z",
-  "locks": [
-    {
-      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
-      "agent": "agent-5",
-      "claimed_at": "2026-06-22T16:18:09.795Z"
-    }
-  ]
+  "updated_at": "2026-06-22T16:28:31.989Z",
+  "locks": []
 }

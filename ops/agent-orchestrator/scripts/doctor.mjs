@@ -70,8 +70,22 @@ function normalizePath(path) {
   return String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
+function runPlanDirtyEntries(status) {
+  return [
+    ...(status.runtimeDirty ?? []),
+    ...(status.nonRuntimeDirty ?? [])
+  ].filter((entry) => normalizePath(entry.path) === runPlanRelativePath);
+}
+
+function allDirtyEntries(status) {
+  return [
+    ...(status.runtimeDirty ?? []),
+    ...(status.nonRuntimeDirty ?? [])
+  ];
+}
+
 function isRunPlanDirty(status) {
-  return (status.nonRuntimeDirty ?? []).some((entry) => normalizePath(entry.path) === runPlanRelativePath);
+  return runPlanDirtyEntries(status).length > 0;
 }
 
 function formatEntries(entries = []) {
@@ -167,24 +181,39 @@ function inspectWorktrees(config, findings, fixes, queue) {
     addFinding(findings, "WARN", "git", `main worktree is on ${main.branch}, not main or integration/*`, "Checkout main before dispatch, execute, integrate, push, or release operations.");
   }
 
-  if (main.nonRuntimeDirty.length > 0) {
-    const { dispatchArtifacts, other } = splitDispatchArtifactStatus(main.nonRuntimeDirty);
-    const onlyDispatchArtifacts = dispatchArtifacts.length > 0 && other.length === 0;
-    const claimedCount = (queue.tasks ?? []).filter((task) => task.status === "CLAIMED").length;
-    const onlyRunPlan = main.nonRuntimeDirty.every((entry) => normalizePath(entry.path) === runPlanRelativePath);
-
-    if (onlyRunPlan && isRunPlanDirty(main)) {
+  const mainRunPlanDirty = runPlanDirtyEntries(main);
+  const mainDirty = allDirtyEntries(main);
+  const onlyRunPlanDirty = mainRunPlanDirty.length > 0 && mainDirty.length === mainRunPlanDirty.length;
+  if (onlyRunPlanDirty) {
+    addFinding(
+      findings,
+      "WARN",
+      "git",
+      `LOW-risk runtime artifact dirty: ${formatEntries(mainRunPlanDirty)}`,
+      "Run doctor --fix-dry-run or self-repair --apply to restore the generated agent-run-plan.md before integration/finalize."
+    );
+    addFix(fixes, "restore_run_plan", "Restore generated agent-run-plan.md in main worktree.", {
+      path: runPlanRelativePath
+    });
+  } else if (main.runtimeDirty.length > 0) {
+    const runtimeDirty = main.runtimeDirty.filter((entry) => normalizePath(entry.path) !== runPlanRelativePath);
+    if (runtimeDirty.length > 0) {
       addFinding(
         findings,
         "WARN",
         "git",
-        `LOW-risk runtime artifact dirty: ${formatEntries(main.nonRuntimeDirty)}`,
-        "Run doctor --fix-dry-run or self-repair --apply to restore the generated agent-run-plan.md before integration/finalize."
+        `main worktree has runtime dirty files: ${formatEntries(runtimeDirty)}`,
+        "Review or restore runtime dirty files before integration/finalize."
       );
-      addFix(fixes, "restore_run_plan", "Restore generated agent-run-plan.md in main worktree.", {
-        path: runPlanRelativePath
-      });
-    } else if (onlyDispatchArtifacts) {
+    }
+  }
+
+  if (main.nonRuntimeDirty.length > 0) {
+    const { dispatchArtifacts, other } = splitDispatchArtifactStatus(main.nonRuntimeDirty);
+    const onlyDispatchArtifacts = dispatchArtifacts.length > 0 && other.length === 0;
+    const claimedCount = (queue.tasks ?? []).filter((task) => task.status === "CLAIMED").length;
+
+    if (onlyDispatchArtifacts) {
       addFinding(
         findings,
         "WARN",
