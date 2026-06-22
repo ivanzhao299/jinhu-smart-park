@@ -1,0 +1,125 @@
+{
+  "event_id": "923d95eb-7733-46d1-a8c8-bf4c432aaf4f",
+  "event_type": "task.failed",
+  "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "owner": "agent-5",
+  "status_before": "CLAIMED",
+  "status_after": "FAILED",
+  "created_at": "2026-06-22T16:25:17.598Z",
+  "actor": "agent-5",
+  "source": "complete-task.mjs",
+  "reason": "Implemented runtime classification and isolated run-plan self-repair, but required validation did not fully pass in this worker environment. No commit created.",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/self-repair.mjs",
+    "docs/testing/evolution-runtime-plan-artifact-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+    "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+  "audit_ref": "",
+  "metadata": {
+    "result_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "agent": "agent-5",
+      "status": "FAILED",
+      "commit_hash": "",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+        "ops/agent-orchestrator/scripts/doctor.mjs",
+        "ops/agent-orchestrator/scripts/self-repair.mjs",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+        "ops/agent-orchestrator/scripts/doctor.mjs",
+        "ops/agent-orchestrator/scripts/self-repair.mjs",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/doctor.mjs",
+        "node --check ops/agent-orchestrator/scripts/self-repair.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason agent-run-plan runtime dirty",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "passed_checks": [
+        "script syntax checks passed",
+        "self-repair dry-run passed",
+        "git diff --check passed",
+        "result JSON parsed"
+      ],
+      "failed_checks": [
+        "orchestratorctl doctor returned NO_GO from in-progress agent-5 dirty files",
+        "pnpm typecheck failed because node_modules missing and tsc unavailable"
+      ],
+      "notes": "Implemented runtime classification and isolated run-plan self-repair, but required validation did not fully pass in this worker environment. No commit created.",
+      "completed_at": "2026-06-22T16:25:17.598Z"
+    },
+    "task_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_pattern_id": "PATTERN-001",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-001",
+      "priority": "P0",
+      "risk": "LOW",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": false,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-001",
+      "status": "FAILED",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:17:40.162Z",
+      "updated_at": "2026-06-22T16:25:17.598Z"
+    }
+  }
+}

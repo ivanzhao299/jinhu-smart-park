@@ -3,6 +3,9 @@ import { basename, dirname, join } from "node:path";
 import { cp, mkdir, rm } from "node:fs/promises";
 
 export const RUNTIME_DIRS = ["storage", ".next", "coverage", "tmp"];
+export const RUNTIME_ARTIFACT_FILES = new Set([
+  "ops/agent-orchestrator/runs/agent-run-plan.md"
+]);
 export const QUEUE_CONFLICT_FILES = new Set([
   "ops/agent-orchestrator/queue/task-queue.json",
   "ops/agent-orchestrator/queue/task-locks.json",
@@ -78,6 +81,7 @@ export function parseStatusShort(output) {
 
 export function isRuntimePath(path) {
   const normalized = String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
+  if (RUNTIME_ARTIFACT_FILES.has(normalized)) return true;
   return RUNTIME_DIRS.some((dir) => normalized === dir || normalized.startsWith(`${dir}/`));
 }
 
