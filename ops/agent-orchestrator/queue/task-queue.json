@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T14:40:09.690Z",
+  "updated_at": "2026-06-22T14:41:29.459Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -1588,7 +1588,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T14:40:09.690Z"
+      "updated_at": "2026-06-22T14:41:29.445Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
@@ -1654,7 +1654,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T14:24:03.737Z"
+      "updated_at": "2026-06-22T14:41:29.455Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A4-AGENT-REGISTRY",
@@ -1719,7 +1719,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T14:24:03.737Z"
+      "updated_at": "2026-06-22T14:41:29.458Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
@@ -1728,7 +1728,7 @@
       "owner": "agent-5",
       "domain": "goal-engine-platform-architecture",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "DONE",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1782,7 +1782,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T14:24:03.737Z"
+      "updated_at": "2026-06-22T14:41:29.459Z"
     }
   ]
 }

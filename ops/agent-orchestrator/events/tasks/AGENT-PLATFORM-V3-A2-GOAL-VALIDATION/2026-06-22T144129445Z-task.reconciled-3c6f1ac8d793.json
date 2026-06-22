@@ -1,0 +1,83 @@
+{
+  "event_id": "task.reconciled:13ca944f35f5f50c030486bf",
+  "event_type": "task.reconciled",
+  "task_id": "AGENT-PLATFORM-V3-A2-GOAL-VALIDATION",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "DONE",
+  "created_at": "2026-06-22T14:41:29.445Z",
+  "actor": "orchestrator",
+  "source": "integration_reconcile",
+  "reason": "queue bookkeeping conflict after agent-5 integration",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "d1623ef2d901248551f8aadd9bdab9c2808cda9ba769d91dbc40dfa6e7f9b0b7",
+    "integration_branch": "integration/orchestrator-auto-20260622-224128",
+    "current_result_status": "DONE",
+    "next_result_status": "DONE",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A2-GOAL-VALIDATION",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Goal Planner Registry validation matrix",
+      "owner": "agent-2",
+      "domain": "goal-planner-registry-validation",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v3-validation-matrix.md covering Goal Engine, Planner Output, Agent Registry, queue generation, router compatibility, doctor, and agent-cycle dry-run checks.",
+        "Create docs/release/agent-platform-v3-validation-runbook.md with operator commands and expected pass/fail interpretation.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md summarizing changed files, validation, skipped checks, and remaining risks.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json via complete-task.mjs when finished.",
+        "Do not modify validation scripts unless a later human-approved task explicitly expands scope."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v3-validation-matrix.md",
+        "test -f docs/release/agent-platform-v3-validation-runbook.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "V3 validation matrix exists",
+        "V3 validation runbook exists",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v3-validation-matrix.md",
+        "docs/release/agent-platform-v3-validation-runbook.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T14:41:29.445Z"
+    }
+  }
+}
