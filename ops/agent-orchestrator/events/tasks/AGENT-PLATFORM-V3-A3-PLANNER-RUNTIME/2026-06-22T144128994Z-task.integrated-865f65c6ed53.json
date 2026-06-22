@@ -1,0 +1,94 @@
+{
+  "event_id": "task.integrated:8f956c44f1d22525aab51459",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+  "owner": "agent-3",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T14:41:28.994Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-3 result into integration/orchestrator-auto-20260622-224128",
+  "changed_files": [
+    "docs/release/agent-platform-v3-planner-runtime.md",
+    "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "7f1db414092c6b73e401272745742388b1fcf35c48f295a76cdaf5f27b3583f6",
+    "agent_id": "agent-3",
+    "agent_branch": "agent-3-ops-iot-safety",
+    "agent_head": "9f03273be40d73653b2634be4623ae10f6578f14",
+    "integration_branch": "integration/orchestrator-auto-20260622-224128",
+    "merge_commit": "90444dcfa34a9354706b336b9abc10cc04d16576",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Planner output schema and planning runtime flow",
+      "owner": "agent-3",
+      "domain": "planner-runtime-flow",
+      "priority": "P0",
+      "status": "CLAIMED",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/planner",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/release/agent-platform-v3-planner-runtime.md describing how Planner output becomes REQ, TECH, task queue draft, dispatch plan, and validation plan.",
+        "Review ops/agent-orchestrator/planner/planner-output.schema.json and document dry-run planning boundaries.",
+        "Create docs/testing/agent-platform-v3-planner-dry-run-checklist.md with no-write planner validation checks.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md summarizing changed files, validation, and remaining risks.",
+        "Do not execute Agents, write queue from planner output, or modify business code."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/release/agent-platform-v3-planner-runtime.md",
+        "test -f docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/planner/planner-output.schema.json','utf8'));\"",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Planner runtime doc exists",
+        "Planner output schema parses as JSON",
+        "Planner dry-run checklist exists",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v3-planner-runtime.md",
+        "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T14:24:03.737Z"
+    }
+  }
+}
