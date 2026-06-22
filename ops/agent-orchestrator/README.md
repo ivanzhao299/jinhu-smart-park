@@ -579,6 +579,41 @@ Required `FINALIZE RESULT` fields:
 - `failed_checks`
 - `next_action`
 
+## 4F. Self-Repair Loop
+
+Self-repair is the guarded recovery loop for mechanical orchestrator failures:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --apply
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --apply --reason "finalize failed" --max-rounds 3
+```
+
+The loop is automatically triggered when these guarded commands fail:
+
+- `orchestratorctl.mjs agent-cycle ...`
+- `orchestratorctl.mjs finalize --apply`
+- `orchestratorctl.mjs doctor`
+- `orchestratorctl.mjs check-status`
+
+`doctor --json`, `doctor --fix-dry-run`, and `doctor --fix-apply` stay machine-friendly and do not inject extra self-repair output.
+
+Self-repair runs at most three rounds. Each round diagnoses with `doctor --json` and `check-status.sh`, then applies only LOW-risk orchestrator repairs:
+
+- `doctor --fix-apply` for doctor-approved LOW-risk fixes.
+- `reconcile-worktrees.mjs --apply` for approved runtime worktree reconciliation.
+- `reconcile-task-results.mjs --apply` when queue/event/read-model repair is indicated.
+
+Self-repair never deploys, never runs production migration, never runs production seed, never resets or cleans production data, never merges, never pushes directly, never commits business code, and never auto-handles HIGH-risk or business-path dirty state.
+
+After repair attempts, `self-repair --apply` must rerun `finalize --apply`. The self-repair command succeeds only when that final finalize prints `FINALIZE RESULT` with `finalize: PASS`.
+
+Hard recovery rule:
+
+```text
+No FINALIZE RESULT: PASS after self-repair, no DONE.
+```
+
 Agent-cycle is the guarded one-command pipeline for dispatching, running, auditing, integrating, validating, and optionally pushing agent work:
 
 ```bash
@@ -607,7 +642,7 @@ If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle sto
 
 When `--push` is present, `agent-cycle` includes auto-finalize at the end. A failed `FINALIZE RESULT` fails the whole cycle.
 
-## 4F. Doctor Diagnostics
+## 4G. Doctor Diagnostics
 
 `doctor` is the first command to run when the orchestrator feels stuck or noisy. It replaces repeated manual checks such as `git status`, `check-dispatch-status`, `ps`, run-log inspection, queue JSON inspection, and integration dry-run orientation.
 

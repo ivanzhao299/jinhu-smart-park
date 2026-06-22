@@ -41,3 +41,10 @@ type(agent-x): message
 7. FINALIZE RESULT
 
 Main orchestrator tasks must include a real `FINALIZE RESULT`. No `FINALIZE RESULT: PASS`, no DONE. Worker-agent tasks that cannot push/sync/finalize must explicitly state `FINALIZE RESULT: not applicable for worker agent`.
+If `agent-cycle`, `finalize --apply`, `doctor`, or `check-status` fails during a main orchestrator task, run the self-repair loop before reporting completion:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --apply --reason "<failure summary>"
+```
+
+Self-repair is capped at 3 rounds and must end with `FINALIZE RESULT: PASS`.

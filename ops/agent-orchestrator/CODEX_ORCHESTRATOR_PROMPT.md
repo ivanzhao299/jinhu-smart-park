@@ -65,6 +65,9 @@
 - `agent-cycle --apply --execute --push` 结束后必须自动 finalize。
 - No FINALIZE RESULT, no DONE.
 - FINALIZE RESULT 至少包含 finalize、pushed、synced_agents、doctor、main_head、main_clean、agents_clean、ahead_behind、READY count、CLAIMED count、DONE count、active_locks、candidate_agent_branches、failed_checks、next_action。
+- Self-Repair Loop：当 `agent-cycle`、`finalize --apply`、`doctor`、`check-status` 任一失败时，必须运行 `node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --apply --reason "<failure>"`，最多 3 轮。
+- Self-Repair 只允许 LOW-risk orchestrator 修复；不得自动处理 HIGH-risk、业务路径脏改、merge、push、deploy、production migration、seed、reset、cleanup。
+- Self-Repair 完成后必须重新运行 finalize；只有最终 `FINALIZE RESULT` 中 `finalize: PASS`，主控任务才允许汇报 DONE。
 
 补充 Agent 5：
 5. /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5

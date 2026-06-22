@@ -36,8 +36,10 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs check-status
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run|--apply [--reason <text>] [--max-rounds 3]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
@@ -51,13 +53,85 @@ function hasFlag(argv, flag) {
   return argv.includes(flag);
 }
 
-function runScript(script, args = []) {
+function runSelfRepair(reason, options = {}) {
+  console.log("");
+  console.log("## Self-Repair Loop Triggered");
+  console.log(`reason: ${reason}`);
+  const mode = options.dryRun ? "--dry-run" : "--apply";
+  const result = spawnSync("node", [
+    "ops/agent-orchestrator/scripts/self-repair.mjs",
+    mode,
+    "--reason",
+    reason
+  ], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    encoding: "utf8"
+  });
+  return result.status ?? 1;
+}
+
+function runDoctorCommand(args = []) {
+  const result = spawnSync("node", ["ops/agent-orchestrator/scripts/doctor.mjs", ...args], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    encoding: "utf8"
+  });
+
+  if (result.status !== 0) {
+    process.exit(runSelfRepair(`doctor failed with exit ${result.status ?? 1}`));
+  }
+
+  const jsonMode = hasFlag(args, "--json");
+  const fixMode = hasFlag(args, "--fix-dry-run") || hasFlag(args, "--fix-apply");
+  if (jsonMode || fixMode) {
+    return;
+  }
+
+  const jsonResult = spawnSync("node", ["ops/agent-orchestrator/scripts/doctor.mjs", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: "pipe"
+  });
+
+  if (jsonResult.status !== 0) {
+    process.exit(runSelfRepair(`doctor --json failed after doctor check with exit ${jsonResult.status ?? 1}`));
+  }
+
+  try {
+    const diagnosis = JSON.parse(jsonResult.stdout ?? "{}");
+    if (diagnosis.status === "NO_GO") {
+      process.exit(runSelfRepair("doctor returned NO_GO"));
+    }
+  } catch (error) {
+    process.exit(runSelfRepair(`doctor --json was not parseable after doctor check: ${error.message}`));
+  }
+}
+
+function runScript(script, args = [], options = {}) {
   const result = spawnSync("node", [script, ...args], {
     cwd: repoRoot,
     stdio: "inherit",
     encoding: "utf8"
   });
   if (result.status !== 0) {
+    if (options.selfRepairOnFailure) {
+      process.exit(runSelfRepair(`${script} ${args.join(" ")} failed with exit ${result.status ?? 1}`));
+    }
+    process.exit(result.status ?? 1);
+  }
+}
+
+function runShellScript(script, args = [], options = {}) {
+  const result = spawnSync("bash", [script, ...args], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    encoding: "utf8"
+  });
+  if (result.status !== 0) {
+    if (options.selfRepairOnFailure) {
+      process.exit(runSelfRepair(`${script} ${args.join(" ")} failed with exit ${result.status ?? 1}`));
+    }
     process.exit(result.status ?? 1);
   }
 }
@@ -433,8 +507,9 @@ async function integrateExistingAgentCommits(state, args) {
 
   const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
   if (highRisk.length > 0) {
-    printOutcome("NO_GO", `HIGH-risk agent changes require human confirmation before integration:\n- ${highRisk.map((item) => item.agent.id).join("\n- ")}`);
-    process.exit(1);
+    const message = `HIGH-risk agent changes require human confirmation before integration:\n- ${highRisk.map((item) => item.agent.id).join("\n- ")}`;
+    printOutcome("NO_GO", message);
+    throw new Error(message);
   }
 
   requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
@@ -461,8 +536,7 @@ async function agentCycleCommand(rest) {
   try {
     args = parseAgentCycleArgs(rest);
   } catch (error) {
-    console.error(error.message);
-    process.exit(1);
+    throw new Error(error.message);
   }
 
   let state = await readAgentCycleState();
@@ -477,8 +551,9 @@ async function agentCycleCommand(rest) {
   if (!args.execute) {
     const blockers = precheckBlockers(state, args);
     if (blockers.length > 0) {
-      printOutcome("NO_GO", `Integration apply stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
-      process.exit(1);
+      const message = `Integration apply stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`;
+      printOutcome("NO_GO", message);
+      throw new Error(message);
     }
     await integrateExistingAgentCommits(state, args);
     if (args.push) {
@@ -489,8 +564,9 @@ async function agentCycleCommand(rest) {
 
   const blockersBeforeArtifactCommit = precheckBlockers(state, args, { allowDispatchArtifactDirty: true });
   if (blockersBeforeArtifactCommit.length > 0) {
-    printOutcome("NO_GO", `Execution stopped by preflight blocker(s):\n- ${blockersBeforeArtifactCommit.join("\n- ")}`);
-    process.exit(1);
+    const message = `Execution stopped by preflight blocker(s):\n- ${blockersBeforeArtifactCommit.join("\n- ")}`;
+    printOutcome("NO_GO", message);
+    throw new Error(message);
   }
 
   await commitPendingDispatchArtifacts(state, args, "pre-existing dispatch state");
@@ -498,8 +574,9 @@ async function agentCycleCommand(rest) {
 
   const blockers = precheckBlockers(state, args);
   if (blockers.length > 0) {
-    printOutcome("NO_GO", `Execution stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
-    process.exit(1);
+    const message = `Execution stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`;
+    printOutcome("NO_GO", message);
+    throw new Error(message);
   }
 
   if (args.push) {
@@ -535,50 +612,74 @@ const argv = process.argv.slice(2);
 const command = argv[0];
 const rest = argv.slice(1);
 
-switch (command) {
-  case "status":
-    await statusCommand();
-    break;
-  case "reconcile":
-    runScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", [
-      hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
-    ]);
-    break;
-  case "integrate":
-    runScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", [
-      hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
-    ]);
-    break;
-  case "validate":
-    runScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs");
-    break;
-  case "doctor":
-    runScript("ops/agent-orchestrator/scripts/doctor.mjs", rest);
-    break;
-  case "daemon":
-    runScript("ops/agent-orchestrator/scripts/daemon.mjs", rest);
-    break;
-  case "finalize":
-    runScript("ops/agent-orchestrator/scripts/finalize.mjs", [
-      hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
-    ]);
-    break;
-  case "full-cycle": {
-    const apply = hasFlag(rest, "--apply");
-    await statusCommand();
-    runScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", [apply ? "--apply" : "--dry-run"]);
-    runScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", [apply ? "--apply" : "--dry-run"]);
-    runScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", [apply ? "" : "--plan"].filter(Boolean));
-    if (apply) {
-      console.log("");
-      console.log("Full cycle completed. If validation passed, you may consider manual merge to main / push after human review.");
+async function dispatchCommand() {
+  switch (command) {
+    case "status":
+      await statusCommand();
+      break;
+    case "reconcile":
+      runScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", [
+        hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+      ]);
+      break;
+    case "integrate":
+      runScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", [
+        hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+      ]);
+      break;
+    case "validate":
+      runScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs");
+      break;
+    case "doctor":
+      runDoctorCommand(rest);
+      break;
+    case "check-status":
+      runShellScript("./ops/agent-orchestrator/check-status.sh", [], {
+        selfRepairOnFailure: true
+      });
+      break;
+    case "daemon":
+      runScript("ops/agent-orchestrator/scripts/daemon.mjs", rest);
+      break;
+    case "finalize": {
+      const apply = hasFlag(rest, "--apply");
+      runScript("ops/agent-orchestrator/scripts/finalize.mjs", [
+        apply ? "--apply" : "--dry-run"
+      ], {
+        selfRepairOnFailure: apply
+      });
+      break;
     }
-    break;
+    case "self-repair":
+      runScript("ops/agent-orchestrator/scripts/self-repair.mjs", rest.length > 0 ? rest : ["--dry-run"]);
+      break;
+    case "full-cycle": {
+      const apply = hasFlag(rest, "--apply");
+      await statusCommand();
+      runScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", [apply ? "--apply" : "--dry-run"]);
+      runScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", [apply ? "--apply" : "--dry-run"]);
+      runScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", [apply ? "" : "--plan"].filter(Boolean));
+      if (apply) {
+        console.log("");
+        console.log("Full cycle completed. If validation passed, you may consider manual merge to main / push after human review.");
+      }
+      break;
+    }
+    case "agent-cycle":
+      await agentCycleCommand(rest);
+      break;
+    default:
+      usage();
+      process.exit(1);
   }
-  case "agent-cycle":
-    await agentCycleCommand(rest);
-    break;
-  default:
-    usage();
-    process.exit(1);
+}
+
+try {
+  await dispatchCommand();
+} catch (error) {
+  if (command === "agent-cycle") {
+    const dryRun = hasFlag(rest, "--dry-run") || !hasFlag(rest, "--apply");
+    process.exit(runSelfRepair(`agent-cycle failed: ${error.message}`, { dryRun }));
+  }
+  throw error;
 }
