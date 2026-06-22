@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T13:30:00.000Z",
+  "updated_at": "2026-06-22T14:24:03.737Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -1464,19 +1464,17 @@
       "updated_at": "2026-06-22T13:03:17.875Z"
     },
     {
-      "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
+      "task_id": "AGENT-PLATFORM-V3-A1-PRODUCT-DOCS",
       "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
-      "title": "Goal Engine architecture and schema",
-      "owner": "agent-5",
-      "domain": "goal-engine-platform-architecture",
-      "priority": "P0",
-      "status": "READY",
-      "risk": "MEDIUM",
+      "title": "ANKSEN Agent Studio productization and V3 user flow docs",
+      "owner": "agent-1",
+      "domain": "agent-studio-product-docs",
+      "priority": "P1",
+      "status": "CLAIMED",
+      "risk": "LOW",
       "allowed_paths": [
         "docs/release",
         "docs/testing",
-        "ops/agent-orchestrator/goal",
-        "ops/agent-orchestrator/specs",
         "ops/agent-orchestrator/reports",
         "ops/agent-orchestrator/results"
       ],
@@ -1497,34 +1495,100 @@
         ".env.production.local"
       ],
       "acceptance": [
-        "Create docs/release/agent-platform-v3-goal-engine-architecture.md describing Goal Engine current_state, target_state, gap_analysis, roadmap, recommended tasks, and risk scoring.",
-        "Review ops/agent-orchestrator/goal/goal-engine.schema.json and ops/agent-orchestrator/goal/goal-state.example.json for completeness without changing business code.",
-        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md summarizing changed files, validation, and remaining approval questions.",
-        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json via complete-task.mjs when finished.",
-        "Do not modify apps, packages, database, infra, .github, Docker, deploy, auth, migrations, seeds, or production data."
+        "Create docs/release/anksen-agent-studio-v3-user-flow.md explaining the V3 natural-language goal to approval-gated agent-cycle flow for operators.",
+        "Create docs/release/agent-platform-v3-productization-notes.md describing ANKSEN Agent Studio product positioning, user roles, and non-goals.",
+        "Create docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md with low-risk acceptance checks for user-facing docs.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md summarizing changed files, validation, and remaining documentation gaps.",
+        "Do not modify frontend, portal implementation, apps, packages, database, infra, CI, Docker, deploy, auth, or production data."
       ],
       "validation_commands": [
         "git status --short",
-        "test -f docs/release/agent-platform-v3-goal-engine-architecture.md",
-        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-engine.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-state.example.json','utf8'));\"",
-        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
+        "test -f docs/release/anksen-agent-studio-v3-user-flow.md",
+        "test -f docs/release/agent-platform-v3-productization-notes.md",
+        "test -f docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md",
         "git diff --check",
         "git status --short"
       ],
       "required_checks": [
-        "Goal Engine architecture doc exists",
-        "Goal Engine schema and example parse as JSON",
+        "V3 user flow doc exists",
+        "V3 productization notes exist",
+        "User flow acceptance checklist exists",
         "No business, database, infra, auth, Docker, deploy, or CI paths changed"
       ],
       "expected_output_files": [
-        "docs/release/agent-platform-v3-goal-engine-architecture.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
-        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json"
+        "docs/release/anksen-agent-studio-v3-user-flow.md",
+        "docs/release/agent-platform-v3-productization-notes.md",
+        "docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.json"
       ],
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T13:30:00.000Z"
+      "updated_at": "2026-06-22T14:24:03.737Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-A2-GOAL-VALIDATION",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Goal Planner Registry validation matrix",
+      "owner": "agent-2",
+      "domain": "goal-planner-registry-validation",
+      "priority": "P1",
+      "status": "CLAIMED",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v3-validation-matrix.md covering Goal Engine, Planner Output, Agent Registry, queue generation, router compatibility, doctor, and agent-cycle dry-run checks.",
+        "Create docs/release/agent-platform-v3-validation-runbook.md with operator commands and expected pass/fail interpretation.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md summarizing changed files, validation, skipped checks, and remaining risks.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json via complete-task.mjs when finished.",
+        "Do not modify validation scripts unless a later human-approved task explicitly expands scope."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v3-validation-matrix.md",
+        "test -f docs/release/agent-platform-v3-validation-runbook.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "V3 validation matrix exists",
+        "V3 validation runbook exists",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v3-validation-matrix.md",
+        "docs/release/agent-platform-v3-validation-runbook.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T14:24:03.737Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
@@ -1533,7 +1597,7 @@
       "owner": "agent-3",
       "domain": "planner-runtime-flow",
       "priority": "P0",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1590,7 +1654,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T13:30:00.000Z"
+      "updated_at": "2026-06-22T14:24:03.737Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-A4-AGENT-REGISTRY",
@@ -1599,7 +1663,7 @@
       "owner": "agent-4",
       "domain": "agent-registry-dynamic-pool",
       "priority": "P0",
-      "status": "READY",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1655,20 +1719,22 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T13:30:00.000Z"
+      "updated_at": "2026-06-22T14:24:03.737Z"
     },
     {
-      "task_id": "AGENT-PLATFORM-V3-A2-GOAL-VALIDATION",
+      "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
       "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
-      "title": "Goal Planner Registry validation matrix",
-      "owner": "agent-2",
-      "domain": "goal-planner-registry-validation",
-      "priority": "P1",
-      "status": "READY",
+      "title": "Goal Engine architecture and schema",
+      "owner": "agent-5",
+      "domain": "goal-engine-platform-architecture",
+      "priority": "P0",
+      "status": "CLAIMED",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
         "docs/testing",
+        "ops/agent-orchestrator/goal",
+        "ops/agent-orchestrator/specs",
         "ops/agent-orchestrator/reports",
         "ops/agent-orchestrator/results"
       ],
@@ -1689,100 +1755,34 @@
         ".env.production.local"
       ],
       "acceptance": [
-        "Create docs/testing/agent-platform-v3-validation-matrix.md covering Goal Engine, Planner Output, Agent Registry, queue generation, router compatibility, doctor, and agent-cycle dry-run checks.",
-        "Create docs/release/agent-platform-v3-validation-runbook.md with operator commands and expected pass/fail interpretation.",
-        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md summarizing changed files, validation, skipped checks, and remaining risks.",
-        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json via complete-task.mjs when finished.",
-        "Do not modify validation scripts unless a later human-approved task explicitly expands scope."
+        "Create docs/release/agent-platform-v3-goal-engine-architecture.md describing Goal Engine current_state, target_state, gap_analysis, roadmap, recommended tasks, and risk scoring.",
+        "Review ops/agent-orchestrator/goal/goal-engine.schema.json and ops/agent-orchestrator/goal/goal-state.example.json for completeness without changing business code.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md summarizing changed files, validation, and remaining approval questions.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json via complete-task.mjs when finished.",
+        "Do not modify apps, packages, database, infra, .github, Docker, deploy, auth, migrations, seeds, or production data."
       ],
       "validation_commands": [
         "git status --short",
-        "test -f docs/testing/agent-platform-v3-validation-matrix.md",
-        "test -f docs/release/agent-platform-v3-validation-runbook.md",
-        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
+        "test -f docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-engine.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-state.example.json','utf8'));\"",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
         "git diff --check",
         "git status --short"
       ],
       "required_checks": [
-        "V3 validation matrix exists",
-        "V3 validation runbook exists",
+        "Goal Engine architecture doc exists",
+        "Goal Engine schema and example parse as JSON",
         "No business, database, infra, auth, Docker, deploy, or CI paths changed"
       ],
       "expected_output_files": [
-        "docs/testing/agent-platform-v3-validation-matrix.md",
-        "docs/release/agent-platform-v3-validation-runbook.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.md",
-        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A2-GOAL-VALIDATION.json"
+        "docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json"
       ],
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T13:30:00.000Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V3-A1-PRODUCT-DOCS",
-      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
-      "title": "ANKSEN Agent Studio productization and V3 user flow docs",
-      "owner": "agent-1",
-      "domain": "agent-studio-product-docs",
-      "priority": "P1",
-      "status": "READY",
-      "risk": "LOW",
-      "allowed_paths": [
-        "docs/release",
-        "docs/testing",
-        "ops/agent-orchestrator/reports",
-        "ops/agent-orchestrator/results"
-      ],
-      "forbidden_paths": [
-        "apps",
-        "packages",
-        "database",
-        "infra",
-        ".github",
-        "Dockerfile",
-        "docker-compose.yml",
-        "docker-compose.yaml",
-        "deploy",
-        "auth",
-        ".env",
-        ".env.local",
-        ".env.production",
-        ".env.production.local"
-      ],
-      "acceptance": [
-        "Create docs/release/anksen-agent-studio-v3-user-flow.md explaining the V3 natural-language goal to approval-gated agent-cycle flow for operators.",
-        "Create docs/release/agent-platform-v3-productization-notes.md describing ANKSEN Agent Studio product positioning, user roles, and non-goals.",
-        "Create docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md with low-risk acceptance checks for user-facing docs.",
-        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md summarizing changed files, validation, and remaining documentation gaps.",
-        "Do not modify frontend, portal implementation, apps, packages, database, infra, CI, Docker, deploy, auth, or production data."
-      ],
-      "validation_commands": [
-        "git status --short",
-        "test -f docs/release/anksen-agent-studio-v3-user-flow.md",
-        "test -f docs/release/agent-platform-v3-productization-notes.md",
-        "test -f docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md",
-        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md",
-        "git diff --check",
-        "git status --short"
-      ],
-      "required_checks": [
-        "V3 user flow doc exists",
-        "V3 productization notes exist",
-        "User flow acceptance checklist exists",
-        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
-      ],
-      "expected_output_files": [
-        "docs/release/anksen-agent-studio-v3-user-flow.md",
-        "docs/release/agent-platform-v3-productization-notes.md",
-        "docs/testing/agent-platform-v3-user-flow-acceptance-checklist.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.md",
-        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A1-PRODUCT-DOCS.json"
-      ],
-      "requires_human_approval": false,
-      "allow_commit": false,
-      "created_at": "2026-06-22T13:30:00.000Z",
-      "updated_at": "2026-06-22T13:30:00.000Z"
+      "updated_at": "2026-06-22T14:24:03.737Z"
     }
   ]
 }
