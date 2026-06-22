@@ -320,12 +320,17 @@ async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch
   return reportRelativePath;
 }
 
-function taskIdsFromCandidate(candidate) {
+async function taskIdsFromCandidate(candidate) {
   const taskIds = new Set();
   for (const file of candidate.files ?? []) {
     const resultMatch = /^ops\/agent-orchestrator\/results\/([^/]+)\.json$/.exec(file);
     if (resultMatch) {
-      taskIds.add(resultMatch[1]);
+      try {
+        const result = await readJson(join(repoRoot, file));
+        taskIds.add(result.task_id || resultMatch[1]);
+      } catch {
+        taskIds.add(resultMatch[1]);
+      }
       continue;
     }
     const eventMatch = /^ops\/agent-orchestrator\/events\/tasks\/([^/]+)\//.exec(file);
@@ -344,7 +349,7 @@ function taskIdsFromCandidate(candidate) {
 async function appendIntegrationEventsForCandidate({ mainPath, candidate, integrationBranch, mergeInfo }) {
   const queue = await readJson(join(orchestratorDir, "queue", "task-queue.json"));
   const tasks = taskById(queue);
-  const taskIds = taskIdsFromCandidate(candidate);
+  const taskIds = await taskIdsFromCandidate(candidate);
   const refs = [];
 
   for (const taskId of taskIds) {

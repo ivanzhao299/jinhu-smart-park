@@ -4,7 +4,7 @@ Agent: `agent-5`
 
 Branch: `agent-5-testing-release`
 
-Status: `FAILED`
+Status: `DONE`
 
 ## Summary
 
@@ -15,6 +15,12 @@ Implemented event-first queue conflict reduction for the remaining orchestrator 
 `reconcile-task-results.mjs --legacy-json --apply` now refuses to write shared queue JSON while task events exist. Operators must use `--from-events` so queue, lock, and result JSON are generated from the event projection after dry-run review.
 
 `rebuild-queue-read-model.mjs --dry-run` now prints a consolidated event/read-model consistency line and per-model consistency details. Doctor now reports the same consolidated event/read-model consistency state and the queue conflict policy.
+
+## Final Orchestrator Resolution
+
+The worker initially recorded this task as `FAILED` because the agent-5 worktree did not have local dependencies and could not complete `pnpm typecheck`. After integration, the prepared integration worktree ran `pnpm typecheck` successfully. The orchestrator then appended a truthful `task.completed` event and regenerated the compatibility read models.
+
+The implementation is accepted as `DONE`; the worker dependency failure is retained as an environment warning, not as a final task failure.
 
 ## Changed Files
 
@@ -62,8 +68,10 @@ Implemented event-first queue conflict reduction for the remaining orchestrator 
 | `PATH="$(pwd)/../jinhu-smart-park/node_modules/.bin:$PATH" pnpm typecheck` | Fail | Supplemental attempt found `tsc` but failed because React packages/types are not resolvable from this worktree without local dependencies. |
 | `node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION --agent agent-5 --status FAILED ...` | Pass | Recorded FAILED result/event/read-model bookkeeping because required validation failed. |
 | `node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run` after completion | Pass | Reported 168 task events and queue/locks/results `changed=false`; event/read-model consistency remained `yes`. |
-| `node ops/agent-orchestrator/scripts/check-dispatch-status.mjs` after completion | Pass | Parsed compatibility JSON; task is now `FAILED` and no active locks remain. |
+| `node ops/agent-orchestrator/scripts/check-dispatch-status.mjs` after worker completion | Pass | Parsed compatibility JSON; worker intermediate status was `FAILED` and no active locks remained. |
 | `git status --short` after completion | Pass | Shows only allowed task files plus expected `complete-task.mjs` event/result/read-model bookkeeping. |
+| `pnpm typecheck` in prepared integration worktree | Pass | Full workspace typecheck passed after integration. |
+| `node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION --agent agent-5 --status DONE ...` | Pass | Recorded final DONE result/event/read-model bookkeeping based on integration validation. |
 
 ## Skipped Checks
 
@@ -73,8 +81,7 @@ Implemented event-first queue conflict reduction for the remaining orchestrator 
 ## Remaining Risks
 
 - The `claim-task.mjs` event-first branch should be exercised in a disposable fixture or a future READY-task cycle.
-- Full workspace typecheck still needs to be rerun in a prepared worktree with local dependencies.
-- The worker result was recorded as `FAILED` solely because required validation could not pass in this dependency-less worktree.
+- The worker result was initially recorded as `FAILED` solely because required validation could not pass in the dependency-less agent worktree; this is superseded by the prepared integration worktree validation.
 
 ## Notes
 

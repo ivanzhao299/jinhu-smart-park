@@ -587,6 +587,11 @@ export async function listAllTaskEvents() {
 function applyTaskEvent(task, event) {
   let next = task ? clone(task) : {};
   const snapshot = event.metadata?.task_snapshot;
+  const snapshotHasStatus = snapshot && typeof snapshot === "object" && Boolean(snapshot.status);
+
+  if (!task && !snapshotHasStatus && !event.status_after) {
+    return null;
+  }
 
   if (snapshot && typeof snapshot === "object") {
     next = clone(snapshot);
@@ -615,6 +620,9 @@ export async function buildQueueReadModel() {
   for (const event of events) {
     const current = byTask.get(event.task_id);
     const next = applyTaskEvent(current, event);
+    if (!next) {
+      continue;
+    }
     byTask.set(event.task_id, next);
 
     const order = event.metadata?.queue_index;
