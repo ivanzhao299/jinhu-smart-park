@@ -1,0 +1,93 @@
+{
+  "event_id": "task.integrated:bc57fa0c34a399b81a67207b",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V3-A4-AGENT-REGISTRY",
+  "owner": "agent-4",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T14:41:29.108Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-4 result into integration/orchestrator-auto-20260622-224128",
+  "changed_files": [
+    "docs/release/agent-platform-v3-agent-registry-design.md",
+    "docs/testing/agent-platform-v3-agent-registry-checklist.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "5a7237139d83e0d050b965fa1d60247d4b91c325fa3384776380012626cb1c27",
+    "agent_id": "agent-4",
+    "agent_branch": "agent-4-dashboard-mobile-rbac",
+    "agent_head": "e7ed0beaa28b534cddf11e3a5483c9ba1a5cd312",
+    "integration_branch": "integration/orchestrator-auto-20260622-224128",
+    "merge_commit": "44331c455e9f967a7de2f490690b0d47d9162179",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A4-AGENT-REGISTRY",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Agent Registry and dynamic Agent Pool design",
+      "owner": "agent-4",
+      "domain": "agent-registry-dynamic-pool",
+      "priority": "P0",
+      "status": "CLAIMED",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/agent-registry",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/release/agent-platform-v3-agent-registry-design.md describing dynamic agent registry, status, fallback order, and router compatibility.",
+        "Review ops/agent-orchestrator/agent-registry/agent-registry.schema.json and agent-registry.example.json for agent-1 through agent-5 coverage.",
+        "Create docs/testing/agent-platform-v3-agent-registry-checklist.md with registry validation and route compatibility checks.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md summarizing changed files, validation, and remaining migration questions.",
+        "Do not modify apps/web or any UI implementation code."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/release/agent-platform-v3-agent-registry-design.md",
+        "test -f docs/testing/agent-platform-v3-agent-registry-checklist.md",
+        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/agent-registry/agent-registry.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/agent-registry/agent-registry.example.json','utf8'));\"",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Agent Registry design doc exists",
+        "Agent Registry schema and example parse as JSON",
+        "Registry checklist exists",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v3-agent-registry-design.md",
+        "docs/testing/agent-platform-v3-agent-registry-checklist.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T14:24:03.737Z"
+    }
+  }
+}
