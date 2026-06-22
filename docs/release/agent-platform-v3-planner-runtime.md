@@ -32,6 +32,7 @@ Required top-level fields:
 | Field | Runtime purpose |
 |---|---|
 | `version` | Planner output schema version. |
+| `planner_output_id` | Stable id for the generated planner artifact. |
 | `source_goal_id` | Links the output back to a Goal Engine record. |
 | `req_summary` | Source for the REQ draft title, requirement body, and non-goals. |
 | `tech_summary` | Source for the TECH draft title, technical body, and non-goals. |
@@ -39,14 +40,14 @@ Required top-level fields:
 | `agent_assignments` | Agent-to-task grouping with assignment rationale. |
 | `risk_assessment` | Overall risk, blocked paths, approval requirement, and risk notes. |
 | `validation_commands` | Proposed validation commands for the generated plan. |
-| `expected_outputs` | Expected output paths and their purposes. |
+| `expected_outputs` | Task-linked expected output paths, with optional purpose text when available. |
 | `created_at` | ISO date-time timestamp for the planner output. |
 
 Optional top-level field:
 
 | Field | Runtime purpose |
 |---|---|
-| `dispatch_plan` | Preview of per-task dispatch readiness. Values are `dry-run`, `requires-human-approval`, or `ready-after-approval`. |
+| `dispatch_plan` | Preview of per-task owner and dispatch readiness text. The preview must not claim, lock, or execute tasks. |
 
 The schema describes planner output. It does not authorize live writes, task claims, lock creation, Agent execution, or queue/result/event mutation.
 
@@ -77,11 +78,12 @@ Required checks:
 - JSON parses without syntax errors.
 - Required top-level fields exist.
 - `req_summary` and `tech_summary` each contain `title`, `body`, and `non_goals`.
-- Every task candidate contains `task_id`, `title`, `owner`, `domain`, `priority`, `risk`, `allowed_paths`, `forbidden_paths`, `acceptance`, `validation_commands`, `requires_human_approval`, and `expected_output_files`.
+- Every task candidate contains `task_id`, `batch_id`, `source_goal_id`, `title`, `owner`, `owner_assignment_reason`, `domain`, `priority`, `status`, `risk`, `allowed_paths`, `forbidden_paths`, `acceptance`, `validation_commands`, `requires_human_approval`, `expected_output_files`, `created_at`, and `updated_at`.
 - Every `owner` and `agent` is one of `agent-1` through `agent-5`.
 - Every `priority` is one of `P0`, `P1`, `P2`, or `P3`.
 - Every `risk` and `overall_risk` is one of `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`.
-- Every dispatch mode, when present, is `dry-run`, `requires-human-approval`, or `ready-after-approval`.
+- Every task candidate status is `READY`, which means queue-ready draft only, not claimed or executing work.
+- Every dispatch preview, when present, has a task id, owner, and non-empty mode text.
 - No undeclared fields are present.
 
 If validation fails, no downstream draft should be trusted.
@@ -108,7 +110,8 @@ The REQ draft is a review artifact. It must not mark generated work as approved.
 - `tasks[].allowed_paths` and `tasks[].forbidden_paths` define path boundaries.
 - `tasks[].validation_commands` and top-level `validation_commands` seed the validation strategy.
 - `expected_outputs` and `tasks[].expected_output_files` define output contracts.
-- `agent_assignments[].reason` documents why each owner is proposed.
+- `tasks[].owner_assignment_reason` explains the direct owner choice for each task candidate.
+- `agent_assignments[].reason` documents the grouped owner assignment rationale.
 
 The TECH draft must keep Planner output subordinate to source truth. It can describe proposed implementation boundaries, but it cannot change application behavior.
 
@@ -121,10 +124,14 @@ Direct candidate mapping:
 | Planner task field | Task queue draft use |
 |---|---|
 | `task_id` | Draft task id. |
+| `batch_id` | Draft batch id. |
+| `source_goal_id` | Link back to the source Goal Engine record. |
 | `title` | Draft task title. |
 | `owner` | Proposed owner. |
+| `owner_assignment_reason` | Human-readable reason for owner selection. |
 | `domain` | Routing and ownership domain. |
 | `priority` | Queue priority. |
+| `status` | Draft status; must remain `READY`. |
 | `risk` | Queue risk. |
 | `allowed_paths` | Write boundary. |
 | `forbidden_paths` | Hard block list. |
@@ -132,8 +139,9 @@ Direct candidate mapping:
 | `validation_commands` | Task-specific validation. |
 | `requires_human_approval` | Approval gate flag. |
 | `expected_output_files` | Expected deliverables. |
+| `created_at` / `updated_at` | Draft timestamps for review and eventual queue compatibility. |
 
-The planner task candidate is not a live queue task by itself. A later queue-generation step must add queue-owned lifecycle fields, such as batch id, status, timestamps, and any queue schema fields not present in the planner schema.
+The planner task candidate is not a live queue task by itself. It may carry queue-compatible draft fields, such as batch id, `READY` status, and timestamps, but those fields are review data until a later approved queue-generation step writes event-first queue state.
 
 Because the orchestrator is event-first, any approved future queue write must also create compatible task events, such as `task.created`, so queue, lock, and result read models remain auditable. Planner dry-run must not perform that write.
 
@@ -144,13 +152,13 @@ The dispatch preview comes from two sources:
 - `agent_assignments[]` groups candidate task ids by owner and explains assignment rationale.
 - `dispatch_plan[]`, when present, gives per-task dispatch mode.
 
-Dispatch modes mean:
+Dispatch preview fields mean:
 
-| Mode | Meaning |
+| Field | Meaning |
 |---|---|
-| `dry-run` | Preview only. Do not claim, lock, execute, merge, or push. |
-| `requires-human-approval` | Block execution until a human explicitly approves the generated plan or affected task. |
-| `ready-after-approval` | Eligible for a later approved queue/dispatch flow, but still not executable from the planner output alone. |
+| `task_id` | Candidate task being previewed. |
+| `owner` | Agent expected to own the future queue task. |
+| `mode` | Human-readable readiness text. Current generated output uses `READY only; dispatch later through agent-cycle`. |
 
 The Planner must not call dispatch scripts or create locks. Dispatch remains a separate approved runtime step.
 
@@ -224,10 +232,10 @@ If any gate fails, the correct outcome is to stop with a failed or blocked draft
 The current schema supports the V3 planning flow with these constraints:
 
 - `dispatch_plan` is optional, so consumers must tolerate missing dispatch previews and fail closed if dispatch readiness is required.
-- Task candidates do not include live queue lifecycle fields. Queue writers must enrich candidates after approval.
+- Task candidates include queue-compatible draft fields, but the schema restricts status to `READY` so Planner output cannot represent claimed or executing work.
 - The schema uses strict objects and enum values, which is appropriate for a planner-to-runtime boundary.
 - `validation_commands` are strings; consumers must inspect and classify them before execution.
-- `expected_outputs` records paths and purposes, but path-boundary validation remains a runtime responsibility.
+- `expected_outputs` records task-linked paths, and path-boundary validation remains a runtime responsibility.
 - The schema parses as JSON, but syntax parsing alone is not full JSON Schema validation.
 
 ## 7. Handoff Rules
