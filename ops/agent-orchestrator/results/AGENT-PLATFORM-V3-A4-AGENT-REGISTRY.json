@@ -12,10 +12,11 @@
   "agent_changed_files": [
     "docs/release/agent-platform-v3-agent-registry-design.md",
     "docs/testing/agent-platform-v3-agent-registry-checklist.md",
-    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.md"
+  ],
+  "orchestrator_changed_files": [
     "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A4-AGENT-REGISTRY.json"
   ],
-  "orchestrator_changed_files": [],
   "commands_run": [
     "git status --short",
     "test -f docs/release/agent-platform-v3-agent-registry-design.md",
@@ -34,20 +35,6 @@
     "No business, database, infra, auth, Docker, deploy, CI, migration, seed, or UI implementation paths changed"
   ],
   "failed_checks": [],
-  "skipped_checks": [
-    {
-      "item": "local commit",
-      "reason": "Task has allow_commit=false."
-    },
-    {
-      "item": "complete-task.mjs writer",
-      "reason": "The script writes event/read-model files outside this task's allowed paths; this worker wrote only the expected result JSON under ops/agent-orchestrator/results."
-    },
-    {
-      "item": "browser/mobile inspection",
-      "reason": "No frontend page or UI implementation was modified."
-    }
-  ],
   "notes": "Created registry design, registry validation checklist, worker report, and result record. Reviewed schema/example coverage for agent-1 through agent-5. No merge, push, deploy, production operation, migration, seed, auth, Docker, CI, apps, packages, or database changes were performed.",
-  "completed_at": "2026-06-22T14:25:58Z"
+  "completed_at": "2026-06-22T14:42:05.116Z"
 }

@@ -12,10 +12,11 @@
   "agent_changed_files": [
     "docs/release/agent-platform-v3-planner-runtime.md",
     "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
-    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.md"
+  ],
+  "orchestrator_changed_files": [
     "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME.json"
   ],
-  "orchestrator_changed_files": [],
   "commands_run": [
     "git status --short",
     "test -f docs/release/agent-platform-v3-planner-runtime.md",
@@ -38,14 +39,6 @@
     "No business, database, infra, auth, Docker, deploy, CI, migration, seed, merge, push, or production operation performed"
   ],
   "failed_checks": [],
-  "skipped_checks": [
-    "Local commit skipped because task allow_commit is false",
-    "complete-task.mjs skipped because it appends task events and rebuilds queue/lock/result read models outside this task's allowed write paths"
-  ],
-  "no_production_operation": true,
-  "no_business_code_change": true,
-  "no_merge": true,
-  "no_push": true,
   "notes": "Planner runtime and dry-run checklist planning artifacts were created. Planner output remains draft-only; no Agent execution or queue write from planner output was performed. Result JSON was written directly under the allowed results path because complete-task.mjs has event/read-model side effects outside the task boundary.",
-  "completed_at": "2026-06-22T14:27:07Z"
+  "completed_at": "2026-06-22T14:42:05.055Z"
 }
