@@ -369,6 +369,73 @@ export async function appendIntegrationEvent({
   return dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : appendTaskEvent(event);
 }
 
+export async function appendCompletionBackfillEvent({
+  task,
+  result,
+  resultRef = "",
+  statusBefore,
+  actor = "orchestrator",
+  source = "reconcile-task-results.mjs",
+  reason = "backfilled task.completed from committed result artifact",
+  changedFiles,
+  createdAt,
+  dryRun = false
+}) {
+  const resolvedTaskId = task?.task_id ?? result?.task_id;
+  const timestamp = createdAt ?? (
+    result?.completed_at && !Number.isNaN(Date.parse(result.completed_at))
+      ? new Date(result.completed_at).toISOString()
+      : new Date().toISOString()
+  );
+  const normalizedStatus = String(result?.status ?? "").toUpperCase();
+  if (normalizedStatus !== "DONE") {
+    throw new Error(`Completion backfill requires a DONE result for ${resolvedTaskId ?? "(missing task)"}.`);
+  }
+
+  const idempotencyKey = stableKey({
+    event_type: "task.completed",
+    source,
+    task_id: resolvedTaskId,
+    result_ref: resultRef,
+    result_completed_at: result?.completed_at ?? "",
+    result_agent: result?.agent ?? "",
+    commit_hash: result?.commit_hash ?? "",
+    changed_files: toArray(changedFiles ?? result?.changed_files)
+  });
+  const resultSnapshot = clone({ ...result, status: normalizedStatus });
+  const taskSnapshot = task
+    ? { ...clone(task), status: normalizedStatus, updated_at: timestamp }
+    : {
+        task_id: resolvedTaskId,
+        owner: result?.agent ?? "",
+        status: normalizedStatus,
+        updated_at: timestamp
+      };
+  const event = {
+    event_id: deterministicEventId("task.completed.backfill", idempotencyKey),
+    event_type: "task.completed",
+    task_id: resolvedTaskId,
+    owner: result?.agent ?? task?.owner ?? "",
+    status_before: statusBefore ?? task?.status ?? null,
+    status_after: normalizedStatus,
+    created_at: timestamp,
+    actor,
+    source,
+    reason,
+    changed_files: toArray(changedFiles ?? result?.changed_files),
+    result_ref: resultRef,
+    metadata: {
+      idempotency_key: idempotencyKey,
+      backfill: true,
+      evidence_artifact: resultRef,
+      result_snapshot: resultSnapshot,
+      task_snapshot: taskSnapshot
+    }
+  };
+
+  return dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : appendTaskEvent(event);
+}
+
 export async function appendReconciledEvent({
   task,
   taskId,

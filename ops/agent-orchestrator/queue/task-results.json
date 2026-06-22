@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T16:38:34.174Z",
+  "updated_at": "2026-06-22T16:48:40.200Z",
   "results": [
     {
       "task_id": "AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX",
@@ -926,6 +926,53 @@
       "failed_checks": [],
       "notes": "Reconciled by orchestrator after worker recorded FAILED for environment/context checks: worker pnpm typecheck lacked node_modules and worker doctor observed parallel dirty worktrees. Integrated artifacts passed main integration validation and no business/production paths were changed.",
       "completed_at": "2026-06-22T15:53:04.820Z"
+    },
+    {
+      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "agent": "agent-5",
+      "status": "FAILED",
+      "commit_hash": "",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "ops/agent-orchestrator/queue/task-results.json",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "script syntax checks passed",
+        "reconcile apply passed",
+        "audit dry-run passed",
+        "git diff --check passed"
+      ],
+      "failed_checks": [
+        "orchestratorctl doctor returned NO_GO because active task edits are dirty",
+        "pnpm typecheck failed because node_modules is missing and tsc is unavailable"
+      ],
+      "notes": "Implemented idempotent task.completed backfill from clean tracked DONE result artifacts. Recorded FAILED because required validation did not fully pass in this worktree; no merge push deploy production operation migration seed destructive cleanup auth CI Docker env database app package or business-code change performed.",
+      "completed_at": "2026-06-22T16:48:40.200Z"
     },
     {
       "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
