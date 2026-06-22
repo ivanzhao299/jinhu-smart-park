@@ -885,6 +885,17 @@ function printMarkdown(diagnosis, args) {
   console.log(`Open Improvements: ${diagnosis.evolution.open_improvements}`);
   console.log(`Resolved Improvements: ${diagnosis.evolution.resolved_improvements}`);
   console.log(`Learning Entries: ${diagnosis.evolution.learning_entries}`);
+  console.log(`Repeated Pattern Count: ${diagnosis.evolution.repeated_pattern_count ?? 0}`);
+  console.log(`Highest Priority Improvement: ${diagnosis.evolution.highest_priority_improvement || "none"}`);
+  console.log(`Evolution Backlog Stale: ${diagnosis.evolution.evolution_backlog_stale ? "yes" : "no"}`);
+  console.log("Top Improvement Candidates:");
+  if ((diagnosis.evolution.top_improvement_candidates ?? []).length === 0) {
+    console.log("- none");
+  } else {
+    for (const item of diagnosis.evolution.top_improvement_candidates) {
+      console.log(`- ${item.improvement_id}: ${item.title} | source=${item.source_pattern_id} | priority=${item.priority} | risk=${item.risk} | owner=${item.owner_recommendation}`);
+    }
+  }
   console.log("Top Recurring Failures:");
   if ((diagnosis.evolution.top_recurring_failures ?? []).length === 0) {
     console.log("- none");

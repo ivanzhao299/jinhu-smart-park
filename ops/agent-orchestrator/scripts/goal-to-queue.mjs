@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendTaskEvent, listAllTaskEvents, writeCompatibilityReadModels } from "./lib/event-store-utils.mjs";
 import { nowIso, pathMatches, readJson, writeJson } from "./lib/queue-utils.mjs";
-import { readEvolutionData, writeEvolutionData } from "./lib/evolution-utils.mjs";
+import { buildImprovementCandidates, readEvolutionData, writeEvolutionData } from "./lib/evolution-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -32,6 +32,7 @@ const DEFAULT_FORBIDDEN_PATHS = [
 
 function usage() {
   console.error('Usage: node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "..." --dry-run|--apply');
+  console.error("   or: node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement <improvement_id> --dry-run|--apply");
   console.error("Exactly one mode flag is required. --dry-run is read-only; --apply appends task.created events before rebuilding queue read models.");
 }
 
@@ -40,6 +41,7 @@ function parseArgs(argv) {
   const hasApply = argv.includes("--apply");
   const args = {
     text: "",
+    fromImprovement: "",
     dryRun: hasDryRun,
     apply: hasApply,
     mode: hasApply ? "apply" : "dry-run"
@@ -49,6 +51,9 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--text") {
       args.text = argv[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--from-improvement") {
+      args.fromImprovement = argv[index + 1] ?? "";
       index += 1;
     } else if (arg === "--dry-run" || arg === "--apply") {
       continue;
@@ -61,9 +66,12 @@ function parseArgs(argv) {
     }
   }
 
-  if (!args.text.trim()) {
+  if (!args.text.trim() && !args.fromImprovement.trim()) {
     usage();
-    throw new Error("Missing --text value.");
+    throw new Error("Missing --text or --from-improvement value.");
+  }
+  if (args.text.trim() && args.fromImprovement.trim()) {
+    throw new Error("Use either --text or --from-improvement, not both.");
   }
   if (hasDryRun === hasApply) {
     throw new Error("Specify exactly one of --dry-run or --apply.");
@@ -97,6 +105,10 @@ function goalIdForText(text) {
 
 function plannerOutputId(goalId) {
   return `PLAN-${goalId}`;
+}
+
+function improvementGoalId(improvementId) {
+  return `GOAL-EVOLUTION-${slugify(improvementId).slice(0, 60)}`;
 }
 
 function normalizeText(value) {
@@ -245,6 +257,67 @@ function goalState({ goalId, text, timestamp }) {
         summary: "Generated tasks could overreach into business or production paths.",
         risk_level: "HIGH",
         mitigation: "Default forbidden paths block apps, packages, database, infra, CI, Docker, deploy, auth, and production operations."
+      }
+    ],
+    status: "READY_FOR_REVIEW",
+    created_at: timestamp,
+    updated_at: timestamp
+  };
+}
+
+function goalStateFromImprovement({ goalId, improvement, timestamp }) {
+  return {
+    version: 1,
+    goal_id: goalId,
+    goal_title: improvement.title,
+    goal_text: `Implement improvement ${improvement.improvement_id}: ${improvement.title}`,
+    current_maturity: 95,
+    target_maturity: 98,
+    current_state: "Evolution Center can observe recurring failure patterns and maintain an improvement backlog.",
+    target_state: "Evolution Planner improvement candidates can be reviewed and converted into event-first READY tasks.",
+    capability_scores: [
+      {
+        capability_id: "evolution-planner",
+        name: "Evolution Planner Improvement Task Generation",
+        current_score: 70,
+        target_score: 90,
+        evidence: [
+          `source pattern: ${improvement.source_pattern_id}`,
+          `occurrences: ${improvement.occurrence_count}`
+        ],
+        gap_summary: improvement.root_cause,
+        risk_level: improvement.risk
+      }
+    ],
+    gaps: [
+      {
+        gap_id: `GAP-${improvement.improvement_id}`,
+        capability_id: "evolution-planner",
+        summary: improvement.root_cause,
+        impact: improvement.impact,
+        recommended_agent: improvement.owner_recommendation,
+        priority: improvement.priority,
+        risk_level: improvement.risk,
+        required_approval: improvement.requires_approval
+      }
+    ],
+    milestones: [
+      {
+        milestone_id: `MILESTONE-${improvement.improvement_id}`,
+        title: improvement.title,
+        target_maturity: 98,
+        exit_criteria: improvement.acceptance_criteria
+      }
+    ],
+    recommended_tasks: [],
+    risks: [
+      {
+        risk_id: `RISK-${improvement.improvement_id}`,
+        summary: improvement.risk === "LOW"
+          ? "Low-risk orchestrator platform improvement."
+          : "Medium-risk orchestrator state-flow improvement requiring review before apply.",
+        risk_level: improvement.risk,
+        mitigation: "Default forbidden paths block business, database, infra, CI, Docker, deploy, auth, and production operations."
       }
     ],
     status: "READY_FOR_REVIEW",
@@ -572,6 +645,70 @@ async function buildArtifacts(text) {
   });
 }
 
+function taskFromImprovement(improvement, batchId, goalId, timestamp) {
+  return taskForQueue({
+    task_id: `EVOLUTION-${improvement.improvement_id}`,
+    batch_id: batchId,
+    source_goal_id: goalId,
+    source_improvement_id: improvement.improvement_id,
+    source_pattern_id: improvement.source_pattern_id,
+    title: improvement.title,
+    owner: improvement.owner_recommendation,
+    domain: `evolution-${normalizeText(improvement.source_pattern_id).replace(/[^a-z0-9-]/g, "-")}`,
+    priority: improvement.priority,
+    risk: improvement.risk,
+    allowed_paths: improvement.allowed_paths,
+    forbidden_paths: improvement.forbidden_paths,
+    acceptance: improvement.acceptance_criteria,
+    validation_commands: improvement.validation_commands,
+    expected_output_files: improvement.expected_output_files,
+    requires_human_approval: improvement.requires_approval,
+    owner_assignment_reason: `Evolution Planner recommendation from ${improvement.source_pattern_id}`
+  }, timestamp);
+}
+
+async function buildArtifactsFromImprovement(improvementId) {
+  const timestamp = nowIso();
+  const data = await readEvolutionData();
+  const candidates = buildImprovementCandidates(data, null);
+  const improvement = candidates.find((item) => item.improvement_id === improvementId);
+  if (!improvement) {
+    throw new Error(`Improvement not found in Evolution Planner candidates/backlog: ${improvementId}`);
+  }
+
+  const goalId = improvementGoalId(improvement.improvement_id);
+  const plannerId = plannerOutputId(goalId);
+  const batchId = "EVOLUTION-IMPROVEMENT-BACKLOG";
+  const task = taskFromImprovement(improvement, batchId, goalId, timestamp);
+  const goal = goalStateFromImprovement({ goalId, improvement, timestamp });
+  goal.recommended_tasks = [{
+    task_id: task.task_id,
+    title: task.title,
+    owner: task.owner,
+    priority: task.priority,
+    risk_level: task.risk,
+    expected_output: task.expected_output_files.join(", ")
+  }];
+  const planner = buildPlannerOutput({
+    goalId,
+    plannerId,
+    goalText: goal.goal_text,
+    tasks: [task],
+    timestamp
+  });
+
+  return validateGeneratedArtifacts({
+    timestamp,
+    goalId,
+    plannerId,
+    batchId,
+    goal,
+    planner,
+    tasks: [task],
+    source_improvement_id: improvement.improvement_id
+  });
+}
+
 async function writeGeneratedArtifact(path, value) {
   if (existsSync(path)) {
     return { path, written: false, reason: "already_exists" };
@@ -752,6 +889,8 @@ try {
   process.exit(1);
 }
 
-const artifacts = await buildArtifacts(args.text);
+const artifacts = args.fromImprovement
+  ? await buildArtifactsFromImprovement(args.fromImprovement)
+  : await buildArtifacts(args.text);
 const applyResult = args.apply ? await applyArtifacts(artifacts) : null;
 printSummary(artifacts, args.mode, applyResult);

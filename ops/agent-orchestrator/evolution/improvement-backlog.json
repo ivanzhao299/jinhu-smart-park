@@ -1,22 +1,8 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_improvement_backlog",
-  "updated_at": "2026-06-22T00:00:00.000Z",
+  "updated_at": "2026-06-22T16:10:27.436Z",
   "improvements": [
-    {
-      "improvement_id": "IMPROVE-001",
-      "pattern_id": "PATTERN-001",
-      "title": "Keep generated runtime artifacts from blocking execution",
-      "status": "RESOLVED",
-      "priority": "P0",
-      "risk_level": "LOW",
-      "owner_recommendation": "agent-5",
-      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
-      "validation_plan": [
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
-        "git status --short"
-      ]
-    },
     {
       "improvement_id": "IMPROVE-002",
       "pattern_id": "PATTERN-002",
@@ -29,20 +15,192 @@
       "validation_plan": [
         "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
         "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run"
-      ]
+      ],
+      "source_pattern_id": "PATTERN-002",
+      "root_cause": "complete-task.mjs was not invoked by the worker; event/read-model rebuild did not materialize result status; reconcile did not trust successful run log plus committed evidence",
+      "proposed_solution": "Use truthful reconcile from run log, agent commit, report, and result artifact; Keep event-first complete writes idempotent; Surface missing completion as a doctor finding before integration",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run"
+      ],
+      "acceptance_criteria": [
+        "Improvement IMPROVE-002 is addressed or has a documented no-go reason.",
+        "Doctor remains GO or CONDITIONAL_GO with no blocker.",
+        "No business code or production operation is touched."
+      ],
+      "auto_fix_allowed": false,
+      "requires_approval": true,
+      "expected_output_files": [],
+      "occurrence_count": 4,
+      "impact": "Agent run logs and result artifacts show success, but task queue/result state remains CLAIMED or READY.",
+      "score": 72,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-2",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
     },
     {
-      "improvement_id": "IMPROVE-003",
-      "pattern_id": "PATTERN-003",
-      "title": "Unify router rules with the V3 agent registry",
+      "improvement_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_pattern_id": "PATTERN-002",
+      "pattern_id": "PATTERN-002",
+      "title": "Backfill completed events from truthful result artifacts",
+      "root_cause": "Successful run logs and result artifacts can exist while task.completed events or DONE read-model state are missing.",
+      "proposed_solution": "Teach complete/reconcile to backfill task.completed events from result artifacts, run logs, and agent commit evidence without re-running agents.",
       "status": "OPEN",
-      "priority": "P1",
-      "risk_level": "LOW",
-      "owner_recommendation": "agent-4",
-      "auto_fix_eligibility": "PLANNING_ONLY",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "risk_level": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
       "validation_plan": [
-        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"整理 Runtime Memory 使用手册\" --dry-run"
-      ]
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "acceptance_criteria": [
+        "Successful run logs with committed result artifacts can be reconciled into DONE state.",
+        "Backfilled task.completed events are idempotent.",
+        "No business evidence is fabricated."
+      ],
+      "auto_fix_allowed": false,
+      "auto_fix_eligibility": "REQUIRES_EVIDENCE_RECONCILE",
+      "requires_approval": true,
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "docs/testing/evolution-completed-event-backfill-checklist.md"
+      ],
+      "occurrence_count": 4,
+      "impact": "Agent run logs and result artifacts show success, but task queue/result state remains CLAIMED or READY.",
+      "score": 72,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-5",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
+    },
+    {
+      "improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_pattern_id": "PATTERN-001",
+      "pattern_id": "PATTERN-001",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "root_cause": "Generated runner plans can dirty the main worktree and block integration or finalize even when no business file changed.",
+      "proposed_solution": "Keep agent-run-plan.md no-write in dry-run flows and let self-repair safely restore it when it is the only dirty runtime artifact.",
+      "status": "OPEN",
+      "priority": "P0",
+      "risk": "LOW",
+      "risk_level": "LOW",
+      "owner_recommendation": "agent-5",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "acceptance_criteria": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ],
+      "auto_fix_allowed": true,
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "requires_approval": false,
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+      ],
+      "occurrence_count": 3,
+      "impact": "Generated orchestrator runtime artifacts can leave main dirty and block runner or integration prechecks.",
+      "score": 54,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-5",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
     },
     {
       "improvement_id": "IMPROVE-004",
@@ -56,7 +214,54 @@
       "validation_plan": [
         "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
         "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
-      ]
+      ],
+      "source_pattern_id": "PATTERN-004",
+      "root_cause": "legacy JSON lock writes were not idempotent; completed tasks did not clear locks; manual reconcile preserved old lock rows",
+      "proposed_solution": "Remove exact duplicate locks; Remove DONE task locks; Prefer event-derived lock read model",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "acceptance_criteria": [
+        "Improvement IMPROVE-004 is addressed or has a documented no-go reason.",
+        "Doctor remains GO or CONDITIONAL_GO with no blocker.",
+        "No business code or production operation is touched."
+      ],
+      "auto_fix_allowed": false,
+      "requires_approval": true,
+      "expected_output_files": [],
+      "occurrence_count": 2,
+      "impact": "Duplicate or stale locks make READY/CLAIMED state ambiguous and can block otherwise runnable agents.",
+      "score": 52,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-3",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
     },
     {
       "improvement_id": "IMPROVE-005",
@@ -70,6 +275,195 @@
       "validation_plan": [
         "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
         "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "source_pattern_id": "PATTERN-005",
+      "root_cause": "not every status write path was event-first; rebuild/read-model apply was skipped after event writes; legacy JSON was edited directly during reconcile",
+      "proposed_solution": "Run rebuild-queue-read-model.mjs --dry-run before apply; Move remaining write paths to event-first; Keep doctor event health visible in every cycle",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "acceptance_criteria": [
+        "Improvement IMPROVE-005 is addressed or has a documented no-go reason.",
+        "Doctor remains GO or CONDITIONAL_GO with no blocker.",
+        "No business code or production operation is touched."
+      ],
+      "auto_fix_allowed": false,
+      "requires_approval": true,
+      "expected_output_files": [],
+      "occurrence_count": 2,
+      "impact": "Event store and compatibility JSON can drift, which makes dispatch, audit, and doctor disagree.",
+      "score": 52,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-5",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
+    },
+    {
+      "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "source_pattern_id": "PATTERN-005",
+      "pattern_id": "PATTERN-005",
+      "title": "Reduce queue bookkeeping conflicts with event-first read models",
+      "root_cause": "Legacy queue JSON can still conflict with event-store read models during integration and reconciliation.",
+      "proposed_solution": "Move remaining status-changing paths toward event-first writes and make compatibility JSON a generated read model wherever possible.",
+      "status": "OPEN",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "risk_level": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck"
+      ],
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck"
+      ],
+      "acceptance_criteria": [
+        "Doctor reports event/read-model consistency after rebuild dry-run.",
+        "Queue bookkeeping conflicts are handled through event-first reconcile rules.",
+        "Compatibility queue JSON remains readable by existing agent-cycle commands."
+      ],
+      "auto_fix_allowed": false,
+      "auto_fix_eligibility": "DRY_RUN_FIRST",
+      "requires_approval": true,
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+        "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+        "docs/testing/evolution-queue-conflict-reduction-checklist.md"
+      ],
+      "occurrence_count": 2,
+      "impact": "Event store and compatibility JSON can drift, which makes dispatch, audit, and doctor disagree.",
+      "score": 48,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-5",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
+    },
+    {
+      "improvement_id": "IMPROVE-003",
+      "pattern_id": "PATTERN-003",
+      "title": "Unify router rules with the V3 agent registry",
+      "status": "OPEN",
+      "priority": "P1",
+      "risk_level": "LOW",
+      "owner_recommendation": "agent-4",
+      "auto_fix_eligibility": "PLANNING_ONLY",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"整理 Runtime Memory 使用手册\" --dry-run"
+      ],
+      "source_pattern_id": "PATTERN-003",
+      "root_cause": "agent-router-rules.json lacks domain keywords; planner does not explain owner selection; agent registry and router rules are not fully unified",
+      "proposed_solution": "Expand router keyword coverage; Route unknown work to agent-5 planning; Add routing smoke tests for common natural-language requests",
+      "risk": "LOW",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"整理 Runtime Memory 使用手册\" --dry-run"
+      ],
+      "acceptance_criteria": [
+        "Improvement IMPROVE-003 is addressed or has a documented no-go reason.",
+        "Doctor remains GO or CONDITIONAL_GO with no blocker.",
+        "No business code or production operation is touched."
+      ],
+      "auto_fix_allowed": false,
+      "requires_approval": false,
+      "expected_output_files": [],
+      "occurrence_count": 1,
+      "impact": "Natural-language work can fail to reach the right agent when domain keywords or fallback rules are incomplete.",
+      "score": 30,
+      "last_planned_at": "2026-06-22T16:10:27.436Z",
+      "last_owner_recommendation": "agent-4",
+      "updated_at": "2026-06-22T16:10:27.436Z",
+      "created_at": "2026-06-22T16:09:48.172Z"
+    },
+    {
+      "improvement_id": "IMPROVE-001",
+      "pattern_id": "PATTERN-001",
+      "title": "Keep generated runtime artifacts from blocking execution",
+      "status": "RESOLVED",
+      "priority": "P0",
+      "risk_level": "LOW",
+      "owner_recommendation": "agent-5",
+      "auto_fix_eligibility": "LOW_RISK_ALLOWED",
+      "validation_plan": [
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
+        "git status --short"
       ]
     }
   ]

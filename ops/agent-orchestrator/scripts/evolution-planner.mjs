@@ -45,7 +45,11 @@ function printPlan(plan, mode) {
   } else {
     for (const item of plan.improvement_candidates) {
       console.log(`- ${item.improvement_id}: ${item.title}`);
-      console.log(`  owner=${item.owner_recommendation}; priority=${item.priority}; risk=${item.risk_level}; active_now=${item.active_now ? "yes" : "no"}`);
+      console.log(`  source_pattern=${item.source_pattern_id}; owner=${item.owner_recommendation}; priority=${item.priority}; risk=${item.risk}; score=${item.score}; active_now=${item.active_now ? "yes" : "no"}`);
+      console.log(`  root cause: ${item.root_cause}`);
+      console.log(`  proposed solution: ${item.proposed_solution}`);
+      console.log(`  auto_fix_allowed=${item.auto_fix_allowed ? "yes" : "no"}; approval=${item.requires_approval ? "yes" : "no"}`);
+      console.log(`  validation: ${(item.validation_commands ?? []).join(" ; ") || "none"}`);
     }
   }
   console.log("");

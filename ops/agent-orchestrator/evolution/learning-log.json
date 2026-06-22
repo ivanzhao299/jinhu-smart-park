@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_learning_log",
-  "updated_at": "2026-06-22T15:26:04.674Z",
+  "updated_at": "2026-06-22T16:10:27.436Z",
   "entries": [
     {
       "learning_id": "LEARN-20260622-001",
@@ -91,6 +91,36 @@
         "ops/agent-orchestrator/planner/generated/PLAN-GOAL-AGENT-STUDIO-98.json"
       ],
       "follow_up": "Run agent-cycle --dry-run, then wait for explicit approval before executing agents.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "EVOPLAN-20260622160948",
+      "pattern_id": "PATTERN-002",
+      "observed_at": "2026-06-22T16:09:48.172Z",
+      "source": "evolution-planner.mjs",
+      "incident": "Evolution Planner generated 7 improvement candidate(s) from failure patterns and backlog.",
+      "root_cause": "complete-task.mjs was not invoked by the worker; event/read-model rebuild did not materialize result status; reconcile did not trust successful run log plus committed evidence",
+      "resolution": "Upsert improvement-backlog candidates and require explicit approval before queue insertion.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/evolution/failure-patterns.json",
+        "ops/agent-orchestrator/evolution/improvement-backlog.json"
+      ],
+      "follow_up": "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement IMPROVE-002 --dry-run",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "EVOPLAN-20260622161027",
+      "pattern_id": "PATTERN-002",
+      "observed_at": "2026-06-22T16:10:27.436Z",
+      "source": "evolution-planner.mjs",
+      "incident": "Evolution Planner generated 7 improvement candidate(s) from failure patterns and backlog.",
+      "root_cause": "complete-task.mjs was not invoked by the worker; event/read-model rebuild did not materialize result status; reconcile did not trust successful run log plus committed evidence",
+      "resolution": "Upsert improvement-backlog candidates and require explicit approval before queue insertion.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/evolution/failure-patterns.json",
+        "ops/agent-orchestrator/evolution/improvement-backlog.json"
+      ],
+      "follow_up": "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement IMPROVE-002 --dry-run",
       "status": "ACTIVE"
     }
   ]

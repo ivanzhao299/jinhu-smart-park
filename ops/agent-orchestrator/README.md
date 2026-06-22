@@ -945,7 +945,9 @@ Commands:
 
 - `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "继续把 Agent Studio 提升到 98%" --dry-run`
 - `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "继续把 Agent Studio 提升到 98%" --apply`
+- `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement IMPROVE-RUNTIME-PLAN-ARTIFACT --dry-run`
 - `node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "继续把 Agent Studio 提升到 98%" --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement IMPROVE-RUNTIME-PLAN-ARTIFACT --dry-run`
 - `node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "继续把 Agent Studio 提升到 98%" --dry-run`
 - `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --dry-run`
 - `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --apply`
@@ -953,10 +955,18 @@ Commands:
 - `node ops/agent-orchestrator/scripts/evolution-planner.mjs --apply`
 - `node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run`
 - `node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --apply`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --apply`
 
 The observer reads doctor, check-dispatch-status, run logs, audit, integration, event store, queue, locks, results, and self-repair availability. Dry-run prints findings, matched failure patterns, root causes, improvement candidates, and suggested tasks without writing files. Apply mode records the latest observation into `ops/agent-orchestrator/evolution/evolution-state.json` and appends a learning entry.
 
+`evolution-planner` turns repeated failure patterns into structured improvement candidates. Each candidate records the source pattern, root cause, proposed solution, risk, priority, owner recommendation, allowed/forbidden paths, validation commands, acceptance criteria, auto-fix eligibility, and approval requirement. Dry-run is read-only. Apply mode upserts `ops/agent-orchestrator/evolution/improvement-backlog.json` and appends a learning entry; it does not create READY tasks or execute agents.
+
 `goal-to-queue` is the V3-F bridge from natural-language goal text to event-first READY tasks. Dry-run generates the Goal Engine state, Planner output, owner recommendations, risk levels, expected files, and validation commands without writing. Apply mode writes generated goal/planner artifacts, appends `task.created` events, rebuilds the compatibility queue/locks/results read models, and records an Evolution Center learning entry. It does not dispatch, claim, execute agents, merge, push, deploy, or run production operations.
+
+`goal-to-queue --from-improvement <improvement_id>` converts an approved improvement backlog item into a reviewable event-first task candidate. Use dry-run first; apply creates READY tasks and must be treated like any other task-queue change.
+
+`orchestratorctl evolve --dry-run` chains `observe --dry-run` and `evolution-planner --dry-run` so the platform can show the top improvement candidates without writing files. `orchestratorctl evolve --apply` records the observation and updates the improvement backlog only; it still does not dispatch, claim, execute agents, merge, push, deploy, or run production operations.
 
 `autonomous-loop --dry-run` chains `goal-to-queue --dry-run`, `observe --dry-run`, `agent-cycle --dry-run`, and `doctor`. The MVP is review-only and approval-gated.
 
@@ -968,7 +978,7 @@ The Evolution Center data files are append-friendly:
 - `ops/agent-orchestrator/evolution/evolution-state.json`
 - `ops/agent-orchestrator/evolution/state.example.json`
 
-`doctor` includes an Evolution Center section with pattern count, open/resolved improvements, learning entries, and top recurring failures. Improvement candidates are review-first; they should not be inserted into the task queue without explicit approval.
+`doctor` includes an Evolution Center section with pattern count, open/resolved improvements, learning entries, repeated pattern count, top improvement candidates, highest-priority improvement, backlog stale state, and top recurring failures. Improvement candidates are review-first; they should not be inserted into the task queue without explicit approval.
 
 ## 11. First-Version Limits
 

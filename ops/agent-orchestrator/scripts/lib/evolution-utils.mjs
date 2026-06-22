@@ -24,6 +24,122 @@ export const runsDir = join(orchestratorDir, "runs");
 const generatedGoalDir = join(orchestratorDir, "goal", "generated");
 const generatedPlannerDir = join(orchestratorDir, "planner", "generated");
 
+export const EVOLUTION_FORBIDDEN_PATHS = [
+  "apps/**",
+  "packages/**",
+  "database/**",
+  "infra/**",
+  ".github/**",
+  "Dockerfile",
+  "Dockerfile.*",
+  "docker-compose*",
+  "deploy/**",
+  "auth/**",
+  ".env",
+  ".env.*"
+];
+
+const EVOLUTION_SCRIPT_PATHS = [
+  "ops/agent-orchestrator/scripts/**",
+  "ops/agent-orchestrator/evolution/**",
+  "ops/agent-orchestrator/events/**",
+  "ops/agent-orchestrator/queue/**",
+  "ops/agent-orchestrator/reports/**",
+  "ops/agent-orchestrator/results/**",
+  "docs/release/**",
+  "docs/testing/**"
+];
+
+const IMPROVEMENT_TEMPLATES = {
+  "PATTERN-001": {
+    improvement_id: "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+    title: "Make agent-run-plan.md an ephemeral runtime artifact",
+    root_cause: "Generated runner plans can dirty the main worktree and block integration or finalize even when no business file changed.",
+    proposed_solution: "Keep agent-run-plan.md no-write in dry-run flows and let self-repair safely restore it when it is the only dirty runtime artifact.",
+    risk: "LOW",
+    priority: "P0",
+    owner_recommendation: "agent-5",
+    allowed_paths: EVOLUTION_SCRIPT_PATHS,
+    forbidden_paths: EVOLUTION_FORBIDDEN_PATHS,
+    validation_commands: [
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "git diff --check",
+      "pnpm typecheck"
+    ],
+    acceptance_criteria: [
+      "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+      "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+      "Non-runtime dirty files still block with NO_GO."
+    ],
+    auto_fix_allowed: true,
+    requires_approval: false,
+    expected_output_files: [
+      "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+      "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+      "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+    ]
+  },
+  "PATTERN-002": {
+    improvement_id: "IMPROVE-COMPLETED-EVENT-BACKFILL",
+    title: "Backfill completed events from truthful result artifacts",
+    root_cause: "Successful run logs and result artifacts can exist while task.completed events or DONE read-model state are missing.",
+    proposed_solution: "Teach complete/reconcile to backfill task.completed events from result artifacts, run logs, and agent commit evidence without re-running agents.",
+    risk: "MEDIUM",
+    priority: "P0",
+    owner_recommendation: "agent-5",
+    allowed_paths: EVOLUTION_SCRIPT_PATHS,
+    forbidden_paths: EVOLUTION_FORBIDDEN_PATHS,
+    validation_commands: [
+      "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+      "pnpm typecheck"
+    ],
+    acceptance_criteria: [
+      "Successful run logs with committed result artifacts can be reconciled into DONE state.",
+      "Backfilled task.completed events are idempotent.",
+      "No business evidence is fabricated."
+    ],
+    auto_fix_allowed: false,
+    requires_approval: true,
+    expected_output_files: [
+      "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+      "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+      "docs/testing/evolution-completed-event-backfill-checklist.md"
+    ]
+  },
+  "PATTERN-005": {
+    improvement_id: "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+    title: "Reduce queue bookkeeping conflicts with event-first read models",
+    root_cause: "Legacy queue JSON can still conflict with event-store read models during integration and reconciliation.",
+    proposed_solution: "Move remaining status-changing paths toward event-first writes and make compatibility JSON a generated read model wherever possible.",
+    risk: "MEDIUM",
+    priority: "P1",
+    owner_recommendation: "agent-5",
+    allowed_paths: EVOLUTION_SCRIPT_PATHS,
+    forbidden_paths: EVOLUTION_FORBIDDEN_PATHS,
+    validation_commands: [
+      "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+      "pnpm typecheck"
+    ],
+    acceptance_criteria: [
+      "Doctor reports event/read-model consistency after rebuild dry-run.",
+      "Queue bookkeeping conflicts are handled through event-first reconcile rules.",
+      "Compatibility queue JSON remains readable by existing agent-cycle commands."
+    ],
+    auto_fix_allowed: false,
+    requires_approval: true,
+    expected_output_files: [
+      "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+      "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+      "docs/testing/evolution-queue-conflict-reduction-checklist.md"
+    ]
+  }
+};
+
 function emptyPatterns() {
   return {
     schema_version: 1,
@@ -105,6 +221,7 @@ export function buildEvolutionSummary(data) {
   const entries = data.learningLog?.entries ?? [];
   const open = improvements.filter((item) => item.status !== "RESOLVED");
   const resolved = improvements.filter((item) => item.status === "RESOLVED");
+  const repeated = patterns.filter((pattern) => (pattern.occurrences ?? 0) > 1);
   const topRecurringFailures = [...patterns]
     .sort((a, b) => (b.occurrences ?? 0) - (a.occurrences ?? 0))
     .slice(0, 5)
@@ -115,13 +232,31 @@ export function buildEvolutionSummary(data) {
       risk_level: pattern.risk_level ?? "UNKNOWN",
       status: pattern.status ?? "UNKNOWN"
     }));
+  const improvementCandidates = sortImprovementCandidates(normalizeImprovementCandidates(data, null));
+  const latestPatternOrLearning = Math.max(
+    Date.parse(data.failurePatterns?.updated_at ?? "") || 0,
+    Date.parse(data.learningLog?.updated_at ?? "") || 0
+  );
+  const latestPlan = Date.parse(data.evolutionState?.last_planned_at ?? data.improvementBacklog?.updated_at ?? "") || 0;
 
   return {
     pattern_count: patterns.length,
     open_improvements: open.length,
     resolved_improvements: resolved.length,
     learning_entries: entries.length,
-    top_recurring_failures: topRecurringFailures
+    repeated_pattern_count: repeated.length,
+    top_recurring_failures: topRecurringFailures,
+    top_improvement_candidates: improvementCandidates.slice(0, 3).map((item) => ({
+      improvement_id: item.improvement_id,
+      source_pattern_id: item.source_pattern_id,
+      title: item.title,
+      priority: item.priority,
+      risk: item.risk,
+      owner_recommendation: item.owner_recommendation,
+      score: item.score
+    })),
+    highest_priority_improvement: improvementCandidates[0]?.improvement_id ?? "",
+    evolution_backlog_stale: latestPatternOrLearning > 0 && latestPlan > 0 ? latestPatternOrLearning > latestPlan : latestPatternOrLearning > 0
   };
 }
 
@@ -363,21 +498,154 @@ function ownerForImprovement(improvement) {
   return improvement.owner_recommendation ?? "agent-5";
 }
 
-export function buildImprovementCandidates(data, observation = null) {
+const RISK_SCORE = new Map([
+  ["LOW", 1],
+  ["MEDIUM", 2],
+  ["HIGH", 3]
+]);
+
+const PRIORITY_SCORE = new Map([
+  ["P0", 4],
+  ["P1", 3],
+  ["P2", 2],
+  ["P3", 1]
+]);
+
+function patternById(data) {
+  return new Map((data.failurePatterns?.patterns ?? []).map((pattern) => [pattern.pattern_id, pattern]));
+}
+
+function existingImprovementById(data) {
+  return new Map((data.improvementBacklog?.improvements ?? []).map((item) => [item.improvement_id, item]));
+}
+
+function riskFrom(value, fallback = "LOW") {
+  return String(value ?? fallback).toUpperCase();
+}
+
+function priorityFrom(value, fallback = "P2") {
+  return String(value ?? fallback).toUpperCase();
+}
+
+function candidateScore(candidate) {
+  const occurrences = Number(candidate.occurrence_count ?? 0);
+  const severity = RISK_SCORE.get(candidate.risk) ?? 1;
+  const priority = PRIORITY_SCORE.get(candidate.priority) ?? 1;
+  const active = candidate.active_now ? 4 : 0;
+  return occurrences * 10 + severity * 8 + priority * 4 + active;
+}
+
+function mergeTemplateWithBacklog(template, pattern, existing = null, activePatternIds = new Set()) {
+  const risk = riskFrom(existing?.risk ?? existing?.risk_level ?? template.risk, template.risk);
+  const priority = priorityFrom(existing?.priority ?? template.priority, template.priority);
+  const acceptanceCriteria = existing?.acceptance_criteria ?? existing?.acceptance ?? template.acceptance_criteria ?? [];
+  const validationCommands = existing?.validation_commands ?? existing?.validation_plan ?? template.validation_commands ?? [];
+  const candidate = {
+    improvement_id: template.improvement_id,
+    source_pattern_id: template.source_pattern_id ?? pattern?.pattern_id ?? existing?.source_pattern_id ?? existing?.pattern_id ?? "",
+    pattern_id: template.source_pattern_id ?? pattern?.pattern_id ?? existing?.source_pattern_id ?? existing?.pattern_id ?? "",
+    title: existing?.title ?? template.title,
+    root_cause: existing?.root_cause ?? template.root_cause ?? (pattern?.root_causes ?? []).join("; "),
+    proposed_solution: existing?.proposed_solution ?? template.proposed_solution ?? (pattern?.recommended_improvements ?? []).join("; "),
+    risk,
+    risk_level: risk,
+    priority,
+    owner_recommendation: existing?.owner_recommendation ?? template.owner_recommendation ?? ownerForImprovement(existing ?? template),
+    allowed_paths: existing?.allowed_paths ?? template.allowed_paths ?? EVOLUTION_SCRIPT_PATHS,
+    forbidden_paths: existing?.forbidden_paths ?? template.forbidden_paths ?? EVOLUTION_FORBIDDEN_PATHS,
+    validation_commands: validationCommands.length > 0 ? validationCommands : [
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "pnpm typecheck"
+    ],
+    validation_plan: validationCommands.length > 0 ? validationCommands : [
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "pnpm typecheck"
+    ],
+    acceptance_criteria: acceptanceCriteria.length > 0 ? acceptanceCriteria : [
+      `Improvement ${template.improvement_id} is addressed or has a documented no-go reason.`,
+      "Doctor remains GO or CONDITIONAL_GO with no blocker.",
+      "No business code or production operation is touched."
+    ],
+    auto_fix_allowed: typeof existing?.auto_fix_allowed === "boolean"
+      ? existing.auto_fix_allowed
+      : typeof template.auto_fix_allowed === "boolean" ? template.auto_fix_allowed : false,
+    auto_fix_eligibility: existing?.auto_fix_eligibility ?? pattern?.auto_fix_eligibility ?? "MANUAL_REVIEW",
+    requires_approval: typeof existing?.requires_approval === "boolean"
+      ? existing.requires_approval
+      : typeof template.requires_approval === "boolean" ? template.requires_approval : risk !== "LOW",
+    expected_output_files: existing?.expected_output_files ?? template.expected_output_files ?? [],
+    status: existing?.status ?? "OPEN",
+    occurrence_count: pattern?.occurrences ?? existing?.occurrence_count ?? 0,
+    severity: risk,
+    impact: pattern?.summary ?? existing?.impact ?? "",
+    active_now: activePatternIds.has(pattern?.pattern_id ?? existing?.pattern_id ?? ""),
+    last_seen_at: pattern?.last_seen_at ?? existing?.last_seen_at ?? "",
+    source: existing ? "backlog" : "failure-pattern-template"
+  };
+  return {
+    ...candidate,
+    score: candidateScore(candidate)
+  };
+}
+
+function normalizeImprovementCandidates(data, observation = null) {
   const activePatternIds = new Set((observation?.patterns ?? []).map((pattern) => pattern.pattern_id));
-  return (data.improvementBacklog?.improvements ?? [])
-    .filter((item) => item.status !== "RESOLVED")
-    .map((item) => ({
+  const patterns = patternById(data);
+  const existing = existingImprovementById(data);
+  const candidates = new Map();
+
+  for (const [patternId, template] of Object.entries(IMPROVEMENT_TEMPLATES)) {
+    const pattern = patterns.get(patternId);
+    const item = existing.get(template.improvement_id);
+    candidates.set(template.improvement_id, mergeTemplateWithBacklog(
+      { ...template, source_pattern_id: patternId },
+      pattern,
+      item,
+      activePatternIds
+    ));
+  }
+
+  for (const item of data.improvementBacklog?.improvements ?? []) {
+    const templateId = IMPROVEMENT_TEMPLATES[item.source_pattern_id ?? item.pattern_id]?.improvement_id;
+    if (item.status === "RESOLVED" && templateId !== item.improvement_id) {
+      continue;
+    }
+    if (candidates.has(item.improvement_id)) continue;
+    const pattern = patterns.get(item.source_pattern_id ?? item.pattern_id);
+    candidates.set(item.improvement_id, mergeTemplateWithBacklog({
       improvement_id: item.improvement_id,
-      pattern_id: item.pattern_id,
+      source_pattern_id: item.source_pattern_id ?? item.pattern_id,
       title: item.title,
-      priority: item.priority ?? "P2",
-      risk_level: item.risk_level ?? "LOW",
-      owner_recommendation: ownerForImprovement(item),
-      active_now: activePatternIds.has(item.pattern_id),
-      auto_fix_eligibility: item.auto_fix_eligibility ?? "MANUAL_REVIEW",
-      validation_plan: item.validation_plan ?? []
-    }));
+      root_cause: item.root_cause,
+      proposed_solution: item.proposed_solution,
+      risk: item.risk ?? item.risk_level,
+      priority: item.priority,
+      owner_recommendation: item.owner_recommendation,
+      allowed_paths: item.allowed_paths,
+      forbidden_paths: item.forbidden_paths,
+      validation_commands: item.validation_commands ?? item.validation_plan,
+      acceptance_criteria: item.acceptance_criteria,
+      auto_fix_allowed: item.auto_fix_allowed,
+      requires_approval: item.requires_approval,
+      expected_output_files: item.expected_output_files
+    }, pattern, item, activePatternIds));
+  }
+
+  return [...candidates.values()].filter((item) => item.status !== "RESOLVED");
+}
+
+function sortImprovementCandidates(candidates) {
+  return [...candidates].sort((a, b) => {
+    if ((b.score ?? 0) !== (a.score ?? 0)) return (b.score ?? 0) - (a.score ?? 0);
+    if ((PRIORITY_SCORE.get(b.priority) ?? 0) !== (PRIORITY_SCORE.get(a.priority) ?? 0)) {
+      return (PRIORITY_SCORE.get(b.priority) ?? 0) - (PRIORITY_SCORE.get(a.priority) ?? 0);
+    }
+    return String(a.improvement_id).localeCompare(String(b.improvement_id));
+  });
+}
+
+export function buildImprovementCandidates(data, observation = null) {
+  return sortImprovementCandidates(normalizeImprovementCandidates(data, observation));
 }
 
 export function buildTaskCandidates(improvements) {
@@ -386,33 +654,15 @@ export function buildTaskCandidates(improvements) {
     title: item.title,
     owner: item.owner_recommendation,
     priority: item.priority,
-    risk: item.risk_level,
-    requires_human_approval: item.risk_level !== "LOW",
-    allowed_paths: [
-      "ops/agent-orchestrator/scripts",
-      "ops/agent-orchestrator/evolution",
-      "ops/agent-orchestrator/reports",
-      "ops/agent-orchestrator/results",
-      "docs/release",
-      "docs/testing"
-    ],
-    forbidden_paths: [
-      "apps",
-      "packages",
-      "database",
-      "infra",
-      ".github",
-      "Dockerfile",
-      "docker-compose",
-      "deploy",
-      "auth"
-    ],
-    acceptance: [
-      `Improvement ${item.improvement_id} is addressed or has a documented no-go reason.`,
-      "Doctor remains GO or CONDITIONAL_GO with no blocker.",
-      "No business code or production operation is touched."
-    ],
-    validation_commands: item.validation_plan
+    risk: item.risk,
+    requires_human_approval: item.requires_approval,
+    allowed_paths: item.allowed_paths,
+    forbidden_paths: item.forbidden_paths,
+    acceptance: item.acceptance_criteria,
+    validation_commands: item.validation_commands,
+    expected_output_files: item.expected_output_files,
+    source_pattern_id: item.source_pattern_id,
+    source_improvement_id: item.improvement_id
   }));
 }
 
@@ -534,22 +784,86 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
 export async function applyEvolutionPlan(plan) {
   const data = await readEvolutionData();
   const timestamp = nowIso();
+  const existingById = new Map((data.improvementBacklog.improvements ?? []).map((item) => [item.improvement_id, item]));
+  const plannedIds = new Set(plan.improvement_candidates.map((item) => item.improvement_id));
+  const mergedImprovements = [];
+
+  for (const candidate of plan.improvement_candidates) {
+    const existing = existingById.get(candidate.improvement_id);
+    mergedImprovements.push({
+      ...(existing ?? {}),
+      improvement_id: candidate.improvement_id,
+      source_pattern_id: candidate.source_pattern_id,
+      pattern_id: candidate.source_pattern_id,
+      title: candidate.title,
+      root_cause: candidate.root_cause,
+      proposed_solution: candidate.proposed_solution,
+      status: existing?.status ?? "OPEN",
+      priority: candidate.priority,
+      risk: candidate.risk,
+      risk_level: candidate.risk,
+      owner_recommendation: candidate.owner_recommendation,
+      allowed_paths: candidate.allowed_paths,
+      forbidden_paths: candidate.forbidden_paths,
+      validation_commands: candidate.validation_commands,
+      validation_plan: candidate.validation_commands,
+      acceptance_criteria: candidate.acceptance_criteria,
+      auto_fix_allowed: candidate.auto_fix_allowed,
+      auto_fix_eligibility: candidate.auto_fix_eligibility,
+      requires_approval: candidate.requires_approval,
+      expected_output_files: candidate.expected_output_files,
+      occurrence_count: candidate.occurrence_count,
+      impact: candidate.impact,
+      score: candidate.score,
+      last_planned_at: timestamp,
+      last_owner_recommendation: candidate.owner_recommendation,
+      updated_at: timestamp,
+      created_at: existing?.created_at ?? timestamp
+    });
+  }
+
+  for (const item of data.improvementBacklog.improvements ?? []) {
+    if (!plannedIds.has(item.improvement_id)) {
+      mergedImprovements.push(item);
+    }
+  }
+
   data.evolutionState.updated_at = timestamp;
   data.evolutionState.last_planned_at = timestamp;
   data.evolutionState.last_run_mode = "planner_apply";
   data.evolutionState.last_summary = {
     ...(data.evolutionState.last_summary ?? {}),
     planned_task_candidates: plan.task_candidates.length,
-    planned_improvement_candidates: plan.improvement_candidates.length
+    planned_improvement_candidates: plan.improvement_candidates.length,
+    top_improvement_candidates: plan.improvement_candidates.slice(0, 3).map((item) => item.improvement_id)
   };
   data.evolutionState.next_action = [
     "Review suggested tasks before queue insertion.",
+    "Use goal-to-queue --from-improvement <improvement_id> --dry-run before creating READY improvement tasks.",
     "Do not run agent-cycle until improvement tasks are explicitly approved."
   ];
   data.improvementBacklog.updated_at = timestamp;
-  data.improvementBacklog.improvements = (data.improvementBacklog.improvements ?? []).map((item) => {
-    const planned = plan.improvement_candidates.find((candidate) => candidate.improvement_id === item.improvement_id);
-    return planned ? { ...item, last_planned_at: timestamp, last_owner_recommendation: planned.owner_recommendation } : item;
-  });
+  data.improvementBacklog.improvements = mergedImprovements;
+  data.learningLog.updated_at = timestamp;
+  data.learningLog.entries = [
+    ...(data.learningLog.entries ?? []),
+    {
+      learning_id: `EVOPLAN-${timestamp.replace(/[-:.TZ]/g, "").slice(0, 14)}`,
+      pattern_id: plan.improvement_candidates[0]?.source_pattern_id ?? "NONE",
+      observed_at: timestamp,
+      source: "evolution-planner.mjs",
+      incident: `Evolution Planner generated ${plan.improvement_candidates.length} improvement candidate(s) from failure patterns and backlog.`,
+      root_cause: plan.improvement_candidates[0]?.root_cause ?? "No recurring failure candidate was available.",
+      resolution: "Upsert improvement-backlog candidates and require explicit approval before queue insertion.",
+      evidence_refs: [
+        "ops/agent-orchestrator/evolution/failure-patterns.json",
+        "ops/agent-orchestrator/evolution/improvement-backlog.json"
+      ],
+      follow_up: plan.improvement_candidates[0]
+        ? `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement ${plan.improvement_candidates[0].improvement_id} --dry-run`
+        : "Continue observing.",
+      status: "ACTIVE"
+    }
+  ];
   await writeEvolutionData(data);
 }

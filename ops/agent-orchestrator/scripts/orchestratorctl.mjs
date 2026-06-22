@@ -38,6 +38,8 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "..." --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement <improvement_id> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "..." --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs check-status
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
@@ -666,6 +668,25 @@ async function autonomousLoopCommand(rest) {
   runScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
 }
 
+function evolveCommand(rest) {
+  const mode = requiredModeFlag(rest, "evolve");
+  const apply = mode === "--apply";
+
+  console.log(`# Evolution Loop ${apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log("Guardrails: no Agent execution, no merge, no push, no deploy, no production migration/seed/reset/cleanup.");
+  console.log("");
+  console.log("## Step 1: Resident Observer");
+  runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", [mode]);
+  console.log("");
+  console.log("## Step 2: Evolution Planner");
+  runScript("ops/agent-orchestrator/scripts/evolution-planner.mjs", [mode]);
+  console.log("");
+  console.log(apply
+    ? "Apply completed: improvement backlog was updated. No READY task was created and no Agent was executed."
+    : "Dry-run completed: no evolution files, queue files, events, or agent worktrees were modified.");
+}
+
 const argv = process.argv.slice(2);
 const command = argv[0];
 const rest = argv.slice(1);
@@ -698,17 +719,23 @@ async function dispatchCommand() {
       break;
     case "goal-to-queue": {
       const text = optionValue(rest, "--text", "");
-      if (!text.trim()) {
-        throw new Error('goal-to-queue requires --text "..."');
+      const improvementId = optionValue(rest, "--from-improvement", "");
+      if (!text.trim() && !improvementId.trim()) {
+        throw new Error('goal-to-queue requires --text "..." or --from-improvement <improvement_id>');
+      }
+      if (text.trim() && improvementId.trim()) {
+        throw new Error("goal-to-queue accepts either --text or --from-improvement, not both.");
       }
       const mode = requiredModeFlag(rest, "goal-to-queue");
-      runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", [
-        "--text",
-        text,
-        mode
-      ]);
+      const forwarded = improvementId.trim()
+        ? ["--from-improvement", improvementId, mode]
+        : ["--text", text, mode];
+      runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", forwarded);
       break;
     }
+    case "evolve":
+      evolveCommand(rest);
+      break;
     case "autonomous-loop":
       await autonomousLoopCommand(rest);
       break;
