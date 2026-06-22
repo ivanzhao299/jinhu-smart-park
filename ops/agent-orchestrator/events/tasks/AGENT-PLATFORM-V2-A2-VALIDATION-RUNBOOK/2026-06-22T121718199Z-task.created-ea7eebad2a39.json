@@ -1,0 +1,80 @@
+{
+  "event_id": "task.created:AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622:AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-22T12:17:18.199Z",
+  "actor": "orchestrator",
+  "source": "resource-readiness-queue-generation",
+  "reason": "create low-risk agent resource readiness task",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "queue_index": 24,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK",
+      "batch_id": "AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622",
+      "title": "Doctor audit typecheck validation runbook and compatibility checklist",
+      "owner": "agent-2",
+      "domain": "validation-finance-compat",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v2-validation-runbook.md covering Doctor, audit-all-results, rebuild read model, check-dispatch-status, git diff --check, and pnpm typecheck sequencing.",
+        "Create docs/release/agent-platform-v2-readiness-validation-runbook.md summarizing compatibility expectations for READY/CLAIMED/AUDITED queues and event/read-model consistency.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.md summarizing changed files, checks, and remaining risks.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.json via complete-task.mjs when finished.",
+        "Do not modify apps, packages, database, infra, .github, Docker, deploy, auth, migrations, seeds, production configuration, or production data."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-validation-runbook.md",
+        "test -f docs/release/agent-platform-v2-readiness-validation-runbook.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Required docs and report files exist",
+        "git diff --check passes",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v2-validation-runbook.md",
+        "docs/release/agent-platform-v2-readiness-validation-runbook.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T12:17:18.199Z",
+      "updated_at": "2026-06-22T12:17:18.199Z"
+    }
+  }
+}

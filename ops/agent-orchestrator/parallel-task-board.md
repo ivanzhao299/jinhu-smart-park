@@ -5,13 +5,28 @@
 - Queue: `ops/agent-orchestrator/queue/task-queue.json`
 - Locks: `ops/agent-orchestrator/queue/task-locks.json`
 - Results: `ops/agent-orchestrator/queue/task-results.json`
-- Current active batch: `AGENT-PLATFORM-V2-ROUND2-20260622`
+- Current active batch: `AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622`
+- Previous platform round: `AGENT-PLATFORM-V2-ROUND2-20260622`
 - Previous platform batch: `AGENT-PLATFORM-V2-20260621`
 - Previous active batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
-- Current mainline focus: `AGENT_PLATFORM_V2` Round2 runtime memory and smart validation selector planning.
+- Current mainline focus: `AGENT_PLATFORM_V2` resource formation and readiness coverage for every agent lane.
 - Queue governance note: remaining `PROD-EVIDENCE-20260621-002` agent-5 tasks are temporarily `BLOCKED` while `AGENT_PLATFORM_V2` P0 work is in progress.
-- Expected next dispatch: `agent-5` claims `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH`; `agent-3` claims `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR`; `agent-4` claims `AGENT-PLATFORM-V2-A4-E2E-SELECTOR`; `agent-2` claims `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION`.
+- Expected next dispatch: `agent-1` claims `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX`; `agent-2` claims `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK`.
+
+## Agent Resource Formation
+
+The orchestrator keeps five stable agent lanes so future natural-language requests can be split without re-negotiating ownership every round.
+
+| Agent | Fixed Responsibility | Primary Domain | Typical Output Paths | Typical Tasks |
+|---|---|---|---|---|
+| `agent-1` | Assets, documentation, portal/UI assistance, Runtime documentation index | asset-docs-runtime-index | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Runtime docs index, asset/space documentation maps, portal acceptance notes, low-risk UI support checklists |
+| `agent-2` | Validation, compatibility, finance, test matrix, Doctor/Audit/Typecheck runbooks | validation-finance-compat | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Validation runbooks, compatibility matrices, finance readiness checks, audit/typecheck evidence plans |
+| `agent-3` | Work orders, safety, IoT, energy, event/read-model consistency | ops-iot-safety-read-model | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | IoT/safety smoke plans, read-model consistency checklists, runtime inspection evidence |
+| `agent-4` | Dashboard, mobile, menus, RBAC, smart selector and regression acceptance | rbac-dashboard-selector | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | RBAC/menu runbooks, dashboard visibility checks, selector explanations, regression acceptance plans |
+| `agent-5` | Testing, release acceptance, production readiness, orchestrator platform architecture | release-platform-gates | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Release gates, production evidence plans, platform architecture, rollback/readiness checklists |
+
+Global frozen paths remain forbidden for every lane unless a later task explicitly expands scope with human approval: `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, and auth.
 
 ## Batch TRIAL-20260621-001
 
@@ -269,6 +284,51 @@ This batch is planning-only. It does not execute Agents, merge, push, deploy, ru
 
 ```bash
 node -e "JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-queue.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-locks.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-results.json','utf8'));"
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
+git diff --check
+pnpm typecheck
+```
+
+## Batch AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622
+
+Batch goal: normalize the five-agent resource formation and add low-risk readiness work for the two lanes that need immediate explicit coverage after event-first and parallel 2 validation.
+
+This batch does not execute Agents, merge, push, deploy, run production migration, run production seed, perform cleanup/reset, or modify business code.
+
+## Resource Readiness Tasks
+
+| Task ID | Agent | Domain | Priority | Risk | Status | Scope |
+|---|---|---|---|---|---|---|
+| `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX` | agent-1 | asset-docs-runtime-index | P0 | LOW | READY | Runtime documentation index and cross-link checklist for Agent Platform V2 docs, testing docs, reports, and result artifacts. |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK` | agent-2 | validation-finance-compat | P1 | LOW | READY | Doctor/Audit/Typecheck validation runbook and compatibility checklist for readiness handoff. |
+
+## Resource Readiness Expected Output Files
+
+| Task ID | Expected output files |
+|---|---|
+| `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX` | `docs/release/agent-platform-v2-runtime-docs-index.md`; `docs/testing/agent-platform-v2-runtime-docs-index-checklist.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.json` |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK` | `docs/testing/agent-platform-v2-validation-runbook.md`; `docs/release/agent-platform-v2-readiness-validation-runbook.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.md`; `ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK.json` |
+
+## Resource Readiness Agents To Execute Next
+
+- `agent-1`: may claim `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX`.
+- `agent-2`: may claim `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK`.
+- `agent-3`: no READY task in this batch.
+- `agent-4`: no READY task in this batch.
+- `agent-5`: no READY task in this batch.
+
+## Resource Readiness Guardrails
+
+1. Allowed paths for these two tasks are limited to `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, and `ops/agent-orchestrator/results/**`.
+2. Do not modify `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, or auth files.
+3. Do not execute Agents as part of this queue-preparation commit.
+4. Do not merge, push, deploy, run production migration, run production seed, run cleanup, or run reset.
+
+## Resource Readiness Validation Commands
+
+```bash
 node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run

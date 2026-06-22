@@ -805,13 +805,17 @@ The task queue can mark these with `requires_human_approval: true`.
 
 ## 9. Agent Ownership
 
-| Agent | Domain |
-|---|---|
-| `agent-1` | Assets, units, tenants, space relationships |
-| `agent-2` | Leasing, contracts, receivables, payments, invoices, waivers |
-| `agent-3` | Workorders, safety, IoT, energy, unified action executor |
-| `agent-4` | Dashboard, mobile, menus, RBAC, regression acceptance |
-| `agent-5` | Testing, release acceptance, production readiness |
+The orchestrator keeps five stable agent lanes. Each task should name one owner, a domain, explicit `allowed_paths`, explicit `forbidden_paths`, and validation commands. Low-risk readiness tasks should stay in documentation, reports, and result artifacts unless the user explicitly approves broader implementation scope.
+
+| Agent | Fixed Responsibility | Domain Label | Default Low-Risk Allowed Paths | Typical Tasks |
+|---|---|---|---|---|
+| `agent-1` | Assets, documentation, portal/UI assistance, Runtime documentation index | `asset-docs-runtime-index` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Runtime docs index, asset/space documentation map, portal acceptance checklist, low-risk UI support notes |
+| `agent-2` | Validation, compatibility, finance, test matrix, Doctor/Audit/Typecheck runbooks | `validation-finance-compat` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Validation runbook, compatibility matrix, finance readiness checks, audit/typecheck evidence plan |
+| `agent-3` | Work orders, safety, IoT, energy, event/read-model consistency | `ops-iot-safety-read-model` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | IoT/safety smoke plan, event/read-model checklist, runtime inspection evidence |
+| `agent-4` | Dashboard, mobile, menus, RBAC, smart selector and regression acceptance | `rbac-dashboard-selector` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | RBAC/menu visibility runbook, dashboard acceptance, selector explanation, regression plan |
+| `agent-5` | Testing, release acceptance, production readiness, orchestrator platform architecture | `release-platform-gates` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Release gate, production evidence plan, platform architecture, rollback/readiness checklist |
+
+Default forbidden paths for all lanes are `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, and auth. A task may only expand beyond the default low-risk paths when the user explicitly approves the scope and the task marks `requires_human_approval: true`.
 
 ## 10. First-Version Limits
 
