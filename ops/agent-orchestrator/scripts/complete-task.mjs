@@ -2,7 +2,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { appendTaskEvent } from "./lib/event-store-utils.mjs";
+import { appendTaskEvent, writeCompatibilityReadModels } from "./lib/event-store-utils.mjs";
 import { splitChangedFiles } from "./lib/queue-utils.mjs";
 
 const VALID_AGENTS = new Set(["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]);
@@ -11,7 +11,6 @@ const VALID_FINAL_STATUSES = new Set(["DONE", "FAILED"]);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
 const queuePath = join(orchestratorDir, "queue", "task-queue.json");
-const resultsPath = join(orchestratorDir, "queue", "task-results.json");
 const perTaskResultsDir = join(orchestratorDir, "results");
 
 function usage() {
@@ -126,7 +125,6 @@ if (!VALID_FINAL_STATUSES.has(payload.status)) {
 }
 
 const queue = await readJson(queuePath);
-const results = await readJson(resultsPath);
 const task = (queue.tasks ?? []).find((item) => item.task_id === payload.task_id);
 
 if (!task) {
@@ -141,9 +139,11 @@ if (task.owner !== payload.agent) {
 
 const completedAt = nowIso();
 const statusBefore = task.status;
-task.status = payload.status;
-task.updated_at = completedAt;
-queue.updated_at = completedAt;
+const completedTask = {
+  ...task,
+  status: payload.status,
+  updated_at: completedAt
+};
 const { agentChangedFiles, orchestratorChangedFiles } = splitChangedFiles(payload.changed_files, payload.task_id);
 
 const resultRecord = {
@@ -179,20 +179,10 @@ await appendTaskEvent({
   result_ref: resultRelativePath,
   metadata: {
     result_snapshot: resultRecord,
-    task_snapshot: task
+    task_snapshot: completedTask
   }
 });
 
-results.results ??= [];
-const existingIndex = results.results.findIndex((result) => result.task_id === payload.task_id);
-if (existingIndex >= 0) {
-  results.results[existingIndex] = resultRecord;
-} else {
-  results.results.push(resultRecord);
-}
-results.updated_at = completedAt;
-
-await writeJson(queuePath, queue);
-await writeJson(resultsPath, results);
+await writeCompatibilityReadModels();
 
 console.log(`RECORDED ${payload.status} for ${payload.task_id} by ${payload.agent}`);

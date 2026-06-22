@@ -101,7 +101,8 @@ function parseArgs(argv) {
   return {
     apply: argv.includes("--apply"),
     dryRun: argv.includes("--dry-run") || !argv.includes("--apply"),
-    fromEvents: argv.includes("--from-events")
+    fromEvents: argv.includes("--from-events"),
+    legacyJson: argv.includes("--legacy-json")
   };
 }
 
@@ -196,8 +197,9 @@ function buildEvidenceResult(task, rule, completedAt) {
 }
 
 const args = parseArgs(process.argv.slice(2));
+const taskEvents = await listAllTaskEvents();
 
-if (args.fromEvents) {
+if (!args.legacyJson && (args.fromEvents || taskEvents.length > 0)) {
   await reconcileFromEvents(args);
   process.exit(0);
 }

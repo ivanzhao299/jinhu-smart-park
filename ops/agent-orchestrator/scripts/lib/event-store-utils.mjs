@@ -19,9 +19,9 @@ const EVENT_SUBDIRS = ["tasks", "results", "locks", "audits"];
 const LEGACY_QUEUE_VERSION = 1;
 
 export const EVENT_FIRST_WRITE_PATH_STATUS = {
-  "dispatch-ready-agents.mjs": "event-first-compatible: writes task.claimed events and legacy queue/lock JSON",
-  "complete-task.mjs": "event-first-compatible: writes task.completed/task.failed events, per-task result artifacts, and legacy result JSON",
-  "reconcile-task-results.mjs": "event-read-model-compatible: supports --from-events rebuild of queue/lock/result JSON",
+  "dispatch-ready-agents.mjs": "event-first: writes task.claimed events, then rebuilds legacy queue/lock JSON read models",
+  "complete-task.mjs": "event-first: writes task.completed/task.failed events, then rebuilds legacy queue/lock/result JSON read models",
+  "reconcile-task-results.mjs": "event-first-preferred: rebuilds queue/lock/result JSON from events when task events exist",
   "audit-all-results.mjs": "json-first: audit events are not written yet",
   "integrate-agent-results.mjs": "json-first: integration/reconciliation events are not written yet"
 };
@@ -277,11 +277,11 @@ export async function listAllTaskEvents() {
 }
 
 function applyTaskEvent(task, event) {
-  const next = task ?? {};
+  let next = task ? clone(task) : {};
   const snapshot = event.metadata?.task_snapshot;
 
   if (snapshot && typeof snapshot === "object") {
-    Object.assign(next, clone(snapshot));
+    next = clone(snapshot);
   }
 
   next.task_id = next.task_id ?? event.task_id;
@@ -289,10 +289,6 @@ function applyTaskEvent(task, event) {
 
   if (event.status_after) {
     next.status = event.status_after;
-  }
-
-  if (event.reason) {
-    next.status_reason = event.reason;
   }
 
   next.updated_at = event.created_at ?? next.updated_at;
@@ -407,14 +403,18 @@ export async function buildResultReadModel() {
   };
 }
 
-export async function writeCompatibilityReadModels() {
-  const queue = await buildQueueReadModel();
-  const locks = await buildLockReadModel();
-  const results = await buildResultReadModel();
+export async function writeCompatibilityReadModels(options = {}) {
+  const includeQueue = options.queue !== false;
+  const includeLocks = options.locks !== false;
+  const includeResults = options.results !== false;
 
-  await writeJson(queuePath, queue);
-  await writeJson(locksPath, locks);
-  await writeJson(resultsPath, results);
+  const queue = includeQueue ? await buildQueueReadModel() : undefined;
+  const locks = includeLocks ? await buildLockReadModel() : undefined;
+  const results = includeResults ? await buildResultReadModel() : undefined;
+
+  if (includeQueue) await writeJson(queuePath, queue);
+  if (includeLocks) await writeJson(locksPath, locks);
+  if (includeResults) await writeJson(resultsPath, results);
 
   return { queue, locks, results };
 }

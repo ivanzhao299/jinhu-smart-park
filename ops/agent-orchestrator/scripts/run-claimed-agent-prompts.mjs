@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseStatusShort, repoStatus, statusShort } from "./lib/git-utils.mjs";
+import { buildEventStoreHealth } from "./lib/event-store-utils.mjs";
 import {
   detectCodexCli,
   detectCodexExecOptions,
@@ -23,7 +24,7 @@ const runsDir = join(orchestratorDir, "runs");
 const runPlanPath = join(runsDir, "agent-run-plan.md");
 const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
 const allowedParallelValues = new Set(["1", "2", "3", "5"]);
-const EVENT_FIRST_COMPLETION_NOTE = "event-first foundation: dispatch-ready-agents writes task.claimed events, complete-task writes task.completed/task.failed events, and reconcile-task-results can rebuild read models from events; real --parallel > 1 execution remains blocked until audit/integration writes are event-first and the compatibility read model is the single writer.";
+const EVENT_FIRST_COMPLETION_NOTE = "event-first task writes are available: dispatch writes task.claimed events, complete-task writes task.completed/task.failed events, and compatibility queue/lock/result JSON is rebuilt from events. --parallel 2 is enabled when event/read-model health is consistent; --parallel 3/5 remain blocked until audit/integration writes are event-first.";
 
 function readOptionValue(argv, name) {
   const flag = `--${name}`;
@@ -203,7 +204,36 @@ function batchForTask(parallelBatches, taskId) {
   return "";
 }
 
-function buildRunPlan({ generatedAt, mode, parallel, parallelBatches, codex, runnable, skipped }) {
+function eventReadModelConsistent(eventStoreHealth) {
+  const consistency = eventStoreHealth?.read_model_consistency;
+  return Boolean(
+    consistency?.queue_status?.consistent &&
+    consistency?.locks?.consistent &&
+    consistency?.results_status?.consistent
+  );
+}
+
+function eventFirstParallelReady(eventStoreHealth) {
+  return Boolean((eventStoreHealth?.task_events ?? 0) > 0 && eventReadModelConsistent(eventStoreHealth));
+}
+
+function executionPolicy(parallel, eventStoreHealth) {
+  if (parallel === 1) return "serial safe mode";
+  if (parallel === 2) {
+    return eventFirstParallelReady(eventStoreHealth)
+      ? "parallel 2 guarded mode"
+      : "parallel 2 blocked until event/read-model health is consistent";
+  }
+  return "parallel preview only; --apply --execute --parallel > 2 remains blocked";
+}
+
+function eventReadinessSummary(eventStoreHealth) {
+  const taskEvents = eventStoreHealth?.task_events ?? 0;
+  const consistent = eventReadModelConsistent(eventStoreHealth);
+  return `${EVENT_FIRST_COMPLETION_NOTE} Current event health: task_events=${taskEvents}, read_model_consistent=${consistent ? "yes" : "no"}.`;
+}
+
+function buildRunPlan({ generatedAt, mode, parallel, parallelBatches, codex, runnable, skipped, eventStoreHealth }) {
   const runnableRows = runnable.length === 0
     ? "| _none_ | | | | | | | | |"
     : runnable.map((item) =>
@@ -234,9 +264,9 @@ Mode: ${mode}
 
 Parallelism: ${parallel}
 
-Execution policy: ${parallel === 1 ? "serial safe mode" : "parallel preview only; --apply --execute --parallel > 1 remains blocked"}
+Execution policy: ${executionPolicy(parallel, eventStoreHealth)}
 
-Event-first readiness: ${EVENT_FIRST_COMPLETION_NOTE}
+Event-first readiness: ${eventReadinessSummary(eventStoreHealth)}
 
 Codex CLI: ${codex.found ? "found" : "not found"}
 
@@ -282,8 +312,9 @@ ${commands}
 - Treat these commands as operator-reviewed plans until Codex CLI automation is explicitly approved.
 - Do not use unattended deploy, push, migration, seed, backup, restore, rollback, Docker cleanup, or production data operations.
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
-- \`--apply --execute --parallel 1\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, deploy, or mutate queue state.
-- \`--parallel > 1\` is accepted for planning and dry-run batch preview, but execution remains blocked until audit/integration writes are event-first and read-model rebuild is the central compatibility writer.
+- \`--apply --execute --parallel 1\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, or deploy.
+- \`--apply --execute --parallel 2\` runs at most two claimed tasks per batch when event/read-model health is consistent.
+- \`--parallel 3\` and \`--parallel 5\` are accepted for planning and dry-run batch preview, but execution remains blocked until audit/integration writes are event-first.
 `;
 }
 
@@ -328,15 +359,19 @@ function claimedLocks(queue, locks) {
   return { claimed, skipped };
 }
 
-function assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel }) {
+function assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel, eventStoreHealth }) {
   const failures = [];
 
   if (!codex.found) {
     failures.push("Codex CLI not found; cannot auto-run agents");
   }
 
-  if (parallel > 1) {
-    failures.push(`--apply --execute --parallel > 1 is blocked; ${EVENT_FIRST_COMPLETION_NOTE}`);
+  if (parallel > 2) {
+    failures.push(`--apply --execute --parallel > 2 is blocked; audit/integration writes are still JSON-first.`);
+  }
+
+  if (parallel === 2 && !eventFirstParallelReady(eventStoreHealth)) {
+    failures.push(`--apply --execute --parallel 2 requires healthy event-first read models; ${eventReadinessSummary(eventStoreHealth)}`);
   }
 
   if (!mainStatus.clean) {
@@ -472,6 +507,27 @@ function printExecutionSummary(results) {
   }
 }
 
+async function runCodexBatches(parallelBatches) {
+  const results = [];
+
+  for (const batch of parallelBatches) {
+    console.log("");
+    console.log(`Executing batch ${batch.index} with ${batch.items.length} task(s).`);
+    const batchResults = await Promise.all(batch.items.map((item) => runCodexTask(item)));
+    results.push(...batchResults);
+
+    const failed = batchResults.find((result) => !result.success);
+    if (failed) {
+      console.error("");
+      console.error(`${failed.task_id} failed with exit code ${failed.exit_code}; stopping remaining batches.`);
+      printExecutionSummary(results);
+      process.exit(failed.exit_code || 1);
+    }
+  }
+
+  return results;
+}
+
 let args;
 try {
   args = parseArgs(process.argv.slice(2));
@@ -489,6 +545,7 @@ if (args.execute && !codex.found) {
 
 const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
+const eventStoreHealth = await buildEventStoreHealth();
 const agentsConfig = await readJson(agentsConfigPath);
 const agents = normalizeAgentConfig(agentsConfig);
 const generatedAt = new Date().toISOString();
@@ -540,11 +597,13 @@ const parallelBatches = buildParallelBatches(runnable, args.parallel);
 const mode = args.execute
   ? args.parallel === 1
     ? "execute (serial guarded)"
-    : "execute (parallel blocked pending event-sourced completion writes)"
+    : args.parallel === 2
+      ? "execute (parallel 2 guarded)"
+      : "execute (parallel blocked)"
   : args.apply
     ? "apply-plan (no execution without --execute)"
     : "dry-run";
-const plan = buildRunPlan({ generatedAt, mode, parallel: args.parallel, parallelBatches, codex, runnable, skipped });
+const plan = buildRunPlan({ generatedAt, mode, parallel: args.parallel, parallelBatches, codex, runnable, skipped, eventStoreHealth });
 
 await mkdir(runsDir, { recursive: true });
 if (args.shouldWritePlan) {
@@ -566,8 +625,8 @@ if (!codex.found && codex.reason) {
 console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
 console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
 console.log(`Parallelism: ${args.parallel}`);
-console.log(`Execution policy: ${args.parallel === 1 ? "serial safe mode" : "parallel preview only; execution blocked until event-first audit/integration writes are complete"}`);
-console.log(`Event-first readiness: ${EVENT_FIRST_COMPLETION_NOTE}`);
+console.log(`Execution policy: ${executionPolicy(args.parallel, eventStoreHealth)}`);
+console.log(`Event-first readiness: ${eventReadinessSummary(eventStoreHealth)}`);
 console.log(`Run plan: ${args.shouldWritePlan ? runPlanRelativePath : args.noWrite ? "(not written; --no-write)" : "(stdout only; pass --write-plan to write agent-run-plan.md)"}`);
 console.log("");
 console.log("Planned parallel batches:");
@@ -619,12 +678,12 @@ if (!args.shouldWritePlan) {
 
 if (args.execute) {
   console.log("");
-  console.log("Guardrails: --parallel 1 serial execution only; --parallel > 1 remains blocked until event-first audit/integration writes are complete; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  console.log("Guardrails: --parallel 1 serial execution or --parallel 2 guarded batch execution only; --parallel 3/5 remain blocked; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
   const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
     ignoredPaths: [runPlanRelativePath]
   });
   try {
-    assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel: args.parallel });
+    assertExecutePreconditions({ codex, mainStatus, runnable, skipped, parallel: args.parallel, eventStoreHealth });
   } catch (error) {
     console.error("");
     console.error("Execution precheck failed:");
@@ -638,17 +697,6 @@ if (args.execute) {
     process.exit(0);
   }
 
-  const results = [];
-  for (const item of runnable) {
-    const result = await runCodexTask(item);
-    results.push(result);
-    if (!result.success) {
-      console.error("");
-      console.error(`${result.task_id} failed with exit code ${result.exit_code}; stopping remaining tasks.`);
-      printExecutionSummary(results);
-      process.exit(result.exit_code || 1);
-    }
-  }
-
+  const results = await runCodexBatches(parallelBatches);
   printExecutionSummary(results);
 }

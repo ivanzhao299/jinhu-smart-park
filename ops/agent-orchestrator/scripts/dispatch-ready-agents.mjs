@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { appendTaskEvent } from "./lib/event-store-utils.mjs";
+import { appendTaskEvent, writeCompatibilityReadModels } from "./lib/event-store-utils.mjs";
 
 const VALID_AGENTS = ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"];
 const VALID_AGENT_SET = new Set(VALID_AGENTS);
@@ -253,25 +253,26 @@ for (const agent of VALID_AGENTS) {
 
 if (!args.dryRun && claimed.length > 0) {
   await mkdir(runsDir, { recursive: true });
-  locks.locks ??= [];
 
   for (const item of claimed) {
     const statusBefore = item.task.status;
-    item.task.status = "CLAIMED";
-    item.task.updated_at = generatedAt;
+    const claimedTask = {
+      ...item.task,
+      status: "CLAIMED",
+      updated_at: generatedAt
+    };
     const lock = {
-      task_id: item.task.task_id,
-      agent: item.task.owner,
+      task_id: claimedTask.task_id,
+      agent: claimedTask.owner,
       claimed_at: generatedAt
     };
-    locks.locks.push(lock);
 
     await appendTaskEvent({
       event_type: "task.claimed",
-      task_id: item.task.task_id,
-      owner: item.task.owner,
+      task_id: claimedTask.task_id,
+      owner: claimedTask.owner,
       status_before: statusBefore,
-      status_after: item.task.status,
+      status_after: claimedTask.status,
       created_at: generatedAt,
       actor: "orchestrator",
       source: "dispatch-ready-agents.mjs",
@@ -281,19 +282,16 @@ if (!args.dryRun && claimed.length > 0) {
         lock_snapshot: lock,
         prompt_file: item.promptFile,
         worktree_path: item.worktreePath,
-        task_snapshot: item.task
+        task_snapshot: claimedTask
       }
     });
 
-    const promptPath = join(runsDir, `${item.task.task_id}-${item.task.owner}.prompt.md`);
-    const prompt = renderPrompt(promptTemplate, item);
+    const promptPath = join(runsDir, `${claimedTask.task_id}-${claimedTask.owner}.prompt.md`);
+    const prompt = renderPrompt(promptTemplate, { ...item, task: claimedTask });
     await writeFile(promptPath, prompt);
   }
 
-  queue.updated_at = generatedAt;
-  locks.updated_at = generatedAt;
-  await writeJson(queuePath, queue);
-  await writeJson(locksPath, locks);
+  await writeCompatibilityReadModels({ results: false });
 }
 
 const report = buildReport({ dryRun: args.dryRun, claimed, skipped, generatedAt });

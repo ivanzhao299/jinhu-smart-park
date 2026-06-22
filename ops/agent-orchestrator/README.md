@@ -161,9 +161,9 @@ node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --apply
 
 Current V2 event-first write path status:
 
-- `dispatch-ready-agents.mjs` appends `task.claimed` events when it claims READY tasks, then still writes the compatibility `task-queue.json` / `task-locks.json` files.
-- `complete-task.mjs` writes the per-task result artifact, appends `task.completed` or `task.failed`, then still writes compatibility `task-queue.json` / `task-results.json`.
-- `reconcile-task-results.mjs --from-events` can rebuild the compatibility queue, lock, and result JSON from events. Its default mode still preserves the legacy evidence reconciliation behavior.
+- `dispatch-ready-agents.mjs` appends `task.claimed` events when it claims READY tasks, then rebuilds compatibility `task-queue.json` and `task-locks.json` read models from events.
+- `complete-task.mjs` writes the per-task result artifact, appends `task.completed` or `task.failed`, then rebuilds compatibility queue, lock, and result JSON read models from events.
+- `reconcile-task-results.mjs` prefers event read-model rebuild whenever task events exist. Use `--legacy-json` only when the older evidence-based JSON reconciliation path is intentionally required.
 - `doctor.mjs` reports event store health and obvious event/read-model drift.
 - `audit-all-results.mjs` and `integrate-agent-results.mjs` are still JSON-first; audit/integration events are a later V2 step.
 
@@ -213,8 +213,8 @@ The dispatcher:
 4. Reads worktree paths from `agents.config.json`.
 5. Skips any agent whose worktree is not clean.
 6. Skips agents that already have an active lock.
-7. Marks selected tasks `CLAIMED`.
-8. Writes claim records to `queue/task-locks.json`.
+7. Appends `task.claimed` events for selected tasks.
+8. Rebuilds compatibility queue and lock read models from events.
 9. Generates one prompt per claimed task under `runs/<task_id>-<agent>.prompt.md`.
 10. Writes `runs/dispatch-report.md`.
 
@@ -328,7 +328,7 @@ Real execution requires both flags:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
 ```
 
-`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. This is the default and only executable safe mode. `--apply --execute --parallel 2`, `--parallel 3`, and `--parallel 5` are still blocked by the execution precheck; dispatch and completion are event-first-compatible, but audit/integration writes and central read-model ownership are not complete enough for real parallel execution. Use dry-run to preview those batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
+`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. `--apply --execute --parallel 2` writes or refreshes `agent-run-plan.md`, then runs at most two claimed tasks per batch when the event store exists and queue/lock/result read models are consistent. `--parallel 3` and `--parallel 5` are still blocked by the execution precheck because audit and integration remain JSON-first. Use dry-run to preview those larger batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
 
 1. Codex CLI is detected and executable.
 2. Main worktree is clean.
@@ -336,7 +336,8 @@ node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --exec
 4. `task-locks.json` has a matching active lock.
 5. `task-queue.json` status is `CLAIMED`.
 6. The prompt file exists and matches `<task_id>-<agent>.prompt.md`.
-7. `--parallel` is `1` for real execution.
+7. `--parallel` is `1` or `2` for real execution.
+8. `--parallel 2` has healthy event/read-model consistency.
 
 Use `--apply --execute --precheck-only` to run the exact execution precheck without starting Codex:
 
@@ -352,9 +353,9 @@ ops/agent-orchestrator/runs/<task_id>-<agent>.run.log
 
 Each run log records the task id, agent, worktree, prompt file, command, start time, finish time, exit code, stdout, and stderr. The console summary reports the task id, agent, worktree, prompt file, log file, start time, finish time, exit code, status, and failure reason.
 
-In serial execution, if any Codex command exits non-zero, the runner stops and does not execute later tasks. The planned parallel strategy for future event-first execution is to stop launching new tasks after the first failure while allowing already-started tasks to finish, then emit an aggregated summary with `success`, `failed`, `skipped`, and `not_started` statuses.
+In serial execution, if any Codex command exits non-zero, the runner stops and does not execute later tasks. In `--parallel 2` execution, if any Codex command in the current batch exits non-zero, already-started tasks in that batch finish naturally, then the runner stops before launching later batches and emits an aggregated summary.
 
-Safe parallel completion requires the full event-first queue path. Dispatch and completion now append per-task events, and read models can be rebuilt from those events, but audit and integration still write/read legacy JSON directly. Until those remaining write paths are event-first and compatibility JSON is regenerated centrally, `--parallel > 1` remains a planning and dry-run preview mode only.
+Safe parallel completion requires event-first task writes and healthy compatibility read models. Dispatch and completion now append per-task events and rebuild compatibility JSON from those events, so `--parallel 2` is allowed after the event/read-model health check passes. Audit and integration still write/read legacy JSON directly, so `--parallel 3` and `--parallel 5` remain planning and dry-run preview modes only.
 
 If the CLI is missing in execute mode, the runner aborts with:
 
@@ -368,7 +369,7 @@ Current automation layering:
 2. `dispatch-ready-agents.mjs` -> automatic claim plus prompt generation.
 3. `run-claimed-agent-prompts.mjs --dry-run` -> centralized agent execution plan.
 4. `run-claimed-agent-prompts.mjs --apply` -> plan-first confirmation mode, still no execution.
-5. `run-claimed-agent-prompts.mjs --apply --execute` -> guarded serial Codex CLI execution of already-CLAIMED tasks only.
+5. `run-claimed-agent-prompts.mjs --apply --execute` -> guarded Codex CLI execution of already-CLAIMED tasks; serial by default, with `--parallel 2` available when event/read-model health is consistent.
 6. `commit-agent-results.mjs --dry-run` -> inspect dirty agent worktrees, validate task path boundaries, and classify LOW/MEDIUM/HIGH risk.
 7. `commit-agent-results.mjs --apply` -> commit eligible LOW/MEDIUM agent results to each agent branch without merge or push.
 
