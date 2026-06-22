@@ -1,12 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T14:41:29.459Z",
+  "updated_at": "2026-06-22T14:41:29.947Z",
   "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V3-A1-PRODUCT-DOCS",
-      "agent": "agent-1",
-      "claimed_at": "2026-06-22T14:24:03.737Z"
-    },
     {
       "task_id": "AGENT-PLATFORM-V3-A3-PLANNER-RUNTIME",
       "agent": "agent-3",
