@@ -18,6 +18,14 @@ const resultsPath = join(queueDir, "task-results.json");
 const EVENT_SUBDIRS = ["tasks", "results", "locks", "audits"];
 const LEGACY_QUEUE_VERSION = 1;
 
+export const EVENT_FIRST_WRITE_PATH_STATUS = {
+  "dispatch-ready-agents.mjs": "event-first-compatible: writes task.claimed events and legacy queue/lock JSON",
+  "complete-task.mjs": "event-first-compatible: writes task.completed/task.failed events, per-task result artifacts, and legacy result JSON",
+  "reconcile-task-results.mjs": "event-read-model-compatible: supports --from-events rebuild of queue/lock/result JSON",
+  "audit-all-results.mjs": "json-first: audit events are not written yet",
+  "integrate-agent-results.mjs": "json-first: integration/reconciliation events are not written yet"
+};
+
 export const EVENT_STORE_PATHS = {
   eventsDir,
   taskEventsDir,
@@ -85,6 +93,69 @@ function maxIso(values) {
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function stable(value) {
+  return JSON.stringify(value);
+}
+
+function countBy(values, keyFn) {
+  const counts = {};
+  for (const value of values) {
+    const key = keyFn(value);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function statusByTask(queue) {
+  return new Map((queue.tasks ?? []).map((task) => [task.task_id, task.status]));
+}
+
+function resultStatusByTask(results) {
+  return new Map((results.results ?? []).map((result) => [result.task_id, result.status]));
+}
+
+function lockKeys(locks) {
+  return new Set((locks.locks ?? []).map((lock) => `${lock.task_id}|${lock.agent}`));
+}
+
+function compareMaps(current, next) {
+  const keys = new Set([...current.keys(), ...next.keys()]);
+  const missingInReadModel = [];
+  const extraInReadModel = [];
+  const mismatches = [];
+
+  for (const key of keys) {
+    if (!next.has(key)) {
+      missingInReadModel.push(key);
+    } else if (!current.has(key)) {
+      extraInReadModel.push(key);
+    } else if (stable(current.get(key)) !== stable(next.get(key))) {
+      mismatches.push({
+        key,
+        current: current.get(key),
+        read_model: next.get(key)
+      });
+    }
+  }
+
+  return {
+    consistent: missingInReadModel.length === 0 && extraInReadModel.length === 0 && mismatches.length === 0,
+    missing_in_read_model: missingInReadModel,
+    extra_in_read_model: extraInReadModel,
+    mismatches
+  };
+}
+
+function compareSets(current, next) {
+  const missingInReadModel = [...current].filter((key) => !next.has(key));
+  const extraInReadModel = [...next].filter((key) => !current.has(key));
+  return {
+    consistent: missingInReadModel.length === 0 && extraInReadModel.length === 0,
+    missing_in_read_model: missingInReadModel,
+    extra_in_read_model: extraInReadModel
+  };
 }
 
 async function readLegacyJson(path, fallback) {
@@ -209,7 +280,7 @@ function applyTaskEvent(task, event) {
   const next = task ?? {};
   const snapshot = event.metadata?.task_snapshot;
 
-  if (event.event_type === "task.created" && snapshot && typeof snapshot === "object") {
+  if (snapshot && typeof snapshot === "object") {
     Object.assign(next, clone(snapshot));
   }
 
@@ -346,4 +417,32 @@ export async function writeCompatibilityReadModels() {
   await writeJson(resultsPath, results);
 
   return { queue, locks, results };
+}
+
+export async function buildEventStoreHealth(current = {}) {
+  const events = await listAllTaskEvents();
+  const currentQueue = current.queue ?? await readLegacyJson(queuePath, { $schema: "./task-queue.schema.json", version: LEGACY_QUEUE_VERSION, tasks: [] });
+  const currentLocks = current.locks ?? await readLegacyJson(locksPath, { version: LEGACY_QUEUE_VERSION, locks: [] });
+  const currentResults = current.results ?? await readLegacyJson(resultsPath, { version: LEGACY_QUEUE_VERSION, results: [] });
+  const nextQueue = await buildQueueReadModel();
+  const nextLocks = await buildLockReadModel();
+  const nextResults = await buildResultReadModel();
+
+  return {
+    paths: {
+      events_dir_exists: existsSync(eventsDir),
+      tasks_dir_exists: existsSync(taskEventsDir),
+      results_dir_exists: existsSync(join(eventsDir, "results")),
+      locks_dir_exists: existsSync(join(eventsDir, "locks")),
+      audits_dir_exists: existsSync(join(eventsDir, "audits"))
+    },
+    task_events: events.length,
+    event_type_counts: countBy(events, (event) => event.event_type ?? "unknown"),
+    read_model_consistency: {
+      queue_status: compareMaps(statusByTask(currentQueue), statusByTask(nextQueue)),
+      locks: compareSets(lockKeys(currentLocks), lockKeys(nextLocks)),
+      results_status: compareMaps(resultStatusByTask(currentResults), resultStatusByTask(nextResults))
+    },
+    event_first_write_paths: EVENT_FIRST_WRITE_PATH_STATUS
+  };
 }

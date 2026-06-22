@@ -2,6 +2,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendTaskEvent } from "./lib/event-store-utils.mjs";
 import { splitChangedFiles } from "./lib/queue-utils.mjs";
 
 const VALID_AGENTS = new Set(["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]);
@@ -139,10 +140,11 @@ if (task.owner !== payload.agent) {
 }
 
 const completedAt = nowIso();
+const statusBefore = task.status;
 task.status = payload.status;
 task.updated_at = completedAt;
 queue.updated_at = completedAt;
-const { agentChangedFiles, orchestratorChangedFiles } = splitChangedFiles(payload.changed_files);
+const { agentChangedFiles, orchestratorChangedFiles } = splitChangedFiles(payload.changed_files, payload.task_id);
 
 const resultRecord = {
   task_id: payload.task_id,
@@ -160,7 +162,26 @@ const resultRecord = {
 };
 
 await mkdir(perTaskResultsDir, { recursive: true });
+const resultRelativePath = `ops/agent-orchestrator/results/${payload.task_id}.json`;
 await writeJson(join(perTaskResultsDir, `${payload.task_id}.json`), resultRecord);
+
+await appendTaskEvent({
+  event_type: payload.status === "FAILED" ? "task.failed" : "task.completed",
+  task_id: payload.task_id,
+  owner: payload.agent,
+  status_before: statusBefore,
+  status_after: payload.status,
+  created_at: completedAt,
+  actor: payload.agent,
+  source: "complete-task.mjs",
+  reason: payload.notes ?? "",
+  changed_files: payload.changed_files,
+  result_ref: resultRelativePath,
+  metadata: {
+    result_snapshot: resultRecord,
+    task_snapshot: task
+  }
+});
 
 results.results ??= [];
 const existingIndex = results.results.findIndex((result) => result.task_id === payload.task_id);

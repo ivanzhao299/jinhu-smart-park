@@ -159,7 +159,13 @@ Only regenerate compatibility JSON with explicit approval:
 node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --apply
 ```
 
-This first phase does not change the core write path for `dispatch-ready-agents.mjs`, `claim-task.mjs`, `complete-task.mjs`, `audit-all-results.mjs`, or `integrate-agent-results.mjs`. Later V2 phases should move completion, claim, audit, and integration writes to events first, then regenerate the JSON read model centrally from the orchestrator.
+Current V2 event-first write path status:
+
+- `dispatch-ready-agents.mjs` appends `task.claimed` events when it claims READY tasks, then still writes the compatibility `task-queue.json` / `task-locks.json` files.
+- `complete-task.mjs` writes the per-task result artifact, appends `task.completed` or `task.failed`, then still writes compatibility `task-queue.json` / `task-results.json`.
+- `reconcile-task-results.mjs --from-events` can rebuild the compatibility queue, lock, and result JSON from events. Its default mode still preserves the legacy evidence reconciliation behavior.
+- `doctor.mjs` reports event store health and obvious event/read-model drift.
+- `audit-all-results.mjs` and `integrate-agent-results.mjs` are still JSON-first; audit/integration events are a later V2 step.
 
 ## 4. Agent Claim Flow
 
@@ -322,7 +328,7 @@ Real execution requires both flags:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
 ```
 
-`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. This is the default and only executable safe mode until event-sourced completion/result writes are available. `--apply --execute --parallel 2`, `--parallel 3`, and `--parallel 5` are blocked by the execution precheck; use dry-run to preview those batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
+`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. This is the default and only executable safe mode. `--apply --execute --parallel 2`, `--parallel 3`, and `--parallel 5` are still blocked by the execution precheck; dispatch and completion are event-first-compatible, but audit/integration writes and central read-model ownership are not complete enough for real parallel execution. Use dry-run to preview those batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
 
 1. Codex CLI is detected and executable.
 2. Main worktree is clean.
@@ -348,7 +354,7 @@ Each run log records the task id, agent, worktree, prompt file, command, start t
 
 In serial execution, if any Codex command exits non-zero, the runner stops and does not execute later tasks. The planned parallel strategy for future event-first execution is to stop launching new tasks after the first failure while allowing already-started tasks to finish, then emit an aggregated summary with `success`, `failed`, `skipped`, and `not_started` statuses.
 
-Safe parallel completion requires the event-sourcing queue first. Without per-task result events and a read-model writer, multiple agents can still converge on shared queue/result JSON during completion or integration and create bookkeeping conflicts. Until completion state is written as independent events and legacy JSON is regenerated centrally, `--parallel > 1` remains a planning and dry-run preview mode only.
+Safe parallel completion requires the full event-first queue path. Dispatch and completion now append per-task events, and read models can be rebuilt from those events, but audit and integration still write/read legacy JSON directly. Until those remaining write paths are event-first and compatibility JSON is regenerated centrally, `--parallel > 1` remains a planning and dry-run preview mode only.
 
 If the CLI is missing in execute mode, the runner aborts with:
 
@@ -801,6 +807,6 @@ The task queue can mark these with `requires_human_approval: true`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
 - `run-claimed-agent-prompts.mjs --apply --execute --parallel 1` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
-- `run-claimed-agent-prompts.mjs --parallel 2|3|5` is currently a dry-run/plan preview path only; real parallel execution stays blocked until event-sourced completion writes are in place.
+- `run-claimed-agent-prompts.mjs --parallel 2|3|5` is currently a dry-run/plan preview path only; real parallel execution stays blocked until audit/integration writes are event-first and read-model rebuild is the central compatibility writer.
 - `commit-agent-results.mjs --apply` commits only eligible LOW/MEDIUM dirty agent outputs. It does not merge or push.
 - `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.

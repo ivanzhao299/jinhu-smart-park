@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendTaskEvent } from "./lib/event-store-utils.mjs";
 
 const VALID_AGENTS = ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"];
 const VALID_AGENT_SET = new Set(VALID_AGENTS);
@@ -255,12 +256,33 @@ if (!args.dryRun && claimed.length > 0) {
   locks.locks ??= [];
 
   for (const item of claimed) {
+    const statusBefore = item.task.status;
     item.task.status = "CLAIMED";
     item.task.updated_at = generatedAt;
-    locks.locks.push({
+    const lock = {
       task_id: item.task.task_id,
       agent: item.task.owner,
       claimed_at: generatedAt
+    };
+    locks.locks.push(lock);
+
+    await appendTaskEvent({
+      event_type: "task.claimed",
+      task_id: item.task.task_id,
+      owner: item.task.owner,
+      status_before: statusBefore,
+      status_after: item.task.status,
+      created_at: generatedAt,
+      actor: "orchestrator",
+      source: "dispatch-ready-agents.mjs",
+      reason: "dispatch READY task to clean agent worktree",
+      changed_files: [],
+      metadata: {
+        lock_snapshot: lock,
+        prompt_file: item.promptFile,
+        worktree_path: item.worktreePath,
+        task_snapshot: item.task
+      }
     });
 
     const promptPath = join(runsDir, `${item.task.task_id}-${item.task.owner}.prompt.md`);

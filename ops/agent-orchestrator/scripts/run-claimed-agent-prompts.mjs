@@ -23,6 +23,7 @@ const runsDir = join(orchestratorDir, "runs");
 const runPlanPath = join(runsDir, "agent-run-plan.md");
 const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
 const allowedParallelValues = new Set(["1", "2", "3", "5"]);
+const EVENT_FIRST_COMPLETION_NOTE = "event-first foundation: dispatch-ready-agents writes task.claimed events, complete-task writes task.completed/task.failed events, and reconcile-task-results can rebuild read models from events; real --parallel > 1 execution remains blocked until audit/integration writes are event-first and the compatibility read model is the single writer.";
 
 function readOptionValue(argv, name) {
   const flag = `--${name}`;
@@ -233,7 +234,9 @@ Mode: ${mode}
 
 Parallelism: ${parallel}
 
-Execution policy: ${parallel === 1 ? "serial safe mode" : "parallel preview only; --apply --execute --parallel > 1 is blocked until event-sourced completion writes are available"}
+Execution policy: ${parallel === 1 ? "serial safe mode" : "parallel preview only; --apply --execute --parallel > 1 remains blocked"}
+
+Event-first readiness: ${EVENT_FIRST_COMPLETION_NOTE}
 
 Codex CLI: ${codex.found ? "found" : "not found"}
 
@@ -280,7 +283,7 @@ ${commands}
 - Do not use unattended deploy, push, migration, seed, backup, restore, rollback, Docker cleanup, or production data operations.
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
 - \`--apply --execute --parallel 1\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, deploy, or mutate queue state.
-- \`--parallel > 1\` is accepted for planning and dry-run batch preview, but execution is blocked until task completion writes are event-sourced instead of shared queue JSON writes.
+- \`--parallel > 1\` is accepted for planning and dry-run batch preview, but execution remains blocked until audit/integration writes are event-first and read-model rebuild is the central compatibility writer.
 `;
 }
 
@@ -333,7 +336,7 @@ function assertExecutePreconditions({ codex, mainStatus, runnable, skipped, para
   }
 
   if (parallel > 1) {
-    failures.push("--apply --execute --parallel > 1 is blocked until event-sourced task completion/result writes are available");
+    failures.push(`--apply --execute --parallel > 1 is blocked; ${EVENT_FIRST_COMPLETION_NOTE}`);
   }
 
   if (!mainStatus.clean) {
@@ -563,7 +566,8 @@ if (!codex.found && codex.reason) {
 console.log(`Codex exec approval: ${codex.execOptions.approval.note}`);
 console.log(`Codex exec sandbox: ${codex.execOptions.sandbox.note}`);
 console.log(`Parallelism: ${args.parallel}`);
-console.log(`Execution policy: ${args.parallel === 1 ? "serial safe mode" : "parallel preview only until event-sourced completion writes are available"}`);
+console.log(`Execution policy: ${args.parallel === 1 ? "serial safe mode" : "parallel preview only; execution blocked until event-first audit/integration writes are complete"}`);
+console.log(`Event-first readiness: ${EVENT_FIRST_COMPLETION_NOTE}`);
 console.log(`Run plan: ${args.shouldWritePlan ? runPlanRelativePath : args.noWrite ? "(not written; --no-write)" : "(stdout only; pass --write-plan to write agent-run-plan.md)"}`);
 console.log("");
 console.log("Planned parallel batches:");
@@ -615,7 +619,7 @@ if (!args.shouldWritePlan) {
 
 if (args.execute) {
   console.log("");
-  console.log("Guardrails: --parallel 1 serial execution only until event-sourced completion writes are available; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  console.log("Guardrails: --parallel 1 serial execution only; --parallel > 1 remains blocked until event-first audit/integration writes are complete; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
   const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
     ignoredPaths: [runPlanRelativePath]
   });

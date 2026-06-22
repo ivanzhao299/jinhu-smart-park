@@ -9,6 +9,14 @@ import {
   readResultFiles,
   writeJson
 } from "./lib/queue-utils.mjs";
+import {
+  buildLockReadModel,
+  buildQueueReadModel,
+  buildResultReadModel,
+  EVENT_STORE_PATHS,
+  listAllTaskEvents,
+  writeCompatibilityReadModels
+} from "./lib/event-store-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -92,8 +100,55 @@ const EVIDENCE_RULES = new Map([
 function parseArgs(argv) {
   return {
     apply: argv.includes("--apply"),
-    dryRun: argv.includes("--dry-run") || !argv.includes("--apply")
+    dryRun: argv.includes("--dry-run") || !argv.includes("--apply"),
+    fromEvents: argv.includes("--from-events")
   };
+}
+
+function stable(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function modelSummary(current, next, label) {
+  const countKey = label === "queue" ? "tasks" : label;
+  return {
+    label,
+    changed: stable(current) !== stable(next),
+    current_count: Array.isArray(current?.[countKey]) ? current[countKey].length : 0,
+    next_count: Array.isArray(next?.[countKey]) ? next[countKey].length : 0
+  };
+}
+
+async function reconcileFromEvents(args) {
+  const events = await listAllTaskEvents();
+  const currentQueue = await readJson(EVENT_STORE_PATHS.queuePath);
+  const currentLocks = await readJson(EVENT_STORE_PATHS.locksPath);
+  const currentResults = await readJson(EVENT_STORE_PATHS.resultsPath);
+  const nextQueue = await buildQueueReadModel();
+  const nextLocks = await buildLockReadModel();
+  const nextResults = await buildResultReadModel();
+  const summaries = [
+    modelSummary(currentQueue, nextQueue, "queue"),
+    modelSummary(currentLocks, nextLocks, "locks"),
+    modelSummary(currentResults, nextResults, "results")
+  ];
+
+  console.log("# Reconcile Task Results");
+  console.log("");
+  console.log(`Mode: ${args.apply ? "apply" : "dry-run"}`);
+  console.log("Source: events");
+  console.log(`Task events: ${events.length}`);
+  for (const summary of summaries) {
+    console.log(`${summary.label}: changed=${summary.changed} current=${summary.current_count} next=${summary.next_count}`);
+  }
+
+  if (args.dryRun) {
+    console.log("Dry-run: queue, locks, and aggregate results were not written.");
+    return;
+  }
+
+  await writeCompatibilityReadModels();
+  console.log("Wrote queue/task-queue.json, queue/task-locks.json, and queue/task-results.json from events.");
 }
 
 async function exists(relativePath) {
@@ -141,6 +196,12 @@ function buildEvidenceResult(task, rule, completedAt) {
 }
 
 const args = parseArgs(process.argv.slice(2));
+
+if (args.fromEvents) {
+  await reconcileFromEvents(args);
+  process.exit(0);
+}
+
 const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
 const aggregateResults = await readJson(aggregateResultsPath);

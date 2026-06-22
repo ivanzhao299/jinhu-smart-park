@@ -27,6 +27,7 @@ import {
   taskById,
   writeJson
 } from "./lib/queue-utils.mjs";
+import { buildEventStoreHealth } from "./lib/event-store-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -401,6 +402,77 @@ function inspectQueue({ queue, locks, results, perTaskResults }, findings, fixes
   };
 }
 
+function eventReadModelIsConsistent(eventStore) {
+  const consistency = eventStore.read_model_consistency;
+  return Boolean(
+    consistency?.queue_status?.consistent &&
+    consistency?.locks?.consistent &&
+    consistency?.results_status?.consistent
+  );
+}
+
+async function inspectEventStore({ queue, locks, results }, findings) {
+  const health = await buildEventStoreHealth({ queue, locks, results });
+  const missingDirs = Object.entries(health.paths)
+    .filter(([, exists]) => !exists)
+    .map(([name]) => name);
+
+  if (missingDirs.length > 0) {
+    addFinding(
+      findings,
+      "WARN",
+      "events",
+      `event store directories are missing: ${missingDirs.join(", ")}`,
+      "Restore ops/agent-orchestrator/events/* directories before relying on event-first queue rebuilds."
+    );
+  }
+
+  if (health.task_events === 0) {
+    addFinding(
+      findings,
+      "INFO",
+      "events",
+      "event store has no task events yet.",
+      "Run bootstrap-event-store.mjs --dry-run to preview legacy JSON bootstrap events, or wait for event-first dispatch/complete writes."
+    );
+  }
+
+  if (!health.read_model_consistency.queue_status.consistent) {
+    addFinding(
+      findings,
+      "WARN",
+      "events",
+      "event queue read model differs from task-queue.json task statuses.",
+      "Run rebuild-queue-read-model.mjs --dry-run or reconcile-task-results.mjs --from-events --dry-run before applying any event read-model rebuild."
+    );
+  }
+
+  if (!health.read_model_consistency.locks.consistent) {
+    addFinding(
+      findings,
+      "WARN",
+      "events",
+      "event lock read model differs from task-locks.json active locks.",
+      "Review event history and run reconcile-task-results.mjs --from-events --dry-run before applying a rebuild."
+    );
+  }
+
+  if (!health.read_model_consistency.results_status.consistent) {
+    addFinding(
+      findings,
+      "WARN",
+      "events",
+      "event result read model differs from task-results.json result statuses.",
+      "Review result events and per-task result artifacts before applying an event read-model rebuild."
+    );
+  }
+
+  return {
+    ...health,
+    read_model_consistent: eventReadModelIsConsistent(health)
+  };
+}
+
 async function recentRunLogs(findings, queue, results, perTaskResults) {
   let names = [];
   try {
@@ -652,6 +724,10 @@ function nextActions(diagnosis) {
     actions.push("node ops/agent-orchestrator/scripts/integrate-agent-results.mjs --dry-run");
   }
 
+  if (!diagnosis.event_store.read_model_consistent) {
+    actions.push("node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --from-events --dry-run");
+  }
+
   if (actions.length === 0) {
     actions.push("node ops/agent-orchestrator/scripts/orchestratorctl.mjs status");
   }
@@ -670,6 +746,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
 
   const worktrees = inspectWorktrees(config, findings, fixes);
   const queueInfo = inspectQueue({ queue, locks, results, perTaskResults }, findings, fixes);
+  const eventStore = await inspectEventStore({ queue, locks, results }, findings);
   const runner = await inspectRunner(config, queue, results, perTaskResults, findings);
   const integration = inspectIntegration(config, worktrees, findings);
   const validation = inspectValidation(args, findings);
@@ -680,6 +757,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
     findings,
     worktrees,
     queue: queueInfo,
+    event_store: eventStore,
     locks: {
       total: (locks.locks ?? []).length,
       active: queueInfo.active_locks.length,
@@ -730,6 +808,18 @@ function printMarkdown(diagnosis, args) {
   console.log(`Active locks: ${diagnosis.locks.active}`);
   console.log(`Duplicate locks: ${diagnosis.locks.duplicate.length}`);
   console.log(`Stale locks: ${diagnosis.locks.stale.length}`);
+  console.log("");
+
+  console.log("## Event Store");
+  console.log(`Task events: ${diagnosis.event_store.task_events}`);
+  console.log(`Event types: ${JSON.stringify(diagnosis.event_store.event_type_counts)}`);
+  console.log(`Queue read model consistent: ${diagnosis.event_store.read_model_consistency.queue_status.consistent ? "yes" : "no"}`);
+  console.log(`Lock read model consistent: ${diagnosis.event_store.read_model_consistency.locks.consistent ? "yes" : "no"}`);
+  console.log(`Result read model consistent: ${diagnosis.event_store.read_model_consistency.results_status.consistent ? "yes" : "no"}`);
+  console.log("Event-first write paths:");
+  for (const [script, status] of Object.entries(diagnosis.event_store.event_first_write_paths)) {
+    console.log(`- ${script}: ${status}`);
+  }
   console.log("");
 
   console.log("## Runner / Codex CLI");
