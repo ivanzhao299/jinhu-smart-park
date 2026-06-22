@@ -1,0 +1,34 @@
+{
+  "event_id": "task.integrated:84a0ce3be021b9173ce56baf",
+  "event_type": "task.integrated",
+  "task_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": null,
+  "created_at": "2026-06-22T16:50:26.246Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-5 result into integration/orchestrator-auto-20260623-005026",
+  "changed_files": [
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL/2026-06-22T164840200Z-task.failed-9ff486c3ba76.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "7c3287dc41b5553249b7302c0b7f8ceac2b6f329f7f3946f0e5f388928e5a65a",
+    "agent_id": "agent-5",
+    "agent_branch": "agent-5-testing-release",
+    "agent_head": "005fb331b5f7258409480aeac304c2cbccaef77a",
+    "integration_branch": "integration/orchestrator-auto-20260623-005026",
+    "merge_commit": "057fe523c05ed25d6f771a1e156f28c9775dc642"
+  }
+}

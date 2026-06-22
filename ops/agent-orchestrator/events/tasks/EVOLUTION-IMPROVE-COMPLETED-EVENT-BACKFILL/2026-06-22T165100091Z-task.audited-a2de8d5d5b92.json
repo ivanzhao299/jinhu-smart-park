@@ -1,0 +1,121 @@
+{
+  "event_id": "task.audited:ed8dfc990d5290485c37f8fa",
+  "event_type": "task.audited",
+  "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "owner": "agent-5",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T16:51:00.091Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "966625836151b5962a927e403cbdb4bea135cfb8a87ead57427fd65cf5b33512",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "005fb331b5f7",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "passed_checks": [
+        "main integration syntax checks passed",
+        "main integration reconcile dry-run/apply passed and was idempotent",
+        "main integration audit dry-run passed",
+        "main integration pnpm typecheck passed"
+      ],
+      "failed_checks": [],
+      "notes": "Worker initially recorded FAILED because its isolated worktree lacked node_modules; integration/main validation passed, so this event records the final verified DONE state without rerunning Agent or fabricating evidence.",
+      "completed_at": "2026-06-22T16:50:50.725Z"
+    },
+    "task_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_improvement_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_pattern_id": "PATTERN-002",
+      "title": "Backfill completed events from truthful result artifacts",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-002",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Successful run logs with committed result artifacts can be reconciled into DONE state.",
+        "Backfilled task.completed events are idempotent.",
+        "No business evidence is fabricated."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": true,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-002",
+      "status": "AUDITED",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "docs/testing/evolution-completed-event-backfill-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:38:34.174Z",
+      "updated_at": "2026-06-22T16:51:00.091Z"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T16:38:57.551Z",
+  "updated_at": "2026-06-22T16:51:00.091Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -1563,14 +1563,14 @@
       ],
       "requires_human_approval": true,
       "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-002",
-      "status": "CLAIMED",
+      "status": "AUDITED",
       "expected_output_files": [
         "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
         "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
         "docs/testing/evolution-completed-event-backfill-checklist.md"
       ],
       "created_at": "2026-06-22T16:38:34.174Z",
-      "updated_at": "2026-06-22T16:38:57.551Z"
+      "updated_at": "2026-06-22T16:51:00.091Z"
     },
     {
       "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
@@ -2148,6 +2148,12 @@
       "allow_commit": false,
       "created_at": "2026-06-22T13:30:00.000Z",
       "updated_at": "2026-06-22T14:42:15.223Z"
+    },
+    {
+      "task_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "owner": "agent-5",
+      "updated_at": "2026-06-22T16:50:27.307Z",
+      "status": null
     },
     {
       "task_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",

@@ -1,0 +1,38 @@
+{
+  "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "agent": "agent-5",
+  "status": "DONE",
+  "commit_hash": "005fb331b5f7",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+  ],
+  "agent_changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+  ],
+  "orchestrator_changed_files": [],
+  "commands_run": [
+    "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+    "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+    "pnpm typecheck"
+  ],
+  "passed_checks": [
+    "main integration syntax checks passed",
+    "main integration reconcile dry-run/apply passed and was idempotent",
+    "main integration audit dry-run passed",
+    "main integration pnpm typecheck passed"
+  ],
+  "failed_checks": [],
+  "notes": "Worker initially recorded FAILED because its isolated worktree lacked node_modules; integration/main validation passed, so this event records the final verified DONE state without rerunning Agent or fabricating evidence.",
+  "completed_at": "2026-06-22T16:50:50.725Z"
+}

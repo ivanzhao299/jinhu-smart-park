@@ -1,0 +1,65 @@
+{
+  "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "improvement_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "agent": "agent-5",
+  "status": "DONE",
+  "commit_hash": "005fb331b5f7",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL/2026-06-22T164840200Z-task.failed-9ff486c3ba76.json",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+  ],
+  "commands_run": [
+    "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+    "pnpm typecheck",
+    "PATH=\"../jinhu-smart-park/node_modules/.bin:$PATH\" pnpm typecheck",
+    "../jinhu-smart-park/node_modules/.bin/tsc -p packages/shared/tsconfig.json --noEmit",
+    "../jinhu-smart-park/node_modules/.bin/tsc -p packages/ui/tsconfig.json --noEmit",
+    "git diff --check",
+    "git status --short",
+    "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL --agent agent-5 --status FAILED ...",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+    "pnpm typecheck on integration branch",
+    "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL --agent agent-5 --status DONE ...",
+    "node ops/agent-orchestrator/scripts/audit-all-results.mjs --apply"
+  ],
+  "passed_checks": [
+    "reconcile-task-results syntax check passed",
+    "event-store-utils syntax check passed",
+    "reconcile-task-results dry-run passed and planned zero completion backfills in the current already-reconciled repository state",
+    "reconcile-task-results apply passed and wrote zero completion backfill events idempotently",
+    "post-apply reconcile-task-results dry-run reported queue locks and results changed=false",
+    "audit-all-results dry-run passed",
+    "direct supplemental shared package tsc check passed using sibling dependency binary",
+    "git diff --check passed",
+    "complete-task recorded initial FAILED result/event/read-model bookkeeping from the isolated worker environment",
+    "post-completion reconcile dry-run reported queue locks and results changed=false",
+    "integration branch pnpm typecheck passed",
+    "final DONE event recorded after integration validation passed",
+    "audit-all-results apply recorded AUDIT_PASS"
+  ],
+  "failed_checks": [],
+  "worker_environment_failures": [
+    "orchestratorctl doctor returned NO_GO because the worker had active non-runtime task edits dirty and main had a pre-existing runtime dirty agent-run-plan.md warning",
+    "worker pnpm typecheck failed before type-checking because node_modules was missing and package scripts could not find tsc",
+    "supplemental PATH-based worker pnpm typecheck attempt still could not find tsc in recursive package scripts",
+    "supplemental direct worker ui tsc check failed because React packages/types were not resolvable without local dependencies"
+  ],
+  "skipped_checks": [
+    "synthetic committed-result fixture was not created in the live repository because all current committed DONE result artifacts already have task.completed events",
+    "dependency installation was not run because network access is restricted and node_modules writes are outside this task's allowed source paths"
+  ],
+  "notes": "Implemented idempotent task.completed backfill from clean tracked DONE result artifacts without fabricating command, validation, business, production, or commit evidence. The isolated worker first recorded FAILED because dependencies were unavailable; integration validation then passed and the orchestrator recorded final DONE plus AUDIT_PASS."
+}

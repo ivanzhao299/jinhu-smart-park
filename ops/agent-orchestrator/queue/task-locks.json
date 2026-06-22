@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T16:38:57.551Z",
-  "locks": [
-    {
-      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
-      "agent": "agent-5",
-      "claimed_at": "2026-06-22T16:38:57.551Z"
-    }
-  ]
+  "updated_at": "2026-06-22T16:51:00.091Z",
+  "locks": []
 }
