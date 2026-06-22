@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "updated_at": "2026-06-21T22:30:15.439Z",
-  "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
-      "agent": "agent-2",
-      "claimed_at": "2026-06-21T22:13:39.824Z"
-    }
-  ]
+  "updated_at": "2026-06-22T05:15:05.337Z",
+  "locks": []
 }
