@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_evolution_state",
-  "updated_at": "2026-06-22T16:38:34.174Z",
+  "updated_at": "2026-06-22T16:57:02.585Z",
   "observer_version": "v3-e-mvp",
   "last_observed_at": null,
   "last_planned_at": "2026-06-22T16:10:27.436Z",
@@ -22,8 +22,8 @@
       "PATTERN-001",
       "PATTERN-004"
     ],
-    "last_goal_id": "GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
-    "last_planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+    "last_goal_id": "GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+    "last_planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
     "last_goal_to_queue_task_count": 1,
     "planned_task_candidates": 7,
     "planned_improvement_candidates": 7,
