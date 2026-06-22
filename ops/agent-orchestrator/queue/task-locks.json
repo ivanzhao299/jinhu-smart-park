@@ -1,12 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T11:29:04.297Z",
+  "updated_at": "2026-06-22T11:37:30.626Z",
   "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
-      "agent": "agent-2",
-      "claimed_at": "2026-06-22T11:29:04.297Z"
-    },
     {
       "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
       "agent": "agent-3",
