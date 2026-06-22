@@ -2,6 +2,11 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, writeFile } from "node:fs/promises";
+import {
+  appendTaskEvent,
+  listAllTaskEvents,
+  writeCompatibilityReadModels
+} from "./lib/event-store-utils.mjs";
 
 const VALID_AGENTS = new Set(["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"]);
 const PRIORITY_RANK = new Map([
@@ -51,6 +56,7 @@ if (!agent || !VALID_AGENTS.has(agent)) {
 
 const queue = await readJson(queuePath);
 const locks = await readJson(locksPath);
+const taskEvents = await listAllTaskEvents();
 
 const candidates = (queue.tasks ?? [])
   .filter((task) => task.owner === agent && task.status === "READY")
@@ -72,28 +78,58 @@ if (!task) {
 }
 
 const claimedAt = nowIso();
-task.status = "CLAIMED";
-task.updated_at = claimedAt;
-queue.updated_at = claimedAt;
-
-locks.locks ??= [];
-locks.locks.push({
-  task_id: task.task_id,
+const statusBefore = task.status;
+const claimedTask = {
+  ...task,
+  status: "CLAIMED",
+  updated_at: claimedAt
+};
+const lock = {
+  task_id: claimedTask.task_id,
   agent,
   claimed_at: claimedAt
-});
-locks.updated_at = claimedAt;
+};
 
-await writeJson(queuePath, queue);
-await writeJson(locksPath, locks);
+if (taskEvents.length === 0) {
+  task.status = claimedTask.status;
+  task.updated_at = claimedTask.updated_at;
+  queue.updated_at = claimedAt;
 
-console.log(`CLAIMED ${task.task_id} for ${agent}`);
+  locks.locks ??= [];
+  locks.locks.push(lock);
+  locks.updated_at = claimedAt;
+
+  await writeJson(queuePath, queue);
+  await writeJson(locksPath, locks);
+  console.log("Legacy fallback: no task events exist, so queue JSON was updated directly.");
+} else {
+  await appendTaskEvent({
+    event_type: "task.claimed",
+    task_id: claimedTask.task_id,
+    owner: claimedTask.owner,
+    status_before: statusBefore,
+    status_after: claimedTask.status,
+    created_at: claimedAt,
+    actor: agent,
+    source: "claim-task.mjs",
+    reason: "claim READY task through event-first claim path",
+    changed_files: [],
+    metadata: {
+      lock_snapshot: lock,
+      task_snapshot: claimedTask
+    }
+  });
+
+  await writeCompatibilityReadModels({ results: false });
+}
+
+console.log(`CLAIMED ${claimedTask.task_id} for ${agent}`);
 console.log(JSON.stringify({
-  task_id: task.task_id,
-  batch_id: task.batch_id,
-  title: task.title,
-  owner: task.owner,
-  priority: task.priority,
-  risk: task.risk,
-  status: task.status
+  task_id: claimedTask.task_id,
+  batch_id: claimedTask.batch_id,
+  title: claimedTask.title,
+  owner: claimedTask.owner,
+  priority: claimedTask.priority,
+  risk: claimedTask.risk,
+  status: claimedTask.status
 }, null, 2));

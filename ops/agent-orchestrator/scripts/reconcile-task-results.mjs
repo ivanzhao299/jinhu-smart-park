@@ -253,6 +253,7 @@ async function appendReconciliationEvents({ args, currentQueue, nextQueue, curre
       reason: args.reason,
       metadata: {
         integration_branch: args.integrationBranch,
+        reconcile_rule: "event_projection_wins",
         current_result_status: currentResultByTask.get(taskId)?.status ?? null,
         next_result_status: nextResultByTask.get(taskId)?.status ?? null
       }
@@ -442,6 +443,7 @@ async function reconcileFromEvents(args) {
   console.log(`Latest result artifacts considered: ${backfillPlan.latest_artifacts_seen}`);
   console.log(`Completion backfills planned: ${backfillPlan.candidates.length}`);
   console.log(`Completion backfill skips: ${JSON.stringify(backfillSkips)}`);
+  console.log("Reconcile rule: event projection wins; compatibility queue JSON is generated only after event/backfill/reconciled events are evaluated.");
   for (const summary of summaries) {
     console.log(`${summary.label}: changed=${summary.changed} current=${summary.current_count} next=${summary.next_count}`);
   }
@@ -532,6 +534,12 @@ const taskEvents = await listAllTaskEvents();
 if (!args.legacyJson && (args.fromEvents || taskEvents.length > 0)) {
   await reconcileFromEvents(args);
   process.exit(0);
+}
+
+if (args.legacyJson && args.apply && taskEvents.length > 0) {
+  console.error("Refusing --legacy-json --apply while task events exist.");
+  console.error("Use reconcile-task-results.mjs --from-events --dry-run, then --from-events --apply so generated queue JSON is reconciled from the event projection.");
+  process.exit(1);
 }
 
 const queue = await readJson(queuePath);

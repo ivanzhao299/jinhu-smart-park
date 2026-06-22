@@ -495,7 +495,7 @@ async function inspectEventStore({ queue, locks, results }, findings) {
       "WARN",
       "events",
       "event queue read model differs from task-queue.json task statuses.",
-      "Run rebuild-queue-read-model.mjs --dry-run or reconcile-task-results.mjs --from-events --dry-run before applying any event read-model rebuild."
+      "Run rebuild-queue-read-model.mjs --dry-run, then reconcile-task-results.mjs --from-events --apply after reviewing event projection drift."
     );
   }
 
@@ -505,7 +505,7 @@ async function inspectEventStore({ queue, locks, results }, findings) {
       "WARN",
       "events",
       "event lock read model differs from task-locks.json active locks.",
-      "Review event history and run reconcile-task-results.mjs --from-events --dry-run before applying a rebuild."
+      "Review event history, run rebuild-queue-read-model.mjs --dry-run, then reconcile-task-results.mjs --from-events --apply."
     );
   }
 
@@ -515,7 +515,7 @@ async function inspectEventStore({ queue, locks, results }, findings) {
       "WARN",
       "events",
       "event result read model differs from task-results.json result statuses.",
-      "Review result events and per-task result artifacts before applying an event read-model rebuild."
+      "Review result events and per-task result artifacts, then reconcile from events instead of editing task-results.json directly."
     );
   }
 
@@ -888,6 +888,8 @@ function printMarkdown(diagnosis, args) {
   console.log(`Queue read model consistent: ${diagnosis.event_store.read_model_consistency.queue_status.consistent ? "yes" : "no"}`);
   console.log(`Lock read model consistent: ${diagnosis.event_store.read_model_consistency.locks.consistent ? "yes" : "no"}`);
   console.log(`Result read model consistent: ${diagnosis.event_store.read_model_consistency.results_status.consistent ? "yes" : "no"}`);
+  console.log(`Event/read-model consistency after rebuild dry-run: ${diagnosis.event_store.read_model_consistent ? "yes" : "no"}`);
+  console.log("Queue conflict policy: event projection wins; generated queue JSON is reconciled by reconcile-task-results.mjs --from-events after dry-run review.");
   console.log("Event-first write paths:");
   for (const [script, status] of Object.entries(diagnosis.event_store.event_first_write_paths)) {
     console.log(`- ${script}: ${status}`);
