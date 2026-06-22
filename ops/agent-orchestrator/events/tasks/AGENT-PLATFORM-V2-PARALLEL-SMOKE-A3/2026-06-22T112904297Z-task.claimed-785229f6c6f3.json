@@ -1,0 +1,74 @@
+{
+  "event_id": "c50cb7e1-735c-43f9-a560-23754dd37070",
+  "event_type": "task.claimed",
+  "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+  "owner": "agent-3",
+  "status_before": "READY",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T11:29:04.297Z",
+  "actor": "orchestrator",
+  "source": "dispatch-ready-agents.mjs",
+  "reason": "dispatch READY task to clean agent worktree",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "lock_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+      "agent": "agent-3",
+      "claimed_at": "2026-06-22T11:29:04.297Z"
+    },
+    "prompt_file": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3-agent-3.prompt.md",
+    "worktree_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+      "batch_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE",
+      "title": "Event-first read-model consistency checklist smoke task",
+      "owner": "agent-3",
+      "domain": "orchestrator-event-store",
+      "priority": "P0",
+      "status": "CLAIMED",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.json"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v2-parallel-smoke-a3.md with a concise event-first read-model consistency checklist covering task.created, task.claimed, task.completed, queue/lock/result read models, doctor health, and audit dry-run.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md summarizing the checklist, exact commands considered safe, and remaining risks.",
+        "Record completion with complete-task.mjs so ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.json is created truthfully.",
+        "Do not edit apps, packages, database, infra, auth, Docker, deploy, CI, production configuration, migrations, seeds, or production data.",
+        "Do not merge, push, deploy, run production operations, or create a local commit; leave files for orchestrator commit-agent-results."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T11:28:30.768Z",
+      "updated_at": "2026-06-22T11:29:04.297Z"
+    }
+  }
+}
