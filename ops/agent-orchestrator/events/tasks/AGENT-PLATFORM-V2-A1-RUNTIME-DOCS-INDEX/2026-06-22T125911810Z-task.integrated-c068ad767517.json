@@ -1,0 +1,95 @@
+{
+  "event_id": "task.integrated:8f133cd2c60c3c348daf2491",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX",
+  "owner": "agent-1",
+  "status_before": "DONE",
+  "status_after": "DONE",
+  "created_at": "2026-06-22T12:59:11.810Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-1 result into integration/orchestrator-auto-20260622-205911",
+  "changed_files": [
+    "docs/release/agent-platform-v2-runtime-docs-index.md",
+    "docs/testing/agent-platform-v2-runtime-docs-index-checklist.md",
+    "ops/agent-orchestrator/events/tasks/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX/2026-06-22T122917760Z-task.completed-02c8d2a06671.json",
+    "ops/agent-orchestrator/events/tasks/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX/2026-06-22T122942763Z-task.completed-902d79fa78e5.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "6e06481e66ab677f2dc0c19d6b76cf0414e62fd55b4cb3833c3bc5e22f16b605",
+    "agent_id": "agent-1",
+    "agent_branch": "agent-1-assets-space",
+    "agent_head": "0472a9a60a77904b130ea9ea3df53bb20c52e930",
+    "integration_branch": "integration/orchestrator-auto-20260622-205911",
+    "merge_commit": "ac8491bfdae80bb7b51e5f0404e7ba920b1670ea",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX",
+      "batch_id": "AGENT-PLATFORM-V2-RESOURCE-READINESS-20260622",
+      "title": "Runtime documentation index and readiness cross-link checklist",
+      "owner": "agent-1",
+      "domain": "asset-docs-runtime-index",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/release/agent-platform-v2-runtime-docs-index.md summarizing the Agent Platform V2 runtime documentation map and ownership cross-links.",
+        "Create docs/testing/agent-platform-v2-runtime-docs-index-checklist.md with a low-risk checklist for verifying docs, reports, and result artifact discoverability.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.md summarizing changed files, checks, and remaining risks.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.json via complete-task.mjs when finished.",
+        "Do not modify apps, packages, database, infra, .github, Docker, deploy, auth, migrations, seeds, production configuration, or production data."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/release/agent-platform-v2-runtime-docs-index.md",
+        "test -f docs/testing/agent-platform-v2-runtime-docs-index-checklist.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Required docs and report files exist",
+        "git diff --check passes",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-runtime-docs-index.md",
+        "docs/testing/agent-platform-v2-runtime-docs-index-checklist.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T12:17:18.199Z",
+      "updated_at": "2026-06-22T12:59:11.712Z"
+    }
+  }
+}
