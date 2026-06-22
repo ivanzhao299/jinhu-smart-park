@@ -39,6 +39,7 @@ The first version turns a natural-language request into a persistent intake file
 | `prompts/agent-worker-prompt.md` | Template used to generate agent runner prompt files. |
 | `runs/` | Generated dispatch reports, per-agent prompt files, and agent run plans. |
 | `daemon/` | Local daemon examples and runtime state/log location. `state.json` and run logs are runtime artifacts and should not be committed. |
+| `agent-router-rules.json` | Domain and keyword rules used when converting natural-language requests into task owners. |
 
 ## 1. Intake: Natural Language To Current Request
 
@@ -63,6 +64,14 @@ ops/agent-orchestrator/specs/SPEC_TEMPLATE.md
 REQ captures user-facing requirements, constraints, non-goals, and acceptance criteria.
 
 TECH maps the work to domains and agents, records allowed and forbidden paths, lists validation commands, and defines stop conditions.
+
+Before assigning any task owner, the planner must load:
+
+```bash
+ops/agent-orchestrator/agent-router-rules.json
+```
+
+The router rules choose the default `owner` and `domain` from explicit agent mentions, domain keywords, fallback rules, and fallback priority. The planner may override this only when the user explicitly names a different Agent or approves a broader split. The router chooses ownership; it does not automatically grant permission to modify business paths.
 
 ## 3. Queue Generation
 
@@ -90,7 +99,7 @@ Each task must follow `task-queue.schema.json` and include at least:
 - `created_at`
 - `updated_at`
 
-Initial status for claimable work is `READY`. Supported owners are `agent-1` through `agent-5`.
+Initial status for claimable work is `READY`. Supported owners are `agent-1` through `agent-5`. `owner` must be selected from `agent-router-rules.json`, and the selected router domain should be copied into the task `domain` unless a more specific user-approved domain is needed.
 
 ## 3A. V2 Event Sourcing Queue Foundation
 
@@ -811,6 +820,8 @@ The task queue can mark these with `requires_human_approval: true`.
 
 The orchestrator keeps five stable agent lanes. Each task should name one owner, a domain, explicit `allowed_paths`, explicit `forbidden_paths`, and validation commands. Low-risk readiness tasks should stay in documentation, reports, and result artifacts unless the user explicitly approves broader implementation scope.
 
+`ops/agent-orchestrator/agent-router-rules.json` is the routing source of truth for natural-language intake. During REQ / TECH / task-queue generation, load the router rules before writing tasks and set `owner` from the matched rule. Dispatch does not re-route tasks; it only claims tasks whose `owner` is already set.
+
 | Agent | Fixed Responsibility | Domain Label | Default Low-Risk Allowed Paths | Typical Tasks |
 |---|---|---|---|---|
 | `agent-1` | Assets, documentation, portal/UI assistance, Runtime documentation index | `asset-docs-runtime-index` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Runtime docs index, asset/space documentation map, portal acceptance checklist, low-risk UI support notes |
@@ -820,6 +831,21 @@ The orchestrator keeps five stable agent lanes. Each task should name one owner,
 | `agent-5` | Testing, release acceptance, production readiness, orchestrator platform architecture | `release-platform-gates` | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Release gate, production evidence plan, platform architecture, rollback/readiness checklist |
 
 Default forbidden paths for all lanes are `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, and auth. A task may only expand beyond the default low-risk paths when the user explicitly approves the scope and the task marks `requires_human_approval: true`.
+
+Router fallback rules:
+
+- Unknown or cross-domain requirement -> `agent-5` planning.
+- `frontend`, `ui`, `ux`, `dashboard`, `mobile`, menu/RBAC/visibility/selector -> `agent-4`.
+- `docs`, `portal`, `copy`, `index`, manuals, Runtime Memory documentation -> `agent-1`.
+- `validation`, `test`, `audit`, `typecheck`, compatibility, finance matrices -> `agent-2`.
+- `iot`, safety, work-order, energy, runtime-data, read-model consistency -> `agent-3`.
+
+Routing examples:
+
+| Natural-language request | Routed owner | Reason |
+|---|---|---|
+| `优化仪表盘页面样式和移动端适配` | `agent-4` | Matches dashboard/page/style/mobile/responsive UI keywords. If this becomes `apps/web/**` implementation, the generated task must require human approval. |
+| `整理 Runtime Memory 使用手册` | `agent-1` | Matches Runtime Memory documentation/manual/index ownership. |
 
 ## 10. First-Version Limits
 

@@ -10,9 +10,9 @@
 - Previous platform batch: `AGENT-PLATFORM-V2-20260621`
 - Previous active batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
-- Current mainline focus: `AGENT_PLATFORM_V2` resource formation and readiness coverage for every agent lane.
+- Current mainline focus: `AGENT_PLATFORM_V2` resource formation, readiness coverage, and router rules for natural-language task ownership.
 - Queue governance note: remaining `PROD-EVIDENCE-20260621-002` agent-5 tasks are temporarily `BLOCKED` while `AGENT_PLATFORM_V2` P0 work is in progress.
-- Expected next dispatch: `agent-1` claims `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX`; `agent-2` claims `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK`.
+- Expected next dispatch: none until a new task queue is generated. Future queue generation must set owner from `ops/agent-orchestrator/agent-router-rules.json`.
 
 ## Agent Resource Formation
 
@@ -27,6 +27,27 @@ The orchestrator keeps five stable agent lanes so future natural-language reques
 | `agent-5` | Testing, release acceptance, production readiness, orchestrator platform architecture | release-platform-gates | `docs/release/**`, `docs/testing/**`, `ops/agent-orchestrator/reports/**`, `ops/agent-orchestrator/results/**` | Release gates, production evidence plans, platform architecture, rollback/readiness checklists |
 
 Global frozen paths remain forbidden for every lane unless a later task explicitly expands scope with human approval: `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, and auth.
+
+## Agent Router Rules
+
+Router source of truth: `ops/agent-orchestrator/agent-router-rules.json`.
+
+When the orchestrator turns natural-language intake into REQ / TECH / task-queue entries, it must route each task through the router rules before writing `owner`. Dispatch does not choose a new owner; it only claims tasks already assigned in `task-queue.json`.
+
+| Rule | Routed Agent | Domain |
+|---|---|---|
+| Unknown or cross-domain work | `agent-5` | planning |
+| `frontend` / `ui` / `ux` / `dashboard` / `mobile` / menu / RBAC / selector | `agent-4` | frontend-ui-ux-dashboard-mobile-rbac-selector |
+| `docs` / `portal` / `copy` / `index` / manual / Runtime Memory docs | `agent-1` | asset-docs-portal-runtime-index |
+| `validation` / `test` / `audit` / `typecheck` / compatibility / finance matrix | `agent-2` | validation-compat-finance-test-matrix |
+| `iot` / safety / work-order / energy / runtime-data / read-model | `agent-3` | ops-iot-safety-work-order-energy-runtime-data |
+
+Examples:
+
+| Natural-language request | Routed Agent | Reason |
+|---|---|---|
+| `优化仪表盘页面样式和移动端适配` | `agent-4` | Matches dashboard/page/style/mobile UI keywords. |
+| `整理 Runtime Memory 使用手册` | `agent-1` | Matches Runtime Memory documentation/manual/index keywords. |
 
 ## Batch TRIAL-20260621-001
 
@@ -301,8 +322,8 @@ This batch does not execute Agents, merge, push, deploy, run production migratio
 
 | Task ID | Agent | Domain | Priority | Risk | Status | Scope |
 |---|---|---|---|---|---|---|
-| `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX` | agent-1 | asset-docs-runtime-index | P0 | LOW | READY | Runtime documentation index and cross-link checklist for Agent Platform V2 docs, testing docs, reports, and result artifacts. |
-| `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK` | agent-2 | validation-finance-compat | P1 | LOW | READY | Doctor/Audit/Typecheck validation runbook and compatibility checklist for readiness handoff. |
+| `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX` | agent-1 | asset-docs-runtime-index | P0 | LOW | DONE | Runtime documentation index and cross-link checklist for Agent Platform V2 docs, testing docs, reports, and result artifacts. |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK` | agent-2 | validation-finance-compat | P1 | LOW | DONE | Doctor/Audit/Typecheck validation runbook and compatibility checklist for readiness handoff. |
 
 ## Resource Readiness Expected Output Files
 
@@ -313,8 +334,8 @@ This batch does not execute Agents, merge, push, deploy, run production migratio
 
 ## Resource Readiness Agents To Execute Next
 
-- `agent-1`: may claim `AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX`.
-- `agent-2`: may claim `AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK`.
+- `agent-1`: no READY task in this batch; readiness task is DONE.
+- `agent-2`: no READY task in this batch; readiness task is DONE.
 - `agent-3`: no READY task in this batch.
 - `agent-4`: no READY task in this batch.
 - `agent-5`: no READY task in this batch.

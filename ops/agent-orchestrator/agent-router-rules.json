@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-22T13:10:00.000Z",
+  "purpose": "Route natural-language requirements to a stable agent owner before task-queue generation.",
+  "routing_policy": {
+    "selection_order": [
+      "explicit_agent_mention",
+      "keyword_match",
+      "domain_match",
+      "fallback_rules",
+      "fallback_priority"
+    ],
+    "owner_requirement": "Every generated task must set owner from these rules unless the user explicitly overrides ownership.",
+    "path_policy": "Router rules choose the owner and default low-risk output paths. Any task that expands into apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production operations must mark requires_human_approval=true and receive explicit user approval before execution."
+  },
+  "default_forbidden_paths": [
+    "apps/**",
+    "packages/**",
+    "database/**",
+    "infra/**",
+    ".github/**",
+    "Dockerfile",
+    "Dockerfile.*",
+    "docker-compose*",
+    "deploy/**",
+    "auth/**",
+    ".env",
+    ".env.*"
+  ],
+  "agents": {
+    "agent-1": {
+      "domain": "asset-docs-portal-runtime-index",
+      "responsibility": "Assets, documentation, portal/UI assistance, Runtime documentation index.",
+      "keywords": [
+        "asset",
+        "assets",
+        "space",
+        "unit",
+        "tenant",
+        "portal",
+        "docs",
+        "documentation",
+        "copy",
+        "index",
+        "manual",
+        "guide",
+        "handbook",
+        "runtime memory",
+        "runtime docs",
+        "资产",
+        "房源",
+        "空间",
+        "租户",
+        "门户",
+        "文档",
+        "手册",
+        "索引",
+        "说明",
+        "Runtime Memory"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "fallback_priority": 40,
+      "typical_tasks": [
+        "Runtime documentation index",
+        "Portal or copy acceptance notes",
+        "Asset/space documentation maps",
+        "Low-risk UI support checklist"
+      ]
+    },
+    "agent-2": {
+      "domain": "validation-compat-finance-test-matrix",
+      "responsibility": "Validation, compatibility, finance, test matrix, Doctor/Audit/Typecheck runbooks.",
+      "keywords": [
+        "validation",
+        "validate",
+        "test",
+        "testing",
+        "typecheck",
+        "audit",
+        "doctor",
+        "compat",
+        "compatibility",
+        "matrix",
+        "finance",
+        "financial",
+        "contract",
+        "receivable",
+        "payment",
+        "invoice",
+        "runbook",
+        "验收",
+        "验证",
+        "测试",
+        "审计",
+        "兼容",
+        "矩阵",
+        "财务",
+        "合同",
+        "应收",
+        "收款",
+        "发票"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "fallback_priority": 30,
+      "typical_tasks": [
+        "Doctor/Audit/Typecheck runbook",
+        "Validation matrix",
+        "Finance readiness checklist",
+        "Compatibility regression plan"
+      ]
+    },
+    "agent-3": {
+      "domain": "ops-iot-safety-work-order-energy-runtime-data",
+      "responsibility": "Work orders, safety, IoT, energy, runtime data, event/read-model consistency.",
+      "keywords": [
+        "iot",
+        "device",
+        "sensor",
+        "safety",
+        "hazard",
+        "alarm",
+        "alert",
+        "work-order",
+        "work order",
+        "energy",
+        "runtime-data",
+        "runtime data",
+        "read-model",
+        "read model",
+        "inspection",
+        "联动",
+        "设备",
+        "传感器",
+        "安全",
+        "隐患",
+        "告警",
+        "工单",
+        "能耗",
+        "运行数据",
+        "巡检"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "fallback_priority": 20,
+      "typical_tasks": [
+        "IoT/safety smoke plan",
+        "Work-order runtime checklist",
+        "Energy/runtime-data evidence",
+        "Event/read-model consistency report"
+      ]
+    },
+    "agent-4": {
+      "domain": "frontend-ui-ux-dashboard-mobile-rbac-selector",
+      "responsibility": "Frontend, UI/UX, dashboard, mobile, menus, RBAC, smart selector and regression acceptance.",
+      "keywords": [
+        "frontend",
+        "front-end",
+        "ui",
+        "ux",
+        "dashboard",
+        "mobile",
+        "responsive",
+        "menu",
+        "rbac",
+        "permission",
+        "visibility",
+        "selector",
+        "e2e selector",
+        "style",
+        "styling",
+        "page",
+        "前端",
+        "界面",
+        "样式",
+        "仪表盘",
+        "移动端",
+        "适配",
+        "菜单",
+        "权限",
+        "可见性",
+        "页面"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "fallback_priority": 10,
+      "typical_tasks": [
+        "Dashboard/mobile acceptance checklist",
+        "RBAC/menu visibility runbook",
+        "Smart E2E selector explanation",
+        "Frontend/UI implementation plan requiring human-approved paths"
+      ]
+    },
+    "agent-5": {
+      "domain": "planning-release-platform-gates",
+      "responsibility": "Fallback planning, release acceptance, production readiness, orchestrator platform architecture.",
+      "keywords": [
+        "unknown",
+        "planning",
+        "plan",
+        "release",
+        "gate",
+        "readiness",
+        "production",
+        "deploy",
+        "rollback",
+        "backup",
+        "orchestrator",
+        "platform",
+        "architecture",
+        "daemon",
+        "integration",
+        "fallback",
+        "规划",
+        "发布",
+        "门禁",
+        "上线",
+        "生产",
+        "部署",
+        "回滚",
+        "备份",
+        "架构",
+        "兜底"
+      ],
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "fallback_priority": 50,
+      "typical_tasks": [
+        "Unknown-domain planning task",
+        "Release gate/readiness plan",
+        "Production evidence architecture",
+        "Orchestrator platform design"
+      ]
+    }
+  },
+  "fallback_rules": [
+    {
+      "match": "unknown",
+      "owner": "agent-5",
+      "domain": "planning",
+      "reason": "Unknown or cross-domain requirements start as agent-5 planning tasks."
+    },
+    {
+      "match": "frontend/ui/ux/dashboard/mobile",
+      "owner": "agent-4",
+      "domain": "frontend-ui-ux-dashboard-mobile-rbac-selector",
+      "reason": "User-facing UI, mobile, dashboard, menu, RBAC, or selector requests route to agent-4."
+    },
+    {
+      "match": "docs/portal/copy/index",
+      "owner": "agent-1",
+      "domain": "asset-docs-portal-runtime-index",
+      "reason": "Documentation, portal copy, indexes, manuals, and Runtime Memory docs route to agent-1."
+    },
+    {
+      "match": "validation/test/audit/typecheck",
+      "owner": "agent-2",
+      "domain": "validation-compat-finance-test-matrix",
+      "reason": "Validation, testing, audit, typecheck, compatibility, finance matrices, and runbooks route to agent-2."
+    },
+    {
+      "match": "iot/safety/work-order/energy/runtime-data",
+      "owner": "agent-3",
+      "domain": "ops-iot-safety-work-order-energy-runtime-data",
+      "reason": "IoT, safety, work-order, energy, runtime data, and read-model checks route to agent-3."
+    }
+  ],
+  "examples": [
+    {
+      "input": "优化仪表盘页面样式和移动端适配",
+      "owner": "agent-4",
+      "domain": "frontend-ui-ux-dashboard-mobile-rbac-selector",
+      "matched_keywords": [
+        "仪表盘",
+        "页面",
+        "样式",
+        "移动端",
+        "适配"
+      ],
+      "note": "Route to agent-4. If implementation touches apps/web/**, task generation must require human approval."
+    },
+    {
+      "input": "整理 Runtime Memory 使用手册",
+      "owner": "agent-1",
+      "domain": "asset-docs-portal-runtime-index",
+      "matched_keywords": [
+        "Runtime Memory",
+        "手册"
+      ],
+      "note": "Route to agent-1 as documentation/index work."
+    }
+  ]
+}
