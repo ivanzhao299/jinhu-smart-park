@@ -1,15 +1,10 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T15:29:42.712Z",
+  "updated_at": "2026-06-22T15:35:04.642Z",
   "locks": [
     {
       "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
       "agent": "agent-1",
-      "claimed_at": "2026-06-22T15:29:42.712Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
-      "agent": "agent-2",
       "claimed_at": "2026-06-22T15:29:42.712Z"
     },
     {
