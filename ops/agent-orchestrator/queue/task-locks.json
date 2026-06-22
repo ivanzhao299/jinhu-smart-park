@@ -1,5 +1,31 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T15:26:04.674Z",
-  "locks": []
+  "updated_at": "2026-06-22T15:29:42.712Z",
+  "locks": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "agent": "agent-1",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "agent": "agent-2",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "agent": "agent-3",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "agent": "agent-4",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "agent": "agent-5",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    }
+  ]
 }

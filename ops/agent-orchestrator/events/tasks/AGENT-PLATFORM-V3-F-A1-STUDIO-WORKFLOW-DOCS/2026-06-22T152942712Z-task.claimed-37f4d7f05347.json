@@ -1,0 +1,73 @@
+{
+  "event_id": "0ef4bfc2-322f-4f12-8aca-32132ed8a5e1",
+  "event_type": "task.claimed",
+  "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+  "owner": "agent-1",
+  "status_before": "READY",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T15:29:42.712Z",
+  "actor": "orchestrator",
+  "source": "dispatch-ready-agents.mjs",
+  "reason": "dispatch READY task to clean agent worktree",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "lock_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "agent": "agent-1",
+      "claimed_at": "2026-06-22T15:29:42.712Z"
+    },
+    "prompt_file": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS-agent-1.prompt.md",
+    "worktree_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "title": "Agent Studio V3 user workflow docs",
+      "domain": "product-docs-runtime-index",
+      "priority": "P1",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "User workflow explains natural-language goal to queue to agent-cycle dry-run.",
+        "Docs distinguish Resident Observer from worker agents.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text \"继续把 Agent Studio 提升到 98%\" --dry-run"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-1",
+      "owner_assignment_reason": "preferred owner agent-1 validated against Agent Registry",
+      "status": "CLAIMED",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:29:42.712Z"
+    }
+  }
+}
