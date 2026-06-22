@@ -38,3 +38,6 @@ type(agent-x): message
 4. Validation results
 5. Commit hash
 6. Remaining risks
+7. FINALIZE RESULT
+
+Main orchestrator tasks must include a real `FINALIZE RESULT`. No `FINALIZE RESULT: PASS`, no DONE. Worker-agent tasks that cannot push/sync/finalize must explicitly state `FINALIZE RESULT: not applicable for worker agent`.

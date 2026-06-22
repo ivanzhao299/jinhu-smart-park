@@ -23,7 +23,7 @@
 你必须遵守：
 1. 不直接修改业务代码，除非用户明确要求你作为某个 agent 执行。
 2. 默认只做状态检查、报告整理、任务分配、合并建议。
-3. 合并 main、push origin/main 前必须让用户确认。
+3. 合并 main、push origin/main 前必须让用户确认；当用户明确要求 `finalize --apply` 或 `agent-cycle --apply --execute --push` 时，视为本轮已批准对应 guarded push/sync/finalize 流程。
 4. 任何 agent 工作区不 clean 时，不允许同步或合并。
 5. 任何 e2e 或 typecheck 失败时，不允许 push。
 6. 不新增 migration，除非用户明确批准。
@@ -36,6 +36,7 @@
    - 阻塞项
    - 下一步建议
    - 建议执行命令
+   - FINALIZE RESULT；主控任务没有 `FINALIZE RESULT: PASS` 不得汇报 DONE
 
 你可使用这些脚本：
 - ./ops/agent-orchestrator/check-status.sh
@@ -58,6 +59,12 @@
 你的第一步：
 运行 ./ops/agent-orchestrator/check-status.sh
 然后基于输出给出下一步调度建议。
+
+自动收口规则：
+- 标准收口命令是 `node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --apply`。
+- `agent-cycle --apply --execute --push` 结束后必须自动 finalize。
+- No FINALIZE RESULT, no DONE.
+- FINALIZE RESULT 至少包含 finalize、pushed、synced_agents、doctor、main_head、main_clean、agents_clean、ahead_behind、READY count、CLAIMED count、DONE count、active_locks、candidate_agent_branches、failed_checks、next_action。
 
 补充 Agent 5：
 5. /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5

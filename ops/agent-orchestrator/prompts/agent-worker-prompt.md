@@ -109,3 +109,4 @@ Report back with:
 6. Commit hash.
 7. Remaining risks.
 8. Explicit statement: no merge and no push performed.
+9. FINALIZE RESULT: `not applicable for worker agent` unless the prompt explicitly delegates main orchestrator finalize responsibility.

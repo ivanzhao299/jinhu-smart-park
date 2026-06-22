@@ -18,6 +18,7 @@ The first version turns a natural-language request into a persistent intake file
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `events/` | V2 append-only event store directories for task, result, lock, and audit events. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
+| `scripts/finalize.mjs` | Auto-finalize flow for guarded main push, agent sync, status check, doctor, and standard FINALIZE RESULT output. |
 | `scripts/lib/event-store-utils.mjs` | Event-store utilities for append-only task events and compatibility read models. |
 | `scripts/bootstrap-event-store.mjs` | Dry-run/apply bootstrap adapter from legacy queue JSON to task events. |
 | `scripts/rebuild-queue-read-model.mjs` | Dry-run/apply read-model rebuild from task events back to compatible queue JSON. |
@@ -528,6 +529,56 @@ Full-cycle apply performs reconcile, integration, and validation, then only sugg
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --apply
 ```
 
+## 4E. Auto Finalize
+
+Finalize is the standard close-out command after the main orchestrator has created a commit, completed an approved integration, or finished an approved pushed agent-cycle:
+
+```bash
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --apply
+```
+
+`finalize --dry-run` is no-write. It reports whether finalize can safely push/sync/check without changing files.
+
+`finalize --apply`:
+
+1. Confirms the current branch is `main`.
+2. Stops on non-runtime dirty files or unintegrated candidate agent branches.
+3. Pushes `main` to `origin/main` when `main` is ahead.
+4. Runs `reconcile-worktrees.mjs --apply` so approved runtime dirt can be backed up before sync.
+5. Runs `./ops/agent-orchestrator/sync-agents-from-main.sh`.
+6. Runs `./ops/agent-orchestrator/check-status.sh`.
+7. Runs `doctor`.
+8. Prints a standard `FINALIZE RESULT`.
+
+Finalize never deploys, never runs production migration, never runs seed, never runs reset or cleanup, never writes production data, and never commits business code.
+
+Hard completion rule:
+
+```text
+No FINALIZE RESULT, no DONE.
+```
+
+Any main orchestrator completion report must include the standard `FINALIZE RESULT`. If `finalize` is not `PASS`, the task or cycle must not be reported as DONE.
+
+Required `FINALIZE RESULT` fields:
+
+- `finalize`: `PASS` / `FAIL`
+- `pushed`: `yes` / `no`
+- `synced_agents`: `yes` / `no`
+- `doctor`: `GO` / `CONDITIONAL_GO` / `NO_GO`
+- `main_head`
+- `main_clean`
+- `agents_clean`
+- `ahead_behind`
+- `READY count`
+- `CLAIMED count`
+- `DONE count`
+- `active_locks`
+- `candidate_agent_branches`
+- `failed_checks`
+- `next_action`
+
 Agent-cycle is the guarded one-command pipeline for dispatching, running, auditing, integrating, validating, and optionally pushing agent work:
 
 ```bash
@@ -545,7 +596,7 @@ Mode behavior:
 - `--apply` does not execute Codex agents, but it may integrate already-committed LOW/MEDIUM agent results into a validated integration branch. It does not push.
 - `--apply --push` may integrate already-committed LOW/MEDIUM agent results, validate the integration branch, fast-forward main, push `origin/main`, and sync agents.
 - `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, commit eligible LOW/MEDIUM dirty agent results to their agent branches, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
-- `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, commit eligible agent results, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
+- `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, commit eligible agent results, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, sync agents again, and automatically run `finalize --apply`.
 - `--apply --execute --push --precheck-only` runs the same pre-execution path through dispatch artifact handling and runner precheck, then stops before Codex execution.
 
 Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
@@ -553,6 +604,8 @@ Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON 
 Event-first dispatch creates task events, compatibility queue/lock read models, prompt files, `dispatch-report.md`, and sometimes `agent-run-plan.md`. During `agent-cycle --apply --execute*`, these generated dispatch artifacts are the only main-worktree dirt that may be auto-committed, with commit message `chore(orchestrator): dispatch claimed agent tasks`. The auto-commit whitelist is limited to `ops/agent-orchestrator/events/**`, `ops/agent-orchestrator/queue/**`, `ops/agent-orchestrator/runs/*.prompt.md`, `ops/agent-orchestrator/runs/dispatch-report.md`, and `ops/agent-orchestrator/runs/agent-run-plan.md`; any other dirty file stops the cycle as `NO_GO`.
 
 If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. Agents already synced to the same local `main` HEAD are not treated as integration candidates in this state. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
+
+When `--push` is present, `agent-cycle` includes auto-finalize at the end. A failed `FINALIZE RESULT` fails the whole cycle.
 
 ## 4F. Doctor Diagnostics
 
@@ -796,8 +849,9 @@ One-click high-level flow:
 5. For agent execution, run `orchestratorctl.mjs agent-cycle --dry-run` first.
 6. Run `orchestratorctl.mjs agent-cycle --apply` to integrate already-committed agent results without running Codex.
 7. Run `orchestratorctl.mjs agent-cycle --apply --execute` only when Codex agent execution is intended.
-8. Run `orchestratorctl.mjs agent-cycle --apply --push` or `orchestratorctl.mjs agent-cycle --apply --execute --push` only when automatic main push and final agent sync are explicitly approved.
-9. Review the integration branch and validation output before accepting any release decision.
+8. Run `orchestratorctl.mjs agent-cycle --apply --push` or `orchestratorctl.mjs agent-cycle --apply --execute --push` only when automatic main push, final agent sync, doctor, and standard FINALIZE RESULT are explicitly approved.
+9. If a cycle created a main commit outside agent-cycle, close it with `node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --apply`.
+10. Review the integration branch, validation output, and FINALIZE RESULT before accepting any release decision.
 
 ## 8. Actions Requiring Human Confirmation
 
@@ -814,7 +868,7 @@ These actions require explicit human confirmation or an explicit guarded flag:
 
 The task queue can mark these with `requires_human_approval: true`.
 
-`orchestratorctl.mjs agent-cycle --apply --execute --push` is the only orchestrator path that may push `main`, and only after preflight, agent execution, LOW/MEDIUM integration, and validation pass. It still does not deploy or run production data operations.
+`orchestratorctl.mjs agent-cycle --apply --execute --push` and `orchestratorctl.mjs finalize --apply` are the only orchestrator paths that may push `main`, and only after explicit operator selection. They still do not deploy or run production data operations.
 
 ## 9. Agent Ownership
 
@@ -857,4 +911,5 @@ Routing examples:
 - `run-claimed-agent-prompts.mjs --apply --execute --parallel 2` can execute up to two claimed agent tasks per batch after event/read-model health passes.
 - `run-claimed-agent-prompts.mjs --parallel 3|5` remains dry-run/plan preview for real execution until a dedicated parallel 3 smoke validates the audit/integration event-first foundation.
 - `commit-agent-results.mjs --apply` commits only eligible LOW/MEDIUM dirty agent outputs. It does not merge or push.
-- `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.
+- `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation and then auto-finalize, but deploy and production operations remain outside this automation.
+- `orchestratorctl.mjs finalize --apply` is the standard close-out for push/sync/status/doctor and must produce `FINALIZE RESULT: PASS` before the main orchestrator reports a cycle as DONE.
