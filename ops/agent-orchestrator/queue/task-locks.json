@@ -1,12 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T15:52:25.977Z",
+  "updated_at": "2026-06-22T15:52:26.474Z",
   "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
-      "agent": "agent-1",
-      "claimed_at": "2026-06-22T15:29:42.712Z"
-    },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
       "agent": "agent-3",
