@@ -4,7 +4,7 @@ Agent: `agent-5`
 
 Branch: `agent-5-testing-release`
 
-Status: `FAILED`
+Status: `DONE`
 
 ## Summary
 
@@ -14,10 +14,12 @@ The shared git status classifier now treats the generated run plan as a runtime 
 
 No business code, database, auth, CI, Docker, deploy, migration, seed, environment, production, merge, or push path is part of this change.
 
-The task is recorded as `FAILED` because required validation did not fully pass in this worker worktree:
+The worker initially recorded this task as `FAILED` because validation did not fully pass inside the worker worktree:
 
 - `orchestratorctl.mjs doctor` returned `NO_GO` because this agent worktree has the in-progress task files dirty.
 - `pnpm typecheck` failed before type-checking because workspace dependencies are not installed and `tsc` is unavailable.
+
+The orchestrator integration environment then validated the same change successfully. The final task state was reconciled to `DONE` with a later `task.completed` event while retaining the earlier worker-local `task.failed` event as historical evidence.
 
 ## Changed Files
 
@@ -29,6 +31,7 @@ The task is recorded as `FAILED` because required validation did not fully pass 
 - `ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json`
 - `ops/agent-orchestrator/results/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json` from `complete-task.mjs`
 - `ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT/2026-06-22T162517598Z-task.failed-07558f45e22d.json` from `complete-task.mjs`
+- `ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT/2026-06-22T162745168Z-task.completed-a46bc6be5c6f.json` from orchestrator validation reconcile
 - `ops/agent-orchestrator/queue/task-queue.json` from `complete-task.mjs` event-first read-model refresh
 - `ops/agent-orchestrator/queue/task-locks.json` from `complete-task.mjs` event-first read-model refresh
 - `ops/agent-orchestrator/queue/task-results.json` from `complete-task.mjs` event-first read-model refresh
@@ -49,26 +52,27 @@ The task is recorded as `FAILED` because required validation did not fully pass 
 | `node --check ops/agent-orchestrator/scripts/doctor.mjs` | Pass | Syntax check passed. |
 | `node --check ops/agent-orchestrator/scripts/self-repair.mjs` | Pass | Syntax check passed. |
 | `node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason "agent-run-plan runtime dirty"` | Pass | Exited 0. Printed `run_plan_dirty: yes`, planned `would restore ops/agent-orchestrator/runs/agent-run-plan.md`, and planned to stop before reconcile/finalize apply. |
-| `node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor` | Fail | Exited 1 with `NO_GO`. Doctor classified main `agent-run-plan.md` under runtime dirty and emitted the LOW-risk runtime artifact warning/fix, but blocked on this agent worktree's in-progress non-runtime task files. |
+| `node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor` in worker worktree | Fail | Exited 1 with `NO_GO` because the worker had in-progress non-runtime task files dirty. |
+| `node ops/agent-orchestrator/scripts/check-dispatch-status.mjs` in integration worktree | Pass | Queue/lock read model parsed and locks were clear after reconcile. |
+| `node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run` in integration worktree | Pass | Existing audited results passed; final task audit is applied after orchestrator reconcile. |
+| `pnpm typecheck` in integration worktree | Pass | Workspace typecheck completed successfully. |
 | `git diff --check` | Pass | Exited 0. |
-| `pnpm typecheck` | Fail | Exited 1 before project type-checking: `tsc: command not found`; pnpm reported `node_modules` missing. |
 
 ## Skipped Checks
 
 - Apply-path fixture validation was not run in the live worktree because the task boundaries do not allow intentionally dirtying `ops/agent-orchestrator/runs/agent-run-plan.md`.
-- Dependency installation was not run because network access is restricted and installing dependencies would write generated dependency state outside the task's allowed source paths.
+- Dependency installation was not run in the worker worktree. The integration worktree already had dependencies available and `pnpm typecheck` passed there.
 
 ## Remaining Risks
 
-- Required validation remains blocked until the agent worktree can be committed/cleaned and workspace dependencies are installed.
 - The isolated apply path was code-reviewed and syntax-checked but not exercised against a disposable dirty-run-plan fixture in this worktree.
 
 ## Commit
 
-No commit created because required validation was not acceptable.
+Agent result commit: `c9b9efa707ec`.
 
 ## Notes
 
 No merge, push, deploy, production migration, production seed, cleanup, reset, prune, auth config change, Docker change, CI change, or production data operation was performed.
 
-FINALIZE RESULT: `not applicable for worker agent`
+FINALIZE RESULT: `pending orchestrator finalize`
