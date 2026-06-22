@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T15:35:04.642Z",
+  "updated_at": "2026-06-22T15:52:25.977Z",
   "results": [
     {
       "task_id": "AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX",
@@ -751,6 +751,45 @@
       "failed_checks": [],
       "notes": "Created Goal-to-Queue validation matrix and task report. Assigned validation commands passed. Local commit was attempted but skipped because sandbox cannot create the Git worktree index lock under .git/worktrees; commit hash intentionally empty. Re-recorded completion via --result because an empty --commit-hash CLI value is parsed as boolean true by complete-task.mjs. No merge push deploy production operation migration seed destructive cleanup auth CI Docker env database package app or business-code change performed.",
       "completed_at": "2026-06-22T15:35:04.642Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "agent": "agent-5",
+      "status": "FAILED",
+      "commit_hash": "none",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/goal-to-queue.mjs",
+        "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/goal-to-queue.mjs",
+        "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "goal-to-queue dry-run | orchestratorctl doctor | pnpm typecheck | node --check changed scripts | negative explicit-mode check | git diff --check | git status --short"
+      ],
+      "passed_checks": [
+        "goal-to-queue dry-run passed | changed script syntax checks passed | explicit-mode negative check passed | git diff --check passed | no business production deploy database auth Docker CI merge or push operation performed"
+      ],
+      "failed_checks": [
+        "orchestratorctl doctor returned NO_GO due dirty main and sibling agent worktrees | pnpm typecheck failed because node_modules is missing and tsc is unavailable"
+      ],
+      "notes": "CLI hardening implemented but required validation failed in current environment. No commit created. Plain doctor now fails closed without self-repair apply; goal-to-queue dry-run remains no-write.",
+      "completed_at": "2026-06-22T15:45:56.429Z"
     },
     {
       "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
