@@ -1,0 +1,38 @@
+{
+  "event_id": "task.integrated:ac655614808aeb185b7bb986",
+  "event_type": "task.integrated",
+  "task_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": null,
+  "created_at": "2026-06-22T17:06:54.726Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-5 result into integration/orchestrator-auto-20260623-010654",
+  "changed_files": [
+    "docs/testing/evolution-queue-conflict-reduction-checklist.md",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION/2026-06-22T170506486Z-task.failed-737577832b26.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+    "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+    "ops/agent-orchestrator/scripts/claim-task.mjs",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "896f79459a9e2a26d0a716b3070524259efa2dcdf52ae9499fef05be440d5268",
+    "agent_id": "agent-5",
+    "agent_branch": "agent-5-testing-release",
+    "agent_head": "45dcb0ecdf3a6631fe10225ea10f2b0929f2097d",
+    "integration_branch": "integration/orchestrator-auto-20260623-010654",
+    "merge_commit": "cae242757d38e004b765188d3b086a0d17614314"
+  }
+}

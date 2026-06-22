@@ -176,6 +176,7 @@ function addAndCommitIfChanged(mainPath, paths, message) {
 function reconcileQueue(mainPath, message, options = {}) {
   const args = [
     "--apply",
+    "--from-events",
     "--source",
     options.source ?? "integrate-agent-results.mjs",
     "--reason",
@@ -229,7 +230,7 @@ function mergeCandidate(mainPath, candidate, integrationBranch) {
   }
 
   console.log(`QUEUE_CONFLICT ${candidate.agent.id}: ${conflicts.join(", ")}`);
-  console.log("Keeping integration branch versions for queue bookkeeping files, then reconciling task results.");
+  console.log("Keeping temporary generated queue files to complete the merge, then reconciling from task events.");
   handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch);
   printGitStatus(mainPath);
   return {
@@ -280,8 +281,8 @@ ${rows}
   - ops/agent-orchestrator/queue/task-queue.json
   - ops/agent-orchestrator/queue/task-locks.json
   - ops/agent-orchestrator/queue/task-results.json
-- When these files conflict, the integration branch version is kept first.
-- \`reconcile-task-results.mjs --apply\` is then run to rebuild queue, lock, and result state from merged result evidence.
+- When these generated files conflict, a temporary queue version is kept only to finish the Git merge.
+- \`reconcile-task-results.mjs --from-events --apply\` is then run so the event projection wins and queue, lock, and result JSON are regenerated.
 - Non-bookkeeping conflicts stop integration and require human review.
 
 ## Validation
@@ -319,12 +320,17 @@ async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch
   return reportRelativePath;
 }
 
-function taskIdsFromCandidate(candidate) {
+async function taskIdsFromCandidate(candidate) {
   const taskIds = new Set();
   for (const file of candidate.files ?? []) {
     const resultMatch = /^ops\/agent-orchestrator\/results\/([^/]+)\.json$/.exec(file);
     if (resultMatch) {
-      taskIds.add(resultMatch[1]);
+      try {
+        const result = await readJson(join(repoRoot, file));
+        taskIds.add(result.task_id || resultMatch[1]);
+      } catch {
+        taskIds.add(resultMatch[1]);
+      }
       continue;
     }
     const eventMatch = /^ops\/agent-orchestrator\/events\/tasks\/([^/]+)\//.exec(file);
@@ -343,7 +349,7 @@ function taskIdsFromCandidate(candidate) {
 async function appendIntegrationEventsForCandidate({ mainPath, candidate, integrationBranch, mergeInfo }) {
   const queue = await readJson(join(orchestratorDir, "queue", "task-queue.json"));
   const tasks = taskById(queue);
-  const taskIds = taskIdsFromCandidate(candidate);
+  const taskIds = await taskIdsFromCandidate(candidate);
   const refs = [];
 
   for (const taskId of taskIds) {

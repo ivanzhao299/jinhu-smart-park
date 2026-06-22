@@ -19,11 +19,12 @@ const EVENT_SUBDIRS = ["tasks", "results", "locks", "audits"];
 const LEGACY_QUEUE_VERSION = 1;
 
 export const EVENT_FIRST_WRITE_PATH_STATUS = {
+  "claim-task.mjs": "event-first: writes task.claimed events, then rebuilds legacy queue/lock JSON read models",
   "dispatch-ready-agents.mjs": "event-first: writes task.claimed events, then rebuilds legacy queue/lock JSON read models",
   "complete-task.mjs": "event-first: writes task.completed/task.failed events, then rebuilds legacy queue/lock/result JSON read models",
   "audit-all-results.mjs": "event-first foundation: --apply writes task.audited events, then rebuilds legacy queue/lock/result JSON read models",
   "integrate-agent-results.mjs": "event-first foundation: --apply writes task.integrated events for merged agent task results",
-  "reconcile-task-results.mjs": "event-first-preferred: rebuilds queue/lock/result JSON from events and records task.reconciled events when apply changes read models"
+  "reconcile-task-results.mjs": "event-first-required when task events exist: rebuilds queue/lock/result JSON from events and records task.reconciled events when apply changes read models"
 };
 
 export const EVENT_STORE_PATHS = {
@@ -171,6 +172,60 @@ async function readLegacyJson(path, fallback) {
     return clone(fallback);
   }
   return readJson(path);
+}
+
+function withoutRuntimeFields(event) {
+  const snapshot = clone(event);
+  delete snapshot._file;
+  return snapshot;
+}
+
+function normalizeReadTaskEvent(event, path) {
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    throw new Error(`Corrupt task event ${path}: event must be a JSON object.`);
+  }
+
+  for (const field of ["event_id", "event_type", "task_id", "created_at"]) {
+    if (!event[field]) {
+      throw new Error(`Corrupt task event ${path}: missing ${field}.`);
+    }
+  }
+
+  if (!TASK_EVENT_TYPES.has(event.event_type)) {
+    throw new Error(`Corrupt task event ${path}: unsupported event_type ${event.event_type}.`);
+  }
+
+  if (Number.isNaN(Date.parse(event.created_at))) {
+    throw new Error(`Corrupt task event ${path}: invalid created_at ${event.created_at}.`);
+  }
+
+  return {
+    ...normalizeTaskEvent(event),
+    _file: path
+  };
+}
+
+function dedupeTaskEvents(events) {
+  const byId = new Map();
+  const deduped = [];
+
+  for (const event of events) {
+    const key = event.event_id;
+    const previous = byId.get(key);
+    if (!previous) {
+      byId.set(key, event);
+      deduped.push(event);
+      continue;
+    }
+
+    const previousContent = stable(withoutRuntimeFields(previous));
+    const currentContent = stable(withoutRuntimeFields(event));
+    if (previousContent !== currentContent) {
+      throw new Error(`Conflicting task event_id ${key}: ${previous._file} and ${event._file}.`);
+    }
+  }
+
+  return deduped;
 }
 
 export async function ensureEventStore() {
@@ -499,11 +554,16 @@ export async function listTaskEvents(taskId) {
     }
 
     const path = join(taskDir, entry.name);
-    const parsed = JSON.parse(await readFile(path, "utf8"));
-    events.push({ ...parsed, _file: path });
+    let parsed;
+    try {
+      parsed = JSON.parse(await readFile(path, "utf8"));
+    } catch (error) {
+      throw new Error(`Corrupt task event ${path}: invalid JSON (${error.message}).`);
+    }
+    events.push(normalizeReadTaskEvent(parsed, path));
   }
 
-  return events.sort(sortEvents);
+  return dedupeTaskEvents(events).sort(sortEvents);
 }
 
 export async function listAllTaskEvents() {
@@ -521,12 +581,17 @@ export async function listAllTaskEvents() {
     events.push(...(await listTaskEvents(entry.name)));
   }
 
-  return events.sort(sortEvents);
+  return dedupeTaskEvents(events).sort(sortEvents);
 }
 
 function applyTaskEvent(task, event) {
   let next = task ? clone(task) : {};
   const snapshot = event.metadata?.task_snapshot;
+  const snapshotHasStatus = snapshot && typeof snapshot === "object" && Boolean(snapshot.status);
+
+  if (!task && !snapshotHasStatus && !event.status_after) {
+    return null;
+  }
 
   if (snapshot && typeof snapshot === "object") {
     next = clone(snapshot);
@@ -555,6 +620,9 @@ export async function buildQueueReadModel() {
   for (const event of events) {
     const current = byTask.get(event.task_id);
     const next = applyTaskEvent(current, event);
+    if (!next) {
+      continue;
+    }
     byTask.set(event.task_id, next);
 
     const order = event.metadata?.queue_index;
