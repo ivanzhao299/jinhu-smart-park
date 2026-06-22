@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T06:22:29.077Z",
+  "updated_at": "2026-06-22T09:02:56.501Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -49,7 +49,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "TRIAL-20260621-001-A2-FINANCE",
@@ -100,7 +100,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "TRIAL-20260621-001-A3-IOT-SAFETY",
@@ -155,7 +155,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
@@ -202,7 +202,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
@@ -254,7 +254,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T14:10:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
@@ -306,7 +306,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:30:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "PROD-20260621-002-A5-DB-INIT-CHAIN",
@@ -531,7 +531,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:35:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
@@ -584,7 +584,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:36:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
@@ -639,7 +639,7 @@
       ],
       "requires_human_approval": true,
       "created_at": "2026-06-21T18:37:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "PROD-20260621-002-A5-ORCH-RELEASE-GATE",
@@ -772,7 +772,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:45:00+08:00",
-      "updated_at": "2026-06-21T22:30:05.770Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
@@ -839,7 +839,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:46:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
@@ -905,7 +905,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:47:00+08:00",
-      "updated_at": "2026-06-21T14:18:43.836Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
@@ -969,7 +969,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:48:00+08:00",
-      "updated_at": "2026-06-22T05:15:00.795Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
@@ -978,7 +978,7 @@
       "owner": "agent-5",
       "domain": "orchestrator-runtime-memory-architecture",
       "priority": "P0",
-      "status": "FAILED",
+      "status": "READY",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1035,7 +1035,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T06:22:29.077Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
@@ -1044,7 +1044,7 @@
       "owner": "agent-3",
       "domain": "orchestrator-runtime-inventory-generator",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "READY",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1101,7 +1101,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:46:05.975Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
@@ -1110,7 +1110,7 @@
       "owner": "agent-4",
       "domain": "orchestrator-smart-e2e-selector",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "READY",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1167,7 +1167,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:46:05.975Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
@@ -1176,7 +1176,7 @@
       "owner": "agent-2",
       "domain": "orchestrator-runtime-selector-validation",
       "priority": "P1",
-      "status": "CLAIMED",
+      "status": "READY",
       "risk": "MEDIUM",
       "allowed_paths": [
         "docs/release",
@@ -1233,7 +1233,7 @@
       ],
       "requires_human_approval": false,
       "created_at": "2026-06-22T05:42:28.913Z",
-      "updated_at": "2026-06-22T05:46:05.975Z"
+      "updated_at": "2026-06-22T09:02:56.501Z"
     }
   ]
 }
