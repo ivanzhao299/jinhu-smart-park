@@ -1,0 +1,80 @@
+{
+  "event_id": "task.integrated:bc459e5c785e7f0f42b4881e",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+  "owner": "agent-1",
+  "status_before": "DONE",
+  "status_after": "DONE",
+  "created_at": "2026-06-22T15:52:26.582Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-1 result into integration/orchestrator-auto-20260622-235225",
+  "changed_files": [
+    "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md",
+    "ops/agent-orchestrator/events/tasks/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS/2026-06-22T154327225Z-task.completed-2bc8ecc29997.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "5d8a69da9cf6eea93d4a16f132f144891955040ef42fcb99ee8c43e4d5576b11",
+    "agent_id": "agent-1",
+    "agent_branch": "agent-1-assets-space",
+    "agent_head": "a1514941c85d275c7a04260c6318a718e428f341",
+    "integration_branch": "integration/orchestrator-auto-20260622-235225",
+    "merge_commit": "6ccc927ddbe14d6f86304876d04bf59f2cea7a61",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "title": "Agent Studio V3 user workflow docs",
+      "domain": "product-docs-runtime-index",
+      "priority": "P1",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "User workflow explains natural-language goal to queue to agent-cycle dry-run.",
+        "Docs distinguish Resident Observer from worker agents.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text \"继续把 Agent Studio 提升到 98%\" --dry-run"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-1",
+      "owner_assignment_reason": "preferred owner agent-1 validated against Agent Registry",
+      "status": "DONE",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:52:26.472Z"
+    }
+  }
+}

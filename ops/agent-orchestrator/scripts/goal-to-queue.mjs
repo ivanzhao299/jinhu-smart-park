@@ -5,7 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendTaskEvent, listAllTaskEvents, writeCompatibilityReadModels } from "./lib/event-store-utils.mjs";
-import { nowIso, readJson, writeJson } from "./lib/queue-utils.mjs";
+import { nowIso, pathMatches, readJson, writeJson } from "./lib/queue-utils.mjs";
 import { readEvolutionData, writeEvolutionData } from "./lib/evolution-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -32,13 +32,17 @@ const DEFAULT_FORBIDDEN_PATHS = [
 
 function usage() {
   console.error('Usage: node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "..." --dry-run|--apply');
+  console.error("Exactly one mode flag is required. --dry-run is read-only; --apply appends task.created events before rebuilding queue read models.");
 }
 
 function parseArgs(argv) {
+  const hasDryRun = argv.includes("--dry-run");
+  const hasApply = argv.includes("--apply");
   const args = {
     text: "",
-    dryRun: argv.includes("--dry-run") || !argv.includes("--apply"),
-    apply: argv.includes("--apply")
+    dryRun: hasDryRun,
+    apply: hasApply,
+    mode: hasApply ? "apply" : "dry-run"
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -61,11 +65,15 @@ function parseArgs(argv) {
     usage();
     throw new Error("Missing --text value.");
   }
-  if (argv.includes("--dry-run") && args.apply) {
-    throw new Error("Use either --dry-run or --apply, not both.");
+  if (hasDryRun === hasApply) {
+    throw new Error("Specify exactly one of --dry-run or --apply.");
   }
 
   return args;
+}
+
+function stable(value) {
+  return JSON.stringify(value);
 }
 
 function slugify(value) {
@@ -480,6 +488,48 @@ function taskForQueue(task, timestamp) {
   };
 }
 
+function validateGeneratedTask(task) {
+  const allowedPaths = Array.isArray(task.allowed_paths) ? task.allowed_paths : [];
+  const forbiddenPaths = Array.isArray(task.forbidden_paths) ? task.forbidden_paths : [];
+  const expectedFiles = Array.isArray(task.expected_output_files) ? task.expected_output_files : [];
+  const validationCommands = Array.isArray(task.validation_commands) ? task.validation_commands : [];
+
+  if (!task.task_id || !task.owner || !task.status) {
+    throw new Error(`Generated task is missing required queue identity fields: ${task.task_id ?? "(missing task_id)"}`);
+  }
+  if (allowedPaths.length === 0) {
+    throw new Error(`Generated task ${task.task_id} has no allowed_paths.`);
+  }
+  if (forbiddenPaths.length === 0) {
+    throw new Error(`Generated task ${task.task_id} has no forbidden_paths.`);
+  }
+  if (expectedFiles.length === 0) {
+    throw new Error(`Generated task ${task.task_id} has no expected_output_files.`);
+  }
+  if (validationCommands.length === 0) {
+    throw new Error(`Generated task ${task.task_id} has no validation_commands.`);
+  }
+
+  for (const file of expectedFiles) {
+    const isAllowed = allowedPaths.some((allowedPath) => pathMatches(file, allowedPath));
+    if (!isAllowed) {
+      throw new Error(`Generated task ${task.task_id} expects file outside allowed_paths: ${file}`);
+    }
+
+    const forbiddenMatch = forbiddenPaths.find((forbiddenPath) => pathMatches(file, forbiddenPath));
+    if (forbiddenMatch) {
+      throw new Error(`Generated task ${task.task_id} expects file blocked by forbidden_paths (${forbiddenMatch}): ${file}`);
+    }
+  }
+}
+
+function validateGeneratedArtifacts(artifacts) {
+  for (const task of artifacts.tasks) {
+    validateGeneratedTask(task);
+  }
+  return artifacts;
+}
+
 async function buildArtifacts(text) {
   const timestamp = nowIso();
   const goalId = goalIdForText(text);
@@ -511,7 +561,7 @@ async function buildArtifacts(text) {
     expected_output: task.expected_output_files.join(", ")
   }));
   const planner = buildPlannerOutput({ goalId, plannerId, goalText: text, tasks: queueTasks, timestamp });
-  return {
+  return validateGeneratedArtifacts({
     timestamp,
     goalId,
     plannerId,
@@ -519,7 +569,7 @@ async function buildArtifacts(text) {
     goal,
     planner,
     tasks: queueTasks
-  };
+  });
 }
 
 async function writeGeneratedArtifact(path, value) {
@@ -531,7 +581,7 @@ async function writeGeneratedArtifact(path, value) {
   return { path, written: true, reason: "created" };
 }
 
-async function appendTaskCreatedEvents(artifacts, dryRun) {
+async function appendTaskCreatedEvents(artifacts) {
   const existingEvents = await listAllTaskEvents();
   const existingIds = new Set(existingEvents.map((event) => event.task_id));
   const eventResults = [];
@@ -558,7 +608,7 @@ async function appendTaskCreatedEvents(artifacts, dryRun) {
         task_snapshot: task
       }
     };
-    eventResults.push(dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : await appendTaskEvent(event));
+    eventResults.push(await appendTaskEvent(event));
   }
 
   return eventResults;
@@ -566,6 +616,8 @@ async function appendTaskCreatedEvents(artifacts, dryRun) {
 
 async function recordEvolutionLearning(artifacts) {
   const data = await readEvolutionData();
+  const originalLearningLog = stable(data.learningLog);
+  const originalEvolutionState = stable(data.evolutionState);
   const learningId = `LEARN-${artifacts.goalId}-QUEUE`;
   const alreadyRecorded = (data.learningLog.entries ?? []).some((entry) => entry.learning_id === learningId);
   if (!alreadyRecorded) {
@@ -587,21 +639,47 @@ async function recordEvolutionLearning(artifacts) {
         status: "ACTIVE"
       }
     ];
+    data.learningLog.updated_at = artifacts.timestamp;
   }
 
-  data.learningLog.updated_at = artifacts.timestamp;
-  data.evolutionState.updated_at = artifacts.timestamp;
-  data.evolutionState.last_run_mode = "goal_to_queue_apply";
-  data.evolutionState.last_summary = {
+  const nextSummary = {
     ...(data.evolutionState.last_summary ?? {}),
     last_goal_id: artifacts.goalId,
     last_planner_output_id: artifacts.plannerId,
     last_goal_to_queue_task_count: artifacts.tasks.length
   };
-  data.evolutionState.next_action = [
+  const nextAction = [
     "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run"
   ];
-  await writeEvolutionData(data);
+  const stateChanged = data.evolutionState.last_run_mode !== "goal_to_queue_apply" ||
+    stable(data.evolutionState.last_summary ?? {}) !== stable(nextSummary) ||
+    stable(data.evolutionState.next_action ?? []) !== stable(nextAction);
+
+  if (stateChanged) {
+    data.evolutionState.updated_at = artifacts.timestamp;
+    data.evolutionState.last_run_mode = "goal_to_queue_apply";
+    data.evolutionState.last_summary = nextSummary;
+    data.evolutionState.next_action = nextAction;
+  }
+
+  const writes = {};
+  if (stable(data.learningLog) !== originalLearningLog) {
+    writes.learningLog = data.learningLog;
+  }
+  if (stable(data.evolutionState) !== originalEvolutionState) {
+    writes.evolutionState = data.evolutionState;
+  }
+
+  const writtenFiles = Object.keys(writes);
+  if (writtenFiles.length > 0) {
+    await writeEvolutionData(writes);
+  }
+
+  return {
+    written: writtenFiles.length > 0,
+    files: writtenFiles,
+    reason: writtenFiles.length > 0 ? "updated" : "already_current"
+  };
 }
 
 async function applyArtifacts(artifacts) {
@@ -609,9 +687,9 @@ async function applyArtifacts(artifacts) {
   const plannerPath = join(plannerGeneratedDir, `${artifacts.plannerId}.json`);
   const goalWrite = await writeGeneratedArtifact(goalPath, artifacts.goal);
   const plannerWrite = await writeGeneratedArtifact(plannerPath, artifacts.planner);
-  const events = await appendTaskCreatedEvents(artifacts, false);
+  const events = await appendTaskCreatedEvents(artifacts);
   const readModels = await writeCompatibilityReadModels();
-  await recordEvolutionLearning(artifacts);
+  const evolution = await recordEvolutionLearning(artifacts);
   return {
     goal_write: goalWrite,
     planner_write: plannerWrite,
@@ -620,7 +698,8 @@ async function applyArtifacts(artifacts) {
       queue_tasks: readModels.queue.tasks.length,
       locks: readModels.locks.locks.length,
       results: readModels.results.results.length
-    }
+    },
+    evolution
   };
 }
 
@@ -659,6 +738,7 @@ function printSummary(artifacts, mode, applyResult = null) {
     console.log(`read model queue tasks: ${applyResult.read_models.queue_tasks}`);
     console.log(`read model locks: ${applyResult.read_models.locks}`);
     console.log(`read model results: ${applyResult.read_models.results}`);
+    console.log(`evolution learning/state: ${applyResult.evolution.written ? "written" : "skipped"} ${applyResult.evolution.reason}`);
   } else {
     console.log("Dry-run: no goal, planner, event, queue, lock, result, or evolution files were modified.");
   }
@@ -674,4 +754,4 @@ try {
 
 const artifacts = await buildArtifacts(args.text);
 const applyResult = args.apply ? await applyArtifacts(artifacts) : null;
-printSummary(artifacts, args.apply ? "apply" : "dry-run", applyResult);
+printSummary(artifacts, args.mode, applyResult);

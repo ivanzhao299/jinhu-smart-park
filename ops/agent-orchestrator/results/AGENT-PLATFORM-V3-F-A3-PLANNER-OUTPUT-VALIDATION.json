@@ -1,0 +1,58 @@
+{
+  "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+  "agent": "agent-3",
+  "status": "DONE",
+  "commit_hash": "",
+  "changed_files": [
+    "docs/release/agent-platform-v3-planner-runtime.md",
+    "docs/release/agent-platform-v3-validation-runbook.md",
+    "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+    "docs/testing/agent-studio-v3-planner-output-validation.md",
+    "ops/agent-orchestrator/planner/planner-output.schema.json",
+    "ops/agent-orchestrator/planner/validate-planner-output.mjs",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+  ],
+  "agent_changed_files": [
+    "docs/release/agent-platform-v3-planner-runtime.md",
+    "docs/release/agent-platform-v3-validation-runbook.md",
+    "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+    "docs/testing/agent-studio-v3-planner-output-validation.md",
+    "ops/agent-orchestrator/planner/planner-output.schema.json",
+    "ops/agent-orchestrator/planner/validate-planner-output.mjs",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md"
+  ],
+  "orchestrator_changed_files": [
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+  ],
+  "commands_run": [
+    "git status --short",
+    "node - <<'NODE' ... status boundary check ... NODE",
+    "node --check ops/agent-orchestrator/planner/validate-planner-output.mjs",
+    "node ops/agent-orchestrator/planner/validate-planner-output.mjs",
+    "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+    "git status --short",
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+    "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/planner/planner-output.schema.json','utf8'));\"",
+    "test -f docs/testing/agent-studio-v3-planner-output-validation.md",
+    "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+    "test -f ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json",
+    "git diff --check",
+    "git status --short",
+    "git add <task files>"
+  ],
+  "passed_checks": [
+    "Planner schema requires generated planner_output_id and current task candidate fields",
+    "Status boundary check confirmed all 8 changed files are inside allowed paths and outside forbidden paths",
+    "Planner validator syntax check passed",
+    "Planner validator checked 5 task candidates and owner/output cross-references",
+    "Goal-to-Queue dry-run printed owner reasons, expected files, and no-write statement",
+    "Dry-run before/after git status snapshots were unchanged",
+    "Dispatch status check exited 0",
+    "Required documentation, report, and result artifacts exist",
+    "No forbidden business, database, infra, CI, Docker, deploy, auth, migration, seed, merge, push, or production path was modified"
+  ],
+  "failed_checks": [],
+  "notes": "Planner output validation was implemented under allowed planner/docs/report/result paths. complete-task.mjs was not run because it would write outside the task boundary. Commit hash remains empty because git add could not write the linked worktree index lock from this sandbox.",
+  "completed_at": "2026-06-22T15:53:04.689Z"
+}

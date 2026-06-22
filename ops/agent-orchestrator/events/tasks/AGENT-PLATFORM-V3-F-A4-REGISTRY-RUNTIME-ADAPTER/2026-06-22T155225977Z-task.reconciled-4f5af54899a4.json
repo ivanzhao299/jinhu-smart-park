@@ -1,0 +1,71 @@
+{
+  "event_id": "task.reconciled:0c3cc32267dab51a166a2522",
+  "event_type": "task.reconciled",
+  "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+  "owner": "agent-4",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T15:52:25.977Z",
+  "actor": "orchestrator",
+  "source": "integration_reconcile",
+  "reason": "queue bookkeeping conflict after agent-5 integration",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "452e2a95f77e5fa30671923e63b79d1f7f17b3c742b9e4eb1e77096a67e907d9",
+    "integration_branch": "integration/orchestrator-auto-20260622-235225",
+    "current_result_status": null,
+    "next_result_status": null,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "title": "Agent Registry runtime adapter design",
+      "domain": "agent-registry-runtime-adapter",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/agent-registry/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Agent Registry and router rules have a compatible runtime adapter design.",
+        "Owner recommendations explain registry and fallback behavior.",
+        "No worker agent pool expansion is introduced."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-4",
+      "owner_assignment_reason": "preferred owner agent-4 validated against Agent Registry",
+      "status": "CLAIMED",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:52:25.977Z"
+    }
+  }
+}

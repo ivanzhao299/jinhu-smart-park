@@ -1,0 +1,82 @@
+{
+  "event_id": "task.integrated:e2064bdcda29575d605817a5",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+  "owner": "agent-3",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T15:52:25.601Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-3 result into integration/orchestrator-auto-20260622-235225",
+  "changed_files": [
+    "docs/release/agent-platform-v3-planner-runtime.md",
+    "docs/release/agent-platform-v3-validation-runbook.md",
+    "docs/testing/agent-platform-v3-planner-dry-run-checklist.md",
+    "docs/testing/agent-studio-v3-planner-output-validation.md",
+    "ops/agent-orchestrator/planner/planner-output.schema.json",
+    "ops/agent-orchestrator/planner/validate-planner-output.mjs",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "24e6b27ac2dcd47e2582f5bce75d788fca7f23b231635e6e9eab6aac5550ecb7",
+    "agent_id": "agent-3",
+    "agent_branch": "agent-3-ops-iot-safety",
+    "agent_head": "306a854b99c866b1cca005204bfbff0a0e376243",
+    "integration_branch": "integration/orchestrator-auto-20260622-235225",
+    "merge_commit": "7a2a817a55727fccd2236118fe8c68bf6ef5deb5",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "title": "Planner Output validation",
+      "domain": "planner-runtime",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/planner/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Planner output is checked against expected task candidate fields.",
+        "Planner runtime explains owner assignment and expected outputs.",
+        "No queue writes happen in dry-run mode."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-3",
+      "owner_assignment_reason": "preferred owner agent-3 validated against Agent Registry",
+      "status": "CLAIMED",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-planner-output-validation.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:29:42.712Z"
+    }
+  }
+}

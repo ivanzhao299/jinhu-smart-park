@@ -1,0 +1,111 @@
+{
+  "event_id": "e787b7d5-9ae0-4b95-97e9-ec3e199c8a9c",
+  "event_type": "task.completed",
+  "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+  "owner": "agent-5",
+  "status_before": "FAILED",
+  "status_after": "DONE",
+  "created_at": "2026-06-22T15:53:04.820Z",
+  "actor": "agent-5",
+  "source": "complete-task.mjs",
+  "reason": "Reconciled by orchestrator after worker recorded FAILED for environment/context checks: worker pnpm typecheck lacked node_modules and worker doctor observed parallel dirty worktrees. Integrated artifacts passed main integration validation and no business/production paths were changed.",
+  "changed_files": [
+    "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+    "ops/agent-orchestrator/scripts/goal-to-queue.mjs",
+    "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json",
+  "audit_ref": "",
+  "metadata": {
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "bfab8a7",
+      "changed_files": [
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/scripts/goal-to-queue.mjs",
+        "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/scripts/goal-to-queue.mjs",
+        "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text 继续把 Agent Studio 提升到 98% --dry-run",
+        "pnpm typecheck on integration branch",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run"
+      ],
+      "passed_checks": [
+        "goal-to-queue dry-run passed",
+        "integration pnpm typecheck passed",
+        "audit-all-results dry-run passed",
+        "no business code changed"
+      ],
+      "failed_checks": [],
+      "notes": "Reconciled by orchestrator after worker recorded FAILED for environment/context checks: worker pnpm typecheck lacked node_modules and worker doctor observed parallel dirty worktrees. Integrated artifacts passed main integration validation and no business/production paths were changed.",
+      "completed_at": "2026-06-22T15:53:04.820Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "title": "Goal Engine CLI hardening",
+      "domain": "goal-engine-platform",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/goal/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Document and harden Goal Engine CLI behavior for dry-run/apply boundaries.",
+        "No business code or production operation is touched.",
+        "Goal-to-queue commands remain idempotent and event-first."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-5",
+      "owner_assignment_reason": "preferred owner agent-5 validated against Agent Registry",
+      "status": "DONE",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:53:04.820Z"
+    }
+  }
+}

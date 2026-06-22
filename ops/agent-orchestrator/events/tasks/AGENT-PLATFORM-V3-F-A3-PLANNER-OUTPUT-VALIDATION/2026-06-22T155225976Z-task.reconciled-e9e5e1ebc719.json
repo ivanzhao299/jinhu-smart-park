@@ -1,0 +1,71 @@
+{
+  "event_id": "task.reconciled:af3d5cddc5dac9e94723ca7e",
+  "event_type": "task.reconciled",
+  "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+  "owner": "agent-3",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T15:52:25.976Z",
+  "actor": "orchestrator",
+  "source": "integration_reconcile",
+  "reason": "queue bookkeeping conflict after agent-5 integration",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "4cf03597ea8826edbbd6ba26e9ac0ebf35be490d64504103b1b61a6a925aa014",
+    "integration_branch": "integration/orchestrator-auto-20260622-235225",
+    "current_result_status": null,
+    "next_result_status": null,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "title": "Planner Output validation",
+      "domain": "planner-runtime",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/planner/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Planner output is checked against expected task candidate fields.",
+        "Planner runtime explains owner assignment and expected outputs.",
+        "No queue writes happen in dry-run mode."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-3",
+      "owner_assignment_reason": "preferred owner agent-3 validated against Agent Registry",
+      "status": "CLAIMED",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-planner-output-validation.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:52:25.976Z"
+    }
+  }
+}

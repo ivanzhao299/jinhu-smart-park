@@ -1,0 +1,77 @@
+{
+  "event_id": "task.integrated:f34de2703529328ab1e1b149",
+  "event_type": "task.integrated",
+  "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+  "owner": "agent-4",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-22T15:52:25.713Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-4 result into integration/orchestrator-auto-20260622-235225",
+  "changed_files": [
+    "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md",
+    "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "073b80ba1f68a48a443bd5bb48b5829117e035b4f8f3e8f0e98adbeed10f3530",
+    "agent_id": "agent-4",
+    "agent_branch": "agent-4-dashboard-mobile-rbac",
+    "agent_head": "232cf3d9be66e1c8bafe86803925883d894a0422",
+    "integration_branch": "integration/orchestrator-auto-20260622-235225",
+    "merge_commit": "4ba0a7b4e7782f66d49083346c7f57411cb89226",
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "title": "Agent Registry runtime adapter design",
+      "domain": "agent-registry-runtime-adapter",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/agent-registry/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Agent Registry and router rules have a compatible runtime adapter design.",
+        "Owner recommendations explain registry and fallback behavior.",
+        "No worker agent pool expansion is introduced."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-4",
+      "owner_assignment_reason": "preferred owner agent-4 validated against Agent Registry",
+      "status": "CLAIMED",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:29:42.712Z"
+    }
+  }
+}

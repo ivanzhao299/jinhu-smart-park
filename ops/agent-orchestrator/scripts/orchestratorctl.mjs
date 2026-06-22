@@ -89,7 +89,8 @@ function runDoctorCommand(args = []) {
   });
 
   if (result.status !== 0) {
-    process.exit(runSelfRepair(`doctor failed with exit ${result.status ?? 1}`));
+    console.error(`doctor failed with exit ${result.status ?? 1}; no self-repair was applied.`);
+    process.exit(result.status ?? 1);
   }
 
   const jsonMode = hasFlag(args, "--json");
@@ -105,16 +106,19 @@ function runDoctorCommand(args = []) {
   });
 
   if (jsonResult.status !== 0) {
-    process.exit(runSelfRepair(`doctor --json failed after doctor check with exit ${jsonResult.status ?? 1}`));
+    console.error(`doctor --json failed after doctor check with exit ${jsonResult.status ?? 1}; no self-repair was applied.`);
+    process.exit(jsonResult.status ?? 1);
   }
 
   try {
     const diagnosis = JSON.parse(jsonResult.stdout ?? "{}");
     if (diagnosis.status === "NO_GO") {
-      process.exit(runSelfRepair("doctor returned NO_GO"));
+      console.error("doctor returned NO_GO; no self-repair was applied. Run orchestratorctl.mjs self-repair --dry-run before any explicit apply repair.");
+      process.exit(1);
     }
   } catch (error) {
-    process.exit(runSelfRepair(`doctor --json was not parseable after doctor check: ${error.message}`));
+    console.error(`doctor --json was not parseable after doctor check: ${error.message}`);
+    process.exit(1);
   }
 }
 
@@ -203,6 +207,15 @@ function commandMode(args) {
   if (args.apply && args.execute) return "apply-execute";
   if (args.apply && args.push) return "apply-push";
   return "apply-plan";
+}
+
+function requiredModeFlag(argv, commandName) {
+  const dryRun = hasFlag(argv, "--dry-run");
+  const apply = hasFlag(argv, "--apply");
+  if (dryRun === apply) {
+    throw new Error(`${commandName} requires exactly one of --dry-run or --apply.`);
+  }
+  return apply ? "--apply" : "--dry-run";
 }
 
 function activeLockAgents(queue, locks) {
@@ -629,6 +642,9 @@ async function autonomousLoopCommand(rest) {
   if (!text.trim()) {
     throw new Error('autonomous-loop requires --text "..."');
   }
+  if (hasFlag(rest, "--apply")) {
+    throw new Error("autonomous-loop MVP supports --dry-run only.");
+  }
   if (!hasFlag(rest, "--dry-run")) {
     throw new Error("autonomous-loop MVP supports --dry-run only.");
   }
@@ -685,10 +701,11 @@ async function dispatchCommand() {
       if (!text.trim()) {
         throw new Error('goal-to-queue requires --text "..."');
       }
+      const mode = requiredModeFlag(rest, "goal-to-queue");
       runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", [
         "--text",
         text,
-        hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+        mode
       ]);
       break;
     }
@@ -743,5 +760,6 @@ try {
     const dryRun = hasFlag(rest, "--dry-run") || !hasFlag(rest, "--apply");
     process.exit(runSelfRepair(`agent-cycle failed: ${error.message}`, { dryRun }));
   }
-  throw error;
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
 }

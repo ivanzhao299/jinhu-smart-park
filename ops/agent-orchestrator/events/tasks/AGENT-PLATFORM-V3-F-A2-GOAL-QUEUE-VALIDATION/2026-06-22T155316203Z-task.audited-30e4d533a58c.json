@@ -1,0 +1,125 @@
+{
+  "event_id": "task.audited:37105794c51fdd6c33e692d8",
+  "event_type": "task.audited",
+  "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T15:53:16.203Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "ab2517327c871302c1892d28d2b72f189d007c39a05e9cae7a3706f8d3b2243c",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck",
+        "git status --short",
+        "git add docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md && git diff --cached --check",
+        "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION --agent agent-2 --status DONE",
+        "node ops/agent-orchestrator/scripts/complete-task.mjs --result ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "rg -n '\"commit_hash\": true' ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json ops/agent-orchestrator/events/tasks/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION || true",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "check-dispatch-status passed",
+        "audit-all-results dry-run passed",
+        "post-completion check-dispatch-status shows this task as DONE",
+        "post-completion audit-all-results dry-run passed for this task",
+        "pnpm typecheck passed",
+        "rebuild-queue-read-model dry-run passed with changed=false for queue locks and results",
+        "no commit_hash true remains in the task result or task completion events",
+        "acceptance matrix covers goal generation planner output task.created events read-model rebuild and agent-cycle dry-run",
+        "no business code or production operation touched"
+      ],
+      "failed_checks": [],
+      "notes": "Created Goal-to-Queue validation matrix and task report. Assigned validation commands passed. Local commit was attempted but skipped because sandbox cannot create the Git worktree index lock under .git/worktrees; commit hash intentionally empty. Re-recorded completion via --result because an empty --commit-hash CLI value is parsed as boolean true by complete-task.mjs. No merge push deploy production operation migration seed destructive cleanup auth CI Docker env database package app or business-code change performed.",
+      "completed_at": "2026-06-22T15:35:04.642Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "title": "Goal-to-Queue validation matrix",
+      "domain": "validation-goal-queue",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "Validation matrix covers goal generation, planner output, task.created events, read-model rebuild, and agent-cycle dry-run.",
+        "Audit/typecheck/doctor checks are listed as base gates.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-2",
+      "owner_assignment_reason": "preferred owner agent-2 validated against Agent Registry",
+      "status": "AUDITED",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:53:16.203Z"
+    }
+  }
+}
