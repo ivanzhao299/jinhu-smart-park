@@ -37,6 +37,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs full-cycle --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
@@ -197,6 +198,10 @@ function printOutcome(status, reason) {
   if (reason) {
     console.log(reason);
   }
+}
+
+function runFinalizeApply() {
+  requireScript("ops/agent-orchestrator/scripts/finalize.mjs", ["--apply"]);
 }
 
 async function statusCommand() {
@@ -476,6 +481,9 @@ async function agentCycleCommand(rest) {
       process.exit(1);
     }
     await integrateExistingAgentCommits(state, args);
+    if (args.push) {
+      runFinalizeApply();
+    }
     return;
   }
 
@@ -518,6 +526,9 @@ async function agentCycleCommand(rest) {
 
   const refreshedAfterCommit = await readAgentCycleState();
   await integrateExistingAgentCommits(refreshedAfterCommit, args);
+  if (args.push) {
+    runFinalizeApply();
+  }
 }
 
 const argv = process.argv.slice(2);
@@ -546,6 +557,11 @@ switch (command) {
     break;
   case "daemon":
     runScript("ops/agent-orchestrator/scripts/daemon.mjs", rest);
+    break;
+  case "finalize":
+    runScript("ops/agent-orchestrator/scripts/finalize.mjs", [
+      hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+    ]);
     break;
   case "full-cycle": {
     const apply = hasFlag(rest, "--apply");
