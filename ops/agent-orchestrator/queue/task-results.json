@@ -1,43 +1,547 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T09:11:10.911Z",
+  "updated_at": "2026-06-22T11:37:30.626Z",
   "results": [
     {
-      "task_id": "TRIAL-20260621-001-A5-GATES",
-      "agent": "agent-5",
+      "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
+      "agent": "agent-2",
       "status": "DONE",
-      "commit_hash": "fedf4bd",
+      "source": "reconciled_from_successful_run_log_and_agent_commit",
+      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log",
+      "exit_code": 0,
+      "commit_hash": "4934f39599741ebb054fca42adb9d5c3feaa2f40",
       "changed_files": [
-        "docs/release/production-readiness-dry-run-report.md",
-        "docs/release/trial-launch-engineering-gates-auth-readiness.md"
+        "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
+        "docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md"
       ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
+        "docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md"
+      ],
+      "orchestrator_changed_files": [],
       "commands_run": [
-        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-5",
-        "git status --short",
-        "pnpm lint",
-        "pnpm typecheck",
-        "pnpm build",
-        "node scripts/e2e/first-release-auth-health.mjs",
-        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs",
-        "node scripts/e2e/first-release-menu-whitelist.mjs"
+        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log",
+        "git show --name-status 4934f39"
       ],
       "passed_checks": [
-        "node scripts/e2e/first-release-menu-whitelist.mjs",
-        "GET /health",
-        "GET /ready",
-        "POST /auth/login correct password",
-        "GET /auth/me",
-        "POST /auth/login wrong password rejected"
+        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log recorded exit_code=0",
+        "agent commit 4934f39 exists",
+        "changed_files recorded from agent commit name-status output",
+        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
+        "no production operation recorded",
+        "no business code change recorded"
+      ],
+      "failed_checks": [],
+      "no_production_operation": true,
+      "no_business_code_change": true,
+      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
+      "completed_at": "2026-06-22T06:27:42.706Z",
+      "reconciled_at": "2026-06-22T09:11:10.911Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "none-agent-commit-restored-from-run-log",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "rg coverage scan",
+        "git add attempted",
+        "orchestrator restored files from run.log without rerunning Agent"
+      ],
+      "passed_checks": [
+        "Validation matrix covers V2-A and V2-B",
+        "Compatibility plan covers legacy queue JSON and event files",
+        "Negative tests cover HIGH-risk paths corrupt events duplicate events stale locks Codex failure and validation failure",
+        "check-dispatch-status passed",
+        "agent-cycle --dry-run passed",
+        "pnpm typecheck passed",
+        "git diff --check passed"
+      ],
+      "failed_checks": [],
+      "notes": "Agent-2 run.log exit_code=0 and contains three documentation artifacts. The agent-2 worktree was clean and the files were no longer present, so the orchestrator restored the final diff from the run.log without rerunning Codex. Agent git add/commit failed in the original run due parent worktree index lock permission; no agent commit hash exists.",
+      "completed_at": "2026-06-22T05:15:00.795Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
+      "agent": "agent-3",
+      "status": "DONE",
+      "source": "reconciled_from_successful_run_log_and_agent_commit",
+      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log",
+      "exit_code": 0,
+      "commit_hash": "7c62b15e4838ba74d204a4d8d2dee55d47fd68b5",
+      "changed_files": [
+        "docs/release/agent-platform-v2-inventory-generator-design.md",
+        "docs/testing/agent-platform-v2-inventory-generator-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-inventory-generator-design.md",
+        "docs/testing/agent-platform-v2-inventory-generator-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log",
+        "git show --name-status 7c62b15"
+      ],
+      "passed_checks": [
+        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log recorded exit_code=0",
+        "agent commit 7c62b15 exists",
+        "changed_files recorded from agent commit name-status output",
+        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
+        "no production operation recorded",
+        "no business code change recorded"
+      ],
+      "failed_checks": [],
+      "no_production_operation": true,
+      "no_business_code_change": true,
+      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
+      "completed_at": "2026-06-22T06:11:34.587Z",
+      "reconciled_at": "2026-06-22T09:11:10.911Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "read model status coverage",
+        "result and audit conflict-free shapes",
+        "legacy queue generation from events",
+        "pnpm typecheck",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Validation passed. Local commit could not be created because sandbox blocks Git index writes under parent .git worktree index.lock. No merge or push performed.",
+      "completed_at": "2026-06-21T14:04:35.789Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+      "agent": "agent-4",
+      "status": "DONE",
+      "source": "reconciled_from_successful_run_log_and_agent_commit",
+      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
+      "exit_code": 0,
+      "commit_hash": "33e0b433cf4afc96a5dee384a13814ce3782a9ac",
+      "changed_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
+        "git show --name-status 33e0b43"
+      ],
+      "passed_checks": [
+        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log recorded exit_code=0",
+        "agent commit 33e0b43 exists",
+        "changed_files recorded from agent commit name-status output",
+        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
+        "no production operation recorded",
+        "no business code change recorded"
+      ],
+      "failed_checks": [],
+      "no_production_operation": true,
+      "no_business_code_change": true,
+      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
+      "completed_at": "2026-06-22T06:16:40.067Z",
+      "reconciled_at": "2026-06-22T09:11:10.911Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
+        "ops/agent-orchestrator/README.md",
+        "docs/release/agent-platform-v2-parallel-runner-plan.md",
+        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
+        "ops/agent-orchestrator/README.md",
+        "docs/release/agent-platform-v2-parallel-runner-plan.md",
+        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 1",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 2",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 3",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 5",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 4",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel all",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute --parallel 2 --precheck-only",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check"
+      ],
+      "passed_checks": [
+        "--parallel defaults to 1",
+        "--parallel accepts only 1 2 3 5",
+        "dry-run prints planned parallel batches without executing Codex",
+        "invalid parallel values fail before execution",
+        "parallel execute above 1 is blocked before Codex execution",
+        "orchestratorctl agent-cycle dry-run passes",
+        "typecheck passes",
+        "git diff --check passes"
+      ],
+      "failed_checks": [],
+      "notes": "Task complete. Local commit could not be created because sandbox denied writing the shared git worktree index lock; commit hash intentionally left empty. Parallel execution above 1 remains blocked until event-sourced completion writes are available.",
+      "completed_at": "2026-06-21T14:12:41.795Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "pending-main-commit",
+      "changed_files": [
+        "ops/agent-orchestrator/events/.gitkeep",
+        "ops/agent-orchestrator/events/tasks/.gitkeep",
+        "ops/agent-orchestrator/events/results/.gitkeep",
+        "ops/agent-orchestrator/events/locks/.gitkeep",
+        "ops/agent-orchestrator/events/audits/.gitkeep",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/events/.gitkeep",
+        "ops/agent-orchestrator/events/tasks/.gitkeep",
+        "ops/agent-orchestrator/events/results/.gitkeep",
+        "ops/agent-orchestrator/events/locks/.gitkeep",
+        "ops/agent-orchestrator/events/audits/.gitkeep",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "passed_checks": [
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "failed_checks": [],
+      "notes": "Implemented event-sourcing queue foundation with append-only event utilities, bootstrap/read-model dry-run scripts, compatibility documentation, and test plan. Bootstrap --apply and rebuild --apply were intentionally not run.",
+      "completed_at": "2026-06-21T22:30:05.770Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
+      "agent": "agent-5",
+      "status": "DONE",
+      "source": "reconciled_from_successful_run_log_and_agent_commit",
+      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log",
+      "exit_code": 0,
+      "commit_hash": "ca2d755392da92a99b7b42d37aad7d529131c12f",
+      "changed_files": [
+        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-results.json",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.json",
+        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md",
+        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-results.json",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.json"
+      ],
+      "commands_run": [
+        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log",
+        "git show --name-status ca2d755"
+      ],
+      "passed_checks": [
+        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log recorded exit_code=0",
+        "agent commit ca2d755 exists",
+        "changed_files recorded from agent commit name-status output",
+        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
+        "no production operation recorded",
+        "no business code change recorded"
+      ],
+      "failed_checks": [],
+      "no_production_operation": true,
+      "no_business_code_change": true,
+      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
+      "completed_at": "2026-06-22T06:23:06.359Z",
+      "reconciled_at": "2026-06-22T09:11:10.911Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check",
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2 --agent agent-2 --status DONE"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Created the parallel 2 smoke checklist and report; validation commands passed; no commit, merge, push, deploy, production operation, or business-code change performed. complete-task.mjs wrote orchestrator completion bookkeeping; commit hash intentionally empty because allow_commit=false.",
+      "completed_at": "2026-06-22T11:37:30.626Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "d7c4ac7",
+      "changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short showed only planned allowed-path files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Finance release gate planning report was completed and integrated. This records task completion only; it does not assert production financial write-path evidence or production Go approval.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "none",
+      "changed_files": [
+        "docs/release/iot-safety-runtime-smoke-production-plan.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/iot-safety-runtime-smoke-production-plan.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "git status --short",
+        "git commit -m docs: add iot safety production smoke plan"
+      ],
+      "passed_checks": [
+        "git status --short showed only allowed new files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "final git status --short showed only allowed new files"
+      ],
+      "failed_checks": [],
+      "notes": "Created production-safe IoT/safety runtime smoke plan and report. Required validations passed. Local commit was attempted but could not be created because the linked Git worktree index is outside the writable sandbox and index.lock creation was denied. No merge or push performed.",
+      "completed_at": "2026-06-21T12:11:37.366Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
+      "changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "failed_checks": [],
+      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
+      "completed_at": "2026-06-21T12:16:22.254Z"
+    },
+    {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "3c6855c",
+      "changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status clean",
+        "release docs exist",
+        "git diff --check"
       ],
       "failed_checks": [
-        "pnpm lint",
-        "pnpm typecheck",
-        "pnpm build",
-        "node scripts/e2e/first-release-auth-health.mjs",
-        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs"
+        "pnpm typecheck failed in the agent checkout because local node_modules was missing and tsc was not found"
       ],
-      "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
-      "completed_at": "2026-06-21T16:53:17+08:00"
+      "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
     },
     {
       "task_id": "TRIAL-20260621-001-A2-FINANCE",
@@ -154,6 +658,43 @@
       "completed_at": "2026-06-21T16:53:17+08:00"
     },
     {
+      "task_id": "TRIAL-20260621-001-A5-GATES",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "fedf4bd",
+      "changed_files": [
+        "docs/release/production-readiness-dry-run-report.md",
+        "docs/release/trial-launch-engineering-gates-auth-readiness.md"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-5",
+        "git status --short",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs"
+      ],
+      "passed_checks": [
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "GET /health",
+        "GET /ready",
+        "POST /auth/login correct password",
+        "GET /auth/me",
+        "POST /auth/login wrong password rejected"
+      ],
+      "failed_checks": [
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs"
+      ],
+      "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
+      "completed_at": "2026-06-21T16:53:17+08:00"
+    },
+    {
       "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
       "agent": "agent-5",
       "status": "DONE",
@@ -187,506 +728,6 @@
       "failed_checks": [],
       "notes": "Evidence pack completed. Skipped node scripts/e2e/first-release-files.mjs, MODE=full pnpm prod:health, and bash scripts/verify-api-login-dockerexec.sh because no approved target environment, credentials, test data marker, or cleanup plan was provided. Release judgment remains No-Go until target evidence is collected. No merge or push.",
       "completed_at": "2026-06-21T09:16:00.346Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
-      "agent": "agent-5",
-      "status": "DONE",
-      "commit_hash": "3c6855c",
-      "changed_files": [
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
-        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
-      ],
-      "agent_changed_files": [
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
-        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "pnpm typecheck",
-        "test -f docs/release/production-readiness-matrix.md",
-        "test -f docs/release/production-release-sop.md",
-        "test -f docs/release/production-rollback-sop.md",
-        "git diff --check",
-        "git status --short"
-      ],
-      "passed_checks": [
-        "initial git status clean",
-        "release docs exist",
-        "git diff --check"
-      ],
-      "failed_checks": [
-        "pnpm typecheck failed in the agent checkout because local node_modules was missing and tsc was not found"
-      ],
-      "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
-      "completed_at": "2026-06-21T13:43:21.096Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
-      "agent": "agent-3",
-      "status": "DONE",
-      "commit_hash": "none",
-      "changed_files": [
-        "docs/release/iot-safety-runtime-smoke-production-plan.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/iot-safety-runtime-smoke-production-plan.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s5a-safety-smoke.mjs",
-        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
-        "node --check scripts/e2e/safety-module-access-smoke.mjs",
-        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
-        "git diff --check",
-        "git status --short",
-        "git commit -m docs: add iot safety production smoke plan"
-      ],
-      "passed_checks": [
-        "git status --short showed only allowed new files",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s5a-safety-smoke.mjs",
-        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
-        "node --check scripts/e2e/safety-module-access-smoke.mjs",
-        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
-        "git diff --check",
-        "final git status --short showed only allowed new files"
-      ],
-      "failed_checks": [],
-      "notes": "Created production-safe IoT/safety runtime smoke plan and report. Required validations passed. Local commit was attempted but could not be created because the linked Git worktree index is outside the writable sandbox and index.lock creation was denied. No merge or push performed.",
-      "completed_at": "2026-06-21T12:11:37.366Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
-      "agent": "agent-4",
-      "status": "DONE",
-      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
-      "changed_files": [
-        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
-        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
-        "docs/testing/how-to-run-tests.md",
-        "docs/release/production-readiness-matrix.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
-        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
-        "docs/testing/how-to-run-tests.md",
-        "docs/release/production-readiness-matrix.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
-        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
-        "node --check scripts/e2e/first-release-idempotency.mjs",
-        "git diff --check",
-        "git status --short"
-      ],
-      "passed_checks": [
-        "git status --short",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
-        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
-        "node --check scripts/e2e/first-release-idempotency.mjs",
-        "git diff --check",
-        "git status --short"
-      ],
-      "failed_checks": [],
-      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
-      "completed_at": "2026-06-21T12:16:22.254Z"
-    },
-    {
-      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
-      "agent": "agent-2",
-      "status": "DONE",
-      "commit_hash": "d7c4ac7",
-      "changed_files": [
-        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
-        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s3c-contract-smoke.mjs",
-        "node --check scripts/e2e/s3d-payment-smoke.mjs",
-        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
-        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
-        "node --check scripts/e2e/first-release-leasing.mjs",
-        "git diff --check",
-        "git status --short"
-      ],
-      "passed_checks": [
-        "git status --short showed only planned allowed-path files",
-        "pnpm typecheck",
-        "node --check scripts/e2e/s3c-contract-smoke.mjs",
-        "node --check scripts/e2e/s3d-payment-smoke.mjs",
-        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
-        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
-        "node --check scripts/e2e/first-release-leasing.mjs",
-        "git diff --check"
-      ],
-      "failed_checks": [],
-      "notes": "Finance release gate planning report was completed and integrated. This records task completion only; it does not assert production financial write-path evidence or production Go approval.",
-      "completed_at": "2026-06-21T13:43:21.096Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
-      "agent": "agent-5",
-      "status": "DONE",
-      "commit_hash": "pending-main-commit",
-      "changed_files": [
-        "ops/agent-orchestrator/events/.gitkeep",
-        "ops/agent-orchestrator/events/tasks/.gitkeep",
-        "ops/agent-orchestrator/events/results/.gitkeep",
-        "ops/agent-orchestrator/events/locks/.gitkeep",
-        "ops/agent-orchestrator/events/audits/.gitkeep",
-        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
-        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
-        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
-        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
-        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
-        "ops/agent-orchestrator/README.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
-      ],
-      "agent_changed_files": [
-        "ops/agent-orchestrator/events/.gitkeep",
-        "ops/agent-orchestrator/events/tasks/.gitkeep",
-        "ops/agent-orchestrator/events/results/.gitkeep",
-        "ops/agent-orchestrator/events/locks/.gitkeep",
-        "ops/agent-orchestrator/events/audits/.gitkeep",
-        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
-        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
-        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
-        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
-        "docs/release/AGENT_PLATFORM_V2_PLAN.md",
-        "ops/agent-orchestrator/README.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
-        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
-        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
-        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
-        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
-        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
-        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
-        "git diff --check",
-        "pnpm typecheck"
-      ],
-      "passed_checks": [
-        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
-        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
-        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
-        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
-        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
-        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
-        "git diff --check",
-        "pnpm typecheck"
-      ],
-      "failed_checks": [],
-      "notes": "Implemented event-sourcing queue foundation with append-only event utilities, bootstrap/read-model dry-run scripts, compatibility documentation, and test plan. Bootstrap --apply and rebuild --apply were intentionally not run.",
-      "completed_at": "2026-06-21T22:30:05.770Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
-      "agent": "agent-3",
-      "status": "DONE",
-      "commit_hash": "",
-      "changed_files": [
-        "docs/release/agent-platform-v2-read-model-plan.md",
-        "docs/testing/agent-platform-v2-read-model-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/agent-platform-v2-read-model-plan.md",
-        "docs/testing/agent-platform-v2-read-model-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
-        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
-        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
-        "pnpm typecheck",
-        "git diff --check",
-        "git status --short"
-      ],
-      "passed_checks": [
-        "read model status coverage",
-        "result and audit conflict-free shapes",
-        "legacy queue generation from events",
-        "pnpm typecheck",
-        "git diff --check"
-      ],
-      "failed_checks": [],
-      "notes": "Validation passed. Local commit could not be created because sandbox blocks Git index writes under parent .git worktree index.lock. No merge or push performed.",
-      "completed_at": "2026-06-21T14:04:35.789Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
-      "agent": "agent-4",
-      "status": "DONE",
-      "commit_hash": "",
-      "changed_files": [
-        "ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
-        "ops/agent-orchestrator/README.md",
-        "docs/release/agent-platform-v2-parallel-runner-plan.md",
-        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
-      ],
-      "agent_changed_files": [
-        "ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
-        "ops/agent-orchestrator/README.md",
-        "docs/release/agent-platform-v2-parallel-runner-plan.md",
-        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "node --check ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 1",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 2",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 3",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 5",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel 4",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run --parallel all",
-        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute --parallel 2 --precheck-only",
-        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
-        "pnpm typecheck",
-        "git diff --check"
-      ],
-      "passed_checks": [
-        "--parallel defaults to 1",
-        "--parallel accepts only 1 2 3 5",
-        "dry-run prints planned parallel batches without executing Codex",
-        "invalid parallel values fail before execution",
-        "parallel execute above 1 is blocked before Codex execution",
-        "orchestratorctl agent-cycle dry-run passes",
-        "typecheck passes",
-        "git diff --check passes"
-      ],
-      "failed_checks": [],
-      "notes": "Task complete. Local commit could not be created because sandbox denied writing the shared git worktree index lock; commit hash intentionally left empty. Parallel execution above 1 remains blocked until event-sourced completion writes are available.",
-      "completed_at": "2026-06-21T14:12:41.795Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
-      "agent": "agent-2",
-      "status": "DONE",
-      "commit_hash": "none-agent-commit-restored-from-run-log",
-      "changed_files": [
-        "docs/testing/agent-platform-v2-validation-matrix.md",
-        "docs/release/agent-platform-v2-compatibility-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
-      ],
-      "agent_changed_files": [
-        "docs/testing/agent-platform-v2-validation-matrix.md",
-        "docs/release/agent-platform-v2-compatibility-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "git status --short",
-        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
-        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
-        "pnpm typecheck",
-        "git diff --check",
-        "rg coverage scan",
-        "git add attempted",
-        "orchestrator restored files from run.log without rerunning Agent"
-      ],
-      "passed_checks": [
-        "Validation matrix covers V2-A and V2-B",
-        "Compatibility plan covers legacy queue JSON and event files",
-        "Negative tests cover HIGH-risk paths corrupt events duplicate events stale locks Codex failure and validation failure",
-        "check-dispatch-status passed",
-        "agent-cycle --dry-run passed",
-        "pnpm typecheck passed",
-        "git diff --check passed"
-      ],
-      "failed_checks": [],
-      "notes": "Agent-2 run.log exit_code=0 and contains three documentation artifacts. The agent-2 worktree was clean and the files were no longer present, so the orchestrator restored the final diff from the run.log without rerunning Codex. Agent git add/commit failed in the original run due parent worktree index lock permission; no agent commit hash exists.",
-      "completed_at": "2026-06-22T05:15:00.795Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
-      "agent": "agent-2",
-      "status": "DONE",
-      "source": "reconciled_from_successful_run_log_and_agent_commit",
-      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log",
-      "exit_code": 0,
-      "commit_hash": "4934f39599741ebb054fca42adb9d5c3feaa2f40",
-      "changed_files": [
-        "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
-        "docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
-        "docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log",
-        "git show --name-status 4934f39"
-      ],
-      "passed_checks": [
-        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION-agent-2.run.log recorded exit_code=0",
-        "agent commit 4934f39 exists",
-        "changed_files recorded from agent commit name-status output",
-        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
-        "no production operation recorded",
-        "no business code change recorded"
-      ],
-      "failed_checks": [],
-      "no_production_operation": true,
-      "no_business_code_change": true,
-      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
-      "completed_at": "2026-06-22T06:27:42.706Z",
-      "reconciled_at": "2026-06-22T09:11:10.911Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
-      "agent": "agent-3",
-      "status": "DONE",
-      "source": "reconciled_from_successful_run_log_and_agent_commit",
-      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log",
-      "exit_code": 0,
-      "commit_hash": "7c62b15e4838ba74d204a4d8d2dee55d47fd68b5",
-      "changed_files": [
-        "docs/release/agent-platform-v2-inventory-generator-design.md",
-        "docs/testing/agent-platform-v2-inventory-generator-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/agent-platform-v2-inventory-generator-design.md",
-        "docs/testing/agent-platform-v2-inventory-generator-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log",
-        "git show --name-status 7c62b15"
-      ],
-      "passed_checks": [
-        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR-agent-3.run.log recorded exit_code=0",
-        "agent commit 7c62b15 exists",
-        "changed_files recorded from agent commit name-status output",
-        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
-        "no production operation recorded",
-        "no business code change recorded"
-      ],
-      "failed_checks": [],
-      "no_production_operation": true,
-      "no_business_code_change": true,
-      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
-      "completed_at": "2026-06-22T06:11:34.587Z",
-      "reconciled_at": "2026-06-22T09:11:10.911Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
-      "agent": "agent-4",
-      "status": "DONE",
-      "source": "reconciled_from_successful_run_log_and_agent_commit",
-      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
-      "exit_code": 0,
-      "commit_hash": "33e0b433cf4afc96a5dee384a13814ce3782a9ac",
-      "changed_files": [
-        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
-        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
-        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
-      ],
-      "orchestrator_changed_files": [],
-      "commands_run": [
-        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
-        "git show --name-status 33e0b43"
-      ],
-      "passed_checks": [
-        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log recorded exit_code=0",
-        "agent commit 33e0b43 exists",
-        "changed_files recorded from agent commit name-status output",
-        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
-        "no production operation recorded",
-        "no business code change recorded"
-      ],
-      "failed_checks": [],
-      "no_production_operation": true,
-      "no_business_code_change": true,
-      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
-      "completed_at": "2026-06-22T06:16:40.067Z",
-      "reconciled_at": "2026-06-22T09:11:10.911Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
-      "agent": "agent-5",
-      "status": "DONE",
-      "source": "reconciled_from_successful_run_log_and_agent_commit",
-      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log",
-      "exit_code": 0,
-      "commit_hash": "ca2d755392da92a99b7b42d37aad7d529131c12f",
-      "changed_files": [
-        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
-        "ops/agent-orchestrator/queue/task-queue.json",
-        "ops/agent-orchestrator/queue/task-results.json",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md",
-        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.json",
-        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md"
-      ],
-      "agent_changed_files": [
-        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
-        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md",
-        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md"
-      ],
-      "orchestrator_changed_files": [
-        "ops/agent-orchestrator/queue/task-queue.json",
-        "ops/agent-orchestrator/queue/task-results.json",
-        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.json"
-      ],
-      "commands_run": [
-        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log",
-        "git show --name-status ca2d755"
-      ],
-      "passed_checks": [
-        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH-agent-5.run.log recorded exit_code=0",
-        "agent commit ca2d755 exists",
-        "changed_files recorded from agent commit name-status output",
-        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
-        "no production operation recorded",
-        "no business code change recorded"
-      ],
-      "failed_checks": [],
-      "no_production_operation": true,
-      "no_business_code_change": true,
-      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
-      "completed_at": "2026-06-22T06:23:06.359Z",
-      "reconciled_at": "2026-06-22T09:11:10.911Z"
     }
   ]
 }
