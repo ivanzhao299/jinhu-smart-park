@@ -1,0 +1,66 @@
+{
+  "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+  "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+  "agent": "agent-5",
+  "status": "FAILED",
+  "commit_hash": "",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/claim-task.mjs",
+    "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION/2026-06-22T170506486Z-task.failed-737577832b26.json",
+    "docs/testing/evolution-queue-conflict-reduction-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+    "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json"
+  ],
+  "commands_run": [
+    "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "node --check ops/agent-orchestrator/scripts/claim-task.mjs",
+    "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+    "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "node --check ops/agent-orchestrator/scripts/doctor.mjs",
+    "node --check ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+    "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --from-events --dry-run",
+    "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --legacy-json --apply",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+    "git diff --check",
+    "pnpm typecheck",
+    "PATH=\"$(pwd)/../jinhu-smart-park/node_modules/.bin:$PATH\" pnpm typecheck",
+    "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION --agent agent-5 --status FAILED ...",
+    "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run after completion",
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs after completion",
+    "git status --short after completion"
+  ],
+  "passed_checks": [
+    "syntax checks passed for modified orchestrator scripts",
+    "rebuild dry-run reported event/read-model consistency yes",
+    "event reconcile dry-run reported event projection wins and wrote nothing",
+    "legacy JSON apply guard refused direct queue writes while task events exist",
+    "check-dispatch-status passed and compatibility queue JSON remained readable",
+    "agent-cycle --dry-run parsed queue JSON and reported read_model_consistent=yes",
+    "git diff --check passed",
+    "complete-task recorded FAILED result/event/read-model bookkeeping",
+    "post-completion rebuild dry-run reported changed=false for queue locks and results with event/read-model consistency yes",
+    "post-completion check-dispatch-status passed and reported no active locks"
+  ],
+  "failed_checks": [
+    "orchestratorctl doctor returned NO_GO because this in-progress agent worktree has task files dirty; event/read-model consistency still reported yes",
+    "pnpm typecheck failed because local node_modules is absent and package scripts could not find tsc",
+    "supplemental PATH-based pnpm typecheck failed because React packages/types are not resolvable from this worktree without local dependencies"
+  ],
+  "skipped_checks": [
+    "live claim path was not executed because the queue has no READY task",
+    "dependency installation was not run because network access is restricted and generated node_modules state is outside task source paths"
+  ],
+  "notes": "Implemented event-first claim and reconcile guardrails. Required typecheck could not pass in this dependency-less worker worktree, so the worker result is recorded as FAILED pending rerun in a prepared worktree."
+}

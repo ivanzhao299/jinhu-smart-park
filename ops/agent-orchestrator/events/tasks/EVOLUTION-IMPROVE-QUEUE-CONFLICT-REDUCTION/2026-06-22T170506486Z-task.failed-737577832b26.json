@@ -1,0 +1,148 @@
+{
+  "event_id": "62e71a32-49a2-4953-8d10-ebecfc0ae955",
+  "event_type": "task.failed",
+  "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+  "owner": "agent-5",
+  "status_before": "CLAIMED",
+  "status_after": "FAILED",
+  "created_at": "2026-06-22T17:05:06.486Z",
+  "actor": "agent-5",
+  "source": "complete-task.mjs",
+  "reason": "Implemented event-first claim and reconcile guardrails; recorded FAILED because required pnpm typecheck cannot pass in this dependency-less worker worktree. No merge, push, deploy, migration, seed, cleanup, reset, auth, Docker, CI, or production operation performed.",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/claim-task.mjs",
+    "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+    "docs/testing/evolution-queue-conflict-reduction-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+    "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+  "audit_ref": "",
+  "metadata": {
+    "result_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "agent": "agent-5",
+      "status": "FAILED",
+      "commit_hash": true,
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/claim-task.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "ops/agent-orchestrator/scripts/doctor.mjs",
+        "ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+        "docs/testing/evolution-queue-conflict-reduction-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+        "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/claim-task.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "ops/agent-orchestrator/scripts/doctor.mjs",
+        "ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+        "docs/testing/evolution-queue-conflict-reduction-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+        "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/claim-task.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/doctor.mjs",
+        "node --check ops/agent-orchestrator/scripts/integrate-agent-results.mjs",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --from-events --dry-run",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --legacy-json --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "git diff --check",
+        "pnpm typecheck",
+        "PATH sibling-node-modules pnpm typecheck",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "script syntax checks passed",
+        "rebuild dry-run reported event/read-model consistency yes",
+        "reconcile from-events dry-run passed",
+        "legacy-json apply guard refused direct writes as expected",
+        "check-dispatch-status passed",
+        "agent-cycle dry-run parsed queue JSON",
+        "git diff --check passed",
+        "result JSON parsed"
+      ],
+      "failed_checks": [
+        "orchestratorctl doctor returned NO_GO because the in-progress agent-5 task files are dirty",
+        "pnpm typecheck failed because this worktree has no local node_modules and tsc was unavailable",
+        "supplemental PATH typecheck failed because React packages/types are not resolvable without local dependencies"
+      ],
+      "notes": "Implemented event-first claim and reconcile guardrails; recorded FAILED because required pnpm typecheck cannot pass in this dependency-less worker worktree. No merge, push, deploy, migration, seed, cleanup, reset, auth, Docker, CI, or production operation performed.",
+      "completed_at": "2026-06-22T17:05:06.486Z"
+    },
+    "task_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "source_improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "source_pattern_id": "PATTERN-005",
+      "title": "Reduce queue bookkeeping conflicts with event-first read models",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-005",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Doctor reports event/read-model consistency after rebuild dry-run.",
+        "Queue bookkeeping conflicts are handled through event-first reconcile rules.",
+        "Compatibility queue JSON remains readable by existing agent-cycle commands."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": true,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-005",
+      "status": "FAILED",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md",
+        "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+        "docs/testing/evolution-queue-conflict-reduction-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:57:02.585Z",
+      "updated_at": "2026-06-22T17:05:06.486Z"
+    }
+  }
+}
