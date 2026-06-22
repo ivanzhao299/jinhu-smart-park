@@ -440,7 +440,7 @@ Integration planning is read-only:
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run
 ```
 
-It lists each agent branch with commits not in `origin/main`, changed files, and a risk class:
+It lists each agent branch with commits not contained in the current local `main` HEAD, changed files, and a risk class. `origin/main` ahead/behind is shown as remote synchronization context only; it is not the primary integration candidate baseline. If an agent HEAD equals local `main` HEAD, it is not an integration candidate even when local `main` is ahead of `origin/main`:
 
 - `LOW`: `docs/**`, `ops/agent-orchestrator/reports/**`, or `ops/agent-orchestrator/results/**`.
 - `MEDIUM`: queue bookkeeping, orchestrator scripts, `docs/testing/**`, or `scripts/e2e/**`.
@@ -530,7 +530,7 @@ Mode behavior:
 
 Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
 
-If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
+If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. Agents already synced to the same local `main` HEAD are not treated as integration candidates in this state. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
 
 ## 4F. Doctor Diagnostics
 
@@ -567,7 +567,7 @@ Default output is Markdown with:
 
 Doctor checks:
 
-- main and `agent-1` through `agent-5` branch/head/status, ahead/behind, runtime dirty, non-runtime dirty, and unmerged agent commits.
+- main and `agent-1` through `agent-5` branch/head/status, ahead/behind, runtime dirty, non-runtime dirty, and agent commits not contained in local `main`.
 - queue task counts, duplicate locks, stale locks, DONE tasks with locks, CLAIMED tasks without locks, DONE results still shown as CLAIMED, and DONE queue entries missing result evidence.
 - Codex CLI path/version, running `codex exec` processes, recent `.run.log` files, non-zero exit codes, and run logs whose task result was not recorded.
 - integration candidates, LOW/MEDIUM/HIGH risk distribution, queue bookkeeping conflict risk, and integration branches not merged into main.

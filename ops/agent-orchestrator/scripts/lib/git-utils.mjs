@@ -126,6 +126,66 @@ export function changedFilesNameStatus(worktreePath, base = "origin/main", head 
   return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
+export function headSha(worktreePath, ref = "HEAD") {
+  const result = git(worktreePath, ["rev-parse", ref], { allowFailure: true });
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
+export function isSameHeadAsMain(agentPath, mainPath) {
+  const agentHead = headSha(agentPath, "HEAD");
+  const mainHead = headSha(mainPath, "HEAD");
+  return Boolean(agentHead && mainHead && agentHead === mainHead);
+}
+
+export function commitsInAgentNotInLocalMain(agentPath, mainPath, head = "HEAD") {
+  const mainHead = headSha(mainPath, "HEAD");
+  if (!mainHead) return [];
+  return commitsNotIn(agentPath, mainHead, head);
+}
+
+export function changedFilesInAgentNotInLocalMain(agentPath, mainPath, head = "HEAD") {
+  const mainHead = headSha(mainPath, "HEAD");
+  if (!mainHead) return [];
+  return changedFilesAgainst(agentPath, mainHead, head);
+}
+
+export function changedFilesNameStatusInAgentNotInLocalMain(agentPath, mainPath, head = "HEAD") {
+  const mainHead = headSha(mainPath, "HEAD");
+  if (!mainHead) return [];
+  return changedFilesNameStatus(agentPath, mainHead, head);
+}
+
+export function getIntegrationCandidatesAgainstLocalMain(agents, mainPath, options = {}) {
+  const classifyRisk = options.classifyRisk ?? classifyAgentResultRisk;
+  const mainHead = headSha(mainPath, "HEAD");
+  if (!mainHead) return [];
+
+  const candidates = [];
+  for (const agent of agents) {
+    const agentHead = headSha(agent.path, "HEAD");
+    if (!agentHead || agentHead === mainHead) continue;
+
+    const commits = commitsInAgentNotInLocalMain(agent.path, mainPath, "HEAD");
+    if (commits.length === 0) continue;
+
+    const files = changedFilesInAgentNotInLocalMain(agent.path, mainPath, "HEAD");
+    const nameStatus = changedFilesNameStatusInAgentNotInLocalMain(agent.path, mainPath, "HEAD");
+    candidates.push({
+      agent,
+      commits,
+      files,
+      nameStatus,
+      risk: classifyRisk(files),
+      baseline: "local main",
+      baselineHead: mainHead,
+      agentHead,
+      remote: aheadBehind(agent.path, "origin/main", "HEAD")
+    });
+  }
+
+  return candidates;
+}
+
 export function localBranches(worktreePath) {
   const result = git(worktreePath, ["branch", "--format=%(refname:short)"], { allowFailure: true });
   if (result.status !== 0) return [];

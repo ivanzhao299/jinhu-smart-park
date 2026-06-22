@@ -3,11 +3,8 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  changedFilesAgainst,
-  changedFilesNameStatus,
-  classifyAgentResultRisk,
-  commitsNotIn,
   git,
+  getIntegrationCandidatesAgainstLocalMain,
   repoStatus
 } from "./lib/git-utils.mjs";
 import {
@@ -135,21 +132,8 @@ function claimableReadyTasks(queue, locks, agentsById, agentStatusesById) {
   });
 }
 
-function collectIntegrationCandidates(agents) {
-  const candidates = [];
-  for (const agent of agents) {
-    const commits = commitsNotIn(agent.path, "origin/main", "HEAD");
-    if (commits.length === 0) continue;
-
-    const files = changedFilesAgainst(agent.path, "origin/main", "HEAD");
-    candidates.push({
-      agent,
-      commits,
-      files,
-      nameStatus: changedFilesNameStatus(agent.path, "origin/main", "HEAD"),
-      risk: classifyAgentResultRisk(files)
-    });
-  }
+function collectIntegrationCandidates(agents, mainPath) {
+  const candidates = getIntegrationCandidatesAgainstLocalMain(agents, mainPath);
 
   candidates.sort((a, b) => {
     const byAgent = AGENT_INTEGRATION_ORDER.indexOf(a.agent.id) - AGENT_INTEGRATION_ORDER.indexOf(b.agent.id);
@@ -388,7 +372,7 @@ async function mergeIntegrationToMainAndPush(state, integrationBranch) {
 }
 
 async function integrateExistingAgentCommits(state, args) {
-  const candidates = collectIntegrationCandidates(state.agents);
+  const candidates = collectIntegrationCandidates(state.agents, state.mainPath);
   printIntegrationCandidates(candidates);
 
   const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");

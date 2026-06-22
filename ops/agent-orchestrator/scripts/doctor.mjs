@@ -6,11 +6,9 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   QUEUE_CONFLICT_FILES,
-  changedFilesAgainst,
-  changedFilesNameStatus,
-  classifyAgentResultRisk,
-  commitsNotIn,
+  getIntegrationCandidatesAgainstLocalMain,
   git,
+  isSameHeadAsMain,
   isBranchMergedInto,
   localBranches,
   repoStatus
@@ -208,21 +206,30 @@ function inspectWorktrees(config, findings, fixes) {
     }
   }
 
+  const candidates = getIntegrationCandidatesAgainstLocalMain(agentRows, main.path);
+  const candidateByAgent = new Map(candidates.map((candidate) => [candidate.agent.id, candidate]));
   const agentCommits = [];
   for (const agent of agentRows) {
     if (!agent.status.exists) continue;
-    const commits = commitsNotIn(agent.path, "origin/main", "HEAD");
-    const files = changedFilesAgainst(agent.path, "origin/main", "HEAD");
-    const nameStatus = changedFilesNameStatus(agent.path, "origin/main", "HEAD");
-    const risk = classifyAgentResultRisk(files);
+    const candidate = candidateByAgent.get(agent.id);
+    const commits = candidate?.commits ?? [];
+    const files = candidate?.files ?? [];
+    const nameStatus = candidate?.nameStatus ?? [];
+    const risk = candidate?.risk ?? "NONE";
     const hasQueueBookkeeping = files.some((file) => QUEUE_CONFLICT_FILES.has(file));
     const item = {
       agent: agent.id,
       branch: agent.status.branch,
+      baseline: "local main",
+      same_head_as_local_main: isSameHeadAsMain(agent.path, main.path),
+      local_main_head: candidate?.baselineHead ?? git(main.path, ["rev-parse", "HEAD"], { allowFailure: true }).stdout.trim(),
+      agent_head: candidate?.agentHead ?? git(agent.path, ["rev-parse", "HEAD"], { allowFailure: true }).stdout.trim(),
+      remote_ahead: agent.status.ahead,
+      remote_behind: agent.status.behind,
       commits,
       files,
       name_status: nameStatus,
-      risk: commits.length === 0 ? "NONE" : risk,
+      risk,
       queue_bookkeeping_conflict_risk: hasQueueBookkeeping
     };
     agentCommits.push(item);
@@ -232,7 +239,7 @@ function inspectWorktrees(config, findings, fixes) {
         findings,
         risk === "HIGH" ? "ERROR" : "WARN",
         "integration",
-        `${agent.id} has ${commits.length} commit(s) not in origin/main; risk=${risk}.`,
+        `${agent.id} has ${commits.length} commit(s) not in local main; risk=${risk}.`,
         risk === "HIGH"
           ? "Human review is required before integration."
           : "Run integrate-agent-results.mjs --dry-run, then --apply when integration is approved."

@@ -4,11 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   QUEUE_CONFLICT_FILES,
-  changedFilesAgainst,
-  changedFilesNameStatus,
-  classifyAgentResultRisk,
-  commitsNotIn,
   git,
+  getIntegrationCandidatesAgainstLocalMain,
   repoStatus,
   run
 } from "./lib/git-utils.mjs";
@@ -80,35 +77,22 @@ function sortCandidates(a, b) {
   return a.agent.id.localeCompare(b.agent.id);
 }
 
-function collectCandidates(agents) {
-  const candidates = [];
-  for (const agent of agents) {
-    const commits = commitsNotIn(agent.path, "origin/main", "HEAD");
-    const files = changedFilesAgainst(agent.path, "origin/main", "HEAD");
-    if (commits.length === 0) {
-      continue;
-    }
-
-    candidates.push({
-      agent,
-      commits,
-      files,
-      nameStatus: changedFilesNameStatus(agent.path, "origin/main", "HEAD"),
-      risk: classifyAgentResultRisk(files)
-    });
-  }
-  return candidates.sort(sortCandidates);
+function collectCandidates(agents, mainPath) {
+  return getIntegrationCandidatesAgainstLocalMain(agents, mainPath).sort(sortCandidates);
 }
 
 function printCandidates(candidates) {
   if (candidates.length === 0) {
-    console.log("No agent branches contain commits not in origin/main.");
+    console.log("No agent branches contain commits not in local main.");
     return;
   }
 
   for (const candidate of candidates) {
     console.log(`## ${candidate.agent.id} (${candidate.risk})`);
     console.log(`branch: ${candidate.agent.branch}`);
+    console.log(`baseline: ${candidate.baseline} ${candidate.baselineHead.slice(0, 12)}`);
+    console.log(`agent head: ${candidate.agentHead.slice(0, 12)}`);
+    console.log(`origin/main ahead/behind hint: ahead=${candidate.remote.ahead ?? "unknown"} behind=${candidate.remote.behind ?? "unknown"}`);
     console.log("commits:");
     for (const commit of candidate.commits) {
       console.log(`- ${commit}`);
@@ -308,7 +292,7 @@ const args = parseArgs(process.argv.slice(2));
 const config = await readJson(agentsConfigPath);
 const mainPath = config.main?.path ?? repoRoot;
 const agents = [...normalizeAgentConfig(config).values()];
-const candidates = collectCandidates(agents);
+const candidates = collectCandidates(agents, mainPath);
 
 console.log(`# Agent Result Integration ${args.apply ? "apply" : "dry-run"}`);
 console.log("");
