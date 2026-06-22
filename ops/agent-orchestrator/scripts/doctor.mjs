@@ -173,7 +173,18 @@ function inspectWorktrees(config, findings, fixes, queue) {
     const claimedCount = (queue.tasks ?? []).filter((task) => task.status === "CLAIMED").length;
     const onlyRunPlan = main.nonRuntimeDirty.every((entry) => normalizePath(entry.path) === runPlanRelativePath);
 
-    if (onlyDispatchArtifacts) {
+    if (onlyRunPlan && isRunPlanDirty(main)) {
+      addFinding(
+        findings,
+        "WARN",
+        "git",
+        `LOW-risk runtime artifact dirty: ${formatEntries(main.nonRuntimeDirty)}`,
+        "Run doctor --fix-dry-run or self-repair --apply to restore the generated agent-run-plan.md before integration/finalize."
+      );
+      addFix(fixes, "restore_run_plan", "Restore generated agent-run-plan.md in main worktree.", {
+        path: runPlanRelativePath
+      });
+    } else if (onlyDispatchArtifacts) {
       addFinding(
         findings,
         "WARN",
@@ -191,12 +202,6 @@ function inspectWorktrees(config, findings, fixes, queue) {
         `main worktree has non-runtime dirty files: ${formatEntries(main.nonRuntimeDirty)}`,
         "Commit, restore, or review non-runtime dirty files before executing agents or integrating results."
       );
-    }
-
-    if (onlyRunPlan && claimedCount === 0 && isRunPlanDirty(main)) {
-      addFix(fixes, "restore_run_plan", "Restore generated agent-run-plan.md in main worktree.", {
-        path: runPlanRelativePath
-      });
     }
   }
 

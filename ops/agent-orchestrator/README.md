@@ -600,11 +600,12 @@ The loop is automatically triggered when these guarded commands fail:
 
 Self-repair runs at most three rounds. Each round diagnoses with `doctor --json` and `check-status.sh`, then applies only LOW-risk orchestrator repairs:
 
+- restore `ops/agent-orchestrator/runs/agent-run-plan.md` when it is the only dirty main-worktree file. This file is a generated runner plan and is safe to restore before integration/finalize retries.
 - `doctor --fix-apply` for doctor-approved LOW-risk fixes.
 - `reconcile-worktrees.mjs --apply` for approved runtime worktree reconciliation.
 - `reconcile-task-results.mjs --apply` when queue/event/read-model repair is indicated.
 
-Self-repair never deploys, never runs production migration, never runs production seed, never resets or cleans production data, never merges, never pushes directly, never commits business code, and never auto-handles HIGH-risk or business-path dirty state.
+Self-repair never deploys, never runs production migration, never runs production seed, never resets or cleans production data, never merges, never pushes directly, never commits business code, and never auto-handles HIGH-risk or business-path dirty state. If `agent-run-plan.md` is dirty together with any other main-worktree non-runtime dirty file, self-repair must stop as `NO_GO` and require human review; it must not restore or modify the other file.
 
 After repair attempts, `self-repair --apply` must rerun `finalize --apply`. The self-repair command succeeds only when that final finalize prints `FINALIZE RESULT` with `finalize: PASS`.
 
@@ -686,7 +687,7 @@ Doctor checks:
 Fix modes are intentionally narrow:
 
 - `--fix-dry-run` lists LOW-risk automatic repairs and writes nothing.
-- `--fix-apply` may restore `ops/agent-orchestrator/runs/agent-run-plan.md`, remove locks whose task no longer exists, remove locks for DONE tasks, and remove fully identical duplicate locks.
+- `--fix-apply` may restore `ops/agent-orchestrator/runs/agent-run-plan.md` only when it is the sole dirty main-worktree artifact, remove locks whose task no longer exists, remove locks for DONE tasks, and remove fully identical duplicate locks.
 - runtime dirty under `storage/`, `.next/`, `coverage/`, or `tmp/` is reported with backup guidance only; doctor does not delete runtime files.
 - doctor never fixes business-code changes, HIGH-risk changes, merge conflicts, pushes, deploys, production migrations, production seeds, database reset, or cleanup.
 

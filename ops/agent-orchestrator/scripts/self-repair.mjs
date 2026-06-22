@@ -7,6 +7,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
 const repoRoot = dirname(dirname(orchestratorDir));
 const DEFAULT_MAX_ROUNDS = 3;
+const RUN_PLAN_RELATIVE_PATH = "ops/agent-orchestrator/runs/agent-run-plan.md";
 
 function usage() {
   console.error("Usage: node ops/agent-orchestrator/scripts/self-repair.mjs --dry-run|--apply [--reason <text>] [--max-rounds 3]");
@@ -115,6 +116,26 @@ function hasHighRiskOrBusinessDirty(diagnosis) {
   return highRiskDirty || (diagnosis?.integration?.risk_counts?.HIGH ?? 0) > 0;
 }
 
+function normalizePath(path) {
+  return String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function mainDirtyEntries(diagnosis) {
+  return diagnosis?.worktrees?.main?.nonRuntimeDirty ?? [];
+}
+
+function isRunPlanEntry(entry) {
+  return normalizePath(entry.path ?? entry) === RUN_PLAN_RELATIVE_PATH;
+}
+
+function hasRunPlanDirty(diagnosis) {
+  return mainDirtyEntries(diagnosis).some((entry) => isRunPlanEntry(entry));
+}
+
+function hasMainDirtyOutsideRunPlan(diagnosis) {
+  return mainDirtyEntries(diagnosis).some((entry) => !isRunPlanEntry(entry));
+}
+
 function needsReadModelRepair(diagnosis) {
   if (!diagnosis) return false;
   if (diagnosis.event_store && diagnosis.event_store.read_model_consistent === false) return true;
@@ -151,6 +172,7 @@ function printDiagnosis(round, diagnosis, checkStatus) {
     console.log(`candidate_agent_branches: ${diagnosis.integration?.can_integrate_candidates ?? "?"}`);
     console.log(`doctor actionable fixes: ${actionableDoctorFixCount(diagnosis)}`);
     console.log(`event/read-model consistent: ${diagnosis.event_store?.read_model_consistent === false ? "no" : "yes"}`);
+    console.log(`run_plan_dirty: ${hasRunPlanDirty(diagnosis) ? "yes" : "no"}`);
   }
   console.log(`check-status: ${checkStatus.status === 0 ? "PASS" : `FAIL exit=${checkStatus.status}`}`);
 }
@@ -218,16 +240,21 @@ if (args.dryRun) {
   const checkStatus = runCheckStatus();
   printDiagnosis(1, doctor.diagnosis, checkStatus);
   const repairable = doctor.ok && statusIsRepairable(doctor.diagnosis, checkStatus);
+  const plannedActions = [];
+  if (doctor.ok && (doctor.diagnosis.fixes ?? []).some((fix) => fix.type === "restore_run_plan")) {
+    plannedActions.push(`would restore ${RUN_PLAN_RELATIVE_PATH}`);
+  }
+  plannedActions.push(
+    "would run doctor --fix-apply when actionable LOW-risk fixes exist",
+    "would run reconcile-worktrees.mjs --apply",
+    "would run reconcile-task-results.mjs --apply when queue/event read model repair is needed",
+    "would rerun finalize --apply after repair"
+  );
   printResult({
     mode: "dry-run",
     success: doctor.ok && !hasHighRiskOrBusinessDirty(doctor.diagnosis),
     rounds: 0,
-    actions: [
-      "would run doctor --fix-apply when actionable LOW-risk fixes exist",
-      "would run reconcile-worktrees.mjs --apply",
-      "would run reconcile-task-results.mjs --apply when queue/event read model repair is needed",
-      "would rerun finalize --apply after repair"
-    ],
+    actions: plannedActions,
     reason: args.reason,
     finalFinalize: null,
     skippedReason: repairable ? "" : doctor.error || "not repairable by LOW-risk self-repair"
@@ -248,6 +275,9 @@ for (let round = 1; round <= args.maxRounds; round += 1) {
     blockedReason = doctor.error;
   } else if (hasHighRiskOrBusinessDirty(doctor.diagnosis)) {
     blockedReason = "HIGH-risk or business-path dirty state requires human repair";
+    break;
+  } else if (hasRunPlanDirty(doctor.diagnosis) && hasMainDirtyOutsideRunPlan(doctor.diagnosis)) {
+    blockedReason = `${RUN_PLAN_RELATIVE_PATH} is dirty together with other main non-runtime dirty files; human review is required`;
     break;
   }
 
