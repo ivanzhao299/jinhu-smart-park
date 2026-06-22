@@ -1,0 +1,119 @@
+{
+  "event_id": "task.audited:ad2a85f796683b36b7bfadb9",
+  "event_type": "task.audited",
+  "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
+  "owner": "agent-5",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T14:42:15.223Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/agent-platform-v3-goal-engine-architecture.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "5be8925e84d8c06cca36ecf0ec6bb3af7a79dda13ccd922e9632cd1121c619a0",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "none",
+      "changed_files": [
+        "docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "git status --short; test -f docs/release/agent-platform-v3-goal-engine-architecture.md; node JSON parse for Goal Engine schema and example; test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md; git diff --check; git status --short; result JSON parse"
+      ],
+      "passed_checks": [
+        "Goal Engine architecture doc exists; Goal Engine schema and example parse as JSON; Goal Engine report exists; completion result JSON exists and parses; git diff --check passed; no business database infra auth Docker deploy or CI paths changed intentionally"
+      ],
+      "failed_checks": [],
+      "notes": "Planning-only Goal Engine architecture and schema review completed. Commit hash recorded as none because allow_commit=false. complete-task.mjs performed event-first orchestrator bookkeeping.",
+      "completed_at": "2026-06-22T14:33:10.782Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH",
+      "batch_id": "AGENT-PLATFORM-V3-ROUND1-20260622",
+      "title": "Goal Engine architecture and schema",
+      "owner": "agent-5",
+      "domain": "goal-engine-platform-architecture",
+      "priority": "P0",
+      "status": "AUDITED",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/goal",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/release/agent-platform-v3-goal-engine-architecture.md describing Goal Engine current_state, target_state, gap_analysis, roadmap, recommended tasks, and risk scoring.",
+        "Review ops/agent-orchestrator/goal/goal-engine.schema.json and ops/agent-orchestrator/goal/goal-state.example.json for completeness without changing business code.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md summarizing changed files, validation, and remaining approval questions.",
+        "Record truthful completion in ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json via complete-task.mjs when finished.",
+        "Do not modify apps, packages, database, infra, .github, Docker, deploy, auth, migrations, seeds, or production data."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "node -e \"JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-engine.schema.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/goal/goal-state.example.json','utf8'));\"",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Goal Engine architecture doc exists",
+        "Goal Engine schema and example parse as JSON",
+        "No business, database, infra, auth, Docker, deploy, or CI paths changed"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-A5-GOAL-ENGINE-ARCH.json"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T13:30:00.000Z",
+      "updated_at": "2026-06-22T14:42:15.223Z"
+    }
+  }
+}
