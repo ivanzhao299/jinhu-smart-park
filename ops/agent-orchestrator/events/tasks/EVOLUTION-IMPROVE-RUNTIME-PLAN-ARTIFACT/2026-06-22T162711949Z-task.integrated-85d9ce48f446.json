@@ -1,0 +1,92 @@
+{
+  "event_id": "task.integrated:41bd006672432f84a6ae33aa",
+  "event_type": "task.integrated",
+  "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "owner": "agent-5",
+  "status_before": "FAILED",
+  "status_after": "FAILED",
+  "created_at": "2026-06-22T16:27:11.949Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-5 result into integration/orchestrator-auto-20260623-002711",
+  "changed_files": [
+    "docs/testing/evolution-runtime-plan-artifact-checklist.md",
+    "ops/agent-orchestrator/events/tasks/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT/2026-06-22T162517598Z-task.failed-07558f45e22d.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+    "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+    "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+    "ops/agent-orchestrator/scripts/doctor.mjs",
+    "ops/agent-orchestrator/scripts/lib/git-utils.mjs",
+    "ops/agent-orchestrator/scripts/self-repair.mjs"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "6c3dc572898f4e9c3b39b35838648bb318b2945e88dfeba82f81cce82c944b9b",
+    "agent_id": "agent-5",
+    "agent_branch": "agent-5-testing-release",
+    "agent_head": "c9b9efa707ec3bb78ff2e107d0bed9b119c132d3",
+    "integration_branch": "integration/orchestrator-auto-20260623-002711",
+    "merge_commit": "190a32dc0387ecd6b065d5ce399ab0930e5f939c",
+    "task_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_pattern_id": "PATTERN-001",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-001",
+      "priority": "P0",
+      "risk": "LOW",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": false,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-001",
+      "status": "FAILED",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:17:40.162Z",
+      "updated_at": "2026-06-22T16:25:17.598Z"
+    }
+  }
+}
