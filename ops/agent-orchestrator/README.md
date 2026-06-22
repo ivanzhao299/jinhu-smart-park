@@ -163,9 +163,10 @@ Current V2 event-first write path status:
 
 - `dispatch-ready-agents.mjs` appends `task.claimed` events when it claims READY tasks, then rebuilds compatibility `task-queue.json` and `task-locks.json` read models from events.
 - `complete-task.mjs` writes the per-task result artifact, appends `task.completed` or `task.failed`, then rebuilds compatibility queue, lock, and result JSON read models from events.
-- `reconcile-task-results.mjs` prefers event read-model rebuild whenever task events exist. Use `--legacy-json` only when the older evidence-based JSON reconciliation path is intentionally required.
+- `audit-all-results.mjs --apply` appends `task.audited` events for PASS/FAIL outcomes, then rebuilds compatibility queue, lock, and result JSON read models from events. Dry-run remains no-write.
+- `integrate-agent-results.mjs --apply` appends `task.integrated` events for merged agent task results and records event refs in the integration report.
+- `reconcile-task-results.mjs` prefers event read-model rebuild whenever task events exist, and `--apply` records `task.reconciled` events when read-model repair actually changes queue, lock, or result projections. Use `--legacy-json` only when the older evidence-based JSON reconciliation path is intentionally required.
 - `doctor.mjs` reports event store health and obvious event/read-model drift.
-- `audit-all-results.mjs` and `integrate-agent-results.mjs` are still JSON-first; audit/integration events are a later V2 step.
 
 ## 4. Agent Claim Flow
 
@@ -328,7 +329,7 @@ Real execution requires both flags:
 node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --apply --execute
 ```
 
-`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. `--apply --execute --parallel 2` writes or refreshes `agent-run-plan.md`, then runs at most two claimed tasks per batch when the event store exists and queue/lock/result read models are consistent. `--parallel 3` and `--parallel 5` are still blocked by the execution precheck because audit and integration remain JSON-first. Use dry-run to preview those larger batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
+`--apply --execute --parallel 1` writes or refreshes `agent-run-plan.md`, then runs claimed tasks serially. `--apply --execute --parallel 2` writes or refreshes `agent-run-plan.md`, then runs at most two claimed tasks per batch when the event store exists and queue/lock/result read models are consistent. `--parallel 3` and `--parallel 5` are still blocked by the execution precheck until a dedicated audit/integration event-first smoke has passed. Use dry-run to preview those larger batches without running Codex. The execution precheck ignores only this runner-generated plan file in the main worktree cleanliness check; any other main worktree dirty file still blocks execution. Before executing it checks:
 
 1. Codex CLI is detected and executable.
 2. Main worktree is clean.
@@ -355,7 +356,7 @@ Each run log records the task id, agent, worktree, prompt file, command, start t
 
 In serial execution, if any Codex command exits non-zero, the runner stops and does not execute later tasks. In `--parallel 2` execution, if any Codex command in the current batch exits non-zero, already-started tasks in that batch finish naturally, then the runner stops before launching later batches and emits an aggregated summary.
 
-Safe parallel completion requires event-first task writes and healthy compatibility read models. Dispatch and completion now append per-task events and rebuild compatibility JSON from those events, so `--parallel 2` is allowed after the event/read-model health check passes. Audit and integration still write/read legacy JSON directly, so `--parallel 3` and `--parallel 5` remain planning and dry-run preview modes only.
+Safe parallel completion requires event-first task writes and healthy compatibility read models. Dispatch, completion, audit, integration, and reconcile now have event-first foundation writes with compatibility JSON rebuilt from those events, so `--parallel 2` is allowed after the event/read-model health check passes. `--parallel 3` and `--parallel 5` remain planning and dry-run preview modes only until a dedicated larger-concurrency smoke validates audit/integration event-first behavior under load.
 
 If the CLI is missing in execute mode, the runner aborts with:
 
@@ -459,7 +460,7 @@ Integration apply never merges back to main or pushes:
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --apply
 ```
 
-It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from the current clean `main`, attempts agent merges in `agent-2 -> agent-3 -> agent-4 -> agent-5` order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, and aborts on business-code conflicts.
+It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from the current clean `main`, attempts agent merges in `agent-2 -> agent-3 -> agent-4 -> agent-5` order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, appends integration/reconcile events, and aborts on business-code conflicts.
 
 Current integration apply behavior:
 
@@ -472,10 +473,11 @@ Current integration apply behavior:
    - `ops/agent-orchestrator/queue/task-queue.json`
    - `ops/agent-orchestrator/queue/task-locks.json`
    - `ops/agent-orchestrator/queue/task-results.json`
-7. For queue bookkeeping conflicts, keeps the current integration branch version first, then runs `reconcile-task-results.mjs --apply` to rebuild queue state from merged result evidence.
+7. For queue bookkeeping conflicts, keeps the current integration branch version first, then runs `reconcile-task-results.mjs --apply --source integration_reconcile` to rebuild queue state from merged result evidence and append `task.reconciled` events for changed projections.
 8. Stops on any non-bookkeeping conflict.
 9. After all agent merges, runs `check-dispatch-status.mjs`, `audit-all-results.mjs --dry-run`, and `pnpm typecheck`.
-10. Writes `ops/agent-orchestrator/reports/integration-auto-YYYYMMDD-HHMMSS.md`.
+10. Appends `task.integrated` events for task ids inferred from result/event/report files in merged agent commits.
+11. Writes `ops/agent-orchestrator/reports/integration-auto-YYYYMMDD-HHMMSS.md` with integration event refs.
 
 After review, an integration branch can be brought back to main with:
 
@@ -713,9 +715,17 @@ The audit checks:
 2. No real agent-changed file matches the task's `forbidden_paths`.
 3. Queue bookkeeping files and per-task result artifacts are ignored for task path-boundary checks because they are maintained by the orchestrator workflow.
 
-If the audit passes, the script prints `AUDIT_PASS` and marks the task `AUDITED`.
+By default this single-task checker is no-write. If the audit passes, the script prints `AUDIT_PASS`. Use `--json` to get a structured audit result for orchestration.
 
 If the audit fails, the script prints `AUDIT_FAIL` and each reason. Failed audits should become follow-up tasks or manual review items.
+
+Explicit single-task write mode is available for operator use:
+
+```bash
+node ops/agent-orchestrator/scripts/audit-agent-result.mjs TASK_ID --apply
+```
+
+This writes a `task.audited` event and refreshes compatibility read models. Batch audit writes should prefer `audit-all-results.mjs --apply` so audit events are produced once per result snapshot.
 
 To audit every DONE task result in one pass:
 
@@ -727,11 +737,13 @@ This reuses the same path-boundary logic as `audit-agent-result.mjs` and prints 
 
 By default it is no-write and does not modify `task-queue.json`. `--dry-run` and `--no-write` are aliases for the default behavior.
 
-Only this explicit mode writes `AUDITED` status back to the queue:
+Only this explicit mode writes audit events and materializes `AUDITED` status back to the compatibility queue:
 
 ```bash
-node ops/agent-orchestrator/scripts/audit-all-results.mjs --write
+node ops/agent-orchestrator/scripts/audit-all-results.mjs --apply
 ```
+
+`--write` remains accepted as a compatibility alias for `--apply`.
 
 ## 7. Merge Gate After Audit
 
@@ -808,6 +820,7 @@ The task queue can mark these with `requires_human_approval: true`.
 - Schema validation is documented but not enforced by the scripts yet.
 - Audit checks path boundaries only; command results and semantic quality still require orchestrator review.
 - `run-claimed-agent-prompts.mjs --apply --execute --parallel 1` can execute Codex agents serially, but it still does not merge, push, deploy, mutate queue state, or run production operations by itself.
-- `run-claimed-agent-prompts.mjs --parallel 2|3|5` is currently a dry-run/plan preview path only; real parallel execution stays blocked until audit/integration writes are event-first and read-model rebuild is the central compatibility writer.
+- `run-claimed-agent-prompts.mjs --apply --execute --parallel 2` can execute up to two claimed agent tasks per batch after event/read-model health passes.
+- `run-claimed-agent-prompts.mjs --parallel 3|5` remains dry-run/plan preview for real execution until a dedicated parallel 3 smoke validates the audit/integration event-first foundation.
 - `commit-agent-results.mjs --apply` commits only eligible LOW/MEDIUM dirty agent outputs. It does not merge or push.
 - `orchestratorctl.mjs agent-cycle --apply --execute --push` can push `main` after validation, but deploy and production operations remain outside this automation.

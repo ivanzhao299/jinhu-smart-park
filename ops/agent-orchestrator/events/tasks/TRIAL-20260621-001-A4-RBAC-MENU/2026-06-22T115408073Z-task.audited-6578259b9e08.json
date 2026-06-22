@@ -1,0 +1,98 @@
+{
+  "event_id": "task.audited:3d338c46ff7ebde8b0aa0766",
+  "event_type": "task.audited",
+  "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+  "owner": "agent-4",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.073Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "ops/agent-orchestrator/reports/TRIAL-20260621-001-A4-RBAC-MENU.md",
+    "ops/agent-orchestrator/reports/TRIAL-20260621-001-A4-RBAC-MENU-result.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A4-RBAC-MENU.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "e36f156a1a7838f6c5d8da0b71c6a8562aa5f536921c1cc6c92e05e1445cd13a",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "8261c20",
+      "changed_files": [
+        "ops/agent-orchestrator/reports/TRIAL-20260621-001-A4-RBAC-MENU.md",
+        "ops/agent-orchestrator/reports/TRIAL-20260621-001-A4-RBAC-MENU-result.json"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-4",
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "pnpm typecheck",
+        "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs"
+      ],
+      "failed_checks": [],
+      "notes": "RBAC/menu/dashboard evidence collected without app-code changes. Production browser menu sampling, ordinary-role sampling, dashboard render sampling, and production idempotency sample still require approval and controlled credentials/data.",
+      "completed_at": "2026-06-21T16:53:17+08:00"
+    },
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch RBAC menu and dashboard visibility evidence",
+      "owner": "agent-4",
+      "domain": "dashboard-rbac-menu",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents RBAC, role-permission, first-release menu whitelist, and dashboard visibility checks.",
+        "Maps each RBAC/menu result to the production readiness matrix and identifies any No-Go blocker.",
+        "Documents any production-only manual sampling that still requires human approval.",
+        "If a menu or permission implementation gap is found, reports a follow-up task instead of changing app code.",
+        "Does not modify apps/api, apps/web, packages, migration, seed, auth, CI, Docker, or deploy files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.073Z"
+    }
+  }
+}

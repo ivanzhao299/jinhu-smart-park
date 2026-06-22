@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { appendIntegrationEvent } from "./lib/event-store-utils.mjs";
 import {
   QUEUE_CONFLICT_FILES,
   git,
@@ -11,7 +12,8 @@ import {
 } from "./lib/git-utils.mjs";
 import {
   normalizeAgentConfig,
-  readJson
+  readJson,
+  taskById
 } from "./lib/queue-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -26,6 +28,7 @@ const QUEUE_PATHS = [
   "ops/agent-orchestrator/queue/task-locks.json",
   "ops/agent-orchestrator/queue/task-results.json"
 ];
+const EVENT_TASKS_PATH = "ops/agent-orchestrator/events/tasks";
 
 function parseArgs(argv) {
   return {
@@ -170,23 +173,37 @@ function addAndCommitIfChanged(mainPath, paths, message) {
   return commitStagedIfAny(mainPath, message);
 }
 
-function reconcileQueue(mainPath, message) {
-  runNodeScript("ops/agent-orchestrator/scripts/reconcile-task-results.mjs", ["--apply"]);
-  const committed = addAndCommitIfChanged(mainPath, QUEUE_PATHS, message);
+function reconcileQueue(mainPath, message, options = {}) {
+  const args = [
+    "--apply",
+    "--source",
+    options.source ?? "integrate-agent-results.mjs",
+    "--reason",
+    options.reason ?? "reconciled queue after agent integration"
+  ];
+  if (options.integrationBranch) {
+    args.push("--integration-branch", options.integrationBranch);
+  }
+  runNodeScript("ops/agent-orchestrator/scripts/reconcile-task-results.mjs", args);
+  const committed = addAndCommitIfChanged(mainPath, [...QUEUE_PATHS, EVENT_TASKS_PATH], message);
   console.log(committed ? `Committed queue reconciliation: ${message}` : "Queue reconciliation produced no commit.");
 }
 
-function handleQueueConflicts(mainPath, candidate, conflicts) {
+function handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch) {
   for (const file of conflicts) {
     git(mainPath, ["checkout", "--ours", file], { stdio: "inherit" });
     git(mainPath, ["add", file], { stdio: "inherit" });
   }
 
   git(mainPath, ["commit", "--no-edit"], { stdio: "inherit" });
-  reconcileQueue(mainPath, `chore(orchestrator): reconcile queue after ${candidate.agent.id} integration`);
+  reconcileQueue(mainPath, `chore(orchestrator): reconcile queue after ${candidate.agent.id} integration`, {
+    source: "integration_reconcile",
+    reason: `queue bookkeeping conflict after ${candidate.agent.id} integration`,
+    integrationBranch
+  });
 }
 
-function mergeCandidate(mainPath, candidate) {
+function mergeCandidate(mainPath, candidate, integrationBranch) {
   console.log(`MERGE ${candidate.agent.id}: ${candidate.agent.branch}`);
   const result = run("git", ["merge", "--no-ff", candidate.agent.branch, "--no-edit"], {
     cwd: mainPath,
@@ -197,7 +214,10 @@ function mergeCandidate(mainPath, candidate) {
   if (result.status === 0) {
     console.log(`MERGE_OK ${candidate.agent.id}`);
     printGitStatus(mainPath);
-    return;
+    return {
+      conflict: false,
+      merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim()
+    };
   }
 
   const conflicts = unmergedConflicts(mainPath);
@@ -210,8 +230,12 @@ function mergeCandidate(mainPath, candidate) {
 
   console.log(`QUEUE_CONFLICT ${candidate.agent.id}: ${conflicts.join(", ")}`);
   console.log("Keeping integration branch versions for queue bookkeeping files, then reconciling task results.");
-  handleQueueConflicts(mainPath, candidate, conflicts);
+  handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch);
   printGitStatus(mainPath);
+  return {
+    conflict: true,
+    merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim()
+  };
 }
 
 function runIntegrationValidation() {
@@ -222,7 +246,7 @@ function runIntegrationValidation() {
   runValidationCommand("pnpm", ["typecheck"]);
 }
 
-function renderReport({ generatedAt, integrationBranch, candidates, head, changed }) {
+function renderReport({ generatedAt, integrationBranch, candidates, head, changed, eventRefs }) {
   const rows = candidates.length === 0
     ? "| _none_ | | | |"
     : candidates.map((candidate) =>
@@ -232,6 +256,9 @@ function renderReport({ generatedAt, integrationBranch, candidates, head, change
   const changedLines = changed.length === 0
     ? "- none"
     : changed.map((line) => `- ${line}`).join("\n");
+  const eventLines = eventRefs.length === 0
+    ? "- none"
+    : eventRefs.map((item) => `- ${item.task_id}: ${item.event_type} ${item.path} (${item.written ? "written" : `skipped:${item.reason}`})`).join("\n");
 
   return `# Integration Auto Report
 
@@ -267,13 +294,17 @@ ${rows}
 
 ${changedLines}
 
+## Event Refs
+
+${eventLines}
+
 ## Release Gate
 
 No push, deploy, production migration, production seed, database reset, cleanup, or production file operation is performed by \`integrate-agent-results.mjs --apply\`.
 `;
 }
 
-async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates }) {
+async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs }) {
   const reportPath = join(reportsDir, `integration-auto-${generatedAt}.md`);
   const reportRelativePath = `ops/agent-orchestrator/reports/integration-auto-${generatedAt}.md`;
   const head = git(mainPath, ["log", "--oneline", "-1"]).stdout.trim();
@@ -283,9 +314,72 @@ async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch
     .filter(Boolean);
 
   await mkdir(reportsDir, { recursive: true });
-  await writeFile(reportPath, renderReport({ generatedAt, integrationBranch, candidates, head, changed }));
+  await writeFile(reportPath, renderReport({ generatedAt, integrationBranch, candidates, head, changed, eventRefs }));
   addAndCommitIfChanged(mainPath, [reportRelativePath], `chore(orchestrator): add ${generatedAt} integration report`);
   return reportRelativePath;
+}
+
+function taskIdsFromCandidate(candidate) {
+  const taskIds = new Set();
+  for (const file of candidate.files ?? []) {
+    const resultMatch = /^ops\/agent-orchestrator\/results\/([^/]+)\.json$/.exec(file);
+    if (resultMatch) {
+      taskIds.add(resultMatch[1]);
+      continue;
+    }
+    const eventMatch = /^ops\/agent-orchestrator\/events\/tasks\/([^/]+)\//.exec(file);
+    if (eventMatch) {
+      taskIds.add(eventMatch[1]);
+      continue;
+    }
+    const reportMatch = /^ops\/agent-orchestrator\/reports\/([^/]+)\.md$/.exec(file);
+    if (reportMatch && !reportMatch[1].startsWith("integration-auto-")) {
+      taskIds.add(reportMatch[1]);
+    }
+  }
+  return [...taskIds].sort();
+}
+
+async function appendIntegrationEventsForCandidate({ mainPath, candidate, integrationBranch, mergeInfo }) {
+  const queue = await readJson(join(orchestratorDir, "queue", "task-queue.json"));
+  const tasks = taskById(queue);
+  const taskIds = taskIdsFromCandidate(candidate);
+  const refs = [];
+
+  for (const taskId of taskIds) {
+    const task = tasks.get(taskId);
+    const eventResult = await appendIntegrationEvent({
+      task,
+      taskId,
+      owner: task?.owner ?? candidate.agent.id,
+      agentId: candidate.agent.id,
+      agentBranch: candidate.agent.branch,
+      agentHead: candidate.agentHead,
+      integrationBranch,
+      mergeCommit: mergeInfo.merge_commit,
+      changedFiles: candidate.files,
+      source: "integrate-agent-results.mjs"
+    });
+    refs.push({
+      task_id: taskId,
+      event_type: "task.integrated",
+      path: eventResult.path ? relative(mainPath, eventResult.path) : "",
+      written: eventResult.written,
+      reason: eventResult.reason
+    });
+  }
+
+  const paths = refs.filter((item) => item.path).map((item) => item.path);
+  if (paths.length > 0) {
+    const committed = addAndCommitIfChanged(
+      mainPath,
+      paths,
+      `chore(orchestrator): record ${candidate.agent.id} integration events`
+    );
+    console.log(committed ? `Committed integration events for ${candidate.agent.id}.` : `Integration events for ${candidate.agent.id} produced no commit.`);
+  }
+
+  return refs;
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -320,13 +414,24 @@ const integrationBranch = `integration/orchestrator-auto-${generatedAt}`;
 run("git", ["checkout", "main"], { cwd: mainPath, stdio: "inherit" });
 run("git", ["checkout", "-B", integrationBranch, "HEAD"], { cwd: mainPath, stdio: "inherit" });
 
+const eventRefs = [];
 for (const candidate of candidates) {
-  mergeCandidate(mainPath, candidate);
+  const mergeInfo = mergeCandidate(mainPath, candidate, integrationBranch);
+  eventRefs.push(...(await appendIntegrationEventsForCandidate({
+    mainPath,
+    candidate,
+    integrationBranch,
+    mergeInfo
+  })));
 }
 
-reconcileQueue(mainPath, "chore(orchestrator): reconcile queue after agent integration");
+reconcileQueue(mainPath, "chore(orchestrator): reconcile queue after agent integration", {
+  source: "integration_final_reconcile",
+  reason: "final queue reconciliation after agent integration",
+  integrationBranch
+});
 runIntegrationValidation();
-const reportPath = await writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates });
+const reportPath = await writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs });
 
 const head = git(mainPath, ["log", "--oneline", "-1"]).stdout.trim();
 const changed = git(mainPath, ["diff", "--name-status", "main...HEAD"]).stdout.trim();

@@ -3,13 +3,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   auditChangedFiles,
+  auditableChangedFiles,
   mergeResultsByTask,
-  nowIso,
   readJson,
   readResultFiles,
-  taskById,
-  writeJson
+  taskById
 } from "./lib/queue-utils.mjs";
+import {
+  appendAuditEvent,
+  writeCompatibilityReadModels
+} from "./lib/event-store-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -19,8 +22,8 @@ const perTaskResultsDir = join(orchestratorDir, "results");
 
 function parseArgs(argv) {
   return {
-    write: argv.includes("--write"),
-    dryRun: argv.includes("--dry-run") || argv.includes("--no-write") || !argv.includes("--write")
+    apply: argv.includes("--apply") || argv.includes("--write"),
+    dryRun: argv.includes("--dry-run") || argv.includes("--no-write") || (!argv.includes("--apply") && !argv.includes("--write"))
   };
 }
 
@@ -43,10 +46,9 @@ if (latestDoneResults.size === 0) {
 }
 
 let hasFailure = false;
-let queueChanged = false;
-const auditedAt = nowIso();
+const eventRefs = [];
 
-console.log(`Audit mode: ${args.write ? "write" : "dry-run"}`);
+console.log(`Audit mode: ${args.apply ? "apply" : "dry-run"}`);
 
 for (const [taskId, result] of latestDoneResults) {
   const task = tasksById.get(taskId);
@@ -64,23 +66,46 @@ for (const [taskId, result] of latestDoneResults) {
     for (const failure of failures) {
       console.log(`Reason: ${failure}`);
     }
+    if (args.apply) {
+      const eventResult = await appendAuditEvent({
+        task,
+        result,
+        auditStatus: "FAIL",
+        failures,
+        changedFiles: auditableChangedFiles(result),
+        source: "audit-all-results.mjs"
+      });
+      eventRefs.push({ task_id: taskId, audit_status: "FAIL", ...eventResult });
+    }
     continue;
   }
 
   console.log(`${taskId}: AUDIT_PASS`);
-  if (args.write) {
-    task.status = "AUDITED";
-    task.updated_at = auditedAt;
-    queueChanged = true;
+  if (args.apply) {
+    const eventResult = await appendAuditEvent({
+      task,
+      result,
+      auditStatus: "PASS",
+      failures: [],
+      changedFiles: auditableChangedFiles(result),
+      source: "audit-all-results.mjs"
+    });
+    eventRefs.push({ task_id: taskId, audit_status: "PASS", ...eventResult });
   }
 }
 
-if (args.write && queueChanged) {
-  queue.updated_at = auditedAt;
-  await writeJson(queuePath, queue);
+if (args.apply) {
+  await writeCompatibilityReadModels();
+  const written = eventRefs.filter((item) => item.written);
+  const skipped = eventRefs.filter((item) => item.skipped);
+  console.log(`Audit events written: ${written.length}`);
+  console.log(`Audit events skipped by idempotency/dry-run: ${skipped.length}`);
+  for (const item of written) {
+    console.log(`Event: ${item.task_id} ${item.audit_status} ${item.path}`);
+  }
 }
 
-if (!args.write) {
+if (!args.apply) {
   console.log("Dry-run/no-write: task-queue.json was not modified.");
 }
 

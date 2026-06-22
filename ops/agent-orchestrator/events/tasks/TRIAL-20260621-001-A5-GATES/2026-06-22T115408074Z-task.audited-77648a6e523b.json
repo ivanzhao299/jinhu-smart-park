@@ -1,0 +1,108 @@
+{
+  "event_id": "task.audited:fdc2a7f0f6ce125283b62b2a",
+  "event_type": "task.audited",
+  "task_id": "TRIAL-20260621-001-A5-GATES",
+  "owner": "agent-5",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.074Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/production-readiness-dry-run-report.md",
+    "docs/release/trial-launch-engineering-gates-auth-readiness.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A5-GATES.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "e99568c8f44de0c264beb6aa3acbab757621c34bd3f2bd07484c90272e3c763e",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A5-GATES",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "fedf4bd",
+      "changed_files": [
+        "docs/release/production-readiness-dry-run-report.md",
+        "docs/release/trial-launch-engineering-gates-auth-readiness.md"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-5",
+        "git status --short",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs"
+      ],
+      "passed_checks": [
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "GET /health",
+        "GET /ready",
+        "POST /auth/login correct password",
+        "GET /auth/me",
+        "POST /auth/login wrong password rejected"
+      ],
+      "failed_checks": [
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "AUTH_SMS_FIXED_CODE= AUTH_SMS_CODE_VISIBLE=false AUTH_WECHAT_MOCK_ENABLED=false node scripts/e2e/first-release-auth-health.mjs"
+      ],
+      "notes": "Engineering gate/auth readiness evidence completed as a No-Go evidence task. Local dependencies were missing in the agent worktree, blocking lint/typecheck/build there. Auth smoke still showed SMS send-code and WeChat authorize unexpectedly succeeding on the local API target. No auth runtime, production config, merge, or push.",
+      "completed_at": "2026-06-21T16:53:17+08:00"
+    },
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A5-GATES",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch engineering gates and auth readiness evidence",
+      "owner": "agent-5",
+      "domain": "release-readiness",
+      "priority": "P0",
+      "status": "AUDITED",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Records current evidence for pnpm lint, pnpm typecheck, pnpm build, and first-release readiness gates.",
+        "Records auth mock-disabled evidence without changing auth runtime code or production configuration.",
+        "Updates release readiness report with Pass, Fail, Blocked, or Not verified status for each gate.",
+        "Documents skipped checks with reason and required human approval when applicable.",
+        "Does not modify business code, migration, seed, auth runtime, CI, Docker, deploy, or production config."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm build",
+        "node scripts/e2e/first-release-auth-health.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.074Z"
+    }
+  }
+}

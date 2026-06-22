@@ -1,0 +1,109 @@
+{
+  "event_id": "task.audited:becdefc4677409705e440b1b",
+  "event_type": "task.audited",
+  "task_id": "TRIAL-20260621-001-A2-FINANCE",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.071Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/trial-launch-finance-readiness-evidence-2026-06-21.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A2-FINANCE.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "cdb2dacf65275da80effdc42e2a7c285cbbf04dbc069bde0fb1de62f36f264c2",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A2-FINANCE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "31cbe93",
+      "changed_files": [
+        "docs/release/trial-launch-finance-readiness-evidence-2026-06-21.md"
+      ],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short",
+        "git diff --check"
+      ],
+      "passed_checks": [
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Local-only finance readiness evidence recorded; no business code, migrations, seeds, auth, CI, Docker, deploy, merge, or push.",
+      "completed_at": "2026-06-21T06:01:59.164Z"
+    },
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A2-FINANCE",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch leasing finance idempotency and audit evidence",
+      "owner": "agent-2",
+      "domain": "leasing-finance",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents safe execution of contract, receivable, payment, invoice, waiver, idempotency, and audit checks.",
+        "Produces finance readiness evidence that maps each result to the production readiness matrix.",
+        "Documents any write-path data marker and cleanup approach before running local or pre-production smoke.",
+        "If a business behavior gap is found, reports it as a follow-up task instead of changing service code.",
+        "Does not modify business service, controller, DTO, entity, migration, seed, auth, CI, Docker, or deploy files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.071Z"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "event_id": "task.audited:b78bfc592820299a62e7f4ff",
+  "event_type": "task.audited",
+  "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+  "owner": "agent-4",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.070Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+    "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+    "docs/testing/how-to-run-tests.md",
+    "docs/release/production-readiness-matrix.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A4-RBAC-MENU-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "6429351507ea4cb67f0daaebf2b673f728469d380090827ec991a6a8ebff6cdb",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
+      "changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "failed_checks": [],
+      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
+      "completed_at": "2026-06-21T12:16:22.254Z"
+    },
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "RBAC menu dashboard and permission visibility release check plan",
+      "owner": "agent-4",
+      "domain": "rbac-menu-dashboard",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates RBAC, menu, dashboard, and permission visibility release checks for pre-production execution and production read-only sampling.",
+        "Maps super-admin, standard role, denied route, first-release menu whitelist, dashboard visibility, and permission consistency evidence to Go / No-Go criteria.",
+        "Documents required accounts, target URLs, screenshots or command logs, and human approvals for production sampling.",
+        "Records No-Go rules for unauthorized access, missing first-release menu, non-first-release menu exposure, or dashboard permission mismatch.",
+        "Does not modify apps/api, apps/web, packages, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:36:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.070Z"
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "event_id": "task.audited:fd1beda43d304a6c9e62580f",
+  "event_type": "task.audited",
+  "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+  "owner": "agent-5",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.070Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "b873c869116e078ac24d3c7593d7d09a137cc779afec92d5b34b96a36f2d3ceb",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "3c6855c",
+      "changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status clean",
+        "release docs exist",
+        "git diff --check"
+      ],
+      "failed_checks": [
+        "pnpm typecheck failed in the agent checkout because local node_modules was missing and tsc was not found"
+      ],
+      "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    },
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Production deployment preflight and release gate evidence table",
+      "owner": "agent-5",
+      "domain": "production-release-gate",
+      "priority": "P0",
+      "status": "AUDITED",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a production preflight evidence table covering release commit, clean worktree, CI references, engineering gates, target environment owner, approval state, and Go / Conditional-Go / No-Go inputs.",
+        "Maps each preflight item to source evidence, command shape, approval requirement, pass/fail/blocked status, and required owner.",
+        "Records that production deploy, migration, seed, bootstrap, backup, rollback, Docker cleanup, and production data operations are not executed by default.",
+        "Identifies any missing evidence as No-Go or Conditional-Go with owner and next action.",
+        "Does not modify business code, migration, seed, auth, CI, Docker, deploy, infra, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:30:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.070Z"
+    }
+  }
+}

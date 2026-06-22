@@ -10,6 +10,7 @@ import {
   writeJson
 } from "./lib/queue-utils.mjs";
 import {
+  appendReconciledEvent,
   buildLockReadModel,
   buildQueueReadModel,
   buildResultReadModel,
@@ -98,11 +99,21 @@ const EVIDENCE_RULES = new Map([
 ]);
 
 function parseArgs(argv) {
+  const valueAfter = (name, fallback = "") => {
+    const index = argv.indexOf(name);
+    if (index === -1) return fallback;
+    const value = argv[index + 1];
+    return value && !value.startsWith("--") ? value : fallback;
+  };
+
   return {
     apply: argv.includes("--apply"),
     dryRun: argv.includes("--dry-run") || !argv.includes("--apply"),
     fromEvents: argv.includes("--from-events"),
-    legacyJson: argv.includes("--legacy-json")
+    legacyJson: argv.includes("--legacy-json"),
+    source: valueAfter("--source", "reconcile-task-results.mjs"),
+    reason: valueAfter("--reason", "reconciled compatibility read model from events"),
+    integrationBranch: valueAfter("--integration-branch", "")
   };
 }
 
@@ -120,6 +131,78 @@ function modelSummary(current, next, label) {
   };
 }
 
+function byTaskId(items, key = "task_id") {
+  return new Map((items ?? []).map((item) => [item[key], item]));
+}
+
+function changedTaskIdsFromModels({ currentQueue, nextQueue, currentLocks, nextLocks, currentResults, nextResults }) {
+  const changed = new Set();
+  const currentTasks = byTaskId(currentQueue.tasks);
+  const nextTasks = byTaskId(nextQueue.tasks);
+  const taskIds = new Set([...currentTasks.keys(), ...nextTasks.keys()]);
+  for (const taskId of taskIds) {
+    const current = currentTasks.get(taskId);
+    const next = nextTasks.get(taskId);
+    if (stable(current ?? null) !== stable(next ?? null)) {
+      changed.add(taskId);
+    }
+  }
+
+  const currentResultByTask = byTaskId(currentResults.results);
+  const nextResultByTask = byTaskId(nextResults.results);
+  const resultTaskIds = new Set([...currentResultByTask.keys(), ...nextResultByTask.keys()]);
+  for (const taskId of resultTaskIds) {
+    const current = currentResultByTask.get(taskId);
+    const next = nextResultByTask.get(taskId);
+    if (stable(current ?? null) !== stable(next ?? null)) {
+      changed.add(taskId);
+    }
+  }
+
+  const currentLocksByTask = byTaskId(currentLocks.locks);
+  const nextLocksByTask = byTaskId(nextLocks.locks);
+  const lockTaskIds = new Set([...currentLocksByTask.keys(), ...nextLocksByTask.keys()]);
+  for (const taskId of lockTaskIds) {
+    const current = currentLocksByTask.get(taskId);
+    const next = nextLocksByTask.get(taskId);
+    if (stable(current ?? null) !== stable(next ?? null)) {
+      changed.add(taskId);
+    }
+  }
+
+  return [...changed].sort();
+}
+
+async function appendReconciliationEvents({ args, currentQueue, nextQueue, currentResults, nextResults, changedTaskIds }) {
+  const currentTasks = byTaskId(currentQueue.tasks);
+  const nextTasks = byTaskId(nextQueue.tasks);
+  const currentResultByTask = byTaskId(currentResults.results);
+  const nextResultByTask = byTaskId(nextResults.results);
+  const eventRefs = [];
+
+  for (const taskId of changedTaskIds) {
+    const currentTask = currentTasks.get(taskId);
+    const nextTask = nextTasks.get(taskId) ?? currentTask;
+    const eventResult = await appendReconciledEvent({
+      task: nextTask,
+      taskId,
+      owner: nextTask?.owner ?? currentTask?.owner,
+      statusBefore: currentTask?.status ?? null,
+      statusAfter: nextTask?.status ?? currentTask?.status ?? null,
+      source: args.source,
+      reason: args.reason,
+      metadata: {
+        integration_branch: args.integrationBranch,
+        current_result_status: currentResultByTask.get(taskId)?.status ?? null,
+        next_result_status: nextResultByTask.get(taskId)?.status ?? null
+      }
+    });
+    eventRefs.push({ task_id: taskId, ...eventResult });
+  }
+
+  return eventRefs;
+}
+
 async function reconcileFromEvents(args) {
   const events = await listAllTaskEvents();
   const currentQueue = await readJson(EVENT_STORE_PATHS.queuePath);
@@ -133,6 +216,14 @@ async function reconcileFromEvents(args) {
     modelSummary(currentLocks, nextLocks, "locks"),
     modelSummary(currentResults, nextResults, "results")
   ];
+  const changedTaskIds = changedTaskIdsFromModels({
+    currentQueue,
+    nextQueue,
+    currentLocks,
+    nextLocks,
+    currentResults,
+    nextResults
+  });
 
   console.log("# Reconcile Task Results");
   console.log("");
@@ -142,13 +233,33 @@ async function reconcileFromEvents(args) {
   for (const summary of summaries) {
     console.log(`${summary.label}: changed=${summary.changed} current=${summary.current_count} next=${summary.next_count}`);
   }
+  console.log(`Changed task ids: ${changedTaskIds.join(", ") || "none"}`);
 
   if (args.dryRun) {
     console.log("Dry-run: queue, locks, and aggregate results were not written.");
     return;
   }
 
+  let eventRefs = [];
+  if (changedTaskIds.length > 0) {
+    eventRefs = await appendReconciliationEvents({
+      args,
+      currentQueue,
+      nextQueue,
+      currentResults,
+      nextResults,
+      changedTaskIds
+    });
+  }
+
   await writeCompatibilityReadModels();
+  const written = eventRefs.filter((item) => item.written);
+  const skipped = eventRefs.filter((item) => item.skipped);
+  console.log(`Reconciliation events written: ${written.length}`);
+  console.log(`Reconciliation events skipped by idempotency/dry-run: ${skipped.length}`);
+  for (const item of written) {
+    console.log(`Event: ${item.task_id} ${item.path}`);
+  }
   console.log("Wrote queue/task-queue.json, queue/task-locks.json, and queue/task-results.json from events.");
 }
 

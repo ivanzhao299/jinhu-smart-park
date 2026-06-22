@@ -413,6 +413,7 @@ function eventReadModelIsConsistent(eventStore) {
 
 async function inspectEventStore({ queue, locks, results }, findings) {
   const health = await buildEventStoreHealth({ queue, locks, results });
+  const auditReadModel = health.audit_read_model ?? {};
   const missingDirs = Object.entries(health.paths)
     .filter(([, exists]) => !exists)
     .map(([name]) => name);
@@ -464,6 +465,20 @@ async function inspectEventStore({ queue, locks, results }, findings) {
       "events",
       "event result read model differs from task-results.json result statuses.",
       "Review result events and per-task result artifacts before applying an event read-model rebuild."
+    );
+  }
+
+  const auditedTasks = new Set(auditReadModel.audited_tasks ?? []);
+  const doneResultsWithoutAudit = (results.results ?? [])
+    .filter((result) => result.status === "DONE" && !auditedTasks.has(result.task_id))
+    .map((result) => result.task_id);
+  if (doneResultsWithoutAudit.length > 0) {
+    addFinding(
+      findings,
+      "INFO",
+      "events",
+      `DONE result task(s) without task.audited event: ${doneResultsWithoutAudit.slice(0, 8).join(", ")}${doneResultsWithoutAudit.length > 8 ? ", ..." : ""}`,
+      "Run audit-all-results.mjs --apply when audit event materialization is approved."
     );
   }
 
@@ -813,6 +828,10 @@ function printMarkdown(diagnosis, args) {
   console.log("## Event Store");
   console.log(`Task events: ${diagnosis.event_store.task_events}`);
   console.log(`Event types: ${JSON.stringify(diagnosis.event_store.event_type_counts)}`);
+  console.log(`Audited tasks: ${diagnosis.event_store.audit_read_model?.audited_tasks?.length ?? 0}`);
+  console.log(`Integrated tasks: ${diagnosis.event_store.audit_read_model?.integrated_tasks?.length ?? 0}`);
+  console.log(`Reconciled tasks: ${diagnosis.event_store.audit_read_model?.reconciled_tasks?.length ?? 0}`);
+  console.log(`Audit statuses: ${JSON.stringify(diagnosis.event_store.audit_read_model?.audit_status_counts ?? {})}`);
   console.log(`Queue read model consistent: ${diagnosis.event_store.read_model_consistency.queue_status.consistent ? "yes" : "no"}`);
   console.log(`Lock read model consistent: ${diagnosis.event_store.read_model_consistency.locks.consistent ? "yes" : "no"}`);
   console.log(`Result read model consistent: ${diagnosis.event_store.read_model_consistency.results_status.consistent ? "yes" : "no"}`);

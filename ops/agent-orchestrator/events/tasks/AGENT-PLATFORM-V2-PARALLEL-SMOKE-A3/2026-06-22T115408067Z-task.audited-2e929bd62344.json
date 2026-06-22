@@ -1,0 +1,107 @@
+{
+  "event_id": "task.audited:ee8b9d72ff58ece2bc1713dc",
+  "event_type": "task.audited",
+  "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+  "owner": "agent-3",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.067Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "200e58acfa7d1087bb40709b02579a91847b45af5d2edc8605baed3c4e59b596",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status reviewed",
+        "checklist file exists",
+        "report file exists",
+        "rebuild dry-run exited 0",
+        "git diff --check",
+        "final git status reviewed"
+      ],
+      "failed_checks": [],
+      "notes": "Documentation-only smoke completed; rebuild dry-run exited 0 and reported pre-completion result read-model drift; correction recording preserves empty commit hash because no commit is allowed. No merge, push, deploy, production operation, migration, seed, or business-code change performed.",
+      "completed_at": "2026-06-22T11:34:48.926Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+      "batch_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE",
+      "title": "Event-first read-model consistency checklist smoke task",
+      "owner": "agent-3",
+      "domain": "orchestrator-event-store",
+      "priority": "P0",
+      "status": "AUDITED",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.json"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v2-parallel-smoke-a3.md with a concise event-first read-model consistency checklist covering task.created, task.claimed, task.completed, queue/lock/result read models, doctor health, and audit dry-run.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md summarizing the checklist, exact commands considered safe, and remaining risks.",
+        "Record completion with complete-task.mjs so ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.json is created truthfully.",
+        "Do not edit apps, packages, database, infra, auth, Docker, deploy, CI, production configuration, migrations, seeds, or production data.",
+        "Do not merge, push, deploy, run production operations, or create a local commit; leave files for orchestrator commit-agent-results."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T11:28:30.768Z",
+      "updated_at": "2026-06-22T11:54:08.067Z"
+    }
+  }
+}

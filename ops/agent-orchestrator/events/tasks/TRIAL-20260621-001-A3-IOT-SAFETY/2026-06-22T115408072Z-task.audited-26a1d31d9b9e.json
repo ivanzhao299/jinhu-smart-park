@@ -1,0 +1,128 @@
+{
+  "event_id": "task.audited:25c5fd8b6b87a503932c64fe",
+  "event_type": "task.audited",
+  "task_id": "TRIAL-20260621-001-A3-IOT-SAFETY",
+  "owner": "agent-3",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.072Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/trial-launch-agent-3-safety-iot-energy-evidence.md",
+    "scripts/e2e/s5b-emergency-permit-smoke.mjs"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A3-IOT-SAFETY.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "7ddaa93a78e683353575aad3579456b461fc9540d8843c32484ab2876561b2a8",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A3-IOT-SAFETY",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "00cb697",
+      "changed_files": [
+        "docs/release/trial-launch-agent-3-safety-iot-energy-evidence.md",
+        "scripts/e2e/s5b-emergency-permit-smoke.mjs"
+      ],
+      "commands_run": [
+        "node ops/agent-orchestrator/scripts/claim-task.mjs agent-3",
+        "git status --short",
+        "pnpm install --frozen-lockfile",
+        "pnpm --filter @jinhu/shared build",
+        "pnpm typecheck",
+        "node scripts/e2e/s5a-safety-smoke.mjs",
+        "node scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node scripts/e2e/safety-module-access-smoke.mjs",
+        "SAFETY_FIXTURE_ENVIRONMENT=local SAFETY_FIXTURE_ALLOW_WRITE=yes node scripts/e2e/prepare-safety-access-smoke-fixtures.mjs",
+        "SAFETY_SMOKE_* node scripts/e2e/safety-module-access-smoke.mjs",
+        "node scripts/e2e/s9a-iot-device-hub-smoke.mjs",
+        "node scripts/e2e/s9b-iot-runtime-alert-smoke.mjs",
+        "node scripts/e2e/s9c-iot-rule-engine-smoke.mjs",
+        "node scripts/e2e/s9d-iot-scene-center-smoke.mjs",
+        "node scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "node scripts/e2e/s9e-energy-meter-monitor-smoke.mjs",
+        "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
+        "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs"
+      ],
+      "passed_checks": [
+        "pnpm typecheck",
+        "node scripts/e2e/s5a-safety-smoke.mjs",
+        "node scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "SAFETY_FIXTURE_ENVIRONMENT=local SAFETY_FIXTURE_ALLOW_WRITE=yes node scripts/e2e/prepare-safety-access-smoke-fixtures.mjs",
+        "node scripts/e2e/s9a-iot-device-hub-smoke.mjs",
+        "node scripts/e2e/s9b-iot-runtime-alert-smoke.mjs",
+        "node scripts/e2e/s9c-iot-rule-engine-smoke.mjs",
+        "node scripts/e2e/s9d-iot-scene-center-smoke.mjs",
+        "node scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "node scripts/e2e/s9e-energy-meter-monitor-smoke.mjs",
+        "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
+        "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs"
+      ],
+      "failed_checks": [
+        "node scripts/e2e/safety-module-access-smoke.mjs",
+        "SAFETY_SMOKE_* node scripts/e2e/safety-module-access-smoke.mjs"
+      ],
+      "notes": "S5 safety core, S5 emergency/work-permit, S9 IoT, automatic hazard visibility, alert visibility, duplicate prevention, and energy reversal evidence passed locally. Full safety access matrix remains blocked by NORMAL user menu missing /operations/terminal. Test-fixture-only PDF upload fix was applied to scripts/e2e/s5b-emergency-permit-smoke.mjs. No production target, merge, or push.",
+      "completed_at": "2026-06-21T16:53:17+08:00"
+    },
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A3-IOT-SAFETY",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch safety IoT alert visibility and energy evidence",
+      "owner": "agent-3",
+      "domain": "ops-iot-safety",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents safe execution of S5 safety and S9 IoT / energy smoke coverage.",
+        "Records evidence for unified action executor, automatic hazard visibility, alert visibility, duplicate-prevention behavior, and energy billing reversal.",
+        "Documents write-path data safety and cleanup approach before running local or pre-production smoke.",
+        "If business behavior fails, reports the failing assertion and proposed follow-up instead of modifying service code.",
+        "Does not modify business service, controller, DTO, entity, migration, seed, auth, CI, Docker, deploy, or UI files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s5a-safety-smoke.mjs",
+        "node scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node scripts/e2e/safety-module-access-smoke.mjs",
+        "node scripts/e2e/s9a-iot-device-hub-smoke.mjs",
+        "node scripts/e2e/s9b-iot-runtime-alert-smoke.mjs",
+        "node scripts/e2e/s9c-iot-rule-engine-smoke.mjs",
+        "node scripts/e2e/s9d-iot-scene-center-smoke.mjs",
+        "node scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "node scripts/e2e/s9e-energy-meter-monitor-smoke.mjs",
+        "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
+        "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.072Z"
+    }
+  }
+}

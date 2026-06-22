@@ -1,0 +1,110 @@
+{
+  "event_id": "task.audited:8b7db23d94b64c337165ab7d",
+  "event_type": "task.audited",
+  "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+  "owner": "agent-5",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.074Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/production-readiness-dry-run-report.md",
+    "docs/release/trial-launch-release-rollback-file-backup-evidence.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A5-ROLLBACK.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "649bbca86f6fd799cf4c2267d63a7527f95341376184a218823031f81e2cec32",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/release/production-readiness-dry-run-report.md",
+        "docs/release/trial-launch-release-rollback-file-backup-evidence.md",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "git diff --check"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Evidence pack completed. Skipped node scripts/e2e/first-release-files.mjs, MODE=full pnpm prod:health, and bash scripts/verify-api-login-dockerexec.sh because no approved target environment, credentials, test data marker, or cleanup plan was provided. Release judgment remains No-Go until target evidence is collected. No merge or push.",
+      "completed_at": "2026-06-21T09:16:00.346Z"
+    },
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch release smoke rollback file and backup evidence",
+      "owner": "agent-5",
+      "domain": "release-rollback",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates release-chain evidence for migration command shape, production seed approval, init baseline, bootstrap-admin, prod health, and container login verification.",
+        "Records file upload/download readiness and file backup evidence requirements without touching production data by default.",
+        "Records rollback owner, previous image tag evidence requirement, database backup evidence requirement, observation window, and Docker cleanup evidence requirement.",
+        "Clearly marks commands that require human approval before execution.",
+        "Does not run deploy, Docker cleanup, production seed, destructive cleanup, database reset, or production write-path e2e without human approval."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "node scripts/e2e/first-release-files.mjs",
+        "MODE=full pnpm prod:health",
+        "bash scripts/verify-api-login-dockerexec.sh",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.074Z"
+    }
+  }
+}

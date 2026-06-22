@@ -1,0 +1,117 @@
+{
+  "event_id": "task.audited:2f9cfbd14aa9fec69185d032",
+  "event_type": "task.audited",
+  "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.069Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A2-FINANCE-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "4638a734350c37b86d7219f3792cfa6c6231007662f9ae392519d9c5751ae5f7",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "d7c4ac7",
+      "changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short showed only planned allowed-path files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Finance release gate planning report was completed and integrated. This records task completion only; it does not assert production financial write-path evidence or production Go approval.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    },
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Contract finance receivable payment invoice and audit release check plan",
+      "owner": "agent-2",
+      "domain": "leasing-finance-release",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a finance release check plan for contracts, receivables, payments, invoices, waivers, financial summaries, idempotency, delete/void protections, and audit-log sampling.",
+        "Classifies checks as local/pre-production full execution, production read-only sampling, or production write-path requiring approval.",
+        "Documents required test data marker, cleanup expectations, audit evidence fields, and finance owner sign-off.",
+        "Records No-Go rules for duplicate receivable/payment, unsafe financial delete, missing audit log, invoice/waiver failure, or idempotency conflict behavior failure.",
+        "Does not modify financial service code, DTOs, entities, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:37:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.069Z"
+    }
+  }
+}

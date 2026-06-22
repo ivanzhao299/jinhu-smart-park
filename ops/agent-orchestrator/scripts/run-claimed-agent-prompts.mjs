@@ -24,7 +24,7 @@ const runsDir = join(orchestratorDir, "runs");
 const runPlanPath = join(runsDir, "agent-run-plan.md");
 const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
 const allowedParallelValues = new Set(["1", "2", "3", "5"]);
-const EVENT_FIRST_COMPLETION_NOTE = "event-first task writes are available: dispatch writes task.claimed events, complete-task writes task.completed/task.failed events, and compatibility queue/lock/result JSON is rebuilt from events. --parallel 2 is enabled when event/read-model health is consistent; --parallel 3/5 remain blocked until audit/integration writes are event-first.";
+const EVENT_FIRST_COMPLETION_NOTE = "event-first task writes are available: dispatch writes task.claimed events, complete-task writes task.completed/task.failed events, audit-all-results writes task.audited events, integrate-agent-results writes task.integrated events, reconcile-task-results writes task.reconciled events, and compatibility queue/lock/result JSON is rebuilt from events. --parallel 2 is enabled when event/read-model health is consistent; --parallel 3/5 remain blocked until an audit/integration event-first smoke passes.";
 
 function readOptionValue(argv, name) {
   const flag = `--${name}`;
@@ -224,7 +224,7 @@ function executionPolicy(parallel, eventStoreHealth) {
       ? "parallel 2 guarded mode"
       : "parallel 2 blocked until event/read-model health is consistent";
   }
-  return "parallel preview only; --apply --execute --parallel > 2 remains blocked";
+  return "parallel preview only; --apply --execute --parallel > 2 remains blocked pending audit/integration event-first smoke";
 }
 
 function eventReadinessSummary(eventStoreHealth) {
@@ -314,7 +314,7 @@ ${commands}
 - Each agent must still obey the generated prompt, task allowed_paths, forbidden_paths, validation_commands, and complete-task result recording.
 - \`--apply --execute --parallel 1\` runs these tasks serially and writes one \`.run.log\` file per task; it does not merge, push, or deploy.
 - \`--apply --execute --parallel 2\` runs at most two claimed tasks per batch when event/read-model health is consistent.
-- \`--parallel 3\` and \`--parallel 5\` are accepted for planning and dry-run batch preview, but execution remains blocked until audit/integration writes are event-first.
+- \`--parallel 3\` and \`--parallel 5\` are accepted for planning and dry-run batch preview, but execution remains blocked until audit/integration event-first smoke validation passes.
 `;
 }
 
@@ -367,7 +367,7 @@ function assertExecutePreconditions({ codex, mainStatus, runnable, skipped, para
   }
 
   if (parallel > 2) {
-    failures.push(`--apply --execute --parallel > 2 is blocked; audit/integration writes are still JSON-first.`);
+    failures.push(`--apply --execute --parallel > 2 is blocked; audit/integration event-first writes require a dedicated parallel 3 smoke before execution is allowed.`);
   }
 
   if (parallel === 2 && !eventFirstParallelReady(eventStoreHealth)) {
@@ -678,7 +678,7 @@ if (!args.shouldWritePlan) {
 
 if (args.execute) {
   console.log("");
-  console.log("Guardrails: --parallel 1 serial execution or --parallel 2 guarded batch execution only; --parallel 3/5 remain blocked; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  console.log("Guardrails: --parallel 1 serial execution or --parallel 2 guarded batch execution only; --parallel 3/5 remain blocked pending audit/integration event-first smoke; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
   const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
     ignoredPaths: [runPlanRelativePath]
   });

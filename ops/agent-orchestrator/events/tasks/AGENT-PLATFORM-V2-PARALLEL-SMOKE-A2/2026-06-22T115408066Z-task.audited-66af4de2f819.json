@@ -1,0 +1,114 @@
+{
+  "event_id": "task.audited:20eadfdc077c8151373f41c7",
+  "event_type": "task.audited",
+  "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.066Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "9e2591607ea19326901ae656159def24f5ce0dc3ffa8b42a8a63b945ef54f923",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+        "ops/agent-orchestrator/queue/task-queue.json",
+        "ops/agent-orchestrator/queue/task-locks.json",
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check",
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/complete-task.mjs --task-id AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2 --agent agent-2 --status DONE"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Created the parallel 2 smoke checklist and report; validation commands passed; no commit, merge, push, deploy, production operation, or business-code change performed. complete-task.mjs wrote orchestrator completion bookkeeping; commit hash intentionally empty because allow_commit=false.",
+      "completed_at": "2026-06-22T11:37:30.626Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+      "batch_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE",
+      "title": "Parallel 2 validation checklist smoke task",
+      "owner": "agent-2",
+      "domain": "orchestrator-validation",
+      "priority": "P0",
+      "status": "AUDITED",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json",
+        "ops/agent-orchestrator/events/tasks/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v2-parallel-smoke-a2.md with a concise parallel 2 validation checklist covering dispatch, claimed locks, run logs, complete-task recording, commit-agent-results, integration, and final doctor checks.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md summarizing the checklist, exact commands considered safe, and remaining risks.",
+        "Record completion with complete-task.mjs so ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json is created truthfully.",
+        "Do not edit apps, packages, database, infra, auth, Docker, deploy, CI, production configuration, migrations, seeds, or production data.",
+        "Do not merge, push, deploy, run production operations, or create a local commit; leave files for orchestrator commit-agent-results."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T11:28:30.768Z",
+      "updated_at": "2026-06-22T11:54:08.066Z"
+    }
+  }
+}

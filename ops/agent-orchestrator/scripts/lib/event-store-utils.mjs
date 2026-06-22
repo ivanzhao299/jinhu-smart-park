@@ -21,9 +21,9 @@ const LEGACY_QUEUE_VERSION = 1;
 export const EVENT_FIRST_WRITE_PATH_STATUS = {
   "dispatch-ready-agents.mjs": "event-first: writes task.claimed events, then rebuilds legacy queue/lock JSON read models",
   "complete-task.mjs": "event-first: writes task.completed/task.failed events, then rebuilds legacy queue/lock/result JSON read models",
-  "reconcile-task-results.mjs": "event-first-preferred: rebuilds queue/lock/result JSON from events when task events exist",
-  "audit-all-results.mjs": "json-first: audit events are not written yet",
-  "integrate-agent-results.mjs": "json-first: integration/reconciliation events are not written yet"
+  "audit-all-results.mjs": "event-first foundation: --apply writes task.audited events, then rebuilds legacy queue/lock/result JSON read models",
+  "integrate-agent-results.mjs": "event-first foundation: --apply writes task.integrated events for merged agent task results",
+  "reconcile-task-results.mjs": "event-first-preferred: rebuilds queue/lock/result JSON from events and records task.reconciled events when apply changes read models"
 };
 
 export const EVENT_STORE_PATHS = {
@@ -97,6 +97,14 @@ function clone(value) {
 
 function stable(value) {
   return JSON.stringify(value);
+}
+
+function stableKey(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function deterministicEventId(prefix, value) {
+  return `${prefix}:${stableKey(value).slice(0, 24)}`;
 }
 
 function countBy(values, keyFn) {
@@ -215,6 +223,24 @@ export async function appendTaskEvent(event) {
   await mkdir(taskDir, { recursive: true });
 
   const existing = await listTaskEvents(normalized.task_id);
+  const idempotencyKey = normalized.metadata?.idempotency_key;
+  if (idempotencyKey) {
+    const duplicateByKey = existing.find((item) =>
+      item.event_type === normalized.event_type &&
+      item.source === normalized.source &&
+      item.metadata?.idempotency_key === idempotencyKey
+    );
+    if (duplicateByKey) {
+      return {
+        written: false,
+        skipped: true,
+        reason: "idempotency_key_exists",
+        path: duplicateByKey._file,
+        event: normalized
+      };
+    }
+  }
+
   const duplicate = existing.find((item) => item.event_id === normalized.event_id);
   if (duplicate) {
     return {
@@ -234,6 +260,161 @@ export async function appendTaskEvent(event) {
     path,
     event: normalized
   };
+}
+
+export async function appendAuditEvent({
+  task,
+  result,
+  auditStatus,
+  failures = [],
+  changedFiles = [],
+  actor = "orchestrator",
+  source = "audit-all-results.mjs",
+  createdAt,
+  dryRun = false
+}) {
+  const taskId = task?.task_id ?? result?.task_id;
+  const timestamp = createdAt ?? new Date().toISOString();
+  const normalizedAuditStatus = String(auditStatus ?? "").toUpperCase() === "PASS" ? "PASS" : "FAIL";
+  const reason = normalizedAuditStatus === "PASS"
+    ? "audit passed"
+    : failures.join("; ") || "audit failed";
+  const idempotencyKey = stableKey({
+    event_type: "task.audited",
+    source,
+    task_id: taskId,
+    audit_status: normalizedAuditStatus,
+    result_completed_at: result?.completed_at ?? result?.updated_at ?? "",
+    changed_files: toArray(changedFiles),
+    failures: toArray(failures)
+  });
+
+  const event = {
+    event_id: deterministicEventId("task.audited", idempotencyKey),
+    event_type: "task.audited",
+    task_id: taskId,
+    owner: task?.owner ?? result?.agent ?? "",
+    status_before: task?.status ?? null,
+    status_after: normalizedAuditStatus === "PASS" ? "AUDITED" : task?.status ?? null,
+    created_at: timestamp,
+    actor,
+    source,
+    reason,
+    changed_files: toArray(changedFiles),
+    result_ref: taskId ? `ops/agent-orchestrator/results/${taskId}.json` : "",
+    metadata: {
+      idempotency_key: idempotencyKey,
+      audit_status: normalizedAuditStatus,
+      failures: toArray(failures),
+      result_snapshot: result ? clone(result) : undefined,
+      task_snapshot: normalizedAuditStatus === "PASS" && task
+        ? { ...clone(task), status: "AUDITED", updated_at: timestamp }
+        : task ? clone(task) : undefined
+    }
+  };
+
+  return dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : appendTaskEvent(event);
+}
+
+export async function appendIntegrationEvent({
+  task,
+  taskId,
+  owner,
+  agentId,
+  agentBranch,
+  agentHead,
+  integrationBranch,
+  mergeCommit,
+  changedFiles = [],
+  actor = "orchestrator",
+  source = "integrate-agent-results.mjs",
+  createdAt,
+  dryRun = false
+}) {
+  const resolvedTaskId = task?.task_id ?? taskId;
+  const timestamp = createdAt ?? new Date().toISOString();
+  const idempotencyKey = stableKey({
+    event_type: "task.integrated",
+    source,
+    task_id: resolvedTaskId,
+    agent_id: agentId,
+    agent_head: agentHead,
+    integration_branch: integrationBranch,
+    merge_commit: mergeCommit
+  });
+  const status = task?.status ?? null;
+  const event = {
+    event_id: deterministicEventId("task.integrated", idempotencyKey),
+    event_type: "task.integrated",
+    task_id: resolvedTaskId,
+    owner: owner ?? task?.owner ?? agentId ?? "",
+    status_before: status,
+    status_after: status,
+    created_at: timestamp,
+    actor,
+    source,
+    reason: `integrated ${agentId ?? "agent"} result into ${integrationBranch ?? "integration branch"}`,
+    changed_files: toArray(changedFiles),
+    metadata: {
+      idempotency_key: idempotencyKey,
+      agent_id: agentId,
+      agent_branch: agentBranch,
+      agent_head: agentHead,
+      integration_branch: integrationBranch,
+      merge_commit: mergeCommit,
+      task_snapshot: task ? clone(task) : undefined
+    }
+  };
+
+  return dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : appendTaskEvent(event);
+}
+
+export async function appendReconciledEvent({
+  task,
+  taskId,
+  owner,
+  statusBefore,
+  statusAfter,
+  actor = "orchestrator",
+  source = "reconcile-task-results.mjs",
+  reason = "reconciled compatibility read model from events",
+  changedFiles = [],
+  metadata = {},
+  createdAt,
+  dryRun = false
+}) {
+  const resolvedTaskId = task?.task_id ?? taskId;
+  const timestamp = createdAt ?? new Date().toISOString();
+  const finalStatus = statusAfter ?? task?.status ?? statusBefore ?? null;
+  const idempotencyKey = stableKey({
+    event_type: "task.reconciled",
+    source,
+    task_id: resolvedTaskId,
+    status_before: statusBefore ?? task?.status ?? null,
+    status_after: finalStatus,
+    reason,
+    metadata
+  });
+  const event = {
+    event_id: deterministicEventId("task.reconciled", idempotencyKey),
+    event_type: "task.reconciled",
+    task_id: resolvedTaskId,
+    owner: owner ?? task?.owner ?? "",
+    status_before: statusBefore ?? task?.status ?? null,
+    status_after: finalStatus,
+    created_at: timestamp,
+    actor,
+    source,
+    reason,
+    changed_files: toArray(changedFiles),
+    metadata: {
+      idempotency_key: idempotencyKey,
+      ...metadata,
+      task_snapshot: task ? { ...clone(task), status: finalStatus, updated_at: timestamp } : undefined
+    }
+  };
+
+  return dryRun ? { written: false, skipped: true, reason: "dry_run", path: "", event } : appendTaskEvent(event);
 }
 
 export async function listTaskEvents(taskId) {
@@ -403,6 +584,35 @@ export async function buildResultReadModel() {
   };
 }
 
+export async function buildAuditReadModel() {
+  const events = await listAllTaskEvents();
+  const auditsByTask = new Map();
+  const integrationsByTask = new Map();
+  const reconciliationsByTask = new Map();
+
+  for (const event of events) {
+    if (event.event_type === "task.audited") {
+      auditsByTask.set(event.task_id, clone(event));
+    } else if (event.event_type === "task.integrated") {
+      integrationsByTask.set(event.task_id, clone(event));
+    } else if (event.event_type === "task.reconciled") {
+      reconciliationsByTask.set(event.task_id, clone(event));
+    }
+  }
+
+  return {
+    updated_at: maxIso(events.map((event) => event.created_at)),
+    event_type_counts: countBy(events, (event) => event.event_type ?? "unknown"),
+    audit_status_counts: countBy([...auditsByTask.values()], (event) => event.metadata?.audit_status ?? "UNKNOWN"),
+    audited_tasks: [...auditsByTask.keys()].sort(),
+    integrated_tasks: [...integrationsByTask.keys()].sort(),
+    reconciled_tasks: [...reconciliationsByTask.keys()].sort(),
+    latest_audit_by_task: Object.fromEntries([...auditsByTask.entries()].sort(([left], [right]) => left.localeCompare(right))),
+    latest_integration_by_task: Object.fromEntries([...integrationsByTask.entries()].sort(([left], [right]) => left.localeCompare(right))),
+    latest_reconciliation_by_task: Object.fromEntries([...reconciliationsByTask.entries()].sort(([left], [right]) => left.localeCompare(right)))
+  };
+}
+
 export async function writeCompatibilityReadModels(options = {}) {
   const includeQueue = options.queue !== false;
   const includeLocks = options.locks !== false;
@@ -427,6 +637,7 @@ export async function buildEventStoreHealth(current = {}) {
   const nextQueue = await buildQueueReadModel();
   const nextLocks = await buildLockReadModel();
   const nextResults = await buildResultReadModel();
+  const auditReadModel = await buildAuditReadModel();
 
   return {
     paths: {
@@ -438,6 +649,7 @@ export async function buildEventStoreHealth(current = {}) {
     },
     task_events: events.length,
     event_type_counts: countBy(events, (event) => event.event_type ?? "unknown"),
+    audit_read_model: auditReadModel,
     read_model_consistency: {
       queue_status: compareMaps(statusByTask(currentQueue), statusByTask(nextQueue)),
       locks: compareSets(lockKeys(currentLocks), lockKeys(nextLocks)),

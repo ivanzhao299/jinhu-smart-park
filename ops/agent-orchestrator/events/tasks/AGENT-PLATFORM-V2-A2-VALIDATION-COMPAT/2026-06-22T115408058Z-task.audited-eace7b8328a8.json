@@ -1,0 +1,127 @@
+{
+  "event_id": "task.audited:76465d8e1214bf4c230c4581",
+  "event_type": "task.audited",
+  "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+  "owner": "agent-2",
+  "status_before": "DONE",
+  "status_after": "AUDITED",
+  "created_at": "2026-06-22T11:54:08.058Z",
+  "actor": "orchestrator",
+  "source": "audit-all-results.mjs",
+  "reason": "audit passed",
+  "changed_files": [
+    "docs/testing/agent-platform-v2-validation-matrix.md",
+    "docs/release/agent-platform-v2-compatibility-test-plan.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.json",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "e8780e2fdcc3d22981355e233fe997427f041ed9334be1b7ab5de84d4883076d",
+    "audit_status": "PASS",
+    "failures": [],
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "none-agent-commit-restored-from-run-log",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "rg coverage scan",
+        "git add attempted",
+        "orchestrator restored files from run.log without rerunning Agent"
+      ],
+      "passed_checks": [
+        "Validation matrix covers V2-A and V2-B",
+        "Compatibility plan covers legacy queue JSON and event files",
+        "Negative tests cover HIGH-risk paths corrupt events duplicate events stale locks Codex failure and validation failure",
+        "check-dispatch-status passed",
+        "agent-cycle --dry-run passed",
+        "pnpm typecheck passed",
+        "git diff --check passed"
+      ],
+      "failed_checks": [],
+      "notes": "Agent-2 run.log exit_code=0 and contains three documentation artifacts. The agent-2 worktree was clean and the files were no longer present, so the orchestrator restored the final diff from the run.log without rerunning Codex. Agent git add/commit failed in the original run due parent worktree index lock permission; no agent commit hash exists.",
+      "completed_at": "2026-06-22T05:15:00.795Z"
+    },
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Validation matrix regression plan and compatibility tests for V2 queue and runner",
+      "owner": "agent-2",
+      "domain": "orchestrator-validation-compatibility",
+      "priority": "P1",
+      "status": "AUDITED",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a V2 validation matrix covering legacy JSON compatibility, event read-model generation, dry-run no-write behavior, parallel runner options, and integration apply guardrails.",
+        "Defines regression cases for claim, complete, audit, dispatch, run, commit, integrate, reconcile, and validation scripts.",
+        "Specifies compatibility tests that prove existing JSON queue workflows still work while event files are introduced.",
+        "Defines negative tests for HIGH-risk paths, corrupt events, duplicate events, stale locks, Codex failure, and validation failure.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Validation plan covers V2-A and V2-B",
+        "Compatibility plan covers legacy queue JSON and event files",
+        "Negative tests cover HIGH risk and corrupt event inputs",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:48:00+08:00",
+      "updated_at": "2026-06-22T11:54:08.058Z"
+    }
+  }
+}
