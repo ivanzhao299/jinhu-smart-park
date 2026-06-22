@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_evolution_state",
-  "updated_at": "2026-06-22T16:10:27.436Z",
+  "updated_at": "2026-06-22T16:17:40.162Z",
   "observer_version": "v3-e-mvp",
   "last_observed_at": null,
   "last_planned_at": "2026-06-22T16:10:27.436Z",
-  "last_run_mode": "planner_apply",
+  "last_run_mode": "goal_to_queue_apply",
   "maturity": {
     "current_score": 95,
     "target_score": 98,
@@ -22,9 +22,9 @@
       "PATTERN-001",
       "PATTERN-004"
     ],
-    "last_goal_id": "GOAL-AGENT-STUDIO-98",
-    "last_planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
-    "last_goal_to_queue_task_count": 5,
+    "last_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+    "last_planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+    "last_goal_to_queue_task_count": 1,
     "planned_task_candidates": 7,
     "planned_improvement_candidates": 7,
     "top_improvement_candidates": [
@@ -34,8 +34,6 @@
     ]
   },
   "next_action": [
-    "Review suggested tasks before queue insertion.",
-    "Use goal-to-queue --from-improvement <improvement_id> --dry-run before creating READY improvement tasks.",
-    "Do not run agent-cycle until improvement tasks are explicitly approved."
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run"
   ]
 }

@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "req_summary": {
+    "title": "Goal to Queue automatic closure",
+    "body": "Turn the natural-language goal \"Implement improvement IMPROVE-RUNTIME-PLAN-ARTIFACT: Make agent-run-plan.md an ephemeral runtime artifact\" into event-first READY tasks and a dry-run agent-cycle plan.",
+    "non_goals": [
+      "No agent execution in goal-to-queue",
+      "No deploy or production operation",
+      "No business code changes"
+    ]
+  },
+  "tech_summary": {
+    "title": "Event-first task.created generation",
+    "body": "Generate task candidates, assign owners through the registry/router layer, append task.created events, and rebuild compatibility queue read models.",
+    "non_goals": [
+      "No dispatch or claim",
+      "No Codex runner execution",
+      "No merge or push"
+    ]
+  },
+  "tasks": [
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_pattern_id": "PATTERN-001",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-001",
+      "priority": "P0",
+      "risk": "LOW",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": false,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-001",
+      "status": "READY",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:17:40.162Z",
+      "updated_at": "2026-06-22T16:17:40.162Z"
+    }
+  ],
+  "agent_assignments": [
+    {
+      "agent": "agent-5",
+      "task_ids": [
+        "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    }
+  ],
+  "risk_assessment": {
+    "overall_risk": "MEDIUM",
+    "requires_human_approval": false,
+    "blocked_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*"
+    ],
+    "notes": [
+      "Generated tasks are orchestrator/platform work only.",
+      "Future task execution still flows through agent-cycle, audit, integration, and finalize."
+    ]
+  },
+  "validation_commands": [
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+    "pnpm typecheck"
+  ],
+  "expected_outputs": [
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "path": "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md"
+    },
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "path": "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+    },
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "path": "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+    }
+  ],
+  "dispatch_plan": [
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "owner": "agent-5",
+      "mode": "READY only; dispatch later through agent-cycle"
+    }
+  ],
+  "created_at": "2026-06-22T16:17:40.162Z"
+}

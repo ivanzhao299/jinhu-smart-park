@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "goal_title": "Make agent-run-plan.md an ephemeral runtime artifact",
+  "goal_text": "Implement improvement IMPROVE-RUNTIME-PLAN-ARTIFACT: Make agent-run-plan.md an ephemeral runtime artifact",
+  "current_maturity": 95,
+  "target_maturity": 98,
+  "current_state": "Evolution Center can observe recurring failure patterns and maintain an improvement backlog.",
+  "target_state": "Evolution Planner improvement candidates can be reviewed and converted into event-first READY tasks.",
+  "capability_scores": [
+    {
+      "capability_id": "evolution-planner",
+      "name": "Evolution Planner Improvement Task Generation",
+      "current_score": 70,
+      "target_score": 90,
+      "evidence": [
+        "source pattern: PATTERN-001",
+        "occurrences: 3"
+      ],
+      "gap_summary": "Generated runner plans can dirty the main worktree and block integration or finalize even when no business file changed.",
+      "risk_level": "LOW"
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "GAP-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "capability_id": "evolution-planner",
+      "summary": "Generated runner plans can dirty the main worktree and block integration or finalize even when no business file changed.",
+      "impact": "Generated orchestrator runtime artifacts can leave main dirty and block runner or integration prechecks.",
+      "recommended_agent": "agent-5",
+      "priority": "P0",
+      "risk_level": "LOW",
+      "required_approval": false
+    }
+  ],
+  "milestones": [
+    {
+      "milestone_id": "MILESTONE-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "target_maturity": 98,
+      "exit_criteria": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ]
+    }
+  ],
+  "recommended_tasks": [
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5",
+      "priority": "P0",
+      "risk_level": "LOW",
+      "expected_output": "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md, ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json, docs/testing/evolution-runtime-plan-artifact-checklist.md"
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "summary": "Low-risk orchestrator platform improvement.",
+      "risk_level": "LOW",
+      "mitigation": "Default forbidden paths block business, database, infra, CI, Docker, deploy, auth, and production operations."
+    }
+  ],
+  "status": "READY_FOR_REVIEW",
+  "created_at": "2026-06-22T16:17:40.162Z",
+  "updated_at": "2026-06-22T16:17:40.162Z"
+}

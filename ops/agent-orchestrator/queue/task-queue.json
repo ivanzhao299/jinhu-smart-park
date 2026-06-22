@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T15:53:16.205Z",
+  "updated_at": "2026-06-22T16:17:40.162Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -1514,6 +1514,63 @@
       ],
       "created_at": "2026-06-22T15:26:04.674Z",
       "updated_at": "2026-06-22T15:53:16.205Z"
+    },
+    {
+      "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_pattern_id": "PATTERN-001",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-001",
+      "priority": "P0",
+      "risk": "LOW",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Self-repair identifies agent-run-plan.md as a LOW-risk runtime artifact.",
+        "Self-repair restores only agent-run-plan.md when it is the sole dirty main-worktree file.",
+        "Non-runtime dirty files still block with NO_GO."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs self-repair --dry-run --reason \"agent-run-plan runtime dirty\"",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": false,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-001",
+      "status": "READY",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md",
+        "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:17:40.162Z",
+      "updated_at": "2026-06-22T16:17:40.162Z"
     },
     {
       "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
