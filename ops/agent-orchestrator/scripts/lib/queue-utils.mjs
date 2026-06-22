@@ -90,8 +90,20 @@ export function isOrchestratorResultFile(filePath, taskId = "") {
   return taskId ? normalized === taskResultFilePath(taskId) : true;
 }
 
+export function isOrchestratorTaskEventFile(filePath, taskId = "") {
+  const normalized = normalizePath(filePath);
+  const prefix = taskId
+    ? `ops/agent-orchestrator/events/tasks/${taskId}/`
+    : "ops/agent-orchestrator/events/tasks/";
+  return normalized.startsWith(prefix) && normalized.endsWith(".json");
+}
+
 export function isOrchestratorSystemFile(filePath, taskId = "") {
-  return isOrchestratorBookkeepingFile(filePath) || isOrchestratorResultFile(filePath, taskId);
+  return (
+    isOrchestratorBookkeepingFile(filePath) ||
+    isOrchestratorResultFile(filePath, taskId) ||
+    isOrchestratorTaskEventFile(filePath, taskId)
+  );
 }
 
 export function splitChangedFiles(changedFiles, taskId = "") {

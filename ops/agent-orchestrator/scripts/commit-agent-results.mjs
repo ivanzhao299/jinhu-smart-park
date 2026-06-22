@@ -30,6 +30,10 @@ const COMMIT_MESSAGES = new Map([
   ["agent-4", "chore(agent-4): complete production rbac menu gate"],
   ["agent-5", "chore(agent-5): complete production preflight gate"]
 ]);
+const TASK_COMMIT_MESSAGES = new Map([
+  ["AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX", "chore(agent-1): complete runtime docs index readiness"],
+  ["AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK", "chore(agent-2): complete validation runbook readiness"]
+]);
 
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
@@ -121,8 +125,8 @@ function boundaryFailures(task, files) {
   return failures;
 }
 
-function commitMessageFor(agentId) {
-  return COMMIT_MESSAGES.get(agentId) ?? `chore(${agentId}): complete claimed agent task`;
+function commitMessageFor(agentId, task) {
+  return TASK_COMMIT_MESSAGES.get(task?.task_id) ?? COMMIT_MESSAGES.get(agentId) ?? `chore(${agentId}): complete claimed agent task`;
 }
 
 async function buildPlans() {
@@ -164,7 +168,7 @@ async function buildPlans() {
       taskSource: taskRef?.source ?? "none",
       risk,
       failures,
-      commitMessage: commitMessageFor(agentId)
+      commitMessage: commitMessageFor(agentId, taskRef?.task)
     });
   }
 
