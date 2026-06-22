@@ -1,0 +1,128 @@
+{
+  "event_id": "d0125c24-03c8-4667-8a86-e8c672f4eff3",
+  "event_type": "task.failed",
+  "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "owner": "agent-5",
+  "status_before": "CLAIMED",
+  "status_after": "FAILED",
+  "created_at": "2026-06-22T16:48:40.200Z",
+  "actor": "agent-5",
+  "source": "complete-task.mjs",
+  "reason": "Implemented idempotent task.completed backfill from clean tracked DONE result artifacts. Recorded FAILED because required validation did not fully pass in this worktree; no merge push deploy production operation migration seed destructive cleanup auth CI Docker env database app package or business-code change performed.",
+  "changed_files": [
+    "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+    "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "docs/testing/evolution-completed-event-backfill-checklist.md",
+    "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+    "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+  "audit_ref": "",
+  "metadata": {
+    "result_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "agent": "agent-5",
+      "status": "FAILED",
+      "commit_hash": "",
+      "changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "ops/agent-orchestrator/queue/task-results.json",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "docs/testing/evolution-completed-event-backfill-checklist.md",
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+      ],
+      "orchestrator_changed_files": [
+        "ops/agent-orchestrator/queue/task-results.json"
+      ],
+      "commands_run": [
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "script syntax checks passed",
+        "reconcile apply passed",
+        "audit dry-run passed",
+        "git diff --check passed"
+      ],
+      "failed_checks": [
+        "orchestratorctl doctor returned NO_GO because active task edits are dirty",
+        "pnpm typecheck failed because node_modules is missing and tsc is unavailable"
+      ],
+      "notes": "Implemented idempotent task.completed backfill from clean tracked DONE result artifacts. Recorded FAILED because required validation did not fully pass in this worktree; no merge push deploy production operation migration seed destructive cleanup auth CI Docker env database app package or business-code change performed.",
+      "completed_at": "2026-06-22T16:48:40.200Z"
+    },
+    "task_snapshot": {
+      "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "batch_id": "EVOLUTION-IMPROVEMENT-BACKLOG",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_improvement_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_pattern_id": "PATTERN-002",
+      "title": "Backfill completed events from truthful result artifacts",
+      "owner": "agent-5",
+      "domain": "evolution-pattern-002",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/evolution/**",
+        "ops/agent-orchestrator/events/**",
+        "ops/agent-orchestrator/queue/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "acceptance": [
+        "Successful run logs with committed result artifacts can be reconciled into DONE state.",
+        "Backfilled task.completed events are idempotent.",
+        "No business evidence is fabricated."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "requires_human_approval": true,
+      "owner_assignment_reason": "Evolution Planner recommendation from PATTERN-002",
+      "status": "FAILED",
+      "expected_output_files": [
+        "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md",
+        "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "docs/testing/evolution-completed-event-backfill-checklist.md"
+      ],
+      "created_at": "2026-06-22T16:38:34.174Z",
+      "updated_at": "2026-06-22T16:48:40.200Z"
+    }
+  }
+}

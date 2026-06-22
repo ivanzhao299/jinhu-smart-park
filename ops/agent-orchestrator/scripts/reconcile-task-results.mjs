@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { access, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,7 @@ import {
   writeJson
 } from "./lib/queue-utils.mjs";
 import {
+  appendCompletionBackfillEvent,
   appendReconciledEvent,
   buildLockReadModel,
   buildQueueReadModel,
@@ -27,6 +29,8 @@ const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 const aggregateResultsPath = join(orchestratorDir, "queue", "task-results.json");
 const perTaskResultsDir = join(orchestratorDir, "results");
 const reportsDir = join(orchestratorDir, "reports");
+const perTaskResultsRelativeDir = "ops/agent-orchestrator/results";
+const reportsRelativeDir = "ops/agent-orchestrator/reports";
 
 const EVIDENCE_RULES = new Map([
   ["TRIAL-20260621-001-A2-FINANCE", {
@@ -135,6 +139,62 @@ function byTaskId(items, key = "task_id") {
   return new Map((items ?? []).map((item) => [item[key], item]));
 }
 
+function countByReason(items) {
+  return items.reduce((acc, item) => {
+    const reason = item.reason ?? "unknown";
+    acc[reason] = (acc[reason] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function cleanResultSnapshot(result) {
+  const snapshot = { ...(result ?? {}) };
+  delete snapshot._artifact_path;
+  delete snapshot._artifact_kind;
+  return snapshot;
+}
+
+function validIso(value) {
+  return value && !Number.isNaN(Date.parse(value));
+}
+
+function gitPathState(relativePath) {
+  if (!relativePath) {
+    return { clean: false, reason: "result_artifact_path_missing" };
+  }
+
+  const runGit = (args) => spawnSync("git", args, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: "pipe"
+  });
+  const tracked = runGit(["ls-files", "--error-unmatch", "--", relativePath]);
+  if (tracked.error) {
+    return { clean: false, reason: "git_unavailable", detail: tracked.error.message };
+  }
+  if (tracked.status !== 0) {
+    return { clean: false, reason: "result_artifact_not_tracked" };
+  }
+
+  const unstaged = runGit(["diff", "--quiet", "--", relativePath]);
+  if (unstaged.error) {
+    return { clean: false, reason: "git_unavailable", detail: unstaged.error.message };
+  }
+  if (unstaged.status !== 0) {
+    return { clean: false, reason: "result_artifact_has_unstaged_changes" };
+  }
+
+  const staged = runGit(["diff", "--cached", "--quiet", "--", relativePath]);
+  if (staged.error) {
+    return { clean: false, reason: "git_unavailable", detail: staged.error.message };
+  }
+  if (staged.status !== 0) {
+    return { clean: false, reason: "result_artifact_has_staged_changes" };
+  }
+
+  return { clean: true, reason: "" };
+}
+
 function changedTaskIdsFromModels({ currentQueue, nextQueue, currentLocks, nextLocks, currentResults, nextResults }) {
   const changed = new Set();
   const currentTasks = byTaskId(currentQueue.tasks);
@@ -203,11 +263,159 @@ async function appendReconciliationEvents({ args, currentQueue, nextQueue, curre
   return eventRefs;
 }
 
+async function readResultArtifactsFromDir(dir, relativeDir, kind) {
+  let names = [];
+  try {
+    names = await readdir(dir);
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+
+  const results = [];
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const result = await readJson(join(dir, name));
+    if (result?.task_id) {
+      results.push({
+        ...result,
+        _artifact_path: `${relativeDir}/${name}`,
+        _artifact_kind: kind
+      });
+    }
+  }
+  return results;
+}
+
+async function readResultArtifacts() {
+  return [
+    ...(await readResultArtifactsFromDir(perTaskResultsDir, perTaskResultsRelativeDir, "per-task-result")),
+    ...(await readResultArtifactsFromDir(reportsDir, reportsRelativeDir, "report-result"))
+  ];
+}
+
+function finalEventsByTask(events) {
+  const byTask = new Map();
+  for (const event of events) {
+    if (event.event_type !== "task.completed" && event.event_type !== "task.failed") {
+      continue;
+    }
+    const current = byTask.get(event.task_id) ?? { completed: [], failed: [] };
+    if (event.event_type === "task.completed") {
+      current.completed.push(event);
+    } else {
+      current.failed.push(event);
+    }
+    byTask.set(event.task_id, current);
+  }
+  return byTask;
+}
+
+function taskMapForBackfill(currentQueue, projectedQueue) {
+  return new Map([
+    ...((currentQueue.tasks ?? []).map((task) => [task.task_id, task])),
+    ...((projectedQueue.tasks ?? []).map((task) => [task.task_id, task]))
+  ]);
+}
+
+function resultBackfillSkipReason({ result, task, finalEvents, gitState }) {
+  const status = String(result?.status ?? "").toUpperCase();
+  if (status !== "DONE") {
+    return "result_status_not_done";
+  }
+  if (!task) {
+    return "task_not_found";
+  }
+  if (result.agent && result.agent !== task.owner) {
+    return "result_agent_owner_mismatch";
+  }
+  if (!validIso(result.completed_at)) {
+    return "result_completed_at_missing_or_invalid";
+  }
+  if (result.exit_code !== undefined && result.exit_code !== null && Number(result.exit_code) !== 0) {
+    return "result_exit_code_not_success";
+  }
+  if ((finalEvents?.completed ?? []).length > 0) {
+    return "task_completed_event_exists";
+  }
+  if ((finalEvents?.failed ?? []).length > 0) {
+    return "task_failed_event_exists";
+  }
+  if (!gitState.clean) {
+    return gitState.reason;
+  }
+  return "";
+}
+
+async function completionBackfillPlan({ currentQueue, projectedQueue, events }) {
+  const artifacts = await readResultArtifacts();
+  const mergedArtifacts = mergeResultsByTask(artifacts);
+  const tasksById = taskMapForBackfill(currentQueue, projectedQueue);
+  const finalsByTask = finalEventsByTask(events);
+  const candidates = [];
+  const skipped = [];
+
+  for (const result of mergedArtifacts) {
+    const task = tasksById.get(result.task_id);
+    const finalEvents = finalsByTask.get(result.task_id);
+    const gitState = gitPathState(result._artifact_path);
+    const reason = resultBackfillSkipReason({ result, task, finalEvents, gitState });
+    if (reason) {
+      skipped.push({
+        task_id: result.task_id,
+        artifact: result._artifact_path,
+        reason
+      });
+      continue;
+    }
+
+    candidates.push({
+      task,
+      result: cleanResultSnapshot(result),
+      resultRef: result._artifact_path
+    });
+  }
+
+  return {
+    artifacts_seen: artifacts.length,
+    latest_artifacts_seen: mergedArtifacts.length,
+    candidates,
+    skipped
+  };
+}
+
+async function appendCompletionBackfills({ args, plan }) {
+  const eventRefs = [];
+  for (const item of plan.candidates) {
+    const eventResult = await appendCompletionBackfillEvent({
+      task: item.task,
+      result: item.result,
+      resultRef: item.resultRef,
+      statusBefore: item.task?.status ?? null,
+      source: args.source,
+      reason: "backfilled task.completed from committed result artifact",
+      createdAt: new Date(item.result.completed_at).toISOString()
+    });
+    eventRefs.push({ task_id: item.result.task_id, ...eventResult });
+  }
+  return eventRefs;
+}
+
 async function reconcileFromEvents(args) {
-  const events = await listAllTaskEvents();
+  const existingEvents = await listAllTaskEvents();
   const currentQueue = await readJson(EVENT_STORE_PATHS.queuePath);
   const currentLocks = await readJson(EVENT_STORE_PATHS.locksPath);
   const currentResults = await readJson(EVENT_STORE_PATHS.resultsPath);
+  const projectedQueueBeforeBackfill = await buildQueueReadModel();
+  const backfillPlan = await completionBackfillPlan({
+    currentQueue,
+    projectedQueue: projectedQueueBeforeBackfill,
+    events: existingEvents
+  });
+  const backfillSkips = countByReason(backfillPlan.skipped);
+  const backfillEventRefs = args.apply
+    ? await appendCompletionBackfills({ args, plan: backfillPlan })
+    : [];
   const nextQueue = await buildQueueReadModel();
   const nextLocks = await buildLockReadModel();
   const nextResults = await buildResultReadModel();
@@ -229,14 +437,18 @@ async function reconcileFromEvents(args) {
   console.log("");
   console.log(`Mode: ${args.apply ? "apply" : "dry-run"}`);
   console.log("Source: events");
-  console.log(`Task events: ${events.length}`);
+  console.log(`Task events: ${existingEvents.length}`);
+  console.log(`Result artifacts scanned: ${backfillPlan.artifacts_seen}`);
+  console.log(`Latest result artifacts considered: ${backfillPlan.latest_artifacts_seen}`);
+  console.log(`Completion backfills planned: ${backfillPlan.candidates.length}`);
+  console.log(`Completion backfill skips: ${JSON.stringify(backfillSkips)}`);
   for (const summary of summaries) {
     console.log(`${summary.label}: changed=${summary.changed} current=${summary.current_count} next=${summary.next_count}`);
   }
   console.log(`Changed task ids: ${changedTaskIds.join(", ") || "none"}`);
 
   if (args.dryRun) {
-    console.log("Dry-run: queue, locks, and aggregate results were not written.");
+    console.log("Dry-run: completion events, queue, locks, and aggregate results were not written.");
     return;
   }
 
@@ -253,8 +465,15 @@ async function reconcileFromEvents(args) {
   }
 
   await writeCompatibilityReadModels();
+  const writtenBackfills = backfillEventRefs.filter((item) => item.written);
+  const skippedBackfills = backfillEventRefs.filter((item) => item.skipped);
   const written = eventRefs.filter((item) => item.written);
   const skipped = eventRefs.filter((item) => item.skipped);
+  console.log(`Completion backfill events written: ${writtenBackfills.length}`);
+  console.log(`Completion backfill events skipped by idempotency/dry-run: ${skippedBackfills.length}`);
+  for (const item of writtenBackfills) {
+    console.log(`Backfill event: ${item.task_id} ${item.path}`);
+  }
   console.log(`Reconciliation events written: ${written.length}`);
   console.log(`Reconciliation events skipped by idempotency/dry-run: ${skipped.length}`);
   for (const item of written) {
