@@ -1,0 +1,27 @@
+{
+  "event_id": "task.reconciled:4f3fec504fab0c79fc8b81c1",
+  "event_type": "task.reconciled",
+  "task_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": null,
+  "created_at": "2026-06-22T16:27:12.078Z",
+  "actor": "orchestrator",
+  "source": "integration_final_reconcile",
+  "reason": "final queue reconciliation after agent integration",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "e5213c8f3f76be712bd2a060df3b4e8bf936ce36767e5cc4b7fe1f441ff7b9dc",
+    "integration_branch": "integration/orchestrator-auto-20260623-002711",
+    "current_result_status": null,
+    "next_result_status": null,
+    "task_snapshot": {
+      "task_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "owner": "agent-5",
+      "updated_at": "2026-06-22T16:27:12.078Z",
+      "status": null
+    }
+  }
+}
