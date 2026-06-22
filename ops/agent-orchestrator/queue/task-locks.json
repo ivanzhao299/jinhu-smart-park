@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T15:29:42.712Z",
+  "updated_at": "2026-06-22T15:45:56.429Z",
   "locks": [
     {
       "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
@@ -20,11 +20,6 @@
     {
       "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
       "agent": "agent-4",
-      "claimed_at": "2026-06-22T15:29:42.712Z"
-    },
-    {
-      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
-      "agent": "agent-5",
       "claimed_at": "2026-06-22T15:29:42.712Z"
     }
   ]
