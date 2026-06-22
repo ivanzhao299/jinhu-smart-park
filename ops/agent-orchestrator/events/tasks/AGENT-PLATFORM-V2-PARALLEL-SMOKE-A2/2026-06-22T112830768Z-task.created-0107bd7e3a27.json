@@ -1,0 +1,67 @@
+{
+  "event_id": "parallel-smoke:v1:task:AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-22T11:28:30.768Z",
+  "actor": "orchestrator",
+  "source": "parallel-smoke-task-create",
+  "reason": "low-risk parallel 2 event-first runner smoke validation",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "queue_index": 21,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2",
+      "batch_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE",
+      "title": "Parallel 2 validation checklist smoke task",
+      "owner": "agent-2",
+      "domain": "orchestrator-validation",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json"
+      ],
+      "forbidden_paths": [
+        "apps",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Create docs/testing/agent-platform-v2-parallel-smoke-a2.md with a concise parallel 2 validation checklist covering dispatch, claimed locks, run logs, complete-task recording, commit-agent-results, integration, and final doctor checks.",
+        "Create ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md summarizing the checklist, exact commands considered safe, and remaining risks.",
+        "Record completion with complete-task.mjs so ops/agent-orchestrator/results/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.json is created truthfully.",
+        "Do not edit apps, packages, database, infra, auth, Docker, deploy, CI, production configuration, migrations, seeds, or production data.",
+        "Do not merge, push, deploy, run production operations, or create a local commit; leave files for orchestrator commit-agent-results."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a2.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A2.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": false,
+      "allow_commit": false,
+      "created_at": "2026-06-22T11:28:30.768Z",
+      "updated_at": "2026-06-22T11:28:30.768Z"
+    }
+  }
+}
