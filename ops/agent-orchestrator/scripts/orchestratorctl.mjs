@@ -46,11 +46,18 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --push
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push --parallel 2
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push --precheck-only`);
 }
 
 function hasFlag(argv, flag) {
   return argv.includes(flag);
+}
+
+function optionValue(argv, flag, defaultValue = null) {
+  const index = argv.indexOf(flag);
+  if (index === -1) return defaultValue;
+  return argv[index + 1] ?? defaultValue;
 }
 
 function runSelfRepair(reason, options = {}) {
@@ -163,6 +170,8 @@ function parseAgentCycleArgs(argv) {
   const execute = argv.includes("--execute");
   const push = argv.includes("--push");
   const precheckOnly = argv.includes("--precheck-only");
+  const parallelRaw = optionValue(argv, "--parallel", "1");
+  const parallel = Number.parseInt(parallelRaw, 10);
 
   if (argv.includes("--dry-run") && (apply || execute || push)) {
     throw new Error("Use either --dry-run or --apply mode, not both.");
@@ -176,8 +185,11 @@ function parseAgentCycleArgs(argv) {
   if (precheckOnly && (!apply || !execute)) {
     throw new Error("--precheck-only requires --apply --execute.");
   }
+  if (![1, 2, 3, 5].includes(parallel)) {
+    throw new Error("--parallel must be one of: 1, 2, 3, 5.");
+  }
 
-  return { dryRun, apply, execute, push, precheckOnly };
+  return { dryRun, apply, execute, push, precheckOnly, parallel };
 }
 
 function commandMode(args) {
@@ -353,6 +365,7 @@ function printAgentCyclePrecheck(state, args) {
   console.log(`Codex CLI version: ${state.codex.version || "(unavailable)"}`);
   console.log(`Codex exec approval: ${state.codex.execOptions.approval.note}`);
   console.log(`Codex exec sandbox: ${state.codex.execOptions.sandbox.note}`);
+  console.log(`Runner parallelism: ${args.parallel}`);
   console.log("JSON parse: ok (task-queue, task-locks, task-results)");
   console.log(`READY tasks: ${ready.length}`);
   console.log(`claimable READY tasks this cycle: ${claimable.length}`);
@@ -365,11 +378,11 @@ function printAgentCyclePrecheck(state, args) {
   }
 }
 
-async function runReadOnlyPlans() {
+async function runReadOnlyPlans(args) {
   console.log("");
   console.log("## Read-Only Pipeline Plan");
   requireScript("ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs", ["--dry-run"]);
-  requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--dry-run", "--no-write"]);
+  requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--dry-run", "--no-write", "--parallel", String(args.parallel)]);
   requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"]);
   requireScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", ["--plan"]);
@@ -543,7 +556,7 @@ async function agentCycleCommand(rest) {
   printAgentCyclePrecheck(state, args);
 
   if (args.dryRun) {
-    await runReadOnlyPlans();
+    await runReadOnlyPlans(args);
     printOutcome("CONDITIONAL_GO", "Dry-run only; no files were modified.");
     return;
   }
@@ -588,7 +601,7 @@ async function agentCycleCommand(rest) {
   const refreshedBeforeDispatch = await readAgentCycleState();
   await dispatchReadyTasksIfAllowed(refreshedBeforeDispatch, args);
 
-  const runnerArgs = ["--apply", "--execute"];
+  const runnerArgs = ["--apply", "--execute", "--parallel", String(args.parallel)];
   if (args.precheckOnly) {
     runnerArgs.push("--precheck-only");
   }
