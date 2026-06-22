@@ -1,0 +1,60 @@
+{
+  "event_id": "bootstrap:v1:result:AGENT-PLATFORM-V2-A4-E2E-SELECTOR:agent-4:2026-06-22T06:16:40.067Z",
+  "event_type": "task.completed",
+  "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T06:16:40.067Z",
+  "actor": "agent-4",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+    "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+      "agent": "agent-4",
+      "status": "DONE",
+      "source": "reconciled_from_successful_run_log_and_agent_commit",
+      "run_log": "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
+      "exit_code": 0,
+      "commit_hash": "33e0b433cf4afc96a5dee384a13814ce3782a9ac",
+      "changed_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "codex exec recorded in ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log",
+        "git show --name-status 33e0b43"
+      ],
+      "passed_checks": [
+        "ops/agent-orchestrator/runs/AGENT-PLATFORM-V2-A4-E2E-SELECTOR-agent-4.run.log recorded exit_code=0",
+        "agent commit 33e0b43 exists",
+        "changed_files recorded from agent commit name-status output",
+        "changed files stay within orchestrator/docs/test planning paths or orchestrator bookkeeping artifacts",
+        "no production operation recorded",
+        "no business code change recorded"
+      ],
+      "failed_checks": [],
+      "no_production_operation": true,
+      "no_business_code_change": true,
+      "notes": "Truthful reconciliation only: task completion was inferred from a successful Codex run log and an existing agent branch commit. No Agent was rerun, no agent branch was modified, and no merge/push/deploy/production data operation was performed.",
+      "completed_at": "2026-06-22T06:16:40.067Z",
+      "reconciled_at": "2026-06-22T09:11:10.911Z"
+    }
+  }
+}

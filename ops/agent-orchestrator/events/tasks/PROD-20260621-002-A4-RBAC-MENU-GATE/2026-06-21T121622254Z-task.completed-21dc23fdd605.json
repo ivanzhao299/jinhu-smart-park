@@ -1,0 +1,66 @@
+{
+  "event_id": "bootstrap:v1:result:PROD-20260621-002-A4-RBAC-MENU-GATE:agent-4:2026-06-21T12:16:22.254Z",
+  "event_type": "task.completed",
+  "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T12:16:22.254Z",
+  "actor": "agent-4",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+    "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+    "docs/testing/how-to-run-tests.md",
+    "docs/release/production-readiness-matrix.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A4-RBAC-MENU-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "agent": "agent-4",
+      "status": "DONE",
+      "commit_hash": "NO_COMMIT_SANDBOX_BLOCKED",
+      "changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/rbac-menu-dashboard-permission-release-gate.md",
+        "docs/testing/rbac-menu-dashboard-permission-release-checks.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A4-RBAC-MENU-GATE.md",
+        "docs/testing/how-to-run-tests.md",
+        "docs/release/production-readiness-matrix.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "failed_checks": [],
+      "notes": "Created RBAC menu dashboard permission release gate and testing runbook. Production sampling remains human-approved read-only by default. Local commit skipped because sandbox cannot write linked git worktree index.lock under parent .git worktrees directory.",
+      "completed_at": "2026-06-21T12:16:22.254Z"
+    }
+  }
+}

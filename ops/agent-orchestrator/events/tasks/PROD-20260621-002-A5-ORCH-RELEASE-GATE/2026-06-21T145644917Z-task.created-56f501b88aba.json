@@ -1,0 +1,77 @@
+{
+  "event_id": "bootstrap:v1:task:PROD-20260621-002-A5-ORCH-RELEASE-GATE:created",
+  "event_type": "task.created",
+  "task_id": "PROD-20260621-002-A5-ORCH-RELEASE-GATE",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "BLOCKED",
+  "created_at": "2026-06-21T14:56:44.917Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 12,
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A5-ORCH-RELEASE-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Orchestrator release-gate automation design and dry-run integration",
+      "owner": "agent-5",
+      "domain": "orchestrator-release-gate",
+      "priority": "P2",
+      "status": "BLOCKED",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs or implements orchestrator-only dry-run release-gate automation that aggregates queue status, audit results, validation matrix, and production evidence checklist into a single report.",
+        "Ensures dry-run mode does not mutate task-queue.json, task-locks.json, task-results.json, business code, production config, or target environments.",
+        "Documents how future approved execution can attach production evidence without committing secrets.",
+        "Keeps merge, push, deploy, production data operations, migration, seed, backup, restore, rollback, and Docker cleanup behind human confirmation.",
+        "Does not modify business code, migrations, seeds, auth, CI, Docker, deploy, infra, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+        "node --check ops/agent-orchestrator/scripts/run-validation-matrix.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:38:00+08:00",
+      "updated_at": "2026-06-21T14:56:44.917Z",
+      "blocked_reason": "deferred while AGENT_PLATFORM_V2 P0 work is in progress",
+      "blocked_at": "2026-06-21T14:56:44.917Z",
+      "blocked_by": "Codex-Orchestrator",
+      "resume_condition": "Unblock only after AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH is completed/audited or the user explicitly resumes PROD-EVIDENCE-20260621-002."
+    }
+  }
+}

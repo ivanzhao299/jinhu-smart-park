@@ -1,0 +1,58 @@
+{
+  "event_id": "bootstrap:v1:result:AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS:agent-3:2026-06-21T14:04:35.789Z",
+  "event_type": "task.completed",
+  "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+  "owner": "agent-3",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T14:04:35.789Z",
+  "actor": "agent-3",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/agent-platform-v2-read-model-plan.md",
+    "docs/testing/agent-platform-v2-read-model-test-plan.md",
+    "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "read model status coverage",
+        "result and audit conflict-free shapes",
+        "legacy queue generation from events",
+        "pnpm typecheck",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Validation passed. Local commit could not be created because sandbox blocks Git index writes under parent .git worktree index.lock. No merge or push performed.",
+      "completed_at": "2026-06-21T14:04:35.789Z"
+    }
+  }
+}

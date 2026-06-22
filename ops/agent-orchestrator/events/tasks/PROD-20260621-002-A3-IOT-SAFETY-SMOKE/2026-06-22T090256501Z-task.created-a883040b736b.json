@@ -1,0 +1,73 @@
+{
+  "event_id": "bootstrap:v1:task:PROD-20260621-002-A3-IOT-SAFETY-SMOKE:created",
+  "event_type": "task.created",
+  "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+  "owner": "agent-3",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 9,
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "IoT safety runtime smoke and production-safe inspection plan",
+      "owner": "agent-3",
+      "domain": "ops-iot-safety",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a production-safe IoT and safety release smoke plan covering safety access, S5A/S5B, S9A-S9F1, unified action executor, alert visibility, automatic hazard visibility, duplicate prevention, and energy reversal.",
+        "Classifies each command as local/pre-production full execution, production read-only sampling, or production write-path requiring approval.",
+        "Defines required test data marker, cleanup expectations, and evidence fields for any approved write-path smoke.",
+        "Records No-Go rules for automatic hazard invisibility, duplicate linked actions, safety access failure, or energy reversal failure.",
+        "Does not modify business code, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:35:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

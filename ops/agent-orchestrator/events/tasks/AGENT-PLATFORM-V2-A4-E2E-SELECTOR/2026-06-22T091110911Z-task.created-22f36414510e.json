@@ -1,0 +1,86 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A4-E2E-SELECTOR:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:11:10.911Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 19,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Smart E2E selector rules validation matrix and explanation design",
+      "owner": "agent-4",
+      "domain": "orchestrator-smart-e2e-selector",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs selector-rules.json, validation-matrix.json, and e2e-selector.mjs behavior without implementing selector code in this planning task.",
+        "Defines changed-files plus risk/module inventory inputs and selected validations plus reasons outputs.",
+        "Covers RBAC, finance, workflow, IoT/safety, unknown high-risk, and low-risk docs-only selection examples.",
+        "Requires doctor, audit-all-results --dry-run, and pnpm typecheck to remain baseline checks.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T09:11:10.911Z",
+      "status_reason": "reconciled from successful run log and agent commit"
+    }
+  }
+}

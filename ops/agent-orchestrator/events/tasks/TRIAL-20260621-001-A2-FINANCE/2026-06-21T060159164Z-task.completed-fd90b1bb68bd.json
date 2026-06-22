@@ -1,0 +1,56 @@
+{
+  "event_id": "bootstrap:v1:result:TRIAL-20260621-001-A2-FINANCE:agent-2:2026-06-21T06:01:59.164Z",
+  "event_type": "task.completed",
+  "task_id": "TRIAL-20260621-001-A2-FINANCE",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T06:01:59.164Z",
+  "actor": "agent-2",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/trial-launch-finance-readiness-evidence-2026-06-21.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/TRIAL-20260621-001-A2-FINANCE.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "TRIAL-20260621-001-A2-FINANCE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "31cbe93",
+      "changed_files": [
+        "docs/release/trial-launch-finance-readiness-evidence-2026-06-21.md"
+      ],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short",
+        "git diff --check"
+      ],
+      "passed_checks": [
+        "pnpm typecheck",
+        "node scripts/e2e/s3c-contract-smoke.mjs",
+        "node scripts/e2e/s3d-payment-smoke.mjs",
+        "node scripts/e2e/s3d-waiver-smoke.mjs",
+        "node scripts/e2e/s3d-invoice-smoke.mjs",
+        "node scripts/e2e/s3e-contract-lifecycle-smoke.mjs",
+        "node scripts/e2e/first-release-leasing.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Local-only finance readiness evidence recorded; no business code, migrations, seeds, auth, CI, Docker, deploy, merge, or push.",
+      "completed_at": "2026-06-21T06:01:59.164Z"
+    }
+  }
+}

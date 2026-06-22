@@ -1,0 +1,72 @@
+{
+  "event_id": "bootstrap:v1:task:PROD-20260621-002-A4-RBAC-MENU-GATE:created",
+  "event_type": "task.created",
+  "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 10,
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A4-RBAC-MENU-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "RBAC menu dashboard and permission visibility release check plan",
+      "owner": "agent-4",
+      "domain": "rbac-menu-dashboard",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates RBAC, menu, dashboard, and permission visibility release checks for pre-production execution and production read-only sampling.",
+        "Maps super-admin, standard role, denied route, first-release menu whitelist, dashboard visibility, and permission consistency evidence to Go / No-Go criteria.",
+        "Documents required accounts, target URLs, screenshots or command logs, and human approvals for production sampling.",
+        "Records No-Go rules for unauthorized access, missing first-release menu, non-first-release menu exposure, or dashboard permission mismatch.",
+        "Does not modify apps/api, apps/web, packages, migrations, seeds, auth, CI, Docker, deploy, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node --check scripts/e2e/first-release-menu-whitelist.mjs",
+        "node --check scripts/e2e/first-release-idempotency.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:36:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

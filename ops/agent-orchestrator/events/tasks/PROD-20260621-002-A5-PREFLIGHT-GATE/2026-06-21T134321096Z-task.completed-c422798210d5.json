@@ -1,0 +1,55 @@
+{
+  "event_id": "bootstrap:v1:result:PROD-20260621-002-A5-PREFLIGHT-GATE:agent-5:2026-06-21T13:43:21.096Z",
+  "event_type": "task.completed",
+  "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T13:43:21.096Z",
+  "actor": "agent-5",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+    "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "agent": "agent-5",
+      "status": "DONE",
+      "commit_hash": "3c6855c",
+      "changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "agent_changed_files": [
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A5-PREFLIGHT-GATE.md",
+        "ops/agent-orchestrator/results/PROD-20260621-002-A5-PREFLIGHT-GATE.json"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status clean",
+        "release docs exist",
+        "git diff --check"
+      ],
+      "failed_checks": [
+        "pnpm typecheck failed in the agent checkout because local node_modules was missing and tsc was not found"
+      ],
+      "notes": "Preflight gate evidence report was completed and integrated with a No-Go verdict. This records task completion only; it does not assert production Go, deploy, migration, seed, backup, rollback, Docker cleanup, or production data-operation evidence.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    }
+  }
+}

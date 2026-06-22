@@ -1,0 +1,83 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 16,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Validation matrix regression plan and compatibility tests for V2 queue and runner",
+      "owner": "agent-2",
+      "domain": "orchestrator-validation-compatibility",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a V2 validation matrix covering legacy JSON compatibility, event read-model generation, dry-run no-write behavior, parallel runner options, and integration apply guardrails.",
+        "Defines regression cases for claim, complete, audit, dispatch, run, commit, integrate, reconcile, and validation scripts.",
+        "Specifies compatibility tests that prove existing JSON queue workflows still work while event files are introduced.",
+        "Defines negative tests for HIGH-risk paths, corrupt events, duplicate events, stale locks, Codex failure, and validation failure.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Validation plan covers V2-A and V2-B",
+        "Compatibility plan covers legacy queue JSON and event files",
+        "Negative tests cover HIGH risk and corrupt event inputs",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v2-validation-matrix.md",
+        "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:48:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

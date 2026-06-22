@@ -1,0 +1,86 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+  "owner": "agent-3",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 14,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Event read model status aggregation and conflict-free results",
+      "owner": "agent-3",
+      "domain": "orchestrator-read-model",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/events",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/queue",
+        "ops/agent-orchestrator/results",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs read-model aggregation from event files into queue status without requiring multiple Agents to write one shared JSON file.",
+        "Defines conflict-free result and audit event shapes, including per-task result files and summary materialization.",
+        "Specifies adapter behavior for check-dispatch-status, audit-all-results, complete-task, reconcile-task-results, and integrate-agent-results.",
+        "Defines deterministic ordering, duplicate detection, corrupt-event handling, and no-write dry-run behavior.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/reconcile-task-results.mjs",
+        "node --check ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Read model design covers READY, CLAIMED, DONE, FAILED, BLOCKED, and AUDITED statuses",
+        "Result and audit events avoid shared JSON write conflicts",
+        "Legacy queue JSON can still be generated from events",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-read-model-plan.md",
+        "docs/testing/agent-platform-v2-read-model-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:46:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

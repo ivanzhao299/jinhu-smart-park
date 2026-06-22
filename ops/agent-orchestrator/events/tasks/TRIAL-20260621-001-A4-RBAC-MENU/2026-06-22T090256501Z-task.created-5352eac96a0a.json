@@ -1,0 +1,66 @@
+{
+  "event_id": "bootstrap:v1:task:TRIAL-20260621-001-A4-RBAC-MENU:created",
+  "event_type": "task.created",
+  "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 3,
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A4-RBAC-MENU",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch RBAC menu and dashboard visibility evidence",
+      "owner": "agent-4",
+      "domain": "dashboard-rbac-menu",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Runs or documents RBAC, role-permission, first-release menu whitelist, and dashboard visibility checks.",
+        "Maps each RBAC/menu result to the production readiness matrix and identifies any No-Go blocker.",
+        "Documents any production-only manual sampling that still requires human approval.",
+        "If a menu or permission implementation gap is found, reports a follow-up task instead of changing app code.",
+        "Does not modify apps/api, apps/web, packages, migration, seed, auth, CI, Docker, or deploy files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "node scripts/e2e/s1-rbac-std-fix-smoke.mjs",
+        "node scripts/e2e/first-release-menu-whitelist.mjs",
+        "node scripts/e2e/first-release-idempotency.mjs",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

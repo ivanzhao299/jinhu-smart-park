@@ -1,0 +1,60 @@
+{
+  "event_id": "bootstrap:v1:result:PROD-20260621-002-A2-FINANCE-GATE:agent-2:2026-06-21T13:43:21.096Z",
+  "event_type": "task.completed",
+  "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T13:43:21.096Z",
+  "actor": "agent-2",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A2-FINANCE-GATE.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
+      "agent": "agent-2",
+      "status": "DONE",
+      "commit_hash": "d7c4ac7",
+      "changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/contract-finance-release-check-plan-2026-06-21.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A2-FINANCE-GATE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "git status --short showed only planned allowed-path files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s3c-contract-smoke.mjs",
+        "node --check scripts/e2e/s3d-payment-smoke.mjs",
+        "node --check scripts/e2e/s3d-waiver-smoke.mjs",
+        "node --check scripts/e2e/s3d-invoice-smoke.mjs",
+        "node --check scripts/e2e/first-release-leasing.mjs",
+        "git diff --check"
+      ],
+      "failed_checks": [],
+      "notes": "Finance release gate planning report was completed and integrated. This records task completion only; it does not assert production financial write-path evidence or production Go approval.",
+      "completed_at": "2026-06-21T13:43:21.096Z"
+    }
+  }
+}

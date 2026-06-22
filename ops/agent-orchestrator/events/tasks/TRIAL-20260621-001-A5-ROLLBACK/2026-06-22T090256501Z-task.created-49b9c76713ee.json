@@ -1,0 +1,71 @@
+{
+  "event_id": "bootstrap:v1:task:TRIAL-20260621-001-A5-ROLLBACK:created",
+  "event_type": "task.created",
+  "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 4,
+    "task_snapshot": {
+      "task_id": "TRIAL-20260621-001-A5-ROLLBACK",
+      "batch_id": "TRIAL-20260621-001",
+      "title": "Trial launch release smoke rollback file and backup evidence",
+      "owner": "agent-5",
+      "domain": "release-rollback",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "HIGH",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "scripts/e2e"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates release-chain evidence for migration command shape, production seed approval, init baseline, bootstrap-admin, prod health, and container login verification.",
+        "Records file upload/download readiness and file backup evidence requirements without touching production data by default.",
+        "Records rollback owner, previous image tag evidence requirement, database backup evidence requirement, observation window, and Docker cleanup evidence requirement.",
+        "Clearly marks commands that require human approval before execution.",
+        "Does not run deploy, Docker cleanup, production seed, destructive cleanup, database reset, or production write-path e2e without human approval."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "test -x scripts/db-migrate.sh",
+        "test -x scripts/db-seed-prod.sh",
+        "test -x scripts/check-init-baseline.sh",
+        "test -x scripts/bootstrap-admin.sh",
+        "test -x scripts/prod-healthcheck.sh",
+        "test -x scripts/verify-api-login-dockerexec.sh",
+        "node scripts/e2e/first-release-files.mjs",
+        "MODE=full pnpm prod:health",
+        "bash scripts/verify-api-login-dockerexec.sh",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T14:10:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

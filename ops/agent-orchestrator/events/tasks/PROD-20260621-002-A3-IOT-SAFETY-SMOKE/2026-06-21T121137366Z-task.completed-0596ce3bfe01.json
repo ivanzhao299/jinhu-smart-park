@@ -1,0 +1,60 @@
+{
+  "event_id": "bootstrap:v1:result:PROD-20260621-002-A3-IOT-SAFETY-SMOKE:agent-3:2026-06-21T12:11:37.366Z",
+  "event_type": "task.completed",
+  "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+  "owner": "agent-3",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-21T12:11:37.366Z",
+  "actor": "agent-3",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap result from ops/agent-orchestrator/queue/task-results.json",
+  "changed_files": [
+    "docs/release/iot-safety-runtime-smoke-production-plan.md",
+    "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
+  ],
+  "result_ref": "ops/agent-orchestrator/results/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.json",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "result_snapshot": {
+      "task_id": "PROD-20260621-002-A3-IOT-SAFETY-SMOKE",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "none",
+      "changed_files": [
+        "docs/release/iot-safety-runtime-smoke-production-plan.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
+      ],
+      "agent_changed_files": [
+        "docs/release/iot-safety-runtime-smoke-production-plan.md",
+        "ops/agent-orchestrator/reports/PROD-20260621-002-A3-IOT-SAFETY-SMOKE.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "git status --short",
+        "git commit -m docs: add iot safety production smoke plan"
+      ],
+      "passed_checks": [
+        "git status --short showed only allowed new files",
+        "pnpm typecheck",
+        "node --check scripts/e2e/s5a-safety-smoke.mjs",
+        "node --check scripts/e2e/s5b-emergency-permit-smoke.mjs",
+        "node --check scripts/e2e/safety-module-access-smoke.mjs",
+        "node --check scripts/e2e/s9d1-unified-action-executor-smoke.mjs",
+        "git diff --check",
+        "final git status --short showed only allowed new files"
+      ],
+      "failed_checks": [],
+      "notes": "Created production-safe IoT/safety runtime smoke plan and report. Required validations passed. Local commit was attempted but could not be created because the linked Git worktree index is outside the writable sandbox and index.lock creation was denied. No merge or push performed.",
+      "completed_at": "2026-06-21T12:11:37.366Z"
+    }
+  }
+}

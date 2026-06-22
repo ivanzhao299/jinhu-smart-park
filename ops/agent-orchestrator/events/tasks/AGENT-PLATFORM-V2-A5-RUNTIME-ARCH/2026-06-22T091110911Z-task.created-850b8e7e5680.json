@@ -1,0 +1,86 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A5-RUNTIME-ARCH:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:11:10.911Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 17,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Project Runtime Memory overall architecture and inventory contracts",
+      "owner": "agent-5",
+      "domain": "orchestrator-runtime-memory-architecture",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Defines Project Runtime Memory architecture under ops/agent-orchestrator/runtime without creating business-code changes.",
+        "Specifies architecture.json, api_inventory.json, db_inventory.json, module_inventory.json, rbac_inventory.json, workflow_inventory.json, and risk_inventory.json contracts.",
+        "Defines how runtime memory reduces repeated project scans while remaining generated metadata, not business truth.",
+        "Documents runtime-generator, runtime-rebuild, and runtime-validate dry-run/apply responsibilities at architecture level.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
+        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T09:11:10.911Z",
+      "status_reason": "reconciled from successful run log and agent commit"
+    }
+  }
+}

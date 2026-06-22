@@ -1,0 +1,94 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 13,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Event sourcing queue architecture and compatibility layer",
+      "owner": "agent-5",
+      "domain": "orchestrator-event-sourcing",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/events",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/queue",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs the V2 event-sourcing directory layout under ops/agent-orchestrator/events with tasks, results, locks, and audits subdirectories.",
+        "Defines event file naming, required fields, idempotency keys, ownership rules, and append-only write discipline.",
+        "Preserves existing task-queue.json, task-locks.json, and task-results.json as a compatibility read/write layer during migration.",
+        "Lists every script that must be adapted and defines backward-compatible migration phases.",
+        "Does not modify business code, database, infra, auth, CI, Docker, deploy, production environment files, or run any Agent."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "node --check ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "node --check ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "node ops/agent-orchestrator/scripts/bootstrap-event-store.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "JSON parse queue, locks, and results",
+        "check-dispatch-status remains compatible with current JSON queue",
+        "agent-cycle --dry-run remains no-write",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "docs/testing/agent-platform-v2-event-sourcing-test-plan.md",
+        "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
+        "ops/agent-orchestrator/scripts/bootstrap-event-store.mjs",
+        "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:45:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

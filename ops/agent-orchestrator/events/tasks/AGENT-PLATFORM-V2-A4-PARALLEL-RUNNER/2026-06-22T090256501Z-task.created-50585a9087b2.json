@@ -1,0 +1,85 @@
+{
+  "event_id": "bootstrap:v1:task:AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER:created",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 15,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER",
+      "batch_id": "AGENT-PLATFORM-V2-20260621",
+      "title": "Parallel Codex runner CLI parameters logs and summary output",
+      "owner": "agent-4",
+      "domain": "orchestrator-parallel-runner",
+      "priority": "P1",
+      "status": "DONE",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/scripts",
+        "ops/agent-orchestrator/runs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs run-claimed-agent-prompts.mjs support for --parallel 1, --parallel 2, --parallel 3, and --parallel 5 with default --parallel 1.",
+        "Preserves serial safe mode and all existing no-deploy, no-push, no-merge, no-production-operation guardrails.",
+        "Defines per-agent prompt, worktree, run.log, exit code, and aggregated summary behavior.",
+        "Defines failure strategy: stop launching new tasks after first failure while allowing already-started tasks to finish.",
+        "Documents why event-sourcing queue is required before safe parallel execution can write completion state."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node --check ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs",
+        "node ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "--parallel defaults to 1",
+        "--parallel accepts only 1, 2, 3, or 5",
+        "Dry-run prints planned parallel batches without executing Codex",
+        "typecheck passes"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-parallel-runner-plan.md",
+        "docs/testing/agent-platform-v2-parallel-runner-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-21T21:47:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}

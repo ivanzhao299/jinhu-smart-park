@@ -1,0 +1,71 @@
+{
+  "event_id": "bootstrap:v1:task:PROD-20260621-002-A5-PREFLIGHT-GATE:created",
+  "event_type": "task.created",
+  "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "DONE",
+  "created_at": "2026-06-22T09:02:56.501Z",
+  "actor": "orchestrator",
+  "source": "bootstrap-event-store",
+  "reason": "bootstrap from ops/agent-orchestrator/queue/task-queue.json",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "bootstrap": true,
+    "queue_index": 5,
+    "task_snapshot": {
+      "task_id": "PROD-20260621-002-A5-PREFLIGHT-GATE",
+      "batch_id": "PROD-EVIDENCE-20260621-002",
+      "title": "Production deployment preflight and release gate evidence table",
+      "owner": "agent-5",
+      "domain": "production-release-gate",
+      "priority": "P0",
+      "status": "DONE",
+      "risk": "CRITICAL",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database/migrations",
+        "database/seeds",
+        "infra",
+        ".github/workflows",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a production preflight evidence table covering release commit, clean worktree, CI references, engineering gates, target environment owner, approval state, and Go / Conditional-Go / No-Go inputs.",
+        "Maps each preflight item to source evidence, command shape, approval requirement, pass/fail/blocked status, and required owner.",
+        "Records that production deploy, migration, seed, bootstrap, backup, rollback, Docker cleanup, and production data operations are not executed by default.",
+        "Identifies any missing evidence as No-Go or Conditional-Go with owner and next action.",
+        "Does not modify business code, migration, seed, auth, CI, Docker, deploy, infra, or production env files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "pnpm typecheck",
+        "test -f docs/release/production-readiness-matrix.md",
+        "test -f docs/release/production-release-sop.md",
+        "test -f docs/release/production-rollback-sop.md",
+        "git diff --check",
+        "git status --short"
+      ],
+      "requires_human_approval": true,
+      "created_at": "2026-06-21T18:30:00+08:00",
+      "updated_at": "2026-06-22T09:02:56.501Z"
+    }
+  }
+}
