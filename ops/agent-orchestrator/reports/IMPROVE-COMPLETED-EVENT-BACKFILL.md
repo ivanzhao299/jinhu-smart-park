@@ -4,7 +4,7 @@ Agent: `agent-5`
 
 Branch: `agent-5-testing-release`
 
-Status: `FAILED`
+Status: `DONE`
 
 ## Summary
 
@@ -27,7 +27,7 @@ No command output, validation evidence, business evidence, production evidence, 
 - `ops/agent-orchestrator/results/EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json`
 - `ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json`
 
-The `EVOLUTION-...` result and failed event were created by `complete-task.mjs` after validation did not fully pass.
+The initial `EVOLUTION-...` result and failed event were created by `complete-task.mjs` after validation did not fully pass inside the isolated agent-5 worktree. The orchestrator then integrated the patch, reran validation in the prepared integration worktree, and recorded a later `task.completed` event plus `AUDIT_PASS` without deleting the earlier failure history.
 
 ## Acceptance Coverage
 
@@ -70,6 +70,9 @@ Skip reasons are printed in the reconciliation summary so operators can see why 
 | `node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL --agent agent-5 --status FAILED ...` | Pass | Recorded FAILED result/event/read-model bookkeeping. |
 | `node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --dry-run` after completion recording | Pass | Read models remained stable: queue, locks, and results all reported `changed=false`. |
 | `git status --short` after completion recording | Pass | Shows only task-authored files plus expected `complete-task.mjs` event/result/read-model bookkeeping. |
+| `pnpm typecheck` on integration branch | Pass | Full workspace typecheck passed in the prepared integration worktree. |
+| `node ops/agent-orchestrator/scripts/complete-task.mjs --task-id EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL --agent agent-5 --status DONE ...` | Pass | Recorded final DONE result/event/read-model bookkeeping after integration validation passed. |
+| `node ops/agent-orchestrator/scripts/audit-all-results.mjs --apply` | Pass | Recorded `AUDIT_PASS` for `EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL`. |
 
 ## Skipped Checks
 
@@ -79,14 +82,12 @@ Skip reasons are printed in the reconciliation summary so operators can see why 
 ## Remaining Risks
 
 - Backfill from a newly merged result artifact should be verified in a disposable integration fixture where the result file is clean/tracked and its `task.completed` event is intentionally absent.
-- Full workspace `pnpm typecheck` remains unverified in this worktree until dependencies are installed or the task is checked in a prepared integration worktree.
+- Backfill from a newly merged result artifact with intentionally missing `task.completed` should still be exercised in a disposable fixture before widening automation.
 
 ## Notes
 
 No merge, push, deploy, production migration, production seed, cleanup, reset, prune, auth config change, Docker change, CI change, or production data operation was performed.
 
-Because required validation did not fully pass in this worktree, the worker task is recorded as `FAILED` even though the implementation patch is present.
-
-No local commit was created because validation was not acceptable.
+Because required validation did not fully pass in the isolated worker worktree, the worker first recorded `FAILED`. The orchestrator then integrated the patch, reran validation in the prepared integration worktree, and recorded final `DONE` plus `AUDIT_PASS` after `pnpm typecheck` passed.
 
 FINALIZE RESULT: `not applicable for worker agent`
