@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_learning_log",
-  "updated_at": "2026-06-22T16:17:40.162Z",
+  "updated_at": "2026-06-22T16:38:34.174Z",
   "entries": [
     {
       "learning_id": "LEARN-20260622-001",
@@ -134,6 +134,21 @@
       "evidence_refs": [
         "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
         "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+      ],
+      "follow_up": "Run agent-cycle --dry-run, then wait for explicit approval before executing agents.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL-QUEUE",
+      "pattern_id": "NONE",
+      "observed_at": "2026-06-22T16:38:34.174Z",
+      "source": "goal-to-queue.mjs",
+      "incident": "Goal GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL was converted into 1 READY task candidates.",
+      "root_cause": "V3-F closed the manual gap between natural-language goal intake and event-first task queue creation.",
+      "resolution": "Persist goal/planner artifacts, append task.created events, rebuild queue read models, and preview agent-cycle.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json"
       ],
       "follow_up": "Run agent-cycle --dry-run, then wait for explicit approval before executing agents.",
       "status": "ACTIVE"
