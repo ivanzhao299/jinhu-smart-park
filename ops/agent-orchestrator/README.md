@@ -527,6 +527,7 @@ node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --push
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push --precheck-only
 ```
 
 Mode behavior:
@@ -536,8 +537,11 @@ Mode behavior:
 - `--apply --push` may integrate already-committed LOW/MEDIUM agent results, validate the integration branch, fast-forward main, push `origin/main`, and sync agents.
 - `--apply --execute` may run already-CLAIMED prompts through the Codex CLI serially, commit eligible LOW/MEDIUM dirty agent results to their agent branches, reject HIGH-risk changes, create an integration branch for LOW/MEDIUM changes, and run validation. It does not push.
 - `--apply --execute --push` may push committed main changes, sync agent worktrees, dispatch claimable READY tasks, commit dispatch state, execute claimed prompts serially, commit eligible agent results, integrate LOW/MEDIUM results, validate, fast-forward main from the integration branch, push `origin/main`, and sync agents again.
+- `--apply --execute --push --precheck-only` runs the same pre-execution path through dispatch artifact handling and runner precheck, then stops before Codex execution.
 
 Agent-cycle preflight checks main cleanliness, agent worktree cleanliness, JSON parseability for queue/locks/results, Codex CLI availability, active locks, and main ahead/behind state. Agent runtime dirt under `storage/`, `.next/`, `coverage/`, or `tmp/` can be backed up by the reconcile step; non-runtime dirt stops the pipeline. HIGH-risk changes under `apps/api`, `apps/web`, `packages`, `database`, `infra`, auth, CI, Docker, or deploy paths are never auto-integrated.
+
+Event-first dispatch creates task events, compatibility queue/lock read models, prompt files, `dispatch-report.md`, and sometimes `agent-run-plan.md`. During `agent-cycle --apply --execute*`, these generated dispatch artifacts are the only main-worktree dirt that may be auto-committed, with commit message `chore(orchestrator): dispatch claimed agent tasks`. The auto-commit whitelist is limited to `ops/agent-orchestrator/events/**`, `ops/agent-orchestrator/queue/**`, `ops/agent-orchestrator/runs/*.prompt.md`, `ops/agent-orchestrator/runs/dispatch-report.md`, and `ops/agent-orchestrator/runs/agent-run-plan.md`; any other dirty file stops the cycle as `NO_GO`.
 
 If `main` is ahead of `origin/main` and `--push` is not present, agent-cycle stops before steps that require remote synchronization and prints the required next action. Agents already synced to the same local `main` HEAD are not treated as integration candidates in this state. The command never runs production deploy, production migration, production seed, database reset, cleanup, destructive file operations, or unattended production operations.
 

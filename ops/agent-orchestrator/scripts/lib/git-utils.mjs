@@ -8,6 +8,14 @@ export const QUEUE_CONFLICT_FILES = new Set([
   "ops/agent-orchestrator/queue/task-locks.json",
   "ops/agent-orchestrator/queue/task-results.json"
 ]);
+export const DISPATCH_ARTIFACT_ROOTS = [
+  "ops/agent-orchestrator/events/",
+  "ops/agent-orchestrator/queue/"
+];
+export const DISPATCH_ARTIFACT_FILES = new Set([
+  "ops/agent-orchestrator/runs/dispatch-report.md",
+  "ops/agent-orchestrator/runs/agent-run-plan.md"
+]);
 
 export function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -71,6 +79,28 @@ export function parseStatusShort(output) {
 export function isRuntimePath(path) {
   const normalized = String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
   return RUNTIME_DIRS.some((dir) => normalized === dir || normalized.startsWith(`${dir}/`));
+}
+
+export function isDispatchArtifactPath(path) {
+  const normalized = String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
+  if (DISPATCH_ARTIFACT_FILES.has(normalized)) return true;
+  if (DISPATCH_ARTIFACT_ROOTS.some((root) => normalized.startsWith(root))) return true;
+  return /^ops\/agent-orchestrator\/runs\/[^/]+\.prompt\.md$/.test(normalized);
+}
+
+export function splitDispatchArtifactStatus(entries) {
+  const dispatchArtifacts = [];
+  const other = [];
+
+  for (const entry of entries) {
+    if (isDispatchArtifactPath(entry.path)) {
+      dispatchArtifacts.push(entry);
+    } else {
+      other.push(entry);
+    }
+  }
+
+  return { dispatchArtifacts, other };
 }
 
 export function splitRuntimeStatus(entries) {

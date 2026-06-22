@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import {
   git,
   getIntegrationCandidatesAgainstLocalMain,
-  repoStatus
+  parseStatusShort,
+  repoStatus,
+  splitDispatchArtifactStatus,
+  statusShort
 } from "./lib/git-utils.mjs";
 import {
   detectCodexCli,
@@ -39,7 +42,8 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --push
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute
-  node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push`);
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --apply --execute --push --precheck-only`);
 }
 
 function hasFlag(argv, flag) {
@@ -83,6 +87,7 @@ function parseAgentCycleArgs(argv) {
   const apply = argv.includes("--apply");
   const execute = argv.includes("--execute");
   const push = argv.includes("--push");
+  const precheckOnly = argv.includes("--precheck-only");
 
   if (argv.includes("--dry-run") && (apply || execute || push)) {
     throw new Error("Use either --dry-run or --apply mode, not both.");
@@ -93,12 +98,17 @@ function parseAgentCycleArgs(argv) {
   if (push && !apply) {
     throw new Error("--push requires --apply.");
   }
+  if (precheckOnly && (!apply || !execute)) {
+    throw new Error("--precheck-only requires --apply --execute.");
+  }
 
-  return { dryRun, apply, execute, push };
+  return { dryRun, apply, execute, push, precheckOnly };
 }
 
 function commandMode(args) {
   if (args.dryRun) return "dry-run";
+  if (args.apply && args.execute && args.precheckOnly && args.push) return "apply-execute-push-precheck";
+  if (args.apply && args.execute && args.precheckOnly) return "apply-execute-precheck";
   if (args.apply && args.execute && args.push) return "apply-execute-push";
   if (args.apply && args.execute) return "apply-execute";
   if (args.apply && args.push) return "apply-push";
@@ -119,6 +129,10 @@ function activeLockAgents(queue, locks) {
 
 function readyTasks(queue) {
   return (queue.tasks ?? []).filter((task) => task.status === "READY");
+}
+
+function claimedTasks(queue) {
+  return (queue.tasks ?? []).filter((task) => task.status === "CLAIMED");
 }
 
 function claimableReadyTasks(queue, locks, agentsById, agentStatusesById) {
@@ -165,6 +179,12 @@ function printIntegrationCandidates(candidates) {
 
 function worktreeHasChanges(path) {
   return git(path, ["status", "--short"]).stdout.trim().length > 0;
+}
+
+function dispatchArtifactStatus(path) {
+  const entries = parseStatusShort(statusShort(path));
+  const { dispatchArtifacts, other } = splitDispatchArtifactStatus(entries);
+  return { entries, dispatchArtifacts, other };
 }
 
 function currentBranch(path) {
@@ -276,9 +296,16 @@ async function runReadOnlyPlans() {
   requireScript("ops/agent-orchestrator/scripts/run-validation-matrix.mjs", ["--plan"]);
 }
 
-function precheckBlockers(state, args) {
+function mainHasOnlyDispatchArtifactDirty(status) {
+  if (status.runtimeDirty.length > 0) return false;
+  if (status.nonRuntimeDirty.length === 0) return false;
+  const { dispatchArtifacts, other } = splitDispatchArtifactStatus(status.nonRuntimeDirty);
+  return dispatchArtifacts.length > 0 && other.length === 0;
+}
+
+function precheckBlockers(state, args, options = {}) {
   const blockers = [];
-  if (!state.mainStatus.clean) {
+  if (!state.mainStatus.clean && !(options.allowDispatchArtifactDirty && mainHasOnlyDispatchArtifactDirty(state.mainStatus))) {
     blockers.push("main worktree is not clean");
   }
 
@@ -310,21 +337,48 @@ async function pushMainIfNeeded(state) {
   git(state.mainPath, ["push", "origin", "main"], { stdio: "inherit" });
 }
 
-async function commitDispatchState(mainPath) {
-  git(mainPath, [
-    "add",
-    "ops/agent-orchestrator/queue/task-queue.json",
-    "ops/agent-orchestrator/queue/task-locks.json",
-    "ops/agent-orchestrator/runs/dispatch-report.md",
-    ":(glob)ops/agent-orchestrator/runs/*.prompt.md"
-  ], { stdio: "inherit" });
-
-  if (!worktreeHasChanges(mainPath)) {
-    console.log("Dispatch produced no git changes; no dispatch commit needed.");
+async function commitPendingDispatchArtifacts(state, args, contextLabel) {
+  const { dispatchArtifacts, other } = dispatchArtifactStatus(state.mainPath);
+  if (dispatchArtifacts.length === 0 && other.length === 0) {
+    console.log(`No pending dispatch artifacts after ${contextLabel}.`);
     return false;
   }
 
-  git(mainPath, ["commit", "-m", "chore(orchestrator): dispatch ready agent tasks"], { stdio: "inherit" });
+  if (other.length > 0) {
+    throw new Error(`Non-dispatch dirty files block agent-cycle ${contextLabel}:\n- ${formatEntries(other)}`);
+  }
+
+  const latestQueue = await readJson(queuePath);
+  const claimed = claimedTasks(latestQueue);
+  if (claimed.length === 0) {
+    throw new Error(`Dispatch artifact dirty files exist but no CLAIMED task is present:\n- ${formatEntries(dispatchArtifacts)}`);
+  }
+
+  console.log("");
+  console.log(`Auto-committing dispatch artifacts after ${contextLabel}:`);
+  console.log(formatEntries(dispatchArtifacts));
+
+  git(state.mainPath, [
+    "add",
+    "ops/agent-orchestrator/events",
+    "ops/agent-orchestrator/queue",
+    ":(glob)ops/agent-orchestrator/runs/*.prompt.md",
+    "ops/agent-orchestrator/runs/dispatch-report.md",
+    "ops/agent-orchestrator/runs/agent-run-plan.md"
+  ], { stdio: "inherit" });
+
+  if (!worktreeHasChanges(state.mainPath)) {
+    console.log("Dispatch artifact staging produced no git changes; no dispatch commit needed.");
+    return false;
+  }
+
+  git(state.mainPath, ["commit", "-m", "chore(orchestrator): dispatch claimed agent tasks"], { stdio: "inherit" });
+
+  if (args.push) {
+    git(state.mainPath, ["push", "origin", "main"], { stdio: "inherit" });
+    requireScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", ["--apply"]);
+  }
+
   return true;
 }
 
@@ -343,11 +397,8 @@ async function dispatchReadyTasksIfAllowed(state, args) {
   }
 
   requireScript("ops/agent-orchestrator/scripts/dispatch-ready-agents.mjs", []);
-  const committed = await commitDispatchState(state.mainPath);
-  if (committed) {
-    git(state.mainPath, ["push", "origin", "main"], { stdio: "inherit" });
-    requireScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", ["--apply"]);
-  }
+  const refreshed = await readAgentCycleState();
+  const committed = await commitPendingDispatchArtifacts(refreshed, args, "dispatch");
   return committed;
 }
 
@@ -409,7 +460,7 @@ async function agentCycleCommand(rest) {
     process.exit(1);
   }
 
-  const state = await readAgentCycleState();
+  let state = await readAgentCycleState();
   printAgentCyclePrecheck(state, args);
 
   if (args.dryRun) {
@@ -428,6 +479,15 @@ async function agentCycleCommand(rest) {
     return;
   }
 
+  const blockersBeforeArtifactCommit = precheckBlockers(state, args, { allowDispatchArtifactDirty: true });
+  if (blockersBeforeArtifactCommit.length > 0) {
+    printOutcome("NO_GO", `Execution stopped by preflight blocker(s):\n- ${blockersBeforeArtifactCommit.join("\n- ")}`);
+    process.exit(1);
+  }
+
+  await commitPendingDispatchArtifacts(state, args, "pre-existing dispatch state");
+  state = await readAgentCycleState();
+
   const blockers = precheckBlockers(state, args);
   if (blockers.length > 0) {
     printOutcome("NO_GO", `Execution stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
@@ -443,7 +503,17 @@ async function agentCycleCommand(rest) {
   const refreshedBeforeDispatch = await readAgentCycleState();
   await dispatchReadyTasksIfAllowed(refreshedBeforeDispatch, args);
 
-  requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", ["--apply", "--execute"]);
+  const runnerArgs = ["--apply", "--execute"];
+  if (args.precheckOnly) {
+    runnerArgs.push("--precheck-only");
+  }
+  requireScript("ops/agent-orchestrator/scripts/run-claimed-agent-prompts.mjs", runnerArgs);
+
+  if (args.precheckOnly) {
+    printOutcome("GO", "Precheck-only passed; no Codex agent was executed.");
+    return;
+  }
+
   requireScript("ops/agent-orchestrator/scripts/commit-agent-results.mjs", ["--apply"]);
 
   const refreshedAfterCommit = await readAgentCycleState();

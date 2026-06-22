@@ -11,7 +11,8 @@ import {
   isSameHeadAsMain,
   isBranchMergedInto,
   localBranches,
-  repoStatus
+  repoStatus,
+  splitDispatchArtifactStatus
 } from "./lib/git-utils.mjs";
 import {
   ACTIVE_LOCK_STATUSES,
@@ -150,7 +151,7 @@ function safeRepoStatus(id, path) {
   }
 }
 
-function inspectWorktrees(config, findings, fixes) {
+function inspectWorktrees(config, findings, fixes, queue) {
   const agents = normalizeAgentConfig(config);
   const mainPath = config.main?.path ?? repoRoot;
   const main = safeRepoStatus("main", mainPath);
@@ -166,17 +167,32 @@ function inspectWorktrees(config, findings, fixes) {
   }
 
   if (main.nonRuntimeDirty.length > 0) {
+    const { dispatchArtifacts, other } = splitDispatchArtifactStatus(main.nonRuntimeDirty);
+    const onlyDispatchArtifacts = dispatchArtifacts.length > 0 && other.length === 0;
+    const claimedCount = (queue.tasks ?? []).filter((task) => task.status === "CLAIMED").length;
     const onlyRunPlan = main.nonRuntimeDirty.every((entry) => normalizePath(entry.path) === runPlanRelativePath);
-    addFinding(
-      findings,
-      onlyRunPlan ? "WARN" : "ERROR",
-      "git",
-      `main worktree has non-runtime dirty files: ${formatEntries(main.nonRuntimeDirty)}`,
-      onlyRunPlan
-        ? "Run doctor --fix-apply or git restore ops/agent-orchestrator/runs/agent-run-plan.md."
-        : "Commit, restore, or review non-runtime dirty files before executing agents or integrating results."
-    );
-    if (onlyRunPlan && isRunPlanDirty(main)) {
+
+    if (onlyDispatchArtifacts) {
+      addFinding(
+        findings,
+        "WARN",
+        "git",
+        `dispatch artifacts pending commit: ${formatEntries(dispatchArtifacts)}`,
+        claimedCount > 0
+          ? "Run orchestratorctl.mjs agent-cycle --apply --execute --push --precheck-only or the full apply/execute flow so dispatch artifacts are committed before runner execution."
+          : "Review or restore generated dispatch artifacts; no CLAIMED task currently requires a dispatch commit."
+      );
+    } else {
+      addFinding(
+        findings,
+        "ERROR",
+        "git",
+        `main worktree has non-runtime dirty files: ${formatEntries(main.nonRuntimeDirty)}`,
+        "Commit, restore, or review non-runtime dirty files before executing agents or integrating results."
+      );
+    }
+
+    if (onlyRunPlan && claimedCount === 0 && isRunPlanDirty(main)) {
       addFix(fixes, "restore_run_plan", "Restore generated agent-run-plan.md in main worktree.", {
         path: runPlanRelativePath
       });
@@ -759,7 +775,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
   const results = await readJson(resultsPath);
   const perTaskResults = await readResultFiles(perTaskResultsDir);
 
-  const worktrees = inspectWorktrees(config, findings, fixes);
+  const worktrees = inspectWorktrees(config, findings, fixes, queue);
   const queueInfo = inspectQueue({ queue, locks, results, perTaskResults }, findings, fixes);
   const eventStore = await inspectEventStore({ queue, locks, results }, findings);
   const runner = await inspectRunner(config, queue, results, perTaskResults, findings);

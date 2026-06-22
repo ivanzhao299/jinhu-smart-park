@@ -679,6 +679,7 @@ if (!args.shouldWritePlan) {
 if (args.execute) {
   console.log("");
   console.log("Guardrails: --parallel 1 serial execution or --parallel 2 guarded batch execution only; --parallel 3/5 remain blocked pending audit/integration event-first smoke; no merge, no push, no deploy, no production operations, no database reset/seed/cleanup/migration.");
+  console.log(`Main worktree cleanliness precheck ignores only runner-generated ${runPlanRelativePath}; any other dirty file still blocks execution.`);
   const mainStatus = inspectWorktree(agentsConfig.main?.path ?? repoRoot, {
     ignoredPaths: [runPlanRelativePath]
   });
