@@ -942,6 +942,10 @@ Resident Observer is a platform-level Evolution Center capability. It is not a w
 
 Commands:
 
+- `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "继续把 Agent Studio 提升到 98%" --dry-run`
+- `node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text "继续把 Agent Studio 提升到 98%" --apply`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "继续把 Agent Studio 提升到 98%" --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "继续把 Agent Studio 提升到 98%" --dry-run`
 - `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --dry-run`
 - `node ops/agent-orchestrator/scripts/observe-agent-studio.mjs --apply`
 - `node ops/agent-orchestrator/scripts/evolution-planner.mjs --dry-run`
@@ -950,6 +954,10 @@ Commands:
 - `node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --apply`
 
 The observer reads doctor, check-dispatch-status, run logs, audit, integration, event store, queue, locks, results, and self-repair availability. Dry-run prints findings, matched failure patterns, root causes, improvement candidates, and suggested tasks without writing files. Apply mode records the latest observation into `ops/agent-orchestrator/evolution/evolution-state.json` and appends a learning entry.
+
+`goal-to-queue` is the V3-F bridge from natural-language goal text to event-first READY tasks. Dry-run generates the Goal Engine state, Planner output, owner recommendations, risk levels, expected files, and validation commands without writing. Apply mode writes generated goal/planner artifacts, appends `task.created` events, rebuilds the compatibility queue/locks/results read models, and records an Evolution Center learning entry. It does not dispatch, claim, execute agents, merge, push, deploy, or run production operations.
+
+`autonomous-loop --dry-run` chains `goal-to-queue --dry-run`, `observe --dry-run`, `agent-cycle --dry-run`, and `doctor`. The MVP is review-only and approval-gated.
 
 The Evolution Center data files are append-friendly:
 

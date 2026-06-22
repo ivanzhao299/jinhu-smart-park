@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildEventStoreHealth } from "./event-store-utils.mjs";
+import { buildEventStoreHealth, listAllTaskEvents } from "./event-store-utils.mjs";
 import { latestResultFor, mergeResultsByTask, nowIso, readJson, readResultFiles, writeJson } from "./queue-utils.mjs";
 
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +21,8 @@ export const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 export const resultsPath = join(orchestratorDir, "queue", "task-results.json");
 export const perTaskResultsDir = join(orchestratorDir, "results");
 export const runsDir = join(orchestratorDir, "runs");
+const generatedGoalDir = join(orchestratorDir, "goal", "generated");
+const generatedPlannerDir = join(orchestratorDir, "planner", "generated");
 
 function emptyPatterns() {
   return {
@@ -188,6 +190,46 @@ async function recentRunLogs(queue, results, perTaskResults) {
   }
 
   return logs.sort((a, b) => Date.parse(b.mtime) - Date.parse(a.mtime)).slice(0, 12);
+}
+
+async function listGeneratedJson(dir) {
+  if (!existsSync(dir)) return [];
+  const names = await readdir(dir);
+  const files = [];
+  for (const name of names.filter((item) => item.endsWith(".json"))) {
+    const absolute = join(dir, name);
+    const info = await stat(absolute);
+    files.push({
+      path: relative(repoRoot, absolute),
+      mtime: info.mtime.toISOString()
+    });
+  }
+  return files.sort((a, b) => Date.parse(b.mtime) - Date.parse(a.mtime));
+}
+
+async function inspectGoalToQueueArtifacts() {
+  const [goals, plannerOutputs, events] = await Promise.all([
+    listGeneratedJson(generatedGoalDir),
+    listGeneratedJson(generatedPlannerDir),
+    listAllTaskEvents()
+  ]);
+  const goalToQueueEvents = events.filter((event) => event.source === "goal-to-queue.mjs");
+  const createdEvents = goalToQueueEvents.filter((event) => event.event_type === "task.created");
+  const goalIds = [...new Set(goalToQueueEvents.map((event) => event.metadata?.source_goal_id).filter(Boolean))];
+  const plannerOutputIds = [...new Set(goalToQueueEvents.map((event) => event.metadata?.planner_output_id).filter(Boolean))];
+
+  return {
+    goal_created: goals.length > 0,
+    planner_output_created: plannerOutputs.length > 0,
+    task_queue_generated_from_goal: createdEvents.length > 0,
+    generated_goal_count: goals.length,
+    generated_planner_output_count: plannerOutputs.length,
+    goal_to_queue_task_created_events: createdEvents.length,
+    latest_goal: goals[0] ?? null,
+    latest_planner_output: plannerOutputs[0] ?? null,
+    goal_ids: goalIds,
+    planner_output_ids: plannerOutputIds
+  };
 }
 
 function matchPatterns(patterns, findings) {
@@ -382,13 +424,14 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
     readJson(resultsPath),
     readResultFiles(perTaskResultsDir)
   ]);
-  const [doctor, checkDispatch, audit, integration, eventStore, logs] = await Promise.all([
+  const [doctor, checkDispatch, audit, integration, eventStore, logs, goalToQueue] = await Promise.all([
     Promise.resolve(parseDoctorJson()),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/check-dispatch-status.mjs")),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/audit-all-results.mjs", ["--dry-run"])),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"])),
     buildEventStoreHealth({ queue, locks, results }),
-    recentRunLogs(queue, results, perTaskResults)
+    recentRunLogs(queue, results, perTaskResults),
+    inspectGoalToQueueArtifacts()
   ]);
 
   const findings = deriveFindings({ doctor, queue, locks, eventStore, logs, integration });
@@ -443,6 +486,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
         total: (locks.locks ?? []).length
       },
       run_logs: logs,
+      goal_to_queue: goalToQueue,
       self_repair_history: {
         available: existsSync(join(orchestratorDir, "daemon")),
         note: "MVP observer records self-repair availability; structured self-repair event ingestion is planned."

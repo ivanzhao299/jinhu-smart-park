@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "goal_id": "GOAL-AGENT-STUDIO-98",
+  "goal_title": "Raise Agent Studio maturity to 98%",
+  "goal_text": "继续把 Agent Studio 提升到 98%",
+  "current_maturity": 95,
+  "target_maturity": 98,
+  "current_state": "Agent Studio has event-first task writes, guarded parallel 2 execution, Resident Observer, Goal Engine, Planner Agent, Agent Registry, Self-Repair, and Finalize.",
+  "target_state": "Natural-language goals can produce reviewed planner output, READY queue tasks, event-store task.created records, and an agent-cycle dry-run without manual queue assembly.",
+  "capability_scores": [
+    {
+      "capability_id": "goal-to-queue",
+      "name": "Goal to Queue Loop",
+      "current_score": 40,
+      "target_score": 90,
+      "evidence": [
+        "Goal Engine, Planner, Registry schemas exist",
+        "Event Store and agent-cycle dry-run exist"
+      ],
+      "gap_summary": "Need executable goal-to-queue bridge from goal text to task.created events and READY queue tasks.",
+      "risk_level": "MEDIUM"
+    },
+    {
+      "capability_id": "autonomous-loop",
+      "name": "Approval-gated Autonomous Loop",
+      "current_score": 70,
+      "target_score": 90,
+      "evidence": [
+        "Self-Repair and Finalize are available",
+        "Resident Observer can summarize recurring failures"
+      ],
+      "gap_summary": "Need dry-run autonomous-loop that chains goal-to-queue, observe, agent-cycle plan, and doctor.",
+      "risk_level": "MEDIUM"
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "GAP-GOAL-QUEUE-BRIDGE",
+      "capability_id": "goal-to-queue",
+      "summary": "Natural-language goals are not yet materialized as READY queue tasks.",
+      "impact": "The platform still needs a manual bridge from goal planning to agent-cycle.",
+      "recommended_agent": "agent-5",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    },
+    {
+      "gap_id": "GAP-PLANNER-QUEUE-VALIDATION",
+      "capability_id": "goal-to-queue",
+      "summary": "Generated planner output needs a validation matrix before execution.",
+      "impact": "Generated tasks could be malformed or assigned to the wrong lane without checks.",
+      "recommended_agent": "agent-2",
+      "priority": "P1",
+      "risk_level": "MEDIUM",
+      "required_approval": false
+    }
+  ],
+  "milestones": [
+    {
+      "milestone_id": "V3-F-M1",
+      "title": "Goal to queue dry-run is reviewable",
+      "target_maturity": 97,
+      "exit_criteria": [
+        "goal-to-queue --dry-run outputs goal_id and planner_output_id",
+        "task candidates include owners, risks, expected files, and validation commands"
+      ]
+    },
+    {
+      "milestone_id": "V3-F-M2",
+      "title": "Goal to queue apply writes event-first tasks",
+      "target_maturity": 98,
+      "exit_criteria": [
+        "task.created events are written",
+        "queue read model has READY tasks",
+        "agent-cycle --dry-run sees claimable work"
+      ]
+    }
+  ],
+  "recommended_tasks": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "title": "Goal Engine CLI hardening",
+      "owner": "agent-5",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "docs/release/agent-studio-v3-goal-engine-cli-hardening.md, ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md, ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "title": "Planner Output validation",
+      "owner": "agent-3",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "docs/testing/agent-studio-v3-planner-output-validation.md, ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md, ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "title": "Agent Registry runtime adapter design",
+      "owner": "agent-4",
+      "priority": "P1",
+      "risk_level": "MEDIUM",
+      "expected_output": "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md, ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md, ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "title": "Goal-to-Queue validation matrix",
+      "owner": "agent-2",
+      "priority": "P0",
+      "risk_level": "MEDIUM",
+      "expected_output": "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md, ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md, ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "title": "Agent Studio V3 user workflow docs",
+      "owner": "agent-1",
+      "priority": "P1",
+      "risk_level": "LOW",
+      "expected_output": "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md, ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md, ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-GOAL-QUEUE-SCOPE",
+      "summary": "Generated tasks could overreach into business or production paths.",
+      "risk_level": "HIGH",
+      "mitigation": "Default forbidden paths block apps, packages, database, infra, CI, Docker, deploy, auth, and production operations."
+    }
+  ],
+  "status": "READY_FOR_REVIEW",
+  "created_at": "2026-06-22T15:26:04.674Z",
+  "updated_at": "2026-06-22T15:26:04.674Z"
+}

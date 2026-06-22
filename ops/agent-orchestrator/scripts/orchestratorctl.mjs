@@ -37,6 +37,8 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "..." --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "..." --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs check-status
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run|--apply
@@ -622,6 +624,32 @@ async function agentCycleCommand(rest) {
   }
 }
 
+async function autonomousLoopCommand(rest) {
+  const text = optionValue(rest, "--text", "");
+  if (!text.trim()) {
+    throw new Error('autonomous-loop requires --text "..."');
+  }
+  if (!hasFlag(rest, "--dry-run")) {
+    throw new Error("autonomous-loop MVP supports --dry-run only.");
+  }
+
+  console.log("# Autonomous Loop dry-run");
+  console.log("");
+  console.log("Guardrails: no Agent execution, no merge, no push, no deploy, no production migration/seed/reset/cleanup.");
+  console.log("");
+  console.log("## Step 1: Goal to Queue");
+  runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", text, "--dry-run"]);
+  console.log("");
+  console.log("## Step 2: Resident Observer");
+  runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--dry-run"]);
+  console.log("");
+  console.log("## Step 3: Agent Cycle Plan");
+  await agentCycleCommand(["--dry-run"]);
+  console.log("");
+  console.log("## Step 4: Doctor");
+  runScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
+}
+
 const argv = process.argv.slice(2);
 const command = argv[0];
 const rest = argv.slice(1);
@@ -651,6 +679,21 @@ async function dispatchCommand() {
       runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", [
         hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
       ]);
+      break;
+    case "goal-to-queue": {
+      const text = optionValue(rest, "--text", "");
+      if (!text.trim()) {
+        throw new Error('goal-to-queue requires --text "..."');
+      }
+      runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", [
+        "--text",
+        text,
+        hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
+      ]);
+      break;
+    }
+    case "autonomous-loop":
+      await autonomousLoopCommand(rest);
       break;
     case "check-status":
       runShellScript("./ops/agent-orchestrator/check-status.sh", [], {

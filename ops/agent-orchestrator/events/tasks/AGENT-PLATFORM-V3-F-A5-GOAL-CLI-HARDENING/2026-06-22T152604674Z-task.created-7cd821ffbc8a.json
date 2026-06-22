@@ -1,0 +1,73 @@
+{
+  "event_id": "task.created:3a397b4dad0d64e655657c4c",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-22T15:26:04.674Z",
+  "actor": "orchestrator",
+  "source": "goal-to-queue.mjs",
+  "reason": "Generated from GOAL-AGENT-STUDIO-98 / PLAN-GOAL-AGENT-STUDIO-98",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "goal-to-queue:GOAL-AGENT-STUDIO-98:PLAN-GOAL-AGENT-STUDIO-98:AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+    "source_goal_id": "GOAL-AGENT-STUDIO-98",
+    "planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
+    "queue_index": 10000,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "title": "Goal Engine CLI hardening",
+      "domain": "goal-engine-platform",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/goal/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Document and harden Goal Engine CLI behavior for dry-run/apply boundaries.",
+        "No business code or production operation is touched.",
+        "Goal-to-queue commands remain idempotent and event-first."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-5",
+      "owner_assignment_reason": "preferred owner agent-5 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    }
+  }
+}

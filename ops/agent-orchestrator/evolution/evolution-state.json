@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_evolution_state",
-  "updated_at": "2026-06-22T00:00:00.000Z",
+  "updated_at": "2026-06-22T15:26:04.674Z",
   "observer_version": "v3-e-mvp",
   "last_observed_at": null,
   "last_planned_at": null,
-  "last_run_mode": "seeded",
+  "last_run_mode": "goal_to_queue_apply",
   "maturity": {
     "current_score": 95,
     "target_score": 98,
@@ -21,9 +21,12 @@
       "PATTERN-002",
       "PATTERN-001",
       "PATTERN-004"
-    ]
+    ],
+    "last_goal_id": "GOAL-AGENT-STUDIO-98",
+    "last_planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
+    "last_goal_to_queue_task_count": 5
   },
   "next_action": [
-    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run"
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run"
   ]
 }

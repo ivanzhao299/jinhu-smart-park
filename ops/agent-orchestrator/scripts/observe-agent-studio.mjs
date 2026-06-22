@@ -76,6 +76,10 @@ function printObservation(observation) {
   console.log(`audit-all-results --dry-run: ${observation.sources.audit_all_results_dry_run.passed ? "PASS" : "FAIL"}`);
   console.log(`integrate-agent-results --dry-run: ${observation.sources.integrate_agent_results_dry_run.passed ? "PASS" : "FAIL"}`);
   console.log(`queue READY/CLAIMED/DONE/AUDITED: ${observation.sources.queue.ready}/${observation.sources.queue.claimed}/${observation.sources.queue.done}/${observation.sources.queue.audited}`);
+  console.log(`goal created: ${observation.sources.goal_to_queue.goal_created ? "yes" : "no"}`);
+  console.log(`planner output created: ${observation.sources.goal_to_queue.planner_output_created ? "yes" : "no"}`);
+  console.log(`task queue generated from goal: ${observation.sources.goal_to_queue.task_queue_generated_from_goal ? "yes" : "no"}`);
+  console.log(`goal-to-queue task.created events: ${observation.sources.goal_to_queue.goal_to_queue_task_created_events}`);
   console.log(`locks: ${observation.sources.locks.total}`);
   console.log(`recent run logs: ${observation.sources.run_logs.length}`);
 }

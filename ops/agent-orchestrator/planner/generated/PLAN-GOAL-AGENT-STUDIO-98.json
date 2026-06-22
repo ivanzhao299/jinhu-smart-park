@@ -1,0 +1,431 @@
+{
+  "version": 1,
+  "planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
+  "source_goal_id": "GOAL-AGENT-STUDIO-98",
+  "req_summary": {
+    "title": "Goal to Queue automatic closure",
+    "body": "Turn the natural-language goal \"继续把 Agent Studio 提升到 98%\" into event-first READY tasks and a dry-run agent-cycle plan.",
+    "non_goals": [
+      "No agent execution in goal-to-queue",
+      "No deploy or production operation",
+      "No business code changes"
+    ]
+  },
+  "tech_summary": {
+    "title": "Event-first task.created generation",
+    "body": "Generate task candidates, assign owners through the registry/router layer, append task.created events, and rebuild compatibility queue read models.",
+    "non_goals": [
+      "No dispatch or claim",
+      "No Codex runner execution",
+      "No merge or push"
+    ]
+  },
+  "tasks": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "title": "Goal Engine CLI hardening",
+      "domain": "goal-engine-platform",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/scripts/**",
+        "ops/agent-orchestrator/goal/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Document and harden Goal Engine CLI behavior for dry-run/apply boundaries.",
+        "No business code or production operation is touched.",
+        "Goal-to-queue commands remain idempotent and event-first."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-5",
+      "owner_assignment_reason": "preferred owner agent-5 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-engine-cli-hardening.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "title": "Planner Output validation",
+      "domain": "planner-runtime",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/planner/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Planner output is checked against expected task candidate fields.",
+        "Planner runtime explains owner assignment and expected outputs.",
+        "No queue writes happen in dry-run mode."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/goal-to-queue.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-3",
+      "owner_assignment_reason": "preferred owner agent-3 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-planner-output-validation.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "title": "Agent Registry runtime adapter design",
+      "domain": "agent-registry-runtime-adapter",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "ops/agent-orchestrator/agent-registry/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**",
+        "docs/release/**",
+        "docs/testing/**"
+      ],
+      "acceptance": [
+        "Agent Registry and router rules have a compatible runtime adapter design.",
+        "Owner recommendations explain registry and fallback behavior.",
+        "No worker agent pool expansion is introduced."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/route-natural-language-task.mjs --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-4",
+      "owner_assignment_reason": "preferred owner agent-4 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "title": "Goal-to-Queue validation matrix",
+      "domain": "validation-goal-queue",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "Validation matrix covers goal generation, planner output, task.created events, read-model rebuild, and agent-cycle dry-run.",
+        "Audit/typecheck/doctor checks are listed as base gates.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-2",
+      "owner_assignment_reason": "preferred owner agent-2 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "title": "Agent Studio V3 user workflow docs",
+      "domain": "product-docs-runtime-index",
+      "priority": "P1",
+      "risk": "LOW",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "User workflow explains natural-language goal to queue to agent-cycle dry-run.",
+        "Docs distinguish Resident Observer from worker agents.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text \"继续把 Agent Studio 提升到 98%\" --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text \"继续把 Agent Studio 提升到 98%\" --dry-run"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-1",
+      "owner_assignment_reason": "preferred owner agent-1 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    }
+  ],
+  "agent_assignments": [
+    {
+      "agent": "agent-5",
+      "task_ids": [
+        "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    },
+    {
+      "agent": "agent-3",
+      "task_ids": [
+        "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    },
+    {
+      "agent": "agent-4",
+      "task_ids": [
+        "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    },
+    {
+      "agent": "agent-2",
+      "task_ids": [
+        "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    },
+    {
+      "agent": "agent-1",
+      "task_ids": [
+        "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS"
+      ],
+      "reason": "Assigned by Goal-to-Queue planner template and validated against Agent Registry."
+    }
+  ],
+  "risk_assessment": {
+    "overall_risk": "MEDIUM",
+    "requires_human_approval": false,
+    "blocked_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*"
+    ],
+    "notes": [
+      "Generated tasks are orchestrator/platform work only.",
+      "Future task execution still flows through agent-cycle, audit, integration, and finalize."
+    ]
+  },
+  "validation_commands": [
+    "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+    "pnpm typecheck"
+  ],
+  "expected_outputs": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "path": "docs/release/agent-studio-v3-goal-engine-cli-hardening.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "path": "docs/testing/agent-studio-v3-planner-output-validation.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "path": "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "path": "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "path": "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+    }
+  ],
+  "dispatch_plan": [
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+      "owner": "agent-5",
+      "mode": "READY only; dispatch later through agent-cycle"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+      "owner": "agent-3",
+      "mode": "READY only; dispatch later through agent-cycle"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+      "owner": "agent-4",
+      "mode": "READY only; dispatch later through agent-cycle"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "owner": "agent-2",
+      "mode": "READY only; dispatch later through agent-cycle"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+      "owner": "agent-1",
+      "mode": "READY only; dispatch later through agent-cycle"
+    }
+  ],
+  "created_at": "2026-06-22T15:26:04.674Z"
+}

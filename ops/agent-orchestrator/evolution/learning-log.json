@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_type": "agent_orchestrator_learning_log",
-  "updated_at": "2026-06-22T00:00:00.000Z",
+  "updated_at": "2026-06-22T15:26:04.674Z",
   "entries": [
     {
       "learning_id": "LEARN-20260622-001",
@@ -76,6 +76,21 @@
         "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs"
       ],
       "follow_up": "Keep all state-changing scripts event-first before raising parallelism.",
+      "status": "ACTIVE"
+    },
+    {
+      "learning_id": "LEARN-GOAL-AGENT-STUDIO-98-QUEUE",
+      "pattern_id": "NONE",
+      "observed_at": "2026-06-22T15:26:04.674Z",
+      "source": "goal-to-queue.mjs",
+      "incident": "Goal GOAL-AGENT-STUDIO-98 was converted into 5 READY task candidates.",
+      "root_cause": "V3-F closed the manual gap between natural-language goal intake and event-first task queue creation.",
+      "resolution": "Persist goal/planner artifacts, append task.created events, rebuild queue read models, and preview agent-cycle.",
+      "evidence_refs": [
+        "ops/agent-orchestrator/goal/generated/GOAL-AGENT-STUDIO-98.json",
+        "ops/agent-orchestrator/planner/generated/PLAN-GOAL-AGENT-STUDIO-98.json"
+      ],
+      "follow_up": "Run agent-cycle --dry-run, then wait for explicit approval before executing agents.",
       "status": "ACTIVE"
     }
   ]

@@ -1,0 +1,71 @@
+{
+  "event_id": "task.created:bdb5b2eab959ce9093ba52a3",
+  "event_type": "task.created",
+  "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+  "owner": "agent-2",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-22T15:26:04.674Z",
+  "actor": "orchestrator",
+  "source": "goal-to-queue.mjs",
+  "reason": "Generated from GOAL-AGENT-STUDIO-98 / PLAN-GOAL-AGENT-STUDIO-98",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "goal-to-queue:GOAL-AGENT-STUDIO-98:PLAN-GOAL-AGENT-STUDIO-98:AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+    "source_goal_id": "GOAL-AGENT-STUDIO-98",
+    "planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
+    "queue_index": 10003,
+    "task_snapshot": {
+      "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+      "title": "Goal-to-Queue validation matrix",
+      "domain": "validation-goal-queue",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "acceptance": [
+        "Validation matrix covers goal generation, planner output, task.created events, read-model rebuild, and agent-cycle dry-run.",
+        "Audit/typecheck/doctor checks are listed as base gates.",
+        "No business code or production operation is touched."
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "batch_id": "AGENT-PLATFORM-V3-F-GOAL-TO-QUEUE",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "forbidden_paths": [
+        "apps/**",
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*"
+      ],
+      "requires_human_approval": false,
+      "owner": "agent-2",
+      "owner_assignment_reason": "preferred owner agent-2 validated against Agent Registry",
+      "status": "READY",
+      "expected_output_files": [
+        "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md",
+        "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+      ],
+      "created_at": "2026-06-22T15:26:04.674Z",
+      "updated_at": "2026-06-22T15:26:04.674Z"
+    }
+  }
+}
