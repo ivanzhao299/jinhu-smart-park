@@ -390,6 +390,40 @@
       "completed_at": "2026-06-22T11:37:30.626Z"
     },
     {
+      "task_id": "AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3",
+      "agent": "agent-3",
+      "status": "DONE",
+      "commit_hash": "",
+      "changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md"
+      ],
+      "agent_changed_files": [
+        "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md"
+      ],
+      "orchestrator_changed_files": [],
+      "commands_run": [
+        "git status --short",
+        "test -f docs/testing/agent-platform-v2-parallel-smoke-a3.md",
+        "test -f ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-PARALLEL-SMOKE-A3.md",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "git diff --check",
+        "git status --short"
+      ],
+      "passed_checks": [
+        "initial git status reviewed",
+        "checklist file exists",
+        "report file exists",
+        "rebuild dry-run exited 0",
+        "git diff --check",
+        "final git status reviewed"
+      ],
+      "failed_checks": [],
+      "notes": "Documentation-only smoke completed; rebuild dry-run exited 0 and reported pre-completion result read-model drift; correction recording preserves empty commit hash because no commit is allowed. No merge, push, deploy, production operation, migration, seed, or business-code change performed.",
+      "completed_at": "2026-06-22T11:34:48.926Z"
+    },
+    {
       "task_id": "PROD-20260621-002-A2-FINANCE-GATE",
       "agent": "agent-2",
       "status": "DONE",

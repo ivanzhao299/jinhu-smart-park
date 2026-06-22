@@ -1296,7 +1296,7 @@
       "owner": "agent-3",
       "domain": "orchestrator-event-store",
       "priority": "P0",
-      "status": "CLAIMED",
+      "status": "DONE",
       "risk": "LOW",
       "allowed_paths": [
         "docs/testing/agent-platform-v2-parallel-smoke-a3.md",
@@ -1337,7 +1337,7 @@
       "requires_human_approval": false,
       "allow_commit": false,
       "created_at": "2026-06-22T11:28:30.768Z",
-      "updated_at": "2026-06-22T11:29:04.297Z"
+      "updated_at": "2026-06-22T11:34:48.926Z"
     }
   ]
 }
