@@ -5,12 +5,13 @@
 - Queue: `ops/agent-orchestrator/queue/task-queue.json`
 - Locks: `ops/agent-orchestrator/queue/task-locks.json`
 - Results: `ops/agent-orchestrator/queue/task-results.json`
-- Current active batch: `AGENT-PLATFORM-V2-20260621`
+- Current active batch: `AGENT-PLATFORM-V2-ROUND2-20260622`
+- Previous platform batch: `AGENT-PLATFORM-V2-20260621`
 - Previous active batch: `PROD-EVIDENCE-20260621-002`
 - Historical completed batch: `TRIAL-20260621-001`
-- Current mainline focus: `AGENT_PLATFORM_V2` P0/P1 queue hardening and runner platform work.
+- Current mainline focus: `AGENT_PLATFORM_V2` Round2 runtime memory and smart validation selector planning.
 - Queue governance note: remaining `PROD-EVIDENCE-20260621-002` agent-5 tasks are temporarily `BLOCKED` while `AGENT_PLATFORM_V2` P0 work is in progress.
-- Expected next dispatch: `agent-2` claims `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`; `agent-5` claims `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH`.
+- Expected next dispatch: `agent-5` claims `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH`; `agent-3` claims `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR`; `agent-4` claims `AGENT-PLATFORM-V2-A4-E2E-SELECTOR`; `agent-2` claims `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION`.
 
 ## Batch TRIAL-20260621-001
 
@@ -164,10 +165,10 @@ This batch is planning-first. It does not execute Agents, merge, push, deploy, r
 
 | Task ID | Agent | Domain | Priority | Risk | Status | Scope |
 |---|---|---|---|---|---|---|
-| `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` | agent-5 | orchestrator-event-sourcing | P0 | MEDIUM | READY | Event sourcing directory, schema, compatibility layer, migration phases, script retrofit map |
+| `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH` | agent-5 | orchestrator-event-sourcing | P0 | MEDIUM | DONE | Event sourcing directory, schema, compatibility layer, migration phases, script retrofit map |
 | `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` | agent-3 | orchestrator-read-model | P0 | MEDIUM | DONE | Read model aggregation, conflict-free results, audit/result event behavior |
 | `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` | agent-4 | orchestrator-parallel-runner | P1 | MEDIUM | DONE | `--parallel` CLI, per-Agent logs, aggregate summary, failure strategy |
-| `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | agent-2 | orchestrator-validation-compatibility | P1 | MEDIUM | READY | Validation matrix, regression plan, legacy JSON compatibility tests |
+| `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT` | agent-2 | orchestrator-validation-compatibility | P1 | MEDIUM | DONE | Validation matrix, regression plan, legacy JSON compatibility tests |
 
 ## V2 Expected Output Files
 
@@ -180,10 +181,8 @@ This batch is planning-first. It does not execute Agents, merge, push, deploy, r
 
 ## V2 Agents To Execute Next
 
-- `agent-2`: may claim `AGENT-PLATFORM-V2-A2-VALIDATION-COMPAT`.
-- `agent-5`: may claim `AGENT-PLATFORM-V2-A5-EVENT-SOURCING-ARCH`.
-- `agent-3`: no next V2 task; `AGENT-PLATFORM-V2-A3-READ-MODEL-RESULTS` is DONE.
-- `agent-4`: no next V2 task; `AGENT-PLATFORM-V2-A4-PARALLEL-RUNNER` is DONE.
+- Round1 V2-A/V2-B tasks are complete.
+- Next execution focus is Round2 V2-C/V2-D.
 
 ## V2 Agents Not Assigned
 
@@ -207,4 +206,72 @@ node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
 pnpm typecheck
 git diff --check
+```
+
+## Batch AGENT-PLATFORM-V2-ROUND2-20260622
+
+Source request:
+
+- `docs/release/AGENT_PLATFORM_V2_ROUND2_PLAN.md`
+- `ops/agent-orchestrator/specs/REQ-AGENT-PLATFORM-V2-ROUND2.md`
+- `ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-ROUND2.md`
+
+Batch goal: plan Agent Platform V2 Round2 so the orchestrator can move from roughly 92% maturity to 95%+ by adding Project Runtime Memory and Smart E2E Selector design.
+
+This batch is planning-only. It does not execute Agents, merge, push, deploy, run production migration, run production seed, perform cleanup/reset, modify business code, or create runtime implementation scripts.
+
+## Round2 Scope
+
+| Area | Goal | Impact |
+|---|---|---|
+| V2-C Project Runtime Memory | Plan generated inventories for architecture, API, DB, modules, RBAC, workflows, and risk. | Reduces repeated project scans and gives Agents stable context inputs. |
+| V2-D Smart E2E Selector | Plan change-aware validation selection from changed files plus runtime inventories. | Keeps doctor/audit/typecheck baseline while adding targeted smoke/e2e checks only when needed. |
+
+## Round2 Tasks
+
+| Task ID | Agent | Domain | Priority | Risk | Status | Scope |
+|---|---|---|---|---|---|---|
+| `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH` | agent-5 | orchestrator-runtime-memory-architecture | P0 | MEDIUM | READY | Runtime Memory architecture and inventory contracts |
+| `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR` | agent-3 | orchestrator-runtime-inventory-generator | P0 | MEDIUM | READY | Runtime generator/rebuild/validate design |
+| `AGENT-PLATFORM-V2-A4-E2E-SELECTOR` | agent-4 | orchestrator-smart-e2e-selector | P0 | MEDIUM | READY | Selector rules, validation matrix, CLI explain output |
+| `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION` | agent-2 | orchestrator-runtime-selector-validation | P1 | MEDIUM | READY | Compatibility, validation matrix, runtime tests |
+
+## Round2 Expected Output Files
+
+| Task ID | Expected output files |
+|---|---|
+| `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH` | `docs/release/agent-platform-v2-runtime-memory-architecture.md`; `ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md` |
+| `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR` | `docs/release/agent-platform-v2-inventory-generator-design.md`; `docs/testing/agent-platform-v2-inventory-generator-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md` |
+| `AGENT-PLATFORM-V2-A4-E2E-SELECTOR` | `docs/release/agent-platform-v2-smart-e2e-selector-design.md`; `docs/testing/agent-platform-v2-e2e-selector-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md` |
+| `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION` | `docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md`; `docs/release/agent-platform-v2-round2-compatibility-test-plan.md`; `ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md` |
+
+## Round2 Agents To Execute Next
+
+- `agent-5`: may claim `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH`.
+- `agent-3`: may claim `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR`.
+- `agent-4`: may claim `AGENT-PLATFORM-V2-A4-E2E-SELECTOR`.
+- `agent-2`: may claim `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION`.
+
+## Round2 Agents Not Assigned
+
+- `agent-1`: not assigned. V2-C/V2-D target orchestrator platform memory and validation selection rather than assets, units, tenants, or space data.
+
+## Round2 Guardrails
+
+1. Do not modify `apps/api`, `apps/web`, `packages`, `database`, `infra`, `.github`, Docker, deploy, or auth files.
+2. Do not modify `database/migrations` or `database/seeds`.
+3. Do not execute Agents as part of this planning commit.
+4. Do not push, merge, deploy, run production migration, run production seed, run cleanup, or run reset.
+5. Keep runtime inventories as generated metadata, not source-of-truth business contracts.
+6. Keep doctor, audit, and typecheck as baseline validation checks even when selector skips e2e.
+
+## Round2 Validation Commands
+
+```bash
+node -e "JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-queue.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-locks.json','utf8')); JSON.parse(require('fs').readFileSync('ops/agent-orchestrator/queue/task-results.json','utf8'));"
+node ops/agent-orchestrator/scripts/check-dispatch-status.mjs
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor
+node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run
+git diff --check
+pnpm typecheck
 ```

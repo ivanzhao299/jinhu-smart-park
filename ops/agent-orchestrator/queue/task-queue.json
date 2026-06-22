@@ -1,7 +1,7 @@
 {
   "$schema": "./task-queue.schema.json",
   "version": 1,
-  "updated_at": "2026-06-22T05:15:00.795Z",
+  "updated_at": "2026-06-22T05:42:28.913Z",
   "tasks": [
     {
       "task_id": "TRIAL-20260621-001-A5-GATES",
@@ -970,6 +970,270 @@
       "requires_human_approval": false,
       "created_at": "2026-06-21T21:48:00+08:00",
       "updated_at": "2026-06-22T05:15:00.795Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A5-RUNTIME-ARCH",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Project Runtime Memory overall architecture and inventory contracts",
+      "owner": "agent-5",
+      "domain": "orchestrator-runtime-memory-architecture",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Defines Project Runtime Memory architecture under ops/agent-orchestrator/runtime without creating business-code changes.",
+        "Specifies architecture.json, api_inventory.json, db_inventory.json, module_inventory.json, rbac_inventory.json, workflow_inventory.json, and risk_inventory.json contracts.",
+        "Defines how runtime memory reduces repeated project scans while remaining generated metadata, not business truth.",
+        "Documents runtime-generator, runtime-rebuild, and runtime-validate dry-run/apply responsibilities at architecture level.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-runtime-memory-architecture.md",
+        "ops/agent-orchestrator/specs/TECH-AGENT-PLATFORM-V2-RUNTIME-MEMORY.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A5-RUNTIME-ARCH.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T05:42:28.913Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Runtime inventory generator rebuild and materialization design",
+      "owner": "agent-3",
+      "domain": "orchestrator-runtime-inventory-generator",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs runtime-generator.mjs, runtime-rebuild.mjs, and runtime-validate.mjs responsibilities without implementing scripts in this planning task.",
+        "Defines deterministic inventory rebuild behavior, duplicate detection, malformed JSON handling, and dry-run no-write requirements.",
+        "Maps inventory source inputs to architecture, API, DB, module, RBAC, workflow, and risk inventories.",
+        "Explains how generated runtime inventories can be validated before use by Agents or selector logic.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-inventory-generator-design.md",
+        "docs/testing/agent-platform-v2-inventory-generator-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T05:42:28.913Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A4-E2E-SELECTOR",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Smart E2E selector rules validation matrix and explanation design",
+      "owner": "agent-4",
+      "domain": "orchestrator-smart-e2e-selector",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Designs selector-rules.json, validation-matrix.json, and e2e-selector.mjs behavior without implementing selector code in this planning task.",
+        "Defines changed-files plus risk/module inventory inputs and selected validations plus reasons outputs.",
+        "Covers RBAC, finance, workflow, IoT/safety, unknown high-risk, and low-risk docs-only selection examples.",
+        "Requires doctor, audit-all-results --dry-run, and pnpm typecheck to remain baseline checks.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "docs/testing/agent-platform-v2-e2e-selector-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A4-E2E-SELECTOR.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T05:42:28.913Z"
+    },
+    {
+      "task_id": "AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION",
+      "batch_id": "AGENT-PLATFORM-V2-ROUND2-20260622",
+      "title": "Runtime memory and smart selector compatibility validation plan",
+      "owner": "agent-2",
+      "domain": "orchestrator-runtime-selector-validation",
+      "priority": "P1",
+      "status": "READY",
+      "risk": "MEDIUM",
+      "allowed_paths": [
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/specs",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/README.md",
+        "ops/agent-orchestrator/parallel-task-board.md"
+      ],
+      "forbidden_paths": [
+        "apps/api",
+        "apps/web",
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "deploy",
+        "scripts/prod-deploy.sh",
+        "scripts/prod-docker-cleanup.sh",
+        ".env",
+        ".env.production",
+        ".env.production.local"
+      ],
+      "acceptance": [
+        "Creates a Round2 validation matrix covering runtime inventories, runtime generator/rebuild/validate dry-run/apply behavior, and smart E2E selector explainability.",
+        "Defines compatibility tests proving baseline doctor, audit, and typecheck remain mandatory while e2e selection becomes targeted.",
+        "Defines negative tests for malformed inventories, duplicate routes, duplicate permissions, unknown risk levels, unknown high-risk paths, and docs-only e2e skip decisions.",
+        "Documents regression strategy for future implementation without executing Agents or adding business-code tests in this planning task.",
+        "Does not modify apps, packages, database, infra, auth, CI, Docker, deploy, migration, seed, or production files."
+      ],
+      "validation_commands": [
+        "git status --short",
+        "node ops/agent-orchestrator/scripts/check-dispatch-status.mjs",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs agent-cycle --dry-run",
+        "pnpm typecheck",
+        "git diff --check",
+        "git status --short"
+      ],
+      "required_checks": [
+        "Task stays within docs/specs/reports orchestrator planning paths",
+        "No business code, database, infra, auth, CI, Docker, deploy, or production files changed",
+        "check-dispatch-status remains compatible",
+        "doctor and agent-cycle --dry-run remain no-agent/no-push/no-deploy",
+        "typecheck and git diff --check pass"
+      ],
+      "expected_output_files": [
+        "docs/testing/agent-platform-v2-runtime-memory-validation-matrix.md",
+        "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
+        "ops/agent-orchestrator/reports/AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION.md"
+      ],
+      "requires_human_approval": false,
+      "created_at": "2026-06-22T05:42:28.913Z",
+      "updated_at": "2026-06-22T05:42:28.913Z"
     }
   ]
 }

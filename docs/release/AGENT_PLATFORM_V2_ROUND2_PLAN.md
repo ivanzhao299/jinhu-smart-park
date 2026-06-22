@@ -1,0 +1,234 @@
+# Agent Platform V2 Round 2 Plan
+
+## 1. Goal
+
+Agent Platform V2 Round 2 targets an orchestrator maturity increase from roughly 92% to 95%+ by adding two planning tracks:
+
+- V2-C Project Runtime Memory.
+- V2-D Smart E2E Selector.
+
+This round is planning and task decomposition only. It does not implement business features, execute Agents, push, merge, deploy, run production migration, run production seed, run cleanup, or touch production data.
+
+## 2. Current Baseline
+
+Already completed platform foundations:
+
+- Centralized queue, locks, results, dispatch, runner prompt generation, and guarded Codex runner execution.
+- Doctor diagnostics, daemon watcher, auto commit, integration planning, and validation matrix.
+- V2-A Event Sourcing Queue foundation with append-only event utilities and compatibility read model dry-run.
+- V2-B Parallel Runner planning and validation compatibility artifacts.
+
+Remaining bottlenecks:
+
+1. Agents still spend too much time rediscovering project structure, module ownership, routes, RBAC contracts, workflow states, and risk zones.
+2. Validation still depends on manually chosen smoke/e2e suites instead of change-aware selection.
+3. Agent-cycle can tell whether validation passed, but it cannot yet explain why a specific e2e suite is required for a given change set.
+
+## 3. Non-Goals
+
+Round 2 does not:
+
+- Modify `apps/**`.
+- Modify `packages/**`.
+- Modify `database/**`.
+- Modify `infra/**`.
+- Modify `.github/**`.
+- Modify Docker, deploy, auth, production environment, migration, or seed files.
+- Execute Agent tasks.
+- Merge, push, deploy, run production migration, run production seed, cleanup, reset, or write production data.
+
+## 4. V2-C Project Runtime Memory
+
+### 4.1 Objective
+
+Project Runtime Memory provides generated inventories so Agents do not repeatedly scan the entire project before each task. Runtime memory is local orchestrator metadata, not a source of business truth.
+
+### 4.2 Runtime Directory
+
+Planned directory:
+
+```text
+ops/agent-orchestrator/runtime/
+├── architecture.json
+├── api_inventory.json
+├── db_inventory.json
+├── module_inventory.json
+├── rbac_inventory.json
+├── workflow_inventory.json
+└── risk_inventory.json
+```
+
+These files should be generated or rebuilt by orchestrator scripts and reviewed like other operational artifacts.
+
+### 4.3 Inventory Contracts
+
+`architecture.json` records:
+
+- modules
+- dependencies
+- bounded contexts
+
+`api_inventory.json` records:
+
+- controller
+- route
+- method
+- domain
+- owner
+
+`db_inventory.json` records:
+
+- table
+- migration source
+- owning module
+- entity or repository reference
+- risk notes
+
+`module_inventory.json` records:
+
+- module
+- package/app path
+- owner agent
+- related routes, workflows, RBAC entries, tests, and docs
+
+`rbac_inventory.json` records:
+
+- menu
+- permission
+- guard
+- role mapping
+
+`workflow_inventory.json` records:
+
+- workflow
+- state
+- transition
+- approver
+
+`risk_inventory.json` records:
+
+- auth
+- rbac
+- db
+- workflow
+- finance
+- payment
+- risk level
+
+### 4.4 Planned Commands
+
+Round 2 plans these scripts:
+
+```bash
+node ops/agent-orchestrator/scripts/runtime-generator.mjs --dry-run
+node ops/agent-orchestrator/scripts/runtime-generator.mjs --apply
+node ops/agent-orchestrator/scripts/runtime-rebuild.mjs --dry-run
+node ops/agent-orchestrator/scripts/runtime-rebuild.mjs --apply
+node ops/agent-orchestrator/scripts/runtime-validate.mjs --dry-run
+node ops/agent-orchestrator/scripts/runtime-validate.mjs --apply
+```
+
+Required behavior:
+
+- `--dry-run` must not write inventory files.
+- `--apply` may write only `ops/agent-orchestrator/runtime/**`.
+- Validation must fail loudly on malformed JSON, missing required fields, duplicate route keys, duplicate permission keys, or unknown risk levels.
+- Inventory generation must not read secrets or write credentials.
+
+## 5. V2-D Smart E2E Selector
+
+### 5.1 Objective
+
+Smart E2E Selector maps changed files and runtime inventories to the smallest safe validation matrix.
+
+It keeps baseline checks:
+
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor`
+- `node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run`
+- `pnpm typecheck`
+
+Then it adds targeted checks when changed files touch known modules or risks.
+
+### 5.2 Planned Files
+
+```text
+ops/agent-orchestrator/runtime/selector-rules.json
+ops/agent-orchestrator/runtime/validation-matrix.json
+ops/agent-orchestrator/scripts/e2e-selector.mjs
+```
+
+Inputs:
+
+- changed files
+- `risk_inventory.json`
+- `module_inventory.json`
+- optional `api_inventory.json`, `rbac_inventory.json`, and `workflow_inventory.json`
+
+Outputs:
+
+- selected validations
+- reasons
+- skipped validations and why
+- risk level
+- whether human approval is required
+
+### 5.3 Selection Examples
+
+| Change type | Selected validation |
+|---|---|
+| RBAC, menu, guard, role mapping | RBAC/menu tests and permission visibility checks |
+| Finance, receivable, payment, invoice | Finance, leasing, payment, idempotency, and audit tests |
+| Workflow state or approver changes | Workflow transition and approval smoke tests |
+| IoT / safety runtime changes | Safety, hazard, IoT alert, and device smoke tests |
+| Low-risk docs only | Baseline doctor/audit/typecheck; skip e2e with explicit reason |
+
+### 5.4 CLI Contract
+
+Planned commands:
+
+```bash
+node ops/agent-orchestrator/scripts/e2e-selector.mjs --dry-run
+node ops/agent-orchestrator/scripts/e2e-selector.mjs --dry-run --explain
+node ops/agent-orchestrator/scripts/e2e-selector.mjs --changed-files docs/release/example.md --explain
+```
+
+Required behavior:
+
+- `--dry-run` must not write files.
+- `--explain` must show rule matches and skipped rules.
+- Unknown high-risk paths must select a conservative validation set or require human confirmation.
+- Docs-only changes may skip e2e, but must still keep doctor, audit, and typecheck.
+
+## 6. Round 2 Task Split
+
+| Task ID | Agent | Track | Priority | Risk | Purpose |
+|---|---|---|---|---|---|
+| `AGENT-PLATFORM-V2-A5-RUNTIME-ARCH` | agent-5 | V2-C | P0 | MEDIUM | Runtime Memory overall architecture and inventory contracts |
+| `AGENT-PLATFORM-V2-A3-INVENTORY-GENERATOR` | agent-3 | V2-C | P0 | MEDIUM | Inventory generator/rebuild design and conflict-free runtime materialization |
+| `AGENT-PLATFORM-V2-A4-E2E-SELECTOR` | agent-4 | V2-D | P0 | MEDIUM | Smart E2E selector rules, CLI contract, explanations, and output schema |
+| `AGENT-PLATFORM-V2-A2-RUNTIME-VALIDATION` | agent-2 | V2-C/V2-D | P1 | MEDIUM | Compatibility, validation matrix, runtime tests, and regression strategy |
+
+## 7. Acceptance Gates
+
+Round 2 planning is complete when:
+
+1. REQ and TECH specs exist.
+2. `task-queue.json` contains 4 READY tasks for Round 2.
+3. `parallel-task-board.md` shows Round 2 task ownership.
+4. Queue, locks, and results JSON parse.
+5. `check-dispatch-status` passes.
+6. `doctor` runs.
+7. `agent-cycle --dry-run` runs without executing Agents.
+8. `git diff --check` passes.
+9. `pnpm typecheck` passes.
+
+## 8. Safety Guardrails
+
+Round 2 keeps these hard gates:
+
+- No business code changes.
+- No database changes.
+- No migration or seed changes.
+- No auth, CI, Docker, deploy, or production runtime changes.
+- No Agent execution during planning.
+- No merge, push, deploy, production migration, production seed, cleanup, reset, or production data operations.
