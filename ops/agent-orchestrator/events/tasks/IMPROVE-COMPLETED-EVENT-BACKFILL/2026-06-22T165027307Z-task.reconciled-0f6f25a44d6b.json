@@ -1,0 +1,27 @@
+{
+  "event_id": "task.reconciled:c6ed3bbfe3ff986abf30cd15",
+  "event_type": "task.reconciled",
+  "task_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+  "owner": "agent-5",
+  "status_before": null,
+  "status_after": null,
+  "created_at": "2026-06-22T16:50:27.307Z",
+  "actor": "orchestrator",
+  "source": "integration_final_reconcile",
+  "reason": "final queue reconciliation after agent integration",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "7be61d36d03c5a384e7bd6573c60a59a16eb749673fe734b93eccfc8a8d42a9a",
+    "integration_branch": "integration/orchestrator-auto-20260623-005026",
+    "current_result_status": null,
+    "next_result_status": null,
+    "task_snapshot": {
+      "task_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "owner": "agent-5",
+      "updated_at": "2026-06-22T16:50:27.307Z",
+      "status": null
+    }
+  }
+}
