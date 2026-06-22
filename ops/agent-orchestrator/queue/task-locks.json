@@ -1,12 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T12:23:29.505Z",
+  "updated_at": "2026-06-22T12:29:42.763Z",
   "locks": [
-    {
-      "task_id": "AGENT-PLATFORM-V2-A1-RUNTIME-DOCS-INDEX",
-      "agent": "agent-1",
-      "claimed_at": "2026-06-22T12:23:29.505Z"
-    },
     {
       "task_id": "AGENT-PLATFORM-V2-A2-VALIDATION-RUNBOOK",
       "agent": "agent-2",
