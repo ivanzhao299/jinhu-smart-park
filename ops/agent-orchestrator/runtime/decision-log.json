@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "decision_log",
-  "generated_at": "2026-06-23T04:04:07.134Z",
+  "generated_at": "2026-06-23T04:46:32.710Z",
   "source_fingerprint": {
     "files": [
       {
@@ -31,6 +31,14 @@
       {
         "path": "docs/release/AGENT_PLATFORM_V3_PLAN.md",
         "sha256": "bd03a78334904cfa551ed98d0d8b2ebb39c2934d9ee3b0bbae77ab936539d719"
+      },
+      {
+        "path": "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+        "sha256": "e772c9ce085d38f62927fd99ec1bb5a97b579a53e4a4e3cc05059964335695a3"
+      },
+      {
+        "path": "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+        "sha256": "5c92592bbb89969de9be467621d5132f81cdf13e281d624c608176b6221513e7"
       },
       {
         "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
@@ -83,17 +91,9 @@
       {
         "path": "docs/release/agent-platform-v3-goal-engine-architecture.md",
         "sha256": "9fcb179e7bdbd287995fc665cd30d83458d8efe91cd520cdb222dafad26333aa"
-      },
-      {
-        "path": "docs/release/agent-platform-v3-planner-runtime.md",
-        "sha256": "ffab29fa742f712b7c9fdb21e040a036a5efc6359cfa2cf5f71c6893f9b3bb35"
-      },
-      {
-        "path": "docs/release/agent-platform-v3-productization-notes.md",
-        "sha256": "c4580f4a7b0d6f9549e40300bbd47e3b9de018c8402e8d5734e06fcbf4d7523d"
       }
     ],
-    "aggregate_sha256": "80346d52698f02599d05835102d828cea5641db42442659d1dfa2a4981a344f2"
+    "aggregate_sha256": "ffd4f0acc42c35e15fd1412ccb750d443f316be10e7d6c9d1caee74127959061"
   },
   "decisions": [
     {

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "platform_state",
-  "generated_at": "2026-06-23T04:04:07.134Z",
+  "generated_at": "2026-06-23T04:46:32.710Z",
   "source_fingerprint": {
     "files": [
       {
@@ -97,8 +97,8 @@
   },
   "project": "jinhu-smart-park / ANKSEN Agent Studio",
   "branch": "main",
-  "head": "7bd4fdbc05a73e5593bccb8a6d273573f8c0f788",
-  "head_summary": "7bd4fdb chore(orchestrator): strengthen discovery replica engine p0",
+  "head": "bf755f1bdbd0c6402054b0397159176c5cbd77f5",
+  "head_summary": "bf755f1 chore(orchestrator): add runtime handoff smoke report",
   "working_tree_clean": false,
   "queue": {
     "counts": {

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "architecture_memory",
-  "generated_at": "2026-06-23T04:04:07.134Z",
+  "generated_at": "2026-06-23T04:46:32.710Z",
   "source_fingerprint": {
     "files": [
       {
@@ -27,6 +27,14 @@
       {
         "path": "docs/release/AGENT_PLATFORM_V3_PLAN.md",
         "sha256": "bd03a78334904cfa551ed98d0d8b2ebb39c2934d9ee3b0bbae77ab936539d719"
+      },
+      {
+        "path": "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+        "sha256": "e772c9ce085d38f62927fd99ec1bb5a97b579a53e4a4e3cc05059964335695a3"
+      },
+      {
+        "path": "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+        "sha256": "5c92592bbb89969de9be467621d5132f81cdf13e281d624c608176b6221513e7"
       },
       {
         "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
@@ -119,17 +127,9 @@
       {
         "path": "docs/release/contract-finance-release-check-plan-2026-06-21.md",
         "sha256": "d30bbf11b438f9d93802639e491a969b6905c74d14454f3c9c6c3db48e8ea49c"
-      },
-      {
-        "path": "docs/release/first-release-readiness-checklist.md",
-        "sha256": "07b8f0221b281d84ca18f3ba1bff82e66fc2d2f594a59c1125f156af06edb57e"
-      },
-      {
-        "path": "docs/release/first-release-readiness-gap-analysis.md",
-        "sha256": "9f2c5faaf5504682225ab3ba7ed7c1f7e2b18373a1b860e5cf14cf3863992214"
       }
     ],
-    "aggregate_sha256": "f4e8091f82ff6085567c49d398e319be8434adbe546bb548ec30ce694cb629f3"
+    "aggregate_sha256": "c3f3efc48f0e2c1bb39d8e15b918867363ba199b33502fd199c0b4fd03e8ddc1"
   },
   "bounded_contexts": [
     "Agent Orchestrator",
@@ -163,6 +163,8 @@
     "docs/release/AGENT_PLATFORM_V2_PLAN.md",
     "docs/release/AGENT_PLATFORM_V2_ROUND2_PLAN.md",
     "docs/release/AGENT_PLATFORM_V3_PLAN.md",
+    "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+    "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
     "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
     "docs/release/agent-platform-v2-compatibility-test-plan.md",
     "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
