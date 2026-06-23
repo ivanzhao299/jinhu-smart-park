@@ -3,6 +3,12 @@
   "read_model_only": true,
   "source_of_truth": "ops/agent-orchestrator/events/tasks",
   "generated_by": "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-  "updated_at": "2026-06-23T07:22:04.307Z",
-  "locks": []
+  "updated_at": "2026-06-23T09:23:07.186Z",
+  "locks": [
+    {
+      "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+      "agent": "agent-4",
+      "claimed_at": "2026-06-23T09:23:07.186Z"
+    }
+  ]
 }

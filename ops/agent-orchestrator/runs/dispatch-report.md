@@ -1,6 +1,6 @@
 # Dispatch Report
 
-Generated at: 2026-06-22T16:57:26.548Z
+Generated at: 2026-06-23T09:23:07.186Z
 
 Mode: dispatch
 
@@ -8,7 +8,7 @@ Mode: dispatch
 
 | Task ID | Owner | Worktree | Prompt File |
 |---|---|---|---|
-| EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION | agent-5 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5 | ops/agent-orchestrator/runs/EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION-agent-5.prompt.md |
+| JINHU-SMART-PARK-TASK-2A48545294 | agent-4 | /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4 | ops/agent-orchestrator/runs/JINHU-SMART-PARK-TASK-2A48545294-agent-4.prompt.md |
 
 ## Skipped Agents
 
@@ -17,7 +17,7 @@ Mode: dispatch
 | agent-1 | no READY task |
 | agent-2 | no READY task |
 | agent-3 | no READY task |
-| agent-4 | no READY task |
+| agent-5 | no READY task |
 
 ## Guardrails
 
