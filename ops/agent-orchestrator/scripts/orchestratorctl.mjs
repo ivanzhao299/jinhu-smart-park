@@ -41,6 +41,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement <improvement_id> --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "..." --dry-run
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs autonomous-loop --text "..." --apply [--parallel 1|2]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs check-status
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs daemon --dry-run|--once|--watch|--fix-dry-run|--fix-apply|--auto-cycle
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs finalize --dry-run|--apply
@@ -306,6 +307,59 @@ function printOutcome(status, reason) {
 
 function runFinalizeApply() {
   requireScript("ops/agent-orchestrator/scripts/finalize.mjs", ["--apply"]);
+}
+
+function parseAutonomousLoopArgs(argv) {
+  const text = optionValue(argv, "--text", "");
+  const dryRun = argv.includes("--dry-run");
+  const apply = argv.includes("--apply");
+  const parallelRaw = optionValue(argv, "--parallel", "2");
+  const parallel = Number.parseInt(parallelRaw, 10);
+
+  if (!text.trim()) {
+    throw new Error('autonomous-loop requires --text "..."');
+  }
+  if (dryRun === apply) {
+    throw new Error("autonomous-loop requires exactly one of --dry-run or --apply.");
+  }
+  if (![1, 2].includes(parallel)) {
+    throw new Error("autonomous-loop --apply supports --parallel 1 or --parallel 2.");
+  }
+
+  return { text, dryRun, apply, parallel };
+}
+
+function pathAllowed(path, allowList) {
+  const normalized = String(path ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
+  return allowList.some((rule) => {
+    if (rule.endsWith("/")) return normalized.startsWith(rule);
+    return normalized === rule || normalized.startsWith(`${rule}/`);
+  });
+}
+
+function commitAllowedDirtyFiles({ mainPath, allowList, message, label }) {
+  const entries = parseStatusShort(statusShort(mainPath));
+  if (entries.length === 0) {
+    console.log(`${label}: no files to commit.`);
+    return false;
+  }
+
+  const forbidden = entries.filter((entry) => !pathAllowed(entry.path, allowList));
+  if (forbidden.length > 0) {
+    throw new Error(`${label} produced dirty files outside the autonomous-loop allowlist:\n- ${formatEntries(forbidden)}`);
+  }
+
+  console.log("");
+  console.log(`${label}: committing generated orchestrator artifacts.`);
+  console.log(formatEntries(entries));
+  git(mainPath, ["add", "--", ...allowList], { stdio: "inherit" });
+  const staged = git(mainPath, ["diff", "--cached", "--quiet"], { allowFailure: true });
+  if (staged.status === 0) {
+    console.log(`${label}: no staged changes after add.`);
+    return false;
+  }
+  git(mainPath, ["commit", "-m", message], { stdio: "inherit" });
+  return true;
 }
 
 async function statusCommand() {
@@ -640,32 +694,91 @@ async function agentCycleCommand(rest) {
 }
 
 async function autonomousLoopCommand(rest) {
-  const text = optionValue(rest, "--text", "");
-  if (!text.trim()) {
-    throw new Error('autonomous-loop requires --text "..."');
-  }
-  if (hasFlag(rest, "--apply")) {
-    throw new Error("autonomous-loop MVP supports --dry-run only.");
-  }
-  if (!hasFlag(rest, "--dry-run")) {
-    throw new Error("autonomous-loop MVP supports --dry-run only.");
+  const args = parseAutonomousLoopArgs(rest);
+
+  console.log(`# Autonomous Loop ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log("Guardrails: no deploy, no production migration/seed/reset/cleanup, no business-code auto-commit, no HIGH-risk auto handling.");
+  console.log("");
+
+  if (args.dryRun) {
+    console.log("## Step 1: Goal to Queue");
+    runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", args.text, "--dry-run"]);
+    console.log("");
+    console.log("## Step 2: Resident Observer");
+    runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--dry-run"]);
+    console.log("");
+    console.log("## Step 3: Agent Cycle Plan");
+    await agentCycleCommand(["--dry-run", "--parallel", String(args.parallel)]);
+    console.log("");
+    console.log("## Step 4: Evolution Planner");
+    runScript("ops/agent-orchestrator/scripts/evolution-planner.mjs", ["--dry-run"]);
+    console.log("");
+    console.log("## Step 5: Finalize Plan");
+    runScript("ops/agent-orchestrator/scripts/finalize.mjs", ["--dry-run"]);
+    console.log("");
+    console.log("## Step 6: Doctor");
+    runScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
+    return;
   }
 
-  console.log("# Autonomous Loop dry-run");
+  let state = await readAgentCycleState();
+  const blockers = precheckBlockers(state, { execute: true, push: true });
+  if (state.mainStatus.branch !== "main") {
+    blockers.push(`main worktree must be on main; current branch is ${state.mainStatus.branch}`);
+  }
+  if (blockers.length > 0) {
+    throw new Error(`Autonomous loop apply stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
+  }
+
+  console.log("## Step 1: Goal Engine / Planner Agent / Goal-to-Queue");
+  requireScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", args.text, "--apply"]);
+  state = await readAgentCycleState();
+  commitAllowedDirtyFiles({
+    mainPath: state.mainPath,
+    allowList: [
+      "ops/agent-orchestrator/goal/generated",
+      "ops/agent-orchestrator/planner/generated",
+      "ops/agent-orchestrator/events",
+      "ops/agent-orchestrator/queue",
+      "ops/agent-orchestrator/evolution"
+    ],
+    message: "chore(orchestrator): generate autonomous loop task queue",
+    label: "goal-to-queue apply"
+  });
+
   console.log("");
-  console.log("Guardrails: no Agent execution, no merge, no push, no deploy, no production migration/seed/reset/cleanup.");
+  console.log("## Step 2: Agent Cycle / Audit / Integration / Finalize");
+  requireScript("ops/agent-orchestrator/scripts/orchestratorctl.mjs", [
+    "agent-cycle",
+    "--apply",
+    "--execute",
+    "--push",
+    "--parallel",
+    String(args.parallel)
+  ]);
+
   console.log("");
-  console.log("## Step 1: Goal to Queue");
-  runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", text, "--dry-run"]);
+  console.log("## Step 3: Resident Observer");
+  requireScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--apply"]);
+
   console.log("");
-  console.log("## Step 2: Resident Observer");
-  runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--dry-run"]);
+  console.log("## Step 4: Evolution Planner");
+  requireScript("ops/agent-orchestrator/scripts/evolution-planner.mjs", ["--apply"]);
+
+  state = await readAgentCycleState();
+  commitAllowedDirtyFiles({
+    mainPath: state.mainPath,
+    allowList: [
+      "ops/agent-orchestrator/evolution"
+    ],
+    message: "chore(orchestrator): record autonomous loop evolution learning",
+    label: "observe/evolution apply"
+  });
+
   console.log("");
-  console.log("## Step 3: Agent Cycle Plan");
-  await agentCycleCommand(["--dry-run"]);
-  console.log("");
-  console.log("## Step 4: Doctor");
-  runScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
+  console.log("## Step 5: Finalize");
+  runFinalizeApply();
 }
 
 function evolveCommand(rest) {
@@ -783,9 +896,9 @@ async function dispatchCommand() {
 try {
   await dispatchCommand();
 } catch (error) {
-  if (command === "agent-cycle") {
+  if (command === "agent-cycle" || command === "autonomous-loop") {
     const dryRun = hasFlag(rest, "--dry-run") || !hasFlag(rest, "--apply");
-    process.exit(runSelfRepair(`agent-cycle failed: ${error.message}`, { dryRun }));
+    process.exit(runSelfRepair(`${command} failed: ${error.message}`, { dryRun }));
   }
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
