@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "memory_kind": "architecture_memory",
-  "generated_at": "2026-06-23T04:50:20.808Z",
+  "generated_at": "2026-06-23T07:29:03.437Z",
   "source_fingerprint": {
     "files": [
       {
         "path": "ops/agent-orchestrator/queue/task-queue.json",
-        "sha256": "eae9d5b1c6bcc9e352a5f5450c3bedc362f41b4e9ca6ed4fdaee83045ed4ad0e"
+        "sha256": "03acf971e0ca30e0c91e033d5e5669c06e075e555716b3bbf1ed6f6471d4c28d"
       },
       {
         "path": "docs/release/AGENT_ORCHESTRATOR_MATURITY_ROADMAP.md",
@@ -129,7 +129,7 @@
         "sha256": "a44a34f7dc9e68837a8f0c739fb5c21438a367c3e2116d9369b5d0d360776d12"
       }
     ],
-    "aggregate_sha256": "012195282fd6835a22487281f844e4b6ebf80604500895102ea90f559ad1e5eb"
+    "aggregate_sha256": "96db6aad3696a5dc2a29c1d5a9c526192d75c2fabc3f2925309e56a5b895ce2b"
   },
   "bounded_contexts": [
     "Agent Orchestrator",
