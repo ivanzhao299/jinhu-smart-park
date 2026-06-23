@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "memory_kind": "platform_state",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/agent-registry/agent-registry.example.json",
+        "sha256": "549eeac372dc9b4e376d0068559af2cbdee0d3212c5622f47edae140c61463b8"
+      },
+      {
+        "path": "ops/agent-orchestrator/agent-router-rules.json",
+        "sha256": "d6996c5ab17e55e6ed14b839f9aa9072161648ec3eee785fb13cf49b97a382c7"
+      },
+      {
+        "path": "ops/agent-orchestrator/skills/skill-registry.json",
+        "sha256": "e32ffbb2f8658fafde4b61f80e6a298780bd364b35203413dcd7cbfceb62f775"
+      },
+      {
+        "path": "ops/agent-orchestrator/skills/skill-router-rules.json",
+        "sha256": "9058772c74366ae8db9d6ad7679b5feb49cca990aaa4c5bb77acf17037b88902"
+      },
+      {
+        "path": "ops/agent-orchestrator/queue/task-queue.json",
+        "sha256": "eae9d5b1c6bcc9e352a5f5450c3bedc362f41b4e9ca6ed4fdaee83045ed4ad0e"
+      },
+      {
+        "path": "ops/agent-orchestrator/queue/task-locks.json",
+        "sha256": "b88787305d0bc2253d86b75cf9a38f3399bf33c8790aa09641148215b69b9e15"
+      },
+      {
+        "path": "ops/agent-orchestrator/queue/task-results.json",
+        "sha256": "4fc4c0285a34c762e1610d3e3d6328fbfd41cec8514f90a455498555ba16027a"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/conflict-metrics.json",
+        "sha256": "3dee524f84e79fa46193a5b71b154799c24eca72ed0cc69d2cc3f70eabbb6783"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/evolution-state.json",
+        "sha256": "e90a2052342312d703aaf2e61054d68a1dce5ecb3a463c87d63412e5deb33207"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/failure-patterns.json",
+        "sha256": "0680e9d2718f870d1b5a03e8d87fd06e610165c59cb6754dbb94b922f13b5878"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/improvement-backlog.json",
+        "sha256": "cece76a2dbffc1739761612b3c269273f18a460f638743044416d57e757b13d0"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/learning-log.json",
+        "sha256": "05e2e2f785d7630f82ae30d1edfdc192f9201af5a4edf5656fe9fe8b34e667eb"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/state.example.json",
+        "sha256": "28036f02b51b96ee0d9915ec41258ca78598c98824c52ef9cbc87babc8432439"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/api_inventory.example.json",
+        "sha256": "a7ef836478b6b0000347a5c646b42cd9531f5b5db683468628e770e8b3b0c9e6"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/browser-runtime.schema.json",
+        "sha256": "d740d9e75eea1ae1d7b560a462f3ff59b101586bcd289d3d9705dc02cba83f24"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-state.example.json",
+        "sha256": "edac64995da3f081c7c31b9dac07a3cf01f7259149847318689858281f19e0ec"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-target.example.json",
+        "sha256": "1e2725ecee0a96ca10f49d38a9631defbcc61b93529e21c5eec41834225245ba"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-target.schema.json",
+        "sha256": "01c4c9d2136612f709ef83369e9cbe018bc8ff13d0353aa17cb839d4236b16e7"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/entity-map.example.json",
+        "sha256": "c8ce62d029e65c399048c96d08bc3cb31038f6b27991afefd326cd3c16cbfdfa"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/replica-plan.example.json",
+        "sha256": "7f69e863f4dbe882f6bd52225cf937aa01b9657cd0a32d827e8a580be0be4fc2"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/schema-inference.example.json",
+        "sha256": "fef962a81dde2659550172242cf57964acfed2d53bb719ed67b75df799469d47"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/system-map.example.json",
+        "sha256": "ebf2af99f3fa44eac8ce760f51b079dbf973a989d1e4682f58afa17d3956111a"
+      }
+    ],
+    "aggregate_sha256": "7978faff4baa3a8df68affd4346a07406eeda5db028d562892542d891ffe8e29"
+  },
+  "project": "jinhu-smart-park / ANKSEN Agent Studio",
+  "branch": "main",
+  "head": "7bd4fdbc05a73e5593bccb8a6d273573f8c0f788",
+  "head_summary": "7bd4fdb chore(orchestrator): strengthen discovery replica engine p0",
+  "working_tree_clean": false,
+  "queue": {
+    "counts": {
+      "AUDITED": 34,
+      "BLOCKED": 4
+    },
+    "active_locks": 0,
+    "aggregate_results": 34
+  },
+  "event_store": {
+    "task_count": 41,
+    "event_count": 174,
+    "event_types": {
+      "task.created": 38,
+      "task.claimed": 17,
+      "task.completed": 39,
+      "task.reconciled": 24,
+      "task.integrated": 18,
+      "task.audited": 34,
+      "task.failed": 4
+    }
+  },
+  "guardrails": [
+    "No deploy without explicit approval.",
+    "No production migration/seed/reset/cleanup.",
+    "No apps/packages/database/infra/.github/Docker/deploy/auth changes from memory build.",
+    "No FINALIZE RESULT, no DONE."
+  ]
+}

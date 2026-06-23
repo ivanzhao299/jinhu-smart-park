@@ -1,0 +1,920 @@
+{
+  "schema_version": 1,
+  "memory_kind": "skill_memory",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/skills/skill-registry.json",
+        "sha256": "e32ffbb2f8658fafde4b61f80e6a298780bd364b35203413dcd7cbfceb62f775"
+      },
+      {
+        "path": "ops/agent-orchestrator/skills/skill-router-rules.json",
+        "sha256": "9058772c74366ae8db9d6ad7679b5feb49cca990aaa4c5bb77acf17037b88902"
+      }
+    ],
+    "aggregate_sha256": "9d3ea1bdcc0af2e5b1fbbfe2abfea9c1d6400a7c4d0fc76d4badc337903cb4dd"
+  },
+  "skills": [
+    {
+      "skill_id": "skill-code-development",
+      "skill_type": "code_development",
+      "display_name": "Code Development",
+      "purpose": "Code development, fixes, refactors, scripts, orchestrator automation, and UI implementation tasks.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-router",
+      "expected_output_types": [
+        "code",
+        "patch",
+        "script",
+        "technical report"
+      ],
+      "required_inputs": [
+        "repository path",
+        "task scope",
+        "allowed_paths",
+        "forbidden_paths",
+        "validation commands"
+      ],
+      "validation_commands": [
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-document-generation",
+      "skill_type": "document_generation",
+      "display_name": "Document Generation",
+      "purpose": "Word documents, contracts, proposals, meeting notes, official documents, Markdown reports, and PDF-ready deliverables.",
+      "default_runtime": "documents",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-document-runtime",
+      "expected_output_types": [
+        "docx",
+        "md",
+        "pdf"
+      ],
+      "required_inputs": [
+        "document brief",
+        "target audience",
+        "output format",
+        "source references"
+      ],
+      "validation_commands": [
+        "manual document review",
+        "render/preview output when applicable"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-spreadsheet-analysis",
+      "skill_type": "spreadsheet_analysis",
+      "display_name": "Spreadsheet Analysis",
+      "purpose": "Excel, CSV, tables, statistics, formulas, charts, and tabular reports.",
+      "default_runtime": "spreadsheets",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-spreadsheet-runtime",
+      "expected_output_types": [
+        "xlsx",
+        "chart",
+        "report"
+      ],
+      "required_inputs": [
+        "spreadsheet file or data range",
+        "analysis question",
+        "desired chart/report format"
+      ],
+      "validation_commands": [
+        "spreadsheet recalculation check",
+        "chart/data range review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-slide-generation",
+      "skill_type": "slide_generation",
+      "display_name": "Slide Generation",
+      "purpose": "PPT decks, roadshows, presentation materials, and executive briefings.",
+      "default_runtime": "presentations",
+      "fallback_runtime": "canva",
+      "default_agent": "platform-slide-runtime",
+      "expected_output_types": [
+        "pptx",
+        "slides"
+      ],
+      "required_inputs": [
+        "presentation brief",
+        "audience",
+        "slide count",
+        "brand/style requirements"
+      ],
+      "validation_commands": [
+        "render slide preview",
+        "layout review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-image-generation",
+      "skill_type": "image_generation",
+      "display_name": "Image Generation",
+      "purpose": "Renderings, logos, promotional images, image editing, visual variants, and bitmap assets.",
+      "default_runtime": "imagegen",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-image-runtime",
+      "expected_output_types": [
+        "image",
+        "png",
+        "jpg"
+      ],
+      "required_inputs": [
+        "visual brief",
+        "style",
+        "aspect ratio",
+        "reference assets if any"
+      ],
+      "validation_commands": [
+        "visual QA",
+        "asset path review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-pdf-processing",
+      "skill_type": "pdf_processing",
+      "display_name": "PDF Processing",
+      "purpose": "PDF reading, extraction, contract review, conversion, redline planning, and PDF edits.",
+      "default_runtime": "pdf",
+      "fallback_runtime": "documents",
+      "default_agent": "platform-pdf-runtime",
+      "expected_output_types": [
+        "summary",
+        "edited pdf",
+        "extracted content",
+        "risk report"
+      ],
+      "required_inputs": [
+        "PDF file",
+        "review objective",
+        "output format"
+      ],
+      "validation_commands": [
+        "PDF render/parse check",
+        "manual legal/risk review when applicable"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-web-research",
+      "skill_type": "web_research",
+      "display_name": "Web Research",
+      "purpose": "Latest information, product research, policy lookup, pricing, documentation, and source-backed summaries.",
+      "default_runtime": "web-search",
+      "fallback_runtime": "browser",
+      "default_agent": "platform-research-runtime",
+      "expected_output_types": [
+        "research summary with citations",
+        "source list"
+      ],
+      "required_inputs": [
+        "research question",
+        "recency requirement",
+        "trusted source constraints"
+      ],
+      "validation_commands": [
+        "source citation review",
+        "recency check"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-data-integration",
+      "skill_type": "data_integration",
+      "display_name": "Data Integration",
+      "purpose": "ERP API, Yonyou, Feishu, Ezviz, third-party integration, interface mapping, and adapter planning.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "integration plan",
+        "api mapping",
+        "adapter code",
+        "test plan"
+      ],
+      "required_inputs": [
+        "integration system",
+        "API contract",
+        "auth/safety constraints",
+        "allowed_paths"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "risk_level": "HIGH"
+    },
+    {
+      "skill_id": "skill-legacy-discovery",
+      "skill_type": "legacy_discovery",
+      "display_name": "Legacy System Discovery",
+      "purpose": "Read authorized legacy website/OA/ERP/admin portal exports, page manifests, or API documents to build a system map.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "system map",
+        "menus/pages/forms/tables/API candidates",
+        "risk notes"
+      ],
+      "required_inputs": [
+        "authorized target configuration",
+        "user-provided export or manual manifest",
+        "allowed scope",
+        "forbidden scope"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/legacy-discovery.mjs --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-schema-inference",
+      "skill_type": "schema_inference",
+      "display_name": "Schema Inference",
+      "purpose": "Infer entities, fields, enums, indexes, attachments, audit fields, RBAC fields, and workflow fields from system maps.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "schema inference",
+        "data model draft",
+        "field mapping"
+      ],
+      "required_inputs": [
+        "system map JSON",
+        "source page/form/table evidence",
+        "review constraints"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/schema-inference.mjs --system-map ops/agent-orchestrator/discovery/system-map.example.json --dry-run",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-replica-planning",
+      "skill_type": "replica_planning",
+      "display_name": "Replica Planning",
+      "purpose": "Generate REQ, TECH, database/API/frontend/RBAC/migration/validation plans and task candidates from schema inference.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "replica plan",
+        "REQ",
+        "TECH",
+        "task candidates"
+      ],
+      "required_inputs": [
+        "schema inference JSON",
+        "authorization status",
+        "replica scope",
+        "human approval boundaries"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/replica-planner.mjs --schema ops/agent-orchestrator/discovery/schema-inference.example.json --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-data-migration-mapping",
+      "skill_type": "data_migration_mapping",
+      "display_name": "Data Migration Mapping",
+      "purpose": "Map legacy ERP/OA exports to the new system's target model with compatibility, data quality, and cutover notes.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "migration mapping",
+        "compatibility matrix",
+        "data quality report"
+      ],
+      "required_inputs": [
+        "legacy export schema",
+        "target schema",
+        "mapping rules",
+        "data quality constraints"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "risk_level": "HIGH"
+    },
+    {
+      "skill_id": "skill-browser-discovery",
+      "skill_type": "browser_discovery",
+      "display_name": "Browser Runtime Discovery",
+      "purpose": "Build page, menu, form, button, link, iframe, and screenshot metadata inventories from authorized fixture or browser runtime evidence.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser-agent",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "page_inventory",
+        "menu_inventory",
+        "ui_inventory"
+      ],
+      "required_inputs": [
+        "authorized system map or page manifest",
+        "allowed scope",
+        "forbidden scope",
+        "browser runtime adapter mode"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/browser-discovery.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-api-discovery",
+      "skill_type": "api_discovery",
+      "display_name": "API Discovery",
+      "purpose": "Build REST, XHR, Fetch, GraphQL, and WebSocket API inventories from authorized fixtures, manifests, or exported API documentation.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser-agent",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "api_inventory",
+        "endpoint map",
+        "risk notes"
+      ],
+      "required_inputs": [
+        "system map",
+        "API candidates or exported API documentation",
+        "auth evidence",
+        "allowed scope"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/api-discovery.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-entity-mapping",
+      "skill_type": "entity_mapping",
+      "display_name": "Entity Mapping",
+      "purpose": "Map legacy entities and fields to target master-data or workflow entities with confidence scores and review notes.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "entity_map",
+        "field_mapping",
+        "compatibility notes"
+      ],
+      "required_inputs": [
+        "schema inference JSON",
+        "target domain vocabulary",
+        "mapping aliases"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/entity-mapper.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/schema-compatibility.mjs --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-replica-scoring",
+      "skill_type": "replica_scoring",
+      "display_name": "Replica Scoring",
+      "purpose": "Score UI, API, workflow, RBAC, data, and overall replica readiness from discovery outputs.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-2",
+      "expected_output_types": [
+        "schema compatibility score",
+        "replica score",
+        "coverage summary"
+      ],
+      "required_inputs": [
+        "system map",
+        "schema inference",
+        "API inventory",
+        "entity map"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/schema-compatibility.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/replica-score.mjs --dry-run"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-validation-testing",
+      "skill_type": "validation_testing",
+      "display_name": "Validation and Testing",
+      "purpose": "Testing, audit, validation matrix, Doctor, typecheck, release gates, and compatibility runbooks.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-2",
+      "expected_output_types": [
+        "test plan",
+        "validation report",
+        "runbook"
+      ],
+      "required_inputs": [
+        "changed files",
+        "risk area",
+        "expected checks"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-evolution-observer",
+      "skill_type": "evolution_observer",
+      "display_name": "Evolution Observer",
+      "purpose": "Platform problem observation, failure patterns, learning log, improvement backlog, and Resident Observer analysis.",
+      "default_runtime": "resident-observer",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "evolution-center",
+      "expected_output_types": [
+        "finding",
+        "failure pattern",
+        "improvement candidate",
+        "learning entry"
+      ],
+      "required_inputs": [
+        "doctor output",
+        "run logs",
+        "queue/results/events",
+        "self-repair history"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run"
+      ],
+      "risk_level": "LOW"
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "RULE-LEGACY-DISCOVERY-REPLICA",
+      "skill_type": "legacy_discovery",
+      "task_type": "legacy_discovery_replica_planning",
+      "keywords": [
+        "旧",
+        "legacy",
+        "oa",
+        "erp",
+        "旧系统",
+        "旧网站",
+        "旧 oa",
+        "旧 erp",
+        "读取",
+        "复刻",
+        "复刻开发",
+        "系统地图",
+        "页面清单",
+        "导出",
+        "manifest",
+        "admin portal"
+      ],
+      "expected_output_type": "system map + schema inference + replica plan",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-5",
+      "confidence_boost": 30,
+      "reason": "Legacy website/OA/ERP replica requests should start with authorized legacy discovery and then feed schema inference and replica planning."
+    },
+    {
+      "rule_id": "RULE-SCHEMA-INFERENCE",
+      "skill_type": "schema_inference",
+      "task_type": "schema_inference",
+      "keywords": [
+        "页面结构",
+        "数据库模型",
+        "数据模型",
+        "schema inference",
+        "schema",
+        "system map",
+        "系统地图",
+        "字段",
+        "实体",
+        "表单",
+        "表结构",
+        "网站页面",
+        "分析网站"
+      ],
+      "expected_output_type": "schema inference",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-3",
+      "confidence_boost": 25,
+      "reason": "Page/form/table structure analysis should route to schema inference."
+    },
+    {
+      "rule_id": "RULE-BROWSER-DISCOVERY",
+      "skill_type": "browser_discovery",
+      "task_type": "browser_runtime_discovery",
+      "keywords": [
+        "browser discovery",
+        "浏览器发现",
+        "页面树",
+        "菜单树",
+        "表单树",
+        "按钮",
+        "iframe",
+        "截图元数据",
+        "ui inventory",
+        "page inventory",
+        "menu inventory",
+        "playwright",
+        "chrome headless"
+      ],
+      "expected_output_type": "page/menu/ui inventory",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-5",
+      "confidence_boost": 30,
+      "reason": "Browser-runtime discovery requests should build page/menu/ui inventories from authorized fixtures or browser adapters."
+    },
+    {
+      "rule_id": "RULE-API-DISCOVERY",
+      "skill_type": "api_discovery",
+      "task_type": "api_discovery",
+      "keywords": [
+        "api discovery",
+        "接口发现",
+        "api inventory",
+        "endpoint",
+        "xhr",
+        "fetch",
+        "graphql",
+        "websocket",
+        "接口清单",
+        "请求响应",
+        "接口风险"
+      ],
+      "expected_output_type": "api inventory",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-3",
+      "confidence_boost": 30,
+      "reason": "API discovery requests should build REST/XHR/Fetch/GraphQL/WebSocket inventory from safe evidence."
+    },
+    {
+      "rule_id": "RULE-ENTITY-MAPPING",
+      "skill_type": "entity_mapping",
+      "task_type": "entity_mapping",
+      "keywords": [
+        "entity mapping",
+        "entity mapper",
+        "实体映射",
+        "字段映射",
+        "映射",
+        "客户主数据",
+        "主数据",
+        "客户",
+        "会员",
+        "customer master",
+        "legacy entity",
+        "new entity",
+        "field mapping",
+        "confidence"
+      ],
+      "expected_output_type": "entity map",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-3",
+      "confidence_boost": 35,
+      "reason": "Legacy-to-new entity mapping requests should produce entity and field mappings with confidence scores."
+    },
+    {
+      "rule_id": "RULE-REPLICA-SCORING",
+      "skill_type": "replica_scoring",
+      "task_type": "replica_scoring",
+      "keywords": [
+        "replica score",
+        "复刻评分",
+        "复刻兼容性",
+        "兼容性评分",
+        "评分",
+        "覆盖",
+        "schema compatibility",
+        "overall compatibility",
+        "overall replica",
+        "ui score",
+        "api score",
+        "rbac score",
+        "data score"
+      ],
+      "expected_output_type": "replica score",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-2",
+      "confidence_boost": 40,
+      "reason": "Replica readiness scoring requests should calculate compatibility and replica coverage metrics."
+    },
+    {
+      "rule_id": "RULE-DATA-MIGRATION-MAPPING",
+      "skill_type": "data_migration_mapping",
+      "task_type": "data_migration_mapping",
+      "keywords": [
+        "数据兼容",
+        "兼容到新系统",
+        "数据迁移",
+        "迁移映射",
+        "旧 erp 数据",
+        "旧erp数据",
+        "mapping",
+        "migration mapping",
+        "cutover",
+        "导入旧数据"
+      ],
+      "expected_output_type": "migration mapping",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-3",
+      "confidence_boost": 35,
+      "reason": "Legacy ERP/OA data compatibility requests should route to data migration mapping."
+    },
+    {
+      "rule_id": "RULE-DOCUMENT-WORD",
+      "skill_type": "document_generation",
+      "task_type": "document_generation",
+      "keywords": [
+        "word",
+        "docx",
+        "docs",
+        "documentation",
+        "manual",
+        "guide",
+        "workflow docs",
+        "user workflow",
+        ".md",
+        "文档",
+        "文件",
+        "方案",
+        "推进方案",
+        "合同",
+        "会议纪要",
+        "公文"
+      ],
+      "expected_output_type": "docx",
+      "runtime": "documents",
+      "selected_agent": "platform-document-runtime",
+      "confidence_boost": 20,
+      "reason": "Word/document/proposal requests should use the document generation runtime."
+    },
+    {
+      "rule_id": "RULE-SPREADSHEET-ANALYSIS",
+      "skill_type": "spreadsheet_analysis",
+      "task_type": "spreadsheet_analysis",
+      "keywords": [
+        "excel",
+        "xlsx",
+        "csv",
+        "表格",
+        "统计",
+        "统计图",
+        "图表",
+        "公式",
+        "数据透视"
+      ],
+      "expected_output_type": "xlsx/chart/report",
+      "runtime": "spreadsheets",
+      "selected_agent": "platform-spreadsheet-runtime",
+      "confidence_boost": 20,
+      "reason": "Spreadsheet/table/statistics/chart requests should use the spreadsheet runtime."
+    },
+    {
+      "rule_id": "RULE-SLIDES",
+      "skill_type": "slide_generation",
+      "task_type": "slide_generation",
+      "keywords": [
+        "ppt",
+        "pptx",
+        "slide",
+        "slides",
+        "路演",
+        "汇报材料",
+        "演示",
+        "演示文稿"
+      ],
+      "expected_output_type": "pptx",
+      "runtime": "presentations",
+      "selected_agent": "platform-slide-runtime",
+      "confidence_boost": 20,
+      "reason": "Presentation requests should use the slide generation runtime."
+    },
+    {
+      "rule_id": "RULE-IMAGE-GENERATION",
+      "skill_type": "image_generation",
+      "task_type": "image_generation",
+      "keywords": [
+        "图片",
+        "图像",
+        "效果图",
+        "鸟瞰",
+        "鸟瞰图",
+        "logo",
+        "宣传图",
+        "海报",
+        "渲染",
+        "image",
+        "rendering"
+      ],
+      "expected_output_type": "image",
+      "runtime": "imagegen",
+      "selected_agent": "platform-image-runtime",
+      "confidence_boost": 20,
+      "reason": "Rendering/image/logo/promo visual requests should use image generation."
+    },
+    {
+      "rule_id": "RULE-PDF-RISK",
+      "skill_type": "pdf_processing",
+      "task_type": "legal_review",
+      "keywords": [
+        "pdf",
+        "合同风险",
+        "合同审查",
+        "审查",
+        "风险",
+        "条款",
+        "提取",
+        "转换"
+      ],
+      "expected_output_type": "risk report",
+      "runtime": "pdf",
+      "selected_agent": "platform-pdf-runtime",
+      "confidence_boost": 20,
+      "reason": "PDF/contract review requests should use the PDF processing runtime."
+    },
+    {
+      "rule_id": "RULE-CODE-DEVELOPMENT",
+      "skill_type": "code_development",
+      "task_type": "code_development",
+      "keywords": [
+        "code",
+        "script",
+        ".mjs",
+        "cli",
+        "hardening",
+        "adapter",
+        "registry",
+        "runtime adapter",
+        "orchestrator",
+        "agent studio",
+        "studio",
+        "maturity",
+        "goal engine",
+        "planner",
+        "queue",
+        "router",
+        "schema",
+        "脚本",
+        "命令",
+        "提升",
+        "适配器",
+        "注册表",
+        "路由",
+        "架构"
+      ],
+      "expected_output_type": "code/patch",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-router",
+      "confidence_boost": 10,
+      "reason": "General code/platform automation tasks should use code development before agent owner selection."
+    },
+    {
+      "rule_id": "RULE-WEB-RESEARCH",
+      "skill_type": "web_research",
+      "task_type": "web_research",
+      "keywords": [
+        "最新",
+        "查询",
+        "调研",
+        "政策",
+        "价格",
+        "资料",
+        "claude code",
+        "多 agent",
+        "multi-agent",
+        "能力",
+        "research"
+      ],
+      "expected_output_type": "research summary with citations",
+      "runtime": "web-search",
+      "selected_agent": "platform-research-runtime",
+      "confidence_boost": 20,
+      "reason": "Latest information/research requests should use web research with citations."
+    },
+    {
+      "rule_id": "RULE-FRONTEND-CODE",
+      "skill_type": "code_development",
+      "task_type": "frontend_ui",
+      "keywords": [
+        "前端",
+        "页面",
+        "样式",
+        "移动端",
+        "适配",
+        "ui",
+        "ux",
+        "dashboard",
+        "仪表盘",
+        "erp",
+        "react",
+        "next"
+      ],
+      "expected_output_type": "code/patch",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-4",
+      "confidence_boost": 15,
+      "reason": "Frontend/UI/dashboard/mobile code work should route to code development with agent-4."
+    },
+    {
+      "rule_id": "RULE-VALIDATION-TESTING",
+      "skill_type": "validation_testing",
+      "task_type": "validation_testing",
+      "keywords": [
+        "validation",
+        "validate",
+        "testing",
+        "test",
+        "audit",
+        "doctor",
+        "typecheck",
+        "验证",
+        "测试",
+        "审计",
+        "验收",
+        "矩阵"
+      ],
+      "expected_output_type": "validation report",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-2",
+      "confidence_boost": 15,
+      "reason": "Validation/testing/audit tasks should route to agent-2."
+    },
+    {
+      "rule_id": "RULE-DATA-INTEGRATION",
+      "skill_type": "data_integration",
+      "task_type": "data_integration",
+      "keywords": [
+        "api",
+        "接口",
+        "对接",
+        "集成",
+        "用友",
+        "飞书",
+        "萤石",
+        "erp api",
+        "adapter"
+      ],
+      "expected_output_type": "integration plan",
+      "runtime": "codex-cli",
+      "selected_agent": "agent-3",
+      "confidence_boost": 15,
+      "reason": "API/ERP/third-party integration requests should route to data integration."
+    },
+    {
+      "rule_id": "RULE-EVOLUTION-OBSERVER",
+      "skill_type": "evolution_observer",
+      "task_type": "evolution_observer",
+      "keywords": [
+        "failure pattern",
+        "improvement",
+        "evolution",
+        "observer",
+        "learning",
+        "backlog",
+        "自进化",
+        "观察",
+        "改进项",
+        "学习"
+      ],
+      "expected_output_type": "improvement candidate",
+      "runtime": "resident-observer",
+      "selected_agent": "evolution-center",
+      "confidence_boost": 15,
+      "reason": "Evolution/failure-pattern tasks should use Resident Observer."
+    }
+  ],
+  "routing_policy": {
+    "selection_order": [
+      "explicit_output_type",
+      "domain_keyword_match",
+      "skill_keyword_match",
+      "agent_runtime_hint",
+      "fallback"
+    ],
+    "dry_run_only_default": true,
+    "fallback_skill_type": "code_development",
+    "fallback_agent": "agent-5",
+    "fallback_runtime": "codex-cli"
+  }
+}

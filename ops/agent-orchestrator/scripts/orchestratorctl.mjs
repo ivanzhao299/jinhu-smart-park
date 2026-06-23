@@ -32,6 +32,7 @@ const AGENT_INTEGRATION_ORDER = ["agent-2", "agent-3", "agent-4", "agent-5", "ag
 function usage() {
   console.error(`Usage:
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs status
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs memory --build|--summary|--validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs reconcile --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
@@ -397,6 +398,24 @@ async function statusCommand() {
     console.log(`runtime dirty: ${formatEntries(status.runtimeDirty)}`);
     console.log(`non-runtime dirty: ${formatEntries(status.nonRuntimeDirty)}`);
     console.log("");
+  }
+}
+
+function memoryCommand(rest) {
+  const build = hasFlag(rest, "--build");
+  const summary = hasFlag(rest, "--summary");
+  const validate = hasFlag(rest, "--validate");
+  const selected = [build, summary, validate].filter(Boolean).length;
+  if (selected !== 1) {
+    throw new Error("memory requires exactly one of --build, --summary, or --validate.");
+  }
+
+  if (build) {
+    runScript("ops/agent-orchestrator/scripts/runtime-memory-build.mjs", ["--apply"]);
+  } else if (summary) {
+    runScript("ops/agent-orchestrator/scripts/runtime-memory-read.mjs", ["--summary"]);
+  } else {
+    runScript("ops/agent-orchestrator/scripts/runtime-memory-validate.mjs", []);
   }
 }
 
@@ -904,6 +923,9 @@ async function dispatchCommand() {
   switch (command) {
     case "status":
       await statusCommand();
+      break;
+    case "memory":
+      memoryCommand(rest);
       break;
     case "reconcile":
       runScript("ops/agent-orchestrator/scripts/reconcile-worktrees.mjs", [

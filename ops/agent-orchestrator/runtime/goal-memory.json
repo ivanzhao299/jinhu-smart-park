@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "memory_kind": "goal_memory",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/goal/generated/GOAL-AGENT-STUDIO-98.json",
+        "sha256": "73df5c34dc7efaee4684c396b740bb117d3828a3c3152a7b8573c92fd8eb4c41"
+      },
+      {
+        "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "sha256": "9b46650fcb0d9f641a287e5614a194f71041439728bf964112ba2131019d044b"
+      },
+      {
+        "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+        "sha256": "51b24ecb085ec26e29c30db1e05708129d7d2582a13030f1b1acb3b5cfc5f245"
+      },
+      {
+        "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "sha256": "498746a29467095dba0077bd759919caad0b66d5ffb77714f6d8e83d81a8153d"
+      },
+      {
+        "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-AGENT-STUDIO-98.json",
+        "sha256": "80816dc07a1057dbb630bb9a08438c1f7d73f9e9d42294d04a8d26d7a1895629"
+      },
+      {
+        "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+        "sha256": "bb963a94d93c8e225d5234162bf7421bc7d853bc2fd11422f4cb078cd5228344"
+      },
+      {
+        "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+        "sha256": "7f2c850e0dd0fd7f89230d7697acf268270bd9a21b3e77a5b6760168f3f49cb7"
+      },
+      {
+        "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+        "sha256": "e458f30ef248822fd30ace21f2ea07d0b41bcf62907e6360dda1ab620ada41b9"
+      }
+    ],
+    "aggregate_sha256": "053f26066f8ddc3ff7cce2cc75a605dbabfcbe084b759ce2df4477484c54800d"
+  },
+  "goals": [
+    {
+      "path": "ops/agent-orchestrator/goal/generated/GOAL-AGENT-STUDIO-98.json",
+      "goal_id": "GOAL-AGENT-STUDIO-98",
+      "goal_title": "Raise Agent Studio maturity to 98%",
+      "status": "READY_FOR_REVIEW",
+      "current_maturity": 95,
+      "target_maturity": 98,
+      "recommended_tasks": [
+        "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+        "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+        "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+        "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+        "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS"
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+      "goal_id": "GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "goal_title": "Backfill completed events from truthful result artifacts",
+      "status": "READY_FOR_REVIEW",
+      "current_maturity": 95,
+      "target_maturity": 98,
+      "recommended_tasks": [
+        "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL"
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+      "goal_id": "GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "goal_title": "Reduce queue bookkeeping conflicts with event-first read models",
+      "status": "READY_FOR_REVIEW",
+      "current_maturity": 95,
+      "target_maturity": 98,
+      "recommended_tasks": [
+        "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION"
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/goal/generated/GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+      "goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "goal_title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "status": "READY_FOR_REVIEW",
+      "current_maturity": 95,
+      "target_maturity": 98,
+      "recommended_tasks": [
+        "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT"
+      ]
+    }
+  ],
+  "planner_outputs": [
+    {
+      "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-AGENT-STUDIO-98.json",
+      "planner_output_id": "PLAN-GOAL-AGENT-STUDIO-98",
+      "source_goal_id": "GOAL-AGENT-STUDIO-98",
+      "task_count": 5,
+      "expected_outputs": [
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+          "path": "docs/release/agent-studio-v3-goal-engine-cli-hardening.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+          "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING",
+          "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A5-GOAL-CLI-HARDENING.json"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+          "path": "docs/testing/agent-studio-v3-planner-output-validation.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+          "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION",
+          "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A3-PLANNER-OUTPUT-VALIDATION.json"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+          "path": "docs/release/agent-studio-v3-agent-registry-runtime-adapter.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+          "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER",
+          "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A4-REGISTRY-RUNTIME-ADAPTER.json"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+          "path": "docs/testing/agent-studio-v3-goal-to-queue-validation-matrix.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+          "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION",
+          "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A2-GOAL-QUEUE-VALIDATION.json"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+          "path": "docs/release/agent-studio-v3-goal-to-queue-user-workflow.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+          "path": "ops/agent-orchestrator/reports/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.md"
+        },
+        {
+          "task_id": "AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS",
+          "path": "ops/agent-orchestrator/results/AGENT-PLATFORM-V3-F-A1-STUDIO-WORKFLOW-DOCS.json"
+        }
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL.json",
+      "planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "task_count": 1,
+      "expected_outputs": [
+        {
+          "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+          "path": "ops/agent-orchestrator/reports/IMPROVE-COMPLETED-EVENT-BACKFILL.md"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+          "path": "ops/agent-orchestrator/results/IMPROVE-COMPLETED-EVENT-BACKFILL.json"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-COMPLETED-EVENT-BACKFILL",
+          "path": "docs/testing/evolution-completed-event-backfill-checklist.md"
+        }
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION.json",
+      "planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "task_count": 1,
+      "expected_outputs": [
+        {
+          "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+          "path": "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION.md"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+          "path": "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION.json"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-QUEUE-CONFLICT-REDUCTION",
+          "path": "docs/testing/evolution-queue-conflict-reduction-checklist.md"
+        }
+      ]
+    },
+    {
+      "path": "ops/agent-orchestrator/planner/generated/PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT.json",
+      "planner_output_id": "PLAN-GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "source_goal_id": "GOAL-EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "task_count": 1,
+      "expected_outputs": [
+        {
+          "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+          "path": "ops/agent-orchestrator/reports/IMPROVE-RUNTIME-PLAN-ARTIFACT.md"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+          "path": "ops/agent-orchestrator/results/IMPROVE-RUNTIME-PLAN-ARTIFACT.json"
+        },
+        {
+          "task_id": "EVOLUTION-IMPROVE-RUNTIME-PLAN-ARTIFACT",
+          "path": "docs/testing/evolution-runtime-plan-artifact-checklist.md"
+        }
+      ]
+    }
+  ]
+}

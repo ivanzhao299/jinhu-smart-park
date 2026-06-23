@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "memory_kind": "evolution_memory",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/evolution/conflict-metrics.json",
+        "sha256": "3dee524f84e79fa46193a5b71b154799c24eca72ed0cc69d2cc3f70eabbb6783"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/evolution-state.json",
+        "sha256": "e90a2052342312d703aaf2e61054d68a1dce5ecb3a463c87d63412e5deb33207"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/failure-patterns.json",
+        "sha256": "0680e9d2718f870d1b5a03e8d87fd06e610165c59cb6754dbb94b922f13b5878"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/improvement-backlog.json",
+        "sha256": "cece76a2dbffc1739761612b3c269273f18a460f638743044416d57e757b13d0"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/learning-log.json",
+        "sha256": "05e2e2f785d7630f82ae30d1edfdc192f9201af5a4edf5656fe9fe8b34e667eb"
+      },
+      {
+        "path": "ops/agent-orchestrator/evolution/state.example.json",
+        "sha256": "28036f02b51b96ee0d9915ec41258ca78598c98824c52ef9cbc87babc8432439"
+      }
+    ],
+    "aggregate_sha256": "a31085b637d835776078d6d8334606f656985f74a8b325cfd0de07e1d56ac5d6"
+  },
+  "pattern_count": 5,
+  "open_improvements": 7,
+  "resolved_improvements": 1,
+  "learning_entries": 11,
+  "top_improvements": [
+    {
+      "improvement_id": "IMPROVE-002",
+      "title": "Truthful completion reconcile for successful agent runs",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "owner_recommendation": "agent-2",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-COMPLETED-EVENT-BACKFILL",
+      "title": "Backfill completed events from truthful result artifacts",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "priority": "P0",
+      "risk": "LOW",
+      "owner_recommendation": "agent-5",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-004",
+      "title": "Event-derived lock model and duplicate lock guard",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "owner_recommendation": "agent-3",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-005",
+      "title": "Promote event/read-model consistency checks into release gates",
+      "priority": "P0",
+      "risk": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "title": "Reduce queue bookkeeping conflicts with event-first read models",
+      "priority": "P1",
+      "risk": "MEDIUM",
+      "owner_recommendation": "agent-5",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-003",
+      "title": "Unify router rules with the V3 agent registry",
+      "priority": "P1",
+      "risk": "LOW",
+      "owner_recommendation": "agent-4",
+      "status": "OPEN"
+    },
+    {
+      "improvement_id": "IMPROVE-001",
+      "title": "Keep generated runtime artifacts from blocking execution",
+      "priority": "P0",
+      "owner_recommendation": "agent-5",
+      "status": "RESOLVED"
+    }
+  ],
+  "source_files": [
+    "ops/agent-orchestrator/evolution/conflict-metrics.json",
+    "ops/agent-orchestrator/evolution/evolution-state.json",
+    "ops/agent-orchestrator/evolution/failure-patterns.json",
+    "ops/agent-orchestrator/evolution/improvement-backlog.json",
+    "ops/agent-orchestrator/evolution/learning-log.json",
+    "ops/agent-orchestrator/evolution/state.example.json"
+  ]
+}

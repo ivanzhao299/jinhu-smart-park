@@ -18,6 +18,7 @@ The first version turns a natural-language request into a persistent intake file
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `events/` | V2 append-only event store directories for task, result, lock, and audit events. |
 | `discovery/` | V3-G legacy system discovery fixtures, target schema, system maps, schema inference, and replica plans. |
+| `runtime/` | Runtime Memory Center snapshots used to recover project context without relying on long chat history. |
 | `skills/skill-registry.json` | Skill/runtime registry used to choose platform capability before agent assignment. |
 | `skills/skill-router-rules.json` | Natural-language skill routing rules for documents, spreadsheets, images, research, validation, code, and Evolution Center work. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
@@ -35,6 +36,9 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/schema-compatibility.mjs` | Scores entity, field, relationship, migration, and overall schema compatibility. |
 | `scripts/replica-planner.mjs` | Produces replica REQ/TECH/task-candidate plans from schema inference. |
 | `scripts/replica-score.mjs` | Scores UI, API, workflow, RBAC, data, and overall replica readiness. |
+| `scripts/runtime-memory-build.mjs` | Builds Runtime Memory JSON sections and `handoff-summary.md` from current project sources. |
+| `scripts/runtime-memory-read.mjs` | Reads Runtime Memory summary or a named section such as agent, skill, or roadmap. |
+| `scripts/runtime-memory-validate.mjs` | Validates Runtime Memory files and source fingerprints. |
 | `scripts/daemon.mjs` | Local watcher/daemon layer that observes doctor state and can run explicitly approved LOW-risk fixes or guarded auto-cycle steps. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
 | `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
@@ -1059,6 +1063,37 @@ Runtime adapters are reserved but not enabled by default:
 Until a target has explicit authorization and operator-provided evidence, discovery must stay fixture/manual-manifest only.
 
 Resident Observer reads discovery artifacts and reports whether a target, system map, schema inference, or replica plan exists, whether authorization is missing, and which discovery risk notes require review.
+
+## 9C. Runtime Memory Center
+
+Runtime Memory Center moves the durable Agent Studio context out of the chat window and into project files. A new Codex-Orchestrator window should read Runtime Memory first, then run `doctor`, instead of depending on a very long prior conversation.
+
+Commands:
+
+- `node ops/agent-orchestrator/scripts/runtime-memory-build.mjs --apply`
+- `node ops/agent-orchestrator/scripts/runtime-memory-read.mjs --summary`
+- `node ops/agent-orchestrator/scripts/runtime-memory-read.mjs --section agent`
+- `node ops/agent-orchestrator/scripts/runtime-memory-read.mjs --section skill`
+- `node ops/agent-orchestrator/scripts/runtime-memory-read.mjs --section roadmap`
+- `node ops/agent-orchestrator/scripts/runtime-memory-validate.mjs`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs memory --build`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs memory --summary`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs memory --validate`
+
+Runtime Memory files:
+
+- `platform-state.json`: branch, head, queue counts, locks, event-store counts, and guardrails.
+- `architecture-memory.json`: bounded contexts, modules, dependencies, and release-doc index.
+- `agent-memory.json`: Agent Registry and Agent Router ownership rules.
+- `skill-memory.json`: Skill Registry and Skill Router rules.
+- `goal-memory.json`: generated goals and planner outputs.
+- `evolution-memory.json`: failure patterns, improvements, and learning summary.
+- `discovery-memory.json`: discovery targets, system maps, schema inference, API inventory, entity maps, and replica plans.
+- `roadmap-memory.json`: Agent Platform roadmap and current platform stage.
+- `decision-log.json`: durable platform decisions such as event-first queue and `No FINALIZE RESULT, no DONE`.
+- `handoff-summary.md`: short human-readable bootstrap for a fresh main-agent session.
+
+Validation compares saved source fingerprints against current source files. If it fails, run `runtime-memory-build.mjs --apply`, review the diff, then commit and finalize. Runtime Memory build does not execute Agents, deploy, run production operations, or modify business code.
 
 ## 10. Resident Observer / Evolution Center
 

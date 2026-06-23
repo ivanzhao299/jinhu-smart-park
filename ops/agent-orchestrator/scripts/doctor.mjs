@@ -41,9 +41,22 @@ const locksPath = join(orchestratorDir, "queue", "task-locks.json");
 const resultsPath = join(orchestratorDir, "queue", "task-results.json");
 const perTaskResultsDir = join(orchestratorDir, "results");
 const runsDir = join(orchestratorDir, "runs");
+const runtimeDir = join(orchestratorDir, "runtime");
 const runPlanRelativePath = "ops/agent-orchestrator/runs/agent-run-plan.md";
 const OLD_PROD_PREFIX = "PROD-20260621-002-";
 const V2_PREFIX = "AGENT-PLATFORM-V2-";
+const RUNTIME_MEMORY_FILES = [
+  "platform-state.json",
+  "architecture-memory.json",
+  "agent-memory.json",
+  "skill-memory.json",
+  "goal-memory.json",
+  "evolution-memory.json",
+  "discovery-memory.json",
+  "roadmap-memory.json",
+  "decision-log.json",
+  "handoff-summary.md"
+];
 
 const SEVERITY_RANK = new Map([
   ["INFO", 0],
@@ -123,6 +136,69 @@ function runCapture(command, args = []) {
 
 function runNodeCapture(script, args = []) {
   return runCapture("node", [script, ...args]);
+}
+
+async function inspectRuntimeMemory(findings) {
+  const files = [];
+  const missing = [];
+  for (const file of RUNTIME_MEMORY_FILES) {
+    const absolute = join(runtimeDir, file);
+    const exists = existsSync(absolute);
+    files.push({ file, exists });
+    if (!exists) missing.push(file);
+  }
+
+  let platform = null;
+  let validation = {
+    status: 1,
+    passed: false,
+    summary: ["Runtime Memory has not been validated."]
+  };
+
+  if (missing.length === 0) {
+    try {
+      platform = JSON.parse(await readFile(join(runtimeDir, "platform-state.json"), "utf8"));
+    } catch (error) {
+      addFinding(findings, "WARN", "runtime-memory", `platform-state.json is not readable: ${error.message}`, "Run runtime-memory-build.mjs --apply.");
+    }
+
+    const result = runNodeCapture("ops/agent-orchestrator/scripts/runtime-memory-validate.mjs");
+    validation = {
+      status: result.status,
+      passed: result.status === 0,
+      summary: [result.stdout, result.stderr]
+        .filter(Boolean)
+        .join("\n")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 12)
+    };
+
+    if (result.status !== 0) {
+      addFinding(findings, "WARN", "runtime-memory", "Runtime Memory source fingerprints are stale or invalid.", "Run runtime-memory-build.mjs --apply and commit the refreshed runtime memory files.");
+    }
+  } else {
+    addFinding(
+      findings,
+      "INFO",
+      "runtime-memory",
+      `Runtime Memory files are missing: ${missing.join(", ")}`,
+      "Run runtime-memory-build.mjs --apply to create project filesystem context for future main-agent sessions."
+    );
+  }
+
+  return {
+    runtime_dir: relative(repoRoot, runtimeDir),
+    files,
+    missing,
+    complete: missing.length === 0,
+    validation,
+    generated_at: platform?.generated_at ?? null,
+    head_summary: platform?.head_summary ?? null,
+    queue_counts: platform?.queue?.counts ?? {},
+    event_count: platform?.event_store?.event_count ?? null
+  };
 }
 
 function safeRepoStatus(id, path) {
@@ -795,6 +871,11 @@ function nextActions(diagnosis) {
     actions.push("node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --from-events --dry-run");
   }
 
+  if (!diagnosis.runtime_memory.complete || !diagnosis.runtime_memory.validation.passed) {
+    actions.push("node ops/agent-orchestrator/scripts/runtime-memory-build.mjs --apply");
+    actions.push("node ops/agent-orchestrator/scripts/runtime-memory-validate.mjs");
+  }
+
   if (actions.length === 0) {
     actions.push("node ops/agent-orchestrator/scripts/orchestratorctl.mjs status");
   }
@@ -816,6 +897,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
   const eventStore = await inspectEventStore({ queue, locks, results }, findings);
   const runner = await inspectRunner(config, queue, results, perTaskResults, findings);
   const integration = inspectIntegration(config, worktrees, findings);
+  const runtimeMemory = await inspectRuntimeMemory(findings);
   const rawConflictMetrics = await readConflictMetrics();
   const conflictMetrics = summarizeConflictMetrics(rawConflictMetrics, {
     eventReadModelConsistent: eventStore.read_model_consistent,
@@ -855,6 +937,7 @@ async function buildDiagnosis(args, appliedFixes = []) {
       stale: queueInfo.stale_locks
     },
     runner,
+    runtime_memory: runtimeMemory,
     integration,
     conflict_metrics: {
       updated_at: rawConflictMetrics.updated_at,
@@ -937,6 +1020,16 @@ function printMarkdown(diagnosis, args) {
       console.log(`- ${log.task_id} | ${log.agent} | exit=${log.exit_code ?? "?"} | task=${log.task_status} | result=${log.result_status} | ${log.path}`);
     }
   }
+  console.log("");
+
+  console.log("## Runtime Memory");
+  console.log(`Runtime dir: ${diagnosis.runtime_memory.runtime_dir}`);
+  console.log(`Files complete: ${diagnosis.runtime_memory.complete ? "yes" : "no"}`);
+  console.log(`Validation: ${diagnosis.runtime_memory.validation.passed ? "PASS" : "FAIL"}`);
+  console.log(`Generated at: ${diagnosis.runtime_memory.generated_at || "none"}`);
+  console.log(`Head summary: ${diagnosis.runtime_memory.head_summary || "none"}`);
+  console.log(`Event count: ${diagnosis.runtime_memory.event_count ?? "unknown"}`);
+  console.log(`Missing files: ${diagnosis.runtime_memory.missing.length === 0 ? "none" : diagnosis.runtime_memory.missing.join(", ")}`);
   console.log("");
 
   console.log("## Evolution Center");
@@ -1050,6 +1143,7 @@ if (args.json) {
     queue: diagnosis.queue,
     locks: diagnosis.locks,
     runner: diagnosis.runner,
+    runtime_memory: diagnosis.runtime_memory,
     integration: diagnosis.integration,
     conflict_metrics: diagnosis.conflict_metrics,
     validation: diagnosis.validation,

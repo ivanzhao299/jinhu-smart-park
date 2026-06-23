@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "memory_kind": "decision_log",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/queue/task-queue.json",
+        "sha256": "eae9d5b1c6bcc9e352a5f5450c3bedc362f41b4e9ca6ed4fdaee83045ed4ad0e"
+      },
+      {
+        "path": "ops/agent-orchestrator/skills/skill-registry.json",
+        "sha256": "e32ffbb2f8658fafde4b61f80e6a298780bd364b35203413dcd7cbfceb62f775"
+      },
+      {
+        "path": "docs/release/AGENT_ORCHESTRATOR_MATURITY_ROADMAP.md",
+        "sha256": "de1ba06c77e706ff662044b2a66d5ebf8a9bc09a22159d2cb9aff927a57a4e4d"
+      },
+      {
+        "path": "docs/release/AGENT_ORCHESTRATOR_PLAYBOOK_V1.md",
+        "sha256": "bc2404368ef25a5b66c55c548c23d53aa35c71570b81a7c8c83832b3dd4ed0e1"
+      },
+      {
+        "path": "docs/release/AGENT_PLATFORM_V2_PLAN.md",
+        "sha256": "a0b50dc99502b1d81d31a25dd1133ee0e324bbdcaa0e193eacff5f4613892107"
+      },
+      {
+        "path": "docs/release/AGENT_PLATFORM_V2_ROUND2_PLAN.md",
+        "sha256": "f2ba1209a7235cf557dfd1e58c5dad4dea9152a0716c06fc13942c58c5011c5c"
+      },
+      {
+        "path": "docs/release/AGENT_PLATFORM_V3_PLAN.md",
+        "sha256": "bd03a78334904cfa551ed98d0d8b2ebb39c2934d9ee3b0bbae77ab936539d719"
+      },
+      {
+        "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
+        "sha256": "dd274398aa05bcb8743d4910c6d8d88959082360610b185eafbe5aaecdc3c7bf"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-compatibility-test-plan.md",
+        "sha256": "f45d5b02fed7a5357825be85e4f072ca05d4024533772f9b0d8c1df189c6263b"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
+        "sha256": "39eddbd9d25a0d804b2ebdab64c3b79181d42fe5cc14f8289ea379b6b43619e1"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-inventory-generator-design.md",
+        "sha256": "4177e9e8ab33c21a46b5d0b263447c73293e30bb55a7b20015dc74696c52c936"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-parallel-runner-plan.md",
+        "sha256": "36fbec2beab9f401fc6c8928d4cd0e0fd1adfbb473bad835058bcdd2eb1ab99e"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-read-model-plan.md",
+        "sha256": "43827dc126f1e1cfa5381a238954b541540d4b3b02ad27764de94aee3b158974"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-readiness-validation-runbook.md",
+        "sha256": "e26362a54ac8d7107cefa8891e055e19f61c1148b55358cd5d7a27b887b68a31"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
+        "sha256": "954c6d5e8fde89fb22b4e0e6de9da5a03bd6f656a638001990f8bf58a62e4bcb"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-runtime-docs-index.md",
+        "sha256": "ce25ee0e18d883511b82e40b83efc902c36fbf9e59104adc657a4e53732401f1"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-runtime-memory-architecture.md",
+        "sha256": "974a9c45a18cbaca92d604181a89b47ef24f50c77c4e223da328e1a41dbb36c9"
+      },
+      {
+        "path": "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
+        "sha256": "f6702646460cf6522689edbc47953b7a45d37809140104d14ad4dc9036fd61ea"
+      },
+      {
+        "path": "docs/release/agent-platform-v3-agent-registry-design.md",
+        "sha256": "1b3ab8e4ae27829ef9480274d3c6bafc7210634c7aabd4673a3321a8ac675292"
+      },
+      {
+        "path": "docs/release/agent-platform-v3-goal-engine-architecture.md",
+        "sha256": "9fcb179e7bdbd287995fc665cd30d83458d8efe91cd520cdb222dafad26333aa"
+      },
+      {
+        "path": "docs/release/agent-platform-v3-planner-runtime.md",
+        "sha256": "ffab29fa742f712b7c9fdb21e040a036a5efc6359cfa2cf5f71c6893f9b3bb35"
+      },
+      {
+        "path": "docs/release/agent-platform-v3-productization-notes.md",
+        "sha256": "c4580f4a7b0d6f9549e40300bbd47e3b9de018c8402e8d5734e06fcbf4d7523d"
+      }
+    ],
+    "aggregate_sha256": "80346d52698f02599d05835102d828cea5641db42442659d1dfa2a4981a344f2"
+  },
+  "decisions": [
+    {
+      "decision_id": "DECISION-NO-FINALIZE-NO-DONE",
+      "status": "ACTIVE",
+      "decision": "No FINALIZE RESULT, no DONE.",
+      "rationale": "Every platform cycle must end with push/sync/status/doctor evidence."
+    },
+    {
+      "decision_id": "DECISION-EVENT-FIRST-QUEUE",
+      "status": "ACTIVE",
+      "decision": "Event Store is the source of truth; queue JSON is compatibility read model.",
+      "rationale": "Reduces multi-agent queue bookkeeping conflicts."
+    },
+    {
+      "decision_id": "DECISION-PARALLEL-2-GUARDED",
+      "status": "ACTIVE",
+      "decision": "Parallel 2 is enabled when event/read-model health is consistent; higher parallelism remains guarded.",
+      "rationale": "Preserves integration and audit safety."
+    },
+    {
+      "decision_id": "DECISION-DISCOVERY-FIXTURE-FIRST",
+      "status": "ACTIVE",
+      "decision": "Legacy Discovery P0 is fixture/manual-manifest only; no live crawling by default.",
+      "rationale": "Keeps authorization, rate limiting, and target-system safety explicit."
+    },
+    {
+      "decision_id": "DECISION-RUNTIME-MEMORY-FIRST",
+      "status": "ACTIVE",
+      "decision": "New main-agent sessions should read Runtime Memory before relying on long chat history.",
+      "rationale": "Moves project continuity into auditable files."
+    }
+  ],
+  "source_notes": [
+    "Generated from current orchestrator state, release plans, skill/agent registries, and queue/event status."
+  ]
+}

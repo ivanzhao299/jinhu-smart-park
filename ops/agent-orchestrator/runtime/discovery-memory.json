@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "memory_kind": "discovery_memory",
+  "generated_at": "2026-06-23T04:04:07.134Z",
+  "source_fingerprint": {
+    "files": [
+      {
+        "path": "ops/agent-orchestrator/discovery/api_inventory.example.json",
+        "sha256": "a7ef836478b6b0000347a5c646b42cd9531f5b5db683468628e770e8b3b0c9e6"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/browser-runtime.schema.json",
+        "sha256": "d740d9e75eea1ae1d7b560a462f3ff59b101586bcd289d3d9705dc02cba83f24"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-state.example.json",
+        "sha256": "edac64995da3f081c7c31b9dac07a3cf01f7259149847318689858281f19e0ec"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-target.example.json",
+        "sha256": "1e2725ecee0a96ca10f49d38a9631defbcc61b93529e21c5eec41834225245ba"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/discovery-target.schema.json",
+        "sha256": "01c4c9d2136612f709ef83369e9cbe018bc8ff13d0353aa17cb839d4236b16e7"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/entity-map.example.json",
+        "sha256": "c8ce62d029e65c399048c96d08bc3cb31038f6b27991afefd326cd3c16cbfdfa"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/replica-plan.example.json",
+        "sha256": "7f69e863f4dbe882f6bd52225cf937aa01b9657cd0a32d827e8a580be0be4fc2"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/schema-inference.example.json",
+        "sha256": "fef962a81dde2659550172242cf57964acfed2d53bb719ed67b75df799469d47"
+      },
+      {
+        "path": "ops/agent-orchestrator/discovery/system-map.example.json",
+        "sha256": "ebf2af99f3fa44eac8ce760f51b079dbf973a989d1e4682f58afa17d3956111a"
+      }
+    ],
+    "aggregate_sha256": "82b3e184ecefd051dc399ef30e88be2c8147ed87c7925d892ad6337829d2ef70"
+  },
+  "targets": [
+    {
+      "path": "ops/agent-orchestrator/discovery/discovery-target.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "target_name": "Legacy OA Demo Export",
+      "target_type": "oa",
+      "authorization_status": "AUTHORIZED_FIXTURE_ONLY",
+      "source_mode": "manual_page_manifest"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/system-map.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "target_name": "Legacy OA Demo Export",
+      "target_type": "oa",
+      "authorization_status": "AUTHORIZED_FIXTURE_ONLY",
+      "source_mode": "manual_page_manifest"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "ops/agent-orchestrator/discovery/api_inventory.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": "API-INVENTORY-LEGACY-OA-DEMO",
+      "kind": "api_inventory"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/browser-runtime.schema.json",
+      "artifact_id": "https://jinhu-smart-park.local/schemas/agent-orchestrator/browser-runtime.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/discovery-state.example.json",
+      "artifact_id": null,
+      "kind": "json"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/discovery-target.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": null,
+      "kind": "json"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/discovery-target.schema.json",
+      "artifact_id": "https://jinhu-smart-park.local/ops/agent-orchestrator/discovery/discovery-target.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/entity-map.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+      "kind": "schema_inference"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/replica-plan.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+      "kind": "schema_inference"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/schema-inference.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": "SYSTEM-MAP-LEGACY-OA-DEMO",
+      "kind": "system_map"
+    },
+    {
+      "path": "ops/agent-orchestrator/discovery/system-map.example.json",
+      "target_id": "LEGACY-OA-DEMO",
+      "artifact_id": "SYSTEM-MAP-LEGACY-OA-DEMO",
+      "kind": "system_map"
+    }
+  ],
+  "safety_summary": [
+    "Discovery is fixture/manual manifest only unless explicitly authorized.",
+    "No real external crawling is part of Runtime Memory build.",
+    "Replica planning remains dry-run and requires human approval before migration/business code."
+  ]
+}
