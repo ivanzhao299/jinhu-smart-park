@@ -1,0 +1,96 @@
+{
+  "event_id": "task.integrated:926f91f7c6f4f72f29b76f56",
+  "event_type": "task.integrated",
+  "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+  "owner": "agent-4",
+  "status_before": "CLAIMED",
+  "status_after": "CLAIMED",
+  "created_at": "2026-06-23T09:32:33.834Z",
+  "actor": "orchestrator",
+  "source": "integrate-agent-results.mjs",
+  "reason": "integrated agent-4 result into integration/orchestrator-auto-20260623-173233",
+  "changed_files": [
+    "apps/web/app/(dashboard)/dashboard/DashboardMetrics.tsx",
+    "apps/web/app/(dashboard)/dashboard/page.tsx",
+    "apps/web/app/globals.css",
+    "ops/agent-orchestrator/events/tasks/JINHU-SMART-PARK-TASK-2A48545294/2026-06-23T092814132Z-task.completed-0c2db7f0ccb2.json",
+    "ops/agent-orchestrator/queue/task-locks.json",
+    "ops/agent-orchestrator/queue/task-queue.json",
+    "ops/agent-orchestrator/queue/task-results.json",
+    "ops/agent-orchestrator/results/JINHU-SMART-PARK-TASK-2A48545294.json"
+  ],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "a106e278b6c9f4eb357f42a489a5c6348dc870d1f0a90fab5bb164d277f6e2ef",
+    "agent_id": "agent-4",
+    "agent_branch": "agent-4-dashboard-mobile-rbac",
+    "agent_head": "3542a7c56a17a167cebedc62fe29c428aa8d46f0",
+    "integration_branch": "integration/orchestrator-auto-20260623-173233",
+    "merge_commit": "4d6c5721004145729e66ae171a390fca2b173e9a",
+    "task_snapshot": {
+      "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+      "batch_id": "EXTERNAL-PROPOSAL-jinhu-smart-park",
+      "title": "优化智慧园区仪表盘移动端样式",
+      "owner": "agent-4",
+      "domain": "external-proposal-code_development",
+      "priority": "P0",
+      "status": "CLAIMED",
+      "risk": "HIGH",
+      "skill_type": "code_development",
+      "skill_id": "skill-code-development",
+      "runtime": "codex-cli",
+      "allowed_paths": [
+        "apps/web",
+        "packages/ui",
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.*",
+        "apps/api"
+      ],
+      "acceptance": [
+        "Implement approved proposal: 优化智慧园区仪表盘移动端样式",
+        "Stay within allowed_paths and avoid forbidden_paths.",
+        "Do not deploy or perform production operations.",
+        "Run all validation_commands and record truthful results.",
+        "Respect approval_required and high-risk boundaries before project writes."
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "manual approval before writing guarded project paths"
+      ],
+      "required_checks": [
+        "No forbidden paths changed",
+        "Validation commands pass or failures are reported truthfully",
+        "No deploy or production operation executed"
+      ],
+      "expected_outputs": [
+        "code/patch"
+      ],
+      "expected_output_files": [],
+      "requires_human_approval": true,
+      "approval_source": "anksen-agent-studio",
+      "external_proposal_ref": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-2A48545294.json",
+      "allow_commit": false,
+      "created_at": "2026-06-23T07:22:04.307Z",
+      "updated_at": "2026-06-23T09:23:07.186Z"
+    }
+  }
+}
