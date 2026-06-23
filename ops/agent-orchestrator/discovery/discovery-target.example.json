@@ -1,0 +1,41 @@
+{
+  "$schema": "./discovery-target.schema.json",
+  "version": 1,
+  "target_id": "LEGACY-OA-DEMO",
+  "target_name": "Legacy OA Demo Export",
+  "target_type": "oa",
+  "base_url": "fixture://legacy-oa-demo",
+  "auth_mode": "none",
+  "authorization_status": "AUTHORIZED_FIXTURE_ONLY",
+  "allowed_scope": [
+    "fixture://legacy-oa-demo/pages/**",
+    "manual manifest provided by the system owner",
+    "user-provided exported HTML/JSON only"
+  ],
+  "forbidden_scope": [
+    "live production crawling",
+    "credential guessing",
+    "destructive actions",
+    "high-concurrency access",
+    "paths outside the user-provided export"
+  ],
+  "crawl_depth": 1,
+  "rate_limit": {
+    "requests_per_minute": 6,
+    "concurrency": 1
+  },
+  "capture_screenshots": false,
+  "extract_tables": true,
+  "extract_forms": true,
+  "extract_links": true,
+  "extract_apis": true,
+  "legal_authorization_required": true,
+  "source_mode": "manual_page_manifest",
+  "fixture_refs": [
+    "ops/agent-orchestrator/discovery/system-map.example.json"
+  ],
+  "operator_notes": [
+    "MVP uses only static fixture/manual manifests and does not access the network.",
+    "Real discovery requires explicit authorization and operator-provided exports or API documentation."
+  ]
+}

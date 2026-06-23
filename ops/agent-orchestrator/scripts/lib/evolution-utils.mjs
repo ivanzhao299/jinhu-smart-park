@@ -24,6 +24,7 @@ export const perTaskResultsDir = join(orchestratorDir, "results");
 export const runsDir = join(orchestratorDir, "runs");
 const generatedGoalDir = join(orchestratorDir, "goal", "generated");
 const generatedPlannerDir = join(orchestratorDir, "planner", "generated");
+const discoveryDir = join(orchestratorDir, "discovery");
 
 export const EVOLUTION_FORBIDDEN_PATHS = [
   "apps/**",
@@ -368,6 +369,68 @@ async function inspectGoalToQueueArtifacts() {
   };
 }
 
+async function inspectDiscoveryArtifacts() {
+  if (!existsSync(discoveryDir)) {
+    return {
+      target_exists: false,
+      system_map_generated: false,
+      schema_inference_generated: false,
+      replica_plan_generated: false,
+      authorization_missing: false,
+      target_count: 0,
+      system_map_count: 0,
+      schema_inference_count: 0,
+      replica_plan_count: 0,
+      risk_notes: []
+    };
+  }
+
+  const names = await readdir(discoveryDir);
+  const jsonNames = names.filter((name) => name.endsWith(".json"));
+  const targetNames = jsonNames.filter((name) => name.startsWith("discovery-target") && !name.endsWith(".schema.json"));
+  const systemMapNames = jsonNames.filter((name) => name.startsWith("system-map"));
+  const schemaNames = jsonNames.filter((name) => name.startsWith("schema-inference"));
+  const replicaNames = jsonNames.filter((name) => name.startsWith("replica-plan"));
+  const riskNotes = [];
+  let authorizationMissing = false;
+
+  for (const name of targetNames) {
+    try {
+      const target = await readJson(join(discoveryDir, name));
+      if (target.legal_authorization_required !== true ||
+        ["PENDING_AUTHORIZATION", "BLOCKED", undefined, null, ""].includes(target.authorization_status)) {
+        authorizationMissing = true;
+      }
+    } catch {
+      authorizationMissing = true;
+    }
+  }
+
+  for (const name of systemMapNames) {
+    try {
+      const systemMap = await readJson(join(discoveryDir, name));
+      for (const note of systemMap.risk_notes ?? []) {
+        riskNotes.push(note);
+      }
+    } catch {
+      riskNotes.push(`Unable to parse discovery system map ${name}.`);
+    }
+  }
+
+  return {
+    target_exists: targetNames.length > 0,
+    system_map_generated: systemMapNames.length > 0,
+    schema_inference_generated: schemaNames.length > 0,
+    replica_plan_generated: replicaNames.length > 0,
+    authorization_missing: authorizationMissing,
+    target_count: targetNames.length,
+    system_map_count: systemMapNames.length,
+    schema_inference_count: schemaNames.length,
+    replica_plan_count: replicaNames.length,
+    risk_notes: [...new Set(riskNotes)].slice(0, 8)
+  };
+}
+
 function matchPatterns(patterns, findings) {
   const haystack = findings.map((finding) => `${finding.message ?? ""} ${finding.suggested_fix ?? ""}`).join("\n").toLowerCase();
   return patterns
@@ -386,7 +449,7 @@ function matchPatterns(patterns, findings) {
     .filter((item) => item.currently_detected);
 }
 
-function deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics }) {
+function deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics, discovery }) {
   const findings = [];
   for (const finding of doctor.findings ?? []) {
     findings.push({
@@ -428,6 +491,24 @@ function deriveFindings({ doctor, queue, locks, eventStore, logs, integration, c
       area: "integration",
       message: `Queue conflict frequency risk is MEDIUM: ${conflictMetrics.reasons.join("; ")}`,
       suggested_fix: "Keep integration event-first and rebuild compatibility read models from events."
+    });
+  }
+
+  if (discovery?.authorization_missing) {
+    findings.push({
+      severity: "WARN",
+      area: "discovery",
+      message: "Discovery target exists but authorization is missing or blocked.",
+      suggested_fix: "Require explicit authorization and user-provided exports before any discovery apply."
+    });
+  }
+
+  for (const note of discovery?.risk_notes ?? []) {
+    findings.push({
+      severity: "INFO",
+      area: "discovery",
+      message: `Discovery risk note: ${note}`,
+      suggested_fix: "Review discovery scope before creating replica implementation tasks."
     });
   }
 
@@ -729,7 +810,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
     readJson(resultsPath),
     readResultFiles(perTaskResultsDir)
   ]);
-  const [doctor, checkDispatch, audit, integration, eventStore, logs, goalToQueue, rawConflictMetrics] = await Promise.all([
+  const [doctor, checkDispatch, audit, integration, eventStore, logs, goalToQueue, discovery, rawConflictMetrics] = await Promise.all([
     Promise.resolve(parseDoctorJson()),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/check-dispatch-status.mjs")),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/audit-all-results.mjs", ["--dry-run"])),
@@ -737,6 +818,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
     buildEventStoreHealth({ queue, locks, results }),
     recentRunLogs(queue, results, perTaskResults),
     inspectGoalToQueueArtifacts(),
+    inspectDiscoveryArtifacts(),
     readConflictMetrics()
   ]);
   const consistency = eventStore.read_model_consistency ?? {};
@@ -750,7 +832,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
     candidateQueueRisk: Boolean(doctor.integration?.queue_bookkeeping_conflict_risk)
   });
 
-  const findings = deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics });
+  const findings = deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics, discovery });
   const patterns = matchPatterns(data.failurePatterns?.patterns ?? [], findings);
   const summary = buildEvolutionSummary(data);
   const improvementCandidates = buildImprovementCandidates(data, { patterns });
@@ -804,6 +886,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
       },
       run_logs: logs,
       goal_to_queue: goalToQueue,
+      discovery,
       self_repair_history: {
         available: existsSync(join(orchestratorDir, "daemon")),
         note: "MVP observer records self-repair availability; structured self-repair event ingestion is planned."

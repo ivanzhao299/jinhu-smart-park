@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "replica_plan_id": "REPLICA-PLAN-LEGACY-OA-DEMO",
+  "schema_inference_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+  "target_id": "LEGACY-OA-DEMO",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "req": {
+    "title": "Replica plan for Legacy OA Demo Export",
+    "summary": "Rebuild core notice and approval workflows from authorized fixture exports.",
+    "non_goals": [
+      "No live crawling",
+      "No production data operation",
+      "No migration creation in MVP"
+    ]
+  },
+  "tech": {
+    "database_plan": [
+      "Review inferred entities before any schema implementation.",
+      "Use forward-only migrations only after explicit approval."
+    ],
+    "api_plan": [
+      "Draft notice list/detail APIs.",
+      "Draft approval create/query/state-transition APIs."
+    ],
+    "frontend_page_plan": [
+      "Notice list/detail pages.",
+      "Approval detail and workflow state page."
+    ],
+    "rbac_plan": [
+      "MENU_REPLICA_NOTICE",
+      "MENU_REPLICA_APPROVAL"
+    ],
+    "migration_plan": [
+      "Draft only; no migration file is created by this MVP."
+    ],
+    "validation_plan": [
+      "schema inference review",
+      "API contract review",
+      "RBAC visibility review",
+      "workflow state smoke"
+    ]
+  },
+  "task_candidates": [
+    {
+      "task_id": "REPLICA-LEGACY-OA-DEMO-A5-PLAN",
+      "owner": "agent-5",
+      "title": "Replica implementation plan review",
+      "skill_type": "replica_planning",
+      "risk": "MEDIUM"
+    },
+    {
+      "task_id": "REPLICA-LEGACY-OA-DEMO-A2-VALIDATION",
+      "owner": "agent-2",
+      "title": "Replica validation matrix",
+      "skill_type": "validation_testing",
+      "risk": "LOW"
+    }
+  ],
+  "ready_task_generation": {
+    "apply_default": false,
+    "requires_human_approval": true,
+    "reason": "Replica tasks may imply future schema/API/frontend implementation and must be reviewed before queue insertion."
+  }
+}

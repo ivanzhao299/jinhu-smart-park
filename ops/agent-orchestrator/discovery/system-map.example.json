@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "system_map_id": "SYSTEM-MAP-LEGACY-OA-DEMO",
+  "target_id": "LEGACY-OA-DEMO",
+  "target_name": "Legacy OA Demo Export",
+  "target_type": "oa",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "source_mode": "manual_page_manifest",
+  "authorization_status": "AUTHORIZED_FIXTURE_ONLY",
+  "menus": [
+    {
+      "menu_id": "MENU_LEGACY_NOTICE",
+      "label": "通知公告",
+      "path": "/oa/notices",
+      "roles": [
+        "staff",
+        "manager"
+      ]
+    },
+    {
+      "menu_id": "MENU_LEGACY_APPROVAL",
+      "label": "流程审批",
+      "path": "/oa/approvals",
+      "roles": [
+        "staff",
+        "approver"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "PAGE_NOTICE_LIST",
+      "title": "通知公告列表",
+      "path": "/oa/notices",
+      "page_type": "list",
+      "primary_table_hint": "legacy_notices"
+    },
+    {
+      "page_id": "PAGE_APPROVAL_DETAIL",
+      "title": "审批详情",
+      "path": "/oa/approvals/:id",
+      "page_type": "detail",
+      "primary_table_hint": "legacy_approvals"
+    }
+  ],
+  "forms": [
+    {
+      "form_id": "FORM_NOTICE",
+      "page_id": "PAGE_NOTICE_LIST",
+      "title": "通知发布",
+      "fields": [
+        {
+          "name": "title",
+          "label": "标题",
+          "input_type": "text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "label": "内容",
+          "input_type": "rich_text",
+          "required": true
+        },
+        {
+          "name": "attachments",
+          "label": "附件",
+          "input_type": "file",
+          "required": false
+        }
+      ]
+    },
+    {
+      "form_id": "FORM_APPROVAL",
+      "page_id": "PAGE_APPROVAL_DETAIL",
+      "title": "审批提交",
+      "fields": [
+        {
+          "name": "applicant",
+          "label": "申请人",
+          "input_type": "user",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "label": "金额",
+          "input_type": "money",
+          "required": false
+        },
+        {
+          "name": "status",
+          "label": "状态",
+          "input_type": "enum",
+          "required": true,
+          "options": [
+            "draft",
+            "submitted",
+            "approved",
+            "rejected"
+          ]
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "table_id": "TABLE_NOTICE",
+      "name": "公告表",
+      "fields": [
+        "id",
+        "title",
+        "content",
+        "published_at",
+        "created_by"
+      ]
+    },
+    {
+      "table_id": "TABLE_APPROVAL",
+      "name": "审批表",
+      "fields": [
+        "id",
+        "applicant_id",
+        "amount",
+        "status",
+        "submitted_at"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "/oa/notices",
+      "to": "/oa/notices/:id",
+      "label": "查看详情"
+    },
+    {
+      "from": "/oa/approvals",
+      "to": "/oa/approvals/:id",
+      "label": "审批详情"
+    }
+  ],
+  "api_candidates": [
+    {
+      "method": "GET",
+      "path": "/api/notices",
+      "source": "manifest"
+    },
+    {
+      "method": "POST",
+      "path": "/api/approvals",
+      "source": "manifest"
+    }
+  ],
+  "screenshots": [],
+  "attachments": [
+    {
+      "page_id": "PAGE_NOTICE_LIST",
+      "field": "attachments",
+      "access_policy": "protected_download_required"
+    }
+  ],
+  "risk_notes": [
+    "Fixture only; no live network access was performed.",
+    "Real discovery must use user-provided exports or authorized test accounts."
+  ]
+}

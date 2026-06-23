@@ -83,6 +83,19 @@ function printObservation(observation) {
   console.log(`planner output created: ${observation.sources.goal_to_queue.planner_output_created ? "yes" : "no"}`);
   console.log(`task queue generated from goal: ${observation.sources.goal_to_queue.task_queue_generated_from_goal ? "yes" : "no"}`);
   console.log(`goal-to-queue task.created events: ${observation.sources.goal_to_queue.goal_to_queue_task_created_events}`);
+  console.log("");
+  console.log("## Discovery Summary");
+  console.log(`discovery target exists: ${observation.sources.discovery.target_exists ? "yes" : "no"}`);
+  console.log(`system map generated: ${observation.sources.discovery.system_map_generated ? "yes" : "no"}`);
+  console.log(`schema inference generated: ${observation.sources.discovery.schema_inference_generated ? "yes" : "no"}`);
+  console.log(`replica plan generated: ${observation.sources.discovery.replica_plan_generated ? "yes" : "no"}`);
+  console.log(`authorization missing: ${observation.sources.discovery.authorization_missing ? "yes" : "no"}`);
+  console.log(`discovery risk notes: ${observation.sources.discovery.risk_notes.length}`);
+  for (const note of observation.sources.discovery.risk_notes.slice(0, 3)) {
+    console.log(`- ${note}`);
+  }
+  console.log("");
+  console.log("## Runner Summary");
   console.log(`locks: ${observation.sources.locks.total}`);
   console.log(`recent run logs: ${observation.sources.run_logs.length}`);
 }

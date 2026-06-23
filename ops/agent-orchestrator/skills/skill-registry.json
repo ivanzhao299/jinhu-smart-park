@@ -203,6 +203,106 @@
       "risk_level": "HIGH"
     },
     {
+      "skill_id": "skill-legacy-discovery",
+      "skill_type": "legacy_discovery",
+      "display_name": "Legacy System Discovery",
+      "purpose": "Read authorized legacy website/OA/ERP/admin portal exports, page manifests, or API documents to build a system map.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "system map",
+        "menus/pages/forms/tables/API candidates",
+        "risk notes"
+      ],
+      "required_inputs": [
+        "authorized target configuration",
+        "user-provided export or manual manifest",
+        "allowed scope",
+        "forbidden scope"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/legacy-discovery.mjs --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-schema-inference",
+      "skill_type": "schema_inference",
+      "display_name": "Schema Inference",
+      "purpose": "Infer entities, fields, enums, indexes, attachments, audit fields, RBAC fields, and workflow fields from system maps.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "schema inference",
+        "data model draft",
+        "field mapping"
+      ],
+      "required_inputs": [
+        "system map JSON",
+        "source page/form/table evidence",
+        "review constraints"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/schema-inference.mjs --system-map ops/agent-orchestrator/discovery/system-map.example.json --dry-run",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-replica-planning",
+      "skill_type": "replica_planning",
+      "display_name": "Replica Planning",
+      "purpose": "Generate REQ, TECH, database/API/frontend/RBAC/migration/validation plans and task candidates from schema inference.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "replica plan",
+        "REQ",
+        "TECH",
+        "task candidates"
+      ],
+      "required_inputs": [
+        "schema inference JSON",
+        "authorization status",
+        "replica scope",
+        "human approval boundaries"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/replica-planner.mjs --schema ops/agent-orchestrator/discovery/schema-inference.example.json --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-data-migration-mapping",
+      "skill_type": "data_migration_mapping",
+      "display_name": "Data Migration Mapping",
+      "purpose": "Map legacy ERP/OA exports to the new system's target model with compatibility, data quality, and cutover notes.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "migration mapping",
+        "compatibility matrix",
+        "data quality report"
+      ],
+      "required_inputs": [
+        "legacy export schema",
+        "target schema",
+        "mapping rules",
+        "data quality constraints"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "risk_level": "HIGH"
+    },
+    {
       "skill_id": "skill-validation-testing",
       "skill_type": "validation_testing",
       "display_name": "Validation and Testing",

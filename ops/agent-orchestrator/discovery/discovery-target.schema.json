@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/ops/agent-orchestrator/discovery/discovery-target.schema.json",
+  "title": "Legacy Discovery Target",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "target_id",
+    "target_name",
+    "target_type",
+    "base_url",
+    "auth_mode",
+    "authorization_status",
+    "allowed_scope",
+    "forbidden_scope",
+    "crawl_depth",
+    "rate_limit",
+    "capture_screenshots",
+    "extract_tables",
+    "extract_forms",
+    "extract_links",
+    "extract_apis",
+    "legal_authorization_required",
+    "source_mode"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "target_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9_-]*$"
+    },
+    "target_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "website",
+        "oa",
+        "erp",
+        "admin_portal"
+      ]
+    },
+    "base_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auth_mode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "manual_cookie",
+        "test_account",
+        "api_token"
+      ]
+    },
+    "authorization_status": {
+      "type": "string",
+      "enum": [
+        "AUTHORIZED_FIXTURE_ONLY",
+        "AUTHORIZED_MANUAL_EXPORT",
+        "AUTHORIZED_TEST_ACCOUNT",
+        "PENDING_AUTHORIZATION",
+        "BLOCKED"
+      ]
+    },
+    "allowed_scope": {
+      "$ref": "#/$defs/stringList"
+    },
+    "forbidden_scope": {
+      "$ref": "#/$defs/stringList"
+    },
+    "crawl_depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "rate_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests_per_minute",
+        "concurrency"
+      ],
+      "properties": {
+        "requests_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        }
+      }
+    },
+    "capture_screenshots": {
+      "type": "boolean"
+    },
+    "extract_tables": {
+      "type": "boolean"
+    },
+    "extract_forms": {
+      "type": "boolean"
+    },
+    "extract_links": {
+      "type": "boolean"
+    },
+    "extract_apis": {
+      "type": "boolean"
+    },
+    "legal_authorization_required": {
+      "const": true
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "static_fixture",
+        "exported_html",
+        "exported_json",
+        "manual_page_manifest"
+      ]
+    },
+    "fixture_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "operator_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

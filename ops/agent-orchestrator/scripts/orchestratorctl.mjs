@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   git,
@@ -38,6 +38,10 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs skill-route --text "..." --dry-run
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs discover --target <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs infer-schema --system-map <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-plan --schema <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target <file> --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "..." --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement <improvement_id> --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run|--apply
@@ -65,6 +69,10 @@ function optionValue(argv, flag, defaultValue = null) {
   const index = argv.indexOf(flag);
   if (index === -1) return defaultValue;
   return argv[index + 1] ?? defaultValue;
+}
+
+function resolveRepoPath(path) {
+  return isAbsolute(path) ? path : resolve(repoRoot, path);
 }
 
 function runSelfRepair(reason, options = {}) {
@@ -808,6 +816,60 @@ function evolveCommand(rest) {
     : "Dry-run completed: no evolution files, queue files, events, or agent worktrees were modified.");
 }
 
+async function systemMapPathFromTarget(targetFile) {
+  const target = await readJson(resolveRepoPath(targetFile));
+  for (const ref of target.fixture_refs ?? []) {
+    if (String(ref).endsWith(".json")) {
+      return ref;
+    }
+  }
+  return "ops/agent-orchestrator/discovery/system-map.example.json";
+}
+
+async function schemaPathFromSystemMap(systemMapFile) {
+  const systemMap = await readJson(resolveRepoPath(systemMapFile));
+  const targetId = systemMap.target_id ?? "LEGACY-OA-DEMO";
+  const generated = `ops/agent-orchestrator/discovery/schema-inference.${targetId}.json`;
+  return generated;
+}
+
+async function replicaLoopCommand(rest) {
+  const target = optionValue(rest, "--target", "");
+  if (!target.trim()) {
+    throw new Error("replica-loop requires --target <file>.");
+  }
+  if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+    throw new Error("replica-loop MVP is dry-run only. Use --dry-run.");
+  }
+
+  const systemMapFile = await systemMapPathFromTarget(target);
+  const schemaFile = systemMapFile.includes("system-map.example.json")
+    ? "ops/agent-orchestrator/discovery/schema-inference.example.json"
+    : await schemaPathFromSystemMap(systemMapFile);
+
+  console.log("# Replica Loop dry-run");
+  console.log("");
+  console.log("Guardrails: no live crawling, no Agent execution, no merge, no push, no deploy, no production migration/seed/reset/cleanup.");
+  console.log("");
+  console.log("## Step 1: Legacy Discovery");
+  requireScript("ops/agent-orchestrator/scripts/legacy-discovery.mjs", ["--target", target, "--dry-run"]);
+  console.log("");
+  console.log("## Step 2: Schema Inference");
+  requireScript("ops/agent-orchestrator/scripts/schema-inference.mjs", ["--system-map", systemMapFile, "--dry-run"]);
+  console.log("");
+  console.log("## Step 3: Replica Planner");
+  requireScript("ops/agent-orchestrator/scripts/replica-planner.mjs", ["--schema", schemaFile, "--dry-run"]);
+  console.log("");
+  console.log("## Step 4: Skill Route");
+  requireScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", "读取旧 OA 系统并复刻开发", "--dry-run"]);
+  console.log("");
+  console.log("## Step 5: Agent Cycle Plan");
+  await agentCycleCommand(["--dry-run", "--parallel", "2"]);
+  console.log("");
+  console.log("## Step 6: Doctor");
+  requireScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
+}
+
 const argv = process.argv.slice(2);
 const command = argv[0];
 const rest = argv.slice(1);
@@ -849,6 +911,36 @@ async function dispatchCommand() {
       runScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", text, "--dry-run"]);
       break;
     }
+    case "discover": {
+      const target = optionValue(rest, "--target", "");
+      if (!target.trim()) {
+        throw new Error("discover requires --target <file>.");
+      }
+      const mode = requiredModeFlag(rest, "discover");
+      runScript("ops/agent-orchestrator/scripts/legacy-discovery.mjs", ["--target", target, mode]);
+      break;
+    }
+    case "infer-schema": {
+      const systemMap = optionValue(rest, "--system-map", "");
+      if (!systemMap.trim()) {
+        throw new Error("infer-schema requires --system-map <file>.");
+      }
+      const mode = requiredModeFlag(rest, "infer-schema");
+      runScript("ops/agent-orchestrator/scripts/schema-inference.mjs", ["--system-map", systemMap, mode]);
+      break;
+    }
+    case "replica-plan": {
+      const schema = optionValue(rest, "--schema", "");
+      if (!schema.trim()) {
+        throw new Error("replica-plan requires --schema <file>.");
+      }
+      const mode = requiredModeFlag(rest, "replica-plan");
+      runScript("ops/agent-orchestrator/scripts/replica-planner.mjs", ["--schema", schema, mode]);
+      break;
+    }
+    case "replica-loop":
+      await replicaLoopCommand(rest);
+      break;
     case "goal-to-queue": {
       const text = optionValue(rest, "--text", "");
       const improvementId = optionValue(rest, "--from-improvement", "");

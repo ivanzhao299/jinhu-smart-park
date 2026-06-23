@@ -17,6 +17,7 @@ The first version turns a natural-language request into a persistent intake file
 | `queue/task-results.json` | Compatibility aggregate generated from task result records. |
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `events/` | V2 append-only event store directories for task, result, lock, and audit events. |
+| `discovery/` | V3-G legacy system discovery fixtures, target schema, system maps, schema inference, and replica plans. |
 | `skills/skill-registry.json` | Skill/runtime registry used to choose platform capability before agent assignment. |
 | `skills/skill-router-rules.json` | Natural-language skill routing rules for documents, spreadsheets, images, research, validation, code, and Evolution Center work. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
@@ -26,6 +27,9 @@ The first version turns a natural-language request into a persistent intake file
 | `scripts/rebuild-queue-read-model.mjs` | Dry-run/apply read-model rebuild from task events back to compatible queue JSON. |
 | `scripts/doctor.mjs` | Unified diagnostics for git/worktrees, queue/locks/results, Codex runner state, integration readiness, and validation status. |
 | `scripts/skill-router.mjs` | Dry-run skill router that selects `skill_type`, runtime, expected output, and optional agent/runtime lane from natural language. |
+| `scripts/legacy-discovery.mjs` | Builds a system map from authorized legacy target fixtures or user-provided manifests. MVP does not crawl live systems. |
+| `scripts/schema-inference.mjs` | Infers entities, fields, enums, indexes, attachments, audit/RBAC/workflow hints from a system map. |
+| `scripts/replica-planner.mjs` | Produces replica REQ/TECH/task-candidate plans from schema inference. |
 | `scripts/daemon.mjs` | Local watcher/daemon layer that observes doctor state and can run explicitly approved LOW-risk fixes or guarded auto-cycle steps. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
 | `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
@@ -984,8 +988,44 @@ Skill route examples:
 | `修改 ERP 前端页面样式` | `code_development` / `frontend_ui` | `codex-cli` | `agent-4` |
 | `审查 PDF 合同风险` | `pdf_processing` / `legal_review` | `pdf` | `platform-pdf-runtime` |
 | `查询最新 Claude Code 多 Agent 能力` | `web_research` | `web-search` | `platform-research-runtime` |
+| `读取旧 OA 系统并复刻开发` | `legacy_discovery` / `replica_planning` | `codex-cli` | `agent-5` |
+| `分析网站页面结构并生成数据库模型` | `schema_inference` | `codex-cli` | `agent-3` |
+| `把旧 ERP 数据兼容到新系统` | `data_migration_mapping` | `codex-cli` | `agent-3` |
 
 Skill routing is dry-run only in the MVP. It does not create queue tasks, events, files, agents, or production operations. `goal-to-queue` reuses the same router to annotate generated task candidates with skill metadata before writing event-first `task.created` records.
+
+## 9B. Legacy Discovery / Replica Engine
+
+V3-G adds a safe local MVP for legacy system discovery and replica planning. It is designed for authorized, user-provided evidence only.
+
+Commands:
+
+- `node ops/agent-orchestrator/scripts/legacy-discovery.mjs --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run`
+- `node ops/agent-orchestrator/scripts/schema-inference.mjs --system-map ops/agent-orchestrator/discovery/system-map.example.json --dry-run`
+- `node ops/agent-orchestrator/scripts/replica-planner.mjs --schema ops/agent-orchestrator/discovery/schema-inference.example.json --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run`
+
+Discovery targets must conform to `ops/agent-orchestrator/discovery/discovery-target.schema.json`. Every target must explicitly set `legal_authorization_required: true`, define `allowed_scope`, define `forbidden_scope`, and record an `authorization_status`.
+
+Allowed evidence sources:
+
+- user-provided data exports
+- user-provided page manifests
+- user-provided exported HTML / JSON fixtures
+- user-provided API documentation
+
+Forbidden behavior:
+
+- destructive operations against a target system
+- credential guessing
+- bypassing authorization or access control
+- high-concurrency crawling
+- hidden live production crawling
+- production data writes, migrations, seeds, reset, cleanup, deploy, or rollback operations
+
+The MVP does not perform real external crawling. `legacy-discovery.mjs` reads a target config and static fixture/manifest references, then emits a system-map draft. `schema-inference.mjs` infers entities and fields from system-map forms/tables. `replica-planner.mjs` generates REQ/TECH/replica task candidates, but does not create migrations, modify business code, execute Agents, merge, push, or deploy. `replica-loop --dry-run` chains discovery, schema inference, replica planning, skill-route, agent-cycle dry-run, and doctor.
+
+Resident Observer reads discovery artifacts and reports whether a target, system map, schema inference, or replica plan exists, whether authorization is missing, and which discovery risk notes require review.
 
 ## 10. Resident Observer / Evolution Center
 

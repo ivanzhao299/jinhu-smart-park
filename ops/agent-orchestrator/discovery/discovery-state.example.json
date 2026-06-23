@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "last_target_id": "LEGACY-OA-DEMO",
+  "last_system_map_id": "SYSTEM-MAP-LEGACY-OA-DEMO",
+  "last_schema_inference_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+  "last_replica_plan_id": "REPLICA-PLAN-LEGACY-OA-DEMO",
+  "authorization_status": "AUTHORIZED_FIXTURE_ONLY",
+  "last_run_mode": "dry-run",
+  "last_risk_level": "LOW",
+  "next_action": [
+    "Review target authorization before any real crawling.",
+    "Run replica-loop --dry-run with a user-provided export manifest."
+  ]
+}

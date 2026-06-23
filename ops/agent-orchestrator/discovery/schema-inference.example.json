@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "schema_inference_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+  "system_map_id": "SYSTEM-MAP-LEGACY-OA-DEMO",
+  "target_id": "LEGACY-OA-DEMO",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "entities": [
+    {
+      "entity_name": "legacy_notice",
+      "source_pages": [
+        "PAGE_NOTICE_LIST"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "source": "table_hint"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "nullable": false,
+          "source": "form_field"
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "nullable": false,
+          "source": "form_field"
+        },
+        {
+          "name": "published_at",
+          "type": "datetime",
+          "nullable": true,
+          "source": "table_hint"
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "nullable": true,
+          "source": "table_hint"
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "field": "created_by",
+          "references": "sys_user.id",
+          "confidence": "LOW"
+        }
+      ],
+      "indexes": [
+        "idx_legacy_notice_published_at"
+      ],
+      "attachments": [
+        "attachments"
+      ],
+      "audit_fields": [
+        "created_at",
+        "updated_at",
+        "created_by"
+      ],
+      "rbac_fields": [],
+      "workflow_fields": []
+    },
+    {
+      "entity_name": "legacy_approval",
+      "source_pages": [
+        "PAGE_APPROVAL_DETAIL"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "source": "table_hint"
+        },
+        {
+          "name": "applicant_id",
+          "type": "uuid",
+          "nullable": false,
+          "source": "form_field"
+        },
+        {
+          "name": "amount",
+          "type": "decimal",
+          "nullable": true,
+          "source": "form_field"
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "nullable": false,
+          "source": "form_field",
+          "enum_values": [
+            "draft",
+            "submitted",
+            "approved",
+            "rejected"
+          ]
+        }
+      ],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "field": "applicant_id",
+          "references": "sys_user.id",
+          "confidence": "MEDIUM"
+        }
+      ],
+      "indexes": [
+        "idx_legacy_approval_status",
+        "idx_legacy_approval_applicant"
+      ],
+      "attachments": [],
+      "audit_fields": [
+        "created_at",
+        "updated_at"
+      ],
+      "rbac_fields": [
+        "tenant_id",
+        "department_id"
+      ],
+      "workflow_fields": [
+        "status"
+      ]
+    }
+  ],
+  "enums": [
+    {
+      "name": "legacy_approval_status",
+      "values": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected"
+      ]
+    }
+  ],
+  "data_quality_notes": [
+    "Entity names are inferred from page/table hints and must be reviewed before migration creation.",
+    "MVP does not create database migrations."
+  ]
+}
