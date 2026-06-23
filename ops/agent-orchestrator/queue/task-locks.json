@@ -3,6 +3,6 @@
   "read_model_only": true,
   "source_of_truth": "ops/agent-orchestrator/events/tasks",
   "generated_by": "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
-  "updated_at": "2026-06-22T17:09:31.178Z",
+  "updated_at": "2026-06-23T07:22:04.307Z",
   "locks": []
 }

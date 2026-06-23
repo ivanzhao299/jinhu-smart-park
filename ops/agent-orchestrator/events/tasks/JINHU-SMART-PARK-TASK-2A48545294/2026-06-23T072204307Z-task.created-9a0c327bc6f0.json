@@ -1,0 +1,181 @@
+{
+  "event_id": "external-proposal:v1:JINHU-SMART-PARK-TASK-2A48545294:task.created",
+  "event_type": "task.created",
+  "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+  "owner": "agent-4",
+  "status_before": null,
+  "status_after": "READY",
+  "created_at": "2026-06-23T07:22:04.307Z",
+  "actor": "anksen-agent-studio",
+  "source": "anksen-agent-studio.project.approve-proposal",
+  "reason": "approved external project task proposal: 优化智慧园区仪表盘移动端样式",
+  "changed_files": [],
+  "result_ref": "",
+  "audit_ref": "",
+  "metadata": {
+    "idempotency_key": "4e52adc01a0f38d52974daafd85a7a49b003779e7fa8ad18c80626614900d850",
+    "external_proposal": true,
+    "proposal_snapshot": {
+      "schema_version": 1,
+      "proposal_status": [
+        "PROPOSED",
+        "AGENT_EXECUTION_DISABLED",
+        "APPROVED",
+        "PROJECT_WRITES_DISABLED"
+      ],
+      "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+      "text": "优化智慧园区仪表盘移动端样式",
+      "project_id": "jinhu-smart-park",
+      "owner": "agent-4",
+      "skill_type": "code_development",
+      "skill_id": "skill-code-development",
+      "runtime": "codex-cli",
+      "allowed_paths": [
+        "apps/web/**",
+        "packages/ui/**",
+        "docs/release/**",
+        "docs/testing/**",
+        "ops/agent-orchestrator/reports/**",
+        "ops/agent-orchestrator/results/**"
+      ],
+      "forbidden_paths": [
+        "packages/**",
+        "database/**",
+        "infra/**",
+        ".github/**",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy/**",
+        "auth/**",
+        ".env",
+        ".env.*",
+        "apps/api/**"
+      ],
+      "expected_outputs": [
+        "code/patch"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "manual approval before writing guarded project paths"
+      ],
+      "risk": "HIGH",
+      "approval_required": true,
+      "approval_status": "APPROVED",
+      "project_write_mode": "PROJECT_WRITES_DISABLED",
+      "agent_execution_mode": "AGENT_EXECUTION_DISABLED",
+      "queue_write_mode": "QUEUE_WRITES_DISABLED",
+      "event_write_mode": "EVENT_WRITES_DISABLED",
+      "deploy_mode": "DEPLOY_DISABLED",
+      "production_operation_mode": "PRODUCTION_OPERATIONS_DISABLED",
+      "created_at": "2026-06-23T07:06:25.760Z",
+      "routing": {
+        "confidence": 0.95,
+        "fallback_used": false,
+        "matched_keywords": [
+          "样式",
+          "移动端",
+          "仪表盘"
+        ],
+        "reason": "Frontend/UI/dashboard/mobile code work should route to code development with agent-4."
+      },
+      "project_context": {
+        "repo_branch": "main",
+        "repo_clean": "yes",
+        "doctor_status": "GO",
+        "detected_stack": [
+          "Agent Orchestrator project state",
+          "Docker deployment scripts",
+          "NestJS API",
+          "Next.js App Router",
+          "Next.js web app",
+          "PostgreSQL",
+          "React",
+          "TypeScript",
+          "database migrations",
+          "database seeds",
+          "e2e smoke scripts",
+          "pnpm workspace",
+          "pnpm-workspace",
+          "project-local Agent Orchestrator state",
+          "release documentation",
+          "shared package"
+        ],
+        "queue_status_counts": {
+          "AUDITED": 34,
+          "BLOCKED": 4
+        },
+        "runtime_memory_imported_at": "2026-06-23T05:58:17.757Z"
+      },
+      "approved_at": "2026-06-23T07:22:04.307Z",
+      "approved_by": "anksen-agent-studio.project.approve-proposal"
+    },
+    "task_snapshot": {
+      "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+      "batch_id": "EXTERNAL-PROPOSAL-jinhu-smart-park",
+      "title": "优化智慧园区仪表盘移动端样式",
+      "owner": "agent-4",
+      "domain": "external-proposal-code_development",
+      "priority": "P0",
+      "status": "READY",
+      "risk": "HIGH",
+      "skill_type": "code_development",
+      "skill_id": "skill-code-development",
+      "runtime": "codex-cli",
+      "allowed_paths": [
+        "apps/web",
+        "packages/ui",
+        "docs/release",
+        "docs/testing",
+        "ops/agent-orchestrator/reports",
+        "ops/agent-orchestrator/results"
+      ],
+      "forbidden_paths": [
+        "packages",
+        "database",
+        "infra",
+        ".github",
+        "Dockerfile",
+        "Dockerfile.*",
+        "docker-compose*",
+        "deploy",
+        "auth",
+        ".env",
+        ".env.*",
+        "apps/api"
+      ],
+      "acceptance": [
+        "Implement approved proposal: 优化智慧园区仪表盘移动端样式",
+        "Stay within allowed_paths and avoid forbidden_paths.",
+        "Do not deploy or perform production operations.",
+        "Run all validation_commands and record truthful results.",
+        "Respect approval_required and high-risk boundaries before project writes."
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "git diff --check",
+        "manual approval before writing guarded project paths"
+      ],
+      "required_checks": [
+        "No forbidden paths changed",
+        "Validation commands pass or failures are reported truthfully",
+        "No deploy or production operation executed"
+      ],
+      "expected_outputs": [
+        "code/patch"
+      ],
+      "expected_output_files": [],
+      "requires_human_approval": true,
+      "approval_source": "anksen-agent-studio",
+      "external_proposal_ref": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-2A48545294.json",
+      "allow_commit": false,
+      "created_at": "2026-06-23T07:22:04.307Z",
+      "updated_at": "2026-06-23T07:22:04.307Z"
+    }
+  }
+}
