@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "platform_state",
-  "generated_at": "2026-06-23T04:46:32.710Z",
+  "generated_at": "2026-06-23T04:50:20.808Z",
   "source_fingerprint": {
     "files": [
       {
@@ -97,8 +97,8 @@
   },
   "project": "jinhu-smart-park / ANKSEN Agent Studio",
   "branch": "main",
-  "head": "bf755f1bdbd0c6402054b0397159176c5cbd77f5",
-  "head_summary": "bf755f1 chore(orchestrator): add runtime handoff smoke report",
+  "head": "9db5647696ae37eb819d66cfe04c3100d3cd660d",
+  "head_summary": "9db5647 chore(orchestrator): plan agent studio console mvp",
   "working_tree_clean": false,
   "queue": {
     "counts": {

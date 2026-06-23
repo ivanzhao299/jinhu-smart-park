@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "architecture_memory",
-  "generated_at": "2026-06-23T04:46:32.710Z",
+  "generated_at": "2026-06-23T04:50:20.808Z",
   "source_fingerprint": {
     "files": [
       {
@@ -35,6 +35,10 @@
       {
         "path": "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
         "sha256": "5c92592bbb89969de9be467621d5132f81cdf13e281d624c608176b6221513e7"
+      },
+      {
+        "path": "docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_PLAN.md",
+        "sha256": "e534b1ecbddbabbcdb4b9d9b8fa053ed39bdab05d56cb77a6cd78afc809dd610"
       },
       {
         "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
@@ -123,13 +127,9 @@
       {
         "path": "docs/release/backend-query-service-refactor-plan.md",
         "sha256": "a44a34f7dc9e68837a8f0c739fb5c21438a367c3e2116d9369b5d0d360776d12"
-      },
-      {
-        "path": "docs/release/contract-finance-release-check-plan-2026-06-21.md",
-        "sha256": "d30bbf11b438f9d93802639e491a969b6905c74d14454f3c9c6c3db48e8ea49c"
       }
     ],
-    "aggregate_sha256": "c3f3efc48f0e2c1bb39d8e15b918867363ba199b33502fd199c0b4fd03e8ddc1"
+    "aggregate_sha256": "012195282fd6835a22487281f844e4b6ebf80604500895102ea90f559ad1e5eb"
   },
   "bounded_contexts": [
     "Agent Orchestrator",
@@ -165,6 +165,7 @@
     "docs/release/AGENT_PLATFORM_V3_PLAN.md",
     "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
     "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+    "docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_PLAN.md",
     "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
     "docs/release/agent-platform-v2-compatibility-test-plan.md",
     "docs/release/agent-platform-v2-event-sourcing-queue-design.md",

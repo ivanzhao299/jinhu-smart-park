@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "decision_log",
-  "generated_at": "2026-06-23T04:46:32.710Z",
+  "generated_at": "2026-06-23T04:50:20.808Z",
   "source_fingerprint": {
     "files": [
       {
@@ -39,6 +39,10 @@
       {
         "path": "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
         "sha256": "5c92592bbb89969de9be467621d5132f81cdf13e281d624c608176b6221513e7"
+      },
+      {
+        "path": "docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_PLAN.md",
+        "sha256": "e534b1ecbddbabbcdb4b9d9b8fa053ed39bdab05d56cb77a6cd78afc809dd610"
       },
       {
         "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
@@ -87,13 +91,9 @@
       {
         "path": "docs/release/agent-platform-v3-agent-registry-design.md",
         "sha256": "1b3ab8e4ae27829ef9480274d3c6bafc7210634c7aabd4673a3321a8ac675292"
-      },
-      {
-        "path": "docs/release/agent-platform-v3-goal-engine-architecture.md",
-        "sha256": "9fcb179e7bdbd287995fc665cd30d83458d8efe91cd520cdb222dafad26333aa"
       }
     ],
-    "aggregate_sha256": "ffd4f0acc42c35e15fd1412ccb750d443f316be10e7d6c9d1caee74127959061"
+    "aggregate_sha256": "37edb4e030eca0ce2514c961a7a2baa03380b9209e2dff6c72b2b60a0564d534"
   },
   "decisions": [
     {
