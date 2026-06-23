@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "memory_kind": "decision_log",
-  "generated_at": "2026-06-23T07:29:03.437Z",
+  "generated_at": "2026-06-23T09:35:45.828Z",
   "source_fingerprint": {
     "files": [
       {
         "path": "ops/agent-orchestrator/queue/task-queue.json",
-        "sha256": "03acf971e0ca30e0c91e033d5e5669c06e075e555716b3bbf1ed6f6471d4c28d"
+        "sha256": "84c8e7f6a51e09200ec013e87279477234a246678e1e1fe5ded5bf1cdbbd0d39"
       },
       {
         "path": "ops/agent-orchestrator/skills/skill-registry.json",
@@ -93,7 +93,7 @@
         "sha256": "1b3ab8e4ae27829ef9480274d3c6bafc7210634c7aabd4673a3321a8ac675292"
       }
     ],
-    "aggregate_sha256": "369598883405b95a65832fdbfa90c0bc8cbffdda185808abaf39118daa90b4ed"
+    "aggregate_sha256": "e09c6efdde8e594a51576167dfe1a6bcb1d3d030207b4f1149874f15a57cc8d9"
   },
   "decisions": [
     {

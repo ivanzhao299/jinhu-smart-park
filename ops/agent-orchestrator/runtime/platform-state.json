@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "platform_state",
-  "generated_at": "2026-06-23T07:29:03.437Z",
+  "generated_at": "2026-06-23T09:35:45.828Z",
   "source_fingerprint": {
     "files": [
       {
@@ -22,19 +22,19 @@
       },
       {
         "path": "ops/agent-orchestrator/queue/task-queue.json",
-        "sha256": "03acf971e0ca30e0c91e033d5e5669c06e075e555716b3bbf1ed6f6471d4c28d"
+        "sha256": "84c8e7f6a51e09200ec013e87279477234a246678e1e1fe5ded5bf1cdbbd0d39"
       },
       {
         "path": "ops/agent-orchestrator/queue/task-locks.json",
-        "sha256": "c511d764ad51fd988aa3862ece559ebd544294cd82394c8205b169e0db589d23"
+        "sha256": "fcdab932e332909302c35c8f4744943158733d5aef1a7ede0baf35b40c20f6bd"
       },
       {
         "path": "ops/agent-orchestrator/queue/task-results.json",
-        "sha256": "3dac89c405502f7925f9e7b6499b2906982e4a473a483057bd124e3eea03d820"
+        "sha256": "241d3dd0393742e1d8abe569c492272fb12f5f2b9b0b05c85d80849de7a97fe6"
       },
       {
         "path": "ops/agent-orchestrator/evolution/conflict-metrics.json",
-        "sha256": "3dee524f84e79fa46193a5b71b154799c24eca72ed0cc69d2cc3f70eabbb6783"
+        "sha256": "86a631fd3b08aec8ca5189c3b849cc4938eb118773b05d2aba42a0f1eaf7a9ac"
       },
       {
         "path": "ops/agent-orchestrator/evolution/evolution-state.json",
@@ -93,32 +93,31 @@
         "sha256": "ebf2af99f3fa44eac8ce760f51b079dbf973a989d1e4682f58afa17d3956111a"
       }
     ],
-    "aggregate_sha256": "60d87230bd79b41ba2d11adb28a644be429324a4950e9a77b4a402fd72a1c57b"
+    "aggregate_sha256": "0476c4c591df26ff5a6eecd845e67fca3a66d127e0d1198cbc7daa3ba99dac22"
   },
   "project": "jinhu-smart-park / ANKSEN Agent Studio",
   "branch": "main",
-  "head": "38275f59a5ae36821725a56692697f7acab2eb65",
-  "head_summary": "38275f5 chore(orchestrator): accept external task proposal",
+  "head": "002bb917931aa9c64f15cb0f1cf4fdca647d6975",
+  "head_summary": "002bb91 chore(orchestrator): finalize external task event projection",
   "working_tree_clean": true,
   "queue": {
     "counts": {
-      "AUDITED": 34,
-      "BLOCKED": 4,
-      "READY": 1
+      "AUDITED": 35,
+      "BLOCKED": 4
     },
     "active_locks": 0,
-    "aggregate_results": 34
+    "aggregate_results": 35
   },
   "event_store": {
     "task_count": 42,
-    "event_count": 175,
+    "event_count": 180,
     "event_types": {
       "task.created": 39,
-      "task.claimed": 17,
-      "task.completed": 39,
-      "task.reconciled": 24,
-      "task.integrated": 18,
-      "task.audited": 34,
+      "task.claimed": 18,
+      "task.completed": 40,
+      "task.reconciled": 25,
+      "task.integrated": 19,
+      "task.audited": 35,
       "task.failed": 4
     }
   },

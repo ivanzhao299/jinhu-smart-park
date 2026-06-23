@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "memory_kind": "evolution_memory",
-  "generated_at": "2026-06-23T07:29:03.437Z",
+  "generated_at": "2026-06-23T09:35:45.828Z",
   "source_fingerprint": {
     "files": [
       {
         "path": "ops/agent-orchestrator/evolution/conflict-metrics.json",
-        "sha256": "3dee524f84e79fa46193a5b71b154799c24eca72ed0cc69d2cc3f70eabbb6783"
+        "sha256": "86a631fd3b08aec8ca5189c3b849cc4938eb118773b05d2aba42a0f1eaf7a9ac"
       },
       {
         "path": "ops/agent-orchestrator/evolution/evolution-state.json",
@@ -29,7 +29,7 @@
         "sha256": "28036f02b51b96ee0d9915ec41258ca78598c98824c52ef9cbc87babc8432439"
       }
     ],
-    "aggregate_sha256": "a31085b637d835776078d6d8334606f656985f74a8b325cfd0de07e1d56ac5d6"
+    "aggregate_sha256": "e090cddc3da6aec1c88385f9a217ff6de13105dda25ef848122b898cc6880ffd"
   },
   "pattern_count": 5,
   "open_improvements": 7,
