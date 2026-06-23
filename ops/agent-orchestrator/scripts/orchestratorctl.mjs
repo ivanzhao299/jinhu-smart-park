@@ -15,6 +15,7 @@ import {
   detectCodexExecOptions,
   normalizeAgentConfig,
   readJson,
+  taskById,
   VALID_AGENTS
 } from "./lib/queue-utils.mjs";
 
@@ -280,6 +281,32 @@ function collectIntegrationCandidates(agents, mainPath) {
   });
 
   return candidates;
+}
+
+function taskIdsFromCandidateFiles(candidate) {
+  const taskIds = new Set();
+  for (const file of candidate.files ?? []) {
+    const resultMatch = /^ops\/agent-orchestrator\/results\/([^/]+)\.json$/.exec(file);
+    if (resultMatch) taskIds.add(resultMatch[1]);
+    const eventMatch = /^ops\/agent-orchestrator\/events\/tasks\/([^/]+)\//.exec(file);
+    if (eventMatch) taskIds.add(eventMatch[1]);
+  }
+  return [...taskIds];
+}
+
+function isApprovedExternalProposalTask(task) {
+  return Boolean(
+    task
+    && task.approval_source === "anksen-agent-studio"
+    && task.external_proposal_ref
+    && task.requires_human_approval === true
+  );
+}
+
+function highRiskCandidateIsApproved(candidate, tasks) {
+  if (candidate.risk !== "HIGH") return true;
+  const taskIds = taskIdsFromCandidateFiles(candidate);
+  return taskIds.length > 0 && taskIds.every((taskId) => isApprovedExternalProposalTask(tasks.get(taskId)));
 }
 
 function printIntegrationCandidates(candidates) {
@@ -623,7 +650,8 @@ async function integrateExistingAgentCommits(state, args) {
   const candidates = collectIntegrationCandidates(state.agents, state.mainPath);
   printIntegrationCandidates(candidates);
 
-  const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
+  const tasks = taskById(state.queue);
+  const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH" && !highRiskCandidateIsApproved(candidate, tasks));
   if (highRisk.length > 0) {
     const message = `HIGH-risk agent changes require human confirmation before integration:\n- ${highRisk.map((item) => item.agent.id).join("\n- ")}`;
     printOutcome("NO_GO", message);

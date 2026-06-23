@@ -126,7 +126,33 @@ function boundaryFailures(task, files) {
 }
 
 function commitMessageFor(agentId, task) {
+  if (task?.external_proposal_ref && task?.task_id) {
+    return `chore(${agentId}): complete approved external task ${task.task_id}`;
+  }
   return TASK_COMMIT_MESSAGES.get(task?.task_id) ?? COMMIT_MESSAGES.get(agentId) ?? `chore(${agentId}): complete claimed agent task`;
+}
+
+function isApprovedExternalProposalTask(task) {
+  return Boolean(
+    task
+    && task.approval_source === "anksen-agent-studio"
+    && task.external_proposal_ref
+    && task.requires_human_approval === true
+  );
+}
+
+function canCommitPlan(plan) {
+  if (plan.failures.length > 0) return false;
+  if (["LOW", "MEDIUM"].includes(plan.risk)) return true;
+  return plan.risk === "HIGH" && isApprovedExternalProposalTask(plan.task);
+}
+
+function blockerReason(plan) {
+  if (plan.failures.length > 0) return plan.failures.join("; ");
+  if (plan.risk === "HIGH" && !isApprovedExternalProposalTask(plan.task)) {
+    return "HIGH risk without approved external proposal metadata";
+  }
+  return `unsupported risk ${plan.risk}`;
 }
 
 async function buildPlans() {
@@ -210,12 +236,12 @@ function printPlan(plans, mode) {
 
 function applyPlans(plans) {
   const dirtyPlans = plans.filter((plan) => plan.dirtyFiles.length > 0);
-  const blockers = dirtyPlans.filter((plan) => plan.risk === "HIGH" || plan.failures.length > 0);
+  const blockers = dirtyPlans.filter((plan) => !canCommitPlan(plan));
 
   if (blockers.length > 0) {
     console.error("Commit blocked. No agent result commits were created.");
     for (const blocker of blockers) {
-      console.error(`- ${blocker.agentId}: risk=${blocker.risk}; ${blocker.failures.join("; ") || "HIGH risk"}`);
+      console.error(`- ${blocker.agentId}: risk=${blocker.risk}; ${blockerReason(blocker)}`);
     }
     process.exit(1);
   }
@@ -226,8 +252,11 @@ function applyPlans(plans) {
   }
 
   for (const plan of dirtyPlans) {
-    if (!["LOW", "MEDIUM"].includes(plan.risk)) {
+    if (!canCommitPlan(plan)) {
       throw new Error(`${plan.agentId} has unsupported commit risk: ${plan.risk}`);
+    }
+    if (plan.risk === "HIGH") {
+      console.log(`Approved external proposal gate passed for ${plan.agentId}: ${plan.task.task_id}`);
     }
 
     console.log(`Committing ${plan.agentId}: ${plan.commitMessage}`);

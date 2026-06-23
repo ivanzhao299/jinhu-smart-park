@@ -114,7 +114,33 @@ function printCandidates(candidates) {
   }
 }
 
-function assertApplyPreconditions({ mainPath, candidates }) {
+function taskIdsFromCandidateFiles(candidate) {
+  const taskIds = new Set();
+  for (const file of candidate.files ?? []) {
+    const resultMatch = /^ops\/agent-orchestrator\/results\/([^/]+)\.json$/.exec(file);
+    if (resultMatch) taskIds.add(resultMatch[1]);
+    const eventMatch = /^ops\/agent-orchestrator\/events\/tasks\/([^/]+)\//.exec(file);
+    if (eventMatch) taskIds.add(eventMatch[1]);
+  }
+  return [...taskIds];
+}
+
+function isApprovedExternalProposalTask(task) {
+  return Boolean(
+    task
+    && task.approval_source === "anksen-agent-studio"
+    && task.external_proposal_ref
+    && task.requires_human_approval === true
+  );
+}
+
+function highRiskCandidateIsApproved(candidate, tasks) {
+  if (candidate.risk !== "HIGH") return true;
+  const taskIds = taskIdsFromCandidateFiles(candidate);
+  return taskIds.length > 0 && taskIds.every((taskId) => isApprovedExternalProposalTask(tasks.get(taskId)));
+}
+
+function assertApplyPreconditions({ mainPath, candidates, tasks }) {
   const mainStatus = repoStatus(mainPath);
   const failures = [];
 
@@ -131,7 +157,7 @@ function assertApplyPreconditions({ mainPath, candidates }) {
     if (!status.clean) {
       failures.push(`${candidate.agent.id} worktree is not clean: ${status.statusOutput}`);
     }
-    if (candidate.risk === "HIGH") {
+    if (candidate.risk === "HIGH" && !highRiskCandidateIsApproved(candidate, tasks)) {
       failures.push(`${candidate.agent.id} contains HIGH-risk changes and requires human confirmation`);
     }
   }
@@ -537,6 +563,8 @@ const config = await readJson(agentsConfigPath);
 const mainPath = config.main?.path ?? repoRoot;
 const agents = [...normalizeAgentConfig(config).values()];
 const candidates = collectCandidates(agents, mainPath);
+const approvalQueue = await readJson(join(orchestratorDir, "queue", "task-queue.json"));
+const approvalTasks = taskById(approvalQueue);
 
 console.log(`# Agent Result Integration ${args.apply ? "apply" : "dry-run"}`);
 console.log("");
@@ -551,9 +579,9 @@ if (args.dryRun) {
   process.exit(0);
 }
 
-assertApplyPreconditions({ mainPath, candidates });
+assertApplyPreconditions({ mainPath, candidates, tasks: approvalTasks });
 
-const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH");
+const highRisk = candidates.filter((candidate) => candidate.risk === "HIGH" && !highRiskCandidateIsApproved(candidate, approvalTasks));
 if (highRisk.length > 0) {
   throw new Error(`HIGH-risk candidates require human confirmation: ${highRisk.map((candidate) => candidate.agent.id).join(", ")}`);
 }
