@@ -48,6 +48,16 @@ export const TASK_EVENT_TYPES = new Set([
   "task.integrated",
   "task.reconciled"
 ]);
+const NON_STATUS_MUTATING_EVENT_TYPES = new Set(["task.integrated"]);
+const STATUS_ORDER = new Map([
+  ["READY", 0],
+  ["CLAIMED", 1],
+  ["IN_PROGRESS", 2],
+  ["BLOCKED", 2],
+  ["DONE", 3],
+  ["FAILED", 3],
+  ["AUDITED", 4]
+]);
 
 function toArray(value) {
   return Array.isArray(value) ? value : [];
@@ -124,6 +134,25 @@ function statusByTask(queue) {
 
 function resultStatusByTask(results) {
   return new Map((results.results ?? []).map((result) => [result.task_id, result.status]));
+}
+
+function projectedStatus(currentStatus, event) {
+  const nextStatus = event.status_after ?? null;
+  if (!nextStatus) return currentStatus;
+  if (NON_STATUS_MUTATING_EVENT_TYPES.has(event.event_type)) return currentStatus;
+
+  const currentRank = STATUS_ORDER.get(currentStatus);
+  const nextRank = STATUS_ORDER.get(nextStatus);
+  if (
+    event.event_type === "task.reconciled"
+    && currentRank !== undefined
+    && nextRank !== undefined
+    && nextRank < currentRank
+  ) {
+    return currentStatus;
+  }
+
+  return nextStatus;
 }
 
 function lockKeys(locks) {
@@ -587,6 +616,7 @@ export async function listAllTaskEvents() {
 
 function applyTaskEvent(task, event) {
   let next = task ? clone(task) : {};
+  const previousStatus = next.status;
   const snapshot = event.metadata?.task_snapshot;
   const snapshotHasStatus = snapshot && typeof snapshot === "object" && Boolean(snapshot.status);
 
@@ -601,8 +631,9 @@ function applyTaskEvent(task, event) {
   next.task_id = next.task_id ?? event.task_id;
   next.owner = event.owner || next.owner;
 
-  if (event.status_after) {
-    next.status = event.status_after;
+  const nextStatus = projectedStatus(previousStatus ?? next.status, event);
+  if (nextStatus) {
+    next.status = nextStatus;
   }
 
   next.updated_at = event.created_at ?? next.updated_at;
@@ -660,8 +691,9 @@ export async function buildLockReadModel() {
   const lockByTask = new Map();
 
   for (const event of events) {
-    if (event.status_after) {
-      statusByTask.set(event.task_id, event.status_after);
+    const nextStatus = projectedStatus(statusByTask.get(event.task_id), event);
+    if (nextStatus) {
+      statusByTask.set(event.task_id, nextStatus);
     }
 
     if (event.event_type === "task.claimed" || event.event_type === "task.started") {
