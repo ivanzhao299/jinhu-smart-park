@@ -703,22 +703,25 @@ async function autonomousLoopCommand(rest) {
   console.log("");
 
   if (args.dryRun) {
-    console.log("## Step 1: Goal to Queue");
+    console.log("## Step 1: Skill Route");
+    runScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", args.text, "--dry-run"]);
+    console.log("");
+    console.log("## Step 2: Goal to Queue");
     runScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", args.text, "--dry-run"]);
     console.log("");
-    console.log("## Step 2: Resident Observer");
+    console.log("## Step 3: Resident Observer");
     runScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--dry-run"]);
     console.log("");
-    console.log("## Step 3: Agent Cycle Plan");
+    console.log("## Step 4: Agent Cycle Plan");
     await agentCycleCommand(["--dry-run", "--parallel", String(args.parallel)]);
     console.log("");
-    console.log("## Step 4: Evolution Planner");
+    console.log("## Step 5: Evolution Planner");
     runScript("ops/agent-orchestrator/scripts/evolution-planner.mjs", ["--dry-run"]);
     console.log("");
-    console.log("## Step 5: Finalize Plan");
+    console.log("## Step 6: Finalize Plan");
     runScript("ops/agent-orchestrator/scripts/finalize.mjs", ["--dry-run"]);
     console.log("");
-    console.log("## Step 6: Doctor");
+    console.log("## Step 7: Doctor");
     runScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
     return;
   }
@@ -732,7 +735,11 @@ async function autonomousLoopCommand(rest) {
     throw new Error(`Autonomous loop apply stopped by preflight blocker(s):\n- ${blockers.join("\n- ")}`);
   }
 
-  console.log("## Step 1: Goal Engine / Planner Agent / Goal-to-Queue");
+  console.log("## Step 1: Skill Route");
+  requireScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", args.text, "--dry-run"]);
+
+  console.log("");
+  console.log("## Step 2: Goal Engine / Planner Agent / Goal-to-Queue");
   requireScript("ops/agent-orchestrator/scripts/goal-to-queue.mjs", ["--text", args.text, "--apply"]);
   state = await readAgentCycleState();
   commitAllowedDirtyFiles({
@@ -749,7 +756,7 @@ async function autonomousLoopCommand(rest) {
   });
 
   console.log("");
-  console.log("## Step 2: Agent Cycle / Audit / Integration / Finalize");
+  console.log("## Step 3: Agent Cycle / Audit / Integration / Finalize");
   requireScript("ops/agent-orchestrator/scripts/orchestratorctl.mjs", [
     "agent-cycle",
     "--apply",
@@ -760,11 +767,11 @@ async function autonomousLoopCommand(rest) {
   ]);
 
   console.log("");
-  console.log("## Step 3: Resident Observer");
+  console.log("## Step 4: Resident Observer");
   requireScript("ops/agent-orchestrator/scripts/observe-agent-studio.mjs", ["--apply"]);
 
   console.log("");
-  console.log("## Step 4: Evolution Planner");
+  console.log("## Step 5: Evolution Planner");
   requireScript("ops/agent-orchestrator/scripts/evolution-planner.mjs", ["--apply"]);
 
   state = await readAgentCycleState();
@@ -778,7 +785,7 @@ async function autonomousLoopCommand(rest) {
   });
 
   console.log("");
-  console.log("## Step 5: Finalize");
+  console.log("## Step 6: Finalize");
   runFinalizeApply();
 }
 

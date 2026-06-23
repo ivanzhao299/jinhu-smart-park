@@ -1019,16 +1019,17 @@ The observer reads doctor, check-dispatch-status, run logs, audit, integration, 
 
 `orchestratorctl evolve --dry-run` chains `observe --dry-run` and `evolution-planner --dry-run` so the platform can show the top improvement candidates without writing files. `orchestratorctl evolve --apply` records the observation and updates the improvement backlog only; it still does not dispatch, claim, execute agents, merge, push, deploy, or run production operations.
 
-`autonomous-loop --dry-run` chains `goal-to-queue --dry-run`, `observe --dry-run`, `agent-cycle --dry-run`, `evolution-planner --dry-run`, `finalize --dry-run`, and `doctor`. It writes nothing.
+`autonomous-loop --dry-run` chains `skill-route --dry-run`, `goal-to-queue --dry-run`, `observe --dry-run`, `agent-cycle --dry-run`, `evolution-planner --dry-run`, `finalize --dry-run`, and `doctor`. It writes nothing.
 
 `autonomous-loop --apply` is the first executable goal-driven loop. It:
 
-1. Runs Goal Engine, Planner Agent, and `goal-to-queue --apply`.
-2. Commits only generated orchestrator goal/planner/event/queue/evolution artifacts.
-3. Runs `agent-cycle --apply --execute --push` with guarded Codex execution and integration.
-4. Runs `observe --apply` and `evolution-planner --apply`.
-5. Commits only Evolution Center learning/backlog artifacts when they changed.
-6. Runs `finalize --apply` and requires `FINALIZE RESULT: PASS`.
+1. Runs `skill-route --dry-run` to select the task capability/runtime without writing files.
+2. Runs Goal Engine, Planner Agent, and `goal-to-queue --apply`.
+3. Commits only generated orchestrator goal/planner/event/queue/evolution artifacts.
+4. Runs `agent-cycle --apply --execute --push` with guarded Codex execution, audit, integration, and finalize.
+5. Runs `observe --apply` and `evolution-planner --apply`.
+6. Commits only Evolution Center learning/backlog artifacts when they changed.
+7. Runs a final `finalize --apply` and requires `FINALIZE RESULT: PASS`.
 
 Apply mode still does not deploy, run production migrations, run production seeds, reset/cleanup databases, modify production files, or auto-commit business-code paths. If any dirty file outside the autonomous-loop allowlist appears, the loop stops as `NO_GO`.
 
