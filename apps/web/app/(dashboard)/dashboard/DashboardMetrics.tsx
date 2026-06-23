@@ -59,7 +59,7 @@ function alertStyle(n: number, severity: "danger" | "warn"): CSSProperties | und
 
 function KpiCard({ label, value, meta, style }: { label: string; value: ReactNode; meta: string; style?: CSSProperties }) {
   return (
-    <div className="ds-kpi-card">
+    <div className="ds-kpi-card dashboard-metric-card">
       <span>{label}</span>
       <strong style={style}>{value}</strong>
       <small>{meta}</small>
@@ -135,7 +135,7 @@ export function DashboardMetrics() {
   if (!snap.asset && !snap.workorder && !snap.safety && !snap.iot && !snap.energy) return null;
 
   return (
-    <section className="ds-kpi-grid" aria-label="运营指标概览">
+    <section className="ds-kpi-grid dashboard-metric-grid" aria-label="运营指标概览">
       {snap.asset ? (
         <>
           <KpiCard
