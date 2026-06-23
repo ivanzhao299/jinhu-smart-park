@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "api_inventory_id": "API-INVENTORY-LEGACY-OA-DEMO",
+  "target_id": "LEGACY-OA-DEMO",
+  "source": "fixture_system_map_api_candidates",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "endpoints": [
+    {
+      "endpoint_id": "API_NOTICE_LIST",
+      "method": "GET",
+      "path": "/api/notices",
+      "protocol": "REST",
+      "request": {
+        "query": [
+          "page",
+          "pageSize",
+          "keyword"
+        ],
+        "body": null
+      },
+      "response": {
+        "shape": "paged_list",
+        "fields": [
+          "id",
+          "title",
+          "published_at",
+          "created_by"
+        ]
+      },
+      "auth": "session_or_token_review_required",
+      "graphql": false,
+      "websocket": false,
+      "risk": "LOW"
+    },
+    {
+      "endpoint_id": "API_APPROVAL_CREATE",
+      "method": "POST",
+      "path": "/api/approvals",
+      "protocol": "REST",
+      "request": {
+        "body": [
+          "applicant_id",
+          "amount",
+          "status"
+        ]
+      },
+      "response": {
+        "shape": "entity",
+        "fields": [
+          "id",
+          "status",
+          "submitted_at"
+        ]
+      },
+      "auth": "session_or_token_review_required",
+      "graphql": false,
+      "websocket": false,
+      "risk": "MEDIUM"
+    }
+  ],
+  "graphql_operations": [],
+  "websocket_channels": [],
+  "risk_notes": [
+    "Fixture inventory only; no network traffic was captured.",
+    "Auth and request/response contracts require user-provided API documentation or authorized captures before implementation."
+  ]
+}

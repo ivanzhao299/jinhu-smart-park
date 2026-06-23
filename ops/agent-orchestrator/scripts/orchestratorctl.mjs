@@ -39,8 +39,13 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs skill-route --text "..." --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs discover --target <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs browser-discovery --dry-run
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs api-discovery --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs infer-schema --system-map <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs entity-map --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-plan --schema <file> --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs schema-compatibility --dry-run
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-score --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target <file> --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "..." --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement <improvement_id> --dry-run|--apply
@@ -833,6 +838,10 @@ async function schemaPathFromSystemMap(systemMapFile) {
   return generated;
 }
 
+function defaultDiscoveryPath(fileName) {
+  return `ops/agent-orchestrator/discovery/${fileName}`;
+}
+
 async function replicaLoopCommand(rest) {
   const target = optionValue(rest, "--target", "");
   if (!target.trim()) {
@@ -846,6 +855,8 @@ async function replicaLoopCommand(rest) {
   const schemaFile = systemMapFile.includes("system-map.example.json")
     ? "ops/agent-orchestrator/discovery/schema-inference.example.json"
     : await schemaPathFromSystemMap(systemMapFile);
+  const apiFile = defaultDiscoveryPath("api_inventory.example.json");
+  const entityMapFile = defaultDiscoveryPath("entity-map.example.json");
 
   console.log("# Replica Loop dry-run");
   console.log("");
@@ -854,19 +865,34 @@ async function replicaLoopCommand(rest) {
   console.log("## Step 1: Legacy Discovery");
   requireScript("ops/agent-orchestrator/scripts/legacy-discovery.mjs", ["--target", target, "--dry-run"]);
   console.log("");
-  console.log("## Step 2: Schema Inference");
+  console.log("## Step 2: Browser Runtime Discovery");
+  requireScript("ops/agent-orchestrator/scripts/browser-discovery.mjs", ["--system-map", systemMapFile, "--fixture", "--dry-run"]);
+  console.log("");
+  console.log("## Step 3: API Discovery");
+  requireScript("ops/agent-orchestrator/scripts/api-discovery.mjs", ["--system-map", systemMapFile, "--fixture", "--dry-run"]);
+  console.log("");
+  console.log("## Step 4: Schema Inference");
   requireScript("ops/agent-orchestrator/scripts/schema-inference.mjs", ["--system-map", systemMapFile, "--dry-run"]);
   console.log("");
-  console.log("## Step 3: Replica Planner");
+  console.log("## Step 5: Entity Mapper");
+  requireScript("ops/agent-orchestrator/scripts/entity-mapper.mjs", ["--schema", schemaFile, "--dry-run"]);
+  console.log("");
+  console.log("## Step 6: Schema Compatibility");
+  requireScript("ops/agent-orchestrator/scripts/schema-compatibility.mjs", ["--schema", schemaFile, "--entity-map", entityMapFile, "--dry-run"]);
+  console.log("");
+  console.log("## Step 7: Replica Planner");
   requireScript("ops/agent-orchestrator/scripts/replica-planner.mjs", ["--schema", schemaFile, "--dry-run"]);
   console.log("");
-  console.log("## Step 4: Skill Route");
+  console.log("## Step 8: Replica Score");
+  requireScript("ops/agent-orchestrator/scripts/replica-score.mjs", ["--system-map", systemMapFile, "--schema", schemaFile, "--api", apiFile, "--entity-map", entityMapFile, "--dry-run"]);
+  console.log("");
+  console.log("## Step 9: Skill Route");
   requireScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", "读取旧 OA 系统并复刻开发", "--dry-run"]);
   console.log("");
-  console.log("## Step 5: Agent Cycle Plan");
+  console.log("## Step 10: Agent Cycle Plan");
   await agentCycleCommand(["--dry-run", "--parallel", "2"]);
   console.log("");
-  console.log("## Step 6: Doctor");
+  console.log("## Step 11: Doctor");
   requireScript("ops/agent-orchestrator/scripts/doctor.mjs", []);
 }
 
@@ -920,6 +946,20 @@ async function dispatchCommand() {
       runScript("ops/agent-orchestrator/scripts/legacy-discovery.mjs", ["--target", target, mode]);
       break;
     }
+    case "browser-discovery": {
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("browser-discovery is dry-run only from orchestratorctl. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/browser-discovery.mjs", ["--fixture", "--dry-run"]);
+      break;
+    }
+    case "api-discovery": {
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("api-discovery is dry-run only from orchestratorctl. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/api-discovery.mjs", ["--fixture", "--dry-run"]);
+      break;
+    }
     case "infer-schema": {
       const systemMap = optionValue(rest, "--system-map", "");
       if (!systemMap.trim()) {
@@ -929,6 +969,13 @@ async function dispatchCommand() {
       runScript("ops/agent-orchestrator/scripts/schema-inference.mjs", ["--system-map", systemMap, mode]);
       break;
     }
+    case "entity-map": {
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("entity-map is dry-run only from orchestratorctl. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/entity-mapper.mjs", ["--dry-run"]);
+      break;
+    }
     case "replica-plan": {
       const schema = optionValue(rest, "--schema", "");
       if (!schema.trim()) {
@@ -936,6 +983,20 @@ async function dispatchCommand() {
       }
       const mode = requiredModeFlag(rest, "replica-plan");
       runScript("ops/agent-orchestrator/scripts/replica-planner.mjs", ["--schema", schema, mode]);
+      break;
+    }
+    case "schema-compatibility": {
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("schema-compatibility is dry-run only. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/schema-compatibility.mjs", ["--dry-run"]);
+      break;
+    }
+    case "replica-score": {
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("replica-score is dry-run only. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/replica-score.mjs", ["--dry-run"]);
       break;
     }
     case "replica-loop":

@@ -303,6 +303,105 @@
       "risk_level": "HIGH"
     },
     {
+      "skill_id": "skill-browser-discovery",
+      "skill_type": "browser_discovery",
+      "display_name": "Browser Runtime Discovery",
+      "purpose": "Build page, menu, form, button, link, iframe, and screenshot metadata inventories from authorized fixture or browser runtime evidence.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser-agent",
+      "default_agent": "agent-5",
+      "expected_output_types": [
+        "page_inventory",
+        "menu_inventory",
+        "ui_inventory"
+      ],
+      "required_inputs": [
+        "authorized system map or page manifest",
+        "allowed scope",
+        "forbidden scope",
+        "browser runtime adapter mode"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/browser-discovery.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs replica-loop --target ops/agent-orchestrator/discovery/discovery-target.example.json --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-api-discovery",
+      "skill_type": "api_discovery",
+      "display_name": "API Discovery",
+      "purpose": "Build REST, XHR, Fetch, GraphQL, and WebSocket API inventories from authorized fixtures, manifests, or exported API documentation.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "browser-agent",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "api_inventory",
+        "endpoint map",
+        "risk notes"
+      ],
+      "required_inputs": [
+        "system map",
+        "API candidates or exported API documentation",
+        "auth evidence",
+        "allowed scope"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/api-discovery.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-entity-mapping",
+      "skill_type": "entity_mapping",
+      "display_name": "Entity Mapping",
+      "purpose": "Map legacy entities and fields to target master-data or workflow entities with confidence scores and review notes.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "entity_map",
+        "field_mapping",
+        "compatibility notes"
+      ],
+      "required_inputs": [
+        "schema inference JSON",
+        "target domain vocabulary",
+        "mapping aliases"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/entity-mapper.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/schema-compatibility.mjs --dry-run"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-replica-scoring",
+      "skill_type": "replica_scoring",
+      "display_name": "Replica Scoring",
+      "purpose": "Score UI, API, workflow, RBAC, data, and overall replica readiness from discovery outputs.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets",
+      "default_agent": "agent-2",
+      "expected_output_types": [
+        "schema compatibility score",
+        "replica score",
+        "coverage summary"
+      ],
+      "required_inputs": [
+        "system map",
+        "schema inference",
+        "API inventory",
+        "entity map"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/schema-compatibility.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/replica-score.mjs --dry-run"
+      ],
+      "risk_level": "LOW"
+    },
+    {
       "skill_id": "skill-validation-testing",
       "skill_type": "validation_testing",
       "display_name": "Validation and Testing",

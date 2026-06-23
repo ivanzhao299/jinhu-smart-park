@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/schemas/agent-orchestrator/browser-runtime.schema.json",
+  "title": "Browser Runtime Discovery Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "runtime_mode",
+    "target_id",
+    "generated_at",
+    "page_inventory",
+    "menu_inventory",
+    "ui_inventory",
+    "adapter_readiness",
+    "safety"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "runtime_mode": {
+      "enum": [
+        "fixture",
+        "exported_html",
+        "manual_manifest",
+        "playwright_adapter",
+        "chrome_headless_adapter",
+        "browser_agent_adapter"
+      ]
+    },
+    "target_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "page_inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "page_id",
+          "title",
+          "path"
+        ],
+        "properties": {
+          "page_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "page_type": {
+            "type": "string"
+          },
+          "menu_id": {
+            "type": "string"
+          },
+          "iframes": {
+            "type": "array"
+          },
+          "screenshot_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "menu_inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "menu_id",
+          "label",
+          "path"
+        ],
+        "properties": {
+          "menu_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array"
+          },
+          "children": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "ui_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forms",
+        "buttons",
+        "links",
+        "iframes",
+        "screenshot_metadata"
+      ],
+      "properties": {
+        "forms": {
+          "type": "array"
+        },
+        "buttons": {
+          "type": "array"
+        },
+        "links": {
+          "type": "array"
+        },
+        "iframes": {
+          "type": "array"
+        },
+        "screenshot_metadata": {
+          "type": "array"
+        }
+      }
+    },
+    "adapter_readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "playwright_adapter",
+        "chrome_headless_adapter",
+        "browser_agent_adapter"
+      ],
+      "properties": {
+        "playwright_adapter": {
+          "type": "string"
+        },
+        "chrome_headless_adapter": {
+          "type": "string"
+        },
+        "browser_agent_adapter": {
+          "type": "string"
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "network_access",
+        "authorization_required",
+        "destructive_actions_allowed"
+      ],
+      "properties": {
+        "network_access": {
+          "type": "boolean"
+        },
+        "authorization_required": {
+          "type": "boolean"
+        },
+        "destructive_actions_allowed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

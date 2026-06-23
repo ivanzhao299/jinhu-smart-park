@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "entity_map_id": "ENTITY-MAP-LEGACY-OA-DEMO",
+  "target_id": "LEGACY-OA-DEMO",
+  "schema_inference_id": "SCHEMA-INFERENCE-LEGACY-OA-DEMO",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "mappings": [
+    {
+      "legacy_entity": "legacy_notice",
+      "new_entity": "Notice Center",
+      "confidence": 0.82,
+      "mapping_reason": "Legacy notice pages and attachment fields align with announcement/notice domain.",
+      "field_mappings": [
+        {
+          "legacy_field": "title",
+          "new_field": "title",
+          "confidence": 0.95
+        },
+        {
+          "legacy_field": "content",
+          "new_field": "body",
+          "confidence": 0.78
+        },
+        {
+          "legacy_field": "created_by",
+          "new_field": "created_by",
+          "confidence": 0.88
+        }
+      ]
+    },
+    {
+      "legacy_entity": "legacy_approval",
+      "new_entity": "Workflow Approval",
+      "confidence": 0.76,
+      "mapping_reason": "Approval status enum and applicant fields align with workflow/approval domain.",
+      "field_mappings": [
+        {
+          "legacy_field": "applicant_id",
+          "new_field": "applicant_id",
+          "confidence": 0.9
+        },
+        {
+          "legacy_field": "amount",
+          "new_field": "amount",
+          "confidence": 0.92
+        },
+        {
+          "legacy_field": "status",
+          "new_field": "workflow_status",
+          "confidence": 0.83
+        }
+      ]
+    }
+  ],
+  "unmapped_legacy_entities": [],
+  "review_notes": [
+    "Entity mapping is heuristic and must be reviewed before migration/API/frontend implementation.",
+    "Customer/客户/会员/供应商客户 aliases should map to Customer Master when discovered."
+  ]
+}
