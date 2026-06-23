@@ -13,6 +13,15 @@
       "type": "integer",
       "minimum": 1
     },
+    "read_model_only": {
+      "type": "boolean"
+    },
+    "source_of_truth": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string"
+    },
     "updated_at": {
       "type": "string",
       "format": "date-time"

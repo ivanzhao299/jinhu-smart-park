@@ -21,6 +21,9 @@ function printObservation(observation) {
   console.log(`learning_entries: ${observation.summary.learning_entries}`);
   console.log(`doctor: ${observation.sources.doctor.status}`);
   console.log(`event_store_task_events: ${observation.sources.event_store.task_events}`);
+  console.log(`queue_conflict_risk: ${observation.sources.conflict_metrics.risk}`);
+  console.log(`recent_queue_conflicts: ${observation.sources.conflict_metrics.recent_queue_conflicts}`);
+  console.log(`recent_event_rebuilds: ${observation.sources.conflict_metrics.recent_event_rebuilds}`);
   console.log("");
 
   console.log("## Findings");

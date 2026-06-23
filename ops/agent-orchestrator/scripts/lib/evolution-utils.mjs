@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildEventStoreHealth, listAllTaskEvents } from "./event-store-utils.mjs";
+import { readConflictMetrics, summarizeConflictMetrics } from "./conflict-metrics-utils.mjs";
 import { latestResultFor, mergeResultsByTask, nowIso, readJson, readResultFiles, writeJson } from "./queue-utils.mjs";
 
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -385,7 +386,7 @@ function matchPatterns(patterns, findings) {
     .filter((item) => item.currently_detected);
 }
 
-function deriveFindings({ doctor, queue, locks, eventStore, logs, integration }) {
+function deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics }) {
   const findings = [];
   for (const finding of doctor.findings ?? []) {
     findings.push({
@@ -411,6 +412,22 @@ function deriveFindings({ doctor, queue, locks, eventStore, logs, integration })
       area: "integration",
       message: `integrate-agent-results --dry-run failed with exit ${integration.status}`,
       suggested_fix: "Inspect integration dry-run before creating an integration branch."
+    });
+  }
+
+  if (conflictMetrics?.risk === "HIGH") {
+    findings.push({
+      severity: "ERROR",
+      area: "integration",
+      message: `Queue conflict frequency risk is HIGH: ${conflictMetrics.reasons.join("; ")}`,
+      suggested_fix: "Generate or execute a queue conflict reduction improvement before more parallel integration."
+    });
+  } else if (conflictMetrics?.risk === "MEDIUM") {
+    findings.push({
+      severity: "WARN",
+      area: "integration",
+      message: `Queue conflict frequency risk is MEDIUM: ${conflictMetrics.reasons.join("; ")}`,
+      suggested_fix: "Keep integration event-first and rebuild compatibility read models from events."
     });
   }
 
@@ -631,6 +648,44 @@ function normalizeImprovementCandidates(data, observation = null) {
     }, pattern, item, activePatternIds));
   }
 
+  const conflictMetrics = observation?.sources?.conflict_metrics;
+  const repeatedQueueConflicts = (conflictMetrics?.recent_queue_conflicts ?? 0) >= 2 ||
+    (conflictMetrics?.recent_integration_conflicts ?? 0) >= 2 ||
+    conflictMetrics?.risk === "HIGH";
+  if (repeatedQueueConflicts && !candidates.has("IMPROVE-QUEUE-CONFLICT-REDUCTION-NEXT")) {
+    const pattern = patterns.get("PATTERN-005");
+    candidates.set("IMPROVE-QUEUE-CONFLICT-REDUCTION-NEXT", mergeTemplateWithBacklog({
+      improvement_id: "IMPROVE-QUEUE-CONFLICT-REDUCTION-NEXT",
+      source_pattern_id: "PATTERN-005",
+      title: "Next queue conflict reduction hardening pass",
+      root_cause: "Queue conflict metrics show repeated queue or integration conflicts after event-first adoption.",
+      proposed_solution: "Add another targeted event-first hardening task based on conflict-metrics.json and recent integration reports.",
+      risk: "MEDIUM",
+      priority: "P1",
+      owner_recommendation: "agent-5",
+      allowed_paths: EVOLUTION_SCRIPT_PATHS,
+      forbidden_paths: EVOLUTION_FORBIDDEN_PATHS,
+      validation_commands: [
+        "node ops/agent-orchestrator/scripts/integrate-agent-results.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      acceptance_criteria: [
+        "Queue conflict metrics risk returns to LOW or has a documented no-go reason.",
+        "Read-model-only queue files remain generated from event store.",
+        "No business code or production operation is touched."
+      ],
+      auto_fix_allowed: false,
+      requires_approval: true,
+      expected_output_files: [
+        "ops/agent-orchestrator/reports/IMPROVE-QUEUE-CONFLICT-REDUCTION-NEXT.md",
+        "ops/agent-orchestrator/results/IMPROVE-QUEUE-CONFLICT-REDUCTION-NEXT.json",
+        "docs/testing/evolution-queue-conflict-reduction-next-checklist.md"
+      ]
+    }, pattern, null, activePatternIds));
+  }
+
   return [...candidates.values()].filter((item) => item.status !== "RESOLVED");
 }
 
@@ -674,17 +729,28 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
     readJson(resultsPath),
     readResultFiles(perTaskResultsDir)
   ]);
-  const [doctor, checkDispatch, audit, integration, eventStore, logs, goalToQueue] = await Promise.all([
+  const [doctor, checkDispatch, audit, integration, eventStore, logs, goalToQueue, rawConflictMetrics] = await Promise.all([
     Promise.resolve(parseDoctorJson()),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/check-dispatch-status.mjs")),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/audit-all-results.mjs", ["--dry-run"])),
     Promise.resolve(runNodeCapture("ops/agent-orchestrator/scripts/integrate-agent-results.mjs", ["--dry-run"])),
     buildEventStoreHealth({ queue, locks, results }),
     recentRunLogs(queue, results, perTaskResults),
-    inspectGoalToQueueArtifacts()
+    inspectGoalToQueueArtifacts(),
+    readConflictMetrics()
   ]);
+  const consistency = eventStore.read_model_consistency ?? {};
+  const eventReadModelConsistent = Boolean(
+    consistency.queue_status?.consistent &&
+    consistency.locks?.consistent &&
+    consistency.results_status?.consistent
+  );
+  const conflictMetrics = summarizeConflictMetrics(rawConflictMetrics, {
+    eventReadModelConsistent,
+    candidateQueueRisk: Boolean(doctor.integration?.queue_bookkeeping_conflict_risk)
+  });
 
-  const findings = deriveFindings({ doctor, queue, locks, eventStore, logs, integration });
+  const findings = deriveFindings({ doctor, queue, locks, eventStore, logs, integration, conflictMetrics });
   const patterns = matchPatterns(data.failurePatterns?.patterns ?? [], findings);
   const summary = buildEvolutionSummary(data);
   const improvementCandidates = buildImprovementCandidates(data, { patterns });
@@ -726,6 +792,7 @@ export async function buildEvolutionObservation({ apply = false } = {}) {
         event_type_counts: eventStore.event_type_counts,
         read_model_consistency: eventStore.read_model_consistency
       },
+      conflict_metrics: conflictMetrics,
       queue: {
         ready: (queue.tasks ?? []).filter((task) => task.status === "READY").length,
         claimed: (queue.tasks ?? []).filter((task) => task.status === "CLAIMED").length,

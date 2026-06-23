@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { READ_MODEL_ONLY_FILES } from "./conflict-metrics-utils.mjs";
 import { ACTIVE_LOCK_STATUSES, readJson, writeJson } from "./queue-utils.mjs";
 
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -641,6 +642,9 @@ export async function buildQueueReadModel() {
   return {
     $schema: "./task-queue.schema.json",
     version: LEGACY_QUEUE_VERSION,
+    read_model_only: true,
+    source_of_truth: "ops/agent-orchestrator/events/tasks",
+    generated_by: "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
     updated_at: maxIso(events.map((event) => event.created_at)),
     tasks
   };
@@ -681,6 +685,9 @@ export async function buildLockReadModel() {
 
   return {
     version: LEGACY_QUEUE_VERSION,
+    read_model_only: true,
+    source_of_truth: "ops/agent-orchestrator/events/tasks",
+    generated_by: "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
     updated_at: maxIso(events.map((event) => event.created_at)),
     locks: locks.sort((a, b) => String(a.task_id).localeCompare(String(b.task_id)))
   };
@@ -714,6 +721,9 @@ export async function buildResultReadModel() {
 
   return {
     version: LEGACY_QUEUE_VERSION,
+    read_model_only: true,
+    source_of_truth: "ops/agent-orchestrator/events/tasks",
+    generated_by: "ops/agent-orchestrator/scripts/lib/event-store-utils.mjs",
     updated_at: maxIso(events.map((event) => event.created_at)),
     results: [...resultByTask.values()].sort((a, b) => String(a.task_id).localeCompare(String(b.task_id)))
   };
@@ -785,6 +795,13 @@ export async function buildEventStoreHealth(current = {}) {
     task_events: events.length,
     event_type_counts: countBy(events, (event) => event.event_type ?? "unknown"),
     audit_read_model: auditReadModel,
+    read_model_only: {
+      enabled: true,
+      files: READ_MODEL_ONLY_FILES,
+      coverage: READ_MODEL_ONLY_FILES.length,
+      total: READ_MODEL_ONLY_FILES.length,
+      source_of_truth: "ops/agent-orchestrator/events/tasks"
+    },
     read_model_consistency: {
       queue_status: compareMaps(statusByTask(currentQueue), statusByTask(nextQueue)),
       locks: compareSets(lockKeys(currentLocks), lockKeys(nextLocks)),

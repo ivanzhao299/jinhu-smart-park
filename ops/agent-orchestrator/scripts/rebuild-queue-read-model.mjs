@@ -8,6 +8,7 @@ import {
   listAllTaskEvents,
   writeCompatibilityReadModels
 } from "./lib/event-store-utils.mjs";
+import { recordConflictMetric } from "./lib/conflict-metrics-utils.mjs";
 import { readJson } from "./lib/queue-utils.mjs";
 
 function parseArgs(argv) {
@@ -79,6 +80,26 @@ if (!args.apply) {
 }
 
 await writeCompatibilityReadModels();
+await recordConflictMetric("event_rebuild", {
+  source: "rebuild-queue-read-model.mjs",
+  count: 1,
+  reason: "event projection rebuilt before compatibility read-model materialization",
+  metadata: {
+    task_events: events.length,
+    read_model_only: true
+  }
+});
+await recordConflictMetric("read_model_rebuild", {
+  source: "rebuild-queue-read-model.mjs",
+  count: 1,
+  reason: "explicit queue/lock/result read-model rebuild from event store",
+  metadata: {
+    task_events: events.length,
+    changed_models: summaries.filter((summary) => summary.changed).map((summary) => summary.label),
+    read_model_only: true
+  }
+});
 console.log("written: queue/task-queue.json");
 console.log("written: queue/task-locks.json");
 console.log("written: queue/task-results.json");
+console.log("metric: read_model_rebuild recorded");

@@ -30,6 +30,7 @@ import {
 } from "./lib/queue-utils.mjs";
 import { buildEventStoreHealth } from "./lib/event-store-utils.mjs";
 import { buildEvolutionSummary, readEvolutionData } from "./lib/evolution-utils.mjs";
+import { readConflictMetrics, summarizeConflictMetrics } from "./lib/conflict-metrics-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -815,6 +816,28 @@ async function buildDiagnosis(args, appliedFixes = []) {
   const eventStore = await inspectEventStore({ queue, locks, results }, findings);
   const runner = await inspectRunner(config, queue, results, perTaskResults, findings);
   const integration = inspectIntegration(config, worktrees, findings);
+  const rawConflictMetrics = await readConflictMetrics();
+  const conflictMetrics = summarizeConflictMetrics(rawConflictMetrics, {
+    eventReadModelConsistent: eventStore.read_model_consistent,
+    candidateQueueRisk: integration.queue_bookkeeping_conflict_risk
+  });
+  if (conflictMetrics.risk === "HIGH") {
+    addFinding(
+      findings,
+      "ERROR",
+      "integration",
+      `Queue Conflict Risk HIGH: ${conflictMetrics.reasons.join("; ")}`,
+      "Review event/read-model consistency and recent queue conflicts before integration."
+    );
+  } else if (conflictMetrics.risk === "MEDIUM") {
+    addFinding(
+      findings,
+      "WARN",
+      "integration",
+      `Queue Conflict Risk MEDIUM: ${conflictMetrics.reasons.join("; ")}`,
+      "Prefer event-first integration and reconcile queue read models from events."
+    );
+  }
   const validation = inspectValidation(args, findings);
   const evolution = buildEvolutionSummary(await readEvolutionData());
 
@@ -833,6 +856,10 @@ async function buildDiagnosis(args, appliedFixes = []) {
     },
     runner,
     integration,
+    conflict_metrics: {
+      updated_at: rawConflictMetrics.updated_at,
+      ...conflictMetrics
+    },
     validation,
     evolution,
     fixes,
@@ -889,6 +916,7 @@ function printMarkdown(diagnosis, args) {
   console.log(`Lock read model consistent: ${diagnosis.event_store.read_model_consistency.locks.consistent ? "yes" : "no"}`);
   console.log(`Result read model consistent: ${diagnosis.event_store.read_model_consistency.results_status.consistent ? "yes" : "no"}`);
   console.log(`Event/read-model consistency after rebuild dry-run: ${diagnosis.event_store.read_model_consistent ? "yes" : "no"}`);
+  console.log(`Read-model-only coverage: ${diagnosis.event_store.read_model_only?.coverage ?? 0}/${diagnosis.event_store.read_model_only?.total ?? 0}`);
   console.log("Queue conflict policy: event projection wins; generated queue JSON is reconciled by reconcile-task-results.mjs --from-events after dry-run review.");
   console.log("Event-first write paths:");
   for (const [script, status] of Object.entries(diagnosis.event_store.event_first_write_paths)) {
@@ -942,6 +970,12 @@ function printMarkdown(diagnosis, args) {
   console.log(`candidate agent branches: ${diagnosis.integration.can_integrate_candidates}`);
   console.log(`risk counts: LOW=${diagnosis.integration.risk_counts.LOW}, MEDIUM=${diagnosis.integration.risk_counts.MEDIUM}, HIGH=${diagnosis.integration.risk_counts.HIGH}`);
   console.log(`queue bookkeeping conflict risk: ${diagnosis.integration.queue_bookkeeping_conflict_risk ? "yes" : "no"}`);
+  console.log(`Queue Conflict Risk: ${diagnosis.conflict_metrics.risk}`);
+  console.log(`recent queue conflicts: ${diagnosis.conflict_metrics.recent_queue_conflicts}`);
+  console.log(`recent integration conflicts: ${diagnosis.conflict_metrics.recent_integration_conflicts}`);
+  console.log(`recent event rebuilds: ${diagnosis.conflict_metrics.recent_event_rebuilds}`);
+  console.log(`recent read model rebuilds: ${diagnosis.conflict_metrics.recent_read_model_rebuilds}`);
+  console.log(`read-model-only coverage: ${diagnosis.conflict_metrics.read_model_only_coverage.covered}/${diagnosis.conflict_metrics.read_model_only_coverage.total}`);
   console.log(`integrate dry-run exit: ${diagnosis.integration.dry_run_status}`);
   console.log("");
 
@@ -1017,6 +1051,7 @@ if (args.json) {
     locks: diagnosis.locks,
     runner: diagnosis.runner,
     integration: diagnosis.integration,
+    conflict_metrics: diagnosis.conflict_metrics,
     validation: diagnosis.validation,
     evolution: diagnosis.evolution,
     fixes: diagnosis.fixes,

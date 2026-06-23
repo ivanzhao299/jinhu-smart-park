@@ -2,7 +2,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { appendIntegrationEvent } from "./lib/event-store-utils.mjs";
+import { appendIntegrationEvent, listAllTaskEvents } from "./lib/event-store-utils.mjs";
+import {
+  readConflictMetrics,
+  recordConflictMetric,
+  summarizeConflictMetrics
+} from "./lib/conflict-metrics-utils.mjs";
 import {
   QUEUE_CONFLICT_FILES,
   git,
@@ -29,6 +34,7 @@ const QUEUE_PATHS = [
   "ops/agent-orchestrator/queue/task-results.json"
 ];
 const EVENT_TASKS_PATH = "ops/agent-orchestrator/events/tasks";
+const CONFLICT_METRICS_PATH = "ops/agent-orchestrator/evolution/conflict-metrics.json";
 
 function parseArgs(argv) {
   return {
@@ -173,7 +179,7 @@ function addAndCommitIfChanged(mainPath, paths, message) {
   return commitStagedIfAny(mainPath, message);
 }
 
-function reconcileQueue(mainPath, message, options = {}) {
+function reconcileQueue(mainPath, message, options = {}, stats = null) {
   const args = [
     "--apply",
     "--from-events",
@@ -186,11 +192,35 @@ function reconcileQueue(mainPath, message, options = {}) {
     args.push("--integration-branch", options.integrationBranch);
   }
   runNodeScript("ops/agent-orchestrator/scripts/reconcile-task-results.mjs", args);
-  const committed = addAndCommitIfChanged(mainPath, [...QUEUE_PATHS, EVENT_TASKS_PATH], message);
+  if (stats) {
+    stats.read_model_rebuild_count += 1;
+  }
+  const committed = addAndCommitIfChanged(mainPath, [...QUEUE_PATHS, EVENT_TASKS_PATH, CONFLICT_METRICS_PATH], message);
   console.log(committed ? `Committed queue reconciliation: ${message}` : "Queue reconciliation produced no commit.");
 }
 
-function handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch) {
+function restoreQueueReadModelsFromHead(mainPath) {
+  const changed = QUEUE_PATHS.filter((file) =>
+    git(mainPath, ["diff", "--quiet", "HEAD", "--", file], { allowFailure: true }).status !== 0
+  );
+
+  if (changed.length === 0) {
+    return [];
+  }
+
+  for (const file of changed) {
+    git(mainPath, ["checkout", "HEAD", "--", file], { stdio: "inherit" });
+    git(mainPath, ["add", "--", file], { stdio: "inherit" });
+  }
+
+  return changed;
+}
+
+function stagedOrMergeChangesExist(mainPath) {
+  return git(mainPath, ["diff", "--cached", "--quiet"], { allowFailure: true }).status !== 0;
+}
+
+function handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch, stats) {
   for (const file of conflicts) {
     git(mainPath, ["checkout", "--ours", file], { stdio: "inherit" });
     git(mainPath, ["add", file], { stdio: "inherit" });
@@ -201,23 +231,59 @@ function handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch)
     source: "integration_reconcile",
     reason: `queue bookkeeping conflict after ${candidate.agent.id} integration`,
     integrationBranch
-  });
+  }, stats);
 }
 
-function mergeCandidate(mainPath, candidate, integrationBranch) {
+async function mergeCandidate(mainPath, candidate, integrationBranch, stats) {
   console.log(`MERGE ${candidate.agent.id}: ${candidate.agent.branch}`);
-  const result = run("git", ["merge", "--no-ff", candidate.agent.branch, "--no-edit"], {
+  const result = run("git", ["merge", "--no-ff", "--no-commit", candidate.agent.branch], {
     cwd: mainPath,
     allowFailure: true,
     stdio: "inherit"
   });
 
   if (result.status === 0) {
+    const restoredQueueFiles = restoreQueueReadModelsFromHead(mainPath);
+    if (restoredQueueFiles.length > 0) {
+      stats.conflict_avoided_count += restoredQueueFiles.length;
+      stats.restored_queue_files.push(...restoredQueueFiles.map((file) => ({
+        agent: candidate.agent.id,
+        file,
+        reason: "queue read model restored before merge commit"
+      })));
+      await recordConflictMetric("conflict_avoided", {
+        source: "integrate-agent-results.mjs",
+        branch: integrationBranch,
+        agent: candidate.agent.id,
+        files: restoredQueueFiles,
+        count: restoredQueueFiles.length,
+        reason: "queue read model files restored from integration branch before merge commit",
+        metadata: {
+          agent_branch: candidate.agent.branch,
+          agent_head: candidate.agentHead,
+          read_model_only: true
+        }
+      });
+    }
+
+    if (!stagedOrMergeChangesExist(mainPath)) {
+      run("git", ["merge", "--abort"], { cwd: mainPath, allowFailure: true, stdio: "inherit" });
+      console.log(`MERGE_SKIPPED_EMPTY ${candidate.agent.id}: only generated queue read models differed.`);
+      return {
+        conflict: false,
+        merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim(),
+        restored_queue_files: restoredQueueFiles,
+        skipped_empty: true
+      };
+    }
+
+    git(mainPath, ["commit", "--no-edit"], { stdio: "inherit" });
     console.log(`MERGE_OK ${candidate.agent.id}`);
     printGitStatus(mainPath);
     return {
       conflict: false,
-      merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim()
+      merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim(),
+      restored_queue_files: restoredQueueFiles
     };
   }
 
@@ -226,16 +292,62 @@ function mergeCandidate(mainPath, candidate, integrationBranch) {
 
   if (!queueOnly) {
     run("git", ["merge", "--abort"], { cwd: mainPath, allowFailure: true, stdio: "inherit" });
+    await recordConflictMetric("integration_conflict", {
+      source: "integrate-agent-results.mjs",
+      branch: integrationBranch,
+      agent: candidate.agent.id,
+      files: conflicts,
+      count: Math.max(conflicts.length, 1),
+      reason: "non-bookkeeping merge conflict during agent integration",
+      metadata: {
+        agent_branch: candidate.agent.branch,
+        agent_head: candidate.agentHead
+      }
+    });
     throw new Error(`Non-bookkeeping conflicts while merging ${candidate.agent.id}: ${conflicts.join(", ") || "(unknown conflicts)"}`);
   }
 
   console.log(`QUEUE_CONFLICT ${candidate.agent.id}: ${conflicts.join(", ")}`);
   console.log("Keeping temporary generated queue files to complete the merge, then reconciling from task events.");
-  handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch);
+  stats.queue_conflict_count += conflicts.length;
+  stats.conflict_avoided_count += conflicts.length;
+  stats.restored_queue_files.push(...conflicts.map((file) => ({
+    agent: candidate.agent.id,
+    file,
+    reason: "queue conflict resolved by restoring integration branch read model"
+  })));
+  await recordConflictMetric("queue_conflict", {
+    source: "integrate-agent-results.mjs",
+    branch: integrationBranch,
+    agent: candidate.agent.id,
+    files: conflicts,
+    count: conflicts.length,
+    reason: "queue bookkeeping conflict during agent integration",
+    metadata: {
+      agent_branch: candidate.agent.branch,
+      agent_head: candidate.agentHead,
+      read_model_only: true
+    }
+  });
+  await recordConflictMetric("conflict_avoided", {
+    source: "integrate-agent-results.mjs",
+    branch: integrationBranch,
+    agent: candidate.agent.id,
+    files: conflicts,
+    count: conflicts.length,
+    reason: "queue bookkeeping conflict handled by event-first read-model rebuild",
+    metadata: {
+      agent_branch: candidate.agent.branch,
+      agent_head: candidate.agentHead,
+      read_model_only: true
+    }
+  });
+  handleQueueConflicts(mainPath, candidate, conflicts, integrationBranch, stats);
   printGitStatus(mainPath);
   return {
     conflict: true,
-    merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim()
+    merge_commit: git(mainPath, ["rev-parse", "HEAD"]).stdout.trim(),
+    restored_queue_files: conflicts
   };
 }
 
@@ -247,7 +359,7 @@ function runIntegrationValidation() {
   runValidationCommand("pnpm", ["typecheck"]);
 }
 
-function renderReport({ generatedAt, integrationBranch, candidates, head, changed, eventRefs }) {
+function renderReport({ generatedAt, integrationBranch, candidates, head, changed, eventRefs, conflictStats, conflictSummary, eventSourceCount }) {
   const rows = candidates.length === 0
     ? "| _none_ | | | |"
     : candidates.map((candidate) =>
@@ -260,6 +372,9 @@ function renderReport({ generatedAt, integrationBranch, candidates, head, change
   const eventLines = eventRefs.length === 0
     ? "- none"
     : eventRefs.map((item) => `- ${item.task_id}: ${item.event_type} ${item.path} (${item.written ? "written" : `skipped:${item.reason}`})`).join("\n");
+  const restoredQueueLines = conflictStats.restored_queue_files.length === 0
+    ? "- none"
+    : conflictStats.restored_queue_files.map((item) => `- ${item.agent}: ${item.file} (${item.reason})`).join("\n");
 
   return `# Integration Auto Report
 
@@ -281,9 +396,23 @@ ${rows}
   - ops/agent-orchestrator/queue/task-queue.json
   - ops/agent-orchestrator/queue/task-locks.json
   - ops/agent-orchestrator/queue/task-results.json
-- When these generated files conflict, a temporary queue version is kept only to finish the Git merge.
+- These files are read-model-only compatibility outputs; the event store is the source of truth.
+- Integration restores generated queue JSON from the integration branch before merge commits whenever possible.
 - \`reconcile-task-results.mjs --from-events --apply\` is then run so the event projection wins and queue, lock, and result JSON are regenerated.
 - Non-bookkeeping conflicts stop integration and require human review.
+
+## Conflict Metrics
+
+- event source count: ${eventSourceCount}
+- read model rebuild count: ${conflictStats.read_model_rebuild_count}
+- conflict avoided count: ${conflictStats.conflict_avoided_count}
+- queue conflicts handled: ${conflictStats.queue_conflict_count}
+- queue conflict risk after integration: ${conflictSummary.risk}
+- read-model-only coverage: ${conflictSummary.read_model_only_coverage.covered}/${conflictSummary.read_model_only_coverage.total}
+
+Restored queue read-model files:
+
+${restoredQueueLines}
 
 ## Validation
 
@@ -305,7 +434,7 @@ No push, deploy, production migration, production seed, database reset, cleanup,
 `;
 }
 
-async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs }) {
+async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs, conflictStats }) {
   const reportPath = join(reportsDir, `integration-auto-${generatedAt}.md`);
   const reportRelativePath = `ops/agent-orchestrator/reports/integration-auto-${generatedAt}.md`;
   const head = git(mainPath, ["log", "--oneline", "-1"]).stdout.trim();
@@ -313,9 +442,24 @@ async function writeIntegrationReport({ mainPath, generatedAt, integrationBranch
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+  const eventSourceCount = (await listAllTaskEvents()).length;
+  const conflictSummary = summarizeConflictMetrics(await readConflictMetrics(), {
+    eventReadModelConsistent: true,
+    candidateQueueRisk: false
+  });
 
   await mkdir(reportsDir, { recursive: true });
-  await writeFile(reportPath, renderReport({ generatedAt, integrationBranch, candidates, head, changed, eventRefs }));
+  await writeFile(reportPath, renderReport({
+    generatedAt,
+    integrationBranch,
+    candidates,
+    head,
+    changed,
+    eventRefs,
+    conflictStats,
+    conflictSummary,
+    eventSourceCount
+  }));
   addAndCommitIfChanged(mainPath, [reportRelativePath], `chore(orchestrator): add ${generatedAt} integration report`);
   return reportRelativePath;
 }
@@ -416,13 +560,20 @@ if (highRisk.length > 0) {
 
 const generatedAt = timestampForBranch();
 const integrationBranch = `integration/orchestrator-auto-${generatedAt}`;
+const conflictStats = {
+  queue_conflict_count: 0,
+  integration_conflict_count: 0,
+  read_model_rebuild_count: 0,
+  conflict_avoided_count: 0,
+  restored_queue_files: []
+};
 
 run("git", ["checkout", "main"], { cwd: mainPath, stdio: "inherit" });
 run("git", ["checkout", "-B", integrationBranch, "HEAD"], { cwd: mainPath, stdio: "inherit" });
 
 const eventRefs = [];
 for (const candidate of candidates) {
-  const mergeInfo = mergeCandidate(mainPath, candidate, integrationBranch);
+  const mergeInfo = await mergeCandidate(mainPath, candidate, integrationBranch, conflictStats);
   eventRefs.push(...(await appendIntegrationEventsForCandidate({
     mainPath,
     candidate,
@@ -435,9 +586,9 @@ reconcileQueue(mainPath, "chore(orchestrator): reconcile queue after agent integ
   source: "integration_final_reconcile",
   reason: "final queue reconciliation after agent integration",
   integrationBranch
-});
+}, conflictStats);
 runIntegrationValidation();
-const reportPath = await writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs });
+const reportPath = await writeIntegrationReport({ mainPath, generatedAt, integrationBranch, candidates, eventRefs, conflictStats });
 
 const head = git(mainPath, ["log", "--oneline", "-1"]).stdout.trim();
 const changed = git(mainPath, ["diff", "--name-status", "main...HEAD"]).stdout.trim();

@@ -20,6 +20,7 @@ import {
   listAllTaskEvents,
   writeCompatibilityReadModels
 } from "./lib/event-store-utils.mjs";
+import { recordConflictMetric } from "./lib/conflict-metrics-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -471,6 +472,30 @@ async function reconcileFromEvents(args) {
   const skippedBackfills = backfillEventRefs.filter((item) => item.skipped);
   const written = eventRefs.filter((item) => item.written);
   const skipped = eventRefs.filter((item) => item.skipped);
+  await recordConflictMetric("event_rebuild", {
+    source: args.source,
+    branch: args.integrationBranch,
+    count: 1,
+    reason: "event projection rebuilt before compatibility read-model materialization",
+    metadata: {
+      task_events: existingEvents.length,
+      changed_task_ids: changedTaskIds,
+      read_model_only: true
+    }
+  });
+  await recordConflictMetric("read_model_rebuild", {
+    source: args.source,
+    branch: args.integrationBranch,
+    count: 1,
+    reason: args.reason,
+    metadata: {
+      task_events: existingEvents.length,
+      changed_task_ids: changedTaskIds,
+      completion_backfills_written: writtenBackfills.length,
+      reconciliation_events_written: written.length,
+      read_model_only: true
+    }
+  });
   console.log(`Completion backfill events written: ${writtenBackfills.length}`);
   console.log(`Completion backfill events skipped by idempotency/dry-run: ${skippedBackfills.length}`);
   for (const item of writtenBackfills) {

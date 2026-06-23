@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "record_type": "agent_orchestrator_conflict_metrics",
+  "updated_at": "2026-06-23T00:33:45.707Z",
+  "read_model_policy": {
+    "source_of_truth": "ops/agent-orchestrator/events/tasks",
+    "read_model_only": true,
+    "read_model_only_files": [
+      "ops/agent-orchestrator/queue/task-queue.json",
+      "ops/agent-orchestrator/queue/task-locks.json",
+      "ops/agent-orchestrator/queue/task-results.json"
+    ],
+    "integration_policy": "restore_queue_json_from_integration_branch_then_rebuild_from_events"
+  },
+  "counters": {
+    "queue_conflicts": 0,
+    "integration_conflicts": 0,
+    "event_rebuilds": 1,
+    "read_model_rebuilds": 1,
+    "conflict_avoided": 0
+  },
+  "recent_queue_conflicts": [],
+  "recent_integration_conflicts": [],
+  "recent_event_rebuilds": [
+    {
+      "metric_id": "event_rebuild:2026-06-23T00:33:45.707Z:0",
+      "occurred_at": "2026-06-23T00:33:45.707Z",
+      "source": "rebuild-queue-read-model.mjs",
+      "branch": "",
+      "task_id": "",
+      "agent": "",
+      "files": [],
+      "count": 1,
+      "reason": "event projection rebuilt before compatibility read-model materialization",
+      "metadata": {
+        "task_events": 174,
+        "read_model_only": true
+      }
+    }
+  ],
+  "recent_read_model_rebuilds": [
+    {
+      "metric_id": "read_model_rebuild:2026-06-23T00:33:45.707Z:0",
+      "occurred_at": "2026-06-23T00:33:45.707Z",
+      "source": "rebuild-queue-read-model.mjs",
+      "branch": "",
+      "task_id": "",
+      "agent": "",
+      "files": [],
+      "count": 1,
+      "reason": "explicit queue/lock/result read-model rebuild from event store",
+      "metadata": {
+        "task_events": 174,
+        "changed_models": [
+          "queue",
+          "locks",
+          "results"
+        ],
+        "read_model_only": true
+      }
+    }
+  ],
+  "recent_conflict_avoidance": []
+}

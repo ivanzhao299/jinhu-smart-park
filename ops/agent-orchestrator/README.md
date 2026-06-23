@@ -169,6 +169,14 @@ Only regenerate compatibility JSON with explicit approval:
 node ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs --apply
 ```
 
+The queue compatibility files are now marked `read_model_only` when generated from events:
+
+- `ops/agent-orchestrator/queue/task-queue.json`
+- `ops/agent-orchestrator/queue/task-locks.json`
+- `ops/agent-orchestrator/queue/task-results.json`
+
+The source of truth is `ops/agent-orchestrator/events/tasks/**`. Queue JSON should be reviewed as a generated projection, not as Agent-authored state.
+
 Current V2 event-first write path status:
 
 - `dispatch-ready-agents.mjs` appends `task.claimed` events when it claims READY tasks, then rebuilds compatibility `task-queue.json` and `task-locks.json` read models from events.
@@ -176,7 +184,8 @@ Current V2 event-first write path status:
 - `audit-all-results.mjs --apply` appends `task.audited` events for PASS/FAIL outcomes, then rebuilds compatibility queue, lock, and result JSON read models from events. Dry-run remains no-write.
 - `integrate-agent-results.mjs --apply` appends `task.integrated` events for merged agent task results and records event refs in the integration report.
 - `reconcile-task-results.mjs` prefers event read-model rebuild whenever task events exist, and `--apply` records `task.reconciled` events when read-model repair actually changes queue, lock, or result projections. Use `--legacy-json` only when the older evidence-based JSON reconciliation path is intentionally required.
-- `doctor.mjs` reports event store health and obvious event/read-model drift.
+- `doctor.mjs` reports event store health, obvious event/read-model drift, read-model-only coverage, and Queue Conflict Risk.
+- `ops/agent-orchestrator/evolution/conflict-metrics.json` records queue conflicts, integration conflicts, event rebuilds, read-model rebuilds, and conflicts avoided.
 
 ## 4. Agent Claim Flow
 
@@ -470,7 +479,7 @@ Integration apply never merges back to main or pushes:
 node ops/agent-orchestrator/scripts/orchestratorctl.mjs integrate --apply
 ```
 
-It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from the current clean `main`, attempts agent merges in `agent-2 -> agent-3 -> agent-4 -> agent-5` order, preserves the integration branch version for queue JSON conflicts, calls `reconcile-task-results.mjs`, appends integration/reconcile events, and aborts on business-code conflicts.
+It creates an `integration/orchestrator-auto-YYYYMMDD-HHMMSS` branch from the current clean `main`, attempts agent merges in `agent-2 -> agent-3 -> agent-4 -> agent-5` order, restores queue JSON read models from the integration branch before merge commits whenever possible, calls `reconcile-task-results.mjs --from-events`, appends integration/reconcile events, records conflict metrics, and aborts on business-code conflicts.
 
 Current integration apply behavior:
 
@@ -479,15 +488,16 @@ Current integration apply behavior:
 3. Refuses HIGH-risk candidates; these require human review because they may alter business code, schema, infra, auth, CI, Docker, or deploy behavior.
 4. Creates `integration/orchestrator-auto-YYYYMMDD-HHMMSS` from current `main`.
 5. Merges agent branches in `agent-2 -> agent-3 -> agent-4 -> agent-5` order.
-6. Allows automatic conflict handling only for queue bookkeeping files:
+6. Treats queue bookkeeping files as generated read models:
    - `ops/agent-orchestrator/queue/task-queue.json`
    - `ops/agent-orchestrator/queue/task-locks.json`
    - `ops/agent-orchestrator/queue/task-results.json`
-7. For queue bookkeeping conflicts, keeps the current integration branch version first, then runs `reconcile-task-results.mjs --apply --source integration_reconcile` to rebuild queue state from merged result evidence and append `task.reconciled` events for changed projections.
-8. Stops on any non-bookkeeping conflict.
-9. After all agent merges, runs `check-dispatch-status.mjs`, `audit-all-results.mjs --dry-run`, and `pnpm typecheck`.
-10. Appends `task.integrated` events for task ids inferred from result/event/report files in merged agent commits.
-11. Writes `ops/agent-orchestrator/reports/integration-auto-YYYYMMDD-HHMMSS.md` with integration event refs.
+7. Before a successful merge commit, restores changed queue read-model files from the integration branch so they are not semantically merged from Agent branches.
+8. For queue bookkeeping conflicts, keeps the current integration branch version first, then runs `reconcile-task-results.mjs --from-events --apply --source integration_reconcile` to rebuild queue state from events and append `task.reconciled` events for changed projections.
+9. Stops on any non-bookkeeping conflict.
+10. After all agent merges, runs `check-dispatch-status.mjs`, `audit-all-results.mjs --dry-run`, and `pnpm typecheck`.
+11. Appends `task.integrated` events for task ids inferred from result/event/report files in merged agent commits.
+12. Writes `ops/agent-orchestrator/reports/integration-auto-YYYYMMDD-HHMMSS.md` with integration event refs, event source count, read-model rebuild count, and conflict avoided count.
 
 After review, an integration branch can be brought back to main with:
 
@@ -681,7 +691,7 @@ Doctor checks:
 - main and `agent-1` through `agent-5` branch/head/status, ahead/behind, runtime dirty, non-runtime dirty, and agent commits not contained in local `main`.
 - queue task counts, duplicate locks, stale locks, DONE tasks with locks, CLAIMED tasks without locks, DONE results still shown as CLAIMED, and DONE queue entries missing result evidence.
 - Codex CLI path/version, running `codex exec` processes, recent `.run.log` files, non-zero exit codes, and run logs whose task result was not recorded.
-- integration candidates, LOW/MEDIUM/HIGH risk distribution, queue bookkeeping conflict risk, and integration branches not merged into main.
+- integration candidates, LOW/MEDIUM/HIGH risk distribution, queue bookkeeping conflict risk, Queue Conflict Risk (`LOW` / `MEDIUM` / `HIGH`), recent queue conflicts, recent event rebuilds, read-model rebuilds, read-model-only coverage, and integration branches not merged into main.
 - `check-dispatch-status.mjs` and `audit-all-results.mjs --dry-run` status. `pnpm typecheck` is skipped by default and runs only with `--deep`.
 
 Fix modes are intentionally narrow:
@@ -797,10 +807,10 @@ Per-task result artifacts are also orchestrator-maintained:
 
 Historical records may still have queue bookkeeping files or per-task result artifacts in `changed_files` or `agent_changed_files`; audit scripts ignore them for task path-boundary checks. This does not relax forbidden or HIGH-risk business paths such as `apps/**`, `packages/**`, `database/**`, `infra/**`, `.github/**`, Docker, deploy, or auth files.
 
-`task-results.json` should be treated as a generated aggregate. When agent branches conflict on queue JSON files, the orchestrator should preserve the integration branch version and run:
+`task-queue.json`, `task-locks.json`, and `task-results.json` should be treated as generated read models. When agent branches conflict on queue JSON files, the orchestrator should preserve the integration branch version and run:
 
 ```bash
-node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --apply
+node ops/agent-orchestrator/scripts/reconcile-task-results.mjs --from-events --apply
 ```
 
 ## 6. Orchestrator Audit Flow
