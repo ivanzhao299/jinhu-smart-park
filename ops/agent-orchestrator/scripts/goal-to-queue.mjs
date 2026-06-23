@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { appendTaskEvent, listAllTaskEvents, writeCompatibilityReadModels } from "./lib/event-store-utils.mjs";
 import { nowIso, pathMatches, readJson, writeJson } from "./lib/queue-utils.mjs";
 import { buildImprovementCandidates, readEvolutionData, writeEvolutionData } from "./lib/evolution-utils.mjs";
+import { routeSkillForText } from "./skill-router.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = dirname(scriptDir);
@@ -561,6 +562,27 @@ function taskForQueue(task, timestamp) {
   };
 }
 
+function skillRouteTextForTask(task) {
+  return [
+    task.title,
+    task.domain,
+    ...(task.acceptance ?? []),
+    ...(task.expected_output_files ?? [])
+  ].filter(Boolean).join(" ");
+}
+
+async function enrichTaskWithSkillRoute(task) {
+  const route = await routeSkillForText(skillRouteTextForTask(task));
+  return {
+    ...task,
+    skill_type: route.selected_skill,
+    skill_id: route.skill_id,
+    runtime: route.selected_runtime,
+    expected_output_type: route.expected_outputs[0] ?? "report",
+    skill_route_reason: route.reason
+  };
+}
+
 function validateGeneratedTask(task) {
   const allowedPaths = Array.isArray(task.allowed_paths) ? task.allowed_paths : [];
   const forbiddenPaths = Array.isArray(task.forbidden_paths) ? task.forbidden_paths : [];
@@ -614,9 +636,9 @@ async function buildArtifacts(text) {
   ]);
   const goal = goalState({ goalId, text, timestamp });
   const templates = plannerTemplates(goalId, batchId);
-  const queueTasks = templates.map((candidate) => {
+  const queueTasks = await Promise.all(templates.map(async (candidate) => {
     const owner = chooseOwner(candidate, registry, routerRules);
-    return taskForQueue({
+    const task = taskForQueue({
       ...candidate,
       owner: owner.owner,
       domain: owner.domain,
@@ -624,7 +646,8 @@ async function buildArtifacts(text) {
       forbidden_paths: owner.forbidden_paths,
       owner_assignment_reason: owner.reason
     }, timestamp);
-  });
+    return enrichTaskWithSkillRoute(task);
+  }));
   goal.recommended_tasks = queueTasks.map((task) => ({
     task_id: task.task_id,
     title: task.title,
@@ -679,7 +702,7 @@ async function buildArtifactsFromImprovement(improvementId) {
   const goalId = improvementGoalId(improvement.improvement_id);
   const plannerId = plannerOutputId(goalId);
   const batchId = "EVOLUTION-IMPROVEMENT-BACKLOG";
-  const task = taskFromImprovement(improvement, batchId, goalId, timestamp);
+  const task = await enrichTaskWithSkillRoute(taskFromImprovement(improvement, batchId, goalId, timestamp));
   const goal = goalStateFromImprovement({ goalId, improvement, timestamp });
   goal.recommended_tasks = [{
     task_id: task.task_id,
@@ -859,6 +882,7 @@ function printSummary(artifacts, mode, applyResult = null) {
     console.log(`- ${task.task_id} -> ${task.owner} | ${task.priority}/${task.risk} | ${task.title}`);
     console.log(`  domain: ${task.domain}`);
     console.log(`  owner reason: ${task.owner_assignment_reason}`);
+    console.log(`  skill: ${task.skill_type} (${task.skill_id}) via ${task.runtime}; expected_output_type=${task.expected_output_type}`);
     console.log(`  expected files: ${task.expected_output_files.join(", ")}`);
     console.log(`  validation commands: ${task.validation_commands.join(" ; ")}`);
   }

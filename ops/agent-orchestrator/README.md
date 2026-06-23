@@ -17,12 +17,15 @@ The first version turns a natural-language request into a persistent intake file
 | `queue/task-results.json` | Compatibility aggregate generated from task result records. |
 | `results/<task_id>.json` | Preferred per-task result files written by `complete-task.mjs`. |
 | `events/` | V2 append-only event store directories for task, result, lock, and audit events. |
+| `skills/skill-registry.json` | Skill/runtime registry used to choose platform capability before agent assignment. |
+| `skills/skill-router-rules.json` | Natural-language skill routing rules for documents, spreadsheets, images, research, validation, code, and Evolution Center work. |
 | `scripts/orchestratorctl.mjs` | One-click controller for status, reconcile, integrate, validate, and full-cycle flows. |
 | `scripts/finalize.mjs` | Auto-finalize flow for guarded main push, agent sync, status check, doctor, and standard FINALIZE RESULT output. |
 | `scripts/lib/event-store-utils.mjs` | Event-store utilities for append-only task events and compatibility read models. |
 | `scripts/bootstrap-event-store.mjs` | Dry-run/apply bootstrap adapter from legacy queue JSON to task events. |
 | `scripts/rebuild-queue-read-model.mjs` | Dry-run/apply read-model rebuild from task events back to compatible queue JSON. |
 | `scripts/doctor.mjs` | Unified diagnostics for git/worktrees, queue/locks/results, Codex runner state, integration readiness, and validation status. |
+| `scripts/skill-router.mjs` | Dry-run skill router that selects `skill_type`, runtime, expected output, and optional agent/runtime lane from natural language. |
 | `scripts/daemon.mjs` | Local watcher/daemon layer that observes doctor state and can run explicitly approved LOW-risk fixes or guarded auto-cycle steps. |
 | `scripts/reconcile-worktrees.mjs` | Backs up runtime dirt and resets only agent branches already included in `origin/main` when `--apply` is used. |
 | `scripts/integrate-agent-results.mjs` | Plans or creates integration branches and merges agent candidates by risk. |
@@ -69,8 +72,12 @@ TECH maps the work to domains and agents, records allowed and forbidden paths, l
 Before assigning any task owner, the planner must load:
 
 ```bash
+ops/agent-orchestrator/skills/skill-registry.json
+ops/agent-orchestrator/skills/skill-router-rules.json
 ops/agent-orchestrator/agent-router-rules.json
 ```
+
+Skill routing comes first. It selects `skill_type`, `skill_id`, `runtime`, and `expected_output_type` from the request shape. Agent routing comes second. It selects the owner lane and domain. A generated task should carry both sets of metadata so the platform knows whether the work belongs to Codex code execution, document generation, spreadsheet analysis, image generation, PDF processing, web research, validation, data integration, or Resident Observer.
 
 The router rules choose the default `owner` and `domain` from explicit agent mentions, domain keywords, fallback rules, and fallback priority. The planner may override this only when the user explicitly names a different Agent or approves a broader split. The router chooses ownership; it does not automatically grant permission to modify business paths.
 
@@ -96,11 +103,15 @@ Each task must follow `task-queue.schema.json` and include at least:
 - `forbidden_paths`
 - `acceptance`
 - `validation_commands`
+- `skill_type`
+- `skill_id`
+- `runtime`
+- `expected_output_type`
 - `requires_human_approval`
 - `created_at`
 - `updated_at`
 
-Initial status for claimable work is `READY`. Supported owners are `agent-1` through `agent-5`. `owner` must be selected from `agent-router-rules.json`, and the selected router domain should be copied into the task `domain` unless a more specific user-approved domain is needed.
+Initial status for claimable work is `READY`. Supported owners are `agent-1` through `agent-5`. `skill_type`, `skill_id`, `runtime`, and `expected_output_type` must be selected from `skills/skill-registry.json` plus `skills/skill-router-rules.json`. `owner` must be selected from `agent-router-rules.json`, and the selected router domain should be copied into the task `domain` unless a more specific user-approved domain is needed.
 
 ## 3A. V2 Event Sourcing Queue Foundation
 
@@ -946,6 +957,35 @@ Routing examples:
 |---|---|---|
 | `优化仪表盘页面样式和移动端适配` | `agent-4` | Matches dashboard/page/style/mobile/responsive UI keywords. If this becomes `apps/web/**` implementation, the generated task must require human approval. |
 | `整理 Runtime Memory 使用手册` | `agent-1` | Matches Runtime Memory documentation/manual/index ownership. |
+
+## 9A. Skill Routing
+
+Skill Router chooses the capability and runtime before the Agent Router chooses the worker lane. This lets ANKSEN Agent Studio route a task to document, spreadsheet, slide, image, PDF, web research, validation, Evolution Center, data integration, or code execution workflows without pretending every request is a normal code task.
+
+Commands:
+
+- `node ops/agent-orchestrator/scripts/skill-router.mjs --text "生成一份推进方案 Word 文件" --dry-run`
+- `node ops/agent-orchestrator/scripts/orchestratorctl.mjs skill-route --text "生成一张园区鸟瞰效果图" --dry-run`
+
+Planner-generated queue tasks must include:
+
+- `skill_type`
+- `skill_id`
+- `runtime`
+- `expected_output_type`
+
+Skill route examples:
+
+| Natural-language request | Skill | Runtime | Agent/runtime lane |
+|---|---|---|---|
+| `生成一份推进方案 Word 文件` | `document_generation` | `documents` | `platform-document-runtime` |
+| `生成一张园区鸟瞰效果图` | `image_generation` | `imagegen` | `platform-image-runtime` |
+| `分析 Excel 表格并生成统计图` | `spreadsheet_analysis` | `spreadsheets` | `platform-spreadsheet-runtime` |
+| `修改 ERP 前端页面样式` | `code_development` / `frontend_ui` | `codex-cli` | `agent-4` |
+| `审查 PDF 合同风险` | `pdf_processing` / `legal_review` | `pdf` | `platform-pdf-runtime` |
+| `查询最新 Claude Code 多 Agent 能力` | `web_research` | `web-search` | `platform-research-runtime` |
+
+Skill routing is dry-run only in the MVP. It does not create queue tasks, events, files, agents, or production operations. `goal-to-queue` reuses the same router to annotate generated task candidates with skill metadata before writing event-first `task.created` records.
 
 ## 10. Resident Observer / Evolution Center
 

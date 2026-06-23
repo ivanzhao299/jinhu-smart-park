@@ -37,6 +37,7 @@ function usage() {
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs validate
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor [--json|--fix-dry-run|--fix-apply] [--deep]
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run|--apply
+  node ops/agent-orchestrator/scripts/orchestratorctl.mjs skill-route --text "..." --dry-run
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --text "..." --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs goal-to-queue --from-improvement <improvement_id> --dry-run|--apply
   node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run|--apply
@@ -830,6 +831,17 @@ async function dispatchCommand() {
         hasFlag(rest, "--apply") ? "--apply" : "--dry-run"
       ]);
       break;
+    case "skill-route": {
+      const text = optionValue(rest, "--text", "");
+      if (!text.trim()) {
+        throw new Error('skill-route requires --text "..."');
+      }
+      if (!hasFlag(rest, "--dry-run") || hasFlag(rest, "--apply")) {
+        throw new Error("skill-route MVP is dry-run only. Use --dry-run.");
+      }
+      runScript("ops/agent-orchestrator/scripts/skill-router.mjs", ["--text", text, "--dry-run"]);
+      break;
+    }
     case "goal-to-queue": {
       const text = optionValue(rest, "--text", "");
       const improvementId = optionValue(rest, "--from-improvement", "");

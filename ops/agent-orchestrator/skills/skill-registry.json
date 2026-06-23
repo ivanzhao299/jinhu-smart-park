@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "purpose": "Registry of platform skills/runtimes that ANKSEN Agent Studio can select before assigning an agent owner.",
+  "skills": [
+    {
+      "skill_id": "skill-code-development",
+      "skill_type": "code_development",
+      "display_name": "Code Development",
+      "purpose": "Code development, fixes, refactors, scripts, orchestrator automation, and UI implementation tasks.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-router",
+      "expected_output_types": [
+        "code",
+        "patch",
+        "script",
+        "technical report"
+      ],
+      "required_inputs": [
+        "repository path",
+        "task scope",
+        "allowed_paths",
+        "forbidden_paths",
+        "validation commands"
+      ],
+      "validation_commands": [
+        "git diff --check",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-document-generation",
+      "skill_type": "document_generation",
+      "display_name": "Document Generation",
+      "purpose": "Word documents, contracts, proposals, meeting notes, official documents, Markdown reports, and PDF-ready deliverables.",
+      "default_runtime": "documents",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-document-runtime",
+      "expected_output_types": [
+        "docx",
+        "md",
+        "pdf"
+      ],
+      "required_inputs": [
+        "document brief",
+        "target audience",
+        "output format",
+        "source references"
+      ],
+      "validation_commands": [
+        "manual document review",
+        "render/preview output when applicable"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-spreadsheet-analysis",
+      "skill_type": "spreadsheet_analysis",
+      "display_name": "Spreadsheet Analysis",
+      "purpose": "Excel, CSV, tables, statistics, formulas, charts, and tabular reports.",
+      "default_runtime": "spreadsheets",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-spreadsheet-runtime",
+      "expected_output_types": [
+        "xlsx",
+        "chart",
+        "report"
+      ],
+      "required_inputs": [
+        "spreadsheet file or data range",
+        "analysis question",
+        "desired chart/report format"
+      ],
+      "validation_commands": [
+        "spreadsheet recalculation check",
+        "chart/data range review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-slide-generation",
+      "skill_type": "slide_generation",
+      "display_name": "Slide Generation",
+      "purpose": "PPT decks, roadshows, presentation materials, and executive briefings.",
+      "default_runtime": "presentations",
+      "fallback_runtime": "canva",
+      "default_agent": "platform-slide-runtime",
+      "expected_output_types": [
+        "pptx",
+        "slides"
+      ],
+      "required_inputs": [
+        "presentation brief",
+        "audience",
+        "slide count",
+        "brand/style requirements"
+      ],
+      "validation_commands": [
+        "render slide preview",
+        "layout review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-image-generation",
+      "skill_type": "image_generation",
+      "display_name": "Image Generation",
+      "purpose": "Renderings, logos, promotional images, image editing, visual variants, and bitmap assets.",
+      "default_runtime": "imagegen",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "platform-image-runtime",
+      "expected_output_types": [
+        "image",
+        "png",
+        "jpg"
+      ],
+      "required_inputs": [
+        "visual brief",
+        "style",
+        "aspect ratio",
+        "reference assets if any"
+      ],
+      "validation_commands": [
+        "visual QA",
+        "asset path review"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-pdf-processing",
+      "skill_type": "pdf_processing",
+      "display_name": "PDF Processing",
+      "purpose": "PDF reading, extraction, contract review, conversion, redline planning, and PDF edits.",
+      "default_runtime": "pdf",
+      "fallback_runtime": "documents",
+      "default_agent": "platform-pdf-runtime",
+      "expected_output_types": [
+        "summary",
+        "edited pdf",
+        "extracted content",
+        "risk report"
+      ],
+      "required_inputs": [
+        "PDF file",
+        "review objective",
+        "output format"
+      ],
+      "validation_commands": [
+        "PDF render/parse check",
+        "manual legal/risk review when applicable"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-web-research",
+      "skill_type": "web_research",
+      "display_name": "Web Research",
+      "purpose": "Latest information, product research, policy lookup, pricing, documentation, and source-backed summaries.",
+      "default_runtime": "web-search",
+      "fallback_runtime": "browser",
+      "default_agent": "platform-research-runtime",
+      "expected_output_types": [
+        "research summary with citations",
+        "source list"
+      ],
+      "required_inputs": [
+        "research question",
+        "recency requirement",
+        "trusted source constraints"
+      ],
+      "validation_commands": [
+        "source citation review",
+        "recency check"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-data-integration",
+      "skill_type": "data_integration",
+      "display_name": "Data Integration",
+      "purpose": "ERP API, Yonyou, Feishu, Ezviz, third-party integration, interface mapping, and adapter planning.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-3",
+      "expected_output_types": [
+        "integration plan",
+        "api mapping",
+        "adapter code",
+        "test plan"
+      ],
+      "required_inputs": [
+        "integration system",
+        "API contract",
+        "auth/safety constraints",
+        "allowed_paths"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "pnpm typecheck"
+      ],
+      "risk_level": "HIGH"
+    },
+    {
+      "skill_id": "skill-validation-testing",
+      "skill_type": "validation_testing",
+      "display_name": "Validation and Testing",
+      "purpose": "Testing, audit, validation matrix, Doctor, typecheck, release gates, and compatibility runbooks.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-2",
+      "expected_output_types": [
+        "test plan",
+        "validation report",
+        "runbook"
+      ],
+      "required_inputs": [
+        "changed files",
+        "risk area",
+        "expected checks"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+        "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run",
+        "pnpm typecheck"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-evolution-observer",
+      "skill_type": "evolution_observer",
+      "display_name": "Evolution Observer",
+      "purpose": "Platform problem observation, failure patterns, learning log, improvement backlog, and Resident Observer analysis.",
+      "default_runtime": "resident-observer",
+      "fallback_runtime": "codex-cli",
+      "default_agent": "evolution-center",
+      "expected_output_types": [
+        "finding",
+        "failure pattern",
+        "improvement candidate",
+        "learning entry"
+      ],
+      "required_inputs": [
+        "doctor output",
+        "run logs",
+        "queue/results/events",
+        "self-repair history"
+      ],
+      "validation_commands": [
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs observe --dry-run",
+        "node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run"
+      ],
+      "risk_level": "LOW"
+    }
+  ]
+}

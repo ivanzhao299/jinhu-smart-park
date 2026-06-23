@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-06-22T13:30:00.000Z",
+  "updated_at": "2026-06-23T00:00:00.000Z",
   "agents": [
     {
       "agent_id": "agent-1",
@@ -55,7 +55,13 @@
       "risk_limit": "MEDIUM",
       "status": "ACTIVE",
       "priority": 40,
-      "fallback_order": 4
+      "fallback_order": 4,
+      "supported_skills": [
+        "document_generation",
+        "code_development"
+      ],
+      "preferred_runtime": "codex-cli",
+      "fallback_runtime": "documents"
     },
     {
       "agent_id": "agent-2",
@@ -110,7 +116,14 @@
       "risk_limit": "MEDIUM",
       "status": "ACTIVE",
       "priority": 30,
-      "fallback_order": 3
+      "fallback_order": 3,
+      "supported_skills": [
+        "validation_testing",
+        "spreadsheet_analysis",
+        "code_development"
+      ],
+      "preferred_runtime": "codex-cli",
+      "fallback_runtime": "spreadsheets"
     },
     {
       "agent_id": "agent-3",
@@ -163,7 +176,14 @@
       "risk_limit": "MEDIUM",
       "status": "ACTIVE",
       "priority": 20,
-      "fallback_order": 5
+      "fallback_order": 5,
+      "supported_skills": [
+        "data_integration",
+        "code_development",
+        "validation_testing"
+      ],
+      "preferred_runtime": "codex-cli",
+      "fallback_runtime": "claude-code"
     },
     {
       "agent_id": "agent-4",
@@ -217,7 +237,14 @@
       "risk_limit": "MEDIUM",
       "status": "ACTIVE",
       "priority": 10,
-      "fallback_order": 2
+      "fallback_order": 2,
+      "supported_skills": [
+        "code_development",
+        "slide_generation",
+        "image_generation"
+      ],
+      "preferred_runtime": "codex-cli",
+      "fallback_runtime": "claude-code"
     },
     {
       "agent_id": "agent-5",
@@ -274,7 +301,15 @@
       "risk_limit": "MEDIUM",
       "status": "ACTIVE",
       "priority": 50,
-      "fallback_order": 1
+      "fallback_order": 1,
+      "supported_skills": [
+        "code_development",
+        "evolution_observer",
+        "web_research",
+        "validation_testing"
+      ],
+      "preferred_runtime": "codex-cli",
+      "fallback_runtime": "resident-observer"
     }
   ]
 }

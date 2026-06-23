@@ -67,7 +67,10 @@
         "risk_limit",
         "status",
         "priority",
-        "fallback_order"
+        "fallback_order",
+        "supported_skills",
+        "preferred_runtime",
+        "fallback_runtime"
       ],
       "properties": {
         "agent_id": {
@@ -111,6 +114,17 @@
         "fallback_order": {
           "type": "integer",
           "minimum": 1
+        },
+        "supported_skills": {
+          "$ref": "#/$defs/stringList"
+        },
+        "preferred_runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback_runtime": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }
