@@ -20,6 +20,7 @@ import { PermissionGuard } from "../auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
+import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
@@ -28,7 +29,6 @@ import type {
   CheckInForm,
   DictItemRow,
   DictMap,
-  DictTypeRow,
   InspectPlanRow,
   InspectTaskRow,
   ParkTenantRow,
@@ -764,15 +764,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 }
 
 async function loadDictMap(): Promise<DictMap> {
-  const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() });
-  const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
-  const entries = await Promise.all(TERMINAL_DICT_CODES.map(async (code) => {
-    const dictTypeId = typeMap.get(code);
-    if (!dictTypeId) return [code, []] as const;
-    const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, { token: getAccessToken() });
-    return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-  }));
-  return Object.fromEntries(entries);
+  return loadDictMapByCodes<DictItemRow>(TERMINAL_DICT_CODES);
 }
 
 function workOrderDefaultsForScene(scene: OperationSceneConfig | undefined, dicts: DictMap): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {

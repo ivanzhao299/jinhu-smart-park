@@ -74,14 +74,20 @@ export class DictsService {
   async listItems(
     scope: TenantParkScope,
     query: PaginationQueryDto,
-    dictTypeId?: string
+    dictTypeId?: string,
+    dictCode?: string
   ): Promise<PaginatedResult<DictItemEntity>> {
+    const resolvedDictTypeId = dictTypeId ?? await this.resolveTypeIdByCode(scope, dictCode);
+    if (dictCode && !resolvedDictTypeId) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+
     const [items, total] = await this.dictItemRepository.findAndCount({
       where: {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         isDeleted: false,
-        ...(dictTypeId ? { dictTypeId } : {}),
+        ...(resolvedDictTypeId ? { dictTypeId: resolvedDictTypeId } : {}),
         ...(query.status ? { status: query.status } : {}),
         ...(query.keyword ? { itemLabel: ILike(`%${query.keyword}%`) } : {})
       },
@@ -91,6 +97,20 @@ export class DictsService {
       take: query.page_size
     });
     return { items, total, page: query.page, page_size: query.page_size };
+  }
+
+  private async resolveTypeIdByCode(scope: TenantParkScope, dictCode?: string): Promise<string | undefined> {
+    if (!dictCode) return undefined;
+    const entity = await this.dictTypeRepository.findOne({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        dictCode,
+        isDeleted: false
+      },
+      select: { id: true }
+    });
+    return entity?.id;
   }
 
   async createItem(scope: TenantParkScope, actorId: string, dto: CreateDictItemDto): Promise<DictItemEntity> {

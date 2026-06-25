@@ -61,7 +61,7 @@ export class DictsController {
     @CurrentScope() scope: TenantParkScope,
     @Query() query: ListDictItemsDto
   ) {
-    return this.dictsService.listItems(scope, query, query.dict_type_id);
+    return this.dictsService.listItems(scope, query, query.dict_type_id, query.dict_code);
   }
 
   @Post("dict-items")

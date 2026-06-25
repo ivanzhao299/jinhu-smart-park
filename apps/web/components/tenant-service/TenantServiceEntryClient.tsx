@@ -15,10 +15,11 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { QuickWorkOrderDrawer } from "../operations/QuickWorkOrderDrawer";
-import type { DictItemRow, DictMap, DictTypeRow, ParkTenantRow, UnitRow, UserRow, WorkOrderForm, WorkOrderRow } from "../operations/terminal-types";
+import type { DictItemRow, DictMap, ParkTenantRow, UnitRow, UserRow, WorkOrderForm, WorkOrderRow } from "../operations/terminal-types";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
+import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
 import styles from "./TenantServiceEntry.module.css";
 
@@ -402,15 +403,7 @@ function TenantServiceKpi({ label, value, helper }: { label: string; value: numb
 }
 
 async function loadDictMap(): Promise<DictMap> {
-  const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() });
-  const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
-  const entries = await Promise.all(SERVICE_DICT_CODES.map(async (code) => {
-    const dictTypeId = typeMap.get(code);
-    if (!dictTypeId) return [code, []] as const;
-    const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, { token: getAccessToken() });
-    return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-  }));
-  return Object.fromEntries(entries);
+  return loadDictMapByCodes<DictItemRow>(SERVICE_DICT_CODES);
 }
 
 function defaultDictValue(items?: DictItemRow[]): string {

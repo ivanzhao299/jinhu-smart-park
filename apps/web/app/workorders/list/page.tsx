@@ -7,6 +7,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
@@ -24,11 +25,6 @@ const WORKORDER_LOG_FILE_BIZ_TYPE = "workorder_log";
 const FIELD_REPORTER_MOBILE = "reporterMobile";
 const FIELD_DESCRIPTION = "description";
 const FIELD_EVALUATION = "evaluation";
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -365,20 +361,8 @@ export default function WorkOrdersListPage() {
   }, [authUser]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["workorder_status", "workorder_type", "workorder_priority", "workorder_urgency", "workorder_source_type"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadReferenceData = useCallback(async () => {
