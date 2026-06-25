@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, type EntityManager, type Repository, type SelectQueryBuilder } from "typeorm";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
@@ -13,6 +13,7 @@ import { FloorEntity } from "../floors/entities/floor.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import { WorkflowService } from "../workflow/workflow.service";
 import type { AssignWorkOrderDto } from "./dto/assign-work-order.dto";
 import type { CloseWorkOrderDto } from "./dto/close-work-order.dto";
 import type { ConfirmWorkOrderDto } from "./dto/confirm-work-order.dto";
@@ -204,6 +205,8 @@ export interface UnitWorkOrdersNode {
 
 @Injectable()
 export class WorkOrdersService {
+  private readonly logger = new Logger(WorkOrdersService.name);
+
   constructor(
     @InjectRepository(WorkOrderEntity)
     private readonly workOrdersRepository: Repository<WorkOrderEntity>,
@@ -228,7 +231,8 @@ export class WorkOrdersService {
     private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService,
-    private readonly workOrderQueryService: WorkOrderQueryService
+    private readonly workOrderQueryService: WorkOrderQueryService,
+    private readonly workflowService: WorkflowService
   ) {}
 
   async list(scope: TenantParkScope, query: WorkOrderQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<WorkOrderEntity>> {
@@ -1355,7 +1359,7 @@ export class WorkOrdersService {
     options: { reason?: string | null; attachmentFileIds?: string[]; remark?: string | null } = {}
   ): Promise<WorkOrderLogEntity> {
     const logCode = await this.codeRulesService.generateNext(scope, actor.sub, "WORKORDER_LOG_CODE");
-    return logsRepository.save(
+    const saved = await logsRepository.save(
       logsRepository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
@@ -1382,6 +1386,13 @@ export class WorkOrdersService {
         remark: options.remark ?? null
       })
     );
+    await this.workflowService
+      .publishWorkOrderLog(scope, actor, workOrder, saved, logsRepository.manager)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to publish workflow message for work order ${workOrder.id}: ${message}`);
+      });
+    return saved;
   }
 
   private extractLogReason(action: string, content: string, payload: Record<string, unknown>): string | null {

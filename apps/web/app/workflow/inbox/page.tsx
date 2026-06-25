@@ -39,12 +39,16 @@ interface WorkflowTodo {
 
 interface WorkflowMessage {
   id: string;
+  messageId?: string;
   sourceType: WorkflowSourceType;
   sourceId: string;
   title: string;
   content: string;
   actorName: string;
   action: string;
+  category?: string;
+  priority?: string;
+  readAt?: string | null;
   href: string;
   occurredAt: string;
 }
@@ -58,6 +62,7 @@ interface WorkflowInboxResponse {
     inspectionCount: number;
     overdueCount: number;
     messageCount: number;
+    unreadMessageCount: number;
   };
   todos: WorkflowTodo[];
   messages: WorkflowMessage[];
@@ -88,6 +93,22 @@ export default function WorkflowInboxPage() {
     }
   }, []);
 
+  const markRead = useCallback(async (messageId: string) => {
+    await apiRequest(`/workflow/messages/${messageId}/read`, {
+      method: "POST",
+      token: getAccessToken()
+    });
+    await load();
+  }, [load]);
+
+  const markAllRead = useCallback(async () => {
+    await apiRequest("/workflow/messages/read-all", {
+      method: "POST",
+      token: getAccessToken()
+    });
+    await load();
+  }, [load]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -99,7 +120,8 @@ export default function WorkflowInboxPage() {
       { label: "我的处理", value: summary?.assignedCount ?? 0, tone: "primary" },
       { label: "待客户确认", value: summary?.customerConfirmCount ?? 0, tone: "success" },
       { label: "巡检待办", value: summary?.inspectionCount ?? 0, tone: "info" },
-      { label: "超时提醒", value: summary?.overdueCount ?? 0, tone: "danger" }
+      { label: "超时提醒", value: summary?.overdueCount ?? 0, tone: "danger" },
+      { label: "未读消息", value: summary?.unreadMessageCount ?? 0, tone: "primary" }
     ] as const;
   }, [data]);
 
@@ -161,18 +183,31 @@ export default function WorkflowInboxPage() {
             <ContentCard
               title="最近信息流"
               description="展示与当前可见待办相关的工单处理记录。"
-              actions={<StatusPill value={`${data?.messages.length ?? 0} 条`} />}
+              actions={(
+                <button className="secondary-button" type="button" disabled={(data?.summary.unreadMessageCount ?? 0) === 0} onClick={() => void markAllRead().catch((error: Error) => setMessage(error.message))}>
+                  全部已读
+                </button>
+              )}
             >
               <div className={styles.messageList}>
                 {data?.messages.map((item) => (
-                  <Link className={styles.messageItem} href={item.href as NextRoute} key={item.id}>
+                  <div className={styles.messageItem} data-unread={item.messageId && !item.readAt ? "true" : "false"} key={item.id}>
                     <span className={styles.messageDot} />
                     <span>
-                      <strong>{item.title}</strong>
+                      <Link href={item.href as NextRoute}>
+                        <strong>{item.title}</strong>
+                      </Link>
                       <small>{item.actorName} · {item.action} · {formatDateTime(item.occurredAt)}</small>
                       <p>{item.content}</p>
                     </span>
-                  </Link>
+                    <span className={styles.messageActions}>
+                      {item.messageId && !item.readAt ? (
+                        <button className="secondary-button" type="button" onClick={() => void markRead(item.messageId!).catch((error: Error) => setMessage(error.message))}>
+                          标记已读
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
                 ))}
                 {data?.messages.length === 0 ? <EmptyState compact title="暂无信息流" description="待办产生状态动作后，这里会显示最新处理记录。" /> : null}
               </div>

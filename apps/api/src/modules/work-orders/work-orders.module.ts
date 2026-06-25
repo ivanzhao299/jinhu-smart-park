@@ -10,6 +10,7 @@ import { FloorEntity } from "../floors/entities/floor.entity";
 import { ParkTenantEntity } from "../park-tenants/entities/park-tenant.entity";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import { WorkflowModule } from "../workflow/workflow.module";
 import { WorkOrderLogEntity } from "./entities/work-order-log.entity";
 import { WorkOrderSlaRuleEntity } from "./entities/work-order-sla-rule.entity";
 import { WorkOrderEntity } from "./entities/work-order.entity";
@@ -33,7 +34,8 @@ import { WorkOrdersService } from "./work-orders.service";
     ]),
     CodeRulesModule,
     DataScopesModule,
-    FieldPoliciesModule
+    FieldPoliciesModule,
+    WorkflowModule
   ],
   controllers: [WorkOrdersController],
   providers: [WorkOrdersService, WorkOrderQueryService],

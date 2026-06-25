@@ -24,12 +24,16 @@ export interface WorkflowTodo {
 
 export interface WorkflowMessage {
   id: string;
+  messageId?: string;
   sourceType: WorkflowSourceType;
   sourceId: string;
   title: string;
   content: string;
   actorName: string;
   action: string;
+  category?: string;
+  priority?: string;
+  readAt?: string | null;
   href: string;
   occurredAt: string;
 }
@@ -41,6 +45,7 @@ export interface WorkflowInboxSummary {
   inspectionCount: number;
   overdueCount: number;
   messageCount: number;
+  unreadMessageCount: number;
 }
 
 export interface WorkflowInboxResponse {
