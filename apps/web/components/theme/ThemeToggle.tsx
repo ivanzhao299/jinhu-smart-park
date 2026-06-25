@@ -16,6 +16,7 @@ export function ThemeToggle() {
 
   return (
     <Button 
+      aria-label={`切换主题，当前主题: ${theme}`}
       variant="secondary" 
       onClick={toggleTheme} 
       title={`当前主题: ${theme}`}

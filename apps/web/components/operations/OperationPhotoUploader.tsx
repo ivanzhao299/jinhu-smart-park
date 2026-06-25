@@ -69,7 +69,7 @@ export function OperationPhotoUploader({
       <label className="secondary-button">
         <Camera size={16} />
         {uploading ? "上传中" : "上传照片"}
-        <input className={styles.fileInput} accept={policy.mimeTypes.join(",")} type="file" onChange={handleChange} />
+        <input className={styles.fileInput} aria-label="上传现场照片" accept={policy.mimeTypes.join(",")} type="file" onChange={handleChange} />
       </label>
       {message ? <span className="status-pill">{message}</span> : null}
     </div>

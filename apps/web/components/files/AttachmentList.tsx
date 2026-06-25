@@ -208,14 +208,14 @@ function CompactAttachmentThumb({
 
   if (thumbnailUrl) {
     return (
-      <button className="attachment-thumb attachment-thumb-image" type="button" onClick={onPreview}>
+      <button className="attachment-thumb attachment-thumb-image" aria-label={`预览 ${file.originalName}`} type="button" onClick={onPreview}>
         <img alt={file.originalName} src={thumbnailUrl} />
       </button>
     );
   }
 
   return (
-    <button className="attachment-thumb" type="button" onClick={onPreview}>
+    <button className="attachment-thumb" aria-label={`预览 ${file.originalName}`} type="button" onClick={onPreview}>
       {suffix}
     </button>
   );
