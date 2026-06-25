@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, Repository } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
@@ -14,13 +14,15 @@ import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { EzvizApiException, EzvizCleaningRobotAdapter, type EzvizApiResult } from "./adapters/ezviz-cleaning-robot.adapter";
 import type { EzvizConfigDto } from "./dto/ezviz-config.dto";
 import type { EzvizDeviceAddDto, EzvizDeviceSyncDto } from "./dto/ezviz-device-sync.dto";
-import type { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
+import type { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotCommandDryRunDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
+import type { RobotLocalRegisterDto } from "./dto/robot-local-register.dto";
 import type { RobotQueryDto } from "./dto/robot-query.dto";
 import { RobotCommandLogEntity } from "./entities/robot-command-log.entity";
 
 const ROBOT_DEVICE_TYPE = "robot";
 const ROBOT_CATEGORY = "cleaning_robot";
 const EZVIZ_PROTOCOL = "ezviz_cleaning_robot";
+const LOCAL_DRY_RUN_PROTOCOL = "local_robot_dry_run";
 
 interface EzvizConfig {
   id: string;
@@ -217,6 +219,74 @@ export class RobotsService {
     return this.syncEzvizDevice(scope, actor, dto);
   }
 
+  async registerLocalRobot(scope: TenantParkScope, actor: JwtPrincipal, dto: RobotLocalRegisterDto): Promise<RobotView> {
+    this.assertText(dto.device_name, "device_name is required");
+    const existing = dto.device_code
+      ? await this.deviceRepository.findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, deviceCode: dto.device_code, isDeleted: false }
+      })
+      : null;
+    if (existing) throw new ConflictException("device_code already exists");
+    const generated = dto.device_code ? null : await this.codeRulesService.generateNext(scope, actor.sub, "IOT_DEVICE_CODE");
+    const deviceCode = dto.device_code ?? generated?.code;
+    if (!deviceCode) throw new BadRequestException("device_code is required");
+    const serial = dto.vendor_device_id ?? `local-${deviceCode}`;
+    const entity = this.deviceRepository.create({
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      code: deviceCode,
+      deviceCode,
+      deviceName: dto.device_name,
+      deviceType: ROBOT_DEVICE_TYPE,
+      deviceCategory: ROBOT_CATEGORY,
+      protocolType: LOCAL_DRY_RUN_PROTOCOL,
+      connectionType: "local_dry_run",
+      brand: "Local",
+      model: dto.model ?? "local-dry-run",
+      manufacturer: "Local",
+      vendorPlatform: LOCAL_DRY_RUN_PROTOCOL,
+      vendorName: "Local Dry-Run",
+      vendorDeviceId: serial,
+      platformType: LOCAL_DRY_RUN_PROTOCOL,
+      platformDeviceId: serial,
+      serialNumber: serial,
+      buildingId: dto.building_id ?? null,
+      floorId: dto.floor_id ?? null,
+      unitId: dto.unit_id ?? null,
+      roomId: dto.unit_id ?? null,
+      location: dto.location ?? null,
+      installLocation: dto.location ?? null,
+      onlineStatus: dto.online_status ?? "online",
+      status: dto.status ?? "enabled",
+      isEnabled: (dto.status ?? "enabled") !== "disabled",
+      metadata: {
+        source: LOCAL_DRY_RUN_PROTOCOL,
+        external_call_enabled: false,
+        credential_required: false,
+        governance: {
+          real_control_requires_approval: true,
+          dry_run_allowed: true
+        }
+      },
+      statusPayload: {
+        ...(dto.status_payload ?? {}),
+        local_dry_run: true,
+        external_call: false,
+        update_time: new Date().toISOString()
+      },
+      remark: dto.remark ?? null,
+      createBy: actor.sub,
+      updateBy: actor.sub
+    });
+    const saved = await this.deviceRepository.save(entity);
+    await this.writeCommandLog(scope, actor, saved, "register_local_robot", { dry_run_runtime: true }, {
+      device_id: saved.id,
+      external_call: false,
+      credential_required: false
+    }, "success", null);
+    return this.toRobotView(saved);
+  }
+
   async syncEzvizDevice(scope: TenantParkScope, actor: JwtPrincipal, dto: EzvizDeviceSyncDto): Promise<RobotView> {
     this.assertText(dto.device_serial, "device_serial is required");
     const config = await this.getEzvizConfig(scope);
@@ -320,6 +390,40 @@ export class RobotsService {
     return this.runEzvizCommand(scope, actor, id, "query_task", {}, async (config, serial) =>
       this.callEzvizWithToken(scope, config, (accessToken) => this.ezvizAdapter.queryCurrentTask(config.baseUrl, accessToken, serial))
     );
+  }
+
+  async commandDryRun(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotCommandDryRunDto) {
+    this.assertText(dto.command, "command is required");
+    const device = await this.findRobot(scope, id, actor);
+    const governance = this.robotCommandGovernance(dto.command);
+    const response = {
+      dry_run: true,
+      executed: false,
+      external_call: false,
+      credential_read: false,
+      command: dto.command,
+      risk: governance.risk,
+      approval_required: governance.approvalRequired,
+      governance_decision: governance.decision,
+      message: governance.message,
+      device_id: device.id,
+      device_code: device.deviceCode
+    };
+    await this.writeCommandLog(scope, actor, device, `dry_run_${dto.command}`, {
+      dry_run: true,
+      command: dto.command,
+      payload: dto.payload ?? {}
+    }, response, "success", null);
+    device.statusPayload = {
+      ...(device.statusPayload ?? {}),
+      robot_last_dry_run: {
+        ...response,
+        time: new Date().toISOString()
+      }
+    };
+    device.lastDataTime = new Date();
+    await this.deviceRepository.save(device);
+    return response;
   }
 
   async cleanControl(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: RobotCleanControlDto) {
@@ -557,6 +661,40 @@ export class RobotsService {
     if (!enabled.some((module) => module.module_code === moduleCode)) {
       throw new ForbiddenException("Tenant module is not authorized");
     }
+  }
+
+  private robotCommandGovernance(command: string): { risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; approvalRequired: boolean; decision: string; message: string } {
+    const normalized = command.trim().toLowerCase();
+    if (["query_task", "query_path", "status_check", "read_status"].includes(normalized)) {
+      return {
+        risk: "LOW",
+        approvalRequired: false,
+        decision: "ALLOW_DRY_RUN_READ_ONLY",
+        message: "只读类机器人指令允许 dry-run；真实外部平台查询仍需平台配置与网络治理。"
+      };
+    }
+    if (["clean_control", "set_clean_mode", "pause", "resume", "stop", "return_charge"].includes(normalized)) {
+      return {
+        risk: "HIGH",
+        approvalRequired: true,
+        decision: "DRY_RUN_ONLY_PROPOSAL_REQUIRED_FOR_REAL_CONTROL",
+        message: "会影响真实机器人行为的控制指令仅允许 dry-run；真实执行需要审批。"
+      };
+    }
+    if (["start_region_clean", "start_temp_region_clean", "schedule_clean"].includes(normalized)) {
+      return {
+        risk: "HIGH",
+        approvalRequired: true,
+        decision: "DRY_RUN_ONLY_PROPOSAL_REQUIRED_FOR_REAL_CLEANING",
+        message: "区域清洁会触发现场执行，仅允许 dry-run；真实执行需要审批。"
+      };
+    }
+    return {
+      risk: "MEDIUM",
+      approvalRequired: false,
+      decision: "ALLOW_DRY_RUN_UNKNOWN_COMMAND",
+      message: "未知机器人指令仅记录 dry-run 计划，不进行外部调用。"
+    };
   }
 
   private async writeCommandLog(

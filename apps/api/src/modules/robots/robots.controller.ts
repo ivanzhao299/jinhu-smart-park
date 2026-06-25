@@ -9,7 +9,15 @@ import { Public } from "../../shared/decorators/public.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { EzvizConfigDto } from "./dto/ezviz-config.dto";
 import { EzvizDeviceAddDto, EzvizDeviceSyncDto } from "./dto/ezviz-device-sync.dto";
-import { RobotCallbackDto, RobotCleanControlDto, RobotCleanModeDto, RobotRegionCleanDto, RobotTempRegionCleanDto } from "./dto/robot-control.dto";
+import {
+  RobotCallbackDto,
+  RobotCleanControlDto,
+  RobotCleanModeDto,
+  RobotCommandDryRunDto,
+  RobotRegionCleanDto,
+  RobotTempRegionCleanDto
+} from "./dto/robot-control.dto";
+import { RobotLocalRegisterDto } from "./dto/robot-local-register.dto";
 import { RobotQueryDto } from "./dto/robot-query.dto";
 import { RobotsService } from "./robots.service";
 
@@ -64,6 +72,13 @@ export class RobotsController {
     return this.robotsService.addEzvizPlatformDevice(scope, user, dto);
   }
 
+  @Post("cleaning/register-local")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_PLATFORM_CONFIG_UPDATE)
+  @AuditLog({ module: "机器人运营", action: "登记本地清洁机器人", resource: "biz.robot", bizType: "biz_iot_device", captureBody: false })
+  registerLocalRobot(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: RobotLocalRegisterDto) {
+    return this.robotsService.registerLocalRobot(scope, user, dto);
+  }
+
   @Get("cleaning/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -81,6 +96,18 @@ export class RobotsController {
   @AuditLog({ module: "机器人运营", action: "查询清洁机器人任务", resource: "biz.robot", bizType: "biz_iot_device", bizIdParam: "id" })
   queryTask(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.robotsService.queryTask(scope, user, id);
+  }
+
+  @Post("cleaning/:id/command-dry-run")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROBOT_CONTROL)
+  @AuditLog({ module: "机器人运营", action: "清洁机器人指令演练", resource: "biz.robot", bizType: "biz_iot_device", bizIdParam: "id", captureBody: false })
+  commandDryRun(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: RobotCommandDryRunDto
+  ) {
+    return this.robotsService.commandDryRun(scope, user, id, dto);
   }
 
   @Post("cleaning/:id/sync-info")

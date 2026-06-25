@@ -7,6 +7,16 @@ export class RobotCleanControlDto {
   command!: string;
 }
 
+export class RobotCommandDryRunDto {
+  @IsString()
+  @MaxLength(80)
+  command!: string;
+
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, unknown>;
+}
+
 export class RobotCleanModeDto {
   @IsString()
   @MaxLength(80)
