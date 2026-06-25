@@ -1,0 +1,71 @@
+name: Production Admin RBAC Gate
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: production-admin-rbac-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Admin RBAC Gate-4
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run Gate-4 on production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          rsync -az \
+            -e "ssh $SSH_OPTS" \
+            scripts/production-admin-rbac-gate4.sh \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/production-admin-rbac-gate4.sh"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "cd '$PROD_DEPLOY_PATH' && chmod +x scripts/production-admin-rbac-gate4.sh && scripts/production-admin-rbac-gate4.sh"
+
+      - name: Collect Gate-4 reports
+        if: always()
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          mkdir -p production-gate-reports
+          rsync -az \
+            -e "ssh $SSH_OPTS" \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/tmp/production-gates/" \
+            production-gate-reports/ || true
+          find production-gate-reports -maxdepth 1 -type f -print | sort
+
+      - name: Upload Gate-4 reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: production-admin-rbac-gate-reports
+          path: production-gate-reports
+          if-no-files-found: warn
