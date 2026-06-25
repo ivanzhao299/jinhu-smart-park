@@ -1,5 +1,5 @@
 WITH seed_scope AS (
-  SELECT '10000001'::uuid AS tenant_id, '20000001'::uuid AS park_id
+  SELECT '10000001' AS tenant_id, '20000001' AS park_id
 ),
 dict_types(dict_code, dict_name, remark) AS (
   VALUES
@@ -118,7 +118,7 @@ WHERE NOT EXISTS (
 );
 
 WITH seed_scope AS (
-  SELECT '10000001'::uuid AS tenant_id, '20000001'::uuid AS park_id
+  SELECT '10000001' AS tenant_id, '20000001' AS park_id
 ),
 priority_type AS (
   SELECT dict_type.id, dict_type.tenant_id, dict_type.park_id
