@@ -40,6 +40,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-18 | Field masking and file policy | `FIELD_MASKING_FILE_POLICY_PRODUCTION_GATE18_REPORT.md` | PASS |
 | Gate-19 | Backup restore drill | `BACKUP_RESTORE_PRODUCTION_GATE19_REPORT.md` | PASS |
 | Gate-20 | Production go-live review | `PRODUCTION_GO_LIVE_REVIEW_GATE20_REPORT.md` | PASS / GO |
+| Gate-21 | Persona login smoke | `PERSONA_LOGIN_PRODUCTION_GATE21_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -58,7 +59,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Capability | Current Status | Production Gap |
 | --- | --- | --- |
 | System administration | PASS | Continue route-level smoke and admin UX polish |
-| Role / permission / data scope | PASS | Add persona login smoke for each role pack |
+| Role / permission / data scope | PASS | Persona login smoke passed; continue role-specific workflow polish |
 | Organization structure | PASS | Add org tree create/update/delete guarded smoke |
 | Asset management | PASS | Continue batch import and occupancy dashboard verification |
 | Leasing CRM | PASS | Continue list/detail UX polish and role persona smoke |
@@ -107,10 +108,10 @@ Completed:
 - Field masking, file MIME policy rejection, image upload/download, download audit, and file soft-delete production evidence.
 - PostgreSQL backup/restore and file-storage backup/restore production evidence without destructive volume operations.
 - Production Go-Live Review GO recommendation, with Gate-1 through Gate-19 evidence inventory verified.
+- Persona login smoke for all 9 production role-pack personas, including real password login, permission loading, `/auth/me`, `/users/me`, audit rows, refresh-token evidence, and temporary-user cleanup.
 
 Remaining:
 
-- Persona login smoke for the 9 production roles.
 - Backend admin route smoke for system pages.
 
 ### Phase 2: Business Closed Loops
@@ -179,8 +180,8 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Implement persona login smoke for the 9 production roles.
-2. Continue accessibility and role-specific workflow polish.
+1. Continue accessibility and role-specific workflow polish.
+2. Add backend admin route smoke for system pages.
 3. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
 4. Prepare human release-owner sign-off for any external public launch window.
 
