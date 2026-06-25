@@ -41,6 +41,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-19 | Backup restore drill | `BACKUP_RESTORE_PRODUCTION_GATE19_REPORT.md` | PASS |
 | Gate-20 | Production go-live review | `PRODUCTION_GO_LIVE_REVIEW_GATE20_REPORT.md` | PASS / GO |
 | Gate-21 | Persona login smoke | `PERSONA_LOGIN_PRODUCTION_GATE21_REPORT.md` | PASS |
+| Gate-22 | Admin route smoke | `ADMIN_ROUTE_SMOKE_PRODUCTION_GATE22_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -58,7 +59,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 
 | Capability | Current Status | Production Gap |
 | --- | --- | --- |
-| System administration | PASS | Continue route-level smoke and admin UX polish |
+| System administration | PASS | Admin route smoke passed; continue admin UX polish |
 | Role / permission / data scope | PASS | Persona login smoke passed; continue role-specific workflow polish |
 | Organization structure | PASS | Add org tree create/update/delete guarded smoke |
 | Asset management | PASS | Continue batch import and occupancy dashboard verification |
@@ -109,10 +110,11 @@ Completed:
 - PostgreSQL backup/restore and file-storage backup/restore production evidence without destructive volume operations.
 - Production Go-Live Review GO recommendation, with Gate-1 through Gate-19 evidence inventory verified.
 - Persona login smoke for all 9 production role-pack personas, including real password login, permission loading, `/auth/me`, `/users/me`, audit rows, refresh-token evidence, and temporary-user cleanup.
+- Backend administration route and API read-surface smoke for 15 system pages and 17 administration APIs, including remediation of attachment list query validation.
 
 Remaining:
 
-- Backend admin route smoke for system pages.
+- Accessibility and role-specific workflow polish.
 
 ### Phase 2: Business Closed Loops
 
@@ -181,9 +183,8 @@ Required Gates:
 ## Next Immediate Actions
 
 1. Continue accessibility and role-specific workflow polish.
-2. Add backend admin route smoke for system pages.
-3. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
-4. Prepare human release-owner sign-off for any external public launch window.
+2. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
+3. Prepare human release-owner sign-off for any external public launch window.
 
 ## Operating Rules
 
