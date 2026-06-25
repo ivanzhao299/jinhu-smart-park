@@ -12,6 +12,8 @@ export interface ParkTenantRow {
   id: string;
   parkTenantCode: string;
   companyName: string;
+  contactName?: string | null;
+  contactMobile?: string | null;
 }
 
 export interface UnitRow {
@@ -21,6 +23,10 @@ export interface UnitRow {
   unitName: string;
   buildingId: string;
   floorId: string;
+  currentTenantId?: string | null;
+  currentTenantName?: string | null;
+  current_tenant_id?: string | null;
+  current_tenant_name?: string | null;
   building?: {
     buildingCode: string;
     buildingName: string;

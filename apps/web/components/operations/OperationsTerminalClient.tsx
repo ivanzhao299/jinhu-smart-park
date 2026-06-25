@@ -22,6 +22,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import { buildWorkOrderPrefill } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
 import { OPERATION_SCENES, TERMINAL_DICT_CODES, TERMINAL_QUICK_ACTIONS, matchScene, type OperationSceneConfig } from "./terminal-config";
@@ -157,6 +158,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
   function openWorkOrder(scene?: OperationSceneConfig) {
     const defaults = workOrderDefaultsForScene(scene, dicts);
+    const prefill = buildWorkOrderPrefill(authUser, parkTenants, units);
     setWorkOrderForm({
       ...defaultWorkOrderForm,
       woType: defaults.woType,
@@ -164,8 +166,11 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       urgency: defaults.urgency,
       title: scene?.defaultWorkOrderTitle ?? "",
       description: scene?.defaultWorkOrderDescription ?? "",
-      reporterName: authUser?.real_name ?? authUser?.username ?? "",
-      reporterMobile: authUser?.mobile ?? ""
+      parkTenantId: prefill.parkTenantId,
+      unitId: prefill.unitId,
+      location: prefill.location,
+      reporterName: prefill.reporterName,
+      reporterMobile: prefill.reporterMobile
     });
     setWorkOrderOpen(true);
     setMessage("");

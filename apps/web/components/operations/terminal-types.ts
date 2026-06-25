@@ -90,6 +90,10 @@ export interface UnitRow {
   unitName: string;
   buildingId: string;
   floorId: string;
+  currentTenantId?: string | null;
+  currentTenantName?: string | null;
+  current_tenant_id?: string | null;
+  current_tenant_name?: string | null;
   building?: { buildingName: string; buildingCode: string } | null;
   floor?: { floorName: string; floorCode: string } | null;
 }
@@ -98,6 +102,8 @@ export interface ParkTenantRow {
   id: string;
   companyName: string;
   parkTenantCode: string;
+  contactName?: string | null;
+  contactMobile?: string | null;
 }
 
 export interface UserRow {

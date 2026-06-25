@@ -3,6 +3,7 @@
 import { Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
 import { UploadCloud } from "lucide-react";
 import type { FormEvent } from "react";
+import { formatUnitLocation, patchContactFromTenant, tenantForUnit } from "../../lib/workorder-prefill";
 import type { DictMap, ParkTenantRow, UnitRow, UserRow, WorkOrderForm } from "./terminal-types";
 import { OperationPhotoUploader } from "./OperationPhotoUploader";
 import { AttachmentCounter, TerminalDictSelect, TerminalField, TerminalSelectField } from "./TerminalFields";
@@ -51,10 +52,26 @@ export function QuickWorkOrderDrawer({
 
         <DrawerSection title="关联对象">
           <DrawerFormGrid>
-            <TerminalSelectField label="租户企业" value={form.parkTenantId} options={parkTenants.map((item) => ({ value: item.id, label: item.companyName }))} onChange={(value) => onChange({ parkTenantId: value })} />
+            <TerminalSelectField label="租户企业" value={form.parkTenantId} options={parkTenants.map((item) => ({ value: item.id, label: item.companyName }))} onChange={(value) => {
+              const tenant = parkTenants.find((item) => item.id === value);
+              const tenantUnit = tenant ? units.filter((item) => tenantForUnit(item, parkTenants)?.id === tenant.id) : [];
+              const singleUnit = tenantUnit.length === 1 ? tenantUnit[0] : undefined;
+              const patch = patchContactFromTenant<Partial<WorkOrderForm>>({ parkTenantId: value }, tenant);
+              if (!form.unitId && singleUnit) {
+                patch.unitId = singleUnit.id;
+                patch.location = formatUnitLocation(singleUnit) || form.location;
+              }
+              onChange(patch);
+            }} />
             <TerminalSelectField label="房源 / 位置" value={form.unitId} options={units.map((item) => ({ value: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => {
               const unit = units.find((item) => item.id === value);
-              onChange({ unitId: value, location: unitLocation(unit) || form.location });
+              const tenant = tenantForUnit(unit, parkTenants);
+              const patch = patchContactFromTenant<Partial<WorkOrderForm>>({
+                unitId: value,
+                location: formatUnitLocation(unit) || form.location,
+                parkTenantId: tenant?.id ?? form.parkTenantId
+              }, tenant);
+              onChange(patch);
             }} />
             <TerminalField label="详细位置">
               <input value={form.location} onChange={(event) => onChange({ location: event.target.value })} placeholder="可填写楼栋、楼层、房间或现场描述" />
@@ -97,9 +114,4 @@ function appendUnique(values: string[], next: string): string[] {
 function displayUser(user?: UserRow): string {
   if (!user) return "";
   return user.displayName ?? user.realName ?? user.username;
-}
-
-function unitLocation(unit?: UnitRow): string | undefined {
-  if (!unit) return undefined;
-  return [unit.building?.buildingName, unit.floor?.floorName, unit.unitName].filter(Boolean).join(" / ");
 }

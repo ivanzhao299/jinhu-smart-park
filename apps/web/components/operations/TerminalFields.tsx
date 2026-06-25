@@ -4,7 +4,7 @@ import styles from "./OperationsTerminal.module.css";
 
 export function TerminalField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className={styles.field}>
+    <label className={`${styles.field} field terminal-field`}>
       <span>{label}</span>
       {children}
     </label>

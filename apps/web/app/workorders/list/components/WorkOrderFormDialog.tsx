@@ -7,6 +7,7 @@ import {
 } from "@jinhu/ui";
 import { X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
+import { patchContactFromTenant } from "../../../../lib/workorder-prefill";
 import type { DictItemRow, ParkTenantRow, UnitRow, UserRow, WorkOrderFormState } from "../types";
 import { displayUserName } from "../lib/workorder-page-utils";
 
@@ -62,7 +63,11 @@ export function WorkOrderFormDialog({
           <SelectField label="紧急程度" value={form.urgency} items={urgencyItems} onChange={(value) => onFormChange({ urgency: value })} />
           <SelectField label="来源" value={form.sourceType} items={sourceItems} onChange={(value) => onFormChange({ sourceType: value || "manual" })} />
           <Field label="租户企业">
-            <select value={form.parkTenantId} onChange={(event) => onFormChange({ parkTenantId: event.target.value })}>
+            <select value={form.parkTenantId} onChange={(event) => {
+              const tenantId = event.target.value;
+              const tenant = parkTenants.find((item) => item.id === tenantId);
+              onFormChange(patchContactFromTenant<Partial<WorkOrderFormState>>({ parkTenantId: tenantId }, tenant));
+            }}>
               <option value="">内部工单 / 不关联租户</option>
               {parkTenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.companyName}</option>)}
             </select>

@@ -21,6 +21,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import { buildWorkOrderPrefill, formatUnitLocation } from "../../lib/workorder-prefill";
 import styles from "./TenantServiceEntry.module.css";
 
 const WORKORDER_MODULE = "workorder";
@@ -171,8 +172,7 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
   function openServiceRequest(actionKey?: string) {
     const action = serviceActions.find((item) => item.key === actionKey) ?? serviceActions[0];
     if (!action) return;
-    const firstTenantId = parkTenants[0]?.id ?? "";
-    const firstUnit = units[0];
+    const prefill = buildWorkOrderPrefill(authUser, parkTenants, units);
     setForm({
       ...defaultWorkOrderForm,
       woType: defaultDictValue(dicts.workorder_type),
@@ -180,11 +180,11 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
       urgency: preferredDictValue(dicts.workorder_urgency, action.urgency),
       title: action.titleTemplate,
       description: action.description,
-      location: unitLocation(firstUnit),
-      parkTenantId: firstTenantId,
-      unitId: firstUnit?.id ?? "",
-      reporterName: authUser?.real_name ?? authUser?.username ?? "",
-      reporterMobile: authUser?.mobile ?? ""
+      location: prefill.location,
+      parkTenantId: prefill.parkTenantId,
+      unitId: prefill.unitId,
+      reporterName: prefill.reporterName,
+      reporterMobile: prefill.reporterMobile
     });
     setDrawerOpen(true);
     setMessage("");
@@ -229,7 +229,7 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
         building_id: unit?.buildingId,
         floor_id: unit?.floorId,
         room_label: unit?.unitName,
-        location: form.location.trim() || unitLocation(unit),
+        location: form.location.trim() || formatUnitLocation(unit),
         reporter_name: form.reporterName.trim() || undefined,
         reporter_mobile: form.reporterMobile.trim() || undefined,
         assignee_id: form.assigneeId || undefined,
@@ -422,11 +422,6 @@ function tenantName(tenants: ParkTenantRow[], tenantId?: string | null): string 
 function displayUser(user?: UserRow): string {
   if (!user) return "";
   return user.displayName ?? user.realName ?? user.username;
-}
-
-function unitLocation(unit?: UnitRow): string {
-  if (!unit) return "";
-  return [unit.building?.buildingName, unit.floor?.floorName, unit.unitName].filter(Boolean).join(" / ");
 }
 
 function progressIndex(status: string): number {

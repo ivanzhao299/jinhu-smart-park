@@ -333,12 +333,36 @@
     box-shadow: none;
   }
 
+  .drawerPanel:global(.ds-compact-drawer) {
+    border-radius: 0;
+    font-size: 15px;
+  }
+
   .drawerHeader {
     padding: calc(14px + env(safe-area-inset-top)) 16px 10px;
   }
 
+  .drawerPanel:global(.ds-compact-drawer) .drawerHeader {
+    padding: calc(18px + env(safe-area-inset-top)) 20px 12px;
+  }
+
+  .drawerPanel:global(.ds-compact-drawer) .drawerEyebrow {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .drawerPanel:global(.ds-compact-drawer) .drawerTitle {
+    font-size: 23px;
+    line-height: 1.22;
+  }
+
   .drawerTitle {
     white-space: normal;
+  }
+
+  .drawerPanel:global(.ds-compact-drawer) .drawerDescription {
+    font-size: 15px;
+    line-height: 1.55;
   }
 
   .drawerDescription {
@@ -360,12 +384,30 @@
     grid-template-columns: 1fr;
   }
 
+  .drawerPanel:global(.ds-compact-drawer) .drawerForm,
+  .drawerPanel:global(.ds-compact-drawer) > :global(form.form-stack),
+  .drawerPanel:global(.ds-compact-drawer) > :global(.drawer-scroll-content) {
+    gap: 14px;
+    padding: 14px 20px 0;
+    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .drawerPanel:global(.ds-compact-drawer) .drawerFormGrid {
+    gap: 14px;
+  }
+
   .drawerFooter {
     flex-wrap: wrap;
     justify-content: stretch;
     margin-right: -16px;
     margin-left: -16px;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .drawerPanel:global(.ds-compact-drawer) .drawerFooter {
+    gap: 12px;
+    margin: 12px -20px 0;
+    padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
   }
 
   .drawerFooter > * {

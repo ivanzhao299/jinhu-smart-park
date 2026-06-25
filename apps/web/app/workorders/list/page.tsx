@@ -9,6 +9,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, tenantForUnit } from "../../../lib/workorder-prefill";
 import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
 import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
@@ -38,6 +39,8 @@ interface ParkTenantRow {
   id: string;
   parkTenantCode: string;
   companyName: string;
+  contactName?: string | null;
+  contactMobile?: string | null;
 }
 
 interface UnitRow {
@@ -47,6 +50,10 @@ interface UnitRow {
   unitName: string;
   buildingId: string;
   floorId: string;
+  currentTenantId?: string | null;
+  currentTenantName?: string | null;
+  current_tenant_id?: string | null;
+  current_tenant_name?: string | null;
   building?: {
     buildingCode: string;
     buildingName: string;
@@ -386,6 +393,7 @@ export default function WorkOrdersListPage() {
   }, [load]);
 
   function openCreate() {
+    const prefill = buildWorkOrderPrefill(authUser, parkTenants, units);
     setEditingId(null);
     setForm({
       ...emptyForm,
@@ -393,7 +401,14 @@ export default function WorkOrdersListPage() {
       priority: priorityItems.find((item) => item.itemValue === "medium")?.itemValue ?? priorityItems[0]?.itemValue ?? "",
       urgency: urgencyItems.find((item) => item.itemValue === "normal")?.itemValue ?? urgencyItems[0]?.itemValue ?? "",
       sourceType: sourceItems.find((item) => item.itemValue === "manual")?.itemValue ?? sourceItems[0]?.itemValue ?? "manual",
-      reporterName: authUser?.real_name ?? authUser?.username ?? ""
+      parkTenantId: prefill.parkTenantId,
+      unitId: prefill.unitId,
+      buildingId: prefill.buildingId,
+      floorId: prefill.floorId,
+      roomLabel: prefill.roomLabel,
+      location: prefill.location,
+      reporterName: prefill.reporterName,
+      reporterMobile: prefill.reporterMobile
     });
     setShowForm(true);
     setMessage("");
@@ -487,13 +502,17 @@ export default function WorkOrdersListPage() {
 
   function setUnit(unitId: string) {
     const unit = units.find((item) => item.id === unitId);
+    const tenant = tenantForUnit(unit, parkTenants);
+    const tenantPatch = patchContactFromTenant<Partial<WorkOrderFormState>>({}, tenant);
     setForm((current) => ({
       ...current,
+      ...tenantPatch,
       unitId,
       buildingId: unit?.buildingId ?? current.buildingId,
       floorId: unit?.floorId ?? current.floorId,
       roomLabel: unit?.unitName ?? current.roomLabel,
-      location: unit ? unitLocation(unit) : current.location
+      parkTenantId: tenant?.id ?? current.parkTenantId,
+      location: unit ? formatUnitLocation(unit) : current.location
     }));
   }
 
@@ -857,10 +876,6 @@ export default function WorkOrdersListPage() {
 function displayUserName(user?: UserRow): string {
   if (!user) return "";
   return user.displayName ?? user.realName ?? user.username;
-}
-
-function unitLocation(unit: UnitRow): string {
-  return [unit.building?.buildingName, unit.floor?.floorName, unit.unitName].filter(Boolean).join(" / ");
 }
 
 function isDispatchableStatus(status: string): boolean {

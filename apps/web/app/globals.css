@@ -5663,6 +5663,55 @@ textarea:disabled {
   [data-ui-drawer-panel="true"].ds-compact-drawer .contract-note-grid {
     grid-template-columns: 1fr;
   }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field {
+    gap: 8px;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field > span,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field label,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field > span {
+    color: var(--text-secondary, var(--phoenix-color-text-muted));
+    font-size: 15px;
+    font-weight: 760;
+    line-height: 1.45;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field input,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field select,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field input,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field select {
+    min-height: 50px;
+    border-radius: 12px;
+    padding: 0 16px;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field textarea,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field textarea {
+    min-height: 126px;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .primary-button,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .secondary-button {
+    min-height: 48px;
+    border-radius: 12px;
+    padding: 0 16px;
+    font-size: 16px;
+    font-weight: 780;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .status-pill {
+    min-height: 30px;
+    padding: 4px 12px;
+    font-size: 14px;
+  }
 }
 
 .form-field {
