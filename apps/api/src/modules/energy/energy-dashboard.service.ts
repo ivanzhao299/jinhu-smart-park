@@ -76,17 +76,26 @@ export class EnergyDashboardService {
   }
 
   async abnormal(scope: TenantParkScope, actor?: JwtPrincipal) {
-    const builder = this.alertRepository
+    const meterBuilder = this.meterRepository
+      .createQueryBuilder("meter")
+      .where("meter.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("meter.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("meter.is_deleted = false");
+    await this.applyMeterScope(meterBuilder, scope, actor);
+    const meterIds = (await meterBuilder.select("meter.id", "id").getRawMany<{ id: string }>()).map((row) => row.id);
+    if (meterIds.length === 0) return { items: [] };
+
+    const items = await this.alertRepository
       .createQueryBuilder("alert")
-      .innerJoin(EnergyMeterEntity, "meter", "meter.id = alert.meter_id AND meter.tenant_id = alert.tenant_id AND meter.park_id = alert.park_id")
       .where("alert.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("alert.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("alert.is_deleted = false")
+      .andWhere("alert.meter_id IN (:...meterIds)", { meterIds })
       .andWhere("alert.process_status IN (:...statuses)", { statuses: ["PENDING", "ACKNOWLEDGED", "RESOLVED"] })
       .orderBy("alert.triggered_at", "DESC")
-      .take(50);
-    await this.applyMeterScope(builder, scope, actor, "meter");
-    return { items: await builder.getMany() };
+      .take(50)
+      .getMany();
+    return { items };
   }
 
   private async sumConsumption(scope: TenantParkScope, meterIds: string[]): Promise<string> {
