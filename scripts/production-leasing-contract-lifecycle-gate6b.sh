@@ -331,13 +331,8 @@ lead_body="$(cat <<JSON
   "contactName": "Gate-6B 联系人",
   "contactMobile": "$CONTACT_MOBILE",
   "contactEmail": "$CONTACT_EMAIL",
-  "source": "manual",
-  "channelName": "production-gate",
-  "industryCode": "tech",
-  "industryDetail": "生产闭环验证",
   "demandArea": 120,
   "demandPrice": 40,
-  "intentionLevel": "A",
   "remark": "$RUN_ID"
 }
 JSON
@@ -353,9 +348,6 @@ convert_body="$(cat <<JSON
   "legal_person": "Gate-6B",
   "contact_name": "Gate-6B 联系人",
   "contact_mobile": "$CONTACT_MOBILE",
-  "tenant_type": "enterprise",
-  "industry_code": "tech",
-  "risk_level": "low",
   "after_status": "78",
   "remark": "$RUN_ID"
 }
