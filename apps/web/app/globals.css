@@ -8639,3 +8639,150 @@ select {
     padding-top: 14px;
   }
 }
+
+/* Final mobile operations theme override. Keep this block at file end. */
+@media (max-width: 720px) {
+  :root {
+    --mobile-page-bg: #eef2f7;
+    --mobile-surface-solid: #ffffff;
+    --mobile-border: rgba(15, 23, 42, 0.12);
+    --mobile-ink: #0b1220;
+    --mobile-accent: #ff9f0a;
+    --mobile-accent-strong: #f97316;
+    --mobile-shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.10);
+  }
+
+  body.operations-terminal-safe-area .dashboard-shell {
+    --header-height: calc(92px + env(safe-area-inset-top));
+    background:
+      radial-gradient(circle at 82% 7%, rgba(255, 159, 10, 0.30), transparent 10rem),
+      linear-gradient(180deg, #05070c 0%, #111827 calc(var(--header-height) + 30px), var(--mobile-page-bg) calc(var(--header-height) + 30px));
+  }
+
+  body.operations-terminal-safe-area .app-header {
+    min-height: var(--header-height);
+    padding: calc(12px + env(safe-area-inset-top)) 14px 14px 8px;
+    border-bottom-color: rgba(255, 255, 255, 0.10);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      radial-gradient(circle at 18% 0%, rgba(255, 159, 10, 0.28), transparent 18rem),
+      linear-gradient(135deg, #020617 0%, #111827 56%, #030712 100%);
+    background-size: 22px 22px, 22px 22px, auto, auto;
+    color: var(--text-on-dark);
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.36);
+  }
+
+  body.operations-terminal-safe-area .app-header .header-brand-lockup strong,
+  body.operations-terminal-safe-area .app-header .header-context-line,
+  body.operations-terminal-safe-area .app-header .user-menu-trigger,
+  body.operations-terminal-safe-area .app-header .user-display-name {
+    color: var(--text-on-dark);
+  }
+
+  body.operations-terminal-safe-area .app-header .header-icon-button.ant-btn,
+  body.operations-terminal-safe-area .app-header .header-actions button,
+  body.operations-terminal-safe-area .app-header .header-icon-link,
+  body.operations-terminal-safe-area .app-header .user-menu button:not(.user-logout-button) {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-on-dark);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 18px rgba(0, 0, 0, 0.18);
+  }
+
+  body.operations-terminal-safe-area .app-header .header-icon-button.ant-btn:hover,
+  body.operations-terminal-safe-area .app-header .header-icon-button.ant-btn:focus-visible,
+  body.operations-terminal-safe-area .app-header .header-actions button:hover,
+  body.operations-terminal-safe-area .app-header .header-actions button:focus-visible,
+  body.operations-terminal-safe-area .app-header .header-icon-link:hover,
+  body.operations-terminal-safe-area .app-header .header-icon-link:focus-visible {
+    border-color: rgba(255, 159, 10, 0.68);
+    background: rgba(255, 159, 10, 0.18);
+    color: var(--text-on-dark);
+  }
+
+  body.operations-terminal-safe-area .dashboard-main {
+    background:
+      radial-gradient(circle at 14% 0%, rgba(255, 159, 10, 0.16), transparent 14rem),
+      linear-gradient(180deg, #111827 0, #111827 12px, var(--mobile-page-bg) 12px, var(--mobile-page-bg) 100%);
+  }
+
+  body.operations-terminal-safe-area .page-container,
+  body.operations-terminal-safe-area .content {
+    padding: 12px;
+  }
+
+  body.operations-terminal-safe-area .page-header,
+  body.operations-terminal-safe-area .filter-bar,
+  body.operations-terminal-safe-area .page-content,
+  body.operations-terminal-safe-area .work-panel,
+  body.operations-terminal-safe-area .ds-panel {
+    border: 1px solid var(--mobile-border);
+    border-radius: 22px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.86)),
+      var(--mobile-surface-solid);
+    box-shadow: var(--mobile-shadow-soft);
+  }
+
+  body.operations-terminal-safe-area .primary-button {
+    border: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--mobile-accent), var(--mobile-accent-strong));
+    color: #111827;
+    box-shadow: 0 14px 26px rgba(249, 115, 22, 0.28);
+  }
+
+  body.operations-terminal-safe-area .secondary-button {
+    border-color: rgba(15, 23, 42, 0.14);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.86);
+    color: var(--mobile-ink);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+
+  body.operations-terminal-safe-area .field label,
+  body.operations-terminal-safe-area .field > span,
+  body.operations-terminal-safe-area .drawer-form .field label,
+  body.operations-terminal-safe-area .drawer-form .field > span {
+    color: #1f2937;
+    font-size: 15px;
+    font-weight: 840;
+  }
+
+  body.operations-terminal-safe-area .field input,
+  body.operations-terminal-safe-area .field select,
+  body.operations-terminal-safe-area .field textarea,
+  body.operations-terminal-safe-area .drawer-form input,
+  body.operations-terminal-safe-area .drawer-form select,
+  body.operations-terminal-safe-area .drawer-form textarea {
+    border: 1.5px solid rgba(15, 23, 42, 0.16);
+    border-radius: 16px;
+    background: #ffffff;
+    color: var(--mobile-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.90), 0 8px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  body.operations-terminal-safe-area .field input:focus,
+  body.operations-terminal-safe-area .field select:focus,
+  body.operations-terminal-safe-area .field textarea:focus,
+  body.operations-terminal-safe-area .drawer-form input:focus,
+  body.operations-terminal-safe-area .drawer-form select:focus,
+  body.operations-terminal-safe-area .drawer-form textarea:focus {
+    border-color: rgba(249, 115, 22, 0.76);
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.14), 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  body.operations-terminal-safe-area .ds-drawer-upload-panel,
+  body.operations-terminal-safe-area .ds-drawer-upload-placeholder,
+  body.operations-terminal-safe-area .operation-photo-uploader label,
+  body.operations-terminal-safe-area .operation-photo-uploader button {
+    border: 1.5px dashed rgba(249, 115, 22, 0.58);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(255, 159, 10, 0.20), transparent 9rem),
+      linear-gradient(180deg, #fff7ed, #ffffff);
+    color: #111827;
+    box-shadow: 0 12px 24px rgba(249, 115, 22, 0.12);
+  }
+}

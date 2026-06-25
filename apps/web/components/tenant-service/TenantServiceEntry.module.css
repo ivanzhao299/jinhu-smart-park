@@ -282,3 +282,102 @@
     display: none;
   }
 }
+
+@media (max-width: 720px) {
+  .page {
+    gap: 14px;
+  }
+
+  .hero {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 26px;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      radial-gradient(circle at 86% 0%, rgba(255, 159, 10, 0.36), transparent 10rem),
+      linear-gradient(145deg, #05070c 0%, #111827 55%, #070a12 100%);
+    background-size: 20px 20px, 20px 20px, auto, auto;
+    box-shadow: 0 24px 52px rgba(2, 6, 23, 0.28);
+    color: #f8fafc;
+    padding: 22px;
+  }
+
+  .heroCopy span {
+    width: fit-content;
+    border: 1px solid rgba(255, 159, 10, 0.44);
+    border-radius: 999px;
+    background: rgba(255, 159, 10, 0.12);
+    color: #ffd08a;
+    padding: 5px 10px;
+  }
+
+  .heroCopy h1 {
+    color: #f8fafc;
+    font-size: 34px;
+    letter-spacing: 0;
+  }
+
+  .heroCopy p {
+    color: rgba(248, 250, 252, 0.74);
+    font-size: 15px;
+  }
+
+  .actionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .actionCard,
+  .kpiCard,
+  .requestCard {
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(255, 159, 10, 0.12), transparent 7rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+  }
+
+  .actionCard {
+    min-height: 138px;
+    padding: 16px;
+  }
+
+  .actionIcon {
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+    background: #111827;
+    color: #ffb84d;
+    box-shadow: 0 12px 22px rgba(17, 24, 39, 0.24);
+  }
+
+  .actionCard strong {
+    color: #0b1220;
+    font-size: 16px;
+  }
+
+  .actionCard small {
+    color: #5b6472;
+  }
+
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpiCard {
+    padding: 16px;
+  }
+
+  .kpiCard strong {
+    color: #0b1220;
+    font-size: 34px;
+  }
+
+  .tenantStrip span {
+    border-color: rgba(249, 115, 22, 0.24);
+    background: #fff7ed;
+    color: #111827;
+    font-weight: 760;
+  }
+}

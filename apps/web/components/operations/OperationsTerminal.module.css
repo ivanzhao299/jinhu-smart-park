@@ -701,3 +701,126 @@
     transform: scale(1);
   }
 }
+
+@media (max-width: 640px) {
+  .page {
+    gap: 14px;
+  }
+
+  .terminalHero {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 26px;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      radial-gradient(circle at 82% 10%, rgba(255, 159, 10, 0.36), transparent 9rem),
+      linear-gradient(145deg, #05070c 0%, #111827 54%, #070a12 100%);
+    background-size: 20px 20px, 20px 20px, auto, auto;
+    box-shadow: 0 24px 52px rgba(2, 6, 23, 0.28);
+    color: #f8fafc;
+    padding: 22px;
+  }
+
+  .terminalHero::after {
+    height: 3px;
+    background: linear-gradient(90deg, #ff9f0a, rgba(255, 255, 255, 0.12), transparent);
+  }
+
+  .eyebrow {
+    width: fit-content;
+    border: 1px solid rgba(255, 159, 10, 0.44);
+    border-radius: 999px;
+    background: rgba(255, 159, 10, 0.12);
+    color: #ffd08a;
+    padding: 5px 10px;
+  }
+
+  .heroCopy h1,
+  .sectionTitle {
+    color: #f8fafc;
+  }
+
+  .heroCopy p {
+    color: rgba(248, 250, 252, 0.74);
+    font-size: 14px;
+  }
+
+  .heroMeta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .heroMeta span {
+    justify-content: center;
+    min-height: 38px;
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.10);
+    color: #f8fafc;
+    font-weight: 760;
+  }
+
+  .commandPanel {
+    gap: 12px;
+  }
+
+  .commandButton,
+  .sceneButton,
+  .kpiCard,
+  .mobileTaskCard {
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(255, 159, 10, 0.12), transparent 7rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+  }
+
+  .commandButton,
+  .sceneButton {
+    min-height: 126px;
+    padding: 16px;
+  }
+
+  .commandButton strong,
+  .sceneButton strong {
+    color: #0b1220;
+    font-size: 16px;
+  }
+
+  .commandIcon,
+  .sceneIcon {
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+    background: #111827;
+    color: #ffb84d;
+    box-shadow: 0 12px 22px rgba(17, 24, 39, 0.24);
+  }
+
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpiCard {
+    padding: 16px;
+  }
+
+  .kpiCard strong {
+    color: #0b1220;
+    font-size: 34px;
+  }
+
+  .mobileTaskCard {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .mobilePrimaryAction {
+    min-height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ff9f0a, #f97316);
+    color: #111827;
+    box-shadow: 0 14px 26px rgba(249, 115, 22, 0.26);
+  }
+}
