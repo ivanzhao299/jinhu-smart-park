@@ -34,6 +34,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-12 | Video security evidence lifecycle | `VIDEO_SECURITY_EVIDENCE_PRODUCTION_GATE12_REPORT.md` | PASS |
 | Gate-13 | Robot operations governance | `ROBOT_OPERATIONS_GOVERNANCE_PRODUCTION_GATE13_REPORT.md` | PASS |
 | Gate-14 | Mobile inspection UX | `MOBILE_INSPECTION_UX_PRODUCTION_GATE14_REPORT.md` | PASS |
+| Gate-15 | Tenant portal UX | `TENANT_PORTAL_UX_PRODUCTION_GATE15_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -95,6 +96,7 @@ Completed:
 - Local cleaning robot registration, read surfaces, governed command dry-run, command logs, no-external-call evidence, and no-credential evidence production gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 - Mobile inspection terminal progress, field readiness, sticky mobile footer, production web route, and inspection read-surface gate.
+- Tenant service desk page, service quick actions, tenant request work order source mapping, route/menu evidence, and read-surface gate.
 
 Remaining:
 
@@ -146,7 +148,7 @@ Target:
 Required Gates:
 
 - Gate-14 Mobile Inspection UX. PASS.
-- Gate-15 Tenant Portal UX.
+- Gate-15 Tenant Portal UX. PASS.
 - Gate-16 Executive Dashboard Accuracy.
 
 ### Phase 5: Security, Compliance, And Production Operations
