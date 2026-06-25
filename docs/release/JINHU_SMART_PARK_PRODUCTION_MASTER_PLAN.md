@@ -27,6 +27,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-6A | Leasing and finance read surface | `LEASING_FINANCE_SURFACE_PRODUCTION_GATE6A_REPORT.md` | PASS |
 | Gate-6B | Leasing to effective contract lifecycle | `LEASING_CONTRACT_LIFECYCLE_PRODUCTION_GATE6B_REPORT.md` | PASS |
 | Gate-7 | Finance lifecycle | `FINANCE_LIFECYCLE_PRODUCTION_GATE7_REPORT.md` | PASS |
+| Gate-8 | Emergency and work permit lifecycle | `EMERGENCY_WORK_PERMIT_PRODUCTION_GATE8_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -54,7 +55,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Work orders | PASS | Add tenant service entry and SLA escalation evidence |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
 | Hazard closure | PASS | Add dashboard KPI accuracy verification |
-| Emergency / work permits | PARTIAL | Add emergency event and permit lifecycle production gate |
+| Emergency / work permits | PASS | Add mobile field role smoke and dashboard KPI accuracy verification |
 | IoT device hub | PARTIAL | Add dry-run device command and alert-to-work-order gate |
 | Energy metering / billing | PARTIAL | Add meter reading to billing cycle gate |
 | Video security | PARTIAL | Add stream config masking and evidence attach gate |
@@ -80,6 +81,7 @@ Completed:
 - Leasing and finance read-surface production gate.
 - Leasing lead to effective contract lifecycle gate.
 - Finance receivable, payment, invoice, and waiver lifecycle gate.
+- Emergency event and work permit production lifecycle gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -102,7 +104,7 @@ Required Gates:
 - Gate-6A Leasing and Finance Read Surface. PASS.
 - Gate-6B Leasing to Contract Lifecycle. PASS.
 - Gate-7 Finance Lifecycle. PASS.
-- Gate-8 Emergency and Work Permit Lifecycle.
+- Gate-8 Emergency and Work Permit Lifecycle. PASS.
 - Gate-9 Tenant Service Entry.
 
 ### Phase 3: IoT, Energy, Video, Robot Runtime
@@ -154,10 +156,10 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Implement persona login smoke for the production role pack.
-2. Add Asset/Unit production lifecycle gate.
-3. Add Leasing -> Contract -> Finance production gate chain.
-4. Continue UI/UX Sprint 2 for mobile inspection and tenant service entry.
+1. Implement Gate-9 Tenant Service Entry: tenant request -> work order -> evaluation.
+2. Implement Gate-10 IoT Device and Alert Runtime.
+3. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
+4. Implement persona login smoke for the 9 production roles.
 5. Add security gate pack for auth/session/file policy.
 
 ## Operating Rules
