@@ -16,6 +16,9 @@ import { SafetyActionLogEntity } from "./entities/safety-action-log.entity";
 import { SafetyHazardEntity } from "./entities/safety-hazard.entity";
 import { SafetyInspectTaskResultEntity } from "./entities/safety-inspect-task-result.entity";
 import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
+import { SafetyInspectRuntimeService } from "./safety-inspect-runtime.service";
+import { SafetyInspectRuntimeController } from "./safety-inspect-runtime.controller";
+import { SafetyInspectScheduler } from "./safety-inspect.scheduler";
 import { SafetyInspectTasksController } from "./safety-inspect-tasks.controller";
 import { SafetyInspectTasksService } from "./safety-inspect-tasks.service";
 
@@ -40,8 +43,8 @@ import { SafetyInspectTasksService } from "./safety-inspect-tasks.service";
     DataScopesModule,
     FieldPoliciesModule
   ],
-  controllers: [SafetyInspectTasksController],
-  providers: [SafetyInspectTasksService],
-  exports: [SafetyInspectTasksService]
+  controllers: [SafetyInspectTasksController, SafetyInspectRuntimeController],
+  providers: [SafetyInspectTasksService, SafetyInspectRuntimeService, SafetyInspectScheduler],
+  exports: [SafetyInspectTasksService, SafetyInspectRuntimeService]
 })
 export class SafetyInspectTasksModule {}

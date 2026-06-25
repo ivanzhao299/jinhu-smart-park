@@ -1,5 +1,5 @@
-import { InspectTasksPageClient } from "../inspect-tasks/InspectTasksPageClient";
+import { OperationsTerminalClient } from "../../../components/operations/OperationsTerminalClient";
 
 export default function SafetyMyInspectTasksPage() {
-  return <InspectTasksPageClient mode="mine" />;
+  return <OperationsTerminalClient />;
 }

@@ -14,6 +14,8 @@ import { SafetyWorkPermitEntity } from "../safety-work-permits/entities/safety-w
 import type { SafetyStatisticsQueryDto } from "./dto/safety-statistics-query.dto";
 
 const TASK_STATUS_DONE = "30";
+const TASK_STATUS_OVERDUE = "40";
+const TASK_STATUS_CANCELLED = "90";
 const HAZARD_CLOSED_STATUSES = new Set(["60", "90"]);
 const MAJOR_HAZARD_RISK_LEVELS = new Set(["major", "30"]);
 const HIGH_RISK_TENANT_LEVELS = new Set(["40", "high"]);
@@ -28,6 +30,7 @@ const WORK_PERMIT_VIOLATION_RESULTS = new Set(["fail", "violation"]);
 export interface SafetyStatsSummary {
   inspect_task_total: number;
   inspect_task_done: number;
+  inspect_task_overdue: number;
   inspect_completion_rate: number;
   hazard_total: number;
   hazard_open_count: number;
@@ -158,6 +161,7 @@ export class SafetyStatisticsService {
 
     const inspectTaskTotal = tasks.length;
     const inspectTaskDone = tasks.filter((task) => task.status === TASK_STATUS_DONE).length;
+    const inspectTaskOverdue = tasks.filter((task) => this.isOverdueInspectionTask(task)).length;
     const hazardClosedCount = hazards.filter((hazard) => this.isClosedHazard(hazard)).length;
     const overdueHazards = hazards.filter((hazard) => this.isOverdueHazard(hazard));
     const majorHazards = hazards.filter((hazard) => this.isMajorHazard(hazard));
@@ -166,6 +170,7 @@ export class SafetyStatisticsService {
       summary: {
         inspect_task_total: inspectTaskTotal,
         inspect_task_done: inspectTaskDone,
+        inspect_task_overdue: inspectTaskOverdue,
         inspect_completion_rate: this.ratio(inspectTaskDone, inspectTaskTotal),
         hazard_total: hazards.length,
         hazard_open_count: hazards.length - hazardClosedCount,
@@ -249,6 +254,13 @@ export class SafetyStatisticsService {
     await this.applyTaskDataScope(builder, actor);
     this.applyTaskQuery(builder, query);
     return builder.getMany();
+  }
+
+  private isOverdueInspectionTask(task: SafetyInspectTaskEntity): boolean {
+    if ([TASK_STATUS_DONE, TASK_STATUS_CANCELLED].includes(task.status)) {
+      return false;
+    }
+    return task.status === TASK_STATUS_OVERDUE || task.dueTime.getTime() < Date.now();
   }
 
   private async loadHazards(scope: TenantParkScope, actor: JwtPrincipal, query: SafetyStatisticsQueryDto): Promise<SafetyHazardEntity[]> {

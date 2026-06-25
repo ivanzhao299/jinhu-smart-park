@@ -147,14 +147,21 @@ export default function SafetyInspectPlansPage() {
   const [editing, setEditing] = useState<InspectPlanRow | null>(null);
   const [viewing, setViewing] = useState<InspectPlanRow | null>(null);
   const [message, setMessage] = useState("");
+  const [pointKeyword, setPointKeyword] = useState("");
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
   const frequencyItems = dicts.safety_inspect_frequency ?? [];
+  const supportedFrequencyItems = useMemo(() => frequencyItems.filter((item) => item.itemValue !== "custom"), [frequencyItems]);
   const statusItems = dicts.safety_inspect_plan_status ?? [];
   const templateMap = useMemo(() => new Map(templates.map((item) => [item.id, item])), [templates]);
   const pointMap = useMemo(() => new Map(points.map((item) => [item.id, item])), [points]);
   const userMap = useMemo(() => new Map(users.map((item) => [item.id, item])), [users]);
   const roleMap = useMemo(() => new Map(roles.map((item) => [item.code, item])), [roles]);
+  const filteredPoints = useMemo(() => {
+    const keyword = pointKeyword.trim().toLowerCase();
+    if (!keyword) return points;
+    return points.filter((item) => `${item.pointCode} ${item.pointName}`.toLowerCase().includes(keyword));
+  }, [pointKeyword, points]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
@@ -221,10 +228,11 @@ export default function SafetyInspectPlansPage() {
     setForm({
       ...emptyForm,
       templateId: templates[0]?.id ?? "",
-      frequencyType: frequencyItems.find((item) => item.itemValue === "daily")?.itemValue ?? frequencyItems[0]?.itemValue ?? "",
+      frequencyType: supportedFrequencyItems.find((item) => item.itemValue === "daily")?.itemValue ?? supportedFrequencyItems[0]?.itemValue ?? "",
       startDate: new Date().toISOString().slice(0, 10),
       status: "disabled"
     });
+    setPointKeyword("");
     setFormOpen(true);
   }
 
@@ -244,6 +252,7 @@ export default function SafetyInspectPlansPage() {
       status: row.status,
       remark: row.remark ?? ""
     });
+    setPointKeyword("");
     setFormOpen(true);
   }
 
@@ -404,7 +413,7 @@ export default function SafetyInspectPlansPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
-            <DrawerHeader title={editing ? "编辑巡检计划" : "新增巡检计划"} description="计划启用后可由后续任务生成器按频率生成巡检任务。" onClose={closeForm} />
+            <DrawerHeader title={editing ? "编辑巡检计划" : "新增巡检计划"} description="计划启用后由巡检 Runtime 按频率自动生成任务；自定义 Cron 暂不开放，避免生成结果与现场制度不一致。" onClose={closeForm} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="计划编码">
@@ -414,11 +423,22 @@ export default function SafetyInspectPlansPage() {
                   <input required value={form.planName} onChange={(event) => setFormValue("planName", event.target.value)} />
                 </Field>
                 <SimpleSelect label="巡检模板" required value={form.templateId} allLabel="请选择模板" options={templates.map((item) => ({ value: item.id, label: `${item.templateCode} ${item.templateName}` }))} onChange={(value) => setFormValue("templateId", value)} />
-                <SelectField label="频率" required value={form.frequencyType} items={frequencyItems} allLabel="请选择频率" onChange={(value) => setFormValue("frequencyType", value)} />
-                <Field label="巡检点">
-                  <select required multiple value={form.pointIds} onChange={(event) => setFormValue("pointIds", selectedValues(event.currentTarget))}>
-                    {points.map((item) => <option key={item.id} value={item.id}>{item.pointCode} {item.pointName}</option>)}
-                  </select>
+                <SelectField label="频率" required value={form.frequencyType} items={supportedFrequencyItems} allLabel="请选择频率" onChange={(value) => setFormValue("frequencyType", value)} />
+                <Field label={`巡检点（已选 ${form.pointIds.length} 个）`}>
+                  <input value={pointKeyword} onChange={(event) => setPointKeyword(event.target.value)} placeholder="搜索点位编码 / 名称" />
+                  <div className="checkbox-list" role="group" aria-label="选择巡检点">
+                    {filteredPoints.map((item) => (
+                      <label key={item.id} className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          checked={form.pointIds.includes(item.id)}
+                          onChange={(event) => setFormValue("pointIds", toggleValue(form.pointIds, item.id, event.target.checked))}
+                        />
+                        <span>{item.pointCode} {item.pointName}</span>
+                      </label>
+                    ))}
+                    {filteredPoints.length === 0 ? <span className="empty-state">没有匹配点位</span> : null}
+                  </div>
                 </Field>
                 <Field label="责任人">
                   <select multiple value={form.handlerUserIds} onChange={(event) => setFormValue("handlerUserIds", selectedValues(event.currentTarget))}>
@@ -430,8 +450,8 @@ export default function SafetyInspectPlansPage() {
                     {roles.map((item) => <option key={item.id} value={item.code}>{item.name}（{item.code}）</option>)}
                   </select>
                 </Field>
-                <Field label="Cron 表达式">
-                  <input value={form.cronExpr} onChange={(event) => setFormValue("cronExpr", event.target.value)} placeholder="自定义频率时填写" />
+                <Field label="下次生成预览">
+                  <input readOnly value={previewNextGenerateTime(form.startDate, form.frequencyType)} />
                 </Field>
                 <Field label="开始日期">
                   <input required type="date" value={form.startDate} onChange={(event) => setFormValue("startDate", event.target.value)} />
@@ -488,7 +508,7 @@ function buildPayload(form: PlanForm) {
     template_id: form.templateId,
     point_ids: form.pointIds,
     frequency_type: form.frequencyType,
-    cron_expr: form.cronExpr.trim() || undefined,
+    cron_expr: form.frequencyType === "custom" ? form.cronExpr.trim() || undefined : undefined,
     start_date: form.startDate,
     end_date: form.endDate || undefined,
     handler_user_ids: form.handlerUserIds,
@@ -557,6 +577,13 @@ function SimpleSelect({
   );
 }
 
+function toggleValue(values: string[], value: string, checked: boolean): string[] {
+  if (checked) {
+    return Array.from(new Set([...values, value]));
+  }
+  return values.filter((item) => item !== value);
+}
+
 function selectedValues(element: HTMLSelectElement): string[] {
   return Array.from(element.selectedOptions).map((option) => option.value);
 }
@@ -589,6 +616,26 @@ function formatDateOnly(value?: string | null) {
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function previewNextGenerateTime(startDate: string, frequencyType: string): string {
+  if (!startDate || !frequencyType) {
+    return "保存后由巡检 Runtime 计算";
+  }
+  const start = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(start.getTime())) {
+    return "开始日期无效";
+  }
+  const now = new Date();
+  const next = start.getTime() >= now.getTime() ? start : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (next.getTime() < now.getTime()) {
+    if (frequencyType === "weekly") next.setDate(next.getDate() + 7);
+    else if (frequencyType === "monthly") next.setMonth(next.getMonth() + 1);
+    else if (frequencyType === "quarterly") next.setMonth(next.getMonth() + 3);
+    else if (frequencyType === "yearly") next.setFullYear(next.getFullYear() + 1);
+    else next.setDate(next.getDate() + 1);
+  }
+  return next.toLocaleString("zh-CN", { hour12: false });
 }
 
 function EmptyState() {

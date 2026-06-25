@@ -9,7 +9,7 @@ import {
   EmptyState,
   StatusPill
 } from "@jinhu/ui";
-import { CheckCircle2, LocateFixed, MapPin, PlayCircle, Send, Camera } from "lucide-react";
+import { CheckCircle2, LocateFixed, MapPin, PlayCircle, Send, Camera, Save, ScanLine } from "lucide-react";
 import type { FormEvent } from "react";
 import type { CheckInForm, DictMap, InspectTaskRow, ResultInput } from "./terminal-types";
 import { PermissionButton } from "../auth/PermissionButton";
@@ -28,6 +28,8 @@ export function InspectionExecutionDrawer({
   onStart,
   onSubmitCheckIn,
   onSubmitResults,
+  onSaveDraft,
+  onScanQr,
   onCheckInChange,
   onResultInputChange,
   previewMode = false
@@ -42,13 +44,15 @@ export function InspectionExecutionDrawer({
   onStart: () => void;
   onSubmitCheckIn: (event: FormEvent<HTMLFormElement>) => void;
   onSubmitResults: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveDraft: () => void;
+  onScanQr: () => void;
   onCheckInChange: (patch: Partial<CheckInForm>) => void;
   onResultInputChange: (itemId: string, patch: Partial<ResultInput>) => void;
   previewMode?: boolean;
 }) {
-  const canStart = task.status === "10";
-  const canCheckIn = task.status === "20" || task.status === "10";
-  const canSubmit = task.status === "20";
+  const canStart = task.status === "10" || task.status === "40";
+  const canCheckIn = task.status === "20" || task.status === "10" || task.status === "40";
+  const canSubmit = task.status === "20" || task.status === "40";
 
   return (
     <Drawer size="xl" onClose={onClose}>
@@ -87,7 +91,13 @@ export function InspectionExecutionDrawer({
         <h3 className={styles.formSectionTitle}>打卡信息</h3>
         <DrawerFormGrid>
           <TerminalField label="二维码 / 点位码">
-            <input value={checkInForm.qrCode} onChange={(event) => onCheckInChange({ qrCode: event.target.value })} />
+            <div className={styles.inlineControl}>
+              <input value={checkInForm.qrCode} onChange={(event) => onCheckInChange({ qrCode: event.target.value })} />
+              <button className="secondary-button" type="button" onClick={onScanQr}>
+                <ScanLine size={16} />
+                扫码
+              </button>
+            </div>
           </TerminalField>
           <TerminalField label="经度">
             <input type="number" value={checkInForm.gpsLng} onFocus={(event) => event.target.select()} onChange={(event) => onCheckInChange({ gpsLng: event.target.value })} />
@@ -113,8 +123,9 @@ export function InspectionExecutionDrawer({
         <h3 className={styles.formSectionTitle}>检查项</h3>
         <div className={styles.checklist}>
           {(task.items ?? []).map((item) => {
-            const input = resultInputs[item.id] ?? { result: "normal", valueText: "", photoFileIds: [], createHazard: false };
+            const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
             const abnormal = input.result === "abnormal";
+            const numericItem = item.itemType === "number";
             return (
               <section className={styles.checkItem} key={item.id}>
                 <div className={styles.checkItemTitle}>
@@ -123,6 +134,15 @@ export function InspectionExecutionDrawer({
                     {itemResultItems.map((dict) => <option key={dict.id} value={dict.itemValue}>{dict.itemLabel}</option>)}
                   </select>
                 </div>
+                {item.standardDesc ? <p className={styles.itemStandard}>{item.standardDesc}</p> : null}
+                {numericItem ? (
+                  <input
+                    type="number"
+                    value={input.valueNumber}
+                    onChange={(event) => onResultInputChange(item.id, { valueNumber: event.target.value })}
+                    placeholder="填写现场数值"
+                  />
+                ) : null}
                 <textarea value={input.valueText} onChange={(event) => onResultInputChange(item.id, { valueText: event.target.value })} placeholder={abnormal ? "请描述异常情况" : "可填写现场说明"} />
                 <div className={styles.checkItemActions}>
                   <OperationPhotoUploader bizType="safety_inspect_task_result" bizId={task.id} onUploaded={(file) => onResultInputChange(item.id, { photoFileIds: appendUnique(input.photoFileIds, file.id) })} />
@@ -139,6 +159,10 @@ export function InspectionExecutionDrawer({
         </div>
         <DrawerFooter>
           <button className="secondary-button" type="button" onClick={onClose}>关闭</button>
+          <button className="secondary-button" type="button" disabled={!canCheckIn && !canSubmit} onClick={onSaveDraft}>
+            <Save size={16} />
+            保存草稿
+          </button>
           <button className="primary-button" type="submit" disabled={!canSubmit}>
             <Send size={16} />
             提交并完成

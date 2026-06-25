@@ -233,6 +233,7 @@
 .drawerActions,
 .checkItemActions,
 .inlineUploader,
+.inlineControl,
 .statusLine {
   align-items: center;
   display: flex;
@@ -292,6 +293,21 @@
 
 .checkItemTitle select {
   max-width: 160px;
+}
+
+.itemStandard {
+  color: var(--phoenix-color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.inlineControl {
+  flex-wrap: nowrap;
+}
+
+.inlineControl input {
+  min-width: 0;
 }
 
 .field {
@@ -491,6 +507,12 @@
 
   .drawerActions > * {
     flex: 1 1 100%;
+  }
+
+  .inlineControl {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .checkItemTitle {

@@ -11,7 +11,7 @@ import {
   PageShell,
   StatusPill
 } from "@jinhu/ui";
-import { Activity, AlertTriangle, ClipboardCheck, FilePlus2, LocateFixed, Plus, RefreshCw, Sparkles, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, ClipboardCheck, Download, FilePlus2, LocateFixed, Plus, RefreshCw, Sparkles, Wrench } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -56,6 +56,7 @@ interface OperationsTerminalClientProps {
 }
 
 const defaultCheckInForm: CheckInForm = { qrCode: "", gpsLng: "", gpsLat: "", photoFileIds: [] };
+const OVERDUE_STATUS = "40";
 const defaultWorkOrderForm: WorkOrderForm = {
   woType: "",
   priority: "",
@@ -91,8 +92,9 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const todayTasks = useMemo(() => tasks.filter((task) => isToday(task.planTime)), [tasks]);
   const pendingTasks = todayTasks.filter((task) => task.status === "10");
   const runningTasks = todayTasks.filter((task) => task.status === "20");
-  const completedTasks = todayTasks.filter((task) => ["30", "40"].includes(task.status));
-  const abnormalTasks = todayTasks.filter((task) => task.result === "abnormal" || task.status === "40");
+  const completedTasks = todayTasks.filter((task) => task.status === "30");
+  const overdueTasks = todayTasks.filter((task) => task.status === OVERDUE_STATUS || isOverdueTask(task));
+  const abnormalTasks = todayTasks.filter((task) => task.result === "abnormal");
   const completionRate = todayTasks.length === 0 ? 0 : Math.round((completedTasks.length / todayTasks.length) * 100);
   const canGenerate = previewMode || hasPermission(authUser, "safety_inspect_task:generate");
   const itemResultItems = dicts.safety_inspect_item_result?.length ? dicts.safety_inspect_item_result : [
@@ -168,9 +170,15 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       });
       const inputs: Record<string, ResultInput> = {};
       for (const item of task.items ?? []) {
-        inputs[item.id] = { result: "normal", valueText: "", photoFileIds: [], createHazard: false };
+        inputs[item.id] = { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
       }
-      setResultInputs(inputs);
+      const localDraft = readLocalDraft(task.id);
+      if (localDraft) {
+        setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
+        setResultInputs({ ...inputs, ...localDraft.resultInputs });
+      } else {
+        setResultInputs(inputs);
+      }
       return;
     }
     const response = await apiRequest<InspectTaskRow>(`/safety/my-inspect-tasks/${task.id}`, { token: getAccessToken() });
@@ -189,11 +197,18 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       inputs[item.id] = {
         result: result?.result ?? "normal",
         valueText: result?.valueText ?? "",
-        photoFileIds: [],
-        createHazard: false
+        valueNumber: result?.valueNumber ?? "",
+        photoFileIds: result?.photoFileIds ?? [],
+        createHazard: !result?.hazardCreated
       };
     }
-    setResultInputs(inputs);
+    const localDraft = readLocalDraft(detail.id);
+    if (localDraft) {
+      setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
+      setResultInputs({ ...inputs, ...localDraft.resultInputs });
+    } else {
+      setResultInputs(inputs);
+    }
   }
 
   async function startTask() {
@@ -246,13 +261,14 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       return;
     }
     const results = (executing.items ?? []).map((item) => {
-      const input = resultInputs[item.id] ?? { result: "normal", valueText: "", photoFileIds: [], createHazard: false };
+      const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
       return {
         item_id: item.id,
         result: input.result,
         value_text: input.valueText.trim() || undefined,
+        value_number: input.valueNumber ? Number(input.valueNumber) : undefined,
         photo_file_ids: input.photoFileIds,
-        create_hazard: input.createHazard
+        create_hazard: input.result === "abnormal" ? input.createHazard : false
       };
     });
     await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/submit-results`, {
@@ -261,9 +277,55 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       idempotencyKey: createIdempotencyKey("terminal-inspect-results"),
       body: { results, finish_task: true }
     });
+    clearLocalDraft(executing.id);
     setExecuting(null);
     setMessage("巡检已提交");
     await loadAll();
+  }
+
+  async function saveDraft() {
+    if (!executing) return;
+    const results = (executing.items ?? []).map((item) => {
+      const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
+      return {
+        item_id: item.id,
+        result: input.result,
+        value_text: input.valueText.trim() || undefined,
+        value_number: input.valueNumber ? Number(input.valueNumber) : undefined,
+        photo_file_ids: input.photoFileIds,
+        create_hazard: false
+      };
+    });
+    writeLocalDraft(executing.id, { checkInForm, resultInputs });
+    if (previewMode) {
+      setMessage("预览：草稿已保存");
+      return;
+    }
+    const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/draft`, {
+      method: "POST",
+      token: getAccessToken(),
+      idempotencyKey: createIdempotencyKey("terminal-inspect-draft"),
+      body: { results, finish_task: false }
+    });
+    setExecuting(response.data);
+    clearLocalDraft(executing.id);
+    setMessage("草稿已保存，可稍后继续巡检");
+    await loadAll();
+  }
+
+  async function scanQr() {
+    if (!executing) return;
+    try {
+      const qrCode = await scanQrCode();
+      if (qrCode) {
+        setCheckInForm((current) => ({ ...current, qrCode }));
+        setMessage("已识别二维码 / 点位码");
+      } else {
+        setMessage("未识别到二维码，可手工填写点位码。");
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "扫码失败，可手工填写点位码。");
+    }
   }
 
   async function generateTodayTasks() {
@@ -369,6 +431,10 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
                 <RefreshCw size={18} />
                 刷新
               </button>
+              <button className={`${styles.secondaryCommand} ds-button ds-button-secondary`} type="button" onClick={() => exportTodayTasks(todayTasks)}>
+                <Download size={18} />
+                导出巡检
+              </button>
               {previewMode ? (
                 <button className={`${styles.primaryCommand} ds-button ds-button-primary`} type="button" onClick={() => openWorkOrder()}>
                   <FilePlus2 size={18} />
@@ -461,8 +527,9 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
         <section className={`${styles.kpiGrid} ds-kpi-grid ds-terminal-kpi-grid`}>
           <TerminalKpi label="今日任务" value={todayTasks.length} helper="已分配给当前账号" />
           <TerminalKpi label="待执行" value={pendingTasks.length} helper="需要开始并打卡" />
-          <TerminalKpi label="执行中" value={runningTasks.length} helper="已开始未完成" />
-          <TerminalKpi label="异常" value={abnormalTasks.length} helper="异常项可自动生成隐患" />
+              <TerminalKpi label="执行中" value={runningTasks.length} helper="已开始未完成" />
+              <TerminalKpi label="逾期" value={overdueTasks.length} helper="仍可继续执行" />
+              <TerminalKpi label="异常" value={abnormalTasks.length} helper="异常项可自动生成隐患" />
         </section>
 
         {message ? <FeedbackNotice className={styles.message}>{message}</FeedbackNotice> : null}
@@ -628,6 +695,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
             onStart={() => void startTask().catch((error: Error) => setMessage(error.message))}
             onSubmitCheckIn={(event) => void submitCheckIn(event).catch((error: Error) => setMessage(error.message))}
             onSubmitResults={(event) => void submitResults(event).catch((error: Error) => setMessage(error.message))}
+            onSaveDraft={() => void saveDraft().catch((error: Error) => setMessage(error.message))}
+            onScanQr={() => void scanQr()}
             onCheckInChange={(patch) => setCheckInForm((current) => ({ ...current, ...patch }))}
             onResultInputChange={setResultInput}
             previewMode={previewMode}
@@ -665,8 +734,9 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       [itemId]: {
         result: "normal",
         valueText: "",
+        valueNumber: "",
         photoFileIds: [],
-        createHazard: false,
+        createHazard: true,
         ...(current[itemId] ?? {}),
         ...patch
       }
@@ -726,6 +796,13 @@ function isToday(value: string): boolean {
   return time >= todayStart().getTime() && time < tomorrowStart().getTime();
 }
 
+function isOverdueTask(task: InspectTaskRow): boolean {
+  if (task.status === "30" || task.status === "90") {
+    return false;
+  }
+  return new Date(task.dueTime).getTime() < Date.now();
+}
+
 function todayStart() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
@@ -751,6 +828,98 @@ function formatDateTime(value?: string | null): string {
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function exportTodayTasks(tasks: InspectTaskRow[]): void {
+  if (typeof window === "undefined") return;
+  const headers = ["任务编号", "点位", "模板", "责任人", "计划时间", "截止时间", "状态", "结果"];
+  const rows = tasks.map((task) => [
+    task.taskCode,
+    task.point?.pointName ?? "",
+    task.template?.templateName ?? "",
+    task.handlerName ?? "",
+    formatDateTime(task.planTime),
+    formatDateTime(task.dueTime),
+    task.status,
+    task.result ?? ""
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `今日巡检任务-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function escapeCsvCell(value: string): string {
+  return `"${value.replaceAll("\"", "\"\"")}"`;
+}
+
+interface LocalInspectionDraft {
+  checkInForm: CheckInForm;
+  resultInputs: Record<string, ResultInput>;
+}
+
+function draftKey(taskId: string): string {
+  return `safety-inspect-draft:${taskId}`;
+}
+
+function readLocalDraft(taskId: string): LocalInspectionDraft | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(draftKey(taskId));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as LocalInspectionDraft;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalDraft(taskId: string, draft: LocalInspectionDraft): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(draftKey(taskId), JSON.stringify(draft));
+}
+
+function clearLocalDraft(taskId: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(draftKey(taskId));
+}
+
+interface BarcodeDetectorLike {
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue?: string }>>;
+}
+
+interface BarcodeDetectorConstructor {
+  new(options?: { formats?: string[] }): BarcodeDetectorLike;
+}
+
+async function scanQrCode(): Promise<string | null> {
+  if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    throw new Error("当前浏览器不支持摄像头扫码，可手工填写点位码。");
+  }
+  const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+  if (!Detector) {
+    throw new Error("当前浏览器不支持二维码识别，可手工填写点位码。");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.srcObject = stream;
+  try {
+    await video.play();
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    const detector = new Detector({ formats: ["qr_code"] });
+    const codes = await detector.detect(video);
+    return codes[0]?.rawValue ?? null;
+  } finally {
+    for (const track of stream.getTracks()) {
+      track.stop();
+    }
+    video.srcObject = null;
+  }
 }
 
 function locate(setter: (updater: (current: CheckInForm) => CheckInForm) => void, setMessage: (message: string) => void): Promise<void> {

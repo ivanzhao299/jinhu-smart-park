@@ -29,6 +29,7 @@ interface DashboardFilters {
 interface SafetyStatsSummary {
   inspect_task_total: number;
   inspect_task_done: number;
+  inspect_task_overdue: number;
   inspect_completion_rate: number;
   hazard_total: number;
   hazard_open_count: number;
@@ -93,6 +94,7 @@ const emptyFilters: DashboardFilters = {
 const emptySummary: SafetyStatsSummary = {
   inspect_task_total: 0,
   inspect_task_done: 0,
+  inspect_task_overdue: 0,
   inspect_completion_rate: 0,
   hazard_total: 0,
   hazard_open_count: 0,
@@ -186,6 +188,7 @@ export default function SafetyDashboardPage() {
   const kpis = useMemo(() => [
     { label: "巡检任务数", value: formatNumber(stats.summary.inspect_task_total), icon: <ClipboardCheck size={18} /> },
     { label: "巡检完成率", value: formatRate(stats.summary.inspect_completion_rate), icon: <CheckCircle2 size={18} /> },
+    { label: "逾期巡检", value: formatNumber(stats.summary.inspect_task_overdue), icon: <AlertTriangle size={18} /> },
     { label: "隐患总数", value: formatNumber(stats.summary.hazard_total), icon: <ShieldAlert size={18} /> },
     { label: "隐患闭环率", value: formatRate(stats.summary.hazard_close_rate), icon: <BarChart3 size={18} /> },
     { label: "超期隐患", value: formatNumber(stats.summary.overdue_hazard_count), icon: <AlertTriangle size={18} /> },

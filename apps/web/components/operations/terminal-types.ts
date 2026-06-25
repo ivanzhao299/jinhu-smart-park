@@ -41,7 +41,11 @@ export interface InspectTemplateRow {
 export interface InspectItemRow {
   id: string;
   itemName: string;
+  itemType?: string | null;
   required: boolean;
+  standardDesc?: string | null;
+  hazardType?: string | null;
+  defaultRiskLevel?: string | null;
 }
 
 export interface InspectTaskResultRow {
@@ -50,6 +54,8 @@ export interface InspectTaskResultRow {
   itemName: string;
   result: string;
   valueText: string | null;
+  valueNumber?: string | null;
+  photoFileIds?: string[];
   isAbnormal: boolean;
   hazardCreated: boolean;
 }
@@ -115,6 +121,7 @@ export interface WorkOrderRow {
 export interface ResultInput {
   result: string;
   valueText: string;
+  valueNumber: string;
   photoFileIds: string[];
   createHazard: boolean;
 }

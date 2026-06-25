@@ -397,7 +397,7 @@ export class SafetyInspectPlansService {
       .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("task.plan_id = :planId", { planId })
       .andWhere("task.is_deleted = false")
-      .andWhere("task.status NOT IN (:...doneStatuses)", { doneStatuses: ["60", "70", "90", "100", "completed", "closed", "cancelled"] })
+      .andWhere("task.status NOT IN (:...doneStatuses)", { doneStatuses: ["30", "60", "70", "90", "100", "completed", "closed", "cancelled"] })
       .getRawOne<{ count: string }>();
     if (Number(row?.count ?? 0) > 0) {
       throw new BadRequestException("Inspect plan has unfinished inspection tasks and cannot be deleted");

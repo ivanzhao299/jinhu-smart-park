@@ -29,6 +29,7 @@ import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
 const TASK_STATUS_PENDING = "10";
 const TASK_STATUS_IN_PROGRESS = "20";
 const TASK_STATUS_COMPLETED = "30";
+const TASK_STATUS_OVERDUE = "40";
 const DEFAULT_DUE_HOURS = 24;
 const TASK_RESULT_NORMAL = "normal";
 const TASK_RESULT_ABNORMAL = "abnormal";
@@ -298,8 +299,8 @@ export class SafetyInspectTasksService {
   async start(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<SafetyInspectTaskEntity> {
     const task = await this.findOne(scope, id, actor);
     this.assertCanExecute(task, actor);
-    if (task.status !== TASK_STATUS_PENDING) {
-      throw new BadRequestException("Only pending inspect tasks can be started");
+    if (![TASK_STATUS_PENDING, TASK_STATUS_OVERDUE].includes(task.status)) {
+      throw new BadRequestException("Only pending or overdue inspect tasks can be started");
     }
     const beforeStatus = task.status;
     task.status = TASK_STATUS_IN_PROGRESS;
@@ -322,8 +323,8 @@ export class SafetyInspectTasksService {
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: CheckInSafetyInspectTaskDto): Promise<SafetyInspectTaskEntity> {
     const task = await this.findOne(scope, id, actor);
     this.assertCanExecute(task, actor);
-    if (![TASK_STATUS_PENDING, TASK_STATUS_IN_PROGRESS].includes(task.status)) {
-      throw new BadRequestException("Only pending or in-progress inspect tasks can check in");
+    if (![TASK_STATUS_PENDING, TASK_STATUS_IN_PROGRESS, TASK_STATUS_OVERDUE].includes(task.status)) {
+      throw new BadRequestException("Only pending, in-progress or overdue inspect tasks can check in");
     }
     const point = task.point ?? (await this.assertEnabledPoint(scope, task.pointId));
     const photoIds = dto.photo_file_ids ?? [];
@@ -364,6 +365,15 @@ export class SafetyInspectTasksService {
     return this.detail(scope, task.id, actor);
   }
 
+  async saveDraft(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: SubmitSafetyInspectResultsDto
+  ): Promise<SafetyInspectTaskEntity> {
+    return this.submitResults(scope, actor, id, { ...dto, finish_task: false });
+  }
+
   async submitResults(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -372,12 +382,13 @@ export class SafetyInspectTasksService {
   ): Promise<SafetyInspectTaskEntity> {
     const task = await this.findOne(scope, id, actor);
     this.assertCanExecute(task, actor);
-    if (![TASK_STATUS_PENDING, TASK_STATUS_IN_PROGRESS].includes(task.status)) {
-      throw new BadRequestException("Only pending or in-progress inspect tasks can submit results");
+    if (![TASK_STATUS_PENDING, TASK_STATUS_IN_PROGRESS, TASK_STATUS_OVERDUE].includes(task.status)) {
+      throw new BadRequestException("Only pending, in-progress or overdue inspect tasks can submit results");
     }
     if (!dto.results || dto.results.length === 0) {
       throw new BadRequestException("results is required");
     }
+    const finishTask = dto.finish_task !== false;
     const items = await this.itemsRepository.find({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, templateId: task.templateId, isDeleted: false, status: "enabled" },
       order: { sortNo: "ASC", createTime: "ASC" }
@@ -385,7 +396,7 @@ export class SafetyInspectTasksService {
     const itemMap = new Map(items.map((item) => [item.id, item]));
     const submittedItemIds = new Set(dto.results.map((result) => result.item_id));
     for (const item of items) {
-      if (item.required && !submittedItemIds.has(item.id)) {
+      if (finishTask && item.required && !submittedItemIds.has(item.id)) {
         throw new BadRequestException(`Required inspect item is missing: ${item.itemName}`);
       }
     }
@@ -395,6 +406,9 @@ export class SafetyInspectTasksService {
       }
       await this.assertDictValue(scope, "safety_inspect_item_result", result.result);
       await this.assertFiles(scope, result.photo_file_ids ?? []);
+      if (finishTask && result.result === TASK_RESULT_ABNORMAL && !(result.value_text?.trim())) {
+        throw new BadRequestException("abnormal inspect item requires value_text");
+      }
     }
     const existingResults = await this.taskResultsRepository.find({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, taskId: task.id, isDeleted: false }
@@ -441,27 +455,27 @@ export class SafetyInspectTasksService {
           });
           savedResult = await resultRepository.save(newResult);
         }
-        if (isAbnormal && payload.create_hazard && !savedResult.hazardCreated) {
+        if (finishTask && isAbnormal && payload.create_hazard !== false && !savedResult.hazardCreated) {
           const hazard = await this.createHazardFromResult(scope, actor, manager, task, item, savedResult);
           savedResult.hazardCreated = true;
           savedResult.hazardId = hazard.id;
           savedResult = await manager.getRepository(SafetyInspectTaskResultEntity).save(savedResult);
         }
       }
-      task.status = dto.finish_task ? TASK_STATUS_COMPLETED : TASK_STATUS_IN_PROGRESS;
+      task.status = finishTask ? TASK_STATUS_COMPLETED : TASK_STATUS_IN_PROGRESS;
       task.result = hasAbnormal ? TASK_RESULT_ABNORMAL : TASK_RESULT_NORMAL;
       task.actualStartTime = task.actualStartTime ?? new Date();
-      task.actualEndTime = dto.finish_task ? new Date() : task.actualEndTime;
+      task.actualEndTime = finishTask ? new Date() : task.actualEndTime;
       task.updateBy = actor.sub;
       await manager.getRepository(SafetyInspectTaskEntity).save(task);
       await this.createActionLog(scope, actor, manager, {
         bizType: "safety_inspect_task",
         bizId: task.id,
-        action: dto.finish_task ? "finish" : "submit_results",
+        action: finishTask ? "finish" : "save_draft",
         beforeStatus,
         afterStatus: task.status,
-        content: dto.finish_task ? "提交结果并完成巡检任务" : "提交巡检检查项结果",
-        payload: { result: task.result, abnormal: hasAbnormal, finish_task: Boolean(dto.finish_task) }
+        content: finishTask ? "提交结果并完成巡检任务" : "保存巡检草稿",
+        payload: { result: task.result, abnormal: hasAbnormal, finish_task: finishTask, result_count: dto.results.length }
       });
     });
     return this.detail(scope, task.id, actor);

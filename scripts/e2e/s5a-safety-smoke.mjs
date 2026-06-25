@@ -705,6 +705,18 @@ async function main() {
   const planEnable = await jsonRequest(`/safety/inspect-plans/${plan.id}/enable`, adminToken, "POST", undefined, "plan-enable");
   assertStatus("admin enables inspect plan", planEnable.response.status, 201);
 
+  const runtimeStatus = await request("/safety/inspect-runtime/status", { headers: { authorization: `Bearer ${adminToken}` } });
+  assertStatus("inspect runtime status", runtimeStatus.response.status, 200);
+  assertUniformResponse("inspect runtime status", runtimeStatus.body);
+  assert(typeof runtimeStatus.body.data?.scheduler_enabled === "boolean", "inspect runtime status missing scheduler_enabled");
+
+  const runtimeDryRun = await jsonRequest("/safety/inspect-runtime/run", adminToken, "POST", {
+    dry_run: true
+  }, "inspect-runtime-dry-run");
+  assertStatus("inspect runtime dry run", runtimeDryRun.response.status, 201);
+  assertUniformResponse("inspect runtime dry run", runtimeDryRun.body);
+  assert(runtimeDryRun.body.data?.dry_run === true, "inspect runtime dry run did not report dry_run=true");
+
   const planTime = new Date(stamp).toISOString();
   const generate = await jsonRequest(`/safety/inspect-plans/${plan.id}/generate-tasks`, adminToken, "POST", {
     plan_time: planTime,
@@ -743,6 +755,22 @@ async function main() {
 
   const checkInTask = await jsonRequest(`/safety/inspect-tasks/${generatedTaskId}/check-in`, adminToken, "POST", {}, "task-check-in");
   assertStatus("admin checks in generated inspect task", checkInTask.response.status, 201);
+
+  const draftTask = await jsonRequest(`/safety/inspect-tasks/${generatedTaskId}/draft`, adminToken, "POST", {
+    results: [
+      {
+        item_id: item.id,
+        result: "normal",
+        value_text: "S5A smoke draft item",
+        photo_file_ids: [],
+        create_hazard: false
+      }
+    ],
+    finish_task: false
+  }, "task-save-draft");
+  assertStatus("inspect task draft can be saved", draftTask.response.status, 201);
+  assertUniformResponse("inspect task draft can be saved", draftTask.body);
+  assert(draftTask.body.data?.status === "20", "drafted inspect task should stay in progress");
 
   const missingResults = await jsonRequest(`/safety/inspect-tasks/${generatedTaskId}/submit-results`, adminToken, "POST", {
     results: [],

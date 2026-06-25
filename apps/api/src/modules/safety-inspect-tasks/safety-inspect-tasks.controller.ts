@@ -80,6 +80,18 @@ export class SafetyInspectTasksController {
     return this.service.submitResults(scope, user, id, dto);
   }
 
+  @Post("inspect-tasks/:id/draft")
+  @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS)
+  @AuditLog({ module: "安全巡检", action: "保存巡检草稿", resource: "biz.safety_inspect_task", bizType: "biz_safety_inspect_task", bizIdParam: "id" })
+  saveDraft(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: SubmitSafetyInspectResultsDto
+  ) {
+    return this.service.saveDraft(scope, user, id, dto);
+  }
+
   @Post("inspect-plans/:id/generate-tasks")
   @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_GENERATE)
   @AuditLog({
