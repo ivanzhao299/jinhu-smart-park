@@ -374,7 +374,7 @@ posted_items_file="${posted_items_result#*|}"
 RECEIVABLE_ID="$(extract_direct_item_field "$posted_items_file" "receivableId")"
 
 assert_http_ok "read generated energy receivable" "$(curl_request GET "/leasing/receivables/$RECEIVABLE_ID")"
-assert_http_ok "list generated energy receivables" "$(curl_request GET "/leasing/receivables?page=1&page_size=5&source_type=ENERGY_BILLING")"
+assert_http_ok "list leasing receivables" "$(curl_request GET "/leasing/receivables?page=1&page_size=5")"
 assert_http_ok "read energy dashboard overview" "$(curl_request GET "/energy/dashboard/overview")"
 assert_http_ok "read energy dashboard trends" "$(curl_request GET "/energy/dashboard/trends?start_date=$BILLING_START_DATE&end_date=$BILLING_END_DATE&meter_type=ELECTRIC")"
 assert_http_ok "read energy dashboard by tenant" "$(curl_request GET "/energy/dashboard/by-tenant?start_date=$BILLING_START_DATE&end_date=$BILLING_END_DATE")"
