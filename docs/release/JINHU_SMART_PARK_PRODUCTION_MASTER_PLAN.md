@@ -38,6 +38,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-16 | Executive dashboard accuracy | `EXECUTIVE_DASHBOARD_ACCURACY_PRODUCTION_GATE16_REPORT.md` | PASS |
 | Gate-17 | Auth and session security | `AUTH_SESSION_SECURITY_PRODUCTION_GATE17_REPORT.md` | PASS |
 | Gate-18 | Field masking and file policy | `FIELD_MASKING_FILE_POLICY_PRODUCTION_GATE18_REPORT.md` | PASS |
+| Gate-19 | Backup restore drill | `BACKUP_RESTORE_PRODUCTION_GATE19_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -71,7 +72,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
 | Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
 | UI/UX | PASS | Continue persona workflow polish and accessibility regression smoke |
-| Security | PARTIAL | Auth/session, field masking, and file policy gates passed; add backup restore and final go-live gates |
+| Security | PARTIAL | Auth/session, field masking, file policy, and backup restore gates passed; add final go-live and persona gates |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
 
 ## Execution Phases
@@ -103,6 +104,7 @@ Completed:
 - Executive dashboard route, live API data sources, and DB/API KPI cross-check evidence.
 - Auth/session production security controls, refresh-cookie origin rejection, refresh-token rejection, and audit-only failed-login evidence.
 - Field masking, file MIME policy rejection, image upload/download, download audit, and file soft-delete production evidence.
+- PostgreSQL backup/restore and file-storage backup/restore production evidence without destructive volume operations.
 
 Remaining:
 
@@ -170,16 +172,15 @@ Required Gates:
 
 - Gate-17 Auth and Session Security. PASS.
 - Gate-18 Field Masking and File Policy. PASS.
-- Gate-19 Backup Restore Drill.
+- Gate-19 Backup Restore Drill. PASS.
 - Gate-20 Production Go-Live Review.
 
 ## Next Immediate Actions
 
-1. Implement Gate-19 backup restore drill.
+1. Implement Gate-20 production go-live review.
 2. Implement persona login smoke for the 9 production roles.
-3. Add production go-live review gate.
-4. Continue accessibility and role-specific workflow polish.
-5. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
+3. Continue accessibility and role-specific workflow polish.
+4. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
 
 ## Operating Rules
 
