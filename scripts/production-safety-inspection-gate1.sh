@@ -277,12 +277,20 @@ EOF
 append_report "- PASS: created controlled Gate-1 plan \`$PLAN_CODE\`"
 append_report "- Handler: \`$HANDLER_USERNAME\` / \`$HANDLER_NAME\`"
 
-TOKEN="$(cd "$ROOT_DIR/apps/api" && JWT_SECRET="${JWT_SECRET:-}" HANDLER_ID="$HANDLER_ID" HANDLER_USERNAME="$HANDLER_USERNAME" HANDLER_NAME="$HANDLER_NAME" TENANT_ID_VALUE="$TENANT_ID_VALUE" PARK_ID_VALUE="$PARK_ID_VALUE" node <<'NODE'
-const jwt = require("jsonwebtoken");
+TOKEN="$(JWT_SECRET="${JWT_SECRET:-}" HANDLER_ID="$HANDLER_ID" HANDLER_USERNAME="$HANDLER_USERNAME" HANDLER_NAME="$HANDLER_NAME" TENANT_ID_VALUE="$TENANT_ID_VALUE" PARK_ID_VALUE="$PARK_ID_VALUE" node <<'NODE'
+const crypto = require("node:crypto");
 const secret = process.env.JWT_SECRET;
 if (!secret) {
   throw new Error("JWT_SECRET is required");
 }
+const base64url = (value) =>
+  Buffer.from(JSON.stringify(value))
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+const now = Math.floor(Date.now() / 1000);
+const header = { alg: "HS256", typ: "JWT" };
 const payload = {
   sub: process.env.HANDLER_ID,
   username: process.env.HANDLER_USERNAME || "gate1",
@@ -292,9 +300,18 @@ const payload = {
   roles: ["GATE1"],
   permissions: ["*"],
   dataScope: "all",
-  isSuper: true
+  isSuper: true,
+  iat: now,
+  exp: now + 20 * 60
 };
-process.stdout.write(jwt.sign(payload, secret, { expiresIn: "20m" }));
+const signingInput = `${base64url(header)}.${base64url(payload)}`;
+const signature = crypto.createHmac("sha256", secret)
+  .update(signingInput)
+  .digest("base64")
+  .replace(/=/g, "")
+  .replace(/\+/g, "-")
+  .replace(/\//g, "_");
+process.stdout.write(`${signingInput}.${signature}`);
 NODE
 )"
 
