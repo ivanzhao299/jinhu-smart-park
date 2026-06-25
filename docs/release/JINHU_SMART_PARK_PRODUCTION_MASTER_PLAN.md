@@ -24,6 +24,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-3 | Work order lifecycle | `WORK_ORDER_PRODUCTION_GATE3_REPORT.md` | PASS |
 | Gate-4 | Admin RBAC and organization | `ADMIN_RBAC_PRODUCTION_GATE4_REPORT.md` | PASS |
 | Gate-5 | Asset and unit lifecycle | `ASSET_UNIT_PRODUCTION_GATE5_REPORT.md` | PASS |
+| Gate-6A | Leasing and finance read surface | `LEASING_FINANCE_SURFACE_PRODUCTION_GATE6A_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -45,9 +46,9 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Role / permission / data scope | PASS | Add persona login smoke for each role pack |
 | Organization structure | PASS | Add org tree create/update/delete guarded smoke |
 | Asset management | PASS | Continue unit occupancy and tenant linkage validation |
-| Leasing CRM | PARTIAL | Add lead-to-tenant-to-contract production gate |
+| Leasing CRM | PARTIAL | Read surface passed; add lead-to-tenant-to-contract production gate |
 | Contracts | PARTIAL | Add contract approval/archive/effective production gate |
-| Finance | PARTIAL | Add receivable/payment/invoice/waiver production gate |
+| Finance | PARTIAL | Read surface passed; add receivable/payment/invoice/waiver production gate |
 | Work orders | PASS | Add tenant service entry and SLA escalation evidence |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
 | Hazard closure | PASS | Add dashboard KPI accuracy verification |
@@ -74,6 +75,7 @@ Completed:
 - Work order lifecycle production gate.
 - Admin RBAC production gate.
 - Asset and unit production lifecycle gate.
+- Leasing and finance read-surface production gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -93,7 +95,8 @@ Target:
 
 Required Gates:
 
-- Gate-6 Leasing to Contract Lifecycle.
+- Gate-6A Leasing and Finance Read Surface. PASS.
+- Gate-6B Leasing to Contract Lifecycle.
 - Gate-7 Finance Lifecycle.
 - Gate-8 Emergency and Work Permit Lifecycle.
 - Gate-9 Tenant Service Entry.
