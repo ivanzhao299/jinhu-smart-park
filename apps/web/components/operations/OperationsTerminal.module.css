@@ -650,12 +650,19 @@
     margin: 0 calc(var(--phoenix-space-5) * -1);
     padding: 10px var(--phoenix-space-5) calc(10px + env(safe-area-inset-bottom));
     position: sticky;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     z-index: 2;
   }
 
   .mobileDrawerFooter > * {
-    flex: 1 1 100%;
     min-height: 44px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .mobileDrawerFooter > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .inlineControl {
