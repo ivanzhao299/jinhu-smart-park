@@ -25,6 +25,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-4 | Admin RBAC and organization | `ADMIN_RBAC_PRODUCTION_GATE4_REPORT.md` | PASS |
 | Gate-5 | Asset and unit lifecycle | `ASSET_UNIT_PRODUCTION_GATE5_REPORT.md` | PASS |
 | Gate-6A | Leasing and finance read surface | `LEASING_FINANCE_SURFACE_PRODUCTION_GATE6A_REPORT.md` | PASS |
+| Gate-6B | Leasing to effective contract lifecycle | `LEASING_CONTRACT_LIFECYCLE_PRODUCTION_GATE6B_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -45,9 +46,9 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | System administration | PASS | Continue route-level smoke and admin UX polish |
 | Role / permission / data scope | PASS | Add persona login smoke for each role pack |
 | Organization structure | PASS | Add org tree create/update/delete guarded smoke |
-| Asset management | PASS | Continue unit occupancy and tenant linkage validation |
-| Leasing CRM | PARTIAL | Read surface passed; add lead-to-tenant-to-contract production gate |
-| Contracts | PARTIAL | Add contract approval/archive/effective production gate |
+| Asset management | PASS | Continue batch import and occupancy dashboard verification |
+| Leasing CRM | PASS | Continue list/detail UX polish and role persona smoke |
+| Contracts | PASS | Add contract change, renewal, and checkout gates |
 | Finance | PARTIAL | Read surface passed; add receivable/payment/invoice/waiver production gate |
 | Work orders | PASS | Add tenant service entry and SLA escalation evidence |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
@@ -76,6 +77,7 @@ Completed:
 - Admin RBAC production gate.
 - Asset and unit production lifecycle gate.
 - Leasing and finance read-surface production gate.
+- Leasing lead to effective contract lifecycle gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -96,7 +98,7 @@ Target:
 Required Gates:
 
 - Gate-6A Leasing and Finance Read Surface. PASS.
-- Gate-6B Leasing to Contract Lifecycle.
+- Gate-6B Leasing to Contract Lifecycle. PASS.
 - Gate-7 Finance Lifecycle.
 - Gate-8 Emergency and Work Permit Lifecycle.
 - Gate-9 Tenant Service Entry.
