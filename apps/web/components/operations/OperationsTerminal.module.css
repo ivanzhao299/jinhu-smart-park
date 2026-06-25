@@ -446,6 +446,13 @@
   gap: var(--phoenix-space-2);
 }
 
+.inlineUploader:global(.operation-photo-uploader) {
+  align-items: stretch;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
 .fileInput {
   clip: rect(0 0 0 0);
   height: 1px;

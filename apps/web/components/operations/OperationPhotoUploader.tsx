@@ -65,10 +65,15 @@ export function OperationPhotoUploader({
   }
 
   return (
-    <div className={styles.inlineUploader}>
-      <label className="secondary-button">
-        <Camera size={16} />
-        {uploading ? "上传中" : "上传照片"}
+    <div className={`${styles.inlineUploader} operation-photo-uploader`}>
+      <label className="operation-photo-upload-card">
+        <span className="operation-photo-upload-icon" aria-hidden="true">
+          <Camera size={22} />
+        </span>
+        <span className="operation-photo-upload-copy">
+          <strong>{uploading ? "上传中..." : "拍照 / 上传附件"}</strong>
+          <small>支持现场照片，上传后自动计入附件</small>
+        </span>
         <input className={styles.fileInput} aria-label="上传现场照片" accept={policy.mimeTypes.join(",")} type="file" onChange={handleChange} />
       </label>
       {message ? <span className="status-pill">{message}</span> : null}
