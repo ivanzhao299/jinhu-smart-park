@@ -53,6 +53,14 @@ export function QuickWorkOrderDrawer({
       />
       <DrawerForm onSubmit={onSubmit}>
         <DrawerSection title="选择业务场景">
+          <div className="workorder-flow-note">
+            <strong>{audienceProfile.audience === "tenant" ? "服务请求流转" : "内部任务流转"}</strong>
+            <span>
+              {audienceProfile.audience === "tenant"
+                ? "提交后进入服务台受理队列，由调度岗分派给物业、工程、安防或信息化处理，完成后由提交人确认或评价。"
+                : "提交后进入流程收件箱和部门待办，由责任人接单处理，主管可跟踪复核和闭环。"}
+            </span>
+          </div>
           <div className="workorder-intent-grid">
             {intentOptions.map((intent) => {
               const active = form.woType === preferredDictValue(dicts.workorder_type, [intent.woType]);
@@ -68,7 +76,7 @@ export function QuickWorkOrderDrawer({
 
         <DrawerSection title="基本信息">
           <DrawerFormGrid>
-            <TerminalDictSelect label="需求类型" required value={form.woType} dictCode="workorder_type" dicts={dicts} onChange={(value) => onChange({ woType: value })} />
+            <TerminalDictSelect label={audienceProfile.audience === "tenant" ? "服务类型" : "任务类型"} required value={form.woType} dictCode="workorder_type" dicts={dicts} onChange={(value) => onChange({ woType: value })} />
             <TerminalDictSelect label="优先级" required value={form.priority} dictCode="workorder_priority" dicts={dicts} onChange={(value) => onChange({ priority: value })} />
             <TerminalDictSelect label="紧急程度" value={form.urgency} dictCode="workorder_urgency" dicts={dicts} onChange={(value) => onChange({ urgency: value })} />
             {audienceProfile.audience === "tenant" ? null : (
@@ -120,7 +128,9 @@ export function QuickWorkOrderDrawer({
             <TerminalField label="联系电话">
               <input value={form.reporterMobile} onChange={(event) => onChange({ reporterMobile: event.target.value })} />
             </TerminalField>
-            <TerminalSelectField label="处理人" value={form.assigneeId} options={users.map((item) => ({ value: item.id, label: displayUser(item) }))} onChange={(value) => onChange({ assigneeId: value })} />
+            {audienceProfile.audience === "tenant" ? null : (
+              <TerminalSelectField label="处理人" value={form.assigneeId} options={users.map((item) => ({ value: item.id, label: displayUser(item) }))} onChange={(value) => onChange({ assigneeId: value })} />
+            )}
             <TerminalField label="照片附件">
               <OperationPhotoUploader bizType="workorder_create" onUploaded={(file) => onChange({ imageFileIds: appendUnique(form.imageFileIds, file.id) })} />
               <AttachmentCounter count={form.imageFileIds.length} />

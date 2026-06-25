@@ -11,6 +11,7 @@ import {
   StatusPill
 } from "@jinhu/ui";
 import { Building2, FilePlus2, Headphones, RefreshCw, ShieldAlert, Sparkles, Wrench } from "lucide-react";
+import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
@@ -116,6 +117,13 @@ const defaultWorkOrderForm: WorkOrderForm = {
   imageFileIds: []
 };
 
+const serviceFlowSteps = [
+  { key: "submit", label: "提交", owner: "业主 / 租户", helper: "补充位置、联系人、照片和诉求说明" },
+  { key: "dispatch", label: "受理", owner: "客服 / 调度岗", helper: "确认信息并分派责任部门" },
+  { key: "handle", label: "处理", owner: "物业 / 工程 / 安防 / 信息化", helper: "上门处理、登记过程、上传附件" },
+  { key: "confirm", label: "确认", owner: "提交人 / 客服", helper: "确认结果、评价或退回继续处理" }
+];
+
 const tenantServiceProfile: WorkOrderAudienceProfile = {
   audience: "tenant",
   label: "业主 / 租户",
@@ -147,6 +155,7 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
   const waitingConfirmCount = workOrders.filter((item) => item.status === "60").length;
   const closedCount = workOrders.filter((item) => ["70", "100"].includes(item.status)).length;
   const latestOrder = workOrders[0];
+  const latestFlow = latestOrder ? serviceFlowState(latestOrder.status) : serviceFlowState("");
 
   const loadAll = useCallback(async () => {
     if (previewMode) {
@@ -298,6 +307,24 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
         <TenantServiceKpi label="已闭环" value={closedCount} helper="已评价或已关闭" />
       </section>
 
+      <section className={styles.flowPanel} aria-label="服务请求流转">
+        <div className={styles.flowSummary}>
+          <span>服务流转</span>
+          <strong>{latestFlow.title}</strong>
+          <small>{latestFlow.helper}</small>
+        </div>
+        <div className={styles.flowSteps}>
+          {serviceFlowSteps.map((step, index) => (
+            <div className={index <= latestFlow.index ? styles.flowStepActive : styles.flowStep} key={step.key}>
+              <span>{step.label}</span>
+              <strong>{step.owner}</strong>
+              <small>{step.helper}</small>
+            </div>
+          ))}
+        </div>
+        <Link className={styles.flowLink} href="/workflow/inbox">查看流程收件箱</Link>
+      </section>
+
       {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
       {!canCreate ? <FeedbackNotice>当前账号可查看租户服务请求，但没有新增工单权限。</FeedbackNotice> : null}
 
@@ -446,6 +473,22 @@ function progressIndex(status: string): number {
   if (["20", "30", "40", "50"].includes(status)) return 2;
   if (status === "10") return 1;
   return 0;
+}
+
+function serviceFlowState(status: string): { index: number; title: string; helper: string } {
+  if (["70", "100"].includes(status)) {
+    return { index: 3, title: "服务已闭环", helper: "服务请求已完成确认，可在最近服务请求中追溯记录。" };
+  }
+  if (status === "60") {
+    return { index: 3, title: "等待提交人确认", helper: "处理人已完成服务，等待租户确认、评价或反馈。" };
+  }
+  if (["20", "30", "40", "50"].includes(status)) {
+    return { index: 2, title: "责任部门处理中", helper: "物业、工程、安防或信息化人员正在处理，可通过流程收件箱查看消息。" };
+  }
+  if (status === "10") {
+    return { index: 1, title: "服务台正在受理", helper: "客服或调度岗将确认信息并分派给对应责任部门。" };
+  }
+  return { index: 0, title: "提交后自动进入受理队列", helper: "系统会把服务请求推送给客服/调度岗，再分派给责任部门处理。" };
 }
 
 function formatDateTime(value?: string | null): string {

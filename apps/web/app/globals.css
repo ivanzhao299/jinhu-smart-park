@@ -2142,6 +2142,31 @@ textarea:disabled {
   gap: 10px;
 }
 
+.workorder-flow-note {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--border));
+  border-radius: 16px;
+  padding: 12px 14px;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 8rem),
+    color-mix(in srgb, var(--bg-card) 92%, var(--bg-muted));
+}
+
+.workorder-flow-note strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 820;
+}
+
+.workorder-flow-note span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.65;
+}
+
 .workorder-intent-card {
   display: grid;
   gap: 5px;
