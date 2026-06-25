@@ -26,6 +26,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-5 | Asset and unit lifecycle | `ASSET_UNIT_PRODUCTION_GATE5_REPORT.md` | PASS |
 | Gate-6A | Leasing and finance read surface | `LEASING_FINANCE_SURFACE_PRODUCTION_GATE6A_REPORT.md` | PASS |
 | Gate-6B | Leasing to effective contract lifecycle | `LEASING_CONTRACT_LIFECYCLE_PRODUCTION_GATE6B_REPORT.md` | PASS |
+| Gate-7 | Finance lifecycle | `FINANCE_LIFECYCLE_PRODUCTION_GATE7_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -49,7 +50,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Asset management | PASS | Continue batch import and occupancy dashboard verification |
 | Leasing CRM | PASS | Continue list/detail UX polish and role persona smoke |
 | Contracts | PASS | Add contract change, renewal, and checkout gates |
-| Finance | PARTIAL | Read surface passed; add receivable/payment/invoice/waiver production gate |
+| Finance | PASS | Add batch billing, checkout/refund, and finance KPI gates |
 | Work orders | PASS | Add tenant service entry and SLA escalation evidence |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
 | Hazard closure | PASS | Add dashboard KPI accuracy verification |
@@ -78,6 +79,7 @@ Completed:
 - Asset and unit production lifecycle gate.
 - Leasing and finance read-surface production gate.
 - Leasing lead to effective contract lifecycle gate.
+- Finance receivable, payment, invoice, and waiver lifecycle gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -99,7 +101,7 @@ Required Gates:
 
 - Gate-6A Leasing and Finance Read Surface. PASS.
 - Gate-6B Leasing to Contract Lifecycle. PASS.
-- Gate-7 Finance Lifecycle.
+- Gate-7 Finance Lifecycle. PASS.
 - Gate-8 Emergency and Work Permit Lifecycle.
 - Gate-9 Tenant Service Entry.
 
