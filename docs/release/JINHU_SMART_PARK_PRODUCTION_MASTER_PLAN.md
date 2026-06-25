@@ -23,6 +23,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-2 | Safety hazard closure | `SAFETY_HAZARD_PRODUCTION_GATE2_REPORT.md` | PASS |
 | Gate-3 | Work order lifecycle | `WORK_ORDER_PRODUCTION_GATE3_REPORT.md` | PASS |
 | Gate-4 | Admin RBAC and organization | `ADMIN_RBAC_PRODUCTION_GATE4_REPORT.md` | PASS |
+| Gate-5 | Asset and unit lifecycle | `ASSET_UNIT_PRODUCTION_GATE5_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -43,7 +44,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | System administration | PASS | Continue route-level smoke and admin UX polish |
 | Role / permission / data scope | PASS | Add persona login smoke for each role pack |
 | Organization structure | PASS | Add org tree create/update/delete guarded smoke |
-| Asset management | PARTIAL | Add asset/unit production read-write gate |
+| Asset management | PASS | Continue unit occupancy and tenant linkage validation |
 | Leasing CRM | PARTIAL | Add lead-to-tenant-to-contract production gate |
 | Contracts | PARTIAL | Add contract approval/archive/effective production gate |
 | Finance | PARTIAL | Add receivable/payment/invoice/waiver production gate |
@@ -72,6 +73,7 @@ Completed:
 - Hazard closure production gate.
 - Work order lifecycle production gate.
 - Admin RBAC production gate.
+- Asset and unit production lifecycle gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -91,7 +93,6 @@ Target:
 
 Required Gates:
 
-- Gate-5 Asset and Unit Lifecycle.
 - Gate-6 Leasing to Contract Lifecycle.
 - Gate-7 Finance Lifecycle.
 - Gate-8 Emergency and Work Permit Lifecycle.
@@ -159,4 +160,3 @@ Required Gates:
 - Destructive operations need an explicit rollback note.
 - Secrets must not be printed in logs.
 - Every change must pass local validation and CI before being considered accepted.
-
