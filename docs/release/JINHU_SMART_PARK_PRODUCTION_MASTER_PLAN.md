@@ -30,6 +30,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-8 | Emergency and work permit lifecycle | `EMERGENCY_WORK_PERMIT_PRODUCTION_GATE8_REPORT.md` | PASS |
 | Gate-9 | Tenant service entry lifecycle | `TENANT_SERVICE_ENTRY_PRODUCTION_GATE9_REPORT.md` | PASS |
 | Gate-10 | IoT device and alert runtime | `IOT_ALERT_RUNTIME_PRODUCTION_GATE10_REPORT.md` | PASS |
+| Gate-11 | Energy meter to billing lifecycle | `ENERGY_BILLING_PRODUCTION_GATE11_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -59,7 +60,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Hazard closure | PASS | Add dashboard KPI accuracy verification |
 | Emergency / work permits | PASS | Add mobile field role smoke and dashboard KPI accuracy verification |
 | IoT device hub | PASS | Add dry-run device command governance and device command masking |
-| Energy metering / billing | PARTIAL | Add meter reading to billing cycle gate |
+| Energy metering / billing | PASS | Add public allocation, reversal, and finance KPI gates |
 | Video security | PARTIAL | Add stream config masking and evidence attach gate |
 | Cleaning robot | PARTIAL | Add robot read-only / command dry-run governance gate |
 | UI/UX | PARTIAL | Continue high-frequency workflow polish and mobile inspection UX |
@@ -86,6 +87,7 @@ Completed:
 - Emergency event and work permit production lifecycle gate.
 - Tenant service request to work order evaluation production lifecycle gate.
 - IoT device, metric, point, heartbeat, metric report, alert, alert-to-work-order, dashboard, and audit production gate.
+- Energy meter, confirmed reading, billing cycle, billing item, receivable posting, dashboard, and audit production gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -123,7 +125,7 @@ Target:
 Required Gates:
 
 - Gate-10 IoT Device and Alert Runtime. PASS.
-- Gate-11 Energy Meter to Billing.
+- Gate-11 Energy Meter to Billing. PASS.
 - Gate-12 Video Security Evidence.
 - Gate-13 Robot Operations Governance.
 
@@ -160,8 +162,8 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Implement Gate-11 Energy Meter to Billing.
-2. Implement Gate-12 Video Security Evidence.
+1. Implement Gate-12 Video Security Evidence.
+2. Implement Gate-13 Robot Operations Governance.
 3. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
 4. Implement persona login smoke for the 9 production roles.
 5. Add security gate pack for auth/session/file policy.
