@@ -249,7 +249,7 @@ WITH scope AS (
 )
 SELECT
   (SELECT count(*)::int FROM sys_tenant WHERE tenant_id = (SELECT tenant_id FROM scope) AND is_deleted = false),
-  (SELECT count(*)::int FROM sys_park WHERE park_id = (SELECT park_id FROM scope) AND is_deleted = false),
+  (SELECT count(*)::int FROM biz_park WHERE park_id = (SELECT park_id FROM scope) AND is_deleted = false),
   (SELECT count(*)::int FROM sys_user WHERE tenant_id = (SELECT tenant_id FROM scope) AND park_id = (SELECT park_id FROM scope) AND is_deleted = false AND status = 'enabled'),
   (SELECT count(*)::int FROM sys_role WHERE tenant_id = (SELECT tenant_id FROM scope) AND park_id = (SELECT park_id FROM scope) AND is_deleted = false AND status = 'enabled'),
   (SELECT count(*)::int FROM rel_role_perm WHERE tenant_id = (SELECT tenant_id FROM scope) AND park_id = (SELECT park_id FROM scope) AND is_deleted = false),
