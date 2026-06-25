@@ -4,7 +4,7 @@
   justify-content: center;
   gap: var(--phoenix-space-2);
   border-radius: 10px;
-  font-weight: 720;
+  font-weight: 780;
   cursor: pointer;
   transition: var(--phoenix-transition);
   border: 1px solid transparent;
@@ -51,7 +51,7 @@
 .secondary {
   background: var(--bg-card, var(--phoenix-color-surface));
   color: var(--text-primary, var(--phoenix-color-text));
-  border-color: var(--border-soft, var(--phoenix-color-border));
+  border-color: var(--border, var(--phoenix-color-border));
   box-shadow: none;
 }
 

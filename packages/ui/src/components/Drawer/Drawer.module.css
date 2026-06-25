@@ -37,9 +37,9 @@
   width: min(var(--drawer-width), calc(100vw - (var(--drawer-offset) * 2)));
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
+  border: 1px solid var(--border, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
   border-radius: var(--drawer-panel-radius, 12px);
-  background: var(--bg-card, var(--phoenix-color-surface));
+  background: var(--surface-elevated, var(--bg-card, var(--phoenix-color-surface)));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
   padding: 0;
   color: var(--text-primary, var(--phoenix-color-text));
@@ -57,7 +57,7 @@
   --drawer-width: 680px;
 
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .drawerPanel:global(.ds-compact-drawer) .drawerHeader {
@@ -65,7 +65,7 @@
 }
 
 .drawerPanel:global(.ds-compact-drawer) .drawerTitle {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.25;
 }
 
@@ -105,9 +105,11 @@
   gap: 12px;
   align-items: center;
   margin: 0;
-  border-bottom: 1px solid var(--border-soft, color-mix(in srgb, var(--phoenix-color-border) 72%, transparent));
+  border-bottom: 1px solid var(--border, color-mix(in srgb, var(--phoenix-color-border) 72%, transparent));
   padding: 20px 24px 12px;
-  background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary, var(--phoenix-color-primary)) 8%, transparent), transparent 100%),
+    var(--surface-elevated, var(--bg-card, var(--phoenix-color-surface)));
   backdrop-filter: blur(14px);
 }
 
@@ -119,8 +121,8 @@
 
 .drawerEyebrow {
   color: var(--phoenix-color-primary);
-  font-size: 11px;
-  font-weight: 760;
+  font-size: 12px;
+  font-weight: 820;
   line-height: 1.35;
 }
 
@@ -128,8 +130,8 @@
   overflow: hidden;
   margin: 0;
   color: var(--text-primary, var(--phoenix-color-text));
-  font-size: 20px;
-  font-weight: 760;
+  font-size: 21px;
+  font-weight: 840;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -139,8 +141,9 @@
   overflow: hidden;
   margin: 0;
   color: var(--text-secondary, var(--phoenix-color-text-muted));
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1.55;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -152,10 +155,10 @@
   width: 32px;
   height: 32px;
   min-height: 32px;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--border, var(--phoenix-color-border)) 70%, transparent);
   border-radius: 999px;
   padding: 0;
-  background: color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 3%, transparent);
+  background: color-mix(in srgb, var(--surface-subtle, var(--phoenix-color-surface-muted)) 72%, transparent);
   color: var(--text-secondary, var(--phoenix-color-text-muted));
   box-shadow: none;
   cursor: pointer;
@@ -255,14 +258,14 @@
 
 .drawerSection {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .drawerSectionTitle {
   margin: 0;
   color: var(--text-primary, var(--phoenix-color-text));
-  font-size: 13px;
-  font-weight: 760;
+  font-size: 15px;
+  font-weight: 840;
   line-height: 1.4;
 }
 
@@ -287,11 +290,11 @@
   justify-content: flex-end;
   gap: 8px;
   margin: 12px -24px 0;
-  border-top: 1px solid var(--border-soft, color-mix(in srgb, var(--phoenix-color-border) 78%, transparent));
+  border-top: 1px solid var(--border, color-mix(in srgb, var(--phoenix-color-border) 78%, transparent));
   padding: 12px 24px 16px;
-  background: color-mix(in srgb, var(--bg-card, var(--phoenix-color-surface)) 94%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated, var(--bg-card, var(--phoenix-color-surface))) 96%, transparent);
   backdrop-filter: blur(14px);
-  box-shadow: 0 -12px 28px color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 7%, transparent);
+  box-shadow: 0 -12px 28px color-mix(in srgb, var(--text-primary, var(--phoenix-color-text)) 10%, transparent);
 }
 
 .drawerFooter > * {
