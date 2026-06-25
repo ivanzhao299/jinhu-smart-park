@@ -87,11 +87,21 @@ wait_for_api() {
 curl_request() {
   method="$1"
   path="$2"
+  body="${3:-}"
   out_file="$REPORT_DIR/$RUN_ID-$(printf "%s-%s" "$method" "$path" | tr '/:' '--' | tr -cd '[:alnum:]_.-').json"
-  status="$(curl -sS -o "$out_file" -w "%{http_code}" \
-    -X "$method" "$API_BASE$path" \
-    -H "authorization: Bearer $TOKEN" \
-    -H "x-idempotency-key: $RUN_ID-$(date +%s%N)")"
+  if [ -n "$body" ]; then
+    status="$(curl -sS -o "$out_file" -w "%{http_code}" \
+      -X "$method" "$API_BASE$path" \
+      -H "content-type: application/json" \
+      -H "authorization: Bearer $TOKEN" \
+      -H "x-idempotency-key: $RUN_ID-$(date +%s%N)" \
+      --data "$body")"
+  else
+    status="$(curl -sS -o "$out_file" -w "%{http_code}" \
+      -X "$method" "$API_BASE$path" \
+      -H "authorization: Bearer $TOKEN" \
+      -H "x-idempotency-key: $RUN_ID-$(date +%s%N)")"
+  fi
   printf "%s|%s\n" "$status" "$out_file"
 }
 
@@ -101,7 +111,7 @@ assert_http_ok() {
   status="${result%%|*}"
   file="${result#*|}"
   case "$status" in
-    200)
+    200|201)
       append_report "- PASS: $label HTTP $status"
       ;;
     *)
@@ -120,6 +130,19 @@ const items = body?.data?.items ?? [];
 const id = items[0]?.id;
 if (!id) process.exit(2);
 process.stdout.write(String(id));
+NODE
+}
+
+extract_data_field() {
+  file="$1"
+  field="$2"
+  node <<NODE
+const fs = require("node:fs");
+const body = JSON.parse(fs.readFileSync("$file", "utf8"));
+const data = body && body.data ? body.data : body;
+const value = data && data["$field"];
+if (value === undefined || value === null || value === "") process.exit(2);
+process.stdout.write(String(value));
 NODE
 }
 
@@ -200,8 +223,36 @@ append_report "## API Surface"
 
 tenant_result="$(curl_request GET "/park-tenants?page=1&page_size=5")"
 assert_http_ok "park tenant list" "$tenant_result"
-TENANT_RECORD_ID="$(extract_first_item_id "${tenant_result#*|}")" || fail_gate "no park tenant exists for Gate-6A tenant surface checks"
-append_report "- PASS: selected park tenant id \`$TENANT_RECORD_ID\`"
+if TENANT_RECORD_ID="$(extract_first_item_id "${tenant_result#*|}")"; then
+  append_report "- PASS: selected park tenant id \`$TENANT_RECORD_ID\`"
+else
+  TENANT_CODE="G6A$(date -u +%m%d%H%M%S)"
+  CONTACT_MOBILE="139$(date -u +%H%M%S)06"
+  CONTACT_EMAIL="gate6a-$TENANT_CODE@example.com"
+  tenant_body="$(cat <<JSON
+{
+  "parkTenantCode": "$TENANT_CODE",
+  "companyName": "Gate-6A 生产验证租户",
+  "unifiedCreditCode": "$TENANT_CODE",
+  "legalPerson": "Gate-6A",
+  "contactName": "Gate-6A 联系人",
+  "contactMobile": "$CONTACT_MOBILE",
+  "contactEmail": "$CONTACT_EMAIL",
+  "industryCode": "tech",
+  "industryDetail": "生产验证",
+  "tenantType": "enterprise",
+  "riskLevel": "low",
+  "sourceType": "manual",
+  "status": "active",
+  "remark": "$RUN_ID"
+}
+JSON
+)"
+  create_tenant_result="$(curl_request POST "/park-tenants" "$tenant_body")"
+  assert_http_ok "create controlled park tenant" "$create_tenant_result"
+  TENANT_RECORD_ID="$(extract_data_field "${create_tenant_result#*|}" "id")"
+  append_report "- PASS: created controlled park tenant \`$TENANT_CODE\`"
+fi
 
 assert_http_ok "park tenant detail" "$(curl_request GET "/park-tenants/$TENANT_RECORD_ID")"
 assert_http_ok "park tenant 360" "$(curl_request GET "/park-tenants/$TENANT_RECORD_ID/360")"
