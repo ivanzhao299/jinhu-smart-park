@@ -35,6 +35,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-13 | Robot operations governance | `ROBOT_OPERATIONS_GOVERNANCE_PRODUCTION_GATE13_REPORT.md` | PASS |
 | Gate-14 | Mobile inspection UX | `MOBILE_INSPECTION_UX_PRODUCTION_GATE14_REPORT.md` | PASS |
 | Gate-15 | Tenant portal UX | `TENANT_PORTAL_UX_PRODUCTION_GATE15_REPORT.md` | PASS |
+| Gate-16 | Executive dashboard accuracy | `EXECUTIVE_DASHBOARD_ACCURACY_PRODUCTION_GATE16_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -61,13 +62,13 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Finance | PASS | Add batch billing, checkout/refund, and finance KPI gates |
 | Work orders | PASS | Add SLA escalation evidence and tenant portal UX smoke |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
-| Hazard closure | PASS | Add dashboard KPI accuracy verification |
-| Emergency / work permits | PASS | Add mobile field role smoke and dashboard KPI accuracy verification |
+| Hazard closure | PASS | Dashboard KPI accuracy verified by Gate-16; continue persona smoke |
+| Emergency / work permits | PASS | Add mobile field role smoke |
 | IoT device hub | PASS | Add dry-run device command governance and device command masking |
 | Energy metering / billing | PASS | Add public allocation, reversal, and finance KPI gates |
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
 | Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
-| UI/UX | PARTIAL | Continue high-frequency workflow polish and mobile inspection UX |
+| UI/UX | PASS | Continue persona workflow polish and accessibility regression smoke |
 | Security | PARTIAL | Add auth lockout, CSRF/origin, file-policy, and audit gate pack |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
 
@@ -97,6 +98,7 @@ Completed:
 - High-frequency drawer/form UI/UX Sprint 1.
 - Mobile inspection terminal progress, field readiness, sticky mobile footer, production web route, and inspection read-surface gate.
 - Tenant service desk page, service quick actions, tenant request work order source mapping, route/menu evidence, and read-surface gate.
+- Executive dashboard route, live API data sources, and DB/API KPI cross-check evidence.
 
 Remaining:
 
@@ -149,7 +151,7 @@ Required Gates:
 
 - Gate-14 Mobile Inspection UX. PASS.
 - Gate-15 Tenant Portal UX. PASS.
-- Gate-16 Executive Dashboard Accuracy.
+- Gate-16 Executive Dashboard Accuracy. PASS.
 
 ### Phase 5: Security, Compliance, And Production Operations
 
@@ -169,11 +171,11 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
-2. Implement persona login smoke for the 9 production roles.
-3. Add security gate pack for auth/session/file policy.
-4. Add real vendor video adapter smoke only after credential and network governance approval.
-5. Add real vendor robot smoke only after credential, network, and site-operations approval.
+1. Implement persona login smoke for the 9 production roles.
+2. Add security gate pack for auth/session/file policy.
+3. Add backup restore drill and production go-live review gates.
+4. Continue accessibility and role-specific workflow polish.
+5. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
 
 ## Operating Rules
 
