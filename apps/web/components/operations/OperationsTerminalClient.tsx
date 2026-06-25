@@ -72,6 +72,31 @@ const defaultWorkOrderForm: WorkOrderForm = {
   imageFileIds: []
 };
 
+const WORK_ORDER_FALLBACK_DICTS: DictMap = {
+  workorder_type: [
+    { id: "fallback-workorder-type-repair", itemLabel: "报修", itemValue: "repair", status: "enabled", tagType: "primary" },
+    { id: "fallback-workorder-type-request", itemLabel: "申请", itemValue: "request", status: "enabled", tagType: "success" },
+    { id: "fallback-workorder-type-maintenance", itemLabel: "维保", itemValue: "maintenance", status: "enabled", tagType: "primary" },
+    { id: "fallback-workorder-type-cleaning", itemLabel: "保洁", itemValue: "cleaning", status: "enabled", tagType: "success" },
+    { id: "fallback-workorder-type-security", itemLabel: "安防", itemValue: "security", status: "enabled", tagType: "warning" },
+    { id: "fallback-workorder-type-other", itemLabel: "其他", itemValue: "other", status: "enabled", tagType: "default" }
+  ],
+  workorder_priority: [
+    { id: "fallback-workorder-priority-high", itemLabel: "高", itemValue: "high", status: "enabled", tagType: "danger" },
+    { id: "fallback-workorder-priority-medium", itemLabel: "中", itemValue: "medium", status: "enabled", tagType: "warning" },
+    { id: "fallback-workorder-priority-low", itemLabel: "低", itemValue: "low", status: "enabled", tagType: "default" }
+  ],
+  workorder_urgency: [
+    { id: "fallback-workorder-urgency-urgent", itemLabel: "紧急", itemValue: "urgent", status: "enabled", tagType: "danger" },
+    { id: "fallback-workorder-urgency-normal", itemLabel: "一般", itemValue: "normal", status: "enabled", tagType: "primary" },
+    { id: "fallback-workorder-urgency-low", itemLabel: "低", itemValue: "low", status: "enabled", tagType: "default" }
+  ]
+};
+
+const DEFAULT_WORK_ORDER_TYPE = "repair";
+const DEFAULT_WORK_ORDER_PRIORITY = "medium";
+const DEFAULT_WORK_ORDER_URGENCY = "normal";
+
 export function OperationsTerminalClient({ previewMode = false, previewData }: OperationsTerminalClientProps = {}) {
   const authUser = useAuthUser();
   const [tasks, setTasks] = useState<InspectTaskRow[]>(previewData?.tasks ?? []);
@@ -88,6 +113,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const [resultInputs, setResultInputs] = useState<Record<string, ResultInput>>({});
   const [workOrderOpen, setWorkOrderOpen] = useState(false);
   const [workOrderForm, setWorkOrderForm] = useState<WorkOrderForm>(defaultWorkOrderForm);
+  const effectiveDicts = useMemo(() => withWorkOrderFallbackDicts(dicts), [dicts]);
 
   const todayTasks = useMemo(() => tasks.filter((task) => isToday(task.planTime)), [tasks]);
   const pendingTasks = todayTasks.filter((task) => task.status === "10");
@@ -97,10 +123,20 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const abnormalTasks = todayTasks.filter((task) => task.result === "abnormal");
   const completionRate = todayTasks.length === 0 ? 0 : Math.round((completedTasks.length / todayTasks.length) * 100);
   const canGenerate = previewMode || hasPermission(authUser, "safety_inspect_task:generate");
-  const itemResultItems = dicts.safety_inspect_item_result?.length ? dicts.safety_inspect_item_result : [
+  const itemResultItems = effectiveDicts.safety_inspect_item_result?.length ? effectiveDicts.safety_inspect_item_result : [
     { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
     { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
   ];
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    document.documentElement.classList.add("operations-terminal-safe-area");
+    document.body.classList.add("operations-terminal-safe-area");
+    return () => {
+      document.documentElement.classList.remove("operations-terminal-safe-area");
+      document.body.classList.remove("operations-terminal-safe-area");
+    };
+  }, []);
 
   const loadAll = useCallback(async () => {
     if (previewMode) {
@@ -142,14 +178,12 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   }, [loadAll, previewMode]);
 
   function openWorkOrder(scene?: OperationSceneConfig) {
-    const nextType = defaultDictValue(dicts.workorder_type);
-    const nextPriority = defaultDictValue(dicts.workorder_priority);
-    const nextUrgency = defaultDictValue(dicts.workorder_urgency);
+    const defaults = workOrderDefaultsForScene(scene, effectiveDicts);
     setWorkOrderForm({
       ...defaultWorkOrderForm,
-      woType: nextType,
-      priority: nextPriority,
-      urgency: nextUrgency,
+      woType: defaults.woType,
+      priority: defaults.priority,
+      urgency: defaults.urgency,
       title: scene?.defaultWorkOrderTitle ?? "",
       description: scene?.defaultWorkOrderDescription ?? "",
       reporterName: authUser?.real_name ?? authUser?.username ?? "",
@@ -357,45 +391,52 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
   async function createWorkOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedForm = normalizeWorkOrderForm(workOrderForm, effectiveDicts);
+    const validationMessage = validateWorkOrderForm(normalizedForm);
+    if (validationMessage) {
+      setWorkOrderForm(normalizedForm);
+      setMessage(validationMessage);
+      return;
+    }
     if (previewMode) {
       const now = new Date().toISOString();
       setRecentWorkOrders((current) => [{
         id: `preview-order-${Date.now()}`,
         woCode: "WO-PREVIEW",
-        title: workOrderForm.title.trim() || "现场诉求工单",
+        title: normalizedForm.title.trim() || "现场诉求工单",
         status: "10",
-        priority: workOrderForm.priority || "normal",
-        urgency: workOrderForm.urgency || null,
+        priority: normalizedForm.priority,
+        urgency: normalizedForm.urgency || null,
         createTime: now
       }, ...current]);
       setWorkOrderOpen(false);
       setMessage("预览：工单已提交");
       return;
     }
-    const unit = units.find((item) => item.id === workOrderForm.unitId);
-    const assignee = users.find((item) => item.id === workOrderForm.assigneeId);
+    const unit = units.find((item) => item.id === normalizedForm.unitId);
+    const assignee = users.find((item) => item.id === normalizedForm.assigneeId);
     await apiRequest<WorkOrderRow>("/work-orders", {
       method: "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("terminal-workorder-create"),
       body: {
-        title: workOrderForm.title.trim(),
-        wo_type: workOrderForm.woType,
-        priority: workOrderForm.priority,
-        urgency: workOrderForm.urgency || undefined,
+        title: normalizedForm.title.trim(),
+        wo_type: normalizedForm.woType,
+        priority: normalizedForm.priority,
+        urgency: normalizedForm.urgency || undefined,
         source_type: "tenant_request",
-        park_tenant_id: workOrderForm.parkTenantId || undefined,
-        unit_id: workOrderForm.unitId || undefined,
+        park_tenant_id: normalizedForm.parkTenantId || undefined,
+        unit_id: normalizedForm.unitId || undefined,
         building_id: unit?.buildingId,
         floor_id: unit?.floorId,
         room_label: unit?.unitName,
-        location: workOrderForm.location.trim() || unitLocation(unit),
-        reporter_name: workOrderForm.reporterName.trim() || undefined,
-        reporter_mobile: workOrderForm.reporterMobile.trim() || undefined,
-        assignee_id: workOrderForm.assigneeId || undefined,
+        location: normalizedForm.location.trim() || unitLocation(unit),
+        reporter_name: normalizedForm.reporterName.trim() || undefined,
+        reporter_mobile: normalizedForm.reporterMobile.trim() || undefined,
+        assignee_id: normalizedForm.assigneeId || undefined,
         assignee_name: displayUser(assignee),
-        description: workOrderForm.description.trim(),
-        image_file_ids: workOrderForm.imageFileIds
+        description: normalizedForm.description.trim(),
+        image_file_ids: normalizedForm.imageFileIds
       }
     });
     setWorkOrderOpen(false);
@@ -641,11 +682,11 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
                   <article className={`${styles.mobileTaskCard} ds-mobile-record`} key={order.id}>
                     <div className={`${styles.mobileTaskHeader} ds-mobile-record-header`}>
                       <strong>{order.title}</strong>
-                      <StatusPill dictCode="workorder_status" value={order.status} dicts={dicts} />
+                      <StatusPill dictCode="workorder_status" value={order.status} dicts={effectiveDicts} />
                     </div>
                     <span>{order.woCode}</span>
                     <dl>
-                      <div><dt>优先级</dt><dd><StatusPill dictCode="workorder_priority" value={order.priority} dicts={dicts} /></dd></div>
+                      <div><dt>优先级</dt><dd><StatusPill dictCode="workorder_priority" value={order.priority} dicts={effectiveDicts} /></dd></div>
                       <div><dt>提交时间</dt><dd>{formatDateTime(order.createTime)}</dd></div>
                     </dl>
                   </article>
@@ -667,8 +708,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
                       <tr key={order.id}>
                         <td>{order.woCode}</td>
                         <td>{order.title}</td>
-                        <td><StatusPill dictCode="workorder_priority" value={order.priority} dicts={dicts} /></td>
-                        <td><StatusPill dictCode="workorder_status" value={order.status} dicts={dicts} /></td>
+                        <td><StatusPill dictCode="workorder_priority" value={order.priority} dicts={effectiveDicts} /></td>
+                        <td><StatusPill dictCode="workorder_status" value={order.status} dicts={effectiveDicts} /></td>
                         <td>{formatDateTime(order.createTime)}</td>
                       </tr>
                     ))}
@@ -706,7 +747,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
         {workOrderOpen ? (
           <QuickWorkOrderDrawer
             form={workOrderForm}
-            dicts={dicts}
+            dicts={effectiveDicts}
             units={units}
             parkTenants={parkTenants}
             users={users}
@@ -756,6 +797,74 @@ async function loadDictMap(): Promise<DictMap> {
   return Object.fromEntries(entries);
 }
 
+function withWorkOrderFallbackDicts(dicts: DictMap): DictMap {
+  return {
+    ...dicts,
+    workorder_type: mergeDictItems(dicts.workorder_type, WORK_ORDER_FALLBACK_DICTS.workorder_type),
+    workorder_priority: mergeDictItems(dicts.workorder_priority, WORK_ORDER_FALLBACK_DICTS.workorder_priority),
+    workorder_urgency: mergeDictItems(dicts.workorder_urgency, WORK_ORDER_FALLBACK_DICTS.workorder_urgency)
+  };
+}
+
+function mergeDictItems(primary: DictItemRow[] | undefined, fallback: DictItemRow[] | undefined): DictItemRow[] {
+  const merged: DictItemRow[] = [];
+  const seen = new Set<string>();
+  for (const item of [...(primary ?? []), ...(fallback ?? [])]) {
+    if (item.status !== "enabled" || seen.has(item.itemValue)) continue;
+    seen.add(item.itemValue);
+    merged.push(item);
+  }
+  return merged;
+}
+
+function workOrderDefaultsForScene(scene: OperationSceneConfig | undefined, dicts: DictMap): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {
+  const profile = workOrderProfileForScene(scene);
+  return {
+    woType: defaultDictValue(dicts.workorder_type, [profile.woType, DEFAULT_WORK_ORDER_TYPE]),
+    priority: defaultDictValue(dicts.workorder_priority, [profile.priority, DEFAULT_WORK_ORDER_PRIORITY]),
+    urgency: defaultDictValue(dicts.workorder_urgency, [profile.urgency, DEFAULT_WORK_ORDER_URGENCY])
+  };
+}
+
+function workOrderProfileForScene(scene?: OperationSceneConfig): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {
+  if (!scene) {
+    return { woType: DEFAULT_WORK_ORDER_TYPE, priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+  }
+  switch (scene.key) {
+    case "sanitation":
+      return { woType: "cleaning", priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+    case "fire":
+    case "electric":
+      return { woType: "security", priority: "high", urgency: "urgent" };
+    case "equipment":
+    case "concealedFacility":
+      return { woType: "maintenance", priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+    case "parking":
+    case "landscape":
+      return { woType: "request", priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+    case "general":
+    default:
+      return { woType: DEFAULT_WORK_ORDER_TYPE, priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+  }
+}
+
+function normalizeWorkOrderForm(form: WorkOrderForm, dicts: DictMap): WorkOrderForm {
+  return {
+    ...form,
+    woType: form.woType || defaultDictValue(dicts.workorder_type, [DEFAULT_WORK_ORDER_TYPE]),
+    priority: form.priority || defaultDictValue(dicts.workorder_priority, [DEFAULT_WORK_ORDER_PRIORITY]),
+    urgency: form.urgency || defaultDictValue(dicts.workorder_urgency, [DEFAULT_WORK_ORDER_URGENCY])
+  };
+}
+
+function validateWorkOrderForm(form: WorkOrderForm): string {
+  if (!form.woType) return "请选择需求类型";
+  if (!form.priority) return "请选择优先级";
+  if (!form.title.trim()) return "请填写需求标题";
+  if (!form.description.trim()) return "请填写问题描述";
+  return "";
+}
+
 function TerminalKpi({ label, value, helper }: { label: string; value: number; helper: string }) {
   return (
     <Card className={`${styles.kpiCard} ds-kpi-card`}>
@@ -777,8 +886,12 @@ function taskSearchText(task: InspectTaskRow): string {
   return [task.template?.templateName, task.point?.pointName, task.remark].filter(Boolean).join(" ");
 }
 
-function defaultDictValue(items?: DictItemRow[]): string {
-  return items?.find((item) => item.status === "enabled")?.itemValue ?? "";
+function defaultDictValue(items?: DictItemRow[], preferredValues: string[] = []): string {
+  const enabled = items?.filter((item) => item.status === "enabled") ?? [];
+  for (const value of preferredValues) {
+    if (enabled.some((item) => item.itemValue === value)) return value;
+  }
+  return enabled[0]?.itemValue ?? "";
 }
 
 function displayUser(user?: UserRow): string {

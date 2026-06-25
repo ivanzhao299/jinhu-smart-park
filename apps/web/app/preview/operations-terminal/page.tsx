@@ -18,7 +18,7 @@ const dicts: DictMap = {
     { id: "skipped", itemLabel: "跳过", itemValue: "skipped", status: "enabled" }
   ],
   workorder_priority: [
-    { id: "normal", itemLabel: "普通", itemValue: "normal", status: "enabled" },
+    { id: "medium", itemLabel: "中", itemValue: "medium", status: "enabled" },
     { id: "high", itemLabel: "高", itemValue: "high", status: "enabled" }
   ],
   workorder_status: [
@@ -155,7 +155,7 @@ const recentWorkOrders: WorkOrderRow[] = [
     woCode: "WO-PREVIEW-002",
     title: "停车场入口道闸识别延迟",
     status: "10",
-    priority: "normal",
+    priority: "medium",
     urgency: "normal",
     createTime: inOneHour.toISOString()
   }

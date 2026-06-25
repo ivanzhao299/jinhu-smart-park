@@ -19,7 +19,7 @@ const dicts: DictMap = {
     { id: "type-security", itemLabel: "安防协助", itemValue: "security", status: "enabled" }
   ],
   workorder_priority: [
-    { id: "priority-normal", itemLabel: "普通", itemValue: "normal", status: "enabled" },
+    { id: "priority-medium", itemLabel: "中", itemValue: "medium", status: "enabled" },
     { id: "priority-high", itemLabel: "高", itemValue: "high", status: "enabled" }
   ],
   workorder_urgency: [
@@ -72,7 +72,7 @@ const workOrders: TenantServiceWorkOrderRow[] = [
     woCode: "WO-TENANT-002",
     title: "公共走廊保洁补扫",
     status: "60",
-    priority: "normal",
+    priority: "medium",
     urgency: "normal",
     createTime: yesterday.toISOString(),
     sourceType: "tenant_request",
