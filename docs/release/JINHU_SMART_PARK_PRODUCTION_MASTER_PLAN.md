@@ -42,6 +42,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-20 | Production go-live review | `PRODUCTION_GO_LIVE_REVIEW_GATE20_REPORT.md` | PASS / GO |
 | Gate-21 | Persona login smoke | `PERSONA_LOGIN_PRODUCTION_GATE21_REPORT.md` | PASS |
 | Gate-22 | Admin route smoke | `ADMIN_ROUTE_SMOKE_PRODUCTION_GATE22_REPORT.md` | PASS |
+| Gate-23 | Accessibility and role workflow smoke | `ACCESSIBILITY_ROLE_WORKFLOW_PRODUCTION_GATE23_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -74,7 +75,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Energy metering / billing | PASS | Add public allocation, reversal, and finance KPI gates |
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
 | Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
-| UI/UX | PASS | Continue persona workflow polish and accessibility regression smoke |
+| UI/UX | PASS | Accessibility and role workflow smoke passed; continue deeper visual QA as a release-hardening task |
 | Security | PASS | Auth/session, field masking, file policy, backup restore, and go-live review gates passed |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
 
@@ -111,10 +112,13 @@ Completed:
 - Production Go-Live Review GO recommendation, with Gate-1 through Gate-19 evidence inventory verified.
 - Persona login smoke for all 9 production role-pack personas, including real password login, permission loading, `/auth/me`, `/users/me`, audit rows, refresh-token evidence, and temporary-user cleanup.
 - Backend administration route and API read-surface smoke for 15 system pages and 17 administration APIs, including remediation of attachment list query validation.
+- Accessibility and role workflow smoke for 11 role entry routes and 9 API read surfaces, including deployed labels for navigation, theme switching, attachment preview, photo upload, inspection progress, and tenant service entry.
 
 Remaining:
 
-- Accessibility and role-specific workflow polish.
+- No current local-production blocker remains in this master plan.
+- External vendor video/robot smoke remains approval-bound until credential, network, and site-operations approvals are available.
+- External public launch still requires release-owner sign-off.
 
 ### Phase 2: Business Closed Loops
 
@@ -182,9 +186,9 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Continue accessibility and role-specific workflow polish.
+1. Prepare human release-owner sign-off for any external public launch window.
 2. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
-3. Prepare human release-owner sign-off for any external public launch window.
+3. Continue deeper visual QA and persona walkthroughs as release-hardening work.
 
 ## Operating Rules
 
