@@ -15,7 +15,7 @@ interface WorkOrderAssignDialogProps {
 
 export function WorkOrderAssignDialog({ assignment, form, users, onClose, onSubmit, onFormChange }: WorkOrderAssignDialogProps) {
   return (
-    <Drawer size="md" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
       <DrawerHeader
         eyebrow={assignment.mode === "assign" ? "工单派单" : "工单改派"}
         title={assignment.row.woCode}

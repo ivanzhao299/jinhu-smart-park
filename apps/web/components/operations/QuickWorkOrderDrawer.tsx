@@ -27,7 +27,7 @@ export function QuickWorkOrderDrawer({
   onChange: (patch: Partial<WorkOrderForm>) => void;
 }) {
   return (
-    <Drawer size="lg" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="lg" onClose={onClose}>
       <DrawerHeader
         eyebrow="业主 / 租户需求"
         title="快速新建工单"

@@ -25,7 +25,7 @@
 }
 
 .drawerPanel {
-  --drawer-offset: clamp(8px, 1.2vw, 16px);
+  --drawer-offset: clamp(6px, 1vw, 12px);
   --drawer-width: var(--drawer-panel-width, 520px);
 
   position: absolute;
@@ -38,7 +38,7 @@
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border-soft, var(--jinhu-color-border-soft, var(--phoenix-color-border)));
-  border-radius: var(--drawer-panel-radius, 16px);
+  border-radius: var(--drawer-panel-radius, 12px);
   background: var(--bg-card, var(--phoenix-color-surface));
   box-shadow: var(--shadow-panel, var(--phoenix-shadow-lg));
   padding: 0;
@@ -56,7 +56,7 @@
 .drawerPanel:global(.ds-compact-drawer) {
   --drawer-width: 680px;
 
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 12px;
 }
 
@@ -82,8 +82,8 @@
 }
 
 .drawerPanel:global(.ds-compact-drawer) .drawerForm {
-  gap: 10px;
-  padding: 10px 22px 0;
+  gap: 9px;
+  padding: 9px 22px 0;
 }
 
 .drawerPanel:global(.ds-compact-drawer) .drawerFormGrid {
@@ -282,7 +282,7 @@
   z-index: 3;
   flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -297,6 +297,7 @@
 .drawerFooter > * {
   flex: 0 0 auto;
   min-width: 76px;
+  white-space: nowrap;
 }
 
 .drawerDetailGrid {
@@ -335,6 +336,7 @@
   }
 
   .drawerFooter {
+    flex-wrap: wrap;
     justify-content: stretch;
     margin-right: -24px;
     margin-left: -24px;

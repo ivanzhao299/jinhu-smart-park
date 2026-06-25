@@ -13,7 +13,7 @@ interface WorkOrderExceptionActionDialogProps {
 
 export function WorkOrderExceptionActionDialog({ action, form, onClose, onSubmit, onFormChange }: WorkOrderExceptionActionDialogProps) {
   return (
-    <Drawer size="md" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
       <DrawerHeader
         eyebrow={action.mode === "cancel" ? "取消工单" : action.mode === "return" ? "退回工单" : "驳回工单"}
         title={action.row.woCode}

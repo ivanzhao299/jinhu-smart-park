@@ -55,7 +55,7 @@ export function InspectionExecutionDrawer({
   const canSubmit = task.status === "20" || task.status === "40";
 
   return (
-    <Drawer size="xl" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="xl" onClose={onClose}>
       <DrawerHeader
         eyebrow="现场巡检执行"
         title={task.template?.templateName ?? task.taskCode}
@@ -87,7 +87,7 @@ export function InspectionExecutionDrawer({
         </button>
       </div>
 
-      <DrawerForm onSubmit={onSubmitCheckIn}>
+      <DrawerForm className={styles.executionForm} onSubmit={onSubmitCheckIn}>
         <h3 className={styles.formSectionTitle}>打卡信息</h3>
         <DrawerFormGrid>
           <TerminalField label="二维码 / 点位码">
@@ -119,7 +119,7 @@ export function InspectionExecutionDrawer({
         </DrawerFooter>
       </DrawerForm>
 
-      <DrawerForm onSubmit={onSubmitResults}>
+      <DrawerForm className={styles.executionForm} onSubmit={onSubmitResults}>
         <h3 className={styles.formSectionTitle}>检查项</h3>
         <div className={styles.checklist}>
           {(task.items ?? []).map((item) => {

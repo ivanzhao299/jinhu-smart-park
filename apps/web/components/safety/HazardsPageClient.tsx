@@ -862,7 +862,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         {message ? <p className="form-error">{message}</p> : null}
 
         {formOpen ? (
-          <Drawer size="md" onClose={closeForm}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={closeForm}>
             <DrawerHeader
               eyebrow="安全隐患"
               title={editing ? "编辑隐患" : "新增隐患"}
@@ -928,7 +928,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {viewing ? (
-          <Drawer size="md" onClose={() => { setViewing(null); setStatusLogs([]); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setViewing(null); setStatusLogs([]); }}>
             <DrawerHeader
               eyebrow="隐患详情"
               title={viewing.title}
@@ -1048,7 +1048,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {assigning ? (
-          <Drawer size="md" onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}>
             <DrawerHeader
               eyebrow="下达整改"
               title={assigning.title}
@@ -1076,7 +1076,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rectifying ? (
-          <Drawer size="md" onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}>
             <DrawerHeader
               eyebrow="整改完成"
               title={rectifying.title}
@@ -1102,7 +1102,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rechecking ? (
-          <Drawer size="md" onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}>
             <DrawerHeader
               eyebrow="隐患复查"
               title={rechecking.result === "pass" ? "复查通过" : "复查不通过"}
@@ -1124,7 +1124,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rejecting ? (
-          <Drawer size="md" onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}>
             <DrawerHeader
               eyebrow="退回整改"
               title={rejecting.title}
@@ -1146,7 +1146,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {closing ? (
-          <Drawer size="md" onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}>
             <DrawerHeader
               eyebrow="关闭隐患"
               title={closing.title}
@@ -1168,7 +1168,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {creatingWorkOrder ? (
-          <Drawer size="md" onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}>
             <DrawerHeader
               eyebrow="隐患转工单"
               title={creatingWorkOrder.title}
@@ -1198,7 +1198,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {creatingEmergency ? (
-          <Drawer size="md" onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}>
+          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}>
             <DrawerHeader
               eyebrow="重大隐患转应急事件"
               title={creatingEmergency.title}

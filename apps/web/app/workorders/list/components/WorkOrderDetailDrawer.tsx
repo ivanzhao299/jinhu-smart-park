@@ -101,7 +101,7 @@ export function WorkOrderDetailDrawer({
   onLogFileUploaded
 }: WorkOrderDetailDrawerProps) {
   return (
-    <Drawer size="lg" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="lg" onClose={onClose}>
       <DrawerHeader
         eyebrow="工单详情"
         title={detail.title}

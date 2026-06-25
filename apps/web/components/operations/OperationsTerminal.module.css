@@ -244,46 +244,58 @@
 .drawerSummary {
   background: var(--phoenix-color-surface-muted);
   border: 1px solid var(--phoenix-color-border);
-  border-radius: var(--phoenix-radius-md);
-  margin: 0 var(--phoenix-space-5) var(--phoenix-space-4);
-  padding: var(--phoenix-space-4);
+  border-radius: 10px;
+  margin: 0 var(--phoenix-space-5) var(--phoenix-space-3);
+  padding: 10px 12px;
 }
 
 .drawerSummary span {
   align-items: center;
   color: var(--phoenix-color-text-muted);
   display: inline-flex;
-  gap: var(--phoenix-space-2);
+  gap: 6px;
   font-size: var(--font-size-caption);
 }
 
 .drawerActions {
-  padding: 0 var(--phoenix-space-5) var(--phoenix-space-4);
+  padding: 0 var(--phoenix-space-5) var(--phoenix-space-3);
+}
+
+.drawerActions :global(.primary-button),
+.drawerActions :global(.secondary-button) {
+  min-height: 34px;
+  border-radius: 8px;
+  padding: 0 12px;
 }
 
 .formSectionTitle {
-  font-size: var(--font-size-panel-title);
+  color: var(--phoenix-color-text);
+  font-size: 13px;
   font-weight: var(--font-weight-semibold);
   margin: 0;
 }
 
+.executionForm {
+  gap: 10px;
+}
+
 .checklist {
   display: grid;
-  gap: var(--phoenix-space-4);
+  gap: 10px;
 }
 
 .checkItem {
   border: 1px solid var(--border-soft, var(--phoenix-color-border));
-  border-radius: 15px;
+  border-radius: 10px;
   display: grid;
-  gap: var(--phoenix-space-3);
-  padding: var(--phoenix-space-4);
+  gap: 9px;
+  padding: 11px;
 }
 
 .checkItemTitle {
   align-items: center;
   display: flex;
-  gap: var(--phoenix-space-3);
+  gap: 10px;
   justify-content: space-between;
 }
 
@@ -293,6 +305,27 @@
 
 .checkItemTitle select {
   max-width: 160px;
+  min-height: 32px;
+  border-radius: 8px;
+}
+
+.checkItem input,
+.checkItem textarea,
+.checkItem select {
+  border-radius: 8px;
+}
+
+.checkItem textarea {
+  min-height: 64px;
+}
+
+.checkItemActions {
+  justify-content: space-between;
+}
+
+.checkItemActions :global(.secondary-button) {
+  min-height: 32px;
+  border-radius: 8px;
 }
 
 .itemStandard {

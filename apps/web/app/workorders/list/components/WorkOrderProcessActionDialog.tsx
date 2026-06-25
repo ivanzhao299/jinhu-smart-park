@@ -25,7 +25,7 @@ export function WorkOrderProcessActionDialog({
   onFinishFileUploaded
 }: WorkOrderProcessActionDialogProps) {
   return (
-    <Drawer size="md" onClose={onClose}>
+    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
       <DrawerHeader
         eyebrow={action.mode === "wait-material" ? "标记待物料" : "完成处理"}
         title={action.row.woCode}

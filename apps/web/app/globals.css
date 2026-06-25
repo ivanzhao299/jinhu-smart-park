@@ -5600,6 +5600,60 @@ textarea:disabled {
   min-width: 0;
 }
 
+[data-ui-drawer-panel="true"].ds-compact-drawer .drawer-action-bar {
+  gap: 6px;
+  margin: 0;
+  padding: 8px 22px;
+  background: color-mix(in srgb, var(--bg-muted) 78%, transparent);
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .drawer-action-button {
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .drawer-action-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .work-panel {
+  margin: 10px 22px 0;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: none;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-list {
+  gap: 8px;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-item {
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 8px;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-content {
+  gap: 4px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: none;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-head strong,
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-head span,
+[data-ui-drawer-panel="true"].ds-compact-drawer .timeline-content p {
+  font-size: 12px;
+}
+
+[data-ui-drawer-panel="true"].ds-compact-drawer .form-check-row {
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
 @media (max-width: 760px) {
   [data-ui-drawer-panel="true"].ds-compact-drawer .contract-note-grid {
     grid-template-columns: 1fr;
