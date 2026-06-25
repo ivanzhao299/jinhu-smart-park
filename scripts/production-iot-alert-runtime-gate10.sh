@@ -487,7 +487,7 @@ SELECT
   (SELECT status FROM biz_iot_alert alert WHERE alert.id = '$(sql_escape "$ALERT_ID")' AND alert.is_deleted = false) AS alert_status,
   (SELECT COALESCE(work_order_id::text, '') FROM biz_iot_alert alert WHERE alert.id = '$(sql_escape "$ALERT_ID")' AND alert.is_deleted = false) AS alert_work_order_id,
   (SELECT count(*) FROM biz_iot_alert_log log JOIN scope ON scope.tenant_id = log.tenant_id AND scope.park_id = log.park_id WHERE log.alert_id = '$(sql_escape "$ALERT_ID")' AND log.action IN ('create', 'acknowledge', 'process', 'create_workorder', 'resolve', 'close') AND log.is_deleted = false) AS alert_log_count,
-  (SELECT count(*) FROM biz_work_order w JOIN scope ON scope.tenant_id = w.tenant_id AND scope.park_id = w.park_id WHERE w.id = '$(sql_escape "$IOT_WORK_ORDER_ID")' AND w.source_type = 'iot_alert' AND w.source_id = '$(sql_escape "$ALERT_ID")'::uuid AND w.device_id = '$(sql_escape "$DEVICE_ID")'::uuid AND w.is_deleted = false) AS work_order_count,
+  (SELECT count(*) FROM biz_work_order w JOIN scope ON scope.tenant_id = w.tenant_id AND scope.park_id = w.park_id WHERE w.id = '$(sql_escape "$IOT_WORK_ORDER_ID")' AND w.source_type = 'iot_alert' AND w.source_id = '$(sql_escape "$ALERT_ID")' AND w.device_id = '$(sql_escape "$DEVICE_ID")'::uuid AND w.is_deleted = false) AS work_order_count,
   (SELECT count(*) FROM sys_op_log l JOIN scope ON scope.tenant_id = l.tenant_id AND scope.park_id = l.park_id WHERE l.idempotency_key ILIKE '$(sql_escape "$RUN_ID")%' AND l.success = true AND l.is_deleted = false) AS audit_log_count;
 SQL
 )"
