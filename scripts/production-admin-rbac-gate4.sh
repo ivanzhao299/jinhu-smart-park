@@ -139,7 +139,7 @@ WITH scope AS (
   SELECT '$TENANT_ID_VALUE'::varchar AS tenant_id,
          '$PARK_ID_VALUE'::varchar AS park_id
 )
-SELECT u.id::text, u.username, COALESCE(u.display_name, u.real_name, u.username)
+SELECT u.id::text, u.username, COALESCE(u.display_name, u.username)
 FROM sys_user u
 JOIN scope ON scope.tenant_id = u.tenant_id AND scope.park_id = u.park_id
 WHERE u.is_deleted = false
