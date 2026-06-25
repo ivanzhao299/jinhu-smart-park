@@ -267,7 +267,7 @@ assert_http_ok "leasing contracts" "$(curl_request GET "/leasing/contracts?page=
 assert_http_ok "leasing contract changes" "$(curl_request GET "/leasing/contract-changes?page=1&page_size=5")"
 assert_http_ok "leasing receivables" "$(curl_request GET "/leasing/receivables?page=1&page_size=5")"
 assert_http_ok "leasing receivables overdue" "$(curl_request GET "/leasing/receivables/overdue?page=1&page_size=5")"
-assert_http_ok "leasing receivables aging" "$(curl_request GET "/leasing/receivables/aging?page=1&page_size=5")"
+assert_http_ok "leasing receivables aging" "$(curl_request GET "/leasing/receivables/aging")"
 assert_http_ok "leasing payments" "$(curl_request GET "/leasing/payments?page=1&page_size=5")"
 assert_http_ok "leasing invoices" "$(curl_request GET "/leasing/invoices?page=1&page_size=5")"
 assert_http_ok "leasing waivers" "$(curl_request GET "/leasing/waivers?page=1&page_size=5")"
