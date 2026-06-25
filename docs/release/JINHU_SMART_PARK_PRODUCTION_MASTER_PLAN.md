@@ -37,6 +37,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-15 | Tenant portal UX | `TENANT_PORTAL_UX_PRODUCTION_GATE15_REPORT.md` | PASS |
 | Gate-16 | Executive dashboard accuracy | `EXECUTIVE_DASHBOARD_ACCURACY_PRODUCTION_GATE16_REPORT.md` | PASS |
 | Gate-17 | Auth and session security | `AUTH_SESSION_SECURITY_PRODUCTION_GATE17_REPORT.md` | PASS |
+| Gate-18 | Field masking and file policy | `FIELD_MASKING_FILE_POLICY_PRODUCTION_GATE18_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -70,7 +71,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
 | Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
 | UI/UX | PASS | Continue persona workflow polish and accessibility regression smoke |
-| Security | PARTIAL | Auth/session gate passed; add field masking, file-policy, backup restore, and final go-live gates |
+| Security | PARTIAL | Auth/session, field masking, and file policy gates passed; add backup restore and final go-live gates |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
 
 ## Execution Phases
@@ -101,6 +102,7 @@ Completed:
 - Tenant service desk page, service quick actions, tenant request work order source mapping, route/menu evidence, and read-surface gate.
 - Executive dashboard route, live API data sources, and DB/API KPI cross-check evidence.
 - Auth/session production security controls, refresh-cookie origin rejection, refresh-token rejection, and audit-only failed-login evidence.
+- Field masking, file MIME policy rejection, image upload/download, download audit, and file soft-delete production evidence.
 
 Remaining:
 
@@ -167,15 +169,15 @@ Target:
 Required Gates:
 
 - Gate-17 Auth and Session Security. PASS.
-- Gate-18 Field Masking and File Policy.
+- Gate-18 Field Masking and File Policy. PASS.
 - Gate-19 Backup Restore Drill.
 - Gate-20 Production Go-Live Review.
 
 ## Next Immediate Actions
 
-1. Implement Gate-18 field masking and file policy verification.
+1. Implement Gate-19 backup restore drill.
 2. Implement persona login smoke for the 9 production roles.
-3. Add backup restore drill and production go-live review gates.
+3. Add production go-live review gate.
 4. Continue accessibility and role-specific workflow polish.
 5. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
 
