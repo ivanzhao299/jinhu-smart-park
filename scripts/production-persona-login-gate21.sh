@@ -320,7 +320,7 @@ append_report "- PASS: selected admin principal \`$ADMIN_USERNAME\` for create_b
 
 run_suffix="$(printf "%s" "$RUN_ID" | tr -cd '[:alnum:]' | cut -c1-16 | tr '[:upper:]' '[:lower:]')"
 PERSONA_PASSWORD="Gate21Persona#$run_suffix"
-PERSONA_PASSWORD_HASH="$(compose exec -T api node -e 'const bcrypt = require("bcrypt"); const rounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10); bcrypt.hash(process.argv[1], rounds).then((hash) => process.stdout.write(hash));' "$PERSONA_PASSWORD" | tr -d '\r')"
+PERSONA_PASSWORD_HASH="$(compose exec -T api node -e 'let bcrypt; for (const name of ["/app/apps/api/node_modules/bcrypt", "/app/node_modules/bcrypt", "bcrypt"]) { try { bcrypt = require(name); break; } catch {} } if (!bcrypt) throw new Error("bcrypt module not found"); const rounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10); bcrypt.hash(process.argv[1], rounds).then((hash) => process.stdout.write(hash));' "$PERSONA_PASSWORD" | tr -d '\r')"
 if [ -z "$PERSONA_PASSWORD_HASH" ]; then
   fail_gate "failed to generate temporary persona password hash"
 fi
