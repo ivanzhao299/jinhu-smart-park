@@ -421,7 +421,7 @@
 @media (max-width: 760px) {
   .drawerPanel {
     background: #eef2f7;
-    color: #0b1220;
+    color: #0b1f33;
   }
 
   .drawerHeader {
@@ -429,18 +429,18 @@
     background:
       linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
       linear-gradient(180deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-      radial-gradient(circle at 82% 0%, rgba(255, 159, 10, 0.30), transparent 11rem),
-      linear-gradient(135deg, #020617 0%, #111827 62%, #030712 100%);
+      radial-gradient(circle at 82% 0%, rgba(247, 201, 72, 0.30), transparent 11rem),
+      linear-gradient(135deg, #041827 0%, #0b4f7a 62%, #06263f 100%);
     background-size: 22px 22px, 22px 22px, auto, auto;
     box-shadow: 0 14px 34px rgba(2, 6, 23, 0.24);
   }
 
   .drawerEyebrow {
     width: fit-content;
-    border: 1px solid rgba(255, 159, 10, 0.44);
+    border: 1px solid rgba(247, 201, 72, 0.44);
     border-radius: 999px;
-    background: rgba(255, 159, 10, 0.12);
-    color: #ffd08a;
+    background: rgba(247, 201, 72, 0.12);
+    color: #fff1b8;
     padding: 4px 9px;
   }
 
@@ -463,27 +463,27 @@
   .drawerPanel > :global(form.form-stack),
   .drawerPanel > :global(.drawer-scroll-content) {
     background:
-      radial-gradient(circle at 10% 0%, rgba(255, 159, 10, 0.12), transparent 12rem),
+      radial-gradient(circle at 10% 0%, rgba(247, 201, 72, 0.12), transparent 12rem),
       #eef2f7;
   }
 
   .drawerSection {
-    border: 1px solid rgba(15, 23, 42, 0.10);
+    border: 1px solid rgba(11, 31, 51, 0.10);
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 12px 26px rgba(11, 31, 51, 0.08);
     padding: 14px;
   }
 
   .drawerSectionTitle {
-    color: #0b1220;
+    color: #0b1f33;
     font-size: 17px;
   }
 
   .drawerFooter {
-    border-top-color: rgba(15, 23, 42, 0.10);
+    border-top-color: rgba(11, 31, 51, 0.10);
     background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 -16px 34px rgba(15, 23, 42, 0.14);
+    box-shadow: 0 -16px 34px rgba(11, 31, 51, 0.14);
     backdrop-filter: blur(16px);
   }
 }

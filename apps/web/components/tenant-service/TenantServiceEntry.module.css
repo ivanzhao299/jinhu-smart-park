@@ -379,8 +379,8 @@
     background:
       linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
       linear-gradient(180deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      radial-gradient(circle at 86% 0%, rgba(255, 159, 10, 0.36), transparent 10rem),
-      linear-gradient(145deg, #05070c 0%, #111827 55%, #070a12 100%);
+      radial-gradient(circle at 86% 0%, rgba(247, 201, 72, 0.36), transparent 10rem),
+      linear-gradient(145deg, #06263f 0%, #0b4f7a 55%, #041827 100%);
     background-size: 20px 20px, 20px 20px, auto, auto;
     box-shadow: 0 24px 52px rgba(2, 6, 23, 0.28);
     color: #f8fafc;
@@ -389,10 +389,10 @@
 
   .heroCopy span {
     width: fit-content;
-    border: 1px solid rgba(255, 159, 10, 0.44);
+    border: 1px solid rgba(247, 201, 72, 0.44);
     border-radius: 999px;
-    background: rgba(255, 159, 10, 0.12);
-    color: #ffd08a;
+    background: rgba(247, 201, 72, 0.12);
+    color: #fff1b8;
     padding: 5px 10px;
   }
 
@@ -415,12 +415,12 @@
   .actionCard,
   .kpiCard,
   .requestCard {
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(11, 31, 51, 0.12);
     border-radius: 20px;
     background:
-      radial-gradient(circle at 18% 0%, rgba(255, 159, 10, 0.12), transparent 7rem),
+      radial-gradient(circle at 18% 0%, rgba(247, 201, 72, 0.12), transparent 7rem),
       linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+    box-shadow: 0 14px 28px rgba(11, 31, 51, 0.10);
   }
 
   .actionCard {
@@ -432,18 +432,18 @@
     width: 42px;
     height: 42px;
     border-radius: 16px;
-    background: #111827;
-    color: #ffb84d;
-    box-shadow: 0 12px 22px rgba(17, 24, 39, 0.24);
+    background: #0b4f7a;
+    color: #f7c948;
+    box-shadow: 0 12px 22px rgba(6, 38, 63, 0.24);
   }
 
   .actionCard strong {
-    color: #0b1220;
+    color: #0b1f33;
     font-size: 16px;
   }
 
   .actionCard small {
-    color: #5b6472;
+    color: #42566d;
   }
 
   .kpiGrid {
@@ -455,14 +455,14 @@
   }
 
   .kpiCard strong {
-    color: #0b1220;
+    color: #0b1f33;
     font-size: 34px;
   }
 
   .tenantStrip span {
-    border-color: rgba(249, 115, 22, 0.24);
-    background: #fff7ed;
-    color: #111827;
+    border-color: rgba(216, 155, 19, 0.24);
+    background: #f4f9ff;
+    color: #0b4f7a;
     font-weight: 760;
   }
 }
@@ -471,8 +471,8 @@
   .actionCard,
   .kpiCard,
   .requestCard {
-    border-color: rgba(15, 23, 42, 0.20);
-    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+    border-color: rgba(11, 31, 51, 0.20);
+    box-shadow: 0 16px 34px rgba(11, 31, 51, 0.12);
   }
 
   .actionCard strong,
@@ -481,7 +481,7 @@
   .flowSummary strong,
   .flowStep strong,
   .flowStepActive strong {
-    color: #050816;
+    color: #071c2f;
     font-weight: 840;
   }
 
@@ -493,18 +493,18 @@
   .flowSummary small,
   .flowStep small,
   .flowStepActive small {
-    color: #334155;
+    color: #42566d;
     font-weight: 720;
   }
 
   .flowPanel {
-    border-color: rgba(15, 23, 42, 0.20);
+    border-color: rgba(11, 31, 51, 0.20);
     border-radius: 22px;
     padding: 16px;
     background:
-      radial-gradient(circle at 12% 0%, rgba(255, 159, 10, 0.10), transparent 8rem),
+      radial-gradient(circle at 12% 0%, rgba(247, 201, 72, 0.10), transparent 8rem),
       linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 16px 34px rgba(11, 31, 51, 0.12);
   }
 
   .flowSteps {
@@ -514,6 +514,6 @@
   .flowStep,
   .flowStepActive {
     min-height: auto;
-    border-color: rgba(15, 23, 42, 0.16);
+    border-color: rgba(11, 31, 51, 0.16);
   }
 }
