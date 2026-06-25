@@ -56,6 +56,6 @@ Phase 1 focuses on turning the existing safety and operations baseline into a pr
 
 After Gate-2 passes:
 
-1. UI/UX Sprint-1: inspection task execution, hazard rectification drawer, work order creation, and tenant 360 surfaces.
-2. RBAC Sprint-2: verify role visibility in the admin UI and add user assignment evidence.
-3. Production Gate-3: work order lifecycle from create to finish, confirm, evaluate, and close.
+1. Production Gate-3: work order lifecycle from create to assign, accept, start, finish, confirm, evaluate, and close.
+2. UI/UX Sprint-1: inspection task execution, hazard rectification drawer, work order creation, and tenant 360 surfaces.
+3. RBAC Sprint-2: verify role visibility in the admin UI and add user assignment evidence.
