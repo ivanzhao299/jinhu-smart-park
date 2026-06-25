@@ -4,10 +4,10 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
-import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AttachmentsService } from "./attachments.service";
 import { CreateAttachmentDto } from "./dto/create-attachment.dto";
+import { ListAttachmentsDto } from "./dto/list-attachments.dto";
 
 @Controller("attachments")
 export class AttachmentsController {
@@ -17,11 +17,9 @@ export class AttachmentsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ATTACHMENT_LIST)
   list(
     @CurrentScope() scope: TenantParkScope,
-    @Query() query: PaginationQueryDto,
-    @Query("biz_type") bizType?: string,
-    @Query("biz_id") bizId?: string
+    @Query() query: ListAttachmentsDto
   ) {
-    return this.attachmentsService.list(scope, query, bizType, bizId);
+    return this.attachmentsService.list(scope, query, query.biz_type, query.biz_id);
   }
 
   @Post()
