@@ -117,7 +117,8 @@ export const TERMINAL_DICT_CODES = [
   "workorder_status",
   "workorder_type",
   "workorder_priority",
-  "workorder_urgency"
+  "workorder_urgency",
+  "workorder_source_type"
 ] as const;
 
 export function matchScene(text: string, scene: OperationSceneConfig): boolean {

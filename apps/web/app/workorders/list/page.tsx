@@ -9,7 +9,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
-import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, tenantForUnit } from "../../../lib/workorder-prefill";
+import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, resolveWorkOrderAudience, tenantForUnit } from "../../../lib/workorder-prefill";
 import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
 import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
@@ -335,6 +335,7 @@ export default function WorkOrdersListPage() {
   const priorityItems = dicts.workorder_priority ?? [];
   const urgencyItems = dicts.workorder_urgency ?? [];
   const sourceItems = dicts.workorder_source_type ?? [];
+  const workOrderAudience = resolveWorkOrderAudience(authUser);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "createTime:DESC" });
@@ -397,10 +398,12 @@ export default function WorkOrdersListPage() {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      woType: typeItems[0]?.itemValue ?? "",
+      title: workOrderAudience.defaultTitle,
+      description: workOrderAudience.defaultDescription,
+      woType: typeItems.find((item) => item.itemValue === workOrderAudience.defaultType)?.itemValue ?? typeItems[0]?.itemValue ?? "",
       priority: priorityItems.find((item) => item.itemValue === "medium")?.itemValue ?? priorityItems[0]?.itemValue ?? "",
       urgency: urgencyItems.find((item) => item.itemValue === "normal")?.itemValue ?? urgencyItems[0]?.itemValue ?? "",
-      sourceType: sourceItems.find((item) => item.itemValue === "manual")?.itemValue ?? sourceItems[0]?.itemValue ?? "manual",
+      sourceType: sourceItems.find((item) => item.itemValue === workOrderAudience.sourceType)?.itemValue ?? sourceItems[0]?.itemValue ?? workOrderAudience.sourceType,
       parkTenantId: prefill.parkTenantId,
       unitId: prefill.unitId,
       buildingId: prefill.buildingId,
@@ -775,6 +778,7 @@ export default function WorkOrdersListPage() {
             parkTenants={parkTenants}
             units={units}
             users={users}
+            audienceProfile={workOrderAudience}
             onClose={() => setShowForm(false)}
             onSubmit={(event: FormEvent<HTMLFormElement>) => void submit(event).catch((error: Error) => setMessage(error.message))}
             onFormChange={(patch) => setForm((current) => ({ ...current, ...patch }))}

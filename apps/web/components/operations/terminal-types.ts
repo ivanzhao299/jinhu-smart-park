@@ -143,6 +143,7 @@ export interface WorkOrderForm {
   woType: string;
   priority: string;
   urgency: string;
+  sourceType: string;
   title: string;
   description: string;
   location: string;

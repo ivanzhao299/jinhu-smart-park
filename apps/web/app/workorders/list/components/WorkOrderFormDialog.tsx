@@ -7,6 +7,7 @@ import {
 } from "@jinhu/ui";
 import { X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
+import type { WorkOrderAudienceProfile } from "../../../../lib/workorder-prefill";
 import { patchContactFromTenant } from "../../../../lib/workorder-prefill";
 import type { DictItemRow, ParkTenantRow, UnitRow, UserRow, WorkOrderFormState } from "../types";
 import { displayUserName } from "../lib/workorder-page-utils";
@@ -21,6 +22,7 @@ interface WorkOrderFormDialogProps {
   parkTenants: ParkTenantRow[];
   units: UnitRow[];
   users: UserRow[];
+  audienceProfile: WorkOrderAudienceProfile;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onFormChange: (patch: Partial<WorkOrderFormState>) => void;
@@ -38,6 +40,7 @@ export function WorkOrderFormDialog({
   parkTenants,
   units,
   users,
+  audienceProfile,
   onClose,
   onSubmit,
   onFormChange,
@@ -47,9 +50,9 @@ export function WorkOrderFormDialog({
   return (
     <Drawer className="ds-compact-drawer" size="lg" onClose={onClose}>
       <DrawerHeader
-        eyebrow={isEditing ? "编辑工单" : "新增工单"}
-        title={isEditing ? "编辑工单信息" : "新增手工工单"}
-        description="填写报修、投诉、申请或咨询事项，提交后状态为已提交。"
+        eyebrow={isEditing ? "编辑工单" : audienceProfile.eyebrow}
+        title={isEditing ? "编辑工单信息" : audienceProfile.title}
+        description={isEditing ? "调整工单基础信息、关联对象、处理人和 SLA 要求。" : audienceProfile.description}
         onClose={onClose}
         closeIcon={<X size={16} />}
       />
@@ -61,7 +64,7 @@ export function WorkOrderFormDialog({
           <TextField label="子类型" value={form.woSubType} onChange={(value) => onFormChange({ woSubType: value })} />
           <SelectField label="优先级" value={form.priority} required items={priorityItems} onChange={(value) => onFormChange({ priority: value })} />
           <SelectField label="紧急程度" value={form.urgency} items={urgencyItems} onChange={(value) => onFormChange({ urgency: value })} />
-          <SelectField label="来源" value={form.sourceType} items={sourceItems} onChange={(value) => onFormChange({ sourceType: value || "manual" })} />
+          <SelectField label="来源" value={form.sourceType} items={sourceItems} onChange={(value) => onFormChange({ sourceType: value || audienceProfile.sourceType })} />
           <Field label="租户企业">
             <select value={form.parkTenantId} onChange={(event) => {
               const tenantId = event.target.value;
@@ -97,7 +100,7 @@ export function WorkOrderFormDialog({
         </DrawerFormGrid>
         <DrawerFooter>
           <button className="secondary-button" type="button" onClick={onClose}>取消</button>
-          <button className="primary-button" type="submit">保存</button>
+          <button className="primary-button" type="submit">{isEditing ? "保存" : audienceProfile.primaryActionLabel}</button>
         </DrawerFooter>
       </DrawerForm>
     </Drawer>

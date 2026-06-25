@@ -21,7 +21,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
-import { buildWorkOrderPrefill, formatUnitLocation } from "../../lib/workorder-prefill";
+import { buildWorkOrderPrefill, formatUnitLocation, type WorkOrderAudienceProfile } from "../../lib/workorder-prefill";
 import styles from "./TenantServiceEntry.module.css";
 
 const WORKORDER_MODULE = "workorder";
@@ -63,7 +63,7 @@ const serviceActions = [
     title: "保洁服务",
     helper: "公共区域、卫生间、走廊和垃圾清运",
     icon: Sparkles,
-    priority: "normal",
+    priority: "medium",
     urgency: "normal",
     titleTemplate: "保洁服务请求",
     description: "请说明需要处理的区域、现场照片和期望完成时间。"
@@ -83,7 +83,7 @@ const serviceActions = [
     title: "通行协同",
     helper: "访客、车辆、货物进出园区协同",
     icon: Building2,
-    priority: "normal",
+    priority: "medium",
     urgency: "normal",
     titleTemplate: "通行协同请求",
     description: "请说明通行对象、时间、车辆/人员信息和审批联系人。"
@@ -93,7 +93,7 @@ const serviceActions = [
     title: "服务咨询",
     helper: "账单、合同、物业服务和其他咨询",
     icon: Headphones,
-    priority: "normal",
+    priority: "medium",
     urgency: "normal",
     titleTemplate: "园区服务咨询",
     description: "请说明咨询事项、关联合同/账单或需要客服协助的问题。"
@@ -104,6 +104,7 @@ const defaultWorkOrderForm: WorkOrderForm = {
   woType: "",
   priority: "",
   urgency: "",
+  sourceType: "tenant_request",
   title: "",
   description: "",
   location: "",
@@ -113,6 +114,19 @@ const defaultWorkOrderForm: WorkOrderForm = {
   reporterMobile: "",
   assigneeId: "",
   imageFileIds: []
+};
+
+const tenantServiceProfile: WorkOrderAudienceProfile = {
+  audience: "tenant",
+  label: "业主 / 租户",
+  eyebrow: "服务请求",
+  title: "提交园区服务请求",
+  description: "面向企业租户和业主联系人，用于报修、保洁、安防、通行、咨询等诉求提交。",
+  primaryActionLabel: "提交服务请求",
+  sourceType: "tenant_request",
+  defaultType: "repair",
+  defaultTitle: "园区服务请求",
+  defaultDescription: "请说明诉求事项、现场位置、影响范围和期望处理时间。"
 };
 
 export function TenantServiceEntryClient({ previewMode = false, previewData }: TenantServiceEntryClientProps = {}) {
@@ -178,6 +192,7 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
       woType: defaultDictValue(dicts.workorder_type),
       priority: preferredDictValue(dicts.workorder_priority, action.priority),
       urgency: preferredDictValue(dicts.workorder_urgency, action.urgency),
+      sourceType: "tenant_request",
       title: action.titleTemplate,
       description: action.description,
       location: prefill.location,
@@ -373,6 +388,7 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
           units={units}
           parkTenants={parkTenants}
           users={users}
+          audienceProfile={tenantServiceProfile}
           onClose={() => setDrawerOpen(false)}
           onSubmit={(event) => void submitServiceRequest(event).catch((error: Error) => setMessage(error.message))}
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}

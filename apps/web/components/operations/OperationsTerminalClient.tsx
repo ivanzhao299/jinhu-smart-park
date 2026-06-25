@@ -22,7 +22,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
-import { buildWorkOrderPrefill } from "../../lib/workorder-prefill";
+import { buildWorkOrderPrefill, resolveWorkOrderAudience } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
 import { OPERATION_SCENES, TERMINAL_DICT_CODES, TERMINAL_QUICK_ACTIONS, matchScene, type OperationSceneConfig } from "./terminal-config";
@@ -62,6 +62,7 @@ const defaultWorkOrderForm: WorkOrderForm = {
   woType: "",
   priority: "",
   urgency: "",
+  sourceType: "manual",
   title: "",
   description: "",
   location: "",
@@ -106,6 +107,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
     { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
   ];
+  const workOrderAudience = resolveWorkOrderAudience(authUser);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -157,15 +159,16 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   }, [loadAll, previewMode]);
 
   function openWorkOrder(scene?: OperationSceneConfig) {
-    const defaults = workOrderDefaultsForScene(scene, dicts);
+    const defaults = workOrderDefaultsForScene(scene, dicts, workOrderAudience);
     const prefill = buildWorkOrderPrefill(authUser, parkTenants, units);
     setWorkOrderForm({
       ...defaultWorkOrderForm,
       woType: defaults.woType,
       priority: defaults.priority,
       urgency: defaults.urgency,
-      title: scene?.defaultWorkOrderTitle ?? "",
-      description: scene?.defaultWorkOrderDescription ?? "",
+      sourceType: defaults.sourceType,
+      title: scene?.defaultWorkOrderTitle ?? workOrderAudience.defaultTitle,
+      description: scene?.defaultWorkOrderDescription ?? workOrderAudience.defaultDescription,
       parkTenantId: prefill.parkTenantId,
       unitId: prefill.unitId,
       location: prefill.location,
@@ -407,7 +410,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
         wo_type: normalizedForm.woType,
         priority: normalizedForm.priority,
         urgency: normalizedForm.urgency || undefined,
-        source_type: "tenant_request",
+        source_type: normalizedForm.sourceType || workOrderAudience.sourceType,
         park_tenant_id: normalizedForm.parkTenantId || undefined,
         unit_id: normalizedForm.unitId || undefined,
         building_id: unit?.buildingId,
@@ -462,12 +465,12 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               {previewMode ? (
                 <button className={`${styles.primaryCommand} ds-button ds-button-primary`} type="button" onClick={() => openWorkOrder()}>
                   <FilePlus2 size={18} />
-                  新建工单
+                  {workOrderAudience.primaryActionLabel}
                 </button>
               ) : (
                 <PermissionButton className={`${styles.primaryCommand} ds-button ds-button-primary`} permission="workorder:create" type="button" onClick={() => openWorkOrder()}>
                   <FilePlus2 size={18} />
-                  新建工单
+                  {workOrderAudience.primaryActionLabel}
                 </PermissionButton>
               )}
             </div>
@@ -494,7 +497,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               <span className={`${styles.commandIcon} ds-command-icon`}><Wrench size={22} /></span>
               <span className="ds-command-copy">
                 <strong>{TERMINAL_QUICK_ACTIONS[1].label}</strong>
-                <small>业主诉求</small>
+                <small>{workOrderAudience.label}</small>
               </span>
             </button>
           ) : (
@@ -502,7 +505,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
               <span className={`${styles.commandIcon} ds-command-icon`}><Wrench size={22} /></span>
               <span className="ds-command-copy">
                 <strong>{TERMINAL_QUICK_ACTIONS[1].label}</strong>
-                <small>业主诉求</small>
+                <small>{workOrderAudience.label}</small>
               </span>
             </PermissionButton>
           )}
@@ -734,6 +737,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
             units={units}
             parkTenants={parkTenants}
             users={users}
+            audienceProfile={workOrderAudience}
             onClose={() => setWorkOrderOpen(false)}
             onSubmit={(event) => void createWorkOrder(event).catch((error: Error) => setMessage(error.message))}
             onChange={(patch) => setWorkOrderForm((current) => ({ ...current, ...patch }))}
@@ -772,18 +776,23 @@ async function loadDictMap(): Promise<DictMap> {
   return loadDictMapByCodes<DictItemRow>(TERMINAL_DICT_CODES);
 }
 
-function workOrderDefaultsForScene(scene: OperationSceneConfig | undefined, dicts: DictMap): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {
-  const profile = workOrderProfileForScene(scene);
+function workOrderDefaultsForScene(
+  scene: OperationSceneConfig | undefined,
+  dicts: DictMap,
+  audienceProfile: ReturnType<typeof resolveWorkOrderAudience>
+): Pick<WorkOrderForm, "woType" | "priority" | "urgency" | "sourceType"> {
+  const sceneProfile = workOrderProfileForScene(scene, audienceProfile.defaultType);
   return {
-    woType: defaultDictValue(dicts.workorder_type, [profile.woType, DEFAULT_WORK_ORDER_TYPE]),
-    priority: defaultDictValue(dicts.workorder_priority, [profile.priority, DEFAULT_WORK_ORDER_PRIORITY]),
-    urgency: defaultDictValue(dicts.workorder_urgency, [profile.urgency, DEFAULT_WORK_ORDER_URGENCY])
+    woType: defaultDictValue(dicts.workorder_type, [sceneProfile.woType, audienceProfile.defaultType, DEFAULT_WORK_ORDER_TYPE]),
+    priority: defaultDictValue(dicts.workorder_priority, [sceneProfile.priority, DEFAULT_WORK_ORDER_PRIORITY]),
+    urgency: defaultDictValue(dicts.workorder_urgency, [sceneProfile.urgency, DEFAULT_WORK_ORDER_URGENCY]),
+    sourceType: defaultDictValue(dicts.workorder_source_type, [scene ? "inspection" : audienceProfile.sourceType, audienceProfile.sourceType, "manual"])
   };
 }
 
-function workOrderProfileForScene(scene?: OperationSceneConfig): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {
+function workOrderProfileForScene(scene: OperationSceneConfig | undefined, fallbackType: string): Pick<WorkOrderForm, "woType" | "priority" | "urgency"> {
   if (!scene) {
-    return { woType: DEFAULT_WORK_ORDER_TYPE, priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
+    return { woType: fallbackType || DEFAULT_WORK_ORDER_TYPE, priority: DEFAULT_WORK_ORDER_PRIORITY, urgency: DEFAULT_WORK_ORDER_URGENCY };
   }
   switch (scene.key) {
     case "sanitation":
@@ -810,7 +819,8 @@ function normalizeWorkOrderForm(form: WorkOrderForm, dicts: DictMap): WorkOrderF
     ...form,
     woType: form.woType || defaultDictValue(dicts.workorder_type, [DEFAULT_WORK_ORDER_TYPE]),
     priority: form.priority || defaultDictValue(dicts.workorder_priority, [DEFAULT_WORK_ORDER_PRIORITY]),
-    urgency: form.urgency || defaultDictValue(dicts.workorder_urgency, [DEFAULT_WORK_ORDER_URGENCY])
+    urgency: form.urgency || defaultDictValue(dicts.workorder_urgency, [DEFAULT_WORK_ORDER_URGENCY]),
+    sourceType: form.sourceType || defaultDictValue(dicts.workorder_source_type, ["manual"])
   };
 }
 
