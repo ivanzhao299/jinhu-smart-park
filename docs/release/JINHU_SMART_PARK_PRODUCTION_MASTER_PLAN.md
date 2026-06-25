@@ -32,6 +32,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-10 | IoT device and alert runtime | `IOT_ALERT_RUNTIME_PRODUCTION_GATE10_REPORT.md` | PASS |
 | Gate-11 | Energy meter to billing lifecycle | `ENERGY_BILLING_PRODUCTION_GATE11_REPORT.md` | PASS |
 | Gate-12 | Video security evidence lifecycle | `VIDEO_SECURITY_EVIDENCE_PRODUCTION_GATE12_REPORT.md` | PASS |
+| Gate-13 | Robot operations governance | `ROBOT_OPERATIONS_GOVERNANCE_PRODUCTION_GATE13_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -63,7 +64,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | IoT device hub | PASS | Add dry-run device command governance and device command masking |
 | Energy metering / billing | PASS | Add public allocation, reversal, and finance KPI gates |
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
-| Cleaning robot | PARTIAL | Add robot read-only / command dry-run governance gate |
+| Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
 | UI/UX | PARTIAL | Continue high-frequency workflow polish and mobile inspection UX |
 | Security | PARTIAL | Add auth lockout, CSRF/origin, file-policy, and audit gate pack |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
@@ -90,6 +91,7 @@ Completed:
 - IoT device, metric, point, heartbeat, metric report, alert, alert-to-work-order, dashboard, and audit production gate.
 - Energy meter, confirmed reading, billing cycle, billing item, receivable posting, dashboard, and audit production gate.
 - Video camera registry, no-secret stream config, snapshot evidence, alert lifecycle, hazard evidence attachment, dashboard, and audit production gate.
+- Local cleaning robot registration, read surfaces, governed command dry-run, command logs, no-external-call evidence, and no-credential evidence production gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -129,7 +131,7 @@ Required Gates:
 - Gate-10 IoT Device and Alert Runtime. PASS.
 - Gate-11 Energy Meter to Billing. PASS.
 - Gate-12 Video Security Evidence. PASS.
-- Gate-13 Robot Operations Governance.
+- Gate-13 Robot Operations Governance. PASS.
 
 ### Phase 4: Productized UI/UX And Mobile Field Operation
 
@@ -164,11 +166,11 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Implement Gate-13 Robot Operations Governance.
-2. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
-3. Implement persona login smoke for the 9 production roles.
-4. Add security gate pack for auth/session/file policy.
-5. Add real vendor video adapter smoke only after credential and network governance approval.
+1. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
+2. Implement persona login smoke for the 9 production roles.
+3. Add security gate pack for auth/session/file policy.
+4. Add real vendor video adapter smoke only after credential and network governance approval.
+5. Add real vendor robot smoke only after credential, network, and site-operations approval.
 
 ## Operating Rules
 
