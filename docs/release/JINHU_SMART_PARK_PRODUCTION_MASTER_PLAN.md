@@ -28,6 +28,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-6B | Leasing to effective contract lifecycle | `LEASING_CONTRACT_LIFECYCLE_PRODUCTION_GATE6B_REPORT.md` | PASS |
 | Gate-7 | Finance lifecycle | `FINANCE_LIFECYCLE_PRODUCTION_GATE7_REPORT.md` | PASS |
 | Gate-8 | Emergency and work permit lifecycle | `EMERGENCY_WORK_PERMIT_PRODUCTION_GATE8_REPORT.md` | PASS |
+| Gate-9 | Tenant service entry lifecycle | `TENANT_SERVICE_ENTRY_PRODUCTION_GATE9_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -52,7 +53,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Leasing CRM | PASS | Continue list/detail UX polish and role persona smoke |
 | Contracts | PASS | Add contract change, renewal, and checkout gates |
 | Finance | PASS | Add batch billing, checkout/refund, and finance KPI gates |
-| Work orders | PASS | Add tenant service entry and SLA escalation evidence |
+| Work orders | PASS | Add SLA escalation evidence and tenant portal UX smoke |
 | Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
 | Hazard closure | PASS | Add dashboard KPI accuracy verification |
 | Emergency / work permits | PASS | Add mobile field role smoke and dashboard KPI accuracy verification |
@@ -82,6 +83,7 @@ Completed:
 - Leasing lead to effective contract lifecycle gate.
 - Finance receivable, payment, invoice, and waiver lifecycle gate.
 - Emergency event and work permit production lifecycle gate.
+- Tenant service request to work order evaluation production lifecycle gate.
 - High-frequency drawer/form UI/UX Sprint 1.
 
 Remaining:
@@ -105,7 +107,7 @@ Required Gates:
 - Gate-6B Leasing to Contract Lifecycle. PASS.
 - Gate-7 Finance Lifecycle. PASS.
 - Gate-8 Emergency and Work Permit Lifecycle. PASS.
-- Gate-9 Tenant Service Entry.
+- Gate-9 Tenant Service Entry. PASS.
 
 ### Phase 3: IoT, Energy, Video, Robot Runtime
 
@@ -156,8 +158,8 @@ Required Gates:
 
 ## Next Immediate Actions
 
-1. Implement Gate-9 Tenant Service Entry: tenant request -> work order -> evaluation.
-2. Implement Gate-10 IoT Device and Alert Runtime.
+1. Implement Gate-10 IoT Device and Alert Runtime.
+2. Implement Gate-11 Energy Meter to Billing.
 3. Continue UI/UX Sprint 2 for mobile inspection, tenant service entry, and emergency/work-permit field views.
 4. Implement persona login smoke for the 9 production roles.
 5. Add security gate pack for auth/session/file policy.
