@@ -36,6 +36,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Gate-14 | Mobile inspection UX | `MOBILE_INSPECTION_UX_PRODUCTION_GATE14_REPORT.md` | PASS |
 | Gate-15 | Tenant portal UX | `TENANT_PORTAL_UX_PRODUCTION_GATE15_REPORT.md` | PASS |
 | Gate-16 | Executive dashboard accuracy | `EXECUTIVE_DASHBOARD_ACCURACY_PRODUCTION_GATE16_REPORT.md` | PASS |
+| Gate-17 | Auth and session security | `AUTH_SESSION_SECURITY_PRODUCTION_GATE17_REPORT.md` | PASS |
 
 ### Gate-4 Production Counts
 
@@ -69,7 +70,7 @@ Build Jinhu Smart Park into a production-ready smart park management system that
 | Video security | PASS | Add real vendor adapter smoke only after credential and network governance approval |
 | Cleaning robot | PASS | Add real vendor robot smoke only after credential, network, and site-operations approval |
 | UI/UX | PASS | Continue persona workflow polish and accessibility regression smoke |
-| Security | PARTIAL | Add auth lockout, CSRF/origin, file-policy, and audit gate pack |
+| Security | PARTIAL | Auth/session gate passed; add field masking, file-policy, backup restore, and final go-live gates |
 | Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
 
 ## Execution Phases
@@ -99,6 +100,7 @@ Completed:
 - Mobile inspection terminal progress, field readiness, sticky mobile footer, production web route, and inspection read-surface gate.
 - Tenant service desk page, service quick actions, tenant request work order source mapping, route/menu evidence, and read-surface gate.
 - Executive dashboard route, live API data sources, and DB/API KPI cross-check evidence.
+- Auth/session production security controls, refresh-cookie origin rejection, refresh-token rejection, and audit-only failed-login evidence.
 
 Remaining:
 
@@ -164,15 +166,15 @@ Target:
 
 Required Gates:
 
-- Gate-17 Auth and Session Security.
+- Gate-17 Auth and Session Security. PASS.
 - Gate-18 Field Masking and File Policy.
 - Gate-19 Backup Restore Drill.
 - Gate-20 Production Go-Live Review.
 
 ## Next Immediate Actions
 
-1. Implement persona login smoke for the 9 production roles.
-2. Add security gate pack for auth/session/file policy.
+1. Implement Gate-18 field masking and file policy verification.
+2. Implement persona login smoke for the 9 production roles.
 3. Add backup restore drill and production go-live review gates.
 4. Continue accessibility and role-specific workflow polish.
 5. Add real vendor video or robot smoke only after credential, network, and site-operations approval.
