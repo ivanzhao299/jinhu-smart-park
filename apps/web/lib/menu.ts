@@ -9,6 +9,7 @@ import {
   FolderTree,
   Home,
   KeyRound,
+  LifeBuoy,
   LayoutDashboard,
   ScrollText,
   Settings,
@@ -44,6 +45,7 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   bot: Bot,
   video: Video,
   "layout-dashboard": LayoutDashboard,
+  "life-buoy": LifeBuoy,
   dashboard: LayoutDashboard,
   wrench: Wrench,
   "brain-circuit": BrainCircuit,
@@ -96,6 +98,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/receivables",
   "/leasing/payments",
   "/workorders",
+  "/tenant/service",
   "/workorders/list",
   "/workorders/sla-rules",
   "/workorders/overdue",
@@ -222,6 +225,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "workorder",
     children: [
       { label: "工单看板", href: "/workorders", permission: "workorder:read", module: "workorder" },
+      { label: "租户服务台", href: "/tenant/service", permission: "workorder:read", module: "workorder" },
       { label: "工单列表", href: "/workorders/list", permission: "workorder:read", module: "workorder" },
       { label: "SLA 规则", href: "/workorders/sla-rules", permission: "workorder_sla:read", module: "workorder" },
       { label: "超时工单", href: "/workorders/overdue", permission: "workorder:overdue", module: "workorder" },
@@ -435,7 +439,7 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   if (href.startsWith("/leasing") || startsWithAny(permission, ["leasing", "park_tenant"])) {
     return "leasing";
   }
-  if (href.startsWith("/workorders") || permission.startsWith("workorder")) {
+  if (href.startsWith("/workorders") || href.startsWith("/tenant/service") || permission.startsWith("workorder")) {
     return "workorder";
   }
   if (href.startsWith("/safety") || permission.startsWith("safety")) {
