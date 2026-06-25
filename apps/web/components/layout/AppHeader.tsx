@@ -1,8 +1,12 @@
 "use client";
 
 import { Button } from "antd";
-import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { ListTodo, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
+import { useAuthUser } from "../../lib/auth-context";
+import { hasAccess } from "../../lib/permissions";
 import { useAppBranding } from "../branding/useAppBranding";
 import { useTheme } from "../theme/ThemeProvider";
 import { UserMenu } from "./UserMenu";
@@ -15,7 +19,9 @@ interface AppHeaderProps {
 
 export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChange }: AppHeaderProps) {
   const branding = useAppBranding();
+  const user = useAuthUser();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
+  const canOpenWorkflowInbox = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
 
   const handleThemeChange = () => {
     setTheme(theme === "command-dark" || theme === "dark" ? "enterprise-light" : "command-dark");
@@ -39,6 +45,11 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
         {breadcrumb ? <div className="header-context-line header-breadcrumb-slot">{breadcrumb}</div> : null}
       </div>
       <div className="header-actions">
+        {canOpenWorkflowInbox ? (
+          <Link aria-label="流程收件箱" className="header-icon-link header-workflow-link" href="/workflow/inbox" title="流程收件箱">
+            <ListTodo size={16} />
+          </Link>
+        ) : null}
         <Button
           aria-label={`切换深浅色，当前为${themeLabel}`}
           className="header-icon-button"

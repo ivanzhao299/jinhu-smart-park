@@ -99,6 +99,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/payments",
   "/workorders",
   "/tenant/service",
+  "/workflow/inbox",
   "/workorders/list",
   "/workorders/sla-rules",
   "/workorders/overdue",
@@ -225,6 +226,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "workorder",
     children: [
       { label: "工单看板", href: "/workorders", permission: "workorder:read", module: "workorder" },
+      { label: "流程收件箱", href: "/workflow/inbox", permission: "workorder:read", module: "workorder" },
       { label: "租户服务台", href: "/tenant/service", permission: "workorder:read", module: "workorder" },
       { label: "工单列表", href: "/workorders/list", permission: "workorder:read", module: "workorder" },
       { label: "SLA 规则", href: "/workorders/sla-rules", permission: "workorder_sla:read", module: "workorder" },
@@ -439,7 +441,7 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   if (href.startsWith("/leasing") || startsWithAny(permission, ["leasing", "park_tenant"])) {
     return "leasing";
   }
-  if (href.startsWith("/workorders") || href.startsWith("/tenant/service") || permission.startsWith("workorder")) {
+  if (href.startsWith("/workorders") || href.startsWith("/tenant/service") || href.startsWith("/workflow") || permission.startsWith("workorder")) {
     return "workorder";
   }
   if (href.startsWith("/safety") || permission.startsWith("safety")) {

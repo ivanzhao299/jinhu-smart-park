@@ -45,6 +45,7 @@ import { TenantsModule } from "./modules/tenants/tenants.module";
 import { UnitsModule } from "./modules/units/units.module";
 import { UsersModule } from "./modules/users/users.module";
 import { VideoCamerasModule } from "./modules/video-cameras/video-cameras.module";
+import { WorkflowModule } from "./modules/workflow/workflow.module";
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module";
 import { HealthController } from "./health.controller";
 import { IdempotencyRequestEntity } from "./shared/entities/idempotency-request.entity";
@@ -154,6 +155,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     AuditModule,
     VideoCamerasModule,
     WorkOrdersModule,
+    WorkflowModule,
     SafetyInspectPointsModule,
     SafetyInspectTemplatesModule,
     SafetyInspectPlansModule,
