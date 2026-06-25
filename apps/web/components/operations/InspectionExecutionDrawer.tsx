@@ -53,6 +53,24 @@ export function InspectionExecutionDrawer({
   const canStart = task.status === "10" || task.status === "40";
   const canCheckIn = task.status === "20" || task.status === "10" || task.status === "40";
   const canSubmit = task.status === "20" || task.status === "40";
+  const taskItems = task.items ?? [];
+  const answeredCount = taskItems.filter((item) => Boolean(resultInputs[item.id]?.result)).length;
+  const abnormalCount = taskItems.filter((item) => resultInputs[item.id]?.result === "abnormal").length;
+  const requiredPhotoCount = task.point?.requiredPhotoCount ?? 0;
+  const checkInPhotoCount = checkInForm.photoFileIds.length;
+  const progressSteps = [
+    { label: "开始", active: canStart, done: Boolean(task.actualStartTime) || ["20", "30"].includes(task.status) },
+    { label: "打卡", active: canCheckIn, done: task.scanOk || Boolean(checkInForm.qrCode || checkInForm.gpsLng || checkInPhotoCount) },
+    { label: "检查", active: canSubmit, done: taskItems.length > 0 && answeredCount === taskItems.length },
+    { label: "提交", active: canSubmit, done: task.status === "30" }
+  ];
+  const readinessItems = [
+    { label: "扫码", value: task.point?.requiredScan ? (task.scanOk || checkInForm.qrCode ? "已准备" : "待扫码") : "可选" },
+    { label: "定位", value: task.point?.requiredGps ? (checkInForm.gpsLng && checkInForm.gpsLat ? "已获取" : "待定位") : "可选" },
+    { label: "照片", value: `${checkInPhotoCount}/${requiredPhotoCount}` },
+    { label: "检查项", value: `${answeredCount}/${taskItems.length}` },
+    { label: "异常", value: `${abnormalCount}` }
+  ];
 
   return (
     <Drawer className="ds-compact-drawer" size="xl" onClose={onClose}>
@@ -67,6 +85,23 @@ export function InspectionExecutionDrawer({
         <span><MapPin size={16} /> {task.point?.pointName ?? "-"}</span>
         <span><Camera size={16} /> 最少照片 {task.point?.requiredPhotoCount ?? 0} 张</span>
         <span><StatusPill dictCode="safety_inspect_task_status" value={task.status} dicts={dicts} /></span>
+      </div>
+
+      <div className={styles.executionProgress} aria-label="巡检执行进度">
+        {progressSteps.map((step) => (
+          <span className={stepClassName(step.done, step.active)} key={step.label}>
+            {step.label}
+          </span>
+        ))}
+      </div>
+
+      <div className={styles.readinessLine} aria-label="现场执行要点">
+        {readinessItems.map((item) => (
+          <span key={item.label}>
+            <strong>{item.label}</strong>
+            {item.value}
+          </span>
+        ))}
       </div>
 
       <div className={styles.drawerActions}>
@@ -110,7 +145,7 @@ export function InspectionExecutionDrawer({
             <AttachmentCounter count={checkInForm.photoFileIds.length} />
           </TerminalField>
         </DrawerFormGrid>
-        <DrawerFooter>
+        <DrawerFooter className={styles.mobileDrawerFooter}>
           <button className="secondary-button" type="button" onClick={onClose}>稍后处理</button>
           <button className="primary-button" type="submit" disabled={!canCheckIn}>
             <CheckCircle2 size={16} />
@@ -157,7 +192,7 @@ export function InspectionExecutionDrawer({
           })}
           {(task.items ?? []).length === 0 ? <EmptyState compact title="暂无检查项" /> : null}
         </div>
-        <DrawerFooter>
+        <DrawerFooter className={styles.mobileDrawerFooter}>
           <button className="secondary-button" type="button" onClick={onClose}>关闭</button>
           <button className="secondary-button" type="button" disabled={!canCheckIn && !canSubmit} onClick={onSaveDraft}>
             <Save size={16} />
@@ -171,6 +206,14 @@ export function InspectionExecutionDrawer({
       </DrawerForm>
     </Drawer>
   );
+}
+
+function stepClassName(done: boolean, active: boolean): string {
+  return [
+    styles.progressStep,
+    done ? styles.progressStepDone : "",
+    !done && active ? styles.progressStepActive : ""
+  ].filter(Boolean).join(" ");
 }
 
 function appendUnique(values: string[], next: string): string[] {

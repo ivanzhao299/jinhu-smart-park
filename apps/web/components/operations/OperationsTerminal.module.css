@@ -257,6 +257,78 @@
   font-size: var(--font-size-caption);
 }
 
+.executionProgress {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 var(--phoenix-space-5) var(--phoenix-space-3);
+}
+
+.progressStep {
+  align-items: center;
+  background: var(--phoenix-color-surface-muted);
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
+  border-radius: 999px;
+  color: var(--phoenix-color-text-muted);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  position: relative;
+}
+
+.progressStepDone {
+  background: color-mix(in srgb, var(--phoenix-color-success) 14%, var(--phoenix-color-surface));
+  border-color: color-mix(in srgb, var(--phoenix-color-success) 44%, var(--phoenix-color-border));
+  color: var(--phoenix-color-success);
+}
+
+.progressStepActive {
+  background: color-mix(in srgb, var(--phoenix-color-primary) 12%, var(--phoenix-color-surface));
+  border-color: color-mix(in srgb, var(--phoenix-color-primary) 44%, var(--phoenix-color-border));
+  color: var(--phoenix-color-primary);
+}
+
+.progressStepActive::after {
+  animation: terminal-pulse 1.4s ease-in-out infinite;
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  height: 6px;
+  position: absolute;
+  right: 8px;
+  width: 6px;
+}
+
+.readinessLine {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 var(--phoenix-space-5) var(--phoenix-space-3);
+}
+
+.readinessLine span {
+  align-items: center;
+  background: color-mix(in srgb, var(--phoenix-color-text-muted) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-text-muted) 12%, transparent);
+  border-radius: 999px;
+  color: var(--phoenix-color-text-muted);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.readinessLine strong {
+  color: var(--phoenix-color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
 .drawerActions {
   padding: 0 var(--phoenix-space-5) var(--phoenix-space-3);
 }
@@ -277,6 +349,11 @@
 
 .executionForm {
   gap: 10px;
+}
+
+.mobileDrawerFooter {
+  background: color-mix(in srgb, var(--phoenix-color-surface) 94%, transparent);
+  border-top: 1px solid var(--border-soft, var(--phoenix-color-border));
 }
 
 .checklist {
@@ -531,15 +608,54 @@
   }
 
   .drawerSummary,
-  .drawerActions {
+  .drawerActions,
+  .executionProgress,
+  .readinessLine {
     margin-right: 0;
     margin-left: 0;
     padding-right: 0;
     padding-left: 0;
   }
 
+  .executionProgress {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .progressStep {
+    font-size: 11px;
+    min-height: 28px;
+    padding: 0 6px;
+  }
+
+  .progressStepActive::after {
+    right: 5px;
+  }
+
+  .readinessLine {
+    gap: 6px;
+  }
+
+  .readinessLine span {
+    font-size: 11px;
+    min-height: 26px;
+    padding: 0 8px;
+  }
+
   .drawerActions > * {
     flex: 1 1 100%;
+  }
+
+  .mobileDrawerFooter {
+    bottom: 0;
+    margin: 0 calc(var(--phoenix-space-5) * -1);
+    padding: 10px var(--phoenix-space-5) calc(10px + env(safe-area-inset-bottom));
+    position: sticky;
+    z-index: 2;
+  }
+
+  .mobileDrawerFooter > * {
+    flex: 1 1 100%;
+    min-height: 44px;
   }
 
   .inlineControl {
@@ -556,5 +672,18 @@
   .checkItemTitle select {
     max-width: none;
     width: 100%;
+  }
+}
+
+@keyframes terminal-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
