@@ -1,0 +1,162 @@
+# Jinhu Smart Park Production Master Plan
+
+Date: 2026-06-25
+
+## Goal
+
+Build Jinhu Smart Park into a production-ready smart park management system that can support one real park end to end:
+
+- Organization, tenant, role, permission, data-scope, and audit administration.
+- Asset, building, floor, unit, and occupancy management.
+- Investment, tenant, contract, finance, payment, invoice, waiver, and refund operations.
+- Inspection, hazard, emergency, work permit, and work order field operations.
+- IoT device hub, alert center, energy metering, energy billing, video security, and cleaning robot operations.
+- Production deployment, rollback, evidence gates, and safety audit trails.
+
+## Current Production Evidence
+
+### Completed Gates
+
+| Gate | Area | Evidence | Result |
+| --- | --- | --- | --- |
+| Gate-1 | Safety inspection runtime | `gate1-safety-inspection-*` production reports | PASS |
+| Gate-2 | Safety hazard closure | `SAFETY_HAZARD_PRODUCTION_GATE2_REPORT.md` | PASS |
+| Gate-3 | Work order lifecycle | `WORK_ORDER_PRODUCTION_GATE3_REPORT.md` | PASS |
+| Gate-4 | Admin RBAC and organization | `ADMIN_RBAC_PRODUCTION_GATE4_REPORT.md` | PASS |
+
+### Gate-4 Production Counts
+
+- Role pack enabled roles: 9
+- Role pack roles with permissions: 9
+- Role permission links: 345
+- Role pack roles with data scope: 9
+- Organizations: 15
+- Enabled users: 21
+- Permissions: 708
+- Frontend route permissions: 130
+- Operation audit logs: 29
+
+## Capability Matrix
+
+| Capability | Current Status | Production Gap |
+| --- | --- | --- |
+| System administration | PASS | Continue route-level smoke and admin UX polish |
+| Role / permission / data scope | PASS | Add persona login smoke for each role pack |
+| Organization structure | PASS | Add org tree create/update/delete guarded smoke |
+| Asset management | PARTIAL | Add asset/unit production read-write gate |
+| Leasing CRM | PARTIAL | Add lead-to-tenant-to-contract production gate |
+| Contracts | PARTIAL | Add contract approval/archive/effective production gate |
+| Finance | PARTIAL | Add receivable/payment/invoice/waiver production gate |
+| Work orders | PASS | Add tenant service entry and SLA escalation evidence |
+| Inspection tasks | PASS | Add mobile-friendly field smoke and role smoke |
+| Hazard closure | PASS | Add dashboard KPI accuracy verification |
+| Emergency / work permits | PARTIAL | Add emergency event and permit lifecycle production gate |
+| IoT device hub | PARTIAL | Add dry-run device command and alert-to-work-order gate |
+| Energy metering / billing | PARTIAL | Add meter reading to billing cycle gate |
+| Video security | PARTIAL | Add stream config masking and evidence attach gate |
+| Cleaning robot | PARTIAL | Add robot read-only / command dry-run governance gate |
+| UI/UX | PARTIAL | Continue high-frequency workflow polish and mobile inspection UX |
+| Security | PARTIAL | Add auth lockout, CSRF/origin, file-policy, and audit gate pack |
+| Deployment / rollback | PASS | Keep release/rollback runbooks updated per gate |
+
+## Execution Phases
+
+### Phase 1: Local And Production Operation Baseline
+
+Status: IN PROGRESS
+
+Completed:
+
+- Real park role pack and data scope baseline.
+- Safety inspection production gate.
+- Hazard closure production gate.
+- Work order lifecycle production gate.
+- Admin RBAC production gate.
+- High-frequency drawer/form UI/UX Sprint 1.
+
+Remaining:
+
+- Persona login smoke for the 9 production roles.
+- Backend admin route smoke for system pages.
+- Mobile inspection terminal visual smoke.
+
+### Phase 2: Business Closed Loops
+
+Target:
+
+- Leasing lead -> tenant -> contract -> receivable -> payment -> invoice.
+- Asset/unit status -> tenant contract -> operation service.
+- Emergency/work permit lifecycle.
+- Tenant service request -> work order -> evaluation.
+
+Required Gates:
+
+- Gate-5 Asset and Unit Lifecycle.
+- Gate-6 Leasing to Contract Lifecycle.
+- Gate-7 Finance Lifecycle.
+- Gate-8 Emergency and Work Permit Lifecycle.
+- Gate-9 Tenant Service Entry.
+
+### Phase 3: IoT, Energy, Video, Robot Runtime
+
+Target:
+
+- IoT device registration, status, metric point, alert, and work order linkage.
+- Energy meter readings, cycle settlement, tenant bill allocation, adjustment, and reversal.
+- Video camera registry, stream configuration masking, alert dashboard, and evidence attachment.
+- Cleaning robot read-only operations and governed command dry-run.
+
+Required Gates:
+
+- Gate-10 IoT Device and Alert Runtime.
+- Gate-11 Energy Meter to Billing.
+- Gate-12 Video Security Evidence.
+- Gate-13 Robot Operations Governance.
+
+### Phase 4: Productized UI/UX And Mobile Field Operation
+
+Target:
+
+- Unified design language for forms, drawers, tables, mobile cards, and status feedback.
+- Mobile-first inspection execution.
+- Tenant-facing and operator-facing workbench entry points.
+- Accessibility and error-state improvements.
+
+Required Gates:
+
+- Gate-14 Mobile Inspection UX.
+- Gate-15 Tenant Portal UX.
+- Gate-16 Executive Dashboard Accuracy.
+
+### Phase 5: Security, Compliance, And Production Operations
+
+Target:
+
+- Authentication lockout and refresh handling.
+- CSRF/origin/file policy verification.
+- Field permission and data masking smoke.
+- Deployment, rollback, and backup restore rehearsal.
+
+Required Gates:
+
+- Gate-17 Auth and Session Security.
+- Gate-18 Field Masking and File Policy.
+- Gate-19 Backup Restore Drill.
+- Gate-20 Production Go-Live Review.
+
+## Next Immediate Actions
+
+1. Implement persona login smoke for the production role pack.
+2. Add Asset/Unit production lifecycle gate.
+3. Add Leasing -> Contract -> Finance production gate chain.
+4. Continue UI/UX Sprint 2 for mobile inspection and tenant service entry.
+5. Add security gate pack for auth/session/file policy.
+
+## Operating Rules
+
+- All production writes must be controlled, traceable, and report-backed.
+- Each production gate must upload markdown and JSON evidence.
+- Destructive operations need an explicit rollback note.
+- Secrets must not be printed in logs.
+- Every change must pass local validation and CI before being considered accepted.
+
