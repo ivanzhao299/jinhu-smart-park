@@ -824,3 +824,43 @@
     box-shadow: 0 14px 26px rgba(249, 115, 22, 0.26);
   }
 }
+
+@media (max-width: 720px) {
+  .sectionTitle {
+    color: #050816;
+    font-size: 20px;
+    font-weight: 880;
+  }
+
+  .sectionDescription,
+  .mutedText,
+  .commandButton small,
+  .sceneButton small,
+  .kpiCard span,
+  .kpiCard small,
+  .mobileTaskCard > span,
+  .mobileTaskCard dt {
+    color: #334155;
+    font-weight: 720;
+  }
+
+  .commandButton,
+  .sceneButton,
+  .kpiCard,
+  .mobileTaskCard {
+    border-color: rgba(15, 23, 42, 0.20);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+  }
+
+  .commandButton strong,
+  .sceneButton strong,
+  .mobileTaskHeader strong,
+  .mobileTaskCard dd {
+    color: #050816;
+    font-weight: 840;
+  }
+
+  .mobileTaskCard dl > div {
+    border-top-color: rgba(15, 23, 42, 0.18);
+  }
+}

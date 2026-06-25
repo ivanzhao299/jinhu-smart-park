@@ -381,3 +381,28 @@
     font-weight: 760;
   }
 }
+
+@media (max-width: 720px) {
+  .actionCard,
+  .kpiCard,
+  .requestCard {
+    border-color: rgba(15, 23, 42, 0.20);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+  }
+
+  .actionCard strong,
+  .kpiCard strong,
+  .requestCard strong {
+    color: #050816;
+    font-weight: 840;
+  }
+
+  .actionCard small,
+  .kpiCard span,
+  .kpiCard small,
+  .requestCard span,
+  .requestCard small {
+    color: #334155;
+    font-weight: 720;
+  }
+}

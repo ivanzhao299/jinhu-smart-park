@@ -8786,3 +8786,134 @@ select {
     box-shadow: 0 12px 24px rgba(249, 115, 22, 0.12);
   }
 }
+
+/* Mobile readability and header layout polish for field-operation pages. */
+@media (max-width: 720px) {
+  body.operations-terminal-safe-area .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    align-items: center;
+    min-height: calc(112px + env(safe-area-inset-top));
+    padding: calc(14px + env(safe-area-inset-top)) 12px 14px 16px;
+  }
+
+  body.operations-terminal-safe-area .header-leading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 0;
+    padding-left: 0;
+  }
+
+  body.operations-terminal-safe-area .header-brand-lockup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  body.operations-terminal-safe-area .header-brand-symbol {
+    width: 34px;
+    height: 24px;
+    object-position: left center;
+  }
+
+  body.operations-terminal-safe-area .header-brand-lockup strong {
+    max-width: 190px;
+    overflow: hidden;
+    font-size: 16px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.operations-terminal-safe-area .header-actions {
+    display: grid;
+    grid-template-columns: 38px 38px;
+    grid-auto-rows: 38px;
+    justify-content: end;
+    align-items: center;
+    gap: 8px;
+  }
+
+  body.operations-terminal-safe-area .header-actions .header-icon-button.ant-btn,
+  body.operations-terminal-safe-area .header-actions .header-icon-link {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 14px;
+  }
+
+  body.operations-terminal-safe-area .header-actions .user-menu {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 32px minmax(0, auto) auto;
+    align-items: center;
+    justify-content: end;
+    gap: 7px;
+    min-height: 36px;
+  }
+
+  body.operations-terminal-safe-area .header-actions .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  body.operations-terminal-safe-area .header-actions .user-menu-name {
+    max-width: 78px;
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 820;
+  }
+
+  body.operations-terminal-safe-area .app-header .user-menu .user-logout-button {
+    min-width: 54px;
+    height: 32px;
+    border-radius: 12px;
+    padding: 0 9px;
+    color: #f8fafc;
+    font-size: 12px;
+  }
+
+  body.operations-terminal-safe-area .ds-section-panel,
+  body.operations-terminal-safe-area .ds-kpi-card,
+  body.operations-terminal-safe-area .ds-mobile-record,
+  body.operations-terminal-safe-area .ds-command-card,
+  body.operations-terminal-safe-area .ds-scene-card {
+    border-color: rgba(15, 23, 42, 0.20);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(255, 159, 10, 0.08), transparent 7rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    color: #0b1220;
+  }
+
+  body.operations-terminal-safe-area .ds-section-panel h2,
+  body.operations-terminal-safe-area .ds-section-panel h3,
+  body.operations-terminal-safe-area .ds-command-copy strong,
+  body.operations-terminal-safe-area .ds-scene-copy strong,
+  body.operations-terminal-safe-area .ds-kpi-card strong,
+  body.operations-terminal-safe-area .ds-mobile-record-header strong,
+  body.operations-terminal-safe-area .ds-mobile-record dd {
+    color: #050816;
+  }
+
+  body.operations-terminal-safe-area .ds-command-copy small,
+  body.operations-terminal-safe-area .ds-scene-copy small,
+  body.operations-terminal-safe-area .ds-kpi-card span,
+  body.operations-terminal-safe-area .ds-kpi-card small,
+  body.operations-terminal-safe-area .ds-mobile-record > span,
+  body.operations-terminal-safe-area .ds-mobile-record dt,
+  body.operations-terminal-safe-area .section-description,
+  body.operations-terminal-safe-area .muted-text {
+    color: #334155;
+    font-weight: 720;
+  }
+
+  body.operations-terminal-safe-area .ds-mobile-record dl,
+  body.operations-terminal-safe-area .ds-mobile-record dl > div {
+    border-color: rgba(15, 23, 42, 0.18);
+  }
+}
