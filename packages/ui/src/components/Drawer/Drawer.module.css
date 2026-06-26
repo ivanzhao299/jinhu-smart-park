@@ -511,13 +511,17 @@
   .drawerPanel input,
   .drawerPanel select,
   .drawerPanel textarea {
-    background: #ffffff;
+    background-color: #ffffff;
     color: #081a2c;
     border-color: #9bb3ca;
   }
 
   .drawerPanel select {
     background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%2340566c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 16px center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+    padding-right: 44px;
   }
 
   .drawerPanel input::placeholder,
