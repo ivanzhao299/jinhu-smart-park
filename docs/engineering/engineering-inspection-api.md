@@ -168,5 +168,5 @@ Task 014 再建立整改任务状态机。
 
 ## 后续任务
 
-- Task 012：实现工程巡检前端页面。
+- Task 012：实现工程巡检前端页面，见 [engineering-inspection-ui.md](./engineering-inspection-ui.md)。
 - Task 013：实现巡检问题自动生成整改任务。

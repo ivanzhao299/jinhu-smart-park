@@ -16,12 +16,15 @@ import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
 import { buildEngineeringPlanTree, flattenEngineeringPlanTree } from "../../../../lib/engineering-plans-utils";
 import { engineeringDailyReportsApi } from "../../../../lib/engineering-daily-reports-api";
 import type { EngineeringDailyReport } from "../../../../lib/engineering-daily-reports-types";
+import { engineeringInspectionsApi } from "../../../../lib/engineering-inspections-api";
+import type { EngineeringInspection } from "../../../../lib/engineering-inspections-types";
 import {
   DailyReportProgressBar,
   DailyReportStatusPill,
   WeatherPill,
   formatDateTime as formatDailyReportDateTime
 } from "../../daily-reports/components/EngineeringDailyReportShared";
+import { InspectionStatusPill, InspectionTypePill, formatDateTime as formatInspectionDateTime } from "../../inspections/components/EngineeringInspectionShared";
 import { PlanProgressBar, PlanTreeTable } from "../../plans/components/EngineeringPlanShared";
 import {
   DetailItem,
@@ -38,7 +41,6 @@ import {
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
-  "工程巡检",
   "整改任务",
   "工程验收",
   "工程档案",
@@ -62,6 +64,7 @@ export function EngineeringProjectDetailClient() {
   const [logs, setLogs] = useState<EngineeringProjectStatusLog[]>([]);
   const [plans, setPlans] = useState<EngineeringPlan[]>([]);
   const [dailyReports, setDailyReports] = useState<EngineeringDailyReport[]>([]);
+  const [inspections, setInspections] = useState<EngineeringInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
@@ -91,24 +94,37 @@ export function EngineeringProjectDetailClient() {
       recent
     };
   }, [dailyReports]);
+  const inspectionSummary = useMemo(() => {
+    const total = inspections.length;
+    const submitted = inspections.filter((item) => item.inspectionStatus === "SUBMITTED").length;
+    const draft = inspections.filter((item) => item.inspectionStatus === "DRAFT").length;
+    const issueCount = inspections.reduce((sum, item) => sum + Number(item.issueCount ?? 0), 0);
+    const criticalIssueCount = inspections.reduce((sum, item) => sum + Number(item.criticalIssueCount ?? 0), 0);
+    const recent = [...inspections]
+      .sort((left, right) => right.inspectionDate.localeCompare(left.inspectionDate) || right.createTime.localeCompare(left.createTime))
+      .slice(0, 5);
+    return { total, submitted, draft, issueCount, criticalIssueCount, recent };
+  }, [inspections]);
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
     setLoading(true);
     setMessage("");
     try {
-      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports] = await Promise.all([
+      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports, projectInspections] = await Promise.all([
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
         engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
         engineeringPlansApi.getProjectPlans(projectId, getAccessToken()),
-        engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken())
+        engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken()),
+        engineeringInspectionsApi.getProjectInspections(projectId, getAccessToken())
       ]);
       setProject(detail);
       setActions(availableActions);
       setLogs(statusLogs);
       setPlans(projectPlans);
       setDailyReports(projectDailyReports);
+      setInspections(projectInspections);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载工程项目详情失败");
     } finally {
@@ -347,6 +363,65 @@ export function EngineeringProjectDetailClient() {
                   {dailyReportSummary.recent.length === 0 ? (
                     <tr>
                       <td colSpan={7}>暂无施工日报</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </DataTable>
+            </div>
+          </Card>
+
+          <Card>
+            <section className={styles.sectionHeader}>
+              <h2>工程巡检</h2>
+              <span>工程巡检已接入真实 API，支持现场记录和问题证据沉淀。</span>
+            </section>
+            <div className={styles.detailGrid}>
+              <DetailItem label="巡检总数" value={inspectionSummary.total} />
+              <DetailItem label="草稿" value={inspectionSummary.draft} />
+              <DetailItem label="已提交" value={inspectionSummary.submitted} />
+              <DetailItem label="问题总数" value={inspectionSummary.issueCount} />
+              <DetailItem label="重大问题" value={inspectionSummary.criticalIssueCount} />
+            </div>
+            <div className={styles.actionBar}>
+              <Link className="primary-button" href={`/engineering/inspections/new?projectId=${project.id}`}>
+                <Plus size={16} />
+                新增巡检
+              </Link>
+              <Link className="secondary-button" href={`/engineering/inspections?projectId=${project.id}`}>
+                <Eye size={16} />
+                查看全部巡检
+              </Link>
+            </div>
+            <div className="table-scroll">
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>巡检编号</th>
+                    <th>标题</th>
+                    <th>日期</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>问题</th>
+                    <th>提交时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspectionSummary.recent.map((inspection) => (
+                    <tr key={inspection.id}>
+                      <td><strong>{inspection.inspectionCode}</strong></td>
+                      <td>{inspection.inspectionTitle}</td>
+                      <td>{formatDate(inspection.inspectionDate)}</td>
+                      <td><InspectionTypePill type={inspection.inspectionType} /></td>
+                      <td><InspectionStatusPill status={inspection.inspectionStatus} /></td>
+                      <td>{inspection.issueCount} / 重大 {inspection.criticalIssueCount}</td>
+                      <td>{formatInspectionDateTime(inspection.submittedAt)}</td>
+                      <td><Link className="secondary-button" href={`/engineering/inspections/${inspection.id}`}>查看</Link></td>
+                    </tr>
+                  ))}
+                  {inspectionSummary.recent.length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>暂无工程巡检</td>
                     </tr>
                   ) : null}
                 </tbody>
