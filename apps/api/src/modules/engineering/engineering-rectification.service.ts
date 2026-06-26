@@ -394,6 +394,7 @@ export class EngineeringRectificationService {
     await this.eventPublisher.publishRectificationEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: rectification.projectId,
       rectificationId: rectification.id,
       issueId: rectification.issueId,

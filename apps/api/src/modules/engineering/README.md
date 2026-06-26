@@ -7,7 +7,7 @@ EPDR（Engineering Project Delivery Runtime，工程项目交付运行时）是 
 - `domain/`: 状态机、枚举、业务规则、Runtime 类型。
 - `dto/`: 请求 DTO、查询 DTO、动作 DTO。
 - `entities/`: TypeORM 实体，统一继承 `AuditableEntity`。
-- `events/`: EventBus 事件 envelope 与事件类型。
+- `events/`: EventBus 事件 envelope、事件类型与本地事件日志 publisher。
 - `repositories/`: 复杂查询或领域仓储封装。
 - `workflow/`: Workflow Runtime placeholder 与后续接入适配器。
 
@@ -24,3 +24,5 @@ EPDR（Engineering Project Delivery Runtime，工程项目交付运行时）是 
 - 权限：Task 021 起使用 `ENGINEERING_*` 专属权限和 `engineering:*` 菜单权限。
 
 RBAC 说明见 `docs/engineering/engineering-rbac.md`。业务对象、状态动作、Dashboard 和前端按钮均由 EPDR 专属 RBAC 控制。
+
+事件流说明见 `docs/engineering/engineering-eventbus.md`。Task 023 起，工程领域事件会写入 `biz_engineering_event_log`，供后续 Workflow、Notification 和 AI Agent 消费。

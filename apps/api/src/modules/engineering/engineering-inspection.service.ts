@@ -643,6 +643,7 @@ export class EngineeringInspectionService {
     await this.eventPublisher.publishInspectionEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: inspection.projectId,
       inspectionId: inspection.id,
       actorUserId: context.actor.sub,
@@ -659,6 +660,7 @@ export class EngineeringInspectionService {
     await this.eventPublisher.publishIssueEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: issue.projectId,
       issueId: issue.id,
       actorUserId: context.actor.sub,
@@ -675,6 +677,7 @@ export class EngineeringInspectionService {
     await this.eventPublisher.publishRectificationEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: rectification.projectId,
       rectificationId: rectification.id,
       issueId: rectification.issueId,

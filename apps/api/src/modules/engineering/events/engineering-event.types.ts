@@ -2,6 +2,7 @@ export interface EngineeringEventEnvelope<TPayload extends Record<string, unknow
   eventId: string;
   eventType: EngineeringEventType;
   tenantId: string;
+  parkId: string;
   projectId: string | null;
   entityId: string;
   actorUserId: string | null;

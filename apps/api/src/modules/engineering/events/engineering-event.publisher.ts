@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
+import type { Repository } from "typeorm";
+import { EngineeringEventLogEntity } from "../entities/engineering-event-log.entity";
 import type { EngineeringEventEnvelope, EngineeringEventType } from "./engineering-event.types";
 import { EngineeringProjectStatus } from "../domain/engineering-project.enums";
 import { EngineeringProjectAction } from "../domain/engineering-project-state-machine.types";
@@ -103,8 +106,14 @@ export interface EngineeringAcceptanceEvent extends EngineeringEventEnvelope<Rec
 
 @Injectable()
 export class EngineeringEventPublisher {
+  constructor(
+    @InjectRepository(EngineeringEventLogEntity)
+    private readonly eventLogsRepository: Repository<EngineeringEventLogEntity>
+  ) {}
+
   async publishProjectStatusChanged(input: {
     tenantId: string;
+    parkId: string;
     projectId: string;
     fromStatus: EngineeringProjectStatus;
     toStatus: EngineeringProjectStatus;
@@ -119,6 +128,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: "EngineeringProjectStatusChangedEvent",
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.projectId,
       actorUserId: input.actorUserId,
@@ -143,6 +153,7 @@ export class EngineeringEventPublisher {
   async publishPlanEvent(input: {
     eventType: EngineeringPlanEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     planId: string;
     actorUserId?: string | null;
@@ -152,6 +163,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.planId,
       planId: input.planId,
@@ -166,6 +178,7 @@ export class EngineeringEventPublisher {
   async publishDailyReportEvent(input: {
     eventType: EngineeringDailyReportEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     dailyReportId: string;
     actorUserId?: string | null;
@@ -175,6 +188,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.dailyReportId,
       dailyReportId: input.dailyReportId,
@@ -189,6 +203,7 @@ export class EngineeringEventPublisher {
   async publishInspectionEvent(input: {
     eventType: EngineeringInspectionEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     inspectionId: string;
     actorUserId?: string | null;
@@ -198,6 +213,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.inspectionId,
       inspectionId: input.inspectionId,
@@ -212,6 +228,7 @@ export class EngineeringEventPublisher {
   async publishIssueEvent(input: {
     eventType: EngineeringIssueEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     issueId: string;
     actorUserId?: string | null;
@@ -221,6 +238,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.issueId,
       issueId: input.issueId,
@@ -235,6 +253,7 @@ export class EngineeringEventPublisher {
   async publishRectificationEvent(input: {
     eventType: EngineeringRectificationEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     rectificationId: string;
     issueId?: string | null;
@@ -245,6 +264,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.rectificationId,
       rectificationId: input.rectificationId,
@@ -260,6 +280,7 @@ export class EngineeringEventPublisher {
   async publishAcceptanceEvent(input: {
     eventType: EngineeringAcceptanceEventType;
     tenantId: string;
+    parkId: string;
     projectId: string;
     acceptanceId: string;
     actorUserId?: string | null;
@@ -269,6 +290,7 @@ export class EngineeringEventPublisher {
       eventId: randomUUID(),
       eventType: input.eventType,
       tenantId: input.tenantId,
+      parkId: input.parkId,
       projectId: input.projectId,
       entityId: input.acceptanceId,
       acceptanceId: input.acceptanceId,
@@ -281,7 +303,7 @@ export class EngineeringEventPublisher {
   }
 
   protected async publish(
-    _event: (
+    event: (
       | EngineeringProjectStatusChangedEvent
       | EngineeringPlanEvent
       | EngineeringDailyReportEvent
@@ -293,6 +315,18 @@ export class EngineeringEventPublisher {
       eventType: EngineeringEventType;
     }
   ): Promise<void> {
-    // EventBus adapter boundary. Replace this no-op with the platform EventBus when available.
+    const eventLog = this.eventLogsRepository.create({
+      eventId: event.eventId,
+      eventType: event.eventType,
+      tenantId: event.tenantId,
+      parkId: event.parkId,
+      projectId: event.projectId,
+      entityId: event.entityId,
+      actorUserId: event.actorUserId ?? null,
+      occurredAt: new Date(event.occurredAt),
+      payload: event.payload
+    });
+    await this.eventLogsRepository.save(eventLog);
+    // External EventBus adapter boundary. Forward from here when the platform bus is available.
   }
 }

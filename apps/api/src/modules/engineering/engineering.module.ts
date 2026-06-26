@@ -5,6 +5,7 @@ import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
+import { EngineeringEventLogEntity } from "./entities/engineering-event-log.entity";
 import { EngineeringInspectionEntity } from "./entities/engineering-inspection.entity";
 import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
@@ -54,6 +55,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
       EngineeringProjectStatusLogEntity,
       EngineeringPlanEntity,
       EngineeringDailyReportEntity,
+      EngineeringEventLogEntity,
       EngineeringInspectionEntity,
       EngineeringIssueEntity,
       EngineeringRectificationEntity,

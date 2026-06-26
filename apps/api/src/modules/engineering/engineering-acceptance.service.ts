@@ -359,6 +359,7 @@ export class EngineeringAcceptanceService {
     await this.eventPublisher.publishAcceptanceEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: acceptance.projectId,
       acceptanceId: acceptance.id,
       actorUserId: context.actor.sub,

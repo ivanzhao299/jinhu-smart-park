@@ -371,6 +371,7 @@ export class EngineeringDailyReportService {
     await this.eventPublisher.publishDailyReportEvent({
       eventType,
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: report.projectId,
       dailyReportId: report.id,
       actorUserId: context.actor.sub,

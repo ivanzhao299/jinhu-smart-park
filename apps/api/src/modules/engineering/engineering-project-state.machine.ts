@@ -113,6 +113,7 @@ export class EngineeringProjectStateMachine {
     });
     await this.eventPublisher.publishProjectStatusChanged({
       tenantId: project.tenantId,
+      parkId: project.parkId,
       projectId: project.id,
       fromStatus,
       toStatus,

@@ -59,6 +59,7 @@ export class EngineeringPlanService {
     await this.eventPublisher.publishPlanEvent({
       eventType: "EngineeringPlanCreatedEvent",
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: plan.projectId,
       planId: plan.id,
       actorUserId: context.actor.sub,
@@ -106,6 +107,7 @@ export class EngineeringPlanService {
     await this.eventPublisher.publishPlanEvent({
       eventType: "EngineeringPlanUpdatedEvent",
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: updated.projectId,
       planId: updated.id,
       actorUserId: context.actor.sub,
@@ -173,6 +175,7 @@ export class EngineeringPlanService {
     await this.eventPublisher.publishPlanEvent({
       eventType: "EngineeringPlanProgressUpdatedEvent",
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: updated.projectId,
       planId: updated.id,
       actorUserId: context.actor.sub,
@@ -211,6 +214,7 @@ export class EngineeringPlanService {
     await this.eventPublisher.publishPlanEvent({
       eventType: "EngineeringPlanStatusChangedEvent",
       tenantId: context.tenantId,
+      parkId: context.parkId,
       projectId: updated.projectId,
       planId: updated.id,
       actorUserId: context.actor.sub,
@@ -314,6 +318,7 @@ export class EngineeringPlanService {
       await this.eventPublisher.publishPlanEvent({
         eventType: "EngineeringPlanCompletedEvent",
         tenantId: context.tenantId,
+        parkId: context.parkId,
         projectId: updated.projectId,
         planId: updated.id,
         actorUserId: context.actor.sub,
@@ -324,6 +329,7 @@ export class EngineeringPlanService {
       await this.eventPublisher.publishPlanEvent({
         eventType: "EngineeringPlanDelayedEvent",
         tenantId: context.tenantId,
+        parkId: context.parkId,
         projectId: updated.projectId,
         planId: updated.id,
         actorUserId: context.actor.sub,
