@@ -14,6 +14,7 @@ import { CodeRulesModule } from "./modules/code-rules/code-rules.module";
 import { DataScopesModule } from "./modules/data-scopes/data-scopes.module";
 import { DictsModule } from "./modules/dicts/dicts.module";
 import { EnergyModule } from "./modules/energy/energy.module";
+import { EngineeringModule } from "./modules/engineering/engineering.module";
 import { FieldPoliciesModule } from "./modules/field-policies/field-policies.module";
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
@@ -132,6 +133,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     FieldPoliciesModule,
     FloorsModule,
     EnergyModule,
+    EngineeringModule,
     IotModule,
     LeasingContractChangesModule,
     LeasingContractsModule,
