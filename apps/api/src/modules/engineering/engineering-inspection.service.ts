@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import type { PaginatedResult } from "@jinhu/shared";
 import type { SelectQueryBuilder } from "typeorm";
 import type { EngineeringProjectRuntimeContext } from "./engineering-project.service";
@@ -7,6 +7,7 @@ import {
   CreateEngineeringIssueDto,
   EngineeringInspectionQueryDto,
   EngineeringIssueQueryDto,
+  GenerateEngineeringRectificationDto,
   UpdateEngineeringInspectionDto,
   UpdateEngineeringIssueDto
 } from "./dto/engineering-inspection.dto";
@@ -16,6 +17,7 @@ import { EngineeringInspectionEntity } from "./entities/engineering-inspection.e
 import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
+import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
@@ -29,12 +31,14 @@ import {
 import { EngineeringIssueRepository, type CreateEngineeringIssueInput, type UpdateEngineeringIssueInput } from "./repositories/engineering-issue.repository";
 import { EngineeringPlanRepository } from "./repositories/engineering-plan.repository";
 import { EngineeringProjectRepository } from "./repositories/engineering-project.repository";
+import { EngineeringRectificationRepository, type CreateEngineeringRectificationInput } from "./repositories/engineering-rectification.repository";
 
 @Injectable()
 export class EngineeringInspectionService {
   constructor(
     private readonly inspectionsRepository: EngineeringInspectionRepository,
     private readonly issuesRepository: EngineeringIssueRepository,
+    private readonly rectificationsRepository: EngineeringRectificationRepository,
     private readonly projectsRepository: EngineeringProjectRepository,
     private readonly plansRepository: EngineeringPlanRepository,
     private readonly dailyReportsRepository: EngineeringDailyReportRepository,
@@ -194,6 +198,48 @@ export class EngineeringInspectionService {
     return updated;
   }
 
+  async generateRectificationFromIssue(
+    id: string,
+    dto: GenerateEngineeringRectificationDto,
+    context: EngineeringProjectRuntimeContext
+  ): Promise<EngineeringRectificationEntity> {
+    this.accessPolicy.assertPermission(EngineeringInspectionPermission.ISSUE_GENERATE_RECTIFICATION, this.permissionContext(context));
+    const issue = await this.findIssueInScope(id, context);
+    this.assertIssueCanGenerateRectification(issue);
+    const existing = await this.rectificationsRepository.findByIssueId(context, issue.id);
+    if (existing) {
+      throw new ConflictException("Engineering issue already has a rectification task");
+    }
+
+    const rectification = await this.rectificationsRepository.createRectification(
+      context,
+      context.actor.sub,
+      this.toCreateRectificationInput(issue, dto)
+    );
+    const updatedIssue = await this.issuesRepository.updateIssue(context, context.actor.sub, issue.id, {
+      rectificationId: rectification.id,
+      issueStatus: EngineeringIssueStatus.RECTIFICATION_PENDING,
+      closedAt: null,
+      closedBy: null
+    });
+
+    await this.logRectificationChange("CREATE_FROM_ISSUE", rectification, context, null, this.rectificationSnapshot(rectification));
+    await this.logIssueChange("GENERATE_RECTIFICATION", updatedIssue, context, this.issueSnapshot(issue), this.issueSnapshot(updatedIssue));
+    await this.publishRectificationEvent("EngineeringRectificationCreatedEvent", rectification, context, {
+      rectificationCode: rectification.rectificationCode,
+      issueId: issue.id,
+      issueCode: issue.issueCode,
+      severity: rectification.severity
+    });
+    await this.publishIssueEvent("EngineeringIssueUpdatedEvent", updatedIssue, context, {
+      issueCode: updatedIssue.issueCode,
+      issueStatus: updatedIssue.issueStatus,
+      rectificationId: rectification.id
+    });
+    await this.syncInspectionIssueCount(updatedIssue.inspectionId, context);
+    return rectification;
+  }
+
   async deleteIssue(id: string, context: EngineeringProjectRuntimeContext): Promise<{ id: string }> {
     this.accessPolicy.assertPermission(EngineeringInspectionPermission.ISSUE_DELETE, this.permissionContext(context));
     const before = await this.findIssueInScope(id, context);
@@ -284,6 +330,15 @@ export class EngineeringInspectionService {
     }
   }
 
+  private assertIssueCanGenerateRectification(issue: EngineeringIssueEntity): void {
+    if (issue.rectificationId) {
+      throw new ConflictException("Engineering issue already has a rectification task");
+    }
+    if ([EngineeringIssueStatus.CLOSED, EngineeringIssueStatus.CANCELLED].includes(issue.issueStatus)) {
+      throw new BadRequestException("Closed or cancelled engineering issues cannot generate rectification tasks");
+    }
+  }
+
   private async prepareIssueInput(dto: CreateEngineeringIssueDto, context: EngineeringProjectRuntimeContext): Promise<CreateEngineeringIssueInput> {
     let projectId = dto.project_id ?? null;
     let inspection: EngineeringInspectionEntity | null = null;
@@ -323,6 +378,29 @@ export class EngineeringInspectionService {
       sourceId: dto.source_id ?? dto.inspection_id ?? inspection?.id ?? null,
       attachmentIds: dto.attachment_ids ?? null,
       remark: dto.remark ?? null
+    };
+  }
+
+  private toCreateRectificationInput(issue: EngineeringIssueEntity, dto: GenerateEngineeringRectificationDto): CreateEngineeringRectificationInput {
+    return {
+      orgId: issue.orgId,
+      projectId: issue.projectId,
+      issueId: issue.id,
+      inspectionId: issue.inspectionId,
+      rectificationTitle: dto.rectification_title ?? issue.issueTitle,
+      description: dto.description ?? issue.description,
+      severity: issue.severity,
+      responsibleUserId: dto.responsible_user_id ?? issue.responsibleUserId,
+      responsibleOrgId: dto.responsible_org_id ?? issue.responsibleOrgId,
+      contractorOrgId: dto.contractor_org_id ?? issue.contractorOrgId,
+      supervisorOrgId: dto.supervisor_org_id ?? issue.supervisorOrgId,
+      locationText: issue.locationText,
+      buildingId: issue.buildingId,
+      floorId: issue.floorId,
+      spaceId: issue.spaceId,
+      deadline: dto.deadline ?? issue.deadline,
+      attachmentIds: dto.attachment_ids ?? issue.attachmentIds,
+      remark: dto.remark ?? issue.remark
     };
   }
 
@@ -463,6 +541,22 @@ export class EngineeringInspectionService {
     };
   }
 
+  private rectificationSnapshot(rectification: EngineeringRectificationEntity): Record<string, unknown> {
+    return {
+      id: rectification.id,
+      projectId: rectification.projectId,
+      issueId: rectification.issueId,
+      inspectionId: rectification.inspectionId,
+      rectificationCode: rectification.rectificationCode,
+      rectificationTitle: rectification.rectificationTitle,
+      severity: rectification.severity,
+      status: rectification.status,
+      responsibleUserId: rectification.responsibleUserId,
+      responsibleOrgId: rectification.responsibleOrgId,
+      deadline: rectification.deadline
+    };
+  }
+
   private async logInspectionChange(
     action: string,
     inspection: EngineeringInspectionEntity,
@@ -511,6 +605,31 @@ export class EngineeringInspectionService {
     });
   }
 
+  private async logRectificationChange(
+    action: string,
+    rectification: EngineeringRectificationEntity,
+    context: EngineeringProjectRuntimeContext,
+    beforeJson: Record<string, unknown> | null,
+    afterJson: Record<string, unknown> | null
+  ): Promise<void> {
+    await this.auditLogger.logRectificationChanged({
+      tenantId: context.tenantId,
+      parkId: context.parkId,
+      projectId: rectification.projectId,
+      rectificationId: rectification.id,
+      issueId: rectification.issueId,
+      action,
+      actorUserId: context.actor.sub,
+      actorName: context.actor.realName ?? context.actor.username,
+      actorRoleCodes: context.actor.roles,
+      beforeJson,
+      afterJson,
+      requestId: context.requestId ?? null,
+      ip: context.ip ?? null,
+      userAgent: context.userAgent ?? null
+    });
+  }
+
   private async publishInspectionEvent(
     eventType:
       | "EngineeringInspectionCreatedEvent"
@@ -542,6 +661,23 @@ export class EngineeringInspectionService {
       tenantId: context.tenantId,
       projectId: issue.projectId,
       issueId: issue.id,
+      actorUserId: context.actor.sub,
+      payload
+    });
+  }
+
+  private async publishRectificationEvent(
+    eventType: "EngineeringRectificationCreatedEvent",
+    rectification: EngineeringRectificationEntity,
+    context: EngineeringProjectRuntimeContext,
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    await this.eventPublisher.publishRectificationEvent({
+      eventType,
+      tenantId: context.tenantId,
+      projectId: rectification.projectId,
+      rectificationId: rectification.id,
+      issueId: rectification.issueId,
       actorUserId: context.actor.sub,
       payload
     });

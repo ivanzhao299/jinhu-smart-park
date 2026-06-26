@@ -77,6 +77,23 @@ export interface LogEngineeringIssueChangedInput {
   userAgent?: string | null;
 }
 
+export interface LogEngineeringRectificationChangedInput {
+  tenantId: string;
+  parkId: string;
+  projectId: string;
+  rectificationId: string;
+  issueId?: string | null;
+  action: string;
+  actorUserId: string | null;
+  actorName?: string | null;
+  actorRoleCodes?: string[] | null;
+  beforeJson?: Record<string, unknown> | null;
+  afterJson?: Record<string, unknown> | null;
+  requestId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 @Injectable()
 export class EngineeringAuditLogger {
   constructor(private readonly auditService: AuditService) {}
@@ -212,6 +229,34 @@ export class EngineeringAuditLogger {
       clientUa: input.userAgent ?? null,
       method: "WRITE",
       path: "epdr://engineering/issues",
+      success: true,
+      requestId: input.requestId ?? null
+    });
+  }
+
+  async logRectificationChanged(input: LogEngineeringRectificationChangedInput): Promise<void> {
+    await this.auditService.recordOperation({
+      tenantId: input.tenantId,
+      parkId: input.parkId,
+      userId: input.actorUserId,
+      username: null,
+      realName: input.actorName ?? null,
+      roleCodes: input.actorRoleCodes ?? null,
+      module: "engineering",
+      resource: "engineering_rectification",
+      action: input.action,
+      bizType: "engineering_rectification",
+      bizId: input.rectificationId,
+      beforeJson: input.beforeJson ?? null,
+      afterJson: {
+        projectId: input.projectId,
+        issueId: input.issueId ?? null,
+        ...(input.afterJson ?? {})
+      },
+      clientIp: input.ip ?? null,
+      clientUa: input.userAgent ?? null,
+      method: "WRITE",
+      path: "epdr://engineering/rectifications",
       success: true,
       requestId: input.requestId ?? null
     });

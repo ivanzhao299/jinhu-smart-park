@@ -71,6 +71,20 @@ export interface EngineeringIssueEvent extends EngineeringEventEnvelope<Record<s
   issueId: string;
 }
 
+export type EngineeringRectificationEventType =
+  | "EngineeringRectificationCreatedEvent"
+  | "EngineeringRectificationSubmittedEvent"
+  | "EngineeringRectificationPassedEvent"
+  | "EngineeringRectificationRejectedEvent"
+  | "EngineeringRectificationOverdueEvent";
+
+export interface EngineeringRectificationEvent extends EngineeringEventEnvelope<Record<string, unknown>> {
+  eventType: EngineeringRectificationEventType;
+  projectId: string;
+  rectificationId: string;
+  issueId?: string | null;
+}
+
 @Injectable()
 export class EngineeringEventPublisher {
   async publishProjectStatusChanged(input: {
@@ -202,8 +216,40 @@ export class EngineeringEventPublisher {
     return event;
   }
 
+  async publishRectificationEvent(input: {
+    eventType: EngineeringRectificationEventType;
+    tenantId: string;
+    projectId: string;
+    rectificationId: string;
+    issueId?: string | null;
+    actorUserId?: string | null;
+    payload?: Record<string, unknown>;
+  }): Promise<EngineeringRectificationEvent> {
+    const event: EngineeringRectificationEvent = {
+      eventId: randomUUID(),
+      eventType: input.eventType,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      entityId: input.rectificationId,
+      rectificationId: input.rectificationId,
+      issueId: input.issueId ?? null,
+      actorUserId: input.actorUserId ?? null,
+      occurredAt: new Date().toISOString(),
+      payload: input.payload ?? {}
+    };
+    await this.publish(event);
+    return event;
+  }
+
   protected async publish(
-    _event: (EngineeringProjectStatusChangedEvent | EngineeringPlanEvent | EngineeringDailyReportEvent | EngineeringInspectionEvent | EngineeringIssueEvent) & {
+    _event: (
+      | EngineeringProjectStatusChangedEvent
+      | EngineeringPlanEvent
+      | EngineeringDailyReportEvent
+      | EngineeringInspectionEvent
+      | EngineeringIssueEvent
+      | EngineeringRectificationEvent
+    ) & {
       eventType: EngineeringEventType;
     }
   ): Promise<void> {

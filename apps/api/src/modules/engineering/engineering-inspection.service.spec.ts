@@ -12,6 +12,7 @@ import {
   EngineeringPlanLevel,
   EngineeringPlanStatus,
   EngineeringPlanType,
+  EngineeringRectificationStatus,
   EngineeringProjectType,
   EngineeringWeatherType
 } from "./domain/engineering-project.enums";
@@ -21,6 +22,7 @@ import { EngineeringInspectionEntity } from "./entities/engineering-inspection.e
 import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
+import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringInspectionService } from "./engineering-inspection.service";
@@ -36,6 +38,7 @@ import { EngineeringInspectionRepository, type CreateEngineeringInspectionInput,
 import { EngineeringIssueRepository, type CreateEngineeringIssueInput, type UpdateEngineeringIssueInput } from "./repositories/engineering-issue.repository";
 import { EngineeringPlanRepository } from "./repositories/engineering-plan.repository";
 import { EngineeringProjectRepository } from "./repositories/engineering-project.repository";
+import { EngineeringRectificationRepository, type CreateEngineeringRectificationInput } from "./repositories/engineering-rectification.repository";
 
 const PROJECT_ID = "00000000-0000-0000-0000-000000000101";
 const OTHER_PROJECT_ID = "00000000-0000-0000-0000-000000000102";
@@ -45,6 +48,7 @@ const INSPECTION_ID = "00000000-0000-0000-0000-000000000401";
 const ISSUE_ID = "00000000-0000-0000-0000-000000000501";
 const ACTOR_ID = "00000000-0000-0000-0000-000000000601";
 const CONTRACTOR_ORG_ID = "00000000-0000-0000-0000-000000000701";
+const RECTIFICATION_ID = "00000000-0000-0000-0000-000000000901";
 
 interface Harness {
   service: EngineeringInspectionService;
@@ -59,6 +63,7 @@ interface Harness {
   updateInspectionInput: UpdateEngineeringInspectionInput | null;
   createIssueInput: CreateEngineeringIssueInput | null;
   updateIssueInput: UpdateEngineeringIssueInput | null;
+  createRectificationInput: CreateEngineeringRectificationInput | null;
   auditActions: string[];
   events: string[];
 }
@@ -174,6 +179,28 @@ function makeIssue(status: EngineeringIssueStatus = EngineeringIssueStatus.OPEN)
   } as EngineeringIssueEntity;
 }
 
+function makeRectification(): EngineeringRectificationEntity {
+  return {
+    id: RECTIFICATION_ID,
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    orgId: "00000000-0000-0000-0000-000000000801",
+    projectId: PROJECT_ID,
+    issueId: ISSUE_ID,
+    inspectionId: INSPECTION_ID,
+    rectificationCode: "GCZG20260626001",
+    rectificationTitle: "消防管线固定整改",
+    description: "支架松动",
+    severity: EngineeringIssueSeverity.CRITICAL,
+    status: EngineeringRectificationStatus.PENDING,
+    contractorOrgId: CONTRACTOR_ORG_ID,
+    deadline: "2026-06-30",
+    isDeleted: false,
+    createTime: new Date("2026-06-26T00:00:00.000Z"),
+    updateTime: new Date("2026-06-26T00:00:00.000Z")
+  } as EngineeringRectificationEntity;
+}
+
 function makeContext(): EngineeringProjectRuntimeContext {
   return {
     tenantId: "tenant-a",
@@ -191,12 +218,25 @@ function makeContext(): EngineeringProjectRuntimeContext {
   };
 }
 
-function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?: boolean; inspectionStatus?: EngineeringInspectionStatus } = {}): Harness {
+function makeHarness(
+  options: {
+    planWrongProject?: boolean;
+    reportWrongProject?: boolean;
+    inspectionStatus?: EngineeringInspectionStatus;
+    issueStatus?: EngineeringIssueStatus;
+    issueHasRectification?: boolean;
+    existingRectification?: boolean;
+  } = {}
+): Harness {
   const project = makeProject();
   const plan = makePlan(options.planWrongProject ? OTHER_PROJECT_ID : PROJECT_ID);
   const report = makeReport(options.reportWrongProject ? OTHER_PROJECT_ID : PROJECT_ID);
   let inspection = makeInspection(options.inspectionStatus ?? EngineeringInspectionStatus.DRAFT);
-  let issue = makeIssue();
+  let issue = makeIssue(options.issueStatus ?? EngineeringIssueStatus.OPEN);
+  if (options.issueHasRectification) {
+    issue.rectificationId = RECTIFICATION_ID;
+  }
+  let rectification = makeRectification();
   const permissions: EngineeringInspectionPermissionValue[] = [];
   const auditActions: string[] = [];
   const events: string[] = [];
@@ -209,6 +249,7 @@ function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?:
   let updateInspectionInput: UpdateEngineeringInspectionInput | null = null;
   let createIssueInput: CreateEngineeringIssueInput | null = null;
   let updateIssueInput: UpdateEngineeringIssueInput | null = null;
+  let createRectificationInput: CreateEngineeringRectificationInput | null = null;
 
   const projectsRepository = {
     findById: async (_scope: unknown, id: string, applyScope?: (builder: unknown) => Promise<void>) => {
@@ -293,6 +334,15 @@ function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?:
     softDelete: async (_scope: unknown, _actorId: string | null, id: string) => ({ id })
   } as unknown as EngineeringIssueRepository;
 
+  const rectificationsRepository = {
+    findByIssueId: async () => (options.existingRectification ? rectification : null),
+    createRectification: async (_scope: unknown, _actorId: string | null, input: CreateEngineeringRectificationInput) => {
+      createRectificationInput = input;
+      rectification = { ...rectification, ...input, id: RECTIFICATION_ID, status: EngineeringRectificationStatus.PENDING } as EngineeringRectificationEntity;
+      return rectification;
+    }
+  } as unknown as EngineeringRectificationRepository;
+
   const accessPolicy = {
     assertPermission: (permission: EngineeringInspectionPermissionValue) => {
       permissions.push(permission);
@@ -323,6 +373,9 @@ function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?:
     },
     logIssueChanged: async (input: { action: string }) => {
       auditActions.push(input.action);
+    },
+    logRectificationChanged: async (input: { action: string }) => {
+      auditActions.push(input.action);
     }
   } as unknown as EngineeringAuditLogger;
 
@@ -332,12 +385,16 @@ function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?:
     },
     publishIssueEvent: async (input: { eventType: string }) => {
       events.push(input.eventType);
+    },
+    publishRectificationEvent: async (input: { eventType: string }) => {
+      events.push(input.eventType);
     }
   } as unknown as EngineeringEventPublisher;
 
   const service = new EngineeringInspectionService(
     inspectionsRepository,
     issuesRepository,
+    rectificationsRepository,
     projectsRepository,
     plansRepository,
     dailyReportsRepository,
@@ -377,6 +434,9 @@ function makeHarness(options: { planWrongProject?: boolean; reportWrongProject?:
     },
     get updateIssueInput() {
       return updateIssueInput;
+    },
+    get createRectificationInput() {
+      return createRectificationInput;
     },
     auditActions,
     events
@@ -487,4 +547,47 @@ test("EngineeringInspectionService closes issue with actor evidence", async () =
   assert.deepEqual(harness.permissions, [EngineeringInspectionPermission.ISSUE_UPDATE]);
   assert.deepEqual(harness.auditActions, ["UPDATE"]);
   assert.deepEqual(harness.events, ["EngineeringIssueUpdatedEvent"]);
+});
+
+test("EngineeringInspectionService generates rectification task from issue and links it back", async () => {
+  const harness = makeHarness();
+  const rectification = await harness.service.generateRectificationFromIssue(
+    ISSUE_ID,
+    { rectification_title: "消防管线固定整改", deadline: "2026-07-01" },
+    harness.context
+  );
+
+  assert.equal(rectification.id, RECTIFICATION_ID);
+  assert.equal(rectification.issueId, ISSUE_ID);
+  assert.equal(rectification.status, EngineeringRectificationStatus.PENDING);
+  assert.equal(rectification.deadline, "2026-07-01");
+  assert.equal(harness.createRectificationInput?.projectId, PROJECT_ID);
+  assert.equal(harness.createRectificationInput?.inspectionId, INSPECTION_ID);
+  assert.equal(harness.updateIssueInput?.rectificationId, RECTIFICATION_ID);
+  assert.equal(harness.updateIssueInput?.issueStatus, EngineeringIssueStatus.RECTIFICATION_PENDING);
+  assert.deepEqual(harness.permissions, [EngineeringInspectionPermission.ISSUE_GENERATE_RECTIFICATION]);
+  assert.deepEqual(harness.auditActions, ["CREATE_FROM_ISSUE", "GENERATE_RECTIFICATION"]);
+  assert.deepEqual(harness.events, ["EngineeringRectificationCreatedEvent", "EngineeringIssueUpdatedEvent"]);
+});
+
+test("EngineeringInspectionService blocks duplicate rectification generation", async () => {
+  await assert.rejects(
+    () => makeHarness({ issueHasRectification: true }).service.generateRectificationFromIssue(ISSUE_ID, {}, makeContext()),
+    /already has a rectification task/
+  );
+  await assert.rejects(
+    () => makeHarness({ existingRectification: true }).service.generateRectificationFromIssue(ISSUE_ID, {}, makeContext()),
+    /already has a rectification task/
+  );
+});
+
+test("EngineeringInspectionService refuses rectification generation for closed or cancelled issues", async () => {
+  await assert.rejects(
+    () => makeHarness({ issueStatus: EngineeringIssueStatus.CLOSED }).service.generateRectificationFromIssue(ISSUE_ID, {}, makeContext()),
+    BadRequestException
+  );
+  await assert.rejects(
+    () => makeHarness({ issueStatus: EngineeringIssueStatus.CANCELLED }).service.generateRectificationFromIssue(ISSUE_ID, {}, makeContext()),
+    BadRequestException
+  );
 });

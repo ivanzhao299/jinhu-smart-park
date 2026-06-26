@@ -106,7 +106,7 @@ OVERDUE -> IN_PROGRESS / SUBMITTED
 
 ## 与巡检问题的关系
 
-巡检发现的问题先记录为 `EngineeringIssue`。需要整改时，后续 Task 013 会从 `EngineeringIssue` 自动生成 `EngineeringRectification`，并回写 `EngineeringIssue.rectificationId` 和 `issueStatus = RECTIFICATION_PENDING`。
+巡检发现的问题先记录为 `EngineeringIssue`。需要整改时，`POST /api/engineering/issues/:id/generate-rectification` 会从 `EngineeringIssue` 自动生成 `EngineeringRectification`，并回写 `EngineeringIssue.rectificationId` 和 `issueStatus = RECTIFICATION_PENDING`。
 
 关系：
 
@@ -154,8 +154,7 @@ Phase 1 至少按以下字段预留数据范围：
 
 未完成，后续 Task 接续：
 
-1. Task 013：巡检问题自动生成整改任务。
-2. Task 015：整改 API。
-3. Task 016：整改反馈与复查前端页面。
-4. Task 017：整改逾期检测机制。
-5. Task 025：工程附件统一能力。
+1. Task 015：整改 API。
+2. Task 016：整改反馈与复查前端页面。
+3. Task 017：整改逾期检测机制。
+4. Task 025：工程附件统一能力。

@@ -447,6 +447,50 @@ export class UpdateEngineeringIssueDto {
   remark?: string;
 }
 
+export class GenerateEngineeringRectificationDto {
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(200)
+  rectification_title?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  responsible_user_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  responsible_org_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  contractor_org_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  supervisor_org_id?: string;
+
+  @IsOptional()
+  @IsDateString()
+  deadline?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  attachment_ids?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(500)
+  remark?: string;
+}
+
 export class EngineeringIssueQueryDto {
   @Transform(({ value }) => Number(value ?? 1))
   @IsInt()

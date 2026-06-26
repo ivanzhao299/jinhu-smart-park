@@ -11,6 +11,7 @@ import {
   CreateEngineeringIssueDto,
   EngineeringInspectionQueryDto,
   EngineeringIssueQueryDto,
+  GenerateEngineeringRectificationDto,
   UpdateEngineeringInspectionDto,
   UpdateEngineeringIssueDto
 } from "./dto/engineering-inspection.dto";
@@ -167,6 +168,19 @@ export class EngineeringInspectionsController {
     @Body() dto: UpdateEngineeringIssueDto
   ) {
     return this.engineeringInspectionService.updateIssue(id, dto, this.context(scope, user, request));
+  }
+
+  @Post("issues/:id/generate-rectification")
+  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "生成整改任务", bizType: "engineering_issue", bizIdParam: "id" })
+  generateRectificationFromIssue(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Req() request: Request,
+    @Param("id") id: string,
+    @Body() dto: GenerateEngineeringRectificationDto
+  ) {
+    return this.engineeringInspectionService.generateRectificationFromIssue(id, dto, this.context(scope, user, request));
   }
 
   @Delete("issues/:id")
