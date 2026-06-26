@@ -85,6 +85,22 @@ export interface EngineeringRectificationEvent extends EngineeringEventEnvelope<
   issueId?: string | null;
 }
 
+export type EngineeringAcceptanceEventType =
+  | "EngineeringAcceptanceCreatedEvent"
+  | "EngineeringAcceptanceUpdatedEvent"
+  | "EngineeringAcceptanceSubmittedEvent"
+  | "EngineeringAcceptancePassedEvent"
+  | "EngineeringAcceptanceFailedEvent"
+  | "EngineeringAcceptanceRectificationRequiredEvent"
+  | "EngineeringAcceptanceClosedEvent"
+  | "EngineeringAcceptanceDeletedEvent";
+
+export interface EngineeringAcceptanceEvent extends EngineeringEventEnvelope<Record<string, unknown>> {
+  eventType: EngineeringAcceptanceEventType;
+  projectId: string;
+  acceptanceId: string;
+}
+
 @Injectable()
 export class EngineeringEventPublisher {
   async publishProjectStatusChanged(input: {
@@ -241,6 +257,29 @@ export class EngineeringEventPublisher {
     return event;
   }
 
+  async publishAcceptanceEvent(input: {
+    eventType: EngineeringAcceptanceEventType;
+    tenantId: string;
+    projectId: string;
+    acceptanceId: string;
+    actorUserId?: string | null;
+    payload?: Record<string, unknown>;
+  }): Promise<EngineeringAcceptanceEvent> {
+    const event: EngineeringAcceptanceEvent = {
+      eventId: randomUUID(),
+      eventType: input.eventType,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      entityId: input.acceptanceId,
+      acceptanceId: input.acceptanceId,
+      actorUserId: input.actorUserId ?? null,
+      occurredAt: new Date().toISOString(),
+      payload: input.payload ?? {}
+    };
+    await this.publish(event);
+    return event;
+  }
+
   protected async publish(
     _event: (
       | EngineeringProjectStatusChangedEvent
@@ -249,6 +288,7 @@ export class EngineeringEventPublisher {
       | EngineeringInspectionEvent
       | EngineeringIssueEvent
       | EngineeringRectificationEvent
+      | EngineeringAcceptanceEvent
     ) & {
       eventType: EngineeringEventType;
     }

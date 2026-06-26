@@ -39,8 +39,13 @@ export const ENGINEERING_EVENT_TYPES = [
   "EngineeringRectificationRejectedEvent",
   "EngineeringRectificationOverdueEvent",
   "EngineeringAcceptanceCreatedEvent",
+  "EngineeringAcceptanceUpdatedEvent",
+  "EngineeringAcceptanceSubmittedEvent",
   "EngineeringAcceptancePassedEvent",
   "EngineeringAcceptanceFailedEvent",
+  "EngineeringAcceptanceRectificationRequiredEvent",
+  "EngineeringAcceptanceClosedEvent",
+  "EngineeringAcceptanceDeletedEvent",
   "EngineeringTransferReadyEvent"
 ] as const;
 

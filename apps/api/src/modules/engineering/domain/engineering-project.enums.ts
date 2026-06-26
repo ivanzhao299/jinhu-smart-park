@@ -173,6 +173,24 @@ export enum EngineeringRectificationStatus {
   CLOSED = "CLOSED"
 }
 
+export enum EngineeringAcceptanceType {
+  HIDDEN_WORK = "HIDDEN_WORK",
+  STAGE = "STAGE",
+  SPECIAL = "SPECIAL",
+  COMPLETION = "COMPLETION",
+  TRANSFER_PRECHECK = "TRANSFER_PRECHECK"
+}
+
+export enum EngineeringAcceptanceStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+  REVIEWING = "REVIEWING",
+  PASSED = "PASSED",
+  FAILED = "FAILED",
+  RECTIFICATION_REQUIRED = "RECTIFICATION_REQUIRED",
+  CLOSED = "CLOSED"
+}
+
 export const ENGINEERING_PROJECT_TYPE_VALUES = Object.values(EngineeringProjectType);
 export const ENGINEERING_PROJECT_STATUS_VALUES = Object.values(EngineeringProjectStatus);
 export const ENGINEERING_PROJECT_LEVEL_VALUES = Object.values(EngineeringProjectLevel);
@@ -192,3 +210,5 @@ export const ENGINEERING_ISSUE_SEVERITY_VALUES = Object.values(EngineeringIssueS
 export const ENGINEERING_ISSUE_STATUS_VALUES = Object.values(EngineeringIssueStatus);
 export const ENGINEERING_ISSUE_SOURCE_TYPE_VALUES = Object.values(EngineeringIssueSourceType);
 export const ENGINEERING_RECTIFICATION_STATUS_VALUES = Object.values(EngineeringRectificationStatus);
+export const ENGINEERING_ACCEPTANCE_TYPE_VALUES = Object.values(EngineeringAcceptanceType);
+export const ENGINEERING_ACCEPTANCE_STATUS_VALUES = Object.values(EngineeringAcceptanceStatus);
