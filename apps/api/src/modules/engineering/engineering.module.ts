@@ -4,6 +4,8 @@ import { AuditModule } from "../audit/audit.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
+import { EngineeringInspectionEntity } from "./entities/engineering-inspection.entity";
+import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringProjectStatusLogEntity } from "./entities/engineering-project-status-log.entity";
@@ -24,12 +26,21 @@ import { EngineeringPlanAccessPolicy } from "./policies/engineering-plan-access.
 import { EngineeringProjectAccessPolicy } from "./policies/engineering-project-access.policy";
 import { EngineeringProjectPolicy } from "./policies/engineering-project.policy";
 import { EngineeringDailyReportRepository } from "./repositories/engineering-daily-report.repository";
+import { EngineeringInspectionRepository } from "./repositories/engineering-inspection.repository";
+import { EngineeringIssueRepository } from "./repositories/engineering-issue.repository";
 import { EngineeringPlanRepository } from "./repositories/engineering-plan.repository";
 import { EngineeringProjectRepository } from "./repositories/engineering-project.repository";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EngineeringProjectEntity, EngineeringProjectStatusLogEntity, EngineeringPlanEntity, EngineeringDailyReportEntity]),
+    TypeOrmModule.forFeature([
+      EngineeringProjectEntity,
+      EngineeringProjectStatusLogEntity,
+      EngineeringPlanEntity,
+      EngineeringDailyReportEntity,
+      EngineeringInspectionEntity,
+      EngineeringIssueEntity
+    ]),
     AuditModule,
     DataScopesModule
   ],
@@ -42,6 +53,8 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringInspectionRepository,
+    EngineeringIssueRepository,
     EngineeringProjectStateMachine,
     EngineeringProjectStatusService,
     EngineeringProjectAccessPolicy,
@@ -60,6 +73,8 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringInspectionRepository,
+    EngineeringIssueRepository,
     EngineeringProjectStateMachine,
     EngineeringProjectStatusService
   ]

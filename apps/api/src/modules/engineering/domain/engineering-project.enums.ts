@@ -109,6 +109,59 @@ export enum EngineeringWeatherType {
   OTHER = "OTHER"
 }
 
+export enum EngineeringInspectionType {
+  ROUTINE = "ROUTINE",
+  QUALITY = "QUALITY",
+  SAFETY = "SAFETY",
+  PROGRESS = "PROGRESS",
+  MATERIAL = "MATERIAL",
+  HIDDEN_WORK = "HIDDEN_WORK",
+  SPECIAL = "SPECIAL",
+  ACCEPTANCE_PRECHECK = "ACCEPTANCE_PRECHECK",
+  OTHER = "OTHER"
+}
+
+export enum EngineeringInspectionStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED"
+}
+
+export enum EngineeringIssueType {
+  QUALITY = "QUALITY",
+  SAFETY = "SAFETY",
+  PROGRESS = "PROGRESS",
+  DESIGN = "DESIGN",
+  MATERIAL = "MATERIAL",
+  ENVIRONMENT = "ENVIRONMENT",
+  CIVILIZED_CONSTRUCTION = "CIVILIZED_CONSTRUCTION",
+  OTHER = "OTHER"
+}
+
+export enum EngineeringIssueSeverity {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  CRITICAL = "CRITICAL"
+}
+
+export enum EngineeringIssueStatus {
+  OPEN = "OPEN",
+  RECTIFICATION_PENDING = "RECTIFICATION_PENDING",
+  RECTIFYING = "RECTIFYING",
+  RECHECKING = "RECHECKING",
+  CLOSED = "CLOSED",
+  CANCELLED = "CANCELLED"
+}
+
+export enum EngineeringIssueSourceType {
+  INSPECTION = "INSPECTION",
+  DAILY_REPORT = "DAILY_REPORT",
+  MANUAL = "MANUAL",
+  OTHER = "OTHER"
+}
+
 export const ENGINEERING_PROJECT_TYPE_VALUES = Object.values(EngineeringProjectType);
 export const ENGINEERING_PROJECT_STATUS_VALUES = Object.values(EngineeringProjectStatus);
 export const ENGINEERING_PROJECT_LEVEL_VALUES = Object.values(EngineeringProjectLevel);
@@ -121,3 +174,9 @@ export const ENGINEERING_PLAN_STATUS_VALUES = Object.values(EngineeringPlanStatu
 export const ENGINEERING_PLAN_LEVEL_VALUES = Object.values(EngineeringPlanLevel);
 export const ENGINEERING_DAILY_REPORT_STATUS_VALUES = Object.values(EngineeringDailyReportStatus);
 export const ENGINEERING_WEATHER_TYPE_VALUES = Object.values(EngineeringWeatherType);
+export const ENGINEERING_INSPECTION_TYPE_VALUES = Object.values(EngineeringInspectionType);
+export const ENGINEERING_INSPECTION_STATUS_VALUES = Object.values(EngineeringInspectionStatus);
+export const ENGINEERING_ISSUE_TYPE_VALUES = Object.values(EngineeringIssueType);
+export const ENGINEERING_ISSUE_SEVERITY_VALUES = Object.values(EngineeringIssueSeverity);
+export const ENGINEERING_ISSUE_STATUS_VALUES = Object.values(EngineeringIssueStatus);
+export const ENGINEERING_ISSUE_SOURCE_TYPE_VALUES = Object.values(EngineeringIssueSourceType);
