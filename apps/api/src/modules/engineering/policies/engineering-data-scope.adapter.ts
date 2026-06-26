@@ -3,6 +3,7 @@ import type { TenantParkScope } from "@jinhu/shared";
 import type { SelectQueryBuilder } from "typeorm";
 import { DataScopeService } from "../../data-scopes/data-scope.service";
 import type { JwtPrincipal } from "../../../shared/types/jwt-principal";
+import { EngineeringDailyReportEntity } from "../entities/engineering-daily-report.entity";
 import { EngineeringPlanEntity } from "../entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "../entities/engineering-project.entity";
 
@@ -38,5 +39,22 @@ export class EngineeringDataScopeAdapter {
       return;
     }
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "plan", { org: "owner_org_id" });
+  }
+
+  async applyDailyReportScope(
+    builder: SelectQueryBuilder<EngineeringDailyReportEntity>,
+    scope: TenantParkScope,
+    actor?: JwtPrincipal
+  ): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    if (actor.dataScope === "self") {
+      builder.andWhere("(report.create_by = :actorUserId OR report.submitted_by = :actorUserId)", {
+        actorUserId: actor.sub
+      });
+      return;
+    }
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "report", { org: "org_id" });
   }
 }

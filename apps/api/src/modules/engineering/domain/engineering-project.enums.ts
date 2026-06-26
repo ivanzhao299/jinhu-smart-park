@@ -90,6 +90,25 @@ export enum EngineeringPlanLevel {
   L4 = "L4"
 }
 
+export enum EngineeringDailyReportStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+  REVIEWED = "REVIEWED",
+  REJECTED = "REJECTED",
+  ARCHIVED = "ARCHIVED"
+}
+
+export enum EngineeringWeatherType {
+  SUNNY = "SUNNY",
+  CLOUDY = "CLOUDY",
+  OVERCAST = "OVERCAST",
+  RAIN = "RAIN",
+  SNOW = "SNOW",
+  WINDY = "WINDY",
+  FOG = "FOG",
+  OTHER = "OTHER"
+}
+
 export const ENGINEERING_PROJECT_TYPE_VALUES = Object.values(EngineeringProjectType);
 export const ENGINEERING_PROJECT_STATUS_VALUES = Object.values(EngineeringProjectStatus);
 export const ENGINEERING_PROJECT_LEVEL_VALUES = Object.values(EngineeringProjectLevel);
@@ -100,3 +119,5 @@ export const ENGINEERING_ASSET_STATUS_VALUES = Object.values(EngineeringAssetSta
 export const ENGINEERING_PLAN_TYPE_VALUES = Object.values(EngineeringPlanType);
 export const ENGINEERING_PLAN_STATUS_VALUES = Object.values(EngineeringPlanStatus);
 export const ENGINEERING_PLAN_LEVEL_VALUES = Object.values(EngineeringPlanLevel);
+export const ENGINEERING_DAILY_REPORT_STATUS_VALUES = Object.values(EngineeringDailyReportStatus);
+export const ENGINEERING_WEATHER_TYPE_VALUES = Object.values(EngineeringWeatherType);
