@@ -1,6 +1,7 @@
 import { TenantServiceEntryClient } from "../../../components/tenant-service/TenantServiceEntryClient";
 import type { DictMap, ParkTenantRow, UnitRow, UserRow } from "../../../components/operations/terminal-types";
 import type { TenantServiceWorkOrderRow } from "../../../components/tenant-service/TenantServiceEntryClient";
+import type { WorkflowInboxResponse } from "../../../lib/workflow-inbox-types";
 
 const now = new Date();
 const previousHour = new Date(now.getTime() - 60 * 60 * 1000);
@@ -84,6 +85,66 @@ const workOrders: TenantServiceWorkOrderRow[] = [
   }
 ];
 
+const workflowInbox: WorkflowInboxResponse = {
+  generatedAt: now.toISOString(),
+  summary: {
+    triageCount: 0,
+    assignedCount: 0,
+    customerConfirmCount: 1,
+    inspectionCount: 0,
+    overdueCount: 0,
+    messageCount: 3,
+    unreadMessageCount: 1
+  },
+  todos: [
+    {
+      id: "todo-tenant-1",
+      kind: "work_order_customer_confirm",
+      sourceType: "work_order",
+      sourceId: "wo-preview-2",
+      title: "保洁服务待确认",
+      subtitle: "公共走廊保洁补扫已完成，请确认结果。",
+      status: "60",
+      priority: "important",
+      ownerRole: "租户联系人",
+      actionLabel: "确认 / 评价",
+      href: "/workflow/inbox",
+      createdAt: previousDate(30)
+    }
+  ],
+  messages: [
+    {
+      id: "msg-tenant-1",
+      messageId: "msg-tenant-1",
+      sourceType: "work_order",
+      sourceId: "wo-preview-2",
+      title: "服务处理完成",
+      content: "环境服务已完成补扫，等待租户确认。",
+      actorName: "环境服务",
+      action: "完成处理",
+      href: "/workflow/inbox",
+      occurredAt: previousDate(25)
+    },
+    {
+      id: "msg-tenant-2",
+      sourceType: "work_order",
+      sourceId: "wo-preview-1",
+      title: "维修进度更新",
+      content: "维修班组正在更换照明配件，预计 30 分钟内完成。",
+      actorName: "维修班组",
+      action: "处理中",
+      readAt: now.toISOString(),
+      href: "/workflow/inbox",
+      occurredAt: previousDate(10)
+    }
+  ],
+  runtime: {
+    mode: "read_model",
+    writeModel: "服务请求仍通过原工单流转落盘。",
+    informationFlow: []
+  }
+};
+
 export default function TenantServicePreviewPage() {
   return (
     <TenantServiceEntryClient
@@ -93,8 +154,13 @@ export default function TenantServicePreviewPage() {
         workOrders,
         parkTenants,
         units,
-        users
+        users,
+        workflowInbox
       }}
     />
   );
+}
+
+function previousDate(minutes: number): string {
+  return new Date(now.getTime() - minutes * 60 * 1000).toISOString();
 }

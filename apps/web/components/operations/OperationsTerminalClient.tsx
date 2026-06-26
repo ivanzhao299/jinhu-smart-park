@@ -18,11 +18,13 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../auth/PermissionButton";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { useMobileTerminalMode } from "../mobile/useMobileTerminalMode";
+import { WorkflowInboxDigest } from "../workflow/WorkflowInboxDigest";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, resolveWorkOrderAudience } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
@@ -54,6 +56,7 @@ interface OperationsTerminalClientProps {
     units?: UnitRow[];
     parkTenants?: ParkTenantRow[];
     users?: UserRow[];
+    workflowInbox?: WorkflowInboxResponse;
   };
 }
 
@@ -104,6 +107,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const abnormalTasks = todayTasks.filter((task) => task.result === "abnormal");
   const completionRate = todayTasks.length === 0 ? 0 : Math.round((completedTasks.length / todayTasks.length) * 100);
   const canGenerate = previewMode || hasPermission(authUser, "safety_inspect_task:generate");
+  const canReadWorkflow = previewMode || hasPermission(authUser, SYSTEM_PERMISSIONS.WORKORDER_READ);
   const itemResultItems = dicts.safety_inspect_item_result?.length ? dicts.safety_inspect_item_result : [
     { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
     { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
@@ -553,6 +557,15 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
         </section>
 
         {message ? <FeedbackNotice className={styles.message}>{message}</FeedbackNotice> : null}
+
+        {canReadWorkflow ? (
+          <WorkflowInboxDigest
+            audience="operations"
+            className="ds-panel ds-section-panel"
+            previewMode={previewMode}
+            previewData={previewData?.workflowInbox}
+          />
+        ) : null}
 
         {loading ? (
           <ContentCard className="ds-panel ds-section-panel">

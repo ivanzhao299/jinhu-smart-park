@@ -17,12 +17,14 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { useMobileTerminalMode } from "../mobile/useMobileTerminalMode";
 import { QuickWorkOrderDrawer } from "../operations/QuickWorkOrderDrawer";
+import { WorkflowInboxDigest } from "../workflow/WorkflowInboxDigest";
 import type { DictItemRow, DictMap, ParkTenantRow, UnitRow, UserRow, WorkOrderForm, WorkOrderRow } from "../operations/terminal-types";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, formatUnitLocation, type WorkOrderAudienceProfile } from "../../lib/workorder-prefill";
 import styles from "./TenantServiceEntry.module.css";
 
@@ -46,6 +48,7 @@ interface TenantServiceEntryClientProps {
     parkTenants?: ParkTenantRow[];
     units?: UnitRow[];
     users?: UserRow[];
+    workflowInbox?: WorkflowInboxResponse;
   };
 }
 
@@ -327,6 +330,12 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
         </div>
         <Link className={styles.flowLink} href="/workflow/inbox">查看流程收件箱</Link>
       </section>
+
+      <WorkflowInboxDigest
+        audience="tenant"
+        previewMode={previewMode}
+        previewData={previewData?.workflowInbox}
+      />
 
       {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
       {!canCreate ? <FeedbackNotice>当前账号可查看租户服务请求，但没有新增工单权限。</FeedbackNotice> : null}

@@ -1,5 +1,6 @@
 import { OperationsTerminalClient } from "../../../components/operations/OperationsTerminalClient";
 import type { DictMap, InspectTaskRow, WorkOrderRow } from "../../../components/operations/terminal-types";
+import type { WorkflowInboxResponse } from "../../../lib/workflow-inbox-types";
 
 const now = new Date();
 const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
@@ -161,6 +162,80 @@ const recentWorkOrders: WorkOrderRow[] = [
   }
 ];
 
+const workflowInbox: WorkflowInboxResponse = {
+  generatedAt: now.toISOString(),
+  summary: {
+    triageCount: 1,
+    assignedCount: 2,
+    customerConfirmCount: 1,
+    inspectionCount: 2,
+    overdueCount: 1,
+    messageCount: 4,
+    unreadMessageCount: 2
+  },
+  todos: [
+    {
+      id: "todo-ops-1",
+      kind: "work_order_overdue",
+      sourceType: "work_order",
+      sourceId: "wo-1",
+      title: "照明异常工单已超时",
+      subtitle: "鲁商中心办公室门口照明异常",
+      status: "40",
+      priority: "urgent",
+      ownerRole: "主管 / 调度岗",
+      actionLabel: "立即跟进",
+      href: "/workflow/inbox",
+      createdAt: previousDate(50)
+    },
+    {
+      id: "todo-ops-2",
+      kind: "inspection_task",
+      sourceType: "inspection_task",
+      sourceId: "task-fire-passage",
+      title: "消防通道巡检待执行",
+      subtitle: "1 号楼消防通道",
+      status: "10",
+      priority: "important",
+      ownerRole: "现场责任人",
+      actionLabel: "执行巡检",
+      href: "/workflow/inbox",
+      createdAt: previousDate(20)
+    }
+  ],
+  messages: [
+    {
+      id: "msg-ops-1",
+      messageId: "msg-ops-1",
+      sourceType: "work_order",
+      sourceId: "wo-1",
+      title: "工单状态更新",
+      content: "维修班组已到场处理，请主管关注是否需要升级协同。",
+      actorName: "维修班组",
+      action: "开始处理",
+      href: "/workflow/inbox",
+      occurredAt: previousDate(15)
+    },
+    {
+      id: "msg-ops-2",
+      sourceType: "inspection_task",
+      sourceId: "task-clean",
+      title: "巡检异常已转隐患",
+      content: "公共走廊堆放杂物，已生成后续整改提醒。",
+      actorName: "招商负责人",
+      action: "提交异常",
+      readAt: now.toISOString(),
+      href: "/workflow/inbox",
+      occurredAt: previousDate(8)
+    }
+  ],
+  runtime: {
+    mode: "read_model",
+    writeModel: "工单和巡检仍通过既有业务动作落盘。",
+    informationFlow: []
+  }
+};
+
 export default function OperationsTerminalPreviewPage() {
   return (
     <OperationsTerminalClient
@@ -182,8 +257,13 @@ export default function OperationsTerminalPreviewPage() {
           }
         ],
         parkTenants: [{ id: "tenant-1", companyName: "鲁商中心办公室", parkTenantCode: "PT-PREVIEW" }],
-        users: [{ id: "user-1", username: "ops", realName: "现场负责人", displayName: "现场负责人" }]
+        users: [{ id: "user-1", username: "ops", realName: "现场负责人", displayName: "现场负责人" }],
+        workflowInbox
       }}
     />
   );
+}
+
+function previousDate(minutes: number): string {
+  return new Date(now.getTime() - minutes * 60 * 1000).toISOString();
 }
