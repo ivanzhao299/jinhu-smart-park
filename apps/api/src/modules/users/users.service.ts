@@ -1184,6 +1184,20 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     ]
   },
   {
+    label: "工程管理",
+    icon: "hard-hat",
+    module: "engineering",
+    children: [
+      { label: "工程看板", href: "/engineering/dashboard", permission: "ENGINEERING_DASHBOARD_VIEW", module: "engineering" },
+      { label: "工程项目", href: "/engineering/projects", permission: "ENGINEERING_PROJECT_VIEW", module: "engineering" },
+      { label: "工程计划", href: "/engineering/plans", permission: "ENGINEERING_PLAN_VIEW", module: "engineering" },
+      { label: "施工日报", href: "/engineering/daily-reports", permission: "ENGINEERING_DAILY_REPORT_VIEW", module: "engineering" },
+      { label: "工程巡检", href: "/engineering/inspections", permission: "ENGINEERING_INSPECTION_VIEW", module: "engineering" },
+      { label: "整改任务", href: "/engineering/rectifications", permission: "ENGINEERING_RECTIFICATION_VIEW", module: "engineering" },
+      { label: "工程验收", href: "/engineering/acceptances", permission: "ENGINEERING_ACCEPTANCE_VIEW", module: "engineering" }
+    ]
+  },
+  {
     label: "安全管理",
     icon: "shield-alert",
     module: "safety",

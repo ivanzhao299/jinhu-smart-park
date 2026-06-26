@@ -100,9 +100,9 @@ test("engineering acceptance edit form does not send acceptanceStatus through up
   assert.equal(/acceptanceStatus\s*:/.test(updateFunction), false);
 });
 
-test("engineering acceptance permission helper enforces seeded permissions but allows pre-seed users", () => {
+test("engineering acceptance permission helper requires seeded engineering permissions", () => {
   assert.equal(hasEngineeringAcceptancePermission(null, "ENGINEERING_ACCEPTANCE_VIEW"), false);
-  assert.equal(hasEngineeringAcceptancePermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_ACCEPTANCE_VIEW"), true);
+  assert.equal(hasEngineeringAcceptancePermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_ACCEPTANCE_VIEW"), false);
   assert.equal(hasEngineeringAcceptancePermission({ permissions: ["ENGINEERING_ACCEPTANCE_VIEW"], is_super: false }, "ENGINEERING_ACCEPTANCE_VIEW"), true);
   assert.equal(hasEngineeringAcceptancePermission({ permissions: ["ENGINEERING_ACCEPTANCE_VIEW"], is_super: false }, "ENGINEERING_ACCEPTANCE_UPDATE"), false);
   assert.equal(hasEngineeringAcceptancePermission({ permissions: ["ENGINEERING_ACCEPTANCE_UPDATE"], is_super: false }, "ENGINEERING_ACCEPTANCE_DELETE"), true);

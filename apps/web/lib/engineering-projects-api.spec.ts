@@ -47,9 +47,9 @@ test("engineering enum Chinese mappings cover required values", () => {
   assert.equal(engineeringProjectActionLabels.REQUIRE_RECTIFICATION, "要求整改");
 });
 
-test("engineering permission helper enforces seeded engineering permissions but allows pre-seed users", () => {
+test("engineering permission helper requires seeded engineering permissions", () => {
   assert.equal(hasEngineeringProjectPermission(null, "ENGINEERING_PROJECT_VIEW"), false);
-  assert.equal(hasEngineeringProjectPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_PROJECT_VIEW"), true);
+  assert.equal(hasEngineeringProjectPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_PROJECT_VIEW"), false);
   assert.equal(hasEngineeringProjectPermission({ permissions: ["ENGINEERING_PROJECT_VIEW"], is_super: false }, "ENGINEERING_PROJECT_VIEW"), true);
   assert.equal(hasEngineeringProjectPermission({ permissions: ["ENGINEERING_PROJECT_VIEW"], is_super: false }, "ENGINEERING_PROJECT_UPDATE"), false);
   assert.equal(hasEngineeringProjectPermission({ permissions: ["*"], is_super: false }, "ENGINEERING_PROJECT_UPDATE"), true);

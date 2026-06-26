@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import type { TenantParkScope } from "@jinhu/shared";
 import type { Request } from "express";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   CreateEngineeringRectificationDto,
@@ -21,7 +21,7 @@ export class EngineeringRectificationsController {
   constructor(private readonly engineeringRectificationService: EngineeringRectificationService) {}
 
   @Post("rectifications")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_ASSIGN")
   @AuditLog({ module: "工程项目交付", resource: "engineering.rectification", action: "新增工程整改", bizType: "engineering_rectification" })
   createRectification(
     @CurrentScope() scope: TenantParkScope,
@@ -33,7 +33,7 @@ export class EngineeringRectificationsController {
   }
 
   @Get("rectifications")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_VIEW")
   listRectifications(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -44,7 +44,7 @@ export class EngineeringRectificationsController {
   }
 
   @Post("rectifications/overdue-scan")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.rectification", action: "扫描逾期整改", bizType: "engineering_rectification" })
   scanOverdueRectifications(
     @CurrentScope() scope: TenantParkScope,
@@ -56,7 +56,7 @@ export class EngineeringRectificationsController {
   }
 
   @Get("projects/:projectId/rectifications")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_VIEW")
   projectRectifications(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -67,7 +67,7 @@ export class EngineeringRectificationsController {
   }
 
   @Get("rectifications/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_VIEW")
   rectificationDetail(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -78,7 +78,7 @@ export class EngineeringRectificationsController {
   }
 
   @Patch("rectifications/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_UPDATE")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.rectification",
@@ -97,7 +97,12 @@ export class EngineeringRectificationsController {
   }
 
   @Post("rectifications/:id/actions")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequireAnyPermissions(
+    "ENGINEERING_RECTIFICATION_UPDATE",
+    "ENGINEERING_RECTIFICATION_SUBMIT",
+    "ENGINEERING_RECTIFICATION_RECHECK",
+    "ENGINEERING_RECTIFICATION_CLOSE"
+  )
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.rectification",
@@ -116,7 +121,7 @@ export class EngineeringRectificationsController {
   }
 
   @Delete("rectifications/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_UPDATE")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.rectification",

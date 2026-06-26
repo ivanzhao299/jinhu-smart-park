@@ -20,6 +20,5 @@ export function hasEngineeringRectificationPermission(user: PermissionSubject, p
   if (!user) return false;
   const permissions = user.permissions ?? [];
   if (user.is_super || permissions.includes("*")) return true;
-  if (!permissions.some((item) => item.startsWith("ENGINEERING_"))) return true;
   return permissions.includes(permission);
 }

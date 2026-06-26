@@ -5,7 +5,7 @@ export const EngineeringDailyReportPermission = {
   CREATE: "ENGINEERING_DAILY_REPORT_CREATE",
   UPDATE: "ENGINEERING_DAILY_REPORT_UPDATE",
   DELETE: "ENGINEERING_DAILY_REPORT_UPDATE",
-  SUBMIT: "ENGINEERING_DAILY_REPORT_UPDATE",
+  SUBMIT: "ENGINEERING_DAILY_REPORT_SUBMIT",
   REVIEW: "ENGINEERING_DAILY_REPORT_REVIEW"
 } as const;
 
@@ -20,7 +20,7 @@ export interface EngineeringDailyReportPermissionContext {
 export class EngineeringDailyReportAccessPolicy {
   assertPermission(permission: EngineeringDailyReportPermissionValue, context: EngineeringDailyReportPermissionContext): void {
     const permissions = context.actorPermissions ?? [];
-    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
+    if (permissions.includes("*")) {
       return;
     }
     if (!permissions.includes(permission)) {

@@ -109,7 +109,7 @@ function makeContext(): EngineeringProjectRuntimeContext {
       tenantId: "tenant-a",
       parkId: "park-a",
       roles: ["ENGINEER"],
-      permissions: ["module:read"]
+      permissions: ["ENGINEERING_RECTIFICATION_VIEW", "ENGINEERING_RECTIFICATION_ASSIGN", "ENGINEERING_RECTIFICATION_UPDATE", "ENGINEERING_RECTIFICATION_SUBMIT", "ENGINEERING_RECTIFICATION_RECHECK", "ENGINEERING_RECTIFICATION_CLOSE"]
     }
   };
 }

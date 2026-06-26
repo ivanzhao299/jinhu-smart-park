@@ -33,4 +33,8 @@ test("EngineeringProjectPolicy enforces actor permissions when provided", () => 
     () => policy.assertCanPerform(EngineeringProjectAction.SUBMIT, contextWithPermissions(["ENGINEERING_PROJECT_UPDATE"])),
     ForbiddenException
   );
+  assert.throws(
+    () => policy.assertCanPerform(EngineeringProjectAction.SUBMIT, contextWithPermissions(["module:read"])),
+    ForbiddenException
+  );
 });

@@ -2,7 +2,7 @@
 
 EPDR（Engineering Project Delivery Runtime，工程项目交付运行时）是 Smart Park 的工程项目全生命周期 Runtime。
 
-当前目录为 Task 001 骨架，不包含业务表、状态流转实现或生产数据写入。Phase 1 后续任务会在本目录内按以下边界扩展：
+当前目录已承载 Phase 1 的核心闭环能力，包括工程项目、计划、施工日报、工程巡检、问题整改、工程验收、Dashboard、RBAC 入口和 DataScope 适配。
 
 - `domain/`: 状态机、枚举、业务规则、Runtime 类型。
 - `dto/`: 请求 DTO、查询 DTO、动作 DTO。
@@ -14,6 +14,13 @@ EPDR（Engineering Project Delivery Runtime，工程项目交付运行时）是 
 当前可用接口：
 
 - `GET /api/engineering/runtime/status`
-- 权限：临时复用 `module:read`。EPDR 专属菜单和操作权限将在 Task 021 实现。
+- `GET /api/engineering/dashboard`
+- `GET /api/engineering/projects`
+- `GET /api/engineering/plans`
+- `GET /api/engineering/daily-reports`
+- `GET /api/engineering/inspections`
+- `GET /api/engineering/rectifications`
+- `GET /api/engineering/acceptances`
+- 权限：Task 021 起使用 `ENGINEERING_*` 专属权限和 `engineering:*` 菜单权限。
 
-Task 001 不新增数据库迁移，不新增菜单，不写生产数据。
+RBAC 说明见 `docs/engineering/engineering-rbac.md`。业务对象、状态动作、Dashboard 和前端按钮均由 EPDR 专属 RBAC 控制。

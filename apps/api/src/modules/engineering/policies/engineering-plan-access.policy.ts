@@ -18,7 +18,7 @@ export interface EngineeringPlanPermissionContext {
 export class EngineeringPlanAccessPolicy {
   assertPermission(permission: EngineeringPlanPermissionValue, context: EngineeringPlanPermissionContext): void {
     const permissions = context.actorPermissions ?? [];
-    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
+    if (permissions.includes("*")) {
       return;
     }
     if (!permissions.includes(permission)) {

@@ -51,9 +51,9 @@ test("engineering rectification route files and project detail entry are wired",
   assert.match(inspectionDetail, /generateRectificationFromIssue/);
 });
 
-test("engineering rectification permission helper enforces seeded engineering permissions but allows pre-seed users", () => {
+test("engineering rectification permission helper requires seeded engineering permissions", () => {
   assert.equal(hasEngineeringRectificationPermission(null, "ENGINEERING_RECTIFICATION_VIEW"), false);
-  assert.equal(hasEngineeringRectificationPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_RECTIFICATION_VIEW"), true);
+  assert.equal(hasEngineeringRectificationPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_RECTIFICATION_VIEW"), false);
   assert.equal(hasEngineeringRectificationPermission({ permissions: ["ENGINEERING_RECTIFICATION_VIEW"], is_super: false }, "ENGINEERING_RECTIFICATION_VIEW"), true);
   assert.equal(hasEngineeringRectificationPermission({ permissions: ["ENGINEERING_RECTIFICATION_VIEW"], is_super: false }, "ENGINEERING_RECTIFICATION_UPDATE"), false);
   assert.equal(hasEngineeringRectificationPermission({ permissions: ["*"], is_super: false }, "ENGINEERING_RECTIFICATION_UPDATE"), true);

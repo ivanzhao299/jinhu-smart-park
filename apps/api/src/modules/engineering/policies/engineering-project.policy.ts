@@ -24,7 +24,7 @@ export class EngineeringProjectPolicy {
   assertCanPerform(action: EngineeringProjectAction, context: EngineeringProjectTransitionContext): void {
     const requiredPermission = this.requiredPermissionForAction(action);
     const permissions = context.actorPermissions ?? [];
-    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
+    if (permissions.includes("*")) {
       return;
     }
     if (!permissions.includes(requiredPermission)) {

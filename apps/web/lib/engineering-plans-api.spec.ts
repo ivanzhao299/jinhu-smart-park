@@ -97,9 +97,9 @@ test("engineering plan edit form does not send status through update payload", (
   assert.equal(/status\s*:/.test(updateFunction), false);
 });
 
-test("engineering plan permission helper enforces seeded engineering permissions but allows pre-seed users", () => {
+test("engineering plan permission helper requires seeded engineering permissions", () => {
   assert.equal(hasEngineeringPlanPermission(null, "ENGINEERING_PLAN_VIEW"), false);
-  assert.equal(hasEngineeringPlanPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_PLAN_VIEW"), true);
+  assert.equal(hasEngineeringPlanPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_PLAN_VIEW"), false);
   assert.equal(hasEngineeringPlanPermission({ permissions: ["ENGINEERING_PLAN_VIEW"], is_super: false }, "ENGINEERING_PLAN_VIEW"), true);
   assert.equal(hasEngineeringPlanPermission({ permissions: ["ENGINEERING_PLAN_VIEW"], is_super: false }, "ENGINEERING_PLAN_UPDATE"), false);
   assert.equal(hasEngineeringPlanPermission({ permissions: ["*"], is_super: false }, "ENGINEERING_PLAN_UPDATE"), true);

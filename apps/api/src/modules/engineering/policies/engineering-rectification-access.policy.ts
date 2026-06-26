@@ -21,7 +21,7 @@ export interface EngineeringRectificationPermissionContext {
 export class EngineeringRectificationAccessPolicy {
   assertPermission(permission: EngineeringRectificationPermissionValue, context: EngineeringRectificationPermissionContext): void {
     const permissions = context.actorPermissions ?? [];
-    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
+    if (permissions.includes("*")) {
       return;
     }
     if (!permissions.includes(permission)) {

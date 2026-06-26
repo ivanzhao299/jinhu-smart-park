@@ -20,7 +20,7 @@ export interface EngineeringAcceptancePermissionContext {
 export class EngineeringAcceptanceAccessPolicy {
   assertPermission(permission: EngineeringAcceptancePermissionValue, context: EngineeringAcceptancePermissionContext): void {
     const permissions = context.actorPermissions ?? [];
-    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
+    if (permissions.includes("*")) {
       return;
     }
     if (!permissions.includes(permission)) {

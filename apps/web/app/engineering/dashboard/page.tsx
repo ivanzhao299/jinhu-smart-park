@@ -5,7 +5,6 @@ import { AlertTriangle, BarChart3, ClipboardCheck, FileCheck2, Gauge, HardHat, R
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { getAccessToken } from "../../../lib/authz";
 import { engineeringAcceptanceStatusLabels, acceptanceStatusVariant } from "../../../lib/engineering-acceptances-display";
@@ -64,7 +63,7 @@ export default function EngineeringDashboardPage() {
   }, [loadDashboard]);
 
   return (
-    <PermissionGuard module="engineering" permission={SYSTEM_PERMISSIONS.MODULE_OPEN_READ} fallback={<Forbidden />}>
+    <PermissionGuard module="engineering" permission="ENGINEERING_DASHBOARD_VIEW" fallback={<Forbidden />}>
       <main className="content">
         <header className="header">
           <div className="header-title">

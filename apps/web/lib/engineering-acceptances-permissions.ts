@@ -17,8 +17,6 @@ export function hasEngineeringAcceptancePermission(user: PermissionSubject, perm
   if (!user) return false;
   const permissions = user.permissions ?? [];
   if (user.is_super || permissions.includes("*")) return true;
-  // Engineering RBAC seed lands in Task 021. Until then, existing non-engineering operators can see the Phase 1 UI.
-  if (!permissions.some((item) => item.startsWith("ENGINEERING_"))) return true;
   if (permission === ENGINEERING_ACCEPTANCE_PERMISSIONS.DELETE) {
     return permissions.includes(permission) || permissions.includes(ENGINEERING_ACCEPTANCE_PERMISSIONS.UPDATE);
   }

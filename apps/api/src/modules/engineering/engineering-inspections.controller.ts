@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import type { TenantParkScope } from "@jinhu/shared";
 import type { Request } from "express";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -23,7 +23,7 @@ export class EngineeringInspectionsController {
   constructor(private readonly engineeringInspectionService: EngineeringInspectionService) {}
 
   @Post("inspections")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_CREATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.inspection", action: "新增工程巡检", bizType: "engineering_inspection" })
   createInspection(
     @CurrentScope() scope: TenantParkScope,
@@ -35,7 +35,7 @@ export class EngineeringInspectionsController {
   }
 
   @Get("inspections")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   listInspections(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -46,7 +46,7 @@ export class EngineeringInspectionsController {
   }
 
   @Get("projects/:projectId/inspections")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   projectInspections(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -57,7 +57,7 @@ export class EngineeringInspectionsController {
   }
 
   @Get("inspections/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   inspectionDetail(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -68,7 +68,7 @@ export class EngineeringInspectionsController {
   }
 
   @Patch("inspections/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.inspection", action: "编辑工程巡检", bizType: "engineering_inspection", bizIdParam: "id" })
   updateInspection(
     @CurrentScope() scope: TenantParkScope,
@@ -81,7 +81,7 @@ export class EngineeringInspectionsController {
   }
 
   @Delete("inspections/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.inspection", action: "删除工程巡检", bizType: "engineering_inspection", bizIdParam: "id" })
   removeInspection(
     @CurrentScope() scope: TenantParkScope,
@@ -93,7 +93,7 @@ export class EngineeringInspectionsController {
   }
 
   @Post("inspections/:id/submit")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_SUBMIT")
   @AuditLog({ module: "工程项目交付", resource: "engineering.inspection", action: "提交工程巡检", bizType: "engineering_inspection", bizIdParam: "id" })
   submitInspection(
     @CurrentScope() scope: TenantParkScope,
@@ -105,7 +105,7 @@ export class EngineeringInspectionsController {
   }
 
   @Post("inspections/:id/issues")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "新增巡检问题", bizType: "engineering_issue" })
   createInspectionIssue(
     @CurrentScope() scope: TenantParkScope,
@@ -118,7 +118,7 @@ export class EngineeringInspectionsController {
   }
 
   @Get("inspections/:id/issues")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   inspectionIssues(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -129,7 +129,7 @@ export class EngineeringInspectionsController {
   }
 
   @Post("issues")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "新增工程问题", bizType: "engineering_issue" })
   createIssue(
     @CurrentScope() scope: TenantParkScope,
@@ -141,7 +141,7 @@ export class EngineeringInspectionsController {
   }
 
   @Get("issues")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   listIssues(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -152,13 +152,13 @@ export class EngineeringInspectionsController {
   }
 
   @Get("issues/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_VIEW")
   issueDetail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringInspectionService.getIssueDetail(id, this.context(scope, user, request));
   }
 
   @Patch("issues/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "编辑工程问题", bizType: "engineering_issue", bizIdParam: "id" })
   updateIssue(
     @CurrentScope() scope: TenantParkScope,
@@ -171,7 +171,7 @@ export class EngineeringInspectionsController {
   }
 
   @Post("issues/:id/generate-rectification")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_RECTIFICATION_ASSIGN")
   @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "生成整改任务", bizType: "engineering_issue", bizIdParam: "id" })
   generateRectificationFromIssue(
     @CurrentScope() scope: TenantParkScope,
@@ -184,7 +184,7 @@ export class EngineeringInspectionsController {
   }
 
   @Delete("issues/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_INSPECTION_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.issue", action: "删除工程问题", bizType: "engineering_issue", bizIdParam: "id" })
   removeIssue(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringInspectionService.deleteIssue(id, this.context(scope, user, request));

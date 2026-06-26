@@ -114,7 +114,7 @@ function makeContext(): EngineeringProjectRuntimeContext {
       tenantId: "tenant-a",
       parkId: "park-a",
       roles: ["PROJECT_MANAGER"],
-      permissions: ["module:read"]
+      permissions: ["ENGINEERING_ACCEPTANCE_VIEW", "ENGINEERING_ACCEPTANCE_CREATE", "ENGINEERING_ACCEPTANCE_UPDATE", "ENGINEERING_ACCEPTANCE_SUBMIT", "ENGINEERING_ACCEPTANCE_REVIEW", "ENGINEERING_ACCEPTANCE_CLOSE"]
     }
   };
 }

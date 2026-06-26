@@ -20,9 +20,5 @@ export function hasEngineeringProjectPermission(user: PermissionSubject, permiss
   if (user.is_super || permissions.includes("*")) {
     return true;
   }
-  // Engineering RBAC seed lands in Task 021. Until then, existing non-engineering operators can see the Phase 1 UI.
-  if (!permissions.some((item) => item.startsWith("ENGINEERING_"))) {
-    return true;
-  }
   return permissions.includes(permission);
 }

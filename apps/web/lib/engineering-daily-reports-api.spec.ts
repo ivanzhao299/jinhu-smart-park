@@ -101,9 +101,9 @@ test("engineering daily report edit form does not send reportStatus through upda
   assert.equal(/reportStatus\s*:/.test(updateFunction), false);
 });
 
-test("engineering daily report permission helper enforces seeded permissions but allows pre-seed users", () => {
+test("engineering daily report permission helper requires seeded engineering permissions", () => {
   assert.equal(hasEngineeringDailyReportPermission(null, "ENGINEERING_DAILY_REPORT_VIEW"), false);
-  assert.equal(hasEngineeringDailyReportPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_DAILY_REPORT_VIEW"), true);
+  assert.equal(hasEngineeringDailyReportPermission({ permissions: ["module:read"], is_super: false }, "ENGINEERING_DAILY_REPORT_VIEW"), false);
   assert.equal(hasEngineeringDailyReportPermission({ permissions: ["ENGINEERING_DAILY_REPORT_VIEW"], is_super: false }, "ENGINEERING_DAILY_REPORT_VIEW"), true);
   assert.equal(hasEngineeringDailyReportPermission({ permissions: ["ENGINEERING_DAILY_REPORT_VIEW"], is_super: false }, "ENGINEERING_DAILY_REPORT_UPDATE"), false);
   assert.equal(hasEngineeringDailyReportPermission({ permissions: ["ENGINEERING_DAILY_REPORT_UPDATE"], is_super: false }, "ENGINEERING_DAILY_REPORT_SUBMIT"), true);

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import type { TenantParkScope } from "@jinhu/shared";
 import type { Request } from "express";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -20,7 +20,7 @@ export class EngineeringAcceptancesController {
   constructor(private readonly engineeringAcceptanceService: EngineeringAcceptanceService) {}
 
   @Post("acceptances")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_CREATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.acceptance", action: "新增工程验收", bizType: "engineering_acceptance" })
   create(
     @CurrentScope() scope: TenantParkScope,
@@ -32,7 +32,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Get("acceptances")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_VIEW")
   list(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -43,7 +43,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Get("projects/:projectId/acceptances")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_VIEW")
   projectAcceptances(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -54,13 +54,13 @@ export class EngineeringAcceptancesController {
   }
 
   @Get("acceptances/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_VIEW")
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringAcceptanceService.getAcceptanceDetail(id, this.context(scope, user, request));
   }
 
   @Patch("acceptances/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_UPDATE")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.acceptance",
@@ -79,7 +79,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Delete("acceptances/:id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_UPDATE")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.acceptance",
@@ -92,7 +92,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Post("acceptances/:id/submit")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_SUBMIT")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.acceptance",
@@ -105,7 +105,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Post("acceptances/:id/review")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_REVIEW")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.acceptance",
@@ -124,7 +124,7 @@ export class EngineeringAcceptancesController {
   }
 
   @Post("acceptances/:id/close")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_ACCEPTANCE_CLOSE")
   @AuditLog({
     module: "工程项目交付",
     resource: "engineering.acceptance",

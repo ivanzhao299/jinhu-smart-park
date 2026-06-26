@@ -86,7 +86,7 @@ function makeContext(): EngineeringProjectRuntimeContext {
       tenantId: "tenant-a",
       parkId: "park-a",
       roles: ["PROJECT_MANAGER"],
-      permissions: ["module:read"]
+      permissions: ["ENGINEERING_PLAN_VIEW", "ENGINEERING_PLAN_CREATE", "ENGINEERING_PLAN_UPDATE", "ENGINEERING_PLAN_APPROVE"]
     }
   };
 }

@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import type { TenantParkScope } from "@jinhu/shared";
 import type { Request } from "express";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   CreateEngineeringProjectDto,
@@ -19,7 +19,7 @@ export class EngineeringProjectsController {
   constructor(private readonly engineeringProjectService: EngineeringProjectService) {}
 
   @Post()
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_CREATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.project", action: "新增工程项目", bizType: "engineering_project" })
   create(
     @CurrentScope() scope: TenantParkScope,
@@ -31,7 +31,7 @@ export class EngineeringProjectsController {
   }
 
   @Get()
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_VIEW")
   list(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -42,25 +42,25 @@ export class EngineeringProjectsController {
   }
 
   @Get(":id/actions")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_VIEW")
   actions(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringProjectService.getAvailableActions(id, this.context(scope, user, request));
   }
 
   @Get(":id/status-logs")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_VIEW")
   statusLogs(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringProjectService.getStatusLogs(id, this.context(scope, user, request));
   }
 
   @Get(":id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_VIEW")
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringProjectService.getProjectDetail(id, this.context(scope, user, request));
   }
 
   @Patch(":id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.project", action: "编辑工程项目", bizType: "engineering_project", bizIdParam: "id" })
   update(
     @CurrentScope() scope: TenantParkScope,
@@ -73,14 +73,21 @@ export class EngineeringProjectsController {
   }
 
   @Delete(":id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequirePermissions("ENGINEERING_PROJECT_UPDATE")
   @AuditLog({ module: "工程项目交付", resource: "engineering.project", action: "删除工程项目", bizType: "engineering_project", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Req() request: Request, @Param("id") id: string) {
     return this.engineeringProjectService.deleteProject(id, this.context(scope, user, request));
   }
 
   @Post(":id/actions/:action")
-  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @RequireAnyPermissions(
+    "ENGINEERING_PROJECT_SUBMIT",
+    "ENGINEERING_PROJECT_APPROVE",
+    "ENGINEERING_PROJECT_CANCEL",
+    "ENGINEERING_PROJECT_UPDATE",
+    "ENGINEERING_PROJECT_CLOSE",
+    "ENGINEERING_PROJECT_ARCHIVE"
+  )
   @AuditLog({ module: "工程项目交付", resource: "engineering.project", action: "执行工程项目状态动作", bizType: "engineering_project", bizIdParam: "id" })
   executeAction(
     @CurrentScope() scope: TenantParkScope,
