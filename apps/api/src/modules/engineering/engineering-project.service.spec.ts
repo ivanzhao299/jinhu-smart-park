@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
 import type { Repository } from "typeorm";
+import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringProjectStatus, EngineeringProjectType } from "./domain/engineering-project.enums";
 import { EngineeringProjectAction } from "./domain/engineering-project-state-machine.types";
 import type { CreateEngineeringProjectDto, UpdateEngineeringProjectDto } from "./dto/engineering-project.dto";
@@ -30,6 +31,7 @@ interface Harness {
   updateInput: UpdateEngineeringProjectInput | null;
   softDeletedIds: string[];
   statusActions: EngineeringProjectAction[];
+  auditActions: string[];
 }
 
 function makeProject(status: EngineeringProjectStatus = EngineeringProjectStatus.DRAFT): EngineeringProjectEntity {
@@ -74,6 +76,7 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
   let updateInput: UpdateEngineeringProjectInput | null = null;
   const softDeletedIds: string[] = [];
   const statusActions: EngineeringProjectAction[] = [];
+  const auditActions: string[] = [];
   const projectsRepository = {
     createProject: async (_scope: unknown, _actorId: string | null, input: CreateEngineeringProjectInput) => {
       createInput = input;
@@ -126,6 +129,11 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
       dataScopeCalls += 1;
     }
   } as unknown as EngineeringDataScopeAdapter;
+  const auditLogger = {
+    logProjectChanged: async (input: { action: string }) => {
+      auditActions.push(input.action);
+    }
+  } as unknown as EngineeringAuditLogger;
   const statusLogsRepository = {
     find: async () => [
       {
@@ -142,7 +150,7 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
       } as EngineeringProjectStatusLogEntity
     ]
   } as unknown as Repository<EngineeringProjectStatusLogEntity>;
-  const service = new EngineeringProjectService(projectsRepository, statusService, accessPolicy, dataScopeAdapter, statusLogsRepository);
+  const service = new EngineeringProjectService(projectsRepository, statusService, accessPolicy, dataScopeAdapter, auditLogger, statusLogsRepository);
   return {
     service,
     context: makeContext(),
@@ -158,7 +166,8 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
       return updateInput;
     },
     softDeletedIds,
-    statusActions
+    statusActions,
+    auditActions
   };
 }
 
@@ -181,6 +190,7 @@ test("EngineeringProjectService creates project with DRAFT default through repos
   assert.equal(harness.createInput?.projectName, "A5 楼消防改造");
   assert.equal(harness.createInput?.budgetAmount, "1000.00");
   assert.deepEqual(harness.permissions, [EngineeringProjectPermission.CREATE]);
+  assert.deepEqual(harness.auditActions, ["CREATE"]);
 });
 
 test("EngineeringProjectService paginates projects and applies DataScope", async () => {
@@ -215,6 +225,7 @@ test("EngineeringProjectService update ignores direct status payload and maps al
   assert.equal("status" in (harness.updateInput ?? {}), false);
   assert.equal("settlementAmount" in (harness.updateInput ?? {}), false);
   assert.deepEqual(harness.permissions, [EngineeringProjectPermission.UPDATE]);
+  assert.deepEqual(harness.auditActions, ["UPDATE"]);
 });
 
 test("EngineeringProjectService executes SUBMIT through EngineeringProjectStatusService", async () => {
@@ -257,6 +268,9 @@ test("EngineeringProjectService propagates illegal transition errors from status
       applyProjectScope: async () => undefined
     } as unknown as EngineeringDataScopeAdapter,
     {
+      logProjectChanged: async () => undefined
+    } as unknown as EngineeringAuditLogger,
+    {
       find: async () => []
     } as unknown as Repository<EngineeringProjectStatusLogEntity>
   );
@@ -284,4 +298,5 @@ test("EngineeringProjectService soft deletes project through repository", async 
   assert.equal(result.id, PROJECT_ID);
   assert.deepEqual(harness.softDeletedIds, [PROJECT_ID]);
   assert.deepEqual(harness.permissions, [EngineeringProjectPermission.DELETE]);
+  assert.deepEqual(harness.auditActions, ["DELETE"]);
 });

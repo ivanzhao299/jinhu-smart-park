@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { Repository, SelectQueryBuilder } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import {
   CreateEngineeringProjectDto,
   EngineeringProjectActionDto,
@@ -32,13 +33,16 @@ export class EngineeringProjectService {
     private readonly projectStatusService: EngineeringProjectStatusService,
     private readonly accessPolicy: EngineeringProjectAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly auditLogger: EngineeringAuditLogger,
     @InjectRepository(EngineeringProjectStatusLogEntity)
     private readonly statusLogsRepository: Repository<EngineeringProjectStatusLogEntity>
   ) {}
 
   async createProject(dto: CreateEngineeringProjectDto, context: EngineeringProjectRuntimeContext): Promise<EngineeringProjectEntity> {
     this.accessPolicy.assertPermission(EngineeringProjectPermission.CREATE, this.permissionContext(context));
-    return this.projectsRepository.createProject(context, context.actor.sub, this.toCreateInput(dto));
+    const project = await this.projectsRepository.createProject(context, context.actor.sub, this.toCreateInput(dto));
+    await this.logProjectChanged("CREATE", project, context, null, this.projectSnapshot(project));
+    return project;
   }
 
   async paginateProjects(
@@ -56,14 +60,18 @@ export class EngineeringProjectService {
 
   async updateProject(id: string, dto: UpdateEngineeringProjectDto, context: EngineeringProjectRuntimeContext): Promise<EngineeringProjectEntity> {
     this.accessPolicy.assertPermission(EngineeringProjectPermission.UPDATE, this.permissionContext(context));
-    await this.findProjectInScope(id, context);
-    return this.projectsRepository.updateProject(context, context.actor.sub, id, this.toUpdateInput(dto));
+    const before = await this.findProjectInScope(id, context);
+    const updated = await this.projectsRepository.updateProject(context, context.actor.sub, id, this.toUpdateInput(dto));
+    await this.logProjectChanged("UPDATE", updated, context, this.projectSnapshot(before), this.projectSnapshot(updated));
+    return updated;
   }
 
   async deleteProject(id: string, context: EngineeringProjectRuntimeContext): Promise<{ id: string }> {
     this.accessPolicy.assertPermission(EngineeringProjectPermission.DELETE, this.permissionContext(context));
-    await this.findProjectInScope(id, context);
-    return this.projectsRepository.softDelete(context, context.actor.sub, id);
+    const before = await this.findProjectInScope(id, context);
+    const result = await this.projectsRepository.softDelete(context, context.actor.sub, id);
+    await this.logProjectChanged("DELETE", before, context, this.projectSnapshot(before), { id, isDeleted: true });
+    return result;
   }
 
   async executeProjectAction(
@@ -225,5 +233,55 @@ export class EngineeringProjectService {
 
   private toAmount(value: number | undefined): string | undefined {
     return value === undefined ? undefined : Number(value).toFixed(2);
+  }
+
+  private async logProjectChanged(
+    action: string,
+    project: EngineeringProjectEntity,
+    context: EngineeringProjectRuntimeContext,
+    beforeJson: Record<string, unknown> | null,
+    afterJson: Record<string, unknown> | null
+  ): Promise<void> {
+    await this.auditLogger.logProjectChanged({
+      tenantId: context.tenantId,
+      parkId: context.parkId,
+      projectId: project.id,
+      action,
+      actorUserId: context.actor.sub,
+      actorName: context.actor.realName ?? context.actor.username,
+      actorRoleCodes: context.actor.roles,
+      beforeJson,
+      afterJson,
+      requestId: context.requestId ?? null,
+      ip: context.ip ?? null,
+      userAgent: context.userAgent ?? null
+    });
+  }
+
+  private projectSnapshot(project: EngineeringProjectEntity): Record<string, unknown> {
+    return {
+      id: project.id,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      projectType: project.projectType,
+      projectLevel: project.projectLevel,
+      projectSource: project.projectSource,
+      status: project.status,
+      progressPercent: project.progressPercent,
+      riskLevel: project.riskLevel,
+      orgId: project.orgId,
+      parkId: project.parkId,
+      projectManagerId: project.projectManagerId,
+      engineeringDirectorId: project.engineeringDirectorId,
+      contractorOrgId: project.contractorOrgId,
+      supervisorOrgId: project.supervisorOrgId,
+      plannedStartDate: project.plannedStartDate,
+      plannedEndDate: project.plannedEndDate,
+      actualStartDate: project.actualStartDate,
+      actualEndDate: project.actualEndDate,
+      budgetAmount: project.budgetAmount,
+      contractAmount: project.contractAmount,
+      locationText: project.locationText
+    };
   }
 }

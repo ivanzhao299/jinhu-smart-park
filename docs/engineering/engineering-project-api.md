@@ -71,6 +71,7 @@ POST /api/engineering/projects
 - `status` 固定默认为 `DRAFT`。
 - `progress_percent` 固定默认为 `0`。
 - `tenant_id + project_code` 保持唯一。
+- 成功创建后写入 `CREATE` AuditLog。
 
 示例：
 
@@ -174,13 +175,15 @@ PATCH /api/engineering/projects/:id
 
 状态变更必须走状态动作接口。
 
+成功更新后写入 `UPDATE` AuditLog，记录项目基础信息 before/after 快照。
+
 ## 7. 软删除
 
 ```http
 DELETE /api/engineering/projects/:id
 ```
 
-当前按项目现有软删除规范设置 `is_deleted = true`，并记录 `update_by`。
+当前按项目现有软删除规范设置 `is_deleted = true`，并记录 `update_by`。成功删除后写入 `DELETE` AuditLog。
 
 ## 8. 状态动作
 

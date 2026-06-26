@@ -13,6 +13,21 @@ export interface LogProjectStatusChangedInput {
   context: EngineeringProjectTransitionContext;
 }
 
+export interface LogEngineeringProjectChangedInput {
+  tenantId: string;
+  parkId: string;
+  projectId: string;
+  action: string;
+  actorUserId: string | null;
+  actorName?: string | null;
+  actorRoleCodes?: string[] | null;
+  beforeJson?: Record<string, unknown> | null;
+  afterJson?: Record<string, unknown> | null;
+  requestId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 export interface LogEngineeringPlanChangedInput {
   tenantId: string;
   parkId: string;
@@ -113,6 +128,30 @@ export interface LogEngineeringAcceptanceChangedInput {
 @Injectable()
 export class EngineeringAuditLogger {
   constructor(private readonly auditService: AuditService) {}
+
+  async logProjectChanged(input: LogEngineeringProjectChangedInput): Promise<void> {
+    await this.auditService.recordOperation({
+      tenantId: input.tenantId,
+      parkId: input.parkId,
+      userId: input.actorUserId,
+      username: null,
+      realName: input.actorName ?? null,
+      roleCodes: input.actorRoleCodes ?? null,
+      module: "engineering",
+      resource: "engineering_project",
+      action: input.action,
+      bizType: "engineering_project",
+      bizId: input.projectId,
+      beforeJson: input.beforeJson ?? null,
+      afterJson: input.afterJson ?? null,
+      clientIp: input.ip ?? null,
+      clientUa: input.userAgent ?? null,
+      method: "WRITE",
+      path: "epdr://engineering/projects",
+      success: true,
+      requestId: input.requestId ?? null
+    });
+  }
 
   async logProjectStatusChanged(input: LogProjectStatusChangedInput): Promise<void> {
     await this.auditService.recordOperation({
