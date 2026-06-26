@@ -51,6 +51,26 @@ export interface EngineeringDailyReportEvent extends EngineeringEventEnvelope<Re
   dailyReportId: string;
 }
 
+export type EngineeringInspectionEventType =
+  | "EngineeringInspectionCreatedEvent"
+  | "EngineeringInspectionUpdatedEvent"
+  | "EngineeringInspectionSubmittedEvent"
+  | "EngineeringInspectionDeletedEvent";
+
+export interface EngineeringInspectionEvent extends EngineeringEventEnvelope<Record<string, unknown>> {
+  eventType: EngineeringInspectionEventType;
+  projectId: string;
+  inspectionId: string;
+}
+
+export type EngineeringIssueEventType = "EngineeringIssueCreatedEvent" | "EngineeringIssueUpdatedEvent" | "EngineeringIssueDeletedEvent";
+
+export interface EngineeringIssueEvent extends EngineeringEventEnvelope<Record<string, unknown>> {
+  eventType: EngineeringIssueEventType;
+  projectId: string;
+  issueId: string;
+}
+
 @Injectable()
 export class EngineeringEventPublisher {
   async publishProjectStatusChanged(input: {
@@ -136,8 +156,56 @@ export class EngineeringEventPublisher {
     return event;
   }
 
+  async publishInspectionEvent(input: {
+    eventType: EngineeringInspectionEventType;
+    tenantId: string;
+    projectId: string;
+    inspectionId: string;
+    actorUserId?: string | null;
+    payload?: Record<string, unknown>;
+  }): Promise<EngineeringInspectionEvent> {
+    const event: EngineeringInspectionEvent = {
+      eventId: randomUUID(),
+      eventType: input.eventType,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      entityId: input.inspectionId,
+      inspectionId: input.inspectionId,
+      actorUserId: input.actorUserId ?? null,
+      occurredAt: new Date().toISOString(),
+      payload: input.payload ?? {}
+    };
+    await this.publish(event);
+    return event;
+  }
+
+  async publishIssueEvent(input: {
+    eventType: EngineeringIssueEventType;
+    tenantId: string;
+    projectId: string;
+    issueId: string;
+    actorUserId?: string | null;
+    payload?: Record<string, unknown>;
+  }): Promise<EngineeringIssueEvent> {
+    const event: EngineeringIssueEvent = {
+      eventId: randomUUID(),
+      eventType: input.eventType,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      entityId: input.issueId,
+      issueId: input.issueId,
+      actorUserId: input.actorUserId ?? null,
+      occurredAt: new Date().toISOString(),
+      payload: input.payload ?? {}
+    };
+    await this.publish(event);
+    return event;
+  }
+
   protected async publish(
-    _event: (EngineeringProjectStatusChangedEvent | EngineeringPlanEvent | EngineeringDailyReportEvent) & { eventType: EngineeringEventType }
+    _event: (EngineeringProjectStatusChangedEvent | EngineeringPlanEvent | EngineeringDailyReportEvent | EngineeringInspectionEvent | EngineeringIssueEvent) & {
+      eventType: EngineeringEventType;
+    }
   ): Promise<void> {
     // EventBus adapter boundary. Replace this no-op with the platform EventBus when available.
   }

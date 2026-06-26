@@ -221,7 +221,7 @@ GCWTYYYYMMDDNNN
 
 ## 后续任务
 
-- Task 011：实现工程巡检 API。
+- Task 011：实现工程巡检 API，见 [engineering-inspection-api.md](./engineering-inspection-api.md)。
 - Task 012：实现工程巡检页面。
 - Task 013：实现巡检问题自动生成整改任务。
 - Task 014：建立整改任务数据模型与状态机。

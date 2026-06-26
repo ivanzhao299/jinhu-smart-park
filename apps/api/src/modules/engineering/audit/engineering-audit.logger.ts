@@ -45,6 +45,38 @@ export interface LogEngineeringDailyReportChangedInput {
   userAgent?: string | null;
 }
 
+export interface LogEngineeringInspectionChangedInput {
+  tenantId: string;
+  parkId: string;
+  projectId: string;
+  inspectionId: string;
+  action: string;
+  actorUserId: string | null;
+  actorName?: string | null;
+  actorRoleCodes?: string[] | null;
+  beforeJson?: Record<string, unknown> | null;
+  afterJson?: Record<string, unknown> | null;
+  requestId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+export interface LogEngineeringIssueChangedInput {
+  tenantId: string;
+  parkId: string;
+  projectId: string;
+  issueId: string;
+  action: string;
+  actorUserId: string | null;
+  actorName?: string | null;
+  actorRoleCodes?: string[] | null;
+  beforeJson?: Record<string, unknown> | null;
+  afterJson?: Record<string, unknown> | null;
+  requestId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 @Injectable()
 export class EngineeringAuditLogger {
   constructor(private readonly auditService: AuditService) {}
@@ -126,6 +158,60 @@ export class EngineeringAuditLogger {
       clientUa: input.userAgent ?? null,
       method: "WRITE",
       path: "epdr://engineering/daily-reports",
+      success: true,
+      requestId: input.requestId ?? null
+    });
+  }
+
+  async logInspectionChanged(input: LogEngineeringInspectionChangedInput): Promise<void> {
+    await this.auditService.recordOperation({
+      tenantId: input.tenantId,
+      parkId: input.parkId,
+      userId: input.actorUserId,
+      username: null,
+      realName: input.actorName ?? null,
+      roleCodes: input.actorRoleCodes ?? null,
+      module: "engineering",
+      resource: "engineering_inspection",
+      action: input.action,
+      bizType: "engineering_inspection",
+      bizId: input.inspectionId,
+      beforeJson: input.beforeJson ?? null,
+      afterJson: {
+        projectId: input.projectId,
+        ...(input.afterJson ?? {})
+      },
+      clientIp: input.ip ?? null,
+      clientUa: input.userAgent ?? null,
+      method: "WRITE",
+      path: "epdr://engineering/inspections",
+      success: true,
+      requestId: input.requestId ?? null
+    });
+  }
+
+  async logIssueChanged(input: LogEngineeringIssueChangedInput): Promise<void> {
+    await this.auditService.recordOperation({
+      tenantId: input.tenantId,
+      parkId: input.parkId,
+      userId: input.actorUserId,
+      username: null,
+      realName: input.actorName ?? null,
+      roleCodes: input.actorRoleCodes ?? null,
+      module: "engineering",
+      resource: "engineering_issue",
+      action: input.action,
+      bizType: "engineering_issue",
+      bizId: input.issueId,
+      beforeJson: input.beforeJson ?? null,
+      afterJson: {
+        projectId: input.projectId,
+        ...(input.afterJson ?? {})
+      },
+      clientIp: input.ip ?? null,
+      clientUa: input.userAgent ?? null,
+      method: "WRITE",
+      path: "epdr://engineering/issues",
       success: true,
       requestId: input.requestId ?? null
     });

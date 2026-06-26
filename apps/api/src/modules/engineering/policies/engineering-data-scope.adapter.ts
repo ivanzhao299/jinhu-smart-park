@@ -4,6 +4,8 @@ import type { SelectQueryBuilder } from "typeorm";
 import { DataScopeService } from "../../data-scopes/data-scope.service";
 import type { JwtPrincipal } from "../../../shared/types/jwt-principal";
 import { EngineeringDailyReportEntity } from "../entities/engineering-daily-report.entity";
+import { EngineeringInspectionEntity } from "../entities/engineering-inspection.entity";
+import { EngineeringIssueEntity } from "../entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "../entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "../entities/engineering-project.entity";
 
@@ -56,5 +58,35 @@ export class EngineeringDataScopeAdapter {
       return;
     }
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "report", { org: "org_id" });
+  }
+
+  async applyInspectionScope(
+    builder: SelectQueryBuilder<EngineeringInspectionEntity>,
+    scope: TenantParkScope,
+    actor?: JwtPrincipal
+  ): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    if (actor.dataScope === "self") {
+      builder.andWhere("(inspection.inspector_user_id = :actorUserId OR inspection.create_by = :actorUserId)", {
+        actorUserId: actor.sub
+      });
+      return;
+    }
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "inspection", { org: "org_id" });
+  }
+
+  async applyIssueScope(builder: SelectQueryBuilder<EngineeringIssueEntity>, scope: TenantParkScope, actor?: JwtPrincipal): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    if (actor.dataScope === "self") {
+      builder.andWhere("(issue.responsible_user_id = :actorUserId OR issue.create_by = :actorUserId)", {
+        actorUserId: actor.sub
+      });
+      return;
+    }
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "issue", { org: "org_id" });
   }
 }

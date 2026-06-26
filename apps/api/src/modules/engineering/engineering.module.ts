@@ -13,6 +13,8 @@ import { EngineeringEventPublisher } from "./events/engineering-event.publisher"
 import { EngineeringDailyReportService } from "./engineering-daily-report.service";
 import { EngineeringDailyReportsController } from "./engineering-daily-reports.controller";
 import { EngineeringController } from "./engineering.controller";
+import { EngineeringInspectionService } from "./engineering-inspection.service";
+import { EngineeringInspectionsController } from "./engineering-inspections.controller";
 import { EngineeringPlanService } from "./engineering-plan.service";
 import { EngineeringPlansController } from "./engineering-plans.controller";
 import { EngineeringProjectStateMachine } from "./engineering-project-state.machine";
@@ -22,6 +24,7 @@ import { EngineeringProjectsController } from "./engineering-projects.controller
 import { EngineeringService } from "./engineering.service";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
 import { EngineeringDailyReportAccessPolicy } from "./policies/engineering-daily-report-access.policy";
+import { EngineeringInspectionAccessPolicy } from "./policies/engineering-inspection-access.policy";
 import { EngineeringPlanAccessPolicy } from "./policies/engineering-plan-access.policy";
 import { EngineeringProjectAccessPolicy } from "./policies/engineering-project-access.policy";
 import { EngineeringProjectPolicy } from "./policies/engineering-project.policy";
@@ -44,7 +47,13 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     AuditModule,
     DataScopesModule
   ],
-  controllers: [EngineeringController, EngineeringProjectsController, EngineeringPlansController, EngineeringDailyReportsController],
+  controllers: [
+    EngineeringController,
+    EngineeringProjectsController,
+    EngineeringPlansController,
+    EngineeringDailyReportsController,
+    EngineeringInspectionsController
+  ],
   providers: [
     EngineeringService,
     EngineeringProjectService,
@@ -53,6 +62,7 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,
     EngineeringProjectStateMachine,
@@ -60,6 +70,7 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringProjectAccessPolicy,
     EngineeringPlanAccessPolicy,
     EngineeringDailyReportAccessPolicy,
+    EngineeringInspectionAccessPolicy,
     EngineeringDataScopeAdapter,
     EngineeringProjectPolicy,
     EngineeringAuditLogger,
@@ -73,6 +84,7 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,
     EngineeringProjectStateMachine,
