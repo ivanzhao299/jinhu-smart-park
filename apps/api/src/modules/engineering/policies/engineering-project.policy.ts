@@ -23,10 +23,11 @@ export const ENGINEERING_PROJECT_ACTION_PERMISSIONS: Record<EngineeringProjectAc
 export class EngineeringProjectPolicy {
   assertCanPerform(action: EngineeringProjectAction, context: EngineeringProjectTransitionContext): void {
     const requiredPermission = this.requiredPermissionForAction(action);
-    if (!context.actorPermissions || context.actorPermissions.length === 0) {
+    const permissions = context.actorPermissions ?? [];
+    if (permissions.includes("*") || !permissions.some((item) => item.startsWith("ENGINEERING_"))) {
       return;
     }
-    if (!context.actorPermissions.includes(requiredPermission)) {
+    if (!permissions.includes(requiredPermission)) {
       throw new ForbiddenException(`Missing permission ${requiredPermission} for engineering project action ${action}`);
     }
   }

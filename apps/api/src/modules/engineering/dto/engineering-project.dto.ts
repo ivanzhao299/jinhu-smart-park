@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
 import {
   EngineeringAssetStatus,
   EngineeringFinanceStatus,
@@ -9,6 +9,7 @@ import {
   EngineeringRiskLevel,
   EngineeringTransferStatus
 } from "../domain/engineering-project.enums";
+import { EngineeringProjectAction } from "../domain/engineering-project-state-machine.types";
 
 function trimOptional(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
@@ -34,11 +35,21 @@ export class CreateEngineeringProjectDto {
 
   @Transform(({ value }) => trimOptional(value))
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   project_name!: string;
 
   @IsEnum(EngineeringProjectType)
   project_type!: EngineeringProjectType;
+
+  @IsDateString()
+  planned_start_date!: string;
+
+  @IsDateString()
+  planned_end_date!: string;
+
+  @IsUUID()
+  project_manager_id!: string;
 
   @IsOptional()
   @IsEnum(EngineeringProjectLevel)
@@ -74,14 +85,6 @@ export class CreateEngineeringProjectDto {
   space_id?: string;
 
   @IsOptional()
-  @IsDateString()
-  planned_start_date?: string;
-
-  @IsOptional()
-  @IsDateString()
-  planned_end_date?: string;
-
-  @IsOptional()
   @Transform(({ value }) => optionalNumber(value))
   @IsNumber()
   @Min(0)
@@ -92,16 +95,6 @@ export class CreateEngineeringProjectDto {
   @IsNumber()
   @Min(0)
   contract_amount?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => optionalNumber(value))
-  @IsNumber()
-  @Min(0)
-  settlement_amount?: number;
-
-  @IsOptional()
-  @IsUUID()
-  project_manager_id?: string;
 
   @IsOptional()
   @IsUUID()
@@ -203,12 +196,6 @@ export class UpdateEngineeringProjectDto {
   contract_amount?: number;
 
   @IsOptional()
-  @Transform(({ value }) => optionalNumber(value))
-  @IsNumber()
-  @Min(0)
-  settlement_amount?: number;
-
-  @IsOptional()
   @IsUUID()
   project_manager_id?: string;
 
@@ -236,36 +223,6 @@ export class UpdateEngineeringProjectDto {
   risk_level?: EngineeringRiskLevel;
 
   @IsOptional()
-  @Transform(({ value }) => optionalNumber(value))
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  quality_score?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => optionalNumber(value))
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  safety_score?: number;
-
-  @IsOptional()
-  @IsUUID()
-  workflow_instance_id?: string;
-
-  @IsOptional()
-  @IsEnum(EngineeringTransferStatus)
-  transfer_status?: EngineeringTransferStatus;
-
-  @IsOptional()
-  @IsEnum(EngineeringFinanceStatus)
-  finance_status?: EngineeringFinanceStatus;
-
-  @IsOptional()
-  @IsEnum(EngineeringAssetStatus)
-  asset_status?: EngineeringAssetStatus;
-
-  @IsOptional()
   @Transform(({ value }) => trimOptional(value))
   @IsString()
   @MaxLength(500)
@@ -278,7 +235,7 @@ export class EngineeringProjectQueryDto {
   @Min(1)
   page = 1;
 
-  @Transform(({ value }) => Number(value ?? 20))
+  @Transform(({ value, obj }) => Number(value ?? (obj as { pageSize?: unknown }).pageSize ?? 20))
   @IsInt()
   @Min(1)
   @Max(100)
@@ -313,6 +270,10 @@ export class EngineeringProjectQueryDto {
   org_id?: string;
 
   @IsOptional()
+  @IsString()
+  park_id?: string;
+
+  @IsOptional()
   @IsUUID()
   project_manager_id?: string;
 
@@ -327,6 +288,36 @@ export class EngineeringProjectQueryDto {
   @IsOptional()
   @IsDateString()
   planned_start_to?: string;
+
+  @IsOptional()
+  @IsDateString()
+  created_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  created_to?: string;
+}
+
+export class EngineeringProjectActionDto {
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  comment?: string;
+
+  @IsOptional()
+  @IsUUID()
+  workflow_instance_id?: string;
+}
+
+export class EngineeringProjectActionParamDto {
+  @IsEnum(EngineeringProjectAction)
+  action!: EngineeringProjectAction;
 }
 
 export interface EngineeringProjectListItemDto {

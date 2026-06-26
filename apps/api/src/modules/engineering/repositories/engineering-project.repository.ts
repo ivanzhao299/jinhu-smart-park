@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
@@ -34,18 +34,31 @@ export interface CreateEngineeringProjectInput {
   remark?: string | null;
 }
 
-export type UpdateEngineeringProjectInput = Partial<
-  Omit<CreateEngineeringProjectInput, "projectCode" | "projectName" | "projectType"> &
-    Pick<CreateEngineeringProjectInput, "projectName" | "projectType"> & {
-      progressPercent: number;
-      qualityScore: string | null;
-      safetyScore: string | null;
-      workflowInstanceId: string | null;
-      transferStatus: EngineeringProjectEntity["transferStatus"];
-      financeStatus: EngineeringProjectEntity["financeStatus"];
-      assetStatus: EngineeringProjectEntity["assetStatus"];
-    }
->;
+export interface UpdateEngineeringProjectInput {
+  orgId?: string | null;
+  projectName?: string;
+  projectType?: EngineeringProjectType;
+  projectLevel?: EngineeringProjectEntity["projectLevel"];
+  projectSource?: string | null;
+  description?: string | null;
+  locationText?: string | null;
+  buildingId?: string | null;
+  floorId?: string | null;
+  spaceId?: string | null;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
+  budgetAmount?: string | null;
+  contractAmount?: string | null;
+  projectManagerId?: string | null;
+  engineeringDirectorId?: string | null;
+  contractorOrgId?: string | null;
+  supervisorOrgId?: string | null;
+  progressPercent?: number;
+  riskLevel?: EngineeringProjectEntity["riskLevel"];
+  remark?: string | null;
+}
 
 export interface EngineeringProjectCountRow<T extends string> {
   key: T;
@@ -72,6 +85,9 @@ export class EngineeringProjectRepository {
 
   async createProject(scope: TenantParkScope, actorId: string | null, input: CreateEngineeringProjectInput): Promise<EngineeringProjectEntity> {
     const projectCode = input.projectCode ?? (await this.generateProjectCode(scope.tenantId));
+    if (await this.existsByCode(scope, projectCode)) {
+      throw new ConflictException("Engineering project code already exists");
+    }
     const entity = this.repository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -97,6 +113,8 @@ export class EngineeringProjectRepository {
       engineeringDirectorId: input.engineeringDirectorId ?? null,
       contractorOrgId: input.contractorOrgId ?? null,
       supervisorOrgId: input.supervisorOrgId ?? null,
+      status: EngineeringProjectStatus.DRAFT,
+      progressPercent: 0,
       riskLevel: input.riskLevel,
       remark: input.remark ?? null,
       createBy: actorId,
@@ -105,8 +123,14 @@ export class EngineeringProjectRepository {
     return this.repository.save(entity);
   }
 
-  async findById(scope: TenantParkScope, id: string): Promise<EngineeringProjectEntity> {
-    const entity = await this.scopedBuilder(scope).andWhere("project.id = :id", { id }).getOne();
+  async findById(
+    scope: TenantParkScope,
+    id: string,
+    applyScope?: (builder: SelectQueryBuilder<EngineeringProjectEntity>) => Promise<void> | void
+  ): Promise<EngineeringProjectEntity> {
+    const builder = this.createScopedQueryBuilder(scope).andWhere("project.id = :id", { id });
+    await applyScope?.(builder);
+    const entity = await builder.getOne();
     if (!entity) throw new NotFoundException("Engineering project not found");
     return entity;
   }
@@ -115,11 +139,16 @@ export class EngineeringProjectRepository {
     return this.repository.findOne({ where: { tenantId: scope.tenantId, projectCode, isDeleted: false } });
   }
 
-  async paginateProjects(scope: TenantParkScope, query: EngineeringProjectQueryDto): Promise<PaginatedResult<EngineeringProjectEntity>> {
+  async paginateProjects(
+    scope: TenantParkScope,
+    query: EngineeringProjectQueryDto,
+    applyScope?: (builder: SelectQueryBuilder<EngineeringProjectEntity>) => Promise<void> | void
+  ): Promise<PaginatedResult<EngineeringProjectEntity>> {
     const page = query.page ?? 1;
     const pageSize = query.page_size ?? 20;
-    const builder = this.scopedBuilder(scope);
+    const builder = this.createScopedQueryBuilder(scope);
     this.applyQuery(builder, query);
+    await applyScope?.(builder);
     this.applySort(builder, query.sort);
     const [items, total] = await builder.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
     return { items, total, page, page_size: pageSize };
@@ -161,7 +190,7 @@ export class EngineeringProjectRepository {
   }
 
   async countByStatus(scope: TenantParkScope): Promise<EngineeringProjectCountRow<EngineeringProjectStatus>[]> {
-    const rows = await this.scopedBuilder(scope)
+    const rows = await this.createScopedQueryBuilder(scope)
       .select("project.status", "key")
       .addSelect("COUNT(project.id)", "count")
       .groupBy("project.status")
@@ -171,7 +200,7 @@ export class EngineeringProjectRepository {
   }
 
   async countByType(scope: TenantParkScope): Promise<EngineeringProjectCountRow<EngineeringProjectType>[]> {
-    const rows = await this.scopedBuilder(scope)
+    const rows = await this.createScopedQueryBuilder(scope)
       .select("project.project_type", "key")
       .addSelect("COUNT(project.id)", "count")
       .groupBy("project.project_type")
@@ -194,7 +223,7 @@ export class EngineeringProjectRepository {
     return nextEngineeringProjectCode(date, row?.projectCode ?? null);
   }
 
-  private scopedBuilder(scope: TenantParkScope): SelectQueryBuilder<EngineeringProjectEntity> {
+  createScopedQueryBuilder(scope: TenantParkScope): SelectQueryBuilder<EngineeringProjectEntity> {
     return this.repository
       .createQueryBuilder("project")
       .where("project.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -221,6 +250,8 @@ export class EngineeringProjectRepository {
     if (query.contractor_org_id) builder.andWhere("project.contractor_org_id = :contractorOrgId", { contractorOrgId: query.contractor_org_id });
     if (query.planned_start_from) builder.andWhere("project.planned_start_date >= :plannedStartFrom", { plannedStartFrom: query.planned_start_from });
     if (query.planned_start_to) builder.andWhere("project.planned_start_date <= :plannedStartTo", { plannedStartTo: query.planned_start_to });
+    if (query.created_from) builder.andWhere("project.create_time >= :createdFrom", { createdFrom: new Date(query.created_from) });
+    if (query.created_to) builder.andWhere("project.create_time <= :createdTo", { createdTo: new Date(query.created_to) });
   }
 
   private applySort(builder: SelectQueryBuilder<EngineeringProjectEntity>, sort?: string): void {

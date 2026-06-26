@@ -130,3 +130,7 @@ await engineeringProjectStatusService.getAvailableActions(projectId, context);
 ```
 
 前端按钮通过 `getAvailableActions` 获取当前可用动作，并由后端再次执行权限校验和状态机校验。
+
+Task 004 已将状态机接入工程项目 API。接口说明见：
+
+- [EngineeringProject API](./engineering-project-api.md)
