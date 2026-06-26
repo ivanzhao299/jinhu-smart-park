@@ -7,12 +7,26 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "金湖科创产业园 SaaS 平台",
-  description: "金湖科创产业园资产、招商、合同与运营数字化平台"
+  description: "金湖科创产业园资产、招商、合同与运营数字化平台",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/jinhu-app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/jinhu-app-icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
+  },
+  appleWebApp: {
+    capable: true,
+    title: "金湖园区",
+    statusBarStyle: "black-translucent"
+  }
 };
 
 export const viewport: Viewport = {
   width: "device-width",
-  initialScale: 1
+  initialScale: 1,
+  themeColor: "#0b4f7a"
 };
 
 interface RootLayoutProps {
