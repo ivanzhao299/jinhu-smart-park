@@ -113,6 +113,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/safety/my-inspect-tasks",
   "/safety/hazards",
   "/safety/hazards/overdue",
+  "/engineering",
+  "/engineering/projects",
   "/system/orgs",
   "/system/users",
   "/system/roles",
@@ -252,6 +254,14 @@ export const dashboardMenus: MenuNode[] = [
       { label: "应急预案", href: "/safety/emergency-plans", permission: "safety_emergency_plan:read", module: "safety" },
       { label: "应急事件", href: "/safety/emergencies", permission: "safety_emergency:read", module: "safety" },
       { label: "作业许可", href: "/safety/work-permits", permission: "safety_work_permit:read", module: "safety" }
+    ]
+  },
+  {
+    label: "工程管理",
+    icon: ClipboardCheck,
+    children: [
+      { label: "工程运行时", href: "/engineering" },
+      { label: "工程项目", href: "/engineering/projects" }
     ]
   },
   {
@@ -446,6 +456,9 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   }
   if (href.startsWith("/safety") || permission.startsWith("safety")) {
     return "safety";
+  }
+  if (href.startsWith("/engineering") || permission.startsWith("ENGINEERING_")) {
+    return "engineering";
   }
   if (href.startsWith("/iot") || permission.startsWith("iot")) {
     return "iot";

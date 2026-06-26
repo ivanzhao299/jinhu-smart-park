@@ -316,3 +316,7 @@ Task 004 不实现前端页面。Task 005 才进入工程项目前端页面。
 - Acceptance Runtime
 - Workflow Runtime
 - Notification Runtime
+
+Task 005 已接入前端工程项目中心。页面说明见：
+
+- [EngineeringProject UI](./engineering-project-ui.md)

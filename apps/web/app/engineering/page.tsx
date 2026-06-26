@@ -1,5 +1,6 @@
 import { Card, StatusPill } from "@jinhu/ui";
 import { Building2, ClipboardCheck, FileCheck2, HardHat, ListChecks, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 const subRuntimes = [
   { code: "EPDR-P1", name: "工程项目中心", icon: Building2 },
@@ -20,13 +21,14 @@ export default function EngineeringRuntimePage() {
         </div>
         <div className="page-actions">
           <StatusPill variant="warning">SKELETON</StatusPill>
+          <Link className="primary-button" href="/engineering/projects">进入工程项目</Link>
         </div>
       </header>
 
       <Card>
         <div className="empty-state">
           <strong>Runtime 骨架已就绪</strong>
-          <span>当前页面为 Task 001 占位 Console。后续 Task 005 起接入项目列表、状态流转、日报、巡检、整改、验收和看板。</span>
+          <span>工程项目中心已接入项目列表、详情、表单、状态动作和状态日志。计划、日报、巡检、整改、验收将在后续任务逐步进入。</span>
         </div>
       </Card>
 
