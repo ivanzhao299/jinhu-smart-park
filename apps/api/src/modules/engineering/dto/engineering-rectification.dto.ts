@@ -236,3 +236,9 @@ export class EngineeringRectificationActionDto {
   @IsString()
   recheck_comment?: string;
 }
+
+export class EngineeringRectificationOverdueScanDto {
+  @IsOptional()
+  @IsDateString()
+  today?: string;
+}

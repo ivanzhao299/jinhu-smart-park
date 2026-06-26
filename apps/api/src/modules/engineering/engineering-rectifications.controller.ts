@@ -9,6 +9,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   CreateEngineeringRectificationDto,
   EngineeringRectificationActionDto,
+  EngineeringRectificationOverdueScanDto,
   EngineeringRectificationQueryDto,
   UpdateEngineeringRectificationDto
 } from "./dto/engineering-rectification.dto";
@@ -40,6 +41,18 @@ export class EngineeringRectificationsController {
     @Query() query: EngineeringRectificationQueryDto
   ) {
     return this.engineeringRectificationService.paginateRectifications(query, this.context(scope, user, request));
+  }
+
+  @Post("rectifications/overdue-scan")
+  @RequirePermissions(SYSTEM_PERMISSIONS.MODULE_OPEN_READ)
+  @AuditLog({ module: "工程项目交付", resource: "engineering.rectification", action: "扫描逾期整改", bizType: "engineering_rectification" })
+  scanOverdueRectifications(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Req() request: Request,
+    @Body() dto: EngineeringRectificationOverdueScanDto
+  ) {
+    return this.engineeringRectificationService.scanOverdueRectifications(dto, this.context(scope, user, request));
   }
 
   @Get("projects/:projectId/rectifications")

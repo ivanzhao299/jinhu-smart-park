@@ -102,7 +102,7 @@ OVERDUE -> IN_PROGRESS / SUBMITTED
 
 ## 逾期规则
 
-如果 `deadline` 小于当前日期，并且状态不是 `PASSED` 或 `CLOSED`，则可判定为逾期。Phase 1 提供状态机判断与 `MARK_OVERDUE` 动作，后续 Task 将接入定时检测和通知。
+如果 `deadline` 小于当前日期，并且状态不是 `PASSED`、`CLOSED` 或 `OVERDUE`，则可判定为逾期。Task 017 已提供 `POST /api/engineering/rectifications/overdue-scan` 扫描入口，扫描命中后逐条通过状态机执行 `MARK_OVERDUE`，并写入审计日志、发布 `EngineeringRectificationOverdueEvent`。定时调度和通知推送后续由 Scheduler / Notification Runtime 接管。
 
 ## 与巡检问题的关系
 
@@ -149,12 +149,10 @@ Phase 1 至少按以下字段预留数据范围：
 2. 整改编号规则。
 3. Repository 基础能力。
 4. 整改状态机。
-5. 逾期判断基础。
+5. 逾期判断与扫描入口。
 6. 单元测试与 schema 校验。
 
 未完成，后续 Task 接续：
 
-1. Task 015：整改 API。
-2. Task 016：整改反馈与复查前端页面。
-3. Task 017：整改逾期检测机制。
-4. Task 025：工程附件统一能力。
+1. Task 018：工程验收模型与 API。
+2. Task 025：工程附件统一能力。

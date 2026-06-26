@@ -76,7 +76,10 @@ function makeIssue(): EngineeringIssueEntity {
   } as EngineeringIssueEntity;
 }
 
-function makeRectification(status: EngineeringRectificationStatus = EngineeringRectificationStatus.PENDING): EngineeringRectificationEntity {
+function makeRectification(
+  status: EngineeringRectificationStatus = EngineeringRectificationStatus.PENDING,
+  deadline = "2026-06-30"
+): EngineeringRectificationEntity {
   return {
     id: RECTIFICATION_ID,
     tenantId: "tenant-a",
@@ -89,7 +92,7 @@ function makeRectification(status: EngineeringRectificationStatus = EngineeringR
     description: "支架松动",
     severity: EngineeringIssueSeverity.HIGH,
     status,
-    deadline: "2026-06-30",
+    deadline,
     isDeleted: false
   } as EngineeringRectificationEntity;
 }
@@ -111,13 +114,13 @@ function makeContext(): EngineeringProjectRuntimeContext {
   };
 }
 
-function makeHarness(options: { rectificationStatus?: EngineeringRectificationStatus; issueWrongProject?: boolean } = {}): Harness {
+function makeHarness(options: { rectificationStatus?: EngineeringRectificationStatus; rectificationDeadline?: string; issueWrongProject?: boolean } = {}): Harness {
   const project = makeProject();
   let issue = makeIssue();
   if (options.issueWrongProject) {
     issue = { ...issue, projectId: "00000000-0000-0000-0000-000000000102" } as EngineeringIssueEntity;
   }
-  let rectification = makeRectification(options.rectificationStatus ?? EngineeringRectificationStatus.PENDING);
+  let rectification = makeRectification(options.rectificationStatus ?? EngineeringRectificationStatus.PENDING, options.rectificationDeadline);
   const permissions: EngineeringRectificationPermissionValue[] = [];
   const auditActions: string[] = [];
   const events: string[] = [];
@@ -159,6 +162,21 @@ function makeHarness(options: { rectificationStatus?: EngineeringRectificationSt
     paginateRectifications: async (_scope: unknown, _query: unknown, applyScope?: (builder: unknown) => Promise<void>) => {
       await applyScope?.({});
       return { items: [rectification], total: 1, page: 1, page_size: 20 };
+    },
+    findOverdueCandidates: async (_scope: unknown, today: string, applyScope?: (builder: unknown) => Promise<void>) => {
+      await applyScope?.({});
+      if (
+        rectification.deadline &&
+        rectification.deadline < today &&
+        ![
+          EngineeringRectificationStatus.CLOSED,
+          EngineeringRectificationStatus.PASSED,
+          EngineeringRectificationStatus.OVERDUE
+        ].includes(rectification.status)
+      ) {
+        return [rectification];
+      }
+      return [];
     },
     findById: async (_scope: unknown, id: string, applyScope?: (builder: unknown) => Promise<void>) => {
       await applyScope?.({});
@@ -374,4 +392,42 @@ test("EngineeringRectificationService deletes only pending or rejected rectifica
     () => makeHarness({ rectificationStatus: EngineeringRectificationStatus.SUBMITTED }).service.deleteRectification(RECTIFICATION_ID, makeContext()),
     BadRequestException
   );
+});
+
+test("EngineeringRectificationService scans and marks overdue rectifications", async () => {
+  const harness = makeHarness({
+    rectificationStatus: EngineeringRectificationStatus.IN_PROGRESS,
+    rectificationDeadline: "2026-06-20"
+  });
+  const result = await harness.service.scanOverdueRectifications({ today: "2026-06-26" }, harness.context);
+
+  assert.equal(result.today, "2026-06-26");
+  assert.equal(result.scanned, 1);
+  assert.equal(result.markedOverdue, 1);
+  assert.deepEqual(result.rectificationIds, [RECTIFICATION_ID]);
+  assert.equal(harness.updateRectificationStatusInput?.status, EngineeringRectificationStatus.OVERDUE);
+  assert.deepEqual(harness.permissions, [EngineeringRectificationPermission.UPDATE]);
+  assert.equal(harness.rectificationScopeCalls, 1);
+  assert.deepEqual(harness.auditActions, ["ACTION_MARK_OVERDUE"]);
+  assert.deepEqual(harness.events, ["EngineeringRectificationOverdueEvent"]);
+});
+
+test("EngineeringRectificationService overdue scan ignores passed or not due rectifications", async () => {
+  const passedHarness = makeHarness({
+    rectificationStatus: EngineeringRectificationStatus.PASSED,
+    rectificationDeadline: "2026-06-20"
+  });
+  const passedResult = await passedHarness.service.scanOverdueRectifications({ today: "2026-06-26" }, passedHarness.context);
+  assert.equal(passedResult.scanned, 0);
+  assert.equal(passedResult.markedOverdue, 0);
+  assert.equal(passedHarness.updateRectificationStatusInput, null);
+
+  const notDueHarness = makeHarness({
+    rectificationStatus: EngineeringRectificationStatus.IN_PROGRESS,
+    rectificationDeadline: "2026-06-30"
+  });
+  const notDueResult = await notDueHarness.service.scanOverdueRectifications({ today: "2026-06-26" }, notDueHarness.context);
+  assert.equal(notDueResult.scanned, 0);
+  assert.equal(notDueResult.markedOverdue, 0);
+  assert.equal(notDueHarness.updateRectificationStatusInput, null);
 });

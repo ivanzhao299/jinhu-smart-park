@@ -5,6 +5,7 @@ import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import {
   CreateEngineeringRectificationDto,
   EngineeringRectificationActionDto,
+  EngineeringRectificationOverdueScanDto,
   EngineeringRectificationQueryDto,
   UpdateEngineeringRectificationDto
 } from "./dto/engineering-rectification.dto";
@@ -145,6 +146,50 @@ export class EngineeringRectificationService {
     await this.logRectificationChange("ACTION_" + dto.action, updated, context, this.rectificationSnapshot(before), this.rectificationSnapshot(updated));
     await this.publishActionEvent(dto.action, updated, context);
     return updated;
+  }
+
+  async scanOverdueRectifications(
+    dto: EngineeringRectificationOverdueScanDto,
+    context: EngineeringProjectRuntimeContext
+  ): Promise<{ today: string; scanned: number; markedOverdue: number; rectificationIds: string[] }> {
+    this.accessPolicy.assertPermission(EngineeringRectificationPermission.UPDATE, this.permissionContext(context));
+    const today = dto.today ?? new Date().toISOString().slice(0, 10);
+    const candidates = await this.rectificationsRepository.findOverdueCandidates(context, today, (builder) =>
+      this.applyRectificationScope(builder, context)
+    );
+    const rectificationIds: string[] = [];
+    for (const candidate of candidates) {
+      if (!this.stateMachine.isOverdue(candidate, today)) continue;
+      if (!this.stateMachine.canTransition(candidate.status, EngineeringRectificationAction.MARK_OVERDUE)) continue;
+      const updated = await this.stateMachine.transition(
+        candidate,
+        EngineeringRectificationAction.MARK_OVERDUE,
+        this.transitionContext(
+          candidate,
+          {
+            action: EngineeringRectificationAction.MARK_OVERDUE,
+            reason: "RECTIFICATION_OVERDUE_SCAN",
+            comment: `deadline ${candidate.deadline} is before ${today}`
+          },
+          context
+        )
+      );
+      rectificationIds.push(updated.id);
+      await this.logRectificationChange(
+        "ACTION_" + EngineeringRectificationAction.MARK_OVERDUE,
+        updated,
+        context,
+        this.rectificationSnapshot(candidate),
+        this.rectificationSnapshot(updated)
+      );
+      await this.publishActionEvent(EngineeringRectificationAction.MARK_OVERDUE, updated, context);
+    }
+    return {
+      today,
+      scanned: candidates.length,
+      markedOverdue: rectificationIds.length,
+      rectificationIds
+    };
   }
 
   private findProjectInScope(projectId: string, context: EngineeringProjectRuntimeContext): Promise<EngineeringProjectEntity> {

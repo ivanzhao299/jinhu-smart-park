@@ -221,15 +221,20 @@ export class EngineeringRectificationRepository {
     return rows.map((row) => ({ key: row.key, count: Number(row.count) }));
   }
 
-  async findOverdueCandidates(scope: TenantParkScope, today: string): Promise<EngineeringRectificationEntity[]> {
-    return this.createScopedQueryBuilder(scope)
+  async findOverdueCandidates(
+    scope: TenantParkScope,
+    today: string,
+    applyScope?: (builder: SelectQueryBuilder<EngineeringRectificationEntity>) => Promise<void> | void
+  ): Promise<EngineeringRectificationEntity[]> {
+    const builder = this.createScopedQueryBuilder(scope)
       .andWhere("rectification.deadline IS NOT NULL")
       .andWhere("rectification.deadline < :today", { today })
       .andWhere("rectification.status NOT IN (:...closedStatuses)", {
-        closedStatuses: [EngineeringRectificationStatus.CLOSED, EngineeringRectificationStatus.PASSED]
+        closedStatuses: [EngineeringRectificationStatus.CLOSED, EngineeringRectificationStatus.PASSED, EngineeringRectificationStatus.OVERDUE]
       })
-      .orderBy("rectification.deadline", "ASC")
-      .getMany();
+      .orderBy("rectification.deadline", "ASC");
+    await applyScope?.(builder);
+    return builder.getMany();
   }
 
   async generateRectificationCode(tenantId: string, date: Date = new Date()): Promise<string> {
