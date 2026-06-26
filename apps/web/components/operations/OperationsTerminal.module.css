@@ -711,11 +711,8 @@
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 26px;
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
       radial-gradient(circle at 82% 10%, rgba(247, 201, 72, 0.36), transparent 9rem),
       linear-gradient(145deg, #06263f 0%, #0b4f7a 54%, #041827 100%);
-    background-size: 20px 20px, 20px 20px, auto, auto;
     box-shadow: 0 24px 52px rgba(2, 6, 23, 0.28);
     color: #f8fafc;
     padding: 22px;
