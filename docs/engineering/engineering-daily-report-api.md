@@ -287,3 +287,19 @@ Task 008 不实现真实附件上传。
 - AI 分析或 IoT 数据接入。
 
 下一步 Task 009 将基于本 API 实现施工日报前端页面。
+
+## 13. 前端页面引用
+
+Task 009 已基于本 API 接入施工日报前端页面：
+
+- `/engineering/daily-reports`
+- `/engineering/daily-reports/new`
+- `/engineering/daily-reports/[id]`
+- `/engineering/daily-reports/[id]/edit`
+- `/engineering/projects/[id]` 中的施工日报摘要与入口
+
+前端说明见：
+
+```text
+docs/engineering/engineering-daily-report-ui.md
+```

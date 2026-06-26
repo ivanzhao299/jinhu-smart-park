@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Drawer, DrawerFooter, DrawerForm, DrawerHeader, StatusPill } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader, StatusPill } from "@jinhu/ui";
 import { ArrowLeft, Edit3, Eye, FileText, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -14,6 +14,14 @@ import type { EngineeringProject, EngineeringProjectAction, EngineeringProjectAv
 import { engineeringPlansApi } from "../../../../lib/engineering-plans-api";
 import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
 import { buildEngineeringPlanTree, flattenEngineeringPlanTree } from "../../../../lib/engineering-plans-utils";
+import { engineeringDailyReportsApi } from "../../../../lib/engineering-daily-reports-api";
+import type { EngineeringDailyReport } from "../../../../lib/engineering-daily-reports-types";
+import {
+  DailyReportProgressBar,
+  DailyReportStatusPill,
+  WeatherPill,
+  formatDateTime as formatDailyReportDateTime
+} from "../../daily-reports/components/EngineeringDailyReportShared";
 import { PlanProgressBar, PlanTreeTable } from "../../plans/components/EngineeringPlanShared";
 import {
   DetailItem,
@@ -30,7 +38,6 @@ import {
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
-  "施工日报",
   "工程巡检",
   "整改任务",
   "工程验收",
@@ -54,6 +61,7 @@ export function EngineeringProjectDetailClient() {
   const [actions, setActions] = useState<EngineeringProjectAvailableAction[]>([]);
   const [logs, setLogs] = useState<EngineeringProjectStatusLog[]>([]);
   const [plans, setPlans] = useState<EngineeringPlan[]>([]);
+  const [dailyReports, setDailyReports] = useState<EngineeringDailyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
@@ -66,22 +74,41 @@ export function EngineeringProjectDetailClient() {
     const averageProgress = total === 0 ? 0 : Math.round(plans.reduce((sum, item) => sum + Number(item.actualProgressPercent ?? 0), 0) / total);
     return { total, completed, delayed, averageProgress };
   }, [plans]);
+  const dailyReportSummary = useMemo(() => {
+    const total = dailyReports.length;
+    const submitted = dailyReports.filter((item) => item.reportStatus === "SUBMITTED").length;
+    const reviewed = dailyReports.filter((item) => item.reportStatus === "REVIEWED").length;
+    const rejected = dailyReports.filter((item) => item.reportStatus === "REJECTED").length;
+    const recent = [...dailyReports]
+      .sort((left, right) => right.reportDate.localeCompare(left.reportDate) || right.createTime.localeCompare(left.createTime))
+      .slice(0, 5);
+    return {
+      total,
+      submitted,
+      reviewed,
+      rejected,
+      latestDate: recent[0]?.reportDate ?? null,
+      recent
+    };
+  }, [dailyReports]);
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
     setLoading(true);
     setMessage("");
     try {
-      const [detail, availableActions, statusLogs, projectPlans] = await Promise.all([
+      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports] = await Promise.all([
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
         engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
-        engineeringPlansApi.getProjectPlans(projectId, getAccessToken())
+        engineeringPlansApi.getProjectPlans(projectId, getAccessToken()),
+        engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken())
       ]);
       setProject(detail);
       setActions(availableActions);
       setLogs(statusLogs);
       setPlans(projectPlans);
+      setDailyReports(projectDailyReports);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载工程项目详情失败");
     } finally {
@@ -268,6 +295,63 @@ export function EngineeringProjectDetailClient() {
               <PlanTreeTable rows={planRows} />
             </div>
             <p className={styles.scopeHint}>甘特图视图预留：后续可基于当前父子计划和日期字段扩展。</p>
+          </Card>
+
+          <Card>
+            <section className={styles.sectionHeader}>
+              <h2>施工日报</h2>
+              <span>施工日报已接入真实 API，记录每日现场施工资料。</span>
+            </section>
+            <div className={styles.detailGrid}>
+              <DetailItem label="日报总数" value={dailyReportSummary.total} />
+              <DetailItem label="最近日报日期" value={dailyReportSummary.latestDate ? formatDate(dailyReportSummary.latestDate) : "-"} />
+              <DetailItem label="已提交" value={dailyReportSummary.submitted} />
+              <DetailItem label="已审核" value={dailyReportSummary.reviewed} />
+              <DetailItem label="被驳回" value={dailyReportSummary.rejected} />
+            </div>
+            <div className={styles.actionBar}>
+              <Link className="primary-button" href={`/engineering/daily-reports/new?projectId=${project.id}`}>
+                <Plus size={16} />
+                新增日报
+              </Link>
+              <Link className="secondary-button" href={`/engineering/daily-reports?projectId=${project.id}`}>
+                <Eye size={16} />
+                查看全部日报
+              </Link>
+            </div>
+            <div className="table-scroll">
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>日报编号</th>
+                    <th>日期</th>
+                    <th>状态</th>
+                    <th>天气</th>
+                    <th>进度</th>
+                    <th>提交时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyReportSummary.recent.map((report) => (
+                    <tr key={report.id}>
+                      <td><strong>{report.reportCode}</strong></td>
+                      <td>{formatDate(report.reportDate)}</td>
+                      <td><DailyReportStatusPill status={report.reportStatus} /></td>
+                      <td><WeatherPill weather={report.weather} /></td>
+                      <td><DailyReportProgressBar value={report.progressPercent} /></td>
+                      <td>{formatDailyReportDateTime(report.submittedAt)}</td>
+                      <td><Link className="secondary-button" href={`/engineering/daily-reports/${report.id}`}>查看</Link></td>
+                    </tr>
+                  ))}
+                  {dailyReportSummary.recent.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>暂无施工日报</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </DataTable>
+            </div>
           </Card>
 
           <Card>

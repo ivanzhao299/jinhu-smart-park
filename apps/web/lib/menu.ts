@@ -116,6 +116,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/engineering",
   "/engineering/projects",
   "/engineering/plans",
+  "/engineering/daily-reports",
   "/system/orgs",
   "/system/users",
   "/system/roles",
@@ -263,7 +264,8 @@ export const dashboardMenus: MenuNode[] = [
     children: [
       { label: "工程运行时", href: "/engineering" },
       { label: "工程项目", href: "/engineering/projects" },
-      { label: "工程计划", href: "/engineering/plans" }
+      { label: "工程计划", href: "/engineering/plans" },
+      { label: "施工日报", href: "/engineering/daily-reports" }
     ]
   },
   {
