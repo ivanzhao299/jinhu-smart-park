@@ -18,6 +18,8 @@ import { engineeringDailyReportsApi } from "../../../../lib/engineering-daily-re
 import type { EngineeringDailyReport } from "../../../../lib/engineering-daily-reports-types";
 import { engineeringInspectionsApi } from "../../../../lib/engineering-inspections-api";
 import type { EngineeringInspection } from "../../../../lib/engineering-inspections-types";
+import { engineeringRectificationsApi } from "../../../../lib/engineering-rectifications-api";
+import type { EngineeringRectification } from "../../../../lib/engineering-rectifications-types";
 import {
   DailyReportProgressBar,
   DailyReportStatusPill,
@@ -26,6 +28,7 @@ import {
 } from "../../daily-reports/components/EngineeringDailyReportShared";
 import { InspectionStatusPill, InspectionTypePill, formatDateTime as formatInspectionDateTime } from "../../inspections/components/EngineeringInspectionShared";
 import { PlanProgressBar, PlanTreeTable } from "../../plans/components/EngineeringPlanShared";
+import { RectificationSeverityPill, RectificationStatusPill } from "../../rectifications/components/EngineeringRectificationShared";
 import {
   DetailItem,
   ForbiddenEngineeringProject,
@@ -41,7 +44,6 @@ import {
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
-  "整改任务",
   "工程验收",
   "工程档案",
   "物业移交"
@@ -65,6 +67,7 @@ export function EngineeringProjectDetailClient() {
   const [plans, setPlans] = useState<EngineeringPlan[]>([]);
   const [dailyReports, setDailyReports] = useState<EngineeringDailyReport[]>([]);
   const [inspections, setInspections] = useState<EngineeringInspection[]>([]);
+  const [rectifications, setRectifications] = useState<EngineeringRectification[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
@@ -105,19 +108,31 @@ export function EngineeringProjectDetailClient() {
       .slice(0, 5);
     return { total, submitted, draft, issueCount, criticalIssueCount, recent };
   }, [inspections]);
+  const rectificationSummary = useMemo(() => {
+    const total = rectifications.length;
+    const pending = rectifications.filter((item) => item.status === "PENDING").length;
+    const inProgress = rectifications.filter((item) => item.status === "IN_PROGRESS").length;
+    const overdue = rectifications.filter((item) => item.status === "OVERDUE").length;
+    const closed = rectifications.filter((item) => item.status === "CLOSED" || item.status === "PASSED").length;
+    const recent = [...rectifications]
+      .sort((left, right) => right.updateTime.localeCompare(left.updateTime) || right.createTime.localeCompare(left.createTime))
+      .slice(0, 5);
+    return { total, pending, inProgress, overdue, closed, recent };
+  }, [rectifications]);
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
     setLoading(true);
     setMessage("");
     try {
-      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports, projectInspections] = await Promise.all([
+      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports, projectInspections, projectRectifications] = await Promise.all([
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
         engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
         engineeringPlansApi.getProjectPlans(projectId, getAccessToken()),
         engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken()),
-        engineeringInspectionsApi.getProjectInspections(projectId, getAccessToken())
+        engineeringInspectionsApi.getProjectInspections(projectId, getAccessToken()),
+        engineeringRectificationsApi.getProjectRectifications(projectId, getAccessToken())
       ]);
       setProject(detail);
       setActions(availableActions);
@@ -125,6 +140,7 @@ export function EngineeringProjectDetailClient() {
       setPlans(projectPlans);
       setDailyReports(projectDailyReports);
       setInspections(projectInspections);
+      setRectifications(projectRectifications);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载工程项目详情失败");
     } finally {
@@ -431,8 +447,61 @@ export function EngineeringProjectDetailClient() {
 
           <Card>
             <section className={styles.sectionHeader}>
+              <h2>整改任务</h2>
+              <span>整改闭环已接入真实 API，支持施工反馈、工程复查和关闭。</span>
+            </section>
+            <div className={styles.detailGrid}>
+              <DetailItem label="整改总数" value={rectificationSummary.total} />
+              <DetailItem label="待整改" value={rectificationSummary.pending} />
+              <DetailItem label="整改中" value={rectificationSummary.inProgress} />
+              <DetailItem label="已逾期" value={rectificationSummary.overdue} />
+              <DetailItem label="已关闭/通过" value={rectificationSummary.closed} />
+            </div>
+            <div className={styles.actionBar}>
+              <Link className="secondary-button" href={`/engineering/rectifications?projectId=${project.id}`}>
+                <Eye size={16} />
+                查看全部整改
+              </Link>
+            </div>
+            <div className="table-scroll">
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>整改编号</th>
+                    <th>标题</th>
+                    <th>状态</th>
+                    <th>等级</th>
+                    <th>期限</th>
+                    <th>责任人</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rectificationSummary.recent.map((rectification) => (
+                    <tr key={rectification.id}>
+                      <td><strong>{rectification.rectificationCode}</strong></td>
+                      <td>{rectification.rectificationTitle}</td>
+                      <td><RectificationStatusPill status={rectification.status} /></td>
+                      <td><RectificationSeverityPill severity={rectification.severity} /></td>
+                      <td>{formatDate(rectification.deadline)}</td>
+                      <td>{rectification.responsibleUserId ?? rectification.responsibleOrgId ?? "-"}</td>
+                      <td><Link className="secondary-button" href={`/engineering/rectifications/${rectification.id}`}>查看</Link></td>
+                    </tr>
+                  ))}
+                  {rectificationSummary.recent.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>暂无整改任务</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </DataTable>
+            </div>
+          </Card>
+
+          <Card>
+            <section className={styles.sectionHeader}>
               <h2>后续 Runtime 入口</h2>
-              <span>施工、巡检、整改、验收将在后续任务逐步接入。</span>
+              <span>验收、档案和物业移交将在后续任务逐步接入。</span>
             </section>
             <div className={styles.placeholderGrid}>
               {runtimePlaceholders.map((item) => (

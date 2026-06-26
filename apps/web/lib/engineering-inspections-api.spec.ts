@@ -21,6 +21,7 @@ test("engineeringInspectionsApi exposes inspection and issue methods", () => {
   assert.equal(typeof engineeringInspectionsApi.createInspectionIssue, "function");
   assert.equal(typeof engineeringInspectionsApi.getInspectionIssues, "function");
   assert.equal(typeof engineeringInspectionsApi.listIssues, "function");
+  assert.equal(typeof engineeringInspectionsApi.generateRectificationFromIssue, "function");
 });
 
 test("engineering inspection search params omit empty values", () => {

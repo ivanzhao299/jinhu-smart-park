@@ -159,5 +159,5 @@ Phase 1 仍沿用工程 Runtime 宽松模式；Task 021 会统一落 RBAC 权限
 
 ## 后续任务
 
-- Task 016：实现整改反馈与复查页面。
+- Task 016：实现整改反馈与复查页面，见 [engineering-rectification-ui.md](./engineering-rectification-ui.md)。
 - Task 017：实现整改逾期检测机制。

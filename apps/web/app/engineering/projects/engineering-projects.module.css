@@ -305,6 +305,28 @@
   font-weight: 700;
 }
 
+.longTextBlock {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.longTextBlock h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.longTextBlock p {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  padding: 12px;
+  line-height: 1.65;
+}
+
 .message {
   border: 1px solid color-mix(in srgb, var(--status-info) 25%, var(--border));
   border-radius: 10px;

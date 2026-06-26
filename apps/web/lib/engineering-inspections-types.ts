@@ -200,5 +200,17 @@ export interface UpdateEngineeringIssueInput {
   remark?: string;
 }
 
+export interface GenerateEngineeringRectificationInput {
+  rectification_title?: string;
+  description?: string;
+  responsible_user_id?: string;
+  responsible_org_id?: string;
+  contractor_org_id?: string;
+  supervisor_org_id?: string;
+  deadline?: string;
+  attachment_ids?: string[];
+  remark?: string;
+}
+
 export type EngineeringInspectionPage = PaginatedResult<EngineeringInspection>;
 export type EngineeringIssuePage = PaginatedResult<EngineeringIssue>;

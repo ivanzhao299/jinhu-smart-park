@@ -38,6 +38,7 @@ export function EngineeringInspectionDetailClient() {
   const canDelete = hasEngineeringInspectionPermission(authUser, ENGINEERING_INSPECTION_PERMISSIONS.DELETE);
   const canSubmit = hasEngineeringInspectionPermission(authUser, ENGINEERING_INSPECTION_PERMISSIONS.SUBMIT);
   const canCreateIssue = hasEngineeringInspectionPermission(authUser, ENGINEERING_INSPECTION_PERMISSIONS.ISSUE_CREATE);
+  const canGenerateRectification = hasEngineeringInspectionPermission(authUser, ENGINEERING_INSPECTION_PERMISSIONS.ISSUE_GENERATE_RECTIFICATION);
   const [inspection, setInspection] = useState<EngineeringInspection | null>(null);
   const [issues, setIssues] = useState<EngineeringIssue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +112,18 @@ export function EngineeringInspectionDetailClient() {
       setMessage(error instanceof Error ? error.message : "新增巡检问题失败");
     } finally {
       setIssueSaving(false);
+    }
+  }
+
+  async function generateRectification(issue: EngineeringIssue) {
+    if (!window.confirm(`确认从问题「${issue.issueCode}」生成整改任务？`)) return;
+    setMessage("");
+    try {
+      await engineeringInspectionsApi.generateRectificationFromIssue(issue.id, {}, getAccessToken());
+      setMessage("整改任务已生成");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "生成整改任务失败");
     }
   }
 
@@ -229,6 +242,7 @@ export function EngineeringInspectionDetailClient() {
                     <th>状态</th>
                     <th>责任人</th>
                     <th>期限</th>
+                    <th>整改</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,11 +255,18 @@ export function EngineeringInspectionDetailClient() {
                       <td><IssueStatusPill status={issue.issueStatus} /></td>
                       <td>{issue.responsibleUserId ?? issue.responsibleOrgId ?? "-"}</td>
                       <td>{formatDate(issue.deadline)}</td>
+                      <td>
+                        {canGenerateRectification && canGenerateRectificationFromIssue(issue) ? (
+                          <button className="secondary-button" type="button" onClick={() => void generateRectification(issue)}>生成整改</button>
+                        ) : issue.rectificationId ? (
+                          <Link className="secondary-button" href={`/engineering/rectifications/${issue.rectificationId}`}>查看整改</Link>
+                        ) : "-"}
+                      </td>
                     </tr>
                   ))}
                   {issues.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>暂无巡检问题</td>
+                      <td colSpan={8}>暂无巡检问题</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -263,4 +284,8 @@ export function EngineeringInspectionDetailClient() {
       <MessageLine message={message} />
     </main>
   );
+}
+
+function canGenerateRectificationFromIssue(issue: EngineeringIssue): boolean {
+  return !issue.rectificationId && issue.issueStatus !== "CLOSED" && issue.issueStatus !== "CANCELLED";
 }

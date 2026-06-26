@@ -8,9 +8,11 @@ import type {
   EngineeringIssue,
   EngineeringIssuePage,
   EngineeringIssueQuery,
+  GenerateEngineeringRectificationInput,
   UpdateEngineeringInspectionInput,
   UpdateEngineeringIssueInput
 } from "./engineering-inspections-types";
+import type { EngineeringRectification } from "./engineering-rectifications-types";
 
 export const engineeringInspectionsApi = {
   async createInspection(input: CreateEngineeringInspectionInput, token?: string): Promise<EngineeringInspection> {
@@ -105,6 +107,16 @@ export const engineeringInspectionsApi = {
       method: "PATCH",
       token,
       idempotencyKey: createIdempotencyKey("engineering-issue-update"),
+      body: compactObject(input)
+    });
+    return response.data;
+  },
+
+  async generateRectificationFromIssue(id: string, input: GenerateEngineeringRectificationInput = {}, token?: string): Promise<EngineeringRectification> {
+    const response = await apiRequest<EngineeringRectification>(`/engineering/issues/${id}/generate-rectification`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("engineering-issue-generate-rectification"),
       body: compactObject(input)
     });
     return response.data;
