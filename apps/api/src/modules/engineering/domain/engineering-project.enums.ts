@@ -162,6 +162,17 @@ export enum EngineeringIssueSourceType {
   OTHER = "OTHER"
 }
 
+export enum EngineeringRectificationStatus {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  SUBMITTED = "SUBMITTED",
+  RECHECKING = "RECHECKING",
+  PASSED = "PASSED",
+  REJECTED = "REJECTED",
+  OVERDUE = "OVERDUE",
+  CLOSED = "CLOSED"
+}
+
 export const ENGINEERING_PROJECT_TYPE_VALUES = Object.values(EngineeringProjectType);
 export const ENGINEERING_PROJECT_STATUS_VALUES = Object.values(EngineeringProjectStatus);
 export const ENGINEERING_PROJECT_LEVEL_VALUES = Object.values(EngineeringProjectLevel);
@@ -180,3 +191,4 @@ export const ENGINEERING_ISSUE_TYPE_VALUES = Object.values(EngineeringIssueType)
 export const ENGINEERING_ISSUE_SEVERITY_VALUES = Object.values(EngineeringIssueSeverity);
 export const ENGINEERING_ISSUE_STATUS_VALUES = Object.values(EngineeringIssueStatus);
 export const ENGINEERING_ISSUE_SOURCE_TYPE_VALUES = Object.values(EngineeringIssueSourceType);
+export const ENGINEERING_RECTIFICATION_STATUS_VALUES = Object.values(EngineeringRectificationStatus);

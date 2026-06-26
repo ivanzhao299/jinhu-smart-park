@@ -9,6 +9,7 @@ import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringProjectStatusLogEntity } from "./entities/engineering-project-status-log.entity";
+import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringDailyReportService } from "./engineering-daily-report.service";
 import { EngineeringDailyReportsController } from "./engineering-daily-reports.controller";
@@ -21,6 +22,7 @@ import { EngineeringProjectStateMachine } from "./engineering-project-state.mach
 import { EngineeringProjectService } from "./engineering-project.service";
 import { EngineeringProjectStatusService } from "./engineering-project-status.service";
 import { EngineeringProjectsController } from "./engineering-projects.controller";
+import { EngineeringRectificationStateMachine } from "./engineering-rectification-state.machine";
 import { EngineeringService } from "./engineering.service";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
 import { EngineeringDailyReportAccessPolicy } from "./policies/engineering-daily-report-access.policy";
@@ -33,6 +35,7 @@ import { EngineeringInspectionRepository } from "./repositories/engineering-insp
 import { EngineeringIssueRepository } from "./repositories/engineering-issue.repository";
 import { EngineeringPlanRepository } from "./repositories/engineering-plan.repository";
 import { EngineeringProjectRepository } from "./repositories/engineering-project.repository";
+import { EngineeringRectificationRepository } from "./repositories/engineering-rectification.repository";
 
 @Module({
   imports: [
@@ -42,7 +45,8 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
       EngineeringPlanEntity,
       EngineeringDailyReportEntity,
       EngineeringInspectionEntity,
-      EngineeringIssueEntity
+      EngineeringIssueEntity,
+      EngineeringRectificationEntity
     ]),
     AuditModule,
     DataScopesModule
@@ -65,7 +69,9 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,
+    EngineeringRectificationRepository,
     EngineeringProjectStateMachine,
+    EngineeringRectificationStateMachine,
     EngineeringProjectStatusService,
     EngineeringProjectAccessPolicy,
     EngineeringPlanAccessPolicy,
@@ -87,6 +93,8 @@ import { EngineeringProjectRepository } from "./repositories/engineering-project
     EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,
+    EngineeringRectificationRepository,
+    EngineeringRectificationStateMachine,
     EngineeringProjectStateMachine,
     EngineeringProjectStatusService
   ]
