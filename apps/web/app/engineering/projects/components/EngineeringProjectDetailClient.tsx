@@ -1,16 +1,20 @@
 "use client";
 
 import { Card, Drawer, DrawerFooter, DrawerForm, DrawerHeader, StatusPill } from "@jinhu/ui";
-import { ArrowLeft, Edit3, FileText, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Edit3, Eye, FileText, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "../../../../lib/auth-context";
 import { getAccessToken } from "../../../../lib/authz";
 import { engineeringProjectActionLabels, engineeringProjectStatusLabels, engineeringProjectTypeLabels } from "../../../../lib/engineering-projects-display";
 import { engineeringProjectsApi } from "../../../../lib/engineering-projects-api";
 import { ENGINEERING_PROJECT_PERMISSIONS, hasEngineeringProjectPermission } from "../../../../lib/engineering-projects-permissions";
 import type { EngineeringProject, EngineeringProjectAction, EngineeringProjectAvailableAction, EngineeringProjectStatusLog } from "../../../../lib/engineering-projects-types";
+import { engineeringPlansApi } from "../../../../lib/engineering-plans-api";
+import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
+import { buildEngineeringPlanTree, flattenEngineeringPlanTree } from "../../../../lib/engineering-plans-utils";
+import { PlanProgressBar, PlanTreeTable } from "../../plans/components/EngineeringPlanShared";
 import {
   DetailItem,
   ForbiddenEngineeringProject,
@@ -26,7 +30,6 @@ import {
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
-  "工程计划",
   "施工日报",
   "工程巡检",
   "整改任务",
@@ -50,24 +53,35 @@ export function EngineeringProjectDetailClient() {
   const [project, setProject] = useState<EngineeringProject | null>(null);
   const [actions, setActions] = useState<EngineeringProjectAvailableAction[]>([]);
   const [logs, setLogs] = useState<EngineeringProjectStatusLog[]>([]);
+  const [plans, setPlans] = useState<EngineeringPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
   const [actionSaving, setActionSaving] = useState(false);
+  const planRows = useMemo(() => flattenEngineeringPlanTree(buildEngineeringPlanTree(plans)), [plans]);
+  const planSummary = useMemo(() => {
+    const total = plans.length;
+    const completed = plans.filter((item) => item.status === "COMPLETED").length;
+    const delayed = plans.filter((item) => item.delayDays > 0 || item.status === "DELAYED").length;
+    const averageProgress = total === 0 ? 0 : Math.round(plans.reduce((sum, item) => sum + Number(item.actualProgressPercent ?? 0), 0) / total);
+    return { total, completed, delayed, averageProgress };
+  }, [plans]);
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
     setLoading(true);
     setMessage("");
     try {
-      const [detail, availableActions, statusLogs] = await Promise.all([
+      const [detail, availableActions, statusLogs, projectPlans] = await Promise.all([
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
-        engineeringProjectsApi.getStatusLogs(projectId, getAccessToken())
+        engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
+        engineeringPlansApi.getProjectPlans(projectId, getAccessToken())
       ]);
       setProject(detail);
       setActions(availableActions);
       setLogs(statusLogs);
+      setPlans(projectPlans);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载工程项目详情失败");
     } finally {
@@ -231,8 +245,35 @@ export function EngineeringProjectDetailClient() {
 
           <Card>
             <section className={styles.sectionHeader}>
+              <h2>工程计划</h2>
+              <span>项目计划已接入真实 API，按父子层级展示。</span>
+            </section>
+            <div className={styles.detailGrid}>
+              <DetailItem label="计划数量" value={planSummary.total} />
+              <DetailItem label="已完成" value={planSummary.completed} />
+              <DetailItem label="已延期" value={planSummary.delayed} />
+              <DetailItem label="平均实际进度" value={<PlanProgressBar value={planSummary.averageProgress} />} />
+            </div>
+            <div className={styles.actionBar}>
+              <Link className="primary-button" href={`/engineering/plans/new?projectId=${project.id}`}>
+                <Plus size={16} />
+                新增计划
+              </Link>
+              <Link className="secondary-button" href={`/engineering/plans?projectId=${project.id}`}>
+                <Eye size={16} />
+                查看全部计划
+              </Link>
+            </div>
+            <div className="table-scroll">
+              <PlanTreeTable rows={planRows} />
+            </div>
+            <p className={styles.scopeHint}>甘特图视图预留：后续可基于当前父子计划和日期字段扩展。</p>
+          </Card>
+
+          <Card>
+            <section className={styles.sectionHeader}>
               <h2>后续 Runtime 入口</h2>
-              <span>Phase 1 后续任务逐步接入，当前仅作为项目详情占位。</span>
+              <span>施工、巡检、整改、验收将在后续任务逐步接入。</span>
             </section>
             <div className={styles.placeholderGrid}>
               {runtimePlaceholders.map((item) => (

@@ -190,6 +190,41 @@
   font-weight: 850;
 }
 
+.progressWrap {
+  display: inline-grid;
+  grid-template-columns: minmax(90px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 132px;
+}
+
+.progressWrap span {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--surface-subtle));
+}
+
+.progressWrap i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary), var(--status-success));
+}
+
+.progressWrap strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.treeName {
+  display: inline-flex;
+  align-items: center;
+  min-width: 220px;
+}
+
 .sectionHeader {
   display: flex;
   gap: 10px;

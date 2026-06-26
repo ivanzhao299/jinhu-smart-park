@@ -115,6 +115,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/safety/hazards/overdue",
   "/engineering",
   "/engineering/projects",
+  "/engineering/plans",
   "/system/orgs",
   "/system/users",
   "/system/roles",
@@ -261,7 +262,8 @@ export const dashboardMenus: MenuNode[] = [
     icon: ClipboardCheck,
     children: [
       { label: "工程运行时", href: "/engineering" },
-      { label: "工程项目", href: "/engineering/projects" }
+      { label: "工程项目", href: "/engineering/projects" },
+      { label: "工程计划", href: "/engineering/plans" }
     ]
   },
   {

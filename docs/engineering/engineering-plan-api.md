@@ -297,3 +297,17 @@ EngineeringPlan 必须归属于 EngineeringProject：
 - 工程 Dashboard。
 
 这些内容进入 Task 007 及后续任务。
+
+## 13. 前端页面引用
+
+Task 007 已新增工程计划前端页面和项目详情页计划入口，详见：
+
+```text
+docs/engineering/engineering-plan-ui.md
+```
+
+前端 API client：
+
+```text
+apps/web/lib/engineering-plans-api.ts
+```
