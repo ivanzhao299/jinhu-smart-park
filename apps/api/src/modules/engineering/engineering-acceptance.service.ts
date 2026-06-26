@@ -52,7 +52,11 @@ export class EngineeringAcceptanceService {
     await this.logChange("CREATE", acceptance, context, null, this.acceptanceSnapshot(acceptance));
     await this.publishAcceptanceEvent("EngineeringAcceptanceCreatedEvent", acceptance, context, {
       acceptanceCode: acceptance.acceptanceCode,
-      acceptanceType: acceptance.acceptanceType
+      acceptanceType: acceptance.acceptanceType,
+      notificationRecipients: acceptance.responsibleUserId ? [acceptance.responsibleUserId] : [],
+      notificationTitle: "工程验收待处理",
+      notificationContent: `${acceptance.acceptanceCode} ${acceptance.acceptanceName} 已创建，请验收负责人准备。`,
+      notificationTargetUrl: `/engineering/acceptances/${acceptance.id}`
     });
     return acceptance;
   }
@@ -122,7 +126,11 @@ export class EngineeringAcceptanceService {
     await this.publishAcceptanceEvent("EngineeringAcceptanceSubmittedEvent", updated, context, {
       fromStatus: before.acceptanceStatus,
       toStatus: updated.acceptanceStatus,
-      acceptanceCode: updated.acceptanceCode
+      acceptanceCode: updated.acceptanceCode,
+      notificationRecipients: updated.responsibleUserId ? [updated.responsibleUserId] : [],
+      notificationTitle: "工程验收已提交",
+      notificationContent: `${updated.acceptanceCode} ${updated.acceptanceName} 已提交，请验收负责人处理。`,
+      notificationTargetUrl: `/engineering/acceptances/${updated.id}`
     });
     return updated;
   }
@@ -151,7 +159,16 @@ export class EngineeringAcceptanceService {
       fromStatus: before.acceptanceStatus,
       toStatus: updated.acceptanceStatus,
       acceptanceCode: updated.acceptanceCode,
-      reviewComment: dto.review_comment ?? null
+      reviewComment: dto.review_comment ?? null,
+      ...(nextStatus === EngineeringAcceptanceStatus.FAILED || nextStatus === EngineeringAcceptanceStatus.RECTIFICATION_REQUIRED
+        ? {
+            notificationRecipients: [updated.responsibleUserId, updated.submittedBy].filter((id): id is string => Boolean(id)),
+            notificationTitle: nextStatus === EngineeringAcceptanceStatus.FAILED ? "工程验收未通过" : "工程验收需整改",
+            notificationContent: `${updated.acceptanceCode} ${updated.acceptanceName} 验收结果为 ${nextStatus}，请跟进整改。`,
+            notificationTargetUrl: `/engineering/acceptances/${updated.id}`,
+            notificationPriority: "urgent"
+          }
+        : {})
     });
     return updated;
   }

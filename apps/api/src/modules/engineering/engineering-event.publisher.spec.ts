@@ -72,6 +72,37 @@ test("EngineeringEventPublisher persists project status events to event log", as
   });
 });
 
+test("EngineeringEventPublisher forwards notification-enabled events to notification service", async () => {
+  const savedLogs: EngineeringEventLogEntity[] = [];
+  const repository = {
+    create: (input: Partial<EngineeringEventLogEntity>) => input as EngineeringEventLogEntity,
+    save: async (entity: EngineeringEventLogEntity) => {
+      savedLogs.push(entity);
+      return entity;
+    }
+  } as unknown as Repository<EngineeringEventLogEntity>;
+  const notificationCalls: unknown[] = [];
+  const publisher = new EngineeringEventPublisher(repository, {
+    publishFromEvent: async (event: unknown) => {
+      notificationCalls.push(event);
+      return { recipients: 1 };
+    }
+  } as never);
+
+  await publisher.publishIssueEvent({
+    eventType: "EngineeringIssueCreatedEvent",
+    tenantId: TENANT_ID,
+    parkId: PARK_ID,
+    projectId: PROJECT_ID,
+    issueId: ISSUE_ID,
+    actorUserId: ACTOR_ID,
+    payload: { notificationRecipients: ["00000000-0000-0000-0000-000000000901"], issueCode: "GCWT20260626001" }
+  });
+
+  assert.equal(savedLogs.length, 1);
+  assert.equal(notificationCalls.length, 1);
+});
+
 test("EngineeringEventPublisher persists all Phase 1 runtime event categories", async () => {
   const { publisher, savedLogs } = makeHarness();
 

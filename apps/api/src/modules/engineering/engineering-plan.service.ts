@@ -66,7 +66,15 @@ export class EngineeringPlanService {
       projectId: plan.projectId,
       planId: plan.id,
       actorUserId: context.actor.sub,
-      payload: { planCode: plan.planCode, planName: plan.planName, planType: plan.planType }
+      payload: {
+        planCode: plan.planCode,
+        planName: plan.planName,
+        planType: plan.planType,
+        notificationRecipients: [project.projectManagerId, plan.ownerUserId].filter((id): id is string => Boolean(id)),
+        notificationTitle: "工程计划已创建",
+        notificationContent: `${plan.planCode} ${plan.planName} 已创建，请项目负责人跟进。`,
+        notificationTargetUrl: `/engineering/plans/${plan.id}`
+      }
     });
     return plan;
   }

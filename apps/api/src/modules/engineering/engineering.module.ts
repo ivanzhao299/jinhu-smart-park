@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FilesModule } from "../files/files.module";
+import { UserMessageEntity } from "../workflow/entities/user-message.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
@@ -24,6 +25,7 @@ import { EngineeringDashboardController } from "./engineering-dashboard.controll
 import { EngineeringDashboardService } from "./engineering-dashboard.service";
 import { EngineeringInspectionService } from "./engineering-inspection.service";
 import { EngineeringInspectionsController } from "./engineering-inspections.controller";
+import { EngineeringNotificationService } from "./engineering-notification.service";
 import { EngineeringPlanService } from "./engineering-plan.service";
 import { EngineeringPlansController } from "./engineering-plans.controller";
 import { EngineeringProjectStateMachine } from "./engineering-project-state.machine";
@@ -61,7 +63,8 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
       EngineeringInspectionEntity,
       EngineeringIssueEntity,
       EngineeringRectificationEntity,
-      EngineeringAcceptanceEntity
+      EngineeringAcceptanceEntity,
+      UserMessageEntity
     ]),
     AuditModule,
     DataScopesModule,
@@ -94,6 +97,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     EngineeringAcceptanceService,
     EngineeringAcceptanceRepository,
     EngineeringAttachmentService,
+    EngineeringNotificationService,
     EngineeringProjectStateMachine,
     EngineeringRectificationStateMachine,
     EngineeringProjectStatusService,

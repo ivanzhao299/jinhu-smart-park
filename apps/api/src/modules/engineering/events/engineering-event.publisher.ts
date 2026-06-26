@@ -1,8 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
 import type { Repository } from "typeorm";
 import { EngineeringEventLogEntity } from "../entities/engineering-event-log.entity";
+import { EngineeringNotificationService } from "../engineering-notification.service";
 import type { EngineeringEventEnvelope, EngineeringEventType } from "./engineering-event.types";
 import { EngineeringProjectStatus } from "../domain/engineering-project.enums";
 import { EngineeringProjectAction } from "../domain/engineering-project-state-machine.types";
@@ -108,7 +109,9 @@ export interface EngineeringAcceptanceEvent extends EngineeringEventEnvelope<Rec
 export class EngineeringEventPublisher {
   constructor(
     @InjectRepository(EngineeringEventLogEntity)
-    private readonly eventLogsRepository: Repository<EngineeringEventLogEntity>
+    private readonly eventLogsRepository: Repository<EngineeringEventLogEntity>,
+    @Optional()
+    private readonly notificationService?: EngineeringNotificationService
   ) {}
 
   async publishProjectStatusChanged(input: {
@@ -123,6 +126,11 @@ export class EngineeringEventPublisher {
     comment?: string | null;
     workflowInstanceId?: string | null;
     requestId?: string | null;
+    notificationRecipients?: string[];
+    notificationTitle?: string;
+    notificationContent?: string;
+    notificationPriority?: string;
+    notificationTargetUrl?: string;
   }): Promise<EngineeringProjectStatusChangedEvent> {
     const event: EngineeringProjectStatusChangedEvent = {
       eventId: randomUUID(),
@@ -143,7 +151,12 @@ export class EngineeringEventPublisher {
         reason: input.reason,
         comment: input.comment ?? null,
         workflowInstanceId: input.workflowInstanceId ?? null,
-        requestId: input.requestId ?? null
+        requestId: input.requestId ?? null,
+        ...(input.notificationRecipients?.length ? { notificationRecipients: input.notificationRecipients } : {}),
+        ...(input.notificationTitle ? { notificationTitle: input.notificationTitle } : {}),
+        ...(input.notificationContent ? { notificationContent: input.notificationContent } : {}),
+        ...(input.notificationPriority ? { notificationPriority: input.notificationPriority } : {}),
+        ...(input.notificationTargetUrl ? { notificationTargetUrl: input.notificationTargetUrl } : {})
       }
     };
     await this.publish(event);
@@ -327,6 +340,7 @@ export class EngineeringEventPublisher {
       payload: event.payload
     });
     await this.eventLogsRepository.save(eventLog);
+    await this.notificationService?.publishFromEvent(event);
     // External EventBus adapter boundary. Forward from here when the platform bus is available.
   }
 }

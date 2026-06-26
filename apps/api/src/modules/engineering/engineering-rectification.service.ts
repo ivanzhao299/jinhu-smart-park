@@ -77,7 +77,12 @@ export class EngineeringRectificationService {
     await this.publishRectificationEvent("EngineeringRectificationCreatedEvent", rectification, context, {
       rectificationCode: rectification.rectificationCode,
       issueId: rectification.issueId,
-      severity: rectification.severity
+      severity: rectification.severity,
+      notificationRecipients: rectification.responsibleUserId ? [rectification.responsibleUserId] : [],
+      notificationTitle: "整改任务待处理",
+      notificationContent: `${rectification.rectificationCode} ${rectification.rectificationTitle} 已创建，请责任人处理。`,
+      notificationTargetUrl: `/engineering/rectifications/${rectification.id}`,
+      notificationPriority: rectification.severity === "CRITICAL" || rectification.severity === "HIGH" ? "urgent" : "high"
     });
     return rectification;
   }
@@ -272,7 +277,16 @@ export class EngineeringRectificationService {
     await this.publishRectificationEvent(eventType, rectification, context, {
       rectificationCode: rectification.rectificationCode,
       issueId: rectification.issueId,
-      status: rectification.status
+      status: rectification.status,
+      ...(eventType === "EngineeringRectificationOverdueEvent" && rectification.responsibleUserId
+        ? {
+            notificationRecipients: [rectification.responsibleUserId],
+            notificationTitle: "整改任务已逾期",
+            notificationContent: `${rectification.rectificationCode} ${rectification.rectificationTitle} 已逾期，请立即跟进。`,
+            notificationTargetUrl: `/engineering/rectifications/${rectification.id}`,
+            notificationPriority: "urgent"
+          }
+        : {})
     });
   }
 

@@ -122,7 +122,15 @@ export class EngineeringProjectStateMachine {
       reason: context.reason,
       comment: context.comment ?? null,
       workflowInstanceId: context.workflowInstanceId ?? null,
-      requestId: context.requestId ?? null
+      requestId: context.requestId ?? null,
+      ...(action === EngineeringProjectAction.SUBMIT && project.engineeringDirectorId
+        ? {
+            notificationRecipients: [project.engineeringDirectorId],
+            notificationTitle: "工程立项待审批",
+            notificationContent: `${project.projectCode} ${project.projectName} 已提交，请工程负责人处理。`,
+            notificationTargetUrl: `/engineering/projects/${project.id}`
+          }
+        : {})
     });
     return updated;
   }

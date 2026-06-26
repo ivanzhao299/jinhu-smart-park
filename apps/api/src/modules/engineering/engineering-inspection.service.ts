@@ -152,7 +152,12 @@ export class EngineeringInspectionService {
     await this.publishIssueEvent("EngineeringIssueCreatedEvent", issue, context, {
       issueCode: issue.issueCode,
       severity: issue.severity,
-      sourceType: issue.sourceType
+      sourceType: issue.sourceType,
+      notificationRecipients: issue.responsibleUserId ? [issue.responsibleUserId] : [],
+      notificationTitle: "工程问题待处理",
+      notificationContent: `${issue.issueCode} ${issue.issueTitle} 需要责任人处理。`,
+      notificationTargetUrl: `/engineering/inspections?issueId=${issue.id}`,
+      notificationPriority: issue.severity === "CRITICAL" || issue.severity === "HIGH" ? "urgent" : "high"
     });
     await this.syncInspectionIssueCount(issue.inspectionId, context);
     return issue;
@@ -235,7 +240,12 @@ export class EngineeringInspectionService {
       rectificationCode: rectification.rectificationCode,
       issueId: issue.id,
       issueCode: issue.issueCode,
-      severity: rectification.severity
+      severity: rectification.severity,
+      notificationRecipients: rectification.responsibleUserId ? [rectification.responsibleUserId] : [],
+      notificationTitle: "整改任务待处理",
+      notificationContent: `${rectification.rectificationCode} ${rectification.rectificationTitle} 已生成，请按期反馈整改。`,
+      notificationTargetUrl: `/engineering/rectifications/${rectification.id}`,
+      notificationPriority: rectification.severity === "CRITICAL" || rectification.severity === "HIGH" ? "urgent" : "high"
     });
     await this.publishIssueEvent("EngineeringIssueUpdatedEvent", updatedIssue, context, {
       issueCode: updatedIssue.issueCode,
