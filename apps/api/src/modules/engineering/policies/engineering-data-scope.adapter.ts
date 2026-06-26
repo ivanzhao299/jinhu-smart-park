@@ -8,6 +8,7 @@ import { EngineeringInspectionEntity } from "../entities/engineering-inspection.
 import { EngineeringIssueEntity } from "../entities/engineering-issue.entity";
 import { EngineeringPlanEntity } from "../entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "../entities/engineering-project.entity";
+import { EngineeringRectificationEntity } from "../entities/engineering-rectification.entity";
 
 @Injectable()
 export class EngineeringDataScopeAdapter {
@@ -88,5 +89,22 @@ export class EngineeringDataScopeAdapter {
       return;
     }
     await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "issue", { org: "org_id" });
+  }
+
+  async applyRectificationScope(
+    builder: SelectQueryBuilder<EngineeringRectificationEntity>,
+    scope: TenantParkScope,
+    actor?: JwtPrincipal
+  ): Promise<void> {
+    if (!actor || actor.isSuper || actor.permissions.includes("*")) {
+      return;
+    }
+    if (actor.dataScope === "self") {
+      builder.andWhere("(rectification.responsible_user_id = :actorUserId OR rectification.create_by = :actorUserId)", {
+        actorUserId: actor.sub
+      });
+      return;
+    }
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "org", "rectification", { org: "org_id" });
   }
 }
