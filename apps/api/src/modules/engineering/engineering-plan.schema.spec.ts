@@ -18,6 +18,7 @@ test("EngineeringPlanEntity is mapped to the engineering plan table", () => {
   assert.ok(columns.includes("plan_name"));
   assert.ok(columns.includes("plan_type"));
   assert.ok(columns.includes("status"));
+  assert.ok(columns.includes("attachment_ids"));
 });
 
 test("EngineeringPlan enum baseline includes required plan dimensions", () => {
@@ -35,4 +36,12 @@ test("EngineeringPlan migration declares table, code uniqueness, and progress ch
   assert.match(migration, /ON biz_engineering_plan \(tenant_id, plan_code\)/);
   assert.match(migration, /status varchar\(32\) NOT NULL DEFAULT 'DRAFT'/);
   assert.match(migration, /chk_biz_engineering_plan_actual_progress/);
+});
+
+test("EngineeringPlan attachment migration declares attachment id support", () => {
+  const migrationPath = resolve(__dirname, "../../../../../database/migrations/000159_epdr_engineering_attachment_ids.sql");
+  const migration = readFileSync(migrationPath, "utf8");
+
+  assert.match(migration, /ALTER TABLE biz_engineering_plan/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS attachment_ids jsonb NULL/);
 });

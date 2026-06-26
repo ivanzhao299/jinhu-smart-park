@@ -268,11 +268,9 @@ DataScope：
 - `occurredAt`
 - `payload`
 
-## 11. 附件预留
+## 11. 附件说明
 
-Task 008 不实现真实附件上传。
-
-日报 DTO 与实体预留 `attachment_ids`。后续 Task 025 会接入 `EngineeringAttachment`，用于图片、视频、PDF、CAD、Word、Excel 等工程资料统一管理。
+施工日报已接入统一 `attachment_ids` 引用能力。日报创建和更新时可引用当前租户/园区内的文件中心文件，后端会校验文件存在和范围合法；真实上传、预览和批量管理由 Files Runtime/后续文件中心页面承接。
 
 ## 12. Phase 1 边界
 

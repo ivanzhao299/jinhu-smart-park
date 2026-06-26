@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
 import {
   EngineeringAssetStatus,
   EngineeringFinanceStatus,
@@ -117,6 +117,11 @@ export class CreateEngineeringProjectDto {
   @IsString()
   @MaxLength(500)
   remark?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  attachment_ids?: string[];
 }
 
 export class UpdateEngineeringProjectDto {
@@ -227,6 +232,11 @@ export class UpdateEngineeringProjectDto {
   @IsString()
   @MaxLength(500)
   remark?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  attachment_ids?: string[];
 }
 
 export class EngineeringProjectQueryDto {

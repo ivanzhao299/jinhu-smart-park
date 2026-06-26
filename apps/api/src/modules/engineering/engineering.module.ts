@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { FilesModule } from "../files/files.module";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
@@ -15,6 +16,7 @@ import { EngineeringRectificationEntity } from "./entities/engineering-rectifica
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringAcceptanceService } from "./engineering-acceptance.service";
 import { EngineeringAcceptancesController } from "./engineering-acceptances.controller";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringDailyReportService } from "./engineering-daily-report.service";
 import { EngineeringDailyReportsController } from "./engineering-daily-reports.controller";
 import { EngineeringController } from "./engineering.controller";
@@ -62,7 +64,8 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
       EngineeringAcceptanceEntity
     ]),
     AuditModule,
-    DataScopesModule
+    DataScopesModule,
+    FilesModule
   ],
   controllers: [
     EngineeringController,
@@ -90,6 +93,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     EngineeringRectificationRepository,
     EngineeringAcceptanceService,
     EngineeringAcceptanceRepository,
+    EngineeringAttachmentService,
     EngineeringProjectStateMachine,
     EngineeringRectificationStateMachine,
     EngineeringProjectStatusService,

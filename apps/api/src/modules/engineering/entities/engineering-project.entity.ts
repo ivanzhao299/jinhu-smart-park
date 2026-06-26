@@ -114,4 +114,7 @@ export class EngineeringProjectEntity extends AuditableEntity {
 
   @Column({ name: "asset_status", type: "varchar", length: 32, default: EngineeringAssetStatus.NOT_REQUIRED })
   assetStatus!: EngineeringAssetStatus;
+
+  @Column({ name: "attachment_ids", type: "jsonb", nullable: true })
+  attachmentIds!: string[] | null;
 }

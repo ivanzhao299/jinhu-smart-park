@@ -4,6 +4,7 @@ import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { Repository, SelectQueryBuilder } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import {
   CreateEngineeringProjectDto,
   EngineeringProjectActionDto,
@@ -33,6 +34,7 @@ export class EngineeringProjectService {
     private readonly projectStatusService: EngineeringProjectStatusService,
     private readonly accessPolicy: EngineeringProjectAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     @InjectRepository(EngineeringProjectStatusLogEntity)
     private readonly statusLogsRepository: Repository<EngineeringProjectStatusLogEntity>
@@ -40,7 +42,8 @@ export class EngineeringProjectService {
 
   async createProject(dto: CreateEngineeringProjectDto, context: EngineeringProjectRuntimeContext): Promise<EngineeringProjectEntity> {
     this.accessPolicy.assertPermission(EngineeringProjectPermission.CREATE, this.permissionContext(context));
-    const project = await this.projectsRepository.createProject(context, context.actor.sub, this.toCreateInput(dto));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const project = await this.projectsRepository.createProject(context, context.actor.sub, this.toCreateInput(dto, attachmentIds ?? null));
     await this.logProjectChanged("CREATE", project, context, null, this.projectSnapshot(project));
     return project;
   }
@@ -61,7 +64,8 @@ export class EngineeringProjectService {
   async updateProject(id: string, dto: UpdateEngineeringProjectDto, context: EngineeringProjectRuntimeContext): Promise<EngineeringProjectEntity> {
     this.accessPolicy.assertPermission(EngineeringProjectPermission.UPDATE, this.permissionContext(context));
     const before = await this.findProjectInScope(id, context);
-    const updated = await this.projectsRepository.updateProject(context, context.actor.sub, id, this.toUpdateInput(dto));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const updated = await this.projectsRepository.updateProject(context, context.actor.sub, id, this.toUpdateInput(dto, attachmentIds));
     await this.logProjectChanged("UPDATE", updated, context, this.projectSnapshot(before), this.projectSnapshot(updated));
     return updated;
   }
@@ -172,7 +176,7 @@ export class EngineeringProjectService {
     return { actorPermissions: context.actor.permissions };
   }
 
-  private toCreateInput(dto: CreateEngineeringProjectDto): CreateEngineeringProjectInput {
+  private toCreateInput(dto: CreateEngineeringProjectDto, attachmentIds: string[] | null): CreateEngineeringProjectInput {
     return {
       orgId: dto.org_id ?? null,
       projectName: dto.project_name,
@@ -193,11 +197,12 @@ export class EngineeringProjectService {
       contractorOrgId: dto.contractor_org_id ?? null,
       supervisorOrgId: dto.supervisor_org_id ?? null,
       riskLevel: dto.risk_level,
+      attachmentIds,
       remark: dto.remark ?? null
     };
   }
 
-  private toUpdateInput(dto: UpdateEngineeringProjectDto): UpdateEngineeringProjectInput {
+  private toUpdateInput(dto: UpdateEngineeringProjectDto, attachmentIds: string[] | null | undefined): UpdateEngineeringProjectInput {
     const input: UpdateEngineeringProjectInput = {};
     this.assignIfDefined(input, "orgId", dto.org_id ?? undefined);
     this.assignIfDefined(input, "projectName", dto.project_name);
@@ -221,6 +226,7 @@ export class EngineeringProjectService {
     this.assignIfDefined(input, "supervisorOrgId", dto.supervisor_org_id ?? undefined);
     this.assignIfDefined(input, "progressPercent", dto.progress_percent);
     this.assignIfDefined(input, "riskLevel", dto.risk_level);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     return input;
   }
@@ -281,7 +287,8 @@ export class EngineeringProjectService {
       actualEndDate: project.actualEndDate,
       budgetAmount: project.budgetAmount,
       contractAmount: project.contractAmount,
-      locationText: project.locationText
+      locationText: project.locationText,
+      attachmentIds: project.attachmentIds
     };
   }
 }

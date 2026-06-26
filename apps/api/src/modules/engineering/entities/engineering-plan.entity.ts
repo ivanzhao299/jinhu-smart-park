@@ -81,4 +81,7 @@ export class EngineeringPlanEntity extends AuditableEntity {
 
   @Column({ name: "sort_order", type: "integer", default: 0 })
   sortOrder!: number;
+
+  @Column({ name: "attachment_ids", type: "jsonb", nullable: true })
+  attachmentIds!: string[] | null;
 }

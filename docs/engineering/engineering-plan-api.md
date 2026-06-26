@@ -311,3 +311,13 @@ docs/engineering/engineering-plan-ui.md
 ```text
 apps/web/lib/engineering-plans-api.ts
 ```
+
+## 14. 附件能力
+
+Task 025 已为工程计划补齐 `attachment_ids` 引用能力。计划创建和更新时可引用当前租户/园区内的文件中心文件，后端通过统一 `EngineeringAttachmentService` 校验引用，不保存真实文件内容。
+
+详见：
+
+```text
+docs/engineering/engineering-attachment.md
+```

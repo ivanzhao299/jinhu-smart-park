@@ -13,6 +13,7 @@ import { EngineeringPlanStatus } from "./domain/engineering-project.enums";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
 import { EngineeringPlanAccessPolicy, EngineeringPlanPermission } from "./policies/engineering-plan-access.policy";
@@ -31,6 +32,7 @@ export class EngineeringPlanService {
     private readonly projectsRepository: EngineeringProjectRepository,
     private readonly accessPolicy: EngineeringPlanAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     private readonly eventPublisher: EngineeringEventPublisher
   ) {}
@@ -40,8 +42,9 @@ export class EngineeringPlanService {
     const project = await this.findProjectInScope(dto.project_id, context);
     await this.assertParentPlan(project.id, dto.parent_plan_id ?? null, context);
     this.assertDateRange(dto.planned_start_date ?? null, dto.planned_end_date ?? null);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const plan = await this.plansRepository.createPlan(context, context.actor.sub, this.toCreateInput(dto, project));
+    const plan = await this.plansRepository.createPlan(context, context.actor.sub, this.toCreateInput(dto, project, attachmentIds ?? null));
     await this.auditLogger.logPlanChanged({
       tenantId: context.tenantId,
       parkId: context.parkId,
@@ -87,8 +90,9 @@ export class EngineeringPlanService {
     const parentPlanId = dto.parent_plan_id === undefined ? before.parentPlanId : dto.parent_plan_id ?? null;
     await this.assertParentPlan(before.projectId, parentPlanId, context, before.id);
     this.assertDateRange(dto.planned_start_date ?? before.plannedStartDate, dto.planned_end_date ?? before.plannedEndDate);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const updated = await this.plansRepository.updatePlan(context, context.actor.sub, id, this.toUpdateInput(dto));
+    const updated = await this.plansRepository.updatePlan(context, context.actor.sub, id, this.toUpdateInput(dto, attachmentIds));
     await this.auditLogger.logPlanChanged({
       tenantId: context.tenantId,
       parkId: context.parkId,
@@ -342,7 +346,7 @@ export class EngineeringPlanService {
     return { actorPermissions: context.actor.permissions };
   }
 
-  private toCreateInput(dto: CreateEngineeringPlanDto, project: EngineeringProjectEntity): CreateEngineeringPlanInput {
+  private toCreateInput(dto: CreateEngineeringPlanDto, project: EngineeringProjectEntity, attachmentIds: string[] | null): CreateEngineeringPlanInput {
     return {
       orgId: project.orgId,
       projectId: dto.project_id,
@@ -360,11 +364,12 @@ export class EngineeringPlanService {
       contractorOrgId: dto.contractor_org_id ?? null,
       riskLevel: dto.risk_level,
       sortOrder: dto.sort_order,
+      attachmentIds,
       remark: dto.remark ?? null
     };
   }
 
-  private toUpdateInput(dto: UpdateEngineeringPlanDto): UpdateEngineeringPlanInput {
+  private toUpdateInput(dto: UpdateEngineeringPlanDto, attachmentIds: string[] | null | undefined): UpdateEngineeringPlanInput {
     const input: UpdateEngineeringPlanInput = {};
     this.assignIfDefined(input, "planName", dto.plan_name);
     this.assignIfDefined(input, "planType", dto.plan_type);
@@ -383,6 +388,7 @@ export class EngineeringPlanService {
     this.assignIfDefined(input, "contractorOrgId", dto.contractor_org_id ?? undefined);
     this.assignIfDefined(input, "riskLevel", dto.risk_level);
     this.assignIfDefined(input, "sortOrder", dto.sort_order);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     return input;
   }
@@ -406,7 +412,8 @@ export class EngineeringPlanService {
       planType: plan.planType,
       status: plan.status,
       actualProgressPercent: plan.actualProgressPercent,
-      delayDays: plan.delayDays
+      delayDays: plan.delayDays,
+      attachmentIds: plan.attachmentIds
     };
   }
 }

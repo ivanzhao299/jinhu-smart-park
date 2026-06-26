@@ -6,6 +6,7 @@ import type { CreateEngineeringPlanDto, UpdateEngineeringPlanDto } from "./dto/e
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher, type EngineeringPlanEventType } from "./events/engineering-event.publisher";
 import { EngineeringProjectRuntimeContext } from "./engineering-project.service";
 import { EngineeringPlanService } from "./engineering-plan.service";
@@ -166,6 +167,9 @@ function makeHarness(options: { projectMissing?: boolean; parentWrongProject?: b
       auditActions.push(input.action);
     }
   } as unknown as EngineeringAuditLogger;
+  const attachmentService = {
+    normalizeAttachmentIds: async (_scope: unknown, attachmentIds: string[] | null | undefined) => attachmentIds
+  } as unknown as EngineeringAttachmentService;
 
   const eventPublisher = {
     publishPlanEvent: async (input: { eventType: EngineeringPlanEventType }) => {
@@ -173,7 +177,15 @@ function makeHarness(options: { projectMissing?: boolean; parentWrongProject?: b
     }
   } as unknown as EngineeringEventPublisher;
 
-  const service = new EngineeringPlanService(plansRepository, projectsRepository, accessPolicy, dataScopeAdapter, auditLogger, eventPublisher);
+  const service = new EngineeringPlanService(
+    plansRepository,
+    projectsRepository,
+    accessPolicy,
+    dataScopeAdapter,
+    attachmentService,
+    auditLogger,
+    eventPublisher
+  );
   return {
     service,
     context: makeContext(),

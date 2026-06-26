@@ -132,6 +132,7 @@ function makePlan(id: string, parentPlanId: string | null, sortOrder: number): E
     delayDays: 0,
     riskLevel: "LOW",
     sortOrder,
+    attachmentIds: null,
     remark: null,
     createBy: null,
     updateBy: null,

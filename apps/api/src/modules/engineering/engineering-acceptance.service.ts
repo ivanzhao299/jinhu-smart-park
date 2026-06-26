@@ -12,6 +12,7 @@ import { EngineeringAcceptanceStatus } from "./domain/engineering-project.enums"
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import type { EngineeringProjectRuntimeContext } from "./engineering-project.service";
 import {
@@ -35,6 +36,7 @@ export class EngineeringAcceptanceService {
     private readonly plansRepository: EngineeringPlanRepository,
     private readonly accessPolicy: EngineeringAcceptanceAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     private readonly eventPublisher: EngineeringEventPublisher
   ) {}
@@ -45,7 +47,8 @@ export class EngineeringAcceptanceService {
     if (dto.plan_id) {
       await this.assertPlanBelongsToProject(dto.plan_id, project.id, context);
     }
-    const acceptance = await this.acceptancesRepository.createAcceptance(context, context.actor.sub, this.toCreateInput(dto, project));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const acceptance = await this.acceptancesRepository.createAcceptance(context, context.actor.sub, this.toCreateInput(dto, project, attachmentIds ?? null));
     await this.logChange("CREATE", acceptance, context, null, this.acceptanceSnapshot(acceptance));
     await this.publishAcceptanceEvent("EngineeringAcceptanceCreatedEvent", acceptance, context, {
       acceptanceCode: acceptance.acceptanceCode,
@@ -81,7 +84,8 @@ export class EngineeringAcceptanceService {
     if (dto.plan_id) {
       await this.assertPlanBelongsToProject(dto.plan_id, before.projectId, context);
     }
-    const updated = await this.acceptancesRepository.updateAcceptance(context, context.actor.sub, id, this.toUpdateInput(dto));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const updated = await this.acceptancesRepository.updateAcceptance(context, context.actor.sub, id, this.toUpdateInput(dto, attachmentIds));
     await this.logChange("UPDATE", updated, context, this.acceptanceSnapshot(before), this.acceptanceSnapshot(updated));
     await this.publishAcceptanceEvent("EngineeringAcceptanceUpdatedEvent", updated, context, {
       acceptanceCode: updated.acceptanceCode,
@@ -252,7 +256,11 @@ export class EngineeringAcceptanceService {
     return { actorPermissions: context.actor.permissions };
   }
 
-  private toCreateInput(dto: CreateEngineeringAcceptanceDto, project: EngineeringProjectEntity): CreateEngineeringAcceptanceInput {
+  private toCreateInput(
+    dto: CreateEngineeringAcceptanceDto,
+    project: EngineeringProjectEntity,
+    attachmentIds: string[] | null
+  ): CreateEngineeringAcceptanceInput {
     return {
       orgId: project.orgId,
       projectId: dto.project_id,
@@ -273,11 +281,11 @@ export class EngineeringAcceptanceService {
       floorId: dto.floor_id ?? null,
       spaceId: dto.space_id ?? null,
       workflowInstanceId: dto.workflow_instance_id ?? null,
-      attachmentIds: dto.attachment_ids ?? null
+      attachmentIds
     };
   }
 
-  private toUpdateInput(dto: UpdateEngineeringAcceptanceDto): UpdateEngineeringAcceptanceInput {
+  private toUpdateInput(dto: UpdateEngineeringAcceptanceDto, attachmentIds: string[] | null | undefined): UpdateEngineeringAcceptanceInput {
     const input: UpdateEngineeringAcceptanceInput = {};
     this.assignIfDefined(input, "planId", dto.plan_id ?? undefined);
     this.assignIfDefined(input, "acceptanceName", dto.acceptance_name);
@@ -297,7 +305,7 @@ export class EngineeringAcceptanceService {
     this.assignIfDefined(input, "buildingId", dto.building_id ?? undefined);
     this.assignIfDefined(input, "floorId", dto.floor_id ?? undefined);
     this.assignIfDefined(input, "spaceId", dto.space_id ?? undefined);
-    this.assignIfDefined(input, "attachmentIds", dto.attachment_ids ?? undefined);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     return input;
   }
 

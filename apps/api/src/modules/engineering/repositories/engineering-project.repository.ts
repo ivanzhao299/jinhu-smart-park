@@ -31,6 +31,7 @@ export interface CreateEngineeringProjectInput {
   contractorOrgId?: string | null;
   supervisorOrgId?: string | null;
   riskLevel?: EngineeringProjectEntity["riskLevel"];
+  attachmentIds?: string[] | null;
   remark?: string | null;
 }
 
@@ -57,6 +58,7 @@ export interface UpdateEngineeringProjectInput {
   supervisorOrgId?: string | null;
   progressPercent?: number;
   riskLevel?: EngineeringProjectEntity["riskLevel"];
+  attachmentIds?: string[] | null;
   remark?: string | null;
 }
 
@@ -116,6 +118,7 @@ export class EngineeringProjectRepository {
       status: EngineeringProjectStatus.DRAFT,
       progressPercent: 0,
       riskLevel: input.riskLevel,
+      attachmentIds: input.attachmentIds ?? null,
       remark: input.remark ?? null,
       createBy: actorId,
       updateBy: actorId

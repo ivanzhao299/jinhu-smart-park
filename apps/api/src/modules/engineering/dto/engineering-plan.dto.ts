@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
 import { EngineeringPlanLevel, EngineeringPlanStatus, EngineeringPlanType, EngineeringRiskLevel } from "../domain/engineering-project.enums";
 
 function trimOptional(value: unknown): string | undefined {
@@ -93,6 +93,11 @@ export class CreateEngineeringPlanDto {
   @IsString()
   @MaxLength(500)
   remark?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  attachment_ids?: string[];
 }
 
 export class UpdateEngineeringPlanDto {
@@ -182,6 +187,11 @@ export class UpdateEngineeringPlanDto {
   @IsString()
   @MaxLength(500)
   remark?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  attachment_ids?: string[];
 }
 
 export class UpdateEngineeringPlanProgressDto {

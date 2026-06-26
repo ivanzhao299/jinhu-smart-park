@@ -19,6 +19,7 @@ import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
 import { EngineeringInspectionAccessPolicy, EngineeringInspectionPermission } from "./policies/engineering-inspection-access.policy";
@@ -44,6 +45,7 @@ export class EngineeringInspectionService {
     private readonly dailyReportsRepository: EngineeringDailyReportRepository,
     private readonly accessPolicy: EngineeringInspectionAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     private readonly eventPublisher: EngineeringEventPublisher
   ) {}
@@ -54,8 +56,9 @@ export class EngineeringInspectionService {
     await this.assertPlanBelongsToProject(dto.plan_id ?? null, project.id, context);
     await this.assertDailyReportBelongsToProject(dto.daily_report_id ?? null, project.id, context);
     this.assertInspectionCounts(dto.issue_count, dto.critical_issue_count);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const inspection = await this.inspectionsRepository.createInspection(context, context.actor.sub, this.toCreateInspectionInput(dto, project));
+    const inspection = await this.inspectionsRepository.createInspection(context, context.actor.sub, this.toCreateInspectionInput(dto, project, attachmentIds ?? null));
     await this.logInspectionChange("CREATE", inspection, context, null, this.inspectionSnapshot(inspection));
     await this.publishInspectionEvent("EngineeringInspectionCreatedEvent", inspection, context, {
       inspectionCode: inspection.inspectionCode,
@@ -91,8 +94,9 @@ export class EngineeringInspectionService {
     await this.assertPlanBelongsToProject(dto.plan_id ?? undefined, before.projectId, context);
     await this.assertDailyReportBelongsToProject(dto.daily_report_id ?? undefined, before.projectId, context);
     this.assertInspectionCounts(dto.issue_count, dto.critical_issue_count);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const updated = await this.inspectionsRepository.updateInspection(context, context.actor.sub, id, this.toUpdateInspectionInput(dto));
+    const updated = await this.inspectionsRepository.updateInspection(context, context.actor.sub, id, this.toUpdateInspectionInput(dto, attachmentIds));
     await this.logInspectionChange("UPDATE", updated, context, this.inspectionSnapshot(before), this.inspectionSnapshot(updated));
     await this.publishInspectionEvent("EngineeringInspectionUpdatedEvent", updated, context, {
       inspectionCode: updated.inspectionCode,
@@ -187,7 +191,8 @@ export class EngineeringInspectionService {
     const before = await this.findIssueInScope(id, context);
     await this.assertPlanBelongsToProject(dto.plan_id ?? undefined, before.projectId, context);
     await this.assertDailyReportBelongsToProject(dto.daily_report_id ?? undefined, before.projectId, context);
-    const updated = await this.issuesRepository.updateIssue(context, context.actor.sub, id, this.toUpdateIssueInput(dto, context));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const updated = await this.issuesRepository.updateIssue(context, context.actor.sub, id, this.toUpdateIssueInput(dto, context, attachmentIds));
     await this.logIssueChange("UPDATE", updated, context, this.issueSnapshot(before), this.issueSnapshot(updated));
     await this.publishIssueEvent("EngineeringIssueUpdatedEvent", updated, context, {
       issueCode: updated.issueCode,
@@ -210,11 +215,12 @@ export class EngineeringInspectionService {
     if (existing) {
       throw new ConflictException("Engineering issue already has a rectification task");
     }
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
     const rectification = await this.rectificationsRepository.createRectification(
       context,
       context.actor.sub,
-      this.toCreateRectificationInput(issue, dto)
+      this.toCreateRectificationInput(issue, dto, attachmentIds ?? issue.attachmentIds)
     );
     const updatedIssue = await this.issuesRepository.updateIssue(context, context.actor.sub, issue.id, {
       rectificationId: rectification.id,
@@ -355,6 +361,7 @@ export class EngineeringInspectionService {
     const project = await this.findProjectInScope(projectId, context);
     await this.assertPlanBelongsToProject(dto.plan_id ?? inspection?.planId ?? null, project.id, context);
     await this.assertDailyReportBelongsToProject(dto.daily_report_id ?? inspection?.dailyReportId ?? null, project.id, context);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
     return {
       orgId: project.orgId,
       projectId: project.id,
@@ -376,12 +383,16 @@ export class EngineeringInspectionService {
       deadline: dto.deadline ?? null,
       sourceType: dto.source_type ?? (inspection ? EngineeringIssueSourceType.INSPECTION : EngineeringIssueSourceType.MANUAL),
       sourceId: dto.source_id ?? dto.inspection_id ?? inspection?.id ?? null,
-      attachmentIds: dto.attachment_ids ?? null,
+      attachmentIds: attachmentIds ?? null,
       remark: dto.remark ?? null
     };
   }
 
-  private toCreateRectificationInput(issue: EngineeringIssueEntity, dto: GenerateEngineeringRectificationDto): CreateEngineeringRectificationInput {
+  private toCreateRectificationInput(
+    issue: EngineeringIssueEntity,
+    dto: GenerateEngineeringRectificationDto,
+    attachmentIds: string[] | null
+  ): CreateEngineeringRectificationInput {
     return {
       orgId: issue.orgId,
       projectId: issue.projectId,
@@ -399,12 +410,16 @@ export class EngineeringInspectionService {
       floorId: issue.floorId,
       spaceId: issue.spaceId,
       deadline: dto.deadline ?? issue.deadline,
-      attachmentIds: dto.attachment_ids ?? issue.attachmentIds,
+      attachmentIds,
       remark: dto.remark ?? issue.remark
     };
   }
 
-  private toCreateInspectionInput(dto: CreateEngineeringInspectionDto, project: EngineeringProjectEntity): CreateEngineeringInspectionInput {
+  private toCreateInspectionInput(
+    dto: CreateEngineeringInspectionDto,
+    project: EngineeringProjectEntity,
+    attachmentIds: string[] | null
+  ): CreateEngineeringInspectionInput {
     return {
       orgId: project.orgId,
       projectId: project.id,
@@ -425,12 +440,12 @@ export class EngineeringInspectionService {
       overallResult: dto.overall_result ?? null,
       issueCount: dto.issue_count,
       criticalIssueCount: dto.critical_issue_count,
-      attachmentIds: dto.attachment_ids ?? null,
+      attachmentIds,
       remark: dto.remark ?? null
     };
   }
 
-  private toUpdateInspectionInput(dto: UpdateEngineeringInspectionDto): UpdateEngineeringInspectionInput {
+  private toUpdateInspectionInput(dto: UpdateEngineeringInspectionDto, attachmentIds: string[] | null | undefined): UpdateEngineeringInspectionInput {
     const input: UpdateEngineeringInspectionInput = {};
     this.assignIfDefined(input, "planId", dto.plan_id ?? undefined);
     this.assignIfDefined(input, "dailyReportId", dto.daily_report_id ?? undefined);
@@ -449,12 +464,16 @@ export class EngineeringInspectionService {
     this.assignIfDefined(input, "overallResult", dto.overall_result ?? undefined);
     this.assignIfDefined(input, "issueCount", dto.issue_count);
     this.assignIfDefined(input, "criticalIssueCount", dto.critical_issue_count);
-    this.assignIfDefined(input, "attachmentIds", dto.attachment_ids ?? undefined);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     return input;
   }
 
-  private toUpdateIssueInput(dto: UpdateEngineeringIssueDto, context: EngineeringProjectRuntimeContext): UpdateEngineeringIssueInput {
+  private toUpdateIssueInput(
+    dto: UpdateEngineeringIssueDto,
+    context: EngineeringProjectRuntimeContext,
+    attachmentIds: string[] | null | undefined
+  ): UpdateEngineeringIssueInput {
     const input: UpdateEngineeringIssueInput = {};
     this.assignIfDefined(input, "planId", dto.plan_id ?? undefined);
     this.assignIfDefined(input, "dailyReportId", dto.daily_report_id ?? undefined);
@@ -473,7 +492,7 @@ export class EngineeringInspectionService {
     this.assignIfDefined(input, "supervisorOrgId", dto.supervisor_org_id ?? undefined);
     this.assignIfDefined(input, "deadline", dto.deadline ?? undefined);
     this.assignIfDefined(input, "rectificationId", dto.rectification_id ?? undefined);
-    this.assignIfDefined(input, "attachmentIds", dto.attachment_ids ?? undefined);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     if (dto.issue_status === EngineeringIssueStatus.CLOSED) {
       input.closedAt = new Date();

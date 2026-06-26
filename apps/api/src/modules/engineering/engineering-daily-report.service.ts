@@ -13,6 +13,7 @@ import { EngineeringDailyReportEntity } from "./entities/engineering-daily-repor
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import { EngineeringDailyReportAccessPolicy, EngineeringDailyReportPermission } from "./policies/engineering-daily-report-access.policy";
 import { EngineeringDataScopeAdapter } from "./policies/engineering-data-scope.adapter";
@@ -32,6 +33,7 @@ export class EngineeringDailyReportService {
     private readonly plansRepository: EngineeringPlanRepository,
     private readonly accessPolicy: EngineeringDailyReportAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     private readonly eventPublisher: EngineeringEventPublisher
   ) {}
@@ -49,8 +51,9 @@ export class EngineeringDailyReportService {
     this.assertCounts(dto.worker_count, dto.manager_count);
     this.assertProgress(dto.progress_percent ?? 0, "progressPercent");
     await this.assertNoDuplicate(project.id, dto.report_date, dto.contractor_org_id ?? null, context);
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const report = await this.dailyReportsRepository.createDailyReport(context, context.actor.sub, this.toCreateInput(dto, project));
+    const report = await this.dailyReportsRepository.createDailyReport(context, context.actor.sub, this.toCreateInput(dto, project, attachmentIds ?? null));
     await this.logChange("CREATE", report, context, null, this.reportSnapshot(report));
     await this.publishReportEvent("EngineeringDailyReportCreatedEvent", report, context, {
       reportCode: report.reportCode,
@@ -94,8 +97,9 @@ export class EngineeringDailyReportService {
     if (dto.contractor_org_id !== undefined && dto.contractor_org_id !== before.contractorOrgId) {
       await this.assertNoDuplicate(before.projectId, before.reportDate, dto.contractor_org_id ?? null, context, before.id);
     }
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
 
-    const updated = await this.dailyReportsRepository.updateDailyReport(context, context.actor.sub, id, this.toUpdateInput(dto));
+    const updated = await this.dailyReportsRepository.updateDailyReport(context, context.actor.sub, id, this.toUpdateInput(dto, attachmentIds));
     await this.logChange("UPDATE", updated, context, this.reportSnapshot(before), this.reportSnapshot(updated));
     await this.publishReportEvent("EngineeringDailyReportUpdatedEvent", updated, context, {
       reportCode: updated.reportCode,
@@ -258,7 +262,11 @@ export class EngineeringDailyReportService {
     return { actorPermissions: context.actor.permissions };
   }
 
-  private toCreateInput(dto: CreateEngineeringDailyReportDto, project: EngineeringProjectEntity): CreateEngineeringDailyReportInput {
+  private toCreateInput(
+    dto: CreateEngineeringDailyReportDto,
+    project: EngineeringProjectEntity,
+    attachmentIds: string[] | null
+  ): CreateEngineeringDailyReportInput {
     return {
       orgId: project.orgId,
       projectId: dto.project_id,
@@ -280,12 +288,12 @@ export class EngineeringDailyReportService {
       progressPercent: dto.progress_percent,
       contractorOrgId: dto.contractor_org_id ?? null,
       supervisorOrgId: dto.supervisor_org_id ?? null,
-      attachmentIds: dto.attachment_ids ?? null,
+      attachmentIds,
       remark: dto.remark ?? null
     };
   }
 
-  private toUpdateInput(dto: UpdateEngineeringDailyReportDto): UpdateEngineeringDailyReportInput {
+  private toUpdateInput(dto: UpdateEngineeringDailyReportDto, attachmentIds: string[] | null | undefined): UpdateEngineeringDailyReportInput {
     const input: UpdateEngineeringDailyReportInput = {};
     this.assignIfDefined(input, "planId", dto.plan_id ?? undefined);
     this.assignIfDefined(input, "weather", dto.weather);
@@ -304,7 +312,7 @@ export class EngineeringDailyReportService {
     this.assignIfDefined(input, "progressPercent", dto.progress_percent);
     this.assignIfDefined(input, "contractorOrgId", dto.contractor_org_id ?? undefined);
     this.assignIfDefined(input, "supervisorOrgId", dto.supervisor_org_id ?? undefined);
-    this.assignIfDefined(input, "attachmentIds", dto.attachment_ids ?? undefined);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     return input;
   }

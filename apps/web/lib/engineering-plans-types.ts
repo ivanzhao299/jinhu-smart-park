@@ -31,6 +31,7 @@ export interface EngineeringPlan {
   delayDays: number;
   riskLevel: EngineeringRiskLevel;
   sortOrder: number;
+  attachmentIds: string[] | null;
   remark: string | null;
   createBy: string | null;
   updateBy: string | null;
@@ -70,6 +71,7 @@ export interface CreateEngineeringPlanInput {
   contractor_org_id?: string;
   risk_level?: EngineeringRiskLevel;
   sort_order?: number;
+  attachment_ids?: string[];
   remark?: string;
 }
 
@@ -91,6 +93,7 @@ export interface UpdateEngineeringPlanInput {
   contractor_org_id?: string;
   risk_level?: EngineeringRiskLevel;
   sort_order?: number;
+  attachment_ids?: string[];
   remark?: string;
 }
 

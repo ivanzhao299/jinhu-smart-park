@@ -87,6 +87,7 @@ export interface EngineeringProject {
   transferStatus: EngineeringTransferStatus;
   financeStatus: EngineeringFinanceStatus;
   assetStatus: EngineeringAssetStatus;
+  attachmentIds: string[] | null;
   remark: string | null;
   createBy: string | null;
   updateBy: string | null;
@@ -133,6 +134,7 @@ export interface CreateEngineeringProjectInput {
   contractor_org_id?: string;
   supervisor_org_id?: string;
   risk_level?: EngineeringRiskLevel;
+  attachment_ids?: string[];
   remark?: string;
 }
 
@@ -159,6 +161,7 @@ export interface UpdateEngineeringProjectInput {
   supervisor_org_id?: string;
   progress_percent?: number;
   risk_level?: EngineeringRiskLevel;
+  attachment_ids?: string[];
   remark?: string;
 }
 

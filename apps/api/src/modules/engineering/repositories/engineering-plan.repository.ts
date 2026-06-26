@@ -25,6 +25,7 @@ export interface CreateEngineeringPlanInput {
   contractorOrgId?: string | null;
   riskLevel?: EngineeringRiskLevel;
   sortOrder?: number;
+  attachmentIds?: string[] | null;
   remark?: string | null;
 }
 
@@ -47,6 +48,7 @@ export interface UpdateEngineeringPlanInput {
   riskLevel?: EngineeringRiskLevel;
   sortOrder?: number;
   delayDays?: number;
+  attachmentIds?: string[] | null;
   remark?: string | null;
 }
 
@@ -118,6 +120,7 @@ export class EngineeringPlanRepository {
       delayDays: 0,
       riskLevel: input.riskLevel ?? EngineeringRiskLevel.LOW,
       sortOrder: input.sortOrder ?? 0,
+      attachmentIds: input.attachmentIds ?? null,
       remark: input.remark ?? null,
       createBy: actorId,
       updateBy: actorId

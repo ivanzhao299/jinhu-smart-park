@@ -19,6 +19,7 @@ test("EngineeringProjectEntity is mapped to the engineering project table", () =
   assert.ok(columns.includes("project_name"));
   assert.ok(columns.includes("project_type"));
   assert.ok(columns.includes("status"));
+  assert.ok(columns.includes("attachment_ids"));
 });
 
 test("EngineeringProject enum baseline includes required project type and default status", () => {
@@ -34,6 +35,14 @@ test("EngineeringProject migration declares table and tenant-scoped code uniquen
   assert.match(migration, /project_code varchar\(64\) NOT NULL/);
   assert.match(migration, /ON biz_engineering_project \(tenant_id, project_code\)/);
   assert.match(migration, /status varchar\(32\) NOT NULL DEFAULT 'DRAFT'/);
+});
+
+test("EngineeringProject attachment migration declares attachment id support", () => {
+  const migrationPath = resolve(__dirname, "../../../../../database/migrations/000159_epdr_engineering_attachment_ids.sql");
+  const migration = readFileSync(migrationPath, "utf8");
+
+  assert.match(migration, /ALTER TABLE biz_engineering_project/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS attachment_ids jsonb NULL/);
 });
 
 test("UpdateEngineeringProjectDto does not expose direct status updates", () => {

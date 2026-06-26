@@ -154,3 +154,13 @@ Phase 2 可在不破坏当前模型的基础上扩展：
 - 工程分析 Runtime
 - AI 工程助手 Runtime
 - IoT / Digital Twin 现场数据接入
+
+## 9. 附件能力
+
+Task 025 已接入统一附件引用边界。工程项目通过 `attachment_ids` 引用现有 Files Runtime 文件，服务端会校验文件属于当前租户和园区，不保存文件内容或外部凭证。
+
+详见：
+
+```text
+docs/engineering/engineering-attachment.md
+```

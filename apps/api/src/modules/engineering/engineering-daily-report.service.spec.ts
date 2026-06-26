@@ -7,6 +7,7 @@ import { EngineeringDailyReportEntity } from "./entities/engineering-daily-repor
 import { EngineeringPlanEntity } from "./entities/engineering-plan.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher, type EngineeringDailyReportEventType } from "./events/engineering-event.publisher";
 import { EngineeringDailyReportService } from "./engineering-daily-report.service";
 import { EngineeringProjectRuntimeContext } from "./engineering-project.service";
@@ -216,6 +217,9 @@ function makeHarness(
       auditActions.push(input.action);
     }
   } as unknown as EngineeringAuditLogger;
+  const attachmentService = {
+    normalizeAttachmentIds: async (_scope: unknown, attachmentIds: string[] | null | undefined) => attachmentIds
+  } as unknown as EngineeringAttachmentService;
 
   const eventPublisher = {
     publishDailyReportEvent: async (input: { eventType: EngineeringDailyReportEventType }) => {
@@ -229,6 +233,7 @@ function makeHarness(
     plansRepository,
     accessPolicy,
     dataScopeAdapter,
+    attachmentService,
     auditLogger,
     eventPublisher
   );

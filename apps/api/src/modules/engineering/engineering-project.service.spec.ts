@@ -3,6 +3,7 @@ import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
 import type { Repository } from "typeorm";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringProjectStatus, EngineeringProjectType } from "./domain/engineering-project.enums";
 import { EngineeringProjectAction } from "./domain/engineering-project-state-machine.types";
 import type { CreateEngineeringProjectDto, UpdateEngineeringProjectDto } from "./dto/engineering-project.dto";
@@ -134,6 +135,9 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
       auditActions.push(input.action);
     }
   } as unknown as EngineeringAuditLogger;
+  const attachmentService = {
+    normalizeAttachmentIds: async (_scope: unknown, attachmentIds: string[] | null | undefined) => attachmentIds
+  } as unknown as EngineeringAttachmentService;
   const statusLogsRepository = {
     find: async () => [
       {
@@ -150,7 +154,15 @@ function makeHarness(status: EngineeringProjectStatus = EngineeringProjectStatus
       } as EngineeringProjectStatusLogEntity
     ]
   } as unknown as Repository<EngineeringProjectStatusLogEntity>;
-  const service = new EngineeringProjectService(projectsRepository, statusService, accessPolicy, dataScopeAdapter, auditLogger, statusLogsRepository);
+  const service = new EngineeringProjectService(
+    projectsRepository,
+    statusService,
+    accessPolicy,
+    dataScopeAdapter,
+    attachmentService,
+    auditLogger,
+    statusLogsRepository
+  );
   return {
     service,
     context: makeContext(),
@@ -267,6 +279,9 @@ test("EngineeringProjectService propagates illegal transition errors from status
     {
       applyProjectScope: async () => undefined
     } as unknown as EngineeringDataScopeAdapter,
+    {
+      normalizeAttachmentIds: async (_scope: unknown, attachmentIds: string[] | null | undefined) => attachmentIds
+    } as unknown as EngineeringAttachmentService,
     {
       logProjectChanged: async () => undefined
     } as unknown as EngineeringAuditLogger,

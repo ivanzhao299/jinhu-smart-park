@@ -14,6 +14,7 @@ import { EngineeringRectificationAction, type EngineeringRectificationTransition
 import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
+import { EngineeringAttachmentService } from "./engineering-attachment.service";
 import { EngineeringEventPublisher } from "./events/engineering-event.publisher";
 import type { EngineeringProjectRuntimeContext } from "./engineering-project.service";
 import { EngineeringRectificationStateMachine } from "./engineering-rectification-state.machine";
@@ -40,6 +41,7 @@ export class EngineeringRectificationService {
     private readonly stateMachine: EngineeringRectificationStateMachine,
     private readonly accessPolicy: EngineeringRectificationAccessPolicy,
     private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly attachmentService: EngineeringAttachmentService,
     private readonly auditLogger: EngineeringAuditLogger,
     private readonly eventPublisher: EngineeringEventPublisher
   ) {}
@@ -57,10 +59,11 @@ export class EngineeringRectificationService {
         throw new BadRequestException("Engineering issue already has a rectification task");
       }
     }
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
     const rectification = await this.rectificationsRepository.createRectification(
       context,
       context.actor.sub,
-      this.toCreateRectificationInput(dto, project, issue)
+      this.toCreateRectificationInput(dto, project, issue, attachmentIds ?? issue?.attachmentIds ?? null)
     );
     if (issue) {
       await this.issuesRepository.updateIssue(context, context.actor.sub, issue.id, {
@@ -103,7 +106,8 @@ export class EngineeringRectificationService {
     this.accessPolicy.assertPermission(EngineeringRectificationPermission.UPDATE, this.permissionContext(context));
     const before = await this.findRectificationInScope(id, context);
     this.assertRectificationEditable(before);
-    const updated = await this.rectificationsRepository.updateRectification(context, context.actor.sub, id, this.toUpdateRectificationInput(dto));
+    const attachmentIds = await this.attachmentService.normalizeAttachmentIds(context, dto.attachment_ids);
+    const updated = await this.rectificationsRepository.updateRectification(context, context.actor.sub, id, this.toUpdateRectificationInput(dto, attachmentIds));
     await this.logRectificationChange("UPDATE", updated, context, this.rectificationSnapshot(before), this.rectificationSnapshot(updated));
     return updated;
   }
@@ -290,7 +294,8 @@ export class EngineeringRectificationService {
   private toCreateRectificationInput(
     dto: CreateEngineeringRectificationDto,
     project: EngineeringProjectEntity,
-    issue: EngineeringIssueEntity | null
+    issue: EngineeringIssueEntity | null,
+    attachmentIds: string[] | null
   ): CreateEngineeringRectificationInput {
     return {
       orgId: project.orgId,
@@ -309,12 +314,15 @@ export class EngineeringRectificationService {
       floorId: dto.floor_id ?? issue?.floorId ?? null,
       spaceId: dto.space_id ?? issue?.spaceId ?? null,
       deadline: dto.deadline ?? issue?.deadline ?? null,
-      attachmentIds: dto.attachment_ids ?? issue?.attachmentIds ?? null,
+      attachmentIds,
       remark: dto.remark ?? null
     };
   }
 
-  private toUpdateRectificationInput(dto: UpdateEngineeringRectificationDto): UpdateEngineeringRectificationInput {
+  private toUpdateRectificationInput(
+    dto: UpdateEngineeringRectificationDto,
+    attachmentIds: string[] | null | undefined
+  ): UpdateEngineeringRectificationInput {
     const input: UpdateEngineeringRectificationInput = {};
     this.assignIfDefined(input, "rectificationTitle", dto.rectification_title);
     this.assignIfDefined(input, "description", dto.description);
@@ -328,7 +336,7 @@ export class EngineeringRectificationService {
     this.assignIfDefined(input, "floorId", dto.floor_id ?? undefined);
     this.assignIfDefined(input, "spaceId", dto.space_id ?? undefined);
     this.assignIfDefined(input, "deadline", dto.deadline ?? undefined);
-    this.assignIfDefined(input, "attachmentIds", dto.attachment_ids ?? undefined);
+    this.assignIfDefined(input, "attachmentIds", attachmentIds);
     this.assignIfDefined(input, "remark", dto.remark ?? undefined);
     return input;
   }
