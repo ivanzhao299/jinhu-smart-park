@@ -17,6 +17,8 @@ import { EngineeringAcceptancesController } from "./engineering-acceptances.cont
 import { EngineeringDailyReportService } from "./engineering-daily-report.service";
 import { EngineeringDailyReportsController } from "./engineering-daily-reports.controller";
 import { EngineeringController } from "./engineering.controller";
+import { EngineeringDashboardController } from "./engineering-dashboard.controller";
+import { EngineeringDashboardService } from "./engineering-dashboard.service";
 import { EngineeringInspectionService } from "./engineering-inspection.service";
 import { EngineeringInspectionsController } from "./engineering-inspections.controller";
 import { EngineeringPlanService } from "./engineering-plan.service";
@@ -65,6 +67,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     EngineeringProjectsController,
     EngineeringPlansController,
     EngineeringDailyReportsController,
+    EngineeringDashboardController,
     EngineeringInspectionsController,
     EngineeringRectificationsController,
     EngineeringAcceptancesController
@@ -77,6 +80,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringDashboardService,
     EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,
@@ -106,6 +110,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     EngineeringPlanRepository,
     EngineeringDailyReportService,
     EngineeringDailyReportRepository,
+    EngineeringDashboardService,
     EngineeringInspectionService,
     EngineeringInspectionRepository,
     EngineeringIssueRepository,

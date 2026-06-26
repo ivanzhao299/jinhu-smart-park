@@ -4,7 +4,8 @@ export const EngineeringProjectPermission = {
   VIEW: "ENGINEERING_PROJECT_VIEW",
   CREATE: "ENGINEERING_PROJECT_CREATE",
   UPDATE: "ENGINEERING_PROJECT_UPDATE",
-  DELETE: "ENGINEERING_PROJECT_UPDATE"
+  DELETE: "ENGINEERING_PROJECT_UPDATE",
+  DASHBOARD_VIEW: "ENGINEERING_DASHBOARD_VIEW"
 } as const;
 
 export type EngineeringProjectPermissionValue = (typeof EngineeringProjectPermission)[keyof typeof EngineeringProjectPermission];
