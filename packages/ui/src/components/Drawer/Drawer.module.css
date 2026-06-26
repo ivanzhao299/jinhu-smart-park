@@ -420,8 +420,29 @@
 
 @media (max-width: 760px) {
   .drawerPanel {
+    color-scheme: light;
+    --text-primary: #081a2c;
+    --text-secondary: #40566c;
+    --text-tertiary: #6b7f93;
+    --text-disabled: #8293a7;
+    --bg-page: #edf4fb;
+    --bg-card: #ffffff;
+    --bg-muted: #e7f0f8;
+    --surface-elevated: #ffffff;
+    --surface-subtle: #f6f9fc;
+    --surface-tint: #eef7ff;
+    --border: #c7d7e6;
+    --border-strong: #7898b4;
+    --border-soft: #dce7f1;
+    --form-label-color: #10263b;
+    --form-control-bg: #ffffff;
+    --form-control-bg-muted: #f5f8fc;
+    --form-control-border: #9bb3ca;
+    --form-control-border-hover: #0b4f7a;
+    --form-control-focus-ring: 0 0 0 4px rgba(247, 201, 72, 0.24);
+
     background: #eef2f7;
-    color: #0b1f33;
+    color: var(--text-primary);
   }
 
   .drawerHeader {
@@ -464,14 +485,14 @@
   .drawerPanel > :global(.drawer-scroll-content) {
     background:
       radial-gradient(circle at 10% 0%, rgba(247, 201, 72, 0.12), transparent 12rem),
-      #eef2f7;
+      linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
   }
 
   .drawerSection {
-    border: 1px solid rgba(11, 31, 51, 0.10);
+    border: 1px solid rgba(11, 31, 51, 0.12);
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 12px 26px rgba(11, 31, 51, 0.08);
+    background: #ffffff;
+    box-shadow: 0 12px 26px rgba(11, 31, 51, 0.07);
     padding: 14px;
   }
 
@@ -482,9 +503,26 @@
 
   .drawerFooter {
     border-top-color: rgba(11, 31, 51, 0.10);
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.94);
     box-shadow: 0 -16px 34px rgba(11, 31, 51, 0.14);
     backdrop-filter: blur(16px);
+  }
+
+  .drawerPanel input,
+  .drawerPanel select,
+  .drawerPanel textarea {
+    background: #ffffff;
+    color: #081a2c;
+    border-color: #9bb3ca;
+  }
+
+  .drawerPanel select {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%2340566c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  .drawerPanel input::placeholder,
+  .drawerPanel textarea::placeholder {
+    color: #8293a7;
   }
 }
 

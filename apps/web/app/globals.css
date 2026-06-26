@@ -6006,6 +6006,27 @@ textarea:disabled {
 }
 
 @media (max-width: 760px) {
+  [data-ui-drawer-panel="true"].ds-compact-drawer {
+    --text-primary: #081a2c;
+    --text-secondary: #40566c;
+    --text-tertiary: #6b7f93;
+    --text-disabled: #8293a7;
+    --bg-card: #ffffff;
+    --bg-muted: #e7f0f8;
+    --surface-elevated: #ffffff;
+    --surface-subtle: #f6f9fc;
+    --surface-tint: #eef7ff;
+    --border: #c7d7e6;
+    --border-strong: #7898b4;
+    --border-soft: #dce7f1;
+    --form-label-color: #10263b;
+    --form-control-bg: #ffffff;
+    --form-control-bg-muted: #f5f8fc;
+    --form-control-border: #9bb3ca;
+    --form-control-border-hover: #0b4f7a;
+    --form-control-focus-ring: 0 0 0 4px rgba(247, 201, 72, 0.24);
+  }
+
   [data-ui-drawer-panel="true"].ds-compact-drawer .contract-note-grid {
     grid-template-columns: 1fr;
   }
@@ -6031,11 +6052,15 @@ textarea:disabled {
     min-height: 50px;
     border-color: var(--form-control-border);
     border-radius: 12px;
-    background: var(--form-control-bg);
+    background: #ffffff;
+    color: #081a2c;
     padding: 0 16px;
     font-size: 16px;
     font-weight: 600;
     line-height: 1.45;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+      0 10px 22px rgba(11, 31, 51, 0.06);
   }
 
   [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field textarea,
@@ -6043,11 +6068,75 @@ textarea:disabled {
     min-height: 126px;
     border-color: var(--form-control-border);
     border-radius: 12px;
-    background: var(--form-control-bg);
+    background: #ffffff;
+    color: #081a2c;
     padding: 14px 16px;
     font-size: 16px;
     font-weight: 560;
     line-height: 1.65;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+      0 10px 22px rgba(11, 31, 51, 0.06);
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field input::placeholder,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field textarea::placeholder,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field input::placeholder,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field textarea::placeholder {
+    color: #8293a7;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field select,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field select {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%2340566c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .terminal-field option,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .field option {
+    background: #ffffff;
+    color: #081a2c;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-flow-note,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-intent-card {
+    border-color: #c7d7e6;
+    background: #ffffff;
+    color: #081a2c;
+    box-shadow: 0 8px 20px rgba(11, 31, 51, 0.06);
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-flow-note strong,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-intent-card strong {
+    color: #081a2c;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-flow-note span,
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-intent-card small {
+    color: #40566c;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .workorder-intent-card-active {
+    border-color: #d89b13;
+    background: linear-gradient(180deg, rgba(247, 201, 72, 0.16), #ffffff 78%);
+    box-shadow:
+      inset 0 0 0 1px rgba(216, 155, 19, 0.50),
+      0 10px 24px rgba(216, 155, 19, 0.14);
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .operation-photo-upload-card {
+    border-color: #d89b13;
+    background:
+      linear-gradient(135deg, rgba(247, 201, 72, 0.16), rgba(11, 79, 122, 0.06) 64%),
+      #ffffff;
+    color: #081a2c;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .operation-photo-upload-copy strong {
+    color: #081a2c;
+  }
+
+  [data-ui-drawer-panel="true"].ds-compact-drawer .operation-photo-upload-copy small {
+    color: #40566c;
   }
 
   [data-ui-drawer-panel="true"].ds-compact-drawer .primary-button,
