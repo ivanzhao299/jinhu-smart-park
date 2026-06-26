@@ -64,6 +64,32 @@ export enum EngineeringAssetStatus {
   GENERATED = "GENERATED"
 }
 
+export enum EngineeringPlanType {
+  MASTER = "MASTER",
+  PHASE = "PHASE",
+  WEEKLY = "WEEKLY",
+  DAILY = "DAILY",
+  SPECIAL = "SPECIAL",
+  MILESTONE = "MILESTONE"
+}
+
+export enum EngineeringPlanStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+  APPROVED = "APPROVED",
+  IN_PROGRESS = "IN_PROGRESS",
+  DELAYED = "DELAYED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED"
+}
+
+export enum EngineeringPlanLevel {
+  L1 = "L1",
+  L2 = "L2",
+  L3 = "L3",
+  L4 = "L4"
+}
+
 export const ENGINEERING_PROJECT_TYPE_VALUES = Object.values(EngineeringProjectType);
 export const ENGINEERING_PROJECT_STATUS_VALUES = Object.values(EngineeringProjectStatus);
 export const ENGINEERING_PROJECT_LEVEL_VALUES = Object.values(EngineeringProjectLevel);
@@ -71,3 +97,6 @@ export const ENGINEERING_RISK_LEVEL_VALUES = Object.values(EngineeringRiskLevel)
 export const ENGINEERING_TRANSFER_STATUS_VALUES = Object.values(EngineeringTransferStatus);
 export const ENGINEERING_FINANCE_STATUS_VALUES = Object.values(EngineeringFinanceStatus);
 export const ENGINEERING_ASSET_STATUS_VALUES = Object.values(EngineeringAssetStatus);
+export const ENGINEERING_PLAN_TYPE_VALUES = Object.values(EngineeringPlanType);
+export const ENGINEERING_PLAN_STATUS_VALUES = Object.values(EngineeringPlanStatus);
+export const ENGINEERING_PLAN_LEVEL_VALUES = Object.values(EngineeringPlanLevel);
