@@ -25,6 +25,8 @@ EPDR（Engineering Project Delivery Runtime，工程项目交付运行时）是 
 
 RBAC 说明见 `docs/engineering/engineering-rbac.md`。业务对象、状态动作、Dashboard 和前端按钮均由 EPDR 专属 RBAC 控制。
 
+总文档入口见 `docs/engineering/README.md`。
+
 事件流说明见 `docs/engineering/engineering-eventbus.md`。Task 023 起，工程领域事件会写入 `biz_engineering_event_log`，供后续 Workflow、Notification 和 AI Agent 消费。
 
 审计说明见 `docs/engineering/engineering-audit-log.md`。Task 024 起，工程项目基础写操作与各子 Runtime 写操作统一经 `EngineeringAuditLogger` 写入平台 AuditService。
