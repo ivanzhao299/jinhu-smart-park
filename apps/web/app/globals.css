@@ -7612,7 +7612,7 @@ textarea {
   min-height: var(--form-control-height);
   border-color: var(--form-control-border);
   border-radius: var(--form-control-radius);
-  background: var(--form-control-bg);
+  background-color: var(--form-control-bg);
 }
 
 textarea {
@@ -9014,7 +9014,7 @@ select {
 
 @media (max-width: 720px) {
   body.operations-terminal-safe-area .dashboard-shell {
-    --header-height: calc(92px + env(safe-area-inset-top));
+    --header-height: calc(82px + env(safe-area-inset-top));
     background:
       linear-gradient(180deg, #041827 0%, #0b4f7a calc(var(--header-height) + 28px), var(--bg-page) calc(var(--header-height) + 28px));
   }
@@ -9223,40 +9223,42 @@ select {
 @media (max-width: 720px) {
   body.operations-terminal-safe-area .app-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(146px, 174px);
+    grid-template-columns: minmax(0, 1fr) 166px;
     gap: 10px;
     align-items: center;
-    min-height: calc(112px + env(safe-area-inset-top));
-    padding: calc(14px + env(safe-area-inset-top)) 12px 14px 16px;
+    min-height: calc(92px + env(safe-area-inset-top));
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px 14px;
   }
 
   body.operations-terminal-safe-area .header-leading {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    align-self: center;
+    gap: 0;
     min-width: 0;
     padding-left: 0;
   }
 
   body.operations-terminal-safe-area .header-brand-lockup {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
 
   body.operations-terminal-safe-area .header-brand-symbol {
-    width: 34px;
-    height: 24px;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 30px;
     object-position: left center;
   }
 
   body.operations-terminal-safe-area .header-brand-lockup strong {
-    max-width: min(210px, calc(100vw - 214px));
+    max-width: min(220px, calc(100vw - 218px));
     overflow: hidden;
-    font-size: clamp(15px, 4vw, 18px);
+    font-size: clamp(16px, 4.2vw, 19px);
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -9264,15 +9266,15 @@ select {
 
   body.operations-terminal-safe-area .header-actions {
     display: grid;
-    grid-template-columns: repeat(2, 42px);
-    grid-auto-rows: 42px;
+    grid-template-columns: repeat(2, 36px);
+    grid-template-rows: 36px 34px;
     justify-content: end;
     align-items: center;
     justify-self: end;
-    gap: 8px 10px;
+    gap: 6px 8px;
     width: 100%;
-    min-width: 146px;
-    max-width: 174px;
+    min-width: 150px;
+    max-width: 166px;
   }
 
   body.operations-terminal-safe-area .header-actions .header-icon-button.ant-btn,
@@ -9281,28 +9283,28 @@ select {
     align-items: center;
     justify-content: center;
     justify-self: end;
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 12px;
   }
 
   body.operations-terminal-safe-area .header-actions .user-menu {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 62px;
+    grid-template-columns: 30px minmax(0, 1fr) 66px;
     align-items: center;
     justify-content: stretch;
     gap: 7px;
     width: 100%;
     min-width: 0;
-    min-height: 38px;
+    min-height: 34px;
     overflow: hidden;
   }
 
   body.operations-terminal-safe-area .header-actions .user-avatar {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
   }
 
   body.operations-terminal-safe-area .header-actions .user-menu-name {
@@ -9310,7 +9312,7 @@ select {
     max-width: none;
     overflow: hidden;
     color: #f8fafc;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 820;
     line-height: 1.2;
     text-overflow: ellipsis;
@@ -9318,13 +9320,14 @@ select {
   }
 
   body.operations-terminal-safe-area .app-header .user-menu .user-logout-button {
-    width: 62px;
-    min-width: 62px;
-    height: 34px;
-    border-radius: 12px;
+    width: 66px;
+    min-width: 66px;
+    height: 32px;
+    border-radius: 11px;
+    gap: 4px;
     padding: 0 8px;
     color: #f8fafc;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1;
     white-space: nowrap;
     word-break: keep-all;
@@ -9334,6 +9337,13 @@ select {
   body.operations-terminal-safe-area .app-header .user-menu .user-logout-button span {
     display: inline-block;
     white-space: nowrap;
+  }
+
+  select {
+    background-position: right 16px center !important;
+    background-repeat: no-repeat !important;
+    background-size: 16px 16px !important;
+    padding-right: 44px !important;
   }
 
   body.operations-terminal-safe-area .ds-section-panel,
