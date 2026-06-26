@@ -20,6 +20,8 @@ import { engineeringInspectionsApi } from "../../../../lib/engineering-inspectio
 import type { EngineeringInspection } from "../../../../lib/engineering-inspections-types";
 import { engineeringRectificationsApi } from "../../../../lib/engineering-rectifications-api";
 import type { EngineeringRectification } from "../../../../lib/engineering-rectifications-types";
+import { engineeringAcceptancesApi } from "../../../../lib/engineering-acceptances-api";
+import type { EngineeringAcceptance } from "../../../../lib/engineering-acceptances-types";
 import {
   DailyReportProgressBar,
   DailyReportStatusPill,
@@ -29,6 +31,7 @@ import {
 import { InspectionStatusPill, InspectionTypePill, formatDateTime as formatInspectionDateTime } from "../../inspections/components/EngineeringInspectionShared";
 import { PlanProgressBar, PlanTreeTable } from "../../plans/components/EngineeringPlanShared";
 import { RectificationSeverityPill, RectificationStatusPill } from "../../rectifications/components/EngineeringRectificationShared";
+import { AcceptanceStatusPill, AcceptanceTypePill, formatDateTime as formatAcceptanceDateTime } from "../../acceptances/components/EngineeringAcceptanceShared";
 import {
   DetailItem,
   ForbiddenEngineeringProject,
@@ -44,7 +47,6 @@ import {
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
-  "工程验收",
   "工程档案",
   "物业移交"
 ];
@@ -68,6 +70,7 @@ export function EngineeringProjectDetailClient() {
   const [dailyReports, setDailyReports] = useState<EngineeringDailyReport[]>([]);
   const [inspections, setInspections] = useState<EngineeringInspection[]>([]);
   const [rectifications, setRectifications] = useState<EngineeringRectification[]>([]);
+  const [acceptances, setAcceptances] = useState<EngineeringAcceptance[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
@@ -119,20 +122,41 @@ export function EngineeringProjectDetailClient() {
       .slice(0, 5);
     return { total, pending, inProgress, overdue, closed, recent };
   }, [rectifications]);
+  const acceptanceSummary = useMemo(() => {
+    const total = acceptances.length;
+    const passed = acceptances.filter((item) => item.acceptanceStatus === "PASSED" || item.acceptanceStatus === "CLOSED").length;
+    const failed = acceptances.filter((item) => item.acceptanceStatus === "FAILED").length;
+    const rectificationRequired = acceptances.filter((item) => item.acceptanceStatus === "RECTIFICATION_REQUIRED").length;
+    const pending = acceptances.filter((item) => item.acceptanceStatus === "DRAFT" || item.acceptanceStatus === "SUBMITTED" || item.acceptanceStatus === "REVIEWING").length;
+    const recent = [...acceptances]
+      .sort((left, right) => right.updateTime.localeCompare(left.updateTime) || right.createTime.localeCompare(left.createTime))
+      .slice(0, 5);
+    return { total, passed, failed, rectificationRequired, pending, recent };
+  }, [acceptances]);
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
     setLoading(true);
     setMessage("");
     try {
-      const [detail, availableActions, statusLogs, projectPlans, projectDailyReports, projectInspections, projectRectifications] = await Promise.all([
+      const [
+        detail,
+        availableActions,
+        statusLogs,
+        projectPlans,
+        projectDailyReports,
+        projectInspections,
+        projectRectifications,
+        projectAcceptances
+      ] = await Promise.all([
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
         engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
         engineeringPlansApi.getProjectPlans(projectId, getAccessToken()),
         engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken()),
         engineeringInspectionsApi.getProjectInspections(projectId, getAccessToken()),
-        engineeringRectificationsApi.getProjectRectifications(projectId, getAccessToken())
+        engineeringRectificationsApi.getProjectRectifications(projectId, getAccessToken()),
+        engineeringAcceptancesApi.getProjectAcceptances(projectId, getAccessToken())
       ]);
       setProject(detail);
       setActions(availableActions);
@@ -141,6 +165,7 @@ export function EngineeringProjectDetailClient() {
       setDailyReports(projectDailyReports);
       setInspections(projectInspections);
       setRectifications(projectRectifications);
+      setAcceptances(projectAcceptances);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载工程项目详情失败");
     } finally {
@@ -500,8 +525,65 @@ export function EngineeringProjectDetailClient() {
 
           <Card>
             <section className={styles.sectionHeader}>
+              <h2>工程验收</h2>
+              <span>工程验收已接入真实 API，支持提交、评审、关闭和验收证据沉淀。</span>
+            </section>
+            <div className={styles.detailGrid}>
+              <DetailItem label="验收总数" value={acceptanceSummary.total} />
+              <DetailItem label="待处理" value={acceptanceSummary.pending} />
+              <DetailItem label="已通过/关闭" value={acceptanceSummary.passed} />
+              <DetailItem label="未通过" value={acceptanceSummary.failed} />
+              <DetailItem label="需整改" value={acceptanceSummary.rectificationRequired} />
+            </div>
+            <div className={styles.actionBar}>
+              <Link className="primary-button" href={`/engineering/acceptances/new?projectId=${project.id}`}>
+                <Plus size={16} />
+                新增验收
+              </Link>
+              <Link className="secondary-button" href={`/engineering/acceptances?projectId=${project.id}`}>
+                <Eye size={16} />
+                查看全部验收
+              </Link>
+            </div>
+            <div className="table-scroll">
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>验收编号</th>
+                    <th>名称</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>计划日期</th>
+                    <th>评审时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {acceptanceSummary.recent.map((acceptance) => (
+                    <tr key={acceptance.id}>
+                      <td><strong>{acceptance.acceptanceCode}</strong></td>
+                      <td>{acceptance.acceptanceName}</td>
+                      <td><AcceptanceTypePill type={acceptance.acceptanceType} /></td>
+                      <td><AcceptanceStatusPill status={acceptance.acceptanceStatus} /></td>
+                      <td>{formatDate(acceptance.plannedAcceptanceDate)}</td>
+                      <td>{formatAcceptanceDateTime(acceptance.reviewedAt)}</td>
+                      <td><Link className="secondary-button" href={`/engineering/acceptances/${acceptance.id}`}>查看</Link></td>
+                    </tr>
+                  ))}
+                  {acceptanceSummary.recent.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>暂无工程验收</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </DataTable>
+            </div>
+          </Card>
+
+          <Card>
+            <section className={styles.sectionHeader}>
               <h2>后续 Runtime 入口</h2>
-              <span>验收、档案和物业移交将在后续任务逐步接入。</span>
+              <span>档案和物业移交将在后续任务逐步接入。</span>
             </section>
             <div className={styles.placeholderGrid}>
               {runtimePlaceholders.map((item) => (

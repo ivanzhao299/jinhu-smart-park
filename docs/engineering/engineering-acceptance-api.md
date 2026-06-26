@@ -4,7 +4,7 @@
 
 `EngineeringAcceptance` 是 EPDR-P6 工程验收管理对象，用于记录隐蔽工程验收、阶段验收、专项验收、竣工验收和物业移交预验收。它承接工程项目、工程计划、巡检整改结果，并为后续物业移交、结算和归档提供过程证据。
 
-Phase 1 实现后端数据模型与 API，不开发前端页面。前端验收页面由 Task 019 实现。
+Phase 1 实现后端数据模型与 API。前端验收页面由 Task 019 接入，见 [engineering-acceptance-ui.md](./engineering-acceptance-ui.md)。
 
 ## 数据模型
 
@@ -151,8 +151,7 @@ Phase 1 继续沿用工程 Runtime 宽松权限模式；Task 021 统一落 RBAC 
 
 未实现：
 
-1. 验收前端页面，后续 Task 019。
-2. 验收自动触发项目状态流转。
-3. 验收未通过后自动生成整改任务。
-4. 附件上传能力，后续 Task 025。
-5. 复杂 Workflow 审批流，后续由 Workflow Runtime 接管。
+1. 验收自动触发项目状态流转。
+2. 验收未通过后自动生成整改任务。
+3. 附件上传能力，后续 Task 025。
+4. 复杂 Workflow 审批流，后续由 Workflow Runtime 接管。
