@@ -164,7 +164,7 @@ apps/web/lib/engineering-plans-permissions.ts
 - `ENGINEERING_PLAN_UPDATE`
 - `ENGINEERING_PLAN_APPROVE`
 
-沿用 Task 005 策略：Task 021 权限种子正式接入前，没有 `ENGINEERING_` 权限的现有运营账号可访问 Phase 1 UI；一旦账号带有工程权限，则按工程权限严格判断。
+Task 021 后已按工程计划权限严格判断：普通账号必须具备对应 `ENGINEERING_PLAN_*` 权限或 `*` 通配权限。
 
 ## 9. Phase 1 边界
 

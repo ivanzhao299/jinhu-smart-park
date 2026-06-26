@@ -175,14 +175,13 @@ apps/web/lib/engineering-projects-permissions.ts
 - `ENGINEERING_PROJECT_CREATE`
 - `ENGINEERING_PROJECT_UPDATE`
 
-Task 021 前工程权限尚未正式种子化，因此当前策略与后端一致：
+Task 021 后工程权限已正式种子化，当前策略与后端一致：
 
 - 超级管理员允许。
 - `*` 允许。
-- 如果账号尚无任何 `ENGINEERING_` 权限，允许访问 Phase 1 UI。
-- 如果账号已有 `ENGINEERING_` 权限，则严格按目标权限判断。
+- 普通账号必须具备目标 `ENGINEERING_*` 权限。
 
-菜单入口暂不绑定工程模块授权，避免 Task 021 前无法进入页面。页面内部保留工程权限判断边界。
+菜单入口绑定 `engineering` 模块授权和对应工程权限。页面内部继续保留工程权限判断边界。
 
 ## 7. 中文枚举映射
 

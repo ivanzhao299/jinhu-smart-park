@@ -114,7 +114,7 @@ PASSED / FAILED / RECTIFICATION_REQUIRED -> CLOSED
 | 评审验收 | `ENGINEERING_ACCEPTANCE_REVIEW` |
 | 关闭验收 | `ENGINEERING_ACCEPTANCE_CLOSE` |
 
-Phase 1 继续沿用工程 Runtime 宽松权限模式；Task 021 统一落 RBAC 菜单和权限种子。
+Task 021 后已使用 EPDR 专属 RBAC 菜单和权限种子；当前账号必须具备对应工程验收权限或 `*` 通配权限。
 
 ## DataScope
 

@@ -24,7 +24,7 @@ export class EngineeringDataScopeAdapter {
       return;
     }
     if (actor.dataScope === "self") {
-      builder.andWhere("(project.project_manager_id = :actorUserId OR project.engineering_director_id = :actorUserId)", {
+      builder.andWhere("(project.project_manager_id = :actorUserId OR project.engineering_director_id = :actorUserId OR project.create_by = :actorUserId)", {
         actorUserId: actor.sub
       });
       return;
@@ -37,7 +37,7 @@ export class EngineeringDataScopeAdapter {
       return;
     }
     if (actor.dataScope === "self") {
-      builder.andWhere("(plan.owner_user_id = :actorUserId)", {
+      builder.andWhere("(plan.owner_user_id = :actorUserId OR plan.create_by = :actorUserId)", {
         actorUserId: actor.sub
       });
       return;

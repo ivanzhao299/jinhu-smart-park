@@ -106,7 +106,7 @@ POST /api/engineering/issues/:id/generate-rectification
 | 关闭 | ENGINEERING_RECTIFICATION_CLOSE |
 | 删除 | ENGINEERING_RECTIFICATION_UPDATE |
 
-Phase 1 仍兼容未种子工程权限的账号；Task 021 会统一落 RBAC。
+Task 021 后已按 `ENGINEERING_RECTIFICATION_*` 权限精确控制；普通账号必须具备对应权限或 `*` 通配权限。
 
 ## Phase 1 边界
 

@@ -98,11 +98,11 @@ GCRB20260626001
 | `GET` | `/api/engineering/daily-reports/:id` | 获取施工日报详情 | `ENGINEERING_DAILY_REPORT_VIEW` |
 | `PATCH` | `/api/engineering/daily-reports/:id` | 更新施工日报基础信息 | `ENGINEERING_DAILY_REPORT_UPDATE` |
 | `DELETE` | `/api/engineering/daily-reports/:id` | 软删除施工日报 | `ENGINEERING_DAILY_REPORT_UPDATE` |
-| `POST` | `/api/engineering/daily-reports/:id/submit` | 提交施工日报 | `ENGINEERING_DAILY_REPORT_UPDATE` |
+| `POST` | `/api/engineering/daily-reports/:id/submit` | 提交施工日报 | `ENGINEERING_DAILY_REPORT_SUBMIT` |
 | `POST` | `/api/engineering/daily-reports/:id/review` | 审核施工日报 | `ENGINEERING_DAILY_REPORT_REVIEW` |
 | `GET` | `/api/engineering/projects/:projectId/daily-reports` | 查询项目下施工日报 | `ENGINEERING_DAILY_REPORT_VIEW` |
 
-正式权限种子将在 Task 021 接入，Task 008 通过 `EngineeringDailyReportAccessPolicy` 集中保留 RBAC 边界。
+Controller 与 Service 均使用 EPDR 专属施工日报权限，`EngineeringDailyReportAccessPolicy` 继续集中执行 RBAC 边界。
 
 ## 6. 创建施工日报
 
@@ -242,7 +242,7 @@ DataScope：
 - 所有查询至少按 `tenant_id` 与 `park_id` 隔离。
 - 详情、更新、删除、提交、审核都必须先通过 `EngineeringDataScopeAdapter.applyDailyReportScope`。
 - 项目日报查询必须先校验项目访问权限。
-- Phase 1 预留施工单位、监理单位、责任人视图边界，后续可随 Task 021 权限种子收紧。
+- Phase 1 已接入 `EngineeringDataScopeAdapter`，并预留施工单位、监理单位、责任人视图边界。
 
 ## 10. AuditLog / EventBus
 

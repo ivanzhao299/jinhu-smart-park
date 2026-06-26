@@ -31,7 +31,7 @@ API 前缀：
 | `GET` | `/api/engineering/projects/:id/actions` | 获取可执行动作 | `ENGINEERING_PROJECT_VIEW` |
 | `GET` | `/api/engineering/projects/:id/status-logs` | 获取状态时间线 | `ENGINEERING_PROJECT_VIEW` |
 
-Controller 继续使用现有平台鉴权守卫。Task 004 阶段工程权限种子尚未进入 Task 021，因此 Controller 使用平台已有权限作为入口，Service 层通过工程权限适配器集中保留真实 RBAC 边界。
+Controller 与 Service 均使用 EPDR 专属 `ENGINEERING_*` 权限。动态状态动作先通过工程动作权限入口，再由 `EngineeringProjectPolicy` 按 action 精确校验。
 
 ## 3. 创建项目
 
@@ -261,7 +261,7 @@ Service 层权限入口：
 - `EngineeringProjectAccessPolicy`：创建、查看、更新、软删除、状态日志。
 - `EngineeringProjectPolicy`：状态动作。
 
-Task 004 阶段不会写死用户 ID 或角色 ID。正式菜单权限、操作权限和角色授权将在 Task 021 接入。
+工程菜单权限、操作权限和角色授权已在 Task 021 接入。接口不写死用户 ID 或角色 ID。
 
 ## 12. DataScope
 

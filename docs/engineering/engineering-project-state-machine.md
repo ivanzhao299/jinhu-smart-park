@@ -85,7 +85,7 @@ EngineeringProject 状态机是 EPDR-P1 Project Runtime 的状态流转边界。
 | `ARCHIVE` | `ENGINEERING_PROJECT_ARCHIVE` |
 | 其他项目推进动作 | `ENGINEERING_PROJECT_UPDATE` |
 
-当前 Task 003 先提供集中权限适配器。正式 RBAC 权限种子与菜单授权将在 Task 021 接入。
+Task 021 后正式 RBAC 权限种子与菜单授权已接入。状态机继续通过集中权限适配器按 action 校验。
 
 ## 7. 状态日志
 

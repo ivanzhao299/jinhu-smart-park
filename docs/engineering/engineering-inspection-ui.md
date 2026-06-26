@@ -76,7 +76,7 @@ Task 012 新增工程巡检前端页面：
 - ENGINEERING_INSPECTION_UPDATE
 - ENGINEERING_INSPECTION_SUBMIT
 
-Phase 1 沿用工程模块宽松权限模式：如果用户没有任何 `ENGINEERING_` 权限，则默认允许访问，后续 Task 021 接入正式权限种子。
+Task 021 后已接入正式权限种子：普通账号必须具备对应 `ENGINEERING_INSPECTION_*` / `ENGINEERING_RECTIFICATION_ASSIGN` 权限或 `*` 通配权限。
 
 ## 问题和整改边界
 

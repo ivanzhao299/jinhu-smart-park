@@ -99,7 +99,7 @@
 - `ENGINEERING_ACCEPTANCE_REVIEW`
 - `ENGINEERING_ACCEPTANCE_CLOSE`
 
-Task 021 之前沿用 Phase 1 宽松模式：没有 ENGINEERING 权限种子的现有运营账号可进入页面。
+Task 021 后已按 `ENGINEERING_ACCEPTANCE_*` 权限精确控制；普通账号必须具备对应权限或 `*` 通配权限。
 
 ## Phase 1 边界
 

@@ -140,7 +140,7 @@ EngineeringInspection -> EngineeringIssue -> EngineeringRectification
 | 创建/更新/删除问题 | ENGINEERING_INSPECTION_UPDATE |
 | 生成整改任务 | ENGINEERING_RECTIFICATION_ASSIGN |
 
-如当前账号没有工程类权限，沿用 Phase 1 宽松模式；Task 021 会统一落权限种子。
+Task 021 后已使用 EPDR 专属权限种子；当前账号必须具备对应工程权限或 `*` 通配权限。
 
 ## DataScope
 

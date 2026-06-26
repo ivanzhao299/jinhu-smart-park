@@ -135,7 +135,7 @@ POST /api/engineering/rectifications/overdue-scan
 | 关闭整改 | ENGINEERING_RECTIFICATION_CLOSE |
 | 删除整改 | ENGINEERING_RECTIFICATION_UPDATE |
 
-Phase 1 仍沿用工程 Runtime 宽松模式；Task 021 会统一落 RBAC 权限种子。
+Task 021 后已使用 EPDR 专属 RBAC 权限种子；当前账号必须具备对应整改权限或 `*` 通配权限。
 
 ## DataScope
 

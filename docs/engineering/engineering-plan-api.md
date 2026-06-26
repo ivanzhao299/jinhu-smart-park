@@ -107,7 +107,7 @@ GCJH20260626001
 | `PATCH` | `/api/engineering/plans/:id/progress` | 更新计划进度 | `ENGINEERING_PLAN_UPDATE` |
 | `PATCH` | `/api/engineering/plans/:id/status` | 更新计划状态 | `ENGINEERING_PLAN_UPDATE` / `ENGINEERING_PLAN_APPROVE` |
 
-Controller 继续使用现有平台鉴权守卫。正式工程权限种子将在 Task 021 接入，Task 006 通过 `EngineeringPlanAccessPolicy` 集中保留 RBAC 边界。
+Controller 与 Service 均使用 EPDR 专属工程计划权限。`PATCH /status` 支持 `ENGINEERING_PLAN_UPDATE` 或 `ENGINEERING_PLAN_APPROVE` 入口，Service 层继续按目标状态精确校验。
 
 ## 6. 创建工程计划
 

@@ -118,7 +118,7 @@
 - `ENGINEERING_DAILY_REPORT_SUBMIT`
 - `ENGINEERING_DAILY_REPORT_REVIEW`
 
-Task 021 前沿用 Phase 1 宽松策略：如果账号尚无任何 `ENGINEERING_` 权限，则允许现有运营用户访问 Phase 1 页面；一旦权限种子落地，则按权限点精确控制。
+Task 021 后已按权限点精确控制：普通账号必须具备对应 `ENGINEERING_DAILY_REPORT_*` 权限或 `*` 通配权限。
 
 ## 8. 附件预留
 
