@@ -140,6 +140,8 @@ export class EngineeringProjectRepository {
     id: string,
     status: EngineeringProjectStatus
   ): Promise<EngineeringProjectEntity> {
+    // Status writes are reserved for EngineeringProjectStateMachine / EngineeringProjectStatusService.
+    // Ordinary update flows must not pass status through UpdateEngineeringProjectDto.
     const entity = await this.findById(scope, id);
     entity.status = status;
     entity.updateBy = actorId;

@@ -98,3 +98,36 @@ test("EngineeringProjectRepository can detect project code uniqueness inside a t
   assert.equal(await projects.existsByCode({ tenantId: "tenant-a" }, "GC20260626001"), true);
   assert.equal(await projects.existsByCode({ tenantId: "tenant-b" }, "GC20260626001"), false);
 });
+
+test("EngineeringProjectRepository updateStatus persists status through the reserved status path", async () => {
+  const entity = {
+    id: "project-id",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    isDeleted: false,
+    status: EngineeringProjectStatus.DRAFT
+  } as EngineeringProjectEntity;
+  const repository = {
+    createQueryBuilder: () => ({
+      where() {
+        return this;
+      },
+      andWhere() {
+        return this;
+      },
+      getOne: async () => entity
+    }),
+    save: async (input: EngineeringProjectEntity) => input
+  } as unknown as Repository<EngineeringProjectEntity>;
+  const projects = new EngineeringProjectRepository(repository);
+
+  const updated = await projects.updateStatus(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "00000000-0000-0000-0000-000000000001",
+    entity.id,
+    EngineeringProjectStatus.SUBMITTED
+  );
+
+  assert.equal(updated.status, EngineeringProjectStatus.SUBMITTED);
+  assert.equal(updated.updateBy, "00000000-0000-0000-0000-000000000001");
+});

@@ -59,6 +59,8 @@
 
 Task 002 只建立状态字段和枚举。状态机流转、权限校验、事件和审计将在 Task 003 以后实现。
 
+状态机详细说明见：`docs/engineering/engineering-project-state-machine.md`。
+
 ## 4. 枚举说明
 
 工程类型 `EngineeringProjectType`：

@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { getMetadataArgsStorage } from "typeorm";
 import { EngineeringProjectStatus, EngineeringProjectType } from "./domain/engineering-project.enums";
+import { UpdateEngineeringProjectDto } from "./dto/engineering-project.dto";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
+import { EngineeringProjectStatusLogEntity } from "./entities/engineering-project-status-log.entity";
 
 test("EngineeringProjectEntity is mapped to the engineering project table", () => {
   const table = getMetadataArgsStorage().tables.find((item) => item.target === EngineeringProjectEntity);
@@ -32,4 +34,21 @@ test("EngineeringProject migration declares table and tenant-scoped code uniquen
   assert.match(migration, /project_code varchar\(64\) NOT NULL/);
   assert.match(migration, /ON biz_engineering_project \(tenant_id, project_code\)/);
   assert.match(migration, /status varchar\(32\) NOT NULL DEFAULT 'DRAFT'/);
+});
+
+test("UpdateEngineeringProjectDto does not expose direct status updates", () => {
+  assert.equal(Object.prototype.hasOwnProperty.call(new UpdateEngineeringProjectDto(), "status"), false);
+});
+
+test("EngineeringProjectStatusLogEntity is mapped to the status log table", () => {
+  const table = getMetadataArgsStorage().tables.find((item) => item.target === EngineeringProjectStatusLogEntity);
+  const columns = getMetadataArgsStorage()
+    .columns.filter((item) => item.target === EngineeringProjectStatusLogEntity)
+    .map((item) => item.options.name);
+
+  assert.equal(table?.name, "biz_engineering_project_status_log");
+  assert.ok(columns.includes("from_status"));
+  assert.ok(columns.includes("to_status"));
+  assert.ok(columns.includes("action"));
+  assert.ok(columns.includes("reason"));
 });
