@@ -861,3 +861,145 @@
     border-top-color: rgba(11, 31, 51, 0.18);
   }
 }
+
+@media (max-width: 720px) {
+  .page {
+    gap: 16px;
+  }
+
+  .terminalHero {
+    gap: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at 84% 8%, rgba(247, 201, 72, 0.24), transparent 10rem),
+      linear-gradient(160deg, #071724 0%, #0b3551 56%, #0f547e 100%);
+    box-shadow: 0 24px 46px rgba(2, 6, 23, 0.26);
+    padding: 20px;
+  }
+
+  .terminalHero::after {
+    height: 3px;
+    background: linear-gradient(90deg, rgba(247, 201, 72, 0.88), rgba(247, 201, 72, 0.24), transparent);
+  }
+
+  .heroCopy {
+    gap: 10px;
+  }
+
+  .heroCopy h1 {
+    font-size: 32px;
+    line-height: 1.08;
+  }
+
+  .heroMeta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .heroMeta span {
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 10px;
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.12);
+    color: #f8fafc;
+    font-weight: 760;
+  }
+
+  .heroActions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .primaryCommand,
+  .secondaryCommand {
+    min-height: 48px;
+    border-radius: 16px;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  .primaryCommand {
+    background: linear-gradient(135deg, #f7c948, #d89b13);
+    color: #08243a;
+    box-shadow: 0 14px 24px rgba(216, 155, 19, 0.24);
+  }
+
+  .secondaryCommand {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+  }
+
+  .commandPanel,
+  .sceneGrid {
+    gap: 12px;
+  }
+
+  .commandButton,
+  .sceneButton,
+  .kpiCard,
+  .mobileTaskCard {
+    border: 1px solid rgba(9, 31, 50, 0.12);
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), #f5f9fd);
+    box-shadow: 0 16px 30px rgba(9, 31, 50, 0.10);
+  }
+
+  .commandButton,
+  .sceneButton {
+    min-height: 132px;
+    padding: 16px;
+  }
+
+  .commandIcon,
+  .sceneIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0b3d5d, #0f5a87);
+    color: #f6d46b;
+    box-shadow: 0 10px 18px rgba(11, 61, 93, 0.26);
+  }
+
+  .commandButton strong,
+  .sceneButton strong {
+    color: #071c2f;
+    font-size: 17px;
+    font-weight: 840;
+  }
+
+  .commandButton small,
+  .sceneButton small,
+  .kpiCard span,
+  .kpiCard small,
+  .mobileTaskCard > span,
+  .mobileTaskCard dt {
+    color: #486073;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .kpiCard {
+    padding: 16px;
+  }
+
+  .kpiCard strong {
+    color: #071c2f;
+    font-size: 34px;
+    font-weight: 860;
+  }
+
+  .mobileTaskCard {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .mobileTaskCard dd {
+    color: #0a2236;
+    font-weight: 760;
+  }
+}

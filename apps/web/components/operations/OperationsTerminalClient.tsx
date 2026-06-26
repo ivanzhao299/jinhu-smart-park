@@ -17,6 +17,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../auth/PermissionButton";
 import { PermissionGuard } from "../auth/PermissionGuard";
+import { useMobileTerminalMode } from "../mobile/useMobileTerminalMode";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
@@ -109,15 +110,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   ];
   const workOrderAudience = resolveWorkOrderAudience(authUser);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-    document.documentElement.classList.add("operations-terminal-safe-area");
-    document.body.classList.add("operations-terminal-safe-area");
-    return () => {
-      document.documentElement.classList.remove("operations-terminal-safe-area");
-      document.body.classList.remove("operations-terminal-safe-area");
-    };
-  }, []);
+  useMobileTerminalMode(["mobile-terminal-mode", "operations-terminal-safe-area", "operations-terminal-mode"]);
 
   const loadAll = useCallback(async () => {
     if (previewMode) {
@@ -434,8 +427,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       <PageShell className={`${styles.page} ds-page ds-terminal-page`}>
         <section className={`${styles.terminalHero} ds-hero ds-hero-production ds-terminal-hero`}>
           <div className={`${styles.heroCopy} ds-hero-copy`}>
-            <span className="ds-eyebrow">FIELD OPERATIONS</span>
-            <h1>园区现场工作台</h1>
+            <span className="ds-eyebrow">作业终端</span>
+            <h1>园区现场作业台</h1>
             <div className={`${styles.heroMeta} ds-hero-meta ds-terminal-status`}>
               <span><Activity size={16} /> 今日 {todayTasks.length}</span>
               <span><ClipboardCheck size={16} /> 完成 {completionRate}%</span>

@@ -15,6 +15,7 @@ import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
+import { useMobileTerminalMode } from "../mobile/useMobileTerminalMode";
 import { QuickWorkOrderDrawer } from "../operations/QuickWorkOrderDrawer";
 import type { DictItemRow, DictMap, ParkTenantRow, UnitRow, UserRow, WorkOrderForm, WorkOrderRow } from "../operations/terminal-types";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
@@ -157,6 +158,8 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
   const latestOrder = workOrders[0];
   const latestFlow = latestOrder ? serviceFlowState(latestOrder.status) : serviceFlowState("");
 
+  useMobileTerminalMode(["mobile-terminal-mode", "tenant-service-mode"]);
+
   const loadAll = useCallback(async () => {
     if (previewMode) {
       setLoading(false);
@@ -271,9 +274,9 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
     <PageShell className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <span>Tenant Service Desk</span>
-          <h1>租户服务台</h1>
-          <p>面向企业租户的一站式报修、保洁、安防、通行和服务咨询入口。</p>
+          <span>服务终端</span>
+          <h1>租户服务工作台</h1>
+          <p>面向企业租户与业主联系人的高频服务入口，适合手机端快速提报、跟进和确认。</p>
         </div>
         <div className={styles.heroActions}>
           <button className="secondary-button" type="button" onClick={() => void loadAll().catch((error: Error) => setMessage(error.message))}>

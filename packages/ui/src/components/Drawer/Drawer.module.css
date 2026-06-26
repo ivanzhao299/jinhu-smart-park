@@ -448,11 +448,8 @@
   .drawerHeader {
     border-bottom: 0;
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-      radial-gradient(circle at 82% 0%, rgba(247, 201, 72, 0.30), transparent 11rem),
-      linear-gradient(135deg, #041827 0%, #0b4f7a 62%, #06263f 100%);
-    background-size: 22px 22px, 22px 22px, auto, auto;
+      radial-gradient(circle at 82% 0%, rgba(247, 201, 72, 0.24), transparent 10rem),
+      linear-gradient(145deg, #071724 0%, #0a3552 56%, #0f547e 100%);
     box-shadow: 0 14px 34px rgba(2, 6, 23, 0.24);
   }
 
@@ -490,15 +487,15 @@
 
   .drawerSection {
     border: 1px solid rgba(11, 31, 51, 0.12);
-    border-radius: 20px;
+    border-radius: 22px;
     background: #ffffff;
-    box-shadow: 0 12px 26px rgba(11, 31, 51, 0.07);
-    padding: 14px;
+    box-shadow: 0 14px 28px rgba(11, 31, 51, 0.08);
+    padding: 16px;
   }
 
   .drawerSectionTitle {
     color: #0b1f33;
-    font-size: 17px;
+    font-size: 18px;
   }
 
   .drawerFooter {
@@ -514,6 +511,8 @@
     background-color: #ffffff;
     color: #081a2c;
     border-color: #9bb3ca;
+    min-height: 48px;
+    font-size: 16px;
   }
 
   .drawerPanel select {
@@ -527,6 +526,15 @@
   .drawerPanel input::placeholder,
   .drawerPanel textarea::placeholder {
     color: #8293a7;
+  }
+
+  .drawerPanel textarea {
+    min-height: 132px;
+    line-height: 1.6;
+  }
+
+  .drawerFooter > * {
+    min-height: 48px;
   }
 }
 
@@ -572,5 +580,21 @@
   .drawerFormGrid,
   .drawerDetailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .drawerDetailItem {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 0;
+  }
+
+  .drawerDetailLabel {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .drawerDetailValue {
+    font-size: 15px;
+    line-height: 1.5;
   }
 }
