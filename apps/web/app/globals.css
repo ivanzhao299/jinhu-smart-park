@@ -6843,9 +6843,35 @@ textarea:disabled {
     min-height: 0;
     border: 0;
     border-radius: 0;
-    background: transparent;
-    color: #f8fafc;
-    box-shadow: none;
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #f8fafc !important;
+    caret-color: #f7c948;
+    box-shadow: none !important;
+    -webkit-text-fill-color: #f8fafc;
+  }
+
+  .signin-form .ant-input-affix-wrapper input.ant-input,
+  .signin-form input.ant-input {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #f8fafc !important;
+    caret-color: #f7c948;
+    -webkit-text-fill-color: #f8fafc;
+  }
+
+  .signin-form .ant-input-affix-wrapper input.ant-input:-webkit-autofill,
+  .signin-form .ant-input-affix-wrapper input.ant-input:-webkit-autofill:hover,
+  .signin-form .ant-input-affix-wrapper input.ant-input:-webkit-autofill:focus,
+  .signin-form input.ant-input:-webkit-autofill,
+  .signin-form input.ant-input:-webkit-autofill:hover,
+  .signin-form input.ant-input:-webkit-autofill:focus {
+    border-radius: 10px;
+    background-color: transparent !important;
+    box-shadow: 0 0 0 1000px #05223a inset !important;
+    color: #f8fafc !important;
+    transition: background-color 9999s ease-out;
+    -webkit-text-fill-color: #f8fafc !important;
   }
 
   .signin-form .ant-input-prefix,
