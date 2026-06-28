@@ -1,7 +1,7 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
-import { Boxes, CheckCircle2, PackageCheck, Search, XCircle } from "lucide-react";
+import { Boxes, CheckCircle2, PackageCheck, Search, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -280,21 +280,31 @@ export default function ModulesPage() {
 
       {showPlan ? (
         <Drawer size="md" onClose={() => setShowPlan(false)}>
-          <form className="form-stack" onSubmit={(event) => void createPlan(event).catch((error: Error) => setMessage(error.message))}>
-            <h2 className="panel-title">新增套餐</h2>
-            <div className="field"><label>套餐编码</label><input name="planCode" required /></div>
-            <div className="field"><label>套餐名称</label><input name="planName" required /></div>
-            <div className="field"><label>套餐类型</label><input name="planType" defaultValue="standard" /></div>
-            <div className="field"><label>模块编码</label><input name="moduleCodes" placeholder="多个编码用英文逗号分隔" /></div>
-            <div className="field"><label>默认权限</label><input name="permissionCodes" placeholder="如 module:system,module:asset" /></div>
-            <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
-            <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
-            <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="system-actions">
-              <button className="primary-button" type="submit"><PackageCheck size={16} />保存</button>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title="新增套餐"
+            description="定义套餐包含的模块、默认权限与配额上限。"
+            onClose={() => setShowPlan(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void createPlan(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
+              <div className="field"><label>套餐编码</label><input name="planCode" required /></div>
+              <div className="field"><label>套餐名称</label><input name="planName" required /></div>
+              <div className="field"><label>套餐类型</label><input name="planType" defaultValue="standard" /></div>
+              <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field"><label>模块编码</label><input name="moduleCodes" placeholder="多个编码用英文逗号分隔" /></div>
+              <div className="field"><label>默认权限</label><input name="permissionCodes" placeholder="如 module:system,module:asset" /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setShowPlan(false)}>取消</button>
-            </div>
-          </form>
+              <button className="primary-button" type="submit"><PackageCheck size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
-import { CheckCircle2, Plus, Search, Settings2, XCircle } from "lucide-react";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
+import { CheckCircle2, Plus, Search, Settings2, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -253,9 +253,15 @@ export default function TenantsPage() {
 
       {showCreate ? (
         <Drawer size="lg" onClose={() => setShowCreate(false)}>
-          <form className="form-stack" onSubmit={(event) => void createTenant(event).catch((error: Error) => setMessage(error.message))}>
-            <h2 className="panel-title">开通租户</h2>
-            <div className="system-grid">
+          <DrawerHeader
+            eyebrow="系统管理"
+            title="开通租户"
+            description="创建租户、初始园区与管理员账号，并绑定套餐配额。"
+            onClose={() => setShowCreate(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void createTenant(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
               <div className="field"><label>租户编码</label><input name="tenantCode" required /></div>
               <div className="field"><label>租户名称</label><input name="tenantName" required /></div>
               <div className="field"><label>租户类型</label><input name="tenantType" defaultValue="park_operator" /></div>
@@ -274,19 +280,25 @@ export default function TenantsPage() {
               <div className="field"><label>初始密码</label><input name="adminPassword" type="password" minLength={8} required /></div>
               <div className="field"><label>管理员手机</label><input name="adminMobile" /></div>
               <div className="field"><label>管理员邮箱</label><input name="adminEmail" /></div>
-            </div>
-            <div className="system-actions">
-              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+            </DrawerFormGrid>
+            <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
-            </div>
-          </form>
+              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {settings ? (
         <Drawer size="lg" onClose={() => setSettings(null)}>
-          <form className="form-stack" onSubmit={(event) => void saveLoginSettings(event).catch((error: Error) => setMessage(error.message))}>
-            <h2 className="panel-title">登录与授权配置</h2>
-            <div className="system-grid">
+          <DrawerHeader
+            eyebrow="系统管理"
+            title="登录与授权配置"
+            description="维护租户默认园区、状态、套餐有效期与启用模块。"
+            onClose={() => setSettings(null)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void saveLoginSettings(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
               <div className="field">
                 <label>租户</label>
                 <input value={`${settings.tenant.tenantName} / ${settings.tenant.tenantId}`} readOnly />
@@ -322,23 +334,25 @@ export default function TenantsPage() {
                 <label>到期提示</label>
                 <input value={settings.tenant.expireWarning ?? "当前无到期风险"} readOnly />
               </div>
-            </div>
-            <div className="form-stack">
-              <h3 className="panel-title">启用模块</h3>
-              <div className="system-grid">
-                {modules.items.map((item) => (
-                  <label key={item.id} className="check-row">
-                    <input name={`module.${item.moduleCode}`} type="checkbox" defaultChecked={settings.enabledModuleCodes.includes(item.moduleCode)} />
-                    <span>{item.moduleName} / {item.moduleCode}</span>
-                  </label>
-                ))}
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field">
+                <label>启用模块</label>
+                <div className="checkbox-list">
+                  {modules.items.map((item) => (
+                    <label key={item.id} className="checkbox-row">
+                      <input name={`module.${item.moduleCode}`} type="checkbox" defaultChecked={settings.enabledModuleCodes.includes(item.moduleCode)} />
+                      <span>{item.moduleName} / {item.moduleCode}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="system-actions">
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setSettings(null)}>取消</button>
               <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存配置</button>
-              <button className="secondary-button" type="button" onClick={() => setSettings(null)}>关闭</button>
-            </div>
-          </form>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

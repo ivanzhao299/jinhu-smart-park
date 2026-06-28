@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { CheckCircle2, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -446,13 +446,14 @@ export default function LeasingWaiversPage() {
 
       {drawerOpen ? (
         <Drawer size="md" onClose={() => setDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>新增豁免申请</strong>
-            <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submit}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title="新增豁免申请"
+            description="为未结清应收账单发起金额豁免申请。"
+            onClose={() => setDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submit}>
             <div className="system-grid">
               <label className="field">
                 <span>豁免单号</span>
@@ -489,22 +490,26 @@ export default function LeasingWaiversPage() {
               <span>备注</span>
               <textarea value={form.remark} onChange={(event) => setForm((prev) => ({ ...prev, remark: event.target.value }))} />
             </label>
-            <button className="primary-button" type="submit" disabled={saving || !canCreate}>
-              {saving ? "提交中" : "提交申请"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || !canCreate}>
+                {saving ? "提交中" : "提交申请"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
 
       {actionTarget && actionType ? (
         <Drawer size="md" onClose={() => setActionTarget(null)}>
-          <div className="system-toolbar">
-            <strong>{actionType === "approve" ? "审批通过" : "审批驳回"}</strong>
-            <button className="primary-button" type="button" onClick={() => setActionTarget(null)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submitAction}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={actionType === "approve" ? "审批通过" : "审批驳回"}
+            description="对豁免申请进行审批并填写意见。"
+            onClose={() => setActionTarget(null)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submitAction}>
             <div className="detail-grid">
               <div><span>豁免单号</span><strong>{actionTarget.waiverCode}</strong></div>
               <div><span>豁免金额</span><strong>{formatWaiverAmount(actionTarget.waiverAmount, canViewWaiverAmount, authUser)}</strong></div>
@@ -520,10 +525,13 @@ export default function LeasingWaiversPage() {
                 <textarea required value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} />
               </label>
             ) : null}
-            <button className="primary-button" type="submit" disabled={saving || (actionType === "approve" ? !canApprove : !canReject)}>
-              {saving ? "处理中" : actionType === "approve" ? "确认通过" : "确认驳回"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setActionTarget(null)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || (actionType === "approve" ? !canApprove : !canReject)}>
+                {saving ? "处理中" : actionType === "approve" ? "确认通过" : "确认驳回"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
     </div>

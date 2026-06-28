@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -480,13 +480,14 @@ export default function LeasingInvoicesPage() {
 
       {drawerOpen ? (
         <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>{editing ? "编辑发票" : "新增发票"}</strong>
-            <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submit}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={editing ? "编辑发票" : "新增发票"}
+            description="登记发票信息、关联应收账单与发票附件。"
+            onClose={() => setDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submit}>
             <div className="system-grid">
               <TextField label="发票单号" value={form.invoiceCode} onChange={(value) => setForm((prev) => ({ ...prev, invoiceCode: value }))} placeholder="为空则自动生成" />
               <label className="field">
@@ -506,9 +507,6 @@ export default function LeasingInvoicesPage() {
               <TextField label="发票号码" value={form.invoiceNo} onChange={(value) => setForm((prev) => ({ ...prev, invoiceNo: value }))} />
               <DateField label="发票日期" value={form.invoiceDate} onChange={(value) => setForm((prev) => ({ ...prev, invoiceDate: value }))} required />
               <DictSelect label="发票状态" value={form.status} items={invoiceStatusItems} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} />
-              {canViewInvoiceFile ? (
-                <TextField label="附件文件 ID" value={form.fileId} onChange={(value) => setForm((prev) => ({ ...prev, fileId: value }))} />
-              ) : null}
             </div>
             <label className="field">
               <span>备注</span>
@@ -556,21 +554,25 @@ export default function LeasingInvoicesPage() {
                 <div className="empty-state">当前字段权限不允许查看发票附件</div>
               )}
             </section>
-            <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
-              {saving ? "保存中" : "保存"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
+                {saving ? "保存中" : "保存"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
 
       {detailOpen && viewing ? (
         <Drawer size="lg" onClose={() => setDetailOpen(false)}>
-          <div className="system-toolbar">
-            <strong>发票关联应收：{viewing.invoiceCode}</strong>
-            <button className="primary-button" type="button" onClick={() => setDetailOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={`发票关联应收：${viewing.invoiceCode}`}
+            description="查看发票的关联应收账单与附件。"
+            onClose={() => setDetailOpen(false)}
+            closeIcon={<X size={18} />}
+          />
           <div className="system-grid">
             <MetricTile label="发票金额" value={invoiceAmountText(viewing.amount, canViewInvoiceAmount, authUser)} />
             <MetricTile label="购买方" value={viewing.buyerName} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
-import { Activity, Edit3, FileClock, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Trash2, Zap } from "lucide-react";
+import { Activity, Edit3, FileClock, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Trash2, X, Zap } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
@@ -388,10 +388,11 @@ export default function IotScenesPage() {
         {formOpen ? (
           <Drawer size="lg" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="场景联动"
+              eyebrow="物联设备"
               title={editing ? "编辑场景" : "新增场景"}
               description="场景可以直接配置动作，也可以关联 IoT 规则；触发结果会写入执行日志。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -433,7 +434,7 @@ export default function IotScenesPage() {
 
         {logsOpen && logScene ? (
           <Drawer size="lg" onClose={() => setLogsOpen(false)}>
-            <DrawerHeader eyebrow="执行日志" title={logScene.sceneName} description="场景每次手动或自动触发都会生成执行日志。" onClose={() => setLogsOpen(false)} />
+            <DrawerHeader eyebrow="物联设备" title={logScene.sceneName} description="场景每次手动或自动触发都会生成执行日志。" onClose={() => setLogsOpen(false)} closeIcon={<X size={18} />} />
             <Card className="page-content">
               <DataTable>
                 <thead>

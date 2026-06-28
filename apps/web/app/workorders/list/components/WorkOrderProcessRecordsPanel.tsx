@@ -1,4 +1,4 @@
-import { DrawerFooter, DrawerFormGrid } from "@jinhu/ui";
+import { DrawerFooter, DrawerForm, DrawerFormGrid } from "@jinhu/ui";
 import { SYSTEM_PERMISSIONS, type FileRecord } from "@jinhu/shared";
 import { RefreshCw } from "lucide-react";
 import type { FormEvent } from "react";
@@ -67,7 +67,7 @@ export function WorkOrderProcessRecordsPanel({
         {logs.length === 0 ? <p className="muted-text">暂无操作日志</p> : null}
       </div>
       <PermissionGuard permission={SYSTEM_PERMISSIONS.WORKORDER_LOG_CREATE} module={module} fallback={null}>
-        <form className="form-stack" onSubmit={onSubmitLog}>
+        <DrawerForm onSubmit={onSubmitLog}>
           <DrawerFormGrid single>
             <TextField label="补充原因" value={logForm.reason} onChange={(value) => onLogFormChange({ reason: value })} />
             <TextAreaField label="补充内容" value={logForm.content} required onChange={(value) => onLogFormChange({ content: value })} />
@@ -81,7 +81,7 @@ export function WorkOrderProcessRecordsPanel({
             <button className="secondary-button" type="button" onClick={onClearLogForm}>清空</button>
             <button className="primary-button" type="submit">补充日志</button>
           </DrawerFooter>
-        </form>
+        </DrawerForm>
       </PermissionGuard>
     </section>
   );

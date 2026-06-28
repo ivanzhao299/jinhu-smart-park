@@ -1,8 +1,8 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -267,57 +267,72 @@ export default function ParksPage() {
 
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
-            <div className="task-item">
-              <h2 className="panel-title">{editingId ? "编辑园区" : "新增园区"}</h2>
-              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setShowForm(false)}><X size={16} /></button>
-            </div>
-            <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-              <TextField label="园区编码" value={form.parkCode} required onChange={(value) => setForm((current) => ({ ...current, parkCode: value }))} />
-              <TextField label="园区名称" value={form.parkName} required onChange={(value) => setForm((current) => ({ ...current, parkName: value }))} />
-              <TextField label="省份" value={form.province} onChange={(value) => setForm((current) => ({ ...current, province: value }))} />
-              <TextField label="城市" value={form.city} onChange={(value) => setForm((current) => ({ ...current, city: value }))} />
-              <TextField label="区县" value={form.district} onChange={(value) => setForm((current) => ({ ...current, district: value }))} />
-              <TextField label="地址" value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} />
-              <NumberField label="经度" value={form.lng} onChange={(value) => setForm((current) => ({ ...current, lng: value }))} />
-              <NumberField label="纬度" value={form.lat} onChange={(value) => setForm((current) => ({ ...current, lat: value }))} />
-              <NumberField label="总面积" value={form.totalArea} required onChange={(value) => setForm((current) => ({ ...current, totalArea: value }))} />
-              <NumberField label="土地面积" value={form.landArea} required onChange={(value) => setForm((current) => ({ ...current, landArea: value }))} />
-              <div className="field">
-                <label htmlFor="parkFormStatus">状态</label>
-                <select
-                  id="parkFormStatus"
-                  value={form.status}
-                  onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as ParkStatus }))}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
-              <button className="primary-button" type="submit">保存</button>
-              <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
-            </form>
+            <DrawerHeader
+              eyebrow="资产空间"
+              title={editingId ? "编辑园区" : "新增园区"}
+              description="维护园区基础档案，支撑多园区资产、合同与服务数据隔离。"
+              onClose={() => setShowForm(false)}
+              closeIcon={<X size={18} />}
+            />
+            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid>
+                <TextField label="园区编码" value={form.parkCode} required onChange={(value) => setForm((current) => ({ ...current, parkCode: value }))} />
+                <TextField label="园区名称" value={form.parkName} required onChange={(value) => setForm((current) => ({ ...current, parkName: value }))} />
+                <TextField label="省份" value={form.province} onChange={(value) => setForm((current) => ({ ...current, province: value }))} />
+                <TextField label="城市" value={form.city} onChange={(value) => setForm((current) => ({ ...current, city: value }))} />
+                <TextField label="区县" value={form.district} onChange={(value) => setForm((current) => ({ ...current, district: value }))} />
+                <TextField label="地址" value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} />
+                <NumberField label="经度" value={form.lng} onChange={(value) => setForm((current) => ({ ...current, lng: value }))} />
+                <NumberField label="纬度" value={form.lat} onChange={(value) => setForm((current) => ({ ...current, lat: value }))} />
+                <NumberField label="总面积" value={form.totalArea} required onChange={(value) => setForm((current) => ({ ...current, totalArea: value }))} />
+                <NumberField label="土地面积" value={form.landArea} required onChange={(value) => setForm((current) => ({ ...current, landArea: value }))} />
+                <div className="field">
+                  <label htmlFor="parkFormStatus">状态</label>
+                  <select
+                    id="parkFormStatus"
+                    value={form.status}
+                    onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as ParkStatus }))}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </DrawerFormGrid>
+              <DrawerFormGrid single>
+                <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="primary-button" type="submit">保存</button>
+              </DrawerFooter>
+            </DrawerForm>
           </Drawer>
         ) : null}
 
         {detail ? (
           <Drawer size="md" onClose={() => setDetail(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">园区详情</h2>
-              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
-            </div>
-            <div className="form-stack">
-              <DetailItem label="园区编码" value={detail.parkCode} />
-              <DetailItem label="园区名称" value={detail.parkName} />
-              <DetailItem label="行政区" value={[detail.province, detail.city, detail.district].filter(Boolean).join(" / ") || "-"} />
-              <DetailItem label="地址" value={detail.address ?? "-"} />
-              <DetailItem label="经纬度" value={`${detail.lng ?? "-"}, ${detail.lat ?? "-"}`} />
-              <DetailItem label="总面积" value={formatArea(detail.totalArea)} />
-              <DetailItem label="土地面积" value={formatArea(detail.landArea)} />
-              <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
-              <DetailItem label="备注" value={detail.remark ?? "-"} />
-            </div>
+            <DrawerHeader
+              eyebrow="资产空间"
+              title="园区详情"
+              description="查看园区档案详情。"
+              onClose={() => setDetail(null)}
+              closeIcon={<X size={18} />}
+            />
+            <DrawerDetailGrid>
+              <DrawerDetailItem label="园区编码" value={detail.parkCode} />
+              <DrawerDetailItem label="园区名称" value={detail.parkName} />
+              <DrawerDetailItem label="行政区" value={[detail.province, detail.city, detail.district].filter(Boolean).join(" / ") || "-"} />
+              <DrawerDetailItem label="地址" value={detail.address ?? "-"} />
+              <DrawerDetailItem label="经纬度" value={`${detail.lng ?? "-"}, ${detail.lat ?? "-"}`} />
+              <DrawerDetailItem label="总面积" value={formatArea(detail.totalArea)} />
+              <DrawerDetailItem label="土地面积" value={formatArea(detail.landArea)} />
+              <DrawerDetailItem label="状态" value={<StatusBadge status={detail.status} />} />
+              <DrawerDetailItem label="备注" value={detail.remark ?? "-"} />
+            </DrawerDetailGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
+            </DrawerFooter>
           </Drawer>
         ) : null}
 
@@ -348,15 +363,6 @@ function NumberField({ label, value, required, onChange }: { label: string; valu
         onFocus={(event) => event.target.select()}
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, KeyRound, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, KeyRound, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
@@ -253,10 +253,11 @@ export default function IotProtocolConfigsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="IoT 协议"
+              eyebrow="物联设备"
               title={editing ? "编辑协议配置" : "新增协议配置"}
               description="配置 JSON 用于保存连接参数。提交后前端不会再回显密钥、账号或 token 原文。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>

@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, PlayCircle, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -597,19 +597,20 @@ export default function LeasingContractChangesPage() {
 
       {detail ? (
         <Drawer size="lg" onClose={() => { setDetail(null); setFinanceImpact(null); }}>
-          <div className="system-toolbar">
-            <strong>变更详情：{detail.changeCode}</strong>
-            <div className="page-actions">
-              {canPreview && canViewFinanceImpact ? (
-                <button className="primary-button" type="button" onClick={() => void previewImpact(detail)} disabled={saving}>
-                  <RefreshCw size={16} /> 财务影响预览
-                </button>
-              ) : null}
-              <button className="primary-button" type="button" onClick={() => { setDetail(null); setFinanceImpact(null); }}>
-                <X size={16} /> 关闭
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={`变更详情：${detail.changeCode}`}
+            description="查看合同变更的基础信息、金额变化与审批轨迹。"
+            onClose={() => { setDetail(null); setFinanceImpact(null); }}
+            closeIcon={<X size={18} />}
+          />
+          {canPreview && canViewFinanceImpact ? (
+            <div className="drawer-action-bar">
+              <button className="drawer-action-button" type="button" onClick={() => void previewImpact(detail)} disabled={saving}>
+                <RefreshCw size={16} /> 财务影响预览
               </button>
             </div>
-          </div>
+          ) : null}
           <div className="system-grid">
             <div className="empty-state">
               <strong>基础信息</strong>
@@ -673,13 +674,14 @@ export default function LeasingContractChangesPage() {
 
       {drawerOpen ? (
         <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>{editing ? "编辑合同变更草稿" : "发起合同变更"}</strong>
-            <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submit}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={editing ? "编辑合同变更草稿" : "发起合同变更"}
+            description="填写拟变更后的合同信息，保存为草稿不会直接修改合同与应收。"
+            onClose={() => setDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submit}>
             <div className="system-grid">
               <label className="field">
                 <span>变更单号</span>
@@ -757,10 +759,13 @@ export default function LeasingContractChangesPage() {
               <span>备注</span>
               <textarea value={form.remark} onChange={(event) => setForm((prev) => ({ ...prev, remark: event.target.value }))} />
             </label>
-            <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
-              {saving ? "保存中" : "保存草稿"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
+                {saving ? "保存中" : "保存草稿"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
     </div>

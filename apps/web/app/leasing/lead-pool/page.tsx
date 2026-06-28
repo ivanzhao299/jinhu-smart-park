@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { CheckCircle2, RefreshCw, Search, UserPlus, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -271,47 +271,49 @@ export default function LeasingLeadPoolPage() {
 
           {assignTarget ? (
             <Drawer size="md" onClose={() => setAssignTarget(null)}>
-              <div className="system-toolbar">
-                <h2>分配线索</h2>
-                <button className="primary-button" type="button" onClick={() => setAssignTarget(null)}>
-                  <X size={16} />
-                  关闭
-                </button>
-              </div>
-              <form className="form-stack" onSubmit={(event) => void submitAssign(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerHeader
+                eyebrow="招商租赁"
+                title="分配线索"
+                description="将公海线索分配给目标跟进人。"
+                onClose={() => setAssignTarget(null)}
+                closeIcon={<X size={18} />}
+              />
+              <DrawerForm onSubmit={(event) => void submitAssign(event).catch((error: Error) => setMessage(error.message))}>
                 <DetailGrid>
                   <DetailItem label="线索编码" value={assignTarget.leadCode} />
                   <DetailItem label="客户名称" value={assignTarget.customerName} />
                   <DetailItem label="原跟进人" value={assignTarget.followUserName ?? "-"} />
                   <DetailItem label="入池时间" value={formatDateTime(assignTarget.poolEnterTime)} />
                 </DetailGrid>
-                <div className="field">
-                  <label htmlFor="assign-follow-user">目标跟进人</label>
-                  <input
-                    id="assign-follow-user"
-                    list="assign-follow-user-options"
+                <DrawerFormGrid single>
+                  <div className="field">
+                    <label htmlFor="assign-follow-user">目标跟进人</label>
+                    <input
+                      id="assign-follow-user"
+                      list="assign-follow-user-options"
+                      required
+                      value={assignForm.followUserId}
+                      onChange={(event) => setAssignForm((current) => ({ ...current, followUserId: event.target.value }))}
+                      placeholder="选择或输入用户 ID"
+                    />
+                    <datalist id="assign-follow-user-options">
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>{user.displayName || user.username}</option>
+                      ))}
+                    </datalist>
+                  </div>
+                  <TextAreaField
+                    label="分配原因"
+                    value={assignForm.reason}
+                    onChange={(value) => setAssignForm((current) => ({ ...current, reason: value }))}
                     required
-                    value={assignForm.followUserId}
-                    onChange={(event) => setAssignForm((current) => ({ ...current, followUserId: event.target.value }))}
-                    placeholder="选择或输入用户 ID"
                   />
-                  <datalist id="assign-follow-user-options">
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>{user.displayName || user.username}</option>
-                    ))}
-                  </datalist>
-                </div>
-                <TextAreaField
-                  label="分配原因"
-                  value={assignForm.reason}
-                  onChange={(value) => setAssignForm((current) => ({ ...current, reason: value }))}
-                  required
-                />
-                <div className="page-actions">
+                </DrawerFormGrid>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setAssignTarget(null)}>取消</button>
                   <button className="primary-button" type="submit">确认分配</button>
-                  <button className="primary-button" type="button" onClick={() => setAssignTarget(null)}>取消</button>
-                </div>
-              </form>
+                </DrawerFooter>
+              </DrawerForm>
             </Drawer>
           ) : null}
         </main>

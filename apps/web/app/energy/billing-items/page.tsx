@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { AlertTriangle, CheckCircle2, Edit3, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Edit3, RefreshCw, Search, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -178,7 +178,7 @@ export default function EnergyBillingItemsPage() {
 
         {adjusting ? (
           <Drawer size="md" onClose={() => setAdjusting(null)}>
-            <DrawerHeader eyebrow="能源账单" title="人工调整" description="调整金额可为正或负，必须填写调整原因。" onClose={() => setAdjusting(null)} />
+            <DrawerHeader eyebrow="能源管理" title="人工调整" description="调整金额可为正或负，必须填写调整原因。" onClose={() => setAdjusting(null)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveAdjust(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="调整金额"><input required type="number" step="0.01" value={adjustForm.adjustmentAmount} onFocus={(event) => event.target.select()} onChange={(event) => setAdjustForm((current) => ({ ...current, adjustmentAmount: event.target.value }))} /></Field>

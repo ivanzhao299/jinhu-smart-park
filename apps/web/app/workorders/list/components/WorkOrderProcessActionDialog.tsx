@@ -25,10 +25,10 @@ export function WorkOrderProcessActionDialog({
   onFinishFileUploaded
 }: WorkOrderProcessActionDialogProps) {
   return (
-    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
+    <Drawer size="md" onClose={onClose}>
       <DrawerHeader
-        eyebrow={action.mode === "wait-material" ? "标记待物料" : "完成处理"}
-        title={action.row.woCode}
+        eyebrow="工单运维"
+        title={`${action.mode === "wait-material" ? "标记待物料" : "完成处理"} · ${action.row.woCode}`}
         description={action.mode === "wait-material" ? "记录缺料原因，工单进入待物料状态。" : "填写处理说明，可上传处理后的现场图片。"}
         onClose={onClose}
         closeIcon={<X size={16} />}

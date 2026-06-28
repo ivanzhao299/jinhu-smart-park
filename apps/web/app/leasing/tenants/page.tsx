@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { AlertTriangle, CheckCircle2, Download, Edit3, Eye, Plus, RefreshCw, Search, Trash2, Upload, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -1245,57 +1245,69 @@ export default function LeasingTenantsPage() {
 
           {showForm ? (
             <Drawer size="lg" onClose={() => setShowForm(false)}>
-              <div className="task-item">
-                <h2 className="panel-title">{editing ? "编辑租户企业" : "新增租户企业"}</h2>
-                <button className="drawer-close-button" title="关闭" type="button" onClick={() => setShowForm(false)}><X size={16} /></button>
-              </div>
-              <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-                <TextField label="企业编码" value={form.parkTenantCode} placeholder="为空时按编码规则生成" onChange={(value) => setFormValue(setForm, "parkTenantCode", value)} />
-                <TextField label="企业名称" value={form.companyName} required onChange={(value) => setFormValue(setForm, "companyName", value)} />
-                <TextField label="统一社会信用代码" value={form.unifiedCreditCode} onChange={(value) => setFormValue(setForm, "unifiedCreditCode", value)} />
-                <TextField label="法人姓名" value={form.legalPerson} onChange={(value) => setFormValue(setForm, "legalPerson", value)} />
-                {canEditLegalPersonId ? <TextField label="法人证件号" value={form.legalPersonId} onChange={(value) => setFormValue(setForm, "legalPersonId", value)} /> : null}
-                <TextField label="主联系人" value={form.contactName} onChange={(value) => setFormValue(setForm, "contactName", value)} />
-                {canEditContactMobile ? <TextField label="联系电话" value={form.contactMobile} onChange={(value) => setFormValue(setForm, "contactMobile", value)} /> : null}
-                <TextField label="联系邮箱" value={form.contactEmail} onChange={(value) => setFormValue(setForm, "contactEmail", value)} />
-                <SelectField label="行业" value={form.industryCode} onChange={(value) => setFormValue(setForm, "industryCode", value)}>
-                  <option value="">请选择行业</option>
-                  {industryItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
-                </SelectField>
-                <TextField label="行业细分" value={form.industryDetail} onChange={(value) => setFormValue(setForm, "industryDetail", value)} />
-                <SelectField label="租户类型" value={form.tenantType} onChange={(value) => setFormValue(setForm, "tenantType", value)}>
-                  <option value="">请选择类型</option>
-                  {typeItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
-                </SelectField>
-                <SelectField label="风险等级" value={form.riskLevel} onChange={(value) => setFormValue(setForm, "riskLevel", value)}>
-                  <option value="">请选择风险</option>
-                  {riskItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
-                </SelectField>
-                <TextField label="风险标签" value={form.riskTags} placeholder="多个标签用逗号分隔" onChange={(value) => setFormValue(setForm, "riskTags", value)} />
-                <DateField label="入驻日期" value={form.checkInDate} onChange={(value) => setFormValue(setForm, "checkInDate", value)} />
-                <DateField label="退园日期" value={form.checkOutDate} onChange={(value) => setFormValue(setForm, "checkOutDate", value)} />
-                <SelectField label="状态" value={form.status} onChange={(value) => setFormValue(setForm, "status", value)}>
-                  <option value="">请选择状态</option>
-                  {statusItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
-                </SelectField>
-                <SelectField label="来源" value={form.sourceType} onChange={(value) => setFormValue(setForm, "sourceType", value)}>
-                  <option value="">请选择来源</option>
-                  {sourceItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
-                </SelectField>
-                <TextAreaField label="经营范围" value={form.businessScope} onChange={(value) => setFormValue(setForm, "businessScope", value)} />
-                <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue(setForm, "remark", value)} />
-                <button className="primary-button" type="submit">保存</button>
-                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
-              </form>
+              <DrawerHeader
+                eyebrow="招商租赁"
+                title={editing ? "编辑租户企业" : "新增租户企业"}
+                description="维护租户企业的基础档案、联系信息与风险标签。"
+                onClose={() => setShowForm(false)}
+                closeIcon={<X size={18} />}
+              />
+              <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+                <DrawerFormGrid>
+                  <TextField label="企业编码" value={form.parkTenantCode} placeholder="为空时按编码规则生成" onChange={(value) => setFormValue(setForm, "parkTenantCode", value)} />
+                  <TextField label="企业名称" value={form.companyName} required onChange={(value) => setFormValue(setForm, "companyName", value)} />
+                  <TextField label="统一社会信用代码" value={form.unifiedCreditCode} onChange={(value) => setFormValue(setForm, "unifiedCreditCode", value)} />
+                  <TextField label="法人姓名" value={form.legalPerson} onChange={(value) => setFormValue(setForm, "legalPerson", value)} />
+                  {canEditLegalPersonId ? <TextField label="法人证件号" value={form.legalPersonId} onChange={(value) => setFormValue(setForm, "legalPersonId", value)} /> : null}
+                  <TextField label="主联系人" value={form.contactName} onChange={(value) => setFormValue(setForm, "contactName", value)} />
+                  {canEditContactMobile ? <TextField label="联系电话" value={form.contactMobile} onChange={(value) => setFormValue(setForm, "contactMobile", value)} /> : null}
+                  <TextField label="联系邮箱" value={form.contactEmail} onChange={(value) => setFormValue(setForm, "contactEmail", value)} />
+                  <SelectField label="行业" value={form.industryCode} onChange={(value) => setFormValue(setForm, "industryCode", value)}>
+                    <option value="">请选择行业</option>
+                    {industryItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+                  </SelectField>
+                  <TextField label="行业细分" value={form.industryDetail} onChange={(value) => setFormValue(setForm, "industryDetail", value)} />
+                  <SelectField label="租户类型" value={form.tenantType} onChange={(value) => setFormValue(setForm, "tenantType", value)}>
+                    <option value="">请选择类型</option>
+                    {typeItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+                  </SelectField>
+                  <SelectField label="风险等级" value={form.riskLevel} onChange={(value) => setFormValue(setForm, "riskLevel", value)}>
+                    <option value="">请选择风险</option>
+                    {riskItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+                  </SelectField>
+                  <TextField label="风险标签" value={form.riskTags} placeholder="多个标签用逗号分隔" onChange={(value) => setFormValue(setForm, "riskTags", value)} />
+                  <DateField label="入驻日期" value={form.checkInDate} onChange={(value) => setFormValue(setForm, "checkInDate", value)} />
+                  <DateField label="退园日期" value={form.checkOutDate} onChange={(value) => setFormValue(setForm, "checkOutDate", value)} />
+                  <SelectField label="状态" value={form.status} onChange={(value) => setFormValue(setForm, "status", value)}>
+                    <option value="">请选择状态</option>
+                    {statusItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+                  </SelectField>
+                  <SelectField label="来源" value={form.sourceType} onChange={(value) => setFormValue(setForm, "sourceType", value)}>
+                    <option value="">请选择来源</option>
+                    {sourceItems.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}
+                  </SelectField>
+                </DrawerFormGrid>
+                <DrawerFormGrid single>
+                  <TextAreaField label="经营范围" value={form.businessScope} onChange={(value) => setFormValue(setForm, "businessScope", value)} />
+                  <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue(setForm, "remark", value)} />
+                </DrawerFormGrid>
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                  <button className="primary-button" type="submit">保存</button>
+                </DrawerFooter>
+              </DrawerForm>
             </Drawer>
           ) : null}
 
           {detail ? (
             <Drawer size="lg" onClose={() => setDetail(null)}>
-              <div className="task-item">
-                <h2 className="panel-title">租户 360</h2>
-                <button className="drawer-close-button" title="关闭" type="button" onClick={() => setDetail(null)}><X size={16} /></button>
-              </div>
+              <DrawerHeader
+                eyebrow="招商租赁"
+                title="租户 360"
+                description={detail.companyName}
+                onClose={() => setDetail(null)}
+                closeIcon={<X size={18} />}
+              />
               <div className="system-tabs">
                 <button className={detailTab === "profile" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("profile")}>基础信息</button>
                 <button className={detailTab === "risk" ? "primary-button" : undefined} type="button" onClick={() => setDetailTab("risk")}>风险信息</button>

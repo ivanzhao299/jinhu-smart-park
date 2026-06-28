@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { Calculator, CheckCircle2, FileUp, Plus, RefreshCw, Search, XCircle } from "lucide-react";
+import { Calculator, CheckCircle2, FileUp, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -184,7 +184,7 @@ export default function EnergyBillingCyclesPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader eyebrow="能源账期" title="新增账期" description="账期计算只读取已确认能源读数。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="能源管理" title="新增账期" description="账期计算只读取已确认能源读数。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="账期名称"><input required value={form.cycleName} onChange={(event) => setForm((current) => ({ ...current, cycleName: event.target.value }))} /></Field>

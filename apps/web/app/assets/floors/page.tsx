@@ -1,8 +1,8 @@
 "use client";
-import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
 
 import { Edit3, Eye, FileUp, Plus, Search, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -310,7 +310,9 @@ export default function FloorsPage() {
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
             <DrawerHeader
+              eyebrow="资产空间"
               title={editingId ? "编辑楼层" : "新增楼层"}
+              description="维护楼栋下的楼层档案与平面图。"
               closeIcon={<X size={18} />}
               onClose={() => setShowForm(false)}
             />
@@ -383,10 +385,13 @@ export default function FloorsPage() {
 
         {layoutTarget ? (
           <Drawer size="md" onClose={() => setLayoutTarget(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">{layoutTarget.floorName} 平面图</h2>
-              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setLayoutTarget(null)}><X size={16} /></button>
-            </div>
+            <DrawerHeader
+              eyebrow="资产空间"
+              title={`${layoutTarget.floorName} 平面图`}
+              description="上传与查看楼层平面图附件。"
+              onClose={() => setLayoutTarget(null)}
+              closeIcon={<X size={18} />}
+            />
             {canEditLayoutUrl ? (
               <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT}>
                 <FileUploader
@@ -399,30 +404,39 @@ export default function FloorsPage() {
               </PermissionGuard>
             ) : null}
             {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} /> : null}
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setLayoutTarget(null)}>关闭</button>
+            </DrawerFooter>
           </Drawer>
         ) : null}
 
         {detail ? (
           <Drawer size="md" onClose={() => setDetail(null)}>
-            <div className="task-item">
-              <h2 className="panel-title">楼层详情</h2>
-              <button className="drawer-close-button" type="button" title="关闭" onClick={() => setDetail(null)}><X size={16} /></button>
-            </div>
-            <div className="form-stack">
-              <DetailItem label="楼栋" value={detail.building ? `${detail.building.buildingCode} ${detail.building.buildingName}` : "-"} />
-              <DetailItem label="楼层编码" value={detail.floorCode} />
-              <DetailItem label="楼层名称" value={detail.floorName} />
-              <DetailItem label="楼层号" value={detail.floorNo} />
-              <DetailItem label="面积" value={formatArea(detail.floorArea)} />
+            <DrawerHeader
+              eyebrow="资产空间"
+              title="楼层详情"
+              description="查看楼层档案详情。"
+              onClose={() => setDetail(null)}
+              closeIcon={<X size={18} />}
+            />
+            <DrawerDetailGrid>
+              <DrawerDetailItem label="楼栋" value={detail.building ? `${detail.building.buildingCode} ${detail.building.buildingName}` : "-"} />
+              <DrawerDetailItem label="楼层编码" value={detail.floorCode} />
+              <DrawerDetailItem label="楼层名称" value={detail.floorName} />
+              <DrawerDetailItem label="楼层号" value={detail.floorNo} />
+              <DrawerDetailItem label="面积" value={formatArea(detail.floorArea)} />
               {canViewLayoutUrl ? (
-                <DetailItem
+                <DrawerDetailItem
                   label="平面图"
                   value={detail.layoutUrl ? fieldText(maskField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL, detail.layoutUrl)) : detail.layoutFileId ? "已上传" : "未上传"}
                 />
               ) : null}
-              <DetailItem label="状态" value={<StatusBadge status={detail.status} />} />
-              <DetailItem label="备注" value={detail.remark ?? "-"} />
-            </div>
+              <DrawerDetailItem label="状态" value={<StatusBadge status={detail.status} />} />
+              <DrawerDetailItem label="备注" value={detail.remark ?? "-"} />
+            </DrawerDetailGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
+            </DrawerFooter>
           </Drawer>
         ) : null}
 
@@ -479,15 +493,6 @@ function NumberField({
         onFocus={(event) => event.target.select()}
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="task-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   );
 }

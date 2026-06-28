@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { CheckCircle2, RefreshCw, Search, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search, ShieldCheck, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -167,7 +167,7 @@ export default function EnergyAlertsPage() {
 
         {actionState ? (
           <Drawer size="md" onClose={() => setActionState(null)}>
-            <DrawerHeader eyebrow="能源告警" title={actionLabel(actionState.action, false)} description={actionState.row.title} onClose={() => setActionState(null)} />
+            <DrawerHeader eyebrow="能源管理" title={actionLabel(actionState.action, false)} description={actionState.row.title} onClose={() => setActionState(null)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="告警编号"><input readOnly value={actionState.row.alertCode} /></Field>

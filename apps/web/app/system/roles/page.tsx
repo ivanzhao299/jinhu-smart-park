@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { Copy, Edit3, FolderTree, KeyRound, Layers3, Plus, Power, Save, ShieldCheck, Tags, Trash2, X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
@@ -396,20 +396,35 @@ export default function RolesPage() {
 
       {formOpen ? (
         <Drawer size="md" onClose={() => setFormOpen(false)}>
-          <form className="form-stack" onSubmit={(event) => void submitRole(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{formMode === "create" ? "新增自定义角色" : "编辑角色"}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
-            <div className="field"><label>角色编码</label><input required value={formState.code} onChange={(event) => setFormState({ ...formState, code: event.target.value })} disabled={formMode === "edit" && Boolean(selectedRole?.isBuiltin)} /></div>
-            <div className="field"><label>角色名称</label><input required value={formState.name} onChange={(event) => setFormState({ ...formState, name: event.target.value })} /></div>
-            <div className="field"><label>上级角色</label><select value={formState.parentId} onChange={(event) => setFormState({ ...formState, parentId: event.target.value })}><option value="">无</option>{flatRoles.filter((role) => role.id !== formState.id).map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
-            <div className="field"><label>数据范围</label><select value={formState.dataScope} onChange={(event) => setFormState({ ...formState, dataScope: event.target.value })}><option value="tenant">本租户</option><option value="park">本园区</option><option value="org">本组织</option><option value="self">本人</option><option value="custom">自定义</option><option value="all">全部</option></select></div>
-            <div className="field"><label>角色类型</label><select value={formState.roleType} onChange={(event) => setFormState({ ...formState, roleType: event.target.value })}><option value="custom">自定义</option><option value="tenant">租户角色</option><option value="park">园区角色</option><option value="tenant_external">租户外部角色</option><option value="system">系统角色</option></select></div>
-            <div className="field"><label>角色范围</label><select value={formState.roleScope} onChange={(event) => setFormState({ ...formState, roleScope: event.target.value })}><option value="tenant">租户</option><option value="park">园区</option><option value="platform">平台</option></select></div>
-            <div className="field"><label>排序</label><input type="number" value={formState.sortNo} onChange={(event) => setFormState({ ...formState, sortNo: Number(event.target.value) })} onFocus={(event) => event.target.select()} /></div>
-            <label className="binding-row"><input type="checkbox" checked={formState.isTemplate} onChange={(event) => setFormState({ ...formState, isTemplate: event.target.checked })} /><span>设为模板角色</span><span /></label>
-            <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
-            <button className="primary-button" type="submit"><Save size={16} />保存</button>
-          </form>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={formMode === "create" ? "新增自定义角色" : "编辑角色"}
+            description="维护角色基础信息、层级、范围与数据范围。"
+            onClose={() => setFormOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submitRole(event).catch(showError)}>
+            <DrawerFormGrid>
+              <div className="field"><label>角色编码</label><input required value={formState.code} onChange={(event) => setFormState({ ...formState, code: event.target.value })} disabled={formMode === "edit" && Boolean(selectedRole?.isBuiltin)} /></div>
+              <div className="field"><label>角色名称</label><input required value={formState.name} onChange={(event) => setFormState({ ...formState, name: event.target.value })} /></div>
+              <div className="field"><label>上级角色</label><select value={formState.parentId} onChange={(event) => setFormState({ ...formState, parentId: event.target.value })}><option value="">无</option>{flatRoles.filter((role) => role.id !== formState.id).map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
+              <div className="field"><label>数据范围</label><select value={formState.dataScope} onChange={(event) => setFormState({ ...formState, dataScope: event.target.value })}><option value="tenant">本租户</option><option value="park">本园区</option><option value="org">本组织</option><option value="self">本人</option><option value="custom">自定义</option><option value="all">全部</option></select></div>
+              <div className="field"><label>角色类型</label><select value={formState.roleType} onChange={(event) => setFormState({ ...formState, roleType: event.target.value })}><option value="custom">自定义</option><option value="tenant">租户角色</option><option value="park">园区角色</option><option value="tenant_external">租户外部角色</option><option value="system">系统角色</option></select></div>
+              <div className="field"><label>角色范围</label><select value={formState.roleScope} onChange={(event) => setFormState({ ...formState, roleScope: event.target.value })}><option value="tenant">租户</option><option value="park">园区</option><option value="platform">平台</option></select></div>
+              <div className="field"><label>排序</label><input type="number" value={formState.sortNo} onChange={(event) => setFormState({ ...formState, sortNo: Number(event.target.value) })} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="checkbox-list">
+                <label className="checkbox-row"><input type="checkbox" checked={formState.isTemplate} onChange={(event) => setFormState({ ...formState, isTemplate: event.target.checked })} /><span>设为模板角色</span></label>
+              </div>
+              <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>取消</button>
+              <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
