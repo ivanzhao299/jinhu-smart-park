@@ -34,8 +34,9 @@ pnpm test:e2e
 # 财务/安全/IoT 专项见 production-readiness-matrix §3
 ```
 - [x] 【我】menu-whitelist → PASS
-- [~] 【我】auth-health → **FAIL(F1)**:send-code / wechat-authorize 仍 200,需决策(见 prd F1)。
-- [ ] 【我】idempotency / files / users-assets / workorders / leasing(F1 修复或口径调整后续跑)。
+- [x] 【我】auth-health → PASS(生产姿态 NODE_ENV=production;F1 假阳性已澄清,见 prd F1)。
+- [x] 【我】idempotency(13)/ files(10)/ users-assets(43)/ workorders(21)/ leasing(200)→ 全 PASS。
+- [x] 【我】`first-release-regression` 完整跑 → **exit 0,全绿**。
 
 ## 阶段 4 — Go / No-Go
 - [ ] 工程门禁绿 + 初始化序列 PASS + 回归无未关闭 P0 + 备份/回滚就绪 + auth 姿态核验。

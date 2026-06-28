@@ -43,8 +43,12 @@
 
 ## 已知发布项(dress rehearsal 暴露)
 
-- F1【auth,需决策】首发要求仅密码登录;但关闭 mock 后 `/auth/mobile/send-code` 与
-  `/auth/wechat/authorize` 仍返回 200(无禁用开关),`first-release-auth-health` 因此 FAIL。
-  实际登录已不可能(`mobile/login` 401、`wechat/callback` 400)。需在"为首发禁用这两个
-  端点(加 feature flag)"与"调整回归口径"之间二选一。属 auth 敏感项,待发布负责人决策。
+- F1【auth,已澄清=假阳性,无需改代码】首发要求仅密码登录。最初预演时
+  `/auth/mobile/send-code`、`/auth/wechat/authorize` 返回 200,是因为**本地 API 跑在
+  `NODE_ENV=development`**:`AuthService.isSmsLoginEnabled()/isWechatLoginEnabled()` 返回
+  `!isProduction()`,`assertSmsLoginEnabled()/assertWechatLoginEnabled()` 在生产抛 400。
+  以 `NODE_ENV=production` 重启 API 实证:send-code=400、wechat/authorize=400、
+  mobile/login=400、wechat/callback=400、密码登录=200,`first-release-auth-health` PASS,
+  完整 `first-release-regression` 全绿(exit 0)。**结论:生产代码已正确禁用,未改 auth。**
+  发布前提:生产 `NODE_ENV=production`(`.env.production` 已具备)。
 - F2【文件】文件中心为单机本地存储,非对象存储;生产需确认持久化目录与备份(R4/R5)。
