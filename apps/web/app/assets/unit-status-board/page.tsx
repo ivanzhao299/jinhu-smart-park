@@ -606,10 +606,10 @@ function UnitDetailDrawer({
   return (
     <Drawer size="md" onClose={onClose}>
       <DrawerHeader
-        eyebrow={`${building.building_code} / ${floor.floor_name}`}
+        eyebrow="资产空间"
         title={unit.unit_name}
-        description={`${unit.unit_code} · ${formatArea(unit.unit_area)} · ${unit.usage_type_name}`}
-        closeIcon={<X size={16} />}
+        description={`${building.building_code} / ${floor.floor_name} · ${unit.unit_code} · ${formatArea(unit.unit_area)} · ${unit.usage_type_name}`}
+        closeIcon={<X size={18} />}
         onClose={onClose}
       />
       <div className="system-tabs">
@@ -703,9 +703,9 @@ function UnitDetailDrawer({
         />
       ) : null}
       <DrawerFooter>
-        <button className="primary-button" type="button" onClick={onClose}>
+        <button className="secondary-button" type="button" onClick={onClose}>
           <Eye size={16} />
-          知道了
+          关闭
         </button>
       </DrawerFooter>
     </Drawer>

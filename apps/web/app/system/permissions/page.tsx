@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Drawer } from "@jinhu/ui";
+import { Card, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 import { ChevronDown, ChevronRight, Database, FolderTree, KeyRound, Plus, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -289,26 +289,39 @@ export default function PermissionsPage() {
       </section>
 
       {createDefaults ? (
-        <Drawer size="md" onClose={() => setCreateDefaults(null)}>
-          <form className="form-stack" onSubmit={(event) => void createPermission(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{createDefaults.title}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setCreateDefaults(null)}><X size={16} /></button></div>
-            <div className="field"><label>编码</label><input name="code" placeholder="system:example:read" required /></div>
-            <div className="field"><label>名称</label><input name="name" required /></div>
-            <div className="field"><label>上级权限</label><select name="parentId" defaultValue={createDefaults.parentId}><option value="">无</option>{flatTree.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-            <div className="field"><label>权限分类</label><select name="permType" defaultValue={createDefaults.permType}>{permTypes.filter((item) => item.value).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-            <div className="field"><label>资源</label><input name="resource" defaultValue={createDefaults.resource} /></div>
-            <div className="field"><label>动作</label><input name="action" defaultValue={createDefaults.action} /></div>
-            <div className="field"><label>排序</label><input name="sortNo" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
-            <div className="field"><label>前端路由</label><input name="frontendRoute" /></div>
-            <div className="field"><label>组件键</label><input name="componentKey" /></div>
-            <div className="field"><label>API 方法</label><select name="apiMethod" defaultValue={createDefaults.permType === 40 ? "GET" : ""}><option value="">无</option><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></div>
-            <div className="field"><label>API 路径</label><input name="apiPath" placeholder="/api/v1/example" /></div>
-            <div className="field"><label>字段键</label><input name="fieldKey" /></div>
-            <div className="field"><label>数据维度</label><input name="dataDimension" /></div>
-            <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>备注</label><input name="remark" /></div>
-            <button className="primary-button" type="submit"><Save size={16} />保存</button>
-          </form>
+        <Drawer size="lg" onClose={() => setCreateDefaults(null)}>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={createDefaults.title}
+            description="维护权限资源、动作、路由与 API 等元数据。"
+            onClose={() => setCreateDefaults(null)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void createPermission(event).catch(showError)}>
+            <DrawerFormGrid>
+              <div className="field"><label>编码</label><input name="code" placeholder="system:example:read" required /></div>
+              <div className="field"><label>名称</label><input name="name" required /></div>
+              <div className="field"><label>上级权限</label><select name="parentId" defaultValue={createDefaults.parentId}><option value="">无</option>{flatTree.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+              <div className="field"><label>权限分类</label><select name="permType" defaultValue={createDefaults.permType}>{permTypes.filter((item) => item.value).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+              <div className="field"><label>资源</label><input name="resource" defaultValue={createDefaults.resource} /></div>
+              <div className="field"><label>动作</label><input name="action" defaultValue={createDefaults.action} /></div>
+              <div className="field"><label>排序</label><input name="sortNo" type="number" defaultValue={0} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>前端路由</label><input name="frontendRoute" /></div>
+              <div className="field"><label>组件键</label><input name="componentKey" /></div>
+              <div className="field"><label>API 方法</label><select name="apiMethod" defaultValue={createDefaults.permType === 40 ? "GET" : ""}><option value="">无</option><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></div>
+              <div className="field"><label>API 路径</label><input name="apiPath" placeholder="/api/v1/example" /></div>
+              <div className="field"><label>字段键</label><input name="fieldKey" /></div>
+              <div className="field"><label>数据维度</label><input name="dataDimension" /></div>
+              <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field"><label>备注</label><input name="remark" /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setCreateDefaults(null)}>取消</button>
+              <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

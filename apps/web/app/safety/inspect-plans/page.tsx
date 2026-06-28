@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -412,8 +412,8 @@ export default function SafetyInspectPlansPage() {
         {message ? <p className="form-error">{message}</p> : null}
 
         {formOpen ? (
-          <Drawer size="md" onClose={closeForm}>
-            <DrawerHeader title={editing ? "编辑巡检计划" : "新增巡检计划"} description="计划启用后由巡检 Runtime 按频率自动生成任务；自定义 Cron 暂不开放，避免生成结果与现场制度不一致。" onClose={closeForm} />
+          <Drawer size="xl" onClose={closeForm}>
+            <DrawerHeader eyebrow="现场安全" title={editing ? "编辑巡检计划" : "新增巡检计划"} description="计划启用后由巡检 Runtime 按频率自动生成任务；自定义 Cron 暂不开放，避免生成结果与现场制度不一致。" onClose={closeForm} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="计划编码">
@@ -424,6 +424,18 @@ export default function SafetyInspectPlansPage() {
                 </Field>
                 <SimpleSelect label="巡检模板" required value={form.templateId} allLabel="请选择模板" options={templates.map((item) => ({ value: item.id, label: `${item.templateCode} ${item.templateName}` }))} onChange={(value) => setFormValue("templateId", value)} />
                 <SelectField label="频率" required value={form.frequencyType} items={supportedFrequencyItems} allLabel="请选择频率" onChange={(value) => setFormValue("frequencyType", value)} />
+                <Field label="下次生成预览">
+                  <input readOnly value={previewNextGenerateTime(form.startDate, form.frequencyType)} />
+                </Field>
+                <Field label="开始日期">
+                  <input required type="date" value={form.startDate} onChange={(event) => setFormValue("startDate", event.target.value)} />
+                </Field>
+                <Field label="结束日期">
+                  <input type="date" value={form.endDate} onChange={(event) => setFormValue("endDate", event.target.value)} />
+                </Field>
+                <SelectField label="状态" value={form.status} items={statusItems} allLabel="请选择状态" onChange={(value) => setFormValue("status", value)} />
+              </DrawerFormGrid>
+              <DrawerFormGrid single>
                 <Field label={`巡检点（已选 ${form.pointIds.length} 个）`}>
                   <input value={pointKeyword} onChange={(event) => setPointKeyword(event.target.value)} placeholder="搜索点位编码 / 名称" />
                   <div className="checkbox-list" role="group" aria-label="选择巡检点">
@@ -440,26 +452,40 @@ export default function SafetyInspectPlansPage() {
                     {filteredPoints.length === 0 ? <span className="empty-state">没有匹配点位</span> : null}
                   </div>
                 </Field>
-                <Field label="责任人">
-                  <select multiple value={form.handlerUserIds} onChange={(event) => setFormValue("handlerUserIds", selectedValues(event.currentTarget))}>
-                    {users.map((item) => <option key={item.id} value={item.id}>{item.displayName}（{item.username}）</option>)}
-                  </select>
+                <Field label={`责任人（已选 ${form.handlerUserIds.length} 人）`}>
+                  <div className="checkbox-list" role="group" aria-label="选择责任人">
+                    {users.map((item) => (
+                      <label key={item.id} className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          name="handlerUserIds"
+                          value={item.id}
+                          checked={form.handlerUserIds.includes(item.id)}
+                          onChange={(event) => setFormValue("handlerUserIds", toggleValue(form.handlerUserIds, item.id, event.target.checked))}
+                        />
+                        <span>{item.displayName}（{item.username}）</span>
+                      </label>
+                    ))}
+                    {users.length === 0 ? <span className="empty-state">暂无可选责任人</span> : null}
+                  </div>
                 </Field>
-                <Field label="责任角色">
-                  <select multiple value={form.handlerRoleCodes} onChange={(event) => setFormValue("handlerRoleCodes", selectedValues(event.currentTarget))}>
-                    {roles.map((item) => <option key={item.id} value={item.code}>{item.name}（{item.code}）</option>)}
-                  </select>
+                <Field label={`责任角色（已选 ${form.handlerRoleCodes.length} 个）`}>
+                  <div className="checkbox-list" role="group" aria-label="选择责任角色">
+                    {roles.map((item) => (
+                      <label key={item.id} className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          name="handlerRoleCodes"
+                          value={item.code}
+                          checked={form.handlerRoleCodes.includes(item.code)}
+                          onChange={(event) => setFormValue("handlerRoleCodes", toggleValue(form.handlerRoleCodes, item.code, event.target.checked))}
+                        />
+                        <span>{item.name}（{item.code}）</span>
+                      </label>
+                    ))}
+                    {roles.length === 0 ? <span className="empty-state">暂无可选角色</span> : null}
+                  </div>
                 </Field>
-                <Field label="下次生成预览">
-                  <input readOnly value={previewNextGenerateTime(form.startDate, form.frequencyType)} />
-                </Field>
-                <Field label="开始日期">
-                  <input required type="date" value={form.startDate} onChange={(event) => setFormValue("startDate", event.target.value)} />
-                </Field>
-                <Field label="结束日期">
-                  <input type="date" value={form.endDate} onChange={(event) => setFormValue("endDate", event.target.value)} />
-                </Field>
-                <SelectField label="状态" value={form.status} items={statusItems} allLabel="请选择状态" onChange={(value) => setFormValue("status", value)} />
                 <Field label="备注">
                   <textarea value={form.remark} onChange={(event) => setFormValue("remark", event.target.value)} />
                 </Field>
@@ -582,10 +608,6 @@ function toggleValue(values: string[], value: string, checked: boolean): string[
     return Array.from(new Set([...values, value]));
   }
   return values.filter((item) => item !== value);
-}
-
-function selectedValues(element: HTMLSelectElement): string[] {
-  return Array.from(element.selectedOptions).map((option) => option.value);
 }
 
 function formatPointSummary(pointIds: string[] | undefined, pointMap: Map<string, InspectPointRow>, expanded = false) {

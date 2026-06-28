@@ -81,7 +81,7 @@ export function UnitDetailDrawer({
   return (
     <Drawer size="md" onClose={onClose}>
       <DrawerHeader
-        eyebrow="房源详情"
+        eyebrow="资产空间"
         title={unit.unitName}
         description={`${unit.unitCode} · ${unit.building ? unit.building.buildingName : "未关联楼栋"} · ${unit.floor ? unit.floor.floorName : "未关联楼层"}`}
         onClose={onClose}

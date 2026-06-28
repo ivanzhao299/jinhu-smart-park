@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { ClipboardCheck, Eye, MapPin, PlayCircle, Plus, RefreshCw, Search, Send, Sparkles } from "lucide-react";
+import { ClipboardCheck, Eye, MapPin, PlayCircle, Plus, RefreshCw, Search, Send, Sparkles, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -601,7 +601,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader title="新增巡检任务" description="可手工指定模板、点位和责任人，计划任务建议从巡检计划生成。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="现场安全" title="新增巡检任务" description="可手工指定模板、点位和责任人，计划任务建议从巡检计划生成。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveTask(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="任务编号">
@@ -631,7 +631,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
         {generateOpen ? (
           <Drawer size="md" onClose={() => setGenerateOpen(false)}>
-            <DrawerHeader title="按计划生成巡检任务" description="同一计划、点位和计划时间不会重复生成。" onClose={() => setGenerateOpen(false)} />
+            <DrawerHeader eyebrow="现场安全" title="按计划生成巡检任务" description="同一计划、点位和计划时间不会重复生成。" onClose={() => setGenerateOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void generateTasks(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <SimpleSelect label="巡检计划" required value={generateForm.planId} allLabel="请选择计划" options={plans.map((item) => ({ value: item.id, label: `${item.planCode} ${item.planName}` }))} onChange={(value) => setGenerateForm((current) => ({ ...current, planId: value }))} />

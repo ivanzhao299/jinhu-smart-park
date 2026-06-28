@@ -30,6 +30,7 @@ import {
   SquareCheck,
   Trash2,
   Wrench,
+  X,
   XCircle
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -680,10 +681,11 @@ export default function SafetyWorkPermitsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="作业许可"
+              eyebrow="现场安全"
               title={editing ? "编辑作业许可" : "新增作业许可"}
               description="高风险作业必须指定监护人，同区域同时间窗会进行冲突校验。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -848,10 +850,11 @@ export default function SafetyWorkPermitsPage() {
         {actionTarget && actionType ? (
           <Drawer size="md" onClose={closeAction}>
             <DrawerHeader
-              eyebrow="作业许可操作"
+              eyebrow="现场安全"
               title={actionTitle(actionType)}
               description={`${actionTarget.permitCode} · 当前状态 ${labelFor(statusItems, actionTarget.status)}`}
               onClose={closeAction}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitPermitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>

@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, ListChecks, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, ListChecks, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -394,7 +394,7 @@ export default function SafetyInspectTemplatesPage() {
 
         {(templateForm !== emptyTemplateForm || editingTemplate) ? (
           <Drawer size="md" onClose={() => { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); }}>
-            <DrawerHeader title={editingTemplate ? "编辑巡检模板" : "新增巡检模板"} description="模板定义巡检任务要执行的一组检查项。" onClose={() => { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); }} />
+            <DrawerHeader eyebrow="现场安全" title={editingTemplate ? "编辑巡检模板" : "新增巡检模板"} description="模板定义巡检任务要执行的一组检查项。" onClose={() => { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); }} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void saveTemplate(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="模板编码">
@@ -507,10 +507,12 @@ export default function SafetyInspectTemplatesPage() {
                   </Field>
                   <SelectField label="状态" value={itemForm.status} items={statusItems} allLabel="请选择状态" onChange={(value) => setItemFormValue("status", value)} />
                   <Field label="必检项">
-                    <label className="form-check-row">
-                      <input type="checkbox" checked={itemForm.required} onChange={(event) => setItemFormValue("required", event.target.checked)} />
-                      必检
-                    </label>
+                    <div className="checkbox-list">
+                      <label className="checkbox-row">
+                        <input type="checkbox" checked={itemForm.required} onChange={(event) => setItemFormValue("required", event.target.checked)} />
+                        <span>必检</span>
+                      </label>
+                    </div>
                   </Field>
                   <Field label="检查标准">
                     <textarea value={itemForm.standardDesc} onChange={(event) => setItemFormValue("standardDesc", event.target.value)} />

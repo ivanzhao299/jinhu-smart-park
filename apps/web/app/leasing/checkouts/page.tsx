@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, DataTableActions, Drawer } from "@jinhu/ui";
+import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { CheckCircle2, Edit3, Eye, Plus, RefreshCw, Search, Send, Trash2, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -724,12 +724,15 @@ export default function LeasingCheckoutsPage() {
 
       {drawerOpen ? (
           <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
-            <div className="drawer-header">
-              <strong>{editing ? `退租单 ${editing.checkoutCode}` : "发起退租申请"}</strong>
-              <button className="icon-button" type="button" onClick={() => setDrawerOpen(false)}><X size={18} /></button>
-            </div>
+            <DrawerHeader
+              eyebrow="招商租赁"
+              title={editing ? `退租单 ${editing.checkoutCode}` : "发起退租申请"}
+              description="维护退租申请、结算预览、退款登记与房源释放。"
+              onClose={() => setDrawerOpen(false)}
+              closeIcon={<X size={18} />}
+            />
 
-            <form className="form-stack" onSubmit={saveCheckout}>
+            <DrawerForm onSubmit={saveCheckout}>
               <div className="system-grid">
                 <TextField label="退租单号" value={form.checkoutCode} onChange={(value) => setFormValue("checkoutCode", value, setForm)} placeholder="为空时自动生成" disabled={Boolean(editing)} />
                 <SelectField label="已生效合同" value={form.contractId} onChange={(value) => setFormValue("contractId", value, setForm)} options={activeContracts.map((contract) => ({ id: contract.id, itemValue: contract.id, itemLabel: `${contract.contractCode} ${contract.contractName}`, status: "enabled" }))} disabled={Boolean(editing)} required />
@@ -740,7 +743,8 @@ export default function LeasingCheckoutsPage() {
               </div>
               <TextAreaField label="退租原因" value={form.reason} onChange={(value) => setFormValue("reason", value, setForm)} />
               <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value, setForm)} />
-              <div className="page-actions">
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
                 {(!editing || editing.status === "10") && (editing ? canUpdate : canCreate) ? (
                   <button className="primary-button" disabled={saving} type="submit">
                     <CheckCircle2 size={16} /> 保存
@@ -765,8 +769,8 @@ export default function LeasingCheckoutsPage() {
                     ) : null}
                   </>
                 ) : null}
-              </div>
-            </form>
+              </DrawerFooter>
+            </DrawerForm>
 
             {detail ? (
               <section className="detail-stack">

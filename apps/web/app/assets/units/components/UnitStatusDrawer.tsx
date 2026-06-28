@@ -1,4 +1,4 @@
-import { Drawer } from "@jinhu/ui";
+import { Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
 import { getTransitionOptions } from "../lib/unit-page-utils";
@@ -45,35 +45,43 @@ export function UnitStatusDrawer({
 }) {
   return (
     <Drawer size="md" onClose={onClose}>
-      <div className="task-item">
-        <h2 className="panel-title">{unit.unitName} {panelMode === "change" ? "状态流转" : "状态日志"}</h2>
-        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
-      </div>
+      <DrawerHeader
+        eyebrow="资产空间"
+        title={`${unit.unitName} ${panelMode === "change" ? "状态流转" : "状态日志"}`}
+        description="管理房源出租状态的流转与历史记录。"
+        onClose={onClose}
+        closeIcon={<X size={18} />}
+      />
       <div className="task-item">
         <span>当前状态</span>
         <strong><DictBadge items={dicts.unit_rental_status} value={unit.rentalStatus} /></strong>
       </div>
       {canChangeStatus && panelMode === "change" ? (
-        <form className="form-stack" onSubmit={onSubmit}>
-          <DictSelect
-            label="目标状态"
-            value={transitionStatus}
-            required
-            items={getTransitionOptions(unit.rentalStatus, dicts.unit_rental_status, canForceChangeStatus)}
-            onChange={onTransitionStatusChange}
-          />
-          <TextField label="流转原因" value={transitionReason} required onChange={onTransitionReasonChange} />
-          {Number(transitionStatus) === 20 ? (
-            <>
-              <TextField label="锁定原因" value={transitionLockReason} onChange={onTransitionLockReasonChange} />
-              <div className="field">
-                <label>锁定到期时间</label>
-                <input type="datetime-local" value={transitionLockExpireTime} onChange={(event) => onTransitionLockExpireTimeChange(event.target.value)} />
-              </div>
-            </>
-          ) : null}
-          <button className="primary-button" type="submit" disabled={!transitionStatus}>确认流转</button>
-        </form>
+        <DrawerForm onSubmit={onSubmit}>
+          <DrawerFormGrid>
+            <DictSelect
+              label="目标状态"
+              value={transitionStatus}
+              required
+              items={getTransitionOptions(unit.rentalStatus, dicts.unit_rental_status, canForceChangeStatus)}
+              onChange={onTransitionStatusChange}
+            />
+            <TextField label="流转原因" value={transitionReason} required onChange={onTransitionReasonChange} />
+            {Number(transitionStatus) === 20 ? (
+              <>
+                <TextField label="锁定原因" value={transitionLockReason} onChange={onTransitionLockReasonChange} />
+                <div className="field">
+                  <label>锁定到期时间</label>
+                  <input type="datetime-local" value={transitionLockExpireTime} onChange={(event) => onTransitionLockExpireTimeChange(event.target.value)} />
+                </div>
+              </>
+            ) : null}
+          </DrawerFormGrid>
+          <DrawerFooter>
+            <button className="secondary-button" type="button" onClick={onClose}>取消</button>
+            <button className="primary-button" type="submit" disabled={!transitionStatus}>确认流转</button>
+          </DrawerFooter>
+        </DrawerForm>
       ) : null}
       <UnitStatusLogsPanel
         statusLogPage={statusLogPage}

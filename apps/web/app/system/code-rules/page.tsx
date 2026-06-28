@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Play, Plus, Save, Search, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -177,24 +177,37 @@ export default function CodeRulesPage() {
       </Card>
 
       {formOpen ? (
-        <Drawer size="md" onClose={() => setFormOpen(false)}>
-          <form className="form-stack" onSubmit={(event) => void submit(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{formState.id ? "编辑编码规则" : "新增编码规则"}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
-            <div className="field"><label>实体类型</label><select value={formState.entityType} onChange={(event) => setFormState({ ...formState, entityType: event.target.value, targetEntity: event.target.value })}>{entityTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div className="field"><label>规则编码</label><input value={formState.ruleCode} onChange={(event) => setFormState({ ...formState, ruleCode: event.target.value })} /></div>
-            <div className="field"><label>规则名称</label><input value={formState.ruleName} onChange={(event) => setFormState({ ...formState, ruleName: event.target.value })} /></div>
-            <div className="field"><label>模块</label><input value={formState.targetModule} onChange={(event) => setFormState({ ...formState, targetModule: event.target.value })} /></div>
-            <div className="field"><label>实体</label><input value={formState.targetEntity} onChange={(event) => setFormState({ ...formState, targetEntity: event.target.value })} /></div>
-            <div className="field"><label>前缀</label><input required value={formState.prefix} onChange={(event) => setFormState({ ...formState, prefix: event.target.value })} /></div>
-            <div className="field"><label>模式</label><input value={formState.pattern} onChange={(event) => setFormState({ ...formState, pattern: event.target.value })} /></div>
-            <div className="field"><label>日期格式</label><input value={formState.datePattern} onChange={(event) => setFormState({ ...formState, datePattern: event.target.value })} /></div>
-            <div className="field"><label>流水长度</label><input type="number" min={3} max={12} value={formState.sequenceLength} onChange={(event) => setFormState({ ...formState, sequenceLength: Number(event.target.value) })} onFocus={(event) => event.target.select()} /></div>
-            <div className="field"><label>重置策略</label><select value={formState.resetStrategy} onChange={(event) => setFormState({ ...formState, resetStrategy: event.target.value })}><option value="none">不重置</option><option value="daily">每日</option><option value="monthly">每月</option><option value="yearly">每年</option></select></div>
-            <div className="field"><label>分隔符</label><input value={formState.separator} onChange={(event) => setFormState({ ...formState, separator: event.target.value })} /></div>
-            <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
-            <button className="primary-button" type="submit"><Save size={16} />保存</button>
-          </form>
+        <Drawer size="lg" onClose={() => setFormOpen(false)}>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={formState.id ? "编辑编码规则" : "新增编码规则"}
+            description="维护业务编码的前缀、模式、流水与重置策略。"
+            onClose={() => setFormOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submit(event).catch(showError)}>
+            <DrawerFormGrid>
+              <div className="field"><label>实体类型</label><select value={formState.entityType} onChange={(event) => setFormState({ ...formState, entityType: event.target.value, targetEntity: event.target.value })}>{entityTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div className="field"><label>规则编码</label><input value={formState.ruleCode} onChange={(event) => setFormState({ ...formState, ruleCode: event.target.value })} /></div>
+              <div className="field"><label>规则名称</label><input value={formState.ruleName} onChange={(event) => setFormState({ ...formState, ruleName: event.target.value })} /></div>
+              <div className="field"><label>模块</label><input value={formState.targetModule} onChange={(event) => setFormState({ ...formState, targetModule: event.target.value })} /></div>
+              <div className="field"><label>实体</label><input value={formState.targetEntity} onChange={(event) => setFormState({ ...formState, targetEntity: event.target.value })} /></div>
+              <div className="field"><label>前缀</label><input required value={formState.prefix} onChange={(event) => setFormState({ ...formState, prefix: event.target.value })} /></div>
+              <div className="field"><label>模式</label><input value={formState.pattern} onChange={(event) => setFormState({ ...formState, pattern: event.target.value })} /></div>
+              <div className="field"><label>日期格式</label><input value={formState.datePattern} onChange={(event) => setFormState({ ...formState, datePattern: event.target.value })} /></div>
+              <div className="field"><label>流水长度</label><input type="number" min={3} max={12} value={formState.sequenceLength} onChange={(event) => setFormState({ ...formState, sequenceLength: Number(event.target.value) })} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>重置策略</label><select value={formState.resetStrategy} onChange={(event) => setFormState({ ...formState, resetStrategy: event.target.value })}><option value="none">不重置</option><option value="daily">每日</option><option value="monthly">每月</option><option value="yearly">每年</option></select></div>
+              <div className="field"><label>分隔符</label><input value={formState.separator} onChange={(event) => setFormState({ ...formState, separator: event.target.value })} /></div>
+              <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>取消</button>
+              <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

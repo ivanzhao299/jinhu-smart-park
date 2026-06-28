@@ -1,4 +1,4 @@
-import { Drawer } from "@jinhu/ui";
+import { Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
 import type { ImportResult } from "../types";
@@ -19,23 +19,31 @@ export function UnitImportDrawer({
 }) {
   return (
     <Drawer size="md" onClose={onClose}>
-      <div className="task-item">
-        <h2 className="panel-title">房源批量导入</h2>
-        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
-      </div>
-      <form className="form-stack" onSubmit={onSubmit}>
-        <div className="field">
-          <label>Excel 文件</label>
-          <input
-            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            required
-            type="file"
-            onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-          />
-        </div>
-        <button className="primary-button" type="submit">开始导入</button>
-        <button className="secondary-button" type="button" onClick={onDownloadTemplate}>下载模板</button>
-      </form>
+      <DrawerHeader
+        eyebrow="资产空间"
+        title="房源批量导入"
+        description="通过 Excel 模板批量导入房源数据。"
+        onClose={onClose}
+        closeIcon={<X size={18} />}
+      />
+      <DrawerForm onSubmit={onSubmit}>
+        <DrawerFormGrid single>
+          <div className="field">
+            <label>Excel 文件</label>
+            <input
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              required
+              type="file"
+              onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+            />
+          </div>
+        </DrawerFormGrid>
+        <DrawerFooter>
+          <button className="secondary-button" type="button" onClick={onDownloadTemplate}>下载模板</button>
+          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
+          <button className="primary-button" type="submit">开始导入</button>
+        </DrawerFooter>
+      </DrawerForm>
       {importResult ? <UnitImportResultPanel importResult={importResult} /> : null}
     </Drawer>
   );

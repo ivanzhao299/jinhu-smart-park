@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, Card } from "@jinhu/ui";
 
 import { Edit3, Eye, Plus, Search, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -171,26 +171,48 @@ export default function DictsPage() {
       </Card>
       {showCreate ? (
         <Drawer size="md" onClose={() => setShowCreate(false)}>
-          <div className="system-toolbar"><h2 className="panel-title">新增字典类型</h2><button className="icon-button" aria-label="关闭" title="关闭" type="button" onClick={() => setShowCreate(false)}><X size={16} /></button></div>
-          <form className="form-stack" onSubmit={(event) => void createType(event).catch((error: Error) => setMessage(error.message))}>
-            <div className="field"><label>编码</label><input name="dictCode" /></div>
-            <div className="field"><label>名称</label><input name="dictName" /></div>
-            <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button></div>
-          </form>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title="新增字典类型"
+            description="创建一个新的字典类型用于归集字典项。"
+            onClose={() => setShowCreate(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void createType(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
+              <div className="field"><label>编码</label><input name="dictCode" /></div>
+              <div className="field"><label>名称</label><input name="dictName" /></div>
+              <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
+              <button className="primary-button" type="submit">保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {showCreateItem ? (
         <Drawer size="md" onClose={() => setShowCreateItem(false)}>
-          <div className="system-toolbar"><h2 className="panel-title">新增字典项</h2><button className="icon-button" aria-label="关闭" title="关闭" type="button" onClick={() => setShowCreateItem(false)}><X size={16} /></button></div>
-          <form className="form-stack" onSubmit={(event) => void createItem(event).catch((error: Error) => setMessage(error.message))}>
-            <div className="field"><label>字典类型</label><select name="dictTypeId" defaultValue={selectedTypeId}>{types.items.map((item) => <option value={item.id} key={item.id}>{item.dictName}</option>)}</select></div>
-            <div className="field"><label>标签</label><input name="itemLabel" /></div>
-            <div className="field"><label>值</label><input name="itemValue" /></div>
-            <div className="field"><label>标签类型</label><input name="tagType" /></div>
-            <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="system-actions"><button className="primary-button" type="submit">保存</button><button className="secondary-button" type="button" onClick={() => setShowCreateItem(false)}>取消</button></div>
-          </form>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title="新增字典项"
+            description="在所选字典类型下新增可选的字典项。"
+            onClose={() => setShowCreateItem(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void createItem(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
+              <div className="field"><label>字典类型</label><select name="dictTypeId" defaultValue={selectedTypeId}>{types.items.map((item) => <option value={item.id} key={item.id}>{item.dictName}</option>)}</select></div>
+              <div className="field"><label>标签</label><input name="itemLabel" /></div>
+              <div className="field"><label>值</label><input name="itemValue" /></div>
+              <div className="field"><label>标签类型</label><input name="tagType" /></div>
+              <div className="field"><label>状态</label><select name="status"><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setShowCreateItem(false)}>取消</button>
+              <button className="primary-button" type="submit">保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

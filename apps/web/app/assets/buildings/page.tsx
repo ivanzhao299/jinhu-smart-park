@@ -11,7 +11,7 @@ import {
   DrawerHeader
 } from "@jinhu/ui";
 
-import { Edit3, Eye, Plus, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -250,7 +250,13 @@ export default function BuildingsPage() {
 
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
-            <DrawerHeader title={editingId ? "编辑楼栋" : "新增楼栋"} onClose={() => setShowForm(false)} />
+            <DrawerHeader
+              eyebrow="资产空间"
+              title={editingId ? "编辑楼栋" : "新增楼栋"}
+              description="维护园区楼栋空间档案，作为楼层与房源的上级对象。"
+              onClose={() => setShowForm(false)}
+              closeIcon={<X size={18} />}
+            />
             <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <TextField label="楼栋编码" value={form.buildingCode} required placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
@@ -284,7 +290,13 @@ export default function BuildingsPage() {
 
         {detail ? (
           <Drawer size="md" onClose={() => setDetail(null)}>
-            <DrawerHeader title="楼栋详情" onClose={() => setDetail(null)} />
+            <DrawerHeader
+              eyebrow="资产空间"
+              title="楼栋详情"
+              description="查看楼栋档案详情。"
+              onClose={() => setDetail(null)}
+              closeIcon={<X size={18} />}
+            />
             <DrawerDetailGrid>
               <DrawerDetailItem label="楼栋编码" value={detail.buildingCode} />
               <DrawerDetailItem label="楼栋名称" value={detail.buildingName} />

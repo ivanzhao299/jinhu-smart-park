@@ -1,6 +1,15 @@
 "use client";
 
-import { Edit3, Eye, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Drawer,
+  DrawerDetailGrid,
+  DrawerDetailItem,
+  DrawerFooter,
+  DrawerForm,
+  DrawerFormGrid,
+  DrawerHeader
+} from "@jinhu/ui";
+import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
@@ -202,24 +211,44 @@ export function AssetCrudPage({ config }: { config: AssetCrudConfig }) {
       </section>
 
       {showForm ? (
-        <section className="login-panel drawer-panel">
-          <h2 className="panel-title">{editing ? "编辑" : "新增"}{config.title}</h2>
-          <form className="form-stack" onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
-            {config.fields.map((field) => <AssetFormField key={field.name} field={field} row={editing} options={sourceOptions[field.name] ?? field.options ?? []} />)}
-            <button className="primary-button" type="submit">保存</button>
-            <button className="secondary-button" type="button" onClick={() => { setShowForm(false); setEditing(null); }}>取消</button>
-          </form>
-        </section>
+        <Drawer size="md" onClose={() => { setShowForm(false); setEditing(null); }}>
+          <DrawerHeader
+            eyebrow="资产空间"
+            title={`${editing ? "编辑" : "新增"}${config.title}`}
+            description={config.subtitle}
+            onClose={() => { setShowForm(false); setEditing(null); }}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
+              {config.fields.map((field) => <AssetFormField key={field.name} field={field} row={editing} options={sourceOptions[field.name] ?? field.options ?? []} />)}
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => { setShowForm(false); setEditing(null); }}>取消</button>
+              <button className="primary-button" type="submit">保存</button>
+            </DrawerFooter>
+          </DrawerForm>
+        </Drawer>
       ) : null}
 
       {detail ? (
-        <section className="login-panel drawer-panel">
-          <h2 className="panel-title">详情</h2>
-          {config.columns.map((column) => (
-            <div className="task-item" key={column.key}><span>{column.label}</span><strong>{renderCell(detail, column)}</strong></div>
-          ))}
-          <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
-        </section>
+        <Drawer size="md" onClose={() => setDetail(null)}>
+          <DrawerHeader
+            eyebrow="资产空间"
+            title={`${config.title}详情`}
+            description={config.subtitle}
+            onClose={() => setDetail(null)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerDetailGrid>
+            {config.columns.map((column) => (
+              <DrawerDetailItem key={column.key} label={column.label} value={renderCell(detail, column)} />
+            ))}
+          </DrawerDetailGrid>
+          <DrawerFooter>
+            <button className="secondary-button" type="button" onClick={() => setDetail(null)}>关闭</button>
+          </DrawerFooter>
+        </Drawer>
       ) : null}
 
       {message ? <p className="status-pill">{message}</p> : null}

@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -141,17 +141,30 @@ export default function DataScopesPage() {
 
       {formOpen ? (
         <Drawer size="md" onClose={() => setFormOpen(false)}>
-          <form className="form-stack" onSubmit={(event) => void submit(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{formState.id ? "编辑数据权限规则" : "新增数据权限规则"}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
-            <div className="field"><label>规则编码</label><input required value={formState.ruleCode} onChange={(event) => setFormState({ ...formState, ruleCode: event.target.value })} /></div>
-            <div className="field"><label>规则名称</label><input required value={formState.ruleName} onChange={(event) => setFormState({ ...formState, ruleName: event.target.value })} /></div>
-            <div className="field"><label>维度</label><select value={formState.dimension} onChange={(event) => setFormState({ ...formState, dimension: event.target.value })}>{dimensions.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div className="field"><label>范围类型</label><select value={formState.scopeType} onChange={(event) => setFormState({ ...formState, scopeType: event.target.value })}>{scopeTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div className="field"><label>scope_config JSON</label><textarea className="json-editor" value={formState.scopeConfigText} onChange={(event) => setFormState({ ...formState, scopeConfigText: event.target.value })} /></div>
-            <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
-            <button className="primary-button" type="submit"><Save size={16} />保存</button>
-          </form>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={formState.id ? "编辑数据权限规则" : "新增数据权限规则"}
+            description="维护结构化数据权限规则，禁止录入 SQL 条件。"
+            onClose={() => setFormOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submit(event).catch(showError)}>
+            <DrawerFormGrid>
+              <div className="field"><label>规则编码</label><input required value={formState.ruleCode} onChange={(event) => setFormState({ ...formState, ruleCode: event.target.value })} /></div>
+              <div className="field"><label>规则名称</label><input required value={formState.ruleName} onChange={(event) => setFormState({ ...formState, ruleName: event.target.value })} /></div>
+              <div className="field"><label>维度</label><select value={formState.dimension} onChange={(event) => setFormState({ ...formState, dimension: event.target.value })}>{dimensions.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div className="field"><label>范围类型</label><select value={formState.scopeType} onChange={(event) => setFormState({ ...formState, scopeType: event.target.value })}>{scopeTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field"><label>scope_config JSON</label><textarea className="json-editor" value={formState.scopeConfigText} onChange={(event) => setFormState({ ...formState, scopeConfigText: event.target.value })} /></div>
+              <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>取消</button>
+              <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}
