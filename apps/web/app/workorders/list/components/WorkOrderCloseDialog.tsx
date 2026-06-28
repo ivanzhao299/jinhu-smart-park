@@ -13,10 +13,10 @@ interface WorkOrderCloseDialogProps {
 
 export function WorkOrderCloseDialog({ action, form, onClose, onSubmit, onFormChange }: WorkOrderCloseDialogProps) {
   return (
-    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
+    <Drawer size="md" onClose={onClose}>
       <DrawerHeader
-        eyebrow={action.mode === "confirm" ? "确认完成" : action.mode === "evaluate" ? "工单评价" : "关闭工单"}
-        title={action.row.woCode}
+        eyebrow="工单运维"
+        title={`${action.mode === "confirm" ? "确认完成" : action.mode === "evaluate" ? "工单评价" : "关闭工单"} · ${action.row.woCode}`}
         description={
           action.mode === "confirm"
             ? "确认处理结果后，工单进入已确认状态。"

@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, DataTable, DataTableActions, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, StatusPill } from "@jinhu/ui";
-import { Activity, Edit3, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Activity, Edit3, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../../components/auth/PermissionButton";
@@ -254,7 +254,7 @@ export default function IotSceneTemplatesPage() {
 
         {formOpen ? (
           <Drawer size="lg" onClose={closeForm}>
-            <DrawerHeader eyebrow="场景模板" title={editing ? "编辑模板" : "新增模板"} description="模板保存触发配置和动作配置，复制后可以生成具体园区场景。" onClose={closeForm} />
+            <DrawerHeader eyebrow="物联设备" title={editing ? "编辑模板" : "新增模板"} description="模板保存触发配置和动作配置，复制后可以生成具体园区场景。" onClose={closeForm} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="模板编码">

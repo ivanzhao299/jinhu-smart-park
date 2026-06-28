@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Gauge, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Gauge, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -268,7 +268,7 @@ export default function EnergyMetersPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
-            <DrawerHeader eyebrow="能源表计" title={editing ? "编辑表计" : "新增表计"} description="租户表计必须关联租户企业；公共表计可为空。" onClose={closeForm} />
+            <DrawerHeader eyebrow="能源管理" title={editing ? "编辑表计" : "新增表计"} description="租户表计必须关联租户企业；公共表计可为空。" onClose={closeForm} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="表计名称"><input required value={form.meterName} onChange={(event) => setForm((current) => ({ ...current, meterName: event.target.value }))} /></Field>

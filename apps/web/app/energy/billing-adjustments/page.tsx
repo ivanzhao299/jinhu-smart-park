@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { CheckCircle2, FileUp, Plus, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, FileUp, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -182,7 +182,7 @@ export default function EnergyBillingAdjustmentsPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader eyebrow="能源账单" title="新增调整或红冲" description="红冲自动按原账单最终金额取负数；补差可正可负。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="能源管理" title="新增调整或红冲" description="红冲自动按原账单最终金额取负数；补差可正可负。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="账单项 ID"><input required value={form.billingItemId} onChange={(event) => setForm((current) => ({ ...current, billingItemId: event.target.value }))} /></Field>

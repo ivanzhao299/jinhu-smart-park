@@ -48,9 +48,9 @@ export function WorkOrderFormDialog({
   onAssigneeChange
 }: WorkOrderFormDialogProps) {
   return (
-    <Drawer className="ds-compact-drawer" size="lg" onClose={onClose}>
+    <Drawer size="lg" onClose={onClose}>
       <DrawerHeader
-        eyebrow={isEditing ? "编辑工单" : audienceProfile.eyebrow}
+        eyebrow="工单运维"
         title={isEditing ? "编辑工单信息" : audienceProfile.title}
         description={isEditing ? "调整工单基础信息、关联对象、处理人和 SLA 要求。" : audienceProfile.description}
         onClose={onClose}

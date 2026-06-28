@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { CheckCircle2, Plus, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Plus, RefreshCw, Search, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -208,7 +208,7 @@ export default function EnergyReadingsPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader eyebrow="能源读数" title="录入读数" description="确认前读数不会进入后续结算口径；倒表读数会被标记异常。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="能源管理" title="录入读数" description="确认前读数不会进入后续结算口径；倒表读数会被标记异常。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
                 <Field label="表计"><select required value={form.meterId} onChange={(event) => setForm((current) => ({ ...current, meterId: event.target.value }))}><option value="">请选择表计</option>{meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.meterCode} · {meter.meterName}</option>)}</select></Field>

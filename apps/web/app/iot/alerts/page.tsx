@@ -18,6 +18,7 @@ import {
   Search,
   ShieldOff,
   Wrench,
+  X,
   XCircle
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -469,10 +470,11 @@ export default function IotAlertsPage() {
         {viewing ? (
           <Drawer size="lg" onClose={closeDrawer}>
             <DrawerHeader
-              eyebrow="IoT 告警详情"
+              eyebrow="物联设备"
               title={viewing.alertTitle}
               description={`${viewing.alertCode} · ${viewing.deviceCode} ${viewing.deviceName} · ${viewing.metricCode}`}
               onClose={closeDrawer}
+              closeIcon={<X size={18} />}
             />
             <div className="drawer-body">
               <div className="detail-grid compact">

@@ -17,7 +17,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -222,7 +222,7 @@ export default function EnergyAllocationRulesPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader eyebrow="能耗分摊" title={editing ? "编辑分摊规则" : "新增分摊规则"} description="规则计算时会保存配置快照，确保历史账单可追溯。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="能源管理" title={editing ? "编辑分摊规则" : "新增分摊规则"} description="规则计算时会保存配置快照，确保历史账单可追溯。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="规则名称"><input required value={form.ruleName} onChange={(event) => setForm((current) => ({ ...current, ruleName: event.target.value }))} /></Field>

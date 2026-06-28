@@ -19,7 +19,7 @@ import {
   PaginationBar,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, PlugZap, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, PlugZap, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -326,10 +326,11 @@ export default function IotGatewaysPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="IoT 网关"
+              eyebrow="物联设备"
               title={editing ? "编辑网关" : "新增网关"}
               description="密钥只写入不回显，端点地址和访问 Key 会按字段权限脱敏。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -374,10 +375,11 @@ export default function IotGatewaysPage() {
         {viewing ? (
           <Drawer size="md" onClose={() => setViewing(null)}>
             <DrawerHeader
-              eyebrow="网关详情"
+              eyebrow="物联设备"
               title={viewing.gatewayName}
               description={`${viewing.gatewayCode} · ${labelFor(gatewayTypes, viewing.gatewayType)} · ${labelFor(protocolTypes, viewing.protocolType)}`}
               onClose={() => setViewing(null)}
+              closeIcon={<X size={18} />}
             />
             <DrawerDetailGrid>
               <DrawerDetailItem label="网关编码" value={viewing.gatewayCode} />

@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Eye, Plus, RefreshCw, Search, ShieldAlert, UserRoundPlus, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Eye, Plus, RefreshCw, Search, ShieldAlert, UserRoundPlus, X, XCircle } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
@@ -347,7 +347,7 @@ export default function VideoAlertsPage() {
 
         {formOpen ? (
           <Drawer size="md" onClose={() => setFormOpen(false)}>
-            <DrawerHeader title="新增视频告警" description="人工补登记视频异常或安防事件。" onClose={() => setFormOpen(false)} />
+            <DrawerHeader eyebrow="视频点位" title="新增视频告警" description="人工补登记视频异常或安防事件。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitForm(event)}>
               <DrawerFormGrid>
                 <label>摄像头<select required value={form.cameraId} onChange={(event) => setForm({ ...form, cameraId: event.target.value })}><option value="">请选择</option>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.cameraName}</option>)}</select></label>
@@ -367,7 +367,7 @@ export default function VideoAlertsPage() {
 
         {viewing ? (
           <Drawer size="lg" onClose={() => setViewing(null)}>
-            <DrawerHeader eyebrow="视频告警详情" title={viewing.title} description={`${viewing.alertCode} · ${viewing.cameraName ?? viewing.cameraCode ?? "-"}`} onClose={() => setViewing(null)} />
+            <DrawerHeader eyebrow="视频点位" title={viewing.title} description={`${viewing.alertCode} · ${viewing.cameraName ?? viewing.cameraCode ?? "-"}`} onClose={() => setViewing(null)} closeIcon={<X size={18} />} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="告警类型" value={labelOf(viewing.alertType, alertTypes)} />
               <DrawerDetailItem label="告警等级" value={<StatusPill variant={tagOf(viewing.alertLevel, alertLevels)}>{labelOf(viewing.alertLevel, alertLevels)}</StatusPill>} />

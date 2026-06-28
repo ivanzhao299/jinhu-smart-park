@@ -293,7 +293,7 @@ export default function WorkOrderSlaRulesPage() {
         {showForm ? (
           <Drawer size="md" onClose={() => setShowForm(false)}>
             <DrawerHeader
-              eyebrow={editingId ? "编辑 SLA" : "新增 SLA"}
+              eyebrow="工单运维"
               title={editingId ? "编辑 SLA 规则" : "新增 SLA 规则"}
               description="同一园区内工单类型、紧急程度和优先级组合不可重复。"
               onClose={() => setShowForm(false)}

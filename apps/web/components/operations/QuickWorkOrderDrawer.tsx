@@ -1,7 +1,7 @@
 "use client";
 
 import { Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, X } from "lucide-react";
 import type { FormEvent } from "react";
 import type { WorkOrderAudienceProfile } from "../../lib/workorder-prefill";
 import { formatUnitLocation, patchContactFromTenant, tenantForUnit } from "../../lib/workorder-prefill";
@@ -44,12 +44,13 @@ export function QuickWorkOrderDrawer({
   }
 
   return (
-    <Drawer className="ds-compact-drawer" size="lg" onClose={onClose}>
+    <Drawer size="lg" onClose={onClose}>
       <DrawerHeader
         eyebrow={audienceProfile.eyebrow}
         title={audienceProfile.title}
         description={audienceProfile.description}
         onClose={onClose}
+        closeIcon={<X size={18} />}
       />
       <DrawerForm onSubmit={onSubmit}>
         <DrawerSection title="选择业务场景">
