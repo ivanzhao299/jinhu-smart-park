@@ -87,14 +87,14 @@ WITH seed_scope AS (
 ),
 permissions(code, name, resource, action, permission_type, perm_type, api_method, api_path, frontend_route, sort_no) AS (
   VALUES
-    ('engineering', '工程管理', NULL, 'engineering', 'menu', 10, NULL, NULL, '/engineering', 68),
-    ('engineering:dashboard', '工程看板', NULL, 'engineering.dashboard', 'menu', 20, NULL, NULL, '/engineering/dashboard', 681),
-    ('engineering:projects', '工程项目', NULL, 'engineering.project', 'menu', 20, NULL, NULL, '/engineering/projects', 682),
-    ('engineering:plans', '工程计划', NULL, 'engineering.plan', 'menu', 20, NULL, NULL, '/engineering/plans', 683),
-    ('engineering:daily-reports', '施工日报', NULL, 'engineering.daily_report', 'menu', 20, NULL, NULL, '/engineering/daily-reports', 684),
-    ('engineering:inspections', '工程巡检', NULL, 'engineering.inspection', 'menu', 20, NULL, NULL, '/engineering/inspections', 685),
-    ('engineering:rectifications', '整改任务', NULL, 'engineering.rectification', 'menu', 20, NULL, NULL, '/engineering/rectifications', 686),
-    ('engineering:acceptances', '工程验收', NULL, 'engineering.acceptance', 'menu', 20, NULL, NULL, '/engineering/acceptances', 687),
+    ('engineering', '工程管理', 'engineering', 'menu', 'menu', 10, NULL, NULL, NULL, 68),
+    ('engineering:dashboard', '工程看板', 'engineering.dashboard', 'page', 'page', 20, NULL, NULL, '/engineering/dashboard', 681),
+    ('engineering:projects', '工程项目', 'engineering.project', 'page', 'page', 20, NULL, NULL, '/engineering/projects', 682),
+    ('engineering:plans', '工程计划', 'engineering.plan', 'page', 'page', 20, NULL, NULL, '/engineering/plans', 683),
+    ('engineering:daily-reports', '施工日报', 'engineering.daily_report', 'page', 'page', 20, NULL, NULL, '/engineering/daily-reports', 684),
+    ('engineering:inspections', '工程巡检', 'engineering.inspection', 'page', 'page', 20, NULL, NULL, '/engineering/inspections', 685),
+    ('engineering:rectifications', '整改任务', 'engineering.rectification', 'page', 'page', 20, NULL, NULL, '/engineering/rectifications', 686),
+    ('engineering:acceptances', '工程验收', 'engineering.acceptance', 'page', 'page', 20, NULL, NULL, '/engineering/acceptances', 687),
 
     ('ENGINEERING_DASHBOARD_VIEW', '工程看板查看', 'biz.engineering_dashboard', 'view', 'api', 40, 'GET', '/api/v1/engineering/dashboard', '/engineering/dashboard', 6811),
 
@@ -150,6 +150,7 @@ updated_permissions AS (
       frontend_route = permissions.frontend_route,
       sort_no = permissions.sort_no,
       status = 'enabled',
+      is_enabled = true,
       visible = true,
       is_system = true,
       is_builtin = true,
@@ -166,13 +167,13 @@ updated_permissions AS (
 inserted_permissions AS (
   INSERT INTO sys_permission (
     tenant_id, park_id, code, name, resource, action, permission_type, perm_type,
-    api_method, api_path, frontend_route, sort_no, status, is_system, is_builtin, visible, remark
+    api_method, api_path, frontend_route, sort_no, status, is_enabled, is_system, is_builtin, visible, remark
   )
   SELECT
     seed_scope.tenant_id, seed_scope.park_id, permissions.code, permissions.name,
     permissions.resource, permissions.action, permissions.permission_type, permissions.perm_type,
     permissions.api_method, permissions.api_path, permissions.frontend_route, permissions.sort_no,
-    'enabled', true, true, true, 'EPDR Phase 1 engineering RBAC seed'
+    'enabled', true, true, true, true, 'EPDR Phase 1 engineering RBAC seed'
   FROM permissions
   CROSS JOIN seed_scope
   WHERE NOT EXISTS (

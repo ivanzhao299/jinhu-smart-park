@@ -401,26 +401,33 @@ hierarchy(permission_code, parent_code, permission_path, permission_level) AS (
     ('ENGINEERING_ACCEPTANCE_SUBMIT', 'engineering:acceptances', 'engineering/engineering:acceptances/ENGINEERING_ACCEPTANCE_SUBMIT', 3),
     ('ENGINEERING_ACCEPTANCE_REVIEW', 'engineering:acceptances', 'engineering/engineering:acceptances/ENGINEERING_ACCEPTANCE_REVIEW', 3),
     ('ENGINEERING_ACCEPTANCE_CLOSE', 'engineering:acceptances', 'engineering/engineering:acceptances/ENGINEERING_ACCEPTANCE_CLOSE', 3)
+),
+hierarchy_targets AS (
+  SELECT
+    scope.tenant_id,
+    scope.park_id,
+    hierarchy.permission_code,
+    hierarchy.permission_path,
+    hierarchy.permission_level,
+    parent.id AS parent_id
+  FROM entitled_scopes scope
+  JOIN hierarchy ON true
+  LEFT JOIN sys_permission parent
+    ON parent.tenant_id = scope.tenant_id
+   AND parent.park_id = scope.park_id
+   AND parent.code = hierarchy.parent_code
+   AND parent.is_deleted = false
 )
 UPDATE sys_permission permission
-SET parent_id = parent.id,
-    permission_path = hierarchy.permission_path,
-    permission_level = hierarchy.permission_level,
+SET parent_id = hierarchy_targets.parent_id,
+    permission_path = hierarchy_targets.permission_path,
+    permission_level = hierarchy_targets.permission_level,
     update_time = now()
-FROM hierarchy
-LEFT JOIN sys_permission parent
-  ON parent.tenant_id = permission.tenant_id
- AND parent.park_id = permission.park_id
- AND parent.code = hierarchy.parent_code
- AND parent.is_deleted = false
-WHERE permission.code = hierarchy.permission_code
-  AND permission.is_deleted = false
-  AND EXISTS (
-    SELECT 1
-    FROM entitled_scopes scope
-    WHERE scope.tenant_id = permission.tenant_id
-      AND scope.park_id = permission.park_id
-  );
+FROM hierarchy_targets
+WHERE permission.tenant_id = hierarchy_targets.tenant_id
+  AND permission.park_id = hierarchy_targets.park_id
+  AND permission.code = hierarchy_targets.permission_code
+  AND permission.is_deleted = false;
 
 WITH entitlement_candidates AS (
   SELECT
