@@ -727,6 +727,7 @@ export class TenantsService {
         if (modules.has("asset") && this.isAssetPermission(code)) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
+        if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
         if (modules.has("iot") && (code === "iot" || code === "iot:overview" || code === "iot:read")) return true;
         if (modules.has("energy") && (code === "energy" || code === "energy:overview" || code === "energy:read")) return true;
         if (modules.has("robot") && (code === "robot" || code === "robot:overview" || code === "robot:read")) return true;
@@ -802,6 +803,10 @@ export class TenantsService {
       code === "invest:read" ||
       code === "ar:read"
     );
+  }
+
+  private isEngineeringPermission(code: string): boolean {
+    return code === "engineering" || code.startsWith("engineering:") || code.startsWith("ENGINEERING_");
   }
 
   private matchesAnyPattern(code: string, patterns: string[]): boolean {

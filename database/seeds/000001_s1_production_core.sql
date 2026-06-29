@@ -3009,9 +3009,9 @@ WITH seed_scope AS (
 plans(plan_code, plan_name, description, sort_no, module_codes) AS (
   VALUES
     ('BASIC', '基础版', '基础系统、资产与工单能力', 10, ARRAY['system','asset','workorder']),
-    ('PROFESSIONAL', '专业版', '专业园区运营、IoT、能耗、机器人与视频能力', 20, ARRAY['system','asset','workorder','safety','iot','energy','robot','video']),
-    ('ENTERPRISE', '企业版', '企业级园区运营、数字孪生与 AI 能力', 30, ARRAY['system','asset','workorder','safety','iot','energy','robot','video','bim','ai']),
-    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','safety','iot','energy','robot','video','bim','ai'])
+    ('PROFESSIONAL', '专业版', '专业园区运营、工程交付、IoT、能耗、机器人与视频能力', 20, ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video']),
+    ('ENTERPRISE', '企业版', '企业级园区运营、工程交付、数字孪生与 AI 能力', 30, ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video','bim','ai']),
+    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai'])
 ),
 upsert_plans AS (
   INSERT INTO sys_plan (
@@ -3125,7 +3125,7 @@ SELECT
 FROM sys_module module
 CROSS JOIN seed_scope
 CROSS JOIN group_plan
-WHERE module.module_code IN ('system','asset','leasing','workorder','safety','iot','energy','robot','video','bim','ai')
+WHERE module.module_code IN ('system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai')
   AND module.is_deleted = false
 ON CONFLICT (tenant_id, park_id, module_id) WHERE is_deleted = false DO UPDATE SET
   plan_id = EXCLUDED.plan_id,
@@ -3148,9 +3148,9 @@ WHERE plan_code = 'BASELINE'
 UPDATE sys_plan
 SET permission_codes = CASE plan_code
     WHEN 'BASIC' THEN '["module:system","module:asset","module:workorder"]'::jsonb
-    WHEN 'PROFESSIONAL' THEN '["module:system","module:asset","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video"]'::jsonb
-    WHEN 'ENTERPRISE' THEN '["module:system","module:asset","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
-    WHEN 'GROUP' THEN '["module:system","module:asset","module:leasing","module:workorder","module:safety","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    WHEN 'PROFESSIONAL' THEN '["module:system","module:asset","module:workorder","module:safety","module:engineering","module:iot","module:energy","module:robot","module:video"]'::jsonb
+    WHEN 'ENTERPRISE' THEN '["module:system","module:asset","module:workorder","module:safety","module:engineering","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
+    WHEN 'GROUP' THEN '["module:system","module:asset","module:leasing","module:workorder","module:safety","module:engineering","module:iot","module:energy","module:robot","module:video","module:bim","module:ai"]'::jsonb
     ELSE permission_codes
   END,
   feature_config = COALESCE(feature_config, '{}'::jsonb),
