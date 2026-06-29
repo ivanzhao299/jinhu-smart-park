@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "platform_state",
-  "generated_at": "2026-06-23T09:35:45.828Z",
+  "generated_at": "2026-06-29T03:51:32.046Z",
   "source_fingerprint": {
     "files": [
       {
@@ -96,9 +96,9 @@
     "aggregate_sha256": "0476c4c591df26ff5a6eecd845e67fca3a66d127e0d1198cbc7daa3ba99dac22"
   },
   "project": "jinhu-smart-park / ANKSEN Agent Studio",
-  "branch": "main",
-  "head": "002bb917931aa9c64f15cb0f1cf4fdca647d6975",
-  "head_summary": "002bb91 chore(orchestrator): finalize external task event projection",
+  "branch": "feature/engineering-project-delivery-runtime",
+  "head": "206b1327bd106352d94d7dba4cc3c2cc52376b10",
+  "head_summary": "206b132 feat(mobile): add workflow inbox digest",
   "working_tree_clean": true,
   "queue": {
     "counts": {

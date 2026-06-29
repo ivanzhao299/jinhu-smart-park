@@ -1,10 +1,10 @@
 # Runtime Memory Handoff Summary
 
-Generated at: 2026-06-23T09:35:45.828Z
+Generated at: 2026-06-29T03:51:32.046Z
 
 ## Current State
-- Branch: main
-- Head: 002bb91 chore(orchestrator): finalize external task event projection
+- Branch: feature/engineering-project-delivery-runtime
+- Head: 206b132 feat(mobile): add workflow inbox digest
 - Working tree clean at build time: yes
 - Queue: READY 0, CLAIMED 0, DONE 0, BLOCKED 4
 - Active locks: 0

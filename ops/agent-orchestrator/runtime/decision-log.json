@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "memory_kind": "decision_log",
-  "generated_at": "2026-06-23T09:35:45.828Z",
+  "generated_at": "2026-06-29T03:51:32.046Z",
   "source_fingerprint": {
     "files": [
       {
@@ -11,6 +11,18 @@
       {
         "path": "ops/agent-orchestrator/skills/skill-registry.json",
         "sha256": "e32ffbb2f8658fafde4b61f80e6a298780bd364b35203413dcd7cbfceb62f775"
+      },
+      {
+        "path": "docs/release/ACCESSIBILITY_ROLE_WORKFLOW_PRODUCTION_GATE23_REPORT.md",
+        "sha256": "7575d81c67398c3755d006cd1b4a742ef00013f0183d9f71f1029a148d2a00b7"
+      },
+      {
+        "path": "docs/release/ADMIN_RBAC_PRODUCTION_GATE4_REPORT.md",
+        "sha256": "6e5b1f101e7bd060693c36ae5d71846531a35d136bd4138d56e96a9ccd28ae96"
+      },
+      {
+        "path": "docs/release/ADMIN_ROUTE_SMOKE_PRODUCTION_GATE22_REPORT.md",
+        "sha256": "93c2968da81e2304c770be3a6d6045758ff441b70898d3801dd0a638b9ae086e"
       },
       {
         "path": "docs/release/AGENT_ORCHESTRATOR_MATURITY_ROADMAP.md",
@@ -45,55 +57,43 @@
         "sha256": "e534b1ecbddbabbcdb4b9d9b8fa053ed39bdab05d56cb77a6cd78afc809dd610"
       },
       {
+        "path": "docs/release/ASSET_UNIT_PRODUCTION_GATE5_REPORT.md",
+        "sha256": "5413c93606008b312edf36288bb09e5b4aaf0f3738db19823da31b1056b0ad95"
+      },
+      {
+        "path": "docs/release/AUTH_SESSION_SECURITY_PRODUCTION_GATE17_REPORT.md",
+        "sha256": "eaab295a0ddb9ed967692c09404e837e285ff9d09ed5ad6371dfe5f80f8c712d"
+      },
+      {
+        "path": "docs/release/BACKUP_RESTORE_PRODUCTION_GATE19_REPORT.md",
+        "sha256": "cc8157384f81944b3d524284560b008eb8c7b1a4186b16029e54d3dad11ebf86"
+      },
+      {
+        "path": "docs/release/EMERGENCY_WORK_PERMIT_PRODUCTION_GATE8_REPORT.md",
+        "sha256": "683c21fb56b6cfed724fdf1ede07e1ce6259bf9cdee71f48044d03b92b7b21c7"
+      },
+      {
+        "path": "docs/release/ENERGY_BILLING_PRODUCTION_GATE11_REPORT.md",
+        "sha256": "d2cf6da3831b404193089fdd8a5999eb1c906ccd73bfc02c527f8d306e607bc7"
+      },
+      {
+        "path": "docs/release/EPDR_PHASE1_DEVELOPMENT_PLAN.md",
+        "sha256": "423db4a096cc1d46c8ca6a5ef56849ef6bb156503926a72220d84e11fc3e3d7b"
+      },
+      {
         "path": "docs/release/EVOLUTION_CENTER_UI_PLAN.md",
         "sha256": "dd274398aa05bcb8743d4910c6d8d88959082360610b185eafbe5aaecdc3c7bf"
       },
       {
-        "path": "docs/release/agent-platform-v2-compatibility-test-plan.md",
-        "sha256": "f45d5b02fed7a5357825be85e4f072ca05d4024533772f9b0d8c1df189c6263b"
+        "path": "docs/release/EXECUTIVE_DASHBOARD_ACCURACY_PRODUCTION_GATE16_REPORT.md",
+        "sha256": "08054b2bf72e13b1d72b951c380a2aaf53ae871f8c9b9252318d4e5376654971"
       },
       {
-        "path": "docs/release/agent-platform-v2-event-sourcing-queue-design.md",
-        "sha256": "39eddbd9d25a0d804b2ebdab64c3b79181d42fe5cc14f8289ea379b6b43619e1"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-inventory-generator-design.md",
-        "sha256": "4177e9e8ab33c21a46b5d0b263447c73293e30bb55a7b20015dc74696c52c936"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-parallel-runner-plan.md",
-        "sha256": "36fbec2beab9f401fc6c8928d4cd0e0fd1adfbb473bad835058bcdd2eb1ab99e"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-read-model-plan.md",
-        "sha256": "43827dc126f1e1cfa5381a238954b541540d4b3b02ad27764de94aee3b158974"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-readiness-validation-runbook.md",
-        "sha256": "e26362a54ac8d7107cefa8891e055e19f61c1148b55358cd5d7a27b887b68a31"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-round2-compatibility-test-plan.md",
-        "sha256": "954c6d5e8fde89fb22b4e0e6de9da5a03bd6f656a638001990f8bf58a62e4bcb"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-runtime-docs-index.md",
-        "sha256": "ce25ee0e18d883511b82e40b83efc902c36fbf9e59104adc657a4e53732401f1"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-runtime-memory-architecture.md",
-        "sha256": "974a9c45a18cbaca92d604181a89b47ef24f50c77c4e223da328e1a41dbb36c9"
-      },
-      {
-        "path": "docs/release/agent-platform-v2-smart-e2e-selector-design.md",
-        "sha256": "f6702646460cf6522689edbc47953b7a45d37809140104d14ad4dc9036fd61ea"
-      },
-      {
-        "path": "docs/release/agent-platform-v3-agent-registry-design.md",
-        "sha256": "1b3ab8e4ae27829ef9480274d3c6bafc7210634c7aabd4673a3321a8ac675292"
+        "path": "docs/release/FIELD_MASKING_FILE_POLICY_PRODUCTION_GATE18_REPORT.md",
+        "sha256": "ddc408e014cd1aced010e1a71fb0393f982e8d8c6e7bdf30dfd0255d40fac634"
       }
     ],
-    "aggregate_sha256": "e09c6efdde8e594a51576167dfe1a6bcb1d3d030207b4f1149874f15a57cc8d9"
+    "aggregate_sha256": "5c3f05dd33e542c409beced275e4c722aa3d68c139b96ae2fafb483b2b1a4a3d"
   },
   "decisions": [
     {
