@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Repository } from "typeorm";
+import { buildEngineeringProjectCodePrefix } from "./domain/engineering-project-code.policy";
 import { EngineeringProjectStatus, EngineeringProjectType } from "./domain/engineering-project.enums";
 import { EngineeringProjectEntity } from "./entities/engineering-project.entity";
 import { EngineeringProjectRepository } from "./repositories/engineering-project.repository";
@@ -62,7 +63,8 @@ function createFakeRepository(latestProjectCode: string | null = null): {
 }
 
 test("EngineeringProjectRepository creates project with generated code and DRAFT status", async () => {
-  const { repository } = createFakeRepository("GC20260626001");
+  const prefix = buildEngineeringProjectCodePrefix(new Date());
+  const { repository } = createFakeRepository(`${prefix}001`);
   const projects = new EngineeringProjectRepository(repository);
   const saved = await projects.createProject(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -76,7 +78,7 @@ test("EngineeringProjectRepository creates project with generated code and DRAFT
 
   assert.equal(saved.tenantId, "tenant-a");
   assert.equal(saved.parkId, "park-a");
-  assert.equal(saved.projectCode, "GC20260626002");
+  assert.equal(saved.projectCode, `${prefix}002`);
   assert.equal(saved.status, EngineeringProjectStatus.DRAFT);
   assert.equal(saved.progressPercent, 0);
   assert.equal(saved.createBy, "00000000-0000-0000-0000-000000000001");

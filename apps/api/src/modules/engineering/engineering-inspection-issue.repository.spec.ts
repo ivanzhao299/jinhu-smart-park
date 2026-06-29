@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Repository } from "typeorm";
+import { buildEngineeringInspectionCodePrefix } from "./domain/engineering-inspection-code.policy";
+import { buildEngineeringIssueCodePrefix } from "./domain/engineering-issue-code.policy";
 import {
   EngineeringInspectionStatus,
   EngineeringInspectionType,
@@ -129,7 +131,8 @@ function createIssueRepository(latestCode: string | null = null): {
 }
 
 test("EngineeringInspectionRepository creates inspection with generated code and DRAFT status", async () => {
-  const { repository } = createInspectionRepository("GCXJ20260626001");
+  const prefix = buildEngineeringInspectionCodePrefix(new Date());
+  const { repository } = createInspectionRepository(`${prefix}001`);
   const inspections = new EngineeringInspectionRepository(repository);
   const saved = await inspections.createInspection(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -144,7 +147,7 @@ test("EngineeringInspectionRepository creates inspection with generated code and
     }
   );
 
-  assert.equal(saved.inspectionCode, "GCXJ20260626002");
+  assert.equal(saved.inspectionCode, `${prefix}002`);
   assert.equal(saved.inspectionStatus, EngineeringInspectionStatus.DRAFT);
   assert.equal(saved.issueCount, 2);
   assert.equal(saved.criticalIssueCount, 1);
@@ -171,7 +174,8 @@ test("EngineeringInspectionRepository can detect inspection code uniqueness insi
 });
 
 test("EngineeringIssueRepository creates issue with generated code and OPEN status", async () => {
-  const { repository } = createIssueRepository("GCWT20260626001");
+  const prefix = buildEngineeringIssueCodePrefix(new Date());
+  const { repository } = createIssueRepository(`${prefix}001`);
   const issues = new EngineeringIssueRepository(repository);
   const saved = await issues.createIssue(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -187,7 +191,7 @@ test("EngineeringIssueRepository creates issue with generated code and OPEN stat
     }
   );
 
-  assert.equal(saved.issueCode, "GCWT20260626002");
+  assert.equal(saved.issueCode, `${prefix}002`);
   assert.equal(saved.issueStatus, EngineeringIssueStatus.OPEN);
   assert.equal(saved.sourceType, EngineeringIssueSourceType.INSPECTION);
   assert.equal(saved.sourceId, "00000000-0000-0000-0000-000000000201");

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Repository } from "typeorm";
+import { buildEngineeringAcceptanceCodePrefix } from "./domain/engineering-acceptance-code.policy";
 import { EngineeringAcceptanceStatus, EngineeringAcceptanceType } from "./domain/engineering-project.enums";
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
 import { EngineeringAcceptanceRepository } from "./repositories/engineering-acceptance.repository";
@@ -72,7 +73,8 @@ function createFakeRepository(latestAcceptanceCode: string | null = null): {
 }
 
 test("EngineeringAcceptanceRepository creates acceptance with generated code and DRAFT status", async () => {
-  const { repository } = createFakeRepository("GCYS20260626001");
+  const prefix = buildEngineeringAcceptanceCodePrefix(new Date());
+  const { repository } = createFakeRepository(`${prefix}001`);
   const acceptances = new EngineeringAcceptanceRepository(repository);
   const saved = await acceptances.createAcceptance(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -87,7 +89,7 @@ test("EngineeringAcceptanceRepository creates acceptance with generated code and
 
   assert.equal(saved.tenantId, "tenant-a");
   assert.equal(saved.parkId, "park-a");
-  assert.equal(saved.acceptanceCode, "GCYS20260626002");
+  assert.equal(saved.acceptanceCode, `${prefix}002`);
   assert.equal(saved.acceptanceStatus, EngineeringAcceptanceStatus.DRAFT);
   assert.equal(saved.createBy, "00000000-0000-0000-0000-000000000001");
 });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Repository } from "typeorm";
+import { buildEngineeringDailyReportCodePrefix } from "./domain/engineering-daily-report-code.policy";
 import { EngineeringDailyReportStatus, EngineeringWeatherType } from "./domain/engineering-project.enums";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
 import { EngineeringDailyReportRepository } from "./repositories/engineering-daily-report.repository";
@@ -70,7 +71,8 @@ function createFakeRepository(latestReportCode: string | null = null): {
 }
 
 test("EngineeringDailyReportRepository creates report with generated code and DRAFT status", async () => {
-  const { repository } = createFakeRepository("GCRB20260626001");
+  const prefix = buildEngineeringDailyReportCodePrefix(new Date());
+  const { repository } = createFakeRepository(`${prefix}001`);
   const reports = new EngineeringDailyReportRepository(repository);
   const saved = await reports.createDailyReport(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -88,7 +90,7 @@ test("EngineeringDailyReportRepository creates report with generated code and DR
 
   assert.equal(saved.tenantId, "tenant-a");
   assert.equal(saved.parkId, "park-a");
-  assert.equal(saved.reportCode, "GCRB20260626002");
+  assert.equal(saved.reportCode, `${prefix}002`);
   assert.equal(saved.reportStatus, EngineeringDailyReportStatus.DRAFT);
   assert.equal(saved.progressPercent, 30);
   assert.equal(saved.createBy, "00000000-0000-0000-0000-000000000001");

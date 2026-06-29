@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Repository } from "typeorm";
+import { buildEngineeringRectificationCodePrefix } from "./domain/engineering-rectification-code.policy";
 import { EngineeringIssueSeverity, EngineeringRectificationStatus } from "./domain/engineering-project.enums";
 import { EngineeringRectificationEntity } from "./entities/engineering-rectification.entity";
 import { EngineeringRectificationRepository } from "./repositories/engineering-rectification.repository";
@@ -89,7 +90,8 @@ function createFakeRepository(latestCode: string | null = null): {
 }
 
 test("EngineeringRectificationRepository creates rectification with generated code and PENDING status", async () => {
-  const { repository } = createFakeRepository("GCZG20260626001");
+  const prefix = buildEngineeringRectificationCodePrefix(new Date());
+  const { repository } = createFakeRepository(`${prefix}001`);
   const rectifications = new EngineeringRectificationRepository(repository);
   const saved = await rectifications.createRectification(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -105,7 +107,7 @@ test("EngineeringRectificationRepository creates rectification with generated co
     }
   );
 
-  assert.equal(saved.rectificationCode, "GCZG20260626002");
+  assert.equal(saved.rectificationCode, `${prefix}002`);
   assert.equal(saved.status, EngineeringRectificationStatus.PENDING);
   assert.equal(saved.issueId, "00000000-0000-0000-0000-000000000201");
   assert.equal(saved.deadline, "2026-06-30");
