@@ -1,7 +1,7 @@
 "use client";
 
-import { DataTable } from "@jinhu/ui";
-import { Camera, RefreshCw, Trash2 } from "lucide-react";
+import { DataTable, DrawerFormGrid } from "@jinhu/ui";
+import { Camera, RefreshCw, Save, Trash2 } from "lucide-react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionButton } from "../auth/PermissionButton";
@@ -185,7 +185,9 @@ export function VideoEvidencePanel({
       {message ? <p className="form-error">{message}</p> : null}
       {canUseCreate ? (
         <form className="form-stack" onSubmit={(event) => void submitEvidence(event)}>
-          <div className="drawer-form-grid">
+          <DrawerFormGrid>
+            {/* TODO(R7/#7): cameraId 为引用 ID(非上传文件),后端契约接受 camera_id 字符串,
+                有 cameraId 时禁用自动回填;无 cameraId 的独立用法仍需手填,改上传需后端配合,暂保留并记风险。 */}
             <label className="field">
               <span>摄像头 ID</span>
               <input value={form.cameraId} disabled={Boolean(cameraId)} onChange={(event) => setFormValue(setForm, "cameraId", event.target.value)} />
@@ -198,8 +200,6 @@ export function VideoEvidencePanel({
                 <option value="PREVIEW_LINK">预览链接</option>
               </select>
             </label>
-          </div>
-          <div className="drawer-form-grid">
             <label className="field">
               <span>证据地址</span>
               <input value={form.evidenceUrl} onChange={(event) => setFormValue(setForm, "evidenceUrl", event.target.value)} placeholder="可填写截图、视频片段或预览链接" />
@@ -208,19 +208,22 @@ export function VideoEvidencePanel({
               <span>截图地址</span>
               <input value={form.snapshotUrl} onChange={(event) => setFormValue(setForm, "snapshotUrl", event.target.value)} />
             </label>
-          </div>
-          <label className="field">
-            <span>取证说明</span>
-            <textarea value={form.description} rows={2} onChange={(event) => setFormValue(setForm, "description", event.target.value)} />
-          </label>
+          </DrawerFormGrid>
+          <DrawerFormGrid single>
+            <label className="field">
+              <span>取证说明</span>
+              <textarea value={form.description} rows={2} onChange={(event) => setFormValue(setForm, "description", event.target.value)} />
+            </label>
+          </DrawerFormGrid>
           <div className="drawer-action-bar">
             {cameraId ? (
-              <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_CAMERA_CAPTURE_SNAPSHOT} type="button" onClick={() => void captureSnapshot()}>
+              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.VIDEO_CAMERA_CAPTURE_SNAPSHOT} type="button" onClick={() => void captureSnapshot()}>
                 <Camera size={16} />
                 截图取证
               </PermissionButton>
             ) : null}
-            <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_EVIDENCE_CREATE} type="submit">
+            <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.VIDEO_EVIDENCE_CREATE} type="submit">
+              <Save size={16} />
               保存证据
             </PermissionButton>
           </div>

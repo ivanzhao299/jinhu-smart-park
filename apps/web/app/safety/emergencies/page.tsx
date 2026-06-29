@@ -35,6 +35,7 @@ import {
   Siren,
   Trash2,
   Wrench,
+  X,
   XCircle
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -722,10 +723,11 @@ export default function SafetyEmergenciesPage() {
         {formOpen ? (
           <Drawer size="lg" onClose={closeForm}>
             <DrawerHeader
-              eyebrow={sosMode ? "SOS 一键上报" : "应急事件"}
+              eyebrow="现场安全"
               title={editing ? "编辑应急事件" : sosMode ? "一键上报应急事件" : "新增应急事件"}
               description="本轮仅做站内业务留痕，不发送真实短信、企微或邮件。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -932,10 +934,11 @@ export default function SafetyEmergenciesPage() {
         {acting ? (
           <Drawer size="md" onClose={closeAction}>
             <DrawerHeader
-              eyebrow="应急事件操作"
+              eyebrow="现场安全"
               title={actionModeLabel(acting.mode)}
               description={actionModeDescription(acting.mode)}
               onClose={closeAction}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAction(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -969,10 +972,11 @@ export default function SafetyEmergenciesPage() {
         {timelineLogOpen && viewing ? (
           <Drawer size="md" onClose={closeTimelineLog}>
             <DrawerHeader
-              eyebrow="应急处置日志"
+              eyebrow="现场安全"
               title="追加处置记录"
               description={viewing.emergencyCode}
               onClose={closeTimelineLog}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitTimelineLog(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -1036,10 +1040,11 @@ export default function SafetyEmergenciesPage() {
         {creatingWorkOrder ? (
           <Drawer size="md" onClose={closeCreateWorkOrder}>
             <DrawerHeader
-              eyebrow="应急联动"
+              eyebrow="现场安全"
               title="应急事件转工单"
               description={`${creatingWorkOrder.emergencyCode} · 创建后会写入工单日志和事件时间线`}
               onClose={closeCreateWorkOrder}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>

@@ -1306,9 +1306,9 @@ export default function LeasingLeadsPage() {
           </Card>
 
           {showForm ? (
-            <Drawer className="lead-form-drawer" size="md" onClose={() => setShowForm(false)}>
+            <Drawer size="md" onClose={() => setShowForm(false)}>
               <DrawerHeader
-                eyebrow="招商线索"
+                eyebrow="招商租赁"
                 title={editing ? "编辑招商线索" : "新增招商线索"}
                 description="维护客户、需求和跟进计划，线索编码留空时由系统生成。"
                 closeIcon={<X size={18} />}
@@ -1372,9 +1372,9 @@ export default function LeasingLeadsPage() {
           ) : null}
 
           {detail ? (
-            <Drawer className="lead-detail-drawer" size="lg" onClose={closeDetailDrawer}>
+            <Drawer size="lg" onClose={closeDetailDrawer}>
               <DrawerHeader
-                eyebrow="招商线索详情"
+                eyebrow="招商租赁"
                 title={detail.customerName}
                 description={`${detail.leadCode} · ${detail.contactName} · ${fieldText(authUser, canViewContactMobile, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE, detail.contactMobile)}`}
                 closeIcon={<X size={18} />}
@@ -1811,39 +1811,41 @@ export default function LeasingLeadsPage() {
 
           {showStatusForm && statusTarget ? (
             <Drawer size="md" onClose={() => setShowStatusForm(false)}>
-              <div className="system-toolbar">
-                <h2>线索状态流转</h2>
-                <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>
-                  <X size={16} />
-                  关闭
-                </button>
-              </div>
-              <form className="form-stack" onSubmit={(event) => void submitStatusChange(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerHeader
+                eyebrow="招商租赁"
+                title="线索状态流转"
+                description="变更线索状态并记录变更原因。"
+                onClose={() => setShowStatusForm(false)}
+                closeIcon={<X size={18} />}
+              />
+              <DrawerForm onSubmit={(event) => void submitStatusChange(event).catch((error: Error) => setMessage(error.message))}>
                 <DetailGrid>
                   <DetailItem label="线索编码" value={statusTarget.leadCode} />
                   <DetailItem label="客户名称" value={statusTarget.customerName} />
                   <DetailItem label="当前状态" value={<DictBadge items={statusItems} value={statusTarget.status} />} />
                   <DetailItem label="目标状态" value={<DictBadge items={statusItems} value={statusForm.afterStatus} />} />
                 </DetailGrid>
-                <SelectField
-                  label="目标状态"
-                  value={statusForm.afterStatus}
-                  onChange={(value) => setStatusFormValue("afterStatus", value, setStatusForm)}
-                  options={statusSelectItems}
-                />
-                {statusHint ? <span className="status-pill status-warning">{statusHint}</span> : null}
-                <TextAreaField label="变更原因" value={statusForm.reason} onChange={(value) => setStatusFormValue("reason", value, setStatusForm)} />
+                <DrawerFormGrid single>
+                  <SelectField
+                    label="目标状态"
+                    value={statusForm.afterStatus}
+                    onChange={(value) => setStatusFormValue("afterStatus", value, setStatusForm)}
+                    options={statusSelectItems}
+                  />
+                  {statusHint ? <span className="status-pill status-warning">{statusHint}</span> : null}
+                  <TextAreaField label="变更原因" value={statusForm.reason} onChange={(value) => setStatusFormValue("reason", value, setStatusForm)} />
+                </DrawerFormGrid>
                 {statusForm.afterStatus === "91" ? (
-                  <div className="system-grid">
+                  <DrawerFormGrid>
                     <SelectField label="流失原因" value={statusForm.lostReason} onChange={(value) => setStatusFormValue("lostReason", value, setStatusForm)} options={lostReasonItems} />
                     <TextAreaField label="流失备注" value={statusForm.lostRemark} onChange={(value) => setStatusFormValue("lostRemark", value, setStatusForm)} />
-                  </div>
+                  </DrawerFormGrid>
                 ) : null}
-                <div className="page-actions">
+                <DrawerFooter>
+                  <button className="secondary-button" type="button" onClick={() => setShowStatusForm(false)}>取消</button>
                   <button className="primary-button" type="submit">确认变更</button>
-                  <button className="primary-button" type="button" onClick={() => setShowStatusForm(false)}>取消</button>
-                </div>
-              </form>
+                </DrawerFooter>
+              </DrawerForm>
             </Drawer>
           ) : null}
         </main>

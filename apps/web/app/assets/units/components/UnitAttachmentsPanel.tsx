@@ -1,4 +1,4 @@
-import { Drawer } from "@jinhu/ui";
+import { Drawer, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 import type { FileRecord } from "@jinhu/shared";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { X } from "lucide-react";
@@ -22,10 +22,13 @@ export function UnitAttachmentsPanel({
 }) {
   return (
     <Drawer size="md" onClose={onClose}>
-      <div className="task-item">
-        <h2 className="panel-title">{unit.unitName} {mode === "photos" ? "照片" : "平面图"}</h2>
-        <button className="drawer-close-button" type="button" title="关闭" onClick={onClose}><X size={16} /></button>
-      </div>
+      <DrawerHeader
+        eyebrow="资产空间"
+        title={`${unit.unitName} ${mode === "photos" ? "照片" : "平面图"}`}
+        description="上传与查看房源的照片与平面图附件。"
+        onClose={onClose}
+        closeIcon={<X size={18} />}
+      />
       <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_UPDATE}>
         <FileUploader
           bizType={mode === "photos" ? "unit_photo" : "unit_floorplan"}
@@ -39,6 +42,9 @@ export function UnitAttachmentsPanel({
         bizId={unit.id}
         refreshKey={refreshKey}
       />
+      <DrawerFooter>
+        <button className="secondary-button" type="button" onClick={onClose}>关闭</button>
+      </DrawerFooter>
     </Drawer>
   );
 }

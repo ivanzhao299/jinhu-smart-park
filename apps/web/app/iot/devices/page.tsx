@@ -16,7 +16,7 @@ import {
   DrawerTabs,
   StatusPill
 } from "@jinhu/ui";
-import { Activity, BarChart3, Database, Edit3, Eye, KeyRound, Plus, Power, PowerOff, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Activity, BarChart3, Database, Edit3, Eye, KeyRound, Plus, Power, PowerOff, RefreshCw, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -755,10 +755,11 @@ export default function IotDevicesPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="IoT 设备"
+              eyebrow="物联设备"
               title={editing ? "编辑设备" : "新增设备"}
               description="设备密钥不在表单中回显，创建后可通过重置密钥获取一次性明文。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -815,10 +816,11 @@ export default function IotDevicesPage() {
         {viewing ? (
           <Drawer size="md" onClose={() => setViewing(null)}>
             <DrawerHeader
-              eyebrow="设备详情"
+              eyebrow="物联设备"
               title={viewing.deviceName}
               description={`${viewing.deviceCode} · ${labelFor(deviceTypes, viewing.deviceType)} · ${gatewayLabel(gateways, viewing.gatewayId)}`}
               onClose={() => setViewing(null)}
+              closeIcon={<X size={18} />}
             />
             <DrawerTabs>
               <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
@@ -1080,10 +1082,11 @@ export default function IotDevicesPage() {
         {viewing && pointFormOpen ? (
           <Drawer size="md" onClose={closePointForm}>
             <DrawerHeader
-              eyebrow="设备点位"
+              eyebrow="物联设备"
               title={editingPoint ? "编辑设备点位" : "新增设备点位"}
               description={`${viewing.deviceCode} · ${viewing.deviceName}`}
               onClose={closePointForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void savePoint(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>

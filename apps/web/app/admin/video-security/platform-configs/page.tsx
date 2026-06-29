@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
@@ -304,10 +304,11 @@ export default function VideoPlatformConfigsPage() {
         {formOpen ? (
           <Drawer onClose={closeForm} size="lg">
             <DrawerHeader
-              eyebrow="视频平台"
+              eyebrow="视频点位"
               title={editing ? "编辑平台配置" : "新增平台配置"}
               description="密钥、Token 保存时会加密处理，编辑时留空表示不修改。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -357,10 +358,11 @@ export default function VideoPlatformConfigsPage() {
         {viewing ? (
           <Drawer onClose={() => setViewing(null)} size="md">
             <DrawerHeader
-              eyebrow="平台配置详情"
+              eyebrow="视频点位"
               title={viewing.platformName}
               description={`${labelFor(platformTypes, viewing.platformType)} · ${viewing.vendorName ?? "未填写厂家"}`}
               onClose={() => setViewing(null)}
+              closeIcon={<X size={18} />}
             />
             <DrawerDetailGrid>
               <DrawerDetailItem label="平台类型" value={<StatusPill dictCode="video_platform_type" value={viewing.platformType} dicts={dicts} />} />

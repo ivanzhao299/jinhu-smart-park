@@ -15,7 +15,7 @@ import {
 } from "@jinhu/ui";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
-import { Edit3, Eye, Paperclip, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, Paperclip, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -318,10 +318,11 @@ export default function SafetyEmergencyPlansPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="应急预案"
+              eyebrow="现场安全"
               title={editing ? "编辑预案" : "新增预案"}
               description="预案步骤可逐行填写，保存时会转换为结构化步骤数组。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>

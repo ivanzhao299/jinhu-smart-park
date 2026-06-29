@@ -11,7 +11,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Activity, Edit3, FileClock, PauseCircle, PlayCircle, Plus, RefreshCw, Search, TestTube2, Trash2 } from "lucide-react";
+import { Activity, Edit3, FileClock, PauseCircle, PlayCircle, Plus, RefreshCw, Search, TestTube2, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../../components/auth/PermissionButton";
@@ -416,10 +416,11 @@ export default function IotRulesPage() {
         {formOpen ? (
           <Drawer size="lg" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="IoT 自动化"
+              eyebrow="物联设备"
               title={editing ? "编辑规则" : "新增规则"}
               description="条件与动作使用 JSON 配置，后端会校验允许的动作类型并拒绝任意代码执行。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -463,10 +464,11 @@ export default function IotRulesPage() {
         {testOpen && testRule ? (
           <Drawer size="md" onClose={() => setTestOpen(false)}>
             <DrawerHeader
-              eyebrow="规则测试"
+              eyebrow="物联设备"
               title={testRule.ruleName}
               description="手动模拟触发载荷，执行结果会写入规则执行日志。"
               onClose={() => setTestOpen(false)}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void runTest(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -485,10 +487,11 @@ export default function IotRulesPage() {
         {logsOpen && logRule ? (
           <Drawer size="lg" onClose={() => setLogsOpen(false)}>
             <DrawerHeader
-              eyebrow="执行日志"
+              eyebrow="物联设备"
               title={logRule.ruleName}
               description="每次规则命中、跳过或执行失败都会形成审计化的执行记录。"
               onClose={() => setLogsOpen(false)}
+              closeIcon={<X size={18} />}
             />
             <Card className="page-content">
               <DataTable>

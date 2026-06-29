@@ -1,6 +1,6 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
-import { CheckCircle2, Edit3, Plus, Search, XCircle } from "lucide-react";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
+import { CheckCircle2, Edit3, Plus, Search, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
@@ -251,9 +251,15 @@ export default function UsersPage() {
 
       {(showCreate || editingUser) ? (
         <Drawer size="lg" onClose={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}>
-          <form key={editingUser?.id ?? loginSettings?.tenant.tenantId ?? "new"} className="form-stack" onSubmit={(event) => void saveUser(event).catch((error: Error) => setMessage(error.message))}>
-            <h2 className="panel-title">{editingUser ? "编辑用户登录上下文" : "新增用户"}</h2>
-            <div className="system-grid">
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={editingUser ? "编辑用户登录上下文" : "新增用户"}
+            description="维护用户账号、登录上下文与可访问园区。"
+            onClose={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm key={editingUser?.id ?? loginSettings?.tenant.tenantId ?? "new"} onSubmit={(event) => void saveUser(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerFormGrid>
               <div className="field">
                 <label>所属租户</label>
                 <select
@@ -276,26 +282,28 @@ export default function UsersPage() {
               <div className="field"><label>手机</label><input name="mobile" defaultValue={editingUser?.mobile ?? ""} /></div>
               <div className="field"><label>邮箱</label><input name="email" defaultValue={editingUser?.email ?? ""} /></div>
               <div className="field"><label>状态</label><select name="status" defaultValue={editingUser?.status ?? "enabled"}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            </div>
-            <div className="form-stack">
-              <h3 className="panel-title">可访问园区</h3>
-              <div className="system-grid">
-                {(loginSettings?.parks ?? []).map((park) => {
-                  const checked = editingUser ? editingUser.accessibleParks.some((item) => item.park_id === park.parkId) || editingUser.parkId === park.parkId : true;
-                  return (
-                    <label key={park.parkId} className="check-row">
-                      <input name={`park.${park.parkId}`} type="checkbox" defaultChecked={checked} />
-                      <span>{park.parkName} / {park.parkId}</span>
-                    </label>
-                  );
-                })}
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field">
+                <label>可访问园区</label>
+                <div className="checkbox-list">
+                  {(loginSettings?.parks ?? []).map((park) => {
+                    const checked = editingUser ? editingUser.accessibleParks.some((item) => item.park_id === park.parkId) || editingUser.parkId === park.parkId : true;
+                    return (
+                      <label key={park.parkId} className="checkbox-row">
+                        <input name={`park.${park.parkId}`} type="checkbox" defaultChecked={checked} />
+                        <span>{park.parkName} / {park.parkId}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div className="system-actions">
-              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+            </DrawerFormGrid>
+            <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}><XCircle size={16} />取消</button>
-            </div>
-          </form>
+              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

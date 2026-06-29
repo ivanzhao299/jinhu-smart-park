@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Link2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
@@ -469,13 +469,14 @@ export default function LeasingPaymentsPage() {
 
       {drawerOpen ? (
         <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>{editing ? "编辑收款" : "新增收款"}</strong>
-            <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submit}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={editing ? "编辑收款" : "新增收款"}
+            description="登记租户收款记录与收款凭证。"
+            onClose={() => setDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submit}>
             <div className="system-grid">
               <TextField label="收款单号" value={form.payCode} onChange={(value) => setForm((prev) => ({ ...prev, payCode: value }))} placeholder="为空则自动生成" />
               <label className="field">
@@ -495,9 +496,6 @@ export default function LeasingPaymentsPage() {
               <NumberField label="收款金额" value={form.payAmount} onChange={(value) => setForm((prev) => ({ ...prev, payAmount: value }))} required />
               <TextField label="付款人" value={form.payerName} onChange={(value) => setForm((prev) => ({ ...prev, payerName: value }))} />
               <TextField label="银行流水号" value={form.bankSerial} onChange={(value) => setForm((prev) => ({ ...prev, bankSerial: value }))} />
-              {canViewReceiptFile ? (
-                <TextField label="凭证文件 ID" value={form.receiptFileId} onChange={(value) => setForm((prev) => ({ ...prev, receiptFileId: value }))} />
-              ) : null}
             </div>
             <label className="field">
               <span>备注</span>
@@ -510,27 +508,31 @@ export default function LeasingPaymentsPage() {
                 {editing ? <AttachmentList bizType={PAYMENT_FILE_BIZ_TYPE} bizId={editing.id} refreshKey={receiptRefreshKey} /> : null}
               </section>
             ) : null}
-            <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
-              {saving ? "保存中" : "保存"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
+                {saving ? "保存中" : "保存"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
 
       {applyOpen && editing ? (
         <Drawer size="lg" onClose={() => setApplyOpen(false)}>
-          <div className="system-toolbar">
-            <strong>收款核销：{editing.payCode}</strong>
-            <button className="primary-button" type="button" onClick={() => setApplyOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={`收款核销：${editing.payCode}`}
+            description="将收款金额核销到对应的应收账单。"
+            onClose={() => setApplyOpen(false)}
+            closeIcon={<X size={18} />}
+          />
           <div className="system-grid">
             <MetricTile label="收款金额" value={paymentAmountText(editing.payAmount, "payAmount", canViewPayAmount, authUser)} />
             <MetricTile label="未核销金额" value={paymentAmountText(editing.unappliedAmount, "unappliedAmount", canViewUnappliedAmount, authUser)} />
             <MetricTile label="租户企业" value={editing.parkTenant?.companyName ?? tenantName(parkTenants, editing.parkTenantId)} />
           </div>
-          <form className="form-stack" onSubmit={applyPayment}>
+          <DrawerForm onSubmit={applyPayment}>
             {applyRows.map((row, index) => (
               <div className="system-grid" key={`${index}-${row.receivableId}`}>
                 <label className="field">
@@ -554,14 +556,17 @@ export default function LeasingPaymentsPage() {
               </div>
             ))}
             <div className="page-actions">
-              <button className="primary-button" type="button" onClick={() => setApplyRows((current) => [...current, { receivableId: "", appliedAmount: "0" }])}>
+              <button className="secondary-button" type="button" onClick={() => setApplyRows((current) => [...current, { receivableId: "", appliedAmount: "0" }])}>
                 <Plus size={16} /> 添加应收
               </button>
+            </div>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setApplyOpen(false)}>取消</button>
               <button className="primary-button" type="submit" disabled={saving || !canApply}>
                 {saving ? "核销中" : "确认核销"}
               </button>
-            </div>
-          </form>
+            </DrawerFooter>
+          </DrawerForm>
           <section className="detail-stack">
             <h3>已核销记录</h3>
             <div className="table-scroll">

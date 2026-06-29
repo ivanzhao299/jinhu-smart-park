@@ -9,7 +9,7 @@ import {
   EmptyState,
   StatusPill
 } from "@jinhu/ui";
-import { CheckCircle2, LocateFixed, MapPin, PlayCircle, Send, Camera, Save, ScanLine } from "lucide-react";
+import { CheckCircle2, LocateFixed, MapPin, PlayCircle, Send, Camera, Save, ScanLine, X } from "lucide-react";
 import type { FormEvent } from "react";
 import type { CheckInForm, DictMap, InspectTaskRow, ResultInput } from "./terminal-types";
 import { PermissionButton } from "../auth/PermissionButton";
@@ -73,12 +73,13 @@ export function InspectionExecutionDrawer({
   ];
 
   return (
-    <Drawer className="ds-compact-drawer" size="xl" onClose={onClose}>
+    <Drawer size="xl" onClose={onClose}>
       <DrawerHeader
-        eyebrow="现场巡检执行"
+        eyebrow="运营终端"
         title={task.template?.templateName ?? task.taskCode}
         description={`${task.point?.pointName ?? "巡检点"} · ${formatDateTime(task.planTime)}`}
         onClose={onClose}
+        closeIcon={<X size={18} />}
       />
 
       <div className={styles.drawerSummary}>

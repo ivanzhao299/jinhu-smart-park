@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, Plus, QrCode, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, Plus, QrCode, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -428,7 +428,7 @@ export default function SafetyInspectPointsPage() {
 
         {(form !== emptyForm || editing) ? (
           <Drawer size="lg" onClose={() => { setEditing(null); setForm(emptyForm); }}>
-            <DrawerHeader title={editing ? "编辑巡检点位" : "新增巡检点位"} description="点位可关联资产、租户企业和公共区域，二维码内容可自动使用点位编码。" onClose={() => { setEditing(null); setForm(emptyForm); }} />
+            <DrawerHeader eyebrow="现场安全" title={editing ? "编辑巡检点位" : "新增巡检点位"} description="点位可关联资产、租户企业和公共区域，二维码内容可自动使用点位编码。" onClose={() => { setEditing(null); setForm(emptyForm); }} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
                 <Field label="点位编码">
@@ -469,14 +469,16 @@ export default function SafetyInspectPointsPage() {
                   <input value={form.qrCode} onChange={(event) => setFormValue("qrCode", event.target.value)} placeholder="留空使用点位编码" />
                 </Field>
                 <Field label="执行要求">
-                  <label className="form-check-row">
-                    <input type="checkbox" checked={form.requiredScan} onChange={(event) => setFormValue("requiredScan", event.target.checked)} />
-                    强制扫码
-                  </label>
-                  <label className="form-check-row">
-                    <input type="checkbox" checked={form.requiredGps} onChange={(event) => setFormValue("requiredGps", event.target.checked)} />
-                    强制定位
-                  </label>
+                  <div className="checkbox-list">
+                    <label className="checkbox-row">
+                      <input type="checkbox" checked={form.requiredScan} onChange={(event) => setFormValue("requiredScan", event.target.checked)} />
+                      <span>强制扫码</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input type="checkbox" checked={form.requiredGps} onChange={(event) => setFormValue("requiredGps", event.target.checked)} />
+                      <span>强制定位</span>
+                    </label>
+                  </div>
                 </Field>
                 <Field label="备注">
                   <textarea value={form.remark} onChange={(event) => setFormValue("remark", event.target.value)} />

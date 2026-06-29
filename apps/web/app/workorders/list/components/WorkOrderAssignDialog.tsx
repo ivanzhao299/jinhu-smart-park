@@ -15,10 +15,10 @@ interface WorkOrderAssignDialogProps {
 
 export function WorkOrderAssignDialog({ assignment, form, users, onClose, onSubmit, onFormChange }: WorkOrderAssignDialogProps) {
   return (
-    <Drawer className="ds-compact-drawer" size="md" onClose={onClose}>
+    <Drawer size="md" onClose={onClose}>
       <DrawerHeader
-        eyebrow={assignment.mode === "assign" ? "工单派单" : "工单改派"}
-        title={assignment.row.woCode}
+        eyebrow="工单运维"
+        title={`${assignment.mode === "assign" ? "派单" : "改派"} · ${assignment.row.woCode}`}
         description={assignment.mode === "assign" ? "选择处理人并记录派单说明。" : "改派必须填写原因，系统会写入工单日志。"}
         onClose={onClose}
         closeIcon={<X size={16} />}
@@ -49,10 +49,10 @@ export function WorkOrderAssignDialog({ assignment, form, users, onClose, onSubm
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="field">
-      <label>{label}</label>
+    <label className="field">
+      <span>{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, Drawer } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 
 import { Edit3, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -134,18 +134,31 @@ export default function FieldPoliciesPage() {
 
       {formOpen ? (
         <Drawer size="md" onClose={() => setFormOpen(false)}>
-          <form className="form-stack" onSubmit={(event) => void submit(event).catch(showError)}>
-            <div className="system-toolbar"><h2 className="panel-title">{formState.id ? "编辑字段策略" : "新增字段策略"}</h2><button className="drawer-close-button" aria-label="关闭" title="关闭" type="button" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
-            <div className="field"><label>模块</label><input required value={formState.module} onChange={(event) => setFormState({ ...formState, module: event.target.value })} /></div>
-            <div className="field"><label>实体</label><input required value={formState.entity} onChange={(event) => setFormState({ ...formState, entity: event.target.value })} /></div>
-            <div className="field"><label>字段键</label><input required value={formState.fieldKey} onChange={(event) => setFormState({ ...formState, fieldKey: event.target.value })} /></div>
-            <div className="field"><label>字段名</label><input required value={formState.fieldName} onChange={(event) => setFormState({ ...formState, fieldName: event.target.value })} /></div>
-            <div className="field"><label>策略类型</label><select value={formState.policyType} onChange={(event) => setFormState({ ...formState, policyType: event.target.value })}>{policyTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div className="field"><label>脱敏规则</label><select value={formState.maskRule} onChange={(event) => setFormState({ ...formState, maskRule: event.target.value })}>{maskRules.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
-            <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
-            <button className="primary-button" type="submit"><Save size={16} />保存</button>
-          </form>
+          <DrawerHeader
+            eyebrow="系统管理"
+            title={formState.id ? "编辑字段策略" : "新增字段策略"}
+            description="控制敏感字段的明文、脱敏、隐藏、只读与可编辑。"
+            onClose={() => setFormOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submit(event).catch(showError)}>
+            <DrawerFormGrid>
+              <div className="field"><label>模块</label><input required value={formState.module} onChange={(event) => setFormState({ ...formState, module: event.target.value })} /></div>
+              <div className="field"><label>实体</label><input required value={formState.entity} onChange={(event) => setFormState({ ...formState, entity: event.target.value })} /></div>
+              <div className="field"><label>字段键</label><input required value={formState.fieldKey} onChange={(event) => setFormState({ ...formState, fieldKey: event.target.value })} /></div>
+              <div className="field"><label>字段名</label><input required value={formState.fieldName} onChange={(event) => setFormState({ ...formState, fieldName: event.target.value })} /></div>
+              <div className="field"><label>策略类型</label><select value={formState.policyType} onChange={(event) => setFormState({ ...formState, policyType: event.target.value })}>{policyTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div className="field"><label>脱敏规则</label><select value={formState.maskRule} onChange={(event) => setFormState({ ...formState, maskRule: event.target.value })}>{maskRules.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div className="field"><label>状态</label><select value={formState.status} onChange={(event) => setFormState({ ...formState, status: event.target.value })}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>取消</button>
+              <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

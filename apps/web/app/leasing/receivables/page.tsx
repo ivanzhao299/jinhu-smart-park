@@ -1,5 +1,5 @@
 "use client";
-import { DataTable, Drawer, Card } from "@jinhu/ui";
+import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { BadgePercent, Edit3, History, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -598,48 +598,65 @@ export default function LeasingReceivablesPage() {
 
       {batchDrawerOpen ? (
         <Drawer size="md" onClose={() => setBatchDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>批量生成应收</strong>
-            <button className="primary-button" type="button" onClick={() => setBatchDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={generateBatch}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title="批量生成应收"
+            description="按账单月份与合同范围批量生成应收账单。"
+            onClose={() => setBatchDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={generateBatch}>
             <div className="system-grid">
               <label className="field">
                 <span>账单月份</span>
                 <input required type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
               </label>
-              <label className="field">
-                <span>合同</span>
-                <select
-                  multiple
-                  value={batchContractIds}
-                  onChange={(event) => setBatchContractIds(Array.from(event.currentTarget.selectedOptions).map((option) => option.value))}
-                >
-                  {contracts.map((contract) => (
-                    <option key={contract.id} value={contract.id}>{contract.contractCode} {contract.contractName}</option>
-                  ))}
-                </select>
-              </label>
             </div>
-            <button className="primary-button" type="submit" disabled={saving || !canGenerateBatch}>
-              {saving ? "生成中" : "生成应收"}
-            </button>
-          </form>
+            <div className="field">
+              <span>合同（至少选择一个已生效合同）</span>
+              <div className="checkbox-list">
+                {contracts.map((contract) => {
+                  const checked = batchContractIds.includes(contract.id);
+                  return (
+                    <label key={contract.id} className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) =>
+                          setBatchContractIds((current) =>
+                            event.target.checked
+                              ? [...current, contract.id]
+                              : current.filter((id) => id !== contract.id)
+                          )
+                        }
+                      />
+                      <span>{contract.contractCode} {contract.contractName}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setBatchDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || !canGenerateBatch}>
+                {saving ? "生成中" : "生成应收"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
           {generationResult ? <GenerationResultTable result={generationResult} dicts={dicts} /> : null}
         </Drawer>
       ) : null}
 
       {drawerOpen ? (
         <Drawer size="lg" onClose={() => setDrawerOpen(false)}>
-          <div className="system-toolbar">
-            <strong>{editing ? "编辑应收账单" : "新增应收账单"}</strong>
-            <button className="primary-button" type="button" onClick={() => setDrawerOpen(false)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
-          <form className="form-stack" onSubmit={submit}>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={editing ? "编辑应收账单" : "新增应收账单"}
+            description="维护应收账单的账期、金额与状态。"
+            onClose={() => setDrawerOpen(false)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={submit}>
             <div className="system-grid">
               <label className="field">
                 <span>应收单号</span>
@@ -733,21 +750,25 @@ export default function LeasingReceivablesPage() {
               <span>备注</span>
               <textarea value={form.remark} onChange={(event) => setForm((prev) => ({ ...prev, remark: event.target.value }))} />
             </label>
-            <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
-              {saving ? "保存中" : "保存"}
-            </button>
-          </form>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setDrawerOpen(false)}>取消</button>
+              <button className="primary-button" type="submit" disabled={saving || (editing ? !canUpdate : !canCreate)}>
+                {saving ? "保存中" : "保存"}
+              </button>
+            </DrawerFooter>
+          </DrawerForm>
         </Drawer>
       ) : null}
 
       {statusLogTarget ? (
         <Drawer size="md" onClose={() => setStatusLogTarget(null)}>
-          <div className="system-toolbar">
-            <strong>应收状态日志 - {statusLogTarget.arCode}</strong>
-            <button className="primary-button" type="button" onClick={() => setStatusLogTarget(null)}>
-              <X size={16} /> 关闭
-            </button>
-          </div>
+          <DrawerHeader
+            eyebrow="招商租赁"
+            title={`应收状态日志 - ${statusLogTarget.arCode}`}
+            description="查看应收账单的状态流转记录。"
+            onClose={() => setStatusLogTarget(null)}
+            closeIcon={<X size={18} />}
+          />
           <ReceivableStatusTimeline logs={statusLogs} loading={statusLogLoading} dicts={dicts} />
         </Drawer>
       ) : null}

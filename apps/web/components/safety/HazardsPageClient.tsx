@@ -15,7 +15,7 @@ import {
 } from "@jinhu/ui";
 import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
-import { CheckCircle2, Edit3, ExternalLink, Eye, Plus, RefreshCw, RotateCcw, Search, Send, ShieldCheck, Siren, Trash2, Wrench, XCircle } from "lucide-react";
+import { CheckCircle2, Edit3, ExternalLink, Eye, Plus, RefreshCw, RotateCcw, Search, Send, ShieldCheck, Siren, Trash2, Wrench, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionButton } from "../auth/PermissionButton";
 import { PermissionGuard } from "../auth/PermissionGuard";
@@ -862,12 +862,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         {message ? <p className="form-error">{message}</p> : null}
 
         {formOpen ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={closeForm}>
+          <Drawer size="lg" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="安全隐患"
+              eyebrow="现场安全"
               title={editing ? "编辑隐患" : "新增隐患"}
               description="重大风险需要维护整改期限，照片可先上传后随表单保存。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -893,14 +894,16 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
                   <input type="date" value={form.rectifyDeadline} onChange={(event) => setFormValue("rectifyDeadline", event.target.value)} />
                 </Field>
                 <Field label="标记">
-                  <label className="form-check-row">
-                    <input type="checkbox" checked={form.overdueFlag} onChange={(event) => setFormValue("overdueFlag", event.target.checked)} />
-                    已超期
-                  </label>
-                  <label className="form-check-row">
-                    <input type="checkbox" checked={form.upgradeFlag} onChange={(event) => setFormValue("upgradeFlag", event.target.checked)} />
-                    已升级
-                  </label>
+                  <div className="checkbox-list">
+                    <label className="checkbox-row">
+                      <input type="checkbox" checked={form.overdueFlag} onChange={(event) => setFormValue("overdueFlag", event.target.checked)} />
+                      <span>已超期</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input type="checkbox" checked={form.upgradeFlag} onChange={(event) => setFormValue("upgradeFlag", event.target.checked)} />
+                      <span>已升级</span>
+                    </label>
+                  </div>
                 </Field>
               </DrawerFormGrid>
               <DrawerFormGrid single>
@@ -928,7 +931,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {viewing ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setViewing(null); setStatusLogs([]); }}>
+          <Drawer size="md" onClose={() => { setViewing(null); setStatusLogs([]); }}>
             <DrawerHeader
               eyebrow="隐患详情"
               title={viewing.title}
@@ -1048,12 +1051,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {assigning ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}>
+          <Drawer size="md" onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}>
             <DrawerHeader
-              eyebrow="下达整改"
+              eyebrow="现场安全"
               title={assigning.title}
               description="指定整改责任人和整改期限，下达后隐患进入已下发整改状态。"
               onClose={() => { setAssigning(null); setAssignForm(emptyAssignForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssign(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -1076,12 +1080,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rectifying ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}>
+          <Drawer size="md" onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}>
             <DrawerHeader
-              eyebrow="整改完成"
+              eyebrow="现场安全"
               title={rectifying.title}
               description="提交整改说明并上传至少一张整改后照片，提交后隐患进入已整改状态。"
               onClose={() => { setRectifying(null); setRectifyForm(emptyRectifyForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRectify(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -1102,12 +1107,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rechecking ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}>
+          <Drawer size="md" onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}>
             <DrawerHeader
-              eyebrow="隐患复查"
+              eyebrow="现场安全"
               title={rechecking.result === "pass" ? "复查通过" : "复查不通过"}
               description={rechecking.result === "pass" ? "通过后隐患将直接闭环。" : "不通过后隐患将退回整改中。"}
               onClose={() => { setRechecking(null); setRecheckForm(emptyRecheckForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRecheck(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -1124,12 +1130,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {rejecting ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}>
+          <Drawer size="md" onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}>
             <DrawerHeader
-              eyebrow="退回整改"
+              eyebrow="现场安全"
               title={rejecting.title}
               description="退回后隐患状态回到整改中，整改责任人可重新提交整改。"
               onClose={() => { setRejecting(null); setRejectForm(emptyRecheckForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitRejectRectify(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -1146,12 +1153,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {closing ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}>
+          <Drawer size="md" onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}>
             <DrawerHeader
-              eyebrow="关闭隐患"
+              eyebrow="现场安全"
               title={closing.title}
               description="关闭后隐患进入闭环状态，不能重复关闭。"
               onClose={() => { setClosing(null); setCloseFormState(emptyRecheckForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitClose(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
@@ -1168,12 +1176,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {creatingWorkOrder ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}>
+          <Drawer size="md" onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}>
             <DrawerHeader
-              eyebrow="隐患转工单"
+              eyebrow="现场安全"
               title={creatingWorkOrder.title}
               description="创建后工单来源为巡检，隐患会标记为已转工单并保留关联入口。"
               onClose={() => { setCreatingWorkOrder(null); setCreateWorkOrderForm(emptyCreateWorkOrderForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateWorkOrder(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
@@ -1198,12 +1207,13 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
         ) : null}
 
         {creatingEmergency ? (
-          <Drawer className="ds-compact-drawer" size="md" onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}>
+          <Drawer size="md" onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}>
             <DrawerHeader
-              eyebrow="重大隐患转应急事件"
+              eyebrow="现场安全"
               title={creatingEmergency.title}
               description="创建后应急事件保留隐患来源，隐患状态更新为已转应急。"
               onClose={() => { setCreatingEmergency(null); setCreateEmergencyForm(emptyCreateEmergencyForm); }}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitCreateEmergency(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>

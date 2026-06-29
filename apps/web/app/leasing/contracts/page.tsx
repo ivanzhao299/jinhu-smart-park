@@ -1287,8 +1287,14 @@ export default function LeasingContractsPage() {
           </Card>
 
           {showForm ? (
-            <Drawer className="ds-compact-drawer contract-drawer" size="lg" onClose={() => setShowForm(false)}>
-              <DrawerHeader title={editing ? "合同详情" : "新增合同草稿"} onClose={() => setShowForm(false)} closeIcon={<X size={18} />} />
+            <Drawer size="xl" onClose={() => setShowForm(false)}>
+              <DrawerHeader
+                eyebrow="招商租赁"
+                title={editing ? "合同详情" : "新增合同草稿"}
+                description="维护租赁合同主档案、关联房源、附件与财务台账。"
+                onClose={() => setShowForm(false)}
+                closeIcon={<X size={18} />}
+              />
               {coreDisabled ? <p className="status-pill status-warning">当前合同状态不允许编辑核心金额与日期字段</p> : null}
               {editing ? (
                 <ContractDetailTabs activeTab={contractDetailTab} onChange={setContractDetailTab} />
@@ -1607,8 +1613,32 @@ export default function LeasingContractsPage() {
                   <SelectField label="付款周期" value={form.paymentPeriod} onChange={(value) => setFormValue("paymentPeriod", value, setForm)} options={paymentItems} allowEmpty disabled={coreDisabled} />
                   <NumberField label="提前付款天数" value={form.paymentAdvanceDays} onChange={(value) => setFormValue("paymentAdvanceDays", value, setForm)} step="1" disabled={coreDisabled} />
                   {canEditPropertyFeeUnitPrice ? <NumberField label="物业费单价" value={form.propertyFeeUnitPrice} onChange={(value) => setFormValue("propertyFeeUnitPrice", value, setForm)} disabled={coreDisabled} /> : null}
-                  {canEditContractPdf ? <TextField label="合同正文文件 ID" value={form.contractPdfFileId} onChange={(value) => setFormValue("contractPdfFileId", value, setForm)} /> : null}
-                  {canEditScanPdf ? <TextField label="扫描件文件 ID" value={form.scanPdfFileId} onChange={(value) => setFormValue("scanPdfFileId", value, setForm)} /> : null}
+                  {canEditContractPdf ? (
+                    <div className="field">
+                      <span>合同正文</span>
+                      <FileUploader
+                        bizType={CONTRACT_FILE_BIZ_TYPE}
+                        bizId={editing?.id}
+                        compact
+                        label="合同正文"
+                        helperText={form.contractPdfFileId ? `已关联文件：${form.contractPdfFileId}` : undefined}
+                        onUploaded={(file) => setFormValue("contractPdfFileId", file.id, setForm)}
+                      />
+                    </div>
+                  ) : null}
+                  {canEditScanPdf ? (
+                    <div className="field">
+                      <span>签章扫描件</span>
+                      <FileUploader
+                        bizType={CONTRACT_FILE_BIZ_TYPE}
+                        bizId={editing?.id}
+                        compact
+                        label="签章扫描件"
+                        helperText={form.scanPdfFileId ? `已关联文件：${form.scanPdfFileId}` : undefined}
+                        onUploaded={(file) => setFormValue("scanPdfFileId", file.id, setForm)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 ) : null}
                 {(editing && contractDetailTab === "units") ? (

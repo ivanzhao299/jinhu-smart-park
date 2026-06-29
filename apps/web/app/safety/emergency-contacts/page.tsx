@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { Edit3, Eye, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, Eye, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -312,10 +312,11 @@ export default function SafetyEmergencyContactsPage() {
         {formOpen ? (
           <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
-              eyebrow="应急联系人"
+              eyebrow="现场安全"
               title={editing ? "编辑联系人" : "新增联系人"}
               description="手机号为敏感字段，返回和展示会按字段权限处理。"
               onClose={closeForm}
+              closeIcon={<X size={18} />}
             />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
