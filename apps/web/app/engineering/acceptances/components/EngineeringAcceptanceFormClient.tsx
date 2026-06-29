@@ -154,7 +154,7 @@ export function EngineeringAcceptanceFormClient({ acceptanceId }: { acceptanceId
   if (!canSubmit) return <ForbiddenEngineeringAcceptance />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{title}</strong>

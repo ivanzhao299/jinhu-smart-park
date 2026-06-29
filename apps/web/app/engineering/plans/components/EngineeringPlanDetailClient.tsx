@@ -110,7 +110,7 @@ export function EngineeringPlanDetailClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{plan ? plan.planName : "工程计划详情"}</strong>

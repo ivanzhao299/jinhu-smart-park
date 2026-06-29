@@ -1,13 +1,172 @@
+.pageShell {
+  display: grid;
+  gap: 20px;
+}
+
+.pageShell :global(.header) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--border));
+  border-radius: 24px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 18rem),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 14rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.96));
+  box-shadow: 0 20px 44px rgba(11, 31, 51, 0.08);
+}
+
+.pageShell :global(.header-title) {
+  display: grid;
+  gap: 10px;
+  max-width: 780px;
+}
+
+.pageShell :global(.header-title strong) {
+  color: var(--text-primary);
+  font-size: clamp(28px, 3.5vw, 42px);
+  line-height: 1.06;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.pageShell :global(.header-title span) {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.72;
+  font-weight: 600;
+}
+
+.pageShell :global(.page-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.pageShell :global(.header > a),
+.pageShell :global(.header > button),
+.pageShell :global(.header > .page-actions) {
+  justify-self: end;
+}
+
+.pageShell :global(.page-actions a),
+.pageShell :global(.page-actions button),
+.pageShell :global(.header > a),
+.pageShell :global(.header > button) {
+  min-height: 42px;
+  border-radius: 14px;
+  padding-inline: 16px;
+  font-weight: 800;
+}
+
+.pageShell :global(.table-scroll) {
+  overflow: hidden;
+  padding: 0;
+  border-radius: 22px;
+}
+
+.pageShell :global(.table-scroll table) {
+  min-width: 100%;
+}
+
+.pageShell :global(.table-scroll thead th) {
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--bg-card));
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pageShell :global(.table-scroll tbody td) {
+  vertical-align: top;
+  color: var(--text-primary);
+}
+
+.pageShell :global(.table-scroll tbody tr:hover) {
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summaryCard {
+  display: grid;
+  gap: 8px;
+  min-height: 124px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--border));
+  border-radius: 20px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 10rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96));
+  box-shadow: 0 14px 30px rgba(11, 31, 51, 0.05);
+}
+
+.summaryCard[data-tone="primary"] {
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--border));
+}
+
+.summaryCard[data-tone="success"] {
+  border-color: color-mix(in srgb, var(--status-success) 22%, var(--border));
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--status-success) 11%, transparent), transparent 10rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 252, 250, 0.96));
+}
+
+.summaryCard[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--status-warning) 22%, var(--border));
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--status-warning) 14%, transparent), transparent 10rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 250, 242, 0.96));
+}
+
+.summaryCard[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--status-danger) 22%, var(--border));
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--status-danger) 12%, transparent), transparent 10rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 247, 0.96));
+}
+
+.summaryCard span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.summaryCard strong {
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1.02;
+  font-weight: 900;
+}
+
+.summaryCard small {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.58;
+  font-weight: 650;
+}
+
 .filters {
   display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
   gap: 14px;
   align-items: end;
+  padding: 2px 0;
 }
 
 .formField {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 700;
@@ -15,6 +174,10 @@
 
 .formField span {
   color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .formField em {
@@ -27,14 +190,17 @@
 .formField select,
 .formField textarea {
   width: 100%;
-  min-height: var(--form-control-height);
+  min-height: 44px;
   border: 1px solid var(--form-control-border);
-  border-radius: var(--form-control-radius);
+  border-radius: 12px;
   background: var(--form-control-bg);
   color: var(--text-primary);
   font: inherit;
   font-weight: 650;
   padding: 0 var(--form-control-padding-x);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 20px rgba(11, 31, 51, 0.04);
 }
 
 .formField textarea {
@@ -56,7 +222,9 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
+  margin-top: 18px;
+  padding: 16px 18px 18px;
+  border-top: 1px solid var(--border-soft);
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 700;
@@ -75,10 +243,12 @@
 .formSection {
   display: grid;
   gap: 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  background: var(--surface-elevated);
-  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--border));
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 255, 0.96));
+  padding: 22px;
+  box-shadow: 0 14px 32px rgba(11, 31, 51, 0.05);
 }
 
 .formSection h2,
@@ -96,11 +266,12 @@
 }
 
 .scopeHint {
-  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--border));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--color-primary) 7%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--border));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 5%, white), rgba(255, 255, 255, 0.9));
   color: var(--text-secondary);
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-size: 13px;
   font-weight: 650;
 }
@@ -119,6 +290,10 @@
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, var(--border));
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--color-primary) 5%, white);
 }
 
 .projectSummaryStrip strong {
@@ -132,6 +307,8 @@
   gap: 18px;
   align-items: start;
   margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .detailHero span {
@@ -164,17 +341,19 @@
 .detailGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .detailItem {
   display: grid;
   gap: 5px;
   min-width: 0;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  background: var(--surface-subtle);
-  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, var(--border));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.95));
+  padding: 14px;
+  box-shadow: 0 10px 22px rgba(11, 31, 51, 0.04);
 }
 
 .detailItem span {
@@ -200,7 +379,7 @@
 
 .progressWrap span {
   display: block;
-  height: 8px;
+  height: 10px;
   overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-primary) 10%, var(--surface-subtle));
@@ -247,17 +426,20 @@
 
 .timeline {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .timelineItem {
   position: relative;
   display: grid;
-  gap: 5px;
-  border-left: 3px solid var(--color-primary);
-  border-radius: 10px;
-  background: var(--surface-subtle);
-  padding: 12px 14px;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--border));
+  border-top: 3px solid var(--color-primary);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96));
+  padding: 14px 16px;
+  box-shadow: 0 12px 24px rgba(11, 31, 51, 0.04);
 }
 
 .timelineItem span,
@@ -288,11 +470,12 @@
 .placeholderCard {
   display: grid;
   gap: 7px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 10px;
-  background: var(--surface-subtle);
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 28%, var(--border));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96));
   color: var(--text-secondary);
-  padding: 14px;
+  padding: 16px;
 }
 
 .placeholderCard strong {
@@ -319,29 +502,32 @@
 
 .longTextBlock p {
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, var(--border));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.96));
   color: var(--text-primary);
-  padding: 12px;
+  padding: 14px;
   line-height: 1.65;
 }
 
 .message {
   border: 1px solid color-mix(in srgb, var(--status-info) 25%, var(--border));
-  border-radius: 10px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--status-info) 7%, var(--bg-card));
   color: var(--text-primary);
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-weight: 750;
 }
 
 .forbiddenBox {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-card);
-  padding: 24px;
-  box-shadow: var(--shadow-card);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--border));
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.96));
+  padding: 28px;
+  box-shadow: 0 20px 44px rgba(11, 31, 51, 0.08);
 }
 
 .forbiddenBox h1 {
@@ -349,15 +535,36 @@
 }
 
 @media (max-width: 1100px) {
+  .summaryGrid,
   .filters,
   .formGrid,
   .detailGrid,
   .placeholderGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .pageShell :global(.header) {
+    grid-template-columns: 1fr;
+  }
+
+  .pageShell :global(.page-actions),
+  .pageShell :global(.header > a),
+  .pageShell :global(.header > button),
+  .pageShell :global(.header > .page-actions) {
+    justify-self: stretch;
+  }
+
+  .pageShell :global(.page-actions) {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 720px) {
+  .pageShell {
+    gap: 16px;
+  }
+
+  .summaryGrid,
   .filters,
   .formGrid,
   .detailGrid,
@@ -374,5 +581,26 @@
 
   .heroBadges {
     justify-content: flex-start;
+  }
+
+  .pageShell :global(.header) {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .pageShell :global(.header-title strong) {
+    font-size: 24px;
+  }
+
+  .pageShell :global(.header-title span) {
+    font-size: 14px;
+  }
+
+  .pageShell :global(.table-scroll) {
+    overflow-x: auto;
+  }
+
+  .paginationBar {
+    padding-inline: 14px;
   }
 }

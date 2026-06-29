@@ -129,7 +129,7 @@ export function EngineeringProjectFormClient({ projectId }: { projectId?: string
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{title}</strong>

@@ -73,6 +73,18 @@ export function EngineeringDailyReportsListClient() {
   const [operationSaving, setOperationSaving] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const editableCount = pageData.items.filter((item) => item.reportStatus === "DRAFT" || item.reportStatus === "REJECTED").length;
+    const submittedCount = pageData.items.filter((item) => item.reportStatus === "SUBMITTED").length;
+    const reviewedCount = pageData.items.filter((item) => item.reportStatus === "REVIEWED").length;
+
+    return [
+      { label: "日报池", value: pageData.total, hint: "当前筛选条件下的施工日报总量。", tone: "primary" },
+      { label: "待整理", value: editableCount, hint: "草稿或已驳回日报，需要继续补齐内容。", tone: "warning" },
+      { label: "待审核", value: submittedCount, hint: "已提交但尚未形成审核结论的日报。", tone: "danger" },
+      { label: "已审核", value: reviewedCount, hint: "可以沉淀为后续巡检、结算和归档依据。", tone: "success" }
+    ] as const;
+  }, [pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -146,7 +158,7 @@ export function EngineeringDailyReportsListClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>施工日报</strong>
@@ -160,7 +172,17 @@ export function EngineeringDailyReportsListClient() {
         ) : null}
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="施工日报摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 内容 / 问题" onChange={(value) => setFilter("keyword", value)} />
           <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
@@ -178,7 +200,7 @@ export function EngineeringDailyReportsListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

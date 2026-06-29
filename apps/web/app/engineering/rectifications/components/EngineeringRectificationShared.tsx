@@ -50,7 +50,7 @@ export function MessageLine({ message }: { message: string }) {
 
 export function ForbiddenEngineeringRectification() {
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <div className={styles.forbiddenBox}>
         <h1>403</h1>
         <p>当前账号没有工程整改访问权限。</p>

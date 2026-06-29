@@ -90,7 +90,7 @@ export function EngineeringRectificationDetailClient() {
   if (!canView) return <ForbiddenEngineeringRectification />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{rectification ? rectification.rectificationTitle : "整改任务详情"}</strong>

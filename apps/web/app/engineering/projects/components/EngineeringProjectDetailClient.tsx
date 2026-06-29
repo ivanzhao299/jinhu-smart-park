@@ -206,7 +206,7 @@ export function EngineeringProjectDetailClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{project ? project.projectName : "工程项目详情"}</strong>

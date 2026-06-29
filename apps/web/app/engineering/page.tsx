@@ -83,7 +83,7 @@ const subRuntimes: SubRuntime[] = [
 
 export default function EngineeringRuntimePage() {
   return (
-    <main className={`content ${styles.page}`}>
+    <main className={`content ds-page ${styles.page}`}>
       <Card className={styles.heroCard}>
         <div className={styles.heroTop}>
           <div className={styles.heroCopy}>

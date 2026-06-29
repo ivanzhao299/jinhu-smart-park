@@ -59,6 +59,18 @@ export function EngineeringInspectionsListClient() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const submittedCount = pageData.items.filter((item) => item.inspectionStatus === "SUBMITTED").length;
+    const totalIssues = pageData.items.reduce((sum, item) => sum + Number(item.issueCount ?? 0), 0);
+    const criticalIssues = pageData.items.reduce((sum, item) => sum + Number(item.criticalIssueCount ?? 0), 0);
+
+    return [
+      { label: "巡检总量", value: pageData.total, hint: "当前筛选范围内的全部工程巡检。", tone: "primary" },
+      { label: "待跟进巡检", value: submittedCount, hint: "已经提交，等待问题处理或后续动作。", tone: "warning" },
+      { label: "发现问题", value: totalIssues, hint: "当前列表内累计发现的问题项数量。", tone: "danger" },
+      { label: "重大问题", value: criticalIssues, hint: "高优先级隐患需要优先挂整改并盯截止时间。", tone: "success" }
+    ] as const;
+  }, [pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -110,7 +122,7 @@ export function EngineeringInspectionsListClient() {
   if (!canView) return <ForbiddenEngineeringInspection />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>工程巡检</strong>
@@ -124,7 +136,17 @@ export function EngineeringInspectionsListClient() {
         ) : null}
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="工程巡检摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 标题 / 摘要" onChange={(value) => setFilter("keyword", value)} />
           <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
@@ -142,7 +164,7 @@ export function EngineeringInspectionsListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

@@ -54,6 +54,18 @@ export function EngineeringProjectsListClient() {
   const [message, setMessage] = useState("");
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const activeCount = pageData.items.filter((item) => ["EXECUTING", "INSPECTING", "RECTIFYING", "ACCEPTING"].includes(item.status)).length;
+    const approvalCount = pageData.items.filter((item) => item.status === "SUBMITTED").length;
+    const highRiskCount = pageData.items.filter((item) => item.riskLevel === "HIGH" || item.riskLevel === "CRITICAL").length;
+
+    return [
+      { label: "当前项目池", value: pageData.total, hint: "当前筛选范围内的工程主数据总量。", tone: "primary" },
+      { label: "执行中链路", value: activeCount, hint: "已进入施工、巡检、整改或验收阶段。", tone: "success" },
+      { label: "待审批项目", value: approvalCount, hint: "已经提交，等待管理动作进入下一阶段。", tone: "warning" },
+      { label: "高风险项目", value: highRiskCount, hint: "高 / 严重风险项目要优先盯预算、工期和现场安全。", tone: "danger" }
+    ] as const;
+  }, [pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -97,7 +109,7 @@ export function EngineeringProjectsListClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>工程项目</strong>
@@ -111,7 +123,17 @@ export function EngineeringProjectsListClient() {
         ) : null}
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="工程项目摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="项目编号 / 名称 / 位置" onChange={(value) => setFilter("keyword", value)} />
           <SelectFilter label="工程类型" value={filters.projectType} options={engineeringProjectTypeOptions} onChange={(value) => setFilter("projectType", value as EngineeringProjectType | "")} />
@@ -129,7 +151,7 @@ export function EngineeringProjectsListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

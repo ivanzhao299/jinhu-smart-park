@@ -110,7 +110,7 @@ export function EngineeringDailyReportDetailClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{report ? report.reportCode : "施工日报详情"}</strong>

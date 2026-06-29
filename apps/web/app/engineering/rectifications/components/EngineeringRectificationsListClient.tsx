@@ -70,6 +70,19 @@ export function EngineeringRectificationsListClient() {
   const [actionTarget, setActionTarget] = useState<{ row: EngineeringRectification; action: EngineeringRectificationAction } | null>(null);
   const [actionSaving, setActionSaving] = useState(false);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const overdueCount = pageData.items.filter((item) => item.status === "OVERDUE").length;
+    const recheckingCount = pageData.items.filter((item) => item.status === "RECHECKING").length;
+    const closedCount = pageData.items.filter((item) => item.status === "CLOSED" || item.status === "PASSED").length;
+    const closeRate = pageData.items.length ? Math.round((closedCount / pageData.items.length) * 100) : 0;
+
+    return [
+      { label: "整改任务", value: pageData.total, hint: "巡检问题转入整改后在这里形成责任闭环。", tone: "primary" },
+      { label: "逾期任务", value: overdueCount, hint: "超过期限仍未关闭的整改，优先升级关注。", tone: "danger" },
+      { label: "待复查", value: recheckingCount, hint: "责任人已提交反馈，等待工程侧复核。", tone: "warning" },
+      { label: "关闭率", value: `${closeRate}%`, hint: "当前列表内整改任务的闭环完成度。", tone: "success" }
+    ] as const;
+  }, [pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -125,7 +138,7 @@ export function EngineeringRectificationsListClient() {
   if (!canView) return <ForbiddenEngineeringRectification />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>整改任务</strong>
@@ -137,7 +150,17 @@ export function EngineeringRectificationsListClient() {
         </button>
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="整改任务摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 标题 / 描述" onChange={(value) => setFilter("keyword", value)} />
           <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
@@ -161,7 +184,7 @@ export function EngineeringRectificationsListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

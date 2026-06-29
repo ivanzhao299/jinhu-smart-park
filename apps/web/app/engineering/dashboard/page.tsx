@@ -77,7 +77,7 @@ export default function EngineeringDashboardPage() {
 
   return (
     <PermissionGuard module="engineering" permission="ENGINEERING_DASHBOARD_VIEW" fallback={<Forbidden />}>
-      <main className={`content ${styles.page}`}>
+      <main className={`content ds-page ${styles.page}`}>
         <Card className={styles.heroCard}>
           <div className={styles.heroTop}>
             <div className={styles.heroCopy}>

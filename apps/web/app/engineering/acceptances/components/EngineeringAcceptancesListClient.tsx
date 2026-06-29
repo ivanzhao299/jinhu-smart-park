@@ -83,6 +83,18 @@ export function EngineeringAcceptancesListClient() {
   const [reviewTarget, setReviewTarget] = useState<EngineeringAcceptance | null>(null);
   const [operationSaving, setOperationSaving] = useState(false);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const reviewQueue = pageData.items.filter((item) => item.acceptanceStatus === "SUBMITTED" || item.acceptanceStatus === "REVIEWING").length;
+    const passedCount = pageData.items.filter((item) => item.acceptanceStatus === "PASSED").length;
+    const fallbackCount = pageData.items.filter((item) => item.acceptanceStatus === "FAILED" || item.acceptanceStatus === "RECTIFICATION_REQUIRED").length;
+
+    return [
+      { label: "验收总量", value: pageData.total, hint: "当前筛选范围内的全部工程验收单。", tone: "primary" },
+      { label: "评审队列", value: reviewQueue, hint: "已提交或评审中的验收，需要尽快给结论。", tone: "warning" },
+      { label: "验收通过", value: passedCount, hint: "已经形成可留档的通过结论。", tone: "success" },
+      { label: "回流整改", value: fallbackCount, hint: "未通过或要求整改的验收要及时回到执行链路。", tone: "danger" }
+    ] as const;
+  }, [pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -162,7 +174,7 @@ export function EngineeringAcceptancesListClient() {
   if (!canView) return <ForbiddenEngineeringAcceptance />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>工程验收</strong>
@@ -176,7 +188,17 @@ export function EngineeringAcceptancesListClient() {
         ) : null}
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="工程验收摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 名称 / 描述" onChange={(value) => setFilter("keyword", value)} />
           <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
@@ -195,7 +217,7 @@ export function EngineeringAcceptancesListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

@@ -76,6 +76,20 @@ export function EngineeringPlansListClient() {
   const [operationSaving, setOperationSaving] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const summaryCards = useMemo(() => {
+    const delayedCount = pageData.items.filter((item) => item.status === "DELAYED" || item.delayDays > 0).length;
+    const completedCount = pageData.items.filter((item) => item.status === "COMPLETED").length;
+    const averageProgress = pageData.items.length
+      ? Math.round(pageData.items.reduce((sum, item) => sum + Number(item.actualProgressPercent ?? 0), 0) / pageData.items.length)
+      : 0;
+
+    return [
+      { label: "计划总量", value: pageData.total, hint: filters.projectId ? "当前已限定到单个工程项目范围。" : "当前筛选范围内的全部工程计划。", tone: "primary" },
+      { label: "延期计划", value: delayedCount, hint: "优先处理已延期或已出现 delayDays 的计划。", tone: "warning" },
+      { label: "已完成", value: completedCount, hint: "状态已闭合，可作为日报和验收的完成参考。", tone: "success" },
+      { label: "平均进度", value: `${averageProgress}%`, hint: "按当前列表的实际进度粗看执行温度。", tone: "danger" }
+    ] as const;
+  }, [filters.projectId, pageData]);
 
   const load = useCallback(async (page = 1) => {
     setLoading(true);
@@ -151,7 +165,7 @@ export function EngineeringPlansListClient() {
   }
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>工程计划</strong>
@@ -165,7 +179,17 @@ export function EngineeringPlansListClient() {
         ) : null}
       </header>
 
-      <Card>
+      <section className={styles.summaryGrid} aria-label="工程计划摘要">
+        {summaryCards.map((card) => (
+          <article className={styles.summaryCard} data-tone={card.tone} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
+      </section>
+
+      <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="计划编号 / 名称 / 描述" onChange={(value) => setFilter("keyword", value)} />
           <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
@@ -184,7 +208,7 @@ export function EngineeringPlansListClient() {
         </form>
       </Card>
 
-      <Card className="table-scroll">
+      <Card className="table-scroll ds-table-shell">
         <DataTable>
           <thead>
             <tr>

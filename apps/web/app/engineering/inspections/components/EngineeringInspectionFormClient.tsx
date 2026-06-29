@@ -150,7 +150,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
   if (!canSubmit) return <ForbiddenEngineeringInspection />;
 
   return (
-    <main className="content">
+    <main className={`content ds-page ${styles.pageShell}`}>
       <header className="header">
         <div className="header-title">
           <strong>{editing ? "编辑工程巡检" : "新建工程巡检"}</strong>
