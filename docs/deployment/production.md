@@ -556,6 +556,51 @@ Notes:
 - `ADMIN_PASSWORD` must be the real bootstrap admin password and must not be a weak default password.
 - The script does not use host `127.0.0.1:55432`, so it works even when host TCP access is restricted.
 
+### Auth Cookie / Origin Smoke
+
+WP3-C / C5-B adds an optional HTTP-level smoke script for refresh cookie, Origin / Referer hardening, body compatibility, logout, and logout-cookie behavior:
+
+```bash
+API_BASE_URL=http://127.0.0.1:3001/api/v1 \
+WEB_ORIGIN=http://localhost:3000 \
+AUTH_REFRESH_COOKIE_NAME=sp_refresh_token \
+ADMIN_USERNAME=<admin-username> \
+ADMIN_PASSWORD='<admin-password>' \
+DEFAULT_TENANT_ID=10000001 \
+DEFAULT_PARK_ID=20000001 \
+node scripts/e2e/auth-cookie-origin-smoke.mjs
+```
+
+Required variables:
+
+- `API_BASE_URL`
+- `WEB_ORIGIN`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `DEFAULT_TENANT_ID`
+- `DEFAULT_PARK_ID`
+
+Optional variables:
+
+- `AUTH_REFRESH_COOKIE_NAME`, default `sp_refresh_token`; set this to the same value as the API when the API uses a custom refresh cookie name. If the API and smoke disagree, login / refresh assertions will look for the wrong cookie and fail. This is separate from `AUTH_ALLOWED_ORIGINS`, which controls Origin / Referer hardening.
+- `AUTH_SMOKE_SKIP_WRONG_PASSWORD`, default `true`; set to `false` to run one wrong-password assertion. Keep the default in shared or production-like environments unless you have confirmed the account is not near the password lockout threshold.
+- `AUTH_SMOKE_WRONG_PASSWORD`, used only when the wrong-password assertion is enabled.
+- `AUTH_SMOKE_EXPECT_BODY_REFRESH_TOKEN`, default `true`; keep this default while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true` is required. Set it to `false` only for a future no-compatibility validation window where body `refreshToken` has intentionally been removed.
+
+Safety notes:
+
+- The script uses Node built-in `fetch` and a lightweight cookie jar; it does not add dependencies.
+- The cookie jar stores cookies by full browser scope, not name alone: name, Path, and host-only / Domain scope are part of the storage key. It replays only cookies whose scope matches the request URL, but it does not simulate browser `Secure` handling.
+- The script asserts refresh `Set-Cookie` contains `HttpOnly`, that refresh-cookie rotation changes the cookie value, and that the old refresh token is rejected through the body fallback path without printing either token.
+- The script validates `Clear-Cookie` with strict browser-style scope matching: the clear response must match the original refresh cookie Path and host-only / Domain scope, and the jar must stop replaying the cookie afterwards.
+- After invalid `Origin` / `Referer` or missing-header rejections, the script verifies the same refresh token still works through the expected valid-origin or body fallback path, proving the rejected request did not revoke or rotate the token.
+- Protected logout body-token checks retry the logged-out body token and expect rejection. The cookie + body logout check uses a distinct body refresh token from a second login and verifies that distinct token is revoked too.
+- The script covers invalid `Origin`, invalid `Referer` without `Origin`, protected logout invalid `Origin`, logout-cookie invalid `Origin`, and legacy body-token protected logout flows.
+- The script intentionally does not print raw access tokens, refresh tokens, cookie values, passwords, or Authorization headers.
+- It performs real login / refresh / logout requests and may create login audit rows plus refresh-token rows.
+- It is not wired into the default release smoke path. Run it manually during C5-B validation, staging acceptance, or a production-like deployment verification window.
+- It cannot prove browser-only behavior such as `sessionStorage` / `localStorage`, real multi-tab races, `SameSite=None` cross-site cookie behavior, or browser CORS exposure. Verify those with a real browser when they matter.
+
 ## 4. Health Check Layers
 
 The production environment now has three different health / verification layers. They are intentionally not interchangeable.
