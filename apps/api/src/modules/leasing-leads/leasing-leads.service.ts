@@ -52,6 +52,27 @@ const LEAD_STATUS_NEW = "10";
 const LEAD_STATUS_INVALID = "90";
 const LEAD_STATUS_LOST = "91";
 const LEAD_STATUS_MOVED_IN = "78";
+const LEAD_SOURCE_MANUAL = "manual";
+const LEASING_LEAD_SOURCE_ALIASES = new Map<string, string>([
+  ["manual", "manual"],
+  ["channel", "channel"],
+  ["partner", "channel"],
+  ["10", "channel"],
+  ["visit", "visit"],
+  ["walk_in", "visit"],
+  ["onsite", "visit"],
+  ["20", "visit"],
+  ["referral", "referral"],
+  ["30", "referral"],
+  ["online", "online"],
+  ["web", "online"],
+  ["40", "online"],
+  ["government", "government"],
+  ["gov", "government"],
+  ["50", "government"],
+  ["other", "other"],
+  ["90", "other"]
+]);
 const PARK_TENANT_STATUS_RENTING = "20";
 const PARK_TENANT_SOURCE_LEAD_CONVERT = "lead_convert";
 const LEAD_STATUS_VISITED_AND_AFTER = ["40", "50", "60", "70", "75", "78"];
@@ -297,7 +318,8 @@ export class LeasingLeadsService {
     const leadCode = await this.resolveLeadCode(scope, actor.sub, dto.leadCode);
     await this.assertLeadCodeAvailable(scope, leadCode);
     await this.assertDuplicateLeadAvailable(scope, dto.customerName, dto.contactMobile);
-    await this.validateDictionaryValues(scope, dto);
+    const normalizedSource = this.normalizeLeadSourceValue(dto.source) ?? LEAD_SOURCE_MANUAL;
+    await this.validateDictionaryValues(scope, { ...dto, source: normalizedSource });
     const followUser = await this.resolveFollowUser(scope, actor, dto.followUserId, dto.followUserName);
     const parkTenantId = await this.resolveParkTenant(scope, dto.parkTenantId);
     const isInPool = dto.isInPool ?? false;
@@ -310,7 +332,7 @@ export class LeasingLeadsService {
       contactName: dto.contactName.trim(),
       contactMobile: dto.contactMobile.trim(),
       contactEmail: this.emptyToNull(dto.contactEmail),
-      source: dto.source ?? "manual",
+      source: normalizedSource,
       channelName: this.emptyToNull(dto.channelName),
       industryCode: this.emptyToNull(dto.industryCode),
       industryDetail: this.emptyToNull(dto.industryDetail),
@@ -342,7 +364,8 @@ export class LeasingLeadsService {
     if (dto.status !== undefined && dto.status !== entity.status) {
       throw new BadRequestException("Please use change-status endpoint to update leasing lead status");
     }
-    await this.validateDictionaryValues(scope, dto);
+    const normalizedSource = this.normalizeLeadSourceValue(dto.source);
+    await this.validateDictionaryValues(scope, { ...dto, source: normalizedSource });
     if (dto.leadCode && dto.leadCode !== entity.leadCode) {
       await this.assertLeadCodeAvailable(scope, dto.leadCode, id);
       entity.leadCode = dto.leadCode;
@@ -357,7 +380,7 @@ export class LeasingLeadsService {
     if (dto.contactName !== undefined) entity.contactName = dto.contactName.trim();
     if (dto.contactMobile !== undefined) entity.contactMobile = dto.contactMobile.trim();
     if (dto.contactEmail !== undefined) entity.contactEmail = this.emptyToNull(dto.contactEmail);
-    if (dto.source !== undefined) entity.source = dto.source;
+    if (dto.source !== undefined) entity.source = normalizedSource ?? LEAD_SOURCE_MANUAL;
     if (dto.channelName !== undefined) entity.channelName = this.emptyToNull(dto.channelName);
     if (dto.industryCode !== undefined) entity.industryCode = this.emptyToNull(dto.industryCode);
     if (dto.industryDetail !== undefined) entity.industryDetail = this.emptyToNull(dto.industryDetail);
@@ -1003,7 +1026,8 @@ export class LeasingLeadsService {
       ).setParameter("keyword", `%${query.keyword.trim()}%`);
     }
     if (query.status) builder.andWhere("lead.status = :status", { status: query.status });
-    if (query.source) builder.andWhere("lead.source = :source", { source: query.source });
+    const normalizedSource = this.normalizeLeadSourceValue(query.source) ?? query.source?.trim();
+    if (normalizedSource) builder.andWhere("lead.source = :source", { source: normalizedSource });
     if (query.intention_level) builder.andWhere("lead.intention_level = :intentionLevel", { intentionLevel: query.intention_level });
     if (query.follow_user_id) builder.andWhere("lead.follow_user_id = :followUserId", { followUserId: query.follow_user_id });
     if (query.is_in_pool !== undefined) builder.andWhere("lead.is_in_pool = :isInPool", { isInPool: query.is_in_pool });
@@ -1015,7 +1039,8 @@ export class LeasingLeadsService {
     if (query.start_date) builder.andWhere("lead.create_time >= :funnelStartDate", { funnelStartDate: query.start_date });
     if (query.end_date) builder.andWhere("lead.create_time < (:funnelEndDate::date + interval '1 day')", { funnelEndDate: query.end_date });
     if (query.follow_user_id) builder.andWhere("lead.follow_user_id = :funnelFollowUserId", { funnelFollowUserId: query.follow_user_id });
-    if (query.source) builder.andWhere("lead.source = :funnelSource", { funnelSource: query.source });
+    const normalizedSource = this.normalizeLeadSourceValue(query.source) ?? query.source?.trim();
+    if (normalizedSource) builder.andWhere("lead.source = :funnelSource", { funnelSource: normalizedSource });
     if (query.industry_code) builder.andWhere("lead.industry_code = :funnelIndustryCode", { funnelIndustryCode: query.industry_code });
   }
 
@@ -1210,6 +1235,12 @@ export class LeasingLeadsService {
       this.assertDictValue(scope, "unit_usage_type", dto.demandUnitType),
       this.assertDictValue(scope, "industry_code", dto.industryCode)
     ]);
+  }
+
+  private normalizeLeadSourceValue(rawValue?: string | null): string | undefined {
+    const value = rawValue?.trim().toLowerCase();
+    if (!value) return undefined;
+    return LEASING_LEAD_SOURCE_ALIASES.get(value) ?? value;
   }
 
   private async assertDictValue(scope: TenantParkScope, dictCode: string, rawValue?: string): Promise<void> {
