@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerHeader, StatusPill } from "@jinhu/ui";
-import { ArrowLeft, Edit3, Eye, FileText, Plus, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Edit3, Eye, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -55,11 +55,6 @@ import {
   type EngineeringProjectReferenceData
 } from "./EngineeringProjectReferenceData";
 import styles from "../engineering-projects.module.css";
-
-const runtimePlaceholders = [
-  "工程档案",
-  "物业移交"
-];
 
 interface ActionDialogState {
   action: EngineeringProjectAction;
@@ -376,7 +371,7 @@ export function EngineeringProjectDetailClient() {
           <Card>
             <section className={styles.sectionHeader}>
               <h2>工程计划</h2>
-              <span>项目计划已接入真实 API，按父子层级展示。</span>
+              <span>按父子层级查看当前项目的计划分解与执行进度。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="计划数量" value={planSummary.total} />
@@ -397,13 +392,12 @@ export function EngineeringProjectDetailClient() {
             <div className="table-scroll">
               <PlanTreeTable rows={planRows} />
             </div>
-            <p className={styles.scopeHint}>甘特图视图预留：后续可基于当前父子计划和日期字段扩展。</p>
           </Card>
 
           <Card>
             <section className={styles.sectionHeader}>
               <h2>施工日报</h2>
-              <span>施工日报已接入真实 API，记录每日现场施工资料。</span>
+              <span>记录每日施工内容、现场投入和当日进度。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="日报总数" value={dailyReportSummary.total} />
@@ -460,7 +454,7 @@ export function EngineeringProjectDetailClient() {
           <Card>
             <section className={styles.sectionHeader}>
               <h2>工程巡检</h2>
-              <span>工程巡检已接入真实 API，支持现场记录和问题证据沉淀。</span>
+              <span>沉淀现场检查、问题证据和提交记录。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="巡检总数" value={inspectionSummary.total} />
@@ -519,7 +513,7 @@ export function EngineeringProjectDetailClient() {
           <Card>
             <section className={styles.sectionHeader}>
               <h2>整改任务</h2>
-              <span>整改闭环已接入真实 API，支持施工反馈、工程复查和关闭。</span>
+              <span>跟踪责任人、期限、复查结果和关闭进展。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="整改总数" value={rectificationSummary.total} />
@@ -572,7 +566,7 @@ export function EngineeringProjectDetailClient() {
           <Card>
             <section className={styles.sectionHeader}>
               <h2>工程验收</h2>
-              <span>工程验收已接入真实 API，支持提交、评审、关闭和验收证据沉淀。</span>
+              <span>汇总阶段验收、结论和整改回流情况。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="验收总数" value={acceptanceSummary.total} />
@@ -626,21 +620,6 @@ export function EngineeringProjectDetailClient() {
             </div>
           </Card>
 
-          <Card>
-            <section className={styles.sectionHeader}>
-              <h2>后续 Runtime 入口</h2>
-              <span>档案和物业移交将在后续任务逐步接入。</span>
-            </section>
-            <div className={styles.placeholderGrid}>
-              {runtimePlaceholders.map((item) => (
-                <div key={item} className={styles.placeholderCard}>
-                  <FileText size={18} />
-                  <strong>{item}</strong>
-                  <span>后续阶段实现</span>
-                </div>
-              ))}
-            </div>
-          </Card>
         </>
       ) : (
         <Card>

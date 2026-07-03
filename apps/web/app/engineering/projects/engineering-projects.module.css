@@ -461,27 +461,6 @@
   line-height: 1.55;
 }
 
-.placeholderGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.placeholderCard {
-  display: grid;
-  gap: 7px;
-  border: 1px dashed color-mix(in srgb, var(--color-primary) 28%, var(--border));
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96));
-  color: var(--text-secondary);
-  padding: 16px;
-}
-
-.placeholderCard strong {
-  color: var(--text-primary);
-}
-
 .emptyText {
   margin: 0;
   color: var(--text-secondary);
@@ -538,8 +517,7 @@
   .summaryGrid,
   .filters,
   .formGrid,
-  .detailGrid,
-  .placeholderGrid {
+  .detailGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -568,7 +546,6 @@
   .filters,
   .formGrid,
   .detailGrid,
-  .placeholderGrid,
   .detailHero {
     grid-template-columns: 1fr;
   }
