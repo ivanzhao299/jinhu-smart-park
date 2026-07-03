@@ -12,6 +12,14 @@ import { engineeringPlanLevelLabels, engineeringPlanTypeLabels } from "../../../
 import { ENGINEERING_PLAN_PERMISSIONS, hasEngineeringPlanPermission } from "../../../../lib/engineering-plans-permissions";
 import type { EngineeringPlan, UpdateEngineeringPlanProgressInput, UpdateEngineeringPlanStatusInput } from "../../../../lib/engineering-plans-types";
 import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
+import {
   DetailItem,
   ForbiddenEngineeringPlan,
   MessageLine,
@@ -37,9 +45,15 @@ export function EngineeringPlanDetailClient() {
   const [plan, setPlan] = useState<EngineeringPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [progressOpen, setProgressOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [operationSaving, setOperationSaving] = useState(false);
+  const projectLabel = formatProjectLabel(references.projects.find((item) => item.id === plan?.projectId) ?? null);
+  const ownerName = displayUserName(references.users.find((item) => item.id === plan?.ownerUserId) ?? null);
+  const ownerOrgLabel = formatOrgLabel(references.orgs.find((item) => item.id === plan?.ownerOrgId) ?? null);
+  const contractorLabel = formatOrgLabel(references.orgs.find((item) => item.id === plan?.contractorOrgId) ?? null);
+  const orgLabel = formatOrgLabel(references.orgs.find((item) => item.id === plan?.orgId) ?? null);
 
   const load = useCallback(async () => {
     if (!planId || !canView) return;
@@ -58,6 +72,12 @@ export function EngineeringPlanDetailClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function remove() {
     if (!plan) return;
@@ -165,7 +185,7 @@ export function EngineeringPlanDetailClient() {
               </div>
             </div>
             <div className={styles.detailGrid}>
-              <DetailItem label="所属项目" value={plan.projectId} />
+              <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : plan.projectId} />
               <DetailItem label="父计划" value={plan.parentPlanId ?? "-"} />
               <DetailItem label="计划层级" value={engineeringPlanLevelLabels[plan.planLevel]} />
               <DetailItem label="计划周期" value={`${formatDate(plan.plannedStartDate)} - ${formatDate(plan.plannedEndDate)}`} />
@@ -185,11 +205,11 @@ export function EngineeringPlanDetailClient() {
               <h2>责任信息</h2>
             </section>
             <div className={styles.detailGrid}>
-              <DetailItem label="责任人" value={plan.ownerUserId ?? "-"} />
-              <DetailItem label="责任单位" value={plan.ownerOrgId ?? "-"} />
-              <DetailItem label="施工单位组织" value={plan.contractorOrgId ?? "-"} />
-              <DetailItem label="组织 ID" value={plan.orgId ?? "-"} />
-              <DetailItem label="园区 ID" value={plan.parkId} />
+              <DetailItem label="责任人" value={ownerName !== "-" ? ownerName : plan.ownerUserId ?? "-"} />
+              <DetailItem label="责任单位" value={ownerOrgLabel !== "-" ? ownerOrgLabel : plan.ownerOrgId ?? "-"} />
+              <DetailItem label="施工单位" value={contractorLabel !== "-" ? contractorLabel : plan.contractorOrgId ?? "-"} />
+              <DetailItem label="归属组织" value={orgLabel !== "-" ? orgLabel : plan.orgId ?? "-"} />
+              <DetailItem label="园区范围" value={authUser?.park_name ?? plan.parkId} />
               <DetailItem label="备注" value={plan.remark ?? "-"} />
             </div>
           </Card>

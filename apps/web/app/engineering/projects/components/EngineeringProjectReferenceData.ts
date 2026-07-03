@@ -2,6 +2,7 @@
 
 import type { PaginatedResult } from "@jinhu/shared";
 import { apiRequest } from "../../../../lib/api-client";
+import type { EngineeringProject } from "../../../../lib/engineering-projects-types";
 
 export interface OrgRow {
   id: string;
@@ -39,7 +40,14 @@ export interface UserRow {
   status?: string;
 }
 
+export interface ProjectRow {
+  id: string;
+  projectCode: string;
+  projectName: string;
+}
+
 export interface EngineeringProjectReferenceData {
+  projects: ProjectRow[];
   orgs: OrgRow[];
   buildings: BuildingRow[];
   floors: FloorRow[];
@@ -48,6 +56,7 @@ export interface EngineeringProjectReferenceData {
 }
 
 export const emptyEngineeringProjectReferences: EngineeringProjectReferenceData = {
+  projects: [],
   orgs: [],
   buildings: [],
   floors: [],
@@ -56,7 +65,8 @@ export const emptyEngineeringProjectReferences: EngineeringProjectReferenceData 
 };
 
 export async function loadEngineeringProjectReferences(token?: string): Promise<EngineeringProjectReferenceData> {
-  const [orgResponse, buildingResponse, floorResponse, unitResponse, userResponse] = await Promise.allSettled([
+  const [projectResponse, orgResponse, buildingResponse, floorResponse, unitResponse, userResponse] = await Promise.allSettled([
+    apiRequest<PaginatedResult<EngineeringProject>>("/engineering/projects?page=1&page_size=200&sort=create_time_desc", { token }),
     apiRequest<PaginatedResult<OrgRow>>("/orgs?page=1&page_size=200&status=enabled", { token }),
     apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200&sort=sortNo", { token }),
     apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=200&sort=floorNo", { token }),
@@ -65,6 +75,13 @@ export async function loadEngineeringProjectReferences(token?: string): Promise<
   ]);
 
   return {
+    projects: projectResponse.status === "fulfilled"
+      ? projectResponse.value.data.items.map((item) => ({
+        id: item.id,
+        projectCode: item.projectCode,
+        projectName: item.projectName
+      }))
+      : [],
     orgs: orgResponse.status === "fulfilled" ? orgResponse.value.data.items : [],
     buildings: buildingResponse.status === "fulfilled" ? buildingResponse.value.data.items : [],
     floors: floorResponse.status === "fulfilled" ? floorResponse.value.data.items : [],
@@ -78,6 +95,11 @@ export async function loadEngineeringProjectReferences(token?: string): Promise<
 export function displayUserName(user?: UserRow | null): string {
   if (!user) return "-";
   return user.displayName ?? user.realName ?? user.username;
+}
+
+export function formatProjectLabel(project?: ProjectRow | null): string {
+  if (!project) return "-";
+  return `${project.projectCode} ${project.projectName}`.trim();
 }
 
 export function formatOrgLabel(org?: OrgRow | null): string {

@@ -20,6 +20,14 @@ import type {
 import { validateActualDateRange, validatePlanDateRange, validatePlanProgress, validatePlanWeight } from "../../../../lib/engineering-plans-utils";
 import { engineeringRiskLevelOptions } from "../../../../lib/engineering-projects-display";
 import type { EngineeringRiskLevel } from "../../../../lib/engineering-projects-types";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import { ForbiddenEngineeringPlan, MessageLine, PlanStatusPill, formatDate } from "./EngineeringPlanShared";
 import styles from "../../projects/engineering-projects.module.css";
 
@@ -80,8 +88,13 @@ export function EngineeringPlanFormClient({ planId }: { planId?: string }) {
   const [loading, setLoading] = useState(Boolean(planId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
 
   const title = editing ? "编辑工程计划" : "新建工程计划";
+  const projectLabel = useMemo(
+    () => formatProjectLabel(references.projects.find((item) => item.id === form.projectId) ?? null),
+    [references.projects, form.projectId]
+  );
 
   const loadPlan = useCallback(async () => {
     if (!planId) return;
@@ -101,6 +114,12 @@ export function EngineeringPlanFormClient({ planId }: { planId?: string }) {
   useEffect(() => {
     void loadPlan();
   }, [loadPlan]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch((error: Error) => setMessage(error.message));
+  }, []);
 
   useEffect(() => {
     const projectId = form.projectId.trim();
@@ -166,7 +185,7 @@ export function EngineeringPlanFormClient({ planId }: { planId?: string }) {
             <span>{plan.planCode}</span>
             <strong>{plan.planName}</strong>
             <PlanStatusPill status={plan.status} />
-            <span>项目：{plan.projectId}</span>
+            <span>项目：{projectLabel !== "-" ? projectLabel : plan.projectId}</span>
           </div>
         </Card>
       ) : null}
@@ -175,9 +194,17 @@ export function EngineeringPlanFormClient({ planId }: { planId?: string }) {
         <form className={styles.projectForm} onSubmit={(event) => void submit(event)}>
           <section className={styles.formSection}>
             <h2>基础信息</h2>
-            <div className={styles.scopeHint}>计划必须归属一个工程项目。项目 ID 来自工程项目详情入口时会自动带入，后端仍会校验项目访问权限。</div>
+            <div className={styles.scopeHint}>计划直接挂到真实工程项目下。这里选择项目、责任人和组织，系统自动保存对应主数据 ID，不要求现场手填技术字段。</div>
             <div className={styles.formGrid}>
-              <TextField label="项目 ID" value={form.projectId} required readOnly={editing || Boolean(lockedProjectId)} onChange={(value) => setFormValue("projectId", value)} />
+              <SelectRefField
+                label="所属项目"
+                value={form.projectId}
+                allLabel="请选择项目"
+                items={references.projects.map((item) => ({ id: item.id, label: formatProjectLabel(item) }))}
+                onChange={(value) => setFormValue("projectId", value)}
+                required
+                disabled={editing || Boolean(lockedProjectId)}
+              />
               <TextField label="计划名称" value={form.planName} required onChange={(value) => setFormValue("planName", value)} />
               <SelectField label="计划类型" value={form.planType} options={engineeringPlanTypeOptions} onChange={(value) => setFormValue("planType", value as EngineeringPlanType)} />
               <SelectField label="计划层级" value={form.planLevel} options={engineeringPlanLevelOptions} onChange={(value) => setFormValue("planLevel", value as EngineeringPlanLevel)} />
@@ -204,9 +231,27 @@ export function EngineeringPlanFormClient({ planId }: { planId?: string }) {
           <section className={styles.formSection}>
             <h2>责任信息</h2>
             <div className={styles.formGrid}>
-              <TextField label="责任人 ID" value={form.ownerUserId} onChange={(value) => setFormValue("ownerUserId", value)} />
-              <TextField label="责任单位 ID" value={form.ownerOrgId} onChange={(value) => setFormValue("ownerOrgId", value)} />
-              <TextField label="施工单位组织 ID" value={form.contractorOrgId} onChange={(value) => setFormValue("contractorOrgId", value)} />
+              <SelectRefField
+                label="责任人"
+                value={form.ownerUserId}
+                allLabel="暂不指定"
+                items={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+                onChange={(value) => setFormValue("ownerUserId", value)}
+              />
+              <SelectRefField
+                label="责任单位"
+                value={form.ownerOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("ownerOrgId", value)}
+              />
+              <SelectRefField
+                label="施工单位"
+                value={form.contractorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("contractorOrgId", value)}
+              />
             </div>
             <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
           </section>
@@ -254,7 +299,7 @@ function fromPlan(plan: EngineeringPlan): PlanFormState {
 }
 
 export function validateForm(form: PlanFormState, editing: boolean): string {
-  if (!form.projectId.trim()) return "请填写项目 ID";
+  if (!form.projectId.trim()) return "请选择所属项目";
   if (!form.planName.trim()) return "请填写计划名称";
   return (
     validatePlanDateRange(form.plannedStartDate, form.plannedEndDate) ||
@@ -371,6 +416,36 @@ function SelectField<T extends string>({
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectRefField({
+  label,
+  value,
+  items,
+  allLabel,
+  onChange,
+  required,
+  disabled
+}: {
+  label: string;
+  value: string;
+  items: Array<{ id: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}{required ? <em>*</em> : null}</span>
+      <select value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
         ))}
       </select>
     </label>

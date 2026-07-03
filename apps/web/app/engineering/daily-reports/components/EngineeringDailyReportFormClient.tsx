@@ -20,6 +20,13 @@ import { todayDateString } from "../../../../lib/engineering-daily-reports-utils
 import { engineeringPlansApi } from "../../../../lib/engineering-plans-api";
 import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
 import {
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
+import {
   DailyReportStatusPill,
   ForbiddenEngineeringDailyReport,
   MessageLine,
@@ -88,8 +95,13 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
   const [loading, setLoading] = useState(Boolean(reportId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
 
   const title = editing ? "编辑施工日报" : "新建施工日报";
+  const projectLabel = useMemo(
+    () => formatProjectLabel(references.projects.find((item) => item.id === form.projectId) ?? null),
+    [references.projects, form.projectId]
+  );
 
   const loadReport = useCallback(async () => {
     if (!reportId) return;
@@ -112,6 +124,12 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
   useEffect(() => {
     void loadReport();
   }, [loadReport]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch((error: Error) => setMessage(error.message));
+  }, []);
 
   useEffect(() => {
     const projectId = form.projectId.trim();
@@ -183,7 +201,7 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
             <strong>{formatDate(report.reportDate)}</strong>
             <DailyReportStatusPill status={report.reportStatus} />
             <WeatherPill weather={report.weather} />
-            <span>项目：{report.projectId}</span>
+            <span>项目：{projectLabel !== "-" ? projectLabel : report.projectId}</span>
           </div>
         </Card>
       ) : null}
@@ -192,9 +210,17 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
         <form className={styles.projectForm} onSubmit={(event) => void submit(event)}>
           <section className={styles.formSection}>
             <h2>基础信息</h2>
-            <div className={styles.scopeHint}>施工日报必须归属一个工程项目。项目 ID 可从工程项目详情入口自动带入，后端仍会校验 DataScope。</div>
+            <div className={styles.scopeHint}>施工日报挂到真实工程项目下即可。项目、关联计划和施工单位都用业务选择，系统自动保存对应主数据 ID。</div>
             <div className={styles.formGrid}>
-              <TextField label="项目 ID" value={form.projectId} required readOnly={editing || Boolean(lockedProjectId)} onChange={(value) => setFormValue("projectId", value)} />
+              <SelectRefField
+                label="所属项目"
+                value={form.projectId}
+                allLabel="请选择项目"
+                items={references.projects.map((item) => ({ id: item.id, label: formatProjectLabel(item) }))}
+                onChange={(value) => setFormValue("projectId", value)}
+                required
+                disabled={editing || Boolean(lockedProjectId)}
+              />
               <PlanSelect value={form.planId} plans={projectPlans} onChange={(value) => setFormValue("planId", value)} />
               <TextField label="日报日期" type="date" value={form.reportDate} required readOnly={editing} onChange={(value) => setFormValue("reportDate", value)} />
               <SelectField label="天气" value={form.weather} options={engineeringWeatherTypeOptions} onChange={(value) => setFormValue("weather", value as EngineeringWeatherType)} />
@@ -209,8 +235,20 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
             <div className={styles.formGrid}>
               <TextField label="现场工人人数" type="number" value={form.workerCount} min="0" onChange={(value) => setFormValue("workerCount", value)} />
               <TextField label="管理人员人数" type="number" value={form.managerCount} min="0" onChange={(value) => setFormValue("managerCount", value)} />
-              <TextField label="施工单位组织 ID" value={form.contractorOrgId} onChange={(value) => setFormValue("contractorOrgId", value)} />
-              <TextField label="监理单位组织 ID" value={form.supervisorOrgId} onChange={(value) => setFormValue("supervisorOrgId", value)} />
+              <SelectRefField
+                label="施工单位"
+                value={form.contractorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("contractorOrgId", value)}
+              />
+              <SelectRefField
+                label="监理单位"
+                value={form.supervisorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("supervisorOrgId", value)}
+              />
             </div>
             <TextAreaField label="已完成工作" value={form.completedWork} onChange={(value) => setFormValue("completedWork", value)} />
             <TextAreaField label="未完成工作" value={form.unfinishedWork} onChange={(value) => setFormValue("unfinishedWork", value)} />
@@ -272,7 +310,7 @@ function fromReport(report: EngineeringDailyReport): DailyReportFormState {
 }
 
 export function validateForm(form: DailyReportFormState): string {
-  if (!form.projectId.trim()) return "请填写项目 ID";
+  if (!form.projectId.trim()) return "请选择所属项目";
   if (!form.reportDate) return "请选择日报日期";
   return validateDailyReportFormBase({
     workContent: form.workContent,
@@ -395,6 +433,36 @@ function SelectField<T extends string>({
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectRefField({
+  label,
+  value,
+  items,
+  allLabel,
+  onChange,
+  required,
+  disabled
+}: {
+  label: string;
+  value: string;
+  items: Array<{ id: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}{required ? <em>*</em> : null}</span>
+      <select value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
         ))}
       </select>
     </label>

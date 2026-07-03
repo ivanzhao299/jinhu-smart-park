@@ -13,6 +13,13 @@ import { ENGINEERING_DAILY_REPORT_PERMISSIONS, hasEngineeringDailyReportPermissi
 import type { EngineeringDailyReport, ReviewEngineeringDailyReportInput } from "../../../../lib/engineering-daily-reports-types";
 import { isDailyReportEditable, isDailyReportReviewable, isDailyReportSubmittable } from "../../../../lib/engineering-daily-reports-utils";
 import {
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
+import {
   DailyReportProgressBar,
   DailyReportReviewDrawer,
   DailyReportStatusPill,
@@ -39,8 +46,12 @@ export function EngineeringDailyReportDetailClient() {
   const [report, setReport] = useState<EngineeringDailyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [operationSaving, setOperationSaving] = useState(false);
+  const projectLabel = formatProjectLabel(references.projects.find((item) => item.id === report?.projectId) ?? null);
+  const contractorLabel = formatOrgLabel(references.orgs.find((item) => item.id === report?.contractorOrgId) ?? null);
+  const supervisorLabel = formatOrgLabel(references.orgs.find((item) => item.id === report?.supervisorOrgId) ?? null);
 
   const load = useCallback(async () => {
     if (!reportId || !canView) return;
@@ -59,6 +70,12 @@ export function EngineeringDailyReportDetailClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function submitReport() {
     if (!report) return;
@@ -167,13 +184,13 @@ export function EngineeringDailyReportDetailClient() {
               </div>
             </div>
             <div className={styles.detailGrid}>
-              <DetailItem label="所属项目" value={report.projectId} />
+              <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : report.projectId} />
               <DetailItem label="关联计划" value={report.planId ?? "-"} />
               <DetailItem label="天气 / 温度" value={`${engineeringWeatherTypeLabels[report.weather]} / ${report.temperature ?? "-"}`} />
               <DetailItem label="人员" value={`${report.workerCount} 工人 / ${report.managerCount} 管理`} />
               <DetailItem label="进度" value={<DailyReportProgressBar value={report.progressPercent} />} />
-              <DetailItem label="施工单位" value={report.contractorOrgId ?? "-"} />
-              <DetailItem label="监理单位" value={report.supervisorOrgId ?? "-"} />
+              <DetailItem label="施工单位" value={contractorLabel !== "-" ? contractorLabel : report.contractorOrgId ?? "-"} />
+              <DetailItem label="监理单位" value={supervisorLabel !== "-" ? supervisorLabel : report.supervisorOrgId ?? "-"} />
               <DetailItem label="提交人" value={report.submittedBy ?? "-"} />
               <DetailItem label="提交时间" value={formatDateTime(report.submittedAt)} />
               <DetailItem label="审核人" value={report.reviewedBy ?? "-"} />
