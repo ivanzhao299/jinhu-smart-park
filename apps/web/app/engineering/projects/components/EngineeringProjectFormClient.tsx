@@ -16,6 +16,16 @@ import { engineeringProjectsApi } from "../../../../lib/engineering-projects-api
 import { ENGINEERING_PROJECT_PERMISSIONS, hasEngineeringProjectPermission } from "../../../../lib/engineering-projects-permissions";
 import type { CreateEngineeringProjectInput, EngineeringProject, EngineeringProjectLevel, EngineeringProjectType, EngineeringRiskLevel, UpdateEngineeringProjectInput } from "../../../../lib/engineering-projects-types";
 import { ForbiddenEngineeringProject, MessageLine, ProjectStatusPill, formatDate, projectTitle } from "./EngineeringProjectShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatFloorLabel,
+  formatOrgLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "./EngineeringProjectReferenceData";
 import styles from "../engineering-projects.module.css";
 
 interface ProjectFormState {
@@ -80,8 +90,21 @@ export function EngineeringProjectFormClient({ projectId }: { projectId?: string
   const [loading, setLoading] = useState(Boolean(projectId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
 
   const title = editing ? "编辑工程项目" : "新建工程项目";
+  const availableFloors = useMemo(
+    () => references.floors.filter((item) => !form.buildingId || item.buildingId === form.buildingId),
+    [references.floors, form.buildingId]
+  );
+  const availableUnits = useMemo(
+    () => references.units.filter((item) => {
+      if (form.floorId) return item.floorId === form.floorId;
+      if (form.buildingId) return item.buildingId === form.buildingId;
+      return true;
+    }),
+    [references.units, form.buildingId, form.floorId]
+  );
 
   const loadProject = useCallback(async () => {
     if (!projectId) return;
@@ -101,6 +124,18 @@ export function EngineeringProjectFormClient({ projectId }: { projectId?: string
   useEffect(() => {
     void loadProject();
   }, [loadProject]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch((error: Error) => setMessage(error.message));
+  }, []);
+
+  useEffect(() => {
+    if (!editing && !form.orgId && authUser?.org_id) {
+      setForm((current) => ({ ...current, orgId: authUser.org_id ?? "" }));
+    }
+  }, [authUser?.org_id, editing, form.orgId]);
 
   const validationMessage = useMemo(() => validateForm(form, editing), [form, editing]);
 
@@ -167,13 +202,46 @@ export function EngineeringProjectFormClient({ projectId }: { projectId?: string
 
           <section className={styles.formSection}>
             <h2>位置与范围</h2>
-            <div className={styles.scopeHint}>园区由当前登录上下文确定，后端按 CurrentScope 落盘；此处不允许手动覆盖 tenantId / parkId。</div>
+            <div className={styles.scopeHint}>园区由当前登录上下文确定。工程人员不手填数据库 ID，只选择组织、楼栋、楼层和空间，系统自动落盘 orgId / buildingId / floorId / spaceId。</div>
             <div className={styles.formGrid}>
-              <TextField label="组织 ID" value={form.orgId} onChange={(value) => setFormValue("orgId", value)} />
+              <SelectRefField
+                label="归属组织"
+                value={form.orgId}
+                allLabel="请选择组织"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("orgId", value)}
+              />
               <TextField label="位置描述" value={form.locationText} placeholder="例如：A5 楼 3F 消防通道" onChange={(value) => setFormValue("locationText", value)} />
-              <TextField label="建筑 ID" value={form.buildingId} onChange={(value) => setFormValue("buildingId", value)} />
-              <TextField label="楼层 ID" value={form.floorId} onChange={(value) => setFormValue("floorId", value)} />
-              <TextField label="空间 ID" value={form.spaceId} onChange={(value) => setFormValue("spaceId", value)} />
+              <SelectRefField
+                label="楼栋"
+                value={form.buildingId}
+                allLabel="不关联楼栋"
+                items={references.buildings.map((item) => ({ id: item.id, label: formatBuildingLabel(item) }))}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  buildingId: value,
+                  floorId: current.floorId && references.floors.some((item) => item.id === current.floorId && item.buildingId === value) ? current.floorId : "",
+                  spaceId: current.spaceId && references.units.some((item) => item.id === current.spaceId && item.buildingId === value) ? current.spaceId : ""
+                }))}
+              />
+              <SelectRefField
+                label="楼层"
+                value={form.floorId}
+                allLabel="不关联楼层"
+                items={availableFloors.map((item) => ({ id: item.id, label: formatFloorLabel(item) }))}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  floorId: value,
+                  spaceId: current.spaceId && references.units.some((item) => item.id === current.spaceId && item.floorId === value) ? current.spaceId : ""
+                }))}
+              />
+              <SelectRefField
+                label="空间 / 房源"
+                value={form.spaceId}
+                allLabel="不关联空间"
+                items={availableUnits.map((item) => ({ id: item.id, label: formatUnitLabel(item) }))}
+                onChange={(value) => setFormValue("spaceId", value)}
+              />
             </div>
           </section>
 
@@ -194,10 +262,35 @@ export function EngineeringProjectFormClient({ projectId }: { projectId?: string
           <section className={styles.formSection}>
             <h2>责任信息</h2>
             <div className={styles.formGrid}>
-              <TextField label="项目负责人 ID" value={form.projectManagerId} required onChange={(value) => setFormValue("projectManagerId", value)} />
-              <TextField label="工程负责人 ID" value={form.engineeringDirectorId} onChange={(value) => setFormValue("engineeringDirectorId", value)} />
-              <TextField label="施工单位组织 ID" value={form.contractorOrgId} onChange={(value) => setFormValue("contractorOrgId", value)} />
-              <TextField label="监理单位组织 ID" value={form.supervisorOrgId} onChange={(value) => setFormValue("supervisorOrgId", value)} />
+              <SelectRefField
+                label="项目负责人"
+                value={form.projectManagerId}
+                allLabel="请选择负责人"
+                items={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+                onChange={(value) => setFormValue("projectManagerId", value)}
+                required
+              />
+              <SelectRefField
+                label="工程负责人"
+                value={form.engineeringDirectorId}
+                allLabel="暂不指定"
+                items={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+                onChange={(value) => setFormValue("engineeringDirectorId", value)}
+              />
+              <SelectRefField
+                label="施工单位"
+                value={form.contractorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("contractorOrgId", value)}
+              />
+              <SelectRefField
+                label="监理单位"
+                value={form.supervisorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("supervisorOrgId", value)}
+              />
             </div>
             <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
           </section>
@@ -348,6 +441,34 @@ function SelectField<T extends string>({
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectRefField({
+  label,
+  value,
+  items,
+  allLabel,
+  onChange,
+  required
+}: {
+  label: string;
+  value: string;
+  items: Array<{ id: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}{required ? <em>*</em> : null}</span>
+      <select value={value} required={required} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
         ))}
       </select>
     </label>

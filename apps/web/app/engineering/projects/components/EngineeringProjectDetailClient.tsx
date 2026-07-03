@@ -44,6 +44,16 @@ import {
   formatPercent,
   projectTitle
 } from "./EngineeringProjectShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatFloorLabel,
+  formatOrgLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "./EngineeringProjectReferenceData";
 import styles from "../engineering-projects.module.css";
 
 const runtimePlaceholders = [
@@ -71,6 +81,7 @@ export function EngineeringProjectDetailClient() {
   const [inspections, setInspections] = useState<EngineeringInspection[]>([]);
   const [rectifications, setRectifications] = useState<EngineeringRectification[]>([]);
   const [acceptances, setAcceptances] = useState<EngineeringAcceptance[]>([]);
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
@@ -133,6 +144,38 @@ export function EngineeringProjectDetailClient() {
       .slice(0, 5);
     return { total, passed, failed, rectificationRequired, pending, recent };
   }, [acceptances]);
+  const orgLabel = useMemo(
+    () => formatOrgLabel(references.orgs.find((item) => item.id === project?.orgId) ?? null),
+    [references.orgs, project?.orgId]
+  );
+  const contractorLabel = useMemo(
+    () => formatOrgLabel(references.orgs.find((item) => item.id === project?.contractorOrgId) ?? null),
+    [references.orgs, project?.contractorOrgId]
+  );
+  const supervisorLabel = useMemo(
+    () => formatOrgLabel(references.orgs.find((item) => item.id === project?.supervisorOrgId) ?? null),
+    [references.orgs, project?.supervisorOrgId]
+  );
+  const projectManagerLabel = useMemo(
+    () => displayUserName(references.users.find((item) => item.id === project?.projectManagerId) ?? null),
+    [references.users, project?.projectManagerId]
+  );
+  const engineeringDirectorLabel = useMemo(
+    () => displayUserName(references.users.find((item) => item.id === project?.engineeringDirectorId) ?? null),
+    [references.users, project?.engineeringDirectorId]
+  );
+  const buildingLabel = useMemo(
+    () => formatBuildingLabel(references.buildings.find((item) => item.id === project?.buildingId) ?? null),
+    [references.buildings, project?.buildingId]
+  );
+  const floorLabel = useMemo(
+    () => formatFloorLabel(references.floors.find((item) => item.id === project?.floorId) ?? null),
+    [references.floors, project?.floorId]
+  );
+  const unitLabel = useMemo(
+    () => formatUnitLabel(references.units.find((item) => item.id === project?.spaceId) ?? null),
+    [references.units, project?.spaceId]
+  );
 
   const loadAll = useCallback(async () => {
     if (!projectId || !canView) return;
@@ -143,6 +186,7 @@ export function EngineeringProjectDetailClient() {
         detail,
         availableActions,
         statusLogs,
+        referenceData,
         projectPlans,
         projectDailyReports,
         projectInspections,
@@ -152,6 +196,7 @@ export function EngineeringProjectDetailClient() {
         engineeringProjectsApi.getProject(projectId, getAccessToken()),
         engineeringProjectsApi.getAvailableActions(projectId, getAccessToken()),
         engineeringProjectsApi.getStatusLogs(projectId, getAccessToken()),
+        loadEngineeringProjectReferences(getAccessToken()),
         engineeringPlansApi.getProjectPlans(projectId, getAccessToken()),
         engineeringDailyReportsApi.getProjectDailyReports(projectId, {}, getAccessToken()),
         engineeringInspectionsApi.getProjectInspections(projectId, getAccessToken()),
@@ -161,6 +206,7 @@ export function EngineeringProjectDetailClient() {
       setProject(detail);
       setActions(availableActions);
       setLogs(statusLogs);
+      setReferences(referenceData);
       setPlans(projectPlans);
       setDailyReports(projectDailyReports);
       setInspections(projectInspections);
@@ -265,11 +311,11 @@ export function EngineeringProjectDetailClient() {
             <div className={styles.detailGrid}>
               <DetailItem label="项目来源" value={project.projectSource ?? "-"} />
               <DetailItem label="位置描述" value={project.locationText ?? "-"} />
-              <DetailItem label="园区 ID" value={project.parkId} />
-              <DetailItem label="组织 ID" value={project.orgId ?? "-"} />
-              <DetailItem label="建筑 ID" value={project.buildingId ?? "-"} />
-              <DetailItem label="楼层 ID" value={project.floorId ?? "-"} />
-              <DetailItem label="空间 ID" value={project.spaceId ?? "-"} />
+              <DetailItem label="园区范围" value={authUser?.park_name ?? project.parkId} />
+              <DetailItem label="归属组织" value={orgLabel !== "-" ? orgLabel : project.orgId ?? "-"} />
+              <DetailItem label="楼栋" value={buildingLabel !== "-" ? buildingLabel : project.buildingId ?? "-"} />
+              <DetailItem label="楼层" value={floorLabel !== "-" ? floorLabel : project.floorId ?? "-"} />
+              <DetailItem label="空间 / 房源" value={unitLabel !== "-" ? unitLabel : project.spaceId ?? "-"} />
             </div>
           </Card>
 
@@ -278,10 +324,10 @@ export function EngineeringProjectDetailClient() {
               <h2>责任单位与责任人</h2>
             </section>
             <div className={styles.detailGrid}>
-              <DetailItem label="项目负责人" value={project.projectManagerId ?? "-"} />
-              <DetailItem label="工程负责人" value={project.engineeringDirectorId ?? "-"} />
-              <DetailItem label="施工单位组织" value={project.contractorOrgId ?? "-"} />
-              <DetailItem label="监理单位组织" value={project.supervisorOrgId ?? "-"} />
+              <DetailItem label="项目负责人" value={projectManagerLabel !== "-" ? projectManagerLabel : project.projectManagerId ?? "-"} />
+              <DetailItem label="工程负责人" value={engineeringDirectorLabel !== "-" ? engineeringDirectorLabel : project.engineeringDirectorId ?? "-"} />
+              <DetailItem label="施工单位" value={contractorLabel !== "-" ? contractorLabel : project.contractorOrgId ?? "-"} />
+              <DetailItem label="监理单位" value={supervisorLabel !== "-" ? supervisorLabel : project.supervisorOrgId ?? "-"} />
             </div>
           </Card>
 

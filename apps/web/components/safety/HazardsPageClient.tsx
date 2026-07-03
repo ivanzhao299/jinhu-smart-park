@@ -30,17 +30,13 @@ import { hasPermission } from "../../lib/permissions";
 const SAFETY_MODULE = "safety";
 const HAZARD_ENTITY = "safety_hazard";
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
-
 interface DictItemRow {
   id: string;
   itemLabel: string;
   itemValue: string;
   status: string;
   tagType?: string | null;
+  sortOrder?: number;
 }
 
 interface BuildingRow {
@@ -215,6 +211,97 @@ interface Filters {
 
 type DictMap = Record<string, DictItemRow[]>;
 
+function createFallbackDictItem(dictCode: string, itemLabel: string, itemValue: string, sortOrder: number, tagType?: string | null): DictItemRow {
+  return {
+    id: `fallback:${dictCode}:${itemValue}`,
+    itemLabel,
+    itemValue,
+    status: "enabled",
+    tagType: tagType ?? null,
+    sortOrder
+  };
+}
+
+const SAFETY_HAZARD_DICT_FALLBACKS: DictMap = {
+  safety_hazard_type: [
+    createFallbackDictItem("safety_hazard_type", "消防", "fire", 10, "danger"),
+    createFallbackDictItem("safety_hazard_type", "电气", "electrical", 20, "warning"),
+    createFallbackDictItem("safety_hazard_type", "装修施工", "decoration", 30, "primary"),
+    createFallbackDictItem("safety_hazard_type", "锂电池", "battery", 40, "danger"),
+    createFallbackDictItem("safety_hazard_type", "仓储堆放", "warehouse", 50, "warning"),
+    createFallbackDictItem("safety_hazard_type", "通道占用", "passage", 60, "warning"),
+    createFallbackDictItem("safety_hazard_type", "提升平台", "lift_platform", 70, "primary"),
+    createFallbackDictItem("safety_hazard_type", "视频安防", "video_security", 80, "primary"),
+    createFallbackDictItem("safety_hazard_type", "其他", "other", 90, "default")
+  ],
+  safety_risk_level: [
+    createFallbackDictItem("safety_risk_level", "一般", "10", 10, "success"),
+    createFallbackDictItem("safety_risk_level", "较大", "20", 20, "warning"),
+    createFallbackDictItem("safety_risk_level", "重大", "30", 30, "danger")
+  ],
+  safety_hazard_status: [
+    createFallbackDictItem("safety_hazard_status", "已登记", "10", 10, "warning"),
+    createFallbackDictItem("safety_hazard_status", "已下发整改", "20", 20, "primary"),
+    createFallbackDictItem("safety_hazard_status", "整改中", "30", 30, "primary"),
+    createFallbackDictItem("safety_hazard_status", "已整改", "40", 40, "success"),
+    createFallbackDictItem("safety_hazard_status", "复查中", "50", 50, "warning"),
+    createFallbackDictItem("safety_hazard_status", "已闭环", "60", 60, "success"),
+    createFallbackDictItem("safety_hazard_status", "已超期", "70", 70, "danger"),
+    createFallbackDictItem("safety_hazard_status", "已升级", "80", 80, "danger"),
+    createFallbackDictItem("safety_hazard_status", "已豁免", "90", 90, "default"),
+    createFallbackDictItem("safety_hazard_status", "已转工单", "91", 91, "primary")
+  ],
+  safety_hazard_source_type: [
+    createFallbackDictItem("safety_hazard_source_type", "人工登记", "manual", 10, "primary"),
+    createFallbackDictItem("safety_hazard_source_type", "巡检发现", "inspection", 20, "warning"),
+    createFallbackDictItem("safety_hazard_source_type", "工单转入", "workorder", 30, "primary"),
+    createFallbackDictItem("safety_hazard_source_type", "投诉", "complaint", 40, "warning"),
+    createFallbackDictItem("safety_hazard_source_type", "系统告警", "alert", 50, "danger"),
+    createFallbackDictItem("safety_hazard_source_type", "视频告警", "video_alert", 55, "danger"),
+    createFallbackDictItem("safety_hazard_source_type", "机器人发现", "robot", 60, "primary"),
+    createFallbackDictItem("safety_hazard_source_type", "系统生成", "system", 90, "default")
+  ],
+  safety_emergency_incident_type: [
+    createFallbackDictItem("safety_emergency_incident_type", "火情", "fire", 10, "danger"),
+    createFallbackDictItem("safety_emergency_incident_type", "电气", "electrical", 20, "warning"),
+    createFallbackDictItem("safety_emergency_incident_type", "机械设备", "mechanical", 30, "primary"),
+    createFallbackDictItem("safety_emergency_incident_type", "医疗", "medical", 40, "danger"),
+    createFallbackDictItem("safety_emergency_incident_type", "治安", "security", 50, "warning"),
+    createFallbackDictItem("safety_emergency_incident_type", "极端天气", "weather", 60, "primary"),
+    createFallbackDictItem("safety_emergency_incident_type", "危化品", "chemical", 70, "danger"),
+    createFallbackDictItem("safety_emergency_incident_type", "其他", "other", 90, "default")
+  ],
+  safety_emergency_severity: [
+    createFallbackDictItem("safety_emergency_severity", "一般", "10", 10, "success"),
+    createFallbackDictItem("safety_emergency_severity", "较大", "20", 20, "warning"),
+    createFallbackDictItem("safety_emergency_severity", "重大", "30", 30, "danger"),
+    createFallbackDictItem("safety_emergency_severity", "特别重大", "40", 40, "danger")
+  ],
+  workorder_priority: [
+    createFallbackDictItem("workorder_priority", "高", "high", 10, "danger"),
+    createFallbackDictItem("workorder_priority", "中", "medium", 20, "warning"),
+    createFallbackDictItem("workorder_priority", "低", "low", 30, "default")
+  ],
+  workorder_urgency: [
+    createFallbackDictItem("workorder_urgency", "特急", "critical", 5, "danger"),
+    createFallbackDictItem("workorder_urgency", "紧急", "urgent", 10, "danger"),
+    createFallbackDictItem("workorder_urgency", "一般", "normal", 20, "primary"),
+    createFallbackDictItem("workorder_urgency", "低", "low", 30, "default")
+  ]
+};
+
+function mergeDictItemsWithFallback(items: DictItemRow[] | undefined, fallbackItems: DictItemRow[] | undefined): DictItemRow[] {
+  const primary = (items ?? []).filter((item) => item.status === "enabled");
+  const fallback = fallbackItems ?? [];
+  if (primary.length === 0) return fallback;
+
+  const values = new Set(primary.map((item) => item.itemValue));
+  return [
+    ...primary,
+    ...fallback.filter((item) => !values.has(item.itemValue))
+  ];
+}
+
 const emptyPage: PaginatedResult<HazardRow> = { items: [], total: 0, page: 1, page_size: 20 };
 const emptyFilters: Filters = {
   keyword: "",
@@ -368,12 +455,6 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   }, [canLoadStatusLogs]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await optionalReadRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100");
-    if (!typeResponse) {
-      setDicts({});
-      return;
-    }
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "safety_hazard_type",
       "safety_risk_level",
@@ -385,11 +466,10 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
       "workorder_urgency"
     ];
     const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await optionalReadRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`);
-      if (!response) return [code, []] as const;
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
+      const response = await optionalReadRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_code=${code}`);
+      const fallbackItems = SAFETY_HAZARD_DICT_FALLBACKS[code] ?? [];
+      if (!response) return [code, fallbackItems] as const;
+      return [code, mergeDictItemsWithFallback(response.data.items, fallbackItems)] as const;
     }));
     setDicts(Object.fromEntries(entries));
   }, []);
