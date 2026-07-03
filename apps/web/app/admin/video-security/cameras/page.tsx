@@ -412,6 +412,21 @@ export default function VideoCameraPage() {
     setMessage(`状态检测：${response.data.status}，${response.data.message}`);
   }
 
+  function openRelatedAlerts(row: CameraRow) {
+    const params = new URLSearchParams({ cameraId: row.id });
+    window.location.href = `/admin/video-security/alerts?${params.toString()}`;
+  }
+
+  function scrollToEvidence(cameraId: string) {
+    const target = document.getElementById(`camera-evidence-${cameraId}`);
+    if (!target) {
+      setMessage("当前摄像头暂无可定位的视频证据区域");
+      return;
+    }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMessage("已定位到视频证据区域");
+  }
+
   function secured(field: keyof CameraRow, value: string | number | boolean | null | undefined) {
     return maskField(authUser, VIDEO_MODULE, CAMERA_ENTITY, String(field), value ?? "-") as ReactNode;
   }
@@ -638,8 +653,8 @@ export default function VideoCameraPage() {
                 <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_CAMERA_PREVIEW} type="button" onClick={() => void openPreview(viewing).catch((error: Error) => setMessage(error.message))}><PlayCircle size={16} />实时预览</PermissionButton>
                 <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_CAMERA_PREVIEW} type="button" onClick={() => void loadSnapshot(viewing).catch((error: Error) => setMessage(error.message))}><ImageIcon size={16} />截图地址</PermissionButton>
                 <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_CAMERA_STATUS_CHECK} type="button" onClick={() => void checkCameraStatus(viewing).catch((error: Error) => setMessage(error.message))}><Activity size={16} />状态检测</PermissionButton>
-                <button className="drawer-action-button" type="button" disabled><ShieldAlert size={16} />关联巡检记录</button>
-                <button className="drawer-action-button" type="button" disabled><MapPinned size={16} />关联隐患整改</button>
+                <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_ALERT_READ} type="button" onClick={() => openRelatedAlerts(viewing)}><ShieldAlert size={16} />关联告警</PermissionButton>
+                <PermissionButton className="drawer-action-button" permission={SYSTEM_PERMISSIONS.VIDEO_EVIDENCE_READ} type="button" onClick={() => scrollToEvidence(viewing.id)}><MapPinned size={16} />视频证据</PermissionButton>
               </div>
               <DrawerDetailGrid>
                 <DrawerDetailItem label="摄像头编号" value={viewing.cameraCode} />
@@ -666,7 +681,9 @@ export default function VideoCameraPage() {
                 <DrawerDetailItem label="快照地址" value={canViewStream ? secured("snapshotUrl", viewing.snapshotUrl) : "-"} />
                 <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
               </DrawerDetailGrid>
-              <VideoEvidencePanel cameraId={viewing.id} sourceType="MANUAL" />
+              <div id={`camera-evidence-${viewing.id}`}>
+                <VideoEvidencePanel cameraId={viewing.id} sourceType="MANUAL" />
+              </div>
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={() => setViewing(null)}>关闭</button>
               </DrawerFooter>

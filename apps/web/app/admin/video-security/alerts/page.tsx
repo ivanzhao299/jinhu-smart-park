@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   DataTable,
@@ -113,10 +114,14 @@ const emptyForm: AlertForm = {
 };
 
 export default function VideoAlertsPage() {
+  const searchParams = useSearchParams();
   const [pageData, setPageData] = useState<PaginatedResult<VideoAlertRow>>(emptyPage);
   const [dicts, setDicts] = useState<DictMap>({});
   const [cameras, setCameras] = useState<CameraOption[]>([]);
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...emptyFilters,
+    cameraId: searchParams.get("cameraId") ?? searchParams.get("camera_id") ?? ""
+  }));
   const [form, setForm] = useState<AlertForm>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<VideoAlertRow | null>(null);
@@ -173,6 +178,11 @@ export default function VideoAlertsPage() {
   useEffect(() => {
     void Promise.all([load(1), loadDicts(), loadCameras()]).catch((error: Error) => setMessage(error.message));
   }, [load, loadDicts, loadCameras]);
+
+  useEffect(() => {
+    const presetCameraId = searchParams.get("cameraId") ?? searchParams.get("camera_id") ?? "";
+    setFilters((current) => (current.cameraId === presetCameraId ? current : { ...current, cameraId: presetCameraId }));
+  }, [searchParams]);
 
   function openCreate() {
     setForm({ ...emptyForm, cameraId: cameras[0]?.id ?? "" });
@@ -282,6 +292,7 @@ export default function VideoAlertsPage() {
             <label>告警类型<select value={filters.alertType} onChange={(event) => setFilters({ ...filters, alertType: event.target.value })}><option value="">全部</option>{alertTypes.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></label>
             <label>告警等级<select value={filters.alertLevel} onChange={(event) => setFilters({ ...filters, alertLevel: event.target.value })}><option value="">全部</option>{alertLevels.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></label>
             <label>处理状态<select value={filters.processStatus} onChange={(event) => setFilters({ ...filters, processStatus: event.target.value })}><option value="">全部</option>{alertStatuses.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></label>
+            <label>摄像头<select value={filters.cameraId} onChange={(event) => setFilters({ ...filters, cameraId: event.target.value })}><option value="">全部</option>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.cameraName}</option>)}</select></label>
           </div>
           <div className="filter-actions">
             <button className="primary-button" type="button" onClick={() => void load(1)}><Search size={16} /> 查询</button>
