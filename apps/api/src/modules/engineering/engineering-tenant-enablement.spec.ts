@@ -6,6 +6,7 @@ import test from "node:test";
 const tenantsServicePath = resolve(__dirname, "../tenants/tenants.service.ts");
 const productionSeedPath = resolve(__dirname, "../../../../../database/seeds/000001_s1_production_core.sql");
 const backfillMigrationPath = resolve(__dirname, "../../../../../database/migrations/000160_epdr_scope_backfill.sql");
+const adminVisibilityBackfillPath = resolve(__dirname, "../../../../../database/migrations/000164_epdr_admin_visibility_backfill.sql");
 
 test("tenant provisioning derives engineering permissions from engineering module codes", () => {
   const source = readFileSync(tenantsServicePath, "utf8");
@@ -40,5 +41,22 @@ test("EPDR backfill migration repairs engineering module visibility for entitled
     "EPDR engineering role-permission backfill"
   ]) {
     assert.ok(sql.includes(value), `expected backfill migration to include ${value}`);
+  }
+});
+
+test("EPDR administrator visibility backfill covers real admin roles", () => {
+  const sql = readFileSync(adminVisibilityBackfillPath, "utf8");
+
+  for (const value of [
+    "SYSTEM_ADMIN",
+    "PARK_GENERAL_MANAGER",
+    "ENGINEERING_PROJECT_VIEW",
+    "ENGINEERING_ACCEPTANCE_CLOSE",
+    "EPDR administrator engineering visibility backfill",
+    "PROFESSIONAL",
+    "ENTERPRISE",
+    "GROUP"
+  ]) {
+    assert.ok(sql.includes(value), `expected admin visibility backfill to include ${value}`);
   }
 });
