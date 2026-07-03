@@ -8668,7 +8668,7 @@ select {
   white-space: nowrap;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-card) 44%, transparent);
   transform: none;
-  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
 }
 
 .data-table-actions button:has(svg),
@@ -8725,7 +8725,7 @@ select {
   background: color-mix(in srgb, var(--row-action-color) 15%, var(--bg-card));
   color: var(--row-action-color);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--row-action-color) 12%, transparent);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .data-table-actions .ds-row-action.ds-row-action-view,
