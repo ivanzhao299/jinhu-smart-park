@@ -1083,6 +1083,9 @@ export class UsersService {
     if (frontendRoute?.startsWith("/video") || permissionCode?.startsWith("video")) {
       return "video";
     }
+    if (frontendRoute?.startsWith("/cockpit") || permissionCode?.startsWith("cockpit")) {
+      return "cockpit";
+    }
     if (frontendRoute?.startsWith("/bim") || permissionCode?.startsWith("bim")) {
       return "bim";
     }
@@ -1099,6 +1102,14 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     icon: "home",
     children: [
       { label: "首页", href: "/dashboard" }
+    ]
+  },
+  {
+    label: "经营驾驶舱",
+    icon: "layout-dashboard",
+    module: "cockpit",
+    children: [
+      { label: "经营总览", href: "/cockpit/overview", permission: "cockpit:read", module: "cockpit" }
     ]
   },
   {
@@ -1169,6 +1180,22 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
       { label: "视频告警中心", href: "/admin/video-security/alerts", permission: "video_alert:read", module: "video" },
       { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
+    ]
+  },
+  {
+    label: "数字孪生",
+    icon: "database",
+    module: "bim",
+    children: [
+      { label: "BIM 总览", href: "/bim/overview", permission: "bim:overview", module: "bim" }
+    ]
+  },
+  {
+    label: "AI 助手",
+    icon: "brain-circuit",
+    module: "ai",
+    children: [
+      { label: "AI 工作台", href: "/ai/assistant", permission: "ai:assistant", module: "ai" }
     ]
   },
   {

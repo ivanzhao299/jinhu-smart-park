@@ -82,13 +82,12 @@ const DISABLED_PLACEHOLDER_HREFS = new Set([
   "/cockpit/finance",
   "/cockpit/safety",
   "/energy/overview",
-  "/video/overview",
-  "/bim/overview",
-  "/ai/assistant"
+  "/video/overview"
 ]);
 
 export const FIRST_RELEASE_MENU_PATHS = [
   "/dashboard",
+  "/cockpit/overview",
   "/assets/parks",
   "/assets/buildings",
   "/assets/floors",
@@ -107,6 +106,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/workorders/overdue",
   "/workorders/stats",
   "/operations/terminal",
+  "/bim/overview",
+  "/ai/assistant",
   "/engineering",
   "/engineering/dashboard",
   "/engineering/projects",
@@ -143,6 +144,14 @@ export const dashboardMenus: MenuNode[] = [
     icon: Home,
     children: [
       { label: "首页", href: "/dashboard" }
+    ]
+  },
+  {
+    label: "经营驾驶舱",
+    icon: LayoutDashboard,
+    module: "cockpit",
+    children: [
+      { label: "经营总览", href: "/cockpit/overview", permission: "cockpit:read", module: "cockpit" }
     ]
   },
   {
@@ -228,6 +237,22 @@ export const dashboardMenus: MenuNode[] = [
       { label: "视频点位管理", href: "/admin/video-security/cameras", permission: "video_camera:read", module: "video" },
       { label: "视频告警中心", href: "/admin/video-security/alerts", permission: "video_alert:read", module: "video" },
       { label: "视频平台配置", href: "/admin/video-security/platform-configs", permission: "video_platform_config:read", module: "video" }
+    ]
+  },
+  {
+    label: "数字孪生",
+    icon: Database,
+    module: "bim",
+    children: [
+      { label: "BIM 总览", href: "/bim/overview", permission: "bim:overview", module: "bim" }
+    ]
+  },
+  {
+    label: "AI 助手",
+    icon: BrainCircuit,
+    module: "ai",
+    children: [
+      { label: "AI 工作台", href: "/ai/assistant", permission: "ai:assistant", module: "ai" }
     ]
   },
   {
@@ -489,6 +514,9 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   }
   if (href.startsWith("/video") || href.startsWith("/admin/video-security") || permission.startsWith("video")) {
     return "video";
+  }
+  if (href.startsWith("/cockpit") || permission.startsWith("cockpit")) {
+    return "cockpit";
   }
   if (href.startsWith("/bim") || permission.startsWith("bim")) {
     return "bim";
