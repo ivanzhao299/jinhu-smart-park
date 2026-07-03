@@ -3005,7 +3005,8 @@ WITH saas_modules(module_code, module_name, module_group, description, route_pre
     ('robot', '机器人运营', 'extension', '清洁、巡检等机器人运营预留模块', '/robots', 'bot', 70),
     ('video', '视频安防', 'extension', '摄像头、视频流与安防联动预留模块', '/video', 'video', 80),
     ('bim', '数字孪生', 'extension', 'BIM、CAD/SVG 空间数字化预留模块', '/bim', 'box', 90),
-    ('ai', 'AI助手', 'extension', 'AI 运维助手与智能分析预留模块', '/ai', 'sparkles', 100)
+    ('ai', 'AI助手', 'extension', 'AI 运维助手与智能分析预留模块', '/ai', 'sparkles', 100),
+    ('cockpit', '经营驾驶舱', 'extension', '经营总览、资产经营与多模块汇总驾驶舱', '/cockpit', 'layout-dashboard', 110)
 )
 INSERT INTO sys_module (
   module_code,
@@ -3050,8 +3051,8 @@ plans(plan_code, plan_name, description, sort_no, module_codes) AS (
   VALUES
     ('BASIC', '基础版', '基础系统、资产与工单能力', 10, ARRAY['system','asset','workorder']),
     ('PROFESSIONAL', '专业版', '专业园区运营、工程交付、IoT、能耗、机器人与视频能力', 20, ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video']),
-    ('ENTERPRISE', '企业版', '企业级园区运营、工程交付、数字孪生与 AI 能力', 30, ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video','bim','ai']),
-    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai'])
+    ('ENTERPRISE', '企业版', '企业级园区运营、工程交付、数字孪生、AI 与经营驾驶舱能力', 30, ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video','bim','ai','cockpit']),
+    ('GROUP', '集团版', '集团多园区全模块能力', 40, ARRAY['system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai','cockpit'])
 ),
 upsert_plans AS (
   INSERT INTO sys_plan (
@@ -3165,7 +3166,7 @@ SELECT
 FROM sys_module module
 CROSS JOIN seed_scope
 CROSS JOIN group_plan
-WHERE module.module_code IN ('system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai')
+WHERE module.module_code IN ('system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai','cockpit')
   AND module.is_deleted = false
 ON CONFLICT (tenant_id, park_id, module_id) WHERE is_deleted = false DO UPDATE SET
   plan_id = EXCLUDED.plan_id,

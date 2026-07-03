@@ -7,6 +7,7 @@ const tenantsServicePath = resolve(__dirname, "../tenants/tenants.service.ts");
 const productionSeedPath = resolve(__dirname, "../../../../../database/seeds/000001_s1_production_core.sql");
 const backfillMigrationPath = resolve(__dirname, "../../../../../database/migrations/000160_epdr_scope_backfill.sql");
 const adminVisibilityBackfillPath = resolve(__dirname, "../../../../../database/migrations/000164_epdr_admin_visibility_backfill.sql");
+const cockpitBackfillMigrationPath = resolve(__dirname, "../../../../../database/migrations/000165_cockpit_module_visibility_backfill.sql");
 
 test("tenant provisioning derives engineering permissions from engineering module codes", () => {
   const source = readFileSync(tenantsServicePath, "utf8");
@@ -21,9 +22,17 @@ test("production plan seeds include engineering module codes for EPDR-entitled p
   const source = readFileSync(productionSeedPath, "utf8");
 
   assert.ok(source.includes("ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video']"), "expected PROFESSIONAL plan to include engineering");
-  assert.ok(source.includes("ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video','bim','ai']"), "expected ENTERPRISE plan to include engineering");
-  assert.ok(source.includes("ARRAY['system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai']"), "expected GROUP plan to include engineering");
+  assert.ok(source.includes("ARRAY['system','asset','workorder','safety','engineering','iot','energy','robot','video','bim','ai','cockpit']"), "expected ENTERPRISE plan to include cockpit");
+  assert.ok(source.includes("ARRAY['system','asset','leasing','workorder','safety','engineering','iot','energy','robot','video','bim','ai','cockpit']"), "expected GROUP plan to include cockpit");
   assert.ok(source.includes('module:engineering'), "expected tenant admin permission seed to include module:engineering");
+});
+
+test("tenant provisioning derives cockpit permissions from cockpit module codes", () => {
+  const source = readFileSync(tenantsServicePath, "utf8");
+
+  assert.ok(source.includes('modules.has("cockpit")'), "expected tenant provisioning to derive cockpit permissions");
+  assert.ok(source.includes('code === "cockpit"'), "expected cockpit root permission to be derived");
+  assert.ok(source.includes('code === "cockpit:read"'), "expected cockpit read permission to be derived");
 });
 
 test("EPDR backfill migration repairs engineering module visibility for entitled scopes", () => {
@@ -58,5 +67,21 @@ test("EPDR administrator visibility backfill covers real admin roles", () => {
     "GROUP"
   ]) {
     assert.ok(sql.includes(value), `expected admin visibility backfill to include ${value}`);
+  }
+});
+
+test("cockpit visibility backfill repairs tenant module enablement for enterprise scopes", () => {
+  const sql = readFileSync(cockpitBackfillMigrationPath, "utf8");
+
+  for (const value of [
+    "cockpit",
+    "ENTERPRISE",
+    "GROUP",
+    "sys_module",
+    "rel_plan_module",
+    "rel_tenant_module",
+    "Cockpit tenant-module visibility backfill"
+  ]) {
+    assert.ok(sql.includes(value), `expected cockpit backfill migration to include ${value}`);
   }
 });

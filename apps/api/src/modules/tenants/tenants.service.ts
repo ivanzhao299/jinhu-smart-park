@@ -751,6 +751,7 @@ export class TenantsService {
         ) return true;
         if (modules.has("bim") && (code === "bim" || code === "bim:overview" || code === "bim:read")) return true;
         if (modules.has("ai") && (code === "ai" || code === "ai:assistant" || code === "ai:read")) return true;
+        if (modules.has("cockpit") && (code === "cockpit" || code === "cockpit:overview" || code === "cockpit:read")) return true;
         return false;
       })
       .map((permission) => permission.code);
