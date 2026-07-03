@@ -146,7 +146,7 @@ export default function WorkOrdersKanbanPage() {
         <Card>
           <div className="task-item">
             <span><LayoutGrid size={16} /> 当前看板 {items.length} 单</span>
-            <span className="muted-text">暂不支持拖拽流转，请进入详情执行状态动作。</span>
+            <span className="muted-text">当前支持查看与筛选，请进入详情执行状态动作。</span>
           </div>
           <WorkOrderKanban columns={KANBAN_COLUMNS} items={items} priorityItems={priorityItems} statusItems={statusItems} loading={loading} />
           {items.length === 0 && !loading ? <div className="empty-state"><strong>暂无工单</strong><span>调整筛选条件后重新查询。</span></div> : null}
@@ -200,7 +200,7 @@ function ForbiddenInline() {
     <main className="content">
       <Card>
         <h1 className="panel-title">403</h1>
-        <p>当前账号没有工单看板访问权限，或当前租户未启用 workorder 模块。</p>
+        <p>当前账号没有工单看板访问权限，或当前租户未开通工单能力。</p>
       </Card>
     </main>
   );

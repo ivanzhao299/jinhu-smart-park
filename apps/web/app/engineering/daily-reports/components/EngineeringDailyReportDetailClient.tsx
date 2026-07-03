@@ -226,7 +226,7 @@ export function EngineeringDailyReportDetailClient() {
               <DetailItem label="附件数量" value={formatNumber(report.attachmentIds?.length ?? 0)} />
               <DetailItem label="备注" value={report.remark ?? "-"} />
             </div>
-            <p className={styles.scopeHint}>附件上传预留：本阶段只展示附件 ID 数量，后续 Task 025 接入统一附件能力。</p>
+            <p className={styles.scopeHint}>本页先展示关联附件数量，相关资料可统一在附件中心继续管理。</p>
           </Card>
         </>
       ) : (

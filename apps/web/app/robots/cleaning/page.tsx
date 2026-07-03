@@ -1044,7 +1044,7 @@ function Forbidden() {
     <PageShell>
       <ContentCard>
         <h1>403</h1>
-        <p>无权访问机器人运营，或当前租户未启用 robot 模块。</p>
+        <p>无权访问机器人运营，或当前租户未开通机器人能力。</p>
       </ContentCard>
     </PageShell>
   );

@@ -210,7 +210,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
             <TextAreaField label="巡检摘要" value={form.summary} onChange={(value) => setFormValue("summary", value)} />
             <TextAreaField label="综合结论" value={form.overallResult} onChange={(value) => setFormValue("overallResult", value)} />
             <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
-            <div className={styles.scopeHint}>附件上传预留：本阶段不接真实附件，后续 Task 025 统一接 EngineeringAttachment。</div>
+            <div className={styles.scopeHint}>附件资料统一在附件中心维护，这里先记录巡检结论、问题数量和综合判断。</div>
           </section>
 
           <div className={styles.formFooter}>

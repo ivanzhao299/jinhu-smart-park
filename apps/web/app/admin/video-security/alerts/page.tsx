@@ -271,7 +271,7 @@ export default function VideoAlertsPage() {
         <Card className="page-header">
           <div>
             <h1>视频安防告警中心</h1>
-            <p>集中处理摄像头异常、视频事件、AI 预留告警，并联动巡检和隐患整改。</p>
+            <p>集中处理摄像头异常、视频事件和联动告警，并衔接巡检和隐患整改。</p>
           </div>
           <div className="page-actions">
             <button className="secondary-button" type="button" onClick={() => void detectOffline()}>

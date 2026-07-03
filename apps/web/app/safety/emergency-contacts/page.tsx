@@ -227,7 +227,7 @@ export default function SafetyEmergencyContactsPage() {
         <Card className="page-header">
           <div>
             <h1>应急联系人</h1>
-            <p>维护应急响应联系人、值守角色和通知渠道，真实通知能力后续接入。</p>
+            <p>维护应急响应联系人、值守角色和通知渠道，保障应急链路清晰可追踪。</p>
           </div>
           <div className="page-actions">
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
@@ -461,7 +461,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问应急联系人，或当前租户未启用 safety 模块。</p>
+        <p>无权访问应急联系人，或当前租户未开通安全应急能力。</p>
       </Card>
     </main>
   );

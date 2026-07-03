@@ -2911,7 +2911,7 @@ function ModuleUnauthorizedInline() {
     <main className="page-container">
       <section className="module-denied">
         <strong>模块未授权</strong>
-        <span>当前租户未启用招商租赁模块。</span>
+        <span>当前租户未开通招商租赁能力。</span>
       </section>
     </main>
   );

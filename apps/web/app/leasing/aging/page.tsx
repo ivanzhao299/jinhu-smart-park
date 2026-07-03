@@ -237,7 +237,7 @@ export default function LeasingAgingPage() {
       <main className="page-container">
         <section className="module-denied">
           <strong>403</strong>
-          <span>当前账号无应收账龄分析权限，或租户未启用 leasing 模块。</span>
+          <span>当前账号暂无应收账龄分析权限，或当前租户未开通招商租赁能力。</span>
         </section>
       </main>
     );

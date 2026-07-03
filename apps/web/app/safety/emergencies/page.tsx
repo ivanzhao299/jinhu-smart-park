@@ -778,7 +778,7 @@ export default function SafetyEmergenciesPage() {
                 </Field>
                 {!sosMode ? (
                   <Field label="响应团队用户">
-                    <input value={form.responseTeamUserIds} onChange={(event) => setFormValue("responseTeamUserIds", event.target.value)} placeholder="用户 ID，逗号分隔；后续响应流程会深化" />
+                    <input value={form.responseTeamUserIds} onChange={(event) => setFormValue("responseTeamUserIds", event.target.value)} placeholder="用户 ID，逗号分隔" />
                   </Field>
                 ) : null}
                 <Field label="现场照片">
@@ -1314,7 +1314,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问应急事件，或当前租户未启用 safety 模块。</p>
+        <p>无权访问应急事件，或当前租户未开通安全应急能力。</p>
       </Card>
     </main>
   );

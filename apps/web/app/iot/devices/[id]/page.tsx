@@ -615,7 +615,7 @@ function Forbidden() {
   return (
     <main className="page-container">
       <Card className="page-content">
-        <div className="empty-state">403：无权访问 IoT 设备，或当前租户未启用 iot 模块。</div>
+        <div className="empty-state">403：无权访问 IoT 设备，或当前租户未开通 IoT 能力。</div>
       </Card>
     </main>
   );

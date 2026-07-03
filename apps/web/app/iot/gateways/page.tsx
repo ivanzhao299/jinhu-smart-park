@@ -486,7 +486,7 @@ function Forbidden() {
   return (
     <PageShell>
       <ContentCard>
-        <UiEmptyState title="403" description="无权访问 IoT 网关，或当前租户未启用 iot 模块。" />
+        <UiEmptyState title="403" description="无权访问 IoT 网关，或当前租户未开通 IoT 能力。" />
       </ContentCard>
     </PageShell>
   );

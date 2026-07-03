@@ -1290,7 +1290,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问作业许可，或当前租户未启用 safety 模块。</p>
+        <p>无权访问作业许可，或当前租户未开通作业许可能力。</p>
       </Card>
     </main>
   );

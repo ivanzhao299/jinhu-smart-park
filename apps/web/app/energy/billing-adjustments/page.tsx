@@ -208,5 +208,5 @@ function SelectField({ label, value, items, allLabel, onChange }: { label: strin
 }
 
 function Forbidden() {
-  return <PageShell><ContentCard><EmptyState title="403" description="无权访问能源调整红冲，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权访问能源调整红冲，或当前租户未开通能耗能力。" /></ContentCard></PageShell>;
 }

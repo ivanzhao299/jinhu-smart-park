@@ -1390,7 +1390,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问 IoT 设备，或当前租户未启用 iot 模块。</p>
+        <p>无权访问 IoT 设备，或当前租户未开通 IoT 能力。</p>
       </Card>
     </main>
   );

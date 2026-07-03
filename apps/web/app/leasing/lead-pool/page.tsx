@@ -402,7 +402,7 @@ function ModuleUnauthorizedInline() {
     <main className="page-container">
       <Card >
         <h2>模块未授权</h2>
-        <p className="muted-text">当前租户未启用 leasing 模块。</p>
+        <p className="muted-text">当前租户未开通招商租赁能力。</p>
       </Card>
     </main>
   );

@@ -66,7 +66,7 @@ export function EngineeringInspectionsListClient() {
 
     return [
       { label: "巡检总量", value: pageData.total, hint: "当前筛选范围内的全部工程巡检。", tone: "primary" },
-      { label: "待跟进巡检", value: submittedCount, hint: "已经提交，等待问题处理或后续动作。", tone: "warning" },
+      { label: "待跟进巡检", value: submittedCount, hint: "已经提交，等待整改、验收或继续跟进。", tone: "warning" },
       { label: "发现问题", value: totalIssues, hint: "当前列表内累计发现的问题项数量。", tone: "danger" },
       { label: "重大问题", value: criticalIssues, hint: "高优先级隐患需要优先挂整改并盯截止时间。", tone: "success" }
     ] as const;

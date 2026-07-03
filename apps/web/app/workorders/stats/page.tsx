@@ -395,7 +395,7 @@ function formatSatisfaction(value: number): string {
 function ForbiddenInline() {
   return (
     <main className="content">
-      <Card>403：无权访问工单统计，或当前租户未启用 workorder 模块。</Card>
+      <Card>403：无权访问工单统计，或当前租户未开通工单能力。</Card>
     </main>
   );
 }

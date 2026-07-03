@@ -82,7 +82,7 @@ export function EngineeringDailyReportsListClient() {
       { label: "日报池", value: pageData.total, hint: "当前筛选条件下的施工日报总量。", tone: "primary" },
       { label: "待整理", value: editableCount, hint: "草稿或已驳回日报，需要继续补齐内容。", tone: "warning" },
       { label: "待审核", value: submittedCount, hint: "已提交但尚未形成审核结论的日报。", tone: "danger" },
-      { label: "已审核", value: reviewedCount, hint: "可以沉淀为后续巡检、结算和归档依据。", tone: "success" }
+      { label: "已审核", value: reviewedCount, hint: "可直接作为巡检、结算和归档依据。", tone: "success" }
     ] as const;
   }, [pageData]);
 

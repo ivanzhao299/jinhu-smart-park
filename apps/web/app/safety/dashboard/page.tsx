@@ -431,7 +431,7 @@ function formatDateTime(value: string | null): string {
 function ForbiddenInline() {
   return (
     <main className="content">
-      <Card>403：无权访问安全看板，或当前租户未启用 safety 模块。</Card>
+      <Card>403：无权访问安全看板，或当前租户未开通安全能力。</Card>
     </main>
   );
 }

@@ -430,7 +430,7 @@ export default function LeasingContractChangesPage() {
       <div className="page-container">
         <section className="module-denied">
           <strong>403</strong>
-          <span>当前账号无合同变更读取权限，或租户未启用 leasing 模块。</span>
+          <span>当前账号暂无合同变更读取权限，或当前租户未开通招商租赁能力。</span>
         </section>
       </div>
     );

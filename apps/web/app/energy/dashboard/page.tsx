@@ -292,7 +292,7 @@ function Forbidden() {
     <main className="page-container">
       <Card>
         <h1>403</h1>
-        <p>无权访问能源监测看板，或当前租户未启用 energy 模块。</p>
+        <p>无权访问能源监测看板，或当前租户未开通能耗能力。</p>
       </Card>
     </main>
   );

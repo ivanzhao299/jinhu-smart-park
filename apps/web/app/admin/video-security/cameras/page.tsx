@@ -437,7 +437,7 @@ export default function VideoCameraPage() {
         <Card className="page-header">
           <div>
             <h1>视频点位管理</h1>
-            <p>维护摄像头台账、安装位置、视频流地址和平台接入预留信息。</p>
+            <p>维护摄像头台账、安装位置、视频流地址和平台接入信息。</p>
           </div>
           <div className="page-actions">
             <button className="secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>
@@ -853,7 +853,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问视频点位管理，或当前租户未启用 video 模块。</p>
+        <p>无权访问视频点位管理，或当前租户未开通视频安防能力。</p>
       </Card>
     </main>
   );

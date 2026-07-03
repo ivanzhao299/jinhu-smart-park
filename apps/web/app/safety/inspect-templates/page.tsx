@@ -300,7 +300,7 @@ export default function SafetyInspectTemplatesPage() {
         <header className="header">
           <div className="header-title">
             <strong>巡检模板</strong>
-            <span>定义安全巡检模板和逐项检查标准，供后续巡检计划与任务执行使用</span>
+            <span>定义安全巡检模板和逐项检查标准，供巡检计划与任务执行直接复用</span>
           </div>
           <div className="page-actions">
             <button className="primary-button secondary-button" type="button" onClick={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}>

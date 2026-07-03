@@ -6,7 +6,7 @@ import styles from "../../module-overview.module.css";
 const featureCards = [
   {
     title: "工单协助",
-    description: "把工单受理、分类、优先级建议和处理建议逐步收进 AI 助手入口，后续承接更完整的服务台协助。",
+    description: "把工单受理、分类和处理建议收拢到统一助手入口，方便客服和物业快速查看处理方向。",
     tag: "服务协助",
     icon: Wrench,
     points: ["工单分类与响应建议", "处理链路摘要", "为客服与物业提供辅助判断"],
@@ -15,7 +15,7 @@ const featureCards = [
   },
   {
     title: "安全治理协助",
-    description: "围绕安全巡检、隐患整改和应急事件沉淀 AI 辅助入口，帮助管理员更快读懂风险与动作链路。",
+    description: "围绕安全巡检、隐患整改和应急事件整理统一助手入口，帮助管理员更快读懂风险和处理链路。",
     tag: "安全分析",
     icon: ShieldAlert,
     points: ["隐患整改摘要", "应急事件辅助阅读", "巡检任务态势辅助判断"],
@@ -24,7 +24,7 @@ const featureCards = [
   },
   {
     title: "工程交付协助",
-    description: "把工程项目、计划、施工日报和整改验收的摘要能力放进统一 AI 模块，为工程链提供可持续的辅助入口。",
+    description: "把工程项目、计划、施工日报和整改验收的摘要入口放进统一 AI 模块，方便工程人员集中查看重点信息。",
     tag: "工程协同",
     icon: HardHat,
     points: ["工程项目进展摘要", "计划与日报联读", "整改与验收节点辅助汇总"],
@@ -45,13 +45,13 @@ export default function AiAssistantPage() {
             </span>
             <h1>AI 助手</h1>
             <p className={styles.heroLead}>
-              先把 AI 助手作为正式产品模块接回生产导航。当前重点不是做夸张的演示页，而是给管理员一个真实可落地的 AI 入口，
-              后续再持续接工单、安全、工程等业务链路。
+              把 AI 助手作为正式产品模块接回生产导航。当前重点是给管理员一个真实可落地的统一入口，
+              先承接工单、安全和工程三条高频业务链路。
             </p>
             <div className={styles.chipRow}>
               <span className={styles.chip}>管理员已可见</span>
               <span className={styles.chip}>AI 工作台入口已接通</span>
-              <span className={styles.chip}>后续继续接入真实业务助手能力</span>
+              <span className={styles.chip}>工单 / 安全 / 工程入口已联动</span>
             </div>
           </div>
           <div className={styles.heroActions}>
@@ -71,12 +71,12 @@ export default function AiAssistantPage() {
           <article className={styles.summaryCard}>
             <span className={styles.summaryLabel}>接入方向</span>
             <strong className={styles.summaryValue}>工单 / 安全 / 工程</strong>
-            <span className={styles.summaryHint}>从最需要辅助判断和摘要的链路先接，逐步形成可用的业务助手面。</span>
+            <span className={styles.summaryHint}>先覆盖最需要辅助判断和摘要的链路，让管理员能直接从一个入口切换到关键场景。</span>
           </article>
           <article className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>演进策略</span>
-            <strong className={styles.summaryValue}>先稳后深</strong>
-            <span className={styles.summaryHint}>先解决生产端看不到、进不去，再继续打磨真实 AI 流程和交互。</span>
+            <span className={styles.summaryLabel}>当前重点</span>
+            <strong className={styles.summaryValue}>快速协同</strong>
+            <span className={styles.summaryHint}>先把真实可用的业务入口收拢起来，再继续打磨 AI 交互和辅助流程。</span>
           </article>
         </div>
       </Card>
@@ -85,7 +85,7 @@ export default function AiAssistantPage() {
         <div className={styles.sectionHeader}>
           <div>
             <h2>AI 工作台能力方向</h2>
-            <p>这一步先把 AI 助手模块接回产品主导航，后续逐步补成真正能服务园区管理与现场运营的业务助手。</p>
+            <p>当前先把 AI 助手作为统一业务入口接入主导航，方便运营和管理角色直接进入关键场景。</p>
           </div>
           <span className={styles.sectionBadge}>
             <Sparkles size={14} />

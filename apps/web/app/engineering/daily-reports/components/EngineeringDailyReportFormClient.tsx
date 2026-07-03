@@ -263,7 +263,7 @@ export function EngineeringDailyReportFormClient({ reportId }: { reportId?: stri
             <TextAreaField label="安全文明施工情况" value={form.safetySummary} onChange={(value) => setFormValue("safetySummary", value)} />
             <TextAreaField label="存在问题" value={form.issueSummary} onChange={(value) => setFormValue("issueSummary", value)} />
             <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
-            <div className={styles.scopeHint}>附件上传预留：本阶段不接真实附件，后续 Task 025 统一接 EngineeringAttachment。</div>
+            <div className={styles.scopeHint}>附件资料统一在附件中心维护，这里先沉淀施工内容、现场投入和问题记录。</div>
           </section>
 
           <div className={styles.formFooter}>

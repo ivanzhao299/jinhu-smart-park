@@ -497,7 +497,7 @@ function Forbidden() {
     <main className="page-container">
       <Card className="page-content">
         <h1>403</h1>
-        <p>无权访问应急预案，或当前租户未启用 safety 模块。</p>
+        <p>无权访问应急预案，或当前租户未开通安全应急能力。</p>
       </Card>
     </main>
   );

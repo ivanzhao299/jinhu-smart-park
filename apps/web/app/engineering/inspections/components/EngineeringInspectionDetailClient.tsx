@@ -106,7 +106,7 @@ export function EngineeringInspectionDetailClient() {
     try {
       await engineeringInspectionsApi.createInspectionIssue(inspection.id, input, getAccessToken());
       setIssueDrawerOpen(false);
-      setMessage("问题已记录，后续可生成整改任务");
+      setMessage("问题已记录，可继续进入整改跟进。");
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "新增巡检问题失败");
@@ -203,7 +203,7 @@ export function EngineeringInspectionDetailClient() {
           <Card>
             <section className={styles.sectionHeader}>
               <h2>问题概况</h2>
-              <span>问题在本阶段只形成证据，整改任务由 Task 013 自动生成。</span>
+              <span>汇总当前巡检发现的问题数量、等级和后续跟进重点。</span>
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="问题总数" value={issueSummary.total} />

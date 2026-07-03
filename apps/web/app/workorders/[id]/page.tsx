@@ -463,7 +463,7 @@ function ForbiddenInline() {
     <main className="content">
       <Card>
         <h1 className="panel-title">403</h1>
-        <p>当前账号没有工单详情访问权限，或当前租户未启用 workorder 模块。</p>
+        <p>当前账号没有工单详情访问权限，或当前租户未开通工单能力。</p>
       </Card>
     </main>
   );

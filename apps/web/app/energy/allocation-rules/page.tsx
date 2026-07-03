@@ -280,5 +280,5 @@ function SelectField({ label, value, items, allLabel, onChange, required }: { la
 }
 
 function Forbidden() {
-  return <PageShell><ContentCard><EmptyState title="403" description="无权访问公共能耗分摊规则，或当前租户未启用 energy 模块。" /></ContentCard></PageShell>;
+  return <PageShell><ContentCard><EmptyState title="403" description="无权访问公共能耗分摊规则，或当前租户未开通能耗能力。" /></ContentCard></PageShell>;
 }

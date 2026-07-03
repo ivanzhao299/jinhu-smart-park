@@ -6,10 +6,10 @@ import styles from "../../module-overview.module.css";
 const featureCards = [
   {
     title: "经营总览",
-    description: "把资产、招商、工单、安全和工程的关键态势收拢到一个入口，先给管理层一个可落地的经营总控台。",
+    description: "把资产、招商、工单、安全和工程的关键态势收拢到一个入口，方便管理层直接查看经营全局。",
     tag: "总控视角",
     icon: LayoutDashboard,
-    points: ["聚焦跨模块经营信号", "统一跳转核心业务面板", "为后续经营指标沉淀留接口"],
+    points: ["聚焦跨模块经营信号", "统一跳转核心业务面板", "形成管理层常用入口"],
     href: "/dashboard",
     hrefLabel: "进入首页总览"
   },
@@ -45,13 +45,13 @@ export default function CockpitOverviewPage() {
             </span>
             <h1>经营驾驶舱</h1>
             <p className={styles.heroLead}>
-              给管理员和管理层一个统一的经营入口。先把园区首页、资产、招商、安全、工单和工程看板串起来，
-              让“看全局”和“跳到现场动作”能在一个模块里完成。
+              给管理员和管理层一个统一的经营入口，把园区首页、资产、招商、安全、工单和工程看板串成一条常用工作路径，
+              让“看全局”和“跳到现场动作”在同一屏内完成。
             </p>
             <div className={styles.chipRow}>
               <span className={styles.chip}>管理员已可见</span>
-              <span className={styles.chip}>生产端已接正式导航</span>
-              <span className={styles.chip}>后续继续沉淀跨模块指标</span>
+              <span className={styles.chip}>生产端正式导航已接通</span>
+              <span className={styles.chip}>首页 / 资产 / 安全 / 工程已联动</span>
             </div>
           </div>
           <div className={styles.heroActions}>
@@ -74,9 +74,9 @@ export default function CockpitOverviewPage() {
             <span className={styles.summaryHint}>首页总览、资产、招商、安全、工单、工程都可从这里继续进入。</span>
           </article>
           <article className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>下一步</span>
-            <strong className={styles.summaryValue}>指标沉淀</strong>
-            <span className={styles.summaryHint}>后续把经营驾驶舱升级成真正的跨模块 KPI、预警和日报中心。</span>
+            <span className={styles.summaryLabel}>当前重点</span>
+            <strong className={styles.summaryValue}>高频跳转</strong>
+            <span className={styles.summaryHint}>把首页总览、资产、安全、工程和招商入口收紧成更顺手的经营工作台。</span>
           </article>
         </div>
       </Card>
@@ -85,7 +85,7 @@ export default function CockpitOverviewPage() {
         <div className={styles.sectionHeader}>
           <div>
             <h2>驾驶舱入口</h2>
-            <p>先把管理员真实需要频繁切换的能力组织成更清楚的控制面，避免“有模块但不好进”。</p>
+            <p>把管理员需要频繁切换的能力组织成更清楚的控制面，避免“有模块但不好进”。</p>
           </div>
           <span className={styles.sectionBadge}>
             <ClipboardList size={14} />

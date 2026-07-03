@@ -129,7 +129,7 @@ export function EngineeringIssueDrawer({
       <DrawerHeader
         eyebrow="巡检问题"
         title="新增问题"
-        description="本阶段只记录问题，后续 Task 013 自动生成整改任务。"
+        description="记录巡检发现的问题，用于后续整改、复查和责任跟进。"
         onClose={onClose}
       />
       <DrawerForm onSubmit={(event) => void submit(event)}>

@@ -212,7 +212,7 @@ export function EngineeringAcceptanceFormClient({ acceptanceId }: { acceptanceId
               <TextField label="楼层 ID" value={form.floorId} onChange={(value) => setFormValue("floorId", value)} />
               <TextField label="空间 ID" value={form.spaceId} onChange={(value) => setFormValue("spaceId", value)} />
             </div>
-            <div className={styles.scopeHint}>附件上传预留：本阶段不接真实附件，后续 Task 025 统一接 EngineeringAttachment。</div>
+            <div className={styles.scopeHint}>附件资料统一在附件中心维护，这里先完整记录验收范围、组织与位置。</div>
           </section>
 
           <div className={styles.formFooter}>

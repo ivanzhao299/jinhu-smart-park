@@ -19,7 +19,7 @@ export default function AttachmentsPage() {
       <header className="header">
         <div className="header-title">
           <strong>附件中心</strong>
-          <span>本地文件存储已启用，存储接口预留 MinIO / OSS 切换能力</span>
+          <span>统一管理各业务模块的附件上传、预览、下载和关联记录</span>
         </div>
         <PermissionButton
           className="primary-button"

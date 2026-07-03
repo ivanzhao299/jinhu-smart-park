@@ -732,7 +732,7 @@ export default function WorkOrdersListPage() {
         <header className="header">
           <div className="header-title">
             <strong>工单中心</strong>
-            <span>手工创建报修、投诉、申请与咨询工单，后续接入派单和处理闭环</span>
+            <span>统一管理报修、投诉、申请与咨询工单，支持按状态查看和继续处理</span>
           </div>
           <WorkOrdersPageActions
             onRefresh={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))}
@@ -964,7 +964,7 @@ function ForbiddenInline() {
     <main className="content">
       <Card>
         <h1 className="panel-title">403</h1>
-        <p>当前账号没有工单中心访问权限，或当前租户未启用 workorder 模块。</p>
+        <p>当前账号没有工单中心访问权限，或当前租户未开通工单能力。</p>
       </Card>
     </main>
   );

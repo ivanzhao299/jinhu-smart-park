@@ -1966,7 +1966,7 @@ function ModuleUnauthorizedInline() {
     <main className="page-container">
       <Card className=" module-denied">
         <h1>模块未授权</h1>
-        <p>当前租户未启用招商租赁模块。</p>
+        <p>当前租户未开通招商租赁能力。</p>
       </Card>
     </main>
   );
