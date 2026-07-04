@@ -111,6 +111,34 @@ Covered page families:
 - `/engineering/acceptances`
 - `/engineering/terminal`
 
+## Latest Full Production-Port Rehearsal Result
+
+- Checked at: 2026-07-04 18:01 CST
+- Scope: all enabled production users on local production port `4330`
+- Users checked: 7
+- Pages checked: 225
+- Status: PASS
+- Failures: 0
+- Warnings: 0
+
+| User | Role summary | Pages checked | Result |
+| --- | --- | ---: | --- |
+| admin | SUPER_ADMIN | 91 | PASS |
+| chen_guohui | SAFETY_MANAGER, PROPERTY_MANAGER | 34 | PASS |
+| li_rongjie | SAFETY_MANAGER, PROPERTY_MANAGER, IOT_MANAGER | 43 | PASS |
+| liu_hantao | FINANCE_MANAGER | 10 | PASS |
+| shao_minghong | PROPERTY_STAFF, MAINTENANCE_ENGINEER | 14 | PASS |
+| song_qianchang | INVEST_MANAGER | 14 | PASS |
+| zheng_ziyong | MAINTENANCE_ENGINEER, IOT_OPERATOR | 19 | PASS |
+
+This full rehearsal confirms that the current enabled-user menu surface does not only pass API/menu checks, but also renders successfully in a real browser session without:
+
+- login redirects
+- `403` permission pages
+- blank page shells
+- Next.js runtime error screens
+- browser runtime exceptions
+
 ## Local Report
 
 The full JSON report is written to:
