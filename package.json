@@ -54,6 +54,7 @@
     "prod:up": "docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml up -d",
     "prod:down": "docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml down",
     "go-live:check": "node scripts/go-live-readiness-check.mjs",
+    "go-live:p0-check": "node scripts/go-live-p0-check.mjs",
     "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "devDependencies": {

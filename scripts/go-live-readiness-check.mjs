@@ -46,7 +46,9 @@ const requiredMigrations = [
   "database/migrations/000157_epdr_rbac_menu_permissions.sql",
   "database/migrations/000161_safety_hazard_dictionary_defaults.sql",
   "database/migrations/000164_epdr_admin_visibility_backfill.sql",
-  "database/migrations/000166_go_live_decision_permission_hardening.sql"
+  "database/migrations/000166_go_live_decision_permission_hardening.sql",
+  "database/migrations/000167_go_live_real_user_role_bridge.sql",
+  "database/migrations/000168_go_live_admin_system_alias_permissions.sql"
 ];
 
 const requiredDecisionRoles = [
@@ -69,6 +71,17 @@ const requiredDecisionPermissions = [
   "workorder:confirm",
   "workorder:evaluate",
   "file:upload"
+];
+
+const requiredOperationalRoles = [
+  "PROPERTY_MANAGER",
+  "SAFETY_MANAGER",
+  "MAINTENANCE_ENGINEER",
+  "PROPERTY_STAFF",
+  "IOT_MANAGER",
+  "IOT_OPERATOR",
+  "FINANCE_MANAGER",
+  "INVEST_MANAGER"
 ];
 
 const deadActionPatterns = [
@@ -127,6 +140,13 @@ for (const permission of requiredDecisionPermissions) {
   }
 }
 
+const realUserRoleBridgeMigration = read("database/migrations/000167_go_live_real_user_role_bridge.sql");
+for (const role of requiredOperationalRoles) {
+  if (!realUserRoleBridgeMigration.includes(role)) {
+    failures.push(`real user role bridge migration missing role: ${role}`);
+  }
+}
+
 for (const finding of scanDeadActions(join(repoRoot, "apps/web/app"))) {
   warnings.push(finding);
 }
@@ -144,6 +164,7 @@ const report = {
   required_menu_paths: requiredMenuPaths.length,
   required_migrations: requiredMigrations.length,
   decision_roles: requiredDecisionRoles.length,
+  operational_roles: requiredOperationalRoles.length,
   decision_permissions: requiredDecisionPermissions.length
 };
 
