@@ -43,6 +43,10 @@ const runId = `UAT-ROLE-${runStamp}-${randomBytes(2).toString("hex").toUpperCase
 const today = new Date();
 const reportDate = today.toISOString().slice(0, 10);
 const plannedEndDate = addDays(reportDate, 7);
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WnSUs8AAAAASUVORK5CYII=",
+  "base64"
+);
 
 const report = {
   run_id: runId,
@@ -204,8 +208,19 @@ async function runRoleFlow() {
         await transitionProject(admin, projectId, "START_INSPECTION", "UAT 整改关闭后回到巡检状态");
 
         await transitionProject(admin, projectId, "START_ACCEPTANCE", "UAT 进入工程验收");
-        const acceptance = await createAcceptance(shao, projectId, li.id);
+        const acceptanceAttachment = await uploadAttachment(shao, {
+          bizType: "engineering_acceptance",
+          bizId: projectId,
+          filename: `${runId}-acceptance.png`,
+          mimeType: "image/png",
+          buffer: tinyPng,
+          remark: `${runId} 工程验收现场照片`
+        });
+        const acceptance = await createAcceptance(shao, projectId, li.id, acceptanceAttachment?.id ? [acceptanceAttachment.id] : []);
         if (acceptance?.id) {
+          if (acceptanceAttachment?.id) {
+            await verifyAcceptanceAttachments(admin, acceptance.id, [acceptanceAttachment.id]);
+          }
           const acceptanceCreateMessage = await verifyEngineeringMessage(li, {
             stepId: "engineering_message_acceptance_create",
             summary: "验收负责人收到工程验收待处理消息",
@@ -501,7 +516,7 @@ async function generateRectificationFromIssue(admin, issueId, responsibleUserId)
   return unwrapData(response);
 }
 
-async function createAcceptance(actor, projectId, responsibleUserId) {
+async function createAcceptance(actor, projectId, responsibleUserId, attachmentIds = []) {
   const response = await requestJson(`${apiBase}/engineering/acceptances`, {
     method: "POST",
     token: actor.token,
@@ -516,7 +531,8 @@ async function createAcceptance(actor, projectId, responsibleUserId) {
       acceptance_scope: "消防桥架、固定件、视频联动点位、现场标识",
       acceptance_criteria: "整改完成、复测通过、资料齐全、具备交付条件",
       responsible_user_id: responsibleUserId,
-      location_text: "A1 楼 1F 消防通道与视频联动区域"
+      location_text: "A1 楼 1F 消防通道与视频联动区域",
+      attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined
     }
   });
   assertSuccess("engineering_acceptance_create", response, `${actor.displayName} 创建工程验收`, {
@@ -625,6 +641,27 @@ async function verifyAcceptanceClosed(admin, acceptanceId) {
   assertCheck("engineering_acceptance_closed", acceptanceStatus === "CLOSED", "工程验收状态已关闭", {
     acceptance_id: acceptanceId,
     acceptance_status: acceptanceStatus
+  });
+  return acceptance;
+}
+
+async function verifyAcceptanceAttachments(admin, acceptanceId, attachmentIds) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances/${acceptanceId}`, {
+    token: admin.token
+  });
+  assertSuccess("engineering_acceptance_detail_with_attachment", response, "管理员回读工程验收附件关联", {
+    actor: admin.username,
+    acceptance_id: acceptanceId
+  });
+  if (!isSuccess(response)) return null;
+
+  const acceptance = unwrapData(response);
+  const actualIds = Array.isArray(acceptance?.attachmentIds) ? acceptance.attachmentIds : Array.isArray(acceptance?.attachment_ids) ? acceptance.attachment_ids : [];
+  const matched = attachmentIds.every((id) => actualIds.includes(id));
+  assertCheck("engineering_acceptance_attachment_linked", matched, "工程验收已关联上传附件", {
+    acceptance_id: acceptanceId,
+    expected_attachment_ids: attachmentIds,
+    actual_attachment_ids: actualIds
   });
   return acceptance;
 }
@@ -756,6 +793,31 @@ async function verifyEngineeringMessageReadFlow(user, message, expectation) {
     unread_count: items.length
   });
   return readEntity;
+}
+
+async function uploadAttachment(user, input) {
+  const form = new FormData();
+  form.set("biz_type", input.bizType);
+  if (input.bizId) {
+    form.set("biz_id", input.bizId);
+  }
+  if (input.remark) {
+    form.set("remark", input.remark);
+  }
+  form.set("file", new Blob([input.buffer], { type: input.mimeType }), input.filename);
+
+  const response = await requestForm(`${apiBase}/files`, {
+    method: "POST",
+    token: user.token,
+    idempotencyKey: buildIdempotencyKey("engineering-attachment-upload"),
+    body: form
+  });
+  assertSuccess("engineering_attachment_upload", response, `${user.displayName} 上传工程附件`, {
+    actor: user.username,
+    biz_type: input.bizType,
+    filename: input.filename
+  });
+  return unwrapData(response);
 }
 
 async function waitForEngineeringMessage(user, expectation) {
@@ -942,6 +1004,25 @@ async function requestJson(url, options = {}) {
       method: options.method ?? "GET",
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+    });
+    const text = await response.text();
+    return { status: response.status, body: text ? JSON.parse(text) : null };
+  } catch (error) {
+    return { status: 0, body: { message: error instanceof Error ? error.message : String(error) } };
+  }
+}
+
+async function requestForm(url, options = {}) {
+  const headers = {
+    accept: "application/json",
+    ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+    ...(options.idempotencyKey ? { "x-idempotency-key": options.idempotencyKey } : {})
+  };
+  try {
+    const response = await fetch(url, {
+      method: options.method ?? "POST",
+      headers,
+      body: options.body
     });
     const text = await response.text();
     return { status: response.status, body: text ? JSON.parse(text) : null };

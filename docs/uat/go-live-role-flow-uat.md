@@ -18,7 +18,7 @@
 12. `chen_guohui` 发起复查并判定通过
 13. `admin` 关闭整改，确认问题闭环
 14. `admin` 重启巡检后发起验收流程
-15. `shao_minghong` 创建并提交验收
+15. `shao_minghong` 上传验收现场附件并创建、提交验收
 16. `li_rongjie` 审核验收
 17. `admin` 关闭验收并将项目推进到 `ACCEPTED`
 18. `liu_hantao` 验证财务读接口
@@ -57,6 +57,7 @@ node scripts/go-live-role-flow-uat.mjs \
 - `/workflow/inbox` 可正常读取
 - `/workflow/messages?category=engineering` 中真的出现对应工程消息
 - `POST /workflow/messages/:id/read` 可将当前消息标记为已读并回写 `read_at`
+- 工程验收附件可通过 `/files` 上传，并在验收详情中真实回读 `attachment_ids`
 
 ## 安全约束
 
@@ -70,6 +71,6 @@ node scripts/go-live-role-flow-uat.mjs \
 
 在这轮角色 UAT 稳定后，继续补：
 
-1. 附件上传与证据留痕验证
-2. 工作流收件箱确认/反馈闭环验证
-3. 页面级浏览器 UAT 与移动端终端化 UAT 联动
+1. 工作流收件箱确认/反馈闭环验证
+2. 页面级浏览器 UAT 与移动端终端化 UAT 联动
+3. 上线前按角色输出最终 Go-Live 清单与培训指引
