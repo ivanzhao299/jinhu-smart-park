@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This gate verifies that every enabled production user can render every visible menu page in the local production web app before go-live.
+This gate verifies that enabled production users can render their visible menu pages in the local production web app before go-live.
 
 It is stricter than the API/menu route check because it launches local Chrome in headless mode, injects a real authenticated session, opens each visible page, and fails on:
 
@@ -26,25 +26,58 @@ Optional quick sample:
 pnpm go-live:uat-browser -- --max-pages-per-user 2
 ```
 
-## Latest Local Production Result
+Targeted engineering-page sweep:
 
-- Checked at: 2026-07-04
-- Scope: all enabled users
-- Users checked: 7
-- Pages checked: 225
+```bash
+pnpm go-live:uat-browser -- \
+  --usernames admin,chen_guohui,li_rongjie,shao_minghong,zheng_ziyong \
+  --path-prefix /engineering
+```
+
+Multiple path families can also be checked together:
+
+```bash
+pnpm go-live:uat-browser -- \
+  --path-prefixes /engineering,/operations
+```
+
+## What The Script Checks
+
+1. Logs in with a real local UAT password.
+2. Reads the visible menu tree from `/users/me`.
+3. Filters pages by optional `--usernames`, `--path-prefix`, or `--path-prefixes`.
+4. Opens each page in headless Chrome with a real authenticated session.
+5. Fails on login redirect, permission page, runtime error, or near-blank render.
+6. Prints per-user and per-page progress so browser UAT no longer looks like a stalled job.
+
+## Latest Focused Engineering Result
+
+- Checked at: 2026-07-04 17:36 CST
+- Scope: engineering pages for key execution roles
+- Users checked: 5
+- Pages checked: 39
 - Status: PASS
 - Failures: 0
 - Warnings: 0
 
 | User | Role summary | Pages checked | Result |
 | --- | --- | ---: | --- |
-| admin | SUPER_ADMIN | 91 | PASS |
-| chen_guohui | SAFETY_MANAGER, PROPERTY_MANAGER | 34 | PASS |
-| li_rongjie | SAFETY_MANAGER, PROPERTY_MANAGER, IOT_MANAGER | 43 | PASS |
-| liu_hantao | FINANCE_MANAGER | 10 | PASS |
-| shao_minghong | PROPERTY_STAFF, MAINTENANCE_ENGINEER | 14 | PASS |
-| song_qianchang | INVEST_MANAGER | 14 | PASS |
-| zheng_ziyong | MAINTENANCE_ENGINEER, IOT_OPERATOR | 19 | PASS |
+| admin | SUPER_ADMIN | 7 | PASS |
+| chen_guohui | SAFETY_MANAGER, PROPERTY_MANAGER | 8 | PASS |
+| li_rongjie | SAFETY_MANAGER, PROPERTY_MANAGER, IOT_MANAGER | 8 | PASS |
+| shao_minghong | PROPERTY_STAFF, MAINTENANCE_ENGINEER | 8 | PASS |
+| zheng_ziyong | MAINTENANCE_ENGINEER, IOT_OPERATOR | 8 | PASS |
+
+Covered pages:
+
+- `/engineering/dashboard`
+- `/engineering/projects`
+- `/engineering/plans`
+- `/engineering/daily-reports`
+- `/engineering/inspections`
+- `/engineering/rectifications`
+- `/engineering/acceptances`
+- `/engineering/terminal`
 
 ## Local Report
 

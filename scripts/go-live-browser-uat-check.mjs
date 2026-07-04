@@ -18,6 +18,10 @@ const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCre
 const reportFile = resolve(repoRoot, readArg("--report") ?? defaultReportFile);
 const maxPagesPerUser = Number(readArg("--max-pages-per-user") ?? 0);
 const chromePath = readArg("--chrome-path") ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const usernameFilter = new Set(parseListArg("--usernames"));
+const pathPrefixes = parseListArg("--path-prefixes");
+const singlePathPrefix = readArg("--path-prefix");
+if (singlePathPrefix) pathPrefixes.push(singlePathPrefix);
 
 const failures = [];
 const warnings = [];
@@ -30,7 +34,7 @@ async function main() {
 
   if (failures.length === 0) {
     const credentials = readCredentials(credentialsFile);
-    const users = loadAllEnabledUsers();
+    const users = loadAllEnabledUsers().filter((user) => usernameFilter.size === 0 || usernameFilter.has(user.username));
     const chrome = await launchChrome();
     try {
       for (const user of users) {
@@ -39,6 +43,7 @@ async function main() {
           fail(`missing password for ${user.username}`);
           continue;
         }
+        console.log(`[browser-uat] checking ${user.username} (${user.displayName})`);
         const result = await checkUser(user, password, chrome);
         results.push(result);
       }
@@ -102,7 +107,8 @@ async function checkUser(user, password, chrome) {
 
   const pages = Array.from(new Set(flattenMenuHrefs(me.body.data.menu_tree ?? me.body.data.menus ?? [])))
     .map(normalizeMenuHref)
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((pagePath) => pathPrefixes.length === 0 || pathPrefixes.some((prefix) => pagePath.startsWith(prefix)));
   const pagesToCheck = maxPagesPerUser > 0 ? pages.slice(0, maxPagesPerUser) : pages;
   result.menu_pages_total = pages.length;
 
@@ -113,6 +119,7 @@ async function checkUser(user, password, chrome) {
   }
 
   for (const pagePath of pagesToCheck) {
+    console.log(`[browser-uat] ${user.username} -> ${pagePath}`);
     const pageResult = await chrome.visit({
       path: pagePath,
       token,
@@ -135,6 +142,7 @@ async function checkUser(user, password, chrome) {
   if (result.failed_pages.length === 0) {
     result.page_render_check = "PASS";
   }
+  console.log(`[browser-uat] ${user.username} done: ${result.page_render_check} (${result.pages_checked}/${result.menu_pages_total})`);
   return result;
 }
 
@@ -509,6 +517,15 @@ function parseCsvLine(line) {
 function readArg(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+function parseListArg(name) {
+  const value = readArg(name);
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function sqlString(value) {
