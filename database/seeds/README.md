@@ -5,6 +5,7 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 ## Production-safe Seeds
 
 - `000001_s1_production_core.sql`
+- `production/000003_s1_production_asset_bootstrap.sql`
 
 Production execution:
 
@@ -29,6 +30,11 @@ Execution scope:
 - Initializes SaaS modules in `sys_module`: `system`, `asset`, `leasing`, `workorder`, `iot`, `energy`, `robot`, `video`, `bim`, `ai`.
 - Initializes SaaS plans in `sys_plan`: `BASIC`, `PROFESSIONAL`, `ENTERPRISE`, `GROUP`.
 - Initializes `rel_plan_module` and enables all `GROUP` modules for the default Jinhu tenant in `rel_tenant_module`.
+- When当前园区还没有任何有效楼栋 / 楼层 / 房源时，补最小可用的基线资产结构：
+  - 楼栋：`A1`、`A3`、`A5`
+  - 楼层：`A1-F01`、`A1-F02`、`A3-F01`、`A5-F01`、`A5-F03`
+  - 空间 / 房源：`A1-F01-U01`、`A1-F02-U01`、`A3-F01-U01`、`A5-F01-U01`、`A5-F03-U01`
+  - 仅在当前园区资产表为空时写入，已有真实资产数据的环境不会覆盖
 
 Production-safe seeds must not create fixed-password users, plaintext passwords, test phone numbers, or test emails.
 

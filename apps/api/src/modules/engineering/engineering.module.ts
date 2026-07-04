@@ -1,8 +1,13 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
+import { BuildingEntity } from "../buildings/entities/building.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FilesModule } from "../files/files.module";
+import { FloorEntity } from "../floors/entities/floor.entity";
+import { OrgEntity } from "../orgs/entities/org.entity";
+import { UnitEntity } from "../units/entities/unit.entity";
+import { UserEntity } from "../users/entities/user.entity";
 import { UserMessageEntity } from "../workflow/entities/user-message.entity";
 import { EngineeringAuditLogger } from "./audit/engineering-audit.logger";
 import { EngineeringAcceptanceEntity } from "./entities/engineering-acceptance.entity";
@@ -29,6 +34,8 @@ import { EngineeringNotificationService } from "./engineering-notification.servi
 import { EngineeringPlanService } from "./engineering-plan.service";
 import { EngineeringPlansController } from "./engineering-plans.controller";
 import { EngineeringProjectStateMachine } from "./engineering-project-state.machine";
+import { EngineeringReferencesController } from "./engineering-references.controller";
+import { EngineeringReferencesService } from "./engineering-references.service";
 import { EngineeringProjectService } from "./engineering-project.service";
 import { EngineeringProjectStatusService } from "./engineering-project-status.service";
 import { EngineeringProjectsController } from "./engineering-projects.controller";
@@ -64,7 +71,12 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
       EngineeringIssueEntity,
       EngineeringRectificationEntity,
       EngineeringAcceptanceEntity,
-      UserMessageEntity
+      UserMessageEntity,
+      OrgEntity,
+      BuildingEntity,
+      FloorEntity,
+      UnitEntity,
+      UserEntity
     ]),
     AuditModule,
     DataScopesModule,
@@ -73,6 +85,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
   controllers: [
     EngineeringController,
     EngineeringProjectsController,
+    EngineeringReferencesController,
     EngineeringPlansController,
     EngineeringDailyReportsController,
     EngineeringDashboardController,
@@ -83,6 +96,7 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
   providers: [
     EngineeringService,
     EngineeringProjectService,
+    EngineeringReferencesService,
     EngineeringProjectRepository,
     EngineeringPlanService,
     EngineeringPlanRepository,
