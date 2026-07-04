@@ -79,6 +79,38 @@ Covered pages:
 - `/engineering/acceptances`
 - `/engineering/terminal`
 
+## Latest Cross-Page Chain Result
+
+- Checked at: 2026-07-04 17:46 CST
+- Scope: `workflow + operations + engineering`
+- Users checked: 7
+- Pages checked: 60
+- Status: PASS
+- Failures: 0
+- Warnings: 0
+
+| User | Role summary | Pages checked | Result |
+| --- | --- | ---: | --- |
+| admin | SUPER_ADMIN | 8 | PASS |
+| chen_guohui | SAFETY_MANAGER, PROPERTY_MANAGER | 9 | PASS |
+| li_rongjie | SAFETY_MANAGER, PROPERTY_MANAGER, IOT_MANAGER | 9 | PASS |
+| liu_hantao | FINANCE_MANAGER | 8 | PASS |
+| shao_minghong | PROPERTY_STAFF, MAINTENANCE_ENGINEER | 9 | PASS |
+| song_qianchang | INVEST_MANAGER | 8 | PASS |
+| zheng_ziyong | MAINTENANCE_ENGINEER, IOT_OPERATOR | 9 | PASS |
+
+Covered page families:
+
+- `/operations/terminal`
+- `/engineering/dashboard`
+- `/engineering/projects`
+- `/engineering/plans`
+- `/engineering/daily-reports`
+- `/engineering/inspections`
+- `/engineering/rectifications`
+- `/engineering/acceptances`
+- `/engineering/terminal`
+
 ## Local Report
 
 The full JSON report is written to:
