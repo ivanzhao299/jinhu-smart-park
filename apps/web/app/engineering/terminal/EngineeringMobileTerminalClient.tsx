@@ -1,13 +1,15 @@
 "use client";
 
-import { AlertTriangle, BarChart3, ClipboardCheck, FileCheck2, Gauge, RefreshCw, Save, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, BarChart3, ClipboardCheck, FileCheck2, FileText, Gauge, HardHat, ListTodo, RefreshCw, Save, ShieldCheck, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { UserContext } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { useMobileTerminalMode } from "../../../components/mobile/useMobileTerminalMode";
+import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { engineeringDashboardApi } from "../../../lib/engineering-dashboard-api";
 import type { EngineeringDashboardOverview } from "../../../lib/engineering-dashboard-types";
@@ -15,6 +17,7 @@ import { engineeringDailyReportsApi } from "../../../lib/engineering-daily-repor
 import { engineeringWeatherTypeOptions } from "../../../lib/engineering-daily-reports-display";
 import type { CreateEngineeringDailyReportInput, EngineeringWeatherType } from "../../../lib/engineering-daily-reports-types";
 import { todayDateString } from "../../../lib/engineering-daily-reports-utils";
+import { hasModule, hasPermission } from "../../../lib/permissions";
 import { engineeringProjectsApi } from "../../../lib/engineering-projects-api";
 import { engineeringProjectStatusLabels, projectStatusVariant } from "../../../lib/engineering-projects-display";
 import type { EngineeringProject } from "../../../lib/engineering-projects-types";
@@ -44,43 +47,111 @@ const emptyDashboard: EngineeringDashboardOverview = {
   generated_at: ""
 };
 
-const actionCards: Array<{
+const ENGINEERING_DASHBOARD_PERMISSION = "ENGINEERING_DASHBOARD_VIEW";
+const ENGINEERING_PROJECT_PERMISSION = "ENGINEERING_PROJECT_VIEW";
+const ENGINEERING_PLAN_PERMISSION = "ENGINEERING_PLAN_VIEW";
+const ENGINEERING_DAILY_REPORT_PERMISSION = "ENGINEERING_DAILY_REPORT_VIEW";
+const ENGINEERING_DAILY_REPORT_CREATE_PERMISSION = "ENGINEERING_DAILY_REPORT_CREATE";
+const ENGINEERING_INSPECTION_PERMISSION = "ENGINEERING_INSPECTION_VIEW";
+const ENGINEERING_RECTIFICATION_PERMISSION = "ENGINEERING_RECTIFICATION_VIEW";
+const ENGINEERING_ACCEPTANCE_PERMISSION = "ENGINEERING_ACCEPTANCE_VIEW";
+
+interface EngineeringTerminalModule {
+  key: string;
   title: string;
-  detail: string;
-  href?: Route;
-  action?: "daily-report";
+  summary: string;
+  href: Route;
   icon: LucideIcon;
-  tone: "primary" | "normal" | "warn";
-}> = [
+  permission: string;
+  moduleCode?: string;
+}
+
+const ENGINEERING_TERMINAL_MODULES: EngineeringTerminalModule[] = [
   {
-    title: "新建日报",
-    detail: "记录今日施工、人材机和问题",
-    action: "daily-report",
-    icon: BarChart3,
-    tone: "primary"
+    key: "projects",
+    title: "工程项目",
+    summary: "立项、负责人、状态和预算总入口",
+    href: "/engineering/projects",
+    icon: HardHat,
+    permission: ENGINEERING_PROJECT_PERMISSION,
+    moduleCode: "engineering"
   },
   {
-    title: "工程巡检",
-    detail: "现场质量、安全、进度检查",
-    href: "/engineering/inspections/new",
+    key: "plans",
+    title: "工程计划",
+    summary: "拆阶段、排节点、跟进执行顺序",
+    href: "/engineering/plans",
+    icon: ListTodo,
+    permission: ENGINEERING_PLAN_PERMISSION,
+    moduleCode: "engineering"
+  },
+  {
+    key: "dailyReports",
+    title: "施工日报",
+    summary: "当天施工、人材机、问题和明日计划",
+    href: "/engineering/daily-reports",
+    icon: FileText,
+    permission: ENGINEERING_DAILY_REPORT_PERMISSION,
+    moduleCode: "engineering"
+  },
+  {
+    key: "inspections",
+    title: "现场巡检",
+    summary: "质量、安全、进度巡检和问题发现",
+    href: "/engineering/inspections",
     icon: ClipboardCheck,
-    tone: "normal"
+    permission: ENGINEERING_INSPECTION_PERMISSION,
+    moduleCode: "engineering"
   },
   {
-    title: "整改反馈",
-    detail: "处理待整改、提交复查材料",
+    key: "rectifications",
+    title: "整改闭环",
+    summary: "逾期、待复查、责任反馈和闭环结果",
     href: "/engineering/rectifications",
     icon: ShieldCheck,
-    tone: "warn"
+    permission: ENGINEERING_RECTIFICATION_PERMISSION,
+    moduleCode: "engineering"
   },
   {
-    title: "验收办理",
-    detail: "阶段、专项、竣工验收",
+    key: "acceptances",
+    title: "工程验收",
+    summary: "阶段、专项和竣工验收办理",
     href: "/engineering/acceptances",
     icon: FileCheck2,
-    tone: "normal"
+    permission: ENGINEERING_ACCEPTANCE_PERMISSION,
+    moduleCode: "engineering"
+  },
+  {
+    key: "dashboard",
+    title: "工程看板",
+    summary: "管理视角查看项目、整改和验收态势",
+    href: "/engineering/dashboard",
+    icon: BarChart3,
+    permission: ENGINEERING_DASHBOARD_PERMISSION,
+    moduleCode: "engineering"
   }
 ];
+
+interface EngineeringRoleGuideCard {
+  title: string;
+  value: string;
+  detail: string;
+  href: Route;
+  icon: LucideIcon;
+  emphasis?: boolean;
+}
+
+interface EngineeringRoleGuide {
+  title: string;
+  summary: string;
+  identityLabel: string;
+  identityHint: string;
+  primaryHref: Route;
+  primaryLabel: string;
+  moduleOrder: string[];
+  chain: string[];
+  focusCards: EngineeringRoleGuideCard[];
+}
 
 interface QuickDailyReportForm {
   projectId: string;
@@ -113,6 +184,7 @@ const defaultQuickDailyReportForm: QuickDailyReportForm = {
 };
 
 export function EngineeringMobileTerminalClient() {
+  const authUser = useAuthUser();
   useMobileTerminalMode(["mobile-terminal-mode", "operations-terminal-safe-area", "engineering-terminal-mode"]);
 
   const [dashboard, setDashboard] = useState<EngineeringDashboardOverview>(emptyDashboard);
@@ -128,6 +200,25 @@ export function EngineeringMobileTerminalClient() {
   const riskCount = summary.overdue_rectification_count + summary.pending_rectification_count + summary.pending_acceptance_count;
   const completionLabel = `${summary.rectification_close_rate}%`;
   const generatedAt = useMemo(() => formatDateTime(dashboard.generated_at), [dashboard.generated_at]);
+  const roleLabel = useMemo(() => resolveEngineeringRoleLabel(authUser), [authUser]);
+  const visibleModules = useMemo(() => resolveVisibleEngineeringModules(authUser), [authUser]);
+  const roleGuide = useMemo(
+    () => resolveEngineeringRoleGuide({
+      user: authUser,
+      roleLabel,
+      summary,
+      visibleModules
+    }),
+    [authUser, roleLabel, summary, visibleModules]
+  );
+  const orderedModules = useMemo(
+    () => orderEngineeringModules(visibleModules, roleGuide.moduleOrder),
+    [roleGuide.moduleOrder, visibleModules]
+  );
+  const canQuickDailyReport = useMemo(
+    () => Boolean(authUser?.is_super) || hasPermission(authUser, ENGINEERING_DAILY_REPORT_CREATE_PERMISSION),
+    [authUser]
+  );
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -198,9 +289,21 @@ export function EngineeringMobileTerminalClient() {
       <main className={`content ds-page ${styles.page}`}>
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <span className={styles.eyebrow}>工程终端</span>
-            <h1>工程移动作业台</h1>
-            <p>项目、日报、巡检、整改、验收从手机端开始闭环。</p>
+            <span className={styles.eyebrow}>工程终端 · {roleGuide.identityLabel}</span>
+            <h1>{roleGuide.title}</h1>
+            <p>{roleGuide.summary}</p>
+            <div className={styles.heroMeta}>
+              <span>{roleGuide.identityHint}</span>
+              <span>{generatedAt ? `更新 ${generatedAt}` : loading ? "正在同步工程数据" : "等待工程数据"}</span>
+            </div>
+            <div className={styles.heroActions}>
+              <Link className={styles.primaryAction} href={roleGuide.primaryHref}>{roleGuide.primaryLabel}</Link>
+              {canQuickDailyReport ? (
+                <button className={styles.secondaryAction} type="button" onClick={openQuickDailyReport}>快速日报</button>
+              ) : (
+                <Link className={styles.secondaryAction} href={orderedModules[0]?.href ?? "/engineering/projects"}>查看工程入口</Link>
+              )}
+            </div>
           </div>
           <button className={styles.refreshButton} type="button" onClick={() => void loadAll()} aria-label="刷新工程终端">
             <RefreshCw size={18} />
@@ -214,23 +317,34 @@ export function EngineeringMobileTerminalClient() {
 
         {message ? <p className={styles.message}>{message}</p> : null}
 
-        <section className={styles.actionGrid} aria-label="工程快捷操作">
-          {actionCards.map((item) => {
-            const Icon = item.icon;
-            return item.action === "daily-report" ? (
-              <button className={`${styles.actionCard} ${styles[item.tone]}`} type="button" onClick={openQuickDailyReport} key={item.title}>
-                <span className={styles.actionIcon}><Icon size={21} /></span>
-                <strong>{item.title}</strong>
-                <small>{item.detail}</small>
-              </button>
-            ) : (
-              <Link className={`${styles.actionCard} ${styles[item.tone]}`} href={item.href as Route} key={item.title}>
-                <span className={styles.actionIcon}><Icon size={21} /></span>
-                <strong>{item.title}</strong>
-                <small>{item.detail}</small>
-              </Link>
-            );
-          })}
+        <section className={styles.panel}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>本班先做什么</h2>
+              <p>不先读说明，直接从当前角色最值钱的动作开始。</p>
+            </div>
+          </div>
+          <div className={styles.focusGrid} aria-label="工程角色重点动作">
+            {roleGuide.focusCards.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link className={`${styles.focusCard} ${item.emphasis ? styles.focusCardEmphasis : ""}`} href={item.href} key={item.title}>
+                  <span className={styles.focusIcon}><Icon size={20} /></span>
+                  <div className={styles.focusBody}>
+                    <strong>{item.title}</strong>
+                    <b>{item.value}</b>
+                    <small>{item.detail}</small>
+                  </div>
+                  <ArrowRight size={18} />
+                </Link>
+              );
+            })}
+          </div>
+          <div className={styles.chainStrip} aria-label="工程闭环顺序">
+            {roleGuide.chain.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
         </section>
 
         <section className={styles.statusStrip} aria-label="工程关键指标">
@@ -238,6 +352,32 @@ export function EngineeringMobileTerminalClient() {
           <StatusItem icon={<BarChart3 size={17} />} label="近 7 日日报" value={summary.weekly_daily_report_count} />
           <StatusItem icon={<AlertTriangle size={17} />} label="逾期整改" value={summary.overdue_rectification_count} emphasis={summary.overdue_rectification_count > 0} />
           <StatusItem icon={<Gauge size={17} />} label="关闭率" value={completionLabel} />
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>工程入口</h2>
+              <p>按现场闭环组织，不把人丢进说明书式页面里。</p>
+            </div>
+          </div>
+          <div className={styles.moduleGrid} aria-label="工程模块入口">
+            {orderedModules.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link className={styles.moduleCard} href={item.href} key={item.key}>
+                  <div className={styles.moduleCardHead}>
+                    <span className={styles.moduleIcon}><Icon size={20} /></span>
+                    <span className={styles.moduleBadge}>{resolveEngineeringModuleBadge(item.key, summary)}</span>
+                  </div>
+                  <div className={styles.moduleBody}>
+                    <strong>{item.title}</strong>
+                    <small>{item.summary}</small>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </section>
 
         <section className={styles.panel}>
@@ -283,18 +423,6 @@ export function EngineeringMobileTerminalClient() {
             )) : (
               <EmptyBlock title={loading ? "正在读取整改任务" : "暂无整改待办"} detail="巡检发现问题后，整改任务会在这里出现。" />
             )}
-          </div>
-        </section>
-
-        <section className={styles.flowPanel}>
-          <h2>现场流程</h2>
-          <div className={styles.flowSteps}>
-            <span>建项目</span>
-            <span>拆计划</span>
-            <span>写日报</span>
-            <span>做巡检</span>
-            <span>整改单</span>
-            <span>验收</span>
           </div>
         </section>
 
@@ -427,10 +555,269 @@ function TerminalForbidden() {
     <main className={`content ds-page ${styles.page}`}>
       <section className={styles.panel}>
         <h1>无工程终端权限</h1>
-        <p>请联系管理员开通工程看板或工程作业权限。</p>
+        <p>请联系管理员开通工程看板、工程项目或工程作业权限。</p>
       </section>
     </main>
   );
+}
+
+function resolveVisibleEngineeringModules(user: UserContext | null): EngineeringTerminalModule[] {
+  if (!user) {
+    return ENGINEERING_TERMINAL_MODULES.filter((item) => item.key === "projects" || item.key === "dashboard");
+  }
+  if (user.is_super) {
+    return ENGINEERING_TERMINAL_MODULES;
+  }
+  const visible = ENGINEERING_TERMINAL_MODULES.filter((item) => hasModule(user, item.moduleCode) && hasPermission(user, item.permission));
+  return visible.length > 0 ? visible : ENGINEERING_TERMINAL_MODULES.filter((item) => item.key === "projects" || item.key === "dashboard");
+}
+
+function resolveEngineeringRoleLabel(user: UserContext | null): string {
+  if (!user) return "访客";
+  if (user.is_super) return "管理员总控";
+  const roles = new Set(user.roles.map((role) => role.role_code.toUpperCase()));
+  if (roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER")) {
+    return "管理总控";
+  }
+  if (roles.has("PROJECT_MANAGER")) return "项目统筹";
+  if (roles.has("SUPERVISOR")) return "监理复查";
+  if (roles.has("CONTRACTOR_MANAGER")) return "施工协同";
+  if (roles.has("ENGINEER") || roles.has("MAINTENANCE_ENGINEER") || roles.has("JH_INSTALLATION_ENGINEER")) return "现场工程";
+  if (hasPermission(user, ENGINEERING_ACCEPTANCE_PERMISSION)) return "验收协同";
+  if (hasPermission(user, ENGINEERING_INSPECTION_PERMISSION)) return "巡检执行";
+  return "工程协同";
+}
+
+function orderEngineeringModules(modules: EngineeringTerminalModule[], order: string[]): EngineeringTerminalModule[] {
+  const orderMap = new Map(order.map((item, index) => [item, index]));
+  return [...modules].sort((left, right) => {
+    const leftIndex = orderMap.get(left.key) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = orderMap.get(right.key) ?? Number.MAX_SAFE_INTEGER;
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    return left.title.localeCompare(right.title, "zh-CN");
+  });
+}
+
+function resolveEngineeringRoleGuide(input: {
+  user: UserContext | null;
+  roleLabel: string;
+  summary: EngineeringDashboardOverview["summary"];
+  visibleModules: EngineeringTerminalModule[];
+}): EngineeringRoleGuide {
+  const { user, roleLabel, summary, visibleModules } = input;
+  const moduleMap = new Map(visibleModules.map((item) => [item.key, item]));
+  const resolveHref = (key: string, fallback: Route = "/engineering/projects") => moduleMap.get(key)?.href ?? fallback;
+  const overdueRectification = summary.overdue_rectification_count;
+  const pendingRectification = summary.pending_rectification_count;
+  const pendingAcceptance = summary.pending_acceptance_count;
+  const weeklyDailyReports = summary.weekly_daily_report_count;
+  const todayInspection = summary.today_inspection_count;
+  const roles = new Set((user?.roles ?? []).map((role) => role.role_code.toUpperCase()));
+  const isManagement = Boolean(user?.is_super) || roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER");
+
+  if (isManagement) {
+    return {
+      title: "工程总控工作台",
+      summary: "先看项目盘面，再盯整改、验收和日报节奏，管理层在手机端也能抓住闭环重点。",
+      identityLabel: roleLabel,
+      identityHint: "适合总监、管理层和总控角色开场检查。",
+      primaryHref: resolveHref("dashboard", "/engineering/dashboard"),
+      primaryLabel: "打开工程看板",
+      moduleOrder: ["dashboard", "projects", "acceptances", "rectifications", "plans", "dailyReports", "inspections"],
+      chain: ["看盘面", "盯整改", "推验收", "回项目"],
+      focusCards: [
+        {
+          title: "项目态势",
+          value: summary.executing_project_count > 0 ? `${summary.executing_project_count} 项施工中` : "先建项目",
+          detail: "先确认当前有哪些项目真正进入执行阶段。",
+          href: resolveHref("dashboard", "/engineering/dashboard"),
+          icon: BarChart3,
+          emphasis: true
+        },
+        {
+          title: "整改压力",
+          value: overdueRectification > 0 ? `${overdueRectification} 项逾期` : `${pendingRectification} 项待整改`,
+          detail: overdueRectification > 0 ? "先处理逾期整改，再看一般待办。" : "把整改和复查压回责任人。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: AlertTriangle
+        },
+        {
+          title: "验收进度",
+          value: pendingAcceptance > 0 ? `${pendingAcceptance} 项待验收` : "验收队列平稳",
+          detail: "阶段验收和竣工验收要随时回看。",
+          href: resolveHref("acceptances", "/engineering/acceptances"),
+          icon: FileCheck2
+        }
+      ]
+    };
+  }
+
+  if (roles.has("PROJECT_MANAGER")) {
+    return {
+      title: "项目经理工作台",
+      summary: "每天盯项目、计划、日报和整改，让节点、责任人和风险都在一条线上推进。",
+      identityLabel: roleLabel,
+      identityHint: "以项目推进为中心，不必先切到管理看板。",
+      primaryHref: resolveHref("projects", "/engineering/projects"),
+      primaryLabel: "进入工程项目",
+      moduleOrder: ["projects", "plans", "dailyReports", "rectifications", "inspections", "acceptances", "dashboard"],
+      chain: ["看项目", "拆计划", "收日报", "追整改", "推进验收"],
+      focusCards: [
+        {
+          title: "在管项目",
+          value: summary.project_total > 0 ? `${summary.project_total} 个项目` : "先建项目",
+          detail: "先看项目中心，确认编号、负责人和周期是否齐全。",
+          href: resolveHref("projects", "/engineering/projects"),
+          icon: HardHat,
+          emphasis: true
+        },
+        {
+          title: "日报节奏",
+          value: weeklyDailyReports > 0 ? `近 7 日 ${weeklyDailyReports} 份` : "日报还未启动",
+          detail: "日报是现场推进和后续验收的底稿。",
+          href: resolveHref("dailyReports", "/engineering/daily-reports"),
+          icon: FileText
+        },
+        {
+          title: "整改闭环",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待推进` : "当前无整改积压",
+          detail: "发现问题后，要尽快拉责任人进整改链路。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: ShieldCheck
+        }
+      ]
+    };
+  }
+
+  if (roles.has("SUPERVISOR")) {
+    return {
+      title: "监理复查工作台",
+      summary: "优先处理巡检、整改复查和验收，不把时间花在与自己无关的管理字段上。",
+      identityLabel: roleLabel,
+      identityHint: "适合监理和复查角色按闭环节点工作。",
+      primaryHref: resolveHref("inspections", "/engineering/inspections"),
+      primaryLabel: "进入现场巡检",
+      moduleOrder: ["inspections", "rectifications", "acceptances", "projects", "plans", "dashboard", "dailyReports"],
+      chain: ["做巡检", "压整改", "复查", "去验收"],
+      focusCards: [
+        {
+          title: "现场巡检",
+          value: todayInspection > 0 ? `今日 ${todayInspection} 项` : "先检查巡检计划",
+          detail: "问题要及时发现，不要留到验收节点才暴露。",
+          href: resolveHref("inspections", "/engineering/inspections"),
+          icon: ClipboardCheck,
+          emphasis: true
+        },
+        {
+          title: "复查任务",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待看` : "暂无待复查",
+          detail: "整改提交后，监理应尽快给出通过或退回结论。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: ShieldCheck
+        },
+        {
+          title: "验收联动",
+          value: pendingAcceptance > 0 ? `${pendingAcceptance} 项待验收` : "当前无验收阻塞",
+          detail: "把巡检和整改结果自然接到验收。",
+          href: resolveHref("acceptances", "/engineering/acceptances"),
+          icon: FileCheck2
+        }
+      ]
+    };
+  }
+
+  if (roles.has("CONTRACTOR_MANAGER")) {
+    return {
+      title: "施工协同工作台",
+      summary: "按计划组织施工、按日报留痕、按整改要求反馈，手机端就该先给施工方这些入口。",
+      identityLabel: roleLabel,
+      identityHint: "适合施工单位项目经理和现场负责人。",
+      primaryHref: resolveHref("dailyReports", "/engineering/daily-reports"),
+      primaryLabel: "进入施工日报",
+      moduleOrder: ["dailyReports", "plans", "rectifications", "projects", "inspections", "acceptances", "dashboard"],
+      chain: ["看计划", "写日报", "回整改", "配合验收"],
+      focusCards: [
+        {
+          title: "日报优先",
+          value: weeklyDailyReports > 0 ? `近 7 日 ${weeklyDailyReports} 份` : "先提交第一份日报",
+          detail: "施工单位先把日报做实，后面的巡检和验收才有依据。",
+          href: resolveHref("dailyReports", "/engineering/daily-reports"),
+          icon: FileText,
+          emphasis: true
+        },
+        {
+          title: "当前计划",
+          value: summary.executing_project_count > 0 ? `${summary.executing_project_count} 个项目执行中` : "先确认项目节点",
+          detail: "按计划节拍组织人材机，不要靠口头传达。",
+          href: resolveHref("plans", "/engineering/plans"),
+          icon: ListTodo
+        },
+        {
+          title: "整改反馈",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待处理` : "暂无待整改",
+          detail: "被退回或要求补充材料的项要尽快回填。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: ShieldCheck
+        }
+      ]
+    };
+  }
+
+  return {
+    title: "现场工程工作台",
+    summary: "先做巡检和日报，再把异常推入整改，保证一线工程人员在手机端就能把链路跑顺。",
+    identityLabel: roleLabel,
+    identityHint: "适合工程师、安装工程师和现场执行角色。",
+    primaryHref: resolveHref("inspections", "/engineering/inspections"),
+    primaryLabel: "开始现场巡检",
+    moduleOrder: ["inspections", "dailyReports", "rectifications", "projects", "plans", "acceptances", "dashboard"],
+    chain: ["查现场", "写日报", "推整改", "跟验收"],
+    focusCards: [
+      {
+        title: "今日巡检",
+        value: todayInspection > 0 ? `${todayInspection} 项待查` : "先看项目状态",
+        detail: "先处理今日巡检和现场发现的问题。",
+        href: resolveHref("inspections", "/engineering/inspections"),
+        icon: ClipboardCheck,
+        emphasis: true
+      },
+      {
+        title: "日报提交",
+        value: weeklyDailyReports > 0 ? `近 7 日 ${weeklyDailyReports} 份` : "日报尚未启动",
+        detail: "日报要把施工、人材机和问题说明白。",
+        href: resolveHref("dailyReports", "/engineering/daily-reports"),
+        icon: FileText
+      },
+      {
+        title: "待整改",
+        value: pendingRectification > 0 ? `${pendingRectification} 项待处理` : "当前无整改积压",
+        detail: "异常不要停留在发现层，尽快拉进整改闭环。",
+        href: resolveHref("rectifications", "/engineering/rectifications"),
+        icon: AlertTriangle
+      }
+    ]
+  };
+}
+
+function resolveEngineeringModuleBadge(key: string, summary: EngineeringDashboardOverview["summary"]): string {
+  switch (key) {
+    case "projects":
+      return `${summary.project_total} 项`;
+    case "plans":
+      return summary.executing_project_count > 0 ? `${summary.executing_project_count} 项推进` : "按节点推进";
+    case "dailyReports":
+      return `${summary.weekly_daily_report_count} 份`;
+    case "inspections":
+      return `${summary.today_inspection_count} 项`;
+    case "rectifications":
+      return summary.overdue_rectification_count > 0 ? `${summary.overdue_rectification_count} 项逾期` : `${summary.pending_rectification_count} 项待办`;
+    case "acceptances":
+      return `${summary.pending_acceptance_count} 项待验收`;
+    case "dashboard":
+      return `${summary.rectification_close_rate}% 关闭率`;
+    default:
+      return "查看";
+  }
 }
 
 function validateQuickDailyReportForm(form: QuickDailyReportForm): string {
