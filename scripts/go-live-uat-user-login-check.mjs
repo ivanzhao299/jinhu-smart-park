@@ -97,6 +97,9 @@ const keyUatUsers = [
       "ENGINEERING_INSPECTION_CREATE",
       "ENGINEERING_RECTIFICATION_VIEW",
       "ENGINEERING_RECTIFICATION_SUBMIT",
+      "ENGINEERING_ACCEPTANCE_VIEW",
+      "ENGINEERING_ACCEPTANCE_CREATE",
+      "ENGINEERING_ACCEPTANCE_SUBMIT",
       "workorder:create",
       "file:upload"
     ],
@@ -105,9 +108,10 @@ const keyUatUsers = [
       "/engineering/projects?page=1&page_size=5",
       "/engineering/daily-reports?page=1&page_size=5",
       "/engineering/inspections?page=1&page_size=5",
-      "/engineering/rectifications?page=1&page_size=5"
+      "/engineering/rectifications?page=1&page_size=5",
+      "/engineering/acceptances?page=1&page_size=5"
     ],
-    requiredPages: ["/engineering/terminal", "/engineering/projects", "/engineering/daily-reports", "/engineering/inspections"]
+    requiredPages: ["/engineering/terminal", "/engineering/projects", "/engineering/daily-reports", "/engineering/inspections", "/engineering/acceptances"]
   },
   {
     username: "zheng_ziyong",
@@ -123,6 +127,9 @@ const keyUatUsers = [
       "ENGINEERING_INSPECTION_CREATE",
       "ENGINEERING_RECTIFICATION_VIEW",
       "ENGINEERING_RECTIFICATION_SUBMIT",
+      "ENGINEERING_ACCEPTANCE_VIEW",
+      "ENGINEERING_ACCEPTANCE_CREATE",
+      "ENGINEERING_ACCEPTANCE_SUBMIT",
       "workorder:create",
       "file:upload"
     ],
@@ -131,9 +138,10 @@ const keyUatUsers = [
       "/engineering/projects?page=1&page_size=5",
       "/engineering/daily-reports?page=1&page_size=5",
       "/engineering/inspections?page=1&page_size=5",
-      "/engineering/rectifications?page=1&page_size=5"
+      "/engineering/rectifications?page=1&page_size=5",
+      "/engineering/acceptances?page=1&page_size=5"
     ],
-    requiredPages: ["/engineering/terminal", "/engineering/daily-reports", "/engineering/inspections", "/iot/devices"]
+    requiredPages: ["/engineering/terminal", "/engineering/daily-reports", "/engineering/inspections", "/engineering/acceptances", "/iot/devices"]
   },
   {
     username: "liu_hantao",

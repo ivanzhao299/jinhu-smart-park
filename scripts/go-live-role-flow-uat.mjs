@@ -169,6 +169,17 @@ async function runRoleFlow() {
         });
         await verifyIssueClosed(admin, issue.id);
         await transitionProject(admin, projectId, "START_INSPECTION", "UAT 整改关闭后回到巡检状态");
+
+        await transitionProject(admin, projectId, "START_ACCEPTANCE", "UAT 进入工程验收");
+        const acceptance = await createAcceptance(shao, projectId, li.id);
+        if (acceptance?.id) {
+          await submitAcceptance(shao, acceptance.id);
+          await reviewAcceptance(li, acceptance.id);
+          await closeAcceptance(admin, acceptance.id);
+          await verifyAcceptanceClosed(admin, acceptance.id);
+          await transitionProject(admin, projectId, "ACCEPTANCE_PASSED", "UAT 工程验收通过");
+          await verifyProjectStatus(admin, projectId, "ACCEPTED", "工程项目状态进入已验收");
+        }
       }
     }
   }
@@ -435,6 +446,78 @@ async function generateRectificationFromIssue(admin, issueId, responsibleUserId)
   return unwrapData(response);
 }
 
+async function createAcceptance(actor, projectId, responsibleUserId) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances`, {
+    method: "POST",
+    token: actor.token,
+    idempotencyKey: buildIdempotencyKey("engineering-acceptance-create"),
+    body: {
+      project_id: projectId,
+      acceptance_name: `${runId} 消防联动竣工验收`,
+      acceptance_type: "COMPLETION",
+      planned_acceptance_date: reportDate,
+      risk_level: "MEDIUM",
+      description: "验证消防联动整改后的现场状态与交付质量。",
+      acceptance_scope: "消防桥架、固定件、视频联动点位、现场标识",
+      acceptance_criteria: "整改完成、复测通过、资料齐全、具备交付条件",
+      responsible_user_id: responsibleUserId,
+      location_text: "A1 楼 1F 消防通道与视频联动区域"
+    }
+  });
+  assertSuccess("engineering_acceptance_create", response, `${actor.displayName} 创建工程验收`, {
+    actor: actor.username,
+    project_id: projectId
+  });
+  return unwrapData(response);
+}
+
+async function submitAcceptance(actor, acceptanceId) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances/${acceptanceId}/submit`, {
+    method: "POST",
+    token: actor.token,
+    idempotencyKey: buildIdempotencyKey("engineering-acceptance-submit"),
+    body: {}
+  });
+  assertSuccess("engineering_acceptance_submit", response, `${actor.displayName} 提交工程验收`, {
+    actor: actor.username,
+    acceptance_id: acceptanceId
+  });
+  return unwrapData(response);
+}
+
+async function reviewAcceptance(actor, acceptanceId) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances/${acceptanceId}/review`, {
+    method: "POST",
+    token: actor.token,
+    idempotencyKey: buildIdempotencyKey("engineering-acceptance-review"),
+    body: {
+      passed: true,
+      actual_acceptance_date: reportDate,
+      result_summary: "验收通过，可进入交付后续阶段。",
+      review_comment: `${runId} UAT 验收通过`
+    }
+  });
+  assertSuccess("engineering_acceptance_review", response, `${actor.displayName} 评审工程验收`, {
+    actor: actor.username,
+    acceptance_id: acceptanceId
+  });
+  return unwrapData(response);
+}
+
+async function closeAcceptance(actor, acceptanceId) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances/${acceptanceId}/close`, {
+    method: "POST",
+    token: actor.token,
+    idempotencyKey: buildIdempotencyKey("engineering-acceptance-close"),
+    body: {}
+  });
+  assertSuccess("engineering_acceptance_close", response, `${actor.displayName} 关闭工程验收`, {
+    actor: actor.username,
+    acceptance_id: acceptanceId
+  });
+  return unwrapData(response);
+}
+
 async function executeRectificationAction(user, rectificationId, action, body) {
   const response = await requestJson(`${apiBase}/engineering/rectifications/${rectificationId}/actions`, {
     method: "POST",
@@ -470,6 +553,45 @@ async function verifyIssueClosed(admin, issueId) {
     issue_status: issueStatus
   });
   return issue;
+}
+
+async function verifyAcceptanceClosed(admin, acceptanceId) {
+  const response = await requestJson(`${apiBase}/engineering/acceptances/${acceptanceId}`, {
+    token: admin.token
+  });
+  assertSuccess("engineering_acceptance_detail_after_close", response, "管理员回读工程验收状态", {
+    actor: admin.username,
+    acceptance_id: acceptanceId
+  });
+  if (!isSuccess(response)) return null;
+
+  const acceptance = unwrapData(response);
+  const acceptanceStatus = acceptance?.acceptanceStatus ?? acceptance?.acceptance_status ?? null;
+  assertCheck("engineering_acceptance_closed", acceptanceStatus === "CLOSED", "工程验收状态已关闭", {
+    acceptance_id: acceptanceId,
+    acceptance_status: acceptanceStatus
+  });
+  return acceptance;
+}
+
+async function verifyProjectStatus(admin, projectId, expectedStatus, summary) {
+  const response = await requestJson(`${apiBase}/engineering/projects/${projectId}`, {
+    token: admin.token
+  });
+  assertSuccess(`engineering_project_detail_${expectedStatus.toLowerCase()}`, response, "管理员回读工程项目状态", {
+    actor: admin.username,
+    project_id: projectId,
+    expected_status: expectedStatus
+  });
+  if (!isSuccess(response)) return null;
+
+  const project = unwrapData(response);
+  const projectStatus = project?.status ?? project?.project_status ?? null;
+  assertCheck(`engineering_project_status_${expectedStatus.toLowerCase()}`, projectStatus === expectedStatus, summary, {
+    project_id: projectId,
+    project_status: projectStatus
+  });
+  return project;
 }
 
 async function submitDailyReport(zheng, reportId) {
