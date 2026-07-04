@@ -133,6 +133,46 @@ async function runRoleFlow() {
     await reviewDailyReport(li, dailyReport.id);
   }
 
+  await transitionProject(admin, projectId, "START_INSPECTION", "UAT 进入工程巡检");
+
+  const inspection = await createInspection(zheng, projectId);
+  if (inspection?.id) {
+    await submitInspection(zheng, inspection.id);
+
+    const issue = await createInspectionIssue(zheng, inspection.id, projectId, shao.id);
+    if (issue?.id) {
+      await transitionProject(admin, projectId, "REQUIRE_RECTIFICATION", "UAT 巡检发现问题进入整改");
+
+      const rectification = await generateRectificationFromIssue(admin, issue.id, shao.id);
+      if (rectification?.id) {
+        await executeRectificationAction(shao, rectification.id, "START", {
+          reason: "UAT 开始整改",
+          comment: `${runId} 责任人开始现场整改`
+        });
+        await executeRectificationAction(shao, rectification.id, "SUBMIT", {
+          reason: "UAT 提交整改反馈",
+          comment: `${runId} 已完成整改并提交复查`,
+          feedback: "已加固消防支架，补充固定件并完成复测。"
+        });
+        await executeRectificationAction(chen, rectification.id, "START_RECHECK", {
+          reason: "UAT 发起复查",
+          comment: `${runId} 物业现场负责人开始复查`
+        });
+        await executeRectificationAction(chen, rectification.id, "PASS", {
+          reason: "UAT 复查通过",
+          comment: `${runId} 复查通过，允许关闭`,
+          recheck_comment: "现场复核通过，整改结果满足交付要求。"
+        });
+        await executeRectificationAction(admin, rectification.id, "CLOSE", {
+          reason: "UAT 关闭整改",
+          comment: `${runId} 管理员关闭整改任务`
+        });
+        await verifyIssueClosed(admin, issue.id);
+        await transitionProject(admin, projectId, "START_INSPECTION", "UAT 整改关闭后回到巡检状态");
+      }
+    }
+  }
+
   await verifyFinanceReads(liu);
 }
 
@@ -310,6 +350,128 @@ async function createDailyReport(zheng, projectId) {
   return unwrapData(response);
 }
 
+async function createInspection(zheng, projectId) {
+  const response = await requestJson(`${apiBase}/engineering/inspections`, {
+    method: "POST",
+    token: zheng.token,
+    idempotencyKey: buildIdempotencyKey("engineering-inspection-create"),
+    body: {
+      project_id: projectId,
+      inspection_title: `${runId} 消防联动巡检`,
+      inspection_type: "SAFETY",
+      inspection_date: reportDate,
+      inspector_user_id: zheng.id,
+      location_text: "A1 楼 1F 消防通道与视频联动点位",
+      summary: `${runId} 巡检消防支架、通道和视频联动状态`,
+      overall_result: "FOUND_ISSUE",
+      issue_count: 0,
+      critical_issue_count: 0,
+      remark: "go-live role flow uat"
+    }
+  });
+  assertSuccess("engineering_inspection_create", response, "机电工程师创建工程巡检", {
+    actor: zheng.username,
+    project_id: projectId
+  });
+  return unwrapData(response);
+}
+
+async function submitInspection(zheng, inspectionId) {
+  const response = await requestJson(`${apiBase}/engineering/inspections/${inspectionId}/submit`, {
+    method: "POST",
+    token: zheng.token,
+    idempotencyKey: buildIdempotencyKey("engineering-inspection-submit"),
+    body: {}
+  });
+  assertSuccess("engineering_inspection_submit", response, "机电工程师提交工程巡检", {
+    actor: zheng.username,
+    inspection_id: inspectionId
+  });
+  return unwrapData(response);
+}
+
+async function createInspectionIssue(zheng, inspectionId, projectId, responsibleUserId) {
+  const response = await requestJson(`${apiBase}/engineering/inspections/${inspectionId}/issues`, {
+    method: "POST",
+    token: zheng.token,
+    idempotencyKey: buildIdempotencyKey("engineering-issue-create"),
+    body: {
+      project_id: projectId,
+      issue_title: `${runId} 消防支架松动隐患`,
+      issue_type: "SAFETY",
+      severity: "HIGH",
+      description: "A1 楼 1F 局部消防支架固定不牢，需要立即加固并复测。",
+      responsible_user_id: responsibleUserId,
+      deadline: plannedEndDate,
+      source_type: "INSPECTION",
+      remark: "go-live role flow uat"
+    }
+  });
+  assertSuccess("engineering_issue_create", response, "机电工程师登记巡检问题", {
+    actor: zheng.username,
+    inspection_id: inspectionId,
+    project_id: projectId
+  });
+  return unwrapData(response);
+}
+
+async function generateRectificationFromIssue(admin, issueId, responsibleUserId) {
+  const response = await requestJson(`${apiBase}/engineering/issues/${issueId}/generate-rectification`, {
+    method: "POST",
+    token: admin.token,
+    idempotencyKey: buildIdempotencyKey("engineering-rectification-generate"),
+    body: {
+      rectification_title: `${runId} 消防支架整改任务`,
+      description: "按巡检隐患要求完成支架加固、复测和结果反馈。",
+      responsible_user_id: responsibleUserId,
+      deadline: plannedEndDate,
+      remark: "go-live role flow uat"
+    }
+  });
+  assertSuccess("engineering_rectification_generate", response, "管理员从巡检问题生成整改任务", {
+    actor: admin.username,
+    issue_id: issueId
+  });
+  return unwrapData(response);
+}
+
+async function executeRectificationAction(user, rectificationId, action, body) {
+  const response = await requestJson(`${apiBase}/engineering/rectifications/${rectificationId}/actions`, {
+    method: "POST",
+    token: user.token,
+    idempotencyKey: buildIdempotencyKey(`engineering-rectification-${action.toLowerCase()}`),
+    body: {
+      action,
+      ...body
+    }
+  });
+  assertSuccess(`engineering_rectification_${action.toLowerCase()}`, response, `${user.displayName} 执行整改动作 ${action}`, {
+    actor: user.username,
+    rectification_id: rectificationId,
+    action
+  });
+  return unwrapData(response);
+}
+
+async function verifyIssueClosed(admin, issueId) {
+  const response = await requestJson(`${apiBase}/engineering/issues/${issueId}`, {
+    token: admin.token
+  });
+  assertSuccess("engineering_issue_detail_after_close", response, "管理员回读整改问题状态", {
+    actor: admin.username,
+    issue_id: issueId
+  });
+  if (!isSuccess(response)) return null;
+
+  const issue = unwrapData(response);
+  const issueStatus = issue?.issueStatus ?? issue?.issue_status ?? null;
+  assertCheck("engineering_issue_closed", issueStatus === "CLOSED", "整改问题状态已关闭", {
+    issue_id: issueId,
+    issue_status: issueStatus
+  });
+  return issue;
+}
+
 async function submitDailyReport(zheng, reportId) {
   const response = await requestJson(`${apiBase}/engineering/daily-reports/${reportId}/submit`, {
     method: "POST",
@@ -432,6 +594,19 @@ function assertSuccess(stepId, response, summary, detail = {}) {
   });
   if (status === "FAIL") {
     fail(`${stepId} failed (${response.status}): ${summarizeBody(response.body)}`);
+  }
+}
+
+function assertCheck(stepId, passed, summary, detail = {}) {
+  const status = passed ? "PASS" : "FAIL";
+  steps.push({
+    step_id: stepId,
+    status,
+    summary,
+    detail
+  });
+  if (!passed) {
+    fail(`${stepId} failed: ${summary}`);
   }
 }
 
