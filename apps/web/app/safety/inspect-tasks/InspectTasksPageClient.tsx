@@ -327,25 +327,43 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openDetail(row: InspectTaskRow) {
-    const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
-    setViewing(response.data);
+    setViewing(row);
+    try {
+      const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
+      setViewing((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载巡检任务详情失败");
+    }
   }
 
   async function openExecute(row: InspectTaskRow) {
-    const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
-    const task = response.data;
-    setExecuting(task);
+    setExecuting(row);
     setCheckInForm({
-      qrCode: task.point?.pointCode ?? "",
-      gpsLng: task.gpsLng ?? "",
-      gpsLat: task.gpsLat ?? "",
-      photoFileIds: task.photoFileIds?.join(",") ?? ""
+      qrCode: row.point?.pointCode ?? "",
+      gpsLng: row.gpsLng ?? "",
+      gpsLat: row.gpsLat ?? "",
+      photoFileIds: row.photoFileIds?.join(",") ?? ""
     });
-    if (mode === "mine") {
-      applyTemplateItems(task.items ?? [], task.results ?? []);
-      return;
+    setTemplateItems([]);
+    setResultInputs({});
+    try {
+      const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
+      const task = response.data;
+      setExecuting((current) => (current?.id === row.id ? task : current));
+      setCheckInForm({
+        qrCode: task.point?.pointCode ?? "",
+        gpsLng: task.gpsLng ?? "",
+        gpsLat: task.gpsLat ?? "",
+        photoFileIds: task.photoFileIds?.join(",") ?? ""
+      });
+      if (mode === "mine") {
+        applyTemplateItems(task.items ?? [], task.results ?? []);
+        return;
+      }
+      await loadTemplateItems(task.templateId, task.results ?? []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载巡检执行详情失败");
     }
-    await loadTemplateItems(task.templateId, task.results ?? []);
   }
 
   async function loadTemplateItems(templateId: string, existingResults: InspectTaskResultRow[]) {

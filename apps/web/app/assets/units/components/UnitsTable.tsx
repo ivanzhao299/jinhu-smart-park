@@ -39,7 +39,7 @@ export function UnitsTable({
 
   return (
     <Card className="ds-table-card table-scroll">
-      <DataTable className="units-fit-table">
+      <DataTable className="units-fit-table allow-horizontal-table">
         <thead>
           <tr>
             <th className="units-col-info">房源信息</th>
@@ -48,7 +48,7 @@ export function UnitsTable({
             <th className="units-col-area">面积</th>
             <th className="units-col-status">状态</th>
             <th className="units-col-lease">租赁信息</th>
-            <th className="units-col-actions">操作</th>
+            <th className="units-col-actions" style={{ width: "480px", minWidth: "480px", maxWidth: "480px" }}>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -85,7 +85,7 @@ export function UnitsTable({
                   <span className="ds-cell-meta">{row.availableDate ? `可租 ${row.availableDate}` : `更新 ${formatDateTime(row.updateTime)}`}</span>
                 </div>
               </td>
-              <td className="units-col-actions">
+              <td className="units-col-actions" style={{ width: "480px", minWidth: "480px", maxWidth: "480px" }}>
                 <DataTableActions className="data-table-actions">
                   <button aria-label="查看详情" className="ds-row-action ds-row-action-view" title="查看详情" type="button" onClick={() => onView(row)}>
                     <Eye size={20} />

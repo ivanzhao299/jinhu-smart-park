@@ -9,7 +9,7 @@ export default function AuditPage() {
       <header className="header">
         <div className="header-title">
           <strong>审计日志</strong>
-          <span>查询操作审计与登录日志，默认按当前 tenant_id / park_id 隔离</span>
+          <span>查询操作审计与登录日志，默认限定在当前登录租户和园区范围内</span>
         </div>
       </header>
       <Card >

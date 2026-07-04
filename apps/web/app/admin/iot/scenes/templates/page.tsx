@@ -203,7 +203,7 @@ export default function IotSceneTemplatesPage() {
             <h2 className="panel-title">模板列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>模板编码</th>
@@ -228,14 +228,15 @@ export default function IotSceneTemplatesPage() {
                   <td>{formatDateTime(row.updateTime)}</td>
                   <td>
                     <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.IOT_SCENE_TEMPLATE_MANAGE} type="button" disabled={row.isSystem} onClick={() => openEdit(row)}>
+                      {!row.isSystem ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.IOT_SCENE_TEMPLATE_MANAGE} type="button" onClick={() => openEdit(row)}>
                         <Edit3 size={16} />
                         编辑
-                      </PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.IOT_SCENE_TEMPLATE_MANAGE} type="button" disabled={row.isSystem} onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                      </PermissionButton> : null}
+                      {!row.isSystem ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.IOT_SCENE_TEMPLATE_MANAGE} type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
                         <Trash2 size={16} />
                         删除
-                      </PermissionButton>
+                      </PermissionButton> : null}
+                      {row.isSystem ? <span className="muted-text">系统预置</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>

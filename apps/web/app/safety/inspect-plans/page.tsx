@@ -339,7 +339,7 @@ export default function SafetyInspectPlansPage() {
         </Card>
 
         <Card className="table-scroll">
-          <DataTable>
+          <DataTable className="safety-inspect-plans-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>计划编码</th>

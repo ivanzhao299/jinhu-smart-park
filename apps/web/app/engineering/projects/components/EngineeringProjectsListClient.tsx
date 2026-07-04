@@ -16,6 +16,7 @@ import { engineeringProjectsApi } from "../../../../lib/engineering-projects-api
 import { ENGINEERING_PROJECT_PERMISSIONS, hasEngineeringProjectPermission } from "../../../../lib/engineering-projects-permissions";
 import type { EngineeringProject, EngineeringProjectLevel, EngineeringProjectPage, EngineeringProjectQuery, EngineeringProjectStatus, EngineeringProjectType, EngineeringRiskLevel } from "../../../../lib/engineering-projects-types";
 import { ForbiddenEngineeringProject, LevelPill, MessageLine, ProjectStatusPill, ProjectTypePill, RiskPill, formatDate, formatMoney, formatPercent } from "./EngineeringProjectShared";
+import { displayUserName, emptyEngineeringProjectReferences, loadEngineeringProjectReferences, type EngineeringProjectReferenceData } from "./EngineeringProjectReferenceData";
 import styles from "../engineering-projects.module.css";
 
 interface FilterState {
@@ -52,8 +53,13 @@ export function EngineeringProjectsListClient() {
   const [pageData, setPageData] = useState<EngineeringProjectPage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
   const summaryCards = useMemo(() => {
     const activeCount = pageData.items.filter((item) => ["EXECUTING", "INSPECTING", "RECTIFYING", "ACCEPTING"].includes(item.status)).length;
     const approvalCount = pageData.items.filter((item) => item.status === "SUBMITTED").length;
@@ -85,6 +91,12 @@ export function EngineeringProjectsListClient() {
     void load(1);
   }, [canView, load]);
 
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
+
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await load(1);
@@ -113,7 +125,7 @@ export function EngineeringProjectsListClient() {
       <header className="header">
         <div className="header-title">
           <strong>工程项目</strong>
-          <span>工程立项、计划、施工、巡检、整改、验收的项目主数据入口</span>
+          <span>工程项目主档、状态推进和后续业务入口</span>
         </div>
         {canCreate ? (
           <Link className="primary-button" href="/engineering/projects/new">
@@ -140,8 +152,13 @@ export function EngineeringProjectsListClient() {
           <SelectFilter label="项目状态" value={filters.status} options={engineeringProjectStatusOptions} onChange={(value) => setFilter("status", value as EngineeringProjectStatus | "")} />
           <SelectFilter label="项目级别" value={filters.projectLevel} options={engineeringProjectLevelOptions} onChange={(value) => setFilter("projectLevel", value as EngineeringProjectLevel | "")} />
           <SelectFilter label="风险等级" value={filters.riskLevel} options={engineeringRiskLevelOptions} onChange={(value) => setFilter("riskLevel", value as EngineeringRiskLevel | "")} />
-          <TextFilter label="园区 ID" value={filters.parkId} placeholder="默认当前园区" onChange={(value) => setFilter("parkId", value)} />
-          <TextFilter label="项目负责人 ID" value={filters.projectManagerId} onChange={(value) => setFilter("projectManagerId", value)} />
+          <TextFilter label="园区范围" value={filters.parkId} placeholder="留空默认当前园区" onChange={(value) => setFilter("parkId", value)} />
+          <SelectReferenceFilter
+            label="项目负责人"
+            value={filters.projectManagerId}
+            options={references.users.map((item) => ({ value: item.id, label: displayUserName(item) }))}
+            onChange={(value) => setFilter("projectManagerId", value)}
+          />
           <TextFilter label="计划开始自" value={filters.plannedStartFrom} type="date" onChange={(value) => setFilter("plannedStartFrom", value)} />
           <TextFilter label="计划开始至" value={filters.plannedStartTo} type="date" onChange={(value) => setFilter("plannedStartTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -152,7 +169,7 @@ export function EngineeringProjectsListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>项目编号</th>
@@ -178,7 +195,7 @@ export function EngineeringProjectsListClient() {
                 <td><ProjectStatusPill status={row.status} /></td>
                 <td><LevelPill level={row.projectLevel} /></td>
                 <td><RiskPill risk={row.riskLevel} /></td>
-                <td>{row.projectManagerId ?? "-"}</td>
+                <td>{row.projectManagerId ? (userLabelMap.get(row.projectManagerId) ?? row.projectManagerId) : "-"}</td>
                 <td>{formatDate(row.plannedStartDate)}</td>
                 <td>{formatDate(row.plannedEndDate)}</td>
                 <td>{formatPercent(row.progressPercent)}</td>
@@ -273,6 +290,32 @@ function SelectFilter<T extends string>({
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

@@ -74,7 +74,9 @@ export default function TenantsPage() {
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<TenantRow | null>(null);
   const [settings, setSettings] = useState<TenantLoginSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   async function load(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -139,8 +141,18 @@ export default function TenantsPage() {
 
   async function openLoginSettings(row: TenantRow) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const response = await apiRequest<TenantLoginSettings>(`/tenants/${row.id}/login-settings`, { token });
-    setSettings(response.data);
+    setSettingsTarget(row);
+    setSettingsLoading(true);
+    setSettings(null);
+    setMessage("");
+    try {
+      const response = await apiRequest<TenantLoginSettings>(`/tenants/${row.id}/login-settings`, { token });
+      setSettings(response.data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载登录配置失败");
+    } finally {
+      setSettingsLoading(false);
+    }
   }
 
   async function saveLoginSettings(event: FormEvent<HTMLFormElement>) {
@@ -164,7 +176,14 @@ export default function TenantsPage() {
       }
     });
     setSettings(response.data);
+    setSettingsTarget(response.data.tenant);
     await load(tenants.page);
+  }
+
+  function closeSettings() {
+    setSettingsTarget(null);
+    setSettings(null);
+    setSettingsLoading(false);
   }
 
   useEffect(() => {
@@ -288,71 +307,77 @@ export default function TenantsPage() {
           </DrawerForm>
         </Drawer>
       ) : null}
-      {settings ? (
-        <Drawer size="lg" onClose={() => setSettings(null)}>
+      {settingsTarget ? (
+        <Drawer size="lg" onClose={closeSettings}>
           <DrawerHeader
             eyebrow="系统管理"
             title="登录与授权配置"
-            description="维护租户默认园区、状态、套餐有效期与启用模块。"
-            onClose={() => setSettings(null)}
+            description={settingsLoading && !settings ? `正在读取 ${settingsTarget.tenantName} 的登录与授权配置…` : "维护租户默认园区、状态、套餐有效期与启用模块。"}
+            onClose={closeSettings}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm onSubmit={(event) => void saveLoginSettings(event).catch((error: Error) => setMessage(error.message))}>
-            <DrawerFormGrid>
-              <div className="field">
-                <label>租户</label>
-                <input value={`${settings.tenant.tenantName} / ${settings.tenant.tenantId}`} readOnly />
-              </div>
-              <div className="field">
-                <label>默认园区</label>
-                <select name="defaultParkId" defaultValue={settings.tenant.defaultParkId ?? settings.parks[0]?.parkId ?? ""} required>
-                  {settings.parks.map((park) => (
-                    <option key={park.parkId} value={park.parkId}>{park.parkName} / {park.parkId}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>状态</label>
-                <select name="status" defaultValue={settings.tenant.statusName}>
-                  <option value="enabled">启用</option>
-                  <option value="disabled">停用</option>
-                  <option value="expired">过期</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>套餐</label>
-                <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
-                  <option value="">未绑定套餐</option>
-                  {plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label>租户有效期</label>
-                <input name="expireTime" type="date" defaultValue={settings.tenant.expireTime ? toDateInput(settings.tenant.expireTime) : ""} />
-              </div>
-              <div className="field">
-                <label>到期提示</label>
-                <input value={settings.tenant.expireWarning ?? "当前无到期风险"} readOnly />
-              </div>
-            </DrawerFormGrid>
-            <DrawerFormGrid single>
-              <div className="field">
-                <label>启用模块</label>
-                <div className="checkbox-list">
-                  {modules.items.map((item) => (
-                    <label key={item.id} className="checkbox-row">
-                      <input name={`module.${item.moduleCode}`} type="checkbox" defaultChecked={settings.enabledModuleCodes.includes(item.moduleCode)} />
-                      <span>{item.moduleName} / {item.moduleCode}</span>
-                    </label>
-                  ))}
+          {settings ? (
+            <DrawerForm onSubmit={(event) => void saveLoginSettings(event).catch((error: Error) => setMessage(error.message))}>
+              <DrawerFormGrid>
+                <div className="field">
+                  <label>租户</label>
+                  <input value={`${settings.tenant.tenantName} / ${settings.tenant.tenantId}`} readOnly />
                 </div>
-              </div>
-            </DrawerFormGrid>
-            <DrawerFooter>
-              <button className="secondary-button" type="button" onClick={() => setSettings(null)}>取消</button>
-              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存配置</button>
-            </DrawerFooter>
-          </DrawerForm>
+                <div className="field">
+                  <label>默认园区</label>
+                  <select name="defaultParkId" defaultValue={settings.tenant.defaultParkId ?? settings.parks[0]?.parkId ?? ""} required>
+                    {settings.parks.map((park) => (
+                      <option key={park.parkId} value={park.parkId}>{park.parkName} / {park.parkId}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>状态</label>
+                  <select name="status" defaultValue={settings.tenant.statusName}>
+                    <option value="enabled">启用</option>
+                    <option value="disabled">停用</option>
+                    <option value="expired">过期</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>套餐</label>
+                  <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
+                    <option value="">未绑定套餐</option>
+                    {plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>租户有效期</label>
+                  <input name="expireTime" type="date" defaultValue={settings.tenant.expireTime ? toDateInput(settings.tenant.expireTime) : ""} />
+                </div>
+                <div className="field">
+                  <label>到期提示</label>
+                  <input value={settings.tenant.expireWarning ?? "当前无到期风险"} readOnly />
+                </div>
+              </DrawerFormGrid>
+              <DrawerFormGrid single>
+                <div className="field">
+                  <label>启用模块</label>
+                  <div className="checkbox-list">
+                    {modules.items.map((item) => (
+                      <label key={item.id} className="checkbox-row">
+                        <input name={`module.${item.moduleCode}`} type="checkbox" defaultChecked={settings.enabledModuleCodes.includes(item.moduleCode)} />
+                        <span>{item.moduleName} / {item.moduleCode}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </DrawerFormGrid>
+              <DrawerFooter>
+                <button className="secondary-button" type="button" onClick={closeSettings}>取消</button>
+                <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存配置</button>
+              </DrawerFooter>
+            </DrawerForm>
+          ) : (
+            <section className="empty-state">
+              {settingsLoading ? "正在同步租户配置…" : "当前未读取到登录配置，请稍后重试。"}
+            </section>
+          )}
         </Drawer>
       ) : null}
       {message ? <p className="status-pill">{message}</p> : null}

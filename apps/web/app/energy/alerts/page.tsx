@@ -31,6 +31,12 @@ interface DictTypeRow { id: string; dictCode: string }
 interface DictItemRow { id: string; itemLabel: string; itemValue: string; status: string; tagType?: string | null }
 type DictMap = Record<string, DictItemRow[]>;
 
+interface MeterRow {
+  id: string;
+  meterCode: string;
+  meterName: string;
+}
+
 interface EnergyAlertRow {
   id: string;
   meterId: string;
@@ -69,6 +75,7 @@ export default function EnergyAlertsPage() {
   const [pageData, setPageData] = useState<PaginatedResult<EnergyAlertRow>>(emptyPage);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [meters, setMeters] = useState<MeterRow[]>([]);
   const [actionState, setActionState] = useState<ActionState | null>(null);
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
@@ -99,7 +106,13 @@ export default function EnergyAlertsPage() {
     setDicts(Object.fromEntries(entries));
   }, []);
 
+  const loadMeters = useCallback(async () => {
+    const response = await apiRequest<PaginatedResult<MeterRow>>("/energy/meters?page=1&page_size=200&sort=meterCode", { token: getAccessToken() });
+    setMeters(response.data.items);
+  }, []);
+
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
+  useEffect(() => { void loadMeters().catch((error: Error) => setMessage(error.message)); }, [loadMeters]);
   useEffect(() => { void load().catch((error: Error) => setMessage(error.message)); }, [load]);
 
   async function submitAction(event: FormEvent<HTMLFormElement>) {
@@ -128,7 +141,7 @@ export default function EnergyAlertsPage() {
 
         <FilterPanel>
           <Field label="关键词"><input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="编号 / 标题" /></Field>
-          <Field label="表计 ID"><input value={filters.meterId} onChange={(event) => setFilters((current) => ({ ...current, meterId: event.target.value }))} /></Field>
+          <ReferenceSelectField label="关联表计" value={filters.meterId} allLabel="全部表计" items={meters.map((item) => ({ id: item.id, label: formatMeterLabel(item) }))} onChange={(value) => setFilters((current) => ({ ...current, meterId: value }))} />
           <SelectField label="告警类型" value={filters.alertType} items={dicts.energy_alert_type ?? []} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, alertType: value }))} />
           <SelectField label="告警级别" value={filters.alertLevel} items={dicts.energy_alert_level ?? []} allLabel="全部级别" onChange={(value) => setFilters((current) => ({ ...current, alertLevel: value }))} />
           <SelectField label="处理状态" value={filters.processStatus} items={dicts.energy_alert_process_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, processStatus: value }))} />
@@ -138,7 +151,7 @@ export default function EnergyAlertsPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="告警列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>告警编号</th><th>标题</th><th>类型</th><th>级别</th><th>状态</th><th>触发时间</th><th>处理时间</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
@@ -152,9 +165,10 @@ export default function EnergyAlertsPage() {
                   <td>{formatDateTime(row.resolvedAt ?? row.acknowledgedAt)}</td>
                   <td>
                     <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" disabled={row.processStatus !== "PENDING"} onClick={() => setActionState({ row, action: "acknowledge", reason: "" })}><CheckCircle2 size={16} />确认</PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" disabled={!["PENDING", "ACKNOWLEDGED"].includes(row.processStatus)} onClick={() => setActionState({ row, action: "resolve", reason: "" })}><ShieldCheck size={16} />处理</PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" disabled={row.processStatus === "CLOSED"} onClick={() => setActionState({ row, action: "close", reason: "" })}><XCircle size={16} />关闭</PermissionButton>
+                      {canAcknowledgeAlert(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" onClick={() => setActionState({ row, action: "acknowledge", reason: "" })}><CheckCircle2 size={16} />确认</PermissionButton> : null}
+                      {canResolveAlert(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" onClick={() => setActionState({ row, action: "resolve", reason: "" })}><ShieldCheck size={16} />处理</PermissionButton> : null}
+                      {canCloseAlert(row) ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_ALERT_PROCESS} type="button" onClick={() => setActionState({ row, action: "close", reason: "" })}><XCircle size={16} />关闭</PermissionButton> : null}
+                      {!hasAlertActions(row) ? <span className="muted-text">已闭环</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>
@@ -193,12 +207,37 @@ function actionLabel(action: ActionState["action"], done: boolean) {
   return map[action];
 }
 
+function canAcknowledgeAlert(row: EnergyAlertRow) {
+  return row.processStatus === "PENDING";
+}
+
+function canResolveAlert(row: EnergyAlertRow) {
+  return ["PENDING", "ACKNOWLEDGED"].includes(row.processStatus);
+}
+
+function canCloseAlert(row: EnergyAlertRow) {
+  return row.processStatus !== "CLOSED";
+}
+
+function hasAlertActions(row: EnergyAlertRow) {
+  return canAcknowledgeAlert(row) || canResolveAlert(row) || canCloseAlert(row);
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>;
 }
 
 function SelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: DictItemRow[]; allLabel: string; onChange: (value: string) => void }) {
   return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
+}
+
+function ReferenceSelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: Array<{ id: string; label: string }>; allLabel: string; onChange: (value: string) => void }) {
+  return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Field>;
+}
+
+function formatMeterLabel(item?: MeterRow | null) {
+  if (!item) return "-";
+  return `${item.meterCode} ${item.meterName}`.trim();
 }
 
 function formatDateTime(value?: string | null) {

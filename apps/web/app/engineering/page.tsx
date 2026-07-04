@@ -1,5 +1,5 @@
 import { Card } from "@jinhu/ui";
-import { ArrowRight, BarChart3, Building2, ClipboardCheck, FileCheck2, HardHat, ListChecks, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BarChart3, Building2, ClipboardCheck, FileCheck2, HardHat, ListChecks, ShieldCheck, Smartphone, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -22,23 +22,28 @@ type ModuleEntry = {
 
 const quickActions: WorkbenchAction[] = [
   {
-    title: "新建立项",
-    detail: "先创建真实工程项目，把负责人、预算和工期立住。",
+    title: "手机终端",
+    detail: "现场作业入口。",
+    href: "/engineering/terminal"
+  },
+  {
+    title: "新建项目",
+    detail: "登记项目主档。",
     href: "/engineering/projects/new"
   },
   {
     title: "拆解计划",
-    detail: "为项目补阶段计划、周计划和关键节点。",
+    detail: "排阶段与节点。",
     href: "/engineering/plans"
   },
   {
-    title: "录施工日报",
-    detail: "把当天施工内容、人材机和进度及时沉淀下来。",
+    title: "记录日报",
+    detail: "记录当天施工。",
     href: "/engineering/daily-reports"
   },
   {
-    title: "看工程态势",
-    detail: "集中查看项目推进、整改压力和验收节奏。",
+    title: "查看看板",
+    detail: "看推进与风险。",
     href: "/engineering/dashboard"
   }
 ];
@@ -46,59 +51,67 @@ const quickActions: WorkbenchAction[] = [
 const moduleEntries: ModuleEntry[] = [
   {
     name: "工程项目",
-    description: "管理立项、负责人、预算、工期和项目状态，是工程交付的总台账。",
-    primaryUse: "先把项目建起来",
-    status: "已接入",
+    description: "项目主档、负责人、预算、工期。",
+    primaryUse: "立项入口",
+    status: "可用",
     href: "/engineering/projects",
     icon: Building2
   },
   {
     name: "工程计划",
-    description: "把项目拆成阶段计划、周计划和里程碑，形成执行基线。",
-    primaryUse: "项目批准后立刻拆计划",
-    status: "已接入",
+    description: "阶段计划、周计划、关键节点。",
+    primaryUse: "计划排程",
+    status: "可用",
     href: "/engineering/plans",
     icon: ListChecks
   },
   {
     name: "施工日报",
-    description: "沉淀每天的施工内容、投入资源、问题和次日安排。",
-    primaryUse: "现场每天要留痕",
-    status: "已接入",
+    description: "施工内容、资源投入、当日问题。",
+    primaryUse: "现场记录",
+    status: "可用",
     href: "/engineering/daily-reports",
     icon: HardHat
   },
   {
     name: "现场巡检",
-    description: "围绕质量、安全、进度和隐患做现场检查，问题可直接进入整改。",
-    primaryUse: "工程部与监理常用",
-    status: "已接入",
+    description: "质量、安全、进度、隐患检查。",
+    primaryUse: "巡检发现",
+    status: "可用",
     href: "/engineering/inspections",
     icon: ClipboardCheck
   },
   {
     name: "整改任务",
-    description: "跟踪整改责任人、期限、复查结果和闭环状态。",
-    primaryUse: "发现问题后立即转入",
-    status: "已接入",
+    description: "责任人、期限、复查、闭环跟踪。",
+    primaryUse: "问题闭环",
+    status: "可用",
     href: "/engineering/rectifications",
     icon: ShieldCheck
   },
   {
     name: "工程验收",
-    description: "承接阶段验收、专项验收和竣工验收，形成交付结论。",
-    primaryUse: "整改收口后进入验收",
-    status: "已接入",
+    description: "阶段验收、专项验收、竣工验收。",
+    primaryUse: "验收收口",
+    status: "可用",
     href: "/engineering/acceptances",
     icon: FileCheck2
   },
   {
     name: "工程看板",
-    description: "汇总项目推进、整改压力、日报活跃度和验收节奏。",
-    primaryUse: "管理层与项目经理总览",
-    status: "已接入",
+    description: "推进、整改、日报、验收总览。",
+    primaryUse: "管理总览",
+    status: "可用",
     href: "/engineering/dashboard",
     icon: BarChart3
+  },
+  {
+    name: "移动作业终端",
+    description: "手机端办理日报、巡检、整改和验收。",
+    primaryUse: "现场作业",
+    status: "可用",
+    href: "/engineering/terminal",
+    icon: Smartphone
   }
 ];
 
@@ -110,22 +123,22 @@ export default function EngineeringRuntimePage() {
           <div className={styles.heroCopy}>
             <span className={styles.eyebrow}>
               <Sparkles size={14} />
-              工程管理
+              工程总入口
             </span>
             <h1>工程交付工作台</h1>
-            <p className={styles.heroLead}>这里只做一件事：把工程项目从立项推进到计划、日报、巡检、整改和验收，直接落成一条能跑真实业务的工作链。</p>
+            <p className={styles.heroLead}>面向项目经理、工程部和现场团队的统一入口。</p>
           </div>
           <div className={styles.heroActions}>
-            <Link className="primary-button" href="/engineering/projects/new">新建工程项目</Link>
+            <Link className="primary-button" href="/engineering/terminal">手机作业终端</Link>
+            <Link className="secondary-button" href="/engineering/projects/new">新建工程项目</Link>
             <Link className="secondary-button" href="/engineering/projects">项目列表</Link>
             <Link className="secondary-button" href="/engineering/dashboard">工程看板</Link>
           </div>
         </div>
 
         <div className={styles.heroMeta}>
-          <span className={styles.metaChip}>项目 → 计划 → 日报 → 巡检 → 整改 → 验收 已接通</span>
-          <span className={styles.metaChip}>当前重点：先跑进真实工程数据</span>
-          <span className={styles.metaChip}>系统自动生成业务编号，主数据只选不手填 ID</span>
+          <span className={styles.metaChip}>项目 / 计划 / 日报 / 巡检 / 整改 / 验收</span>
+          <span className={styles.metaChip}>编号自动生成，主数据优先选择</span>
         </div>
       </Card>
 
@@ -133,7 +146,7 @@ export default function EngineeringRuntimePage() {
         <div className={styles.sectionHeader}>
           <div>
             <h2>今天先做什么</h2>
-            <p>按工程团队的真实动作组织入口，不用记 Runtime 编号，不用看说明书。</p>
+            <p>按当前工作直接进入。</p>
           </div>
         </div>
         <div className={styles.quickGrid}>
@@ -149,8 +162,8 @@ export default function EngineeringRuntimePage() {
       <Card className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2>业务入口</h2>
-            <p>每个页面都直接对应工程团队的一个工位：建项目、拆计划、记过程、查问题、做验收。</p>
+            <h2>模块入口</h2>
+            <p>分模块办理，同一条工程链路贯通。</p>
           </div>
         </div>
         <div className={styles.moduleGrid}>

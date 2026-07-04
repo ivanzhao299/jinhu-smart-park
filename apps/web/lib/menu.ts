@@ -109,6 +109,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/bim/overview",
   "/ai/assistant",
   "/engineering",
+  "/engineering/terminal",
   "/engineering/dashboard",
   "/engineering/projects",
   "/engineering/plans",
@@ -295,6 +296,7 @@ export const dashboardMenus: MenuNode[] = [
     module: "engineering",
     children: [
       { label: "工程运行时", href: "/engineering", permission: "ENGINEERING_DASHBOARD_VIEW", module: "engineering" },
+      { label: "工程移动终端", href: "/engineering/terminal", permission: "ENGINEERING_DASHBOARD_VIEW", module: "engineering" },
       { label: "工程看板", href: "/engineering/dashboard", permission: "ENGINEERING_DASHBOARD_VIEW", module: "engineering" },
       { label: "工程项目", href: "/engineering/projects", permission: "ENGINEERING_PROJECT_VIEW", module: "engineering" },
       { label: "工程计划", href: "/engineering/plans", permission: "ENGINEERING_PLAN_VIEW", module: "engineering" },

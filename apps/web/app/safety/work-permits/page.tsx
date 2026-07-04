@@ -624,7 +624,7 @@ export default function SafetyWorkPermitsPage() {
             <h2 className="panel-title">许可列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="safety-work-permits-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>许可编号</th>
@@ -1039,7 +1039,7 @@ function PermitChecks({
     return <p className="muted-text">暂无过程巡查记录</p>;
   }
   return (
-    <DataTable>
+    <DataTable className="safety-work-permit-checks-table allow-horizontal-table">
       <thead>
         <tr>
           <th>类型</th>

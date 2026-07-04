@@ -29,6 +29,15 @@ import {
   formatDate,
   formatDateTime
 } from "./EngineeringDailyReportShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatPlanLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 interface FilterState {
@@ -69,10 +78,27 @@ export function EngineeringDailyReportsListClient() {
   const [pageData, setPageData] = useState<EngineeringDailyReportPage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [reviewReport, setReviewReport] = useState<EngineeringDailyReport | null>(null);
   const [operationSaving, setOperationSaving] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const projectLabelMap = useMemo(
+    () => new Map(references.projects.map((item) => [item.id, formatProjectLabel(item)])),
+    [references.projects]
+  );
+  const planLabelMap = useMemo(
+    () => new Map(references.plans.map((item) => [item.id, formatPlanLabel(item)])),
+    [references.plans]
+  );
+  const orgLabelMap = useMemo(
+    () => new Map(references.orgs.map((item) => [item.id, formatOrgLabel(item)])),
+    [references.orgs]
+  );
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
   const summaryCards = useMemo(() => {
     const editableCount = pageData.items.filter((item) => item.reportStatus === "DRAFT" || item.reportStatus === "REJECTED").length;
     const submittedCount = pageData.items.filter((item) => item.reportStatus === "SUBMITTED").length;
@@ -103,6 +129,12 @@ export function EngineeringDailyReportsListClient() {
     if (!canView) return;
     void load(1);
   }, [canView, load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,7 +194,7 @@ export function EngineeringDailyReportsListClient() {
       <header className="header">
         <div className="header-title">
           <strong>施工日报</strong>
-          <span>记录每日施工内容、人员、机械、材料、质量安全和问题闭环资料</span>
+          <span>施工过程、投入资源和现场问题的每日留痕</span>
         </div>
         {canCreate ? (
           <Link className="primary-button" href={filters.projectId ? `/engineering/daily-reports/new?projectId=${filters.projectId}` : "/engineering/daily-reports/new"}>
@@ -185,12 +217,19 @@ export function EngineeringDailyReportsListClient() {
       <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 内容 / 问题" onChange={(value) => setFilter("keyword", value)} />
-          <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
-          <TextFilter label="计划 ID" value={filters.planId} onChange={(value) => setFilter("planId", value)} />
+          <SelectReferenceFilter label="所属项目" value={filters.projectId} options={references.projects.map((item) => ({ value: item.id, label: formatProjectLabel(item) }))} onChange={(value) => setFilter("projectId", value)} />
+          <SelectReferenceFilter
+            label="关联计划"
+            value={filters.planId}
+            options={references.plans
+              .filter((item) => !filters.projectId || item.projectId === filters.projectId)
+              .map((item) => ({ value: item.id, label: formatPlanLabel(item) }))}
+            onChange={(value) => setFilter("planId", value)}
+          />
           <SelectFilter label="日报状态" value={filters.reportStatus} options={engineeringDailyReportStatusOptions} onChange={(value) => setFilter("reportStatus", value as EngineeringDailyReportStatus | "")} />
           <SelectFilter label="天气" value={filters.weather} options={engineeringWeatherTypeOptions} onChange={(value) => setFilter("weather", value as EngineeringWeatherType | "")} />
-          <TextFilter label="施工单位 ID" value={filters.contractorOrgId} onChange={(value) => setFilter("contractorOrgId", value)} />
-          <TextFilter label="监理单位 ID" value={filters.supervisorOrgId} onChange={(value) => setFilter("supervisorOrgId", value)} />
+          <SelectReferenceFilter label="施工单位" value={filters.contractorOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("contractorOrgId", value)} />
+          <SelectReferenceFilter label="监理单位" value={filters.supervisorOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("supervisorOrgId", value)} />
           <TextFilter label="日报日期自" value={filters.reportDateFrom} type="date" onChange={(value) => setFilter("reportDateFrom", value)} />
           <TextFilter label="日报日期至" value={filters.reportDateTo} type="date" onChange={(value) => setFilter("reportDateTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -201,13 +240,13 @@ export function EngineeringDailyReportsListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>日报编号</th>
               <th>日报日期</th>
-              <th>项目 ID</th>
-              <th>计划 ID</th>
+              <th>所属项目</th>
+              <th>关联计划</th>
               <th>状态</th>
               <th>天气</th>
               <th>人员</th>
@@ -223,15 +262,15 @@ export function EngineeringDailyReportsListClient() {
               <tr key={row.id}>
                 <td><strong>{row.reportCode}</strong></td>
                 <td>{formatDate(row.reportDate)}</td>
-                <td>{row.projectId}</td>
-                <td>{row.planId ?? "-"}</td>
+                <td>{projectLabelMap.get(row.projectId) ?? row.projectId}</td>
+                <td>{row.planId ? (planLabelMap.get(row.planId) ?? row.planId) : "-"}</td>
                 <td><DailyReportStatusPill status={row.reportStatus} /></td>
                 <td><WeatherPill weather={row.weather} /></td>
                 <td>{row.workerCount} 工人 / {row.managerCount} 管理</td>
                 <td><DailyReportProgressBar value={row.progressPercent} /></td>
-                <td>{row.contractorOrgId ?? "-"}</td>
-                <td>{row.supervisorOrgId ?? "-"}</td>
-                <td>{row.submittedBy ?? "-"}<br /><small>{formatDateTime(row.submittedAt)}</small></td>
+                <td>{row.contractorOrgId ? (orgLabelMap.get(row.contractorOrgId) ?? row.contractorOrgId) : "-"}</td>
+                <td>{row.supervisorOrgId ? (orgLabelMap.get(row.supervisorOrgId) ?? row.supervisorOrgId) : "-"}</td>
+                <td>{row.submittedBy ? (userLabelMap.get(row.submittedBy) ?? row.submittedBy) : "-"}<br /><small>{formatDateTime(row.submittedAt)}</small></td>
                 <td>
                   <DataTableActions>
                     <Link aria-label="查看" href={`/engineering/daily-reports/${row.id}`}><Eye size={16} /></Link>
@@ -322,6 +361,32 @@ function SelectFilter<T extends string>({
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

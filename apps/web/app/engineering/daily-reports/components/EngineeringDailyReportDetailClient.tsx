@@ -13,7 +13,9 @@ import { ENGINEERING_DAILY_REPORT_PERMISSIONS, hasEngineeringDailyReportPermissi
 import type { EngineeringDailyReport, ReviewEngineeringDailyReportInput } from "../../../../lib/engineering-daily-reports-types";
 import { isDailyReportEditable, isDailyReportReviewable, isDailyReportSubmittable } from "../../../../lib/engineering-daily-reports-utils";
 import {
+  displayUserName,
   emptyEngineeringProjectReferences,
+  formatPlanLabel,
   formatOrgLabel,
   formatProjectLabel,
   loadEngineeringProjectReferences,
@@ -185,15 +187,15 @@ export function EngineeringDailyReportDetailClient() {
             </div>
             <div className={styles.detailGrid}>
               <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : report.projectId} />
-              <DetailItem label="关联计划" value={report.planId ?? "-"} />
+              <DetailItem label="关联计划" value={report.planId ? formatPlanLabel(references.plans.find((item) => item.id === report.planId) ?? null) : "-"} />
               <DetailItem label="天气 / 温度" value={`${engineeringWeatherTypeLabels[report.weather]} / ${report.temperature ?? "-"}`} />
               <DetailItem label="人员" value={`${report.workerCount} 工人 / ${report.managerCount} 管理`} />
               <DetailItem label="进度" value={<DailyReportProgressBar value={report.progressPercent} />} />
               <DetailItem label="施工单位" value={contractorLabel !== "-" ? contractorLabel : report.contractorOrgId ?? "-"} />
               <DetailItem label="监理单位" value={supervisorLabel !== "-" ? supervisorLabel : report.supervisorOrgId ?? "-"} />
-              <DetailItem label="提交人" value={report.submittedBy ?? "-"} />
+              <DetailItem label="提交人" value={report.submittedBy ? displayUserName(references.users.find((item) => item.id === report.submittedBy) ?? null) : "-"} />
               <DetailItem label="提交时间" value={formatDateTime(report.submittedAt)} />
-              <DetailItem label="审核人" value={report.reviewedBy ?? "-"} />
+              <DetailItem label="审核人" value={report.reviewedBy ? displayUserName(references.users.find((item) => item.id === report.reviewedBy) ?? null) : "-"} />
               <DetailItem label="审核时间" value={formatDateTime(report.reviewedAt)} />
               <DetailItem label="审核意见" value={report.reviewComment ?? "-"} />
             </div>

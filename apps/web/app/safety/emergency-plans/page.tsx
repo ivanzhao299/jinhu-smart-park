@@ -267,7 +267,7 @@ export default function SafetyEmergencyPlansPage() {
             <h2 className="panel-title">预案列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="safety-emergency-plans-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>预案编码</th>

@@ -58,6 +58,7 @@ export default function CodeRulesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formState, setFormState] = useState<FormState>(emptyForm);
   const [previewResult, setPreviewResult] = useState("");
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   async function load(page = 1) {
     const token = getToken();
@@ -173,7 +174,7 @@ export default function CodeRulesPage() {
             <tbody>{data.items.map((item) => <tr key={item.id}><td>{item.ruleCode}</td><td>{item.entityType ?? item.targetEntity}</td><td>{item.ruleName}</td><td>{item.targetModule}.{item.targetEntity}</td><td>{item.prefix}</td><td>{item.currentSequence} / {item.sequenceLength}</td><td>{item.sampleCode ?? item.exampleCode ?? "-"}</td><td><StatusBadge status={item.status} /></td><td><button className="inline-action-button" type="button" onClick={() => void preview(item).catch(showError)}>预览</button><PermissionButton permission={SYSTEM_PERMISSIONS.CODE_RULE_OPEN_GENERATE} type="button" onClick={() => void generate(item).catch(showError)}><Play size={16} />生成测试</PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.CODE_RULE_OPEN_UPDATE} type="button" onClick={() => openEdit(item)}><Edit3 size={16} />编辑</PermissionButton></td></tr>)}</tbody>
           </DataTable>
         </div>
-        <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {data.total} 条，第 {data.page} / {totalPages} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" disabled={data.page <= 1} onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" disabled={data.page >= totalPages} onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
       </Card>
 
       {formOpen ? (

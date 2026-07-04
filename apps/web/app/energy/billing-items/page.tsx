@@ -31,6 +31,18 @@ interface DictTypeRow { id: string; dictCode: string }
 interface DictItemRow { id: string; itemLabel: string; itemValue: string; status: string; tagType?: string | null }
 type DictMap = Record<string, DictItemRow[]>;
 
+interface BillingCycleOptionRow {
+  id: string;
+  cycleCode: string;
+  cycleName: string;
+}
+
+interface ParkTenantRow {
+  id: string;
+  parkTenantCode: string;
+  companyName: string;
+}
+
 interface BillingItemRow {
   id: string;
   cycleId: string;
@@ -58,11 +70,17 @@ const emptyPage: PaginatedResult<BillingItemRow> = { items: [], total: 0, page: 
 export default function EnergyBillingItemsPage() {
   const [pageData, setPageData] = useState<PaginatedResult<BillingItemRow>>(emptyPage);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [cycles, setCycles] = useState<BillingCycleOptionRow[]>([]);
+  const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
   const [filters, setFilters] = useState({ cycleId: "", parkTenantId: "", billingMethod: "", status: "" });
   const [adjusting, setAdjusting] = useState<BillingItemRow | null>(null);
   const [adjustForm, setAdjustForm] = useState({ adjustmentAmount: "0", adjustmentReason: "" });
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const parkTenantLabelMap = useMemo(
+    () => new Map(parkTenants.map((item) => [item.id, formatParkTenantLabel(item)])),
+    [parkTenants]
+  );
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "50" });
@@ -87,7 +105,17 @@ export default function EnergyBillingItemsPage() {
     setDicts(Object.fromEntries(entries));
   }, []);
 
+  const loadReferences = useCallback(async () => {
+    const [cycleResponse, tenantResponse] = await Promise.all([
+      apiRequest<PaginatedResult<BillingCycleOptionRow>>("/energy/billing-cycles?page=1&page_size=200", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=200&sort=companyName", { token: getAccessToken() })
+    ]);
+    setCycles(cycleResponse.data.items);
+    setParkTenants(tenantResponse.data.items);
+  }, []);
+
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
+  useEffect(() => { void loadReferences().catch((error: Error) => setMessage(error.message)); }, [loadReferences]);
   useEffect(() => {
     const cycleId = new URLSearchParams(window.location.search).get("cycle_id") ?? "";
     if (cycleId) setFilters((current) => ({ ...current, cycleId }));
@@ -136,8 +164,8 @@ export default function EnergyBillingItemsPage() {
         />
 
         <FilterPanel>
-          <Field label="账期 ID"><input value={filters.cycleId} onChange={(event) => setFilters((current) => ({ ...current, cycleId: event.target.value }))} /></Field>
-          <Field label="租户企业 ID"><input value={filters.parkTenantId} onChange={(event) => setFilters((current) => ({ ...current, parkTenantId: event.target.value }))} /></Field>
+          <ReferenceSelectField label="账期" value={filters.cycleId} allLabel="全部账期" items={cycles.map((item) => ({ id: item.id, label: formatCycleLabel(item) }))} onChange={(value) => setFilters((current) => ({ ...current, cycleId: value }))} />
+          <ReferenceSelectField label="租户企业" value={filters.parkTenantId} allLabel="全部租户企业" items={parkTenants.map((item) => ({ id: item.id, label: formatParkTenantLabel(item) }))} onChange={(value) => setFilters((current) => ({ ...current, parkTenantId: value }))} />
           <SelectField label="计费方式" value={filters.billingMethod} items={dicts.energy_billing_method ?? []} allLabel="全部方式" onChange={(value) => setFilters((current) => ({ ...current, billingMethod: value }))} />
           <SelectField label="确认状态" value={filters.status} items={dicts.energy_billing_item_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
@@ -146,12 +174,12 @@ export default function EnergyBillingItemsPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="账单项列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>租户企业</th><th>表计类型</th><th>计费方式</th><th>用量</th><th>单价</th><th>金额</th><th>调整</th><th>最终金额</th><th>状态</th><th>应收</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.relatedParkTenantId}</td>
+                  <td>{parkTenantLabelMap.get(row.relatedParkTenantId) ?? row.relatedParkTenantId}</td>
                   <td><StatusPill dictCode="energy_meter_type" value={row.meterType} dicts={dicts} /></td>
                   <td><StatusPill dictCode="energy_billing_method" value={row.billingMethod} dicts={dicts} /></td>
                   <td>{row.consumptionValue}</td>
@@ -163,9 +191,10 @@ export default function EnergyBillingItemsPage() {
                   <td>{row.receivableId ? "已发布" : "-"}</td>
                   <td>
                     <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_ADJUST} type="button" disabled={Boolean(row.postedAt)} onClick={() => openAdjust(row)}><Edit3 size={16} />调整</PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_CONFIRM} type="button" disabled={row.confirmationStatus === "CONFIRMED" || Boolean(row.postedAt)} onClick={() => void itemAction(row, "confirm").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_DISPUTE} type="button" disabled={Boolean(row.postedAt)} onClick={() => void itemAction(row, "dispute").catch((error: Error) => setMessage(error.message))}><AlertTriangle size={16} />争议</PermissionButton>
+                      {canAdjustBillingItem(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_ADJUST} type="button" onClick={() => openAdjust(row)}><Edit3 size={16} />调整</PermissionButton> : null}
+                      {canConfirmBillingItem(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_CONFIRM} type="button" onClick={() => void itemAction(row, "confirm").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton> : null}
+                      {canDisputeBillingItem(row) ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ITEM_DISPUTE} type="button" onClick={() => void itemAction(row, "dispute").catch((error: Error) => setMessage(error.message))}><AlertTriangle size={16} />争议</PermissionButton> : null}
+                      {!hasBillingItemActions(row) ? <span className="muted-text">已发布</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>
@@ -199,6 +228,36 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function SelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: DictItemRow[]; allLabel: string; onChange: (value: string) => void }) {
   return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
+}
+
+function ReferenceSelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: Array<{ id: string; label: string }>; allLabel: string; onChange: (value: string) => void }) {
+  return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Field>;
+}
+
+function formatParkTenantLabel(item?: ParkTenantRow | null) {
+  if (!item) return "-";
+  return `${item.parkTenantCode} ${item.companyName}`.trim();
+}
+
+function formatCycleLabel(item?: BillingCycleOptionRow | null) {
+  if (!item) return "-";
+  return `${item.cycleCode} ${item.cycleName}`.trim();
+}
+
+function canAdjustBillingItem(row: BillingItemRow) {
+  return !row.postedAt;
+}
+
+function canConfirmBillingItem(row: BillingItemRow) {
+  return row.confirmationStatus !== "CONFIRMED" && !row.postedAt;
+}
+
+function canDisputeBillingItem(row: BillingItemRow) {
+  return !row.postedAt;
+}
+
+function hasBillingItemActions(row: BillingItemRow) {
+  return canAdjustBillingItem(row) || canConfirmBillingItem(row) || canDisputeBillingItem(row);
 }
 
 function Forbidden() {

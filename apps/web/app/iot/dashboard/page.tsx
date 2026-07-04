@@ -241,7 +241,7 @@ export default function IotDashboardPage() {
                       <tr key={item.id}>
                         <td>{item.alert_code}</td>
                         <td>
-                          <Link className="text-link" href="/iot/alerts">
+                          <Link className="text-link" href={`/iot/alerts?device_id=${encodeURIComponent(item.device_id)}&keyword=${encodeURIComponent(item.alert_code)}`}>
                             {item.alert_title}
                           </Link>
                         </td>

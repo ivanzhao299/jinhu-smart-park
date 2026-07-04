@@ -14,6 +14,12 @@ import { engineeringIssueSeverityLabels, issueSeverityVariant } from "../../../l
 import { engineeringPlanStatusLabels, planStatusVariant } from "../../../lib/engineering-plans-display";
 import { engineeringProjectStatusLabels, engineeringProjectTypeLabels, projectStatusVariant } from "../../../lib/engineering-projects-display";
 import { engineeringRectificationStatusLabels, rectificationStatusVariant } from "../../../lib/engineering-rectifications-display";
+import {
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../projects/components/EngineeringProjectReferenceData";
 import styles from "./engineering-dashboard.module.css";
 
 const emptyDashboard: EngineeringDashboardOverview = {
@@ -40,24 +46,25 @@ const emptyDashboard: EngineeringDashboardOverview = {
 
 const setupSteps = [
   {
-    title: "先建项目",
-    detail: "录入项目主数据、负责人、预算和工期。",
+    title: "建项目",
+    detail: "把工程主档先建起来。",
     href: "/engineering/projects/new"
   },
   {
-    title: "再拆计划",
-    detail: "补阶段计划和节点，让日报与巡检有基线。",
+    title: "拆计划",
+    detail: "把阶段和节点补齐。",
     href: "/engineering/plans"
   },
   {
-    title: "开始留痕",
-    detail: "连续录日报、做巡检、带出整改和验收。",
+    title: "记过程",
+    detail: "日报、巡检、整改持续留痕。",
     href: "/engineering/daily-reports"
   }
 ] as const;
 
 export default function EngineeringDashboardPage() {
   const [data, setData] = useState<EngineeringDashboardOverview>(emptyDashboard);
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -88,6 +95,12 @@ export default function EngineeringDashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((value) => setReferences(value))
+      .catch(() => undefined);
+  }, []);
+
   const metrics = [
     { key: "project_total", icon: <HardHat size={18} />, label: "项目总数", value: summary.project_total, hint: "全部在管工程项目" },
     { key: "executing_project_count", icon: <Gauge size={18} />, label: "施工中", value: summary.executing_project_count, hint: "已进入执行阶段" },
@@ -108,10 +121,10 @@ export default function EngineeringDashboardPage() {
             <div className={styles.heroCopy}>
               <span className={styles.heroLabel}>
                 <Layers3 size={14} />
-                工程闭环看板
+                工程管理驾驶台
               </span>
-              <h1>工程经营看板</h1>
-              <p>只保留工程经理和管理层每天真正会看的东西：项目推进、整改压力、日报活跃度和验收节奏。</p>
+              <h1>工程看板</h1>
+              <p>只看关键指标、风险分布和责任单位表现。</p>
             </div>
             <div className={styles.heroActions}>
               <button className="secondary-button" type="button" onClick={() => void loadDashboard()}>
@@ -125,7 +138,7 @@ export default function EngineeringDashboardPage() {
           </div>
           <div className={styles.heroMeta}>
             <span className={styles.metaChip}>数据时间：{generatedAt || "暂无"}</span>
-            <span className={styles.metaChip}>{hasBusinessData ? "已进入真实工程态势" : "等待首批工程数据"}</span>
+            <span className={styles.metaChip}>{hasBusinessData ? "已形成业务态势" : "等待首批项目录入"}</span>
             <span className={styles.metaChip}>{summary.overdue_rectification_count > 0 ? `逾期整改 ${summary.overdue_rectification_count} 项` : "当前无逾期整改"}</span>
           </div>
         </Card>
@@ -150,8 +163,8 @@ export default function EngineeringDashboardPage() {
             {!hasBusinessData ? (
               <Card className={styles.emptyLaunchCard}>
                 <div className={styles.emptyLaunchHeader}>
-                  <h2>现在没有图表，不是因为看板没做好，而是还没有真实工程数据跑进来</h2>
-                  <p>先把项目、计划和日报建立起来，巡检、整改和验收数据才会自然形成闭环走势。</p>
+                  <h2>当前还没有工程数据</h2>
+                  <p>先建项目，再补计划和日报，看板会自动形成。</p>
                 </div>
                 <div className={styles.setupGrid}>
                   {setupSteps.map((step, index) => (
@@ -208,7 +221,7 @@ export default function EngineeringDashboardPage() {
                   <div className={styles.boardHead}>
                     <div>
                       <h2>施工单位整改排名</h2>
-                      <p>优先识别整改任务多、逾期多、关闭率低的施工单位。</p>
+                      <p>优先关注任务多、逾期多、关闭率低的单位。</p>
                     </div>
                     <span className={styles.miniCount}>{data.contractor_rectification_ranking.length}</span>
                   </div>
@@ -227,7 +240,11 @@ export default function EngineeringDashboardPage() {
                         <tbody>
                           {data.contractor_rectification_ranking.map((item) => (
                             <tr key={item.contractor_org_id ?? "unassigned"}>
-                              <td>{item.contractor_org_id ?? "未指定施工单位"}</td>
+                              <td>
+                                {item.contractor_org_id
+                                  ? formatOrgLabel(references.orgs.find((org) => org.id === item.contractor_org_id) ?? null)
+                                  : "未指定施工单位"}
+                              </td>
                               <td>{item.total_rectifications}</td>
                               <td>{item.closed_rectifications}</td>
                               <td>{item.overdue_rectifications}</td>
@@ -240,7 +257,7 @@ export default function EngineeringDashboardPage() {
                   ) : (
                     <div className={styles.emptyRanking}>
                       <strong>暂无整改排名</strong>
-                      <span>产生整改任务后，这里会自动形成施工单位排名。</span>
+                      <span>有整改任务后自动生成。</span>
                     </div>
                   )}
                 </Card>
@@ -313,7 +330,7 @@ function DistributionCard({
         }) : (
           <div className={styles.emptyChart}>
             <strong>暂无数据</strong>
-            <span>对应业务数据进入后，这里会自动形成分布。</span>
+            <span>录入数据后自动形成分布。</span>
           </div>
         )}
       </div>

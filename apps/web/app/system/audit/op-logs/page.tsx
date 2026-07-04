@@ -49,9 +49,14 @@ export default function OpLogsPage() {
     setData(response.data);
   }
 
-  async function openDetail(id: string) {
-    const response = await apiRequest<OpLogRow>(`/audit/op-logs/${id}`, { token: getAccessToken() });
-    setDetail(response.data);
+  async function openDetail(row: OpLogRow) {
+    setDetail(row);
+    try {
+      const response = await apiRequest<OpLogRow>(`/audit/op-logs/${row.id}`, { token: getAccessToken() });
+      setDetail((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载日志详情失败");
+    }
   }
 
   useEffect(() => {
@@ -107,7 +112,7 @@ export default function OpLogsPage() {
                   <td data-label="时间">{item.opTime ?? item.createTime}</td>
                   <td data-label="操作">
                     <span className="data-table-actions">
-                      <PermissionButton permission={SYSTEM_PERMISSIONS.AUDIT_READ} type="button" title="详情" onClick={() => void openDetail(item.id).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
+                      <PermissionButton permission={SYSTEM_PERMISSIONS.AUDIT_READ} type="button" title="详情" onClick={() => void openDetail(item).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
                     </span>
                   </td>
                 </tr>

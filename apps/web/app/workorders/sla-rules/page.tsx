@@ -233,7 +233,7 @@ export default function WorkOrderSlaRulesPage() {
         </Card>
 
         <Card className="table-scroll">
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>规则对象</th>

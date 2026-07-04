@@ -26,6 +26,19 @@ import {
   formatDateTime,
   openIssueCount
 } from "./EngineeringInspectionShared";
+import {
+  displayUserName,
+  formatDailyReportLabel,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatFloorLabel,
+  formatPlanLabel,
+  formatOrgLabel,
+  formatProjectLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 export function EngineeringInspectionDetailClient() {
@@ -43,8 +56,10 @@ export function EngineeringInspectionDetailClient() {
   const [issues, setIssues] = useState<EngineeringIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [issueDrawerOpen, setIssueDrawerOpen] = useState(false);
   const [issueSaving, setIssueSaving] = useState(false);
+  const projectLabel = formatProjectLabel(references.projects.find((item) => item.id === inspection?.projectId) ?? null);
   const issueSummary = useMemo(() => {
     const total = issues.length;
     const open = openIssueCount(issues);
@@ -73,6 +88,12 @@ export function EngineeringInspectionDetailClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function submitInspection() {
     if (!inspection) return;
@@ -187,15 +208,15 @@ export function EngineeringInspectionDetailClient() {
               </div>
             </div>
             <div className={styles.detailGrid}>
-              <DetailItem label="所属项目" value={inspection.projectId} />
-              <DetailItem label="关联计划" value={inspection.planId ?? "-"} />
-              <DetailItem label="关联日报" value={inspection.dailyReportId ?? "-"} />
+              <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : inspection.projectId} />
+              <DetailItem label="关联计划" value={inspection.planId ? formatPlanLabel(references.plans.find((item) => item.id === inspection.planId) ?? null) : "-"} />
+              <DetailItem label="关联日报" value={inspection.dailyReportId ? formatDailyReportLabel(references.dailyReports.find((item) => item.id === inspection.dailyReportId) ?? null) : "-"} />
               <DetailItem label="巡检日期" value={formatDate(inspection.inspectionDate)} />
               <DetailItem label="位置" value={inspection.locationText ?? "-"} />
-              <DetailItem label="巡检人" value={inspection.inspectorUserId ?? "-"} />
-              <DetailItem label="巡检组织" value={inspection.inspectorOrgId ?? "-"} />
-              <DetailItem label="施工单位" value={inspection.contractorOrgId ?? "-"} />
-              <DetailItem label="监理单位" value={inspection.supervisorOrgId ?? "-"} />
+              <DetailItem label="巡检人" value={inspection.inspectorUserId ? displayUserName(references.users.find((item) => item.id === inspection.inspectorUserId) ?? null) : "-"} />
+              <DetailItem label="巡检组织" value={inspection.inspectorOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === inspection.inspectorOrgId) ?? null) : "-"} />
+              <DetailItem label="施工单位" value={inspection.contractorOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === inspection.contractorOrgId) ?? null) : "-"} />
+              <DetailItem label="监理单位" value={inspection.supervisorOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === inspection.supervisorOrgId) ?? null) : "-"} />
               <DetailItem label="提交时间" value={formatDateTime(inspection.submittedAt)} />
             </div>
           </Card>
@@ -220,7 +241,10 @@ export function EngineeringInspectionDetailClient() {
             <div className={styles.detailGrid}>
               <DetailItem label="综合结论" value={inspection.overallResult ?? "-"} />
               <DetailItem label="巡检摘要" value={inspection.summary ?? "-"} />
-              <DetailItem label="建筑 / 楼层 / 空间" value={`${inspection.buildingId ?? "-"} / ${inspection.floorId ?? "-"} / ${inspection.spaceId ?? "-"}`} />
+              <DetailItem
+                label="建筑 / 楼层 / 空间"
+                value={`${inspection.buildingId ? formatBuildingLabel(references.buildings.find((item) => item.id === inspection.buildingId) ?? null) : "-"} / ${inspection.floorId ? formatFloorLabel(references.floors.find((item) => item.id === inspection.floorId) ?? null) : "-"} / ${inspection.spaceId ? formatUnitLabel(references.units.find((item) => item.id === inspection.spaceId) ?? null) : "-"}`}
+              />
               <DetailItem label="附件数量" value={inspection.attachmentIds?.length ?? 0} />
               <DetailItem label="备注" value={inspection.remark ?? "-"} />
             </div>
@@ -253,7 +277,13 @@ export function EngineeringInspectionDetailClient() {
                       <td><IssueTypePill type={issue.issueType} /></td>
                       <td><IssueSeverityPill severity={issue.severity} /></td>
                       <td><IssueStatusPill status={issue.issueStatus} /></td>
-                      <td>{issue.responsibleUserId ?? issue.responsibleOrgId ?? "-"}</td>
+                      <td>
+                        {issue.responsibleUserId
+                          ? displayUserName(references.users.find((item) => item.id === issue.responsibleUserId) ?? null)
+                          : issue.responsibleOrgId
+                            ? formatOrgLabel(references.orgs.find((item) => item.id === issue.responsibleOrgId) ?? null)
+                            : "-"}
+                      </td>
                       <td>{formatDate(issue.deadline)}</td>
                       <td>
                         {canGenerateRectification && canGenerateRectificationFromIssue(issue) ? (
@@ -280,7 +310,15 @@ export function EngineeringInspectionDetailClient() {
         </Card>
       )}
 
-      {issueDrawerOpen ? <EngineeringIssueDrawer saving={issueSaving} onClose={() => setIssueDrawerOpen(false)} onSubmit={createIssue} /> : null}
+      {issueDrawerOpen ? (
+        <EngineeringIssueDrawer
+          saving={issueSaving}
+          onClose={() => setIssueDrawerOpen(false)}
+          onSubmit={createIssue}
+          responsibleUsers={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+          responsibleOrgs={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+        />
+      ) : null}
       <MessageLine message={message} />
     </main>
   );

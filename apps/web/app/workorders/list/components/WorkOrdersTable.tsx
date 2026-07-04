@@ -36,7 +36,7 @@ export function WorkOrdersTable({
 
   return (
     <Card className="table-scroll">
-      <DataTable>
+      <DataTable className="allow-horizontal-table">
         <thead>
           <tr>
             <th>工单编号</th>
@@ -50,7 +50,7 @@ export function WorkOrdersTable({
             <th>处理人</th>
             <th>超时</th>
             <th>创建时间</th>
-            <th>操作</th>
+            <th style={{ width: "320px", minWidth: "320px", maxWidth: "320px" }}>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -67,7 +67,7 @@ export function WorkOrdersTable({
               <td>{row.assigneeName ?? "-"}</td>
               <td>{row.overdueFlag ? <span className="status-pill status-danger">超时</span> : <span className="status-pill status-muted">正常</span>}</td>
               <td>{formatDateTime(row.createTime)}</td>
-              <td>
+              <td style={{ width: "320px", minWidth: "320px", maxWidth: "320px" }}>
                 <WorkOrderActionButtons
                   row={row}
                   canAssign={canAssignWorkOrder(row)}

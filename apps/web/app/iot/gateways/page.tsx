@@ -280,7 +280,7 @@ export default function IotGatewaysPage() {
         {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
 
         <ContentCard title="网关列表" description={`共 ${pageData.total} 条`}>
-          <DataTable>
+          <DataTable className="iot-gateways-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>网关编码</th>

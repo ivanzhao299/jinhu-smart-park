@@ -73,6 +73,7 @@ export default function UsersPage() {
     () => tenants.items.find((item) => item.tenantId === tenantId) ?? tenants.items[0] ?? null,
     [tenantId, tenants.items]
   );
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   async function load(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -244,8 +245,8 @@ export default function UsersPage() {
           </DataTable>
         </div>
         <div className="task-item">
-          <span>第 {data.page} 页</span>
-          <span><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1)}>下一页</button></span>
+          <span>第 {data.page} / {totalPages} 页</span>
+          <span className="pagination-actions"><button className="pagination-button" type="button" disabled={data.page <= 1} onClick={() => void load(Math.max(1, data.page - 1))}>上一页</button><button className="pagination-button" type="button" disabled={data.page >= totalPages} onClick={() => void load(data.page + 1)}>下一页</button></span>
         </div>
       </Card>
 

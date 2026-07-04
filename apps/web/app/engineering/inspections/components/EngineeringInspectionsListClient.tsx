@@ -19,6 +19,15 @@ import type {
 } from "../../../../lib/engineering-inspections-types";
 import { isInspectionEditable, isInspectionSubmittable } from "../../../../lib/engineering-inspections-utils";
 import { ForbiddenEngineeringInspection, InspectionStatusPill, InspectionTypePill, MessageLine, formatDate, formatDateTime } from "./EngineeringInspectionShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatPlanLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 interface FilterState {
@@ -58,7 +67,16 @@ export function EngineeringInspectionsListClient() {
   const [pageData, setPageData] = useState<EngineeringInspectionPage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const projectLabelMap = useMemo(
+    () => new Map(references.projects.map((item) => [item.id, formatProjectLabel(item)])),
+    [references.projects]
+  );
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
   const summaryCards = useMemo(() => {
     const submittedCount = pageData.items.filter((item) => item.inspectionStatus === "SUBMITTED").length;
     const totalIssues = pageData.items.reduce((sum, item) => sum + Number(item.issueCount ?? 0), 0);
@@ -89,6 +107,12 @@ export function EngineeringInspectionsListClient() {
     if (!canView) return;
     void load(1);
   }, [canView, load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,7 +150,7 @@ export function EngineeringInspectionsListClient() {
       <header className="header">
         <div className="header-title">
           <strong>工程巡检</strong>
-          <span>记录现场质量、安全、进度、材料和隐蔽工程巡检，并沉淀问题证据</span>
+          <span>质量、安全、进度和隐患检查的现场留痕</span>
         </div>
         {canCreate ? (
           <Link className="primary-button" href={filters.projectId ? `/engineering/inspections/new?projectId=${filters.projectId}` : "/engineering/inspections/new"}>
@@ -149,12 +173,19 @@ export function EngineeringInspectionsListClient() {
       <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 标题 / 摘要" onChange={(value) => setFilter("keyword", value)} />
-          <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
-          <TextFilter label="计划 ID" value={filters.planId} onChange={(value) => setFilter("planId", value)} />
+          <SelectReferenceFilter label="所属项目" value={filters.projectId} options={references.projects.map((item) => ({ value: item.id, label: formatProjectLabel(item) }))} onChange={(value) => setFilter("projectId", value)} />
+          <SelectReferenceFilter
+            label="关联计划"
+            value={filters.planId}
+            options={references.plans
+              .filter((item) => !filters.projectId || item.projectId === filters.projectId)
+              .map((item) => ({ value: item.id, label: formatPlanLabel(item) }))}
+            onChange={(value) => setFilter("planId", value)}
+          />
           <SelectFilter label="巡检类型" value={filters.inspectionType} options={engineeringInspectionTypeOptions} onChange={(value) => setFilter("inspectionType", value as EngineeringInspectionType | "")} />
           <SelectFilter label="巡检状态" value={filters.inspectionStatus} options={engineeringInspectionStatusOptions} onChange={(value) => setFilter("inspectionStatus", value as EngineeringInspectionStatus | "")} />
-          <TextFilter label="施工单位 ID" value={filters.contractorOrgId} onChange={(value) => setFilter("contractorOrgId", value)} />
-          <TextFilter label="巡检人 ID" value={filters.inspectorUserId} onChange={(value) => setFilter("inspectorUserId", value)} />
+          <SelectReferenceFilter label="施工单位" value={filters.contractorOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("contractorOrgId", value)} />
+          <SelectReferenceFilter label="巡检人" value={filters.inspectorUserId} options={references.users.map((item) => ({ value: item.id, label: displayUserName(item) }))} onChange={(value) => setFilter("inspectorUserId", value)} />
           <TextFilter label="巡检日期自" type="date" value={filters.inspectionDateFrom} onChange={(value) => setFilter("inspectionDateFrom", value)} />
           <TextFilter label="巡检日期至" type="date" value={filters.inspectionDateTo} onChange={(value) => setFilter("inspectionDateTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -165,7 +196,7 @@ export function EngineeringInspectionsListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>巡检编号</th>
@@ -174,7 +205,7 @@ export function EngineeringInspectionsListClient() {
               <th>类型</th>
               <th>状态</th>
               <th>问题</th>
-              <th>项目 ID</th>
+              <th>所属项目</th>
               <th>提交</th>
               <th>操作</th>
             </tr>
@@ -188,8 +219,8 @@ export function EngineeringInspectionsListClient() {
                 <td><InspectionTypePill type={row.inspectionType} /></td>
                 <td><InspectionStatusPill status={row.inspectionStatus} /></td>
                 <td>{row.issueCount} 项 / 重大 {row.criticalIssueCount}</td>
-                <td>{row.projectId}</td>
-                <td>{row.submittedBy ?? "-"}<br /><small>{formatDateTime(row.submittedAt)}</small></td>
+                <td>{projectLabelMap.get(row.projectId) ?? row.projectId}</td>
+                <td>{row.submittedBy ? (userLabelMap.get(row.submittedBy) ?? row.submittedBy) : "-"}<br /><small>{formatDateTime(row.submittedAt)}</small></td>
                 <td>
                   <DataTableActions>
                     <Link aria-label="查看" href={`/engineering/inspections/${row.id}`}><Eye size={16} /></Link>
@@ -266,6 +297,32 @@ function SelectFilter<T extends string>({ label, value, options, onChange }: {
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

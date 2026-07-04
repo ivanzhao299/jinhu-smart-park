@@ -283,7 +283,7 @@ export default function IotScenesPage() {
             <h2 className="panel-title">场景列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>场景名称</th>
@@ -294,7 +294,7 @@ export default function IotScenesPage() {
                 <th>优先级</th>
                 <th>状态</th>
                 <th>最近触发</th>
-                <th>操作</th>
+                <th style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -308,7 +308,7 @@ export default function IotScenesPage() {
                   <td>{row.priority}</td>
                   <td><StatusPill dictCode="iot_scene_status" value={row.status} dicts={dicts} /></td>
                   <td>{formatDateTime(row.lastTriggeredAt)}</td>
-                  <td>
+                  <td style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>
                     <DataTableActions>
                       <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.IOT_SCENE_UPDATE} type="button" onClick={() => openEdit(row)}>
                         <Edit3 size={16} />

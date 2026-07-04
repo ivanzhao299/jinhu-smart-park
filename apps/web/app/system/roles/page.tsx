@@ -114,6 +114,7 @@ export default function RolesPage() {
 
   const flatRoles = useMemo(() => flattenRoles(roleTree), [roleTree]);
   const flatPermissions = useMemo(() => flattenPermissions(permissionTree), [permissionTree]);
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   async function load(page = 1, keepSelectedId = selectedRoleId) {
     const token = getToken();
@@ -390,7 +391,7 @@ export default function RolesPage() {
               </tbody>
             </DataTable>
           </div>
-          <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
+          <div className="task-item"><span>共 {data.total} 条，第 {data.page} / {totalPages} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" disabled={data.page <= 1} onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" disabled={data.page >= totalPages} onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
         </Card>
       )}
 

@@ -668,7 +668,7 @@ export default function SafetyEmergenciesPage() {
             <h2 className="panel-title">事件列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="safety-emergencies-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>事件编号</th>
@@ -814,47 +814,66 @@ export default function SafetyEmergenciesPage() {
               description={`${viewing.emergencyCode} · ${labelFor(incidentTypes, viewing.incidentType)} · ${formatDateTime(viewing.reportTime)}`}
               onClose={closeView}
             />
+            <p className="muted-text">
+              当前状态：{labelFor(statusItems, viewing.status)}。{emergencyActionHint(viewing.status)}
+            </p>
             <DrawerActions>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_RESPOND} type="button" disabled={viewing.status !== "10"} onClick={() => openAction(viewing, "respond")}>
-                <ShieldCheck size={16} />
-                响应
-              </PermissionButton>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_DISPOSE} type="button" disabled={!["20", "80"].includes(viewing.status)} onClick={() => openAction(viewing, "start-disposal")}>
-                <PlayCircle size={16} />
-                开始处置
-              </PermissionButton>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CONTROL} type="button" disabled={!["30", "80"].includes(viewing.status)} onClick={() => openAction(viewing, "control")}>
-                <CheckCircle2 size={16} />
-                已控制
-              </PermissionButton>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_REVIEW} type="button" disabled={viewing.status !== "40"} onClick={() => openAction(viewing, "review")}>
-                <ClipboardCheck size={16} />
-                复盘
-              </PermissionButton>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CLOSE} type="button" disabled={viewing.status !== "50"} onClick={() => openAction(viewing, "close")}>
-                <CheckCircle2 size={16} />
-                关闭
-              </PermissionButton>
-              <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_UPGRADE} type="button" disabled={["60", "80", "90", "91"].includes(viewing.status)} onClick={() => openAction(viewing, "upgrade")}>
-                <ArrowUpCircle size={16} />
-                升级
-              </PermissionButton>
-              <PermissionButton className="secondary-button danger" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CANCEL} type="button" disabled={["60", "90", "91"].includes(viewing.status)} onClick={() => openAction(viewing, "cancel")}>
-                <XCircle size={16} />
-                取消 / 误报
-              </PermissionButton>
-              <PermissionGuard module="workorder" permission={SYSTEM_PERMISSIONS.WORKORDER_CREATE}>
-                <PermissionButton
-                  className="secondary-button"
-                  permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CREATE_WORKORDER}
-                  type="button"
-                  disabled={["90", "91"].includes(viewing.status)}
-                  onClick={() => openCreateWorkOrder(viewing)}
-                >
-                  <Wrench size={16} />
-                  转工单
+              {canOpenEmergencyAction(viewing.status, "respond") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_RESPOND} type="button" onClick={() => openAction(viewing, "respond")}>
+                  <ShieldCheck size={16} />
+                  响应
                 </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "start-disposal") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_DISPOSE} type="button" onClick={() => openAction(viewing, "start-disposal")}>
+                  <PlayCircle size={16} />
+                  开始处置
+                </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "control") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CONTROL} type="button" onClick={() => openAction(viewing, "control")}>
+                  <CheckCircle2 size={16} />
+                  已控制
+                </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "review") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_REVIEW} type="button" onClick={() => openAction(viewing, "review")}>
+                  <ClipboardCheck size={16} />
+                  复盘
+                </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "close") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CLOSE} type="button" onClick={() => openAction(viewing, "close")}>
+                  <CheckCircle2 size={16} />
+                  关闭
+                </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "upgrade") ? (
+                <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_UPGRADE} type="button" onClick={() => openAction(viewing, "upgrade")}>
+                  <ArrowUpCircle size={16} />
+                  升级
+                </PermissionButton>
+              ) : null}
+              {canOpenEmergencyAction(viewing.status, "cancel") ? (
+                <PermissionButton className="secondary-button danger" permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CANCEL} type="button" onClick={() => openAction(viewing, "cancel")}>
+                  <XCircle size={16} />
+                  取消 / 误报
+                </PermissionButton>
+              ) : null}
+              <PermissionGuard module="workorder" permission={SYSTEM_PERMISSIONS.WORKORDER_CREATE}>
+                {canCreateEmergencyWorkOrder(viewing.status) ? (
+                  <PermissionButton
+                    className="secondary-button"
+                    permission={SYSTEM_PERMISSIONS.SAFETY_EMERGENCY_CREATE_WORKORDER}
+                    type="button"
+                    onClick={() => openCreateWorkOrder(viewing)}
+                  >
+                    <Wrench size={16} />
+                    转工单
+                  </PermissionButton>
+                ) : null}
               </PermissionGuard>
+              {!hasEmergencyVisibleActions(viewing.status) ? <span className="muted-text">当前状态暂无可执行动作</span> : null}
             </DrawerActions>
             <DrawerTabs>
               <DrawerTabButton active={detailTab === "profile"} onClick={() => setDetailTab("profile")}>基础信息</DrawerTabButton>
@@ -1174,6 +1193,50 @@ function actionModeIcon(mode: ActionMode) {
     cancel: <XCircle size={16} />
   };
   return icons[mode];
+}
+
+function canOpenEmergencyAction(status: string, action: ActionMode) {
+  const rules: Record<ActionMode, boolean> = {
+    respond: status === "10",
+    "start-disposal": ["20", "80"].includes(status),
+    control: ["30", "80"].includes(status),
+    review: status === "40",
+    close: status === "50",
+    upgrade: !["60", "80", "90", "91"].includes(status),
+    cancel: !["60", "90", "91"].includes(status)
+  };
+  return rules[action];
+}
+
+function canCreateEmergencyWorkOrder(status: string) {
+  return !["90", "91"].includes(status);
+}
+
+function hasEmergencyVisibleActions(status: string) {
+  return ([
+    "respond",
+    "start-disposal",
+    "control",
+    "review",
+    "close",
+    "upgrade",
+    "cancel"
+  ] as ActionMode[]).some((action) => canOpenEmergencyAction(status, action)) || canCreateEmergencyWorkOrder(status);
+}
+
+function emergencyActionHint(status: string) {
+  const hints: Record<string, string> = {
+    "10": "下一步可先响应事件。",
+    "20": "事件已响应，可继续开始处置。",
+    "30": "处置推进中，可在风险受控后标记已控制。",
+    "40": "现场已控制，下一步进入复盘。",
+    "50": "复盘完成后可关闭事件。",
+    "60": "事件已关闭，仅保留查看记录。",
+    "80": "事件已升级，可继续处置或标记已控制。",
+    "90": "事件已作废，不能再转工单或继续流转。",
+    "91": "事件已取消，不能再转工单或继续流转。"
+  };
+  return hints[status] ?? "请按当前状态推进下一步动作。";
 }
 
 function emergencyActionLabel(action: string) {

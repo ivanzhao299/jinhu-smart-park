@@ -19,6 +19,18 @@ import type {
 import { isInspectionEditable, todayDateString } from "../../../../lib/engineering-inspections-utils";
 import { engineeringPlansApi } from "../../../../lib/engineering-plans-api";
 import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatDailyReportLabel,
+  formatFloorLabel,
+  formatOrgLabel,
+  formatProjectLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import { ForbiddenEngineeringInspection, InspectionStatusPill, InspectionTypePill, MessageLine, formatDate, validateInspectionFormBase } from "./EngineeringInspectionShared";
 import styles from "../../projects/engineering-projects.module.css";
 
@@ -76,11 +88,33 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
   const [form, setForm] = useState<InspectionFormState>({ ...defaultForm, projectId: lockedProjectId });
   const [inspection, setInspection] = useState<EngineeringInspection | null>(null);
   const [projectPlans, setProjectPlans] = useState<EngineeringPlan[]>([]);
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [loading, setLoading] = useState(Boolean(inspectionId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const validationMessage = useMemo(() => validateForm(form), [form]);
   const statusBlocksEdit = editing && inspection && !isInspectionEditable(inspection.inspectionStatus);
+  const availableFloors = useMemo(
+    () => references.floors.filter((item) => !form.buildingId || item.buildingId === form.buildingId),
+    [references.floors, form.buildingId]
+  );
+  const availableUnits = useMemo(
+    () => references.units.filter((item) => {
+      if (form.floorId) return item.floorId === form.floorId;
+      if (form.buildingId) return item.buildingId === form.buildingId;
+      return true;
+    }),
+    [references.units, form.buildingId, form.floorId]
+  );
+  const availableDailyReports = useMemo(
+    () => references.dailyReports.filter((item) => {
+      if (!form.projectId) return false;
+      if (item.projectId !== form.projectId) return false;
+      if (form.planId) return item.planId === form.planId;
+      return true;
+    }),
+    [references.dailyReports, form.planId, form.projectId]
+  );
 
   const loadInspection = useCallback(async () => {
     if (!inspectionId) return;
@@ -103,6 +137,12 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
   useEffect(() => {
     void loadInspection();
   }, [loadInspection]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch((error: Error) => setMessage(error.message));
+  }, []);
 
   useEffect(() => {
     const projectId = form.projectId.trim();
@@ -178,9 +218,30 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
           <section className={styles.formSection}>
             <h2>基础信息</h2>
             <div className={styles.formGrid}>
-              <TextField label="项目 ID" value={form.projectId} required readOnly={editing || Boolean(lockedProjectId)} onChange={(value) => setFormValue("projectId", value)} />
-              <PlanSelect value={form.planId} plans={projectPlans} onChange={(value) => setFormValue("planId", value)} />
-              <TextField label="施工日报 ID" value={form.dailyReportId} onChange={(value) => setFormValue("dailyReportId", value)} />
+              <SelectRefField
+                label="所属项目"
+                value={form.projectId}
+                allLabel="请选择项目"
+                items={references.projects.map((item) => ({ id: item.id, label: formatProjectLabel(item) }))}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  projectId: value,
+                  planId: current.planId && projectPlans.some((item) => item.id === current.planId && item.projectId === value) ? current.planId : "",
+                  dailyReportId: current.dailyReportId && references.dailyReports.some((item) => item.id === current.dailyReportId && item.projectId === value) ? current.dailyReportId : ""
+                }))}
+                required
+                disabled={editing || Boolean(lockedProjectId)}
+              />
+              <PlanSelect
+                value={form.planId}
+                plans={projectPlans}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  planId: value,
+                  dailyReportId: current.dailyReportId && references.dailyReports.some((item) => item.id === current.dailyReportId && item.planId === value) ? current.dailyReportId : ""
+                }))}
+              />
+              <DailyReportSelect value={form.dailyReportId} reports={availableDailyReports} onChange={(value) => setFormValue("dailyReportId", value)} />
               <TextField label="巡检标题" value={form.inspectionTitle} required onChange={(value) => setFormValue("inspectionTitle", value)} />
               <SelectField label="巡检类型" value={form.inspectionType} options={engineeringInspectionTypeOptions} onChange={(value) => setFormValue("inspectionType", value as EngineeringInspectionType)} />
               <TextField label="巡检日期" type="date" value={form.inspectionDate} required onChange={(value) => setFormValue("inspectionDate", value)} />
@@ -190,14 +251,65 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
           <section className={styles.formSection}>
             <h2>人员与位置</h2>
             <div className={styles.formGrid}>
-              <TextField label="巡检人 ID" value={form.inspectorUserId} onChange={(value) => setFormValue("inspectorUserId", value)} />
-              <TextField label="巡检组织 ID" value={form.inspectorOrgId} onChange={(value) => setFormValue("inspectorOrgId", value)} />
-              <TextField label="施工单位组织 ID" value={form.contractorOrgId} onChange={(value) => setFormValue("contractorOrgId", value)} />
-              <TextField label="监理单位组织 ID" value={form.supervisorOrgId} onChange={(value) => setFormValue("supervisorOrgId", value)} />
+              <SelectRefField
+                label="巡检人"
+                value={form.inspectorUserId}
+                allLabel="暂不指定"
+                items={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+                onChange={(value) => setFormValue("inspectorUserId", value)}
+              />
+              <SelectRefField
+                label="巡检组织"
+                value={form.inspectorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("inspectorOrgId", value)}
+              />
+              <SelectRefField
+                label="施工单位"
+                value={form.contractorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("contractorOrgId", value)}
+              />
+              <SelectRefField
+                label="监理单位"
+                value={form.supervisorOrgId}
+                allLabel="暂不指定"
+                items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                onChange={(value) => setFormValue("supervisorOrgId", value)}
+              />
               <TextField label="位置描述" value={form.locationText} onChange={(value) => setFormValue("locationText", value)} />
-              <TextField label="建筑 ID" value={form.buildingId} onChange={(value) => setFormValue("buildingId", value)} />
-              <TextField label="楼层 ID" value={form.floorId} onChange={(value) => setFormValue("floorId", value)} />
-              <TextField label="空间 ID" value={form.spaceId} onChange={(value) => setFormValue("spaceId", value)} />
+              <SelectRefField
+                label="楼栋"
+                value={form.buildingId}
+                allLabel="不关联楼栋"
+                items={references.buildings.map((item) => ({ id: item.id, label: formatBuildingLabel(item) }))}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  buildingId: value,
+                  floorId: current.floorId && references.floors.some((item) => item.id === current.floorId && item.buildingId === value) ? current.floorId : "",
+                  spaceId: current.spaceId && references.units.some((item) => item.id === current.spaceId && item.buildingId === value) ? current.spaceId : ""
+                }))}
+              />
+              <SelectRefField
+                label="楼层"
+                value={form.floorId}
+                allLabel="不关联楼层"
+                items={availableFloors.map((item) => ({ id: item.id, label: formatFloorLabel(item) }))}
+                onChange={(value) => setForm((current) => ({
+                  ...current,
+                  floorId: value,
+                  spaceId: current.spaceId && references.units.some((item) => item.id === current.spaceId && item.floorId === value) ? current.spaceId : ""
+                }))}
+              />
+              <SelectRefField
+                label="空间 / 房源"
+                value={form.spaceId}
+                allLabel="不关联空间"
+                items={availableUnits.map((item) => ({ id: item.id, label: formatUnitLabel(item) }))}
+                onChange={(value) => setFormValue("spaceId", value)}
+              />
             </div>
           </section>
 
@@ -256,7 +368,7 @@ function fromInspection(inspection: EngineeringInspection): InspectionFormState 
 }
 
 function validateForm(form: InspectionFormState): string {
-  if (!form.projectId.trim()) return "请填写项目 ID";
+  if (!form.projectId.trim()) return "请选择所属项目";
   if (!form.inspectionDate) return "请选择巡检日期";
   return validateInspectionFormBase({ title: form.inspectionTitle, issueCount: form.issueCount, criticalIssueCount: form.criticalIssueCount });
 }
@@ -318,19 +430,20 @@ function optionalNumber(value: string): number | undefined {
   return Number(value);
 }
 
-function TextField({ label, value, onChange, required, readOnly, type = "text", min }: {
+function TextField({ label, value, onChange, required, readOnly, placeholder, type = "text", min }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   readOnly?: boolean;
+  placeholder?: string;
   type?: "text" | "date" | "number";
   min?: string;
 }) {
   return (
     <label className={styles.formField}>
       <span>{label}{required ? <em>*</em> : null}</span>
-      <input type={type} value={value} required={required} readOnly={readOnly} min={min} onChange={(event) => onChange(event.target.value)} />
+      <input type={type} value={value} required={required} readOnly={readOnly} placeholder={placeholder} min={min} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -362,6 +475,36 @@ function SelectField<T extends string>({ label, value, options, onChange }: {
   );
 }
 
+function SelectRefField({
+  label,
+  value,
+  items,
+  allLabel,
+  onChange,
+  required,
+  disabled
+}: {
+  label: string;
+  value: string;
+  items: Array<{ id: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}{required ? <em>*</em> : null}</span>
+      <select value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function PlanSelect({ value, plans, onChange }: { value: string; plans: EngineeringPlan[]; onChange: (value: string) => void }) {
   return (
     <label className={styles.formField}>
@@ -370,6 +513,28 @@ function PlanSelect({ value, plans, onChange }: { value: string; plans: Engineer
         <option value="">不关联计划</option>
         {plans.map((plan) => (
           <option key={plan.id} value={plan.id}>{plan.planCode} · {plan.planName}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function DailyReportSelect({
+  value,
+  reports,
+  onChange
+}: {
+  value: string;
+  reports: EngineeringProjectReferenceData["dailyReports"];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>关联日报</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">不关联日报</option>
+        {reports.map((report) => (
+          <option key={report.id} value={report.id}>{formatDailyReportLabel(report)}</option>
         ))}
       </select>
     </label>

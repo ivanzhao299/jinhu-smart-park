@@ -27,6 +27,18 @@ import {
   formatDate,
   formatDateTime
 } from "./EngineeringAcceptanceShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatFloorLabel,
+  formatPlanLabel,
+  formatOrgLabel,
+  formatProjectLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 export function EngineeringAcceptanceDetailClient() {
@@ -43,8 +55,10 @@ export function EngineeringAcceptanceDetailClient() {
   const [acceptance, setAcceptance] = useState<EngineeringAcceptance | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [operationSaving, setOperationSaving] = useState(false);
+  const projectLabel = formatProjectLabel(references.projects.find((item) => item.id === acceptance?.projectId) ?? null);
 
   const load = useCallback(async () => {
     if (!acceptanceId || !canView) return;
@@ -63,6 +77,12 @@ export function EngineeringAcceptanceDetailClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function submitAcceptance() {
     if (!acceptance) return;
@@ -184,14 +204,14 @@ export function EngineeringAcceptanceDetailClient() {
               </div>
             </div>
             <div className={styles.detailGrid}>
-              <DetailItem label="所属项目" value={acceptance.projectId} />
-              <DetailItem label="关联计划" value={acceptance.planId ?? "-"} />
+              <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : acceptance.projectId} />
+              <DetailItem label="关联计划" value={acceptance.planId ? formatPlanLabel(references.plans.find((item) => item.id === acceptance.planId) ?? null) : "-"} />
               <DetailItem label="计划验收日期" value={formatDate(acceptance.plannedAcceptanceDate)} />
               <DetailItem label="实际验收日期" value={formatDate(acceptance.actualAcceptanceDate)} />
-              <DetailItem label="责任人" value={acceptance.responsibleUserId ?? "-"} />
-              <DetailItem label="验收组织" value={acceptance.acceptanceOrgId ?? "-"} />
-              <DetailItem label="施工单位" value={acceptance.contractorOrgId ?? "-"} />
-              <DetailItem label="监理单位" value={acceptance.supervisorOrgId ?? "-"} />
+              <DetailItem label="责任人" value={acceptance.responsibleUserId ? displayUserName(references.users.find((item) => item.id === acceptance.responsibleUserId) ?? null) : "-"} />
+              <DetailItem label="验收组织" value={acceptance.acceptanceOrgId ? (formatOrgLabel(references.orgs.find((item) => item.id === acceptance.acceptanceOrgId) ?? null) !== "-" ? formatOrgLabel(references.orgs.find((item) => item.id === acceptance.acceptanceOrgId) ?? null) : acceptance.acceptanceOrgId) : "-"} />
+              <DetailItem label="施工单位" value={acceptance.contractorOrgId ? (formatOrgLabel(references.orgs.find((item) => item.id === acceptance.contractorOrgId) ?? null) !== "-" ? formatOrgLabel(references.orgs.find((item) => item.id === acceptance.contractorOrgId) ?? null) : acceptance.contractorOrgId) : "-"} />
+              <DetailItem label="监理单位" value={acceptance.supervisorOrgId ? (formatOrgLabel(references.orgs.find((item) => item.id === acceptance.supervisorOrgId) ?? null) !== "-" ? formatOrgLabel(references.orgs.find((item) => item.id === acceptance.supervisorOrgId) ?? null) : acceptance.supervisorOrgId) : "-"} />
             </div>
           </Card>
 
@@ -217,13 +237,16 @@ export function EngineeringAcceptanceDetailClient() {
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="提交时间" value={formatDateTime(acceptance.submittedAt)} />
-              <DetailItem label="提交人" value={acceptance.submittedBy ?? "-"} />
+              <DetailItem label="提交人" value={acceptance.submittedBy ? displayUserName(references.users.find((item) => item.id === acceptance.submittedBy) ?? null) : "-"} />
               <DetailItem label="评审时间" value={formatDateTime(acceptance.reviewedAt)} />
-              <DetailItem label="评审人" value={acceptance.reviewedBy ?? "-"} />
+              <DetailItem label="评审人" value={acceptance.reviewedBy ? displayUserName(references.users.find((item) => item.id === acceptance.reviewedBy) ?? null) : "-"} />
               <DetailItem label="关闭时间" value={formatDateTime(acceptance.closedAt)} />
-              <DetailItem label="关闭人" value={acceptance.closedBy ?? "-"} />
+              <DetailItem label="关闭人" value={acceptance.closedBy ? displayUserName(references.users.find((item) => item.id === acceptance.closedBy) ?? null) : "-"} />
               <DetailItem label="位置描述" value={acceptance.locationText ?? "-"} />
-              <DetailItem label="建筑 / 楼层 / 空间" value={`${acceptance.buildingId ?? "-"} / ${acceptance.floorId ?? "-"} / ${acceptance.spaceId ?? "-"}`} />
+              <DetailItem
+                label="建筑 / 楼层 / 空间"
+                value={`${acceptance.buildingId ? formatBuildingLabel(references.buildings.find((item) => item.id === acceptance.buildingId) ?? null) : "-"} / ${acceptance.floorId ? formatFloorLabel(references.floors.find((item) => item.id === acceptance.floorId) ?? null) : "-"} / ${acceptance.spaceId ? formatUnitLabel(references.units.find((item) => item.id === acceptance.spaceId) ?? null) : "-"}`}
+              />
               <DetailItem label="Workflow" value={acceptance.workflowInstanceId ?? "-"} />
               <DetailItem label="附件数量" value={acceptance.attachmentIds?.length ?? 0} />
             </div>

@@ -21,6 +21,7 @@ import {
   X,
   XCircle
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -147,6 +148,7 @@ const emptyWorkOrderForm: WorkOrderForm = {
 
 export default function IotAlertsPage() {
   const authUser = useAuthUser();
+  const searchParams = useSearchParams();
   const [pageData, setPageData] = useState<PaginatedResult<AlertRow>>(emptyPage);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [dicts, setDicts] = useState<DictMap>({});
@@ -163,6 +165,14 @@ export default function IotAlertsPage() {
   const urgencyItems = dicts.workorder_urgency ?? [];
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
   const realtimeTopics = useMemo(() => (authUser?.park_id ? [`iot:alerts:${authUser.park_id}`] : []), [authUser?.park_id]);
+  const routeFilters = useMemo(() => ({
+    keyword: searchParams.get("keyword") ?? "",
+    deviceId: searchParams.get("device_id") ?? searchParams.get("deviceId") ?? "",
+    alertLevel: searchParams.get("alert_level") ?? "",
+    status: searchParams.get("status") ?? "",
+    startDate: searchParams.get("start_date") ?? "",
+    endDate: searchParams.get("end_date") ?? ""
+  }), [searchParams]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-last_trigger_time" });
@@ -221,6 +231,15 @@ export default function IotAlertsPage() {
   }, [loadDicts, loadDevices, loadUsers]);
 
   useEffect(() => {
+    const hasRouteFilter = Object.values(routeFilters).some(Boolean);
+    if (!hasRouteFilter) return;
+    setFilters((current) => {
+      const next = { ...current, ...routeFilters };
+      return JSON.stringify(current) === JSON.stringify(next) ? current : next;
+    });
+  }, [routeFilters]);
+
+  useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
   }, [load]);
 
@@ -242,10 +261,24 @@ export default function IotAlertsPage() {
   });
 
   async function openDetail(row: AlertRow) {
-    const response = await apiRequest<AlertRow>(`/iot/alerts/${row.id}`, { token: getAccessToken() });
-    setViewing(response.data);
-    setWorkOrderForm(buildDefaultWorkOrderForm(response.data, priorityItems, urgencyItems));
-    await loadLogs(row.id);
+    setViewing(row);
+    setWorkOrderForm(buildDefaultWorkOrderForm(row, priorityItems, urgencyItems));
+    setLogs([]);
+    const [detailResult, logsResult] = await Promise.allSettled([
+      apiRequest<AlertRow>(`/iot/alerts/${row.id}`, { token: getAccessToken() }),
+      loadLogs(row.id)
+    ]);
+
+    if (detailResult.status === "fulfilled") {
+      setViewing((current) => (current?.id === row.id ? detailResult.value.data : current));
+      setWorkOrderForm(buildDefaultWorkOrderForm(detailResult.value.data, priorityItems, urgencyItems));
+    } else {
+      setMessage(detailResult.reason instanceof Error ? detailResult.reason.message : "加载告警详情失败");
+    }
+
+    if (logsResult.status === "rejected") {
+      setMessage(logsResult.reason instanceof Error ? logsResult.reason.message : "加载告警日志失败");
+    }
   }
 
   function closeDrawer() {
@@ -391,7 +424,7 @@ export default function IotAlertsPage() {
             <h2 className="panel-title">告警列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="iot-alerts-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>告警编号</th>

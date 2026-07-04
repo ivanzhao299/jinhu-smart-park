@@ -32,6 +32,14 @@ import {
   PlanTypePill,
   formatDate
 } from "./EngineeringPlanShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 interface FilterState {
@@ -71,11 +79,24 @@ export function EngineeringPlansListClient() {
   const [pageData, setPageData] = useState<EngineeringPlanPage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [progressPlan, setProgressPlan] = useState<EngineeringPlan | null>(null);
   const [statusPlan, setStatusPlan] = useState<EngineeringPlan | null>(null);
   const [operationSaving, setOperationSaving] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const projectLabelMap = useMemo(
+    () => new Map(references.projects.map((item) => [item.id, formatProjectLabel(item)])),
+    [references.projects]
+  );
+  const orgLabelMap = useMemo(
+    () => new Map(references.orgs.map((item) => [item.id, formatOrgLabel(item)])),
+    [references.orgs]
+  );
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
   const summaryCards = useMemo(() => {
     const delayedCount = pageData.items.filter((item) => item.status === "DELAYED" || item.delayDays > 0).length;
     const completedCount = pageData.items.filter((item) => item.status === "COMPLETED").length;
@@ -108,6 +129,12 @@ export function EngineeringPlansListClient() {
     if (!canView) return;
     void load(1);
   }, [canView, load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -169,7 +196,7 @@ export function EngineeringPlansListClient() {
       <header className="header">
         <div className="header-title">
           <strong>工程计划</strong>
-          <span>总计划、阶段计划、周计划、日计划、专项计划和里程碑跟踪</span>
+          <span>阶段、周、专项和里程碑的执行基线</span>
         </div>
         {canCreate ? (
           <Link className="primary-button" href={filters.projectId ? `/engineering/plans/new?projectId=${filters.projectId}` : "/engineering/plans/new"}>
@@ -192,13 +219,13 @@ export function EngineeringPlansListClient() {
       <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="计划编号 / 名称 / 描述" onChange={(value) => setFilter("keyword", value)} />
-          <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
+          <SelectReferenceFilter label="所属项目" value={filters.projectId} options={references.projects.map((item) => ({ value: item.id, label: formatProjectLabel(item) }))} onChange={(value) => setFilter("projectId", value)} />
           <SelectFilter label="计划类型" value={filters.planType} options={engineeringPlanTypeOptions} onChange={(value) => setFilter("planType", value as EngineeringPlanType | "")} />
           <SelectFilter label="计划状态" value={filters.status} options={engineeringPlanStatusOptions} onChange={(value) => setFilter("status", value as EngineeringPlanStatus | "")} />
           <SelectFilter label="计划层级" value={filters.planLevel} options={engineeringPlanLevelOptions} onChange={(value) => setFilter("planLevel", value as EngineeringPlanLevel | "")} />
-          <TextFilter label="责任人 ID" value={filters.ownerUserId} onChange={(value) => setFilter("ownerUserId", value)} />
-          <TextFilter label="责任单位 ID" value={filters.ownerOrgId} onChange={(value) => setFilter("ownerOrgId", value)} />
-          <TextFilter label="施工单位 ID" value={filters.contractorOrgId} onChange={(value) => setFilter("contractorOrgId", value)} />
+          <SelectReferenceFilter label="责任人" value={filters.ownerUserId} options={references.users.map((item) => ({ value: item.id, label: displayUserName(item) }))} onChange={(value) => setFilter("ownerUserId", value)} />
+          <SelectReferenceFilter label="责任单位" value={filters.ownerOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("ownerOrgId", value)} />
+          <SelectReferenceFilter label="施工单位" value={filters.contractorOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("contractorOrgId", value)} />
           <TextFilter label="计划开始自" value={filters.plannedStartFrom} type="date" onChange={(value) => setFilter("plannedStartFrom", value)} />
           <TextFilter label="计划开始至" value={filters.plannedStartTo} type="date" onChange={(value) => setFilter("plannedStartTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -209,12 +236,12 @@ export function EngineeringPlansListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>计划编号</th>
               <th>计划名称</th>
-              <th>项目 ID</th>
+              <th>所属项目</th>
               <th>类型</th>
               <th>层级</th>
               <th>状态</th>
@@ -232,15 +259,15 @@ export function EngineeringPlansListClient() {
               <tr key={row.id}>
                 <td>{row.planCode}</td>
                 <td><strong>{row.planName}</strong></td>
-                <td>{row.projectId}</td>
+                <td>{projectLabelMap.get(row.projectId) ?? row.projectId}</td>
                 <td><PlanTypePill type={row.planType} /></td>
                 <td><PlanLevelPill level={row.planLevel} /></td>
                 <td><PlanStatusPill status={row.status} /></td>
                 <td>{formatDate(row.plannedStartDate)} - {formatDate(row.plannedEndDate)}</td>
                 <td><PlanProgressBar value={row.actualProgressPercent} /></td>
                 <td>{row.delayDays > 0 ? <StatusPill variant="warning">{row.delayDays} 天</StatusPill> : "-"}</td>
-                <td>{row.ownerUserId ?? "-"}</td>
-                <td>{row.contractorOrgId ?? "-"}</td>
+                <td>{row.ownerUserId ? (userLabelMap.get(row.ownerUserId) ?? row.ownerUserId) : "-"}</td>
+                <td>{row.contractorOrgId ? (orgLabelMap.get(row.contractorOrgId) ?? row.contractorOrgId) : "-"}</td>
                 <td><PlanRiskPill risk={row.riskLevel} /></td>
                 <td>
                   <DataTableActions>
@@ -334,6 +361,32 @@ function SelectFilter<T extends string>({
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

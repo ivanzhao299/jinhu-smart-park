@@ -340,7 +340,7 @@ export default function IotAlertRulesPage() {
         {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
 
         <ContentCard title="规则列表" description={`共 ${pageData.total} 条`}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>规则编码</th>

@@ -1,4 +1,4 @@
-import { OperationsTerminalClient } from "../../../components/operations/OperationsTerminalClient";
+import { InspectTasksPageClient } from "../inspect-tasks/InspectTasksPageClient";
 import type { Viewport } from "next";
 
 export const viewport: Viewport = {
@@ -6,5 +6,5 @@ export const viewport: Viewport = {
 };
 
 export default function SafetyMyInspectTasksPage() {
-  return <OperationsTerminalClient />;
+  return <InspectTasksPageClient mode="mine" />;
 }

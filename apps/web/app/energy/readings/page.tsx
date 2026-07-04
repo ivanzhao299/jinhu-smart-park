@@ -180,7 +180,7 @@ export default function EnergyReadingsPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="读数列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>读数时间</th><th>本期读数</th><th>上期读数</th><th>用量</th><th>来源</th><th>确认状态</th><th>确认时间</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
@@ -194,8 +194,9 @@ export default function EnergyReadingsPage() {
                   <td>{formatDateTime(row.confirmedAt)}</td>
                   <td>
                     <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_READING_CONFIRM} type="button" disabled={row.confirmationStatus !== "PENDING"} onClick={() => void confirmReading(row).catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_READING_CONFIRM} type="button" disabled={row.confirmationStatus === "CONFIRMED"} onClick={() => void rejectReading(row).catch((error: Error) => setMessage(error.message))}><XCircle size={16} />驳回</PermissionButton>
+                      {canConfirmReadingRow(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_READING_CONFIRM} type="button" onClick={() => void confirmReading(row).catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton> : null}
+                      {canRejectReadingRow(row) ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_READING_CONFIRM} type="button" onClick={() => void rejectReading(row).catch((error: Error) => setMessage(error.message))}><XCircle size={16} />驳回</PermissionButton> : null}
+                      {!hasReadingActions(row) ? <span className="muted-text">已确认</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>
@@ -250,6 +251,18 @@ function SelectField({ label, value, items, allLabel, onChange, required = false
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function canConfirmReadingRow(row: ReadingRow) {
+  return row.confirmationStatus === "PENDING";
+}
+
+function canRejectReadingRow(row: ReadingRow) {
+  return row.confirmationStatus !== "CONFIRMED";
+}
+
+function hasReadingActions(row: ReadingRow) {
+  return canConfirmReadingRow(row) || canRejectReadingRow(row);
 }
 
 function Forbidden() {

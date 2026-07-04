@@ -440,7 +440,7 @@ export default function IotDeviceDetailPage() {
                     <tbody>
                       {alerts.map((alert) => (
                         <tr key={alert.id}>
-                          <td><Link className="text-link" href="/iot/alerts">{alert.alertCode}</Link></td>
+                          <td><Link className="text-link" href={`/iot/alerts?device_id=${encodeURIComponent(deviceId)}&keyword=${encodeURIComponent(alert.alertCode)}`}>{alert.alertCode}</Link></td>
                           <td>{alert.alertTitle}</td>
                           <td>{alert.metricCode}</td>
                           <td><StatusPill dictCode="iot_alert_level" value={alert.alertLevel} dicts={dicts} /></td>

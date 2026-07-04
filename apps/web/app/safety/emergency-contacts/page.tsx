@@ -39,6 +39,21 @@ interface DictItemRow {
   tagType?: string | null;
 }
 
+interface OrgRow {
+  id: string;
+  orgCode: string;
+  orgName: string;
+  status?: string;
+}
+
+interface UserRow {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  realName?: string | null;
+  status?: string;
+}
+
 interface EmergencyContactRow {
   id: string;
   code: string | null;
@@ -103,6 +118,8 @@ export default function SafetyEmergencyContactsPage() {
   const [pageData, setPageData] = useState<PaginatedResult<EmergencyContactRow>>(emptyPage);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [orgs, setOrgs] = useState<OrgRow[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [form, setForm] = useState<ContactForm>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<EmergencyContactRow | null>(null);
@@ -143,9 +160,23 @@ export default function SafetyEmergencyContactsPage() {
     setDicts(Object.fromEntries(entries));
   }, []);
 
+  const loadReferenceData = useCallback(async () => {
+    const [orgResponse, userResponse] = await Promise.allSettled([
+      apiRequest<PaginatedResult<OrgRow>>("/orgs?page=1&page_size=200&status=enabled", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=200&status=enabled", { token: getAccessToken() })
+    ]);
+    if (orgResponse.status === "fulfilled") {
+      setOrgs(orgResponse.value.data.items);
+    }
+    if (userResponse.status === "fulfilled") {
+      setUsers(userResponse.value.data.items.filter((item) => item.status !== "disabled"));
+    }
+  }, []);
+
   useEffect(() => {
     void loadDicts().catch((error: Error) => setMessage(error.message));
-  }, [loadDicts]);
+    void loadReferenceData().catch((error: Error) => setMessage(error.message));
+  }, [loadDicts, loadReferenceData]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -261,7 +292,7 @@ export default function SafetyEmergencyContactsPage() {
             <h2 className="panel-title">联系人列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="safety-emergency-contacts-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>联系人编码</th>
@@ -340,12 +371,20 @@ export default function SafetyEmergencyContactsPage() {
                 <Field label="通知渠道">
                   <input value={form.notifyChannels} onChange={(event) => setFormValue("notifyChannels", event.target.value)} placeholder="site_message,sms,wechat,email" />
                 </Field>
-                <Field label="组织 ID">
-                  <input value={form.orgId} onChange={(event) => setFormValue("orgId", event.target.value)} placeholder="可选" />
-                </Field>
-                <Field label="关联用户 ID">
-                  <input value={form.userId} onChange={(event) => setFormValue("userId", event.target.value)} placeholder="可选" />
-                </Field>
+                <ReferenceSelectField
+                  label="所属组织"
+                  value={form.orgId}
+                  allLabel="暂不关联组织"
+                  items={orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
+                  onChange={(value) => setFormValue("orgId", value)}
+                />
+                <ReferenceSelectField
+                  label="关联用户"
+                  value={form.userId}
+                  allLabel="暂不关联用户"
+                  items={users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
+                  onChange={(value) => setFormValue("userId", value)}
+                />
                 <SelectField label="状态" value={form.status} items={statusItems} allLabel="请选择状态" onChange={(value) => setFormValue("status", value || "enabled")} />
               </DrawerFormGrid>
               <DrawerFormGrid single>
@@ -378,8 +417,8 @@ export default function SafetyEmergencyContactsPage() {
               <DrawerDetailItem label="优先级" value={viewing.priorityLevel} />
               <DrawerDetailItem label="通知渠道" value={viewing.notifyChannels?.join(" / ") || "-"} />
               <DrawerDetailItem label="状态" value={<StatusPill dictCode="safety_emergency_contact_status" value={viewing.status} dicts={dicts} />} />
-              <DrawerDetailItem label="组织 ID" value={viewing.orgId ?? "-"} />
-              <DrawerDetailItem label="关联用户 ID" value={viewing.userId ?? "-"} />
+              <DrawerDetailItem label="所属组织" value={viewing.orgId ? formatOrgLabel(orgs.find((item) => item.id === viewing.orgId) ?? null) : "-"} />
+              <DrawerDetailItem label="关联用户" value={viewing.userId ? displayUserName(users.find((item) => item.id === viewing.userId) ?? null) : "-"} />
               <DrawerDetailItem label="备注" value={viewing.remark ?? "-"} />
             </DrawerDetailGrid>
           </Drawer>
@@ -447,9 +486,43 @@ function SelectField({
   );
 }
 
+function ReferenceSelectField({
+  label,
+  value,
+  items,
+  allLabel,
+  onChange
+}: {
+  label: string;
+  value: string;
+  items: Array<{ id: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
 function labelFor(items: DictItemRow[], value?: string | null) {
   if (!value) return "-";
   return items.find((item) => String(item.itemValue) === String(value))?.itemLabel ?? value;
+}
+
+function formatOrgLabel(org?: OrgRow | null) {
+  if (!org) return "-";
+  return `${org.orgCode} ${org.orgName}`.trim();
+}
+
+function displayUserName(user?: UserRow | null) {
+  if (!user) return "-";
+  return user.displayName ?? user.realName ?? user.username;
 }
 
 function EmptyState() {

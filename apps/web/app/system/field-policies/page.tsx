@@ -44,6 +44,7 @@ export default function FieldPoliciesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formState, setFormState] = useState<FormState>(emptyForm);
   const [message, setMessage] = useState("");
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   async function load(page = 1) {
     const token = getToken();
@@ -129,7 +130,7 @@ export default function FieldPoliciesPage() {
             <tbody>{data.items.map((item) => <tr key={item.id}><td>{item.module}</td><td>{item.entity}</td><td>{item.fieldName}<br /><span className="muted-text">{item.fieldKey}</span></td><td><span className="status-pill">{item.policyType}</span></td><td>{item.maskRule ?? "-"}</td><td><StatusBadge status={item.status} /></td><td><PermissionButton permission={SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_UPDATE} type="button" onClick={() => openEdit(item)}><Edit3 size={16} />编辑</PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.FIELD_POLICY_OPEN_DELETE} type="button" onClick={() => void remove(item).catch(showError)}><Trash2 size={16} />删除</PermissionButton></td></tr>)}</tbody>
           </DataTable>
         </div>
-        <div className="task-item"><span>共 {data.total} 条，第 {data.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {data.total} 条，第 {data.page} / {totalPages} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" disabled={data.page <= 1} onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}>上一页</button><button className="pagination-button" type="button" disabled={data.page >= totalPages} onClick={() => void load(data.page + 1).catch(showError)}>下一页</button></span></div>
       </Card>
 
       {formOpen ? (

@@ -683,7 +683,7 @@ export default function IotDevicesPage() {
             <h2 className="panel-title">设备列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="iot-devices-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>设备</th>

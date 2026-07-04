@@ -216,10 +216,11 @@ export default function VideoAlertsPage() {
   }
 
   async function loadDetail(row: VideoAlertRow) {
+    setViewing(row);
     setMessage("");
     try {
       const response = await apiRequest<VideoAlertRow>(`/video-security/alerts/${row.id}`, { token: getAccessToken() });
-      setViewing(response.data);
+      setViewing((current) => (current?.id === row.id ? response.data : current));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载视频告警详情失败");
     }
@@ -308,7 +309,7 @@ export default function VideoAlertsPage() {
               <p>{loading ? "加载中..." : `共 ${pageData.total} 条，第 ${pageData.page} 页`}</p>
             </div>
           </div>
-          <DataTable>
+          <DataTable className="video-alerts-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>告警编号</th>

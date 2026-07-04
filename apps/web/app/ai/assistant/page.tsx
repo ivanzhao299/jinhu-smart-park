@@ -5,29 +5,29 @@ import styles from "../../module-overview.module.css";
 
 const featureCards = [
   {
-    title: "工单协助",
-    description: "把工单受理、分类和处理建议收拢到统一助手入口，方便客服和物业快速查看处理方向。",
-    tag: "服务协助",
+    title: "工单助手",
+    description: "集中查看工单受理、分类和处理建议。",
+    tag: "工单",
     icon: Wrench,
-    points: ["工单分类与响应建议", "处理链路摘要", "为客服与物业提供辅助判断"],
+    points: ["受理与分派", "处理建议", "闭环摘要"],
     href: "/workorders",
     hrefLabel: "查看工单看板"
   },
   {
-    title: "安全治理协助",
-    description: "围绕安全巡检、隐患整改和应急事件整理统一助手入口，帮助管理员更快读懂风险和处理链路。",
-    tag: "安全分析",
+    title: "安全助手",
+    description: "把巡检、隐患和应急放到一个入口里。",
+    tag: "安全",
     icon: ShieldAlert,
-    points: ["隐患整改摘要", "应急事件辅助阅读", "巡检任务态势辅助判断"],
+    points: ["隐患摘要", "应急态势", "巡检跟进"],
     href: "/safety/dashboard",
     hrefLabel: "查看安全看板"
   },
   {
-    title: "工程交付协助",
-    description: "把工程项目、计划、施工日报和整改验收的摘要入口放进统一 AI 模块，方便工程人员集中查看重点信息。",
-    tag: "工程协同",
+    title: "工程助手",
+    description: "围绕项目、计划、日报和整改验收快速切换。",
+    tag: "工程",
     icon: HardHat,
-    points: ["工程项目进展摘要", "计划与日报联读", "整改与验收节点辅助汇总"],
+    points: ["进度摘要", "计划联读", "整改验收"],
     href: "/engineering/dashboard",
     hrefLabel: "查看工程看板"
   }
@@ -41,17 +41,15 @@ export default function AiAssistantPage() {
           <div className={styles.heroCopy}>
             <span className={styles.eyebrow}>
               <BrainCircuit size={14} />
-              AI Assistant
+              AI Workspace
             </span>
-            <h1>AI 助手</h1>
+            <h1>AI 工作台</h1>
             <p className={styles.heroLead}>
-              把 AI 助手作为正式产品模块接回生产导航。当前重点是给管理员一个真实可落地的统一入口，
-              先承接工单、安全和工程三条高频业务链路。
+              从一个入口切到工单、安全和工程，不用在菜单里来回找。
             </p>
             <div className={styles.chipRow}>
-              <span className={styles.chip}>管理员已可见</span>
-              <span className={styles.chip}>AI 工作台入口已接通</span>
-              <span className={styles.chip}>工单 / 安全 / 工程入口已联动</span>
+              <span className={styles.chip}>统一入口</span>
+              <span className={styles.chip}>工单 / 安全 / 工程</span>
             </div>
           </div>
           <div className={styles.heroActions}>
@@ -64,19 +62,19 @@ export default function AiAssistantPage() {
 
         <div className={styles.summaryGrid}>
           <article className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>当前定位</span>
-            <strong className={styles.summaryValue}>统一入口</strong>
-            <span className={styles.summaryHint}>先把 AI 模块变成正式产品入口，而不是只存在于权限和数据库里。</span>
+            <span className={styles.summaryLabel}>现在先做</span>
+            <strong className={styles.summaryValue}>进业务</strong>
+            <span className={styles.summaryHint}>直接进入高频链路，不停留在说明页。</span>
           </article>
           <article className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>接入方向</span>
-            <strong className={styles.summaryValue}>工单 / 安全 / 工程</strong>
-            <span className={styles.summaryHint}>先覆盖最需要辅助判断和摘要的链路，让管理员能直接从一个入口切换到关键场景。</span>
+            <span className={styles.summaryLabel}>覆盖范围</span>
+            <strong className={styles.summaryValue}>三条主链</strong>
+            <span className={styles.summaryHint}>工单、安全、工程已经并到同一入口。</span>
           </article>
           <article className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>当前重点</span>
-            <strong className={styles.summaryValue}>快速协同</strong>
-            <span className={styles.summaryHint}>先把真实可用的业务入口收拢起来，再继续打磨 AI 交互和辅助流程。</span>
+            <span className={styles.summaryLabel}>工作方式</span>
+            <strong className={styles.summaryValue}>先行动</strong>
+            <span className={styles.summaryHint}>先完成入口收口，再继续加 AI 交互。</span>
           </article>
         </div>
       </Card>
@@ -84,12 +82,12 @@ export default function AiAssistantPage() {
       <Card className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2>AI 工作台能力方向</h2>
-            <p>当前先把 AI 助手作为统一业务入口接入主导航，方便运营和管理角色直接进入关键场景。</p>
+            <h2>常用入口</h2>
+            <p>先把最常用的三条链路收进来。</p>
           </div>
           <span className={styles.sectionBadge}>
             <Sparkles size={14} />
-            Assisted Operations
+            Workspace
           </span>
         </div>
         <div className={styles.featureGrid}>

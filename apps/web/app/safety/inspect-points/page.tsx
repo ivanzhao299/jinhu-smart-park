@@ -307,6 +307,13 @@ export default function SafetyInspectPointsPage() {
   }
 
   async function openQrCode(row: InspectPointRow) {
+    setQrPayload({
+      id: row.id,
+      point_code: row.pointCode,
+      qr_code: row.qrCode ?? row.pointCode,
+      content: row.qrCode ?? row.pointCode,
+      data_url: null
+    });
     const response = await apiRequest<QrCodePayload>(`/safety/inspect-points/${row.id}/qrcode`, {
       token: getAccessToken()
     });
@@ -357,7 +364,7 @@ export default function SafetyInspectPointsPage() {
         </Card>
 
         <Card className="table-scroll">
-          <DataTable>
+          <DataTable className="safety-inspect-points-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>点位编码</th>
@@ -518,7 +525,7 @@ export default function SafetyInspectPointsPage() {
           <Drawer size="md" onClose={() => setQrPayload(null)}>
             <DrawerHeader eyebrow="点位二维码" title={qrPayload.point_code} description="用于巡检扫码定位到当前点位。" onClose={() => setQrPayload(null)} />
             <div className="qr-code-card">
-              {qrPayload.data_url ? <img className="qr-code-image" alt="巡检点位二维码" src={qrPayload.data_url} /> : null}
+              {qrPayload.data_url ? <img className="qr-code-image" alt="巡检点位二维码" src={qrPayload.data_url} /> : <p className="muted-text">二维码生成中，请稍候...</p>}
               <code className="qr-code-value">{qrPayload.content}</code>
             </div>
           </Drawer>

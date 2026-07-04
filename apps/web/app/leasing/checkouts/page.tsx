@@ -652,7 +652,7 @@ export default function LeasingCheckoutsPage() {
           <span className="muted-text">{loading ? "加载中" : `第 ${pageData.page} 页`}</span>
         </div>
         <div className="table-scroll">
-          <DataTable >
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>退租单</th>

@@ -152,7 +152,7 @@ export default function EnergyBillingAdjustmentsPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="调整单列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>调整单号</th><th>账单项</th><th>类型</th><th>调整金额</th><th>原因</th><th>状态</th><th>原应收</th><th>调整应收</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
@@ -167,9 +167,10 @@ export default function EnergyBillingAdjustmentsPage() {
                   <td>{row.relatedReceivableId ?? "-"}</td>
                   <td>
                     <DataTableActions>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_APPROVE} type="button" disabled={row.status !== "DRAFT"} onClick={() => void action(row, "approve").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />审批</PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_POST} type="button" disabled={row.status !== "APPROVED"} onClick={() => void action(row, "post").catch((error: Error) => setMessage(error.message))}><FileUp size={16} />发布</PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_CANCEL} type="button" disabled={row.status !== "DRAFT"} onClick={() => void action(row, "cancel").catch((error: Error) => setMessage(error.message))}><XCircle size={16} />取消</PermissionButton>
+                      {canApproveAdjustment(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_APPROVE} type="button" onClick={() => void action(row, "approve").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />审批</PermissionButton> : null}
+                      {canPostAdjustment(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_POST} type="button" onClick={() => void action(row, "post").catch((error: Error) => setMessage(error.message))}><FileUp size={16} />发布</PermissionButton> : null}
+                      {canCancelAdjustment(row) ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_CANCEL} type="button" onClick={() => void action(row, "cancel").catch((error: Error) => setMessage(error.message))}><XCircle size={16} />取消</PermissionButton> : null}
+                      {!hasAdjustmentActions(row) ? <span className="muted-text">{adjustmentActionHint(row)}</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>
@@ -205,6 +206,33 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function SelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: DictItemRow[]; allLabel: string; onChange: (value: string) => void }) {
   return <Field label={label}><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">{allLabel}</option>{items.map((item) => <option key={item.id} value={item.itemValue}>{item.itemLabel}</option>)}</select></Field>;
+}
+
+function canApproveAdjustment(row: AdjustmentRow) {
+  return row.status === "DRAFT";
+}
+
+function canPostAdjustment(row: AdjustmentRow) {
+  return row.status === "APPROVED";
+}
+
+function canCancelAdjustment(row: AdjustmentRow) {
+  return row.status === "DRAFT";
+}
+
+function hasAdjustmentActions(row: AdjustmentRow) {
+  return canApproveAdjustment(row) || canPostAdjustment(row) || canCancelAdjustment(row);
+}
+
+function adjustmentActionHint(row: AdjustmentRow) {
+  switch (row.status) {
+    case "POSTED":
+      return "已发布";
+    case "CANCELLED":
+      return "已取消";
+    default:
+      return "当前无动作";
+  }
 }
 
 function Forbidden() {

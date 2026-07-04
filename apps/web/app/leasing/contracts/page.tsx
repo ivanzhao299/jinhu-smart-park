@@ -1191,7 +1191,7 @@ export default function LeasingContractsPage() {
           {message ? <p className="status-pill">{message}</p> : null}
 
           <Card className=" table-scroll">
-            <DataTable >
+            <DataTable className="allow-horizontal-table">
               <thead>
                 <tr>
                   <th>合同</th>
@@ -1200,7 +1200,7 @@ export default function LeasingContractsPage() {
                   <th>租期 / 面积</th>
                   <th>金额</th>
                   <th>状态 / 更新时间</th>
-                  <th>操作</th>
+                  <th style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1232,7 +1232,7 @@ export default function LeasingContractsPage() {
                     <td>
                       <StackedCell title={<DictBadge items={statusItems} value={row.status} />} meta={formatDateTime(row.updateTime)} />
                     </td>
-                    <td>
+                    <td style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>
                       <span className="data-table-actions">
                         <PermissionButton className="ds-row-action ds-row-action-edit" permission={CONTRACT_PERMISSIONS.update} type="button" onClick={() => openEdit(row)}>
                           <Edit3 size={16} />

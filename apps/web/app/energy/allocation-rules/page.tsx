@@ -194,7 +194,7 @@ export default function EnergyAllocationRulesPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="规则列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>规则名称</th><th>表计类型</th><th>分摊范围</th><th>分摊方式</th><th>公共表计</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (

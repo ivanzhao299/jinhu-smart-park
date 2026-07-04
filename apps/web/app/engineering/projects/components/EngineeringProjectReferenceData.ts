@@ -2,6 +2,9 @@
 
 import type { PaginatedResult } from "@jinhu/shared";
 import { apiRequest } from "../../../../lib/api-client";
+import type { EngineeringDailyReport } from "../../../../lib/engineering-daily-reports-types";
+import type { EngineeringInspection, EngineeringIssue } from "../../../../lib/engineering-inspections-types";
+import type { EngineeringPlan } from "../../../../lib/engineering-plans-types";
 import type { EngineeringProject } from "../../../../lib/engineering-projects-types";
 
 export interface OrgRow {
@@ -46,8 +49,44 @@ export interface ProjectRow {
   projectName: string;
 }
 
+export interface PlanRow {
+  id: string;
+  projectId: string;
+  planCode: string;
+  planName: string;
+}
+
+export interface DailyReportRow {
+  id: string;
+  projectId: string;
+  planId?: string | null;
+  reportCode: string;
+  reportDate: string;
+}
+
+export interface InspectionRow {
+  id: string;
+  projectId: string;
+  planId?: string | null;
+  dailyReportId?: string | null;
+  inspectionCode: string;
+  inspectionTitle: string;
+}
+
+export interface IssueRow {
+  id: string;
+  projectId: string;
+  inspectionId?: string | null;
+  issueCode: string;
+  issueTitle: string;
+}
+
 export interface EngineeringProjectReferenceData {
   projects: ProjectRow[];
+  plans: PlanRow[];
+  dailyReports: DailyReportRow[];
+  inspections: InspectionRow[];
+  issues: IssueRow[];
   orgs: OrgRow[];
   buildings: BuildingRow[];
   floors: FloorRow[];
@@ -57,6 +96,10 @@ export interface EngineeringProjectReferenceData {
 
 export const emptyEngineeringProjectReferences: EngineeringProjectReferenceData = {
   projects: [],
+  plans: [],
+  dailyReports: [],
+  inspections: [],
+  issues: [],
   orgs: [],
   buildings: [],
   floors: [],
@@ -65,8 +108,12 @@ export const emptyEngineeringProjectReferences: EngineeringProjectReferenceData 
 };
 
 export async function loadEngineeringProjectReferences(token?: string): Promise<EngineeringProjectReferenceData> {
-  const [projectResponse, orgResponse, buildingResponse, floorResponse, unitResponse, userResponse] = await Promise.allSettled([
+  const [projectResponse, planResponse, dailyReportResponse, inspectionResponse, issueResponse, orgResponse, buildingResponse, floorResponse, unitResponse, userResponse] = await Promise.allSettled([
     apiRequest<PaginatedResult<EngineeringProject>>("/engineering/projects?page=1&page_size=200&sort=create_time_desc", { token }),
+    apiRequest<PaginatedResult<EngineeringPlan>>("/engineering/plans?page=1&page_size=200&sort=create_time_desc", { token }),
+    apiRequest<PaginatedResult<EngineeringDailyReport>>("/engineering/daily-reports?page=1&page_size=200&sort=create_time_desc", { token }),
+    apiRequest<PaginatedResult<EngineeringInspection>>("/engineering/inspections?page=1&page_size=200&sort=create_time_desc", { token }),
+    apiRequest<PaginatedResult<EngineeringIssue>>("/engineering/issues?page=1&page_size=200&sort=create_time_desc", { token }),
     apiRequest<PaginatedResult<OrgRow>>("/orgs?page=1&page_size=200&status=enabled", { token }),
     apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200&sort=sortNo", { token }),
     apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=200&sort=floorNo", { token }),
@@ -80,6 +127,42 @@ export async function loadEngineeringProjectReferences(token?: string): Promise<
         id: item.id,
         projectCode: item.projectCode,
         projectName: item.projectName
+      }))
+      : [],
+    plans: planResponse.status === "fulfilled"
+      ? planResponse.value.data.items.map((item) => ({
+        id: item.id,
+        projectId: item.projectId,
+        planCode: item.planCode,
+        planName: item.planName
+      }))
+      : [],
+    dailyReports: dailyReportResponse.status === "fulfilled"
+      ? dailyReportResponse.value.data.items.map((item) => ({
+        id: item.id,
+        projectId: item.projectId,
+        planId: item.planId,
+        reportCode: item.reportCode,
+        reportDate: item.reportDate
+      }))
+      : [],
+    inspections: inspectionResponse.status === "fulfilled"
+      ? inspectionResponse.value.data.items.map((item) => ({
+        id: item.id,
+        projectId: item.projectId,
+        planId: item.planId,
+        dailyReportId: item.dailyReportId,
+        inspectionCode: item.inspectionCode,
+        inspectionTitle: item.inspectionTitle
+      }))
+      : [],
+    issues: issueResponse.status === "fulfilled"
+      ? issueResponse.value.data.items.map((item) => ({
+        id: item.id,
+        projectId: item.projectId,
+        inspectionId: item.inspectionId,
+        issueCode: item.issueCode,
+        issueTitle: item.issueTitle
       }))
       : [],
     orgs: orgResponse.status === "fulfilled" ? orgResponse.value.data.items : [],
@@ -100,6 +183,26 @@ export function displayUserName(user?: UserRow | null): string {
 export function formatProjectLabel(project?: ProjectRow | null): string {
   if (!project) return "-";
   return `${project.projectCode} ${project.projectName}`.trim();
+}
+
+export function formatPlanLabel(plan?: PlanRow | null): string {
+  if (!plan) return "-";
+  return `${plan.planCode} ${plan.planName}`.trim();
+}
+
+export function formatDailyReportLabel(report?: DailyReportRow | null): string {
+  if (!report) return "-";
+  return `${report.reportCode}${report.reportDate ? ` · ${report.reportDate}` : ""}`.trim();
+}
+
+export function formatInspectionLabel(inspection?: InspectionRow | null): string {
+  if (!inspection) return "-";
+  return `${inspection.inspectionCode} ${inspection.inspectionTitle}`.trim();
+}
+
+export function formatIssueLabel(issue?: IssueRow | null): string {
+  if (!issue) return "-";
+  return `${issue.issueCode} ${issue.issueTitle}`.trim();
 }
 
 export function formatOrgLabel(org?: OrgRow | null): string {

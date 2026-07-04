@@ -87,11 +87,15 @@ export function validateInspectionFormBase(input: { title: string; issueCount: s
 export function EngineeringIssueDrawer({
   saving,
   onClose,
-  onSubmit
+  onSubmit,
+  responsibleUsers,
+  responsibleOrgs
 }: {
   saving: boolean;
   onClose: () => void;
   onSubmit: (input: CreateEngineeringIssueInput) => Promise<void>;
+  responsibleUsers: Array<{ id: string; label: string }>;
+  responsibleOrgs: Array<{ id: string; label: string }>;
 }) {
   const [form, setForm] = useState({
     issueTitle: "",
@@ -162,12 +166,22 @@ export function EngineeringIssueDrawer({
           <input type="date" value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
         </label>
         <label className={styles.formField}>
-          <span>责任人 ID</span>
-          <input value={form.responsibleUserId} onChange={(event) => setForm((current) => ({ ...current, responsibleUserId: event.target.value }))} />
+          <span>责任人</span>
+          <select value={form.responsibleUserId} onChange={(event) => setForm((current) => ({ ...current, responsibleUserId: event.target.value }))}>
+            <option value="">暂不指定</option>
+            {responsibleUsers.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
         </label>
         <label className={styles.formField}>
-          <span>责任组织 ID</span>
-          <input value={form.responsibleOrgId} onChange={(event) => setForm((current) => ({ ...current, responsibleOrgId: event.target.value }))} />
+          <span>责任组织</span>
+          <select value={form.responsibleOrgId} onChange={(event) => setForm((current) => ({ ...current, responsibleOrgId: event.target.value }))}>
+            <option value="">暂不指定</option>
+            {responsibleOrgs.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
         </label>
         <label className={styles.formField}>
           <span>备注</span>

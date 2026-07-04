@@ -27,6 +27,16 @@ import {
   formatDate,
   formatDateTime
 } from "./EngineeringRectificationShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatInspectionLabel,
+  formatIssueLabel,
+  formatOrgLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 interface FilterState {
@@ -67,9 +77,22 @@ export function EngineeringRectificationsListClient() {
   const [pageData, setPageData] = useState<EngineeringRectificationPage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [actionTarget, setActionTarget] = useState<{ row: EngineeringRectification; action: EngineeringRectificationAction } | null>(null);
   const [actionSaving, setActionSaving] = useState(false);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const projectLabelMap = useMemo(
+    () => new Map(references.projects.map((item) => [item.id, formatProjectLabel(item)])),
+    [references.projects]
+  );
+  const orgLabelMap = useMemo(
+    () => new Map(references.orgs.map((item) => [item.id, formatOrgLabel(item)])),
+    [references.orgs]
+  );
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
   const summaryCards = useMemo(() => {
     const overdueCount = pageData.items.filter((item) => item.status === "OVERDUE").length;
     const recheckingCount = pageData.items.filter((item) => item.status === "RECHECKING").length;
@@ -101,6 +124,12 @@ export function EngineeringRectificationsListClient() {
     if (!canView) return;
     void load(1);
   }, [canView, load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,7 +171,7 @@ export function EngineeringRectificationsListClient() {
       <header className="header">
         <div className="header-title">
           <strong>整改任务</strong>
-          <span>承接巡检问题、施工反馈、工程复查和闭环关闭</span>
+          <span>整改反馈、复查和闭环的统一入口</span>
         </div>
         <button className="secondary-button" type="button" disabled={loading} onClick={() => void load(pageData.page)}>
           <RefreshCw size={16} />
@@ -163,9 +192,23 @@ export function EngineeringRectificationsListClient() {
       <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 标题 / 描述" onChange={(value) => setFilter("keyword", value)} />
-          <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
-          <TextFilter label="问题 ID" value={filters.issueId} onChange={(value) => setFilter("issueId", value)} />
-          <TextFilter label="巡检 ID" value={filters.inspectionId} onChange={(value) => setFilter("inspectionId", value)} />
+          <SelectReferenceFilter label="所属项目" value={filters.projectId} options={references.projects.map((item) => ({ value: item.id, label: formatProjectLabel(item) }))} onChange={(value) => setFilter("projectId", value)} />
+          <SelectReferenceFilter
+            label="来源问题"
+            value={filters.issueId}
+            options={references.issues
+              .filter((item) => !filters.projectId || item.projectId === filters.projectId)
+              .map((item) => ({ value: item.id, label: formatIssueLabel(item) }))}
+            onChange={(value) => setFilter("issueId", value)}
+          />
+          <SelectReferenceFilter
+            label="来源巡检"
+            value={filters.inspectionId}
+            options={references.inspections
+              .filter((item) => !filters.projectId || item.projectId === filters.projectId)
+              .map((item) => ({ value: item.id, label: formatInspectionLabel(item) }))}
+            onChange={(value) => setFilter("inspectionId", value)}
+          />
           <SelectFilter label="整改状态" value={filters.status} options={engineeringRectificationStatusOptions} onChange={(value) => setFilter("status", value as EngineeringRectificationStatus | "")} />
           <SelectFilter
             label="严重等级"
@@ -173,8 +216,8 @@ export function EngineeringRectificationsListClient() {
             options={(Object.entries(engineeringIssueSeverityLabels) as Array<[keyof typeof engineeringIssueSeverityLabels, string]>).map(([value, label]) => ({ value, label }))}
             onChange={(value) => setFilter("severity", value as FilterState["severity"])}
           />
-          <TextFilter label="责任人 ID" value={filters.responsibleUserId} onChange={(value) => setFilter("responsibleUserId", value)} />
-          <TextFilter label="施工单位 ID" value={filters.contractorOrgId} onChange={(value) => setFilter("contractorOrgId", value)} />
+          <SelectReferenceFilter label="责任人" value={filters.responsibleUserId} options={references.users.map((item) => ({ value: item.id, label: displayUserName(item) }))} onChange={(value) => setFilter("responsibleUserId", value)} />
+          <SelectReferenceFilter label="施工单位" value={filters.contractorOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("contractorOrgId", value)} />
           <TextFilter label="期限自" type="date" value={filters.deadlineFrom} onChange={(value) => setFilter("deadlineFrom", value)} />
           <TextFilter label="期限至" type="date" value={filters.deadlineTo} onChange={(value) => setFilter("deadlineTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -185,7 +228,7 @@ export function EngineeringRectificationsListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>整改编号</th>
@@ -195,7 +238,7 @@ export function EngineeringRectificationsListClient() {
               <th>期限</th>
               <th>责任人</th>
               <th>反馈 / 复查</th>
-              <th>项目 ID</th>
+              <th>所属项目</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -207,9 +250,9 @@ export function EngineeringRectificationsListClient() {
                 <td><RectificationStatusPill status={row.status} /></td>
                 <td><RectificationSeverityPill severity={row.severity} /></td>
                 <td>{formatDate(row.deadline)}</td>
-                <td>{row.responsibleUserId ?? row.responsibleOrgId ?? "-"}</td>
-                <td>{row.submittedBy ?? "-"}<br /><small>{formatDateTime(row.submittedAt ?? row.recheckedAt)}</small></td>
-                <td>{row.projectId}</td>
+                <td>{row.responsibleUserId ? (userLabelMap.get(row.responsibleUserId) ?? row.responsibleUserId) : row.responsibleOrgId ? (orgLabelMap.get(row.responsibleOrgId) ?? row.responsibleOrgId) : "-"}</td>
+                <td>{row.submittedBy ? (userLabelMap.get(row.submittedBy) ?? row.submittedBy) : "-"}<br /><small>{formatDateTime(row.submittedAt ?? row.recheckedAt)}</small></td>
+                <td>{projectLabelMap.get(row.projectId) ?? row.projectId}</td>
                 <td>
                   <DataTableActions>
                     <Link aria-label="查看" href={`/engineering/rectifications/${row.id}`}><Eye size={16} /></Link>
@@ -305,6 +348,32 @@ function SelectFilter<T extends string>({ label, value, options, onChange }: {
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

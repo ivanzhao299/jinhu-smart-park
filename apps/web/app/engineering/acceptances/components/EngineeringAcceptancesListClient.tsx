@@ -36,6 +36,15 @@ import {
   formatDate,
   formatDateTime
 } from "./EngineeringAcceptanceShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatOrgLabel,
+  formatPlanLabel,
+  formatProjectLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 interface FilterState {
@@ -80,9 +89,18 @@ export function EngineeringAcceptancesListClient() {
   const [pageData, setPageData] = useState<EngineeringAcceptancePage>(emptyPage);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [reviewTarget, setReviewTarget] = useState<EngineeringAcceptance | null>(null);
   const [operationSaving, setOperationSaving] = useState(false);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const userLabelMap = useMemo(
+    () => new Map(references.users.map((item) => [item.id, displayUserName(item)])),
+    [references.users]
+  );
+  const orgLabelMap = useMemo(
+    () => new Map(references.orgs.map((item) => [item.id, formatOrgLabel(item)])),
+    [references.orgs]
+  );
   const summaryCards = useMemo(() => {
     const reviewQueue = pageData.items.filter((item) => item.acceptanceStatus === "SUBMITTED" || item.acceptanceStatus === "REVIEWING").length;
     const passedCount = pageData.items.filter((item) => item.acceptanceStatus === "PASSED").length;
@@ -113,6 +131,12 @@ export function EngineeringAcceptancesListClient() {
     if (!canView) return;
     void load(1);
   }, [canView, load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,7 +202,7 @@ export function EngineeringAcceptancesListClient() {
       <header className="header">
         <div className="header-title">
           <strong>工程验收</strong>
-          <span>管理隐蔽工程、阶段、专项、竣工和移交预验收。</span>
+          <span>阶段、专项、竣工和移交预验收的统一入口</span>
         </div>
         {canCreate ? (
           <Link className="primary-button" href={filters.projectId ? `/engineering/acceptances/new?projectId=${filters.projectId}` : "/engineering/acceptances/new"}>
@@ -201,13 +225,20 @@ export function EngineeringAcceptancesListClient() {
       <Card className="ds-panel">
         <form className={styles.filters} onSubmit={(event) => void search(event)}>
           <TextFilter label="关键词" value={filters.keyword} placeholder="编号 / 名称 / 描述" onChange={(value) => setFilter("keyword", value)} />
-          <TextFilter label="项目 ID" value={filters.projectId} onChange={(value) => setFilter("projectId", value)} />
-          <TextFilter label="计划 ID" value={filters.planId} onChange={(value) => setFilter("planId", value)} />
+          <SelectReferenceFilter label="所属项目" value={filters.projectId} options={references.projects.map((item) => ({ value: item.id, label: formatProjectLabel(item) }))} onChange={(value) => setFilter("projectId", value)} />
+          <SelectReferenceFilter
+            label="关联计划"
+            value={filters.planId}
+            options={references.plans
+              .filter((item) => !filters.projectId || item.projectId === filters.projectId)
+              .map((item) => ({ value: item.id, label: formatPlanLabel(item) }))}
+            onChange={(value) => setFilter("planId", value)}
+          />
           <SelectFilter label="验收类型" value={filters.acceptanceType} options={engineeringAcceptanceTypeOptions} onChange={(value) => setFilter("acceptanceType", value as EngineeringAcceptanceType | "")} />
           <SelectFilter label="验收状态" value={filters.acceptanceStatus} options={engineeringAcceptanceStatusOptions} onChange={(value) => setFilter("acceptanceStatus", value as EngineeringAcceptanceStatus | "")} />
           <SelectFilter label="风险等级" value={filters.riskLevel} options={engineeringRiskLevelOptions} onChange={(value) => setFilter("riskLevel", value as EngineeringRiskLevel | "")} />
-          <TextFilter label="责任人 ID" value={filters.responsibleUserId} onChange={(value) => setFilter("responsibleUserId", value)} />
-          <TextFilter label="验收组织 ID" value={filters.acceptanceOrgId} onChange={(value) => setFilter("acceptanceOrgId", value)} />
+          <SelectReferenceFilter label="责任人" value={filters.responsibleUserId} options={references.users.map((item) => ({ value: item.id, label: displayUserName(item) }))} onChange={(value) => setFilter("responsibleUserId", value)} />
+          <SelectReferenceFilter label="验收组织" value={filters.acceptanceOrgId} options={references.orgs.map((item) => ({ value: item.id, label: formatOrgLabel(item) }))} onChange={(value) => setFilter("acceptanceOrgId", value)} />
           <TextFilter label="计划日期自" value={filters.plannedDateFrom} type="date" onChange={(value) => setFilter("plannedDateFrom", value)} />
           <TextFilter label="计划日期至" value={filters.plannedDateTo} type="date" onChange={(value) => setFilter("plannedDateTo", value)} />
           <button className="primary-button" type="submit" disabled={loading}>
@@ -218,7 +249,7 @@ export function EngineeringAcceptancesListClient() {
       </Card>
 
       <Card className="table-scroll ds-table-shell">
-        <DataTable>
+        <DataTable className="allow-horizontal-table">
           <thead>
             <tr>
               <th>验收编号</th>
@@ -241,7 +272,7 @@ export function EngineeringAcceptancesListClient() {
                 <td><AcceptanceStatusPill status={row.acceptanceStatus} /></td>
                 <td>{formatDate(row.plannedAcceptanceDate)}</td>
                 <td>{formatDate(row.actualAcceptanceDate)}</td>
-                <td>{row.responsibleUserId ?? row.acceptanceOrgId ?? "-"}</td>
+                <td>{row.responsibleUserId ? (userLabelMap.get(row.responsibleUserId) ?? row.responsibleUserId) : row.acceptanceOrgId ? (orgLabelMap.get(row.acceptanceOrgId) ?? row.acceptanceOrgId) : "-"}</td>
                 <td>{formatDateTime(row.submittedAt)}<br /><small>{formatDateTime(row.reviewedAt)}</small></td>
                 <td>
                   <DataTableActions>
@@ -325,6 +356,32 @@ function SelectFilter<T extends string>({ label, value, options, onChange }: {
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SelectReferenceFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部"
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  allLabel?: string;
+}) {
+  return (
+    <label className={styles.formField}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}

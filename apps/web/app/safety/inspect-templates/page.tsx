@@ -333,7 +333,7 @@ export default function SafetyInspectTemplatesPage() {
         </Card>
 
         <Card className="table-scroll">
-          <DataTable>
+          <DataTable className="safety-inspect-templates-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>模板编码</th>
@@ -443,7 +443,7 @@ export default function SafetyInspectTemplatesPage() {
                 新增检查项
               </PermissionButton>
             </div>
-            <DataTable>
+            <DataTable className="safety-inspect-template-items-table allow-horizontal-table">
               <thead>
                 <tr>
                   <th>排序</th>

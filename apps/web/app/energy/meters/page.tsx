@@ -32,6 +32,39 @@ interface DictTypeRow { id: string; dictCode: string }
 interface DictItemRow { id: string; itemLabel: string; itemValue: string; status: string; tagType?: string | null }
 type DictMap = Record<string, DictItemRow[]>;
 
+interface ParkTenantRow {
+  id: string;
+  parkTenantCode: string;
+  companyName: string;
+}
+
+interface BuildingRow {
+  id: string;
+  buildingCode: string;
+  buildingName: string;
+}
+
+interface FloorRow {
+  id: string;
+  buildingId: string;
+  floorCode: string;
+  floorName: string;
+}
+
+interface UnitRow {
+  id: string;
+  unitCode: string;
+  unitName: string;
+  buildingId: string;
+  floorId: string;
+}
+
+interface IotDeviceRow {
+  id: string;
+  deviceCode: string;
+  deviceName: string;
+}
+
 interface EnergyMeterRow {
   id: string;
   meterCode: string;
@@ -105,11 +138,28 @@ export default function EnergyMetersPage() {
   const [pageData, setPageData] = useState<PaginatedResult<EnergyMeterRow>>(emptyPage);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
+  const [buildings, setBuildings] = useState<BuildingRow[]>([]);
+  const [floors, setFloors] = useState<FloorRow[]>([]);
+  const [units, setUnits] = useState<UnitRow[]>([]);
+  const [devices, setDevices] = useState<IotDeviceRow[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<EnergyMeterRow | null>(null);
   const [form, setForm] = useState<MeterForm>(emptyForm);
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const parkTenantLabelMap = useMemo(
+    () => new Map(parkTenants.map((item) => [item.id, formatParkTenantLabel(item)])),
+    [parkTenants]
+  );
+  const availableFloors = useMemo(
+    () => floors.filter((item) => !form.buildingId || item.buildingId === form.buildingId),
+    [floors, form.buildingId]
+  );
+  const availableUnits = useMemo(
+    () => units.filter((item) => (!form.buildingId || item.buildingId === form.buildingId) && (!form.floorId || item.floorId === form.floorId)),
+    [units, form.buildingId, form.floorId]
+  );
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
@@ -136,7 +186,23 @@ export default function EnergyMetersPage() {
     setDicts(Object.fromEntries(entries));
   }, []);
 
+  const loadReferences = useCallback(async () => {
+    const [tenantResponse, buildingResponse, floorResponse, unitResponse, deviceResponse] = await Promise.all([
+      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=200&sort=companyName", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200&sort=sortNo", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=200&sort=floorNo", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=200", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<IotDeviceRow>>("/iot/devices?page=1&page_size=200&sort=deviceCode", { token: getAccessToken() })
+    ]);
+    setParkTenants(tenantResponse.data.items);
+    setBuildings(buildingResponse.data.items);
+    setFloors(floorResponse.data.items);
+    setUnits(unitResponse.data.items);
+    setDevices(deviceResponse.data.items);
+  }, []);
+
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
+  useEffect(() => { void loadReferences().catch((error: Error) => setMessage(error.message)); }, [loadReferences]);
   useEffect(() => { void load().catch((error: Error) => setMessage(error.message)); }, [load]);
 
   function openCreate() {
@@ -171,6 +237,28 @@ export default function EnergyMetersPage() {
     setFormOpen(false);
     setEditing(null);
     setForm(emptyForm);
+  }
+
+  function setFormValue<K extends keyof MeterForm>(key: K, value: MeterForm[K]) {
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "buildingId") {
+        const buildingId = String(value);
+        if (next.floorId && !floors.some((item) => item.id === next.floorId && item.buildingId === buildingId)) {
+          next.floorId = "";
+        }
+        if (next.roomId && !units.some((item) => item.id === next.roomId && item.buildingId === buildingId)) {
+          next.roomId = "";
+        }
+      }
+      if (key === "floorId") {
+        const floorId = String(value);
+        if (next.roomId && !units.some((item) => item.id === next.roomId && item.floorId === floorId)) {
+          next.roomId = "";
+        }
+      }
+      return next;
+    });
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -229,14 +317,15 @@ export default function EnergyMetersPage() {
           <SelectField label="表计类型" value={filters.meterType} items={dicts.energy_meter_type ?? []} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, meterType: value }))} />
           <SelectField label="用途" value={filters.meterPurpose} items={dicts.energy_meter_purpose ?? []} allLabel="全部用途" onChange={(value) => setFilters((current) => ({ ...current, meterPurpose: value }))} />
           <SelectField label="状态" value={filters.status} items={dicts.energy_meter_status ?? []} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
-          <Field label="租户企业 ID"><input value={filters.relatedParkTenantId} onChange={(event) => setFilters((current) => ({ ...current, relatedParkTenantId: event.target.value }))} /></Field>
+          <ReferenceSelectField label="租户企业" value={filters.relatedParkTenantId} allLabel="全部租户企业" items={parkTenants.map((item) => ({ id: item.id, label: formatParkTenantLabel(item) }))} onChange={(value) => setFilters((current) => ({ ...current, relatedParkTenantId: value }))} />
+          <ReferenceSelectField label="楼栋" value={filters.buildingId} allLabel="全部楼栋" items={buildings.map((item) => ({ id: item.id, label: formatBuildingLabel(item) }))} onChange={(value) => setFilters((current) => ({ ...current, buildingId: value }))} />
           <button className="primary-button" type="button" onClick={() => void load(1).catch((error: Error) => setMessage(error.message))}><Search size={16} />查询</button>
         </FilterPanel>
 
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="表计列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead><tr><th>表计编号</th><th>表计名称</th><th>类型</th><th>用途</th><th>租户企业</th><th>当前读数</th><th>倍率</th><th>状态</th><th>最近读数</th><th>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
@@ -245,7 +334,7 @@ export default function EnergyMetersPage() {
                   <td>{row.meterName}</td>
                   <td><StatusPill dictCode="energy_meter_type" value={row.meterType} dicts={dicts} /></td>
                   <td><StatusPill dictCode="energy_meter_purpose" value={row.meterPurpose} dicts={dicts} /></td>
-                  <td>{row.relatedParkTenantId ?? "-"}</td>
+                  <td>{row.relatedParkTenantId ? (parkTenantLabelMap.get(row.relatedParkTenantId) ?? row.relatedParkTenantId) : "-"}</td>
                   <td>{row.currentReading} {row.unit}</td>
                   <td>{row.multiplier}</td>
                   <td><StatusPill dictCode="energy_meter_status" value={row.status} dicts={dicts} /></td>
@@ -275,11 +364,11 @@ export default function EnergyMetersPage() {
                 <SelectField required label="表计类型" value={form.meterType} items={dicts.energy_meter_type ?? []} allLabel="请选择类型" onChange={(value) => setForm((current) => ({ ...current, meterType: value }))} />
                 <SelectField required label="用途" value={form.meterPurpose} items={dicts.energy_meter_purpose ?? []} allLabel="请选择用途" onChange={(value) => setForm((current) => ({ ...current, meterPurpose: value }))} />
                 <SelectField label="状态" value={form.status} items={dicts.energy_meter_status ?? []} allLabel="请选择状态" onChange={(value) => setForm((current) => ({ ...current, status: value || "UNKNOWN" }))} />
-                <Field label="租户企业 ID"><input value={form.relatedParkTenantId} onChange={(event) => setForm((current) => ({ ...current, relatedParkTenantId: event.target.value }))} /></Field>
-                <Field label="IoT 设备 ID"><input value={form.iotDeviceId} onChange={(event) => setForm((current) => ({ ...current, iotDeviceId: event.target.value }))} /></Field>
-                <Field label="楼栋 ID"><input value={form.buildingId} onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value }))} /></Field>
-                <Field label="楼层 ID"><input value={form.floorId} onChange={(event) => setForm((current) => ({ ...current, floorId: event.target.value }))} /></Field>
-                <Field label="房源 ID"><input value={form.roomId} onChange={(event) => setForm((current) => ({ ...current, roomId: event.target.value }))} /></Field>
+                <ReferenceSelectField label="租户企业" value={form.relatedParkTenantId} allLabel="不关联租户企业" items={parkTenants.map((item) => ({ id: item.id, label: formatParkTenantLabel(item) }))} onChange={(value) => setFormValue("relatedParkTenantId", value)} />
+                <ReferenceSelectField label="关联设备" value={form.iotDeviceId} allLabel="不关联设备" items={devices.map((item) => ({ id: item.id, label: formatDeviceLabel(item) }))} onChange={(value) => setFormValue("iotDeviceId", value)} />
+                <ReferenceSelectField label="所在楼栋" value={form.buildingId} allLabel="不关联楼栋" items={buildings.map((item) => ({ id: item.id, label: formatBuildingLabel(item) }))} onChange={(value) => setFormValue("buildingId", value)} />
+                <ReferenceSelectField label="所在楼层" value={form.floorId} allLabel="不关联楼层" items={availableFloors.map((item) => ({ id: item.id, label: formatFloorLabel(item) }))} onChange={(value) => setFormValue("floorId", value)} />
+                <ReferenceSelectField label="所在房源" value={form.roomId} allLabel="不关联房源" items={availableUnits.map((item) => ({ id: item.id, label: formatUnitLabel(item) }))} onChange={(value) => setFormValue("roomId", value)} />
                 <Field label="倍率"><input required type="number" min="0" step="0.0001" value={form.multiplier} onFocus={(event) => event.target.select()} onChange={(event) => setForm((current) => ({ ...current, multiplier: event.target.value }))} /></Field>
                 <Field label="单位"><input required value={form.unit} onChange={(event) => setForm((current) => ({ ...current, unit: event.target.value }))} /></Field>
                 <Field label="初始读数"><input required type="number" min="0" step="0.0001" value={form.initialReading} onFocus={(event) => event.target.select()} onChange={(event) => setForm((current) => ({ ...current, initialReading: event.target.value }))} /></Field>
@@ -332,6 +421,42 @@ function SelectField({ label, value, items, allLabel, onChange, required = false
       </select>
     </Field>
   );
+}
+
+function ReferenceSelectField({ label, value, items, allLabel, onChange }: { label: string; value: string; items: Array<{ id: string; label: string }>; allLabel: string; onChange: (value: string) => void }) {
+  return (
+    <Field label={label}>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+function formatParkTenantLabel(item?: ParkTenantRow | null) {
+  if (!item) return "-";
+  return `${item.parkTenantCode} ${item.companyName}`.trim();
+}
+
+function formatBuildingLabel(item?: BuildingRow | null) {
+  if (!item) return "-";
+  return `${item.buildingCode} ${item.buildingName}`.trim();
+}
+
+function formatFloorLabel(item?: FloorRow | null) {
+  if (!item) return "-";
+  return `${item.floorCode} ${item.floorName}`.trim();
+}
+
+function formatUnitLabel(item?: UnitRow | null) {
+  if (!item) return "-";
+  return `${item.unitCode} ${item.unitName}`.trim();
+}
+
+function formatDeviceLabel(item?: IotDeviceRow | null) {
+  if (!item) return "-";
+  return `${item.deviceCode} ${item.deviceName}`.trim();
 }
 
 function formatDateTime(value?: string | null) {

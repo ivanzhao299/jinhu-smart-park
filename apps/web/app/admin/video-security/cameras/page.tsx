@@ -487,7 +487,7 @@ export default function VideoCameraPage() {
             <h2 className="panel-title">摄像头列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="video-cameras-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>摄像头编号</th>

@@ -203,7 +203,7 @@ export default function IotProtocolConfigsPage() {
             <h2 className="panel-title">配置列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>配置名称</th>

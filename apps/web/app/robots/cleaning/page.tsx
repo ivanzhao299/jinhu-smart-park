@@ -193,12 +193,27 @@ export default function CleaningRobotsPage() {
   }, [loadConfigs]);
 
   async function openDetail(row: RobotRow) {
-    const detail = await apiRequest<RobotRow>(`/robots/cleaning/${row.id}`, { token: getAccessToken() });
-    setViewing(detail.data);
-    const response = await apiRequest<PaginatedResult<RobotLogRow>>(`/robots/cleaning/${row.id}/command-logs?page=1&page_size=20`, {
-      token: getAccessToken()
-    });
-    setLogs(response.data.items);
+    setViewing(row);
+    setLogs([]);
+    setMessage("");
+    const [detailResult, logsResult] = await Promise.allSettled([
+      apiRequest<RobotRow>(`/robots/cleaning/${row.id}`, { token: getAccessToken() }),
+      apiRequest<PaginatedResult<RobotLogRow>>(`/robots/cleaning/${row.id}/command-logs?page=1&page_size=20`, {
+        token: getAccessToken()
+      })
+    ]);
+
+    if (detailResult.status === "fulfilled") {
+      setViewing((current) => (current?.id === row.id ? detailResult.value.data : current));
+    } else {
+      setMessage(detailResult.reason instanceof Error ? detailResult.reason.message : "加载机器人详情失败");
+    }
+
+    if (logsResult.status === "fulfilled") {
+      setLogs(logsResult.value.data.items);
+    } else if (detailResult.status === "fulfilled") {
+      setMessage(logsResult.reason instanceof Error ? logsResult.reason.message : "加载机器人指令日志失败");
+    }
   }
 
   async function saveConfig(event: FormEvent<HTMLFormElement>) {
@@ -419,7 +434,7 @@ export default function CleaningRobotsPage() {
           description={`共 ${pageData.total} 台，优先展示可操作机器人；摄像头、NVR 等监控设备请进入视频安防模块。`}
           actions={<StatusPill variant={robotSummary.exception > 0 ? "warning" : "success"}>{robotSummary.exception > 0 ? `${robotSummary.exception} 台需关注` : "运行正常"}</StatusPill>}
         >
-          <DataTable className="robot-list-table">
+          <DataTable className="robot-list-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>设备编码</th>
@@ -511,7 +526,7 @@ export default function CleaningRobotsPage() {
               </ActionGroup>
             }
           >
-            <DataTable className="robot-sync-table">
+            <DataTable className="robot-sync-table allow-horizontal-table">
               <thead>
                 <tr>
                   <th>萤石序列号</th>
@@ -560,7 +575,7 @@ export default function CleaningRobotsPage() {
               </PermissionButton>
             }
           >
-            <DataTable className="robot-config-table">
+            <DataTable className="robot-config-table allow-horizontal-table">
               <thead>
                 <tr>
                   <th>配置名称</th>

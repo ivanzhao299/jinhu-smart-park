@@ -153,8 +153,8 @@ export default function EnergyBillingCyclesPage() {
         {message ? <FeedbackNotice variant="warning">{message}</FeedbackNotice> : null}
 
         <ContentCard title="账期列表" actions={<span>共 {pageData.total} 条</span>}>
-          <DataTable>
-            <thead><tr><th>账期编码</th><th>账期名称</th><th>表计类型</th><th>周期</th><th>状态</th><th>计算时间</th><th>发布时间</th><th>操作</th></tr></thead>
+          <DataTable className="allow-horizontal-table">
+            <thead><tr><th>账期编码</th><th>账期名称</th><th>表计类型</th><th>周期</th><th>状态</th><th>计算时间</th><th>发布时间</th><th style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>操作</th></tr></thead>
             <tbody>
               {pageData.items.map((row) => (
                 <tr key={row.id}>
@@ -165,13 +165,14 @@ export default function EnergyBillingCyclesPage() {
                   <td><StatusPill dictCode="energy_billing_cycle_status" value={row.status} dicts={dicts} /></td>
                   <td>{formatDateTime(row.calculatedAt)}</td>
                   <td>{formatDateTime(row.postedAt)}</td>
-                  <td>
+                  <td style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>
                     <DataTableActions>
                       <Link className="table-action-button" href={`/energy/billing-items?cycle_id=${row.id}`}>明细</Link>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CALCULATE} type="button" disabled={row.status === "POSTED" || row.status === "CONFIRMED"} onClick={() => void action(row, "calculate").catch((error: Error) => setMessage(error.message))}><Calculator size={16} />计算</PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CONFIRM} type="button" disabled={row.status !== "CALCULATED"} onClick={() => void action(row, "confirm").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton>
-                      <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_POST} type="button" disabled={row.status !== "CONFIRMED"} onClick={() => void action(row, "post").catch((error: Error) => setMessage(error.message))}><FileUp size={16} />发布</PermissionButton>
-                      <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CANCEL} type="button" disabled={row.status === "POSTED" || row.status === "CANCELLED"} onClick={() => void action(row, "cancel").catch((error: Error) => setMessage(error.message))}><XCircle size={16} />取消</PermissionButton>
+                      {canCalculateCycle(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CALCULATE} type="button" onClick={() => void action(row, "calculate").catch((error: Error) => setMessage(error.message))}><Calculator size={16} />计算</PermissionButton> : null}
+                      {canConfirmCycle(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CONFIRM} type="button" onClick={() => void action(row, "confirm").catch((error: Error) => setMessage(error.message))}><CheckCircle2 size={16} />确认</PermissionButton> : null}
+                      {canPostCycle(row) ? <PermissionButton className="table-action-button" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_POST} type="button" onClick={() => void action(row, "post").catch((error: Error) => setMessage(error.message))}><FileUp size={16} />发布</PermissionButton> : null}
+                      {canCancelCycle(row) ? <PermissionButton className="table-action-button danger" permission={SYSTEM_PERMISSIONS.ENERGY_BILLING_CYCLE_CANCEL} type="button" onClick={() => void action(row, "cancel").catch((error: Error) => setMessage(error.message))}><XCircle size={16} />取消</PermissionButton> : null}
+                      {!hasCycleActions(row) ? <span className="muted-text">{cycleActionHint(row)}</span> : null}
                     </DataTableActions>
                   </td>
                 </tr>
@@ -214,6 +215,37 @@ function SelectField({ label, value, items, allLabel, onChange, required }: { la
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function canCalculateCycle(row: BillingCycleRow) {
+  return row.status !== "POSTED" && row.status !== "CONFIRMED";
+}
+
+function canConfirmCycle(row: BillingCycleRow) {
+  return row.status === "CALCULATED";
+}
+
+function canPostCycle(row: BillingCycleRow) {
+  return row.status === "CONFIRMED";
+}
+
+function canCancelCycle(row: BillingCycleRow) {
+  return row.status !== "POSTED" && row.status !== "CANCELLED";
+}
+
+function hasCycleActions(row: BillingCycleRow) {
+  return canCalculateCycle(row) || canConfirmCycle(row) || canPostCycle(row) || canCancelCycle(row);
+}
+
+function cycleActionHint(row: BillingCycleRow) {
+  switch (row.status) {
+    case "POSTED":
+      return "已发布";
+    case "CANCELLED":
+      return "已取消";
+    default:
+      return "当前无动作";
+  }
 }
 
 function Forbidden() {

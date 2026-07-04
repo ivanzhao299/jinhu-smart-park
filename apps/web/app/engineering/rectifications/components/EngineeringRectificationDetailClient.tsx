@@ -22,6 +22,19 @@ import {
   formatDate,
   formatDateTime
 } from "./EngineeringRectificationShared";
+import {
+  displayUserName,
+  emptyEngineeringProjectReferences,
+  formatBuildingLabel,
+  formatFloorLabel,
+  formatInspectionLabel,
+  formatIssueLabel,
+  formatOrgLabel,
+  formatProjectLabel,
+  formatUnitLabel,
+  loadEngineeringProjectReferences,
+  type EngineeringProjectReferenceData
+} from "../../projects/components/EngineeringProjectReferenceData";
 import styles from "../../projects/engineering-projects.module.css";
 
 export function EngineeringRectificationDetailClient() {
@@ -38,8 +51,10 @@ export function EngineeringRectificationDetailClient() {
   const [rectification, setRectification] = useState<EngineeringRectification | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [references, setReferences] = useState<EngineeringProjectReferenceData>(emptyEngineeringProjectReferences);
   const [action, setAction] = useState<EngineeringRectificationAction | null>(null);
   const [actionSaving, setActionSaving] = useState(false);
+  const projectLabel = formatProjectLabel(references.projects.find((item) => item.id === rectification?.projectId) ?? null);
 
   const load = useCallback(async () => {
     if (!rectificationId || !canView) return;
@@ -58,6 +73,12 @@ export function EngineeringRectificationDetailClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadEngineeringProjectReferences(getAccessToken())
+      .then((data) => setReferences(data))
+      .catch(() => undefined);
+  }, []);
 
   async function executeAction(input: EngineeringRectificationActionInput) {
     if (!rectification) return;
@@ -135,14 +156,14 @@ export function EngineeringRectificationDetailClient() {
               </div>
             </div>
             <div className={styles.detailGrid}>
-              <DetailItem label="所属项目" value={rectification.projectId} />
-              <DetailItem label="来源问题" value={rectification.issueId ?? "-"} />
-              <DetailItem label="来源巡检" value={rectification.inspectionId ?? "-"} />
+              <DetailItem label="所属项目" value={projectLabel !== "-" ? projectLabel : rectification.projectId} />
+              <DetailItem label="来源问题" value={rectification.issueId ? formatIssueLabel(references.issues.find((item) => item.id === rectification.issueId) ?? null) : "-"} />
+              <DetailItem label="来源巡检" value={rectification.inspectionId ? formatInspectionLabel(references.inspections.find((item) => item.id === rectification.inspectionId) ?? null) : "-"} />
               <DetailItem label="整改期限" value={formatDate(rectification.deadline)} />
-              <DetailItem label="责任人" value={rectification.responsibleUserId ?? "-"} />
-              <DetailItem label="责任组织" value={rectification.responsibleOrgId ?? "-"} />
-              <DetailItem label="施工单位" value={rectification.contractorOrgId ?? "-"} />
-              <DetailItem label="监理单位" value={rectification.supervisorOrgId ?? "-"} />
+              <DetailItem label="责任人" value={rectification.responsibleUserId ? displayUserName(references.users.find((item) => item.id === rectification.responsibleUserId) ?? null) : "-"} />
+              <DetailItem label="责任组织" value={rectification.responsibleOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === rectification.responsibleOrgId) ?? null) : "-"} />
+              <DetailItem label="施工单位" value={rectification.contractorOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === rectification.contractorOrgId) ?? null) : "-"} />
+              <DetailItem label="监理单位" value={rectification.supervisorOrgId ? formatOrgLabel(references.orgs.find((item) => item.id === rectification.supervisorOrgId) ?? null) : "-"} />
             </div>
           </Card>
 
@@ -154,11 +175,11 @@ export function EngineeringRectificationDetailClient() {
             <div className={styles.detailGrid}>
               <DetailItem label="开始整改" value={formatDateTime(rectification.startedAt)} />
               <DetailItem label="提交整改" value={formatDateTime(rectification.submittedAt)} />
-              <DetailItem label="提交人" value={rectification.submittedBy ?? "-"} />
+              <DetailItem label="提交人" value={rectification.submittedBy ? displayUserName(references.users.find((item) => item.id === rectification.submittedBy) ?? null) : "-"} />
               <DetailItem label="复查时间" value={formatDateTime(rectification.recheckedAt)} />
-              <DetailItem label="复查人" value={rectification.recheckedBy ?? "-"} />
+              <DetailItem label="复查人" value={rectification.recheckedBy ? displayUserName(references.users.find((item) => item.id === rectification.recheckedBy) ?? null) : "-"} />
               <DetailItem label="关闭时间" value={formatDateTime(rectification.closedAt)} />
-              <DetailItem label="关闭人" value={rectification.closedBy ?? "-"} />
+              <DetailItem label="关闭人" value={rectification.closedBy ? displayUserName(references.users.find((item) => item.id === rectification.closedBy) ?? null) : "-"} />
               <DetailItem label="附件数量" value={rectification.attachmentIds?.length ?? 0} />
             </div>
             <div className={styles.longTextBlock}>
@@ -175,7 +196,10 @@ export function EngineeringRectificationDetailClient() {
             </section>
             <div className={styles.detailGrid}>
               <DetailItem label="位置描述" value={rectification.locationText ?? "-"} />
-              <DetailItem label="建筑 / 楼层 / 空间" value={`${rectification.buildingId ?? "-"} / ${rectification.floorId ?? "-"} / ${rectification.spaceId ?? "-"}`} />
+              <DetailItem
+                label="建筑 / 楼层 / 空间"
+                value={`${rectification.buildingId ? formatBuildingLabel(references.buildings.find((item) => item.id === rectification.buildingId) ?? null) : "-"} / ${rectification.floorId ? formatFloorLabel(references.floors.find((item) => item.id === rectification.floorId) ?? null) : "-"} / ${rectification.spaceId ? formatUnitLabel(references.units.find((item) => item.id === rectification.spaceId) ?? null) : "-"}`}
+              />
               <DetailItem label="备注" value={rectification.remark ?? "-"} />
               <DetailItem label="创建时间" value={formatDateTime(rectification.createTime)} />
               <DetailItem label="更新时间" value={formatDateTime(rectification.updateTime)} />

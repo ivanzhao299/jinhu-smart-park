@@ -255,7 +255,7 @@ export default function VideoPlatformConfigsPage() {
             <h2 className="panel-title">平台配置列表</h2>
             <span>共 {pageData.total} 条</span>
           </div>
-          <DataTable>
+          <DataTable className="video-platform-configs-table allow-horizontal-table">
             <thead>
               <tr>
                 <th>平台名称</th>

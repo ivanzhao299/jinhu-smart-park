@@ -60,6 +60,8 @@ export default function DictsPage() {
   const [editingItem, setEditingItem] = useState<DictItemRow | null>(null);
   const [viewingType, setViewingType] = useState<DictTypeRow | null>(null);
   const [viewingItem, setViewingItem] = useState<DictItemRow | null>(null);
+  const typeTotalPages = Math.max(1, Math.ceil(types.total / types.page_size));
+  const itemTotalPages = Math.max(1, Math.ceil(items.total / items.page_size));
 
   async function loadTypes(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -82,34 +84,54 @@ export default function DictsPage() {
     void loadItems().catch((error: Error) => setMessage(error.message));
   }, []);
 
-  async function openTypeDetail(id: string) {
+  async function openTypeDetail(row: DictTypeRow) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const response = await apiRequest<DictTypeRow>(`/dict-types/${id}`, { token });
-    setViewingType(response.data);
+    setViewingType(row);
     setMessage("");
+    try {
+      const response = await apiRequest<DictTypeRow>(`/dict-types/${row.id}`, { token });
+      setViewingType((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载字典类型失败");
+    }
   }
 
-  async function openTypeEdit(id: string) {
+  async function openTypeEdit(row: DictTypeRow) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const response = await apiRequest<DictTypeRow>(`/dict-types/${id}`, { token });
-    setEditingType(response.data);
+    setEditingType(row);
     setShowCreate(true);
     setMessage("");
+    try {
+      const response = await apiRequest<DictTypeRow>(`/dict-types/${row.id}`, { token });
+      setEditingType((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载字典类型失败");
+    }
   }
 
-  async function openItemDetail(id: string) {
+  async function openItemDetail(row: DictItemRow) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const response = await apiRequest<DictItemRow>(`/dict-items/${id}`, { token });
-    setViewingItem(response.data);
+    setViewingItem(row);
     setMessage("");
+    try {
+      const response = await apiRequest<DictItemRow>(`/dict-items/${row.id}`, { token });
+      setViewingItem((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载字典项失败");
+    }
   }
 
-  async function openItemEdit(id: string) {
+  async function openItemEdit(row: DictItemRow) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const response = await apiRequest<DictItemRow>(`/dict-items/${id}`, { token });
-    setEditingItem(response.data);
+    setEditingItem(row);
     setShowCreateItem(true);
     setMessage("");
+    try {
+      const response = await apiRequest<DictItemRow>(`/dict-items/${row.id}`, { token });
+      setEditingItem((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "加载字典项失败");
+    }
   }
 
   function closeTypeForm() {
@@ -231,7 +253,7 @@ export default function DictsPage() {
                       permission={SYSTEM_PERMISSIONS.DICT_TYPE_DETAIL}
                       type="button"
                       title="详情"
-                      onClick={() => void openTypeDetail(item.id).catch((error: Error) => setMessage(error.message))}
+                      onClick={() => void openTypeDetail(item).catch((error: Error) => setMessage(error.message))}
                     >
                       <Eye size={16} />
                       <span className="ds-row-action-label">详情</span>
@@ -241,7 +263,7 @@ export default function DictsPage() {
                       permission={SYSTEM_PERMISSIONS.DICT_TYPE_UPDATE}
                       type="button"
                       title="编辑"
-                      onClick={() => void openTypeEdit(item.id).catch((error: Error) => setMessage(error.message))}
+                      onClick={() => void openTypeEdit(item).catch((error: Error) => setMessage(error.message))}
                     >
                       <Edit3 size={16} />
                       <span className="ds-row-action-label">编辑</span>
@@ -252,7 +274,7 @@ export default function DictsPage() {
             ))}
           </tbody>
         </DataTable>
-        <div className="task-item"><span>共 {types.total} 条，第 {types.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void loadTypes(Math.max(1, types.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void loadTypes(types.page + 1)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {types.total} 条，第 {types.page} / {typeTotalPages} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" disabled={types.page <= 1} onClick={() => void loadTypes(Math.max(1, types.page - 1))}>上一页</button><button className="pagination-button" type="button" disabled={types.page >= typeTotalPages} onClick={() => void loadTypes(types.page + 1)}>下一页</button></span></div>
       </Card>
       <Card >
         <div className="task-item">
@@ -275,7 +297,7 @@ export default function DictsPage() {
                       permission={SYSTEM_PERMISSIONS.DICT_ITEM_DETAIL}
                       type="button"
                       title="详情"
-                      onClick={() => void openItemDetail(item.id).catch((error: Error) => setMessage(error.message))}
+                      onClick={() => void openItemDetail(item).catch((error: Error) => setMessage(error.message))}
                     >
                       <Eye size={16} />
                       <span className="ds-row-action-label">详情</span>
@@ -285,7 +307,7 @@ export default function DictsPage() {
                       permission={SYSTEM_PERMISSIONS.DICT_ITEM_UPDATE}
                       type="button"
                       title="编辑"
-                      onClick={() => void openItemEdit(item.id).catch((error: Error) => setMessage(error.message))}
+                      onClick={() => void openItemEdit(item).catch((error: Error) => setMessage(error.message))}
                     >
                       <Edit3 size={16} />
                       <span className="ds-row-action-label">编辑</span>
@@ -296,7 +318,7 @@ export default function DictsPage() {
             ))}
           </tbody>
         </DataTable>
-        <div className="task-item"><span>共 {items.total} 条，第 {items.page} 页</span><span><button className="pagination-button" type="button" onClick={() => void loadItems(Math.max(1, items.page - 1))}>上一页</button><button className="pagination-button" type="button" onClick={() => void loadItems(items.page + 1)}>下一页</button></span></div>
+        <div className="task-item"><span>共 {items.total} 条，第 {items.page} / {itemTotalPages} 页</span><span className="pagination-actions"><button className="pagination-button" type="button" disabled={items.page <= 1} onClick={() => void loadItems(Math.max(1, items.page - 1))}>上一页</button><button className="pagination-button" type="button" disabled={items.page >= itemTotalPages} onClick={() => void loadItems(items.page + 1)}>下一页</button></span></div>
       </Card>
       {showCreate ? (
         <Drawer size="md" onClose={closeTypeForm}>
@@ -364,8 +386,8 @@ export default function DictsPage() {
             <DrawerDetailItem label="字典编码" value={viewingType.dictCode} />
             <DrawerDetailItem label="字典名称" value={viewingType.dictName} />
             <DrawerDetailItem label="状态" value={<span className={`status-pill ${viewingType.status === "enabled" ? "status-success" : "status-muted"}`}>{viewingType.status === "enabled" ? "启用" : "停用"}</span>} />
-            <DrawerDetailItem label="tenant_id" value={viewingType.tenantId ?? "-"} />
-            <DrawerDetailItem label="park_id" value={viewingType.parkId ?? "-"} />
+            <DrawerDetailItem label="数据租户" value={viewingType.tenantId ?? "-"} />
+            <DrawerDetailItem label="园区范围" value={viewingType.parkId ?? "-"} />
             <DrawerDetailItem label="创建时间" value={formatDateTime(viewingType.createTime)} />
             <DrawerDetailItem label="更新时间" value={formatDateTime(viewingType.updateTime)} />
             <DrawerDetailItem label="备注" value={viewingType.remark ?? "-"} />
@@ -387,12 +409,12 @@ export default function DictsPage() {
           <DrawerDetailGrid>
             <DrawerDetailItem label="标签" value={viewingItem.itemLabel} />
             <DrawerDetailItem label="值" value={viewingItem.itemValue} />
-            <DrawerDetailItem label="字典类型 ID" value={viewingItem.dictTypeId} />
+            <DrawerDetailItem label="所属字典类型" value={types.items.find((item) => item.id === viewingItem.dictTypeId)?.dictName ?? viewingItem.dictTypeId} />
             <DrawerDetailItem label="标签类型" value={viewingItem.tagType ?? "-"} />
             <DrawerDetailItem label="状态" value={<span className={`status-pill ${viewingItem.status === "enabled" ? "status-success" : "status-muted"}`}>{viewingItem.status === "enabled" ? "启用" : "停用"}</span>} />
             <DrawerDetailItem label="排序" value={viewingItem.sortOrder ?? 0} />
-            <DrawerDetailItem label="tenant_id" value={viewingItem.tenantId ?? "-"} />
-            <DrawerDetailItem label="park_id" value={viewingItem.parkId ?? "-"} />
+            <DrawerDetailItem label="数据租户" value={viewingItem.tenantId ?? "-"} />
+            <DrawerDetailItem label="园区范围" value={viewingItem.parkId ?? "-"} />
             <DrawerDetailItem label="创建时间" value={formatDateTime(viewingItem.createTime)} />
             <DrawerDetailItem label="更新时间" value={formatDateTime(viewingItem.updateTime)} />
             <DrawerDetailItem label="备注" value={viewingItem.remark ?? "-"} />

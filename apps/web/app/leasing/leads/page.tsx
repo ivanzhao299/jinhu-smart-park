@@ -1216,7 +1216,7 @@ export default function LeasingLeadsPage() {
           {message ? <p className="status-pill">{message}</p> : null}
 
           <Card className="lead-table-card">
-            <DataTable className="lead-list-table">
+            <DataTable className="lead-list-table allow-horizontal-table">
               <thead>
                 <tr>
                   <th>线索 / 客户</th>
@@ -1224,7 +1224,7 @@ export default function LeasingLeadsPage() {
                   <th>需求信息</th>
                   <th>阶段</th>
                   <th>跟进计划</th>
-                  <th>操作</th>
+                  <th style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1270,7 +1270,7 @@ export default function LeasingLeadsPage() {
                         <span><em>下次</em>{formatDateTime(row.nextFollowTime)}</span>
                       </div>
                     </td>
-                    <td>
+                    <td style={{ width: "400px", minWidth: "400px", maxWidth: "400px" }}>
                       <span className="data-table-actions lead-row-actions">
                         <button aria-label="查看线索" className="primary-button row-action-button" title="查看" type="button" onClick={() => void openDetail(row)}>
                           <Eye size={16} />
@@ -1709,7 +1709,7 @@ export default function LeasingLeadsPage() {
                         新增报价
                       </PermissionButton>
                     </div>
-                    <DataTable >
+                    <DataTable className="allow-horizontal-table">
                       <thead>
                         <tr>
                           <th>房源</th>
@@ -1721,7 +1721,7 @@ export default function LeasingLeadsPage() {
                           <th>物业费</th>
                           <th>状态</th>
                           <th>审批记录</th>
-                          <th>操作</th>
+                          <th style={{ width: "540px", minWidth: "540px", maxWidth: "540px" }}>操作</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1736,7 +1736,7 @@ export default function LeasingLeadsPage() {
                             <td>{moneyText(authUser, canViewPropertyFeePrice, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE, quote.propertyFeePrice)}</td>
                             <td><DictBadge items={quoteStatusItems} value={quote.quoteStatus} /></td>
                             <td>{formatApproveRecords(quote.approveRecords)}</td>
-                            <td>
+                            <td style={{ width: "540px", minWidth: "540px", maxWidth: "540px" }}>
                               <span className="data-table-actions">
                                 <PermissionButton className="primary-button" permission={QUOTE_PERMISSIONS.update} type="button" onClick={() => openQuoteEdit(quote)}>
                                   <Edit3 size={16} />

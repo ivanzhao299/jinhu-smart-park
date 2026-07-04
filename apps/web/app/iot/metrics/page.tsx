@@ -235,7 +235,7 @@ export default function IotMetricsPage() {
         {message ? <FeedbackNotice>{message}</FeedbackNotice> : null}
 
         <ContentCard title="指标列表" description={`共 ${pageData.total} 条`}>
-          <DataTable>
+          <DataTable className="allow-horizontal-table">
             <thead>
               <tr>
                 <th>指标编码</th>
