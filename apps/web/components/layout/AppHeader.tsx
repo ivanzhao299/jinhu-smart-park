@@ -78,6 +78,7 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
 const TERMINAL_HEADER_PATHS = [
   "/operations/terminal",
   "/preview/operations-terminal",
+  "/engineering/terminal",
   "/tenant/service",
   "/preview/tenant-service",
   "/safety/my-inspect-tasks"
