@@ -90,6 +90,121 @@
   gap: var(--phoenix-space-4);
 }
 
+.roleHome {
+  background: linear-gradient(180deg, var(--phoenix-color-surface) 0%, color-mix(in srgb, var(--phoenix-color-surface-muted) 72%, var(--phoenix-color-surface)) 100%);
+  border: 1px solid var(--border-soft, var(--phoenix-color-border));
+  border-radius: 24px;
+  box-shadow: var(--shadow-card, var(--phoenix-shadow-sm));
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.roleHomeHeader {
+  align-items: flex-end;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.roleHomeHeader h2 {
+  color: var(--phoenix-color-text);
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 8px 0 0;
+}
+
+.roleHomeHeader small {
+  color: var(--phoenix-color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: 1.6;
+  max-width: 360px;
+  text-align: right;
+}
+
+.roleBadge {
+  background: color-mix(in srgb, var(--phoenix-color-primary) 10%, var(--phoenix-color-surface));
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 28%, var(--phoenix-color-border));
+  border-radius: 999px;
+  color: var(--phoenix-color-primary);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.roleModuleGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.roleModuleCard {
+  align-items: stretch;
+  background: var(--phoenix-color-surface);
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 14%, var(--phoenix-color-border));
+  border-radius: 20px;
+  color: var(--phoenix-color-text);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  min-height: 132px;
+  padding: 16px;
+  text-decoration: none;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.roleModuleCard:hover,
+.roleModuleCard:focus-visible {
+  border-color: color-mix(in srgb, var(--phoenix-color-primary) 48%, var(--phoenix-color-border));
+  box-shadow: 0 16px 36px rgba(11, 31, 51, 0.12);
+  transform: translateY(-1px);
+}
+
+.roleModuleCardPrimary {
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--phoenix-color-accent) 24%, transparent), transparent 8rem),
+    linear-gradient(145deg, color-mix(in srgb, var(--phoenix-color-primary) 12%, var(--phoenix-color-surface)) 0%, var(--phoenix-color-surface) 70%);
+}
+
+.roleModuleIcon {
+  align-items: center;
+  background: color-mix(in srgb, var(--phoenix-color-primary) 12%, var(--phoenix-color-surface-muted));
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 20%, var(--phoenix-color-border));
+  border-radius: 16px;
+  color: var(--phoenix-color-primary);
+  display: inline-flex;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.roleModuleCopy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.roleModuleCopy strong {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.roleModuleCopy small {
+  color: var(--phoenix-color-primary);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.roleModuleCopy em {
+  color: var(--phoenix-color-text-muted);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.55;
+}
+
 .commandPanel {
   display: grid;
 }
@@ -761,6 +876,41 @@
     gap: 12px;
   }
 
+  .roleHome {
+    border-radius: 24px;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .roleHomeHeader {
+    align-items: start;
+    display: grid;
+    gap: 6px;
+  }
+
+  .roleHomeHeader h2 {
+    font-size: 22px;
+  }
+
+  .roleHomeHeader small {
+    font-size: 12px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .roleModuleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .roleModuleCard {
+    min-height: 116px;
+    padding: 15px;
+  }
+
+  .roleModuleCopy strong {
+    font-size: 19px;
+  }
+
   .commandButton,
   .sceneButton,
   .kpiCard,
@@ -910,16 +1060,23 @@
 
   .heroActions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  .heroActions > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .primaryCommand,
   .secondaryCommand {
     min-height: 48px;
     border-radius: 16px;
+    width: 100%;
+    min-width: 0;
     padding: 0 12px;
     font-size: 15px;
+    white-space: normal;
   }
 
   .primaryCommand {

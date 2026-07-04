@@ -11,12 +11,30 @@ import {
   PageShell,
   StatusPill
 } from "@jinhu/ui";
-import { Activity, AlertTriangle, ClipboardCheck, Download, FilePlus2, LocateFixed, Plus, RefreshCw, Sparkles, Wrench } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Building2,
+  ClipboardCheck,
+  Download,
+  FilePlus2,
+  HardHat,
+  LayoutDashboard,
+  LifeBuoy,
+  LocateFixed,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Wrench
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import type { Route } from "next";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult, type UserContext } from "@jinhu/shared";
 import { PermissionButton } from "../auth/PermissionButton";
-import { PermissionGuard } from "../auth/PermissionGuard";
 import { useMobileTerminalMode } from "../mobile/useMobileTerminalMode";
 import { WorkflowInboxDigest } from "../workflow/WorkflowInboxDigest";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
@@ -43,8 +61,6 @@ import type {
   WorkOrderRow
 } from "./terminal-types";
 import styles from "./OperationsTerminal.module.css";
-
-const SAFETY_MODULE = "safety";
 
 interface OperationsTerminalClientProps {
   previewMode?: boolean;
@@ -82,6 +98,111 @@ const DEFAULT_WORK_ORDER_TYPE = "repair";
 const DEFAULT_WORK_ORDER_PRIORITY = "medium";
 const DEFAULT_WORK_ORDER_URGENCY = "normal";
 
+interface MobileRoleModule {
+  key: string;
+  title: string;
+  roleLabel: string;
+  summary: string;
+  href: string;
+  icon: LucideIcon;
+  moduleCode?: string;
+  permissions: string[];
+  primary?: boolean;
+}
+
+const MOBILE_ROLE_MODULES: MobileRoleModule[] = [
+  {
+    key: "operations",
+    title: "现场作业",
+    roleLabel: "工程 / 物业 / 安全",
+    summary: "巡检、打卡、异常上报、现场工单",
+    href: "/operations/terminal#today-inspections",
+    icon: ClipboardCheck,
+    moduleCode: "safety",
+    permissions: [SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ, SYSTEM_PERMISSIONS.WORKORDER_CREATE],
+    primary: true
+  },
+  {
+    key: "engineering",
+    title: "工程交付",
+    roleLabel: "工程部 / 施工 / 监理",
+    summary: "工程项目、计划、日报、巡检、整改、验收",
+    href: "/engineering/terminal",
+    icon: HardHat,
+    moduleCode: "engineering",
+    permissions: [
+      "ENGINEERING_DASHBOARD_VIEW",
+      "ENGINEERING_PROJECT_VIEW",
+      "ENGINEERING_PLAN_VIEW",
+      "ENGINEERING_DAILY_REPORT_VIEW",
+      "ENGINEERING_INSPECTION_VIEW",
+      "ENGINEERING_RECTIFICATION_VIEW",
+      "ENGINEERING_ACCEPTANCE_VIEW"
+    ],
+    primary: true
+  },
+  {
+    key: "service",
+    title: "客户服务",
+    roleLabel: "业主 / 租户 / 服务台",
+    summary: "提交需求、查看工单、确认结果、反馈评价",
+    href: "/tenant/service",
+    icon: LifeBuoy,
+    moduleCode: "workorder",
+    permissions: [SYSTEM_PERMISSIONS.WORKORDER_CREATE, SYSTEM_PERMISSIONS.WORKORDER_READ]
+  },
+  {
+    key: "dashboard",
+    title: "管理驾驶舱",
+    roleLabel: "管理层 / 园区运营",
+    summary: "经营总览、安全态势、工程看板、工单统计",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    permissions: [
+      "cockpit:read",
+      SYSTEM_PERMISSIONS.SAFETY_STATISTICS_READ,
+      SYSTEM_PERMISSIONS.WORKORDER_STATS,
+      "ENGINEERING_DASHBOARD_VIEW",
+      SYSTEM_PERMISSIONS.ASSET_STATISTICS
+    ]
+  },
+  {
+    key: "assets",
+    title: "资产房源",
+    roleLabel: "资产 / 招商 / 运营",
+    summary: "园区、楼栋、房源、出租状态、租户档案",
+    href: "/assets/unit-status-board",
+    icon: Building2,
+    moduleCode: "asset",
+    permissions: [
+      SYSTEM_PERMISSIONS.ASSET_READ,
+      SYSTEM_PERMISSIONS.ASSET_STATUS_BOARD,
+      SYSTEM_PERMISSIONS.UNIT_READ,
+      SYSTEM_PERMISSIONS.PARK_TENANT_READ
+    ]
+  },
+  {
+    key: "workflow",
+    title: "审批与消息",
+    roleLabel: "负责人 / 审批人",
+    summary: "待办消息、工单流转、跨部门确认",
+    href: "/workflow/inbox",
+    icon: ShieldCheck,
+    moduleCode: "workorder",
+    permissions: [SYSTEM_PERMISSIONS.WORKORDER_READ]
+  },
+  {
+    key: "system",
+    title: "系统配置",
+    roleLabel: "管理员",
+    summary: "用户、角色、权限、字典、模块授权",
+    href: "/system/users",
+    icon: Users,
+    moduleCode: "system",
+    permissions: [SYSTEM_PERMISSIONS.USER_LIST, SYSTEM_PERMISSIONS.ROLE_LIST, "system:read"]
+  }
+];
+
 export function OperationsTerminalClient({ previewMode = false, previewData }: OperationsTerminalClientProps = {}) {
   const authUser = useAuthUser();
   const [tasks, setTasks] = useState<InspectTaskRow[]>(previewData?.tasks ?? []);
@@ -108,6 +229,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const completionRate = todayTasks.length === 0 ? 0 : Math.round((completedTasks.length / todayTasks.length) * 100);
   const canGenerate = previewMode || hasPermission(authUser, "safety_inspect_task:generate");
   const canReadWorkflow = previewMode || hasPermission(authUser, SYSTEM_PERMISSIONS.WORKORDER_READ);
+  const roleLabel = useMemo(() => resolveMobileRoleLabel(authUser), [authUser]);
+  const visibleRoleModules = useMemo(() => resolveVisibleRoleModules(authUser, previewMode), [authUser, previewMode]);
   const itemResultItems = dicts.safety_inspect_item_result?.length ? dicts.safety_inspect_item_result : [
     { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
     { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
@@ -431,10 +554,10 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       <PageShell className={`${styles.page} ds-page ds-terminal-page`}>
         <section className={`${styles.terminalHero} ds-hero ds-hero-production ds-terminal-hero`}>
           <div className={`${styles.heroCopy} ds-hero-copy`}>
-            <span className="ds-eyebrow">作业终端</span>
-            <h1>园区现场作业台</h1>
+            <span className="ds-eyebrow">移动工作台 · {roleLabel}</span>
+            <h1>园区移动终端</h1>
             <div className={`${styles.heroMeta} ds-hero-meta ds-terminal-status`}>
-              <span><Activity size={16} /> 今日 {todayTasks.length}</span>
+              <span><Activity size={16} /> 模块 {visibleRoleModules.length}</span>
               <span><ClipboardCheck size={16} /> 完成 {completionRate}%</span>
               <span><AlertTriangle size={16} /> 异常 {abnormalTasks.length}</span>
             </div>
@@ -471,6 +594,35 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
                 </PermissionButton>
               )}
             </div>
+          </div>
+        </section>
+
+        <section className={styles.roleHome} aria-label="角色功能架构">
+          <div className={styles.roleHomeHeader}>
+            <div>
+              <span className={styles.roleBadge}>按角色显示</span>
+              <h2>选择要进入的工作模块</h2>
+            </div>
+            <small>管理员显示全架构，普通用户只显示授权模块。</small>
+          </div>
+          <div className={styles.roleModuleGrid}>
+            {visibleRoleModules.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  className={`${styles.roleModuleCard} ${item.primary ? styles.roleModuleCardPrimary : ""}`}
+                  href={item.href as Route}
+                  key={item.key}
+                >
+                  <span className={styles.roleModuleIcon}><Icon size={22} /></span>
+                  <span className={styles.roleModuleCopy}>
+                    <strong>{item.title}</strong>
+                    <small>{item.roleLabel}</small>
+                    <em>{item.summary}</em>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
@@ -756,11 +908,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     return content;
   }
 
-  return (
-    <PermissionGuard permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY} module={SAFETY_MODULE} fallback={<PageShell><Card><EmptyState title="无权访问现场工作台" /></Card></PageShell>}>
-      {content}
-    </PermissionGuard>
-  );
+  return content;
 
   function setResultInput(itemId: string, patch: Partial<ResultInput>) {
     setResultInputs((current) => ({
@@ -776,6 +924,38 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       }
     }));
   }
+}
+
+function resolveVisibleRoleModules(user: UserContext | null, previewMode: boolean): MobileRoleModule[] {
+  if (previewMode || user?.is_super) {
+    return MOBILE_ROLE_MODULES;
+  }
+  const visible = MOBILE_ROLE_MODULES.filter((item) => {
+    const moduleAllowed = hasEnabledModule(user, item.moduleCode);
+    const permissionAllowed = item.permissions.length === 0 || item.permissions.some((permission) => hasPermission(user, permission));
+    return moduleAllowed && permissionAllowed;
+  });
+  return visible.length > 0 ? visible : MOBILE_ROLE_MODULES.filter((item) => item.key === "service");
+}
+
+function resolveMobileRoleLabel(user: UserContext | null): string {
+  if (!user) return "访客";
+  if (user.is_super) return "管理员";
+  const roles = new Set(user.roles.map((role) => role.role_code.toUpperCase()));
+  if (roles.has("TENANT_USER") || roles.has("CUSTOMER") || roles.has("PARK_TENANT")) return "业主 / 租户";
+  if (roles.has("ENGINEER") || roles.has("PROJECT_MANAGER") || roles.has("CONTRACTOR_MANAGER") || roles.has("SUPERVISOR")) return "工程作业";
+  if (roles.has("PROPERTY_MANAGER") || roles.has("SECURITY_STAFF") || roles.has("FACILITY_STAFF")) return "物业现场";
+  if (roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR")) return "管理决策";
+  if (hasPermission(user, "ENGINEERING_DASHBOARD_VIEW")) return "工程作业";
+  if (hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY)) return "现场作业";
+  if (hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_CREATE)) return "服务办理";
+  return "移动终端";
+}
+
+function hasEnabledModule(user: UserContext | null, moduleCode?: string): boolean {
+  if (!moduleCode || !user || user.is_super) return true;
+  if (!user.enabled_modules?.length) return true;
+  return user.enabled_modules.some((item) => item.module_code === moduleCode && item.enabled !== false);
 }
 
 async function loadDictMap(): Promise<DictMap> {

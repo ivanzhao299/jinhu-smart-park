@@ -3,6 +3,7 @@
 import {
   Card,
   DataTable,
+  DataTableActions,
   Drawer,
   DrawerDetailGrid,
   DrawerDetailItem,
@@ -68,6 +69,17 @@ const orgTypeOptions = [
 
 const orgTypeLabels = new Map(orgTypeOptions.map((item) => [item.value, item.label]));
 
+function toOrgFormState(org: OrgRow): OrgFormState {
+  return {
+    orgCode: org.orgCode,
+    orgName: org.orgName,
+    orgType: org.orgType,
+    status: org.status,
+    sortOrder: String(org.sortOrder ?? 0),
+    remark: org.remark ?? ""
+  };
+}
+
 export default function OrgsPage() {
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
@@ -98,25 +110,29 @@ export default function OrgsPage() {
   }
 
   async function openView(row: OrgRow) {
-    const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
-    setViewingOrg(response.data);
+    setViewingOrg(row);
     setMessage("");
+    try {
+      const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
+      setViewingOrg((current) => (current?.id === row.id ? response.data : current));
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function openEdit(row: OrgRow) {
-    const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
-    const detail = response.data;
-    setEditingOrg(detail);
-    setForm({
-      orgCode: detail.orgCode,
-      orgName: detail.orgName,
-      orgType: detail.orgType,
-      status: detail.status,
-      sortOrder: String(detail.sortOrder ?? 0),
-      remark: detail.remark ?? ""
-    });
+    setEditingOrg(row);
+    setForm(toOrgFormState(row));
     setShowForm(true);
     setMessage("");
+    try {
+      const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
+      const detail = response.data;
+      setEditingOrg((current) => (current?.id === row.id ? detail : current));
+      setForm(toOrgFormState(detail));
+    } catch (error) {
+      showError(error);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -167,7 +183,7 @@ export default function OrgsPage() {
       <header className="page-header">
         <div className="header-title">
           <strong>组织管理</strong>
-          <span>维护园区组织架构，支持查看详情、编辑组织和按 tenant_id / park_id 隔离数据。</span>
+          <span>维护园区组织架构、层级关系和启停状态，数据范围按当前租户与园区隔离。</span>
         </div>
         <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ORG_CREATE} type="button" onClick={openCreate}>
           <Plus size={16} />
@@ -226,35 +242,33 @@ export default function OrgsPage() {
                   <td>{item.orgCode}</td>
                   <td>
                     <strong>{item.orgName}</strong>
-                    <br />
-                    <span className="muted-text">{item.id}</span>
                   </td>
                   <td>{orgTypeLabels.get(item.orgType) ?? item.orgType}</td>
                   <td><StatusBadge status={item.status} /></td>
                   <td>{item.sortOrder}</td>
                   <td>
-                    <span className="data-table-actions">
+                    <DataTableActions>
                       <PermissionButton
                         aria-label="查看组织"
                         className="ds-row-action ds-row-action-view"
                         permission={SYSTEM_PERMISSIONS.ORG_DETAIL}
+                        title="查看"
                         type="button"
                         onClick={() => void openView(item).catch(showError)}
                       >
                         <Eye size={16} />
-                        <span className="ds-row-action-label">查看</span>
                       </PermissionButton>
                       <PermissionButton
                         aria-label="编辑组织"
                         className="ds-row-action ds-row-action-edit"
                         permission={SYSTEM_PERMISSIONS.ORG_UPDATE}
+                        title="编辑"
                         type="button"
                         onClick={() => void openEdit(item).catch(showError)}
                       >
                         <Edit3 size={16} />
-                        <span className="ds-row-action-label">编辑</span>
                       </PermissionButton>
-                    </span>
+                    </DataTableActions>
                   </td>
                 </tr>
               ))}
@@ -391,9 +405,8 @@ export default function OrgsPage() {
             <DrawerDetailItem label="组织类型" value={orgTypeLabels.get(viewingOrg.orgType) ?? viewingOrg.orgType} />
             <DrawerDetailItem label="状态" value={<StatusBadge status={viewingOrg.status} />} />
             <DrawerDetailItem label="排序" value={viewingOrg.sortOrder} />
-            <DrawerDetailItem label="组织 ID" value={viewingOrg.id} />
-            <DrawerDetailItem label="tenant_id" value={viewingOrg.tenantId} />
-            <DrawerDetailItem label="park_id" value={viewingOrg.parkId} />
+            <DrawerDetailItem label="数据租户" value={viewingOrg.tenantId} />
+            <DrawerDetailItem label="园区范围" value={viewingOrg.parkId} />
             <DrawerDetailItem label="创建时间" value={formatDateTime(viewingOrg.createTime)} />
             <DrawerDetailItem label="更新时间" value={formatDateTime(viewingOrg.updateTime)} />
             <DrawerDetailItem label="备注" value={viewingOrg.remark ?? "-"} />
