@@ -107,11 +107,24 @@
   justify-content: space-between;
 }
 
+.roleGuideCopy {
+  display: grid;
+  gap: 8px;
+}
+
 .roleHomeHeader h2 {
   color: var(--phoenix-color-text);
   font-size: 22px;
   line-height: 1.2;
   margin: 8px 0 0;
+}
+
+.roleGuideCopy p {
+  color: var(--phoenix-color-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 640px;
 }
 
 .roleHomeHeader small {
@@ -132,6 +145,143 @@
   font-weight: 760;
   line-height: 1;
   padding: 7px 10px;
+}
+
+.roleIdentityCard {
+  align-self: stretch;
+  background: color-mix(in srgb, var(--phoenix-color-primary) 8%, var(--phoenix-color-surface));
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 18%, var(--phoenix-color-border));
+  border-radius: 18px;
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 14px 16px;
+}
+
+.roleIdentityCard strong {
+  color: var(--phoenix-color-text);
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.roleIdentityCard small {
+  color: var(--phoenix-color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: none;
+  text-align: left;
+}
+
+.roleFocusGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.roleFocusCard {
+  align-items: start;
+  background: var(--phoenix-color-surface);
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 14%, var(--phoenix-color-border));
+  border-radius: 18px;
+  color: inherit;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+  min-height: 112px;
+  padding: 15px;
+  text-decoration: none;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.roleFocusCard:hover,
+.roleFocusCard:focus-visible {
+  border-color: color-mix(in srgb, var(--phoenix-color-primary) 44%, var(--phoenix-color-border));
+  box-shadow: 0 14px 32px rgba(11, 31, 51, 0.10);
+  transform: translateY(-1px);
+}
+
+.roleFocusCardEmphasis {
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--phoenix-color-accent) 18%, transparent), transparent 7rem),
+    linear-gradient(145deg, color-mix(in srgb, var(--phoenix-color-primary) 10%, var(--phoenix-color-surface)) 0%, var(--phoenix-color-surface) 72%);
+}
+
+.roleFocusIcon {
+  align-items: center;
+  background: color-mix(in srgb, var(--phoenix-color-primary) 12%, var(--phoenix-color-surface-muted));
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 18%, var(--phoenix-color-border));
+  border-radius: 14px;
+  color: var(--phoenix-color-primary);
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.roleFocusCopy {
+  display: grid;
+  gap: 5px;
+}
+
+.roleFocusCopy small {
+  color: var(--phoenix-color-text-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.roleFocusCopy strong {
+  color: var(--phoenix-color-text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.roleFocusCopy p {
+  color: var(--phoenix-color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.roleFocusArrow {
+  color: var(--phoenix-color-text-muted);
+  margin-top: 2px;
+}
+
+.roleFlow {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.roleFlowStep {
+  align-items: center;
+  background: color-mix(in srgb, var(--phoenix-color-surface-muted) 72%, var(--phoenix-color-surface));
+  border: 1px solid color-mix(in srgb, var(--phoenix-color-primary) 10%, var(--phoenix-color-border));
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr;
+  min-height: 64px;
+  padding: 12px 14px;
+}
+
+.roleFlowStep span {
+  align-items: center;
+  background: color-mix(in srgb, var(--phoenix-color-primary) 12%, var(--phoenix-color-surface));
+  border-radius: 999px;
+  color: var(--phoenix-color-primary);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.roleFlowStep strong {
+  color: var(--phoenix-color-text);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .roleModuleGrid {
@@ -896,6 +1046,19 @@
     font-size: 12px;
     max-width: none;
     text-align: left;
+  }
+
+  .roleIdentityCard {
+    min-width: 0;
+  }
+
+  .roleFocusGrid,
+  .roleFlow {
+    grid-template-columns: 1fr;
+  }
+
+  .roleFocusCard {
+    min-height: 0;
   }
 
   .roleModuleGrid {

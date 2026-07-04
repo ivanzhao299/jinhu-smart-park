@@ -14,10 +14,14 @@ import {
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
+  BellDot,
   Building2,
+  CircleCheckBig,
   ClipboardCheck,
   Download,
   FilePlus2,
+  Flag,
   HardHat,
   LayoutDashboard,
   LifeBuoy,
@@ -203,6 +207,26 @@ const MOBILE_ROLE_MODULES: MobileRoleModule[] = [
   }
 ];
 
+interface RoleGuideCard {
+  key: string;
+  title: string;
+  value: string;
+  detail: string;
+  icon: LucideIcon;
+  href?: string;
+  emphasis?: boolean;
+}
+
+interface TerminalRoleGuide {
+  title: string;
+  summary: string;
+  identityLabel: string;
+  identityHint: string;
+  steps: string[];
+  moduleOrder: string[];
+  focusCards: RoleGuideCard[];
+}
+
 export function OperationsTerminalClient({ previewMode = false, previewData }: OperationsTerminalClientProps = {}) {
   const authUser = useAuthUser();
   const [tasks, setTasks] = useState<InspectTaskRow[]>(previewData?.tasks ?? []);
@@ -212,6 +236,7 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const [units, setUnits] = useState<UnitRow[]>(previewData?.units ?? []);
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>(previewData?.parkTenants ?? []);
   const [users, setUsers] = useState<UserRow[]>(previewData?.users ?? []);
+  const [workflowInbox, setWorkflowInbox] = useState<WorkflowInboxResponse | null>(previewData?.workflowInbox ?? null);
   const [loading, setLoading] = useState(!previewMode);
   const [message, setMessage] = useState("");
   const [executing, setExecuting] = useState<InspectTaskRow | null>(null);
@@ -231,6 +256,35 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const canReadWorkflow = previewMode || hasPermission(authUser, SYSTEM_PERMISSIONS.WORKORDER_READ);
   const roleLabel = useMemo(() => resolveMobileRoleLabel(authUser), [authUser]);
   const visibleRoleModules = useMemo(() => resolveVisibleRoleModules(authUser, previewMode), [authUser, previewMode]);
+  const orderedVisibleRoleModules = useMemo(
+    () => orderVisibleRoleModules(
+      visibleRoleModules,
+      resolveTerminalRoleGuide({
+        user: authUser,
+        roleLabel,
+        modules: visibleRoleModules,
+        pendingTasks: pendingTasks.length,
+        runningTasks: runningTasks.length,
+        abnormalTasks: abnormalTasks.length,
+        unreadMessages: workflowInbox?.summary.unreadMessageCount ?? 0,
+        approvalBacklog: (workflowInbox?.summary.triageCount ?? 0) + (workflowInbox?.summary.assignedCount ?? 0)
+      }).moduleOrder
+    ),
+    [abnormalTasks.length, authUser, pendingTasks.length, roleLabel, runningTasks.length, visibleRoleModules, workflowInbox]
+  );
+  const roleGuide = useMemo(
+    () => resolveTerminalRoleGuide({
+      user: authUser,
+      roleLabel,
+      modules: orderedVisibleRoleModules,
+      pendingTasks: pendingTasks.length,
+      runningTasks: runningTasks.length,
+      abnormalTasks: abnormalTasks.length,
+      unreadMessages: workflowInbox?.summary.unreadMessageCount ?? 0,
+      approvalBacklog: (workflowInbox?.summary.triageCount ?? 0) + (workflowInbox?.summary.assignedCount ?? 0)
+    }),
+    [abnormalTasks.length, authUser, orderedVisibleRoleModules, pendingTasks.length, roleLabel, runningTasks.length, workflowInbox]
+  );
   const itemResultItems = dicts.safety_inspect_item_result?.length ? dicts.safety_inspect_item_result : [
     { id: "normal", itemLabel: "正常", itemValue: "normal", status: "enabled" },
     { id: "abnormal", itemLabel: "异常", itemValue: "abnormal", status: "enabled" }
@@ -248,14 +302,15 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     setMessage("");
     const start = todayStart().toISOString();
     const end = tomorrowStart().toISOString();
-    const [taskResponse, orderResponse, planResponse, dictResponse, unitResponse, tenantResponse, userResponse] = await Promise.allSettled([
+    const [taskResponse, orderResponse, planResponse, dictResponse, unitResponse, tenantResponse, userResponse, workflowResponse] = await Promise.allSettled([
       apiRequest<PaginatedResult<InspectTaskRow>>(`/safety/my-inspect-tasks?page=1&page_size=100&plan_start=${encodeURIComponent(start)}&plan_end=${encodeURIComponent(end)}&sort=plan_time`, { token: getAccessToken() }),
       apiRequest<PaginatedResult<WorkOrderRow>>("/work-orders?page=1&page_size=8&sort=createTime:DESC", { token: getAccessToken() }),
       apiRequest<PaginatedResult<InspectPlanRow>>("/safety/inspect-plans?page=1&page_size=100&status=enabled&sort=plan_code", { token: getAccessToken() }),
       loadDictMap(),
       apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
       apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
+      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() }),
+      canReadWorkflow ? apiRequest<WorkflowInboxResponse>("/workflow/inbox", { token: getAccessToken() }) : Promise.resolve(null)
     ]);
     if (taskResponse.status === "fulfilled") setTasks(taskResponse.value.data.items);
     if (orderResponse.status === "fulfilled") setRecentWorkOrders(orderResponse.value.data.items);
@@ -264,8 +319,11 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
     if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
     if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    if (workflowResponse.status === "fulfilled") {
+      setWorkflowInbox(workflowResponse.value?.data ?? previewData?.workflowInbox ?? null);
+    }
     setLoading(false);
-  }, [previewMode]);
+  }, [canReadWorkflow, previewData?.workflowInbox, previewMode]);
 
   useEffect(() => {
     if (previewMode) {
@@ -599,14 +657,61 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
         <section className={styles.roleHome} aria-label="角色功能架构">
           <div className={styles.roleHomeHeader}>
-            <div>
+            <div className={styles.roleGuideCopy}>
               <span className={styles.roleBadge}>按角色显示</span>
-              <h2>选择要进入的工作模块</h2>
+              <h2>{roleGuide.title}</h2>
+              <p>{roleGuide.summary}</p>
             </div>
-            <small>管理员显示全架构，普通用户只显示授权模块。</small>
+            <div className={styles.roleIdentityCard}>
+              <strong>{roleGuide.identityLabel}</strong>
+              <small>{roleGuide.identityHint}</small>
+            </div>
           </div>
+
+          <div className={styles.roleFocusGrid}>
+            {roleGuide.focusCards.map((card) => {
+              const Icon = card.icon;
+              const content = (
+                <>
+                  <span className={styles.roleFocusIcon}><Icon size={18} /></span>
+                  <div className={styles.roleFocusCopy}>
+                    <small>{card.title}</small>
+                    <strong>{card.value}</strong>
+                    <p>{card.detail}</p>
+                  </div>
+                  {card.href ? <ArrowRight className={styles.roleFocusArrow} size={18} /> : null}
+                </>
+              );
+              return card.href ? (
+                <Link
+                  className={`${styles.roleFocusCard} ${card.emphasis ? styles.roleFocusCardEmphasis : ""}`}
+                  href={card.href as Route}
+                  key={card.key}
+                >
+                  {content}
+                </Link>
+              ) : (
+                <article
+                  className={`${styles.roleFocusCard} ${card.emphasis ? styles.roleFocusCardEmphasis : ""}`}
+                  key={card.key}
+                >
+                  {content}
+                </article>
+              );
+            })}
+          </div>
+
+          <div className={styles.roleFlow}>
+            {roleGuide.steps.map((step, index) => (
+              <div className={styles.roleFlowStep} key={`${index}-${step}`}>
+                <span>{index + 1}</span>
+                <strong>{step}</strong>
+              </div>
+            ))}
+          </div>
+
           <div className={styles.roleModuleGrid}>
-            {visibleRoleModules.map((item) => {
+            {orderedVisibleRoleModules.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -940,8 +1045,13 @@ function resolveVisibleRoleModules(user: UserContext | null, previewMode: boolea
 
 function resolveMobileRoleLabel(user: UserContext | null): string {
   if (!user) return "访客";
-  if (user.is_super) return "管理员";
+  if (user.is_super) return "管理员总控";
   const roles = new Set(user.roles.map((role) => role.role_code.toUpperCase()));
+  if (roles.has("FINANCE_MANAGER") || roles.has("JH_FINANCE_MANAGER")) return "财务监督";
+  if (roles.has("INVEST_MANAGER") || roles.has("JH_LEASING_LEAD")) return "招商协同";
+  if (roles.has("PROPERTY_MANAGER") || roles.has("PROPERTY_STAFF") || roles.has("SAFETY_MANAGER") || roles.has("JH_PROPERTY_SITE_MANAGER")) return "现场运营";
+  if (roles.has("MAINTENANCE_ENGINEER") || roles.has("IOT_OPERATOR") || roles.has("IOT_MANAGER") || roles.has("JH_INSTALLATION_ENGINEER")) return "工程执行";
+  if (roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_GROUP_VP") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER")) return "管理决策";
   if (roles.has("TENANT_USER") || roles.has("CUSTOMER") || roles.has("PARK_TENANT")) return "业主 / 租户";
   if (roles.has("ENGINEER") || roles.has("PROJECT_MANAGER") || roles.has("CONTRACTOR_MANAGER") || roles.has("SUPERVISOR")) return "工程作业";
   if (roles.has("PROPERTY_MANAGER") || roles.has("SECURITY_STAFF") || roles.has("FACILITY_STAFF")) return "物业现场";
@@ -950,6 +1060,226 @@ function resolveMobileRoleLabel(user: UserContext | null): string {
   if (hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY)) return "现场作业";
   if (hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_CREATE)) return "服务办理";
   return "移动终端";
+}
+
+function orderVisibleRoleModules(modules: MobileRoleModule[], moduleOrder: string[]): MobileRoleModule[] {
+  const order = new Map(moduleOrder.map((key, index) => [key, index]));
+  return [...modules].sort((left, right) => {
+    const leftIndex = order.get(left.key) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = order.get(right.key) ?? Number.MAX_SAFE_INTEGER;
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    if (left.primary !== right.primary) return left.primary ? -1 : 1;
+    return left.title.localeCompare(right.title, "zh-CN");
+  });
+}
+
+function resolveTerminalRoleGuide(input: {
+  user: UserContext | null;
+  roleLabel: string;
+  modules: MobileRoleModule[];
+  pendingTasks: number;
+  runningTasks: number;
+  abnormalTasks: number;
+  unreadMessages: number;
+  approvalBacklog: number;
+}): TerminalRoleGuide {
+  const { user, roleLabel, modules, pendingTasks, runningTasks, abnormalTasks, unreadMessages, approvalBacklog } = input;
+  const moduleByKey = new Map(modules.map((item) => [item.key, item]));
+  const hasEngineering = moduleByKey.has("engineering");
+  const hasOperations = moduleByKey.has("operations");
+  const hasFinance = hasPermission(user, "leasing_receivable:read") || hasPermission(user, "leasing_payment:read");
+  const hasLeasing = hasPermission(user, SYSTEM_PERMISSIONS.LEASING_LEAD_CREATE) || hasPermission(user, SYSTEM_PERMISSIONS.LEASING_LEAD_READ);
+  const isAdmin = Boolean(user?.is_super);
+
+  const resolveHref = (key: string): string | undefined => moduleByKey.get(key)?.href;
+
+  if (isAdmin) {
+    return {
+      title: "管理员总控首页",
+      summary: "先确认模块、权限、消息和终端入口都正常，再放业务角色进入当天流程。",
+      identityLabel: roleLabel,
+      identityHint: "显示全架构，用于开场检查和故障兜底。",
+      steps: ["先校验模块可见性", "再看审批与消息堆积", "最后放行业务角色开始作业"],
+      moduleOrder: ["system", "workflow", "engineering", "operations", "assets", "dashboard", "service"],
+      focusCards: [
+        {
+          key: "admin-system",
+          title: "先看系统配置",
+          value: "用户 / 角色 / 字典",
+          detail: "确认账号、角色包、字典项和模块授权都已就绪。",
+          icon: Users,
+          href: resolveHref("system"),
+          emphasis: true
+        },
+        {
+          key: "admin-workflow",
+          title: "审批与消息",
+          value: approvalBacklog > 0 ? `${approvalBacklog} 项待处理` : "当前清零",
+          detail: unreadMessages > 0 ? `另有 ${unreadMessages} 条未读消息。` : "收件箱没有未读阻断消息。",
+          icon: BellDot,
+          href: resolveHref("workflow")
+        },
+        {
+          key: "admin-engineering",
+          title: "业务主链",
+          value: hasEngineering ? "工程交付已接入" : "工程未授权",
+          detail: "周一上线优先从工程、现场工单和消息链路开始。",
+          icon: HardHat,
+          href: resolveHref("engineering")
+        }
+      ]
+    };
+  }
+
+  if (hasFinance) {
+    return {
+      title: "财务监督首页",
+      summary: "先核对应收与收款，再回看工程进度和验收状态，不直接写工程动作。",
+      identityLabel: roleLabel,
+      identityHint: "以监督与核对为主，避免误入执行链。",
+      steps: ["先看应收和收款台账", "再查看工程项目和验收状态", "异常时从消息或项目详情回到责任人"],
+      moduleOrder: ["dashboard", "engineering", "workflow", "assets", "service"],
+      focusCards: [
+        {
+          key: "finance-ledger",
+          title: "今日优先",
+          value: "核对应收 / 收款",
+          detail: "先确认资金台账，再关联工程项目状态。",
+          icon: Flag,
+          href: "/leasing/receivables",
+          emphasis: true
+        },
+        {
+          key: "finance-engineering",
+          title: "工程只读",
+          value: hasEngineering ? "可查看工程状态" : "未启用",
+          detail: "只读监督项目、整改和验收，不直接执行工程写动作。",
+          icon: HardHat,
+          href: resolveHref("engineering")
+        },
+        {
+          key: "finance-message",
+          title: "消息提醒",
+          value: unreadMessages > 0 ? `${unreadMessages} 条未读` : "无未读",
+          detail: "重点关注结算准备和异常提醒。",
+          icon: BellDot,
+          href: resolveHref("workflow")
+        }
+      ]
+    };
+  }
+
+  if (hasLeasing) {
+    return {
+      title: "招商与客户协同首页",
+      summary: "客户诉求、招商跟进、协同工单都从这里进入，不必先翻工程列表。",
+      identityLabel: roleLabel,
+      identityHint: "面向客户与入驻协同，工程页以只读联动为主。",
+      steps: ["先处理客户需求和线索", "需要落地执行时转工单或工程协同", "最后回看消息确认结果"],
+      moduleOrder: ["service", "assets", "workflow", "engineering", "dashboard"],
+      focusCards: [
+        {
+          key: "leasing-service",
+          title: "客户入口",
+          value: "需求 / 工单 / 跟进",
+          detail: "把诉求、到访、招商跟进统一落到可追踪链路。",
+          icon: LifeBuoy,
+          href: resolveHref("service"),
+          emphasis: true
+        },
+        {
+          key: "leasing-assets",
+          title: "房源与租户",
+          value: moduleByKey.has("assets") ? "可查看资产与租户" : "未启用",
+          detail: "招商与现场协同前先确认位置、租户和房源信息。",
+          icon: Building2,
+          href: resolveHref("assets")
+        },
+        {
+          key: "leasing-message",
+          title: "协同消息",
+          value: unreadMessages > 0 ? `${unreadMessages} 条未读` : "无未读",
+          detail: "处理完成后回到收件箱确认下一步。",
+          icon: BellDot,
+          href: resolveHref("workflow")
+        }
+      ]
+    };
+  }
+
+  if (hasEngineering) {
+    return {
+      title: "工程与现场协同首页",
+      summary: "先看工程模块，再看现场作业和整改消息，保证日报、巡检、整改、验收同一条线推进。",
+      identityLabel: roleLabel,
+      identityHint: "工程链路优先，现场异常和审批消息紧随其后。",
+      steps: ["先进入工程交付", "再提交日报 / 巡检 / 整改", "最后回收件箱看审批和确认"],
+      moduleOrder: ["engineering", "operations", "workflow", "assets", "dashboard", "service"],
+      focusCards: [
+        {
+          key: "engineering-primary",
+          title: "第一入口",
+          value: "工程交付",
+          detail: "项目、计划、日报、巡检、整改、验收都从这里开始。",
+          icon: HardHat,
+          href: resolveHref("engineering"),
+          emphasis: true
+        },
+        {
+          key: "engineering-today",
+          title: "今日待办",
+          value: pendingTasks > 0 ? `${pendingTasks} 项待执行` : runningTasks > 0 ? `${runningTasks} 项执行中` : "先查项目状态",
+          detail: abnormalTasks > 0 ? `当前有 ${abnormalTasks} 项异常，需要尽快闭环。` : "优先处理日报、巡检和整改反馈。",
+          icon: ClipboardCheck,
+          href: hasOperations ? resolveHref("operations") : resolveHref("engineering")
+        },
+        {
+          key: "engineering-workflow",
+          title: "审批与消息",
+          value: approvalBacklog > 0 ? `${approvalBacklog} 项待确认` : unreadMessages > 0 ? `${unreadMessages} 条未读` : "当前清零",
+          detail: "涉及审批、整改和验收时，统一从消息回到业务页。",
+          icon: BellDot,
+          href: resolveHref("workflow")
+        }
+      ]
+    };
+  }
+
+  return {
+    title: "现场作业首页",
+    summary: "先看今日任务，再处理工单和消息，尽量在手机端完成打卡、上报和确认。",
+    identityLabel: roleLabel,
+    identityHint: "按作业终端方式组织，不需要先理解后台结构。",
+    steps: ["先看今日任务", "再做打卡、上报和工单", "最后回消息中心确认闭环"],
+    moduleOrder: ["operations", "service", "workflow", "dashboard", "assets"],
+    focusCards: [
+      {
+        key: "operations-primary",
+        title: "第一入口",
+        value: hasOperations ? "现场作业" : "服务办理",
+        detail: "快速进入巡检、打卡、异常上报或现场工单。",
+        icon: ClipboardCheck,
+        href: hasOperations ? resolveHref("operations") : resolveHref("service"),
+        emphasis: true
+      },
+      {
+        key: "operations-today",
+        title: "今日待办",
+        value: pendingTasks > 0 ? `${pendingTasks} 项待执行` : runningTasks > 0 ? `${runningTasks} 项执行中` : "今天任务正常",
+        detail: abnormalTasks > 0 ? `有 ${abnormalTasks} 项异常待反馈。` : "优先完成打卡、巡检和结果提交。",
+        icon: Flag,
+        href: hasOperations ? resolveHref("operations") : undefined
+      },
+      {
+        key: "operations-message",
+        title: "消息与确认",
+        value: unreadMessages > 0 ? `${unreadMessages} 条未读` : "无未读",
+        detail: "所有跨部门提醒、确认和回执都从这里回看。",
+        icon: CircleCheckBig,
+        href: resolveHref("workflow")
+      }
+    ]
+  };
 }
 
 function hasEnabledModule(user: UserContext | null, moduleCode?: string): boolean {
