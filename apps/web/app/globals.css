@@ -9573,6 +9573,171 @@ select {
     font-size: 0;
   }
 
+  .dashboard-shell.dashboard-shell-terminal,
+  .dashboard-shell.dashboard-shell-terminal.sidebar-collapsed,
+  :root[data-sidebar-collapsed="true"] .dashboard-shell.dashboard-shell-terminal {
+    --header-height: calc(76px + env(safe-area-inset-top));
+    grid-template-columns: 1fr;
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+    background:
+      linear-gradient(180deg, #071724 0%, #0c3553 calc(var(--header-height) + 18px), #edf3f9 calc(var(--header-height) + 18px));
+  }
+
+  .dashboard-main.dashboard-main-terminal {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+    background:
+      linear-gradient(180deg, #0c3553 0, #0c3553 10px, #edf3f9 10px, #edf3f9 100%);
+  }
+
+  .app-sidebar.app-sidebar-terminal {
+    display: none !important;
+  }
+
+  .app-header.app-header-terminal {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 146px;
+    gap: 8px;
+    align-items: center;
+    min-height: calc(76px + env(safe-area-inset-top));
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background:
+      radial-gradient(circle at 84% 0%, rgba(247, 201, 72, 0.22), transparent 11rem),
+      linear-gradient(135deg, #06131f 0%, #0a3552 52%, #0d496d 100%);
+    color: #f8fbff;
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.28);
+  }
+
+  .app-header.app-header-terminal .header-leading,
+  .app-header.app-header-terminal .header-brand-lockup,
+  .app-header.app-header-terminal .header-brand-copy {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .app-header.app-header-terminal .header-brand-lockup {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .app-header.app-header-terminal .header-brand-symbol {
+    width: 40px;
+    height: 30px;
+  }
+
+  .app-header.app-header-terminal .header-brand-copy span {
+    display: block;
+    overflow: hidden;
+    color: rgba(230, 241, 250, 0.72);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header.app-header-terminal .header-brand-copy strong {
+    display: block;
+    max-width: calc(100vw - 204px);
+    overflow: hidden;
+    color: #f8fbff;
+    font-size: 15px;
+    font-weight: 780;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header.app-header-terminal .header-breadcrumb-slot,
+  .app-header.app-header-terminal .header-workflow-link,
+  .app-header.app-header-terminal .header-sidebar-toggle-leading {
+    display: none !important;
+  }
+
+  .app-header.app-header-terminal .header-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 32px);
+    grid-template-rows: 32px;
+    grid-auto-flow: row;
+    align-items: center;
+    justify-content: end;
+    justify-self: end;
+    gap: 6px;
+    width: 146px;
+    min-width: 146px;
+    max-width: 146px;
+    overflow: visible;
+  }
+
+  .app-header.app-header-terminal .header-actions .header-icon-button.ant-btn,
+  .app-header.app-header-terminal .header-actions .header-icon-link,
+  .app-header.app-header-terminal .header-actions .user-avatar,
+  .app-header.app-header-terminal .header-actions .user-logout-button {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    border-radius: 11px;
+  }
+
+  .app-header.app-header-terminal .header-actions .header-sidebar-toggle.ant-btn {
+    position: static;
+    top: auto;
+    left: auto;
+    z-index: auto;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 18px rgba(0, 0, 0, 0.18);
+    opacity: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions > .header-icon-link {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions > .header-sidebar-toggle-actions {
+    display: inline-flex;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-menu {
+    display: contents;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-avatar {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-menu-name,
+  .app-header.app-header-terminal .header-actions .user-logout-button span {
+    display: none;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-logout-button {
+    grid-column: 4;
+    grid-row: 1;
+    justify-self: end;
+    gap: 0;
+    padding: 0;
+    font-size: 0;
+    line-height: 1;
+  }
+
   html.mobile-terminal-mode,
   body.mobile-terminal-mode {
     background: #071724;
@@ -9999,5 +10164,231 @@ body.mobile-terminal-mode .field select {
 
   .ds-data-table > tbody > tr > td[colspan]:first-child:last-child::before {
     display: none;
+  }
+}
+
+/* Canonical mobile terminal shell override.
+   Keep this block last so legacy terminal-safe-area/mobile-terminal rules
+   cannot pull the page back into desktop sidebar geometry on Safari. */
+@media (max-width: 720px) {
+  .dashboard-shell.dashboard-shell-terminal,
+  body.mobile-terminal-mode .dashboard-shell.dashboard-shell-terminal,
+  body.operations-terminal-safe-area .dashboard-shell.dashboard-shell-terminal {
+    --header-height: calc(76px + env(safe-area-inset-top));
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    background:
+      linear-gradient(180deg, #071724 0%, #0c3553 calc(var(--header-height) + 18px), #edf3f9 calc(var(--header-height) + 18px));
+  }
+
+  .dashboard-main.dashboard-main-terminal,
+  body.mobile-terminal-mode .dashboard-main.dashboard-main-terminal,
+  body.operations-terminal-safe-area .dashboard-main.dashboard-main-terminal {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    background:
+      linear-gradient(180deg, #0c3553 0, #0c3553 10px, #edf3f9 10px, #edf3f9 100%);
+  }
+
+  .app-sidebar.app-sidebar-terminal,
+  body.mobile-terminal-mode .app-sidebar.app-sidebar-terminal,
+  body.operations-terminal-safe-area .app-sidebar.app-sidebar-terminal {
+    display: none !important;
+  }
+
+  .app-header.app-header-terminal,
+  body.mobile-terminal-mode .app-header.app-header-terminal[data-terminal-header="true"],
+  body.operations-terminal-safe-area .app-header.app-header-terminal {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 146px;
+    gap: 8px;
+    align-items: center;
+    min-height: calc(76px + env(safe-area-inset-top));
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background:
+      radial-gradient(circle at 84% 0%, rgba(247, 201, 72, 0.22), transparent 11rem),
+      linear-gradient(135deg, #06131f 0%, #0a3552 52%, #0d496d 100%);
+    color: #f8fbff;
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.28);
+  }
+
+  .app-header.app-header-terminal .header-leading,
+  .app-header.app-header-terminal .header-brand-lockup,
+  .app-header.app-header-terminal .header-brand-copy,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-leading,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-lockup,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-copy,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-leading,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-lockup,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-copy {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .app-header.app-header-terminal .header-sidebar-toggle-leading,
+  .app-header.app-header-terminal .header-breadcrumb-slot,
+  .app-header.app-header-terminal .header-workflow-link,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-sidebar-toggle-leading,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-breadcrumb-slot,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-workflow-link,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-sidebar-toggle-leading,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-breadcrumb-slot,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-workflow-link {
+    display: none !important;
+  }
+
+  .app-header.app-header-terminal .header-brand-lockup,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-lockup,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-lockup {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .app-header.app-header-terminal .header-brand-symbol,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-symbol,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-symbol {
+    width: 40px;
+    height: 30px;
+  }
+
+  .app-header.app-header-terminal .header-brand-copy strong,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-copy strong,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-copy strong {
+    display: block;
+    max-width: calc(100vw - 204px);
+    overflow: hidden;
+    color: #f8fbff;
+    font-size: 15px;
+    font-weight: 780;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header.app-header-terminal .header-brand-copy span,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-brand-copy span,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-brand-copy span {
+    display: block;
+    overflow: hidden;
+    color: rgba(230, 241, 250, 0.72);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header.app-header-terminal .header-actions,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 32px);
+    grid-template-rows: 32px;
+    grid-auto-flow: row;
+    align-items: center;
+    justify-content: end;
+    justify-self: end;
+    gap: 6px;
+    width: 146px;
+    min-width: 146px;
+    max-width: 146px;
+    overflow: visible;
+  }
+
+  .app-header.app-header-terminal .header-actions .header-icon-button.ant-btn,
+  .app-header.app-header-terminal .header-actions .header-icon-link,
+  .app-header.app-header-terminal .header-actions .user-avatar,
+  .app-header.app-header-terminal .header-actions .user-logout-button,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .header-icon-button.ant-btn,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .header-icon-link,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-avatar,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-logout-button,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .header-icon-button.ant-btn,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .header-icon-link,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-avatar,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-logout-button {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    border-radius: 11px;
+  }
+
+  .app-header.app-header-terminal .header-actions .header-sidebar-toggle.ant-btn,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .header-sidebar-toggle.ant-btn,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .header-sidebar-toggle.ant-btn {
+    position: static;
+    top: auto;
+    left: auto;
+    z-index: auto;
+    opacity: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions > .header-icon-link,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions > .header-icon-link,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions > .header-icon-link {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions > .header-sidebar-toggle-actions,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions > .header-sidebar-toggle-actions,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions > .header-sidebar-toggle-actions {
+    display: inline-flex;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-menu,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-menu,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-menu {
+    display: contents;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-avatar,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-avatar,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-avatar {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-menu-name,
+  .app-header.app-header-terminal .header-actions .user-logout-button span,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-menu-name,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-logout-button span,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-menu-name,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-logout-button span {
+    display: none;
+  }
+
+  .app-header.app-header-terminal .header-actions .user-logout-button,
+  body.mobile-terminal-mode .app-header.app-header-terminal .header-actions .user-logout-button,
+  body.operations-terminal-safe-area .app-header.app-header-terminal .header-actions .user-logout-button {
+    grid-column: 4;
+    grid-row: 1;
+    justify-self: end;
+    gap: 0;
+    padding: 0;
+    font-size: 0;
+    line-height: 1;
+    white-space: nowrap;
+    word-break: keep-all;
+    writing-mode: horizontal-tb;
   }
 }

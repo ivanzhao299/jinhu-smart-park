@@ -16,15 +16,16 @@ interface AppHeaderProps {
   breadcrumb?: ReactNode;
   sidebarCollapsed: boolean;
   onSidebarCollapsedChange: (collapsed: boolean) => void;
+  terminalMode?: boolean;
 }
 
-export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChange }: AppHeaderProps) {
+export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChange, terminalMode }: AppHeaderProps) {
   const branding = useAppBranding();
   const user = useAuthUser();
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
   const canOpenWorkflowInbox = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
-  const isTerminalRoute = pathname ? TERMINAL_HEADER_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) : false;
+  const isTerminalRoute = terminalMode ?? (pathname ? TERMINAL_HEADER_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) : false);
 
   const handleThemeChange = () => {
     setTheme(theme === "command-dark" || theme === "dark" ? "enterprise-light" : "command-dark");

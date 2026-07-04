@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 export function useMobileTerminalMode(classes: string[]): void {
   const classKey = classes.filter(Boolean).sort().join(" ");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof document === "undefined") {
       return undefined;
     }

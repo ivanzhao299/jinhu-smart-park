@@ -12,14 +12,24 @@ import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 
 const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
+const TERMINAL_LAYOUT_PATHS = [
+  "/operations/terminal",
+  "/preview/operations-terminal",
+  "/engineering/terminal",
+  "/tenant/service",
+  "/preview/tenant-service",
+  "/safety/my-inspect-tasks"
+] as const;
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  forceTerminalMode?: boolean;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, forceTerminalMode = false }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isTerminalRoute = forceTerminalMode || (pathname ? TERMINAL_LAYOUT_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) : false);
   const [user, setUser] = useState<UserContext | null>(null);
   const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -85,19 +95,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [ready, requiredMenu, router, user]);
 
   if (!ready || !user) {
-    return <DashboardShellSkeleton collapsed={sidebarCollapsed} />;
+    return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
   }
 
   return (
     <AuthUserContext.Provider value={user}>
-      <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+      <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
         <AppHeader
           breadcrumb={<AppBreadcrumb variant="inline" />}
           sidebarCollapsed={sidebarCollapsed}
           onSidebarCollapsedChange={handleSidebarCollapsedChange}
+          terminalMode={isTerminalRoute}
         />
-        <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
-        <div className="dashboard-main">
+        <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} terminalMode={isTerminalRoute} />
+        <div className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
           {children}
         </div>
       </div>
@@ -105,10 +116,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   );
 }
 
-function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
+function DashboardShellSkeleton({ collapsed, terminalMode }: { collapsed: boolean; terminalMode: boolean }) {
   return (
-    <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}`} data-loading="true">
-      <header className="app-header">
+    <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}${terminalMode ? " dashboard-shell-terminal" : ""}`} data-loading="true">
+      <header className={`app-header${terminalMode ? " app-header-terminal" : ""}`} data-terminal-header={terminalMode ? "true" : "false"}>
         <div className="header-leading">
           <span className="header-icon-button header-sidebar-toggle skeleton" />
           <span className="header-brand-symbol skeleton" />
@@ -122,7 +133,7 @@ function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
           <span className="user-avatar skeleton" />
         </div>
       </header>
-      <aside className="app-sidebar dashboard-sidebar-skeleton" aria-hidden="true">
+      <aside className={`app-sidebar dashboard-sidebar-skeleton${terminalMode ? " app-sidebar-terminal" : ""}`} aria-hidden="true">
         <div className="sidebar-brand-row">
           <div className="brand">
             <span className="brand-mark skeleton" />
@@ -135,7 +146,7 @@ function DashboardShellSkeleton({ collapsed }: { collapsed: boolean }) {
           ))}
         </nav>
       </aside>
-      <div className="dashboard-main">
+      <div className={`dashboard-main${terminalMode ? " dashboard-main-terminal" : ""}`}>
         <main className="page-container">
           <section className="page-header">
             <div className="header-title">

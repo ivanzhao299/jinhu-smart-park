@@ -5,5 +5,5 @@ interface OperationsLayoutProps {
 }
 
 export default function OperationsLayout({ children }: OperationsLayoutProps) {
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return <DashboardLayout forceTerminalMode>{children}</DashboardLayout>;
 }

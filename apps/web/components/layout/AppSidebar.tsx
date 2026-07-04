@@ -13,9 +13,10 @@ import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
 interface AppSidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  terminalMode?: boolean;
 }
 
-export function AppSidebar({ collapsed }: AppSidebarProps) {
+export function AppSidebar({ collapsed, terminalMode = false }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthUser();
@@ -65,7 +66,7 @@ export function AppSidebar({ collapsed }: AppSidebarProps) {
   return (
     <aside
       aria-label="主导航"
-      className={`app-sidebar${collapsed ? " sidebar-collapsed" : ""}${isPreviewing ? " sidebar-preview" : ""}`}
+      className={`app-sidebar${collapsed ? " sidebar-collapsed" : ""}${isPreviewing ? " sidebar-preview" : ""}${terminalMode ? " app-sidebar-terminal" : ""}`}
       data-collapsed={collapsed ? "true" : "false"}
       onBlur={(event) => {
         const nextFocusedElement = event.relatedTarget;
