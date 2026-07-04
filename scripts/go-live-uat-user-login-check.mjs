@@ -8,17 +8,22 @@ const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const envFile = resolve(repoRoot, ".env.production");
 const composeFile = resolve(repoRoot, "infra/docker/docker-compose.prod.yml");
 const defaultCredentialsFile = resolve(repoRoot, "database/import-reports/go-live-uat-users.local.csv");
+const defaultAllUsersCredentialsFile = resolve(repoRoot, "database/import-reports/go-live-all-users.local.csv");
 
 const args = new Set(process.argv.slice(2));
 const resetPasswords = args.has("--reset-passwords");
+const allUsersMode = args.has("--all-users");
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
-const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCredentialsFile);
+const credentialsFile = resolve(
+  repoRoot,
+  readArg("--credentials") ?? (allUsersMode ? defaultAllUsersCredentialsFile : defaultCredentialsFile)
+);
 
 const tenantId = "10000001";
 const parkId = "20000001";
 
-const uatUsers = [
+const keyUatUsers = [
   {
     username: "li_rongjie",
     displayName: "李荣杰",
@@ -175,6 +180,7 @@ const uatUsers = [
     requiredPages: ["/engineering/dashboard", "/engineering/projects", "/leasing/tenants", "/leasing/leads"]
   }
 ];
+const uatUsers = allUsersMode ? loadAllEnabledUsers() : keyUatUsers;
 
 const failures = [];
 const warnings = [];
@@ -197,6 +203,7 @@ const report = {
   checked_at: new Date().toISOString(),
   go_live_date: "2026-07-06",
   status: failures.length === 0 ? "PASS" : "FAIL",
+  mode: allUsersMode ? "all_enabled_users" : "key_go_live_users",
   api_base: apiBase,
   web_base: webBase,
   reset_passwords: resetPasswords,
@@ -213,12 +220,16 @@ if (failures.length > 0) process.exitCode = 1;
 function resetUatPasswords() {
   mkdirSync(dirname(credentialsFile), { recursive: true });
   const rows = [["username", "display_name", "uat_password", "role", "generated_at"]];
+  const generatedRows = [];
   const values = [];
 
   for (const user of uatUsers) {
+    const generatedAt = new Date().toISOString();
     const password = buildPassword(user.username);
     const hash = bcryptHash(password);
-    rows.push([user.username, user.displayName, password, user.role, new Date().toISOString()]);
+    const row = [user.username, user.displayName, password, user.role, generatedAt];
+    rows.push(row);
+    generatedRows.push(row);
     values.push(`(${sqlString(user.username)}, ${sqlString(hash)})`);
   }
 
@@ -250,7 +261,13 @@ SELECT count(*) FROM updated;
     fail(`UAT password reset affected ${updatedCount} users, expected ${uatUsers.length}`);
     return;
   }
-  writeFileSync(credentialsFile, rows.map((row) => row.map(csvCell).join(",")).join("\n"), { encoding: "utf8", mode: 0o600 });
+  writeCredentialsFile(credentialsFile, rows);
+
+  if (allUsersMode && credentialsFile !== defaultCredentialsFile) {
+    const keyUsernames = new Set(keyUatUsers.map((user) => user.username));
+    const keyRows = [rows[0], ...generatedRows.filter((row) => keyUsernames.has(row[0]))];
+    writeCredentialsFile(defaultCredentialsFile, keyRows);
+  }
 }
 
 async function runUat(credentials) {
@@ -269,7 +286,8 @@ async function runUat(credentials) {
       missing_permissions: [],
       missing_menus: [],
       failed_api_reads: [],
-      failed_pages: []
+      failed_pages: [],
+      checked_menu_pages: 0
     };
     userResults.push(result);
 
@@ -299,19 +317,39 @@ async function runUat(credentials) {
     const context = me.body.data;
     const permissions = new Set(context.permissions ?? []);
     const hasAll = permissions.has("*");
-    result.missing_permissions = user.requiredPermissions.filter((permission) => !hasAll && !permissions.has(permission));
-    if (result.missing_permissions.length === 0) {
-      result.permission_check = "PASS";
+    if (user.allUserSmoke) {
+      if (hasAll || permissions.size > 0) {
+        result.permission_check = "PASS";
+      } else {
+        result.missing_permissions = ["NO_EFFECTIVE_PERMISSION"];
+        fail(`${user.username} has no effective permissions`);
+      }
     } else {
-      fail(`${user.username} missing permissions: ${result.missing_permissions.join(", ")}`);
+      result.missing_permissions = user.requiredPermissions.filter((permission) => !hasAll && !permissions.has(permission));
+      if (result.missing_permissions.length === 0) {
+        result.permission_check = "PASS";
+      } else {
+        fail(`${user.username} missing permissions: ${result.missing_permissions.join(", ")}`);
+      }
     }
 
     const menuHrefs = new Set(flattenMenuHrefs(context.menu_tree ?? context.menus ?? []));
-    result.missing_menus = user.requiredPages.filter((page) => !menuHrefs.has(page));
-    if (result.missing_menus.length === 0) {
-      result.menu_check = "PASS";
+    const pagesToCheck = user.allUserSmoke ? Array.from(menuHrefs).map(normalizeMenuHref).filter(Boolean) : user.requiredPages;
+    result.checked_menu_pages = pagesToCheck.length;
+    if (user.allUserSmoke) {
+      if (pagesToCheck.length > 0) {
+        result.menu_check = "PASS";
+      } else {
+        result.missing_menus = ["NO_VISIBLE_MENU"];
+        fail(`${user.username} has no visible menu pages`);
+      }
     } else {
-      fail(`${user.username} missing menu pages: ${result.missing_menus.join(", ")}`);
+      result.missing_menus = user.requiredPages.filter((page) => !menuHrefs.has(page));
+      if (result.missing_menus.length === 0) {
+        result.menu_check = "PASS";
+      } else {
+        fail(`${user.username} missing menu pages: ${result.missing_menus.join(", ")}`);
+      }
     }
 
     for (const path of user.requiredApiReads) {
@@ -326,7 +364,7 @@ async function runUat(credentials) {
       fail(`${user.username} API read failures: ${result.failed_api_reads.join(", ")}`);
     }
 
-    for (const page of user.requiredPages) {
+    for (const page of pagesToCheck) {
       const response = await requestText(`${webBase}${page}`);
       if (![200, 307, 308].includes(response.status)) {
         result.failed_pages.push(`${page} (${response.status})`);
@@ -338,6 +376,45 @@ async function runUat(credentials) {
       fail(`${user.username} page route failures: ${result.failed_pages.join(", ")}`);
     }
   }
+}
+
+function loadAllEnabledUsers() {
+  const rows = psql(`
+SELECT
+  u.username,
+  COALESCE(NULLIF(u.display_name, ''), u.username) AS display_name,
+  COALESCE(string_agg(DISTINCT r.name || ':' || r.code, ', ' ORDER BY r.name || ':' || r.code), '') AS roles
+FROM sys_user u
+LEFT JOIN rel_user_role ur
+  ON ur.user_id = u.id
+ AND ur.tenant_id = u.tenant_id
+ AND ur.park_id = u.park_id
+ AND ur.is_deleted = false
+LEFT JOIN sys_role r
+  ON r.id = ur.role_id
+ AND r.tenant_id = u.tenant_id
+ AND r.park_id = u.park_id
+ AND r.is_deleted = false
+WHERE u.tenant_id = ${sqlString(tenantId)}
+  AND u.park_id = ${sqlString(parkId)}
+  AND u.is_deleted = false
+  AND u.is_enabled = true
+  AND u.status = 'enabled'
+GROUP BY u.username, u.display_name
+ORDER BY u.username;
+`);
+  return rows.map((row) => {
+    const [username, displayName, roleSummary] = row.split("|");
+    return {
+      username,
+      displayName,
+      role: roleSummary || "未配置角色",
+      allUserSmoke: true,
+      requiredPermissions: [],
+      requiredApiReads: [],
+      requiredPages: []
+    };
+  });
 }
 
 function readCredentials(file) {
@@ -394,6 +471,13 @@ function flattenMenuHrefs(nodes) {
     if (Array.isArray(node?.children)) hrefs.push(...flattenMenuHrefs(node.children));
   }
   return hrefs;
+}
+
+function normalizeMenuHref(href) {
+  if (typeof href !== "string" || !href.startsWith("/")) return null;
+  const [path] = href.split("?");
+  if (!path || path.includes(":")) return null;
+  return path;
 }
 
 function bcryptHash(password) {
@@ -462,6 +546,11 @@ function shellQuote(value) {
 
 function csvCell(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+function writeCredentialsFile(file, rows) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, rows.map((row) => row.map(csvCell).join(",")).join("\n"), { encoding: "utf8", mode: 0o600 });
 }
 
 function parseCsvLine(line) {
