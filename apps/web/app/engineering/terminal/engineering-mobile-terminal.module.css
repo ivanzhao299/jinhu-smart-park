@@ -1,6 +1,10 @@
 .page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 100%;
   padding-bottom: 24px;
 }
@@ -8,6 +12,9 @@
 .hero,
 .panel,
 .flowPanel {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 24px;
   background:
@@ -20,6 +27,7 @@
 .hero {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   min-height: 258px;
   overflow: hidden;
@@ -40,6 +48,7 @@
   position: relative;
   z-index: 1;
   display: grid;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -75,6 +84,7 @@
 .heroMeta {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 8px;
 }
 
@@ -92,6 +102,7 @@
 .heroActions {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -142,6 +153,7 @@
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
   gap: 10px;
 }
 
@@ -181,6 +193,8 @@
 .statusStrip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -217,6 +231,7 @@
 .panel,
 .flowPanel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   border-color: #d8e5ef;
   padding: 18px;
@@ -250,6 +265,7 @@
 
 .sectionHeader {
   display: grid;
+  min-width: 0;
   gap: 4px;
 }
 
@@ -270,6 +286,7 @@
 
 .focusGrid {
   display: grid;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -336,6 +353,7 @@
 .chainStrip {
   display: flex;
   gap: 8px;
+  max-width: 100%;
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -353,6 +371,7 @@
 .moduleGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
   gap: 10px;
 }
 
@@ -401,6 +420,7 @@
 .projectList,
 .todoList {
   display: grid;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -409,6 +429,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   gap: 12px;
   border: 1px solid #d8e5ef;
   border-radius: 17px;
@@ -416,10 +439,12 @@
   background: #f8fbff;
   color: #071926;
   text-decoration: none;
+  overflow: hidden;
 }
 
-.projectCard div,
-.todoCard {
+.projectCard div {
+  flex: 1 1 0%;
+  width: 0;
   min-width: 0;
 }
 
@@ -729,7 +754,7 @@
 
 @media (max-width: 420px) {
   .hero {
-    min-height: unset;
+    min-height: 238px;
     padding: 22px 16px 18px;
   }
 
