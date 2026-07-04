@@ -27,6 +27,7 @@
    - 工程问题待处理 -> `shao_minghong`
    - 整改任务待处理 -> `shao_minghong`
    - 工程验收待处理 / 已提交 -> `li_rongjie`
+20. 验证上述工程消息可以在 `workflow/inbox` 中标记已读，并且 `read_at` 状态真实回写。
 
 ## 使用方式
 
@@ -51,7 +52,11 @@ node scripts/go-live-role-flow-uat.mjs \
 
 该文件默认仅本地保留，用于确认每个角色动作是否真的走通。
 
-脚本现在不仅验证动作能执行，还会验证 `/workflow/inbox` 与 `/workflow/messages?category=engineering` 中是否真的出现对应工程消息。
+脚本现在不仅验证动作能执行，还会验证：
+
+- `/workflow/inbox` 可正常读取
+- `/workflow/messages?category=engineering` 中真的出现对应工程消息
+- `POST /workflow/messages/:id/read` 可将当前消息标记为已读并回写 `read_at`
 
 ## 安全约束
 
@@ -66,5 +71,5 @@ node scripts/go-live-role-flow-uat.mjs \
 在这轮角色 UAT 稳定后，继续补：
 
 1. 附件上传与证据留痕验证
-2. 工作流收件箱已读/确认/反馈闭环验证
+2. 工作流收件箱确认/反馈闭环验证
 3. 页面级浏览器 UAT 与移动端终端化 UAT 联动
