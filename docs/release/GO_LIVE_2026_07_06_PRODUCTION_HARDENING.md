@@ -144,6 +144,12 @@ pnpm --filter @jinhu/api test:unit
 pnpm prod:health
 ```
 
+## 配套操作手册
+
+上线当天按角色执行、培训和值守请直接参考：
+
+`docs/release/GO_LIVE_2026_07_06_ROLE_OPERATIONS_PLAYBOOK.md`
+
 ## 周一上线操作原则
 
 1. 先开通管理员和业务负责人账号，不一次性放开全部普通用户。
