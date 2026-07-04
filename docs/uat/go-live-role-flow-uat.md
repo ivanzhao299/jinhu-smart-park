@@ -22,6 +22,11 @@
 16. `li_rongjie` 审核验收
 17. `admin` 关闭验收并将项目推进到 `ACCEPTED`
 18. `liu_hantao` 验证财务读接口
+19. 同时验证关键工程消息到达正确角色收件箱：
+   - 工程立项待审批 -> `li_rongjie`
+   - 工程问题待处理 -> `shao_minghong`
+   - 整改任务待处理 -> `shao_minghong`
+   - 工程验收待处理 / 已提交 -> `li_rongjie`
 
 ## 使用方式
 
@@ -46,6 +51,8 @@ node scripts/go-live-role-flow-uat.mjs \
 
 该文件默认仅本地保留，用于确认每个角色动作是否真的走通。
 
+脚本现在不仅验证动作能执行，还会验证 `/workflow/inbox` 与 `/workflow/messages?category=engineering` 中是否真的出现对应工程消息。
+
 ## 安全约束
 
 - 所有写入都使用 `UAT-ROLE-*` 前缀，便于识别
@@ -58,6 +65,6 @@ node scripts/go-live-role-flow-uat.mjs \
 
 在这轮角色 UAT 稳定后，继续补：
 
-1. 角色消息/待办到达验证
-2. 附件上传与证据留痕验证
+1. 附件上传与证据留痕验证
+2. 工作流收件箱已读/确认/反馈闭环验证
 3. 页面级浏览器 UAT 与移动端终端化 UAT 联动

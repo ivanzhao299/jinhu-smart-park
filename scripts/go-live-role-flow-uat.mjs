@@ -106,6 +106,13 @@ async function runRoleFlow() {
 
   const projectId = createdProject.id;
   await transitionProject(admin, projectId, "SUBMIT", "UAT 提交工程立项");
+  await verifyEngineeringMessage(li, {
+    stepId: "engineering_message_project_submit",
+    summary: "工程负责人收到立项待审批消息",
+    titleIncludes: "工程立项待审批",
+    hrefIncludes: `/engineering/projects/${projectId}`,
+    contentIncludes: createdProject.projectCode ?? runId
+  });
   await transitionProject(admin, projectId, "APPROVE", "UAT 批准工程立项");
   await transitionProject(admin, projectId, "START_PLANNING", "UAT 进入工程计划");
   await transitionProject(admin, projectId, "START_EXECUTION", "UAT 进入施工执行");
@@ -141,10 +148,24 @@ async function runRoleFlow() {
 
     const issue = await createInspectionIssue(zheng, inspection.id, projectId, shao.id);
     if (issue?.id) {
+      await verifyEngineeringMessage(shao, {
+        stepId: "engineering_message_issue_create",
+        summary: "整改责任人收到工程问题待处理消息",
+        titleIncludes: "工程问题待处理",
+        hrefIncludes: `/engineering/inspections?issueId=${issue.id}`,
+        contentIncludes: issue.issueCode ?? runId
+      });
       await transitionProject(admin, projectId, "REQUIRE_RECTIFICATION", "UAT 巡检发现问题进入整改");
 
       const rectification = await generateRectificationFromIssue(admin, issue.id, shao.id);
       if (rectification?.id) {
+        await verifyEngineeringMessage(shao, {
+          stepId: "engineering_message_rectification_create",
+          summary: "整改责任人收到整改任务待处理消息",
+          titleIncludes: "整改任务待处理",
+          hrefIncludes: `/engineering/rectifications/${rectification.id}`,
+          contentIncludes: rectification.rectificationCode ?? runId
+        });
         await executeRectificationAction(shao, rectification.id, "START", {
           reason: "UAT 开始整改",
           comment: `${runId} 责任人开始现场整改`
@@ -173,7 +194,21 @@ async function runRoleFlow() {
         await transitionProject(admin, projectId, "START_ACCEPTANCE", "UAT 进入工程验收");
         const acceptance = await createAcceptance(shao, projectId, li.id);
         if (acceptance?.id) {
+          await verifyEngineeringMessage(li, {
+            stepId: "engineering_message_acceptance_create",
+            summary: "验收负责人收到工程验收待处理消息",
+            titleIncludes: "工程验收待处理",
+            hrefIncludes: `/engineering/acceptances/${acceptance.id}`,
+            contentIncludes: acceptance.acceptanceCode ?? runId
+          });
           await submitAcceptance(shao, acceptance.id);
+          await verifyEngineeringMessage(li, {
+            stepId: "engineering_message_acceptance_submit",
+            summary: "验收负责人收到工程验收已提交消息",
+            titleIncludes: "工程验收已提交",
+            hrefIncludes: `/engineering/acceptances/${acceptance.id}`,
+            contentIncludes: acceptance.acceptanceCode ?? runId
+          });
           await reviewAcceptance(li, acceptance.id);
           await closeAcceptance(admin, acceptance.id);
           await verifyAcceptanceClosed(admin, acceptance.id);
@@ -633,6 +668,62 @@ async function verifyFinanceReads(liu) {
   assertSuccess("finance_payments_read", payments, "财务负责人读取收款台账", { actor: liu.username });
 }
 
+async function verifyEngineeringMessage(user, expectation) {
+  const inbox = await requestJson(`${apiBase}/workflow/inbox`, { token: user.token });
+  assertSuccess(`${expectation.stepId}_inbox`, inbox, `${user.displayName} 可读取流程收件箱`, {
+    actor: user.username
+  });
+  if (!isSuccess(inbox)) return null;
+
+  const result = await waitForEngineeringMessage(user, expectation);
+  assertCheck(expectation.stepId, result.found, expectation.summary, {
+    actor: user.username,
+    title_includes: expectation.titleIncludes ?? null,
+    href_includes: expectation.hrefIncludes ?? null,
+    content_includes: expectation.contentIncludes ?? null,
+    message_id: result.message?.id ?? null,
+    message_title: result.message?.title ?? null,
+    message_href: result.message?.targetUrl ?? null
+  });
+  return result.message;
+}
+
+async function waitForEngineeringMessage(user, expectation) {
+  let lastMessage = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await requestJson(`${apiBase}/workflow/messages?page=1&page_size=50&category=engineering`, {
+      token: user.token
+    });
+    assertSuccess(`${expectation.stepId}_messages_read_${attempt + 1}`, response, `${user.displayName} 读取工程消息列表`, {
+      actor: user.username,
+      attempt: attempt + 1
+    });
+    if (!isSuccess(response)) {
+      return { found: false, message: null };
+    }
+    const payload = unwrapData(response) ?? response.body?.data ?? response.body ?? {};
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const match = items.find((item) => matchesEngineeringMessage(item, expectation));
+    if (match) {
+      return { found: true, message: match };
+    }
+    lastMessage = items[0] ?? null;
+    await sleep(300);
+  }
+  return { found: false, message: lastMessage };
+}
+
+function matchesEngineeringMessage(item, expectation) {
+  if (!item || typeof item !== "object") return false;
+  const title = String(item.title ?? "");
+  const content = String(item.content ?? "");
+  const href = String(item.targetUrl ?? "");
+  if (expectation.titleIncludes && !title.includes(expectation.titleIncludes)) return false;
+  if (expectation.contentIncludes && !content.includes(expectation.contentIncludes)) return false;
+  if (expectation.hrefIncludes && !href.includes(expectation.hrefIncludes)) return false;
+  return true;
+}
+
 function loadUserSnapshots(usernames) {
   const rows = psql(`
 SELECT
@@ -830,6 +921,10 @@ function addDays(dateText, days) {
 
 function buildIdempotencyKey(prefix) {
   return `${prefix}-${runId}-${randomBytes(4).toString("hex")}`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function pad(value) {
