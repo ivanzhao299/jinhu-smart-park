@@ -57,6 +57,7 @@
     "go-live:p0-check": "node scripts/go-live-p0-check.mjs",
     "go-live:uat-login": "node scripts/go-live-uat-user-login-check.mjs",
     "go-live:uat-all": "node scripts/go-live-uat-user-login-check.mjs --all-users",
+    "go-live:uat-role-flow": "node scripts/go-live-role-flow-uat.mjs",
     "go-live:uat-browser": "node scripts/go-live-browser-uat-check.mjs",
     "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },
