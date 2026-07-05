@@ -370,29 +370,35 @@
 
 @media (max-width: 720px) {
   .page {
+    --terminal-ink: #0f172a;
+    --terminal-ink-muted: #5f6f86;
+    --terminal-surface: #ffffff;
+    --terminal-surface-soft: #f3f7fb;
+    --terminal-line: rgba(15, 23, 42, 0.14);
+    --terminal-line-strong: rgba(15, 23, 42, 0.2);
+    --terminal-accent: #14b8a6;
+    --terminal-accent-strong: #0f766e;
+    --terminal-accent-soft: rgba(20, 184, 166, 0.14);
     gap: 14px;
   }
 
   .hero {
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 26px;
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      radial-gradient(circle at 86% 0%, rgba(247, 201, 72, 0.36), transparent 10rem),
-      linear-gradient(145deg, #06263f 0%, #0b4f7a 55%, #041827 100%);
-    background-size: 20px 20px, 20px 20px, auto, auto;
-    box-shadow: 0 24px 52px rgba(2, 6, 23, 0.28);
+      radial-gradient(circle at 86% 0%, rgba(20, 184, 166, 0.2), transparent 10rem),
+      linear-gradient(150deg, #0f172a 0%, #172033 58%, #223449 100%);
+    box-shadow: 0 24px 52px rgba(15, 23, 42, 0.24);
     color: #f8fafc;
     padding: 22px;
   }
 
   .heroCopy span {
     width: fit-content;
-    border: 1px solid rgba(247, 201, 72, 0.44);
+    border: 1px solid rgba(94, 234, 212, 0.24);
     border-radius: 999px;
-    background: rgba(247, 201, 72, 0.12);
-    color: #fff1b8;
+    background: rgba(20, 184, 166, 0.14);
+    color: #ccfbf1;
     padding: 5px 10px;
   }
 
@@ -415,12 +421,12 @@
   .actionCard,
   .kpiCard,
   .requestCard {
-    border: 1px solid rgba(11, 31, 51, 0.12);
+    border: 1px solid var(--terminal-line);
     border-radius: 20px;
     background:
-      radial-gradient(circle at 18% 0%, rgba(247, 201, 72, 0.12), transparent 7rem),
-      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    box-shadow: 0 14px 28px rgba(11, 31, 51, 0.10);
+      radial-gradient(circle at 18% 0%, var(--terminal-accent-soft), transparent 7rem),
+      linear-gradient(180deg, var(--terminal-surface) 0%, var(--terminal-surface-soft) 100%);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
   }
 
   .actionCard {
@@ -432,18 +438,18 @@
     width: 42px;
     height: 42px;
     border-radius: 16px;
-    background: #0b4f7a;
-    color: #f7c948;
-    box-shadow: 0 12px 22px rgba(6, 38, 63, 0.24);
+    background: linear-gradient(135deg, #effcf9 0%, #dff7f2 100%);
+    color: var(--terminal-accent-strong);
+    box-shadow: 0 10px 18px rgba(15, 118, 110, 0.12);
   }
 
   .actionCard strong {
-    color: #0b1f33;
+    color: var(--terminal-ink);
     font-size: 16px;
   }
 
   .actionCard small {
-    color: #42566d;
+    color: var(--terminal-ink-muted);
   }
 
   .kpiGrid {
@@ -460,9 +466,9 @@
   }
 
   .tenantStrip span {
-    border-color: rgba(216, 155, 19, 0.24);
-    background: #f4f9ff;
-    color: #0b4f7a;
+    border-color: rgba(15, 118, 110, 0.18);
+    background: #eefaf7;
+    color: var(--terminal-accent-strong);
     font-weight: 760;
   }
 }
@@ -471,8 +477,8 @@
   .actionCard,
   .kpiCard,
   .requestCard {
-    border-color: rgba(11, 31, 51, 0.20);
-    box-shadow: 0 16px 34px rgba(11, 31, 51, 0.12);
+    border-color: var(--terminal-line-strong);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.1);
   }
 
   .actionCard strong,
@@ -481,7 +487,7 @@
   .flowSummary strong,
   .flowStep strong,
   .flowStepActive strong {
-    color: #071c2f;
+    color: var(--terminal-ink);
     font-weight: 840;
   }
 
@@ -493,18 +499,18 @@
   .flowSummary small,
   .flowStep small,
   .flowStepActive small {
-    color: #42566d;
+    color: var(--terminal-ink-muted);
     font-weight: 720;
   }
 
   .flowPanel {
-    border-color: rgba(11, 31, 51, 0.20);
+    border-color: var(--terminal-line-strong);
     border-radius: 22px;
     padding: 16px;
     background:
-      radial-gradient(circle at 12% 0%, rgba(247, 201, 72, 0.10), transparent 8rem),
-      linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    box-shadow: 0 16px 34px rgba(11, 31, 51, 0.12);
+      radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.12), transparent 8rem),
+      linear-gradient(180deg, #ffffff 0%, #f4f8fb 100%);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.1);
   }
 
   .flowSteps {
@@ -528,9 +534,9 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 28px;
     background:
-      radial-gradient(circle at 86% 8%, rgba(247, 201, 72, 0.24), transparent 10rem),
-      linear-gradient(160deg, #071724 0%, #0b3551 58%, #0f547e 100%);
-    box-shadow: 0 24px 46px rgba(2, 6, 23, 0.24);
+      radial-gradient(circle at 86% 8%, rgba(20, 184, 166, 0.2), transparent 10rem),
+      linear-gradient(155deg, #0f172a 0%, #172033 58%, #223449 100%);
+    box-shadow: 0 24px 46px rgba(15, 23, 42, 0.22);
     padding: 20px;
   }
 
@@ -572,8 +578,10 @@
   .requestCard,
   .flowPanel {
     border-radius: 22px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), #f5f9fd);
-    box-shadow: 0 16px 30px rgba(9, 31, 50, 0.10);
+    background:
+      radial-gradient(circle at 18% 0%, rgba(20, 184, 166, 0.12), transparent 8rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), #f4f8fb);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
   }
 
   .actionCard {
@@ -585,9 +593,9 @@
     width: 44px;
     height: 44px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #0b3d5d, #0f5a87);
-    color: #f6d46b;
-    box-shadow: 0 10px 18px rgba(11, 61, 93, 0.24);
+    background: linear-gradient(135deg, #effcf9 0%, #dff7f2 100%);
+    color: #0f766e;
+    box-shadow: 0 10px 18px rgba(15, 118, 110, 0.12);
   }
 
   .actionCard strong,
@@ -596,7 +604,7 @@
   .flowSummary strong,
   .flowStep strong,
   .flowStepActive strong {
-    color: #071c2f;
+    color: var(--terminal-ink);
     font-weight: 840;
   }
 
@@ -608,7 +616,7 @@
   .flowSummary small,
   .flowStep small,
   .flowStepActive small {
-    color: #486073;
+    color: var(--terminal-ink-muted);
     font-size: 13px;
     font-weight: 700;
   }
@@ -632,9 +640,9 @@
 
   .tenantStrip span {
     padding: 9px 12px;
-    border-color: rgba(11, 61, 93, 0.14);
+    border-color: rgba(15, 118, 110, 0.18);
     background: rgba(255, 255, 255, 0.9);
-    color: #0b3551;
+    color: #0f766e;
     font-weight: 760;
   }
 }

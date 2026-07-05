@@ -18,10 +18,10 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 24px;
   background:
-    radial-gradient(circle at 88% 10%, rgba(247, 201, 72, 0.22), transparent 8rem),
-    linear-gradient(145deg, #071926 0%, #0b3754 58%, #0b4f71 100%);
+    radial-gradient(circle at 88% 10%, rgba(20, 184, 166, 0.16), transparent 8rem),
+    linear-gradient(145deg, #101828 0%, #172033 58%, #223449 100%);
   color: #f8fbff;
-  box-shadow: 0 16px 34px rgba(4, 24, 38, 0.22);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.2);
 }
 
 .hero {
@@ -57,8 +57,8 @@
   width: fit-content;
   border-radius: 999px;
   padding: 6px 10px;
-  background: rgba(247, 201, 72, 0.16);
-  color: #ffe89c;
+  background: rgba(20, 184, 166, 0.14);
+  color: #ccfbf1;
   font-size: 13px;
   font-weight: 900;
 }
@@ -120,9 +120,9 @@
 }
 
 .primaryAction {
-  border: 1px solid rgba(247, 201, 72, 0.52);
-  background: #f7c948;
-  color: #071926;
+  border: 1px solid rgba(20, 184, 166, 0.16);
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #f8fafc;
 }
 
 .secondaryAction {
@@ -208,7 +208,7 @@
 
 .statusItem svg,
 .statusItemWarn svg {
-  color: #0c5b84;
+  color: #0f766e;
 }
 
 .statusItem strong,
@@ -303,8 +303,8 @@
 }
 
 .focusCardEmphasis {
-  border-color: rgba(247, 201, 72, 0.76);
-  background: linear-gradient(145deg, #fffdf6 0%, #fff7d8 100%);
+  border-color: rgba(20, 184, 166, 0.28);
+  background: linear-gradient(145deg, #f4fcfa 0%, #eaf8f5 100%);
 }
 
 .focusIcon,
@@ -315,8 +315,8 @@
   width: 42px;
   height: 42px;
   border-radius: 15px;
-  background: #071926;
-  color: #f7c948;
+  background: #e8faf7;
+  color: #0f766e;
 }
 
 .focusBody,
@@ -336,7 +336,7 @@
 }
 
 .focusBody b {
-  color: #0c5b84;
+  color: #0f766e;
   font-size: 22px;
   font-weight: 950;
   line-height: 1.1;
@@ -362,8 +362,8 @@
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 8px 12px;
-  background: #e8f0f7;
-  color: #0f2a3d;
+  background: #edf7f6;
+  color: #0f766e;
   font-size: 12px;
   font-weight: 900;
 }
@@ -400,18 +400,18 @@
   align-items: center;
   border-radius: 999px;
   padding: 6px 10px;
-  background: #e8f0f7;
-  color: #0c5b84;
+  background: #edf7f6;
+  color: #0f766e;
   font-size: 12px;
   font-weight: 900;
 }
 
 .panelHeader a {
   flex: 0 0 auto;
-  border: 1px solid #c6d8e7;
+  border: 1px solid #cde7e3;
   border-radius: 999px;
   padding: 8px 12px;
-  color: #0c5b84;
+  color: #0f766e;
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
@@ -571,8 +571,8 @@
   gap: 14px;
   padding: 20px 18px 16px;
   background:
-    radial-gradient(circle at 92% 8%, rgba(247, 201, 72, 0.22), transparent 8rem),
-    linear-gradient(145deg, #071926 0%, #0b4f71 100%);
+    radial-gradient(circle at 92% 8%, rgba(20, 184, 166, 0.18), transparent 8rem),
+    linear-gradient(145deg, #101828 0%, #1f2d3d 100%);
   color: #ffffff;
 }
 
@@ -581,8 +581,8 @@
   width: fit-content;
   border-radius: 999px;
   padding: 5px 9px;
-  background: rgba(247, 201, 72, 0.16);
-  color: #ffe89c;
+  background: rgba(20, 184, 166, 0.14);
+  color: #ccfbf1;
   font-size: 12px;
   font-weight: 900;
 }
@@ -708,7 +708,7 @@
 
 .saveButton {
   border: 0;
-  background: linear-gradient(135deg, #0c5b84, #0b789f);
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
   color: #ffffff;
   cursor: pointer;
 }
