@@ -1,11 +1,13 @@
 "use client";
 
+import type { Route } from "next";
 import { Alert, Button, Form, Input } from "antd";
 import { Building2, FileText, LockKeyhole, LogIn, PlugZap, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { apiRequest } from "../../lib/api-client";
 import { fetchCurrentUser, setSession, setToken } from "../../lib/auth";
+import { resolvePostLoginPath } from "../../lib/post-login-route";
 
 interface LoginResult {
   accessToken?: string;
@@ -45,7 +47,7 @@ export default function LoginPage() {
       const currentUser = await fetchCurrentUser();
       setSession(result.accessToken, currentUser, result.refreshToken);
       setMessage(`登录成功，欢迎 ${result.user?.username ?? currentUser.username}`);
-      router.replace("/dashboard");
+      router.replace(resolvePostLoginPath(currentUser) as Route);
     },
     [router]
   );
