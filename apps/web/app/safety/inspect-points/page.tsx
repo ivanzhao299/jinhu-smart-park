@@ -22,6 +22,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_POINT_ENTITY = "inspect_point";
@@ -228,16 +229,11 @@ export default function SafetyInspectPointsPage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
-    const [buildingResponse, floorResponse, unitResponse, tenantResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() })
-    ]);
-    if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
-    if (floorResponse.status === "fulfilled") setFloors(floorResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings);
+    setFloors(references.floors);
+    setUnits(references.units);
+    setParkTenants(references.parkTenants);
   }, []);
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import type { DictItemRow, DictMap, DictTypeRow, ParkTenantRow, UnitRow } from "../../../components/workorders/types";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 
@@ -201,14 +202,10 @@ export default function SafetyEmergencyDashboardPage() {
   }, []);
 
   const loadReferences = useCallback(async () => {
-    const [buildingResponse, unitResponse, parkTenantResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() })
-    ]);
-    if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (parkTenantResponse.status === "fulfilled") setParkTenants(parkTenantResponse.value.data.items);
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings);
+    setUnits(references.units);
+    setParkTenants(references.parkTenants);
   }, []);
 
   useEffect(() => {

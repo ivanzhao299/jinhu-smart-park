@@ -11,6 +11,7 @@ import { apiRequest } from "../../../../lib/api-client";
 import { useAuthUser } from "../../../../lib/auth-context";
 import { getAccessToken } from "../../../../lib/authz";
 import { canViewField, maskField } from "../../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../../lib/reference-data";
 import { useIotRealtime } from "../../../../hooks/useIotRealtime";
 
 const IOT_MODULE = "iot";
@@ -234,10 +235,7 @@ export default function IotDeviceDetailPage() {
         workOrdersResponse,
         dictMap,
         gatewayItems,
-        buildingItems,
-        floorItems,
-        unitItems,
-        tenantItems
+        referenceItems
       ] = await Promise.all([
         apiRequest<IotDeviceRow>(`/iot/devices/${deviceId}`, { token: getAccessToken() }),
         apiRequest<IotPointRow[]>(`/iot/devices/${deviceId}/points`, { token: getAccessToken() }),
@@ -247,10 +245,7 @@ export default function IotDeviceDetailPage() {
         safeFetchPage<WorkOrderRow>(`/work-orders?device_id=${deviceId}&page=1&page_size=20&sort=-update_time`),
         loadDicts(),
         safeFetchPage<GatewayRow>("/iot/gateways?page=1&page_size=100"),
-        safeFetchPage<BuildingRow>("/buildings?page=1&page_size=100"),
-        safeFetchPage<FloorRow>("/floors?page=1&page_size=100"),
-        safeFetchPage<UnitRow>("/park-units?page=1&page_size=100"),
-        safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=100")
+        fetchReferenceFormOptions()
       ]);
       setDevice(deviceResponse.data);
       setPoints(pointsResponse.data);
@@ -260,10 +255,10 @@ export default function IotDeviceDetailPage() {
       setWorkOrders(workOrdersResponse);
       setDicts(dictMap);
       setGateways(gatewayItems);
-      setBuildings(buildingItems);
-      setFloors(floorItems);
-      setUnits(unitItems);
-      setParkTenants(tenantItems);
+      setBuildings(referenceItems.buildings);
+      setFloors(referenceItems.floors);
+      setUnits(referenceItems.units);
+      setParkTenants(referenceItems.parkTenants);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载设备详情失败");
     } finally {

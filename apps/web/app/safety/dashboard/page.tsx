@@ -8,6 +8,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import type { DictItemRow, DictMap, DictTypeRow, UserRow } from "../../../components/workorders/types";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 
@@ -168,12 +169,9 @@ export default function SafetyDashboardPage() {
   }, []);
 
   const loadReferences = useCallback(async () => {
-    const [buildingResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
-    ]);
-    if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings);
+    setUsers(references.users.filter((item) => item.status === "enabled"));
   }, []);
 
   useEffect(() => {

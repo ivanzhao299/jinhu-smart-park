@@ -24,6 +24,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../lib/reference-data";
 import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, formatUnitLocation, type WorkOrderAudienceProfile } from "../../lib/workorder-prefill";
 import styles from "./TenantServiceEntry.module.css";
@@ -170,18 +171,18 @@ export function TenantServiceEntryClient({ previewMode = false, previewData }: T
     }
     setLoading(true);
     setMessage("");
-    const [orderResponse, dictResponse, tenantResponse, unitResponse, userResponse] = await Promise.allSettled([
+    const [orderResponse, dictResponse, referenceResponse] = await Promise.allSettled([
       apiRequest<PaginatedResult<TenantServiceWorkOrderRow>>("/work-orders?page=1&page_size=12&source_type=tenant_request&sort=createTime:DESC", { token: getAccessToken() }),
       loadDictMap(),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
+      fetchReferenceFormOptions()
     ]);
     if (orderResponse.status === "fulfilled") setWorkOrders(orderResponse.value.data.items);
     if (dictResponse.status === "fulfilled") setDicts(dictResponse.value);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    if (referenceResponse.status === "fulfilled") {
+      setParkTenants(referenceResponse.value.parkTenants);
+      setUnits(referenceResponse.value.units);
+      setUsers(referenceResponse.value.users.filter((item) => item.status === "enabled"));
+    }
     setLoading(false);
   }, [previewMode]);
 

@@ -20,6 +20,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 
@@ -195,23 +196,21 @@ export default function SafetyInspectPlansPage() {
   }, []);
 
   const loadRefs = useCallback(async () => {
-    const [templateResponse, pointResponse, userResponse, roleResponse] = await Promise.all([
+    const [templateResponse, pointResponse, references, roleResponse] = await Promise.all([
       apiRequest<PaginatedResult<InspectTemplateRow>>("/safety/inspect-templates?page=1&page_size=100&status=enabled&sort=template_code", {
         token: getAccessToken()
       }),
       apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=100&status=enabled&sort=sort_no", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
-        token: getAccessToken()
-      }),
+      fetchReferenceFormOptions(),
       apiRequest<PaginatedResult<RoleRow>>("/roles?page=1&page_size=100&status=enabled", {
         token: getAccessToken()
       })
     ]);
     setTemplates(templateResponse.data.items);
     setPoints(pointResponse.data.items);
-    setUsers(userResponse.data.items);
+    setUsers(references.users as UserRow[]);
     setRoles(roleResponse.data.items);
   }, []);
 

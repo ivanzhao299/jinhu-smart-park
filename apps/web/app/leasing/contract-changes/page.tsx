@@ -9,6 +9,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const CHANGE_ENTITY = "leasing_contract_change";
@@ -257,11 +258,11 @@ export default function LeasingContractChangesPage() {
   }, []);
 
   const loadLookups = useCallback(async () => {
-    const [tenantResponse, contractResponse] = await Promise.all([
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100&sort=companyName", { token: getAccessToken() }),
+    const [references, contractResponse] = await Promise.all([
+      fetchReferenceFormOptions(),
       apiRequest<PaginatedResult<ContractRow>>("/leasing/contracts?page=1&page_size=100&sort=contractCode", { token: getAccessToken() })
     ]);
-    setParkTenants(tenantResponse.data.items);
+    setParkTenants(references.parkTenants as ParkTenantRow[]);
     setContracts(contractResponse.data.items);
   }, []);
 

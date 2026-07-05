@@ -10,6 +10,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
@@ -112,10 +113,8 @@ export default function LeasingLeadPoolPage() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const response = await apiRequest<PaginatedResult<UserOptionRow>>("/users?page=1&page_size=100", {
-        token: getAccessToken()
-      });
-      setUsers(response.data.items);
+      const references = await fetchReferenceFormOptions();
+      setUsers(references.users as UserOptionRow[]);
     } catch {
       setUsers([]);
     }

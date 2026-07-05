@@ -26,6 +26,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import { useIotRealtime } from "../../../hooks/useIotRealtime";
 
 const IOT_MODULE = "iot";
@@ -354,19 +355,16 @@ export default function IotDevicesPage() {
   }, []);
 
   const loadOptions = useCallback(async () => {
-    const [gatewayResponse, buildingResponse, floorResponse, unitResponse, tenantResponse, metricResponse] = await Promise.all([
+    const [gatewayResponse, referenceResponse, metricResponse] = await Promise.all([
       apiRequest<PaginatedResult<GatewayRow>>("/iot/gateways?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
+      fetchReferenceFormOptions(),
       apiRequest<PaginatedResult<IotMetricRow>>("/iot/metrics?page=1&page_size=100&sort=metric_code", { token: getAccessToken() })
     ]);
     setGateways(gatewayResponse.data.items);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setUnits(unitResponse.data.items);
-    setParkTenants(tenantResponse.data.items);
+    setBuildings(referenceResponse.buildings);
+    setFloors(referenceResponse.floors);
+    setUnits(referenceResponse.units);
+    setParkTenants(referenceResponse.parkTenants);
     setMetrics(metricResponse.data.items);
   }, []);
 

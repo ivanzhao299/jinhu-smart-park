@@ -8,6 +8,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const WORKORDER_MODULE = "workorder";
 
@@ -161,14 +162,10 @@ export default function WorkOrderOverduePage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
-    const [tenantResponse, unitResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
-    ]);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    const references = await fetchReferenceFormOptions();
+    setParkTenants(references.parkTenants);
+    setUnits(references.units);
+    setUsers(references.users.filter((item) => item.status === "enabled"));
   }, []);
 
   useEffect(() => {

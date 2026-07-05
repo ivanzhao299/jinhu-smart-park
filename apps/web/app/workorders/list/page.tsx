@@ -9,6 +9,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, resolveWorkOrderAudience, tenantForUnit } from "../../../lib/workorder-prefill";
 import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
@@ -374,14 +375,10 @@ export default function WorkOrdersListPage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
-    const [tenantResponse, unitResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
-    ]);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    const references = await fetchReferenceFormOptions();
+    setParkTenants(references.parkTenants);
+    setUnits(references.units);
+    setUsers(references.users.filter((item) => item.status === "enabled"));
   }, []);
 
   useEffect(() => {

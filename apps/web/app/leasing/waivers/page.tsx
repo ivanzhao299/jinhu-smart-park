@@ -9,6 +9,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const WAIVER_ENTITY = "leasing_waiver";
@@ -194,11 +195,11 @@ export default function LeasingWaiversPage() {
   }, []);
 
   const loadLookups = useCallback(async () => {
-    const [tenantResponse, receivableResponse] = await Promise.all([
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100&sort=companyName", { token: getAccessToken() }),
+    const [references, receivableResponse] = await Promise.all([
+      fetchReferenceFormOptions(),
       apiRequest<PaginatedResult<ReceivableRow>>("/leasing/receivables?page=1&page_size=100&sort=dueDate", { token: getAccessToken() })
     ]);
-    setParkTenants(tenantResponse.data.items);
+    setParkTenants(references.parkTenants as ParkTenantRow[]);
     setReceivables(receivableResponse.data.items);
   }, []);
 

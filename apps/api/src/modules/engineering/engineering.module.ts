@@ -6,6 +6,7 @@ import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FilesModule } from "../files/files.module";
 import { FloorEntity } from "../floors/entities/floor.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
+import { ReferenceDataModule } from "../reference-data/reference-data.module";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { UserEntity } from "../users/entities/user.entity";
 import { UserMessageEntity } from "../workflow/entities/user-message.entity";
@@ -80,7 +81,8 @@ import { EngineeringRectificationRepository } from "./repositories/engineering-r
     ]),
     AuditModule,
     DataScopesModule,
-    FilesModule
+    FilesModule,
+    ReferenceDataModule
   ],
   controllers: [
     EngineeringController,

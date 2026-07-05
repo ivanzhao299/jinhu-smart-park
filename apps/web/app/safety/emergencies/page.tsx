@@ -46,6 +46,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const EVENT_ENTITY = "emergency_event";
@@ -371,18 +372,15 @@ export default function SafetyEmergenciesPage() {
   }, []);
 
   const loadRefs = useCallback(async () => {
-    const [buildingItems, unitItems, tenantItems, planItems, userItems] = await Promise.all([
-      safeFetchPage<BuildingRow>("/buildings?page=1&page_size=100"),
-      safeFetchPage<UnitRow>("/park-units?page=1&page_size=100"),
-      safeFetchPage<ParkTenantRow>("/park-tenants?page=1&page_size=100"),
-      safeFetchPage<EmergencyPlanRow>("/safety/emergency-plans?page=1&page_size=100&status=enabled"),
-      safeFetchPage<UserRow>("/users?page=1&page_size=100")
+    const [referenceItems, planItems] = await Promise.all([
+      fetchReferenceFormOptions(),
+      safeFetchPage<EmergencyPlanRow>("/safety/emergency-plans?page=1&page_size=100&status=enabled")
     ]);
-    setBuildings(buildingItems);
-    setUnits(unitItems);
-    setParkTenants(tenantItems);
+    setBuildings(referenceItems.buildings);
+    setUnits(referenceItems.units);
+    setParkTenants(referenceItems.parkTenants);
     setPlans(planItems);
-    setUsers(userItems.filter((item) => item.status === "enabled"));
+    setUsers(referenceItems.users.filter((item) => item.status === "enabled"));
   }, []);
 
   const loadTimeline = useCallback(async (eventId: string) => {

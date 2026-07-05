@@ -33,6 +33,7 @@ import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { RobotsModule } from "./modules/robots/robots.module";
+import { ReferenceDataModule } from "./modules/reference-data/reference-data.module";
 import { SaaSModulesModule } from "./modules/saas-modules/saas-modules.module";
 import { SafetyEmergencyModule } from "./modules/safety-emergency/safety-emergency.module";
 import { SafetyHazardsModule } from "./modules/safety-hazards/safety-hazards.module";
@@ -149,6 +150,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     UsersModule,
     RolesModule,
     RobotsModule,
+    ReferenceDataModule,
     SaaSModulesModule,
     PermissionsModule,
     DictsModule,

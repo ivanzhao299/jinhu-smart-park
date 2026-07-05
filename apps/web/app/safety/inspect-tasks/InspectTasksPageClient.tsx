@@ -23,6 +23,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
@@ -273,7 +274,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }, []);
 
   const loadRefs = useCallback(async () => {
-    const [planResponse, templateResponse, pointResponse, userResponse] = await Promise.all([
+    const [planResponse, templateResponse, pointResponse, references] = await Promise.all([
       apiRequest<PaginatedResult<InspectPlanRow>>("/safety/inspect-plans?page=1&page_size=100&status=enabled&sort=plan_code", {
         token: getAccessToken()
       }),
@@ -283,14 +284,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       apiRequest<PaginatedResult<InspectPointRow>>("/safety/inspect-points?page=1&page_size=100&status=enabled&sort=sort_no", {
         token: getAccessToken()
       }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
-        token: getAccessToken()
-      })
+      fetchReferenceFormOptions()
     ]);
     setPlans(planResponse.data.items);
     setTemplates(templateResponse.data.items);
     setPoints(pointResponse.data.items);
-    setUsers(userResponse.data.items);
+    setUsers(references.users as UserRow[]);
   }, []);
 
   useEffect(() => {

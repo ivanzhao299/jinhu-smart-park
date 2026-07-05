@@ -11,6 +11,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const PAYMENT_ENTITY = "leasing_payment";
@@ -188,10 +189,8 @@ export default function LeasingPaymentsPage() {
   }, []);
 
   const loadParkTenants = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100&sort=companyName", {
-      token: getAccessToken()
-    });
-    setParkTenants(response.data.items);
+    const references = await fetchReferenceFormOptions();
+    setParkTenants(references.parkTenants as ParkTenantRow[]);
   }, []);
 
   const loadReceivables = useCallback(async (parkTenantId: string) => {

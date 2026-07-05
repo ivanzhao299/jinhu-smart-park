@@ -46,6 +46,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
 import { hasPermission } from "../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../lib/reference-data";
 import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, resolveWorkOrderAudience } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
@@ -302,23 +303,23 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     setMessage("");
     const start = todayStart().toISOString();
     const end = tomorrowStart().toISOString();
-    const [taskResponse, orderResponse, planResponse, dictResponse, unitResponse, tenantResponse, userResponse, workflowResponse] = await Promise.allSettled([
+    const [taskResponse, orderResponse, planResponse, dictResponse, referenceResponse, workflowResponse] = await Promise.allSettled([
       apiRequest<PaginatedResult<InspectTaskRow>>(`/safety/my-inspect-tasks?page=1&page_size=100&plan_start=${encodeURIComponent(start)}&plan_end=${encodeURIComponent(end)}&sort=plan_time`, { token: getAccessToken() }),
       apiRequest<PaginatedResult<WorkOrderRow>>("/work-orders?page=1&page_size=8&sort=createTime:DESC", { token: getAccessToken() }),
       apiRequest<PaginatedResult<InspectPlanRow>>("/safety/inspect-plans?page=1&page_size=100&status=enabled&sort=plan_code", { token: getAccessToken() }),
       loadDictMap(),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() }),
+      fetchReferenceFormOptions(),
       canReadWorkflow ? apiRequest<WorkflowInboxResponse>("/workflow/inbox", { token: getAccessToken() }) : Promise.resolve(null)
     ]);
     if (taskResponse.status === "fulfilled") setTasks(taskResponse.value.data.items);
     if (orderResponse.status === "fulfilled") setRecentWorkOrders(orderResponse.value.data.items);
     if (planResponse.status === "fulfilled") setPlans(planResponse.value.data.items);
     if (dictResponse.status === "fulfilled") setDicts(dictResponse.value);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items);
+    if (referenceResponse.status === "fulfilled") {
+      setUnits(referenceResponse.value.units);
+      setParkTenants(referenceResponse.value.parkTenants);
+      setUsers(referenceResponse.value.users.filter((item) => item.status === "enabled"));
+    }
     if (workflowResponse.status === "fulfilled") {
       setWorkflowInbox(workflowResponse.value?.data ?? previewData?.workflowInbox ?? null);
     }

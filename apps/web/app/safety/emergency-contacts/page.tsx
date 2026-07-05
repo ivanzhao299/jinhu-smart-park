@@ -22,6 +22,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const CONTACT_ENTITY = "emergency_contact";
@@ -161,16 +162,9 @@ export default function SafetyEmergencyContactsPage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
-    const [orgResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<OrgRow>>("/orgs?page=1&page_size=200&status=enabled", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=200&status=enabled", { token: getAccessToken() })
-    ]);
-    if (orgResponse.status === "fulfilled") {
-      setOrgs(orgResponse.value.data.items);
-    }
-    if (userResponse.status === "fulfilled") {
-      setUsers(userResponse.value.data.items.filter((item) => item.status !== "disabled"));
-    }
+    const references = await fetchReferenceFormOptions();
+    setOrgs(references.orgs as OrgRow[]);
+    setUsers((references.users as UserRow[]).filter((item) => item.status !== "disabled"));
   }, []);
 
   useEffect(() => {

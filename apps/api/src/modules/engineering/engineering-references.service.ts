@@ -3,11 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { BuildingEntity } from "../buildings/entities/building.entity";
-import { FloorEntity } from "../floors/entities/floor.entity";
-import { OrgEntity } from "../orgs/entities/org.entity";
-import { UnitEntity } from "../units/entities/unit.entity";
-import { UserEntity } from "../users/entities/user.entity";
+import { ReferenceDataService } from "../reference-data/reference-data.service";
 import { EngineeringDailyReportEntity } from "./entities/engineering-daily-report.entity";
 import { EngineeringInspectionEntity } from "./entities/engineering-inspection.entity";
 import { EngineeringIssueEntity } from "./entities/engineering-issue.entity";
@@ -47,31 +43,18 @@ export class EngineeringReferencesService {
     private readonly inspectionsRepository: Repository<EngineeringInspectionEntity>,
     @InjectRepository(EngineeringIssueEntity)
     private readonly issuesRepository: Repository<EngineeringIssueEntity>,
-    @InjectRepository(OrgEntity)
-    private readonly orgsRepository: Repository<OrgEntity>,
-    @InjectRepository(BuildingEntity)
-    private readonly buildingsRepository: Repository<BuildingEntity>,
-    @InjectRepository(FloorEntity)
-    private readonly floorsRepository: Repository<FloorEntity>,
-    @InjectRepository(UnitEntity)
-    private readonly unitsRepository: Repository<UnitEntity>,
-    @InjectRepository(UserEntity)
-    private readonly usersRepository: Repository<UserEntity>,
-    private readonly dataScopeAdapter: EngineeringDataScopeAdapter
+    private readonly dataScopeAdapter: EngineeringDataScopeAdapter,
+    private readonly referenceDataService: ReferenceDataService
   ) {}
 
   async getReferences(scope: TenantParkScope, actor: JwtPrincipal): Promise<EngineeringReferenceResponse> {
-    const [projects, plans, dailyReports, inspections, issues, orgs, buildings, floors, units, users] = await Promise.all([
+    const [projects, plans, dailyReports, inspections, issues, sharedReferences] = await Promise.all([
       this.listProjects(scope, actor),
       this.listPlans(scope, actor),
       this.listDailyReports(scope, actor),
       this.listInspections(scope, actor),
       this.listIssues(scope, actor),
-      this.listOrgs(scope),
-      this.listBuildings(scope),
-      this.listFloors(scope),
-      this.listUnits(scope),
-      this.listUsers(scope)
+      this.referenceDataService.getFormOptions(scope)
     ]);
 
     return {
@@ -80,11 +63,23 @@ export class EngineeringReferencesService {
       dailyReports,
       inspections,
       issues,
-      orgs,
-      buildings,
-      floors,
-      units,
-      users
+      orgs: sharedReferences.orgs,
+      buildings: sharedReferences.buildings,
+      floors: sharedReferences.floors,
+      units: sharedReferences.units.map((item) => ({
+        id: item.id,
+        buildingId: item.buildingId,
+        floorId: item.floorId,
+        unitCode: item.unitCode,
+        unitName: item.unitName
+      })),
+      users: sharedReferences.users.map((item) => ({
+        id: item.id,
+        username: item.username,
+        displayName: item.displayName ?? null,
+        realName: item.realName ?? null,
+        status: item.status
+      }))
     };
   }
 
@@ -176,116 +171,4 @@ export class EngineeringReferencesService {
     }));
   }
 
-  private async listOrgs(scope: TenantParkScope): Promise<EngineeringReferenceResponse["orgs"]> {
-    const items = await this.orgsRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        status: "enabled"
-      },
-      order: {
-        sortOrder: "ASC",
-        orgCode: "ASC"
-      },
-      take: REFERENCE_LIMIT
-    });
-    return items.map((item) => ({
-      id: item.id,
-      orgCode: item.orgCode,
-      orgName: item.orgName,
-      status: item.status
-    }));
-  }
-
-  private async listBuildings(scope: TenantParkScope): Promise<EngineeringReferenceResponse["buildings"]> {
-    const items = await this.buildingsRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        status: 1
-      },
-      order: {
-        sortNo: "ASC",
-        buildingCode: "ASC"
-      },
-      take: REFERENCE_LIMIT
-    });
-    return items.map((item) => ({
-      id: item.id,
-      buildingCode: item.buildingCode,
-      buildingName: item.buildingName
-    }));
-  }
-
-  private async listFloors(scope: TenantParkScope): Promise<EngineeringReferenceResponse["floors"]> {
-    const items = await this.floorsRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        status: 1
-      },
-      order: {
-        buildingId: "ASC",
-        floorNo: "ASC"
-      },
-      take: REFERENCE_LIMIT
-    });
-    return items.map((item) => ({
-      id: item.id,
-      buildingId: item.buildingId,
-      floorCode: item.floorCode,
-      floorName: item.floorName
-    }));
-  }
-
-  private async listUnits(scope: TenantParkScope): Promise<EngineeringReferenceResponse["units"]> {
-    const items = await this.unitsRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        status: 1
-      },
-      order: {
-        buildingId: "ASC",
-        floorId: "ASC",
-        unitCode: "ASC"
-      },
-      take: REFERENCE_LIMIT
-    });
-    return items.map((item) => ({
-      id: item.id,
-      buildingId: item.buildingId,
-      floorId: item.floorId,
-      unitCode: item.unitCode,
-      unitName: item.unitName
-    }));
-  }
-
-  private async listUsers(scope: TenantParkScope): Promise<EngineeringReferenceResponse["users"]> {
-    const items = await this.usersRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        isEnabled: true,
-        status: "enabled"
-      },
-      order: {
-        displayName: "ASC",
-        username: "ASC"
-      },
-      take: REFERENCE_LIMIT
-    });
-    return items.map((item) => ({
-      id: item.id,
-      username: item.username,
-      displayName: item.displayName ?? null,
-      realName: item.displayName ?? null,
-      status: item.status
-    }));
-  }
 }

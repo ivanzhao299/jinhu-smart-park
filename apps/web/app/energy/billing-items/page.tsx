@@ -24,6 +24,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const ENERGY_MODULE = "energy";
 
@@ -106,12 +107,12 @@ export default function EnergyBillingItemsPage() {
   }, []);
 
   const loadReferences = useCallback(async () => {
-    const [cycleResponse, tenantResponse] = await Promise.all([
+    const [cycleResponse, references] = await Promise.all([
       apiRequest<PaginatedResult<BillingCycleOptionRow>>("/energy/billing-cycles?page=1&page_size=200", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=200&sort=companyName", { token: getAccessToken() })
+      fetchReferenceFormOptions()
     ]);
     setCycles(cycleResponse.data.items);
-    setParkTenants(tenantResponse.data.items);
+    setParkTenants(references.parkTenants as ParkTenantRow[]);
   }, []);
 
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);

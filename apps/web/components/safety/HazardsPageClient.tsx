@@ -26,6 +26,7 @@ import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { canViewField, maskField } from "../../lib/field-policy";
 import { hasPermission } from "../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const HAZARD_ENTITY = "safety_hazard";
@@ -475,18 +476,12 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   }, []);
 
   const loadReferenceData = useCallback(async () => {
-    const [buildingResponse, floorResponse, unitResponse, tenantResponse, userResponse] = await Promise.allSettled([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100", { token: getAccessToken() })
-    ]);
-    if (buildingResponse.status === "fulfilled") setBuildings(buildingResponse.value.data.items);
-    if (floorResponse.status === "fulfilled") setFloors(floorResponse.value.data.items);
-    if (unitResponse.status === "fulfilled") setUnits(unitResponse.value.data.items);
-    if (tenantResponse.status === "fulfilled") setParkTenants(tenantResponse.value.data.items);
-    if (userResponse.status === "fulfilled") setUsers(userResponse.value.data.items.filter((item) => item.status === "enabled"));
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings);
+    setFloors(references.floors);
+    setUnits(references.units);
+    setParkTenants(references.parkTenants);
+    setUsers(references.users.filter((item) => item.status === "enabled"));
   }, []);
 
   useEffect(() => {

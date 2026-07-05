@@ -41,6 +41,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
 const WORK_PERMIT_ENTITY = "work_permit";
@@ -346,18 +347,12 @@ export default function SafetyWorkPermitsPage() {
   }, []);
 
   const loadReferences = useCallback(async () => {
-    const [buildingResponse, floorResponse, unitResponse, tenantResponse, userResponse] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", { token: getAccessToken() })
-    ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setUnits(unitResponse.data.items);
-    setParkTenants(tenantResponse.data.items);
-    setUsers(userResponse.data.items);
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings);
+    setFloors(references.floors);
+    setUnits(references.units);
+    setParkTenants(references.parkTenants);
+    setUsers(references.users.filter((item) => item.status === "enabled"));
   }, []);
 
   const loadPermitActivity = useCallback(async (id: string) => {

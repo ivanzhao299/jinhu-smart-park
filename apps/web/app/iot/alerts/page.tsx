@@ -29,6 +29,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import { useIotRealtime } from "../../../hooks/useIotRealtime";
 
 const IOT_MODULE = "iot";
@@ -213,10 +214,8 @@ export default function IotAlertsPage() {
   }, []);
 
   const loadUsers = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<UserRow>>("/users?page=1&page_size=100&status=enabled", {
-      token: getAccessToken()
-    });
-    setUsers(response.data.items);
+    const references = await fetchReferenceFormOptions();
+    setUsers(references.users as UserRow[]);
   }, []);
 
   const loadLogs = useCallback(async (alertId: string) => {

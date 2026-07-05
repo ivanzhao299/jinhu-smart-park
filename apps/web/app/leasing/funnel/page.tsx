@@ -7,6 +7,7 @@ import type { PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEAD_READ_PERMISSION = "leasing_lead:read";
@@ -116,10 +117,8 @@ export default function LeasingFunnelPage() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const response = await apiRequest<PaginatedResult<UserOptionRow>>("/users?page=1&page_size=100", {
-        token: getAccessToken()
-      });
-      setUsers(response.data.items);
+      const references = await fetchReferenceFormOptions();
+      setUsers(references.users as UserOptionRow[]);
     } catch {
       setUsers([]);
     }

@@ -25,6 +25,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const ENERGY_MODULE = "energy";
 
@@ -187,17 +188,14 @@ export default function EnergyMetersPage() {
   }, []);
 
   const loadReferences = useCallback(async () => {
-    const [tenantResponse, buildingResponse, floorResponse, unitResponse, deviceResponse] = await Promise.all([
-      apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=200&sort=companyName", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=200&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=200&sort=floorNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=200", { token: getAccessToken() }),
+    const [references, deviceResponse] = await Promise.all([
+      fetchReferenceFormOptions(),
       apiRequest<PaginatedResult<IotDeviceRow>>("/iot/devices?page=1&page_size=200&sort=deviceCode", { token: getAccessToken() })
     ]);
-    setParkTenants(tenantResponse.data.items);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setUnits(unitResponse.data.items);
+    setParkTenants(references.parkTenants);
+    setBuildings(references.buildings);
+    setFloors(references.floors);
+    setUnits(references.units);
     setDevices(deviceResponse.data.items);
   }, []);
 

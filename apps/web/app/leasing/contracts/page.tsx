@@ -12,6 +12,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const CONTRACT_ENTITY = "leasing_contract";
@@ -610,19 +611,14 @@ export default function LeasingContractsPage() {
   }, []);
 
   const loadParkTenants = useCallback(async () => {
-    const response = await apiRequest<PaginatedResult<ParkTenantRow>>("/park-tenants?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    setParkTenants(response.data.items);
+    const references = await fetchReferenceFormOptions();
+    setParkTenants(references.parkTenants as ParkTenantRow[]);
   }, []);
 
   const loadAssetLookups = useCallback(async () => {
-    const [buildingResponse, floorResponse] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() })
-    ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
+    const references = await fetchReferenceFormOptions();
+    setBuildings(references.buildings as BuildingRow[]);
+    setFloors(references.floors as FloorRow[]);
   }, []);
 
   const loadUnitOptions = useCallback(async () => {
