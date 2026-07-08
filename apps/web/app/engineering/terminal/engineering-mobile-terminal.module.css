@@ -754,22 +754,36 @@
 
 @media (max-width: 420px) {
   .hero {
-    min-height: 238px;
-    padding: 22px 16px 18px;
+    min-height: 330px;
+    gap: 14px;
+    padding: 22px 16px 24px;
   }
 
   .hero h1 {
     font-size: 30px;
   }
 
+  .hero p {
+    display: none;
+  }
+
   .heroActions {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 9px;
   }
 
   .primaryAction,
   .secondaryAction {
     width: 100%;
+  }
+
+  .heroMeta {
+    display: none;
+  }
+
+  .heroStats {
+    display: none;
   }
 
   .moduleGrid {

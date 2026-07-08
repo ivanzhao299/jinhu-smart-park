@@ -53,6 +53,7 @@ const ENGINEERING_PLAN_PERMISSION = "ENGINEERING_PLAN_VIEW";
 const ENGINEERING_DAILY_REPORT_PERMISSION = "ENGINEERING_DAILY_REPORT_VIEW";
 const ENGINEERING_DAILY_REPORT_CREATE_PERMISSION = "ENGINEERING_DAILY_REPORT_CREATE";
 const ENGINEERING_INSPECTION_PERMISSION = "ENGINEERING_INSPECTION_VIEW";
+const ENGINEERING_INSPECTION_CREATE_PERMISSION = "ENGINEERING_INSPECTION_CREATE";
 const ENGINEERING_RECTIFICATION_PERMISSION = "ENGINEERING_RECTIFICATION_VIEW";
 const ENGINEERING_ACCEPTANCE_PERMISSION = "ENGINEERING_ACCEPTANCE_VIEW";
 
@@ -219,6 +220,10 @@ export function EngineeringMobileTerminalClient() {
     () => Boolean(authUser?.is_super) || hasPermission(authUser, ENGINEERING_DAILY_REPORT_CREATE_PERMISSION),
     [authUser]
   );
+  const canCreateInspection = useMemo(
+    () => Boolean(authUser?.is_super) || hasPermission(authUser, ENGINEERING_INSPECTION_CREATE_PERMISSION),
+    [authUser]
+  );
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -292,17 +297,20 @@ export function EngineeringMobileTerminalClient() {
             <span className={styles.eyebrow}>工程终端 · {roleGuide.identityLabel}</span>
             <h1>{roleGuide.title}</h1>
             <p>{roleGuide.summary}</p>
-            <div className={styles.heroMeta}>
-              <span>{roleGuide.identityHint}</span>
-              <span>{generatedAt ? `更新 ${generatedAt}` : loading ? "正在同步工程数据" : "等待工程数据"}</span>
-            </div>
             <div className={styles.heroActions}>
               <Link className={styles.primaryAction} href={roleGuide.primaryHref}>{roleGuide.primaryLabel}</Link>
+              {canCreateInspection ? (
+                <Link className={styles.secondaryAction} href="/engineering/inspections/new">新建巡检</Link>
+              ) : null}
               {canQuickDailyReport ? (
                 <button className={styles.secondaryAction} type="button" onClick={openQuickDailyReport}>快速日报</button>
               ) : (
                 <Link className={styles.secondaryAction} href={orderedModules[0]?.href ?? "/engineering/projects"}>查看工程入口</Link>
               )}
+            </div>
+            <div className={styles.heroMeta}>
+              <span>{roleGuide.identityHint}</span>
+              <span>{generatedAt ? `更新 ${generatedAt}` : loading ? "正在同步工程数据" : "等待工程数据"}</span>
             </div>
           </div>
           <button className={styles.refreshButton} type="button" onClick={() => void loadAll()} aria-label="刷新工程终端">
@@ -607,6 +615,8 @@ function resolveEngineeringRoleGuide(input: {
   const { user, roleLabel, summary, visibleModules } = input;
   const moduleMap = new Map(visibleModules.map((item) => [item.key, item]));
   const resolveHref = (key: string, fallback: Route = "/engineering/projects") => moduleMap.get(key)?.href ?? fallback;
+  const canCreateInspection = Boolean(user?.is_super) || hasPermission(user, ENGINEERING_INSPECTION_CREATE_PERMISSION);
+  const inspectionActionHref: Route = canCreateInspection ? "/engineering/inspections/new" : resolveHref("inspections", "/engineering/inspections");
   const overdueRectification = summary.overdue_rectification_count;
   const pendingRectification = summary.pending_rectification_count;
   const pendingAcceptance = summary.pending_acceptance_count;
@@ -695,8 +705,8 @@ function resolveEngineeringRoleGuide(input: {
       summary: "优先处理巡检、整改复查和验收，不把时间花在与自己无关的管理字段上。",
       identityLabel: roleLabel,
       identityHint: "适合监理和复查角色按闭环节点工作。",
-      primaryHref: resolveHref("inspections", "/engineering/inspections"),
-      primaryLabel: "进入现场巡检",
+      primaryHref: inspectionActionHref,
+      primaryLabel: canCreateInspection ? "新建现场巡检" : "进入现场巡检",
       moduleOrder: ["inspections", "rectifications", "acceptances", "projects", "plans", "dashboard", "dailyReports"],
       chain: ["做巡检", "压整改", "复查", "去验收"],
       focusCards: [
@@ -704,7 +714,7 @@ function resolveEngineeringRoleGuide(input: {
           title: "现场巡检",
           value: todayInspection > 0 ? `今日 ${todayInspection} 项` : "先检查巡检计划",
           detail: "问题要及时发现，不要留到验收节点才暴露。",
-          href: resolveHref("inspections", "/engineering/inspections"),
+          href: inspectionActionHref,
           icon: ClipboardCheck,
           emphasis: true
         },
@@ -768,8 +778,8 @@ function resolveEngineeringRoleGuide(input: {
     summary: "先做巡检和日报，再把异常推入整改，保证一线工程人员在手机端就能把链路跑顺。",
     identityLabel: roleLabel,
     identityHint: "适合工程师、安装工程师和现场执行角色。",
-    primaryHref: resolveHref("inspections", "/engineering/inspections"),
-    primaryLabel: "开始现场巡检",
+    primaryHref: inspectionActionHref,
+    primaryLabel: canCreateInspection ? "新建现场巡检" : "开始现场巡检",
     moduleOrder: ["inspections", "dailyReports", "rectifications", "projects", "plans", "acceptances", "dashboard"],
     chain: ["查现场", "写日报", "推整改", "跟验收"],
     focusCards: [
@@ -777,7 +787,7 @@ function resolveEngineeringRoleGuide(input: {
         title: "今日巡检",
         value: todayInspection > 0 ? `${todayInspection} 项待查` : "先看项目状态",
         detail: "先处理今日巡检和现场发现的问题。",
-        href: resolveHref("inspections", "/engineering/inspections"),
+        href: inspectionActionHref,
         icon: ClipboardCheck,
         emphasis: true
       },
