@@ -154,6 +154,14 @@ interface EngineeringRoleGuide {
   focusCards: EngineeringRoleGuideCard[];
 }
 
+interface EngineeringRoleAction {
+  key: string;
+  label: string;
+  href?: Route;
+  kind?: "quickDailyReport";
+  emphasis?: boolean;
+}
+
 interface QuickDailyReportForm {
   projectId: string;
   reportDate: string;
@@ -223,6 +231,17 @@ export function EngineeringMobileTerminalClient() {
   const canCreateInspection = useMemo(
     () => Boolean(authUser?.is_super) || hasPermission(authUser, ENGINEERING_INSPECTION_CREATE_PERMISSION),
     [authUser]
+  );
+  const roleActions = useMemo(
+    () => resolveEngineeringRoleActions({
+      user: authUser,
+      roleGuide,
+      orderedModules,
+      visibleModules,
+      canQuickDailyReport,
+      canCreateInspection
+    }),
+    [authUser, canCreateInspection, canQuickDailyReport, orderedModules, roleGuide, visibleModules]
   );
 
   const loadAll = useCallback(async () => {
@@ -298,15 +317,21 @@ export function EngineeringMobileTerminalClient() {
             <h1>{roleGuide.title}</h1>
             <p>{roleGuide.summary}</p>
             <div className={styles.heroActions}>
-              <Link className={styles.primaryAction} href={roleGuide.primaryHref}>{roleGuide.primaryLabel}</Link>
-              {canCreateInspection ? (
-                <Link className={styles.secondaryAction} href="/engineering/inspections/new">新建巡检</Link>
-              ) : null}
-              {canQuickDailyReport ? (
-                <button className={styles.secondaryAction} type="button" onClick={openQuickDailyReport}>快速日报</button>
-              ) : (
-                <Link className={styles.secondaryAction} href={orderedModules[0]?.href ?? "/engineering/projects"}>查看工程入口</Link>
-              )}
+              {roleActions.map((action, index) => {
+                const className = action.emphasis || index === 0 ? styles.primaryAction : styles.secondaryAction;
+                if (action.kind === "quickDailyReport") {
+                  return (
+                    <button className={className} key={action.key} type="button" onClick={openQuickDailyReport}>
+                      {action.label}
+                    </button>
+                  );
+                }
+                return (
+                  <Link className={className} href={action.href ?? roleGuide.primaryHref} key={action.key}>
+                    {action.label}
+                  </Link>
+                );
+              })}
             </div>
             <div className={styles.heroMeta}>
               <span>{roleGuide.identityHint}</span>
@@ -328,8 +353,7 @@ export function EngineeringMobileTerminalClient() {
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>本班先做什么</h2>
-              <p>不先读说明，直接从当前角色最值钱的动作开始。</p>
+              <h2>今日动作</h2>
             </div>
           </div>
           <div className={styles.focusGrid} aria-label="工程角色重点动作">
@@ -365,8 +389,7 @@ export function EngineeringMobileTerminalClient() {
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>工程入口</h2>
-              <p>按现场闭环组织，不把人丢进说明书式页面里。</p>
+              <h2>功能入口</h2>
             </div>
           </div>
           <div className={styles.moduleGrid} aria-label="工程模块入口">
@@ -583,7 +606,7 @@ function resolveVisibleEngineeringModules(user: UserContext | null): Engineering
 function resolveEngineeringRoleLabel(user: UserContext | null): string {
   if (!user) return "访客";
   if (user.is_super) return "管理员总控";
-  const roles = new Set(user.roles.map((role) => role.role_code.toUpperCase()));
+  const roles = getEngineeringRoleCodes(user);
   if (roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER")) {
     return "管理总控";
   }
@@ -596,6 +619,10 @@ function resolveEngineeringRoleLabel(user: UserContext | null): string {
   return "工程协同";
 }
 
+function getEngineeringRoleCodes(user: UserContext | null): Set<string> {
+  return new Set((user?.roles ?? []).map((role) => role.role_code.toUpperCase()));
+}
+
 function orderEngineeringModules(modules: EngineeringTerminalModule[], order: string[]): EngineeringTerminalModule[] {
   const orderMap = new Map(order.map((item, index) => [item, index]));
   return [...modules].sort((left, right) => {
@@ -604,6 +631,59 @@ function orderEngineeringModules(modules: EngineeringTerminalModule[], order: st
     if (leftIndex !== rightIndex) return leftIndex - rightIndex;
     return left.title.localeCompare(right.title, "zh-CN");
   });
+}
+
+function resolveEngineeringRoleActions(input: {
+  user: UserContext | null;
+  roleGuide: EngineeringRoleGuide;
+  orderedModules: EngineeringTerminalModule[];
+  visibleModules: EngineeringTerminalModule[];
+  canQuickDailyReport: boolean;
+  canCreateInspection: boolean;
+}): EngineeringRoleAction[] {
+  const { user, roleGuide, orderedModules, visibleModules, canQuickDailyReport, canCreateInspection } = input;
+  const roles = getEngineeringRoleCodes(user);
+  const moduleMap = new Map(visibleModules.map((item) => [item.key, item]));
+  const resolveHref = (key: string): Route | undefined => moduleMap.get(key)?.href;
+  const actions: EngineeringRoleAction[] = [];
+
+  function add(action: EngineeringRoleAction | false | null | undefined) {
+    if (!action) return;
+    if (action.kind !== "quickDailyReport" && !action.href) return;
+    if (actions.some((item) => item.key === action.key)) return;
+    actions.push(action);
+  }
+
+  const isManagement = Boolean(user?.is_super) || roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER");
+
+  if (isManagement) {
+    add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "整改闭环", href: resolveHref("rectifications") });
+    add({ key: "acceptances", label: "工程验收", href: resolveHref("acceptances") });
+  } else if (roles.has("PROJECT_MANAGER")) {
+    add({ key: "projects", label: "我的项目", href: resolveHref("projects") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "plans", label: "项目计划", href: resolveHref("plans") });
+    add(canQuickDailyReport ? { key: "quickDailyReport", label: "快速日报", kind: "quickDailyReport" } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") });
+  } else if (roles.has("SUPERVISOR")) {
+    add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "整改复查", href: resolveHref("rectifications") });
+    add({ key: "acceptances", label: "验收确认", href: resolveHref("acceptances") });
+  } else if (roles.has("CONTRACTOR_MANAGER")) {
+    add(canQuickDailyReport ? { key: "quickDailyReport", label: "提交日报", kind: "quickDailyReport", emphasis: true } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "整改反馈", href: resolveHref("rectifications") });
+    add({ key: "plans", label: "查看计划", href: resolveHref("plans") });
+  } else {
+    add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
+    add(canQuickDailyReport ? { key: "quickDailyReport", label: "快速日报", kind: "quickDailyReport" } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") });
+    add({ key: "rectifications", label: "整改待办", href: resolveHref("rectifications") });
+  }
+
+  if (actions.length === 0) {
+    add({ key: "primary", label: roleGuide.primaryLabel, href: roleGuide.primaryHref, emphasis: true });
+    add(orderedModules[0] ? { key: orderedModules[0].key, label: orderedModules[0].title, href: orderedModules[0].href } : null);
+  }
+
+  return actions.slice(0, 3).map((action, index) => ({ ...action, emphasis: action.emphasis || index === 0 }));
 }
 
 function resolveEngineeringRoleGuide(input: {
@@ -622,7 +702,7 @@ function resolveEngineeringRoleGuide(input: {
   const pendingAcceptance = summary.pending_acceptance_count;
   const weeklyDailyReports = summary.weekly_daily_report_count;
   const todayInspection = summary.today_inspection_count;
-  const roles = new Set((user?.roles ?? []).map((role) => role.role_code.toUpperCase()));
+  const roles = getEngineeringRoleCodes(user);
   const isManagement = Boolean(user?.is_super) || roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER");
 
   if (isManagement) {
