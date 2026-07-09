@@ -614,6 +614,11 @@ function resolveEngineeringRoleLabel(user: UserContext | null): string {
   if (roles.has("SUPERVISOR")) return "监理复查";
   if (roles.has("CONTRACTOR_MANAGER")) return "施工协同";
   if (roles.has("ENGINEER") || roles.has("MAINTENANCE_ENGINEER") || roles.has("JH_INSTALLATION_ENGINEER")) return "现场工程";
+  if (roles.has("SAFETY_MANAGER")) return "安全协同";
+  if (roles.has("PROPERTY_MANAGER") || roles.has("PROPERTY_STAFF")) return "物业接管";
+  if (roles.has("FINANCE_MANAGER") || roles.has("FINANCE_USER")) return "财务观察";
+  if (roles.has("INVEST_MANAGER") || roles.has("LEASING_MANAGER")) return "招商协同";
+  if (roles.has("IOT_MANAGER") || roles.has("IOT_OPERATOR")) return "设备协同";
   if (hasPermission(user, ENGINEERING_ACCEPTANCE_PERMISSION)) return "验收协同";
   if (hasPermission(user, ENGINEERING_INSPECTION_PERMISSION)) return "巡检执行";
   return "工程协同";
@@ -646,6 +651,7 @@ function resolveEngineeringRoleActions(input: {
   const moduleMap = new Map(visibleModules.map((item) => [item.key, item]));
   const resolveHref = (key: string): Route | undefined => moduleMap.get(key)?.href;
   const actions: EngineeringRoleAction[] = [];
+  const isFieldEngineer = roles.has("ENGINEER") || roles.has("MAINTENANCE_ENGINEER") || roles.has("JH_INSTALLATION_ENGINEER");
 
   function add(action: EngineeringRoleAction | false | null | undefined) {
     if (!action) return;
@@ -672,6 +678,30 @@ function resolveEngineeringRoleActions(input: {
     add(canQuickDailyReport ? { key: "quickDailyReport", label: "提交日报", kind: "quickDailyReport", emphasis: true } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "rectifications", label: "整改反馈", href: resolveHref("rectifications") });
     add({ key: "plans", label: "查看计划", href: resolveHref("plans") });
+  } else if (isFieldEngineer) {
+    add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
+    add(canQuickDailyReport ? { key: "quickDailyReport", label: "快速日报", kind: "quickDailyReport" } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") });
+    add({ key: "rectifications", label: "整改待办", href: resolveHref("rectifications") });
+  } else if (roles.has("SAFETY_MANAGER")) {
+    add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "整改闭环", href: resolveHref("rectifications") });
+    add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") });
+  } else if (roles.has("PROPERTY_MANAGER") || roles.has("PROPERTY_STAFF")) {
+    add({ key: "acceptances", label: "验收移交", href: resolveHref("acceptances") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "整改跟踪", href: resolveHref("rectifications") });
+    add({ key: "projects", label: "工程项目", href: resolveHref("projects") });
+  } else if (roles.has("FINANCE_MANAGER") || roles.has("FINANCE_USER")) {
+    add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "projects", label: "项目台账", href: resolveHref("projects") });
+    add({ key: "acceptances", label: "验收状态", href: resolveHref("acceptances") });
+  } else if (roles.has("INVEST_MANAGER") || roles.has("LEASING_MANAGER")) {
+    add({ key: "projects", label: "关联工程", href: resolveHref("projects") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "plans", label: "交付计划", href: resolveHref("plans") });
+    add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") });
+  } else if (roles.has("IOT_MANAGER") || roles.has("IOT_OPERATOR")) {
+    add({ key: "inspections", label: "设备巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
+    add({ key: "rectifications", label: "设备整改", href: resolveHref("rectifications") });
+    add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") });
   } else {
     add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
     add(canQuickDailyReport ? { key: "quickDailyReport", label: "快速日报", kind: "quickDailyReport" } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") });
@@ -703,6 +733,7 @@ function resolveEngineeringRoleGuide(input: {
   const weeklyDailyReports = summary.weekly_daily_report_count;
   const todayInspection = summary.today_inspection_count;
   const roles = getEngineeringRoleCodes(user);
+  const isFieldEngineer = roles.has("ENGINEER") || roles.has("MAINTENANCE_ENGINEER") || roles.has("JH_INSTALLATION_ENGINEER");
   const isManagement = Boolean(user?.is_super) || roles.has("GROUP_LEADER") || roles.has("ENGINEERING_DIRECTOR") || roles.has("JH_GROUP_PRESIDENT") || roles.has("JH_ENGINEERING_PROPERTY_MANAGER");
 
   if (isManagement) {
@@ -848,6 +879,228 @@ function resolveEngineeringRoleGuide(input: {
           detail: "被退回或要求补充材料的项要尽快回填。",
           href: resolveHref("rectifications", "/engineering/rectifications"),
           icon: ShieldCheck
+        }
+      ]
+    };
+  }
+
+  if (isFieldEngineer) {
+    return {
+      title: "现场工程工作台",
+      summary: "先做巡检和日报，再把异常推入整改，保证一线工程人员在手机端就能把链路跑顺。",
+      identityLabel: roleLabel,
+      identityHint: "适合工程师、安装工程师和现场执行角色。",
+      primaryHref: inspectionActionHref,
+      primaryLabel: canCreateInspection ? "新建现场巡检" : "开始现场巡检",
+      moduleOrder: ["inspections", "dailyReports", "rectifications", "projects", "plans", "acceptances", "dashboard"],
+      chain: ["查现场", "写日报", "推整改", "跟验收"],
+      focusCards: [
+        {
+          title: "今日巡检",
+          value: todayInspection > 0 ? `${todayInspection} 项待查` : "先看项目状态",
+          detail: "先处理今日巡检和现场发现的问题。",
+          href: inspectionActionHref,
+          icon: ClipboardCheck,
+          emphasis: true
+        },
+        {
+          title: "日报提交",
+          value: weeklyDailyReports > 0 ? `近 7 日 ${weeklyDailyReports} 份` : "日报尚未启动",
+          detail: "日报要把施工、人材机和问题说明白。",
+          href: resolveHref("dailyReports", "/engineering/daily-reports"),
+          icon: FileText
+        },
+        {
+          title: "待整改",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待处理` : "当前无整改积压",
+          detail: "异常不要停留在发现层，尽快拉进整改闭环。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: AlertTriangle
+        }
+      ]
+    };
+  }
+
+  if (roles.has("SAFETY_MANAGER")) {
+    return {
+      title: "安全协同工作台",
+      summary: "优先处理现场巡检、隐患整改和工程安全风险，把安全问题推入闭环。",
+      identityLabel: roleLabel,
+      identityHint: "适合安全主管联动工程整改。",
+      primaryHref: inspectionActionHref,
+      primaryLabel: canCreateInspection ? "新建现场巡检" : "进入现场巡检",
+      moduleOrder: ["inspections", "rectifications", "dashboard", "projects", "acceptances", "dailyReports", "plans"],
+      chain: ["查风险", "建问题", "追整改", "看闭环"],
+      focusCards: [
+        {
+          title: "安全巡检",
+          value: todayInspection > 0 ? `今日 ${todayInspection} 项` : "先看现场",
+          detail: "安全问题必须从现场动作进入闭环。",
+          href: inspectionActionHref,
+          icon: ClipboardCheck,
+          emphasis: true
+        },
+        {
+          title: "整改闭环",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待跟踪` : "暂无整改积压",
+          detail: "安全隐患要压到责任人和期限。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: AlertTriangle
+        },
+        {
+          title: "风险总览",
+          value: overdueRectification > 0 ? `${overdueRectification} 项逾期` : "风险平稳",
+          detail: "看全局风险后再下钻到项目。",
+          href: resolveHref("dashboard", "/engineering/dashboard"),
+          icon: BarChart3
+        }
+      ]
+    };
+  }
+
+  if (roles.has("PROPERTY_MANAGER") || roles.has("PROPERTY_STAFF")) {
+    return {
+      title: "物业接管工作台",
+      summary: "关注验收、整改和待移交项目，提前把后续运营接管风险看清楚。",
+      identityLabel: roleLabel,
+      identityHint: "适合物业负责人和派单人员查看移交准备。",
+      primaryHref: resolveHref("acceptances", "/engineering/acceptances"),
+      primaryLabel: "验收移交",
+      moduleOrder: ["acceptances", "rectifications", "projects", "dashboard", "inspections", "dailyReports", "plans"],
+      chain: ["看验收", "看整改", "接移交", "回运营"],
+      focusCards: [
+        {
+          title: "待接事项",
+          value: pendingAcceptance > 0 ? `${pendingAcceptance} 项待验收` : "移交平稳",
+          detail: "物业先看会影响接管的验收和整改。",
+          href: resolveHref("acceptances", "/engineering/acceptances"),
+          icon: FileCheck2,
+          emphasis: true
+        },
+        {
+          title: "整改遗留",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待跟踪` : "暂无遗留整改",
+          detail: "未闭环问题不要带入运营。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: ShieldCheck
+        },
+        {
+          title: "工程项目",
+          value: summary.project_total > 0 ? `${summary.project_total} 个项目` : "暂无项目",
+          detail: "按项目查看后续接管对象。",
+          href: resolveHref("projects", "/engineering/projects"),
+          icon: HardHat
+        }
+      ]
+    };
+  }
+
+  if (roles.has("FINANCE_MANAGER") || roles.has("FINANCE_USER")) {
+    return {
+      title: "工程财务观察台",
+      summary: "只看项目台账、验收状态和交付节奏，为后续结算和预算复核做准备。",
+      identityLabel: roleLabel,
+      identityHint: "适合财务角色只读观察，不进入现场执行。",
+      primaryHref: resolveHref("dashboard", "/engineering/dashboard"),
+      primaryLabel: "工程看板",
+      moduleOrder: ["dashboard", "projects", "acceptances", "plans", "dailyReports", "rectifications", "inspections"],
+      chain: ["看台账", "看验收", "看计划", "等结算"],
+      focusCards: [
+        {
+          title: "项目台账",
+          value: summary.project_total > 0 ? `${summary.project_total} 个项目` : "暂无项目",
+          detail: "先确认工程项目主数据是否完整。",
+          href: resolveHref("projects", "/engineering/projects"),
+          icon: HardHat,
+          emphasis: true
+        },
+        {
+          title: "验收状态",
+          value: pendingAcceptance > 0 ? `${pendingAcceptance} 项待验收` : "验收平稳",
+          detail: "验收结果会影响后续结算准备。",
+          href: resolveHref("acceptances", "/engineering/acceptances"),
+          icon: FileCheck2
+        },
+        {
+          title: "计划节奏",
+          value: summary.executing_project_count > 0 ? `${summary.executing_project_count} 项执行中` : "暂无施工项目",
+          detail: "用工程节奏判断财务后续压力。",
+          href: resolveHref("plans", "/engineering/plans"),
+          icon: ListTodo
+        }
+      ]
+    };
+  }
+
+  if (roles.has("INVEST_MANAGER") || roles.has("LEASING_MANAGER")) {
+    return {
+      title: "招商交付协同台",
+      summary: "关注会影响招商交付的工程项目、计划节点和验收结果。",
+      identityLabel: roleLabel,
+      identityHint: "适合招商与租赁角色了解交付进度。",
+      primaryHref: resolveHref("projects", "/engineering/projects"),
+      primaryLabel: "关联工程",
+      moduleOrder: ["projects", "plans", "acceptances", "dashboard", "rectifications", "dailyReports", "inspections"],
+      chain: ["看项目", "看计划", "看验收", "同步客户"],
+      focusCards: [
+        {
+          title: "关联工程",
+          value: summary.project_total > 0 ? `${summary.project_total} 个项目` : "暂无关联工程",
+          detail: "先看可能影响招商交付的工程项目。",
+          href: resolveHref("projects", "/engineering/projects"),
+          icon: HardHat,
+          emphasis: true
+        },
+        {
+          title: "交付计划",
+          value: summary.executing_project_count > 0 ? `${summary.executing_project_count} 项推进` : "暂无推进项目",
+          detail: "用计划节点对齐客户预期。",
+          href: resolveHref("plans", "/engineering/plans"),
+          icon: ListTodo
+        },
+        {
+          title: "验收结果",
+          value: pendingAcceptance > 0 ? `${pendingAcceptance} 项待验收` : "验收无阻塞",
+          detail: "验收完成后才能进入稳定交付。",
+          href: resolveHref("acceptances", "/engineering/acceptances"),
+          icon: FileCheck2
+        }
+      ]
+    };
+  }
+
+  if (roles.has("IOT_MANAGER") || roles.has("IOT_OPERATOR")) {
+    return {
+      title: "设备协同工作台",
+      summary: "围绕设备相关巡检、整改和工程交付状态协同处理。",
+      identityLabel: roleLabel,
+      identityHint: "适合设备物联和运维角色查看工程关联事项。",
+      primaryHref: resolveHref("inspections", "/engineering/inspections"),
+      primaryLabel: "设备巡检",
+      moduleOrder: ["inspections", "rectifications", "dashboard", "projects", "plans", "dailyReports", "acceptances"],
+      chain: ["看设备", "查现场", "推整改", "回看板"],
+      focusCards: [
+        {
+          title: "设备巡检",
+          value: todayInspection > 0 ? `今日 ${todayInspection} 项` : "暂无巡检",
+          detail: "设备相关问题先进入巡检入口。",
+          href: resolveHref("inspections", "/engineering/inspections"),
+          icon: ClipboardCheck,
+          emphasis: true
+        },
+        {
+          title: "设备整改",
+          value: pendingRectification > 0 ? `${pendingRectification} 项待处理` : "暂无整改",
+          detail: "设备整改要进入闭环跟踪。",
+          href: resolveHref("rectifications", "/engineering/rectifications"),
+          icon: ShieldCheck
+        },
+        {
+          title: "工程看板",
+          value: `${summary.rectification_close_rate}% 关闭率`,
+          detail: "从工程看板查看整体态势。",
+          href: resolveHref("dashboard", "/engineering/dashboard"),
+          icon: BarChart3
         }
       ]
     };
