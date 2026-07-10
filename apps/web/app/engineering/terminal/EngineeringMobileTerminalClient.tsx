@@ -313,21 +313,21 @@ export function EngineeringMobileTerminalClient() {
       <main className={`content ds-page ${styles.page}`}>
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <span className={styles.eyebrow}>工程终端 · {roleGuide.identityLabel}</span>
-            <h1>{roleGuide.title}</h1>
+            <span className={styles.eyebrow} data-testid="engineering-terminal-role-badge">工程终端 · {roleGuide.identityLabel}</span>
+            <h1 data-testid="engineering-terminal-headline">{roleGuide.title}</h1>
             <p>{roleGuide.summary}</p>
-            <div className={styles.heroActions}>
+            <div className={styles.heroActions} data-testid="engineering-terminal-hero-actions">
               {roleActions.map((action, index) => {
                 const className = action.emphasis || index === 0 ? styles.primaryAction : styles.secondaryAction;
                 if (action.kind === "quickDailyReport") {
                   return (
-                    <button className={className} key={action.key} type="button" onClick={openQuickDailyReport}>
+                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} key={action.key} type="button" onClick={openQuickDailyReport}>
                       {action.label}
                     </button>
                   );
                 }
                 return (
-                  <Link className={className} href={action.href ?? roleGuide.primaryHref} key={action.key}>
+                  <Link className={className} data-testid={`engineering-terminal-action-${action.key}`} href={action.href ?? roleGuide.primaryHref} key={action.key}>
                     {action.label}
                   </Link>
                 );
@@ -459,7 +459,7 @@ export function EngineeringMobileTerminalClient() {
 
         {dailyReportOpen ? (
           <div className={styles.mobileDrawerBackdrop} role="presentation">
-            <section className={styles.mobileDrawer} aria-label="快速新建施工日报">
+            <section className={styles.mobileDrawer} aria-label="快速新建施工日报" data-testid="engineering-terminal-quick-daily-report-drawer">
               <header className={styles.mobileDrawerHeader}>
                 <div>
                   <span>施工日报</span>
