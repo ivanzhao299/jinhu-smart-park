@@ -288,7 +288,11 @@ async function clickTerminalAction(browser, { token, userContext, username, acti
     if (clickResult.tagName === "button") {
       await sleep(400);
       const drawer = await evaluateValue(browser, sessionId, `(() => {
-        const drawer = document.querySelector('[data-testid="engineering-terminal-quick-daily-report-drawer"]');
+        const drawer = document.querySelector(
+          ${JSON.stringify(action.testId === "engineering-terminal-action-quickAcceptance"
+            ? '[data-testid="engineering-terminal-acceptance-drawer"]'
+            : '[data-testid="engineering-terminal-quick-daily-report-drawer"]')}
+        );
         return {
           drawerVisible: Boolean(drawer),
           drawerTitle: (drawer?.textContent ?? "").trim().slice(0, 80)
@@ -298,7 +302,7 @@ async function clickTerminalAction(browser, { token, userContext, username, acti
         ...action,
         status: drawer.drawerVisible ? "PASS" : "FAIL",
         result: "drawer",
-        reason: drawer.drawerVisible ? "" : "quick_daily_report_drawer_not_opened",
+        reason: drawer.drawerVisible ? "" : `${action.testId}_drawer_not_opened`,
         drawer_title: drawer.drawerTitle
       };
     }

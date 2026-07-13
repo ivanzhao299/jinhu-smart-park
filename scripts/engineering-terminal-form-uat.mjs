@@ -42,7 +42,15 @@ async function main() {
         const chrome = await launchChrome();
         try {
           steps.push(await exerciseQuickDailyReport(chrome, fieldEngineer, project));
-          steps.push(await exerciseInspectionCreate(chrome, fieldEngineer, project));
+          const inspectionStep = await exerciseInspectionCreate(chrome, fieldEngineer, project);
+          steps.push(inspectionStep);
+          const rectification = inspectionStep.inspection_id
+            ? await createUatRectification(admin, fieldEngineer, project, inspectionStep.inspection_id)
+            : null;
+          if (rectification?.id) {
+            steps.push(await exerciseRectificationClosedLoop(chrome, fieldEngineer, admin, project, rectification));
+          }
+          steps.push(await exerciseAcceptanceCreate(chrome, fieldEngineer, project));
         } finally {
           await chrome.close();
         }
@@ -53,7 +61,7 @@ async function main() {
   const report = {
     checked_at: new Date().toISOString(),
     status: failures.length === 0 ? "PASS" : "FAIL",
-    scope: "engineering_terminal_mobile_form_uat",
+    scope: "engineering_terminal_mobile_closed_loop_uat",
     run_id: runId,
     api_base: apiBase,
     web_base: webBase,
@@ -140,8 +148,10 @@ async function exerciseQuickDailyReport(chrome, user, project) {
     if (dailyAction.includes("dailyReports")) {
       throw new Error("zheng_ziyong can open daily reports but cannot directly create quick daily reports");
     }
+    await page.waitUntil(`!document.querySelector(${JSON.stringify(dailyAction)})?.disabled`, 12000, "quick daily report action remained disabled while projects loaded");
     await page.click(dailyAction);
     await page.waitForSelector('[data-testid="engineering-terminal-quick-daily-report-form"]', 5000);
+    await page.waitForSelectOption('[data-testid="quick-daily-project"]', project.id, 12000);
     await page.setValue('[data-testid="quick-daily-project"]', project.id);
     await page.setValue('[data-testid="quick-daily-date"]', reportDate);
     await page.setValue('[data-testid="quick-daily-work-content"]', `${runId} 现场完成消防联动移动端快速日报验证`);
@@ -188,6 +198,7 @@ async function exerciseInspectionCreate(chrome, user, project) {
     await page.login(user.username, user.password);
     await page.navigate(`${webBase}/engineering/inspections/new?projectId=${encodeURIComponent(project.id)}`);
     await page.waitForSelector('[data-testid="engineering-inspection-form"]', 10000);
+    await page.waitForSelectOption('[data-testid="inspection-project"]', project.id, 12000);
     const projectValue = await page.value('[data-testid="inspection-project"]');
     if (projectValue !== project.id) {
       throw new Error(`inspection project binding mismatch: expected ${project.id}, got ${projectValue}`);
@@ -200,14 +211,16 @@ async function exerciseInspectionCreate(chrome, user, project) {
     await page.setValue('[data-testid="inspection-issue-count"]', "0");
     await page.setValue('[data-testid="inspection-critical-issue-count"]', "0");
     await page.click('[data-testid="inspection-save"]');
-    await page.waitForPath(/\/engineering\/inspections\/(?!new$)[^/]+$/, 12000);
+    const reachedPathname = await page.waitForPath(/\/engineering\/inspections\/(?!new$)[^/]+$/, 12000);
+    const inspectionId = reachedPathname.split("/").filter(Boolean).at(-1) ?? null;
     await page.screenshot(screenshot);
     return {
       step: "inspection_create_save",
       status: "PASS",
       actor: user.username,
       project_id: project.id,
-      reached_pathname: await page.pathname(),
+      reached_pathname: reachedPathname,
+      inspection_id: inspectionId,
       screenshot
     };
   } catch (error) {
@@ -215,6 +228,167 @@ async function exerciseInspectionCreate(chrome, user, project) {
     fail(`inspection create form failed: ${error.message}`);
     return {
       step: "inspection_create_save",
+      status: "FAIL",
+      actor: user.username,
+      project_id: project.id,
+      reason: error.message,
+      screenshot
+    };
+  } finally {
+    await page.close();
+  }
+}
+
+async function createUatRectification(admin, responsibleUser, project, inspectionId) {
+  const deadline = toDateString(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));
+  const issueResponse = await requestJson(`${apiBase}/engineering/issues`, {
+    method: "POST",
+    token: admin.token,
+    idempotencyKey: `engineering-terminal-form-issue-${runId}`,
+    body: {
+      project_id: project.id,
+      inspection_id: inspectionId,
+      issue_title: `${runId} 移动端整改闭环问题`,
+      issue_type: "QUALITY",
+      severity: "MEDIUM",
+      description: "用于验证移动终端整改反馈、复查、通过和关闭状态机。",
+      location_text: "A1 楼 1F 移动终端验证点位",
+      responsible_user_id: responsibleUser.id,
+      deadline,
+      source_type: "INSPECTION",
+      remark: "mobile terminal closed-loop uat"
+    }
+  });
+  if (!isSuccess(issueResponse)) {
+    fail(`admin: create engineering issue failed (${issueResponse.status}) ${issueResponse.body?.message ?? ""}`);
+    return null;
+  }
+  const issue = unwrapData(issueResponse);
+  const rectificationResponse = await requestJson(`${apiBase}/engineering/issues/${issue.id}/generate-rectification`, {
+    method: "POST",
+    token: admin.token,
+    idempotencyKey: `engineering-terminal-form-rectification-${runId}`,
+    body: {
+      rectification_title: `${runId} 移动端整改任务`,
+      description: "完成现场整改并通过移动终端提交反馈和复查结论。",
+      responsible_user_id: responsibleUser.id,
+      deadline,
+      remark: "mobile terminal closed-loop uat"
+    }
+  });
+  if (!isSuccess(rectificationResponse)) {
+    fail(`admin: generate rectification failed (${rectificationResponse.status}) ${rectificationResponse.body?.message ?? ""}`);
+    return null;
+  }
+  return unwrapData(rectificationResponse);
+}
+
+async function exerciseRectificationClosedLoop(chrome, executor, reviewer, project, rectification) {
+  const executionPage = await chrome.newPage(`${webBase}/login`);
+  let reviewPage = null;
+  const feedbackScreenshot = resolve(screenshotsDir, "rectification-feedback-success.png");
+  const closedScreenshot = resolve(screenshotsDir, "rectification-closed-success.png");
+  try {
+    await executionPage.prepareMobile();
+    await executionPage.login(executor.username, executor.password);
+    await executionPage.navigate(`${webBase}/engineering/terminal`);
+    await executionPage.waitForSelector(`[data-testid="engineering-terminal-rectification-${rectification.id}"]`, 12000);
+
+    await executeTerminalRectificationAction(executionPage, rectification.id, "start");
+    await executeTerminalRectificationAction(executionPage, rectification.id, "submit", {
+      feedback: `${runId} 已完成现场整改，复测结果正常，具备复查条件。`
+    });
+    await executionPage.screenshot(feedbackScreenshot);
+
+    reviewPage = await chrome.newPage(`${webBase}/login`);
+    await reviewPage.prepareMobile();
+    await reviewPage.login(reviewer.username, reviewer.password);
+    await reviewPage.navigate(`${webBase}/engineering/terminal`);
+    await executeTerminalRectificationAction(reviewPage, rectification.id, "start_recheck", {
+      recheckComment: `${runId} 开始复查，现场条件满足。`
+    });
+    await executeTerminalRectificationAction(reviewPage, rectification.id, "pass", {
+      recheckComment: `${runId} 复查通过，整改措施有效。`
+    });
+    await executeTerminalRectificationAction(reviewPage, rectification.id, "close");
+    await reviewPage.screenshot(closedScreenshot);
+    return {
+      step: "rectification_feedback_recheck_close",
+      status: "PASS",
+      actors: [executor.username, reviewer.username],
+      project_id: project.id,
+      rectification_id: rectification.id,
+      screenshots: [feedbackScreenshot, closedScreenshot]
+    };
+  } catch (error) {
+    await (reviewPage ?? executionPage).screenshot(closedScreenshot).catch(() => undefined);
+    fail(`rectification closed loop failed: ${error.message}`);
+    return {
+      step: "rectification_feedback_recheck_close",
+      status: "FAIL",
+      actors: [executor.username, reviewer.username],
+      project_id: project.id,
+      rectification_id: rectification.id,
+      reason: error.message,
+      screenshot: closedScreenshot
+    };
+  } finally {
+    await executionPage.close();
+    await reviewPage?.close();
+  }
+}
+
+async function executeTerminalRectificationAction(page, rectificationId, action, input = {}) {
+  const cardSelector = `[data-testid="engineering-terminal-rectification-${rectificationId}"]`;
+  const actionSelector = `${cardSelector} [data-testid="rectification-action-${action}"]`;
+  await page.waitForSelector(actionSelector, 12000);
+  await page.click(actionSelector);
+  await page.waitForSelector('[data-testid="engineering-terminal-rectification-form"]', 5000);
+  if (input.feedback !== undefined) {
+    await page.setValue('[data-testid="rectification-action-feedback"]', input.feedback);
+  }
+  if (input.recheckComment !== undefined) {
+    await page.setValue('[data-testid="rectification-action-recheck-comment"]', input.recheckComment);
+  }
+  await page.click('[data-testid="rectification-action-save"]');
+  await page.waitForText('[data-testid="engineering-terminal-message"]', /整改任务已更新/, 12000);
+}
+
+async function exerciseAcceptanceCreate(chrome, user, project) {
+  const page = await chrome.newPage(`${webBase}/login`);
+  const screenshot = resolve(screenshotsDir, "acceptance-create-success.png");
+  try {
+    await page.prepareMobile();
+    await page.login(user.username, user.password);
+    await page.navigate(`${webBase}/engineering/terminal`);
+    await page.waitForSelector('[data-testid="engineering-terminal-quick-acceptance"]', 10000);
+    await page.waitUntil('!document.querySelector(\'[data-testid="engineering-terminal-quick-acceptance"]\')?.disabled', 12000, "quick acceptance action remained disabled while projects loaded");
+    await page.click('[data-testid="engineering-terminal-quick-acceptance"]');
+    await page.waitForSelector('[data-testid="engineering-terminal-acceptance-form"]', 5000);
+    await page.waitForSelectOption('[data-testid="quick-acceptance-project"]', project.id, 12000);
+    await page.setValue('[data-testid="quick-acceptance-project"]', project.id);
+    await page.setValue('[data-testid="quick-acceptance-name"]', `${runId} 消防安装阶段验收`);
+    await page.setValue('[data-testid="quick-acceptance-type"]', "STAGE");
+    await page.setValue('[data-testid="quick-acceptance-date"]', reportDate);
+    await page.setValue('[data-testid="quick-acceptance-risk"]', "MEDIUM");
+    await page.setValue('[data-testid="quick-acceptance-scope"]', "A1 楼 1F 消防管线、支架和联动点位");
+    await page.setValue('[data-testid="quick-acceptance-criteria"]', "按施工图、合同技术标准和消防验收规范执行");
+    await page.click('[data-testid="quick-acceptance-save"]');
+    const message = await page.waitForText('[data-testid="engineering-terminal-message"]', /工程验收已发起/, 12000);
+    await page.screenshot(screenshot);
+    return {
+      step: "acceptance_create_save",
+      status: "PASS",
+      actor: user.username,
+      project_id: project.id,
+      message,
+      screenshot
+    };
+  } catch (error) {
+    await page.screenshot(screenshot).catch(() => undefined);
+    fail(`acceptance create form failed: ${error.message}`);
+    return {
+      step: "acceptance_create_save",
       status: "FAIL",
       actor: user.username,
       project_id: project.id,
@@ -370,6 +544,14 @@ class CdpPage {
 
   async waitForSelector(selector, timeoutMs) {
     await this.waitUntil(`Boolean(document.querySelector(${JSON.stringify(selector)}))`, timeoutMs, `selector not found: ${selector}`);
+  }
+
+  async waitForSelectOption(selector, value, timeoutMs) {
+    await this.waitUntil(
+      `Array.from(document.querySelector(${JSON.stringify(selector)})?.options ?? []).some((option) => option.value === ${JSON.stringify(value)})`,
+      timeoutMs,
+      `select option not found for ${selector}: ${value}`
+    );
   }
 
   async firstAvailableSelector(selectors) {

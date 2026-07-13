@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, BarChart3, ClipboardCheck, FileCheck2, FileText, Gauge, HardHat, ListTodo, RefreshCw, Save, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, BarChart3, CheckCircle2, ClipboardCheck, FileCheck2, FileText, Gauge, HardHat, ListTodo, RefreshCw, Save, ShieldCheck, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -18,11 +18,18 @@ import { engineeringWeatherTypeOptions } from "../../../lib/engineering-daily-re
 import type { CreateEngineeringDailyReportInput, EngineeringWeatherType } from "../../../lib/engineering-daily-reports-types";
 import { todayDateString } from "../../../lib/engineering-daily-reports-utils";
 import { hasModule, hasPermission } from "../../../lib/permissions";
+import { engineeringAcceptancesApi } from "../../../lib/engineering-acceptances-api";
+import { engineeringAcceptanceTypeOptions } from "../../../lib/engineering-acceptances-display";
+import { ENGINEERING_ACCEPTANCE_PERMISSIONS, hasEngineeringAcceptancePermission } from "../../../lib/engineering-acceptances-permissions";
+import type { CreateEngineeringAcceptanceInput, EngineeringAcceptance, EngineeringAcceptanceType } from "../../../lib/engineering-acceptances-types";
 import { engineeringProjectsApi } from "../../../lib/engineering-projects-api";
-import { engineeringProjectStatusLabels, projectStatusVariant } from "../../../lib/engineering-projects-display";
-import type { EngineeringProject } from "../../../lib/engineering-projects-types";
+import { engineeringProjectStatusLabels, engineeringRiskLevelOptions, projectStatusVariant } from "../../../lib/engineering-projects-display";
+import type { EngineeringProject, EngineeringRiskLevel } from "../../../lib/engineering-projects-types";
 import { engineeringRectificationsApi } from "../../../lib/engineering-rectifications-api";
-import type { EngineeringRectification } from "../../../lib/engineering-rectifications-types";
+import { engineeringRectificationActionLabels, engineeringRectificationStatusLabels } from "../../../lib/engineering-rectifications-display";
+import { ENGINEERING_RECTIFICATION_PERMISSIONS, hasEngineeringRectificationPermission } from "../../../lib/engineering-rectifications-permissions";
+import type { EngineeringRectification, EngineeringRectificationAction, EngineeringRectificationActionInput } from "../../../lib/engineering-rectifications-types";
+import { availableRectificationActions } from "../../../lib/engineering-rectifications-utils";
 import styles from "./engineering-mobile-terminal.module.css";
 
 const emptyDashboard: EngineeringDashboardOverview = {
@@ -158,8 +165,23 @@ interface EngineeringRoleAction {
   key: string;
   label: string;
   href?: Route;
-  kind?: "quickDailyReport";
+  kind?: "quickDailyReport" | "quickAcceptance";
   emphasis?: boolean;
+}
+
+interface QuickAcceptanceForm {
+  projectId: string;
+  acceptanceName: string;
+  acceptanceType: EngineeringAcceptanceType;
+  plannedAcceptanceDate: string;
+  riskLevel: EngineeringRiskLevel;
+  acceptanceScope: string;
+  acceptanceCriteria: string;
+}
+
+interface RectificationActionState {
+  rectification: EngineeringRectification;
+  action: EngineeringRectificationAction;
 }
 
 interface QuickDailyReportForm {
@@ -192,6 +214,16 @@ const defaultQuickDailyReportForm: QuickDailyReportForm = {
   issueSummary: ""
 };
 
+const defaultQuickAcceptanceForm: QuickAcceptanceForm = {
+  projectId: "",
+  acceptanceName: "",
+  acceptanceType: "STAGE",
+  plannedAcceptanceDate: todayDateString(),
+  riskLevel: "MEDIUM",
+  acceptanceScope: "",
+  acceptanceCriteria: ""
+};
+
 export function EngineeringMobileTerminalClient() {
   const authUser = useAuthUser();
   useMobileTerminalMode(["mobile-terminal-mode", "operations-terminal-safe-area", "engineering-terminal-mode"]);
@@ -199,11 +231,18 @@ export function EngineeringMobileTerminalClient() {
   const [dashboard, setDashboard] = useState<EngineeringDashboardOverview>(emptyDashboard);
   const [projects, setProjects] = useState<EngineeringProject[]>([]);
   const [rectifications, setRectifications] = useState<EngineeringRectification[]>([]);
+  const [acceptances, setAcceptances] = useState<EngineeringAcceptance[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [dailyReportOpen, setDailyReportOpen] = useState(false);
   const [dailyReportSaving, setDailyReportSaving] = useState(false);
   const [dailyReportForm, setDailyReportForm] = useState<QuickDailyReportForm>(defaultQuickDailyReportForm);
+  const [rectificationAction, setRectificationAction] = useState<RectificationActionState | null>(null);
+  const [rectificationActionSaving, setRectificationActionSaving] = useState(false);
+  const [rectificationActionForm, setRectificationActionForm] = useState({ reason: "", feedback: "", recheckComment: "", comment: "" });
+  const [acceptanceOpen, setAcceptanceOpen] = useState(false);
+  const [acceptanceSaving, setAcceptanceSaving] = useState(false);
+  const [acceptanceForm, setAcceptanceForm] = useState<QuickAcceptanceForm>(defaultQuickAcceptanceForm);
 
   const summary = dashboard.summary;
   const riskCount = summary.overdue_rectification_count + summary.pending_rectification_count + summary.pending_acceptance_count;
@@ -232,6 +271,10 @@ export function EngineeringMobileTerminalClient() {
     () => Boolean(authUser?.is_super) || hasPermission(authUser, ENGINEERING_INSPECTION_CREATE_PERMISSION),
     [authUser]
   );
+  const canCreateAcceptance = useMemo(
+    () => hasEngineeringAcceptancePermission(authUser, ENGINEERING_ACCEPTANCE_PERMISSIONS.CREATE),
+    [authUser]
+  );
   const roleActions = useMemo(
     () => resolveEngineeringRoleActions({
       user: authUser,
@@ -239,9 +282,10 @@ export function EngineeringMobileTerminalClient() {
       orderedModules,
       visibleModules,
       canQuickDailyReport,
-      canCreateInspection
+      canCreateInspection,
+      canCreateAcceptance
     }),
-    [authUser, canCreateInspection, canQuickDailyReport, orderedModules, roleGuide, visibleModules]
+    [authUser, canCreateAcceptance, canCreateInspection, canQuickDailyReport, orderedModules, roleGuide, visibleModules]
   );
 
   const loadAll = useCallback(async (options?: { clearMessage?: boolean }) => {
@@ -250,10 +294,11 @@ export function EngineeringMobileTerminalClient() {
       setMessage("");
     }
     const token = getAccessToken();
-    const [dashboardResult, projectResult, rectificationResult] = await Promise.allSettled([
+    const [dashboardResult, projectResult, rectificationResult, acceptanceResult] = await Promise.allSettled([
       engineeringDashboardApi.getOverview(token),
-      engineeringProjectsApi.listProjects({ page: 1, page_size: 4, sort: "-updateTime" }, token),
-      engineeringRectificationsApi.listRectifications({ page: 1, page_size: 4, sort: "-updateTime" }, token)
+      engineeringProjectsApi.listProjects({ page: 1, page_size: 20, sort: "-updateTime" }, token),
+      engineeringRectificationsApi.listRectifications({ page: 1, page_size: 20, sort: "-updateTime" }, token),
+      engineeringAcceptancesApi.listAcceptances({ page: 1, page_size: 20, sort: "-updateTime" }, token)
     ]);
 
     if (dashboardResult.status === "fulfilled") {
@@ -264,6 +309,9 @@ export function EngineeringMobileTerminalClient() {
     }
     if (rectificationResult.status === "fulfilled") {
       setRectifications(rectificationResult.value.items);
+    }
+    if (acceptanceResult.status === "fulfilled") {
+      setAcceptances(acceptanceResult.value.items);
     }
     if (dashboardResult.status === "rejected") {
       setMessage(dashboardResult.reason instanceof Error ? dashboardResult.reason.message : "加载工程终端失败");
@@ -276,6 +324,10 @@ export function EngineeringMobileTerminalClient() {
   }, [loadAll]);
 
   function openQuickDailyReport() {
+    if (loading || projects.length === 0) {
+      setMessage(loading ? "工程项目正在同步，请稍候再试。" : "当前没有可办理的工程项目。先创建或分配项目后再填报日报。");
+      return;
+    }
     setDailyReportForm({
       ...defaultQuickDailyReportForm,
       projectId: projects[0]?.id ?? "",
@@ -310,6 +362,85 @@ export function EngineeringMobileTerminalClient() {
     setDailyReportForm((current) => ({ ...current, [key]: value }));
   }
 
+  function openQuickAcceptance() {
+    if (loading || projects.length === 0) {
+      setMessage(loading ? "工程项目正在同步，请稍候再试。" : "当前没有可办理的工程项目。先创建或分配项目后再发起验收。");
+      return;
+    }
+    setAcceptanceForm({
+      ...defaultQuickAcceptanceForm,
+      projectId: projects[0]?.id ?? "",
+      plannedAcceptanceDate: todayDateString()
+    });
+    setMessage("");
+    setAcceptanceOpen(true);
+  }
+
+  async function submitQuickAcceptance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validation = validateQuickAcceptanceForm(acceptanceForm);
+    if (validation) {
+      setMessage(validation);
+      return;
+    }
+    setAcceptanceSaving(true);
+    setMessage("");
+    try {
+      const saved = await engineeringAcceptancesApi.createAcceptance(toQuickAcceptanceInput(acceptanceForm), getAccessToken());
+      setAcceptanceOpen(false);
+      await loadAll({ clearMessage: false });
+      setMessage(`工程验收已发起：${saved.acceptanceCode}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "发起工程验收失败");
+    } finally {
+      setAcceptanceSaving(false);
+    }
+  }
+
+  function setQuickAcceptanceValue<K extends keyof QuickAcceptanceForm>(key: K, value: QuickAcceptanceForm[K]) {
+    setAcceptanceForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function openRectificationAction(rectification: EngineeringRectification, action: EngineeringRectificationAction) {
+    setRectificationAction({ rectification, action });
+    setRectificationActionForm({
+      reason: engineeringRectificationActionLabels[action],
+      feedback: rectification.feedback ?? "",
+      recheckComment: rectification.recheckComment ?? "",
+      comment: ""
+    });
+    setMessage("");
+  }
+
+  async function submitRectificationAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!rectificationAction) return;
+    const validation = validateRectificationActionForm(rectificationAction.action, rectificationActionForm);
+    if (validation) {
+      setMessage(validation);
+      return;
+    }
+    setRectificationActionSaving(true);
+    setMessage("");
+    try {
+      const input: EngineeringRectificationActionInput = {
+        action: rectificationAction.action,
+        reason: emptyToUndefined(rectificationActionForm.reason),
+        feedback: emptyToUndefined(rectificationActionForm.feedback),
+        recheck_comment: emptyToUndefined(rectificationActionForm.recheckComment),
+        comment: emptyToUndefined(rectificationActionForm.comment)
+      };
+      const saved = await engineeringRectificationsApi.executeRectificationAction(rectificationAction.rectification.id, input, getAccessToken());
+      setRectificationAction(null);
+      await loadAll({ clearMessage: false });
+      setMessage(`整改任务已更新：${engineeringRectificationStatusLabels[saved.status]}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "执行整改动作失败");
+    } finally {
+      setRectificationActionSaving(false);
+    }
+  }
+
   return (
     <PermissionGuard module="engineering" permission="ENGINEERING_DASHBOARD_VIEW" fallback={<TerminalForbidden />}>
       <main className={`content ds-page ${styles.page}`}>
@@ -323,7 +454,14 @@ export function EngineeringMobileTerminalClient() {
                 const className = action.emphasis || index === 0 ? styles.primaryAction : styles.secondaryAction;
                 if (action.kind === "quickDailyReport") {
                   return (
-                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} key={action.key} type="button" onClick={openQuickDailyReport}>
+                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading || projects.length === 0} key={action.key} type="button" onClick={openQuickDailyReport}>
+                      {action.label}
+                    </button>
+                  );
+                }
+                if (action.kind === "quickAcceptance") {
+                  return (
+                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading || projects.length === 0} key={action.key} type="button" onClick={openQuickAcceptance}>
                       {action.label}
                     </button>
                   );
@@ -350,7 +488,7 @@ export function EngineeringMobileTerminalClient() {
           </div>
         </section>
 
-        {message ? <p className={styles.message} data-testid="engineering-terminal-message">{message}</p> : null}
+        {message ? <p className={`${styles.message} ${isSuccessMessage(message) ? styles.messageSuccess : ""}`} data-testid="engineering-terminal-message">{message}</p> : null}
 
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
@@ -422,7 +560,7 @@ export function EngineeringMobileTerminalClient() {
             <Link href="/engineering/projects">全部</Link>
           </div>
           <div className={styles.projectList}>
-            {projects.length > 0 ? projects.map((project) => (
+            {projects.length > 0 ? projects.slice(0, 4).map((project) => (
               <Link className={styles.projectCard} href={`/engineering/projects/${project.id}`} key={project.id}>
                 <div>
                   <strong>{project.projectName}</strong>
@@ -447,14 +585,50 @@ export function EngineeringMobileTerminalClient() {
             <Link href="/engineering/rectifications">全部</Link>
           </div>
           <div className={styles.todoList}>
-            {rectifications.length > 0 ? rectifications.map((item) => (
-              <Link className={styles.todoCard} href={`/engineering/rectifications/${item.id}`} key={item.id}>
-                <span>{item.rectificationCode}</span>
-                <strong>{item.rectificationTitle}</strong>
-                <small>{item.deadline ? `期限 ${formatDate(item.deadline)}` : "未设置期限"}</small>
+            {rectifications.length > 0 ? rectifications.slice(0, 6).map((item) => {
+              const action = resolveQuickRectificationAction(authUser, item);
+              return (
+                <article className={styles.todoCard} data-testid={`engineering-terminal-rectification-${item.id}`} key={item.id}>
+                  <Link className={styles.todoCardMain} href={`/engineering/rectifications/${item.id}`}>
+                    <span>{item.rectificationCode} · {engineeringRectificationStatusLabels[item.status]}</span>
+                    <strong>{item.rectificationTitle}</strong>
+                    <small>{item.deadline ? `期限 ${formatDate(item.deadline)}` : "未设置期限"}</small>
+                  </Link>
+                  {action ? (
+                    <button className={styles.todoAction} data-testid={`rectification-action-${action.toLowerCase()}`} type="button" onClick={() => openRectificationAction(item, action)}>
+                      {engineeringRectificationActionLabels[action]}
+                    </button>
+                  ) : null}
+                </article>
+              );
+            }) : (
+              <EmptyBlock title={loading ? "正在读取整改任务" : "暂无整改待办"} detail="巡检发现问题后，整改任务会在这里出现。" />
+            )}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h2>验收办理</h2>
+              <span>阶段、专项、竣工和移交预验收</span>
+            </div>
+            {canCreateAcceptance ? <button className={styles.panelAction} data-testid="engineering-terminal-quick-acceptance" type="button" onClick={openQuickAcceptance}>发起</button> : <Link href="/engineering/acceptances">全部</Link>}
+          </div>
+          <div className={styles.todoList}>
+            {acceptances.length > 0 ? acceptances.slice(0, 4).map((item) => (
+              <Link className={styles.acceptanceCard} href={`/engineering/acceptances/${item.id}`} key={item.id}>
+                <span className={styles.acceptanceIcon}><CheckCircle2 size={20} /></span>
+                <div>
+                  <strong>{item.acceptanceName}</strong>
+                  <small>{item.acceptanceCode} · {item.plannedAcceptanceDate.slice(0, 10)}</small>
+                </div>
+                <span className={styles.acceptanceStatus}>{item.acceptanceStatus === "DRAFT" ? "草稿" : item.acceptanceStatus === "SUBMITTED" ? "待验收" : engineeringAcceptanceTypeOptions.find((option) => option.value === item.acceptanceType)?.label}</span>
               </Link>
             )) : (
-              <EmptyBlock title={loading ? "正在读取整改任务" : "暂无整改待办"} detail="巡检发现问题后，整改任务会在这里出现。" />
+              <EmptyBlock title={loading ? "正在读取验收事项" : "暂无验收事项"} detail="项目具备验收条件后，可直接从工程终端发起。">
+                {canCreateAcceptance ? <button type="button" onClick={openQuickAcceptance}>发起验收</button> : null}
+              </EmptyBlock>
             )}
           </div>
         </section>
@@ -545,6 +719,109 @@ export function EngineeringMobileTerminalClient() {
             </section>
           </div>
         ) : null}
+
+        {rectificationAction ? (
+          <div className={styles.mobileDrawerBackdrop} role="presentation">
+            <section className={styles.mobileDrawer} aria-label="整改任务处理" data-testid="engineering-terminal-rectification-drawer">
+              <header className={styles.mobileDrawerHeader}>
+                <div>
+                  <span>整改闭环</span>
+                  <h2>{engineeringRectificationActionLabels[rectificationAction.action]}</h2>
+                  <p>{rectificationAction.rectification.rectificationTitle}</p>
+                </div>
+                <button type="button" onClick={() => setRectificationAction(null)} aria-label="关闭"><X size={22} /></button>
+              </header>
+              <form className={styles.mobileDrawerForm} data-testid="engineering-terminal-rectification-form" onSubmit={(event) => void submitRectificationAction(event)}>
+                <label>
+                  动作原因
+                  <input data-testid="rectification-action-reason" value={rectificationActionForm.reason} onChange={(event) => setRectificationActionForm((current) => ({ ...current, reason: event.target.value }))} />
+                </label>
+                {rectificationAction.action === "START" || rectificationAction.action === "SUBMIT" ? (
+                  <label>
+                    整改反馈{rectificationAction.action === "SUBMIT" ? " *" : ""}
+                    <textarea data-testid="rectification-action-feedback" value={rectificationActionForm.feedback} placeholder="填写处理措施、完成情况和现场结果" onChange={(event) => setRectificationActionForm((current) => ({ ...current, feedback: event.target.value }))} />
+                  </label>
+                ) : null}
+                {rectificationAction.action === "START_RECHECK" || rectificationAction.action === "PASS" || rectificationAction.action === "REJECT" ? (
+                  <label>
+                    复查意见{rectificationAction.action === "REJECT" ? " *" : ""}
+                    <textarea data-testid="rectification-action-recheck-comment" value={rectificationActionForm.recheckComment} placeholder="填写复查结论或驳回原因" onChange={(event) => setRectificationActionForm((current) => ({ ...current, recheckComment: event.target.value }))} />
+                  </label>
+                ) : null}
+                <label>
+                  备注
+                  <textarea data-testid="rectification-action-comment" value={rectificationActionForm.comment} onChange={(event) => setRectificationActionForm((current) => ({ ...current, comment: event.target.value }))} />
+                </label>
+                <footer className={styles.mobileDrawerFooter}>
+                  <Link className={styles.fullFormLink} href={`/engineering/rectifications/${rectificationAction.rectification.id}`}>查看详情</Link>
+                  <button className={styles.saveButton} data-testid="rectification-action-save" disabled={rectificationActionSaving} type="submit">
+                    <Save size={18} />{rectificationActionSaving ? "处理中" : "确认提交"}
+                  </button>
+                </footer>
+              </form>
+            </section>
+          </div>
+        ) : null}
+
+        {acceptanceOpen ? (
+          <div className={styles.mobileDrawerBackdrop} role="presentation">
+            <section className={styles.mobileDrawer} aria-label="快速发起工程验收" data-testid="engineering-terminal-acceptance-drawer">
+              <header className={styles.mobileDrawerHeader}>
+                <div>
+                  <span>工程验收</span>
+                  <h2>发起验收</h2>
+                  <p>选择项目并明确验收范围和标准，保存后进入验收流程。</p>
+                </div>
+                <button type="button" onClick={() => setAcceptanceOpen(false)} aria-label="关闭"><X size={22} /></button>
+              </header>
+              <form className={styles.mobileDrawerForm} data-testid="engineering-terminal-acceptance-form" onSubmit={(event) => void submitQuickAcceptance(event)}>
+                <label>
+                  所属项目
+                  <select data-testid="quick-acceptance-project" required value={acceptanceForm.projectId} onChange={(event) => setQuickAcceptanceValue("projectId", event.target.value)}>
+                    <option value="">请选择项目</option>
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.projectName}</option>)}
+                  </select>
+                </label>
+                <label>
+                  验收名称
+                  <input data-testid="quick-acceptance-name" required value={acceptanceForm.acceptanceName} placeholder="例如：A1 楼消防安装阶段验收" onChange={(event) => setQuickAcceptanceValue("acceptanceName", event.target.value)} />
+                </label>
+                <div className={styles.twoColumnFields}>
+                  <label>
+                    验收类型
+                    <select data-testid="quick-acceptance-type" value={acceptanceForm.acceptanceType} onChange={(event) => setQuickAcceptanceValue("acceptanceType", event.target.value as EngineeringAcceptanceType)}>
+                      {engineeringAcceptanceTypeOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    计划日期
+                    <input data-testid="quick-acceptance-date" required type="date" value={acceptanceForm.plannedAcceptanceDate} onChange={(event) => setQuickAcceptanceValue("plannedAcceptanceDate", event.target.value)} />
+                  </label>
+                </div>
+                <label>
+                  风险等级
+                  <select data-testid="quick-acceptance-risk" value={acceptanceForm.riskLevel} onChange={(event) => setQuickAcceptanceValue("riskLevel", event.target.value as EngineeringRiskLevel)}>
+                    {engineeringRiskLevelOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  验收范围
+                  <textarea data-testid="quick-acceptance-scope" required value={acceptanceForm.acceptanceScope} placeholder="填写楼栋、楼层、专业和本次验收边界" onChange={(event) => setQuickAcceptanceValue("acceptanceScope", event.target.value)} />
+                </label>
+                <label>
+                  验收标准
+                  <textarea data-testid="quick-acceptance-criteria" required value={acceptanceForm.acceptanceCriteria} placeholder="填写图纸、规范、合同或检查标准" onChange={(event) => setQuickAcceptanceValue("acceptanceCriteria", event.target.value)} />
+                </label>
+                <footer className={styles.mobileDrawerFooter}>
+                  <Link className={styles.fullFormLink} href="/engineering/acceptances/new">完整表单</Link>
+                  <button className={styles.saveButton} data-testid="quick-acceptance-save" disabled={acceptanceSaving} type="submit">
+                    <Save size={18} />{acceptanceSaving ? "发起中" : "发起验收"}
+                  </button>
+                </footer>
+              </form>
+            </section>
+          </div>
+        ) : null}
       </main>
     </PermissionGuard>
   );
@@ -581,6 +858,64 @@ function EmptyBlock({ title, detail, children }: { title: string; detail: string
       {children ? <div>{children}</div> : null}
     </div>
   );
+}
+
+function resolveQuickRectificationAction(user: UserContext | null, rectification: EngineeringRectification): EngineeringRectificationAction | null {
+  const actions = availableRectificationActions(rectification.status).filter((action) => action !== "MARK_OVERDUE");
+  return actions.find((action) => canExecuteRectificationAction(user, action)) ?? null;
+}
+
+function canExecuteRectificationAction(user: UserContext | null, action: EngineeringRectificationAction): boolean {
+  if (action === "SUBMIT") {
+    return hasEngineeringRectificationPermission(user, ENGINEERING_RECTIFICATION_PERMISSIONS.SUBMIT);
+  }
+  if (action === "START_RECHECK" || action === "PASS" || action === "REJECT") {
+    return hasEngineeringRectificationPermission(user, ENGINEERING_RECTIFICATION_PERMISSIONS.RECHECK);
+  }
+  if (action === "CLOSE") {
+    return hasEngineeringRectificationPermission(user, ENGINEERING_RECTIFICATION_PERMISSIONS.CLOSE);
+  }
+  return hasEngineeringRectificationPermission(user, ENGINEERING_RECTIFICATION_PERMISSIONS.UPDATE);
+}
+
+function validateRectificationActionForm(
+  action: EngineeringRectificationAction,
+  form: { reason: string; feedback: string; recheckComment: string; comment: string }
+): string {
+  if (action === "SUBMIT" && !form.feedback.trim()) return "请填写整改反馈";
+  if (action === "REJECT" && !form.recheckComment.trim() && !form.comment.trim()) return "请填写驳回复查意见";
+  return "";
+}
+
+function validateQuickAcceptanceForm(form: QuickAcceptanceForm): string {
+  if (!form.projectId) return "请选择所属项目";
+  if (!form.acceptanceName.trim()) return "请填写验收名称";
+  if (!form.plannedAcceptanceDate) return "请选择计划验收日期";
+  if (!form.acceptanceScope.trim()) return "请填写验收范围";
+  if (!form.acceptanceCriteria.trim()) return "请填写验收标准";
+  return "";
+}
+
+function toQuickAcceptanceInput(form: QuickAcceptanceForm): CreateEngineeringAcceptanceInput {
+  return {
+    project_id: form.projectId,
+    acceptance_name: form.acceptanceName.trim(),
+    acceptance_type: form.acceptanceType,
+    planned_acceptance_date: form.plannedAcceptanceDate,
+    risk_level: form.riskLevel,
+    acceptance_scope: form.acceptanceScope.trim(),
+    acceptance_criteria: form.acceptanceCriteria.trim(),
+    description: "由工程移动终端快速发起"
+  };
+}
+
+function emptyToUndefined(value: string): string | undefined {
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function isSuccessMessage(message: string): boolean {
+  return /已保存|已发起|已更新/.test(message);
 }
 
 function TerminalForbidden() {
@@ -647,8 +982,9 @@ function resolveEngineeringRoleActions(input: {
   visibleModules: EngineeringTerminalModule[];
   canQuickDailyReport: boolean;
   canCreateInspection: boolean;
+  canCreateAcceptance: boolean;
 }): EngineeringRoleAction[] {
-  const { user, roleGuide, orderedModules, visibleModules, canQuickDailyReport, canCreateInspection } = input;
+  const { user, roleGuide, orderedModules, visibleModules, canQuickDailyReport, canCreateInspection, canCreateAcceptance } = input;
   const roles = getEngineeringRoleCodes(user);
   const moduleMap = new Map(visibleModules.map((item) => [item.key, item]));
   const resolveHref = (key: string): Route | undefined => moduleMap.get(key)?.href;
@@ -657,7 +993,7 @@ function resolveEngineeringRoleActions(input: {
 
   function add(action: EngineeringRoleAction | false | null | undefined) {
     if (!action) return;
-    if (action.kind !== "quickDailyReport" && !action.href) return;
+    if (action.kind !== "quickDailyReport" && action.kind !== "quickAcceptance" && !action.href) return;
     if (actions.some((item) => item.key === action.key)) return;
     actions.push(action);
   }
@@ -667,7 +1003,7 @@ function resolveEngineeringRoleActions(input: {
   if (isManagement) {
     add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "rectifications", label: "整改闭环", href: resolveHref("rectifications") });
-    add({ key: "acceptances", label: "工程验收", href: resolveHref("acceptances") });
+    add(canCreateAcceptance ? { key: "quickAcceptance", label: "发起验收", kind: "quickAcceptance" } : { key: "acceptances", label: "工程验收", href: resolveHref("acceptances") });
   } else if (roles.has("PROJECT_MANAGER")) {
     add({ key: "projects", label: "我的项目", href: resolveHref("projects") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "plans", label: "项目计划", href: resolveHref("plans") });
@@ -675,7 +1011,7 @@ function resolveEngineeringRoleActions(input: {
   } else if (roles.has("SUPERVISOR")) {
     add(canCreateInspection ? { key: "createInspection", label: "新建巡检", href: "/engineering/inspections/new", emphasis: true } : { key: "inspections", label: "现场巡检", href: resolveHref("inspections") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "rectifications", label: "整改复查", href: resolveHref("rectifications") });
-    add({ key: "acceptances", label: "验收确认", href: resolveHref("acceptances") });
+    add(canCreateAcceptance ? { key: "quickAcceptance", label: "发起验收", kind: "quickAcceptance" } : { key: "acceptances", label: "验收确认", href: resolveHref("acceptances") });
   } else if (roles.has("CONTRACTOR_MANAGER")) {
     add(canQuickDailyReport ? { key: "quickDailyReport", label: "提交日报", kind: "quickDailyReport", emphasis: true } : { key: "dailyReports", label: "施工日报", href: resolveHref("dailyReports") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "rectifications", label: "整改反馈", href: resolveHref("rectifications") });
@@ -689,7 +1025,7 @@ function resolveEngineeringRoleActions(input: {
     add({ key: "rectifications", label: "整改闭环", href: resolveHref("rectifications") });
     add({ key: "dashboard", label: "工程看板", href: resolveHref("dashboard") });
   } else if (roles.has("PROPERTY_MANAGER") || roles.has("PROPERTY_STAFF")) {
-    add({ key: "acceptances", label: "验收移交", href: resolveHref("acceptances") ?? roleGuide.primaryHref, emphasis: true });
+    add(canCreateAcceptance ? { key: "quickAcceptance", label: "发起验收", kind: "quickAcceptance", emphasis: true } : { key: "acceptances", label: "验收移交", href: resolveHref("acceptances") ?? roleGuide.primaryHref, emphasis: true });
     add({ key: "rectifications", label: "整改跟踪", href: resolveHref("rectifications") });
     add({ key: "projects", label: "工程项目", href: resolveHref("projects") });
   } else if (roles.has("FINANCE_MANAGER") || roles.has("FINANCE_USER")) {

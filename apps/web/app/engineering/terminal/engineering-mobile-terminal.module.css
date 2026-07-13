@@ -132,6 +132,13 @@
   cursor: pointer;
 }
 
+.primaryAction:disabled,
+.secondaryAction:disabled {
+  cursor: wait;
+  opacity: 0.58;
+  filter: saturate(0.6);
+}
+
 .refreshButton {
   position: absolute;
   z-index: 2;
@@ -188,6 +195,12 @@
   background: #fff1f2;
   color: #991b1b;
   font-weight: 800;
+}
+
+.messageSuccess {
+  border-color: rgba(13, 148, 136, 0.28);
+  background: #ecfdf5;
+  color: #065f46;
 }
 
 .statusStrip {
@@ -417,6 +430,19 @@
   text-decoration: none;
 }
 
+.panelAction {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .projectList,
 .todoList {
   display: grid;
@@ -440,6 +466,94 @@
   color: #071926;
   text-decoration: none;
   overflow: hidden;
+}
+
+.todoCard {
+  align-items: stretch;
+  padding: 10px;
+}
+
+.todoCardMain {
+  display: grid;
+  flex: 1 1 0%;
+  min-width: 0;
+  gap: 3px;
+  padding: 3px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.todoAction {
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: 88px;
+  min-height: 42px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: #e8faf7;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 920;
+  cursor: pointer;
+}
+
+.acceptanceCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid #d8e5ef;
+  border-radius: 17px;
+  padding: 12px;
+  background: #f8fbff;
+  color: #071926;
+  text-decoration: none;
+}
+
+.acceptanceIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: #e8faf7;
+  color: #0f766e;
+}
+
+.acceptanceCard div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.acceptanceCard strong,
+.acceptanceCard small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acceptanceCard strong {
+  color: #071926;
+  font-size: 15px;
+  font-weight: 920;
+}
+
+.acceptanceCard small {
+  color: #64798c;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.acceptanceStatus {
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #e8f0f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .projectCard div {
@@ -539,6 +653,19 @@
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
+}
+
+.emptyBlock button {
+  width: fit-content;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #0c5b84;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .mobileDrawerBackdrop {
