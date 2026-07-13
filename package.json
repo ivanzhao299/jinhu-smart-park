@@ -60,6 +60,7 @@
     "go-live:uat-role-flow": "node scripts/go-live-role-flow-uat.mjs",
     "go-live:uat-browser": "node scripts/go-live-browser-uat-check.mjs",
     "go-live:uat-engineering-terminal-click": "node scripts/engineering-terminal-click-uat.mjs",
+    "go-live:uat-engineering-terminal-form": "node scripts/engineering-terminal-form-uat.mjs",
     "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "devDependencies": {

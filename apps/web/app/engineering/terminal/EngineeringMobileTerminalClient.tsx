@@ -244,9 +244,11 @@ export function EngineeringMobileTerminalClient() {
     [authUser, canCreateInspection, canQuickDailyReport, orderedModules, roleGuide, visibleModules]
   );
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (options?: { clearMessage?: boolean }) => {
     setLoading(true);
-    setMessage("");
+    if (options?.clearMessage !== false) {
+      setMessage("");
+    }
     const token = getAccessToken();
     const [dashboardResult, projectResult, rectificationResult] = await Promise.allSettled([
       engineeringDashboardApi.getOverview(token),
@@ -295,8 +297,8 @@ export function EngineeringMobileTerminalClient() {
     try {
       const saved = await engineeringDailyReportsApi.createDailyReport(toQuickDailyReportInput(dailyReportForm), getAccessToken());
       setDailyReportOpen(false);
+      await loadAll({ clearMessage: false });
       setMessage(`施工日报已保存：${saved.reportCode}`);
-      await loadAll();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "保存施工日报失败");
     } finally {
@@ -348,7 +350,7 @@ export function EngineeringMobileTerminalClient() {
           </div>
         </section>
 
-        {message ? <p className={styles.message}>{message}</p> : null}
+        {message ? <p className={styles.message} data-testid="engineering-terminal-message">{message}</p> : null}
 
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
@@ -470,10 +472,10 @@ export function EngineeringMobileTerminalClient() {
                   <X size={22} />
                 </button>
               </header>
-              <form className={styles.mobileDrawerForm} onSubmit={(event) => void submitQuickDailyReport(event)}>
+              <form className={styles.mobileDrawerForm} data-testid="engineering-terminal-quick-daily-report-form" onSubmit={(event) => void submitQuickDailyReport(event)}>
                 <label>
                   所属项目
-                  <select required value={dailyReportForm.projectId} onChange={(event) => setQuickDailyReportValue("projectId", event.target.value)}>
+                  <select data-testid="quick-daily-project" required value={dailyReportForm.projectId} onChange={(event) => setQuickDailyReportValue("projectId", event.target.value)}>
                     <option value="">请选择项目</option>
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>{project.projectName}</option>
@@ -483,11 +485,11 @@ export function EngineeringMobileTerminalClient() {
                 <div className={styles.twoColumnFields}>
                   <label>
                     日期
-                    <input required type="date" value={dailyReportForm.reportDate} onChange={(event) => setQuickDailyReportValue("reportDate", event.target.value)} />
+                    <input data-testid="quick-daily-date" required type="date" value={dailyReportForm.reportDate} onChange={(event) => setQuickDailyReportValue("reportDate", event.target.value)} />
                   </label>
                   <label>
                     天气
-                    <select value={dailyReportForm.weather} onChange={(event) => setQuickDailyReportValue("weather", event.target.value as EngineeringWeatherType)}>
+                    <select data-testid="quick-daily-weather" value={dailyReportForm.weather} onChange={(event) => setQuickDailyReportValue("weather", event.target.value as EngineeringWeatherType)}>
                       {engineeringWeatherTypeOptions.map((item) => (
                         <option key={item.value} value={item.value}>{item.label}</option>
                       ))}
@@ -496,45 +498,45 @@ export function EngineeringMobileTerminalClient() {
                 </div>
                 <label>
                   今日施工内容
-                  <textarea required value={dailyReportForm.workContent} placeholder="例如：A5 楼三层消防管线安装，完成支架定位和部分管线敷设。" onChange={(event) => setQuickDailyReportValue("workContent", event.target.value)} />
+                  <textarea data-testid="quick-daily-work-content" required value={dailyReportForm.workContent} placeholder="例如：A5 楼三层消防管线安装，完成支架定位和部分管线敷设。" onChange={(event) => setQuickDailyReportValue("workContent", event.target.value)} />
                 </label>
                 <label>
                   已完成工作
-                  <textarea value={dailyReportForm.completedWork} placeholder="可填写今日完成量、关键节点或照片说明。" onChange={(event) => setQuickDailyReportValue("completedWork", event.target.value)} />
+                  <textarea data-testid="quick-daily-completed-work" value={dailyReportForm.completedWork} placeholder="可填写今日完成量、关键节点或照片说明。" onChange={(event) => setQuickDailyReportValue("completedWork", event.target.value)} />
                 </label>
                 <label>
                   明日计划
-                  <textarea value={dailyReportForm.tomorrowPlan} placeholder="可填写明日施工安排、材料/人员需求。" onChange={(event) => setQuickDailyReportValue("tomorrowPlan", event.target.value)} />
+                  <textarea data-testid="quick-daily-tomorrow-plan" value={dailyReportForm.tomorrowPlan} placeholder="可填写明日施工安排、材料/人员需求。" onChange={(event) => setQuickDailyReportValue("tomorrowPlan", event.target.value)} />
                 </label>
                 <div className={styles.threeColumnFields}>
                   <label>
                     工人
-                    <input min="0" type="number" value={dailyReportForm.workerCount} onChange={(event) => setQuickDailyReportValue("workerCount", event.target.value)} />
+                    <input data-testid="quick-daily-worker-count" min="0" type="number" value={dailyReportForm.workerCount} onChange={(event) => setQuickDailyReportValue("workerCount", event.target.value)} />
                   </label>
                   <label>
                     管理
-                    <input min="0" type="number" value={dailyReportForm.managerCount} onChange={(event) => setQuickDailyReportValue("managerCount", event.target.value)} />
+                    <input data-testid="quick-daily-manager-count" min="0" type="number" value={dailyReportForm.managerCount} onChange={(event) => setQuickDailyReportValue("managerCount", event.target.value)} />
                   </label>
                   <label>
                     进度 %
-                    <input max="100" min="0" type="number" value={dailyReportForm.progressPercent} onChange={(event) => setQuickDailyReportValue("progressPercent", event.target.value)} />
+                    <input data-testid="quick-daily-progress-percent" max="100" min="0" type="number" value={dailyReportForm.progressPercent} onChange={(event) => setQuickDailyReportValue("progressPercent", event.target.value)} />
                   </label>
                 </div>
                 <label>
                   质量情况
-                  <textarea value={dailyReportForm.qualitySummary} placeholder="可填写质量检查、偏差或整改要求。" onChange={(event) => setQuickDailyReportValue("qualitySummary", event.target.value)} />
+                  <textarea data-testid="quick-daily-quality-summary" value={dailyReportForm.qualitySummary} placeholder="可填写质量检查、偏差或整改要求。" onChange={(event) => setQuickDailyReportValue("qualitySummary", event.target.value)} />
                 </label>
                 <label>
                   安全文明施工
-                  <textarea value={dailyReportForm.safetySummary} placeholder="可填写安全交底、临边防护、动火/用电等情况。" onChange={(event) => setQuickDailyReportValue("safetySummary", event.target.value)} />
+                  <textarea data-testid="quick-daily-safety-summary" value={dailyReportForm.safetySummary} placeholder="可填写安全交底、临边防护、动火/用电等情况。" onChange={(event) => setQuickDailyReportValue("safetySummary", event.target.value)} />
                 </label>
                 <label>
                   存在问题
-                  <textarea value={dailyReportForm.issueSummary} placeholder="可填写需协调问题，后续可转巡检问题或整改任务。" onChange={(event) => setQuickDailyReportValue("issueSummary", event.target.value)} />
+                  <textarea data-testid="quick-daily-issue-summary" value={dailyReportForm.issueSummary} placeholder="可填写需协调问题，后续可转巡检问题或整改任务。" onChange={(event) => setQuickDailyReportValue("issueSummary", event.target.value)} />
                 </label>
                 <footer className={styles.mobileDrawerFooter}>
                   <Link className={styles.fullFormLink} href="/engineering/daily-reports/new">完整表单</Link>
-                  <button className={styles.saveButton} disabled={dailyReportSaving} type="submit">
+                  <button className={styles.saveButton} data-testid="quick-daily-save" disabled={dailyReportSaving} type="submit">
                     <Save size={18} />
                     {dailyReportSaving ? "保存中" : "保存日报"}
                   </button>

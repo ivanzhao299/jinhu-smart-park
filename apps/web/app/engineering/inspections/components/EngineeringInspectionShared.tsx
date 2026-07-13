@@ -63,9 +63,9 @@ export function formatDateTime(value?: string | null): string {
   return value.replace("T", " ").slice(0, 16);
 }
 
-export function MessageLine({ message }: { message: string }) {
+export function MessageLine({ message, testId }: { message: string; testId?: string }) {
   if (!message) return null;
-  return <p className={styles.message}>{message}</p>;
+  return <p className={styles.message} data-testid={testId}>{message}</p>;
 }
 
 export function ForbiddenEngineeringInspection() {

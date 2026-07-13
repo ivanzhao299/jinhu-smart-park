@@ -214,12 +214,13 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
       ) : null}
 
       <Card>
-        <form className={styles.projectForm} onSubmit={(event) => void submit(event)}>
+        <form className={styles.projectForm} data-testid="engineering-inspection-form" onSubmit={(event) => void submit(event)}>
           <section className={styles.formSection}>
             <h2>基础信息</h2>
             <div className={styles.formGrid}>
               <SelectRefField
                 label="所属项目"
+                testId="inspection-project"
                 value={form.projectId}
                 allLabel="请选择项目"
                 items={references.projects.map((item) => ({ id: item.id, label: formatProjectLabel(item) }))}
@@ -233,6 +234,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
                 disabled={editing || Boolean(lockedProjectId)}
               />
               <PlanSelect
+                testId="inspection-plan"
                 value={form.planId}
                 plans={projectPlans}
                 onChange={(value) => setForm((current) => ({
@@ -241,10 +243,10 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
                   dailyReportId: current.dailyReportId && references.dailyReports.some((item) => item.id === current.dailyReportId && item.planId === value) ? current.dailyReportId : ""
                 }))}
               />
-              <DailyReportSelect value={form.dailyReportId} reports={availableDailyReports} onChange={(value) => setFormValue("dailyReportId", value)} />
-              <TextField label="巡检标题" value={form.inspectionTitle} required onChange={(value) => setFormValue("inspectionTitle", value)} />
-              <SelectField label="巡检类型" value={form.inspectionType} options={engineeringInspectionTypeOptions} onChange={(value) => setFormValue("inspectionType", value as EngineeringInspectionType)} />
-              <TextField label="巡检日期" type="date" value={form.inspectionDate} required onChange={(value) => setFormValue("inspectionDate", value)} />
+              <DailyReportSelect testId="inspection-daily-report" value={form.dailyReportId} reports={availableDailyReports} onChange={(value) => setFormValue("dailyReportId", value)} />
+              <TextField label="巡检标题" testId="inspection-title" value={form.inspectionTitle} required onChange={(value) => setFormValue("inspectionTitle", value)} />
+              <SelectField label="巡检类型" testId="inspection-type" value={form.inspectionType} options={engineeringInspectionTypeOptions} onChange={(value) => setFormValue("inspectionType", value as EngineeringInspectionType)} />
+              <TextField label="巡检日期" testId="inspection-date" type="date" value={form.inspectionDate} required onChange={(value) => setFormValue("inspectionDate", value)} />
             </div>
           </section>
 
@@ -253,6 +255,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
             <div className={styles.formGrid}>
               <SelectRefField
                 label="巡检人"
+                testId="inspection-inspector-user"
                 value={form.inspectorUserId}
                 allLabel="暂不指定"
                 items={references.users.map((item) => ({ id: item.id, label: displayUserName(item) }))}
@@ -260,6 +263,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
               />
               <SelectRefField
                 label="巡检组织"
+                testId="inspection-inspector-org"
                 value={form.inspectorOrgId}
                 allLabel="暂不指定"
                 items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
@@ -267,6 +271,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
               />
               <SelectRefField
                 label="施工单位"
+                testId="inspection-contractor-org"
                 value={form.contractorOrgId}
                 allLabel="暂不指定"
                 items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
@@ -274,14 +279,16 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
               />
               <SelectRefField
                 label="监理单位"
+                testId="inspection-supervisor-org"
                 value={form.supervisorOrgId}
                 allLabel="暂不指定"
                 items={references.orgs.map((item) => ({ id: item.id, label: formatOrgLabel(item) }))}
                 onChange={(value) => setFormValue("supervisorOrgId", value)}
               />
-              <TextField label="位置描述" value={form.locationText} onChange={(value) => setFormValue("locationText", value)} />
+              <TextField label="位置描述" testId="inspection-location-text" value={form.locationText} onChange={(value) => setFormValue("locationText", value)} />
               <SelectRefField
                 label="楼栋"
+                testId="inspection-building"
                 value={form.buildingId}
                 allLabel="不关联楼栋"
                 items={references.buildings.map((item) => ({ id: item.id, label: formatBuildingLabel(item) }))}
@@ -294,6 +301,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
               />
               <SelectRefField
                 label="楼层"
+                testId="inspection-floor"
                 value={form.floorId}
                 allLabel="不关联楼层"
                 items={availableFloors.map((item) => ({ id: item.id, label: formatFloorLabel(item) }))}
@@ -305,6 +313,7 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
               />
               <SelectRefField
                 label="空间 / 房源"
+                testId="inspection-space"
                 value={form.spaceId}
                 allLabel="不关联空间"
                 items={availableUnits.map((item) => ({ id: item.id, label: formatUnitLabel(item) }))}
@@ -316,23 +325,23 @@ export function EngineeringInspectionFormClient({ inspectionId }: { inspectionId
           <section className={styles.formSection}>
             <h2>巡检结论</h2>
             <div className={styles.formGrid}>
-              <TextField label="问题数量" type="number" value={form.issueCount} min="0" onChange={(value) => setFormValue("issueCount", value)} />
-              <TextField label="重大问题数量" type="number" value={form.criticalIssueCount} min="0" onChange={(value) => setFormValue("criticalIssueCount", value)} />
+              <TextField label="问题数量" testId="inspection-issue-count" type="number" value={form.issueCount} min="0" onChange={(value) => setFormValue("issueCount", value)} />
+              <TextField label="重大问题数量" testId="inspection-critical-issue-count" type="number" value={form.criticalIssueCount} min="0" onChange={(value) => setFormValue("criticalIssueCount", value)} />
             </div>
-            <TextAreaField label="巡检摘要" value={form.summary} onChange={(value) => setFormValue("summary", value)} />
-            <TextAreaField label="综合结论" value={form.overallResult} onChange={(value) => setFormValue("overallResult", value)} />
-            <TextAreaField label="备注" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
+            <TextAreaField label="巡检摘要" testId="inspection-summary" value={form.summary} onChange={(value) => setFormValue("summary", value)} />
+            <TextAreaField label="综合结论" testId="inspection-overall-result" value={form.overallResult} onChange={(value) => setFormValue("overallResult", value)} />
+            <TextAreaField label="备注" testId="inspection-remark" value={form.remark} onChange={(value) => setFormValue("remark", value)} />
             <div className={styles.scopeHint}>附件资料统一在附件中心维护，这里先记录巡检结论、问题数量和综合判断。</div>
           </section>
 
           <div className={styles.formFooter}>
             <Link className="secondary-button" href={inspectionId ? `/engineering/inspections/${inspectionId}` : "/engineering/inspections"}>取消</Link>
-            <button className="primary-button" type="submit" disabled={saving || loading || Boolean(statusBlocksEdit)}>
+            <button className="primary-button" data-testid="inspection-save" type="submit" disabled={saving || loading || Boolean(statusBlocksEdit)}>
               <Save size={16} />
               {saving ? "保存中..." : "保存"}
             </button>
           </div>
-          <MessageLine message={message} />
+          <MessageLine message={message} testId="engineering-inspection-message" />
         </form>
       </Card>
     </main>
@@ -430,7 +439,7 @@ function optionalNumber(value: string): number | undefined {
   return Number(value);
 }
 
-function TextField({ label, value, onChange, required, readOnly, placeholder, type = "text", min }: {
+function TextField({ label, value, onChange, required, readOnly, placeholder, type = "text", min, testId }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -439,34 +448,36 @@ function TextField({ label, value, onChange, required, readOnly, placeholder, ty
   placeholder?: string;
   type?: "text" | "date" | "number";
   min?: string;
+  testId?: string;
 }) {
   return (
     <label className={styles.formField}>
       <span>{label}{required ? <em>*</em> : null}</span>
-      <input type={type} value={value} required={required} readOnly={readOnly} placeholder={placeholder} min={min} onChange={(event) => onChange(event.target.value)} />
+      <input data-testid={testId} type={type} value={value} required={required} readOnly={readOnly} placeholder={placeholder} min={min} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
 
-function TextAreaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextAreaField({ label, value, onChange, testId }: { label: string; value: string; onChange: (value: string) => void; testId?: string }) {
   return (
     <label className={styles.formField}>
       <span>{label}</span>
-      <textarea rows={4} value={value} onChange={(event) => onChange(event.target.value)} />
+      <textarea data-testid={testId} rows={4} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
 
-function SelectField<T extends string>({ label, value, options, onChange }: {
+function SelectField<T extends string>({ label, value, options, onChange, testId }: {
   label: string;
   value: T;
   options: Array<{ value: T; label: string }>;
   onChange: (value: string) => void;
+  testId?: string;
 }) {
   return (
     <label className={styles.formField}>
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
@@ -482,7 +493,8 @@ function SelectRefField({
   allLabel,
   onChange,
   required,
-  disabled
+  disabled,
+  testId
 }: {
   label: string;
   value: string;
@@ -491,11 +503,12 @@ function SelectRefField({
   onChange: (value: string) => void;
   required?: boolean;
   disabled?: boolean;
+  testId?: string;
 }) {
   return (
     <label className={styles.formField}>
       <span>{label}{required ? <em>*</em> : null}</span>
-      <select value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+      <select data-testid={testId} value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
         <option value="">{allLabel}</option>
         {items.map((item) => (
           <option key={item.id} value={item.id}>{item.label}</option>
@@ -505,11 +518,11 @@ function SelectRefField({
   );
 }
 
-function PlanSelect({ value, plans, onChange }: { value: string; plans: EngineeringPlan[]; onChange: (value: string) => void }) {
+function PlanSelect({ value, plans, onChange, testId }: { value: string; plans: EngineeringPlan[]; onChange: (value: string) => void; testId?: string }) {
   return (
     <label className={styles.formField}>
       <span>关联计划</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">不关联计划</option>
         {plans.map((plan) => (
           <option key={plan.id} value={plan.id}>{plan.planCode} · {plan.planName}</option>
@@ -522,16 +535,18 @@ function PlanSelect({ value, plans, onChange }: { value: string; plans: Engineer
 function DailyReportSelect({
   value,
   reports,
-  onChange
+  onChange,
+  testId
 }: {
   value: string;
   reports: EngineeringProjectReferenceData["dailyReports"];
   onChange: (value: string) => void;
+  testId?: string;
 }) {
   return (
     <label className={styles.formField}>
       <span>关联日报</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">不关联日报</option>
         {reports.map((report) => (
           <option key={report.id} value={report.id}>{formatDailyReportLabel(report)}</option>
