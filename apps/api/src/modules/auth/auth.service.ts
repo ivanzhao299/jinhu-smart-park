@@ -6,7 +6,7 @@ import * as bcrypt from "bcrypt";
 import { createHash, randomBytes, randomInt } from "crypto";
 import { MoreThan, type Repository } from "typeorm";
 import { SYSTEM_PERMISSIONS, type AuthUser } from "@jinhu/shared";
-import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import type { JwtPrincipal, JwtSessionClaims } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import type { LoginDto } from "./dto/login.dto";
 import { TenantsService } from "../tenants/tenants.service";
@@ -722,16 +722,11 @@ export class AuthService implements OnModuleInit {
       is_super: isSuper
     };
 
-    const payload: JwtPrincipal = {
+    const payload: JwtSessionClaims = {
       sub: authUser.id,
       username: authUser.username,
-      realName: authUser.realName,
       tenantId: authUser.tenantId,
-      parkId: authUser.parkId,
-      roles: authUser.roles,
-      permissions: authUser.permissions,
-      dataScope,
-      isSuper
+      parkId: authUser.parkId
     };
 
     const result: LoginResult = {

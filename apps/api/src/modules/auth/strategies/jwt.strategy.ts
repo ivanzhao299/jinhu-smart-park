@@ -1,15 +1,17 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
-import type { JwtPrincipal } from "../../../shared/types/jwt-principal";
+import type { JwtPrincipal, JwtSessionClaims } from "../../../shared/types/jwt-principal";
 import { TenantsService } from "../../tenants/tenants.service";
+import { UsersService } from "../../users/users.service";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
-    private readonly tenantsService: TenantsService
+    private readonly tenantsService: TenantsService,
+    private readonly usersService: UsersService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -18,8 +20,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPrincipal): Promise<JwtPrincipal> {
+  async validate(payload: JwtSessionClaims): Promise<JwtPrincipal> {
     await this.tenantsService.assertTenantActive(payload.tenantId);
-    return payload;
+    try {
+      return await this.usersService.resolveJwtPrincipal(
+        { tenantId: payload.tenantId, parkId: payload.parkId },
+        payload.sub
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new UnauthorizedException("Authentication context is no longer available");
+      }
+      throw error;
+    }
   }
 }

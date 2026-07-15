@@ -23,6 +23,7 @@ interface AuthServiceLockoutFixture {
   };
   auditMessages: string[];
   auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }>;
+  signedPayloads: Array<Record<string, unknown>>;
   loginTicketRepository: {
     ticket: { tenantId: string; parkId: string; provider: string; ticket: string; used: boolean; usedTime: Date | null; contextPayload: Record<string, unknown> } | null;
     savedTickets: Array<{ used: boolean; usedTime: Date | null }>;
@@ -114,6 +115,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
   };
   const auditMessages: string[] = [];
   const auditRecords: Array<{ userId: string | null; tenantId: string; parkId: string; message: string | null }> = [];
+  const signedPayloads: Array<Record<string, unknown>> = [];
   const loginTicketRepository = {
     ticket: null as AuthServiceLockoutFixture["loginTicketRepository"]["ticket"],
     savedTickets: [] as Array<{ used: boolean; usedTime: Date | null }>,
@@ -126,7 +128,12 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
   };
   const service = new AuthService(
     usersService as never,
-    { signAsync: async () => "access-token" } as never,
+    {
+      signAsync: async (payload: Record<string, unknown>) => {
+        signedPayloads.push(payload);
+        return "access-token";
+      }
+    } as never,
     {
       get: (key: string, fallback?: string) => config[key] ?? fallback
     } as never,
@@ -149,7 +156,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     loginTicketRepository as never
   );
 
-  return { service, usersService, auditMessages, auditRecords, loginTicketRepository };
+  return { service, usersService, auditMessages, auditRecords, signedPayloads, loginTicketRepository };
 }
 
 function loginDto(password: string, partial: Partial<LoginDto> = {}): LoginDto {
@@ -294,6 +301,22 @@ test("auth service preserves login relations after refreshing lockout state", as
 
   assert.equal(result.accessToken, "access-token");
   assert.deepEqual(result.user?.permissions, ["system:user:me"]);
+});
+
+test("auth service signs compact session claims instead of embedding authorization lists", async () => {
+  const user = await makeUser();
+  const { service, signedPayloads } = createFixture([user]);
+
+  await service.login(loginDto("Correct#2026"), { ipAddress: "127.0.0.1", userAgent: null });
+
+  assert.deepEqual(signedPayloads, [
+    {
+      sub: user.id,
+      username: user.username,
+      tenantId: user.tenantId,
+      parkId: user.parkId
+    }
+  ]);
 });
 
 test("auth service rejects success when a concurrent failure locks the user after recheck", async () => {

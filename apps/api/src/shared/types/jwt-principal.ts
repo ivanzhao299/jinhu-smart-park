@@ -9,3 +9,10 @@ export interface JwtPrincipal {
   dataScope?: string;
   isSuper?: boolean;
 }
+
+export interface JwtSessionClaims {
+  sub: string;
+  username: string;
+  tenantId: string;
+  parkId: string;
+}

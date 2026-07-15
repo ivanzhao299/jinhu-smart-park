@@ -308,31 +308,19 @@ export class UsersService {
       },
       relations: { org: true }
     });
+    const principal = this.buildJwtPrincipal(user);
     const activeRoleLinks = user.roleLinks.filter((link) => !link.isDeleted && !link.role.isDeleted && link.role.isEnabled);
-    const roleCodes = activeRoleLinks.map((link) => link.role.code);
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
       link.role.permissionLinks
         .filter((permissionLink) => !permissionLink.isDeleted && !permissionLink.permission.isDeleted && permissionLink.permission.isEnabled)
         .map((permissionLink) => permissionLink.permission)
     );
-    const basePermissions = activePermissionEntities.map((permission) => permission.code);
-    const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
-    const permissions = isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]);
-    const dataScope = isSuper ? "all" : this.resolveDataScope(activeRoleLinks.map((link) => link.role.dataScope));
+    const { permissions } = principal;
+    const dataScope = principal.dataScope ?? "self";
+    const isSuper = principal.isSuper ?? false;
     const menuTree = this.buildPermissionMenuTree(activePermissionEntities, permissions);
     const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
     const currentPark = accessibleParks.find((park) => park.is_default) ?? accessibleParks[0] ?? null;
-    const principal: JwtPrincipal = {
-      sub: user.id,
-      username: user.username,
-      realName: user.displayName,
-      tenantId: user.tenantId,
-      parkId: user.parkId,
-      roles: roleCodes,
-      permissions,
-      dataScope,
-      isSuper
-    };
     const fieldPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, principal);
     const dataScopes = await this.dataScopeService.getUserDataScopes(scope, principal);
     const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, user.parkId);
@@ -375,6 +363,14 @@ export class UsersService {
       enabled_modules: enabledModules,
       is_super: isSuper
     };
+  }
+
+  async resolveJwtPrincipal(scope: TenantParkScope, id: string): Promise<JwtPrincipal> {
+    const user = await this.getEntityInScope(scope, id);
+    if (!user.isEnabled || user.status !== "enabled") {
+      throw new NotFoundException("User not found");
+    }
+    return this.buildJwtPrincipal(user);
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
@@ -948,6 +944,36 @@ export class UsersService {
     return scopes
       .map(normalize)
       .reduce((current, scope) => ((rank[scope] ?? 0) > (rank[current] ?? 0) ? scope : current), "self");
+  }
+
+  private buildJwtPrincipal(user: UserEntity): JwtPrincipal {
+    const activeRoleLinks = user.roleLinks.filter(
+      (link) => !link.isDeleted && !link.role.isDeleted && link.role.isEnabled
+    );
+    const basePermissions = activeRoleLinks.flatMap((link) =>
+      link.role.permissionLinks
+        .filter(
+          (permissionLink) =>
+            !permissionLink.isDeleted &&
+            !permissionLink.permission.isDeleted &&
+            permissionLink.permission.isEnabled
+        )
+        .map((permissionLink) => permissionLink.permission.code)
+    );
+    const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
+    const permissions = isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]);
+
+    return {
+      sub: user.id,
+      username: user.username,
+      realName: user.displayName,
+      tenantId: user.tenantId,
+      parkId: user.parkId,
+      roles: activeRoleLinks.map((link) => link.role.code),
+      permissions,
+      dataScope: isSuper ? "all" : this.resolveDataScope(activeRoleLinks.map((link) => link.role.dataScope)),
+      isSuper
+    };
   }
 
   private buildMenuTree(permissions: string[]): UserMenuTreeNode[] {
