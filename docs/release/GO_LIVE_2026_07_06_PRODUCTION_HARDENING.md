@@ -157,3 +157,12 @@ pnpm prod:health
 3. 财务结算、服务器配置、生产运维类高风险动作暂不进入首日生产闭环。
 4. 当天每个角色必须记录至少一条 UAT 结论：PASS / BLOCKED / NEEDS_FIX。
 5. 出现权限缺口时优先补权限迁移，不临时在前端绕过权限。
+
+## 生产 UAT 凭证闸门
+
+生产 UAT 凭证只保存在 GitHub `production` 环境的 `PROD_UAT_CREDENTIALS_CSV` Secret 中，不进入 Git、镜像、迁移或构建产物。
+
+1. 手工执行 `Production UAT Credentials` 工作流，并输入确认文本 `SYNC_PRODUCTION_UAT_CREDENTIALS`，才会同步六个受保护内测账号。
+2. 临时凭证文件权限为 `0600`，同步结束后在 Runner 和生产机两侧删除。
+3. 每次生产部署完成后，`Deploy Production` 会通过公网域名验证六个账号的登录、权限、菜单、关键 API 和页面路由；任一账号失败则发布工作流失败。
+4. 密码轮换不放在数据库 migration 中，避免明文或固定哈希进入版本历史。

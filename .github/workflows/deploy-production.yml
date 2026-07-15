@@ -171,3 +171,18 @@ jobs:
               ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
           fi
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health"
+
+      - name: Verify protected UAT accounts through public production
+        env:
+          PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
+        run: |
+          set -eu
+          test -n "$PROD_UAT_CREDENTIALS_CSV"
+          credentials="$(mktemp)"
+          trap 'rm -f "$credentials"' EXIT INT TERM
+          umask 077
+          printf '%s' "$PROD_UAT_CREDENTIALS_CSV" > "$credentials"
+          node scripts/go-live-uat-user-login-check.mjs \
+            --credentials "$credentials" \
+            --api-base https://park.cnjinhu.com/api/v1 \
+            --web-base https://park.cnjinhu.com

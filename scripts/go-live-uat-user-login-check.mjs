@@ -12,6 +12,7 @@ const defaultAllUsersCredentialsFile = resolve(repoRoot, "database/import-report
 
 const args = new Set(process.argv.slice(2));
 const resetPasswords = args.has("--reset-passwords");
+const syncCredentials = args.has("--sync-credentials");
 const allUsersMode = args.has("--all-users");
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
@@ -194,10 +195,14 @@ const failures = [];
 const warnings = [];
 const userResults = [];
 
-if (!existsSync(envFile)) {
+if (resetPasswords && syncCredentials) {
+  fail("--reset-passwords and --sync-credentials cannot be used together");
+} else if ((resetPasswords || syncCredentials) && !existsSync(envFile)) {
   fail(`missing production env file: ${envFile}`);
 } else if (resetPasswords) {
   resetUatPasswords();
+} else if (syncCredentials) {
+  syncUatPasswords();
 }
 
 if (!existsSync(credentialsFile)) {
@@ -215,6 +220,7 @@ const report = {
   api_base: apiBase,
   web_base: webBase,
   reset_passwords: resetPasswords,
+  sync_credentials: syncCredentials,
   credentials_file: credentialsFile,
   users_checked: userResults.length,
   results: userResults,
@@ -275,6 +281,55 @@ SELECT count(*) FROM updated;
     const keyUsernames = new Set(keyUatUsers.map((user) => user.username));
     const keyRows = [rows[0], ...generatedRows.filter((row) => keyUsernames.has(row[0]))];
     writeCredentialsFile(defaultCredentialsFile, keyRows);
+  }
+}
+
+function syncUatPasswords() {
+  if (!existsSync(credentialsFile)) {
+    fail(`missing credentials file for synchronization: ${credentialsFile}`);
+    return;
+  }
+
+  const credentials = readCredentials(credentialsFile);
+  const values = [];
+  for (const user of uatUsers) {
+    const password = credentials.get(user.username);
+    if (!password) {
+      fail(`missing password for ${user.username}`);
+      continue;
+    }
+    values.push(`(${sqlString(user.username)}, ${sqlString(bcryptHash(password))})`);
+  }
+  if (failures.length > 0) return;
+
+  const updatedRows = psql(`
+WITH src(username, password_hash) AS (
+  VALUES
+    ${values.join(",\n    ")}
+),
+updated AS (
+  UPDATE sys_user u
+     SET password_hash = src.password_hash,
+         password_failed_count = 0,
+         password_failed_window_started_at = NULL,
+         password_locked_until = NULL,
+         last_password_failed_at = NULL,
+         update_time = now(),
+         remark = COALESCE(NULLIF(u.remark, ''), '') || CASE WHEN COALESCE(u.remark, '') = '' THEN '' ELSE '；' END || 'production UAT credential synchronized'
+    FROM src
+   WHERE u.tenant_id = ${sqlString(tenantId)}
+     AND u.park_id = ${sqlString(parkId)}
+     AND u.username = src.username
+     AND u.is_deleted = false
+     AND u.is_enabled = true
+     AND u.status = 'enabled'
+   RETURNING u.username
+)
+SELECT count(*) FROM updated;
+`);
+  const updatedCount = Number(updatedRows[0] ?? 0);
+  if (updatedCount !== uatUsers.length) {
+    fail(`UAT credential synchronization affected ${updatedCount} users, expected ${uatUsers.length}`);
   }
 }
 
