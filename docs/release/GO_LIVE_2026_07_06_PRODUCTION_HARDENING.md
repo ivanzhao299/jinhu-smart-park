@@ -162,7 +162,8 @@ pnpm prod:health
 
 生产 UAT 凭证只保存在 GitHub `production` 环境的 `PROD_UAT_CREDENTIALS_CSV` Secret 中，不进入 Git、镜像、迁移或构建产物。
 
-1. 手工执行 `Production UAT Credentials` 工作流，并输入确认文本 `SYNC_PRODUCTION_UAT_CREDENTIALS`，才会同步六个受保护内测账号。
-2. 临时凭证文件权限为 `0600`，同步结束后在 Runner 和生产机两侧删除。
-3. 每次生产部署完成后，`Deploy Production` 会通过公网域名验证六个账号的登录、权限、菜单、关键 API 和页面路由；任一账号失败则发布工作流失败。
-4. 密码轮换不放在数据库 migration 中，避免明文或固定哈希进入版本历史。
+1. `000172_go_live_uat_user_baseline.sql` 只建立六个禁用账号及其园区、组织、岗位角色关系；迁移中的密码标记不可用于登录，也不会覆盖已有账号。
+2. 手工执行 `Production UAT Credentials` 工作流，并输入确认文本 `SYNC_PRODUCTION_UAT_CREDENTIALS`，才会从受保护 Secret 写入密码哈希并激活六个内测账号。
+3. 临时凭证文件权限为 `0600`，同步结束后在 Runner 和生产机两侧删除。
+4. 每次生产部署完成后，`Deploy Production` 会通过公网域名验证六个账号的登录、权限、菜单、关键 API 和页面路由；任一账号失败则发布工作流失败。
+5. 密码轮换不放在数据库 migration 中，避免明文或固定可用哈希进入版本历史。

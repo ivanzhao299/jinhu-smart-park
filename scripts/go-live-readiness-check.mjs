@@ -48,7 +48,10 @@ const requiredMigrations = [
   "database/migrations/000164_epdr_admin_visibility_backfill.sql",
   "database/migrations/000166_go_live_decision_permission_hardening.sql",
   "database/migrations/000167_go_live_real_user_role_bridge.sql",
-  "database/migrations/000168_go_live_admin_system_alias_permissions.sql"
+  "database/migrations/000168_go_live_admin_system_alias_permissions.sql",
+  "database/migrations/000170_go_live_acceptance_field_execution_bridge.sql",
+  "database/migrations/000171_go_live_invest_workorder_create_repair.sql",
+  "database/migrations/000172_go_live_uat_user_baseline.sql"
 ];
 
 const requiredDecisionRoles = [

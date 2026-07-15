@@ -255,6 +255,8 @@ WITH src(username, password_hash) AS (
 updated AS (
   UPDATE sys_user u
      SET password_hash = src.password_hash,
+         is_enabled = true,
+         status = 'enabled',
          password_failed_count = 0,
          password_failed_window_started_at = NULL,
          password_locked_until = NULL,
@@ -310,6 +312,8 @@ WITH src(username, password_hash) AS (
 updated AS (
   UPDATE sys_user u
      SET password_hash = src.password_hash,
+         is_enabled = true,
+         status = 'enabled',
          password_failed_count = 0,
          password_failed_window_started_at = NULL,
          password_locked_until = NULL,
@@ -321,8 +325,6 @@ updated AS (
      AND u.park_id = ${sqlString(parkId)}
      AND u.username = src.username
      AND u.is_deleted = false
-     AND u.is_enabled = true
-     AND u.status = 'enabled'
    RETURNING u.username
 )
 SELECT count(*) FROM updated;
