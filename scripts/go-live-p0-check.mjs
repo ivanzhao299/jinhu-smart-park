@@ -121,7 +121,8 @@ const requiredMigrations = [
   "000166_go_live_decision_permission_hardening.sql",
   "000167_go_live_real_user_role_bridge.sql",
   "000168_go_live_admin_system_alias_permissions.sql",
-  "000170_go_live_acceptance_field_execution_bridge.sql"
+  "000170_go_live_acceptance_field_execution_bridge.sql",
+  "000171_go_live_invest_workorder_create_repair.sql"
 ];
 
 const requiredRoutes = [

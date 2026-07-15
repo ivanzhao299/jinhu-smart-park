@@ -10,6 +10,8 @@ import { hasModule, hasPermission } from "../../lib/permissions";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
+import { MobileTerminalHeader } from "./MobileTerminalHeader";
+import { MobileTerminalReliability } from "../runtime/MobileTerminalReliability";
 
 const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
 const TERMINAL_LAYOUT_PATHS = [
@@ -101,13 +103,21 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   return (
     <AuthUserContext.Provider value={user}>
       <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
-        <AppHeader
-          breadcrumb={<AppBreadcrumb variant="inline" />}
-          sidebarCollapsed={sidebarCollapsed}
-          onSidebarCollapsedChange={handleSidebarCollapsedChange}
-          terminalMode={isTerminalRoute}
-        />
-        <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} terminalMode={isTerminalRoute} />
+        {isTerminalRoute ? (
+          <>
+            <MobileTerminalHeader />
+            <MobileTerminalReliability />
+          </>
+        ) : (
+          <>
+            <AppHeader
+              breadcrumb={<AppBreadcrumb variant="inline" />}
+              sidebarCollapsed={sidebarCollapsed}
+              onSidebarCollapsedChange={handleSidebarCollapsedChange}
+            />
+            <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
+          </>
+        )}
         <div className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
           {children}
         </div>
@@ -117,9 +127,28 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
 }
 
 function DashboardShellSkeleton({ collapsed, terminalMode }: { collapsed: boolean; terminalMode: boolean }) {
+  if (terminalMode) {
+    return (
+      <div className="dashboard-shell dashboard-shell-terminal dashboard-loading-shell" data-loading="true">
+        <header className="mobile-terminal-header">
+          <div className="mobile-terminal-brand">
+            <span className="header-brand-symbol skeleton" />
+            <span><span className="skeleton-line" /></span>
+          </div>
+          <div className="mobile-terminal-actions">
+            {Array.from({ length: 4 }).map((_, index) => <span className="skeleton" key={index} />)}
+          </div>
+        </header>
+        <div className="dashboard-main dashboard-main-terminal">
+          <main className="page-container"><section className="page-content dashboard-page-skeleton" /></main>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}${terminalMode ? " dashboard-shell-terminal" : ""}`} data-loading="true">
-      <header className={`app-header${terminalMode ? " app-header-terminal" : ""}`} data-terminal-header={terminalMode ? "true" : "false"}>
+    <div className={`dashboard-shell dashboard-loading-shell${collapsed ? " sidebar-collapsed" : ""}`} data-loading="true">
+      <header className="app-header">
         <div className="header-leading">
           <span className="header-icon-button header-sidebar-toggle skeleton" />
           <span className="header-brand-symbol skeleton" />
@@ -133,7 +162,7 @@ function DashboardShellSkeleton({ collapsed, terminalMode }: { collapsed: boolea
           <span className="user-avatar skeleton" />
         </div>
       </header>
-      <aside className={`app-sidebar dashboard-sidebar-skeleton${terminalMode ? " app-sidebar-terminal" : ""}`} aria-hidden="true">
+      <aside className="app-sidebar dashboard-sidebar-skeleton" aria-hidden="true">
         <div className="sidebar-brand-row">
           <div className="brand">
             <span className="brand-mark skeleton" />
@@ -146,7 +175,7 @@ function DashboardShellSkeleton({ collapsed, terminalMode }: { collapsed: boolea
           ))}
         </nav>
       </aside>
-      <div className={`dashboard-main${terminalMode ? " dashboard-main-terminal" : ""}`}>
+      <div className="dashboard-main">
         <main className="page-container">
           <section className="page-header">
             <div className="header-title">

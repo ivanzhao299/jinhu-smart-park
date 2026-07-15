@@ -4,6 +4,7 @@ import { DesignSystemProvider } from "../components/theme/DesignSystemProvider";
 import { QueryProvider } from "../components/runtime/QueryProvider";
 import "antd/dist/reset.css";
 import "./globals.css";
+import "./mobile-terminal.css";
 
 export const metadata: Metadata = {
   title: "金湖科创产业园 SaaS 平台",
@@ -26,7 +27,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0b4f7a"
+  themeColor: "#111827",
+  viewportFit: "cover"
 };
 
 interface RootLayoutProps {
@@ -66,8 +68,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
             `
           }}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/runtime-design-system.css" />
       </head>
       <body>

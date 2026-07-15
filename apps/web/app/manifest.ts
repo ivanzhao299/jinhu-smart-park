@@ -6,10 +6,26 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "金湖园区",
     description: "金湖科创产业园智慧园区运营管理平台",
     start_url: "/login",
+    id: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#06263f",
-    theme_color: "#0b4f7a",
+    background_color: "#111827",
+    theme_color: "#111827",
+    categories: ["business", "productivity"],
+    shortcuts: [
+      {
+        name: "移动作业终端",
+        short_name: "作业终端",
+        description: "进入园区现场作业终端",
+        url: "/operations/terminal"
+      },
+      {
+        name: "工程作业终端",
+        short_name: "工程终端",
+        description: "进入工程项目现场作业终端",
+        url: "/engineering/terminal"
+      }
+    ],
     icons: [
       {
         src: "/icons/jinhu-app-icon-192.png",

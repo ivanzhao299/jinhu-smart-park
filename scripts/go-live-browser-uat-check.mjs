@@ -120,15 +120,24 @@ async function checkUser(user, password, chrome) {
 
   for (const pagePath of pagesToCheck) {
     console.log(`[browser-uat] ${user.username} -> ${pagePath}`);
-    const pageResult = await chrome.visit({
-      path: pagePath,
-      token,
-      userContext: me.body.data,
-      viewport: isMobileTerminalPath(pagePath)
-        ? { width: 390, height: 844, mobile: true, deviceScaleFactor: 3 }
-        : { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
-    });
     result.pages_checked += 1;
+
+    let pageResult;
+    try {
+      pageResult = await chrome.visit({
+        path: pagePath,
+        token,
+        userContext: me.body.data,
+        viewport: isMobileTerminalPath(pagePath)
+          ? { width: 390, height: 844, mobile: true, deviceScaleFactor: 3 }
+          : { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      result.failed_pages.push(`${pagePath}: browser_harness_error (${reason})`);
+      fail(`browser UAT ${user.username} failed ${pagePath}: browser_harness_error (${reason})`);
+      continue;
+    }
 
     if (pageResult.status === "FAIL") {
       result.failed_pages.push(`${pagePath}: ${pageResult.reason}`);
@@ -312,7 +321,7 @@ class CdpClient {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         rejectSend(new Error(`CDP command timeout: ${method}`));
-      }, 15000);
+      }, 30000);
       this.pending.set(id, {
         resolve: (value) => {
           clearTimeout(timer);
