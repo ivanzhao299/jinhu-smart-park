@@ -213,6 +213,55 @@ export class WorkflowService {
       .execute();
   }
 
+  async publishAiWorkPlanAssignment(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    input: {
+      planId: string;
+      planCode: string;
+      taskId: string;
+      taskCode: string;
+      taskTitle: string;
+      recipientId: string;
+      dueAt: Date | null;
+    }
+  ): Promise<void> {
+    if (input.recipientId === actor.sub) return;
+    const entity = this.userMessagesRepository.create({
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      recipientId: input.recipientId,
+      recipientName: null,
+      senderId: actor.sub,
+      senderName: this.actorName(actor),
+      category: "ai_work_plan",
+      priority: "important",
+      sourceType: "ai_work_plan",
+      sourceId: input.planId,
+      bizType: "ai_work_plan_task",
+      bizId: input.taskId,
+      action: "approved",
+      title: `新工作安排：${input.taskTitle}`,
+      content: `${input.planCode} / ${input.taskCode} 已批准，${input.dueAt ? `截止 ${input.dueAt.toLocaleString("zh-CN", { hour12: false })}` : "请确认完成时间"}`,
+      targetUrl: `/ai/assistant?plan=${input.planId}`,
+      uniqueKey: `ai_work_plan:${input.planId}:${input.taskId}:approved:${input.recipientId}`,
+      payload: {
+        planCode: input.planCode,
+        taskCode: input.taskCode,
+        dueAt: input.dueAt?.toISOString() ?? null
+      },
+      createBy: actor.sub,
+      updateBy: actor.sub
+    });
+    await this.userMessagesRepository
+      .createQueryBuilder()
+      .insert()
+      .into(UserMessageEntity)
+      .values(entity as QueryDeepPartialEntity<UserMessageEntity>)
+      .orIgnore()
+      .execute();
+  }
+
   private async findTriageWorkOrders(scope: TenantParkScope, actor: JwtPrincipal): Promise<WorkOrderEntity[]> {
     if (!this.canAssignWorkOrders(actor)) {
       return [];
@@ -347,7 +396,11 @@ export class WorkflowService {
     return {
       id: message.id,
       messageId: message.id,
-      sourceType: message.sourceType === "inspection_task" ? "inspection_task" : "work_order",
+      sourceType: message.sourceType === "inspection_task"
+        ? "inspection_task"
+        : message.sourceType === "ai_work_plan"
+          ? "ai_work_plan"
+          : "work_order",
       sourceId: message.sourceId ?? message.bizId ?? message.id,
       title: message.title,
       content: message.content ?? "",

@@ -1,4 +1,4 @@
-export type WorkflowSourceType = "work_order" | "inspection_task";
+export type WorkflowSourceType = "work_order" | "inspection_task" | "ai_work_plan";
 export type WorkflowTodoKind =
   | "work_order_triage"
   | "work_order_assigned"

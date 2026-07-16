@@ -1,0 +1,243 @@
+.page {
+  gap: 18px;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.composerMain,
+.composerMain > label,
+.composerFields label,
+.taskFields label {
+  display: grid;
+  gap: 8px;
+}
+
+.composerMain > label,
+.composerFields span,
+.taskFields span {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.composer textarea {
+  min-height: 132px;
+  resize: vertical;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.composerFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.composerActions {
+  display: flex;
+  gap: 10px;
+}
+
+.planSection,
+.recentSection {
+  display: grid;
+  gap: 16px;
+}
+
+.planHeader,
+.sectionTitle,
+.taskCard header,
+.taskFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.planHeader span,
+.taskCard header > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.planHeader h2,
+.sectionTitle h2,
+.taskCard h3 {
+  margin: 4px 0 0;
+}
+
+.statusRow,
+.planActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.planProgress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--border-color);
+  padding: 14px 0;
+}
+
+.planProgress span {
+  color: var(--text-secondary);
+}
+
+.planProgress b {
+  display: block;
+  color: var(--text-primary);
+  font-size: 22px;
+}
+
+.taskList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.taskCard {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--color-warning);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.taskCard[data-ready="true"] {
+  border-left-color: var(--color-success);
+}
+
+.taskCard p,
+.sectionTitle p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.taskFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(180px, .65fr);
+  gap: 12px;
+}
+
+.criteriaField {
+  grid-column: 1 / -1;
+}
+
+.criteriaField textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.taskFooter {
+  align-items: end;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.taskFooter span,
+.taskFooter a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.recentList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.recentItem {
+  display: grid;
+  gap: 8px;
+  min-height: 112px;
+  padding: 15px;
+  text-align: left;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.recentItem:hover {
+  border-color: var(--color-primary);
+}
+
+.recentItem span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.recentItem small {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .composer,
+  .taskList,
+  .recentList {
+    grid-template-columns: 1fr;
+  }
+
+  .composerActions {
+    justify-content: flex-end;
+  }
+
+  .planProgress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    gap: 12px;
+  }
+
+  .composer {
+    padding: 14px;
+  }
+
+  .composerFields,
+  .taskFields {
+    grid-template-columns: 1fr;
+  }
+
+  .criteriaField {
+    grid-column: auto;
+  }
+
+  .composerActions,
+  .planHeader,
+  .sectionTitle,
+  .taskFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .composerActions button,
+  .planActions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .taskCard {
+    padding: 14px;
+  }
+}

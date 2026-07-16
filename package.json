@@ -61,6 +61,7 @@
     "go-live:uat-browser": "node scripts/go-live-browser-uat-check.mjs",
     "go-live:uat-engineering-terminal-click": "node scripts/engineering-terminal-click-uat.mjs",
     "go-live:uat-engineering-terminal-form": "node scripts/engineering-terminal-form-uat.mjs",
+    "go-live:uat-ai-work": "node scripts/ai-work-orchestration-uat.mjs",
     "css:check": "node scripts/check-css-architecture.mjs",
     "check:s1": "pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test"
   },

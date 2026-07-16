@@ -1,7 +1,7 @@
 import { Transform } from "class-transformer";
 import { IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
 
-export const WORK_ORDER_SOURCE_TYPES = ["manual", "tenant_request", "alert", "inspection", "safety_emergency", "work_permit", "iot_alert", "robot", "system"] as const;
+export const WORK_ORDER_SOURCE_TYPES = ["manual", "tenant_request", "alert", "inspection", "safety_emergency", "work_permit", "iot_alert", "robot", "system", "ai_work_plan"] as const;
 
 export function trimOptional(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;

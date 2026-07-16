@@ -275,6 +275,7 @@ export enum SystemStatus {
 }
 
 export const SYSTEM_PERMISSIONS = {
+  AI_ASSISTANT: "ai:assistant",
   ORG_LIST: "system:org:list",
   ORG_CREATE: "system:org:create",
   ORG_DETAIL: "system:org:detail",
@@ -789,6 +790,7 @@ export interface PermissionSeed {
 }
 
 export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
+  { code: SYSTEM_PERMISSIONS.AI_ASSISTANT, name: "AI 工作台", resource: "ai.assistant", action: "page" },
   { code: SYSTEM_PERMISSIONS.ORG_LIST, name: "组织列表", resource: "system.org", action: "list" },
   { code: SYSTEM_PERMISSIONS.ORG_CREATE, name: "新增组织", resource: "system.org", action: "create" },
   { code: SYSTEM_PERMISSIONS.ORG_DETAIL, name: "组织详情", resource: "system.org", action: "detail" },

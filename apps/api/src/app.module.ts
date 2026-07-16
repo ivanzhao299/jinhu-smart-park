@@ -6,6 +6,7 @@ import { TypeOrmModule, getRepositoryToken } from "@nestjs/typeorm";
 import { ClsModule } from "nestjs-cls";
 import { randomUUID } from "node:crypto";
 import { AttachmentsModule } from "./modules/attachments/attachments.module";
+import { AiWorkPlansModule } from "./modules/ai-work-plans/ai-work-plans.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AssetsModule } from "./modules/assets/assets.module";
@@ -125,6 +126,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
       })
     }),
     AuthModule,
+    AiWorkPlansModule,
     TenantsModule,
     AssetsModule,
     ParksModule,

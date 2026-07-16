@@ -3582,6 +3582,7 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('workorder_source_type', '应急事件', 'safety_emergency', 50, 'danger'),
     ('workorder_source_type', '作业许可', 'work_permit', 55, 'warning'),
     ('workorder_source_type', '机器人异常', 'robot', 60, 'default'),
+    ('workorder_source_type', 'AI 工作计划', 'ai_work_plan', 65, 'primary'),
     ('workorder_source_type', '系统生成', 'system', 70, 'default')
 ),
 desired_dict_items AS (
