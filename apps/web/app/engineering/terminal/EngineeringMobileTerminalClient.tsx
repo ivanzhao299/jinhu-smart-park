@@ -324,8 +324,8 @@ export function EngineeringMobileTerminalClient() {
   }, [loadAll]);
 
   function openQuickDailyReport() {
-    if (loading || projects.length === 0) {
-      setMessage(loading ? "工程项目正在同步，请稍候再试。" : "当前没有可办理的工程项目。先创建或分配项目后再填报日报。");
+    if (loading) {
+      setMessage("工程项目正在同步，请稍候再试。");
       return;
     }
     setDailyReportForm({
@@ -363,8 +363,8 @@ export function EngineeringMobileTerminalClient() {
   }
 
   function openQuickAcceptance() {
-    if (loading || projects.length === 0) {
-      setMessage(loading ? "工程项目正在同步，请稍候再试。" : "当前没有可办理的工程项目。先创建或分配项目后再发起验收。");
+    if (loading) {
+      setMessage("工程项目正在同步，请稍候再试。");
       return;
     }
     setAcceptanceForm({
@@ -454,14 +454,14 @@ export function EngineeringMobileTerminalClient() {
                 const className = action.emphasis || index === 0 ? styles.primaryAction : styles.secondaryAction;
                 if (action.kind === "quickDailyReport") {
                   return (
-                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading || projects.length === 0} key={action.key} type="button" onClick={openQuickDailyReport}>
+                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading} key={action.key} type="button" onClick={openQuickDailyReport}>
                       {action.label}
                     </button>
                   );
                 }
                 if (action.kind === "quickAcceptance") {
                   return (
-                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading || projects.length === 0} key={action.key} type="button" onClick={openQuickAcceptance}>
+                    <button className={className} data-testid={`engineering-terminal-action-${action.key}`} disabled={loading} key={action.key} type="button" onClick={openQuickAcceptance}>
                       {action.label}
                     </button>
                   );
@@ -647,6 +647,13 @@ export function EngineeringMobileTerminalClient() {
                 </button>
               </header>
               <form className={styles.mobileDrawerForm} data-testid="engineering-terminal-quick-daily-report-form" onSubmit={(event) => void submitQuickDailyReport(event)}>
+                {projects.length === 0 ? (
+                  <div className={styles.drawerEmptyNotice} role="status">
+                    <strong>暂无可填报的工程项目</strong>
+                    <span>先创建或分配工程项目，再返回这里提交施工日报。</span>
+                    <Link href="/engineering/projects/new">创建工程项目</Link>
+                  </div>
+                ) : null}
                 <label>
                   所属项目
                   <select data-testid="quick-daily-project" required value={dailyReportForm.projectId} onChange={(event) => setQuickDailyReportValue("projectId", event.target.value)}>
@@ -710,7 +717,7 @@ export function EngineeringMobileTerminalClient() {
                 </label>
                 <footer className={styles.mobileDrawerFooter}>
                   <Link className={styles.fullFormLink} href="/engineering/daily-reports/new">完整表单</Link>
-                  <button className={styles.saveButton} data-testid="quick-daily-save" disabled={dailyReportSaving} type="submit">
+                  <button className={styles.saveButton} data-testid="quick-daily-save" disabled={dailyReportSaving || projects.length === 0} type="submit">
                     <Save size={18} />
                     {dailyReportSaving ? "保存中" : "保存日报"}
                   </button>
@@ -775,6 +782,13 @@ export function EngineeringMobileTerminalClient() {
                 <button type="button" onClick={() => setAcceptanceOpen(false)} aria-label="关闭"><X size={22} /></button>
               </header>
               <form className={styles.mobileDrawerForm} data-testid="engineering-terminal-acceptance-form" onSubmit={(event) => void submitQuickAcceptance(event)}>
+                {projects.length === 0 ? (
+                  <div className={styles.drawerEmptyNotice} role="status">
+                    <strong>暂无可验收的工程项目</strong>
+                    <span>先创建或分配工程项目，再返回这里发起工程验收。</span>
+                    <Link href="/engineering/projects/new">创建工程项目</Link>
+                  </div>
+                ) : null}
                 <label>
                   所属项目
                   <select data-testid="quick-acceptance-project" required value={acceptanceForm.projectId} onChange={(event) => setQuickAcceptanceValue("projectId", event.target.value)}>
@@ -814,7 +828,7 @@ export function EngineeringMobileTerminalClient() {
                 </label>
                 <footer className={styles.mobileDrawerFooter}>
                   <Link className={styles.fullFormLink} href="/engineering/acceptances/new">完整表单</Link>
-                  <button className={styles.saveButton} data-testid="quick-acceptance-save" disabled={acceptanceSaving} type="submit">
+                  <button className={styles.saveButton} data-testid="quick-acceptance-save" disabled={acceptanceSaving || projects.length === 0} type="submit">
                     <Save size={18} />{acceptanceSaving ? "发起中" : "发起验收"}
                   </button>
                 </footer>

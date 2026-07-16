@@ -758,6 +758,40 @@
   font-weight: 900;
 }
 
+.drawerEmptyNotice {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #f2c94c;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fffbea;
+  color: #402f00;
+}
+
+.drawerEmptyNotice strong {
+  font-size: 15px;
+  font-weight: 920;
+}
+
+.drawerEmptyNotice span {
+  color: #66531a;
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.5;
+}
+
+.drawerEmptyNotice a {
+  width: fit-content;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #123f5c;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .mobileDrawerForm input,
 .mobileDrawerForm select,
 .mobileDrawerForm textarea {
