@@ -32,6 +32,12 @@ test("natural language planner keeps explicit person hint", () => {
   assert.ok(result.tasks[0]?.dueAt);
 });
 
+test("natural language planner recognizes a person before a time phrase", () => {
+  const result = planner.parse("请吴恩国在明天下午前完成全员工作分工复核并提交确认清单。");
+  assert.equal(result.tasks[0]?.personHint, "吴恩国");
+  assert.ok(result.tasks[0]?.dueAt);
+});
+
 test("natural language planner carries deadline and person into sequential review", () => {
   const result = planner.parse("请郑子勇负责明天完成配电室检查，邵明洪完成后复核。");
   assert.equal(result.tasks.length, 2);

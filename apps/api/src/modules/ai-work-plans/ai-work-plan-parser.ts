@@ -2,7 +2,7 @@ import type { AiWorkPlanRisk, ParsedWorkPlan, ParsedWorkPlanTask } from "./domai
 
 const ACTION_PATTERN = /(完成|制定|编制|检查|巡检|整改|复核|验收|提交|处理|维修|排查|汇总|通知|反馈|跟进|关闭|交付|清理|核对|统计|测试|确认|安装|更换|修复|调查)/;
 const DEPARTMENT_PATTERN = /([\u4e00-\u9fa5A-Za-z0-9]{2,20}(?:部|中心|科|组|办公室|公司|单位))/;
-const PERSON_PATTERN = /(?:请)?([\u4e00-\u9fa5]{2,4})(?:负责|牵头|执行|完成后|随后|复核|验收)/;
+const PERSON_PATTERN = /(?:请)?([\u4e00-\u9fa5]{2,4})(?:在[^，,。；;]{0,24})?(?:负责|牵头|执行|完成|随后|复核|验收)/;
 
 const TYPE_RULES: Array<[RegExp, string]> = [
   [/(消防|火灾|灭火|烟感)/, "fire_safety"],

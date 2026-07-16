@@ -51,7 +51,8 @@ const requiredMigrations = [
   "database/migrations/000168_go_live_admin_system_alias_permissions.sql",
   "database/migrations/000170_go_live_acceptance_field_execution_bridge.sql",
   "database/migrations/000171_go_live_invest_workorder_create_repair.sql",
-  "database/migrations/000172_go_live_uat_user_baseline.sql"
+  "database/migrations/000172_go_live_uat_user_baseline.sql",
+  "database/migrations/000175_2026_responsibility_user_role_queue.sql"
 ];
 
 const requiredDecisionRoles = [

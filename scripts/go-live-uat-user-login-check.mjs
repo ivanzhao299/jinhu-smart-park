@@ -9,16 +9,35 @@ const envFile = resolve(repoRoot, ".env.production");
 const composeFile = resolve(repoRoot, "infra/docker/docker-compose.prod.yml");
 const defaultCredentialsFile = resolve(repoRoot, "database/import-reports/go-live-uat-users.local.csv");
 const defaultAllUsersCredentialsFile = resolve(repoRoot, "database/import-reports/go-live-all-users.local.csv");
+const responsibilityManifestFile = resolve(
+  repoRoot,
+  "database/import-reports/jinhu-2026-users/jinhu_2026_users_permission_mapping.json"
+);
+const defaultResponsibilityCredentialsFile = resolve(
+  repoRoot,
+  "database/import-reports/jinhu-2026-users/jinhu_2026_responsibility_uat_credentials.local.csv"
+);
+const responsibilityUatReportFile = resolve(
+  repoRoot,
+  "database/import-reports/jinhu-2026-users/jinhu_2026_responsibility_uat_report.local.json"
+);
 
 const args = new Set(process.argv.slice(2));
 const resetPasswords = args.has("--reset-passwords");
 const syncCredentials = args.has("--sync-credentials");
 const allUsersMode = args.has("--all-users");
+const responsibilityUsersMode = args.has("--responsibility-users");
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
 const credentialsFile = resolve(
   repoRoot,
-  readArg("--credentials") ?? (allUsersMode ? defaultAllUsersCredentialsFile : defaultCredentialsFile)
+  readArg("--credentials") ?? (
+    responsibilityUsersMode
+      ? defaultResponsibilityCredentialsFile
+      : allUsersMode
+        ? defaultAllUsersCredentialsFile
+        : defaultCredentialsFile
+  )
 );
 
 const tenantId = "10000001";
@@ -189,7 +208,14 @@ const keyUatUsers = [
     requiredPages: ["/engineering/dashboard", "/engineering/projects", "/leasing/tenants", "/leasing/leads"]
   }
 ];
-const uatUsers = allUsersMode ? loadAllEnabledUsers() : keyUatUsers;
+if (allUsersMode && responsibilityUsersMode) {
+  failEarly("--all-users and --responsibility-users cannot be used together");
+}
+const uatUsers = responsibilityUsersMode
+  ? loadResponsibilityUsers()
+  : allUsersMode
+    ? loadAllEnabledUsers()
+    : keyUatUsers;
 
 const failures = [];
 const warnings = [];
@@ -216,7 +242,11 @@ const report = {
   checked_at: new Date().toISOString(),
   go_live_date: "2026-07-06",
   status: failures.length === 0 ? "PASS" : "FAIL",
-  mode: allUsersMode ? "all_enabled_users" : "key_go_live_users",
+  mode: responsibilityUsersMode
+    ? "2026_responsibility_users"
+    : allUsersMode
+      ? "all_enabled_users"
+      : "key_go_live_users",
   api_base: apiBase,
   web_base: webBase,
   reset_passwords: resetPasswords,
@@ -228,6 +258,9 @@ const report = {
   failures
 };
 
+if (responsibilityUsersMode) {
+  writeFileSync(responsibilityUatReportFile, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+}
 console.log(JSON.stringify(report, null, 2));
 if (failures.length > 0) process.exitCode = 1;
 
@@ -283,6 +316,13 @@ SELECT count(*) FROM updated;
     const keyUsernames = new Set(keyUatUsers.map((user) => user.username));
     const keyRows = [rows[0], ...generatedRows.filter((row) => keyUsernames.has(row[0]))];
     writeCredentialsFile(defaultCredentialsFile, keyRows);
+  }
+  if (responsibilityUsersMode) {
+    const responsibilityUsernames = new Set(generatedRows.map((row) => row[0]));
+    const preservedRows = existsSync(defaultAllUsersCredentialsFile)
+      ? readCredentialRows(defaultAllUsersCredentialsFile).slice(1).filter((row) => !responsibilityUsernames.has(row[0]))
+      : [];
+    writeCredentialsFile(defaultAllUsersCredentialsFile, [rows[0], ...preservedRows, ...generatedRows]);
   }
 }
 
@@ -482,23 +522,47 @@ ORDER BY u.username;
   });
 }
 
+function loadResponsibilityUsers() {
+  if (!existsSync(responsibilityManifestFile)) {
+    failEarly(`missing responsibility manifest: ${responsibilityManifestFile}`);
+  }
+  const manifest = JSON.parse(readFileSync(responsibilityManifestFile, "utf8"));
+  if (!Array.isArray(manifest.users) || manifest.users.length === 0) {
+    failEarly(`responsibility manifest has no users: ${responsibilityManifestFile}`);
+  }
+  return manifest.users.map((user) => ({
+    username: user.username,
+    displayName: user.display_name,
+    role: Array.isArray(user.role_codes) ? user.role_codes.join(", ") : "未配置角色",
+    allUserSmoke: true,
+    requiredPermissions: [],
+    requiredApiReads: [],
+    requiredPages: []
+  }));
+}
+
 function readCredentials(file) {
-  const content = readFileSync(file, "utf8").replace(/^\uFEFF/, "");
-  const [headerLine, ...lines] = content.split(/\r?\n/).filter(Boolean);
-  const headers = parseCsvLine(headerLine);
+  const [headers, ...rows] = readCredentialRows(file);
   const usernameIndex = headers.indexOf("username");
   const passwordIndex = headers.findIndex((header) => ["uat_password", "initial_password", "password"].includes(header));
   if (usernameIndex < 0 || passwordIndex < 0) {
     throw new Error(`credentials file must include username and password column: ${file}`);
   }
   const credentials = new Map();
-  for (const line of lines) {
-    const cells = parseCsvLine(line);
+  for (const cells of rows) {
     const username = cells[usernameIndex];
     const password = cells[passwordIndex];
     if (username && password && password !== "保留原密码") credentials.set(username, password);
   }
   return credentials;
+}
+
+function readCredentialRows(file) {
+  return readFileSync(file, "utf8")
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(parseCsvLine);
 }
 
 async function requestJson(url, options = {}) {
@@ -594,6 +658,11 @@ function buildPassword(username) {
 
 function fail(message) {
   failures.push(message);
+}
+
+function failEarly(message) {
+  console.error(message);
+  process.exit(1);
 }
 
 function readArg(name) {
