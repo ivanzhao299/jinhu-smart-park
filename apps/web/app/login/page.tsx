@@ -96,7 +96,7 @@ export default function LoginPage() {
         <div className="signin-card-header">
           <div>
             <span className="signin-card-eyebrow">Secure Access</span>
-            <h2>进入运营控制台</h2>
+            <h2>登录</h2>
             <p>使用平台账号登录。</p>
           </div>
         </div>

@@ -5434,7 +5434,7 @@ textarea:disabled {
 
 .signin-card-header {
   display: block;
-  margin-bottom: var(--phoenix-space-8);
+  margin-bottom: var(--phoenix-space-6);
 }
 
 .signin-card-header img {
@@ -5442,15 +5442,15 @@ textarea:disabled {
 }
 
 .signin-card-header h2 {
-  margin: var(--phoenix-space-2) 0 0;
+  margin: var(--phoenix-space-1) 0 0;
   color: var(--phoenix-color-text);
-  font-size: 30px;
+  font-size: 24px;
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
 }
 
 .signin-card-header p {
-  margin: var(--phoenix-space-2) 0 0;
+  margin: var(--phoenix-space-1) 0 0;
   color: var(--phoenix-color-text-muted);
   font-size: var(--font-size-table-body);
   line-height: 1.7;
@@ -6666,7 +6666,7 @@ textarea:disabled {
   }
 
   .signin-card-header h2 {
-    font-size: 23px;
+    font-size: 22px;
   }
 
   .signin-form .ant-input-affix-wrapper,
@@ -6717,11 +6717,11 @@ textarea:disabled {
   }
 
   .signin-card-header {
-    margin-bottom: var(--phoenix-space-5);
+    margin-bottom: var(--phoenix-space-4);
   }
 
   .signin-card-header h2 {
-    font-size: 21px;
+    font-size: 20px;
   }
 
   .signin-card-header p {
@@ -6820,7 +6820,7 @@ textarea:disabled {
   }
 
   .signin-card-header {
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
 
   .signin-card-eyebrow {
@@ -6830,9 +6830,9 @@ textarea:disabled {
   }
 
   .signin-card-header h2 {
-    margin-top: 10px;
+    margin-top: 6px;
     color: #f8fafc;
-    font-size: 27px;
+    font-size: 22px;
     line-height: 1.18;
   }
 
