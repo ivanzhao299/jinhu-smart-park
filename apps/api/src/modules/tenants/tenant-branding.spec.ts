@@ -8,10 +8,11 @@ import {
 } from "./tenant-branding";
 
 describe("tenant branding", () => {
-  it("normalizes incomplete configuration with production defaults", () => {
+  it("treats an explicitly configured system name as active branding", () => {
     assert.deepEqual(normalizeTenantBranding({ systemName: "  新平台  " }), {
       ...DEFAULT_TENANT_BRANDING,
-      systemName: "新平台"
+      systemName: "新平台",
+      configured: true
     });
   });
 

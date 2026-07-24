@@ -157,7 +157,7 @@ function BrandingSettings() {
                   value={form.systemName}
                   maxLength={32}
                   onChange={(event) => updateField("systemName", event.target.value)}
-                  placeholder="例如：园区数字运营平台"
+                  placeholder="例如：企业数字运营平台"
                   required
                 />
               </label>

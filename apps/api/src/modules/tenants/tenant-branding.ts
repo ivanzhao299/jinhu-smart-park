@@ -8,7 +8,7 @@ export interface TenantBrandingView {
 }
 
 export const DEFAULT_TENANT_BRANDING: TenantBrandingView = {
-  systemName: "园区数字运营平台",
+  systemName: "企业数字运营平台",
   shortName: "金湖科创产业园",
   logoAlt: "金湖科创产业园",
   logoFileId: null,
@@ -62,7 +62,7 @@ function normalizedUuid(value: unknown): string | null {
 }
 
 function hasConfiguredBranding(value: Record<string, unknown>): boolean {
-  return ["systemName", "shortName", "logoAlt"].every(
+  return ["systemName", "shortName", "logoAlt", "logoFileId"].some(
     (key) => typeof value[key] === "string" && Boolean((value[key] as string).trim())
   );
 }
