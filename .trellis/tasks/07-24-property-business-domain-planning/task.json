@@ -1,0 +1,31 @@
+{
+  "id": "property-business-domain-planning",
+  "name": "property-business-domain-planning",
+  "title": "房产经营业务领域规划",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-07-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-24-scope-uat-alignment",
+    "07-24-shared-property-foundation",
+    "07-24-homestay-mvp",
+    "07-24-housing-rental-mvp"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
