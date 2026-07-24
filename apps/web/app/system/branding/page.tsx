@@ -5,11 +5,13 @@ import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { CheckCircle2, Palette, Pencil, Save, X } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { FileUploader } from "../../../components/files/FileUploader";
 import { THEME_OPTIONS, type Theme, useTheme } from "../../../components/theme/ThemeProvider";
 import {
   defaultAppBranding,
   fetchCurrentBranding,
   readStoredBranding,
+  resolveBrandLogo,
   saveCurrentBranding
 } from "../../../lib/app-branding";
 import { getToken } from "../../../lib/auth";
@@ -18,6 +20,8 @@ interface BrandingFormState {
   systemName: string;
   shortName: string;
   logoAlt: string;
+  logoFileId: string | null;
+  logoUrl: string | null;
   theme: Theme;
 }
 
@@ -124,7 +128,10 @@ function BrandingSettings() {
 
       <Card className="ds-panel brand-settings-panel">
         <div className="brand-settings-preview" aria-label="品牌预览">
-          <img alt={form.logoAlt || defaultAppBranding.logoAlt} src="/brand/jinhupark-logo.svg" />
+          <img
+            alt={form.logoAlt || defaultAppBranding.logoAlt}
+            src={resolveBrandLogo(form, "/brand/jinhupark-logo.svg")}
+          />
           <div>
             <span>当前系统名称</span>
             <strong>{form.systemName || defaultAppBranding.systemName}</strong>
@@ -186,6 +193,41 @@ function BrandingSettings() {
               </label>
             </DrawerFormGrid>
             <DrawerFormGrid single>
+              <div className="field brand-logo-field">
+                <span>品牌 Logo</span>
+                <div className="brand-logo-upload-row">
+                  <img
+                    alt={form.logoAlt || defaultAppBranding.logoAlt}
+                    src={resolveBrandLogo(form, "/brand/jinhupark-logo.svg")}
+                  />
+                  <FileUploader
+                    bizType="tenant_brand_logo"
+                    compact
+                    label="上传新 Logo"
+                    policyKey="image"
+                    uploadPath="/tenants/current/branding/logo"
+                    onUploaded={(file) => {
+                      updateField("logoFileId", file.id);
+                      updateField("logoUrl", `/api/v1/files/public/brand-logos/${file.id}`);
+                      setMessage("Logo 已上传，请保存品牌设置以正式启用");
+                    }}
+                  />
+                </div>
+                {form.logoFileId ? (
+                  <button
+                    className="secondary-button brand-logo-reset"
+                    type="button"
+                    onClick={() => {
+                      updateField("logoFileId", null);
+                      updateField("logoUrl", null);
+                    }}
+                  >
+                    恢复默认 Logo
+                  </button>
+                ) : null}
+              </div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
               <div className="field">
                 <label>配色方案</label>
                 <div className="theme-scheme-grid" aria-label="配色方案">
@@ -223,7 +265,8 @@ function hasCustomBranding(branding: typeof defaultAppBranding): boolean {
   return (
     branding.systemName !== defaultAppBranding.systemName ||
     branding.shortName !== defaultAppBranding.shortName ||
-    branding.logoAlt !== defaultAppBranding.logoAlt
+    branding.logoAlt !== defaultAppBranding.logoAlt ||
+    branding.logoFileId !== defaultAppBranding.logoFileId
   );
 }
 

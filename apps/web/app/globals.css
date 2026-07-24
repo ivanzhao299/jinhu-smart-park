@@ -4784,8 +4784,47 @@ textarea:disabled {
 .brand-settings-preview img {
   width: 168px;
   max-width: 34vw;
-  height: auto;
+  height: 76px;
   object-fit: contain;
+}
+
+.brand-logo-field {
+  gap: var(--phoenix-space-3);
+}
+
+.brand-logo-upload-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: var(--phoenix-space-4);
+  align-items: start;
+}
+
+.brand-logo-upload-row > img {
+  width: 100%;
+  height: 112px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--phoenix-space-3);
+  background: var(--bg-muted);
+  object-fit: contain;
+}
+
+.brand-logo-upload-row .file-uploader {
+  min-width: 0;
+}
+
+.brand-logo-reset {
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .brand-logo-upload-row {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-logo-upload-row > img {
+    height: 96px;
+  }
 }
 
 .brand-settings-preview div {

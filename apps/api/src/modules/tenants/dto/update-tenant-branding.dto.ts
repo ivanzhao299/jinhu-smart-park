@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength } from "class-validator";
+import { IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from "class-validator";
 
 export class UpdateTenantBrandingDto {
   @IsString()
@@ -15,4 +15,9 @@ export class UpdateTenantBrandingDto {
   @MinLength(1)
   @MaxLength(32)
   logoAlt!: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  logoFileId?: string | null;
 }

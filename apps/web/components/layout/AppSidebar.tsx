@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAppBranding } from "../branding/useAppBranding";
+import { resolveBrandLogo } from "../../lib/app-branding";
 import { useAuthUser } from "../../lib/auth-context";
 import { getDashboardMenus, type MenuNode } from "../../lib/menu";
 import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
@@ -80,7 +81,7 @@ export function AppSidebar({ collapsed, terminalMode = false }: AppSidebarProps)
     >
       <div className="sidebar-brand-row" aria-label={branding.logoAlt}>
         <div className="brand">
-          <img alt={branding.logoAlt} className="brand-title-logo" src="/brand/jinhupark-logo.svg" />
+          <img alt={branding.logoAlt} className="brand-title-logo" src={resolveBrandLogo(branding, "/brand/jinhupark-logo.svg")} />
         </div>
       </div>
       <nav className="sidebar-menu">
