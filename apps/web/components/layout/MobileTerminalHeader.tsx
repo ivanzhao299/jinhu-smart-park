@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { logoutSession } from "../../lib/auth";
 import { useAppBranding } from "../branding/useAppBranding";
+import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 
 export function MobileTerminalHeader() {
@@ -31,7 +32,7 @@ export function MobileTerminalHeader() {
   return (
     <header className="mobile-terminal-header">
       <div className="mobile-terminal-brand">
-        <img alt={branding.logoAlt} src="/brand/jinhupark-symbol.svg" />
+        <img alt={branding.logoAlt} src={resolveBrandLogo(branding, "/brand/jinhupark-symbol.svg")} />
         <span>
           <strong>{branding.systemName}</strong>
           <small>移动作业终端</small>

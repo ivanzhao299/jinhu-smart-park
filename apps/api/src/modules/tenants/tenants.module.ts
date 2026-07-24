@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { FilesModule } from "../files/files.module";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -18,6 +19,7 @@ import { TenantsService } from "./tenants.service";
 
 @Module({
   imports: [
+    FilesModule,
     TypeOrmModule.forFeature([
       TenantEntity,
       ParkEntity,

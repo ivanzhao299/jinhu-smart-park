@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -7,6 +8,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { Public } from "../../shared/decorators/public.decorator";
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import type { UploadedFilePayload } from "../files/files.service";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
 import { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
@@ -45,6 +47,18 @@ export class TenantsController {
     @Body() dto: UpdateTenantBrandingDto
   ) {
     return this.tenantsService.updateBranding(scope, user.sub, dto);
+  }
+
+  @Post("current/branding/logo")
+  @RequirePermissions(SYSTEM_PERMISSIONS.TENANT_MANAGE)
+  @AuditLog({ module: "系统管理", resource: "system.branding", action: "上传品牌 Logo" })
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20 * 1024 * 1024 } }))
+  uploadBrandLogo(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @UploadedFile() file?: UploadedFilePayload
+  ) {
+    return this.tenantsService.uploadBrandLogo(scope, user.sub, file);
   }
 
   @Get()

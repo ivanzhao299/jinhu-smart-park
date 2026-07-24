@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "金湖园区数字运营平台",
+    name: "金湖企业数字运营平台",
     short_name: "金湖园区",
     description: "金湖科创产业园智慧园区运营管理平台",
     start_url: "/login",

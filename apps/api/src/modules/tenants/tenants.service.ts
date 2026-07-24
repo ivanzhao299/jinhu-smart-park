@@ -27,6 +27,11 @@ import { SaaSModuleEntity } from "../saas-modules/entities/saas-module.entity";
 import { TenantModuleEntity } from "../saas-modules/entities/tenant-module.entity";
 import { UserEntity } from "../users/entities/user.entity";
 import { UserParkEntity } from "../users/entities/user-park.entity";
+import {
+  FilesService,
+  TENANT_BRAND_LOGO_BIZ_TYPE,
+  type UploadedFilePayload
+} from "../files/files.service";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
@@ -42,6 +47,10 @@ import {
 const DEFAULT_SOURCE_SCOPE: TenantParkScope = { tenantId: "10000001", parkId: "20000001" };
 const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 export interface TenantView {
   id: string;
@@ -94,7 +103,8 @@ export class TenantsService {
     private readonly tenantRepository: Repository<TenantEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly filesService: FilesService
   ) {}
 
   async current(scope: TenantParkScope): Promise<TenantView> {
@@ -131,14 +141,34 @@ export class TenantsService {
     dto: UpdateTenantBrandingDto
   ): Promise<TenantBrandingView> {
     const tenant = await this.getTenantByScope(scope);
-    const branding = normalizeTenantBranding(dto);
+    const branding = normalizeTenantBranding({
+      ...(isRecord(tenant.featureConfig?.branding) ? tenant.featureConfig.branding : {}),
+      ...dto
+    });
+    if (branding.logoFileId) {
+      await this.filesService.assertBrandLogoReference(scope, branding.logoFileId);
+    }
     tenant.featureConfig = {
       ...(tenant.featureConfig ?? {}),
-      branding
+      branding: {
+        systemName: branding.systemName,
+        shortName: branding.shortName,
+        logoAlt: branding.logoAlt,
+        logoFileId: branding.logoFileId
+      }
     };
     tenant.updateBy = actorId;
     await this.tenantRepository.save(tenant);
     return branding;
+  }
+
+  uploadBrandLogo(scope: TenantParkScope, actorId: string, file?: UploadedFilePayload) {
+    return this.filesService.upload(
+      scope,
+      actorId,
+      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE },
+      file
+    );
   }
 
   async assertTenantActive(tenantId: string): Promise<TenantEntity> {

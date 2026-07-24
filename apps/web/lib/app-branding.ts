@@ -4,15 +4,19 @@ export interface AppBranding {
   systemName: string;
   shortName: string;
   logoAlt: string;
+  logoFileId: string | null;
+  logoUrl: string | null;
   configured?: boolean;
 }
 
 export const BRANDING_STORAGE_KEY = "jinhu_branding";
 
 export const defaultAppBranding: AppBranding = {
-  systemName: "园区数字运营平台",
+  systemName: "企业数字运营平台",
   shortName: "金湖科创产业园",
-  logoAlt: "金湖科创产业园"
+  logoAlt: "金湖科创产业园",
+  logoFileId: null,
+  logoUrl: null
 };
 
 export function normalizeBranding(value?: Partial<AppBranding> | null): AppBranding {
@@ -20,8 +24,14 @@ export function normalizeBranding(value?: Partial<AppBranding> | null): AppBrand
     systemName: value?.systemName?.trim() || defaultAppBranding.systemName,
     shortName: value?.shortName?.trim() || defaultAppBranding.shortName,
     logoAlt: value?.logoAlt?.trim() || defaultAppBranding.logoAlt,
+    logoFileId: value?.logoFileId?.trim() || null,
+    logoUrl: value?.logoUrl?.trim() || null,
     configured: value?.configured === true
   };
+}
+
+export function resolveBrandLogo(branding: AppBranding, fallback: string): string {
+  return branding.logoUrl || fallback;
 }
 
 export function readStoredBranding(): AppBranding {

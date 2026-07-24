@@ -9,6 +9,7 @@ import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { useAuthUser } from "../../lib/auth-context";
 import { hasAccess } from "../../lib/permissions";
 import { useAppBranding } from "../branding/useAppBranding";
+import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 import { UserMenu } from "./UserMenu";
 
@@ -47,7 +48,7 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
       <div className="header-leading">
         {sidebarToggleButton("leading")}
         <div className="header-brand-lockup">
-          <img alt={branding.logoAlt} className="header-brand-symbol" src="/brand/jinhupark-symbol.svg" />
+          <img alt={branding.logoAlt} className="header-brand-symbol" src={resolveBrandLogo(branding, "/brand/jinhupark-symbol.svg")} />
           <div className="header-brand-copy">
             <strong>{branding.systemName}</strong>
             <span>{branding.shortName}</span>

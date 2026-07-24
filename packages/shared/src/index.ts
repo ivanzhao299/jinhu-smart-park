@@ -108,6 +108,7 @@ export const FILE_UPLOAD_POLICIES: Record<FileUploadPolicyKey, FileUploadPolicy>
 };
 
 export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
+  tenant_brand_logo: "image",
   floorplan: "floorplan",
   unit_floorplan: "floorplan",
   safety_hazard_before: "image",
