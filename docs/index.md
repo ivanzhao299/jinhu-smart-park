@@ -2,26 +2,38 @@
 
 本索引用于整理仓库内正式文档入口，帮助新人、开发、测试、运维和发布负责人快速定位材料。
 
+## 0. 当前权威口径
+
+- [当前产品范围与分批开放策略](product/current-product-scope.md)
+- [环境矩阵](deployment/environment-matrix.md)
+- [全量产品 UAT 验收矩阵](uat/full-product-acceptance-matrix.md)
+
+当前项目仍处于开发完善和 UAT 阶段，尚未真实投入生产。全部已设计开发功能均属于计划上线范围，允许分批 UAT 和分批正式开放。历史“首发/二期/生产开放”材料继续作为阶段性证据，不覆盖以上当前口径。
+
 ## 1. 新人接手
 
 - 项目总入口：[README.md](../README.md)
+- 当前产品范围：[product/current-product-scope.md](product/current-product-scope.md)
+- 环境矩阵：[deployment/environment-matrix.md](deployment/environment-matrix.md)
+- 全量 UAT 矩阵：[uat/full-product-acceptance-matrix.md](uat/full-product-acceptance-matrix.md)
 - 当前移交清单：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
 - 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
-- 生产部署入口：[deployment/production.md](deployment/production.md)
-- 生产验收矩阵：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
+- 生产级部署入口（当前用于 UAT）：[deployment/production.md](deployment/production.md)
+- 未来生产就绪矩阵：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
 
 ## 2. 开发与本地运行
 
 - 环境变量模板：仓库根目录 `.env.example`、`.env.production.example`
-- 数据库初始化与生产基线：[deployment/production.md](deployment/production.md)
+- 数据库初始化与 UAT/未来 Production 基线：[deployment/production.md](deployment/production.md)
 - 生产 migration 执行策略：[release/production-migration-execution-policy.md](release/production-migration-execution-policy.md)
 - 本地开发细节：当前以 `README.md` 和现有脚本为入口，模块边界专项文档待后续补充
 
 ## 3. 测试与回归
 
 - 测试运行手册：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
-- 生产验收矩阵与风险清单：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
+- 全量产品 UAT 状态：[uat/full-product-acceptance-matrix.md](uat/full-product-acceptance-matrix.md)
+- 未来生产验收矩阵与风险清单：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
 - 首发核心回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 接口快照与查询响应对照设计：[testing/api-snapshot-regression-plan.md](testing/api-snapshot-regression-plan.md)
 - 接口快照脚本初版收口复核：[testing/api-snapshot-initial-closure-review.md](testing/api-snapshot-initial-closure-review.md)
@@ -62,7 +74,7 @@
   - [testing/s1-governance-hardening.md](testing/s1-governance-hardening.md)
   - [testing/s1-self-test.md](testing/s1-self-test.md)
 
-当前首发统一回归入口：
+当前核心回归入口仍保留历史 `first-release` 命名：
 
 ```bash
 node scripts/e2e/first-release-regression.mjs
@@ -70,11 +82,14 @@ node scripts/e2e/first-release-regression.mjs
 
 ## 4. 部署与运维
 
-- 生产部署说明：[deployment/production.md](deployment/production.md)
+- 环境矩阵：[deployment/environment-matrix.md](deployment/environment-matrix.md)
+- 生产级部署说明（当前用于 UAT）：[deployment/production.md](deployment/production.md)
 - 部署版本追溯：见 [deployment/production.md](deployment/production.md) 的 Deployment Traceability 小节
 - 运维排障手册：[deployment/troubleshooting.md](deployment/troubleshooting.md)
 
 ## 5. 发布与回滚
+
+以下材料多数形成于历史首发、production-like UAT 或未来生产准备阶段。阅读时应结合 [当前产品范围](product/current-product-scope.md) 和 [环境矩阵](deployment/environment-matrix.md)，不能仅凭文件名判断系统已经真实生产投运。
 
 - [First Release Readiness 总清单](release/first-release-readiness-checklist.md)
 - [First Release Readiness 差距分析](release/first-release-readiness-gap-analysis.md)

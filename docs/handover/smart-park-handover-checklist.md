@@ -1,13 +1,16 @@
 # 金湖智慧园区数字运营 SaaS 平台移交清单
 
 生成日期：2026-06-12
-当前阶段：First Release Readiness / Target Environment Verification 文档体系与 API Snapshot Numeric release gate 已完成；真实目标环境执行记录仍待填写
-当前生产域名：https://<production-domain>
+口径校正日期：2026-07-24
+当前阶段：持续开发完善与 UAT 验收；当前最高环境为 UAT，尚未真实投入生产
+未来生产域名：https://<production-domain>（占位，尚未作为真实生产入口启用）
 代码仓库：git@github.com:ivanzhao299/jinhu-smart-park.git
 
 > 安全原则：本文档不保存任何明文密码、私钥、数据库密码、JWT 密钥、第三方 token、管理员密码或完整敏感连接串。所有密钥应通过 1Password、Bitwarden、企业微信密封消息或线下密封交接。
+>
+> 当前权威口径：[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md)、[全量产品 UAT 矩阵](../uat/full-product-acceptance-matrix.md)。本文后续 commit、数量和 First Release 内容是 2026-06-12 的历史移交快照，不应视为 2026-07-24 的实时仓库状态或真实生产证明。
 
-## 1. 当前基线
+## 1. 2026-06-12 历史基线
 
 - 当前工作分支：`docs/update-smart-park-handover-checklist`
 - 当前 `main` / `origin/main` / `HEAD`：`2f2a1cfa2c4691f8c1afc786feaedc6b2842e6ca`

@@ -1,5 +1,11 @@
 # Production Deployment
 
+> Current environment statement (2026-07-24): this document describes the production-grade deployment profile. The project's current highest deployed environment is UAT and has not entered real production operation. Existing `production`, `prod:*`, Compose, workflow, and GitHub Environment names are retained for compatibility; operators must use [environment-matrix.md](./environment-matrix.md) to confirm the actual target before execution.
+
+Current product scope: [current-product-scope.md](../product/current-product-scope.md)
+
+Full-product UAT matrix: [full-product-acceptance-matrix.md](../uat/full-product-acceptance-matrix.md)
+
 Production troubleshooting reference: [troubleshooting.md](./troubleshooting.md)
 
 First release readiness checklist: [first-release-readiness-checklist.md](../release/first-release-readiness-checklist.md)
@@ -12,7 +18,7 @@ First release target environment verification dry-run: [first-release-target-env
 
 First release target environment verification execution record: [first-release-target-environment-verification-execution-record.md](../release/first-release-target-environment-verification-execution-record.md)
 
-This is the first production-grade deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
+This is the production-grade deployment wrapper for the Jinhu Smart Park monorepo. It currently supports production-like UAT rehearsals and is intended to become the future Production deployment foundation. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment
 
@@ -168,19 +174,21 @@ When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshTok
 
 C2 implemented the API cookie contract. C3 updates Web fetch credentials and removes refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
 
-## 1.2 First-Release Menu Scope
+## 1.2 Phased UAT Menu Exposure
 
-The first release only shows the whitelist menu entries below.
+The paths below describe the historical/current phased UAT menu exposure contract. They do not define the final product scope.
 
-- Showing a menu entry does not mean the page code was deleted or the feature is fully opened
-- Hidden menus remain in the codebase for later releases
+- All features already designed and developed remain in the target product scope
+- Showing a menu entry means it is selected for the current exposure set; it does not by itself prove UAT PASS
+- Hidden menus remain target-scope features and must continue through development, security review, and UAT
 - This PR does not change the backend permission model
-- Directly visiting a non-release URL keeps the current behavior in the first version
-- Non-release modules must go through a separate acceptance pass before being added back to the whitelist
+- Directly visiting a non-exposed URL keeps the current permission behavior
+- Modules must pass their current-version UAT before being added to a broader exposure set
 - The source of truth for visible menu paths is `apps/web/lib/menu.ts` `FIRST_RELEASE_MENU_PATHS`
-- `scripts/e2e/first-release-menu-whitelist.mjs` verifies required first-release paths and forbidden hidden paths
+- `scripts/e2e/first-release-menu-whitelist.mjs` retains its historical name and verifies the current phased menu contract
+- Module status is tracked in `docs/uat/full-product-acceptance-matrix.md`
 
-Visible first-release menu scope:
+Current phased UAT visible menu scope:
 
 - Dashboard: `/dashboard`
 - System management:
@@ -223,7 +231,7 @@ Visible first-release menu scope:
   - `/safety/hazards`
   - `/safety/hazards/overdue`
 
-Hidden first-release menus include:
+Current target-scope menus not exposed by this historical whitelist include:
 
 - `/leasing/leads`
 - `/leasing/lead-pool`
@@ -280,6 +288,8 @@ The default full deploy script:
 ### Deployment Modes
 
 The `Deploy Production` GitHub Actions workflow supports a `deploy_mode` input:
+
+The workflow and `prod:*` command names are technical compatibility names. In the current project phase they target UAT unless an independently approved real Production environment is explicitly selected.
 
 - `auto`: default. Compares the previous production `.release.json` commit with the current commit and chooses the safest mode.
 - `fast-css`: syncs `.release.json` and `apps/web/public/runtime-design-system.css` only, then copies the CSS into the running Web container. It does not rebuild images, restart containers, run migrations, or seed data.
