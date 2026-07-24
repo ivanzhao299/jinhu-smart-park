@@ -5,6 +5,7 @@ import { Alert, Button, Form, Input } from "antd";
 import { Building2, FileText, LockKeyhole, LogIn, PlugZap, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { useAppBranding } from "../../components/branding/useAppBranding";
 import { apiRequest } from "../../lib/api-client";
 import { fetchCurrentUser, setSession, setToken } from "../../lib/auth";
 import { resolvePostLoginPath } from "../../lib/post-login-route";
@@ -32,6 +33,7 @@ interface LoginFormValues {
 
 export default function LoginPage() {
   const router = useRouter();
+  const branding = useAppBranding();
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -73,12 +75,13 @@ export default function LoginPage() {
   return (
     <main className="signin-page">
       <div className="signin-background" aria-hidden="true" />
-      <section className="signin-identity" aria-label="金湖科创产业园">
+      <section className="signin-identity" aria-label={branding.logoAlt}>
         <div className="signin-brand-row">
-          <img alt="金湖科创产业园" src="/brand/jinhupark-logo.svg" />
+          <img alt="" aria-hidden="true" src="/brand/jinhupark-symbol.svg" />
+          <strong>{branding.shortName}</strong>
         </div>
         <div className="signin-copy">
-          <h1>园区数字运营平台</h1>
+          <h1>{branding.systemName}</h1>
           <div className="signin-capabilities" aria-label="平台能力">
             <span><Building2 size={16} /> 资产运营</span>
             <span><Store size={16} /> 招商租赁</span>

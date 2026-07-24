@@ -5340,7 +5340,9 @@ textarea:disabled {
 }
 
 .signin-brand-row {
-  display: block;
+  align-items: center;
+  display: inline-flex;
+  gap: var(--phoenix-space-4);
   width: fit-content;
   padding: 0;
   color: var(--phoenix-color-on-primary);
@@ -5348,10 +5350,17 @@ textarea:disabled {
 
 .signin-brand-row img {
   display: block;
-  width: clamp(170px, 18vw, 220px);
+  width: clamp(92px, 10vw, 124px);
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 16px 32px color-mix(in srgb, var(--phoenix-sidebar-bg) 42%, transparent));
+}
+
+.signin-brand-row strong {
+  color: var(--phoenix-color-on-primary);
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .signin-copy {
@@ -6627,7 +6636,7 @@ textarea:disabled {
   }
 
   .signin-brand-row img {
-    width: 156px;
+    width: 88px;
   }
 
   .signin-copy h1 {
@@ -6680,7 +6689,7 @@ textarea:disabled {
   }
 
   .signin-brand-row img {
-    width: 128px;
+    width: 76px;
   }
 
   .signin-copy {

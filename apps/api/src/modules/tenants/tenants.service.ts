@@ -28,12 +28,19 @@ import { TenantModuleEntity } from "../saas-modules/entities/tenant-module.entit
 import { UserEntity } from "../users/entities/user.entity";
 import { UserParkEntity } from "../users/entities/user-park.entity";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
+import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
 import type { UpdateTenantDto } from "./dto/update-tenant.dto";
 import { TenantEntity } from "./entities/tenant.entity";
+import {
+  normalizeTenantBranding,
+  tenantMatchesBrandingHost,
+  type TenantBrandingView
+} from "./tenant-branding";
 
 const DEFAULT_SOURCE_SCOPE: TenantParkScope = { tenantId: "10000001", parkId: "20000001" };
+const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
 
 export interface TenantView {
@@ -93,11 +100,45 @@ export class TenantsService {
   async current(scope: TenantParkScope): Promise<TenantView> {
     const tenant =
       (await this.tenantRepository.findOne({ where: { tenantId: scope.tenantId, isDeleted: false } })) ??
-      (await this.tenantRepository.findOne({ where: { tenantCode: "JH_DEFAULT", isDeleted: false } }));
+      (await this.tenantRepository.findOne({ where: { tenantCode: DEFAULT_TENANT_CODE, isDeleted: false } }));
     if (!tenant) {
       throw new NotFoundException("Tenant not found");
     }
     return this.toView(tenant);
+  }
+
+  async publicBranding(host?: string): Promise<TenantBrandingView> {
+    const tenants = await this.tenantRepository.find({
+      where: { isDeleted: false, status: 1 },
+      order: { createTime: "ASC" }
+    });
+    const tenant =
+      tenants.find((item) => tenantMatchesBrandingHost(host ?? "", item.domains, item.websites)) ??
+      tenants.find((item) => item.tenantId === DEFAULT_SOURCE_SCOPE.tenantId) ??
+      tenants.find((item) => item.tenantCode === DEFAULT_TENANT_CODE) ??
+      tenants[0];
+    return normalizeTenantBranding(tenant?.featureConfig?.branding);
+  }
+
+  async currentBranding(scope: TenantParkScope): Promise<TenantBrandingView> {
+    const tenant = await this.getTenantByScope(scope);
+    return normalizeTenantBranding(tenant.featureConfig?.branding);
+  }
+
+  async updateBranding(
+    scope: TenantParkScope,
+    actorId: string,
+    dto: UpdateTenantBrandingDto
+  ): Promise<TenantBrandingView> {
+    const tenant = await this.getTenantByScope(scope);
+    const branding = normalizeTenantBranding(dto);
+    tenant.featureConfig = {
+      ...(tenant.featureConfig ?? {}),
+      branding
+    };
+    tenant.updateBy = actorId;
+    await this.tenantRepository.save(tenant);
+    return branding;
   }
 
   async assertTenantActive(tenantId: string): Promise<TenantEntity> {
@@ -378,6 +419,16 @@ export class TenantsService {
 
   private async getTenantById(id: string): Promise<TenantEntity> {
     const tenant = await this.tenantRepository.findOne({ where: { id, isDeleted: false } });
+    if (!tenant) {
+      throw new NotFoundException("Tenant not found");
+    }
+    return tenant;
+  }
+
+  private async getTenantByScope(scope: TenantParkScope): Promise<TenantEntity> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
     if (!tenant) {
       throw new NotFoundException("Tenant not found");
     }

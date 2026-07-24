@@ -1,7 +1,10 @@
+import { apiRequest } from "./api-client";
+
 export interface AppBranding {
   systemName: string;
   shortName: string;
   logoAlt: string;
+  configured?: boolean;
 }
 
 export const BRANDING_STORAGE_KEY = "jinhu_branding";
@@ -16,7 +19,8 @@ export function normalizeBranding(value?: Partial<AppBranding> | null): AppBrand
   return {
     systemName: value?.systemName?.trim() || defaultAppBranding.systemName,
     shortName: value?.shortName?.trim() || defaultAppBranding.shortName,
-    logoAlt: value?.logoAlt?.trim() || defaultAppBranding.logoAlt
+    logoAlt: value?.logoAlt?.trim() || defaultAppBranding.logoAlt,
+    configured: value?.configured === true
   };
 }
 
@@ -43,4 +47,26 @@ export function writeStoredBranding(value: Partial<AppBranding>): AppBranding {
     window.dispatchEvent(new CustomEvent<AppBranding>("jinhu:branding-change", { detail: nextBranding }));
   }
   return nextBranding;
+}
+
+export async function fetchPublicBranding(): Promise<AppBranding> {
+  const response = await apiRequest<AppBranding>("/tenants/public/branding", { cache: "no-store" });
+  return response.data.configured ? writeStoredBranding(response.data) : readStoredBranding();
+}
+
+export async function fetchCurrentBranding(token: string): Promise<AppBranding> {
+  const response = await apiRequest<AppBranding>("/tenants/current/branding", {
+    cache: "no-store",
+    token
+  });
+  return response.data.configured ? writeStoredBranding(response.data) : normalizeBranding(response.data);
+}
+
+export async function saveCurrentBranding(token: string, value: Partial<AppBranding>): Promise<AppBranding> {
+  const response = await apiRequest<AppBranding>("/tenants/current/branding", {
+    method: "PATCH",
+    token,
+    body: normalizeBranding(value)
+  });
+  return writeStoredBranding({ ...response.data, configured: true });
 }
