@@ -5820,8 +5820,8 @@ textarea:disabled {
   gap: 14px;
 }
 
-.asset-space-detail-drawer {
-  bottom: auto;
+[data-ui-drawer-panel="true"].asset-space-detail-drawer {
+  bottom: auto !important;
   max-height: calc(100dvh - 24px);
 }
 
@@ -5954,8 +5954,8 @@ textarea:disabled {
 }
 
 @media (max-width: 760px) {
-  .asset-space-detail-drawer {
-    bottom: 0;
+  [data-ui-drawer-panel="true"].asset-space-detail-drawer {
+    bottom: 0 !important;
     max-height: none;
   }
 
