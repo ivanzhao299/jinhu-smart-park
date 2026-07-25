@@ -44,17 +44,17 @@ pnpm go-live:uat-browser -- \
 ## What The Script Checks
 
 1. Logs in with a real local UAT password.
-2. Reads the visible menu tree from `/users/me`.
-3. Filters pages by optional `--usernames`, `--path-prefix`, or `--path-prefixes`.
+2. Reads `/users/me`, loads `/dashboard`, and collects links from the actually rendered sidebar after the Web merges and permission-filters its canonical menus.
+3. Records the API menu count plus any rendered-only links, then filters rendered pages by optional `--usernames`, `--path-prefix`, or `--path-prefixes`.
 4. Opens each page in headless Chrome with a real authenticated session.
 5. Fails on login redirect, permission page, runtime error, or near-blank render.
 6. Prints per-user and per-page progress so browser UAT no longer looks like a stalled job.
 
-## Menu Fallback Coverage Boundary
+## Canonical Menu Merge Coverage
 
-This command checks pages derived from `/users/me` `menu_tree` or `menus`. `scripts/go-live-browser-uat-check.mjs` records `NO_VISIBLE_MENU_PAGE` whenever no pages remain after menu extraction and optional `--path-prefix` / `--path-prefixes` filtering. The marker can therefore mean either that the API menu set was empty or that a nonempty menu had no path matching the requested filter; it does not identify the empty-tree cause by itself and does not exercise or prove the Web `dashboardMenus` fallback.
+This command no longer limits page discovery to the raw `/users/me` `menu_tree` or `menus`. It loads the real dashboard, extracts links from the rendered sidebar, and then visits that rendered set. This covers authorized canonical links added by the Web when the API tree is empty or nonempty but incomplete.
 
-Verify the empty-menu fallback separately with [Menu Fallback Manual Interception](../testing/rbac-menu-dashboard-permission-release-checks.md#5-menu-fallback-manual-interception). Do not report an empty-tree Go-Live Browser UAT run as fallback PASS evidence.
+The JSON result records `api_menu_pages_total`, `menu_pages_total`, and `rendered_only_pages`. A `NO_RENDERED_MENU_PAGE` failure means no rendered link remained after optional path filtering. Use [Menu Fallback Manual Interception](../testing/rbac-menu-dashboard-permission-release-checks.md#5-menu-fallback-manual-interception) when controlled empty-tree and partial-tree evidence is required in addition to the real-account automated run.
 
 ## Latest Focused Engineering Result
 

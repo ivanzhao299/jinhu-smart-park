@@ -66,24 +66,25 @@ Production read-only sampling must not click create, update, delete, enable, dis
 
 ## 5. Menu Fallback Manual Interception
 
-The automated Go-Live Browser UAT derives its page set from `/users/me` `menu_tree` or `menus`. It records `NO_VISIBLE_MENU_PAGE` and stops whenever no pages remain after API-menu extraction and optional path-prefix filtering. The marker can represent an empty API menu or a nonmatching filter, so it neither identifies the fallback trigger nor proves that the Web `dashboardMenus` fallback works.
+The automated Go-Live Browser UAT now derives its page set from the actual rendered sidebar, so authorized canonical links merged into an empty or nonempty-but-incomplete `/users/me` tree are included in page checks. Its report records the raw API count and `rendered_only_pages`. Use the following controlled procedure when release evidence must demonstrate the exact empty-tree and partial-tree merge cases.
 
 Use this read-only Chrome procedure in Local or UAT with an approved standard-role account:
 
 1. Log in, open `/dashboard`, open DevTools, and select **Sources > Overrides**.
 2. Choose a local override folder, allow Chrome access, then reload the page.
 3. In **Network**, locate the successful `/users/me` request, right-click it, and choose **Override content**.
-4. In the overridden JSON response, set both `data.menu_tree` and `data.menus` to empty arrays. Do not change the user ID, tenant, park, roles, permissions, `is_super`, or enabled-module fields.
+4. First set both `data.menu_tree` and `data.menus` to empty arrays. Do not change the user ID, tenant, park, roles, permissions, `is_super`, or enabled-module fields.
 5. Save the override and reload `/dashboard`. Confirm in Network that `/users/me` is served from the local override.
 6. Capture the rendered sidebar. It must not be empty, proving the Web used `dashboardMenus`; every visible link must still be allowed by the retained permissions and enabled modules.
-7. Pick one permission-denied or module-disabled fallback path and open it directly. The page must reject access through redirect, 403, forbidden/disabled state, or equivalent no-access behavior.
-8. Remove or disable the override, reload, and confirm the original backend-provided menu tree is restored.
+7. Next replace both menu fields with the same nonempty partial tree containing only one known authorized page. Reload and capture the sidebar again. Confirm that other authorized canonical links are merged into the rendered menu and are not limited to the single API link.
+8. Open at least one merged authorized link and confirm it renders. Then pick one permission-denied or module-disabled canonical path and open it directly; it must be rejected through redirect, 403, forbidden/disabled state, or equivalent no-access behavior.
+9. Remove or disable the override, reload, and confirm the original backend-provided menu tree is restored.
 
 Record:
 
 - environment, commit, timestamp, and account label;
-- the redacted overridden `/users/me` response showing only empty menu fields plus role/module/permission summaries;
-- before/after sidebar screenshots;
+- the redacted overridden `/users/me` responses showing the empty and nonempty partial menu fields plus role/module/permission summaries;
+- original/empty/partial sidebar screenshots;
 - the denied direct-route result;
 - confirmation that the override was removed.
 

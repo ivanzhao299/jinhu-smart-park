@@ -398,13 +398,13 @@ pnpm regression:leasing
 - 执行命令：`node scripts/e2e/first-release-regression.mjs`
 - 说明：统一 runner 会串联已补齐 replay / conflict 的 `first-release-workorders.mjs` 和 `first-release-leasing.mjs`
 - 子脚本顺序：
-  1. `scripts/e2e/first-release-menu-whitelist.mjs`（历史兼容信息性检查，不定义当前菜单 Go/No-Go）
-  2. `scripts/e2e/first-release-auth-health.mjs`
-  3. `scripts/e2e/first-release-idempotency.mjs`
-  4. `scripts/e2e/first-release-files.mjs`
-  5. `scripts/e2e/first-release-users-assets.mjs`
-  6. `scripts/e2e/first-release-workorders.mjs`
-  7. `scripts/e2e/first-release-leasing.mjs`
+  1. `scripts/e2e/first-release-menu-whitelist.mjs`（历史兼容信息性检查；失败仅告警并继续，不定义当前菜单 Go/No-Go）
+  2. `scripts/e2e/first-release-auth-health.mjs`（必需）
+  3. `scripts/e2e/first-release-idempotency.mjs`（必需）
+  4. `scripts/e2e/first-release-files.mjs`（必需）
+  5. `scripts/e2e/first-release-users-assets.mjs`（必需）
+  6. `scripts/e2e/first-release-workorders.mjs`（必需）
+  7. `scripts/e2e/first-release-leasing.mjs`（必需）
 - 环境变量说明：
   - runner 透传 `API_BASE_URL`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`TEST_RUN_ID`、`TENANT_ID`、`PARK_ID`、`IDEMPOTENCY_KEY_PREFIX`
   - 若未提供 `TEST_RUN_ID`，runner 会自动生成并注入子进程环境
@@ -416,7 +416,8 @@ pnpm regression:leasing
   - 数据库已完成 bootstrap-admin
 - 说明：
   - runner 只负责串行执行已有子脚本，不负责启动 API / DB
-  - 任一子脚本失败时 runner 立即退出非 0
+  - 任一必需子脚本失败时 runner 立即退出非 0
+  - 历史菜单兼容脚本失败时 runner 输出 `[WARN]` 并继续，不能阻断后续必需回归
 
 ## 14. 建议 Issue 列表
 
