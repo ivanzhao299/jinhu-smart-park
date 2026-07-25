@@ -1,4 +1,4 @@
-import { Drawer, DrawerActions, DrawerFooter, DrawerHeader } from "@jinhu/ui";
+import { Drawer, DrawerActions, DrawerBody, DrawerHeader, DrawerTabButton, DrawerTabs } from "@jinhu/ui";
 import type { UserContext } from "@jinhu/shared";
 import { X } from "lucide-react";
 import type {
@@ -79,7 +79,7 @@ export function UnitDetailDrawer({
   onOpenStatusLogs: () => void;
 }) {
   return (
-    <Drawer size="md" onClose={onClose}>
+    <Drawer className="asset-space-detail-drawer" size="lg" onClose={onClose}>
       <DrawerHeader
         eyebrow="资产空间"
         title={unit.unitName}
@@ -96,15 +96,16 @@ export function UnitDetailDrawer({
         {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
         <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
       </DrawerActions>
-      <div className="system-tabs">
-        <button className={activeTab === "info" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("info")}>基础信息</button>
-        <button className={activeTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("workorders")}>关联工单</button>
-        <button className={activeTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("hazards")}>安全隐患</button>
-        <button className={activeTab === "emergencies" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("emergencies")}>应急事件</button>
-        <button className={activeTab === "workPermits" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("workPermits")}>作业许可</button>
-        <button className={activeTab === "devices" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("devices")}>设备</button>
-        <button className={activeTab === "deviceAlerts" ? "primary-button" : undefined} type="button" onClick={() => onTabChange("deviceAlerts")}>设备告警</button>
-      </div>
+      <DrawerTabs aria-label="资产空间详情">
+        <DrawerTabButton active={activeTab === "info"} onClick={() => onTabChange("info")}>基础信息</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "workorders"} onClick={() => onTabChange("workorders")}>关联工单</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "hazards"} onClick={() => onTabChange("hazards")}>安全隐患</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "emergencies"} onClick={() => onTabChange("emergencies")}>应急事件</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "workPermits"} onClick={() => onTabChange("workPermits")}>作业许可</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "devices"} onClick={() => onTabChange("devices")}>设备</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "deviceAlerts"} onClick={() => onTabChange("deviceAlerts")}>设备告警</DrawerTabButton>
+      </DrawerTabs>
+      <DrawerBody>
       {activeTab === "info" ? (
         <UnitDetailSummary
           unit={unit}
@@ -164,9 +165,7 @@ export function UnitDetailDrawer({
           dicts={dicts}
         />
       ) : null}
-      <DrawerFooter>
-        <button className="secondary-button" type="button" onClick={onClose}>关闭</button>
-      </DrawerFooter>
+      </DrawerBody>
     </Drawer>
   );
 }

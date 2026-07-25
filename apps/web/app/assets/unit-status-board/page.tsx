@@ -1,5 +1,5 @@
 "use client";
-import { Card, DataTable, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
+import { Card, DataTable, Drawer, DrawerBody, DrawerDetailGrid, DrawerDetailItem, DrawerHeader, DrawerTabButton, DrawerTabs } from "@jinhu/ui";
 
 import { Eye, RefreshCw, Search, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -604,7 +604,7 @@ function UnitDetailDrawer({
   }, [activeTab, unit.unit_id, devices]);
 
   return (
-    <Drawer size="md" onClose={onClose}>
+    <Drawer className="asset-space-detail-drawer" size="lg" onClose={onClose}>
       <DrawerHeader
         eyebrow="资产空间"
         title={unit.unit_name}
@@ -612,15 +612,16 @@ function UnitDetailDrawer({
         closeIcon={<X size={18} />}
         onClose={onClose}
       />
-      <div className="system-tabs">
-        <button className={activeTab === "info" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("info")}>基础信息</button>
-        <button className={activeTab === "workorders" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workorders")}>关联工单</button>
-        <button className={activeTab === "hazards" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("hazards")}>安全隐患</button>
-        <button className={activeTab === "emergencies" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("emergencies")}>应急事件</button>
-        <button className={activeTab === "workPermits" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("workPermits")}>作业许可</button>
-        <button className={activeTab === "devices" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("devices")}>设备</button>
-        <button className={activeTab === "deviceAlerts" ? "primary-button" : undefined} type="button" onClick={() => setActiveTab("deviceAlerts")}>设备告警</button>
-      </div>
+      <DrawerTabs aria-label="资产空间详情">
+        <DrawerTabButton active={activeTab === "info"} onClick={() => setActiveTab("info")}>基础信息</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "workorders"} onClick={() => setActiveTab("workorders")}>关联工单</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "hazards"} onClick={() => setActiveTab("hazards")}>安全隐患</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "emergencies"} onClick={() => setActiveTab("emergencies")}>应急事件</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "workPermits"} onClick={() => setActiveTab("workPermits")}>作业许可</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "devices"} onClick={() => setActiveTab("devices")}>设备</DrawerTabButton>
+        <DrawerTabButton active={activeTab === "deviceAlerts"} onClick={() => setActiveTab("deviceAlerts")}>设备告警</DrawerTabButton>
+      </DrawerTabs>
+      <DrawerBody>
       {activeTab === "info" ? (
         <DrawerDetailGrid>
           <DrawerDetailItem label="房源名称" value={unit.unit_name} />
@@ -702,12 +703,7 @@ function UnitDetailDrawer({
           alertStatusItems={iotAlertStatusItems}
         />
       ) : null}
-      <DrawerFooter>
-        <button className="secondary-button" type="button" onClick={onClose}>
-          <Eye size={16} />
-          关闭
-        </button>
-      </DrawerFooter>
+      </DrawerBody>
     </Drawer>
   );
 }

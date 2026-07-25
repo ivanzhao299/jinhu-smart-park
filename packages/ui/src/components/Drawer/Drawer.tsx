@@ -65,9 +65,9 @@ export function Drawer({
   return (
     <div className={styles.drawerRoot}>
       {overlay}
-      {as === 'aside' ? <aside className={classNames} data-ui-drawer-panel="true" {...props} /> : null}
-      {as === 'div' ? <div className={classNames} data-ui-drawer-panel="true" {...props} /> : null}
-      {as === 'section' ? <section className={classNames} data-ui-drawer-panel="true" {...props} /> : null}
+      {as === 'aside' ? <aside aria-modal="true" className={classNames} data-ui-drawer-panel="true" role="dialog" {...props} /> : null}
+      {as === 'div' ? <div aria-modal="true" className={classNames} data-ui-drawer-panel="true" role="dialog" {...props} /> : null}
+      {as === 'section' ? <section aria-modal="true" className={classNames} data-ui-drawer-panel="true" role="dialog" {...props} /> : null}
     </div>
   );
 }
@@ -113,7 +113,7 @@ export function DrawerActions({ className = '', ...props }: DivPropsWithChildren
 }
 
 export function DrawerTabs({ className = '', ...props }: DivPropsWithChildren) {
-  return <div className={[styles.drawerTabs, className].filter(Boolean).join(' ')} {...props} />;
+  return <div className={[styles.drawerTabs, className].filter(Boolean).join(' ')} role="tablist" {...props} />;
 }
 
 export interface DrawerTabButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -130,7 +130,11 @@ export function DrawerTabButton({ className = '', active = false, ...props }: Dr
     className
   ].filter(Boolean).join(' ');
 
-  return <button className={classNames} type="button" {...props} />;
+  return <button aria-selected={active} className={classNames} role="tab" type="button" {...props} />;
+}
+
+export function DrawerBody({ className = '', ...props }: DivPropsWithChildren) {
+  return <div className={[styles.drawerBody, className].filter(Boolean).join(' ')} {...props} />;
 }
 
 export function DrawerForm({ className = '', ...props }: FormPropsWithChildren) {
