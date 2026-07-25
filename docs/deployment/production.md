@@ -184,8 +184,9 @@ The paths below describe the historical/current phased UAT menu exposure contrac
 - This PR does not change the backend permission model
 - Directly visiting a non-exposed URL keeps the current permission behavior
 - Modules must pass their current-version UAT before being added to a broader exposure set
-- The source of truth for visible menu paths is `apps/web/lib/menu.ts` `FIRST_RELEASE_MENU_PATHS`
-- `scripts/e2e/first-release-menu-whitelist.mjs` retains its historical name and verifies the current phased menu contract
+- `apps/web/lib/menu.ts` `FIRST_RELEASE_MENU_PATHS` and `scripts/e2e/first-release-menu-whitelist.mjs` are retained as historical compatibility contracts; the script is a static source check and does not prove the current runtime menu exposure
+- Current UAT menu evidence must follow [RBAC Menu Dashboard Permission Release Checks](../testing/rbac-menu-dashboard-permission-release-checks.md) and [Go-Live Browser UAT](../uat/go-live-browser-uat.md): capture the `/users/me` menu tree for each sampled role, compare enabled modules and permissions, and open the resulting visible pages in the target environment
+- When `/users/me` returns no usable menu tree, Web falls back to the full `dashboardMenus`; reviewers must therefore sample both backend-provided menus and the fallback behavior instead of treating the legacy whitelist as the runtime visibility gate
 - Module status is tracked in `docs/uat/full-product-acceptance-matrix.md`
 
 Current phased UAT visible menu scope:
