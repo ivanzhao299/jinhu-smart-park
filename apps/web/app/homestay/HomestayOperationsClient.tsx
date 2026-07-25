@@ -70,7 +70,7 @@ interface RoomState {
   unit_code: string;
   unit_name: string;
   operation_mode: string | null;
-  room_state: "available" | "occupied" | "turnover" | "mode_unavailable";
+  room_state: "available" | "occupied" | "turnover" | "mode_unavailable" | "out_of_service";
 }
 
 const emptyDashboard: Dashboard = {

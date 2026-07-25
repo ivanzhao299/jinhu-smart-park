@@ -127,6 +127,12 @@ export class PropertyOccupanciesService {
     if (!occupancyDomainMatchesMode(dto.source_domain, mode)) {
       throw new ConflictException(`Occupancy source domain ${dto.source_domain} is incompatible with operating mode ${mode}`);
     }
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)
+      && config?.operatingStatus !== "enabled"
+    ) {
+      throw new ConflictException("Business occupancy requires an enabled operating unit");
+    }
     const conflicts = await this.findConflicts(manager, scope, dto.unit_id, period.startAt, period.endAt);
     if (conflicts.length > 0) {
       throw new ConflictException({ message: "Property occupancy conflicts with an existing period", conflicts });

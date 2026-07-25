@@ -12,9 +12,11 @@ import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
+import { PropertyOperationConfigEntity } from "../property-operations/entities/property-operation-config.entity";
 import { PropertyOccupancyEntity } from "../property-operations/entities/property-occupancy.entity";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { UnitEntity } from "../units/entities/unit.entity";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import type {
   AddHomestayGuestDto,
@@ -38,6 +40,13 @@ import {
   HomestayStayCredentialEntity,
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
+import {
+  assertHomestayCheckInWindow,
+  assertHomestayGuestRosterComplete,
+  homestayMoneyDifference,
+  toMoneyCents,
+  turnoverLockEnd
+} from "./homestay-booking.policy";
 import {
   assertHomestayManualLedgerMutation,
   calculateCancellableRoomCharge,
@@ -75,6 +84,9 @@ export class HomestayService {
     dateFrom: string,
     dateTo: string
   ) {
+    if (!dateFrom || !dateTo) {
+      throw new BadRequestException("date_from and date_to are required");
+    }
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.mustFindRate(scope, unitId);
@@ -233,76 +245,84 @@ export class HomestayService {
     idempotencyKey?: string
   ) {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
-    return this.dataSource.transaction(async (manager) => {
-      if (dto.booker_party_id) {
-        const booker = await manager.getRepository(PartyEntity).findOne({
-          where: {
-            id: dto.booker_party_id,
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            partyType: "person",
-            isDeleted: false
-          }
-        });
-        if (!booker) throw new NotFoundException("Individual booker party not found");
-      }
-      const pricing = await this.calculatePricing(manager, scope, dto.unit_id, dto.arrival_date, dto.departure_date);
-      const bookingRepository = manager.getRepository(HomestayBookingEntity);
-      const booking = await bookingRepository.save(bookingRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        bookingCode: dto.booking_code?.trim() || this.generateBookingCode(),
-        unitId: dto.unit_id,
-        bookerPartyId: dto.booker_party_id ?? null,
-        occupancyId: null,
-        status: "draft",
-        arrivalDate: pricing.arrivalDate,
-        departureDate: pricing.departureDate,
-        expectedArrivalTime: dto.expected_arrival_time ? new Date(dto.expected_arrival_time) : null,
-        sourceType: dto.source_type,
-        channelName: dto.channel_name?.trim() ?? null,
-        externalOrderNo: dto.external_order_no?.trim() ?? null,
-        channelSyncStatus: dto.source_type === "ota_reserved" ? "reserved_not_connected" : "not_applicable",
-        guestCount: dto.guest_count,
-        currency: pricing.config.currency,
-        roomAmount: pricing.total.toFixed(2),
-        adjustmentAmount: "0.00",
-        totalAmount: pricing.total.toFixed(2),
-        cancellationPolicySnapshot: this.cancellationSnapshot(pricing.config),
-        createBy: actor.sub,
-        updateBy: actor.sub,
-        remark: dto.remark?.trim() ?? null
-      }));
-      await manager.getRepository(HomestayBookingNightEntity).save(
-        pricing.nights.map((night) => manager.getRepository(HomestayBookingNightEntity).create({
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        await this.assertUnitBookable(manager, scope, dto.unit_id);
+        if (dto.booker_party_id) {
+          const booker = await manager.getRepository(PartyEntity).findOne({
+            where: {
+              id: dto.booker_party_id,
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              partyType: "person",
+              isDeleted: false
+            }
+          });
+          if (!booker) throw new NotFoundException("Individual booker party not found");
+        }
+        const pricing = await this.calculatePricing(manager, scope, dto.unit_id, dto.arrival_date, dto.departure_date);
+        const bookingRepository = manager.getRepository(HomestayBookingEntity);
+        const booking = await bookingRepository.save(bookingRepository.create({
           tenantId: scope.tenantId,
           parkId: scope.parkId,
-          bookingId: booking.id,
-          ...night,
+          bookingCode: dto.booking_code?.trim() || this.generateBookingCode(),
+          unitId: dto.unit_id,
+          bookerPartyId: dto.booker_party_id ?? null,
+          occupancyId: null,
+          status: "draft",
+          arrivalDate: pricing.arrivalDate,
+          departureDate: pricing.departureDate,
+          expectedArrivalTime: dto.expected_arrival_time ? new Date(dto.expected_arrival_time) : null,
+          sourceType: dto.source_type,
+          channelName: dto.channel_name?.trim() ?? null,
+          externalOrderNo: dto.external_order_no?.trim() ?? null,
+          channelSyncStatus: dto.source_type === "ota_reserved" ? "reserved_not_connected" : "not_applicable",
+          guestCount: dto.guest_count,
+          currency: pricing.config.currency,
+          roomAmount: pricing.total.toFixed(2),
+          adjustmentAmount: "0.00",
+          totalAmount: pricing.total.toFixed(2),
+          cancellationPolicySnapshot: this.cancellationSnapshot(pricing.config),
           createBy: actor.sub,
-          updateBy: actor.sub
-        }))
-      );
-      const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000);
-      const occupancy = await this.propertyOccupanciesService.createInTransaction(manager, scope, actor, {
-        unit_id: booking.unitId,
-        source_domain: "homestay",
-        source_type: "homestay_booking",
-        source_id: booking.id,
-        start_at: this.businessDateStart(booking.arrivalDate).toISOString(),
-        end_at: this.businessDateStart(booking.departureDate).toISOString(),
-        status: "held",
-        hold_expires_at: holdExpiresAt.toISOString(),
-        remark: `Homestay draft ${booking.bookingCode}`
-      }, idempotencyKey);
-      booking.occupancyId = occupancy.id;
-      await bookingRepository.save(booking);
-      await this.log(manager, scope, actor, booking, "create", null, "draft", "人工创建民宿订单", {
-        hold_expires_at: holdExpiresAt.toISOString(),
-        room_amount: booking.roomAmount
+          updateBy: actor.sub,
+          remark: dto.remark?.trim() ?? null
+        }));
+        await manager.getRepository(HomestayBookingNightEntity).save(
+          pricing.nights.map((night) => manager.getRepository(HomestayBookingNightEntity).create({
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            bookingId: booking.id,
+            ...night,
+            createBy: actor.sub,
+            updateBy: actor.sub
+          }))
+        );
+        const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000);
+        const occupancy = await this.propertyOccupanciesService.createInTransaction(manager, scope, actor, {
+          unit_id: booking.unitId,
+          source_domain: "homestay",
+          source_type: "homestay_booking",
+          source_id: booking.id,
+          start_at: this.businessDateStart(booking.arrivalDate).toISOString(),
+          end_at: this.businessDateStart(booking.departureDate).toISOString(),
+          status: "held",
+          hold_expires_at: holdExpiresAt.toISOString(),
+          remark: `Homestay draft ${booking.bookingCode}`
+        }, idempotencyKey);
+        booking.occupancyId = occupancy.id;
+        await bookingRepository.save(booking);
+        await this.log(manager, scope, actor, booking, "create", null, "draft", "人工创建民宿订单", {
+          hold_expires_at: holdExpiresAt.toISOString(),
+          room_amount: booking.roomAmount
+        });
+        return booking;
       });
-      return booking;
-    });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException("Booking code or external channel order already exists");
+      }
+      throw error;
+    }
   }
 
   async confirmBooking(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
@@ -311,6 +331,7 @@ export class HomestayService {
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "confirmed") return booking;
       this.assertStatus(booking, ["draft"], "Only draft bookings can be confirmed");
+      await this.assertUnitBookable(manager, scope, booking.unitId);
       if (!booking.occupancyId) throw new ConflictException("Booking occupancy hold is missing");
       await this.propertyOccupanciesService.activateInTransaction(manager, scope, actor, booking.occupancyId);
       const before = booking.status;
@@ -363,7 +384,7 @@ export class HomestayService {
       if (booking.status === "cancelled") return booking;
       this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
       const before = booking.status;
-      const cancellationFee = this.calculateCancellationFee(booking);
+      const cancellationFee = before === "confirmed" ? this.calculateCancellationFee(booking) : 0;
       if (booking.occupancyId) {
         await this.propertyOccupanciesService.releaseInTransaction(
           manager,
@@ -457,15 +478,15 @@ export class HomestayService {
         }))
       );
       const previousAmount = Number(booking.roomAmount);
+      const difference = homestayMoneyDifference(pricing.total, previousAmount);
       booking.arrivalDate = pricing.arrivalDate;
       booking.departureDate = pricing.departureDate;
       booking.occupancyId = occupancy.id;
       booking.roomAmount = pricing.total.toFixed(2);
-      booking.adjustmentAmount = (pricing.total - previousAmount).toFixed(2);
+      booking.adjustmentAmount = difference.toFixed(2);
       booking.totalAmount = pricing.total.toFixed(2);
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      const difference = pricing.total - previousAmount;
       if (booking.status === "confirmed" && difference !== 0) {
         await this.createLedgerEntry(manager, scope, actor, saved.id, {
           entry_type: difference > 0 ? "charge" : "waiver",
@@ -563,6 +584,12 @@ export class HomestayService {
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "checked_in") return booking;
       this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can check in");
+      const now = new Date();
+      assertHomestayCheckInWindow(
+        now,
+        this.businessDateStart(booking.arrivalDate),
+        this.businessDateStart(booking.departureDate)
+      );
       const verifiedGuests = await manager.getRepository(HomestayBookingGuestEntity).count({
         where: {
           tenantId: scope.tenantId,
@@ -572,14 +599,22 @@ export class HomestayService {
           isDeleted: false
         }
       });
-      if (verifiedGuests < 1) throw new ConflictException("At least one verified guest is required");
+      assertHomestayGuestRosterComplete(booking.guestCount, verifiedGuests);
+      const pendingTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
+        .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("task.unit_id = :unitId", { unitId: booking.unitId })
+        .andWhere("task.status <> 'completed'")
+        .andWhere("task.is_deleted = false")
+        .getCount();
+      if (pendingTurnovers > 0) throw new ConflictException("Unit turnover must be completed before check-in");
       const issuedCredentials = await manager.getRepository(HomestayStayCredentialEntity).count({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, status: "issued", isDeleted: false }
       });
       if (issuedCredentials < 1) throw new ConflictException("At least one issued key, card, or voucher is required");
       const before = booking.status;
       booking.status = "checked_in";
-      booking.actualCheckInTime = new Date();
+      booking.actualCheckInTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
       await this.log(manager, scope, actor, saved, "check_in", before, saved.status, "办理入住");
@@ -614,11 +649,10 @@ export class HomestayService {
         .andWhere("occupancy.unit_id = :unitId", { unitId: booking.unitId })
         .andWhere("occupancy.is_deleted = false")
         .andWhere("(occupancy.status = 'active' OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > :now)))")
-        .andWhere("occupancy.start_at > :now", { now: now.toISOString() })
+        .andWhere("occupancy.end_at > :now", { now: now.toISOString() })
         .orderBy("occupancy.start_at", "ASC")
         .getOne();
-      const turnoverEnd = future?.startAt ?? new Date(now.getTime() + 365 * 24 * 60 * 60_000);
-      if (turnoverEnd.getTime() <= now.getTime()) throw new ConflictException("No turnover window is available");
+      const lockEnd = turnoverLockEnd(now, future?.startAt ?? null);
       const turnoverRepository = manager.getRepository(HomestayTurnoverTaskEntity);
       const task = await turnoverRepository.save(turnoverRepository.create({
         tenantId: scope.tenantId,
@@ -632,17 +666,19 @@ export class HomestayService {
         createBy: actor.sub,
         updateBy: actor.sub
       }));
-      const turnoverOccupancy = await this.propertyOccupanciesService.createInTransaction(manager, scope, actor, {
-        unit_id: booking.unitId,
-        source_domain: "operations",
-        source_type: "homestay_turnover",
-        source_id: task.id,
-        start_at: now.toISOString(),
-        end_at: turnoverEnd.toISOString(),
-        status: "active",
-        remark: `Turnover after ${booking.bookingCode}`
-      });
-      task.occupancyId = turnoverOccupancy.id;
+      if (lockEnd) {
+        const turnoverOccupancy = await this.propertyOccupanciesService.createInTransaction(manager, scope, actor, {
+          unit_id: booking.unitId,
+          source_domain: "operations",
+          source_type: "homestay_turnover",
+          source_id: task.id,
+          start_at: now.toISOString(),
+          end_at: lockEnd.toISOString(),
+          status: "active",
+          remark: `Turnover after ${booking.bookingCode}`
+        });
+        task.occupancyId = turnoverOccupancy.id;
+      }
       await turnoverRepository.save(task);
       const before = booking.status;
       booking.status = "checked_out";
@@ -820,7 +856,7 @@ export class HomestayService {
        JOIN biz_homestay_booking booking ON booking.id = entry.booking_id
        WHERE entry.tenant_id = $1 AND entry.park_id = $2
          AND entry.is_deleted = false AND entry.status = 'confirmed'
-         AND entry.occurred_at::date = $3::date${unitClause}`,
+         AND (entry.occurred_at AT TIME ZONE 'Asia/Shanghai')::date = $3::date${unitClause}`,
       parameters
     ) as Array<{ revenue: string }>;
     const modeParameters: unknown[] = [scope.tenantId, scope.parkId];
@@ -890,6 +926,8 @@ export class HomestayService {
               mode.operating_mode AS operation_mode,
               CASE
                 WHEN mode.operating_mode IS DISTINCT FROM 'short_stay' THEN 'mode_unavailable'
+                WHEN mode.operating_status IS DISTINCT FROM 'enabled' THEN 'out_of_service'
+                WHEN count(turnover.id) > 0 THEN 'turnover'
                 WHEN bool_or(occupancy.source_type = 'homestay_turnover') THEN 'turnover'
                 WHEN bool_or(occupancy.status IN ('held', 'active')) THEN 'occupied'
                 ELSE 'available'
@@ -909,10 +947,16 @@ export class HomestayService {
         AND (occupancy.status <> 'held' OR occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
         AND occupancy.start_at < $4::timestamptz
         AND occupancy.end_at > $3::timestamptz
+       LEFT JOIN biz_homestay_turnover_task turnover
+         ON turnover.tenant_id = unit.tenant_id
+        AND turnover.park_id = unit.park_id
+        AND turnover.unit_id = unit.id
+        AND turnover.is_deleted = false
+        AND turnover.status <> 'completed'
        WHERE unit.tenant_id = $1
          AND unit.park_id = $2
          AND unit.is_deleted = false${unitClause}
-       GROUP BY unit.id, unit.unit_code, unit.unit_name, mode.operating_mode
+       GROUP BY unit.id, unit.unit_code, unit.unit_name, mode.operating_mode, mode.operating_status
        ORDER BY unit.unit_code`,
       parameters
     );
@@ -956,7 +1000,7 @@ export class HomestayService {
       departureDate,
       config,
       nights,
-      total: nights.reduce((sum, night) => sum + Number(night.finalRate), 0)
+      total: nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0) / 100
     };
   }
 
@@ -1073,6 +1117,28 @@ export class HomestayService {
     return config;
   }
 
+  private async assertUnitBookable(manager: EntityManager, scope: TenantParkScope, unitId: string) {
+    const unit = await manager.getRepository(UnitEntity).findOne({
+      where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" }
+    });
+    if (!unit) throw new NotFoundException("Unit not found");
+    const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
+    });
+    if (!config || config.operatingMode !== "short_stay" || config.operatingStatus !== "enabled") {
+      throw new ConflictException("Unit must be enabled for short-stay operation before booking");
+    }
+    const openTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
+      .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("task.unit_id = :unitId", { unitId })
+      .andWhere("task.status <> 'completed'")
+      .andWhere("task.is_deleted = false")
+      .getCount();
+    if (openTurnovers > 0) throw new ConflictException("Unit turnover must be completed before booking");
+  }
+
   private assertStatus(booking: HomestayBookingEntity, allowed: string[], message: string): void {
     if (!allowed.includes(booking.status)) throw new ConflictException(message);
   }
@@ -1112,5 +1178,9 @@ export class HomestayService {
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return Boolean(error && typeof error === "object" && (error as { code?: unknown }).code === "23505");
   }
 }

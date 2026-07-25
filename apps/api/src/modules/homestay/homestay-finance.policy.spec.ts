@@ -14,6 +14,13 @@ test("confirmed room cancellation reverses room charges without reversing unrela
   ]), 900);
 });
 
+test("room cancellation reversal is capped after any prior confirmed waiver", () => {
+  assert.equal(calculateCancellableRoomCharge([
+    { entryType: "charge", chargeType: "room", amount: 100, status: "confirmed" },
+    { entryType: "waiver", chargeType: "manual_adjustment", amount: 20, status: "confirmed" }
+  ]), 80);
+});
+
 test("manual payment, refund, and waiver cannot exceed their current financial bounds", () => {
   const summary = summarizeHomestayLedger([
     { entryType: "charge", chargeType: "room", amount: 1000, status: "confirmed" },
