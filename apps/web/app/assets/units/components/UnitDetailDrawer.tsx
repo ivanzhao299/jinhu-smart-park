@@ -105,7 +105,7 @@ export function UnitDetailDrawer({
         <DrawerTabButton active={activeTab === "devices"} onClick={() => onTabChange("devices")}>设备</DrawerTabButton>
         <DrawerTabButton active={activeTab === "deviceAlerts"} onClick={() => onTabChange("deviceAlerts")}>设备告警</DrawerTabButton>
       </DrawerTabs>
-      <DrawerBody>
+      <DrawerBody className="asset-space-detail-body">
       {activeTab === "info" ? (
         <UnitDetailSummary
           unit={unit}

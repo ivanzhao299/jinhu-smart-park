@@ -621,7 +621,7 @@ function UnitDetailDrawer({
         <DrawerTabButton active={activeTab === "devices"} onClick={() => setActiveTab("devices")}>设备</DrawerTabButton>
         <DrawerTabButton active={activeTab === "deviceAlerts"} onClick={() => setActiveTab("deviceAlerts")}>设备告警</DrawerTabButton>
       </DrawerTabs>
-      <DrawerBody>
+      <DrawerBody className="asset-space-detail-body">
       {activeTab === "info" ? (
         <DrawerDetailGrid>
           <DrawerDetailItem label="房源名称" value={unit.unit_name} />

@@ -5825,6 +5825,10 @@ textarea:disabled {
   max-height: calc(100dvh - 24px);
 }
 
+.asset-space-detail-drawer .asset-space-detail-body {
+  flex: 0 1 auto;
+}
+
 .asset-space-detail-drawer .detail-stack > .system-grid {
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
@@ -5953,6 +5957,10 @@ textarea:disabled {
   .asset-space-detail-drawer {
     bottom: 0;
     max-height: none;
+  }
+
+  .asset-space-detail-drawer .asset-space-detail-body {
+    flex: 1 1 auto;
   }
 
   .asset-space-detail-drawer .detail-stack > .system-grid {
