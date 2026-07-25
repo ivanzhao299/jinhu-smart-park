@@ -5820,6 +5820,11 @@ textarea:disabled {
   gap: 14px;
 }
 
+.asset-space-detail-drawer {
+  bottom: auto;
+  max-height: calc(100dvh - 24px);
+}
+
 .asset-space-detail-drawer .detail-stack > .system-grid {
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
@@ -5945,6 +5950,11 @@ textarea:disabled {
 }
 
 @media (max-width: 760px) {
+  .asset-space-detail-drawer {
+    bottom: 0;
+    max-height: none;
+  }
+
   .asset-space-detail-drawer .detail-stack > .system-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
