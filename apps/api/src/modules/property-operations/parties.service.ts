@@ -114,12 +114,20 @@ export class PartiesService {
     if (dto.display_name !== undefined) entity.displayName = dto.display_name.trim();
     if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
     if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
-    if (dto.identity_document_type !== undefined) entity.identityDocumentType = dto.identity_document_type?.trim() ?? null;
+    if (dto.identity_document_type !== undefined) {
+      entity.identityDocumentType = dto.identity_document_type?.trim() ?? null;
+      if (!entity.identityDocumentType && dto.identity_number === undefined) {
+        entity.identityNumberEncrypted = null;
+        entity.identityNumberHash = null;
+        entity.identityNumberMasked = null;
+      }
+    }
     if (dto.identity_number !== undefined) {
       const identity = dto.identity_number?.trim();
       entity.identityNumberEncrypted = identity ? this.sensitiveDataService.encrypt(identity) : null;
       entity.identityNumberHash = identity ? this.sensitiveDataService.hash(identity) : null;
       entity.identityNumberMasked = identity ? this.sensitiveDataService.mask(identity) : null;
+      if (!identity) entity.identityDocumentType = null;
     }
     if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
     if (dto.verification_status !== undefined) entity.verificationStatus = dto.verification_status;

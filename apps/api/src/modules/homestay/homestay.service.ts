@@ -41,7 +41,9 @@ import {
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
 import {
+  assertBusinessDate,
   assertHomestayCheckInWindow,
+  assertHomestayGuestIdentityVerified,
   assertHomestayGuestRosterComplete,
   homestayMoneyDifference,
   toMoneyCents,
@@ -87,6 +89,8 @@ export class HomestayService {
     if (!dateFrom || !dateTo) {
       throw new BadRequestException("date_from and date_to are required");
     }
+    assertBusinessDate(dateFrom, "date_from");
+    assertBusinessDate(dateTo, "date_to");
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.mustFindRate(scope, unitId);
@@ -512,10 +516,16 @@ export class HomestayService {
   async addGuest(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, dto: AddHomestayGuestDto) {
     const booking = await this.mustFindBooking(scope, bookingId);
     await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-    const party = await this.dataSource.getRepository(PartyEntity).findOne({
-      where: { id: dto.party_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+    const party = await this.dataSource.getRepository(PartyEntity)
+      .createQueryBuilder("party")
+      .addSelect("party.identityNumberHash")
+      .where("party.id = :partyId", { partyId: dto.party_id })
+      .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("party.is_deleted = false")
+      .getOne();
     if (!party || party.partyType !== "person") throw new NotFoundException("Guest party not found");
+    assertHomestayGuestIdentityVerified(dto.verification_status, party);
     const repository = this.dataSource.getRepository(HomestayBookingGuestEntity);
     let entity = await repository.findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, partyId: dto.party_id, isDeleted: false }

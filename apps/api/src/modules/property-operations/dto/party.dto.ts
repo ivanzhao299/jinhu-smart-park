@@ -15,10 +15,11 @@ import {
 } from "class-validator";
 import { PARTY_TYPES, PROPERTY_OCCUPANCY_DOMAINS, type PartyType, type PropertyOccupancyDomain } from "@jinhu/shared";
 
-const optionalTrim = ({ value }: { value: unknown }): string | undefined => {
-  if (value === undefined || value === null) return undefined;
+const optionalTrim = ({ value }: { value: unknown }): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   const result = String(value).trim();
-  return result || undefined;
+  return result || null;
 };
 
 export class CreatePartyDto {
@@ -35,25 +36,25 @@ export class CreatePartyDto {
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(32)
-  mobile?: string;
+  mobile?: string | null;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsEmail()
   @MaxLength(200)
-  email?: string;
+  email?: string | null;
 
   @ValidateIf((dto: CreatePartyDto) => Boolean(dto.identity_number))
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(32)
-  identity_document_type?: string;
+  identity_document_type?: string | null;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(128)
-  identity_number?: string;
+  identity_number?: string | null;
 
   @IsOptional()
   @IsIn(PROPERTY_OCCUPANCY_DOMAINS)
@@ -71,7 +72,7 @@ export class CreatePartyDto {
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(500)
-  remark?: string;
+  remark?: string | null;
 }
 
 export class UpdatePartyDto extends PartialType(CreatePartyDto) {}
@@ -85,7 +86,7 @@ export class PartyQueryDto {
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(200)
-  keyword?: string;
+  keyword?: string | null;
 
   @IsOptional()
   @Transform(({ value }) => Number(value ?? 1))
@@ -114,17 +115,17 @@ export class AddPartyRoleDto {
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(64)
-  source_type?: string;
+  source_type?: string | null;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(64)
-  source_id?: string;
+  source_id?: string | null;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(500)
-  remark?: string;
+  remark?: string | null;
 }

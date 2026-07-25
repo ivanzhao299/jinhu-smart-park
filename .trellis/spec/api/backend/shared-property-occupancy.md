@@ -28,6 +28,7 @@ Database owners:
 ## 3. Contracts
 
 - Period semantics are always `[start_at, end_at)` and require `start_at < end_at`.
+- Date-only commercial contract boundaries are converted at `00:00 Asia/Shanghai` before comparison with `timestamptz` occupancy periods; the inclusive contract end date becomes the next Shanghai midnight.
 - Active blocking statuses are `active` and unexpired `held`.
 - `held` requires `hold_expires_at`.
 - Modes are `none`, `short_stay`, and `long_rent`.
@@ -49,6 +50,7 @@ Database owners:
 | Homestay booking/check-in targets a unit with unfinished turnover | HTTP 409 |
 | Active/held period overlaps shared occupancy | PostgreSQL `23P01`, translated to HTTP 409 |
 | Shared occupancy overlaps legacy commercial contract | Trigger `23P01`, translated to HTTP 409 |
+| UTC database session compares a date-only commercial contract | Use explicit `AT TIME ZONE 'Asia/Shanghai'`; never rely on session timezone casts |
 | Commercial contract targets short-stay unit or overlaps shared occupancy | Trigger/service HTTP 409 |
 | Mode switch has future occupancy, contract, pending checkout, open work order, or unsettled receivable | HTTP 409 with check snapshot |
 | Unit, party, or occupancy belongs to another tenant/park | HTTP 404/403 without cross-scope data |
@@ -57,6 +59,7 @@ Database owners:
 ## 5. Good / Base / Bad Cases
 
 - Good: one occupancy ends at `2026-08-02T04:00:00Z`; the next starts at the same instant.
+- Good: a commercial contract ending `2026-07-25` does not block a short stay starting `2026-07-26T00:00:00+08:00`.
 - Good: a same-day arrival already occupies the period at checkout; create the turnover task without an overlapping operations occupancy and block check-in until turnover completes.
 - Base: a legacy commercial contract remains in `rel_leasing_contract_unit`; availability reads it without bulk history migration.
 - Bad: availability checks only `operating_mode = short_stay` and reports a suspended unit as available.
@@ -68,6 +71,7 @@ Database owners:
 - Unit: `[start, end)` adjacency and overlap.
 - Unit: source-domain-to-mode compatibility.
 - Schema: GiST exclusion constraint, shared advisory lock, and both cross-table triggers exist.
+- Schema: both cross-table triggers explicitly convert commercial contract dates at the Shanghai business boundary.
 - Integration: two concurrent occupancy inserts for the same unit/period yield one success and one HTTP 409.
 - Integration: commercial contract versus homestay occupancy race yields one success and one HTTP 409.
 - E2E: tenant/park/data-scope isolation, mode blocker snapshot, idempotent replay, forced release permission.

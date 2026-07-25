@@ -48,7 +48,8 @@ import { assertHousingBillingPeriodWithinLease, calculateHousingMonthFraction } 
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
-  calculateHousingDepositBalance
+  calculateHousingDepositBalance,
+  calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
 
 @Injectable()
@@ -156,6 +157,7 @@ export class HousingService {
   async getLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const lease = await this.mustLease(this.dataSource.manager, scope, id);
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
     const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
     const [tenant, occupants, chargePlans, receivables, ledger, handovers, repairEntities] = await Promise.all([
       this.dataSource.getRepository(PartyEntity).findOne({
@@ -163,14 +165,14 @@ export class HousingService {
       }),
       this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common }),
       this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }),
-      this.dataSource.getRepository(HousingReceivableEntity).find({
+      canReadFinance ? this.dataSource.getRepository(HousingReceivableEntity).find({
         where: common,
         order: { dueDate: "ASC" }
-      }),
-      this.dataSource.getRepository(HousingLedgerEntryEntity).find({
+      }) : Promise.resolve([]),
+      canReadFinance ? this.dataSource.getRepository(HousingLedgerEntryEntity).find({
         where: common,
         order: { occurredAt: "ASC" }
-      }),
+      }) : Promise.resolve([]),
       this.dataSource.getRepository(HousingHandoverEntity).find({ where: common }),
       this.dataSource.getRepository(WorkOrderEntity).find({
         where: {
@@ -204,7 +206,7 @@ export class HousingService {
         createTime: repair.createTime,
         updateTime: repair.updateTime
       })),
-      finance_summary: this.financeSummary(receivables, ledger)
+      finance_summary: canReadFinance ? this.financeSummary(receivables, ledger) : null
     };
   }
 
@@ -215,55 +217,62 @@ export class HousingService {
   ) {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
     this.assertDatePeriod(dto.start_date, dto.end_date);
-    return this.dataSource.transaction(async (manager) => {
-      await this.mustParty(manager, scope, dto.tenant_party_id);
-      const repository = manager.getRepository(HousingLeaseEntity);
-      const lease = await repository.save(repository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseCode: dto.lease_code ?? this.generateCode("HL"),
-        unitId: dto.unit_id,
-        tenantPartyId: dto.tenant_party_id,
-        occupancyId: null,
-        status: "draft",
-        startDate: dto.start_date.slice(0, 10),
-        endDate: dto.end_date.slice(0, 10),
-        paymentCycleMonths: dto.payment_cycle_months,
-        billingDay: dto.billing_day,
-        monthlyRent: dto.monthly_rent.toFixed(2),
-        depositAmount: dto.deposit_amount.toFixed(2),
-        firstDueDate: dto.first_due_date.slice(0, 10),
-        tailPeriodRule: dto.tail_period_rule,
-        approvalNote: null,
-        approvedBy: null,
-        approvedAt: null,
-        signatureFileId: null,
-        signedAt: null,
-        effectiveAt: null,
-        checkoutAt: null,
-        terminationReason: null,
-        createBy: actor.sub,
-        updateBy: actor.sub,
-        remark: dto.remark ?? null
-      }));
-      const plans = manager.getRepository(HousingChargePlanEntity);
-      await plans.save(plans.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseId: lease.id,
-        chargeType: "rent",
-        billingSource: "fixed",
-        cycleMonths: dto.payment_cycle_months,
-        amount: dto.monthly_rent.toFixed(2),
-        unitPrice: null,
-        meterId: null,
-        enabled: true,
-        createBy: actor.sub,
-        updateBy: actor.sub,
-        remark: "租约创建时生成的租金计划"
-      }));
-      return lease;
-    });
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        await this.mustParty(manager, scope, dto.tenant_party_id);
+        const repository = manager.getRepository(HousingLeaseEntity);
+        const lease = await repository.save(repository.create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          leaseCode: dto.lease_code ?? this.generateCode("HL"),
+          unitId: dto.unit_id,
+          tenantPartyId: dto.tenant_party_id,
+          occupancyId: null,
+          status: "draft",
+          startDate: dto.start_date.slice(0, 10),
+          endDate: dto.end_date.slice(0, 10),
+          paymentCycleMonths: dto.payment_cycle_months,
+          billingDay: dto.billing_day,
+          monthlyRent: dto.monthly_rent.toFixed(2),
+          depositAmount: dto.deposit_amount.toFixed(2),
+          firstDueDate: dto.first_due_date.slice(0, 10),
+          tailPeriodRule: dto.tail_period_rule,
+          approvalNote: null,
+          approvedBy: null,
+          approvedAt: null,
+          signatureFileId: null,
+          signedAt: null,
+          effectiveAt: null,
+          checkoutAt: null,
+          terminationReason: null,
+          createBy: actor.sub,
+          updateBy: actor.sub,
+          remark: dto.remark ?? null
+        }));
+        const plans = manager.getRepository(HousingChargePlanEntity);
+        await plans.save(plans.create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          leaseId: lease.id,
+          chargeType: "rent",
+          billingSource: "fixed",
+          cycleMonths: dto.payment_cycle_months,
+          amount: dto.monthly_rent.toFixed(2),
+          unitPrice: null,
+          meterId: null,
+          enabled: true,
+          createBy: actor.sub,
+          updateBy: actor.sub,
+          remark: "租约创建时生成的租金计划"
+        }));
+        return lease;
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException("Housing lease code already exists in current tenant and park");
+      }
+      throw error;
+    }
   }
 
   async submitLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
@@ -831,7 +840,10 @@ export class HousingService {
       if (receiptFiles.some((file) => file.bizId !== null)) {
         throw new ConflictException("Purchase receipt file is already associated with another record");
       }
-      const total = dto.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+      const purchaseAmounts = calculateHousingPurchaseAmounts(dto.items.map((item) => ({
+        quantity: item.quantity,
+        unitPrice: item.unit_price
+      })));
       const repository = manager.getRepository(HousingPurchaseEntity);
       const purchase = await repository.save(repository.create({
         tenantId: scope.tenantId,
@@ -841,7 +853,7 @@ export class HousingService {
         vendorName: dto.vendor_name,
         purchaseDate: dto.purchase_date.slice(0, 10),
         costCategory: dto.cost_category,
-        totalAmount: total.toFixed(2),
+        totalAmount: purchaseAmounts.totalAmount.toFixed(2),
         approvalStatus: "draft",
         paymentStatus: "unpaid",
         receiptFileIds: dto.receipt_file_ids ?? [],
@@ -850,7 +862,7 @@ export class HousingService {
         remark: dto.remark ?? null
       }));
       const itemRepository = manager.getRepository(HousingPurchaseItemEntity);
-      await itemRepository.save(dto.items.map((item) => itemRepository.create({
+      await itemRepository.save(dto.items.map((item, index) => itemRepository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         purchaseId: purchase.id,
@@ -858,7 +870,7 @@ export class HousingService {
         quantity: item.quantity.toFixed(3),
         unit: item.unit ?? null,
         unitPrice: item.unit_price.toFixed(2),
-        amount: (item.quantity * item.unit_price).toFixed(2),
+        amount: purchaseAmounts.lineAmounts[index]!.toFixed(2),
         transferredReceivableId: null,
         createBy: actor.sub,
         updateBy: actor.sub
@@ -932,6 +944,7 @@ export class HousingService {
       if (!purchase) throw new NotFoundException("Housing purchase not found");
       await this.assertPurchaseAccess(scope, actor, purchase.unitId);
       if (purchase.approvalStatus !== "approved") throw new ConflictException("Only approved purchase can be transferred");
+      if (purchase.paymentStatus === "refunded") throw new ConflictException("Refunded purchase cannot be transferred");
       const lease = await this.lockLease(manager, scope, dto.lease_id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       if (purchase.unitId && purchase.unitId !== lease.unitId) {
@@ -1208,5 +1221,9 @@ export class HousingService {
   private isDatabaseConflict(error: unknown) {
     if (!error || typeof error !== "object") return false;
     return ["23505", "23P01"].includes(String((error as { code?: unknown }).code ?? ""));
+  }
+
+  private isUniqueViolation(error: unknown) {
+    return Boolean(error && typeof error === "object" && (error as { code?: unknown }).code === "23505");
   }
 }

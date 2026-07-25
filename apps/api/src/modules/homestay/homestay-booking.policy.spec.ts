@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assertBusinessDate,
   assertHomestayCheckInWindow,
+  assertHomestayGuestIdentityVerified,
   assertHomestayGuestRosterComplete,
   homestayMoneyDifference,
   turnoverLockEnd
@@ -32,4 +34,29 @@ test("same-day occupancy already in progress does not create an overlapping turn
     turnoverLockEnd(now, new Date("2026-07-25T15:00:00+08:00"))?.toISOString(),
     new Date("2026-07-25T15:00:00+08:00").toISOString()
   );
+});
+
+test("business dates reject normalized or non-date values", () => {
+  assert.doesNotThrow(() => assertBusinessDate("2026-02-28", "date_from"));
+  assert.throws(() => assertBusinessDate("2026-02-30", "date_from"));
+  assert.throws(() => assertBusinessDate("2026-2-28", "date_from"));
+  assert.throws(() => assertBusinessDate("2026-02-28T00:00:00Z", "date_from"));
+});
+
+test("guest verification requires a verified party with identity data", () => {
+  assert.doesNotThrow(() => assertHomestayGuestIdentityVerified("verified", {
+    verificationStatus: "verified",
+    identityDocumentType: "id_card",
+    identityNumberHash: "hash"
+  }));
+  assert.throws(() => assertHomestayGuestIdentityVerified("verified", {
+    verificationStatus: "verified",
+    identityDocumentType: "id_card",
+    identityNumberHash: null
+  }));
+  assert.throws(() => assertHomestayGuestIdentityVerified("verified", {
+    verificationStatus: "unverified",
+    identityDocumentType: "id_card",
+    identityNumberHash: "hash"
+  }));
 });

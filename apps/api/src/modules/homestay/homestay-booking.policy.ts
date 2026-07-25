@@ -1,4 +1,6 @@
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
+
+const BUSINESS_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function toMoneyCents(value: string | number): number {
   return Math.round(Number(value) * 100);
@@ -27,4 +29,41 @@ export function assertHomestayGuestRosterComplete(declaredGuests: number, verifi
 export function turnoverLockEnd(now: Date, nextOccupancyStart: Date | null): Date | null {
   if (nextOccupancyStart && nextOccupancyStart.getTime() <= now.getTime()) return null;
   return nextOccupancyStart ?? new Date(now.getTime() + 365 * 24 * 60 * 60_000);
+}
+
+export function assertBusinessDate(value: string, fieldName: string): void {
+  if (!BUSINESS_DATE_PATTERN.test(value)) {
+    throw new BadRequestException(`${fieldName} must be a valid YYYY-MM-DD date`);
+  }
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    throw new BadRequestException(`${fieldName} must be a valid YYYY-MM-DD date`);
+  }
+}
+
+export function assertHomestayGuestIdentityVerified(
+  requestedStatus: "unverified" | "verified" | "rejected",
+  party: {
+    verificationStatus: string;
+    identityDocumentType: string | null;
+    identityNumberHash: string | null;
+  }
+): void {
+  if (
+    requestedStatus === "verified"
+    && (
+      party.verificationStatus !== "verified"
+      || !party.identityDocumentType
+      || !party.identityNumberHash
+    )
+  ) {
+    throw new BadRequestException("Guest identity must be verified with identity data before registration");
+  }
 }

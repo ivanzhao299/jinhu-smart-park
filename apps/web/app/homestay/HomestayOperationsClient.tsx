@@ -9,6 +9,7 @@ import { PermissionButton } from "../../components/auth/PermissionButton";
 import { FileUploader } from "../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
+import { addBusinessDateDays, businessDate } from "../../lib/business-date";
 import type { UnitRow } from "../assets/units/types";
 import styles from "./homestay-operations.module.css";
 
@@ -85,8 +86,8 @@ const emptyDashboard: Dashboard = {
   revenue: "0.00"
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
-const tomorrow = () => new Date(Date.now() + 24 * 60 * 60_000).toISOString().slice(0, 10);
+const today = () => businessDate();
+const tomorrow = () => addBusinessDateDays(today(), 1);
 
 export function HomestayOperationsClient() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
@@ -415,6 +416,7 @@ export function HomestayOperationsClient() {
               {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void prepareBooking(booking.id)}>入住准备</PermissionButton> : null}
               {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
               {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
+              {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
             </div>
           </article>)}
         </div>

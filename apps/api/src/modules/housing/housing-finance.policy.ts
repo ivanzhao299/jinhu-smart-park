@@ -6,6 +6,19 @@ export interface HousingFinancialEntry {
   amount: string | number;
 }
 
+export interface HousingPurchaseAmountInput {
+  quantity: number;
+  unitPrice: number;
+}
+
+export function calculateHousingPurchaseAmounts(items: HousingPurchaseAmountInput[]) {
+  const lineAmounts = items.map((item) => Math.round(item.quantity * item.unitPrice * 100) / 100);
+  return {
+    lineAmounts,
+    totalAmount: lineAmounts.reduce((total, amount) => total + Math.round(amount * 100), 0) / 100
+  };
+}
+
 export function calculateHousingDepositBalance(entries: HousingFinancialEntry[]): number {
   return entries.reduce((balance, entry) => {
     if (entry.entryType === "deposit_receipt") return balance + Number(entry.amount);

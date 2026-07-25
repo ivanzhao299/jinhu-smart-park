@@ -37,3 +37,15 @@ test("shared property migration keeps encrypted party identity fields separate f
   assert.match(migration, /identity_number_hash varchar\(80\)/);
   assert.match(migration, /identity_number_masked varchar\(64\)/);
 });
+
+test("commercial contract compatibility uses Shanghai business-day boundaries", () => {
+  const migrationPath = resolve(
+    __dirname,
+    "../../../../../database/migrations/000179_property_contract_business_timezone.sql"
+  );
+  const migration = readFileSync(migrationPath, "utf8");
+
+  assert.match(migration, /start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.match(migration, /\(relation\.end_date \+ 1\)::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.match(migration, /\(NEW\.end_date \+ 1\)::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
+});

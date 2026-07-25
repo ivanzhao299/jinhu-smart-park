@@ -3,7 +3,8 @@ import test from "node:test";
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
-  calculateHousingDepositBalance
+  calculateHousingDepositBalance,
+  calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
 
 test("payment and waiver settle one receivable without exceeding its amount", () => {
@@ -31,4 +32,22 @@ test("deposit receipt, deduction, and refund stay within the agreed balance", ()
   assert.equal(assertHousingDepositMutation(3000, current, "deposit_refund", 2500), 0);
   assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_refund", 2501));
   assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_receipt", 501));
+});
+
+test("purchase header total is derived from persisted rounded line amounts", () => {
+  assert.deepEqual(
+    calculateHousingPurchaseAmounts([
+      { quantity: 0.333, unitPrice: 0.01 },
+      { quantity: 0.333, unitPrice: 0.01 },
+      { quantity: 0.333, unitPrice: 0.01 }
+    ]),
+    { lineAmounts: [0, 0, 0], totalAmount: 0 }
+  );
+  assert.deepEqual(
+    calculateHousingPurchaseAmounts([
+      { quantity: 1, unitPrice: 0.015 },
+      { quantity: 1, unitPrice: 0.015 }
+    ]),
+    { lineAmounts: [0.02, 0.02], totalAmount: 0.04 }
+  );
 });

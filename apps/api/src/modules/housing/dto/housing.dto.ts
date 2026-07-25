@@ -1,6 +1,7 @@
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -151,7 +152,7 @@ export class HousingPurchaseActionDto extends HousingReasonDto {
 
 export class TransferHousingPurchaseDto {
   @IsUUID() lease_id!: string;
-  @IsArray() @ArrayMaxSize(100) @IsUUID("4", { each: true }) item_ids!: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(100) @IsUUID("4", { each: true }) item_ids!: string[];
   @IsDateString() due_date!: string;
   @Transform(trim) @IsString() @MaxLength(500) reason!: string;
 }
