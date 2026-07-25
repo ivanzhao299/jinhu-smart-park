@@ -20,6 +20,8 @@ import { FieldPoliciesModule } from "./modules/field-policies/field-policies.mod
 import { FilesModule } from "./modules/files/files.module";
 import { FloorsModule } from "./modules/floors/floors.module";
 import { IotModule } from "./modules/iot/iot.module";
+import { HomestayModule } from "./modules/homestay/homestay.module";
+import { HousingModule } from "./modules/housing/housing.module";
 import { LeasingContractChangesModule } from "./modules/leasing-contract-changes/leasing-contract-changes.module";
 import { LeasingContractsModule } from "./modules/leasing-contracts/leasing-contracts.module";
 import { LeasingCheckoutsModule } from "./modules/leasing-checkouts/leasing-checkouts.module";
@@ -32,6 +34,7 @@ import { OrgsModule } from "./modules/orgs/orgs.module";
 import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
+import { PropertyOperationsModule } from "./modules/property-operations/property-operations.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { RobotsModule } from "./modules/robots/robots.module";
 import { ReferenceDataModule } from "./modules/reference-data/reference-data.module";
@@ -92,6 +95,11 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     throw new Error("AUTH_WECHAT_MOCK_ENABLED must be false in production");
   }
 
+  const partyEncryptionKey = getEnvString(config, "PARTY_DATA_ENCRYPTION_KEY", "");
+  if (partyEncryptionKey.trim().length < 32) {
+    throw new Error("PARTY_DATA_ENCRYPTION_KEY must contain at least 32 characters in production");
+  }
+
   return config;
 }
 
@@ -137,6 +145,8 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     FloorsModule,
     EnergyModule,
     EngineeringModule,
+    HomestayModule,
+    HousingModule,
     IotModule,
     LeasingContractChangesModule,
     LeasingContractsModule,
@@ -155,6 +165,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     ReferenceDataModule,
     SaaSModulesModule,
     PermissionsModule,
+    PropertyOperationsModule,
     DictsModule,
     AttachmentsModule,
     FilesModule,

@@ -35,9 +35,9 @@
 | 驾驶舱与分析 | 管理、资产、招商、财务、工单、安全、IoT、能源 | 已实现并持续校准 | `uat_pending` | 未启用 | 驾驶舱准确性 Gate、数据口径复核 |
 | 租户服务与移动终端 | 租户服务入口、现场巡检/工单/工程操作 | 已实现并持续完善 | `uat_pending` | 未启用 | 浏览器、角色、表单和移动端 UAT |
 | AI 工作编排 | 自然语言计划、批准、工单生成、重复保护、流程收件箱 | MVP 已实现 | `uat_pending` | 未启用 | AI work orchestration UAT |
-| 共享房产底座 | 长短租经营模式、统一占用、个人业务相对方 | 已规划 | `planned` | 未启用 | Trellis `07-24-shared-property-foundation` |
-| 民宿管理 | 日价、房态、预订、入住、退房、人工收退款、保洁 | 已规划 | `planned` | 未启用 | Trellis `07-24-homestay-mvp` |
-| 住房出租 | 个人租客、住宅租约、周期费用、交割、采购成本 | 已规划 | `planned` | 未启用 | Trellis `07-24-housing-rental-mvp` |
+| 共享房产底座 | 长短租经营模式、统一占用、个人业务相对方 | 开发完成，待 UAT | `uat_pending` | 未启用 | [专项验证证据](./shared-property-foundation-evidence.md)：迁移、类型检查、单元测试、GiST 并发和商业合同双向互斥已通过；待 UAT API 权限、数据范围和业务验收 |
+| 民宿管理 | 日价、房态、预订、入住、退房、人工收退款、保洁 | MVP 开发完成，待 UAT | `uat_pending` | 未启用 | [专项验证证据](./homestay-mvp-evidence.md)：迁移、类型检查、单元测试和隔离库业务回归已通过；待目标 UAT API、权限、文件及桌面/390px 验收 |
+| 住房出租 | 个人租客、住宅租约、周期费用、交割、报修工单、采购成本 | MVP 开发完成，待目标 UAT | `uat_pending` | 未启用 | [专项验证证据](./housing-rental-mvp-evidence.md)：迁移、类型检查、单元测试、隔离库 SQL 回归、真实 API 全链路和桌面/390px 视觉验收已通过；待目标 UAT 权限、文件和真实业务数据验收 |
 
 ## 3. 单模块状态记录模板
 

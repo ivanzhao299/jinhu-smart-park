@@ -29,6 +29,9 @@ export class UnitEntity {
   @Column({ name: "unit_code", type: "varchar", length: 64 })
   unitCode!: string;
 
+  @Column({ name: "asset_unit_id", type: "uuid", nullable: true })
+  assetUnitId!: string | null;
+
   @Column({ name: "code", type: "varchar", length: 64, nullable: true })
   code!: string | null;
 

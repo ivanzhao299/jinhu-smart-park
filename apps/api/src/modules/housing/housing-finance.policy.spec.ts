@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  applyHousingReceivableMutation,
+  assertHousingDepositMutation,
+  calculateHousingDepositBalance
+} from "./housing-finance.policy";
+
+test("payment and waiver settle one receivable without exceeding its amount", () => {
+  const partial = applyHousingReceivableMutation(120, 0, 0, "payment", 100);
+  assert.deepEqual(partial, { paidAmount: 100, waivedAmount: 0, status: "partial" });
+  const settled = applyHousingReceivableMutation(120, partial.paidAmount, partial.waivedAmount, "waiver", 20);
+  assert.deepEqual(settled, { paidAmount: 100, waivedAmount: 20, status: "paid" });
+  assert.throws(() => applyHousingReceivableMutation(120, 100, 20, "payment", 1));
+});
+
+test("refund reverses only an existing paid amount", () => {
+  assert.deepEqual(
+    applyHousingReceivableMutation(100, 100, 0, "refund", 40),
+    { paidAmount: 60, waivedAmount: 0, status: "partial" }
+  );
+  assert.throws(() => applyHousingReceivableMutation(100, 20, 0, "refund", 21));
+});
+
+test("deposit receipt, deduction, and refund stay within the agreed balance", () => {
+  const current = calculateHousingDepositBalance([
+    { entryType: "deposit_receipt", amount: 3000 },
+    { entryType: "deposit_deduction", amount: 500 }
+  ]);
+  assert.equal(current, 2500);
+  assert.equal(assertHousingDepositMutation(3000, current, "deposit_refund", 2500), 0);
+  assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_refund", 2501));
+  assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_receipt", 501));
+});

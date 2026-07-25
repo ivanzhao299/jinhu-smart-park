@@ -33,6 +33,7 @@ At minimum set:
 - `WEB_ORIGIN`
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
+- `PARTY_DATA_ENCRYPTION_KEY`（业务相对方证件号独立加密密钥）
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `FILE_STORAGE_LOCAL_ROOT`
@@ -40,6 +41,8 @@ At minimum set:
 - published ports if `3000`, `3001`, or `5432` are already occupied
 
 Do not commit `.env.production`.
+
+`PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
 
 ## 1.1 Authentication Release Constraints
 

@@ -123,7 +123,11 @@ export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
   leasing_contract: "contract",
   leasing_checkout: "receipt",
   leasing_invoice: "receipt",
-  leasing_payment: "receipt"
+  leasing_payment: "receipt",
+  homestay_turnover: "image",
+  housing_handover: "image",
+  housing_lease_signature: "pdf",
+  housing_purchase: "receipt"
 };
 
 export function resolveFileUploadPolicy(policyKeyOrBizType?: string | null): FileUploadPolicy {
@@ -273,6 +277,77 @@ export enum SystemStatus {
   Enabled = "enabled",
   Disabled = "disabled"
 }
+
+export const PROPERTY_OPERATING_MODES = ["none", "short_stay", "long_rent"] as const;
+export type PropertyOperatingMode = (typeof PROPERTY_OPERATING_MODES)[number];
+
+export const PROPERTY_OPERATING_STATUSES = ["enabled", "suspended", "disabled"] as const;
+export type PropertyOperatingStatus = (typeof PROPERTY_OPERATING_STATUSES)[number];
+
+export const PROPERTY_OCCUPANCY_STATUSES = ["held", "active", "released", "completed", "cancelled"] as const;
+export type PropertyOccupancyStatus = (typeof PROPERTY_OCCUPANCY_STATUSES)[number];
+
+export const PROPERTY_OCCUPANCY_DOMAINS = [
+  "commercial_leasing",
+  "homestay",
+  "housing_rental",
+  "maintenance",
+  "operations"
+] as const;
+export type PropertyOccupancyDomain = (typeof PROPERTY_OCCUPANCY_DOMAINS)[number];
+
+export const PARTY_TYPES = ["person", "organization"] as const;
+export type PartyType = (typeof PARTY_TYPES)[number];
+
+export const HOMESTAY_BOOKING_STATUSES = [
+  "draft",
+  "confirmed",
+  "checked_in",
+  "checked_out",
+  "cancelled",
+  "no_show"
+] as const;
+export type HomestayBookingStatus = (typeof HOMESTAY_BOOKING_STATUSES)[number];
+
+export const HOMESTAY_TURNOVER_STATUSES = [
+  "pending",
+  "cleaning",
+  "inspection",
+  "completed",
+  "exception"
+] as const;
+export type HomestayTurnoverStatus = (typeof HOMESTAY_TURNOVER_STATUSES)[number];
+
+export const HOMESTAY_LEDGER_ENTRY_TYPES = [
+  "charge",
+  "payment",
+  "refund",
+  "waiver"
+] as const;
+export type HomestayLedgerEntryType = (typeof HOMESTAY_LEDGER_ENTRY_TYPES)[number];
+
+export const HOUSING_LEASE_STATUSES = [
+  "draft",
+  "pending_approval",
+  "pending_signature",
+  "active",
+  "expiring",
+  "checkout_pending",
+  "terminated",
+  "void"
+] as const;
+export type HousingLeaseStatus = (typeof HOUSING_LEASE_STATUSES)[number];
+
+export const HOUSING_LEDGER_ENTRY_TYPES = [
+  "charge",
+  "payment",
+  "refund",
+  "waiver",
+  "deposit_receipt",
+  "deposit_deduction",
+  "deposit_refund"
+] as const;
+export type HousingLedgerEntryType = (typeof HOUSING_LEDGER_ENTRY_TYPES)[number];
 
 export const SYSTEM_PERMISSIONS = {
   AI_ASSISTANT: "ai:assistant",
@@ -731,6 +806,50 @@ export const SYSTEM_PERMISSIONS = {
   UNIT_IMPORT: "unit:import",
   UNIT_IMPORT_TEMPLATE: "unit:import_template",
   UNIT_EXPORT: "unit:export",
+  PROPERTY_OPERATION_READ: "property_operation:read",
+  PROPERTY_OPERATION_UPDATE: "property_operation:update",
+  PROPERTY_OPERATION_TRANSITION_MODE: "property_operation:transition_mode",
+  PROPERTY_OCCUPANCY_READ: "property_occupancy:read",
+  PROPERTY_OCCUPANCY_CREATE: "property_occupancy:create",
+  PROPERTY_OCCUPANCY_ACTIVATE: "property_occupancy:activate",
+  PROPERTY_OCCUPANCY_RELEASE: "property_occupancy:release",
+  PROPERTY_OCCUPANCY_FORCE_RELEASE: "property_occupancy:force_release",
+  PARTY_READ: "party:read",
+  PARTY_CREATE: "party:create",
+  PARTY_UPDATE: "party:update",
+  PARTY_SENSITIVE_READ: "party:sensitive_read",
+  PARTY_ROLE_MANAGE: "party_role:manage",
+  HOMESTAY_DASHBOARD_READ: "homestay:dashboard:read",
+  HOMESTAY_RATE_READ: "homestay:rate:read",
+  HOMESTAY_RATE_MANAGE: "homestay:rate:manage",
+  HOMESTAY_BOOKING_READ: "homestay:booking:read",
+  HOMESTAY_BOOKING_CREATE: "homestay:booking:create",
+  HOMESTAY_BOOKING_CONFIRM: "homestay:booking:confirm",
+  HOMESTAY_BOOKING_CANCEL: "homestay:booking:cancel",
+  HOMESTAY_BOOKING_RESCHEDULE: "homestay:booking:reschedule",
+  HOMESTAY_STAY_MANAGE: "homestay:stay:manage",
+  HOMESTAY_FINANCE_READ: "homestay:finance:read",
+  HOMESTAY_FINANCE_REGISTER: "homestay:finance:register",
+  HOMESTAY_FINANCE_WAIVE: "homestay:finance:waive",
+  HOMESTAY_TURNOVER_READ: "homestay:turnover:read",
+  HOMESTAY_TURNOVER_EXECUTE: "homestay:turnover:execute",
+  HOUSING_DASHBOARD_READ: "housing:dashboard:read",
+  HOUSING_TENANT_MANAGE: "housing:tenant:manage",
+  HOUSING_LEASE_READ: "housing:lease:read",
+  HOUSING_LEASE_CREATE: "housing:lease:create",
+  HOUSING_LEASE_APPROVE: "housing:lease:approve",
+  HOUSING_LEASE_SIGN: "housing:lease:sign",
+  HOUSING_LEASE_ACTIVATE: "housing:lease:activate",
+  HOUSING_LEASE_CHECKOUT: "housing:lease:checkout",
+  HOUSING_HANDOVER_MANAGE: "housing:handover:manage",
+  HOUSING_REPAIR_MANAGE: "housing:repair:manage",
+  HOUSING_FINANCE_READ: "housing:finance:read",
+  HOUSING_FINANCE_REGISTER: "housing:finance:register",
+  HOUSING_FINANCE_WAIVE: "housing:finance:waive",
+  HOUSING_BILLING_GENERATE: "housing:billing:generate",
+  HOUSING_PURCHASE_READ: "housing:purchase:read",
+  HOUSING_PURCHASE_MANAGE: "housing:purchase:manage",
+  HOUSING_PURCHASE_TRANSFER: "housing:purchase:transfer",
   ASSET_READ: "asset:read",
   ASSET_STATUS_BOARD: "asset:status_board",
   ASSET_STATISTICS: "asset:statistics",
@@ -1215,6 +1334,50 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.UNIT_IMPORT, name: "房源导入", resource: "biz.unit", action: "import" },
   { code: SYSTEM_PERMISSIONS.UNIT_IMPORT_TEMPLATE, name: "房源导入模板", resource: "biz.unit", action: "import_template" },
   { code: SYSTEM_PERMISSIONS.UNIT_EXPORT, name: "房源导出", resource: "biz.unit", action: "export" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OPERATION_READ, name: "房源经营配置读取", resource: "biz.property_operation_config", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE, name: "房源经营配置修改", resource: "biz.property_operation_config", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE, name: "房源经营模式切换", resource: "biz.property_operation_config", action: "transition_mode" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_READ, name: "房源占用读取", resource: "biz.property_occupancy", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_CREATE, name: "房源占用创建", resource: "biz.property_occupancy", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_ACTIVATE, name: "房源占用生效", resource: "biz.property_occupancy", action: "activate" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_RELEASE, name: "房源占用释放", resource: "biz.property_occupancy", action: "release" },
+  { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_FORCE_RELEASE, name: "房源占用强制释放", resource: "biz.property_occupancy", action: "force_release" },
+  { code: SYSTEM_PERMISSIONS.PARTY_READ, name: "业务相对方读取", resource: "biz.party", action: "read" },
+  { code: SYSTEM_PERMISSIONS.PARTY_CREATE, name: "业务相对方新增", resource: "biz.party", action: "create" },
+  { code: SYSTEM_PERMISSIONS.PARTY_UPDATE, name: "业务相对方修改", resource: "biz.party", action: "update" },
+  { code: SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ, name: "业务相对方敏感信息读取", resource: "biz.party", action: "sensitive_read" },
+  { code: SYSTEM_PERMISSIONS.PARTY_ROLE_MANAGE, name: "业务相对方角色管理", resource: "rel.party_role", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ, name: "民宿运营看板", resource: "biz.homestay_dashboard", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ, name: "民宿价格读取", resource: "biz.homestay_rate", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE, name: "民宿价格管理", resource: "biz.homestay_rate", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ, name: "民宿订单读取", resource: "biz.homestay_booking", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CREATE, name: "民宿订单创建", resource: "biz.homestay_booking", action: "create" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM, name: "民宿订单确认", resource: "biz.homestay_booking", action: "confirm" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL, name: "民宿订单取消", resource: "biz.homestay_booking", action: "cancel" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_RESCHEDULE, name: "民宿订单改期", resource: "biz.homestay_booking", action: "reschedule" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE, name: "民宿入住退房管理", resource: "biz.homestay_stay", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ, name: "民宿财务读取", resource: "biz.homestay_ledger", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER, name: "民宿收退款登记", resource: "biz.homestay_ledger", action: "register" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, name: "民宿费用减免", resource: "biz.homestay_ledger", action: "waive" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ, name: "民宿保洁任务读取", resource: "biz.homestay_turnover", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE, name: "民宿保洁任务执行", resource: "biz.homestay_turnover", action: "execute" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_DASHBOARD_READ, name: "住房出租看板", resource: "biz.housing_dashboard", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE, name: "住房租客管理", resource: "biz.party", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_READ, name: "住房租约读取", resource: "biz.housing_lease", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE, name: "住房租约创建", resource: "biz.housing_lease", action: "create" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE, name: "住房租约审批", resource: "biz.housing_lease", action: "approve" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN, name: "住房租约签署登记", resource: "biz.housing_lease", action: "sign" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_ACTIVATE, name: "住房租约生效", resource: "biz.housing_lease", action: "activate" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT, name: "住房退租结算", resource: "biz.housing_lease", action: "checkout" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE, name: "住房交割管理", resource: "biz.housing_handover", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE, name: "住房报修代录", resource: "biz.work_order", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ, name: "住房财务读取", resource: "biz.housing_ledger", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER, name: "住房收退款登记", resource: "biz.housing_ledger", action: "register" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE, name: "住房费用减免", resource: "biz.housing_ledger", action: "waive" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_BILLING_GENERATE, name: "住房周期账单生成", resource: "biz.housing_receivable", action: "generate" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ, name: "住房采购读取", resource: "biz.housing_purchase", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE, name: "住房采购管理", resource: "biz.housing_purchase", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER, name: "住房采购转收费", resource: "biz.housing_purchase", action: "transfer" },
   { code: SYSTEM_PERMISSIONS.ASSET_READ, name: "资产读取", resource: "biz.asset", action: "read" },
   { code: SYSTEM_PERMISSIONS.ASSET_STATUS_BOARD, name: "房源状态看板", resource: "biz.asset", action: "status_board" },
   { code: SYSTEM_PERMISSIONS.ASSET_STATISTICS, name: "资产统计", resource: "biz.asset", action: "statistics" },
