@@ -174,9 +174,9 @@ When `AUTH_REFRESH_TOKEN_BODY_COMPAT=false`, the API stops returning `refreshTok
 
 C2 implemented the API cookie contract. C3 updates Web fetch credentials and removes refresh token storage from JS-readable storage. C4 must add CSRF / Origin hardening for cookie-authenticated auth endpoints before disabling body refresh-token compatibility.
 
-## 1.2 Phased UAT Menu Exposure
+## 1.2 Runtime UAT Menu Evidence And Historical Exposure Snapshot
 
-The paths below describe the historical/current phased UAT menu exposure contract. They do not define the final product scope.
+Current runtime menu scope is role- and environment-specific. It must be derived from the target user's `/users/me` response and the menu actually rendered in the browser. The fixed path lists later in this section are a historical first-release whitelist snapshot only; they define neither the current runtime menu scope nor the final product scope.
 
 - All features already designed and developed remain in the target product scope
 - Showing a menu entry means it is selected for the current exposure set; it does not by itself prove UAT PASS
@@ -186,10 +186,10 @@ The paths below describe the historical/current phased UAT menu exposure contrac
 - Modules must pass their current-version UAT before being added to a broader exposure set
 - `apps/web/lib/menu.ts` `FIRST_RELEASE_MENU_PATHS` and `scripts/e2e/first-release-menu-whitelist.mjs` are retained as historical compatibility contracts; the script is a static source check and does not prove the current runtime menu exposure
 - Current UAT menu evidence must follow [RBAC Menu Dashboard Permission Release Checks](../testing/rbac-menu-dashboard-permission-release-checks.md) and [Go-Live Browser UAT](../uat/go-live-browser-uat.md): capture the `/users/me` menu tree for each sampled role, compare enabled modules and permissions, and open the resulting visible pages in the target environment
-- When `/users/me` returns no usable menu tree, Web falls back to the full `dashboardMenus`; reviewers must therefore sample both backend-provided menus and the fallback behavior instead of treating the legacy whitelist as the runtime visibility gate
+- When `/users/me` returns no usable menu tree, Web falls back to `dashboardMenus`; this scenario is not covered by the automated Go-Live Browser UAT because that script stops on an empty API menu tree. Use the [manual menu fallback interception procedure](../testing/rbac-menu-dashboard-permission-release-checks.md#5-menu-fallback-manual-interception) to verify rendered fallback links, module/permission filtering, and denied direct routes
 - Module status is tracked in `docs/uat/full-product-acceptance-matrix.md`
 
-Current phased UAT visible menu scope:
+Historical first-release whitelist snapshot (not current runtime UAT evidence):
 
 - Dashboard: `/dashboard`
 - System management:
@@ -232,7 +232,7 @@ Current phased UAT visible menu scope:
   - `/safety/hazards`
   - `/safety/hazards/overdue`
 
-Current target-scope menus not exposed by this historical whitelist include:
+Examples excluded from this historical whitelist snapshot (not assertions about current runtime exposure):
 
 - `/leasing/leads`
 - `/leasing/lead-pool`

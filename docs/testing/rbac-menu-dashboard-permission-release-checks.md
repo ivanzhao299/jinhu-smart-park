@@ -64,7 +64,32 @@ Use browser sampling in pre-production and, after approval, production. Each scr
 
 Production read-only sampling must not click create, update, delete, enable, disable, import, export, approve, void, generate, pay, waive, invoice, dispatch, or cleanup actions.
 
-## 5. Evidence Table Template
+## 5. Menu Fallback Manual Interception
+
+The automated Go-Live Browser UAT derives its page set from `/users/me` `menu_tree` or `menus`. It records `NO_VISIBLE_MENU_PAGE` and stops when both are empty, so that result is not evidence that the Web `dashboardMenus` fallback works.
+
+Use this read-only Chrome procedure in Local or UAT with an approved standard-role account:
+
+1. Log in, open `/dashboard`, open DevTools, and select **Sources > Overrides**.
+2. Choose a local override folder, allow Chrome access, then reload the page.
+3. In **Network**, locate the successful `/users/me` request, right-click it, and choose **Override content**.
+4. In the overridden JSON response, set both `data.menu_tree` and `data.menus` to empty arrays. Do not change the user ID, tenant, park, roles, permissions, `is_super`, or enabled-module fields.
+5. Save the override and reload `/dashboard`. Confirm in Network that `/users/me` is served from the local override.
+6. Capture the rendered sidebar. It must not be empty, proving the Web used `dashboardMenus`; every visible link must still be allowed by the retained permissions and enabled modules.
+7. Pick one permission-denied or module-disabled fallback path and open it directly. The page must reject access through redirect, 403, forbidden/disabled state, or equivalent no-access behavior.
+8. Remove or disable the override, reload, and confirm the original backend-provided menu tree is restored.
+
+Record:
+
+- environment, commit, timestamp, and account label;
+- the redacted overridden `/users/me` response showing only empty menu fields plus role/module/permission summaries;
+- before/after sidebar screenshots;
+- the denied direct-route result;
+- confirmation that the override was removed.
+
+Do not use a super-admin account as the only sample because `*` permission cannot prove fallback permission filtering. Local Overrides changes only the browser response; it must not be replaced with API writes, role edits, module toggles, or committed fixture data.
+
+## 6. Evidence Table Template
 
 Copy this table into the release evidence report for each target environment.
 
@@ -77,8 +102,9 @@ Copy this table into the release evidence report for each target environment.
 | A4-MENU-02 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-DASH-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-PERM-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
+| A4-MENU-FALLBACK-01 | `<local/uat>` | `<url>` | `<standard-role-label>` | `dashboardMenus` fallback renders and remains permission/module filtered | `<actual>` | `<override response/screenshots>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 
-## 6. Required Approval Record For Production
+## 7. Required Approval Record For Production
 
 Before production sampling, record:
 
@@ -93,13 +119,14 @@ Before production sampling, record:
 | Explicitly skipped | `write-path e2e, permission edits, module toggles, seed, cleanup` |
 | Evidence destination | `<path/link>` |
 
-## 7. Failure Handling
+## 8. Failure Handling
 
 Stop the release gate and open a follow-up task if any of these happen:
 
 - unauthorized access succeeds;
 - required first-release menu is missing;
 - non-first-release menu or route is exposed against the launch policy;
+- fallback sidebar is empty, exposes a permission/module-denied entry, or permits a denied direct route;
 - dashboard visibility does not match role permissions;
 - `/users/me` context does not match the visible menu or route result;
 - any production sampling writes data or changes permissions without approval.

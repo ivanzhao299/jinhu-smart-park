@@ -50,6 +50,12 @@ pnpm go-live:uat-browser -- \
 5. Fails on login redirect, permission page, runtime error, or near-blank render.
 6. Prints per-user and per-page progress so browser UAT no longer looks like a stalled job.
 
+## Menu Fallback Coverage Boundary
+
+This command checks pages derived from `/users/me` `menu_tree` or `menus`. If both fields are empty, `scripts/go-live-browser-uat-check.mjs` records `NO_VISIBLE_MENU_PAGE` and stops for that user before opening a page. That failure detects a missing API menu set, but it does not exercise or prove the Web `dashboardMenus` fallback.
+
+Verify the empty-menu fallback separately with [Menu Fallback Manual Interception](../testing/rbac-menu-dashboard-permission-release-checks.md#5-menu-fallback-manual-interception). Do not report an empty-tree Go-Live Browser UAT run as fallback PASS evidence.
+
 ## Latest Focused Engineering Result
 
 - Checked at: 2026-07-04 17:36 CST
