@@ -42,7 +42,7 @@ Evidence to keep:
 
 | Command | Evidence | Pass condition | No-Go condition |
 |---|---|---|---|
-| `first-release-menu-whitelist.mjs` | Full command log | Required first-release paths and compatibility symbols pass | Script exits non-zero or reports missing required menu path |
+| `first-release-menu-whitelist.mjs` | Optional informational log | Historical whitelist compatibility symbols and snapshot assertions pass | Record drift for follow-up; do not use this historical static result as current menu Go/No-Go evidence |
 | `s1-rbac-std-fix-smoke.mjs` | Full command log and target labels | Admin login, `/users/me`, module disable/restore, and module guard denial pass | Admin login fails, module is not restored, or disabled module access succeeds |
 | `first-release-idempotency.mjs` | Full command log and test marker | Missing-key, replay, and conflict behavior pass | Missing-key write succeeds, replay duplicates, or conflict is not detected |
 
@@ -57,8 +57,8 @@ Use browser sampling in pre-production and, after approval, production. Each scr
 | A4-RBAC-01 | `RBAC_SUPER_ADMIN_SAMPLE` | Log in, open `/dashboard`, capture `/users/me` context summary | Dashboard loads and context has expected tenant, park, roles, permissions, and enabled modules |
 | A4-RBAC-02 | `RBAC_STANDARD_ROLE_SAMPLE` | Open dashboard and left menu | Only approved role-authorized menus and dashboard content appear |
 | A4-RBAC-03 | `RBAC_DENIED_ROUTE_SAMPLE` | Directly open one approved denied route | Access is rejected by redirect, 403, disabled page, or equivalent no-access behavior |
-| A4-MENU-01 | Super-admin and standard role | Inspect required first-release menu entries | Required first-release entries are visible when role-authorized |
-| A4-MENU-02 | Standard or denied role | Inspect closed/non-first-release entries and direct URLs | Closed entries are hidden and direct route is denied or unavailable |
+| A4-MENU-01 | Super-admin and standard role | Compare rendered menus with the role's `/users/me`, enabled modules, permissions, and approved UAT exposure | Every approved role-authorized entry is visible; no required runtime entry is omitted |
+| A4-MENU-02 | Standard or denied role | Inspect entries denied by the sampled role's permissions or disabled modules and open their direct URLs | Denied entries are hidden and direct routes are rejected or unavailable |
 | A4-DASH-01 | Super-admin and limited role | Compare dashboard widgets/cards against permissions | Dashboard content matches permissions and enabled modules |
 | A4-PERM-01 | Standard and denied role | Compare menu, direct route, and user context | Menu visibility and route access agree with permission context |
 
@@ -66,7 +66,7 @@ Production read-only sampling must not click create, update, delete, enable, dis
 
 ## 5. Menu Fallback Manual Interception
 
-The automated Go-Live Browser UAT derives its page set from `/users/me` `menu_tree` or `menus`. It records `NO_VISIBLE_MENU_PAGE` and stops when both are empty, so that result is not evidence that the Web `dashboardMenus` fallback works.
+The automated Go-Live Browser UAT derives its page set from `/users/me` `menu_tree` or `menus`. It records `NO_VISIBLE_MENU_PAGE` and stops whenever no pages remain after API-menu extraction and optional path-prefix filtering. The marker can represent an empty API menu or a nonmatching filter, so it neither identifies the fallback trigger nor proves that the Web `dashboardMenus` fallback works.
 
 Use this read-only Chrome procedure in Local or UAT with an approved standard-role account:
 
@@ -124,8 +124,8 @@ Before production sampling, record:
 Stop the release gate and open a follow-up task if any of these happen:
 
 - unauthorized access succeeds;
-- required first-release menu is missing;
-- non-first-release menu or route is exposed against the launch policy;
+- an entry required by the sampled role's approved UAT exposure is missing;
+- a menu or route denied by the sampled role's permissions or disabled modules is exposed;
 - fallback sidebar is empty, exposes a permission/module-denied entry, or permits a denied direct route;
 - dashboard visibility does not match role permissions;
 - `/users/me` context does not match the visible menu or route result;

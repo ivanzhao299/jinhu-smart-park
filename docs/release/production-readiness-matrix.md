@@ -39,6 +39,8 @@ node scripts/e2e/first-release-workorders.mjs
 node scripts/e2e/first-release-idempotency.mjs
 ```
 
+`first-release-menu-whitelist.mjs` is retained as an informational historical compatibility check. Current menu Go/No-Go evidence comes from the target role's `/users/me`, enabled modules, permissions, rendered menu, and denied direct-route samples.
+
 预生产和生产发布链路必须跑：
 
 ```bash
@@ -113,7 +115,7 @@ node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs
 |---|---|---|---|---|---|---|
 | Auth | 密码登录、错误密码失败、JWT、`/auth/login`、`/auth/me`、短信 mock 禁用、微信 mock 禁用 | `node scripts/e2e/first-release-auth-health.mjs`；`bash scripts/verify-api-login-dockerexec.sh`；`MODE=full pnpm prod:health` | 本地、预发、生产均必须验证；生产只用受控账号 | 正确密码登录成功，错误密码失败，`/auth/me` 正常，mock 配置关闭 | 登录失败、错误密码未拒绝、`AUTH_SMS_FIXED_CODE` 非空、`AUTH_SMS_CODE_VISIBLE` 非 `false`、`AUTH_WECHAT_MOCK_ENABLED` 非 `false` | Agent 5；auth 责任人 |
 | RBAC | 权限种子、角色权限、超级管理员、普通角色拒绝、数据权限、幂等写保护 | `pnpm test:e2e`；`node scripts/e2e/s1-rbac-std-fix-smoke.mjs`；`node scripts/e2e/first-release-idempotency.mjs` | 本地、预发完整跑；生产只做登录后权限只读抽样 | 角色权限匹配，越权请求被拒绝，幂等重复请求不重复写入 | 普通角色越权、超级管理员缺权、幂等冲突语义异常 | Agent 4 / Agent 5 |
-| 菜单 | 首发菜单白名单、隐藏非首发能力、前端路由和 API 权限一致 | `node scripts/e2e/first-release-menu-whitelist.mjs` | 本地、预发必须跑；生产人工抽样菜单 | 必开菜单可见，隐藏菜单不出现在首发菜单中 | 非首发菜单误开放、首发菜单缺失、菜单权限与角色不一致 | Agent 4 / Agent 5 |
+| 菜单 | 目标角色运行时菜单、模块授权、页面路由和 API 权限一致 | 历史兼容检查（非门禁）：`node scripts/e2e/first-release-menu-whitelist.mjs`；现行门禁：`/users/me`、角色浏览器抽样、拒绝路由抽样 | 本地、预发执行角色/权限检查；生产只读抽样菜单 | 批准开放且有权限的菜单可见，缺权或模块禁用的菜单和路由不可用 | 批准的运行时菜单缺失、缺权菜单暴露、禁用模块可访问、菜单与权限不一致 | Agent 4 / Agent 5 |
 | 租户 | 租户档案、联系人、资质、租户 360 聚合、数据隔离 | `node scripts/e2e/s3a-park-tenant-smoke.mjs`；`node scripts/e2e/first-release-users-assets.mjs` | 本地、预发完整跑；生产只读抽样 | 租户 CRUD/查询、360 聚合、关联数据隔离正常 | 租户 360 关键节点缺失、跨租户数据可见 | Agent 1 / Agent 5 |
 | 资产 | 园区、楼栋、楼层、房源、房源状态板、当前租户、资产统计 | `node scripts/e2e/s2b-smoke.mjs`；`node scripts/e2e/first-release-users-assets.mjs` | 本地、预发完整跑；生产只读抽样 | 资产层级、房源详情、状态板、统计口径正常 | 房源当前租户错误、资产统计明显失真、数据隔离失败 | Agent 1 / Agent 5 |
 | 合同 | 招商线索、报价、合同创建、合同详情、生命周期、到期筛选、合同房源 | `node scripts/e2e/s3b-leasing-crm-smoke.mjs`；`node scripts/e2e/s3c-contract-smoke.mjs`；`node scripts/e2e/s3e-contract-lifecycle-smoke.mjs` | 本地、预发完整跑；生产只读抽样 | 合同创建、签约、生效、到期筛选和合同房源关联正常 | 合同状态流转异常、合同房源丢失、到期筛选错误 | Agent 2 / Agent 5 |
@@ -127,7 +129,7 @@ node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs
 | Seed | production seed 与 dev seed 隔离、`ALLOW_PRODUCTION_SEED=yes`、首发基线 | `ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod`；`pnpm db:check:init` | 预发和生产必须执行；本地按需 | production seed 成功，dev seed 未误跑，基线检查通过或明确记录 | production seed 失败、误跑 dev seed、基线缺失 | Agent 5 / 发布负责人 |
 | 部署健康 | `/health`、`/ready`、Web `/login`、容器、磁盘、文件目录、Docker cleanup | `MODE=full pnpm prod:health`；`pnpm prod:deploy`；`pnpm prod:cleanup` | 预发和生产必须执行 | API liveness/readiness 和 Web login 通过，容器健康，磁盘和文件目录正常 | `/ready` 失败、容器 unhealthy、磁盘不足、部署后 cleanup 未执行或失败未记录 | Agent 5 / 运维 |
 
-Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dashboard-permission-release-gate.md](./rbac-menu-dashboard-permission-release-gate.md). Use it for super-admin, standard role, denied route, first-release menu, non-first-release exposure, dashboard visibility, and permission consistency evidence.
+Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dashboard-permission-release-gate.md](./rbac-menu-dashboard-permission-release-gate.md). Use it for super-admin, standard role, denied route, role/environment-derived runtime menus, dashboard visibility, and permission consistency evidence.
 
 ## 5. 发布前检查清单
 
@@ -165,7 +167,7 @@ Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dash
 - `db:check:init`、`bootstrap-admin`、登录验证、auth smoke 失败。
 - `AUTH_SMS_FIXED_CODE` 非空、`AUTH_SMS_CODE_VISIBLE` 非 `false`、`AUTH_WECHAT_MOCK_ENABLED` 非 `false`。
 - `/health`、`/ready`、Web `/login`、文件上传下载或持久化目录验证失败。
-- 首发菜单白名单失败、非首发菜单误开放。
+- 批准的角色运行时菜单缺失，或缺权/模块禁用的菜单与路由被错误开放。
 - 财务删除/作废保护、收款核销、发票、减免、幂等或审计回归失败。
 - 安全隐患、工单、IoT 自动隐患可见性回归失败且影响对应模块开放。
 - 数据库备份、文件备份、上一版镜像 tag 或回滚责任人缺失。
@@ -179,7 +181,7 @@ Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dash
 | 重复 migration 编号 | 人工排查困难，排序和审计易混乱 | migration 清单冻结时检查 | 不新增重复编号；已知重复编号必须在发布记录中标注 |
 | production seed 与 dev seed 混用 | 生产出现测试账号、样例数据或固定密码 | seed 日志和命令审计 | 生产只允许 `ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod` |
 | auth mock 误启用 | 生产登录安全风险 | 环境变量检查、auth smoke | 保持 `AUTH_SMS_FIXED_CODE` 空、`AUTH_SMS_CODE_VISIBLE=false`、`AUTH_WECHAT_MOCK_ENABLED=false` |
-| 菜单和权限不一致 | 首发能力不可用或非首发能力误开放 | menu whitelist smoke、RBAC smoke、人工验收 | 菜单白名单失败禁止上线；权限变更需同步回归 |
+| 菜单和权限不一致 | 批准能力不可用或缺权/禁用能力误开放 | `/users/me`、RBAC smoke、角色浏览器与拒绝路由验收；历史 whitelist smoke 仅供兼容观察 | 运行时菜单、模块和权限不一致时禁止上线；权限变更需同步回归 |
 | 财务删除/作废保护缺口 | 应收、收款、发票、减免数据不可审计或被误删 | 财务 smoke、审计抽样 | 对财务 P0 失败执行 No-Go；修复交 Agent 2 |
 | 幂等覆盖不足 | 重复扣款、重复应收、重复工单或重复隐患 | first-release idempotency、业务专项 smoke | 对写入型接口保留 idempotency 或等价防重策略 |
 | IoT 自动动作不可见或重复创建 | 工单/隐患已创建但列表、360、房源或统计不可见 | S9D1 smoke、DB 关联字段检查 | 失败时停止开放相关联动，修复交 Agent 3 |

@@ -2,6 +2,8 @@
 
 快速执行入口见 [how-to-run-tests.md](./how-to-run-tests.md)。
 
+> 当前状态说明（2026-07-25）：本文记录历史首发回归包的设计与落地过程。`FIRST_RELEASE_MENU_PATHS` 和 `first-release-menu-whitelist.mjs` 仅保留为历史兼容检查，不再定义当前菜单开放范围，也不作为现行发布 Go/No-Go。当前菜单验收以目标角色 `/users/me`、模块授权、权限、浏览器实际渲染和拒绝路由为准，详见 [RBAC 菜单发布检查](./rbac-menu-dashboard-permission-release-checks.md)。
+
 ## 1. 目的
 
 本文用于定义首发版本上线前、以及后续每次发布前都应执行的最小自动化回归包，目标是用尽量小的成本覆盖最关键、最稳定、最值得回归的首发能力。
@@ -67,16 +69,16 @@
 - 这一层是首发上线后最值得持续回归的业务核心。
 - 优先覆盖“风险高、操作少、数据依赖可控、适合重复执行”的接口链路。
 
-### L3：Web 静态 / 轻量回归
+### L3：Web 静态 / 轻量回归（历史首发设计）
 
-- 菜单白名单
-- 非首发菜单隐藏
+- 历史菜单白名单兼容性
+- 历史首发路径快照
 - 关键页面路由存在
 
 说明：
 
 - 这一层不做完整浏览器 E2E。
-- 目标是快速发现菜单配置、路由映射、首发范围偏离。
+- 目标是快速发现历史兼容符号和路由映射漂移；当前角色菜单范围另走运行时验收。
 
 ### L4：浏览器 E2E
 
@@ -96,7 +98,7 @@
 | 健康检查 | release-smoke 已覆盖 | API regression | 是 | `/health` 返回 ok，`/ready` 状态正确 | 稳定、低成本 |
 | 文件上传下载 | smoke 有部分覆盖，但不成体系 | API regression + 轻量脚本 | 是 | 上传、下载、权限、大小/MIME 基本行为正确 | 与运维体验强相关 |
 | 幂等首批 5 接口 | 有第一版接入，但缺回归包 | API regression | 是 | 同 key 重放、冲突、失败重试、缓存响应正确 | 高风险写接口优先 |
-| 菜单白名单 | 有文档和前端逻辑，但无自动断言 | Web 静态回归 | 是 | 白名单路径可见、隐藏菜单不展示 | 不必做浏览器 E2E |
+| 历史菜单白名单兼容性 | 有历史文档和兼容逻辑 | Web 静态回归 | 是，信息性检查 | 历史符号与快照断言未意外漂移 | 不代表当前菜单可见性，不作为发布门禁 |
 | 资产管理 | smoke 有部分场景覆盖 | API regression | 否，第二批 | 园区/楼栋/楼层/房源的最小读链路可用 | 数据量可控 |
 | 合同创建 | smoke 有覆盖 | API regression | 否，第二批 | 最小创建/查询链路可执行 | 数据依赖相对高 |
 | 应收生成 | smoke 有覆盖 | API regression | 否，第二批 | 合同到应收生成的最小链路正确 | 依赖合同数据 |
@@ -111,7 +113,7 @@
 1. auth regression
 2. health / ready regression
 3. idempotency replay regression
-4. menu whitelist static regression
+4. historical menu compatibility static regression
 5. files upload / download regression
 
 为什么先做这 5 组：
@@ -142,7 +144,7 @@
 暂缓范围建议明确写死，避免回归包无限膨胀：
 
 - 全量浏览器 E2E
-- 非首发模块
+- 历史非首发模块（按当时口径）
 - IoT / 视频 / 能耗 / 机器人
 - 大面积前端组件测试
 - 复杂状态机全路径测试
@@ -269,13 +271,13 @@ pnpm regression:leasing
 - 验证方式：登录成功/失败、`/health`、`/ready`、bootstrap-admin 后可登录。
 - 风险点：依赖环境变量和 bootstrap-admin 状态，需固定测试账号。
 
-### C2-2：idempotency replay + menu whitelist regression
+### C2-2：idempotency replay + historical menu compatibility regression
 
-- 目标：验证首批写接口的防重放行为，并用静态脚本锁定首发菜单白名单。
+- 目标：验证首批写接口的防重放行为，并记录历史首发菜单兼容快照。
 - 建议文件：`scripts/e2e/regression-idempotency.mjs`
 - 当前落地：`scripts/e2e/first-release-idempotency.mjs`、`scripts/e2e/first-release-menu-whitelist.mjs`
 - 执行命令：`node scripts/e2e/first-release-idempotency.mjs`、`node scripts/e2e/first-release-menu-whitelist.mjs`
-- 第一版覆盖范围：`POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict；菜单白名单静态断言。
+- 第一版覆盖范围：`POST /users`、`POST /work-orders` 的 missing key / first request / replay / conflict；历史菜单兼容静态断言。
 - 验证方式：同 key 重放、冲突、失败后重试、缓存响应一致。
 - 风险点：需要固定 `TEST_RUN_ID` 和可重复的写入前置数据。
 - 暂缓项：合同 / 应收 / 收款回归留到第二批，因为它们的数据依赖更深、联动面更大，更适合在用户和工单回归稳定后再补。
@@ -303,14 +305,14 @@ pnpm regression:leasing
 - 验证方式：用户创建后可在详情和列表中回读，资产列表接口可稳定返回可解析的分页结构。
 - 风险点：用户创建依赖幂等 key 和固定测试前缀，资产只读需要生产 seed / 基础数据可访问。
 
-### C2-4：menu whitelist regression
+### C2-4：menu whitelist regression（历史兼容检查）
 
-- 目标：验证首发菜单范围和隐藏模块策略。
+- 目标：验证历史首发菜单兼容符号和快照未发生非预期漂移。
 - 当前落地：`scripts/e2e/first-release-menu-whitelist.mjs`
 - 首发菜单 contract：`apps/web/lib/menu.ts` 的 `FIRST_RELEASE_MENU_PATHS`、`FIRST_RELEASE_MENU_PATH_SET` 和 `filterFirstReleaseMenus`
 - 执行命令：`node scripts/e2e/first-release-menu-whitelist.mjs`
-- 验证方式：读取首发菜单 contract，断言 dashboard、system、assets、leasing、workorders、现场工作台和 8 个 safety 核心路径在白名单内，IoT、能耗、机器人、视频安防、safety 应急 / 作业许可、招商扩展、退款和发票路径不在白名单内。
-- 风险点：适合做静态/轻量检查，不建议升级成浏览器 E2E。
+- 验证方式：读取历史首发 contract 并执行静态快照断言；输出仅用于兼容性观察。
+- 风险点：该结果不能证明当前角色菜单正确，也不得因授权角色出现扩展菜单而阻断发布；现行菜单门禁必须使用运行时角色证据。
 
 ### C2-5：workorders / leasing regression
 
@@ -396,7 +398,7 @@ pnpm regression:leasing
 - 执行命令：`node scripts/e2e/first-release-regression.mjs`
 - 说明：统一 runner 会串联已补齐 replay / conflict 的 `first-release-workorders.mjs` 和 `first-release-leasing.mjs`
 - 子脚本顺序：
-  1. `scripts/e2e/first-release-menu-whitelist.mjs`
+  1. `scripts/e2e/first-release-menu-whitelist.mjs`（历史兼容信息性检查，不定义当前菜单 Go/No-Go）
   2. `scripts/e2e/first-release-auth-health.mjs`
   3. `scripts/e2e/first-release-idempotency.mjs`
   4. `scripts/e2e/first-release-files.mjs`
@@ -468,12 +470,12 @@ pnpm regression:leasing
 
 - 标题：`add menu whitelist static regression`
 - 优先级：P2
-- 背景：首发菜单白名单已经落地，但缺少自动断言。
+- 背景：当时的首发菜单白名单已经落地，但缺少自动断言；本节保留为历史实施记录。
 - 任务：
-  - 自动校验白名单路径和隐藏模块。
+  - 自动校验当时的白名单路径和历史隐藏模块快照。
   - 生成可读性良好的输出。
 - 验收标准：
-  - 菜单范围偏移可快速发现。
+  - 历史菜单兼容快照偏移可快速发现，不用于判断当前角色菜单范围。
 
 ### Issue 6
 
