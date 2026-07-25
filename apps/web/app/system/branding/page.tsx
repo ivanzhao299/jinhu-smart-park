@@ -1,22 +1,33 @@
 "use client";
 
 import { Card, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { CheckCircle2, Palette, Pencil, Save, X } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { FileUploader } from "../../../components/files/FileUploader";
 import { THEME_OPTIONS, type Theme, useTheme } from "../../../components/theme/ThemeProvider";
-import { defaultAppBranding, readStoredBranding, writeStoredBranding } from "../../../lib/app-branding";
+import {
+  defaultAppBranding,
+  fetchCurrentBranding,
+  readStoredBranding,
+  resolveBrandLogo,
+  saveCurrentBranding
+} from "../../../lib/app-branding";
+import { getToken } from "../../../lib/auth";
 
 interface BrandingFormState {
   systemName: string;
   shortName: string;
   logoAlt: string;
+  logoFileId: string | null;
+  logoUrl: string | null;
   theme: Theme;
 }
 
 export default function SystemBrandingPage() {
   return (
-    <PermissionGuard module="system" permission="system:read" fallback={<Forbidden />}>
+    <PermissionGuard module="system" permission={SYSTEM_PERMISSIONS.TENANT_MANAGE} fallback={<Forbidden />}>
       <BrandingSettings />
     </PermissionGuard>
   );
@@ -29,12 +40,36 @@ function BrandingSettings() {
     theme
   });
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    const branding = readStoredBranding();
-    setForm({ ...branding, theme });
-  }, [theme]);
+    let active = true;
+    const cachedBranding = readStoredBranding();
+    setForm((current) => ({ ...current, ...cachedBranding }));
+    const token = getToken();
+    if (token) {
+      void fetchCurrentBranding(token)
+        .then(async (branding) => {
+          if (!active) return;
+          if (!branding.configured && hasCustomBranding(cachedBranding)) {
+            const migratedBranding = await saveCurrentBranding(token, cachedBranding);
+            if (!active) return;
+            setForm((current) => ({ ...current, ...migratedBranding }));
+            setMessage("原浏览器品牌设置已同步到系统");
+            return;
+          }
+          setForm((current) => ({ ...current, ...branding }));
+        })
+        .catch((loadError: unknown) => {
+          if (active) setError(loadError instanceof Error ? loadError.message : "品牌设置加载失败");
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const updateField = <K extends keyof BrandingFormState>(key: K, value: BrandingFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -45,12 +80,22 @@ function BrandingSettings() {
     setTheme(value);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    writeStoredBranding(form);
-    setTheme(form.theme);
-    setMessage("品牌设置已应用");
-    setEditing(false);
+    setSaving(true);
+    setError("");
+    try {
+      const token = getToken();
+      if (!token) throw new Error("登录状态已失效，请重新登录");
+      await saveCurrentBranding(token, form);
+      setTheme(form.theme);
+      setMessage("品牌设置已保存并同步到登录页");
+      setEditing(false);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "品牌设置保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   function closeEditor() {
@@ -79,10 +124,14 @@ function BrandingSettings() {
           {message}
         </div>
       ) : null}
+      {error ? <div className="form-error" role="alert">{error}</div> : null}
 
       <Card className="ds-panel brand-settings-panel">
         <div className="brand-settings-preview" aria-label="品牌预览">
-          <img alt={form.logoAlt || defaultAppBranding.logoAlt} src="/brand/jinhupark-logo.svg" />
+          <img
+            alt={form.logoAlt || defaultAppBranding.logoAlt}
+            src={resolveBrandLogo(form, "/brand/jinhupark-logo.svg")}
+          />
           <div>
             <span>当前系统名称</span>
             <strong>{form.systemName || defaultAppBranding.systemName}</strong>
@@ -108,7 +157,7 @@ function BrandingSettings() {
                   value={form.systemName}
                   maxLength={32}
                   onChange={(event) => updateField("systemName", event.target.value)}
-                  placeholder="例如：园区数字运营平台"
+                  placeholder="例如：企业数字运营平台"
                   required
                 />
               </label>
@@ -144,6 +193,41 @@ function BrandingSettings() {
               </label>
             </DrawerFormGrid>
             <DrawerFormGrid single>
+              <div className="field brand-logo-field">
+                <span>品牌 Logo</span>
+                <div className="brand-logo-upload-row">
+                  <img
+                    alt={form.logoAlt || defaultAppBranding.logoAlt}
+                    src={resolveBrandLogo(form, "/brand/jinhupark-logo.svg")}
+                  />
+                  <FileUploader
+                    bizType="tenant_brand_logo"
+                    compact
+                    label="上传新 Logo"
+                    policyKey="image"
+                    uploadPath="/tenants/current/branding/logo"
+                    onUploaded={(file) => {
+                      updateField("logoFileId", file.id);
+                      updateField("logoUrl", `/api/v1/files/public/brand-logos/${file.id}`);
+                      setMessage("Logo 已上传，请保存品牌设置以正式启用");
+                    }}
+                  />
+                </div>
+                {form.logoFileId ? (
+                  <button
+                    className="secondary-button brand-logo-reset"
+                    type="button"
+                    onClick={() => {
+                      updateField("logoFileId", null);
+                      updateField("logoUrl", null);
+                    }}
+                  >
+                    恢复默认 Logo
+                  </button>
+                ) : null}
+              </div>
+            </DrawerFormGrid>
+            <DrawerFormGrid single>
               <div className="field">
                 <label>配色方案</label>
                 <div className="theme-scheme-grid" aria-label="配色方案">
@@ -165,15 +249,24 @@ function BrandingSettings() {
             </DrawerFormGrid>
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={closeEditor}>取消</button>
-              <button className="primary-button" type="submit">
+              <button className="primary-button" disabled={saving} type="submit">
                 <Save size={16} />
-                保存
+                {saving ? "保存中..." : "保存"}
               </button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>
       ) : null}
     </main>
+  );
+}
+
+function hasCustomBranding(branding: typeof defaultAppBranding): boolean {
+  return (
+    branding.systemName !== defaultAppBranding.systemName ||
+    branding.shortName !== defaultAppBranding.shortName ||
+    branding.logoAlt !== defaultAppBranding.logoAlt ||
+    branding.logoFileId !== defaultAppBranding.logoFileId
   );
 }
 

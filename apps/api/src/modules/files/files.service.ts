@@ -30,6 +30,8 @@ export interface DownloadFileResult {
   absolutePath: string;
 }
 
+export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
+
 @Injectable()
 export class FilesService {
   constructor(
@@ -115,6 +117,32 @@ export class FilesService {
 
   async prepareDownload(scope: TenantParkScope, id: string): Promise<DownloadFileResult> {
     const file = await this.detail(scope, id);
+    return {
+      file,
+      absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))
+    };
+  }
+
+  async assertBrandLogoReference(scope: TenantParkScope, id: string): Promise<FileEntity> {
+    const file = await this.detail(scope, id);
+    if (file.bizType !== TENANT_BRAND_LOGO_BIZ_TYPE || file.status !== 1 || !file.mimeType.startsWith("image/")) {
+      throw new BadRequestException("品牌 Logo 引用无效");
+    }
+    return file;
+  }
+
+  async preparePublicBrandLogo(id: string): Promise<DownloadFileResult> {
+    const file = await this.fileRepository.findOne({
+      where: {
+        id,
+        bizType: TENANT_BRAND_LOGO_BIZ_TYPE,
+        status: 1,
+        isDeleted: false
+      }
+    });
+    if (!file || !file.mimeType.startsWith("image/")) {
+      throw new NotFoundException("Brand logo not found");
+    }
     return {
       file,
       absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))

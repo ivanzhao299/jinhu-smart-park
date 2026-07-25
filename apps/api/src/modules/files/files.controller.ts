@@ -20,6 +20,7 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { Public } from "../../shared/decorators/public.decorator";
 import { SkipResponseWrap } from "../../shared/decorators/skip-response-wrap.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileQueryDto } from "./dto/file-query.dto";
@@ -51,6 +52,19 @@ export class FilesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_READ)
   list(@CurrentScope() scope: TenantParkScope, @Query() query: FileQueryDto) {
     return this.filesService.list(scope, query);
+  }
+
+  @Public()
+  @Get("public/brand-logos/:id")
+  @SkipResponseWrap()
+  @Header("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400")
+  async publicBrandLogo(@Param("id") id: string, @Res({ passthrough: true }) response: Response) {
+    const result = await this.filesService.preparePublicBrandLogo(id);
+    response.setHeader("Content-Type", result.file.mimeType);
+    response.setHeader("Content-Length", result.file.fileSize);
+    response.setHeader("Content-Disposition", "inline");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    return new StreamableFile(this.filesService.createReadStream(result.absolutePath));
   }
 
   @Get(":id")

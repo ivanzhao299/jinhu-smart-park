@@ -20,7 +20,7 @@
 - 当前产品范围：[product/current-product-scope.md](product/current-product-scope.md)
 - 环境矩阵：[deployment/environment-matrix.md](deployment/environment-matrix.md)
 - 全量 UAT 矩阵：[uat/full-product-acceptance-matrix.md](uat/full-product-acceptance-matrix.md)
-- 当前移交清单：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
+- 历史移交清单快照（仅供追溯）：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
 - 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 生产级部署入口（当前用于 UAT）：[deployment/production.md](deployment/production.md)
@@ -137,11 +137,11 @@ node scripts/e2e/first-release-regression.mjs
   - [architecture/saas-rbac-std.md](architecture/saas-rbac-std.md)
   - [architecture/supplement-integration.md](architecture/supplement-integration.md)
 
-## 7. Handover 资料
+## 7. 历史 Handover 资料
 
-- 当前移交清单：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
+- 历史移交清单快照（禁止作为当前执行手册）：[handover/smart-park-handover-checklist.md](handover/smart-park-handover-checklist.md)
 - 移交清单 drift 审计报告：[handover/smart-park-handover-checklist-drift-report.md](handover/smart-park-handover-checklist-drift-report.md)
 
-早期 handover、阶段性审查和上线签字模板等材料如仍位于仓库外项目交接目录中，应以当前仓库内清单和本索引为准。
+Handover、阶段性审查和上线签字模板仅用于历史追溯。当前接手和执行口径以本索引中的产品范围、环境矩阵、UAT 矩阵及对应运行手册为准。
 
 当前仓库内的正式文档入口以 [README.md](../README.md) 和本索引为准。

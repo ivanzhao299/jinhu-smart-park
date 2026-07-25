@@ -80,7 +80,10 @@ async function checkUser(user, password, chrome) {
     display_name: user.displayName,
     role: user.role,
     login: "FAIL",
+    menu_source: "rendered_sidebar",
+    api_menu_pages_total: 0,
     menu_pages_total: 0,
+    rendered_only_pages: [],
     pages_checked: 0,
     page_render_check: "FAIL",
     failed_pages: [],
@@ -105,16 +108,47 @@ async function checkUser(user, password, chrome) {
     return result;
   }
 
-  const pages = Array.from(new Set(flattenMenuHrefs(me.body.data.menu_tree ?? me.body.data.menus ?? [])))
+  const apiPages = Array.from(new Set(flattenMenuHrefs(me.body.data.menus ?? me.body.data.menu_tree ?? [])))
     .map(normalizeMenuHref)
-    .filter(Boolean)
+    .filter(Boolean);
+  result.api_menu_pages_total = apiPages.length;
+
+  let renderedMenu;
+  try {
+    renderedMenu = await chrome.listMenuPaths({
+      token,
+      userContext: me.body.data,
+      viewport: { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    result.failed_pages.push(`MENU_DISCOVERY: browser_harness_error (${reason})`);
+    fail(`browser UAT ${user.username} could not discover rendered menu pages: browser_harness_error (${reason})`);
+    return result;
+  }
+  if (renderedMenu.status === "FAIL") {
+    result.failed_pages.push(`MENU_DISCOVERY: ${renderedMenu.reason}`);
+    fail(`browser UAT ${user.username} could not discover rendered menu pages: ${renderedMenu.reason}`);
+    return result;
+  }
+  if (renderedMenu.warnings.length > 0) {
+    warnings.push(`${user.username} menu discovery: ${renderedMenu.warnings.slice(0, 2).join(" | ")}`);
+  }
+
+  const renderedPages = Array.from(new Set(renderedMenu.paths))
+    .map(normalizeMenuHref)
+    .filter(Boolean);
+  const apiPageSet = new Set(apiPages);
+  result.rendered_only_pages = renderedPages.filter((pagePath) => !apiPageSet.has(pagePath));
+
+  const pages = renderedPages
     .filter((pagePath) => pathPrefixes.length === 0 || pathPrefixes.some((prefix) => pagePath.startsWith(prefix)));
   const pagesToCheck = maxPagesPerUser > 0 ? pages.slice(0, maxPagesPerUser) : pages;
   result.menu_pages_total = pages.length;
 
   if (pages.length === 0) {
-    result.failed_pages.push("NO_VISIBLE_MENU_PAGE");
-    fail(`browser UAT ${user.username} has no visible menu pages`);
+    result.failed_pages.push("NO_RENDERED_MENU_PAGE");
+    fail(`browser UAT ${user.username} has no rendered menu pages after optional path filtering`);
     return result;
   }
 
@@ -175,6 +209,9 @@ async function launchChrome() {
   await browser.open();
 
   return {
+    async listMenuPaths(input) {
+      return collectRenderedMenuPaths(browser, input);
+    },
     async visit(input) {
       return visitPage(browser, input);
     },
@@ -191,6 +228,95 @@ async function launchChrome() {
       rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   };
+}
+
+async function collectRenderedMenuPaths(browser, { token, userContext, viewport }) {
+  const target = await browser.send("Target.createTarget", { url: `${webBase}/login` });
+  const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
+  const sessionId = attached.sessionId;
+  const runtimeErrors = [];
+  const pageWarnings = [];
+
+  const off = browser.onEvent((message) => {
+    if (message.sessionId !== sessionId) return;
+    if (message.method === "Runtime.exceptionThrown") {
+      runtimeErrors.push(message.params?.exceptionDetails?.text ?? "runtime exception");
+    }
+    if (message.method === "Runtime.consoleAPICalled" && message.params?.type === "error") {
+      const text = (message.params.args ?? [])
+        .map((arg) => String(arg.value ?? arg.description ?? ""))
+        .filter(Boolean)
+        .join(" ");
+      if (text) pageWarnings.push(`console.error: ${text}`);
+    }
+  });
+
+  try {
+    await browser.send("Page.enable", {}, sessionId);
+    await browser.send("Runtime.enable", {}, sessionId);
+    await browser.send("Emulation.setDeviceMetricsOverride", {
+      width: viewport.width,
+      height: viewport.height,
+      mobile: viewport.mobile,
+      deviceScaleFactor: viewport.deviceScaleFactor
+    }, sessionId);
+    await waitForReady(browser, sessionId);
+
+    await browser.send("Runtime.evaluate", {
+      expression: `
+        localStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
+        sessionStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
+        localStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
+        sessionStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
+      `,
+      awaitPromise: true
+    }, sessionId);
+
+    const loadPromise = waitForEvent(browser, sessionId, "Page.loadEventFired", 12000);
+    await browser.send("Page.navigate", { url: `${webBase}/dashboard` }, sessionId);
+    await loadPromise;
+    await waitForReady(browser, sessionId);
+    await waitForExpression(
+      browser,
+      sessionId,
+      `Boolean(document.querySelector("aside.app-sidebar:not(.dashboard-sidebar-skeleton) nav.sidebar-menu"))`,
+      10000
+    );
+
+    const evaluation = await browser.send("Runtime.evaluate", {
+      expression: `(() => {
+        const text = document.body?.innerText ?? "";
+        const sidebar = document.querySelector("aside.app-sidebar:not(.dashboard-sidebar-skeleton) nav.sidebar-menu");
+        return {
+          pathname: location.pathname,
+          textLength: text.trim().length,
+          hasLogin: Boolean(document.querySelector(".signin-page")) || location.pathname === "/login",
+          hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足/.test(text),
+          hasNextError: /Application error|Unhandled Runtime Error|ChunkLoadError|Hydration failed/i.test(text),
+          hasSidebar: Boolean(sidebar),
+          paths: sidebar
+            ? Array.from(sidebar.querySelectorAll("a[href]"), (link) => link.getAttribute("href")).filter(Boolean)
+            : []
+        };
+      })()`,
+      returnByValue: true,
+      awaitPromise: true
+    }, sessionId);
+
+    const value = evaluation.result?.value ?? {};
+    const hardFailure = getRenderFailure(value, runtimeErrors)
+      || (!value.hasSidebar ? "menu_sidebar_not_rendered" : "")
+      || (!Array.isArray(value.paths) || value.paths.length === 0 ? "no_rendered_menu_links" : "");
+    return {
+      status: hardFailure ? "FAIL" : "PASS",
+      reason: hardFailure,
+      warnings: pageWarnings,
+      paths: Array.isArray(value.paths) ? value.paths : []
+    };
+  } finally {
+    off();
+    await browser.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
+  }
 }
 
 async function visitPage(browser, { path, token, userContext, viewport }) {
@@ -350,6 +476,18 @@ async function waitForReady(browser, sessionId) {
   for (let index = 0; index < 40; index += 1) {
     const result = await browser.send("Runtime.evaluate", {
       expression: `document.readyState === "complete"`,
+      returnByValue: true
+    }, sessionId).catch(() => ({ result: { value: false } }));
+    if (result.result?.value === true) return;
+    await sleep(250);
+  }
+}
+
+async function waitForExpression(browser, sessionId, expression, timeoutMs) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const result = await browser.send("Runtime.evaluate", {
+      expression,
       returnByValue: true
     }, sessionId).catch(() => ({ result: { value: false } }));
     if (result.result?.value === true) return;

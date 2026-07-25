@@ -4,8 +4,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const scriptOrder = [
-  "scripts/e2e/first-release-menu-whitelist.mjs",
+const informationalScriptOrder = [
+  "scripts/e2e/first-release-menu-whitelist.mjs"
+];
+const requiredScriptOrder = [
   "scripts/e2e/first-release-auth-health.mjs",
   "scripts/e2e/first-release-idempotency.mjs",
   "scripts/e2e/first-release-files.mjs",
@@ -20,6 +22,10 @@ function info(message) {
 
 function pass(message) {
   console.log(`[PASS] ${message}`);
+}
+
+function warn(message) {
+  console.warn(`[WARN] ${message}`);
 }
 
 function fail(message) {
@@ -80,7 +86,22 @@ async function run() {
   info(`Test run: ${env.TEST_RUN_ID}`);
   info(`Idempotency prefix: ${env.IDEMPOTENCY_KEY_PREFIX}`);
 
-  for (const scriptPath of scriptOrder) {
+  for (const scriptPath of informationalScriptOrder) {
+    info(`Running informational compatibility check ${scriptPath}`);
+    const result = await runScript(resolve(rootDir, scriptPath), env);
+    if (!result.ok) {
+      const detail = result.signal
+        ? `signal ${result.signal}`
+        : result.error
+          ? `spawn error: ${result.error}`
+          : `exit code ${result.code}`;
+      warn(`${scriptPath} reported ${detail}; continuing because this historical compatibility check is not a release gate`);
+      continue;
+    }
+    pass(`${scriptPath} (informational)`);
+  }
+
+  for (const scriptPath of requiredScriptOrder) {
     info(`Running ${scriptPath}`);
     const result = await runScript(resolve(rootDir, scriptPath), env);
     if (!result.ok) {

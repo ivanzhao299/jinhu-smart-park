@@ -1,4 +1,6 @@
-# 金湖智慧园区数字运营 SaaS 平台移交清单
+# 金湖智慧园区数字运营 SaaS 平台历史移交清单快照
+
+> **历史资料，请勿作为当前执行手册使用。** 本文全文是 2026-06-12 移交状态的追溯快照，其中的生产服务器、域名、密钥交接、数据库备份、管理员和部署命令均为当时的检查项或未来 Production 占位，不代表当前环境已启用，也不得据此直接执行。当前接手、UAT 和部署操作必须从 [文档索引](../index.md)、[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md) 与 [全量产品 UAT 矩阵](../uat/full-product-acceptance-matrix.md) 重新确认。
 
 生成日期：2026-06-12
 口径校正日期：2026-07-24
@@ -8,7 +10,7 @@
 
 > 安全原则：本文档不保存任何明文密码、私钥、数据库密码、JWT 密钥、第三方 token、管理员密码或完整敏感连接串。所有密钥应通过 1Password、Bitwarden、企业微信密封消息或线下密封交接。
 >
-> 当前权威口径：[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md)、[全量产品 UAT 矩阵](../uat/full-product-acceptance-matrix.md)。本文后续 commit、数量和 First Release 内容是 2026-06-12 的历史移交快照，不应视为 2026-07-24 的实时仓库状态或真实生产证明。
+> 当前权威口径：[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md)、[全量产品 UAT 矩阵](../uat/full-product-acceptance-matrix.md)。本文全部章节均为历史移交快照，不应视为 2026-07-24 之后的实时仓库状态、当前操作步骤或真实生产证明。
 
 ## 1. 2026-06-12 历史基线
 

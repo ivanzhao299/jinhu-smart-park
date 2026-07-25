@@ -42,7 +42,7 @@ Evidence to keep:
 
 | Command | Evidence | Pass condition | No-Go condition |
 |---|---|---|---|
-| `first-release-menu-whitelist.mjs` | Full command log | Required first-release paths and compatibility symbols pass | Script exits non-zero or reports missing required menu path |
+| `first-release-menu-whitelist.mjs` | Optional informational log | Historical whitelist compatibility symbols and snapshot assertions pass | Record drift for follow-up; do not use this historical static result as current menu Go/No-Go evidence |
 | `s1-rbac-std-fix-smoke.mjs` | Full command log and target labels | Admin login, `/users/me`, module disable/restore, and module guard denial pass | Admin login fails, module is not restored, or disabled module access succeeds |
 | `first-release-idempotency.mjs` | Full command log and test marker | Missing-key, replay, and conflict behavior pass | Missing-key write succeeds, replay duplicates, or conflict is not detected |
 
@@ -57,14 +57,40 @@ Use browser sampling in pre-production and, after approval, production. Each scr
 | A4-RBAC-01 | `RBAC_SUPER_ADMIN_SAMPLE` | Log in, open `/dashboard`, capture `/users/me` context summary | Dashboard loads and context has expected tenant, park, roles, permissions, and enabled modules |
 | A4-RBAC-02 | `RBAC_STANDARD_ROLE_SAMPLE` | Open dashboard and left menu | Only approved role-authorized menus and dashboard content appear |
 | A4-RBAC-03 | `RBAC_DENIED_ROUTE_SAMPLE` | Directly open one approved denied route | Access is rejected by redirect, 403, disabled page, or equivalent no-access behavior |
-| A4-MENU-01 | Super-admin and standard role | Inspect required first-release menu entries | Required first-release entries are visible when role-authorized |
-| A4-MENU-02 | Standard or denied role | Inspect closed/non-first-release entries and direct URLs | Closed entries are hidden and direct route is denied or unavailable |
+| A4-MENU-01 | Super-admin and standard role | Compare rendered menus with the role's `/users/me`, enabled modules, permissions, and approved UAT exposure | Every approved role-authorized entry is visible; no required runtime entry is omitted |
+| A4-MENU-02 | Standard or denied role | Inspect entries denied by the sampled role's permissions or disabled modules and open their direct URLs | Denied entries are hidden and direct routes are rejected or unavailable |
 | A4-DASH-01 | Super-admin and limited role | Compare dashboard widgets/cards against permissions | Dashboard content matches permissions and enabled modules |
 | A4-PERM-01 | Standard and denied role | Compare menu, direct route, and user context | Menu visibility and route access agree with permission context |
 
 Production read-only sampling must not click create, update, delete, enable, disable, import, export, approve, void, generate, pay, waive, invoice, dispatch, or cleanup actions.
 
-## 5. Evidence Table Template
+## 5. Menu Fallback Manual Interception
+
+The automated Go-Live Browser UAT now derives its page set from the actual rendered sidebar, so authorized canonical links merged into an empty or nonempty-but-incomplete `/users/me` tree are included in page checks. Its report records the raw API count and `rendered_only_pages`. Use the following controlled procedure when release evidence must demonstrate the exact empty-tree and partial-tree merge cases.
+
+Use this read-only Chrome procedure in Local or UAT with an approved standard-role account:
+
+1. Log in, open `/dashboard`, open DevTools, and select **Sources > Overrides**.
+2. Choose a local override folder, allow Chrome access, then reload the page.
+3. In **Network**, locate the successful `/users/me` request, right-click it, and choose **Override content**.
+4. First set both `data.menu_tree` and `data.menus` to empty arrays. Do not change the user ID, tenant, park, roles, permissions, `is_super`, or enabled-module fields.
+5. Save the override and reload `/dashboard`. Confirm in Network that `/users/me` is served from the local override.
+6. Capture the rendered sidebar. It must not be empty, proving the Web used `dashboardMenus`; every visible link must still be allowed by the retained permissions and enabled modules.
+7. Next replace both menu fields with the same nonempty partial tree containing only one known authorized page. Reload and capture the sidebar again. Confirm that other authorized canonical links are merged into the rendered menu and are not limited to the single API link.
+8. Open at least one merged authorized link and confirm it renders. Then pick one permission-denied or module-disabled canonical path and open it directly; it must be rejected through redirect, 403, forbidden/disabled state, or equivalent no-access behavior.
+9. Remove or disable the override, reload, and confirm the original backend-provided menu tree is restored.
+
+Record:
+
+- environment, commit, timestamp, and account label;
+- the redacted overridden `/users/me` responses showing the empty and nonempty partial menu fields plus role/module/permission summaries;
+- original/empty/partial sidebar screenshots;
+- the denied direct-route result;
+- confirmation that the override was removed.
+
+Do not use a super-admin account as the only sample because `*` permission cannot prove fallback permission filtering. Local Overrides changes only the browser response; it must not be replaced with API writes, role edits, module toggles, or committed fixture data.
+
+## 6. Evidence Table Template
 
 Copy this table into the release evidence report for each target environment.
 
@@ -77,8 +103,9 @@ Copy this table into the release evidence report for each target environment.
 | A4-MENU-02 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-DASH-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-PERM-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
+| A4-MENU-FALLBACK-01 | `<local/uat>` | `<url>` | `<standard-role-label>` | `dashboardMenus` fallback renders and remains permission/module filtered | `<actual>` | `<override response/screenshots>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 
-## 6. Required Approval Record For Production
+## 7. Required Approval Record For Production
 
 Before production sampling, record:
 
@@ -93,13 +120,14 @@ Before production sampling, record:
 | Explicitly skipped | `write-path e2e, permission edits, module toggles, seed, cleanup` |
 | Evidence destination | `<path/link>` |
 
-## 7. Failure Handling
+## 8. Failure Handling
 
 Stop the release gate and open a follow-up task if any of these happen:
 
 - unauthorized access succeeds;
-- required first-release menu is missing;
-- non-first-release menu or route is exposed against the launch policy;
+- an entry required by the sampled role's approved UAT exposure is missing;
+- a menu or route denied by the sampled role's permissions or disabled modules is exposed;
+- fallback sidebar is empty, exposes a permission/module-denied entry, or permits a denied direct route;
 - dashboard visibility does not match role permissions;
 - `/users/me` context does not match the visible menu or route result;
 - any production sampling writes data or changes permissions without approval.
