@@ -233,13 +233,38 @@ export class PropertyOperationsService {
          WHERE tenant_id = $1 AND park_id = $2 AND unit_id = $3
            AND is_deleted = false AND status NOT IN ('60', '70', '90', '100')
        ),
-       receivables AS (
-         SELECT count(DISTINCT receivable.id)::int AS unsettled_receivable_count
+       financial_items AS (
+         SELECT 'commercial:' || receivable.id::text AS item_id
          FROM rel_leasing_contract_unit relation
          JOIN biz_leasing_receivable receivable ON receivable.contract_id = relation.contract_id
          WHERE relation.tenant_id = $1 AND relation.park_id = $2 AND relation.unit_id = $3
            AND relation.is_deleted = false AND relation.status = 1
            AND receivable.is_deleted = false AND receivable.status <> '90' AND receivable.amount_remain > 0
+         UNION ALL
+         SELECT 'housing:' || receivable.id::text AS item_id
+         FROM biz_housing_receivable receivable
+         JOIN biz_housing_lease lease ON lease.id = receivable.lease_id
+         WHERE receivable.tenant_id = $1 AND receivable.park_id = $2
+           AND lease.unit_id = $3 AND lease.is_deleted = false
+           AND receivable.is_deleted = false AND receivable.status <> 'void'
+           AND receivable.amount > receivable.paid_amount + receivable.waived_amount
+         UNION ALL
+         SELECT 'homestay:' || booking.id::text AS item_id
+         FROM biz_homestay_booking booking
+         JOIN biz_homestay_ledger_entry entry ON entry.booking_id = booking.id
+         WHERE booking.tenant_id = $1 AND booking.park_id = $2 AND booking.unit_id = $3
+           AND booking.is_deleted = false AND entry.is_deleted = false AND entry.status = 'confirmed'
+         GROUP BY booking.id
+         HAVING sum(CASE
+           WHEN entry.entry_type = 'charge' THEN entry.amount
+           WHEN entry.entry_type IN ('payment', 'waiver') THEN -entry.amount
+           WHEN entry.entry_type = 'refund' THEN entry.amount
+           ELSE 0
+         END) > 0
+       ),
+       receivables AS (
+         SELECT count(*)::int AS unsettled_receivable_count
+         FROM financial_items
        )
        SELECT * FROM occupancy CROSS JOIN contracts CROSS JOIN checkouts CROSS JOIN workorders CROSS JOIN receivables`,
       [scope.tenantId, scope.parkId, unitId, targetMode]

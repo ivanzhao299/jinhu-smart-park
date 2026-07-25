@@ -244,6 +244,7 @@ export class PropertyOccupanciesService {
 
   async activate(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const entity = await this.mustFindOccupancy(scope, id);
+    await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
     if (entity.status === "active") return entity;
     if (entity.status !== "held") throw new ConflictException("Only held occupancy can be activated");
     if (entity.holdExpiresAt && entity.holdExpiresAt.getTime() <= Date.now()) {
@@ -259,7 +260,11 @@ export class PropertyOccupanciesService {
       throw new ForbiddenException("property_occupancy:force_release permission is required");
     }
     const entity = await this.mustFindOccupancy(scope, id);
+    await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
     if (["released", "completed", "cancelled"].includes(entity.status)) return entity;
+    if (!dto.force && ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)) {
+      throw new ConflictException("Business-owned occupancy must be released by its source workflow or force released");
+    }
     entity.status = "released";
     entity.releaseReason = dto.reason.trim();
     entity.releasedAt = new Date();

@@ -136,17 +136,18 @@ export function HomestayOperationsClient() {
     try {
       const [dashboardResponse, unitsResponse, bookingsResponse, turnoversResponse, roomStateResponse] = await Promise.all([
         apiRequest<Dashboard>("/homestay/dashboard", { token }),
-        apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token }),
+        apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token }).catch(() => null),
         apiRequest<PaginatedResult<Booking>>("/homestay/bookings?page=1&page_size=100", { token }),
         apiRequest<Turnover[]>("/homestay/turnovers", { token }),
         apiRequest<RoomState[]>(`/homestay/availability?date_from=${today()}&date_to=${tomorrow()}`, { token })
       ]);
       setDashboard(dashboardResponse.data);
-      setUnits(unitsResponse.data.items);
+      const availableUnits = unitsResponse?.data.items ?? [];
+      setUnits(availableUnits);
       setBookings(bookingsResponse.data.items);
       setTurnovers(turnoversResponse.data);
       setRoomStates(roomStateResponse.data);
-      const firstUnit = unitsResponse.data.items[0]?.id ?? "";
+      const firstUnit = availableUnits[0]?.id ?? "";
       setRateForm((current) => ({ ...current, unitId: current.unitId || firstUnit }));
       setBookingForm((current) => ({ ...current, unitId: current.unitId || firstUnit }));
     } catch (error) {

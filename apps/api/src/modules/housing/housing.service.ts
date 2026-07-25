@@ -44,7 +44,7 @@ import {
   HousingPurchaseItemEntity,
   HousingReceivableEntity
 } from "./entities/housing.entities";
-import { calculateHousingMonthFraction } from "./housing-billing.policy";
+import { assertHousingBillingPeriodWithinLease, calculateHousingMonthFraction } from "./housing-billing.policy";
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
@@ -440,6 +440,7 @@ export class HousingService {
       const lease = await this.lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      assertHousingBillingPeriodWithinLease(dto.period_start, dto.period_end, lease.startDate, lease.endDate);
       const plansRepository = manager.getRepository(HousingChargePlanEntity);
       const plans = dto.charge_plan_id
         ? [await plansRepository.findOne({
@@ -487,8 +488,11 @@ export class HousingService {
     leaseId: string,
     dto: RegisterHousingLedgerEntryDto
   ) {
-    if (dto.entry_type === "waiver" && !this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE)) {
-      throw new ForbiddenException("housing:finance:waive permission is required");
+    const requiredPermission = dto.entry_type === "waiver"
+      ? SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE
+      : SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER;
+    if (!this.hasPermission(actor, requiredPermission)) {
+      throw new ForbiddenException(`${requiredPermission} permission is required`);
     }
     return this.dataSource.transaction(async (manager) => {
       const lease = await this.lockLease(manager, scope, leaseId);
@@ -510,6 +514,23 @@ export class HousingService {
         assertHousingDepositMutation(Number(lease.depositAmount), currentDeposit, dto.entry_type, dto.amount);
       }
       let receivable: HousingReceivableEntity | null = null;
+      if (dto.entry_type === "deposit_receipt" && !dto.receivable_id) {
+        receivable = await manager.getRepository(HousingReceivableEntity).findOne({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            leaseId,
+            chargeType: "deposit",
+            sourceType: "lease_deposit",
+            isDeleted: false
+          },
+          lock: { mode: "pessimistic_write" }
+        });
+        if (!receivable) throw new ConflictException("Lease deposit receivable is missing");
+        this.applyReceivableEntry(receivable, { ...dto, entry_type: "payment" });
+        receivable.updateBy = actor.sub;
+        await manager.getRepository(HousingReceivableEntity).save(receivable);
+      }
       if (dto.receivable_id) {
         receivable = await manager.getRepository(HousingReceivableEntity).findOne({
           where: {
@@ -523,7 +544,14 @@ export class HousingService {
         });
         if (!receivable) throw new NotFoundException("Housing receivable not found");
         if (receivable.status === "void") throw new ConflictException("Void receivable cannot receive financial entries");
-        this.applyReceivableEntry(receivable, dto);
+        if (dto.entry_type === "deposit_receipt") {
+          if (receivable.chargeType !== "deposit") {
+            throw new BadRequestException("Deposit receipt can only settle the lease deposit receivable");
+          }
+          this.applyReceivableEntry(receivable, { ...dto, entry_type: "payment" });
+        } else {
+          this.applyReceivableEntry(receivable, dto);
+        }
         receivable.updateBy = actor.sub;
         await manager.getRepository(HousingReceivableEntity).save(receivable);
       } else if (["payment", "refund", "waiver"].includes(dto.entry_type) && !dto.entry_type.startsWith("deposit_")) {
@@ -624,6 +652,35 @@ export class HousingService {
       handover.remark = dto.remark ?? null;
       const saved = await repository.save(handover);
       if (dto.handover_type === "move_out") {
+        const checkoutCharge = dto.damage_amount + dto.unsettled_amount;
+        if (dto.deposit_deduction_amount > checkoutCharge + 0.005) {
+          throw new BadRequestException("Deposit deduction cannot exceed move-out damage and unsettled charges");
+        }
+        let checkoutReceivable: HousingReceivableEntity | null = null;
+        if (checkoutCharge > 0.005) {
+          const businessDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+          checkoutReceivable = await this.createReceivable(manager, scope, actor, lease, {
+            chargePlanId: null,
+            sourceType: "housing_handover",
+            sourceId: saved.id,
+            chargeType: "checkout_charges",
+            periodStart: businessDate,
+            periodEnd: this.addDays(businessDate, 1),
+            dueDate: businessDate,
+            amount: checkoutCharge,
+            remark: dto.remark ?? "Move-out damage and unsettled charges"
+          });
+          if (dto.deposit_deduction_amount > 0) {
+            this.applyReceivableEntry(checkoutReceivable, {
+              entry_type: "payment",
+              charge_type: "checkout_deduction",
+              amount: dto.deposit_deduction_amount,
+              reason: dto.remark ?? "Move-out deposit deduction"
+            });
+            checkoutReceivable.updateBy = actor.sub;
+            await manager.getRepository(HousingReceivableEntity).save(checkoutReceivable);
+          }
+        }
         lease.status = "checkout_pending";
         lease.updateBy = actor.sub;
         await manager.getRepository(HousingLeaseEntity).save(lease);
@@ -633,7 +690,7 @@ export class HousingService {
             tenantId: scope.tenantId,
             parkId: scope.parkId,
             leaseId,
-            receivableId: null,
+            receivableId: checkoutReceivable?.id ?? null,
             entryType: "deposit_deduction",
             chargeType: "checkout_deduction",
             amount: dto.deposit_deduction_amount.toFixed(2),
@@ -765,7 +822,15 @@ export class HousingService {
     if (!dto.items.length) throw new BadRequestException("At least one purchase item is required");
     await this.assertPurchaseAccess(scope, actor, dto.unit_id ?? null);
     return this.dataSource.transaction(async (manager) => {
-      await this.assertFiles(manager, scope, dto.receipt_file_ids ?? [], { bizType: "housing_purchase" });
+      const receiptFiles = await this.assertFiles(
+        manager,
+        scope,
+        dto.receipt_file_ids ?? [],
+        { bizType: "housing_purchase" }
+      );
+      if (receiptFiles.some((file) => file.bizId !== null)) {
+        throw new ConflictException("Purchase receipt file is already associated with another record");
+      }
       const total = dto.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
       const repository = manager.getRepository(HousingPurchaseEntity);
       const purchase = await repository.save(repository.create({
@@ -798,6 +863,11 @@ export class HousingService {
         createBy: actor.sub,
         updateBy: actor.sub
       })));
+      for (const file of receiptFiles) {
+        file.bizId = purchase.id;
+        file.updateBy = actor.sub;
+      }
+      if (receiptFiles.length) await manager.getRepository(FileEntity).save(receiptFiles);
       return purchase;
     });
   }
@@ -950,11 +1020,13 @@ export class HousingService {
     ids: string[],
     options?: { mimePrefix?: string; bizType?: string; bizId?: string }
   ) {
-    if (!ids.length) return;
+    if (!ids.length) return [] as FileEntity[];
     const files = await manager.getRepository(FileEntity).createQueryBuilder("file")
+      .setLock("pessimistic_write")
       .where("file.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("file.park_id=:parkId", { parkId: scope.parkId })
       .andWhere("file.id IN (:...ids)", { ids })
+      .andWhere("file.status=1")
       .andWhere("file.is_deleted=false")
       .getMany();
     if (files.length !== new Set(ids).size) throw new NotFoundException("One or more attachment files were not found");
@@ -967,6 +1039,7 @@ export class HousingService {
     if (options?.bizId && files.some((file) => file.bizId !== options.bizId)) {
       throw new BadRequestException("Attachment is not associated with the current housing record");
     }
+    return files;
   }
 
   private async assertPurchaseAccess(scope: TenantParkScope, actor: JwtPrincipal, unitId: string | null) {
@@ -1021,6 +1094,19 @@ export class HousingService {
     }
   ) {
     const repository = manager.getRepository(HousingReceivableEntity);
+    const existing = await repository.findOne({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        leaseId: lease.id,
+        chargeType: input.chargeType,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        sourceType: input.sourceType,
+        isDeleted: false
+      }
+    });
+    if (existing) return existing;
     const entity = repository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -1044,25 +1130,7 @@ export class HousingService {
       updateBy: actor.sub,
       remark: input.remark ?? null
     });
-    try {
-      return await repository.save(entity);
-    } catch (error) {
-      if (!this.isDatabaseConflict(error)) throw error;
-      const existing = await repository.findOne({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId: lease.id,
-          chargeType: input.chargeType,
-          periodStart: input.periodStart,
-          periodEnd: input.periodEnd,
-          sourceType: input.sourceType,
-          isDeleted: false
-        }
-      });
-      if (existing) return existing;
-      throw error;
-    }
+    return repository.save(entity);
   }
 
   private applyReceivableEntry(receivable: HousingReceivableEntity, dto: RegisterHousingLedgerEntryDto) {

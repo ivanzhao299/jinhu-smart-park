@@ -36,3 +36,19 @@ export function calculateHousingMonthFraction(startValue: string, endValue: stri
   }
   return months;
 }
+
+export function assertHousingBillingPeriodWithinLease(
+  periodStartValue: string,
+  periodEndValue: string,
+  leaseStartValue: string,
+  leaseEndValue: string
+): void {
+  const periodStart = parseDate(periodStartValue);
+  const periodEnd = parseDate(periodEndValue);
+  const leaseStart = parseDate(leaseStartValue);
+  const leaseEndExclusive = parseDate(leaseEndValue);
+  leaseEndExclusive.setUTCDate(leaseEndExclusive.getUTCDate() + 1);
+  if (periodStart < leaseStart || periodEnd > leaseEndExclusive) {
+    throw new BadRequestException("Billing period must stay within the lease term");
+  }
+}
