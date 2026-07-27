@@ -19,3 +19,17 @@ export function addBusinessDateDays(value: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+export function addBusinessDateMonths(value: string, months: number): string {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const targetMonth = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(
+    targetMonth.getUTCFullYear(),
+    targetMonth.getUTCMonth() + 1,
+    0
+  )).getUTCDate();
+  targetMonth.setUTCDate(Math.min(day, lastDay));
+  return targetMonth.toISOString().slice(0, 10);
+}

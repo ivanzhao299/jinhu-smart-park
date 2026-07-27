@@ -79,6 +79,29 @@
   gap: 12px;
 }
 
+.selectorPagination {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.selectorPagination > div {
+  display: grid;
+  gap: 6px;
+}
+
+.selectorPagination small {
+  color: var(--text-secondary);
+}
+
+.selectorPagination :global(.pagination-actions),
+.sectionTitle :global(.pagination-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .commandGrid label,
 .workflowGrid label {
   display: grid;
@@ -250,8 +273,13 @@
     flex-direction: column;
   }
 
-  .formGrid {
+  .formGrid,
+  .selectorPagination {
     grid-template-columns: 1fr;
+  }
+
+  .sectionTitle {
+    flex-direction: column;
   }
 
   .page :global(.ds-table-shell) {

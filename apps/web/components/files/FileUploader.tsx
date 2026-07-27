@@ -124,7 +124,7 @@ export function FileUploader({
       <div className="field">
         <span>{label ?? (compact ? policy.label : "选择文件")}</span>
         <label className="ds-file-picker" htmlFor={fileInputId}>
-          <input ref={fileInputRef} className="sr-only" accept={accept} id={fileInputId} name="file" required type="file" onChange={handleFileChange} />
+          <input ref={fileInputRef} className="sr-only" accept={accept} id={fileInputId} name="file" type="file" onChange={handleFileChange} />
           <span className="ds-file-picker-button">
             <FileUp size={16} />
             选择文件
