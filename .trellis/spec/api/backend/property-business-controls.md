@@ -24,18 +24,29 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Optional Party contact and identity fields preserve an explicit clearing signal.
 - Operations pages load permission-separated data blocks independently so one unauthorized optional request cannot discard authorized data.
 - Housing operations page defaults and calendar offsets derive from the Shanghai business date.
+- Overlapping operations-page refreshes are sequenced; only the latest response may replace visible datasets, messages, or loading state.
 - Housing unit, tenant, lease, and purchase datasets retain server pagination; changing a candidate page must also synchronize the selected option.
+- A newly created tenant remains rendered and selected until the server page containing it has loaded.
 - Lease detail selection clears stale detail and attachments before loading, and ignores out-of-order responses.
 - Housing ledger charge types come from the selected receivable, while deposit entries always use the deposit charge type.
-- A logical finance submission holds one in-flight lock and one idempotency key.
+- A logical finance submission holds one in-flight lock and one idempotency key; ambiguous failures retain that key until the payload changes or a response succeeds.
 - A logical purchase submission holds one in-flight lock and one idempotency key.
+- Housing bill generation targets one explicit charge plan per request.
+- Purchase recharge requires the operator to select the exact untransferred line items; loading a purchase must not select every line automatically.
 - Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
+- New Party records remain unverified until a deliberate verification action, and identity numbers must match the declared document type in both UI and API validation.
 - Failed optional unit or tenant loads preserve existing visible selections; successful loads alone synchronize form candidates.
 - Paginated KPIs use server totals rather than the current page length.
+- Permission-specific KPIs and workflow blocks are not rendered for users who cannot load their source datasets.
 - Handover evidence is scoped to one lease and one handover attempt and is cleared after success or context changes.
+- Move-in handovers omit move-out-only damage, unsettled, and deduction values.
 - File upload is a separate action; its native file input must not impose required validation on a parent business form.
+- Pending workflow uploads keep their file metadata for preview/removal, and a completed upload is discarded when its lease context is no longer current.
 - Move-out handover exposes damage, unsettled charges, and deposit deduction together.
 - Lease activation is offered only after the persisted offline signature reference exists.
+- Lease detail renders the occupants and finance ledger returned by the API, while finance data remains absent without finance-read permission.
+- Desktop tables and mobile record cards switch at the same breakpoint, and mobile labels retain server IDs when paginated names are unavailable.
+- Purchase operations expose every supported transition that is valid for the current approval/payment state, including reject, refund, and void.
 - Dashboard business dates receive the same strict calendar validation as rate-calendar dates.
 - Guest registration is closed after a booking is cancelled, marked no-show, or checked out.
 
@@ -68,7 +79,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Integration: duplicate lease code returns 409; refunded purchase cannot recharge.
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
 - Frontend: optional dataset failures do not discard successful loads; stale lease-detail responses cannot retarget forms.
-- Frontend: finance charge-type derivation, in-flight submission locking, handover evidence reset, pagination, and signed activation visibility.
+- Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
+- Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
+- DTO/frontend: supported identity-document formats reject arbitrary identifiers and newly created parties remain unverified.
 
 ## 7. Wrong vs Correct
 

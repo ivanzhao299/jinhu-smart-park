@@ -11,9 +11,16 @@ import {
   MaxLength,
   Min,
   MinLength,
+  Validate,
   ValidateIf
 } from "class-validator";
+import type { ValidationArguments, ValidatorConstraintInterface } from "class-validator";
+import { ValidatorConstraint } from "class-validator";
 import { PARTY_TYPES, PROPERTY_OCCUPANCY_DOMAINS, type PartyType, type PropertyOccupancyDomain } from "@jinhu/shared";
+import {
+  isValidPartyIdentityNumber,
+  PARTY_IDENTITY_DOCUMENT_TYPES
+} from "../party-identity.policy";
 
 const optionalTrim = ({ value }: { value: unknown }): string | null | undefined => {
   if (value === undefined) return undefined;
@@ -21,6 +28,18 @@ const optionalTrim = ({ value }: { value: unknown }): string | null | undefined 
   const result = String(value).trim();
   return result || null;
 };
+
+@ValidatorConstraint({ name: "partyIdentityNumber", async: false })
+class PartyIdentityNumberConstraint implements ValidatorConstraintInterface {
+  validate(value: string | null | undefined, args: ValidationArguments): boolean {
+    const dto = args.object as CreatePartyDto;
+    return isValidPartyIdentityNumber(dto.identity_document_type, value);
+  }
+
+  defaultMessage(): string {
+    return "identity_number does not match identity_document_type";
+  }
+}
 
 export class CreatePartyDto {
   @IsIn(PARTY_TYPES)
@@ -46,14 +65,14 @@ export class CreatePartyDto {
 
   @ValidateIf((dto: CreatePartyDto) => Boolean(dto.identity_number))
   @Transform(optionalTrim)
-  @IsString()
-  @MaxLength(32)
+  @IsIn(PARTY_IDENTITY_DOCUMENT_TYPES)
   identity_document_type?: string | null;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(128)
+  @Validate(PartyIdentityNumberConstraint)
   identity_number?: string | null;
 
   @IsOptional()

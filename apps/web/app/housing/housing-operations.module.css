@@ -225,6 +225,68 @@
   color: var(--text-secondary);
 }
 
+.occupantForm,
+.ledgerSection {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--surface-secondary);
+}
+
+.occupantForm h3,
+.ledgerSection h3,
+.ledgerSection p {
+  margin: 0;
+}
+
+.occupantForm label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.occupantForm select {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.occupantForm .checkboxLabel,
+.transferItems label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.occupantForm .checkboxLabel input,
+.transferItems input {
+  width: auto;
+  min-height: auto;
+}
+
+.occupantList {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.transferItems {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+}
+
 .purchaseGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -264,6 +326,13 @@
   }
 }
 
+@media (max-width: 720px) {
+  .leaseTable,
+  .detailTable {
+    display: none;
+  }
+}
+
 @media (max-width: 520px) {
   .page {
     gap: 14px;
@@ -280,10 +349,6 @@
 
   .sectionTitle {
     flex-direction: column;
-  }
-
-  .page :global(.ds-table-shell) {
-    display: none;
   }
 
   .page button,

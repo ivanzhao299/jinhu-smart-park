@@ -111,8 +111,8 @@ async function run() {
       display_name: `住房租客 ${runId}`,
       mobile: `13${String(Date.now()).slice(-9)}`,
       identity_document_type: "id_card",
-      identity_number: `E2E-ID-${runId}`,
-      verification_status: "verified",
+      identity_number: `11010519900101${String(Date.now()).slice(-4)}`,
+      verification_status: "unverified",
       consent_status: "granted"
     }
   });
