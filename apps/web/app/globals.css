@@ -9214,7 +9214,7 @@ select {
   .app-header .header-icon-button.ant-btn,
   .app-header .header-icon-link,
   .app-header .user-avatar,
-  .app-header .user-logout-button {
+  .app-header .user-menu .user-logout-button {
     width: 34px;
     min-width: 34px;
     height: 34px;
@@ -9226,11 +9226,11 @@ select {
     display: contents;
   }
 
-  .app-header .user-logout-button span {
+  .app-header .user-menu .user-logout-button span {
     display: none;
   }
 
-  .app-header .user-logout-button {
+  .app-header .user-menu .user-logout-button {
     gap: 0;
     font-size: 0;
   }

@@ -17,7 +17,7 @@
 | 仓库入口 | 当前用途 | 说明 |
 |---|---|---|
 | `.env.example` | Local | 本地开发模板 |
-| `infra/docker/docker-compose.yml` | Local/Integration | PostgreSQL 本地或测试环境 |
+| `infra/docker/docker-compose.yml` | Local/Integration | PostgreSQL 本地或测试环境；宿主机端口仅绑定 `127.0.0.1`，避免暴露到局域网；容器启动不自动执行迁移，建库后必须显式运行 `pnpm db:migrate` |
 | `.env.production.example` | UAT/未来 Production | 生产级安全配置模板，不包含真实密钥 |
 | `infra/docker/docker-compose.prod.yml` | 当前 UAT/未来 Production | 当前用于生产相似 UAT；未来可作为正式生产部署基础 |
 | `pnpm prod:deploy` | 当前 UAT/未来 Production | 技术命名保留，执行目标必须由操作者确认 |
