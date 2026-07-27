@@ -6,7 +6,12 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import {
+  resolveFileUploadPolicy,
+  SYSTEM_PERMISSIONS,
+  type PaginatedResult,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
 import { DataSource, IsNull, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -44,7 +49,11 @@ import {
   HousingPurchaseItemEntity,
   HousingReceivableEntity
 } from "./entities/housing.entities";
-import { assertHousingBillingPeriodWithinLease, calculateHousingMonthFraction } from "./housing-billing.policy";
+import {
+  assertHousingBillingPeriodWithinLease,
+  calculateHousingMonthFraction,
+  parseHousingCalendarDate
+} from "./housing-billing.policy";
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
@@ -218,6 +227,7 @@ export class HousingService {
   ) {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
     this.assertDatePeriod(dto.start_date, dto.end_date);
+    parseHousingCalendarDate(dto.first_due_date);
     try {
       return await this.dataSource.transaction(async (manager) => {
         await this.mustParty(manager, scope, dto.tenant_party_id);
@@ -451,44 +461,35 @@ export class HousingService {
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       assertHousingBillingPeriodWithinLease(dto.period_start, dto.period_end, lease.startDate, lease.endDate);
-      const plansRepository = manager.getRepository(HousingChargePlanEntity);
-      const plans = dto.charge_plan_id
-        ? [await plansRepository.findOne({
-            where: {
-              id: dto.charge_plan_id,
-              tenantId: scope.tenantId,
-              parkId: scope.parkId,
-              leaseId,
-              enabled: true,
-              isDeleted: false
-            }
-          })].filter((item): item is HousingChargePlanEntity => Boolean(item))
-        : await plansRepository.find({
-            where: { tenantId: scope.tenantId, parkId: scope.parkId, leaseId, enabled: true, isDeleted: false }
-          });
-      if (!plans.length) throw new NotFoundException("No enabled charge plan found");
-      const results: HousingReceivableEntity[] = [];
-      for (const plan of plans) {
-        const amount = this.calculateBillAmount(plan, dto);
-        results.push(await this.createReceivable(manager, scope, actor, lease, {
-          chargePlanId: plan.id,
-          sourceType: plan.billingSource,
-          sourceId: plan.meterId,
-          chargeType: plan.chargeType,
-          periodStart: dto.period_start.slice(0, 10),
-          periodEnd: dto.period_end.slice(0, 10),
-          dueDate: this.dueDateForPeriod(dto.period_start, lease.billingDay),
-          amount,
-          openingReading: dto.opening_reading,
-          closingReading: dto.closing_reading,
-          usageAmount: dto.opening_reading === undefined || dto.closing_reading === undefined
-            ? undefined
-            : dto.closing_reading - dto.opening_reading,
-          unitPrice: plan.unitPrice === null ? undefined : Number(plan.unitPrice),
-          remark: dto.reason
-        }));
-      }
-      return results;
+      const plan = await manager.getRepository(HousingChargePlanEntity).findOne({
+        where: {
+          id: dto.charge_plan_id,
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          leaseId,
+          enabled: true,
+          isDeleted: false
+        }
+      });
+      if (!plan) throw new NotFoundException("Enabled charge plan not found");
+      const amount = this.calculateBillAmount(plan, dto);
+      return [await this.createReceivable(manager, scope, actor, lease, {
+        chargePlanId: plan.id,
+        sourceType: plan.billingSource,
+        sourceId: plan.meterId,
+        chargeType: plan.chargeType,
+        periodStart: dto.period_start,
+        periodEnd: dto.period_end,
+        dueDate: this.dueDateForPeriod(dto.period_start, lease.billingDay),
+        amount,
+        openingReading: dto.opening_reading,
+        closingReading: dto.closing_reading,
+        usageAmount: dto.opening_reading === undefined || dto.closing_reading === undefined
+          ? undefined
+          : dto.closing_reading - dto.opening_reading,
+        unitPrice: plan.unitPrice === null ? undefined : Number(plan.unitPrice),
+        remark: dto.reason
+      })];
     });
   }
 
@@ -567,6 +568,8 @@ export class HousingService {
       } else if (["payment", "refund", "waiver"].includes(dto.entry_type) && !dto.entry_type.startsWith("deposit_")) {
         throw new BadRequestException("Receivable is required for payment, refund, or waiver");
       }
+      const chargeType = dto.entry_type.startsWith("deposit_") ? "deposit" : receivable?.chargeType;
+      if (!chargeType) throw new BadRequestException("Receivable charge type is required for financial entries");
       const repository = manager.getRepository(HousingLedgerEntryEntity);
       return repository.save(repository.create({
         tenantId: scope.tenantId,
@@ -574,7 +577,7 @@ export class HousingService {
         leaseId,
         receivableId: receivable?.id ?? null,
         entryType: dto.entry_type,
-        chargeType: dto.charge_type,
+        chargeType,
         amount: dto.amount.toFixed(2),
         paymentMethod: dto.payment_method ?? null,
         transactionReference: dto.transaction_reference ?? null,
@@ -729,6 +732,12 @@ export class HousingService {
     const lease = await this.mustLease(this.dataSource.manager, scope, leaseId);
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+    await this.assertFiles(this.dataSource.manager, scope, dto.image_file_ids ?? [], {
+      allowedMimeTypes: resolveFileUploadPolicy("workorder_create").mimeTypes,
+      bizType: "workorder_create",
+      bizId: lease.id,
+      lock: false
+    });
     const tenant = await this.mustParty(this.dataSource.manager, scope, lease.tenantPartyId);
     return this.workOrdersService.create(scope, actor, {
       title: dto.title,
@@ -770,6 +779,19 @@ export class HousingService {
         .filter((item) => item.status !== "void")
         .reduce((sum, item) => sum + Number(item.amount) - Number(item.paidAmount) - Number(item.waivedAmount), 0);
       if (outstanding > 0.005) throw new ConflictException(`Outstanding tenant charges remain: ${outstanding.toFixed(2)}`);
+      const depositEntries = await manager.getRepository(HousingLedgerEntryEntity).find({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          leaseId,
+          status: "confirmed",
+          isDeleted: false
+        }
+      });
+      const depositBalance = calculateHousingDepositBalance(depositEntries);
+      if (depositBalance > 0.005) {
+        throw new ConflictException(`Deposit balance must be settled before checkout: ${depositBalance.toFixed(2)}`);
+      }
       if (lease.occupancyId) {
         await this.occupancyService.releaseInTransaction(
           manager,
@@ -830,6 +852,7 @@ export class HousingService {
 
   async createPurchase(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateHousingPurchaseDto) {
     if (!dto.items.length) throw new BadRequestException("At least one purchase item is required");
+    parseHousingCalendarDate(dto.purchase_date);
     await this.assertPurchaseAccess(scope, actor, dto.unit_id ?? null);
     return this.dataSource.transaction(async (manager) => {
       const receiptFiles = await this.assertFiles(
@@ -937,6 +960,7 @@ export class HousingService {
     purchaseId: string,
     dto: TransferHousingPurchaseDto
   ) {
+    parseHousingCalendarDate(dto.due_date);
     return this.dataSource.transaction(async (manager) => {
       const purchase = await manager.getRepository(HousingPurchaseEntity).findOne({
         where: { id: purchaseId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
@@ -975,7 +999,8 @@ export class HousingService {
         periodEnd: this.addDays(purchase.purchaseDate, 1),
         dueDate: dto.due_date.slice(0, 10),
         amount,
-        remark: dto.reason
+        remark: dto.reason,
+        accumulateIfExisting: true
       });
       for (const item of items) {
         item.transferredReceivableId = receivable.id;
@@ -1033,20 +1058,29 @@ export class HousingService {
     manager: EntityManager,
     scope: TenantParkScope,
     ids: string[],
-    options?: { mimePrefix?: string; bizType?: string; bizId?: string }
+    options?: {
+      mimePrefix?: string;
+      allowedMimeTypes?: readonly string[];
+      bizType?: string;
+      bizId?: string;
+      lock?: boolean;
+    }
   ) {
     if (!ids.length) return [] as FileEntity[];
-    const files = await manager.getRepository(FileEntity).createQueryBuilder("file")
-      .setLock("pessimistic_write")
+    const builder = manager.getRepository(FileEntity).createQueryBuilder("file")
       .where("file.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("file.park_id=:parkId", { parkId: scope.parkId })
       .andWhere("file.id IN (:...ids)", { ids })
       .andWhere("file.status=1")
-      .andWhere("file.is_deleted=false")
-      .getMany();
+      .andWhere("file.is_deleted=false");
+    if (options?.lock !== false) builder.setLock("pessimistic_write");
+    const files = await builder.getMany();
     if (files.length !== new Set(ids).size) throw new NotFoundException("One or more attachment files were not found");
     if (options?.mimePrefix && files.some((file) => !file.mimeType.startsWith(options.mimePrefix!))) {
       throw new BadRequestException(`Attachment MIME type must start with ${options.mimePrefix}`);
+    }
+    if (options?.allowedMimeTypes && files.some((file) => !options.allowedMimeTypes!.includes(file.mimeType))) {
+      throw new BadRequestException("Attachment MIME type is not allowed for this workflow");
     }
     if (options?.bizType && files.some((file) => file.bizType !== options.bizType)) {
       throw new BadRequestException(`Attachment business type must be ${options.bizType}`);
@@ -1106,6 +1140,7 @@ export class HousingService {
       usageAmount?: number;
       unitPrice?: number;
       remark?: string;
+      accumulateIfExisting?: boolean;
     }
   ) {
     const repository = manager.getRepository(HousingReceivableEntity);
@@ -1122,7 +1157,19 @@ export class HousingService {
         isDeleted: false
       }
     });
-    if (existing) return existing;
+    if (existing) {
+      if (!input.accumulateIfExisting) return existing;
+      const nextAmount = Number(existing.amount) + input.amount;
+      const settled = Number(existing.paidAmount) + Number(existing.waivedAmount);
+      existing.amount = nextAmount.toFixed(2);
+      existing.status = settled >= nextAmount - 0.005
+        ? (Number(existing.paidAmount) <= 0.005 ? "waived" : "paid")
+        : settled > 0.005 ? "partial" : "unpaid";
+      existing.dueDate = input.dueDate;
+      existing.updateBy = actor.sub;
+      existing.remark = input.remark ?? existing.remark;
+      return repository.save(existing);
+    }
     const entity = repository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -1190,21 +1237,21 @@ export class HousingService {
   }
 
   private assertDatePeriod(start: string, end: string) {
-    const startDate = new Date(`${start.slice(0, 10)}T00:00:00Z`);
-    const endDate = new Date(`${end.slice(0, 10)}T00:00:00Z`);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate >= endDate) {
+    const startDate = parseHousingCalendarDate(start);
+    const endDate = parseHousingCalendarDate(end);
+    if (startDate >= endDate) {
       throw new BadRequestException("Start date must be before end date");
     }
   }
 
   private dueDateForPeriod(periodStart: string, billingDay: number) {
-    const date = new Date(`${periodStart.slice(0, 10)}T00:00:00Z`);
+    const date = parseHousingCalendarDate(periodStart);
     date.setUTCDate(Math.min(billingDay, 28));
     return date.toISOString().slice(0, 10);
   }
 
   private addDays(dateValue: string, days: number) {
-    const date = new Date(`${dateValue.slice(0, 10)}T00:00:00Z`);
+    const date = parseHousingCalendarDate(dateValue);
     date.setUTCDate(date.getUTCDate() + days);
     return date.toISOString().slice(0, 10);
   }

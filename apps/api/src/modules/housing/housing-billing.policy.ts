@@ -1,8 +1,11 @@
 import { BadRequestException } from "@nestjs/common";
 
-function parseDate(value: string): Date {
-  const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) throw new BadRequestException("Invalid billing date");
+export function parseHousingCalendarDate(value: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new BadRequestException("Invalid housing calendar date");
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new BadRequestException("Invalid housing calendar date");
+  }
   return date;
 }
 
@@ -22,8 +25,8 @@ function addCalendarMonthsFromAnchor(value: Date, months: number): Date {
 }
 
 export function calculateHousingMonthFraction(startValue: string, endValue: string): number {
-  const start = parseDate(startValue);
-  const end = parseDate(endValue);
+  const start = parseHousingCalendarDate(startValue);
+  const end = parseHousingCalendarDate(endValue);
   if (start >= end) throw new BadRequestException("Billing period start must be before end");
   let wholeMonths = 0;
   while (true) {
@@ -48,10 +51,10 @@ export function assertHousingBillingPeriodWithinLease(
   leaseStartValue: string,
   leaseEndValue: string
 ): void {
-  const periodStart = parseDate(periodStartValue);
-  const periodEnd = parseDate(periodEndValue);
-  const leaseStart = parseDate(leaseStartValue);
-  const leaseEndExclusive = parseDate(leaseEndValue);
+  const periodStart = parseHousingCalendarDate(periodStartValue);
+  const periodEnd = parseHousingCalendarDate(periodEndValue);
+  const leaseStart = parseHousingCalendarDate(leaseStartValue);
+  const leaseEndExclusive = parseHousingCalendarDate(leaseEndValue);
   leaseEndExclusive.setUTCDate(leaseEndExclusive.getUTCDate() + 1);
   if (periodStart < leaseStart || periodEnd > leaseEndExclusive) {
     throw new BadRequestException("Billing period must stay within the lease term");

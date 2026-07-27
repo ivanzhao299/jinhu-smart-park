@@ -80,10 +80,6 @@ export class CreatePartyDto {
   source_domain?: PropertyOccupancyDomain;
 
   @IsOptional()
-  @IsIn(["unverified", "verified", "rejected"])
-  verification_status?: string;
-
-  @IsOptional()
   @IsIn(["pending", "granted", "withdrawn"])
   consent_status?: string;
 
@@ -95,6 +91,17 @@ export class CreatePartyDto {
 }
 
 export class UpdatePartyDto extends PartialType(CreatePartyDto) {}
+
+export class VerifyPartyDto {
+  @IsIn(["verified", "rejected"])
+  verification_status!: "verified" | "rejected";
+
+  @IsOptional()
+  @Transform(optionalTrim)
+  @IsString()
+  @MaxLength(500)
+  remark?: string | null;
+}
 
 export class PartyQueryDto {
   @IsOptional()

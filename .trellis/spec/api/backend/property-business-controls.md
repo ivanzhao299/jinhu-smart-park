@@ -30,11 +30,14 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Lease detail selection clears stale detail and attachments before loading, and ignores out-of-order responses.
 - Housing ledger charge types come from the selected receivable, while deposit entries always use the deposit charge type.
 - A logical finance submission holds one in-flight lock and one idempotency key; ambiguous failures retain that key until the payload changes or a response succeeds.
-- A logical purchase submission holds one in-flight lock and one idempotency key.
+- A logical purchase submission holds one in-flight lock and one idempotency key; ambiguous failures retain that key until the payload changes or a response succeeds.
 - Housing bill generation targets one explicit charge plan per request.
+- Later purchase-line transfers into the same source receivable add only newly transferred line amounts; idempotent replay does not add them twice.
+- Housing checkout requires both tenant receivables and the confirmed deposit balance to be settled.
+- Housing repair evidence must use the shared image policy and remain scoped to `workorder_create` plus the current lease.
 - Purchase recharge requires the operator to select the exact untransferred line items; loading a purchase must not select every line automatically.
 - Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
-- New Party records remain unverified until a deliberate verification action, and identity numbers must match the declared document type in both UI and API validation.
+- New Party records remain unverified; general updates cannot change verification status, and a dedicated transition verifies only records with protected identity data.
 - Failed optional unit or tenant loads preserve existing visible selections; successful loads alone synchronize form candidates.
 - Paginated KPIs use server totals rather than the current page length.
 - Permission-specific KPIs and workflow blocks are not rendered for users who cannot load their source datasets.
@@ -54,7 +57,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 
 | Condition | Result |
 |---|---|
-| Missing or impossible rate-calendar date | HTTP 400 |
+| Missing or impossible property-business calendar date | HTTP 400 |
 | Guest marked verified without verified identity data | HTTP 400 |
 | Lease-only reader requests lease detail | Finance arrays empty and finance summary `null` |
 | Duplicate lease code in tenant/park | HTTP 409 |
@@ -74,7 +77,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 
 - Unit: invalid calendar dates, Shanghai midnight, identity verification prerequisites.
 - Unit: end-of-month billing anchors and partial tail periods.
-- Unit: purchase line rounding and header reconciliation.
+- Unit: decimal-safe purchase line rounding and header reconciliation, including half-cent boundaries.
 - DTO: non-empty purchase transfer and explicit Party field clearing.
 - Integration: duplicate lease code returns 409; refunded purchase cannot recharge.
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
@@ -95,6 +98,10 @@ const lines = items.map((item) => (item.quantity * item.unitPrice).toFixed(2));
 ### Correct
 
 ```ts
-const lines = items.map((item) => Math.round(item.quantity * item.unitPrice * 100));
+const lines = items.map((item) => {
+  const quantityThousandths = Math.round(item.quantity * 1_000);
+  const unitPriceCents = Math.round(item.unitPrice * 100);
+  return Math.round(quantityThousandths * unitPriceCents / 1_000);
+});
 const total = lines.reduce((sum, cents) => sum + cents, 0);
 ```

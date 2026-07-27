@@ -7,7 +7,13 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
-import { AddPartyRoleDto, CreatePartyDto, PartyQueryDto, UpdatePartyDto } from "./dto/party.dto";
+import {
+  AddPartyRoleDto,
+  CreatePartyDto,
+  PartyQueryDto,
+  UpdatePartyDto,
+  VerifyPartyDto
+} from "./dto/party.dto";
 import { PartiesService } from "./parties.service";
 
 @Controller("property/parties")
@@ -46,6 +52,19 @@ export class PartiesController {
     @Body() dto: UpdatePartyDto
   ) {
     return this.service.update(scope, actor, id, dto);
+  }
+
+  @Post(":id/verification")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.PARTY_UPDATE)
+  @AuditLog({ module: "共享房产底座", resource: "biz.party", action: "核验业务相对方身份", bizType: "biz_party", bizIdParam: "id", captureBody: false })
+  verify(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: VerifyPartyDto
+  ) {
+    return this.service.verify(scope, actor, id, dto);
   }
 
   @Post("roles")

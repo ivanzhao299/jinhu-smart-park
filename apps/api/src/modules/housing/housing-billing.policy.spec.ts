@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertHousingBillingPeriodWithinLease,
-  calculateHousingMonthFraction
+  calculateHousingMonthFraction,
+  parseHousingCalendarDate
 } from "./housing-billing.policy";
+
+test("housing dates reject impossible calendar days", () => {
+  assert.throws(() => parseHousingCalendarDate("2026-02-30"));
+  assert.throws(() => parseHousingCalendarDate("2026-2-03"));
+  assert.equal(parseHousingCalendarDate("2026-02-28").toISOString().slice(0, 10), "2026-02-28");
+});
 
 test("calendar-aligned quarter remains exactly three months", () => {
   assert.equal(calculateHousingMonthFraction("2026-09-01", "2026-12-01"), 3);

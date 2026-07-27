@@ -12,7 +12,11 @@ export interface HousingPurchaseAmountInput {
 }
 
 export function calculateHousingPurchaseAmounts(items: HousingPurchaseAmountInput[]) {
-  const lineAmounts = items.map((item) => Math.round(item.quantity * item.unitPrice * 100) / 100);
+  const lineAmounts = items.map((item) => {
+    const quantityThousandths = Math.round(item.quantity * 1_000);
+    const unitPriceCents = Math.round(item.unitPrice * 100);
+    return Math.round(quantityThousandths * unitPriceCents / 1_000) / 100;
+  });
   return {
     lineAmounts,
     totalAmount: lineAmounts.reduce((total, amount) => total + Math.round(amount * 100), 0) / 100

@@ -3,7 +3,13 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import { Brackets, IsNull, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import type { AddPartyRoleDto, CreatePartyDto, PartyQueryDto, UpdatePartyDto } from "./dto/party.dto";
+import type {
+  AddPartyRoleDto,
+  CreatePartyDto,
+  PartyQueryDto,
+  UpdatePartyDto,
+  VerifyPartyDto
+} from "./dto/party.dto";
 import { PartyRoleEntity } from "./entities/party-role.entity";
 import { PartyEntity } from "./entities/party.entity";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
@@ -94,7 +100,7 @@ export class PartiesService {
       identityNumberHash: identity ? this.sensitiveDataService.hash(identity) : null,
       identityNumberMasked: identity ? this.sensitiveDataService.mask(identity) : null,
       sourceDomain: dto.source_domain ?? null,
-      verificationStatus: dto.verification_status ?? "unverified",
+      verificationStatus: "unverified",
       consentStatus: dto.consent_status ?? "pending",
       createBy: actor.sub,
       updateBy: actor.sub,
@@ -130,7 +136,6 @@ export class PartiesService {
       if (!identity) entity.identityDocumentType = null;
     }
     if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
-    if (dto.verification_status !== undefined) entity.verificationStatus = dto.verification_status;
     if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
     if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
     entity.updateBy = actor.sub;
@@ -140,6 +145,17 @@ export class PartiesService {
       if (this.isUniqueViolation(error)) throw new ConflictException("Party identity already exists in current tenant and park");
       throw error;
     }
+  }
+
+  async verify(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: VerifyPartyDto) {
+    const entity = await this.mustFind(scope, id, true);
+    if (dto.verification_status === "verified" && (!entity.identityDocumentType || !entity.identityNumberEncrypted)) {
+      throw new ConflictException("Identity document type and number are required before verification");
+    }
+    entity.verificationStatus = dto.verification_status;
+    if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
+    entity.updateBy = actor.sub;
+    return this.toResponse(await this.partiesRepository.save(entity));
   }
 
   async addRole(scope: TenantParkScope, actor: JwtPrincipal, dto: AddPartyRoleDto) {

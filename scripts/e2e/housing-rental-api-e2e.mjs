@@ -37,6 +37,18 @@ async function request(path, { token, idempotent = false, ...options } = {}) {
   return unwrap(body);
 }
 
+async function expectRequestStatus(path, expectedStatus, { token, idempotent = false, ...options } = {}) {
+  const headers = { ...(options.headers ?? {}) };
+  if (token) headers.authorization = `Bearer ${token}`;
+  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+  if (options.body && !(options.body instanceof FormData)) {
+    headers["content-type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
+  assert(response.status === expectedStatus, `${options.method ?? "GET"} ${path} rejects with ${expectedStatus}`);
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
   console.log(`[PASS] ${message}`);
@@ -49,6 +61,14 @@ async function uploadSignature(token, leaseId) {
   form.append("file", new Blob([
     Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
   ], { type: "application/pdf" }), `housing-lease-${runId}.pdf`);
+  return request("/files", { method: "POST", token, idempotent: true, body: form });
+}
+
+async function uploadRepairImage(token, leaseId) {
+  const form = new FormData();
+  form.append("biz_type", "workorder_create");
+  form.append("biz_id", leaseId);
+  form.append("file", new Blob([Buffer.from("housing-repair-image")], { type: "image/png" }), `repair-${runId}.png`);
   return request("/files", { method: "POST", token, idempotent: true, body: form });
 }
 
@@ -80,10 +100,34 @@ async function run() {
   const token = login.accessToken;
   assert(typeof token === "string" && token.length > 0, "authenticated through the real login API");
 
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() + 2);
+  const end = new Date(start);
+  end.setUTCFullYear(end.getUTCFullYear() + 1);
+  const startDate = start.toISOString().slice(0, 10);
+  const endDate = end.toISOString().slice(0, 10);
   const unitList = await request("/park-units?page=1&page_size=100", { token });
-  const unit = process.env.HOUSING_UNIT_ID
+  let unit = process.env.HOUSING_UNIT_ID
     ? unitList.items.find((item) => item.id === process.env.HOUSING_UNIT_ID)
-    : unitList.items[0];
+    : null;
+  if (!unit) {
+    for (const candidate of unitList.items) {
+      const availability = await request("/property/occupancies/availability", {
+        method: "POST",
+        token,
+        idempotent: true,
+        body: {
+          unit_id: candidate.id,
+          start_at: `${startDate}T00:00:00+08:00`,
+          end_at: `${endDate}T23:59:59+08:00`
+        }
+      });
+      if (availability.available) {
+        unit = candidate;
+        break;
+      }
+    }
+  }
   assert(Boolean(unit?.id), "selected an actual operating unit");
 
   await request(`/property/units/${unit.id}/operation`, {
@@ -102,6 +146,20 @@ async function run() {
     });
   }
 
+  await expectRequestStatus("/housing/tenants", 400, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      party_type: "person",
+      display_name: `非法已核验租客 ${runId}`,
+      identity_document_type: "id_card",
+      identity_number: `11010519900101${String(Date.now()).slice(-4)}`,
+      verification_status: "verified",
+      consent_status: "granted"
+    }
+  });
+
   const tenant = await request("/housing/tenants", {
     method: "POST",
     token,
@@ -112,17 +170,10 @@ async function run() {
       mobile: `13${String(Date.now()).slice(-9)}`,
       identity_document_type: "id_card",
       identity_number: `11010519900101${String(Date.now()).slice(-4)}`,
-      verification_status: "unverified",
       consent_status: "granted"
     }
   });
 
-  const start = new Date();
-  start.setUTCDate(start.getUTCDate() + 2);
-  const end = new Date(start);
-  end.setUTCFullYear(end.getUTCFullYear() + 1);
-  const startDate = start.toISOString().slice(0, 10);
-  const endDate = end.toISOString().slice(0, 10);
   const lease = await request("/housing/leases", {
     method: "POST",
     token,
@@ -158,7 +209,7 @@ async function run() {
   });
   await request(`/housing/leases/${lease.id}/activate`, { method: "POST", token, idempotent: true });
 
-  await request(`/housing/leases/${lease.id}/charge-plans`, {
+  const propertyChargePlan = await request(`/housing/leases/${lease.id}/charge-plans`, {
     method: "PUT",
     token,
     idempotent: true,
@@ -171,6 +222,7 @@ async function run() {
     token,
     idempotent: true,
     body: {
+      charge_plan_id: propertyChargePlan.id,
       period_start: startDate,
       period_end: billEnd.toISOString().slice(0, 10),
       reason: "真实 API E2E 周期账单"
@@ -190,12 +242,19 @@ async function run() {
     }
   });
 
+  const wrongLeaseRepairImage = await uploadRepairImage(token, randomUUID());
   const repairPayload = {
     title: `水龙头漏水 ${runId}`,
     description: "运营人员根据租客电话代录，需要维修人员上门处理。",
     priority: "medium",
     urgency: "normal"
   };
+  await expectRequestStatus(`/housing/leases/${lease.id}/repairs`, 400, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { ...repairPayload, image_file_ids: [wrongLeaseRepairImage.id] }
+  });
   const repairKey = `housing-api-e2e-repair-replay-${runId}`;
   const repairHeaders = { "x-idempotency-key": repairKey };
   const repair = await request(`/housing/leases/${lease.id}/repairs`, {
@@ -223,7 +282,10 @@ async function run() {
       vendor_name: "E2E 维修耗材供应商",
       purchase_date: startDate,
       cost_category: "repair",
-      items: [{ item_name: "维修软管", quantity: 1, unit: "根", unit_price: 35 }]
+      items: [
+        { item_name: "维修软管", quantity: 1, unit: "根", unit_price: 35 },
+        { item_name: "密封耗材", quantity: 0.004, unit: "批", unit_price: 36.25 }
+      ]
     }
   });
   await request(`/housing/purchases/${purchase.id}/actions`, {
@@ -233,17 +295,30 @@ async function run() {
     method: "POST", token, idempotent: true, body: { action: "pay", reason: "E2E 人工付款登记" }
   });
   const purchaseDetail = await request(`/housing/purchases/${purchase.id}`, { token });
-  await request(`/housing/purchases/${purchase.id}/transfer`, {
+  const firstTransfer = await request(`/housing/purchases/${purchase.id}/transfer`, {
     method: "POST",
     token,
     idempotent: true,
     body: {
       lease_id: lease.id,
-      item_ids: purchaseDetail.items.map((item) => item.id),
+      item_ids: [purchaseDetail.items[0].id],
       due_date: startDate,
       reason: "租客责任维修耗材受控转收费"
     }
   });
+  const secondTransfer = await request(`/housing/purchases/${purchase.id}/transfer`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      lease_id: lease.id,
+      item_ids: [purchaseDetail.items[1].id],
+      due_date: startDate,
+      reason: "后续采购明细追加转收费"
+    }
+  });
+  assert(firstTransfer.receivable.id === secondTransfer.receivable.id, "partial transfers reuse one source receivable");
+  assert(Number(secondTransfer.receivable.amount) === 35.15, "later transferred items accumulate into the receivable");
 
   detail = await request(`/housing/leases/${lease.id}`, { token });
   for (const receivable of detail.receivables) await payReceivable(token, lease.id, receivable);
@@ -261,6 +336,12 @@ async function run() {
       deposit_deduction_amount: 0,
       remark: "真实 API E2E 退租交割"
     }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/checkout`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "押金尚未退还时不得完成退租" }
   });
   await request(`/housing/leases/${lease.id}/ledger`, {
     method: "POST",

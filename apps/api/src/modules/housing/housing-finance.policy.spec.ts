@@ -39,6 +39,10 @@ test("deposit receipt, deduction, and refund stay within the agreed balance", ()
 
 test("purchase header total is derived from persisted rounded line amounts", () => {
   assert.deepEqual(
+    calculateHousingPurchaseAmounts([{ quantity: 0.004, unitPrice: 36.25 }]),
+    { lineAmounts: [0.15], totalAmount: 0.15 }
+  );
+  assert.deepEqual(
     calculateHousingPurchaseAmounts([
       { quantity: 0.333, unitPrice: 0.01 },
       { quantity: 0.333, unitPrice: 0.01 },

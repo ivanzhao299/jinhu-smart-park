@@ -24,3 +24,11 @@ export function canActivateHousingLease(lease: LeaseSignatureState): boolean {
 export function housingSelectionAfterLoad(currentId: string, loadedIds: string[]): string {
   return loadedIds.includes(currentId) ? currentId : loadedIds[0] ?? "";
 }
+
+export function housingLeaseContextStillCurrent(originatingLeaseId: string, currentLeaseId: string): boolean {
+  return Boolean(originatingLeaseId) && originatingLeaseId === currentLeaseId;
+}
+
+export function canRechargeHousingLease(status: string | undefined): boolean {
+  return Boolean(status && ["active", "expiring", "checkout_pending"].includes(status));
+}

@@ -15,7 +15,9 @@ import { addBusinessDateMonths, businessDate } from "../../lib/business-date";
 import { hasPermission } from "../../lib/permissions";
 import type { UnitRow } from "../assets/units/types";
 import {
+  canRechargeHousingLease,
   canActivateHousingLease,
+  housingLeaseContextStillCurrent,
   housingLedgerChargeType,
   housingSelectionAfterLoad
 } from "./housing-operations.logic";
@@ -306,6 +308,7 @@ export function HousingOperationsClient() {
   const financeSubmissionSignature = useRef("");
   const purchaseSubmissionLock = useRef(false);
   const purchaseSubmissionKey = useRef<string | null>(null);
+  const purchaseSubmissionSignature = useRef("");
   const pendingTenantSelection = useRef<Party | null>(null);
 
   const refresh = useCallback(async () => {
@@ -441,13 +444,19 @@ export function HousingOperationsClient() {
   }, [refresh]);
 
   async function runAction(success: string, action: () => Promise<unknown>, reloadLease = false): Promise<boolean> {
+    const originatingLeaseId = selectedLeaseId;
     setLoading(true);
     setMessage("");
     try {
       await action();
       setMessage(success);
       await refresh();
-      if (reloadLease && selectedLeaseId) await loadLease(selectedLeaseId);
+      if (
+        reloadLease
+        && housingLeaseContextStillCurrent(originatingLeaseId, selectedLeaseIdRef.current)
+      ) {
+        await loadLease(originatingLeaseId);
+      }
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "操作失败");
@@ -470,7 +479,6 @@ export function HousingOperationsClient() {
           mobile: tenantForm.mobile || undefined,
           identity_document_type: tenantForm.identityNumber ? tenantForm.identityDocumentType : undefined,
           identity_number: tenantForm.identityNumber || undefined,
-          verification_status: "unverified",
           consent_status: "granted"
         }
       });
@@ -657,34 +665,42 @@ export function HousingOperationsClient() {
   async function createPurchase(event: FormEvent) {
     event.preventDefault();
     if (purchaseSubmissionLock.current) return;
+    const payload = {
+      unit_id: purchaseForm.unitId || undefined,
+      vendor_name: purchaseForm.vendorName,
+      purchase_date: purchaseForm.purchaseDate,
+      cost_category: purchaseForm.costCategory,
+      items: [{
+        item_name: purchaseForm.itemName,
+        quantity: Number(purchaseForm.quantity),
+        unit: purchaseForm.unit,
+        unit_price: Number(purchaseForm.unitPrice)
+      }],
+      receipt_file_ids: purchaseReceipts.map((file) => file.id)
+    };
+    const submissionSignature = JSON.stringify(payload);
+    if (!purchaseSubmissionKey.current || purchaseSubmissionSignature.current !== submissionSignature) {
+      purchaseSubmissionKey.current = createIdempotencyKey("housing-purchase");
+      purchaseSubmissionSignature.current = submissionSignature;
+    }
     purchaseSubmissionLock.current = true;
-    purchaseSubmissionKey.current ??= createIdempotencyKey("housing-purchase");
     setPurchaseSubmitting(true);
     try {
-      await runAction("采购成本单已创建", async () => {
+      const succeeded = await runAction("采购成本单已创建", async () => {
         await apiRequest("/housing/purchases", {
           method: "POST",
           token: getAccessToken(),
           idempotencyKey: purchaseSubmissionKey.current!,
-          body: {
-            unit_id: purchaseForm.unitId || undefined,
-            vendor_name: purchaseForm.vendorName,
-            purchase_date: purchaseForm.purchaseDate,
-            cost_category: purchaseForm.costCategory,
-            items: [{
-              item_name: purchaseForm.itemName,
-              quantity: Number(purchaseForm.quantity),
-              unit: purchaseForm.unit,
-              unit_price: Number(purchaseForm.unitPrice)
-            }],
-            receipt_file_ids: purchaseReceipts.map((file) => file.id)
-          }
+          body: payload
         });
-        setPurchaseReceipts([]);
       });
+      if (succeeded) {
+        setPurchaseReceipts([]);
+        purchaseSubmissionKey.current = null;
+        purchaseSubmissionSignature.current = "";
+      }
     } finally {
       purchaseSubmissionLock.current = false;
-      purchaseSubmissionKey.current = null;
       setPurchaseSubmitting(false);
     }
   }
@@ -758,14 +774,17 @@ export function HousingOperationsClient() {
   }
 
   const canManageTenants = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
+  const canReadDashboard = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_DASHBOARD_READ);
   const kpis: Array<{ label: string; value: string | number; Icon: typeof Building2 }> = [
-    { label: "有效租约", value: dashboard.active_leases, Icon: Building2 },
-    { label: "待审批", value: dashboard.pending_approval, Icon: ClipboardCheck },
-    { label: "待签署", value: dashboard.pending_signature, Icon: ClipboardCheck },
-    { label: "待退租", value: dashboard.checkout_pending, Icon: Building2 },
-    { label: "累计应收", value: `¥${dashboard.receivable_amount}`, Icon: CircleDollarSign },
-    { label: "未结费用", value: `¥${dashboard.outstanding_amount}`, Icon: CircleDollarSign },
-    { label: "采购成本", value: `¥${dashboard.approved_purchase_cost}`, Icon: ShoppingCart },
+    ...(canReadDashboard ? [
+      { label: "有效租约", value: dashboard.active_leases, Icon: Building2 },
+      { label: "待审批", value: dashboard.pending_approval, Icon: ClipboardCheck },
+      { label: "待签署", value: dashboard.pending_signature, Icon: ClipboardCheck },
+      { label: "待退租", value: dashboard.checkout_pending, Icon: Building2 },
+      { label: "累计应收", value: `¥${dashboard.receivable_amount}`, Icon: CircleDollarSign },
+      { label: "未结费用", value: `¥${dashboard.outstanding_amount}`, Icon: CircleDollarSign },
+      { label: "采购成本", value: `¥${dashboard.approved_purchase_cost}`, Icon: ShoppingCart }
+    ] : []),
     ...(canManageTenants ? [{ label: "租客档案", value: tenantPage.total, Icon: Users }] : [])
   ];
 
@@ -835,12 +854,12 @@ export function HousingOperationsClient() {
         {canManageTenants ? <form className={styles.occupantForm} onSubmit={addOccupant}><h3>实名入住人员登记</h3><label>人员<select required value={occupantForm.partyId} onChange={(event) => setOccupantForm({ ...occupantForm, partyId: event.target.value })}><option value="">选择人员档案</option>{tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.displayName} · {tenant.verificationStatus}</option>)}</select></label><label>入住角色<select value={occupantForm.occupantRole} onChange={(event) => setOccupantForm({ ...occupantForm, occupantRole: event.target.value })}><option value="cohabitant">同住人</option><option value="emergency_contact">紧急联系人</option></select></label><label className={styles.checkboxLabel}><input type="checkbox" checked={occupantForm.emergencyContact} onChange={(event) => setOccupantForm({ ...occupantForm, emergencyContact: event.target.checked })} />同时设为紧急联系人</label><PermissionButton className="ds-button ds-button-primary" permission={SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE} type="submit">登记入住人员</PermissionButton><div className={styles.occupantList}>{detail.occupants.map((occupant) => <span key={occupant.id}>{tenantName.get(occupant.partyId) ?? occupant.partyId} · {occupant.occupantRole}{occupant.emergencyContact ? " · 紧急联系人" : ""}</span>)}</div></form> : null}
         {detail.finance_summary ? <section className={styles.ledgerSection}><h3>租约财务流水</h3><div className={`ds-table-shell ${styles.detailTable}`}><table><thead><tr><th>发生时间</th><th>类型</th><th>费用</th><th>金额</th><th>状态</th><th>原因</th></tr></thead><tbody>{detail.ledger.map((entry) => <tr key={entry.id}><td>{new Date(entry.occurredAt).toLocaleString()}</td><td>{entry.entryType}</td><td>{entry.chargeType}</td><td>¥{entry.amount}</td><td>{entry.status}</td><td>{entry.reason}</td></tr>)}</tbody></table></div><div className="ds-mobile-record-list">{detail.ledger.map((entry) => <article className="ds-mobile-record" key={entry.id}><strong>{entry.entryType} · ¥{entry.amount}</strong><span>{entry.chargeType} · {entry.status}</span><span>{new Date(entry.occurredAt).toLocaleString()}</span><span>{entry.reason}</span></article>)}</div>{detail.ledger.length ? null : <p>暂无财务流水。</p>}</section> : null}
         <div className={styles.repairList}><h3>关联维修工单</h3>{detail.repairs.length ? detail.repairs.map((repair) => <article key={repair.id}><div><strong>{repair.woCode}</strong><span className={styles.status}>{repair.status}</span></div><span>{repair.title}</span><small>{repair.priority} / {repair.urgency ?? "normal"} · {new Date(repair.createTime).toLocaleString()}</small></article>) : <p>暂无关联报修工单。</p>}</div>
-        <div className={styles.signature}><FileUploader bizType="housing_lease_signature" bizId={selectedLeaseId} policyKey="pdf" compact label="上传线下签署 PDF" onUploaded={(file) => setSignatureFileId(file.id)} /><span>{signatureFileId ? "签署件已就绪，可执行签署登记" : "待上传签署件"}</span></div>
+        <div className={styles.signature}><FileUploader bizType="housing_lease_signature" bizId={selectedLeaseId} policyKey="pdf" compact label="上传线下签署 PDF" onUploaded={(file) => { if (housingLeaseContextStillCurrent(selectedLeaseId, selectedLeaseIdRef.current)) setSignatureFileId(file.id); }} /><span>{signatureFileId ? "签署件已就绪，可执行签署登记" : "待上传签署件"}</span></div>
       </section> : null}
 
       <section className={styles.commandGrid}>
         <form className="ds-panel" onSubmit={createPurchase}><h2>内部采购成本</h2><div className={styles.formGrid}><label>归集房源<select value={purchaseForm.unitId} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitId: event.target.value })}><option value="">项目公共成本</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unitName.get(unit.id)}</option>)}</select></label><label>供应商<input required value={purchaseForm.vendorName} onChange={(event) => setPurchaseForm({ ...purchaseForm, vendorName: event.target.value })} /></label><label>采购日期<input type="date" value={purchaseForm.purchaseDate} onChange={(event) => setPurchaseForm({ ...purchaseForm, purchaseDate: event.target.value })} /></label><label>成本分类<select value={purchaseForm.costCategory} onChange={(event) => setPurchaseForm({ ...purchaseForm, costCategory: event.target.value })}><option value="consumable">耗材</option><option value="repair">维修</option><option value="cleaning">保洁</option><option value="other">其他</option></select></label><label>采购明细<input required value={purchaseForm.itemName} onChange={(event) => setPurchaseForm({ ...purchaseForm, itemName: event.target.value })} /></label><label>数量<input type="number" min="0.001" step="0.001" value={purchaseForm.quantity} onFocus={(event) => event.target.select()} onChange={(event) => setPurchaseForm({ ...purchaseForm, quantity: event.target.value })} /></label><label>单位<input value={purchaseForm.unit} onChange={(event) => setPurchaseForm({ ...purchaseForm, unit: event.target.value })} /></label><label>单价<input type="number" min="0" step="0.01" value={purchaseForm.unitPrice} onFocus={(event) => event.target.select()} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitPrice: event.target.value })} /></label></div><FileUploader bizType="housing_purchase" policyKey="receipt" compact label="上传采购票据" onUploaded={(file) => setPurchaseReceipts((current) => [...current, file])} /><PendingAttachmentList files={purchaseReceipts} onRemove={(fileId) => setPurchaseReceipts((current) => current.filter((file) => file.id !== fileId))} /><PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} className="ds-button ds-button-primary" type="submit" disabled={purchaseSubmitting}>{purchaseSubmitting ? "正在创建…" : "创建采购成本单"}</PermissionButton></form>
-        <form className="ds-panel" onSubmit={transferPurchase}><h2>受控转租客收费</h2><p>内部成本与租客应收保持分账；仅审批后的指定明细可转收费。</p><label>采购单<select required value={transferForm.purchaseId} onChange={(event) => void selectPurchaseForTransfer(event.target.value)}><option value="">选择已审批采购单</option>{purchases.filter((item) => item.approvalStatus === "approved" && item.paymentStatus !== "refunded").map((item) => <option key={item.id} value={item.id}>{item.purchaseCode} · ¥{item.totalAmount}</option>)}</select></label><fieldset className={styles.transferItems}><legend>选择待转采购明细</legend>{transferItems.map((item) => <label key={item.id}><input type="checkbox" checked={transferForm.itemIds.includes(item.id)} onChange={(event) => setTransferForm((current) => ({ ...current, itemIds: event.target.checked ? [...current.itemIds, item.id] : current.itemIds.filter((id) => id !== item.id) }))} />{item.itemName} · ¥{item.amount}</label>)}{transferForm.purchaseId && !transferItems.length ? <span>该采购单暂无可转收费明细。</span> : null}</fieldset><label>租客应收日<input type="date" value={transferForm.dueDate} onChange={(event) => setTransferForm({ ...transferForm, dueDate: event.target.value })} /></label><label>转收费依据<input maxLength={500} value={transferForm.reason} onChange={(event) => setTransferForm({ ...transferForm, reason: event.target.value })} /></label><PermissionButton className="ds-button ds-button-primary" permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER} type="submit" disabled={!selectedLeaseId || transferForm.itemIds.length === 0}>转为当前租约应收</PermissionButton></form>
+        <form className="ds-panel" onSubmit={transferPurchase}><h2>受控转租客收费</h2><p>内部成本与租客应收保持分账；仅审批后的指定明细可转收费。</p><label>采购单<select required value={transferForm.purchaseId} onChange={(event) => void selectPurchaseForTransfer(event.target.value)}><option value="">选择已审批采购单</option>{purchases.filter((item) => item.approvalStatus === "approved" && item.paymentStatus !== "refunded").map((item) => <option key={item.id} value={item.id}>{item.purchaseCode} · ¥{item.totalAmount}</option>)}</select></label><fieldset className={styles.transferItems}><legend>选择待转采购明细</legend>{transferItems.map((item) => <label key={item.id}><input type="checkbox" checked={transferForm.itemIds.includes(item.id)} onChange={(event) => setTransferForm((current) => ({ ...current, itemIds: event.target.checked ? [...current.itemIds, item.id] : current.itemIds.filter((id) => id !== item.id) }))} />{item.itemName} · ¥{item.amount}</label>)}{transferForm.purchaseId && !transferItems.length ? <span>该采购单暂无可转收费明细。</span> : null}</fieldset><label>租客应收日<input type="date" value={transferForm.dueDate} onChange={(event) => setTransferForm({ ...transferForm, dueDate: event.target.value })} /></label><label>转收费依据<input maxLength={500} value={transferForm.reason} onChange={(event) => setTransferForm({ ...transferForm, reason: event.target.value })} /></label><PermissionButton className="ds-button ds-button-primary" permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER} type="submit" disabled={!selectedLeaseId || !canRechargeHousingLease(detail?.lease.status) || transferForm.itemIds.length === 0}>转为当前租约应收</PermissionButton></form>
       </section>
 
       <section className="ds-panel"><div className={styles.sectionTitle}><div><h2>采购成本台账</h2><p>首期仅做采购单、成本归集、审批和付款登记，不建立库存。</p></div><PaginationControls meta={purchasePage} disabled={loading} onPageChange={(page) => setPurchasePage((current) => ({ ...current, page }))} /></div><div className={styles.purchaseGrid}>{purchases.map((purchase) => <article className={styles.purchaseCard} key={purchase.id}><div><strong>{purchase.purchaseCode}</strong><span>¥{purchase.totalAmount}</span></div><span>{purchase.vendorName} · {purchase.costCategory}</span><span>{purchase.approvalStatus} / {purchase.paymentStatus}</span><div className={styles.actions}>{purchase.approvalStatus === "draft" ? <><PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} onClick={() => void purchaseAction(purchase, "approve")}>审批通过</PermissionButton><PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} onClick={() => void purchaseAction(purchase, "reject")}>驳回</PermissionButton></> : null}{purchase.approvalStatus === "approved" && purchase.paymentStatus === "unpaid" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} onClick={() => void purchaseAction(purchase, "pay")}>登记付款</PermissionButton> : null}{purchase.paymentStatus === "paid" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} onClick={() => void purchaseAction(purchase, "refund")}>登记退款</PermissionButton> : null}{purchase.paymentStatus !== "paid" && purchase.approvalStatus !== "void" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} onClick={() => void purchaseAction(purchase, "void")}>作废</PermissionButton> : null}</div></article>)}</div></section>

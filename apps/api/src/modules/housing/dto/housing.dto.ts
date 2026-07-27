@@ -81,7 +81,7 @@ export class UpsertHousingChargePlanDto {
 export class GenerateHousingBillsDto {
   @IsDateString() period_start!: string;
   @IsDateString() period_end!: string;
-  @IsOptional() @IsUUID() charge_plan_id?: string;
+  @IsUUID() charge_plan_id!: string;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) opening_reading?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) closing_reading?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) manual_amount?: number;
