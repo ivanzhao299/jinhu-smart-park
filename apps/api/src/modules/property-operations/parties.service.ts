@@ -13,6 +13,7 @@ import type {
 import { PartyRoleEntity } from "./entities/party-role.entity";
 import { PartyEntity } from "./entities/party.entity";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
+import { didPartyIdentityChange } from "./party-identity.policy";
 
 export interface PartyResponse {
   id: string;
@@ -116,6 +117,8 @@ export class PartiesService {
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdatePartyDto) {
     const entity = await this.mustFind(scope, id, true);
+    const previousIdentityDocumentType = entity.identityDocumentType;
+    const previousIdentityNumberHash = entity.identityNumberHash;
     if (dto.party_type !== undefined) entity.partyType = dto.party_type;
     if (dto.display_name !== undefined) entity.displayName = dto.display_name.trim();
     if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
@@ -138,6 +141,14 @@ export class PartiesService {
     if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
     if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
     if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
+    if (didPartyIdentityChange(
+      previousIdentityDocumentType,
+      previousIdentityNumberHash,
+      entity.identityDocumentType,
+      entity.identityNumberHash
+    )) {
+      entity.verificationStatus = "unverified";
+    }
     entity.updateBy = actor.sub;
     try {
       return this.toResponse(await this.partiesRepository.save(entity));

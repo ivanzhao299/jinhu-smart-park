@@ -57,3 +57,11 @@ test("commercial contract availability queries use the same Shanghai boundaries"
   assert.match(service, /relation\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(service, /\(relation\.end_date \+ 1\)::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
 });
+
+test("mode transition blockers compare commercial expiry at the Shanghai business date", () => {
+  const servicePath = resolve(__dirname, "property-operations.service.ts");
+  const service = readFileSync(servicePath, "utf8");
+
+  assert.match(service, /now\(\) AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.doesNotMatch(service, /> current_date/);
+});

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { UpdatePartyDto, VerifyPartyDto } from "./party.dto";
+import { CreatePartyDto, UpdatePartyDto, VerifyPartyDto } from "./party.dto";
 
 test("party updates preserve explicit clearing signals", async () => {
   const dto = plainToInstance(UpdatePartyDto, {
@@ -14,6 +14,16 @@ test("party updates preserve explicit clearing signals", async () => {
   assert.equal(dto.email, null);
   assert.equal(dto.identity_number, null);
   assert.deepEqual(await validate(dto), []);
+});
+
+test("party document type is validated whenever it is supplied", async () => {
+  const dto = plainToInstance(CreatePartyDto, {
+    party_type: "person",
+    display_name: "Guest",
+    identity_document_type: "garbage"
+  });
+  const errors = await validate(dto);
+  assert.ok(errors.some((error) => error.property === "identity_document_type"));
 });
 
 test("party verification uses a dedicated transition DTO", async () => {

@@ -24,25 +24,35 @@ function addCalendarMonthsFromAnchor(value: Date, months: number): Date {
   return targetMonthStart;
 }
 
-export function calculateHousingMonthFraction(startValue: string, endValue: string): number {
-  const start = parseHousingCalendarDate(startValue);
-  const end = parseHousingCalendarDate(endValue);
-  if (start >= end) throw new BadRequestException("Billing period start must be before end");
+function calculateHousingMonthPosition(anchor: Date, target: Date): number {
+  if (target < anchor) throw new BadRequestException("Billing period cannot precede its month anchor");
   let wholeMonths = 0;
   while (true) {
-    const next = addCalendarMonthsFromAnchor(start, wholeMonths + 1);
-    if (next > end) break;
+    const next = addCalendarMonthsFromAnchor(anchor, wholeMonths + 1);
+    if (next > target) break;
     wholeMonths += 1;
   }
-  const cursor = addCalendarMonthsFromAnchor(start, wholeMonths);
+  const cursor = addCalendarMonthsFromAnchor(anchor, wholeMonths);
   let months = wholeMonths;
-  if (cursor < end) {
-    const next = addCalendarMonthsFromAnchor(start, wholeMonths + 1);
-    const partialDays = (end.getTime() - cursor.getTime()) / 86_400_000;
+  if (cursor < target) {
+    const next = addCalendarMonthsFromAnchor(anchor, wholeMonths + 1);
+    const partialDays = (target.getTime() - cursor.getTime()) / 86_400_000;
     const cycleDays = (next.getTime() - cursor.getTime()) / 86_400_000;
     months += partialDays / cycleDays;
   }
   return months;
+}
+
+export function calculateHousingMonthFraction(
+  startValue: string,
+  endValue: string,
+  anchorValue = startValue
+): number {
+  const start = parseHousingCalendarDate(startValue);
+  const end = parseHousingCalendarDate(endValue);
+  const anchor = parseHousingCalendarDate(anchorValue);
+  if (start >= end) throw new BadRequestException("Billing period start must be before end");
+  return calculateHousingMonthPosition(anchor, end) - calculateHousingMonthPosition(anchor, start);
 }
 
 export function assertHousingBillingPeriodWithinLease(

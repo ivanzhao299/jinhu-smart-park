@@ -11,15 +11,37 @@ export interface HousingPurchaseAmountInput {
   unitPrice: number;
 }
 
+function parseScaledDecimal(value: number, scale: number): bigint {
+  const match = value.toString().toLowerCase().match(/^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/);
+  if (!match) throw new BadRequestException("Invalid purchase decimal");
+  const sign = match[1] === "-" ? -1n : 1n;
+  const fraction = match[3] ?? "";
+  const exponent = Number(match[4] ?? 0);
+  const digits = BigInt(`${match[2]}${fraction}`);
+  const shift = scale - (fraction.length - exponent);
+  if (shift >= 0) return sign * digits * (10n ** BigInt(shift));
+  const divisor = 10n ** BigInt(-shift);
+  const quotient = digits / divisor;
+  const remainder = digits % divisor;
+  const rounded = remainder * 2n >= divisor ? quotient + 1n : quotient;
+  return sign * rounded;
+}
+
+function formatCents(value: bigint): string {
+  const integerPart = value / 100n;
+  const fractionPart = (value % 100n).toString().padStart(2, "0");
+  return `${integerPart}.${fractionPart}`;
+}
+
 export function calculateHousingPurchaseAmounts(items: HousingPurchaseAmountInput[]) {
-  const lineAmounts = items.map((item) => {
-    const quantityThousandths = Math.round(item.quantity * 1_000);
-    const unitPriceCents = Math.round(item.unitPrice * 100);
-    return Math.round(quantityThousandths * unitPriceCents / 1_000) / 100;
+  const lineAmountCents = items.map((item) => {
+    const quantityThousandths = parseScaledDecimal(item.quantity, 3);
+    const unitPriceCents = parseScaledDecimal(item.unitPrice, 2);
+    return (quantityThousandths * unitPriceCents + 500n) / 1_000n;
   });
   return {
-    lineAmounts,
-    totalAmount: lineAmounts.reduce((total, amount) => total + Math.round(amount * 100), 0) / 100
+    lineAmounts: lineAmountCents.map(formatCents),
+    totalAmount: formatCents(lineAmountCents.reduce((total, amount) => total + amount, 0n))
   };
 }
 

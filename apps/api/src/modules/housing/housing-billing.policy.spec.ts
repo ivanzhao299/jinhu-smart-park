@@ -23,6 +23,7 @@ test("same-day monthly boundary remains exactly one month", () => {
 test("month advancement preserves the original billing-day anchor after February", () => {
   assert.equal(calculateHousingMonthFraction("2026-01-31", "2026-03-31"), 2);
   assert.equal(calculateHousingMonthFraction("2024-01-31", "2024-03-31"), 2);
+  assert.equal(calculateHousingMonthFraction("2026-02-28", "2026-03-31", "2026-01-31"), 1);
 });
 
 test("tail period is prorated against the current calendar cycle", () => {

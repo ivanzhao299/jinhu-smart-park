@@ -217,7 +217,7 @@ export class PropertyOperationsService {
          WHERE relation.tenant_id = $1 AND relation.park_id = $2 AND relation.unit_id = $3
            AND relation.is_deleted = false AND relation.status = 1
            AND contract.is_deleted = false AND contract.status NOT IN ('90', '91')
-           AND (relation.end_date + interval '1 day') > current_date
+            AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
        ),
        checkouts AS (
          SELECT count(DISTINCT checkout.id)::int AS pending_checkout_count

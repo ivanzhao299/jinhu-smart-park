@@ -37,19 +37,21 @@ export function turnoverLockEnd(now: Date, nextOccupancyStart: Date | null): Dat
   return nextOccupancyStart ?? new Date(now.getTime() + 365 * 24 * 60 * 60_000);
 }
 
-export function assertBusinessDate(value: string, fieldName: string): void {
-  if (!BUSINESS_DATE_PATTERN.test(value)) {
-    throw new BadRequestException(`${fieldName} must be a valid YYYY-MM-DD date`);
-  }
+export function isBusinessDate(value: string): boolean {
+  if (!BUSINESS_DATE_PATTERN.test(value)) return false;
   const year = Number(value.slice(0, 4));
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
   const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (
+  return !(
     parsed.getUTCFullYear() !== year
     || parsed.getUTCMonth() !== month - 1
     || parsed.getUTCDate() !== day
-  ) {
+  );
+}
+
+export function assertBusinessDate(value: string, fieldName: string): void {
+  if (!isBusinessDate(value)) {
     throw new BadRequestException(`${fieldName} must be a valid YYYY-MM-DD date`);
   }
 }

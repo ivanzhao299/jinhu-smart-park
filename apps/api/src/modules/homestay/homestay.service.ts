@@ -829,6 +829,7 @@ export class HomestayService {
     if (businessDate) assertBusinessDate(businessDate, "business_date");
     const date = businessDate
       || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return {
@@ -840,7 +841,7 @@ export class HomestayService {
         occupancy_rate: "0.00",
         average_daily_rate: "0.00",
         pending_turnovers: 0,
-        revenue: "0.00"
+        ...(canReadFinance ? { revenue: "0.00" } : {})
       };
     }
     const unitClause = allowedUnitIds === null ? "" : " AND booking.unit_id = ANY($4::uuid[])";
@@ -850,7 +851,11 @@ export class HomestayService {
       `SELECT
          count(*) FILTER (WHERE booking.arrival_date = $3::date AND booking.status IN ('confirmed','checked_in'))::int AS arrivals,
          count(*) FILTER (WHERE booking.departure_date = $3::date AND booking.status IN ('checked_in','checked_out'))::int AS departures,
-         count(*) FILTER (WHERE booking.status = 'checked_in')::int AS occupied
+         count(*) FILTER (
+           WHERE booking.arrival_date <= $3::date
+             AND booking.departure_date > $3::date
+             AND booking.status IN ('confirmed', 'checked_in', 'checked_out')
+         )::int AS occupied
        FROM biz_homestay_booking booking
        WHERE booking.tenant_id = $1 AND booking.park_id = $2 AND booking.is_deleted = false${unitClause}`,
       parameters
@@ -862,7 +867,7 @@ export class HomestayService {
       .andWhere("task.status <> 'completed'")
       .andWhere(allowedUnitIds === null ? "1=1" : "task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds: allowedUnitIds ?? [] })
       .getCount();
-    const [finance] = await this.dataSource.query(
+    const [finance] = canReadFinance ? await this.dataSource.query(
       `SELECT COALESCE(sum(CASE WHEN entry.entry_type = 'payment' THEN entry.amount
                                WHEN entry.entry_type = 'refund' THEN -entry.amount ELSE 0 END), 0)::text AS revenue
        FROM biz_homestay_ledger_entry entry
@@ -871,7 +876,7 @@ export class HomestayService {
          AND entry.is_deleted = false AND entry.status = 'confirmed'
          AND (entry.occurred_at AT TIME ZONE 'Asia/Shanghai')::date = $3::date${unitClause}`,
       parameters
-    ) as Array<{ revenue: string }>;
+    ) as Array<{ revenue: string }> : [{ revenue: "0.00" }];
     const modeParameters: unknown[] = [scope.tenantId, scope.parkId];
     const modeUnitClause = allowedUnitIds === null ? "" : " AND config.unit_id = ANY($3::uuid[])";
     if (allowedUnitIds !== null) modeParameters.push(allowedUnitIds);
@@ -908,7 +913,7 @@ export class HomestayService {
       occupancy_rate: rentableUnits > 0 ? ((occupied / rentableUnits) * 100).toFixed(2) : "0.00",
       average_daily_rate: Number(rateSummary?.average_daily_rate ?? 0).toFixed(2),
       pending_turnovers: pendingTurnovers,
-      revenue: finance?.revenue ?? "0.00"
+      ...(canReadFinance ? { revenue: finance?.revenue ?? "0.00" } : {})
     };
   }
 

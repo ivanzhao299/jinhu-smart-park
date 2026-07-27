@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { DataSource, IsNull, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
+import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PartyEntity } from "../property-operations/entities/party.entity";
 import { PartiesService } from "../property-operations/parties.service";
@@ -94,6 +95,8 @@ export class HousingService {
     const leaseUnitFilter = unitIds === null ? "" : unitIds.length ? " AND lease.unit_id = ANY($3::uuid[])" : " AND false";
     const purchaseUnitFilter = unitIds === null ? "" : unitIds.length ? " AND purchase.unit_id = ANY($3::uuid[])" : " AND false";
     const params = unitIds === null ? [scope.tenantId, scope.parkId] : [scope.tenantId, scope.parkId, unitIds];
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canReadPurchases = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
     const [leaseRows, financeRows, purchaseRows] = await Promise.all([
       this.dataSource.query(
         `SELECT status, count(*)::int AS count
@@ -102,7 +105,7 @@ export class HousingService {
          GROUP BY status`,
         params
       ) as Promise<Array<{ status: string; count: number }>>,
-      this.dataSource.query(
+      canReadFinance ? this.dataSource.query(
         `SELECT
            coalesce(sum(amount),0)::text AS receivable,
            coalesce(sum(paid_amount),0)::text AS paid,
@@ -116,14 +119,14 @@ export class HousingService {
          WHERE receivable.tenant_id=$1 AND receivable.park_id=$2
            AND receivable.is_deleted=false AND receivable.status <> 'void'${leaseUnitFilter}`,
         params
-      ) as Promise<Array<{ receivable: string; paid: string; waived: string }>>,
-      this.dataSource.query(
+      ) as Promise<Array<{ receivable: string; paid: string; waived: string }>> : Promise.resolve([]),
+      canReadPurchases ? this.dataSource.query(
         `SELECT coalesce(sum(total_amount),0)::text AS cost
          FROM biz_housing_purchase purchase
          WHERE purchase.tenant_id=$1 AND purchase.park_id=$2
            AND purchase.is_deleted=false AND purchase.approval_status='approved'${purchaseUnitFilter}`,
         params
-      ) as Promise<Array<{ cost: string }>>
+      ) as Promise<Array<{ cost: string }>> : Promise.resolve([])
     ]);
     const counts = Object.fromEntries(leaseRows.map((row) => [row.status, Number(row.count)]));
     const finance = financeRows[0] ?? { receivable: "0", paid: "0", waived: "0" };
@@ -133,10 +136,17 @@ export class HousingService {
       pending_signature: counts.pending_signature ?? 0,
       active_leases: (counts.active ?? 0) + (counts.expiring ?? 0),
       checkout_pending: counts.checkout_pending ?? 0,
-      receivable_amount: Number(finance.receivable).toFixed(2),
-      collected_amount: Number(finance.paid).toFixed(2),
-      outstanding_amount: Math.max(0, Number(finance.receivable) - Number(finance.paid) - Number(finance.waived)).toFixed(2),
-      approved_purchase_cost: Number(purchaseRows[0]?.cost ?? 0).toFixed(2)
+      ...(canReadFinance ? {
+        receivable_amount: Number(finance.receivable).toFixed(2),
+        collected_amount: Number(finance.paid).toFixed(2),
+        outstanding_amount: Math.max(
+          0,
+          Number(finance.receivable) - Number(finance.paid) - Number(finance.waived)
+        ).toFixed(2)
+      } : {}),
+      ...(canReadPurchases ? {
+        approved_purchase_cost: Number(purchaseRows[0]?.cost ?? 0).toFixed(2)
+      } : {})
     };
   }
 
@@ -421,6 +431,21 @@ export class HousingService {
     if (dto.billing_source === "energy_meter" && (!dto.meter_id || dto.unit_price === undefined)) {
       throw new BadRequestException("Energy meter charge plan requires meter_id and unit_price");
     }
+    if (dto.billing_source === "energy_meter") {
+      const meter = await this.dataSource.getRepository(EnergyMeterEntity).findOne({
+        where: {
+          id: dto.meter_id!,
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false
+        }
+      });
+      if (!meter) throw new NotFoundException("Energy meter not found");
+      if (!meter.isEnabled) throw new ConflictException("Energy meter must be enabled");
+      if (meter.roomId !== lease.unitId) {
+        throw new BadRequestException("Energy meter must belong to the housing lease unit");
+      }
+    }
     const repository = this.dataSource.getRepository(HousingChargePlanEntity);
     const existing = await repository.findOne({
       where: {
@@ -472,7 +497,18 @@ export class HousingService {
         }
       });
       if (!plan) throw new NotFoundException("Enabled charge plan not found");
-      const amount = this.calculateBillAmount(plan, dto);
+      const amount = this.calculateBillAmount(plan, dto, lease.startDate);
+      const firstRentReceivable = plan.chargeType === "rent"
+        ? await manager.getRepository(HousingReceivableEntity).findOne({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            leaseId,
+            chargeType: "rent",
+            isDeleted: false
+          }
+        })
+        : null;
       return [await this.createReceivable(manager, scope, actor, lease, {
         chargePlanId: plan.id,
         sourceType: plan.billingSource,
@@ -480,7 +516,9 @@ export class HousingService {
         chargeType: plan.chargeType,
         periodStart: dto.period_start,
         periodEnd: dto.period_end,
-        dueDate: this.dueDateForPeriod(dto.period_start, lease.billingDay),
+        dueDate: plan.chargeType === "rent" && !firstRentReceivable
+          ? lease.firstDueDate
+          : this.dueDateForPeriod(dto.period_start, lease.billingDay),
         amount,
         openingReading: dto.opening_reading,
         closingReading: dto.closing_reading,
@@ -854,7 +892,8 @@ export class HousingService {
     if (!dto.items.length) throw new BadRequestException("At least one purchase item is required");
     parseHousingCalendarDate(dto.purchase_date);
     await this.assertPurchaseAccess(scope, actor, dto.unit_id ?? null);
-    return this.dataSource.transaction(async (manager) => {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
       const receiptFiles = await this.assertFiles(
         manager,
         scope,
@@ -877,7 +916,7 @@ export class HousingService {
         vendorName: dto.vendor_name,
         purchaseDate: dto.purchase_date.slice(0, 10),
         costCategory: dto.cost_category,
-        totalAmount: purchaseAmounts.totalAmount.toFixed(2),
+        totalAmount: purchaseAmounts.totalAmount,
         approvalStatus: "draft",
         paymentStatus: "unpaid",
         receiptFileIds: dto.receipt_file_ids ?? [],
@@ -894,7 +933,7 @@ export class HousingService {
         quantity: item.quantity.toFixed(3),
         unit: item.unit ?? null,
         unitPrice: item.unit_price.toFixed(2),
-        amount: purchaseAmounts.lineAmounts[index]!.toFixed(2),
+        amount: purchaseAmounts.lineAmounts[index]!,
         transferredReceivableId: null,
         createBy: actor.sub,
         updateBy: actor.sub
@@ -904,8 +943,14 @@ export class HousingService {
         file.updateBy = actor.sub;
       }
       if (receiptFiles.length) await manager.getRepository(FileEntity).save(receiptFiles);
-      return purchase;
-    });
+        return purchase;
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException("Purchase code already exists in current tenant and park");
+      }
+      throw error;
+    }
   }
 
   async purchaseAction(
@@ -1102,7 +1147,11 @@ export class HousingService {
     }
   }
 
-  private calculateBillAmount(plan: HousingChargePlanEntity, dto: GenerateHousingBillsDto) {
+  private calculateBillAmount(
+    plan: HousingChargePlanEntity,
+    dto: GenerateHousingBillsDto,
+    leaseStartDate: string
+  ) {
     if (plan.billingSource === "manual") {
       if (dto.manual_amount === undefined) throw new BadRequestException(`Manual amount is required for ${plan.chargeType}`);
       return dto.manual_amount;
@@ -1114,7 +1163,7 @@ export class HousingService {
       if (dto.closing_reading < dto.opening_reading) throw new BadRequestException("Closing reading cannot be less than opening reading");
       return (dto.closing_reading - dto.opening_reading) * Number(plan.unitPrice ?? 0);
     }
-    const months = calculateHousingMonthFraction(dto.period_start, dto.period_end);
+    const months = calculateHousingMonthFraction(dto.period_start, dto.period_end, leaseStartDate);
     if (months > plan.cycleMonths + 0.000001) {
       throw new BadRequestException(`Billing period exceeds configured ${plan.cycleMonths}-month cycle for ${plan.chargeType}`);
     }

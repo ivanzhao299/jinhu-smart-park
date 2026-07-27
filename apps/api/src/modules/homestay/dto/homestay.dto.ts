@@ -13,14 +13,29 @@ import {
   Max,
   MaxLength,
   Min,
+  Validate,
   ValidateNested
 } from "class-validator";
+import type { ValidatorConstraintInterface } from "class-validator";
+import { ValidatorConstraint } from "class-validator";
+import { isBusinessDate } from "../homestay-booking.policy";
 
 const trimOptional = (value: unknown): string | undefined => {
   if (value === undefined || value === null) return undefined;
   const text = String(value).trim();
   return text || undefined;
 };
+
+@ValidatorConstraint({ name: "homestayBusinessDate", async: false })
+class HomestayBusinessDateConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return typeof value === "string" && isBusinessDate(value);
+  }
+
+  defaultMessage(): string {
+    return "must be a valid YYYY-MM-DD calendar date";
+  }
+}
 
 export class HomestayBookingQueryDto {
   @IsOptional()
@@ -32,11 +47,11 @@ export class HomestayBookingQueryDto {
   unit_id?: string;
 
   @IsOptional()
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   date_from?: string;
 
   @IsOptional()
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   date_to?: string;
 
   @IsOptional()
@@ -82,7 +97,7 @@ export class UpsertHomestayRateDto {
 }
 
 export class UpsertHomestayRateOverrideDto {
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   business_date!: string;
 
   @Type(() => Number)
@@ -110,10 +125,10 @@ export class CreateHomestayBookingDto {
   @IsUUID()
   booker_party_id?: string;
 
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   arrival_date!: string;
 
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   departure_date!: string;
 
   @IsOptional()
@@ -158,10 +173,10 @@ export class HomestayReasonDto {
 }
 
 export class RescheduleHomestayBookingDto extends HomestayReasonDto {
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   arrival_date!: string;
 
-  @IsDateString()
+  @Validate(HomestayBusinessDateConstraint)
   departure_date!: string;
 }
 

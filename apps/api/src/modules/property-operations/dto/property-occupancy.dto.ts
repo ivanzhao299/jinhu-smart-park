@@ -33,11 +33,13 @@ export class CreatePropertyOccupancyDto {
 
   @Transform(trim)
   @IsString()
+  @MinLength(1)
   @MaxLength(64)
   source_type!: string;
 
   @Transform(trim)
   @IsString()
+  @MinLength(1)
   @MaxLength(64)
   source_id!: string;
 

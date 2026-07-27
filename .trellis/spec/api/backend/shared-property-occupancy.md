@@ -36,6 +36,8 @@ Database owners:
 - `housing_rental` and `commercial_leasing` require or are treated as `long_rent`.
 - `maintenance` and `operations` may lock a unit in any mode.
 - New commercial-leasing, housing-rental, and homestay occupancies require `operating_status = enabled`; `suspended` and `disabled` units reject new business occupancy.
+- Activating a `held` occupancy is a new concurrency-sensitive write: lock the unit scope and re-read the current operation configuration inside the same transaction before changing status to `active`.
+- Occupancy source type and source ID must remain non-empty after boundary trimming.
 - An unfinished homestay turnover task keeps the unit unavailable even when a same-day arriving booking already owns the active occupancy and no separate turnover occupancy can be created.
 - All writes require `X-Idempotency-Key` and `IdempotencyInterceptor`.
 - Production requires stable `PARTY_DATA_ENCRYPTION_KEY` with at least 32 characters.
@@ -48,6 +50,8 @@ Database owners:
 | Occupancy domain does not match mode | HTTP 409 |
 | New business occupancy targets a suspended/disabled unit | HTTP 409 |
 | Homestay booking/check-in targets a unit with unfinished turnover | HTTP 409 |
+| Held occupancy expires, changes mode compatibility, or becomes disabled before activation | HTTP 409 |
+| Occupancy source identifier is whitespace-only | HTTP 400 |
 | Active/held period overlaps shared occupancy | PostgreSQL `23P01`, translated to HTTP 409 |
 | Shared occupancy overlaps legacy commercial contract | Trigger `23P01`, translated to HTTP 409 |
 | UTC database session compares a date-only commercial contract | Use explicit `AT TIME ZONE 'Asia/Shanghai'`; never rely on session timezone casts |
@@ -61,6 +65,7 @@ Database owners:
 - Good: one occupancy ends at `2026-08-02T04:00:00Z`; the next starts at the same instant.
 - Good: a commercial contract ending `2026-07-25` does not block a short stay starting `2026-07-26T00:00:00+08:00`.
 - Good: a same-day arrival already occupies the period at checkout; create the turnover task without an overlapping operations occupancy and block check-in until turnover completes.
+- Good: an occupancy held in short-stay mode is rejected at activation if the unit has since switched mode or been suspended.
 - Base: a legacy commercial contract remains in `rel_leasing_contract_unit`; availability reads it without bulk history migration.
 - Bad: availability checks only `operating_mode = short_stay` and reports a suspended unit as available.
 - Bad: a homestay order inserts directly into its own table and derives room state without calling the shared occupancy service.
@@ -70,12 +75,14 @@ Database owners:
 
 - Unit: `[start, end)` adjacency and overlap.
 - Unit: source-domain-to-mode compatibility.
+- DTO: whitespace-only source identifiers fail after transforms run.
 - Schema: GiST exclusion constraint, shared advisory lock, and both cross-table triggers exist.
 - Schema: both cross-table triggers explicitly convert commercial contract dates at the Shanghai business boundary.
 - Integration: two concurrent occupancy inserts for the same unit/period yield one success and one HTTP 409.
 - Integration: commercial contract versus homestay occupancy race yields one success and one HTTP 409.
 - E2E: tenant/park/data-scope isolation, mode blocker snapshot, idempotent replay, forced release permission.
 - E2E: suspended/disabled units reject new bookings; same-day back-to-back checkout succeeds while the next check-in remains blocked until turnover completion.
+- Integration: changing mode/status between hold creation and activation is observed by the activation transaction.
 - Security: plaintext identity is absent from persistence and audit logs; authorized detail decrypts, normal detail masks.
 
 ## 7. Wrong vs Correct

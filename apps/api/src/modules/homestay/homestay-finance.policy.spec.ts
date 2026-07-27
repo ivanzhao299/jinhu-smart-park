@@ -14,10 +14,14 @@ test("confirmed room cancellation reverses room charges without reversing unrela
   ]), 900);
 });
 
-test("room cancellation reversal is capped after any prior confirmed waiver", () => {
+test("room cancellation reversal ignores waivers allocated to unrelated charges", () => {
   assert.equal(calculateCancellableRoomCharge([
     { entryType: "charge", chargeType: "room", amount: 100, status: "confirmed" },
     { entryType: "waiver", chargeType: "manual_adjustment", amount: 20, status: "confirmed" }
+  ]), 100);
+  assert.equal(calculateCancellableRoomCharge([
+    { entryType: "charge", chargeType: "room", amount: 100, status: "confirmed" },
+    { entryType: "waiver", chargeType: "reschedule_decrease", amount: 20, status: "confirmed" }
   ]), 80);
 });
 

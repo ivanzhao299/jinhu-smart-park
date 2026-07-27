@@ -9,3 +9,12 @@ export function isValidPartyIdentityNumber(
   if (documentType === "passport") return /^[A-Za-z0-9]{5,20}$/.test(identityNumber);
   return false;
 }
+
+export function didPartyIdentityChange(
+  previousDocumentType: string | null,
+  previousIdentityHash: string | null,
+  nextDocumentType: string | null,
+  nextIdentityHash: string | null
+): boolean {
+  return previousDocumentType !== nextDocumentType || previousIdentityHash !== nextIdentityHash;
+}

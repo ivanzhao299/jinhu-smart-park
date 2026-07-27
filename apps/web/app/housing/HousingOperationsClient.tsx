@@ -29,10 +29,10 @@ interface Dashboard {
   pending_signature: number;
   active_leases: number;
   checkout_pending: number;
-  receivable_amount: string;
-  collected_amount: string;
-  outstanding_amount: string;
-  approved_purchase_cost: string;
+  receivable_amount?: string;
+  collected_amount?: string;
+  outstanding_amount?: string;
+  approved_purchase_cost?: string;
 }
 
 interface Party {
@@ -620,8 +620,9 @@ export function HousingOperationsClient() {
   async function completeHandover(event: FormEvent) {
     event.preventDefault();
     if (!selectedLeaseId) return;
+    const originatingLeaseId = selectedLeaseId;
     await runAction("现场交割已完成", async () => {
-      await apiRequest(`/housing/leases/${selectedLeaseId}/handovers`, {
+      await apiRequest(`/housing/leases/${originatingLeaseId}/handovers`, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("housing-handover"),
@@ -637,15 +638,18 @@ export function HousingOperationsClient() {
           remark: handoverForm.handoverType === "move_out" ? "退租现场验收" : "入住现场交割"
         }
       });
-      setHandoverPhotos([]);
+      if (housingLeaseContextStillCurrent(originatingLeaseId, selectedLeaseIdRef.current)) {
+        setHandoverPhotos([]);
+      }
     }, true);
   }
 
   async function createRepair(event: FormEvent) {
     event.preventDefault();
     if (!selectedLeaseId) return;
+    const originatingLeaseId = selectedLeaseId;
     await runAction("住房报修已代录并生成工单", async () => {
-      await apiRequest(`/housing/leases/${selectedLeaseId}/repairs`, {
+      await apiRequest(`/housing/leases/${originatingLeaseId}/repairs`, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("housing-repair"),
@@ -657,8 +661,10 @@ export function HousingOperationsClient() {
           image_file_ids: repairPhotos.map((file) => file.id)
         }
       });
-      setRepairForm((current) => ({ ...current, title: "", description: "" }));
-      setRepairPhotos([]);
+      if (housingLeaseContextStillCurrent(originatingLeaseId, selectedLeaseIdRef.current)) {
+        setRepairForm((current) => ({ ...current, title: "", description: "" }));
+        setRepairPhotos([]);
+      }
     }, true);
   }
 
@@ -775,15 +781,21 @@ export function HousingOperationsClient() {
 
   const canManageTenants = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
   const canReadDashboard = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_DASHBOARD_READ);
+  const canReadFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+  const canReadPurchases = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
   const kpis: Array<{ label: string; value: string | number; Icon: typeof Building2 }> = [
     ...(canReadDashboard ? [
       { label: "有效租约", value: dashboard.active_leases, Icon: Building2 },
       { label: "待审批", value: dashboard.pending_approval, Icon: ClipboardCheck },
       { label: "待签署", value: dashboard.pending_signature, Icon: ClipboardCheck },
-      { label: "待退租", value: dashboard.checkout_pending, Icon: Building2 },
-      { label: "累计应收", value: `¥${dashboard.receivable_amount}`, Icon: CircleDollarSign },
-      { label: "未结费用", value: `¥${dashboard.outstanding_amount}`, Icon: CircleDollarSign },
-      { label: "采购成本", value: `¥${dashboard.approved_purchase_cost}`, Icon: ShoppingCart }
+      { label: "待退租", value: dashboard.checkout_pending, Icon: Building2 }
+    ] : []),
+    ...(canReadDashboard && canReadFinance ? [
+      { label: "累计应收", value: `¥${dashboard.receivable_amount ?? "0.00"}`, Icon: CircleDollarSign },
+      { label: "未结费用", value: `¥${dashboard.outstanding_amount ?? "0.00"}`, Icon: CircleDollarSign }
+    ] : []),
+    ...(canReadDashboard && canReadPurchases ? [
+      { label: "采购成本", value: `¥${dashboard.approved_purchase_cost ?? "0.00"}`, Icon: ShoppingCart }
     ] : []),
     ...(canManageTenants ? [{ label: "租客档案", value: tenantPage.total, Icon: Users }] : [])
   ];

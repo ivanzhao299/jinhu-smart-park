@@ -57,7 +57,10 @@ export function calculateCancellableRoomCharge(entries: HomestayFinancialEntry[]
     if (entry.entryType === "charge" && ["room", "reschedule_increase"].includes(entry.chargeType)) {
       return amount + Number(entry.amount);
     }
-    if (entry.entryType === "waiver") {
+    if (
+      entry.entryType === "waiver"
+      && ["room", "reschedule_decrease", "room_cancellation"].includes(entry.chargeType)
+    ) {
       return amount - Number(entry.amount);
     }
     return amount;

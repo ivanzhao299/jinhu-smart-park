@@ -197,6 +197,30 @@ export class PropertyOccupanciesService {
     if (!entity.holdExpiresAt || entity.holdExpiresAt.getTime() <= Date.now()) {
       throw new ConflictException("Occupancy hold has expired");
     }
+    const unit = await manager.getRepository(UnitEntity).findOne({
+      where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" }
+    });
+    if (!unit) throw new NotFoundException("Unit not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      entity.unitId
+    ]);
+    const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false },
+      lock: { mode: "pessimistic_read" }
+    });
+    const mode = config?.operatingMode ?? "none";
+    if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
+      throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
+    }
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      && config?.operatingStatus !== "enabled"
+    ) {
+      throw new ConflictException("Business occupancy requires an enabled operating unit");
+    }
     entity.status = "active";
     entity.updateBy = actor.sub;
     return repository.save(entity);
@@ -251,14 +275,9 @@ export class PropertyOccupanciesService {
   async activate(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const entity = await this.mustFindOccupancy(scope, id);
     await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
-    if (entity.status === "active") return entity;
-    if (entity.status !== "held") throw new ConflictException("Only held occupancy can be activated");
-    if (entity.holdExpiresAt && entity.holdExpiresAt.getTime() <= Date.now()) {
-      throw new ConflictException("Occupancy hold has expired");
-    }
-    entity.status = "active";
-    entity.updateBy = actor.sub;
-    return this.occupanciesRepository.save(entity);
+    return this.dataSource.transaction((manager) =>
+      this.activateInTransaction(manager, scope, actor, id)
+    );
   }
 
   async release(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: ReleasePropertyOccupancyDto) {

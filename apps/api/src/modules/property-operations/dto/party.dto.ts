@@ -11,8 +11,7 @@ import {
   MaxLength,
   Min,
   MinLength,
-  Validate,
-  ValidateIf
+  Validate
 } from "class-validator";
 import type { ValidationArguments, ValidatorConstraintInterface } from "class-validator";
 import { ValidatorConstraint } from "class-validator";
@@ -63,7 +62,7 @@ export class CreatePartyDto {
   @MaxLength(200)
   email?: string | null;
 
-  @ValidateIf((dto: CreatePartyDto) => Boolean(dto.identity_number))
+  @IsOptional()
   @Transform(optionalTrim)
   @IsIn(PARTY_IDENTITY_DOCUMENT_TYPES)
   identity_document_type?: string | null;

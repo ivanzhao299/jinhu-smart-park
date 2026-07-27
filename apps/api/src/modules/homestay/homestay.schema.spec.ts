@@ -43,3 +43,11 @@ test("homestay migration keeps integrations reserved but disconnected", () => {
   assert.match(migration, /payment_channel varchar\(64\)/);
   assert.match(migration, /transaction_reference varchar\(100\)/);
 });
+
+test("homestay dashboard occupancy follows the requested stay date", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+
+  assert.match(service, /booking\.arrival_date <= \$3::date/);
+  assert.match(service, /booking\.departure_date > \$3::date/);
+  assert.doesNotMatch(service, /FILTER \(WHERE booking\.status = 'checked_in'\)::int AS occupied/);
+});
