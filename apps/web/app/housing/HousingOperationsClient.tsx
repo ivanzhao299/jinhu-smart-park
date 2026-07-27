@@ -13,7 +13,11 @@ import { getAccessToken } from "../../lib/authz";
 import { addBusinessDateMonths, businessDate } from "../../lib/business-date";
 import { hasPermission } from "../../lib/permissions";
 import type { UnitRow } from "../assets/units/types";
-import { canActivateHousingLease, housingLedgerChargeType } from "./housing-operations.logic";
+import {
+  canActivateHousingLease,
+  housingLedgerChargeType,
+  housingSelectionAfterLoad
+} from "./housing-operations.logic";
 import styles from "./housing-operations.module.css";
 
 interface Dashboard {
@@ -175,6 +179,7 @@ export function HousingOperationsClient() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
+  const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
   const [signatureFileId, setSignatureFileId] = useState("");
   const [handoverPhotos, setHandoverPhotos] = useState<string[]>([]);
   const [repairPhotos, setRepairPhotos] = useState<string[]>([]);
@@ -256,7 +261,10 @@ export function HousingOperationsClient() {
   );
   const tenantName = useMemo(() => new Map(tenants.map((tenant) => [tenant.id, tenant.displayName])), [tenants]);
   const leaseLoadSequence = useRef(0);
+  const transferLoadSequence = useRef(0);
   const financeSubmissionLock = useRef(false);
+  const purchaseSubmissionLock = useRef(false);
+  const purchaseSubmissionKey = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -312,17 +320,29 @@ export function HousingOperationsClient() {
         setPurchases(purchasesResult.data.items);
         setPurchasePage({ page: purchasesResult.data.page, pageSize: purchasesResult.data.page_size, total: purchasesResult.data.total });
       }
-      const firstUnit = loadedUnits[0]?.id ?? "";
-      const firstTenant = loadedTenants[0]?.id ?? "";
-      setLeaseForm((current) => ({
-        ...current,
-        unitId: loadedUnits.some((unit) => unit.id === current.unitId) ? current.unitId : firstUnit,
-        tenantPartyId: loadedTenants.some((tenant) => tenant.id === current.tenantPartyId) ? current.tenantPartyId : firstTenant
-      }));
-      setPurchaseForm((current) => ({
-        ...current,
-        unitId: loadedUnits.some((unit) => unit.id === current.unitId) ? current.unitId : firstUnit
-      }));
+      if (unitsResult && "data" in unitsResult) {
+        const loadedUnitIds = loadedUnits.map((unit) => unit.id);
+        setLeaseForm((current) => ({
+          ...current,
+          unitId: housingSelectionAfterLoad(current.unitId, loadedUnitIds)
+        }));
+        setPurchaseForm((current) => ({
+          ...current,
+          unitId: housingSelectionAfterLoad(current.unitId, loadedUnitIds)
+        }));
+      } else if (!unitsResult) {
+        setLeaseForm((current) => ({ ...current, unitId: "" }));
+        setPurchaseForm((current) => ({ ...current, unitId: "" }));
+      }
+      if (tenantsResult && "data" in tenantsResult) {
+        const loadedTenantIds = loadedTenants.map((tenant) => tenant.id);
+        setLeaseForm((current) => ({
+          ...current,
+          tenantPartyId: housingSelectionAfterLoad(current.tenantPartyId, loadedTenantIds)
+        }));
+      } else if (!tenantsResult) {
+        setLeaseForm((current) => ({ ...current, tenantPartyId: "" }));
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载住房出租数据失败");
     } finally {
@@ -338,6 +358,8 @@ export function HousingOperationsClient() {
     setSignatureFileId("");
     setHandoverPhotos([]);
     setRepairPhotos([]);
+    transferLoadSequence.current += 1;
+    setTransferForm((current) => ({ ...current, purchaseId: "", itemIds: "" }));
     try {
       const response = await apiRequest<LeaseDetail>(`/housing/leases/${id}`, { token: getAccessToken() });
       if (leaseLoadSequence.current !== sequence) return;
@@ -551,27 +573,37 @@ export function HousingOperationsClient() {
 
   async function createPurchase(event: FormEvent) {
     event.preventDefault();
-    await runAction("采购成本单已创建", async () => {
-      await apiRequest("/housing/purchases", {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey("housing-purchase"),
-        body: {
-          unit_id: purchaseForm.unitId || undefined,
-          vendor_name: purchaseForm.vendorName,
-          purchase_date: purchaseForm.purchaseDate,
-          cost_category: purchaseForm.costCategory,
-          items: [{
-            item_name: purchaseForm.itemName,
-            quantity: Number(purchaseForm.quantity),
-            unit: purchaseForm.unit,
-            unit_price: Number(purchaseForm.unitPrice)
-          }],
-          receipt_file_ids: purchaseReceipts
-        }
+    if (purchaseSubmissionLock.current) return;
+    purchaseSubmissionLock.current = true;
+    purchaseSubmissionKey.current ??= createIdempotencyKey("housing-purchase");
+    setPurchaseSubmitting(true);
+    try {
+      await runAction("采购成本单已创建", async () => {
+        await apiRequest("/housing/purchases", {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: purchaseSubmissionKey.current!,
+          body: {
+            unit_id: purchaseForm.unitId || undefined,
+            vendor_name: purchaseForm.vendorName,
+            purchase_date: purchaseForm.purchaseDate,
+            cost_category: purchaseForm.costCategory,
+            items: [{
+              item_name: purchaseForm.itemName,
+              quantity: Number(purchaseForm.quantity),
+              unit: purchaseForm.unit,
+              unit_price: Number(purchaseForm.unitPrice)
+            }],
+            receipt_file_ids: purchaseReceipts
+          }
+        });
+        setPurchaseReceipts([]);
       });
-      setPurchaseReceipts([]);
-    });
+    } finally {
+      purchaseSubmissionLock.current = false;
+      purchaseSubmissionKey.current = null;
+      setPurchaseSubmitting(false);
+    }
   }
 
   async function purchaseAction(purchase: Purchase, action: "approve" | "pay") {
@@ -601,20 +633,25 @@ export function HousingOperationsClient() {
   }
 
   async function selectPurchaseForTransfer(purchaseId: string) {
+    const sequence = transferLoadSequence.current + 1;
+    transferLoadSequence.current = sequence;
     setTransferForm((current) => ({ ...current, purchaseId, itemIds: "" }));
     if (!purchaseId) return;
     try {
       const response = await apiRequest<PurchaseDetail>(`/housing/purchases/${purchaseId}`, {
         token: getAccessToken()
       });
+      if (transferLoadSequence.current !== sequence) return;
       setTransferForm((current) => ({
         ...current,
+        purchaseId,
         itemIds: response.data.items
           .filter((item) => !item.transferredReceivableId)
           .map((item) => item.id)
           .join(",")
       }));
     } catch (error) {
+      if (transferLoadSequence.current !== sequence) return;
       setMessage(error instanceof Error ? error.message : "加载采购明细失败");
     }
   }
@@ -627,7 +664,7 @@ export function HousingOperationsClient() {
     { label: "累计应收", value: `¥${dashboard.receivable_amount}`, Icon: CircleDollarSign },
     { label: "未结费用", value: `¥${dashboard.outstanding_amount}`, Icon: CircleDollarSign },
     { label: "采购成本", value: `¥${dashboard.approved_purchase_cost}`, Icon: ShoppingCart },
-    { label: "租客档案", value: tenants.length, Icon: Users }
+    { label: "租客档案", value: tenantPage.total, Icon: Users }
   ];
 
   return (
@@ -698,7 +735,7 @@ export function HousingOperationsClient() {
       </section> : null}
 
       <section className={styles.commandGrid}>
-        <form className="ds-panel" onSubmit={createPurchase}><h2>内部采购成本</h2><div className={styles.formGrid}><label>归集房源<select value={purchaseForm.unitId} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitId: event.target.value })}><option value="">项目公共成本</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unitName.get(unit.id)}</option>)}</select></label><label>供应商<input required value={purchaseForm.vendorName} onChange={(event) => setPurchaseForm({ ...purchaseForm, vendorName: event.target.value })} /></label><label>采购日期<input type="date" value={purchaseForm.purchaseDate} onChange={(event) => setPurchaseForm({ ...purchaseForm, purchaseDate: event.target.value })} /></label><label>成本分类<select value={purchaseForm.costCategory} onChange={(event) => setPurchaseForm({ ...purchaseForm, costCategory: event.target.value })}><option value="consumable">耗材</option><option value="repair">维修</option><option value="cleaning">保洁</option><option value="other">其他</option></select></label><label>采购明细<input required value={purchaseForm.itemName} onChange={(event) => setPurchaseForm({ ...purchaseForm, itemName: event.target.value })} /></label><label>数量<input type="number" min="0.001" step="0.001" value={purchaseForm.quantity} onChange={(event) => setPurchaseForm({ ...purchaseForm, quantity: event.target.value })} /></label><label>单位<input value={purchaseForm.unit} onChange={(event) => setPurchaseForm({ ...purchaseForm, unit: event.target.value })} /></label><label>单价<input type="number" min="0" step="0.01" value={purchaseForm.unitPrice} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitPrice: event.target.value })} /></label></div><FileUploader bizType="housing_purchase" policyKey="receipt" compact label="上传采购票据" onUploaded={(file) => setPurchaseReceipts((current) => [...current, file.id])} /><PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} className="ds-button ds-button-primary" type="submit">创建采购成本单</PermissionButton></form>
+        <form className="ds-panel" onSubmit={createPurchase}><h2>内部采购成本</h2><div className={styles.formGrid}><label>归集房源<select value={purchaseForm.unitId} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitId: event.target.value })}><option value="">项目公共成本</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unitName.get(unit.id)}</option>)}</select></label><label>供应商<input required value={purchaseForm.vendorName} onChange={(event) => setPurchaseForm({ ...purchaseForm, vendorName: event.target.value })} /></label><label>采购日期<input type="date" value={purchaseForm.purchaseDate} onChange={(event) => setPurchaseForm({ ...purchaseForm, purchaseDate: event.target.value })} /></label><label>成本分类<select value={purchaseForm.costCategory} onChange={(event) => setPurchaseForm({ ...purchaseForm, costCategory: event.target.value })}><option value="consumable">耗材</option><option value="repair">维修</option><option value="cleaning">保洁</option><option value="other">其他</option></select></label><label>采购明细<input required value={purchaseForm.itemName} onChange={(event) => setPurchaseForm({ ...purchaseForm, itemName: event.target.value })} /></label><label>数量<input type="number" min="0.001" step="0.001" value={purchaseForm.quantity} onChange={(event) => setPurchaseForm({ ...purchaseForm, quantity: event.target.value })} /></label><label>单位<input value={purchaseForm.unit} onChange={(event) => setPurchaseForm({ ...purchaseForm, unit: event.target.value })} /></label><label>单价<input type="number" min="0" step="0.01" value={purchaseForm.unitPrice} onChange={(event) => setPurchaseForm({ ...purchaseForm, unitPrice: event.target.value })} /></label></div><FileUploader bizType="housing_purchase" policyKey="receipt" compact label="上传采购票据" onUploaded={(file) => setPurchaseReceipts((current) => [...current, file.id])} /><PermissionButton permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE} className="ds-button ds-button-primary" type="submit" disabled={purchaseSubmitting}>{purchaseSubmitting ? "正在创建…" : "创建采购成本单"}</PermissionButton></form>
         <form className="ds-panel" onSubmit={transferPurchase}><h2>受控转租客收费</h2><p>内部成本与租客应收保持分账；仅审批后的指定明细可转收费。</p><label>采购单<select required value={transferForm.purchaseId} onChange={(event) => void selectPurchaseForTransfer(event.target.value)}><option value="">选择已审批采购单</option>{purchases.filter((item) => item.approvalStatus === "approved" && item.paymentStatus !== "refunded").map((item) => <option key={item.id} value={item.id}>{item.purchaseCode} · ¥{item.totalAmount}</option>)}</select></label><label>待转采购明细<input readOnly required value={transferForm.itemIds} placeholder="选择采购单后自动装载未转收费明细" /></label><label>租客应收日<input type="date" value={transferForm.dueDate} onChange={(event) => setTransferForm({ ...transferForm, dueDate: event.target.value })} /></label><label>转收费依据<input maxLength={500} value={transferForm.reason} onChange={(event) => setTransferForm({ ...transferForm, reason: event.target.value })} /></label><PermissionButton className="ds-button ds-button-primary" permission={SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER} type="submit" disabled={!selectedLeaseId}>转为当前租约应收</PermissionButton></form>
       </section>
 

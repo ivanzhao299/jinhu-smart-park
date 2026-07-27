@@ -301,16 +301,16 @@ export class PropertyOccupanciesService {
               'commercial_leasing'::text AS source_domain,
               'leasing_contract'::text AS source_type,
               contract.id::text AS source_id,
-              relation.start_date::timestamptz::text AS start_at,
-              (relation.end_date + interval '1 day')::timestamptz::text AS end_at,
+              (relation.start_date::timestamp AT TIME ZONE 'Asia/Shanghai')::text AS start_at,
+              ((relation.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')::text AS end_at,
               contract.status
        FROM rel_leasing_contract_unit relation
        JOIN biz_leasing_contract contract ON contract.id = relation.contract_id
        WHERE relation.tenant_id = $1 AND relation.park_id = $2 AND relation.unit_id = $3
          AND relation.is_deleted = false AND relation.status = 1
          AND contract.is_deleted = false AND contract.status NOT IN ('90', '91')
-         AND relation.start_date::timestamptz < $5::timestamptz
-         AND (relation.end_date + interval '1 day')::timestamptz > $4::timestamptz
+         AND (relation.start_date::timestamp AT TIME ZONE 'Asia/Shanghai') < $5::timestamptz
+         AND ((relation.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai') > $4::timestamptz
          AND NOT ($6::text = 'leasing_contract' AND contract.id::text = $7::text)
        ORDER BY start_at`,
       [scope.tenantId, scope.parkId, unitId, startAt.toISOString(), endAt.toISOString(), exclude?.sourceType ?? null, exclude?.sourceId ?? null]

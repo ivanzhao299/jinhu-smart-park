@@ -4,6 +4,7 @@ import {
   assertBusinessDate,
   assertHomestayCheckInWindow,
   assertHomestayGuestIdentityVerified,
+  assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
   homestayMoneyDifference,
   turnoverLockEnd
@@ -59,4 +60,13 @@ test("guest verification requires a verified party with identity data", () => {
     identityDocumentType: "id_card",
     identityNumberHash: "hash"
   }));
+});
+
+test("guest registration cannot mutate terminal booking history", () => {
+  assert.doesNotThrow(() => assertHomestayGuestRegistrationOpen("draft"));
+  assert.doesNotThrow(() => assertHomestayGuestRegistrationOpen("confirmed"));
+  assert.doesNotThrow(() => assertHomestayGuestRegistrationOpen("checked_in"));
+  assert.throws(() => assertHomestayGuestRegistrationOpen("cancelled"));
+  assert.throws(() => assertHomestayGuestRegistrationOpen("no_show"));
+  assert.throws(() => assertHomestayGuestRegistrationOpen("checked_out"));
 });

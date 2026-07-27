@@ -28,10 +28,16 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Lease detail selection clears stale detail and attachments before loading, and ignores out-of-order responses.
 - Housing ledger charge types come from the selected receivable, while deposit entries always use the deposit charge type.
 - A logical finance submission holds one in-flight lock and one idempotency key.
+- A logical purchase submission holds one in-flight lock and one idempotency key.
+- Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
+- Failed optional unit or tenant loads preserve existing visible selections; successful loads alone synchronize form candidates.
+- Paginated KPIs use server totals rather than the current page length.
 - Handover evidence is scoped to one lease and one handover attempt and is cleared after success or context changes.
 - File upload is a separate action; its native file input must not impose required validation on a parent business form.
 - Move-out handover exposes damage, unsettled charges, and deposit deduction together.
 - Lease activation is offered only after the persisted offline signature reference exists.
+- Dashboard business dates receive the same strict calendar validation as rate-calendar dates.
+- Guest registration is closed after a booking is cancelled, marked no-show, or checked out.
 
 ## 4. Validation & Error Matrix
 

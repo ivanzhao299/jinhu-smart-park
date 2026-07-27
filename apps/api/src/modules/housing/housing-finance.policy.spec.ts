@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
+  assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
   calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
@@ -50,4 +53,20 @@ test("purchase header total is derived from persisted rounded line amounts", () 
     ]),
     { lineAmounts: [0.02, 0.02], totalAmount: 0.04 }
   );
+});
+
+test("purchase recharge is limited to collectible lease lifecycles", () => {
+  assert.doesNotThrow(() => assertHousingPurchaseTransferLeaseStatus("active"));
+  assert.doesNotThrow(() => assertHousingPurchaseTransferLeaseStatus("expiring"));
+  assert.doesNotThrow(() => assertHousingPurchaseTransferLeaseStatus("checkout_pending"));
+  assert.throws(() => assertHousingPurchaseTransferLeaseStatus("draft"));
+  assert.throws(() => assertHousingPurchaseTransferLeaseStatus("terminated"));
+  assert.throws(() => assertHousingPurchaseTransferLeaseStatus("void"));
+});
+
+test("receivable reuse includes the source identity used by the database uniqueness key", () => {
+  const servicePath = resolve(__dirname, "housing.service.ts");
+  const service = readFileSync(servicePath, "utf8");
+
+  assert.match(service, /sourceId: input\.sourceId \?\? IsNull\(\)/);
 });

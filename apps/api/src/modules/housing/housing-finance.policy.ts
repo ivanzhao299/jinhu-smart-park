@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
-import type { HousingLedgerEntryType } from "@jinhu/shared";
+import type { HousingLeaseStatus, HousingLedgerEntryType } from "@jinhu/shared";
 
 export interface HousingFinancialEntry {
   entryType: HousingLedgerEntryType;
@@ -17,6 +17,12 @@ export function calculateHousingPurchaseAmounts(items: HousingPurchaseAmountInpu
     lineAmounts,
     totalAmount: lineAmounts.reduce((total, amount) => total + Math.round(amount * 100), 0) / 100
   };
+}
+
+export function assertHousingPurchaseTransferLeaseStatus(status: HousingLeaseStatus): void {
+  if (!["active", "expiring", "checkout_pending"].includes(status)) {
+    throw new ConflictException("Purchase recharge requires an active housing lease");
+  }
 }
 
 export function calculateHousingDepositBalance(entries: HousingFinancialEntry[]): number {

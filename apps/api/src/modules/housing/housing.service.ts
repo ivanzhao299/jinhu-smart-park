@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
-import { DataSource, type EntityManager, type Repository } from "typeorm";
+import { DataSource, IsNull, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
@@ -48,6 +48,7 @@ import { assertHousingBillingPeriodWithinLease, calculateHousingMonthFraction } 
 import {
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
+  assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
   calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
@@ -947,6 +948,7 @@ export class HousingService {
       if (purchase.paymentStatus === "refunded") throw new ConflictException("Refunded purchase cannot be transferred");
       const lease = await this.lockLease(manager, scope, dto.lease_id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      assertHousingPurchaseTransferLeaseStatus(lease.status);
       if (purchase.unitId && purchase.unitId !== lease.unitId) {
         throw new ConflictException("Purchase unit and lease unit do not match");
       }
@@ -1116,6 +1118,7 @@ export class HousingService {
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         sourceType: input.sourceType,
+        sourceId: input.sourceId ?? IsNull(),
         isDeleted: false
       }
     });

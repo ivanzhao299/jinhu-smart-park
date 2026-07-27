@@ -26,6 +26,12 @@ export function assertHomestayGuestRosterComplete(declaredGuests: number, verifi
   }
 }
 
+export function assertHomestayGuestRegistrationOpen(status: string): void {
+  if (!["draft", "confirmed", "checked_in"].includes(status)) {
+    throw new ConflictException("Guest registration is closed for this booking");
+  }
+}
+
 export function turnoverLockEnd(now: Date, nextOccupancyStart: Date | null): Date | null {
   if (nextOccupancyStart && nextOccupancyStart.getTime() <= now.getTime()) return null;
   return nextOccupancyStart ?? new Date(now.getTime() + 365 * 24 * 60 * 60_000);

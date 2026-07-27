@@ -20,3 +20,7 @@ export function housingLedgerChargeType(
 export function canActivateHousingLease(lease: LeaseSignatureState): boolean {
   return lease.status === "pending_signature" && Boolean(lease.signatureFileId);
 }
+
+export function housingSelectionAfterLoad(currentId: string, loadedIds: string[]): string {
+  return loadedIds.includes(currentId) ? currentId : loadedIds[0] ?? "";
+}

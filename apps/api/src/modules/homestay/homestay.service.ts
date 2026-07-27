@@ -44,6 +44,7 @@ import {
   assertBusinessDate,
   assertHomestayCheckInWindow,
   assertHomestayGuestIdentityVerified,
+  assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
   homestayMoneyDifference,
   toMoneyCents,
@@ -516,6 +517,7 @@ export class HomestayService {
   async addGuest(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, dto: AddHomestayGuestDto) {
     const booking = await this.mustFindBooking(scope, bookingId);
     await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+    assertHomestayGuestRegistrationOpen(booking.status);
     const party = await this.dataSource.getRepository(PartyEntity)
       .createQueryBuilder("party")
       .addSelect("party.identityNumberHash")
@@ -824,7 +826,8 @@ export class HomestayService {
   }
 
   async dashboard(scope: TenantParkScope, actor: JwtPrincipal, businessDate?: string) {
-    const date = businessDate?.slice(0, 10)
+    if (businessDate) assertBusinessDate(businessDate, "business_date");
+    const date = businessDate
       || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
