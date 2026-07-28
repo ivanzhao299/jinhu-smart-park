@@ -139,6 +139,14 @@ action against every state and sibling entry point before implementation:
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
       preserving the stored string is insufficient if a later calculation converts it
+- [ ] Display or persistence rounding is not reused as an intermediate monetary input;
+      each rounding boundary is named and the final charge uses full precision
+- [ ] Nullable columns inside a business unique key are normalized, made non-null, or
+      covered by an expression index, with the null case included in migration tests
+- [ ] Every reverse action (refund, void, cancellation) updates or excludes the record
+      from all derived totals, KPIs, availability views, and projections
+- [ ] A dependent operational record remains an active constraint after its original
+      parent or occupancy is later cancelled, released, or otherwise disappears
 - [ ] Generic infrastructure records use a domain-specific protected type whenever
       their authorization is narrower than the generic workflow
 - [ ] Both sides of a cross-aggregate reference invariant use the same row-lock order

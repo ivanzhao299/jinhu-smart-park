@@ -40,7 +40,10 @@ const ACCESS_RULES: Record<PropertyBusinessFileType, {
     referenceTable: "biz_housing_lease"
   },
   housing_purchase: {
-    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ],
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE
+    ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE],
     referenceTable: "biz_housing_purchase"
   },

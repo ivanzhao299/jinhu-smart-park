@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { extname } from "node:path";
 import type { Repository } from "typeorm";
-import { ILike, In, Not } from "typeorm";
+import { ILike, In, IsNull, Not } from "typeorm";
 import {
   formatFileSize,
   getFileUploadLimitForMime,
@@ -116,13 +116,15 @@ export class FilesService {
     actor: JwtPrincipal,
     query: FileQueryDto
   ): Promise<PaginatedResult<FileEntity>> {
+    const isPendingPurchaseList = query.biz_type === "housing_purchase" && !query.biz_id;
     if (query.biz_type && this.businessAccessService.isProtectedBizType(query.biz_type)) {
       await this.businessAccessService.assertReferenceAccess(
         scope,
         actor,
         query.biz_type,
         query.biz_id,
-        "read"
+        "read",
+        isPendingPurchaseList ? actor.sub : undefined
       );
     }
     const [items, total] = await this.fileRepository.findAndCount({
@@ -133,7 +135,11 @@ export class FilesService {
         ...(query.biz_type
           ? { bizType: query.biz_type }
           : { bizType: Not(In([...PROPERTY_BUSINESS_FILE_TYPES])) }),
-        ...(query.biz_id ? { bizId: query.biz_id } : {}),
+        ...(query.biz_id
+          ? { bizId: query.biz_id }
+          : isPendingPurchaseList
+            ? { bizId: IsNull(), createBy: actor.sub }
+            : {}),
         ...(query.keyword ? { originalName: ILike(`%${query.keyword}%`) } : {})
       },
       order: { createTime: "DESC" },

@@ -85,6 +85,21 @@ test("initial occupancy conflict checks do not null-filter commercial leases", (
   );
 });
 
+test("open turnover tasks remain shared availability and mode-transition blockers", () => {
+  const occupancies = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  assert.match(occupancies, /'operations_task'::text AS conflict_type/);
+  assert.match(occupancies, /FROM biz_homestay_turnover_task task/);
+  assert.match(occupancies, /task\.status <> 'completed'/);
+
+  const operations = readFileSync(resolve(__dirname, "property-operations.service.ts"), "utf8");
+  const snapshot = operations.slice(
+    operations.indexOf("private async buildTransitionSnapshot"),
+    operations.lastIndexOf("\n}")
+  );
+  assert.match(snapshot, /FROM biz_homestay_turnover_task task/);
+  assert.match(snapshot, /task\.status <> 'completed'/);
+});
+
 test("party document-type changes cannot retain an identity from the old document type", () => {
   const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
   assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);

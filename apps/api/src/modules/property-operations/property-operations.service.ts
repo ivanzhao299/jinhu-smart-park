@@ -204,7 +204,15 @@ export class PropertyOperationsService {
                 OR ($4 = 'short_stay' AND source_domain IN ('commercial_leasing', 'housing_rental'))
                 OR ($4 = 'long_rent' AND source_domain = 'homestay')
            )::int AS incompatible_occupancy_count,
-           count(*) FILTER (WHERE source_domain IN ('maintenance', 'operations'))::int AS maintenance_or_operations_count
+            (
+              count(*) FILTER (WHERE source_domain IN ('maintenance', 'operations'))
+              + (
+                SELECT count(*)
+                FROM biz_homestay_turnover_task task
+                WHERE task.tenant_id = $1 AND task.park_id = $2 AND task.unit_id = $3
+                  AND task.is_deleted = false AND task.status <> 'completed'
+              )
+            )::int AS maintenance_or_operations_count
          FROM biz_property_occupancy
          WHERE tenant_id = $1 AND park_id = $2 AND unit_id = $3
            AND is_deleted = false AND end_at > now()

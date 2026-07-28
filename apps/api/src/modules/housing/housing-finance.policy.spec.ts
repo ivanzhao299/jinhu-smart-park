@@ -141,6 +141,15 @@ test("energy meter charges apply the configured multiplier to usage and amount",
     ),
     { usageAmount: "0.000001", amount: "1000000.00" }
   );
+  assert.deepEqual(
+    calculateHousingMeterCharge(
+      "999999999999.000001",
+      "999999999999.000002",
+      "0.500000",
+      "999999999999.000000"
+    ),
+    { usageAmount: "0.000001", amount: "500000.00" }
+  );
 });
 
 test("receivable reuse includes the source identity used by the database uniqueness key", () => {
@@ -162,6 +171,7 @@ test("housing service revalidates meter state and makes completed handover retri
   );
   assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
   assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
+  assert.match(service, /purchase\.payment_status <> 'refunded'/);
 });
 
 test("housing repair binds evidence under the same file-row lock transaction", () => {

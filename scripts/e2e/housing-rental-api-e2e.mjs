@@ -77,6 +77,17 @@ async function uploadRepairImage(token, leaseId, bizType = "housing_repair") {
   return request("/files", { method: "POST", token, idempotent: true, body: form });
 }
 
+async function uploadPendingPurchaseReceipt(token) {
+  const form = new FormData();
+  form.append("biz_type", "housing_purchase");
+  form.append(
+    "file",
+    new Blob([Buffer.from("housing-purchase-receipt")], { type: "image/png" }),
+    `purchase-receipt-${runId}.png`
+  );
+  return request("/files", { method: "POST", token, idempotent: true, body: form });
+}
+
 async function payReceivable(token, leaseId, receivable) {
   const outstanding = Number(receivable.amount) - Number(receivable.paidAmount) - Number(receivable.waivedAmount);
   if (outstanding <= 0.005) return;
@@ -324,6 +335,13 @@ async function run() {
     "work order keeps lease source and unit linkage"
   );
 
+  const pendingPurchaseReceipt = await uploadPendingPurchaseReceipt(token);
+  const pendingPurchaseFiles = await request("/files?biz_type=housing_purchase&page=1&page_size=100", { token });
+  assert(
+    pendingPurchaseFiles.items.some((item) => item.id === pendingPurchaseReceipt.id && item.bizId === null),
+    "purchase uploader can recover their own pending receipt"
+  );
+
   const purchase = await request("/housing/purchases", {
     method: "POST",
     token,
@@ -333,6 +351,7 @@ async function run() {
       vendor_name: "E2E 维修耗材供应商",
       purchase_date: startDate,
       cost_category: "repair",
+      receipt_file_ids: [pendingPurchaseReceipt.id],
       items: [
         { item_name: "维修软管", quantity: "1", unit: "根", unit_price: "35" },
         { item_name: "密封耗材", quantity: "0.004", unit: "批", unit_price: "36.25" }

@@ -66,6 +66,40 @@ INSERT INTO biz_homestay_booking (
   '{"free_cancel_before_hours":24,"late_cancel_fee_type":"fixed","late_cancel_fee_value":"100.00"}'
 );
 
+INSERT INTO biz_homestay_booking (
+  id, tenant_id, park_id, booking_code, unit_id, status,
+  arrival_date, departure_date, guest_count,
+  room_amount, total_amount, cancellation_policy_snapshot,
+  channel_name, external_order_no
+) VALUES (
+  'f2000000-0000-4000-8000-000000000008',
+  'homestay-test', 'homestay-park', 'HS-E2E-NULL-CHANNEL-001',
+  'f2000000-0000-4000-8000-000000000003',
+  'draft', DATE '2026-12-01', DATE '2026-12-02', 1,
+  300, 300, '{}', NULL, 'EXT-NULL-CHANNEL-001'
+);
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO biz_homestay_booking (
+      tenant_id, park_id, booking_code, unit_id, status,
+      arrival_date, departure_date, guest_count,
+      room_amount, total_amount, cancellation_policy_snapshot,
+      channel_name, external_order_no
+    ) VALUES (
+      'homestay-test', 'homestay-park', 'HS-E2E-NULL-CHANNEL-002',
+      'f2000000-0000-4000-8000-000000000003',
+      'draft', DATE '2026-12-02', DATE '2026-12-03', 1,
+      300, 300, '{}', NULL, 'EXT-NULL-CHANNEL-001'
+    );
+    RAISE EXCEPTION 'expected normalized external-order unique violation was not raised';
+  EXCEPTION
+    WHEN unique_violation THEN NULL;
+  END;
+END;
+$$;
+
 INSERT INTO biz_homestay_booking_night (
   tenant_id, park_id, booking_id, business_date,
   base_rate, override_rate, final_rate, price_source

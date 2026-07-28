@@ -76,6 +76,20 @@ test("unassociated purchase receipts remain private to their uploader", () => {
   );
 });
 
+test("purchase managers can recover their own pending receipts", async () => {
+  const service = new FileBusinessAccessService({} as never, {} as never);
+  await assert.doesNotReject(
+    service.assertReferenceAccess(
+      scope,
+      actor([SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE], "owner-user"),
+      "housing_purchase",
+      undefined,
+      "read",
+      "owner-user"
+    )
+  );
+});
+
 test("housing repair evidence requires repair or lease permission and unit scope", async () => {
   const checkedUnits: string[] = [];
   const service = new FileBusinessAccessService(

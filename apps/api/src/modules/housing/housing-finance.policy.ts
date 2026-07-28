@@ -32,8 +32,12 @@ export function calculateHousingMeterCharge(
   if (unitPriceScaled < 0n) {
     throw new BadRequestException("Energy meter unit price cannot be negative");
   }
-  const usageScaled = divideAndRound((closing - opening) * multiplierScaled, 1_000_000n);
-  const chargeCents = divideAndRound(usageScaled * unitPriceScaled, 10_000_000_000n);
+  const fullPrecisionUsage = (closing - opening) * multiplierScaled;
+  const usageScaled = divideAndRound(fullPrecisionUsage, 1_000_000n);
+  const chargeCents = divideAndRound(
+    fullPrecisionUsage * unitPriceScaled,
+    10_000_000_000_000_000n
+  );
   return {
     usageAmount: formatScaledDecimal(usageScaled, 6),
     amount: formatCents(chargeCents)

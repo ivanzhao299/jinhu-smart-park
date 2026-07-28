@@ -103,6 +103,14 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   generic file endpoint.
 - Initial occupancy conflict checks include active commercial contracts when no source
   exclusion is supplied; SQL exclusion predicates must be null-safe.
+- Meter usage may be rounded for persistence, but charge calculation must use the
+  full-precision reading difference and multiplier and round only the final cents.
+- Refunded purchases are excluded from purchase-cost KPIs even when their approval
+  status remains approved.
+- External-order uniqueness normalizes nullable channel names (or requires a channel);
+  a nullable column must not silently weaken the business unique key.
+- An open homestay turnover task blocks shared availability and operating-mode
+  transition even when its original booking occupancy has already been released.
 
 ## 4. Validation & Error Matrix
 
@@ -147,6 +155,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Homestay ledger amount exceeds JavaScript safe-cent range | Preserve exact cents through validation, limits, summary, and persistence |
 | Purchase with transferred lines is refunded | HTTP 409 |
 | Generic deletion targets referenced protected evidence | HTTP 409 |
+| Channel-less active bookings reuse one external order number | Database unique violation |
+| Refunded purchase remains approved | Exclude it from purchase-cost KPI |
+| Open turnover task exists without an occupancy | Unit remains unavailable and cannot switch mode |
 
 ## 5. Good / Base / Bad Cases
 
@@ -201,6 +212,11 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   pending uploads remain removable.
 - E2E: an ordinary payment against a deposit receivable produces a deposit receipt and the checkout balance remains consistent.
 - Unit: cached idempotent responses preserve `Date` values as ISO strings.
+- Unit/integration: meter charge calculation covers a sub-persisted-unit delta whose
+  rounded usage differs from the full-precision monetary result.
+- Migration/integration: nullable channel names cannot bypass active external-order uniqueness.
+- Integration: refund removes purchase cost from the KPI, and an orphaned open turnover
+  task still blocks shared availability and mode transition.
 
 ## 7. Wrong vs Correct
 

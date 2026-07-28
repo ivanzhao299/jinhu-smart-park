@@ -16,7 +16,7 @@ import { normalizePropertyPeriod, occupancyDomainMatchesMode } from "./property-
 import { PropertyUnitAccessService } from "./property-unit-access.service";
 
 export interface AvailabilityConflict {
-  conflict_type: "occupancy" | "commercial_contract";
+  conflict_type: "occupancy" | "commercial_contract" | "operations_task";
   source_domain: string;
   source_type: string;
   source_id: string;
@@ -350,6 +350,17 @@ export class PropertyOccupanciesService {
             $6::text IS NOT NULL AND $7::text IS NOT NULL
             AND $6::text = 'leasing_contract' AND contract.id::text = $7::text
           )
+       UNION ALL
+       SELECT 'operations_task'::text AS conflict_type,
+              'operations'::text AS source_domain,
+              'homestay_turnover'::text AS source_type,
+              task.id::text AS source_id,
+              task.create_time::text AS start_at,
+              'infinity'::timestamptz::text AS end_at,
+              task.status
+       FROM biz_homestay_turnover_task task
+       WHERE task.tenant_id = $1 AND task.park_id = $2 AND task.unit_id = $3
+         AND task.is_deleted = false AND task.status <> 'completed'
        ORDER BY start_at`,
       [scope.tenantId, scope.parkId, unitId, startAt.toISOString(), endAt.toISOString(), exclude?.sourceType ?? null, exclude?.sourceId ?? null]
     ) as Promise<AvailabilityConflict[]>;

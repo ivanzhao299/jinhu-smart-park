@@ -132,7 +132,8 @@ export class HousingService {
         `SELECT coalesce(sum(total_amount),0)::text AS cost
          FROM biz_housing_purchase purchase
          WHERE purchase.tenant_id=$1 AND purchase.park_id=$2
-           AND purchase.is_deleted=false AND purchase.approval_status='approved'${purchaseUnitFilter}`,
+           AND purchase.is_deleted=false AND purchase.approval_status='approved'
+           AND purchase.payment_status <> 'refunded'${purchaseUnitFilter}`,
         params
       ) as Promise<Array<{ cost: string }>> : Promise.resolve([])
     ]);

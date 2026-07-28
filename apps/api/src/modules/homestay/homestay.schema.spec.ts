@@ -44,6 +44,19 @@ test("homestay migration keeps integrations reserved but disconnected", () => {
   assert.match(migration, /transaction_reference varchar\(100\)/);
 });
 
+test("external order uniqueness normalizes a missing channel in a forward migration", () => {
+  const migration = readFileSync(
+    resolve(
+      __dirname,
+      "../../../../../database/migrations/000181_homestay_external_order_null_channel_uniqueness.sql"
+    ),
+    "utf8"
+  );
+  assert.match(migration, /COALESCE\(channel_name, ''\)/);
+  assert.match(migration, /external_order_no IS NOT NULL/);
+  assert.match(migration, /HAVING count\(\*\) > 1/);
+});
+
 test("homestay dashboard occupancy follows the requested stay date", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
 
