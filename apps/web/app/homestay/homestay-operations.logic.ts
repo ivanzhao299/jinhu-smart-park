@@ -32,6 +32,14 @@ export function homestayUnitSelectionAfterLoad(currentId: string, loadedIds: str
   return loadedIds.includes(currentId) ? currentId : loadedIds[0] ?? "";
 }
 
+export function clampPageToTotal(page: number, pageSize: number, total: number): number {
+  return Math.min(page, Math.max(1, Math.ceil(total / pageSize)));
+}
+
+export function canMarkHomestayNoShow(arrivalDate: string, currentBusinessDate: string): boolean {
+  return arrivalDate <= currentBusinessDate;
+}
+
 export function homestayRateFormFromCalendar(
   unitId: string,
   calendar: HomestayRateCalendar

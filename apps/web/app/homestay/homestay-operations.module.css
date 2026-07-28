@@ -175,6 +175,21 @@
   gap: 12px;
 }
 
+.turnoverException {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--status-warning) 45%, var(--border-color));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--status-warning) 10%, var(--surface-secondary));
+  color: var(--text-primary);
+}
+
+.turnoverException span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .commandGrid,
   .turnoverGrid {

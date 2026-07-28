@@ -128,6 +128,22 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Homestay turnover lists are server-paginated. The operations surface requests the
   `open` subset (`pending`, `cleaning`, `inspection`, and `exception`) rather than
   loading unbounded completed history.
+- A confirmed homestay booking may be marked `no_show` only on or after its
+  `arrival_date` begins in `Asia/Shanghai`. Button visibility is UX only; the
+  service enforces the same temporal boundary under the booking lock.
+- Returning an issued stay credential is replay-safe: the credential row is locked,
+  an already-returned credential keeps its original `returned_at`, and lost/void
+  credentials cannot be changed to returned.
+- Every permission group that consumes paginated homestay unit candidates has a
+  reachable pager beside its own selector. Rate-read permission must not be required
+  to navigate booking-create candidates.
+- Turnover-read users may inspect task attachments and exception details. Work-order
+  linking and execution controls require `homestay:turnover:execute`; evidence upload
+  additionally requires `file:upload`, so the upload control requires both permissions.
+- After an action removes the final item from an open-turnover page, the client clamps
+  the requested page to the new last page and reloads it.
+- An `exception` turnover card renders the persisted `exception_description`
+  prominently before any completion action.
 - Turnover completion resolves evidence from the active `homestay_turnover` file
   associations stored by the backend. Client-supplied file IDs may narrow validation,
   but an empty list after refresh must not discard already associated evidence.
@@ -184,6 +200,11 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Generic park unit is not enabled for short stay | Exclude it from homestay unit candidates |
 | Turnover query requests `status=open` | Return only open workflow states with bounded pagination metadata |
 | Turnover completion follows a refresh and sends no file IDs | Recover active task-associated evidence before validating completion |
+| Confirmed booking arrival date is still in the future | HTTP 409 on `no-show`; do not release occupancy |
+| Credential return is retried under another request key | Return the existing record without changing `returned_at` |
+| Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
+| Turnover-read role lacks execute permission | Show task/evidence/exception details; hide upload and mutation inputs |
+| Open turnover page becomes greater than the new last page | Clamp and reload the new last page |
 
 ## 5. Good / Base / Bad Cases
 
@@ -253,6 +274,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   pagination; turnover `open` filtering excludes completed history.
 - API/E2E: upload turnover evidence, reload the workflow context, complete with an
   empty client file-ID list, and verify that the backend preserves the associated file.
+- Unit/API: no-show fails before Shanghai arrival midnight and succeeds at or after it.
+- Integration/API: returning one credential twice preserves its first `returned_at`.
+- Frontend/browser: booking-only candidate paging, turnover read/execute control
+  projection, exception description, and queue page clamping work at desktop and 390px.
 
 ## 7. Wrong vs Correct
 

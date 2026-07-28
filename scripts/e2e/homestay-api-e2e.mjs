@@ -93,6 +93,9 @@ async function run() {
   const departure = new Date(`${today}T00:00:00+08:00`);
   departure.setDate(departure.getDate() + 1);
   const tomorrow = departure.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const dayAfterTomorrowDate = new Date(departure);
+  dayAfterTomorrowDate.setDate(dayAfterTomorrowDate.getDate() + 1);
+  const dayAfterTomorrow = dayAfterTomorrowDate.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
   const units = await request("/park-units?page=1&page_size=100", { token });
   let unit;
   for (const candidate of units.items) {
@@ -182,6 +185,40 @@ async function run() {
     body: { verification_status: "verified", remark: "Homestay API E2E identity verification" }
   });
 
+  const futureBooking = await request("/homestay/bookings", {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      booking_code: `HS-FUTURE-${runId}`.slice(0, 64),
+      unit_id: unit.id,
+      booker_party_id: guest.id,
+      arrival_date: tomorrow,
+      departure_date: dayAfterTomorrow,
+      source_type: "direct",
+      guest_count: 1,
+      remark: "Future no-show boundary E2E"
+    }
+  });
+  await request(`/homestay/bookings/${futureBooking.id}/confirm`, {
+    method: "POST",
+    token,
+    idempotent: true
+  });
+  const earlyNoShow = await tryRequest(`/homestay/bookings/${futureBooking.id}/no-show`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "must be rejected before arrival" }
+  });
+  assert(earlyNoShow.status === 409, "future booking cannot be marked no-show before arrival");
+  await request(`/homestay/bookings/${futureBooking.id}/cancel`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "clean up future no-show boundary E2E" }
+  });
+
   const booking = await request("/homestay/bookings", {
     method: "POST",
     token,
@@ -219,11 +256,19 @@ async function run() {
     token,
     idempotent: true
   });
-  await request(`/homestay/bookings/${booking.id}/credentials/${credential.id}/return`, {
+  const returnedCredential = await request(`/homestay/bookings/${booking.id}/credentials/${credential.id}/return`, {
     method: "POST",
     token,
     idempotent: true
   });
+  const replayedCredentialReturn = await request(
+    `/homestay/bookings/${booking.id}/credentials/${credential.id}/return`,
+    { method: "POST", token, idempotent: true }
+  );
+  assert(
+    replayedCredentialReturn.returnedAt === returnedCredential.returnedAt,
+    "credential return replay preserves the original return timestamp"
+  );
   const checkout = await request(`/homestay/bookings/${booking.id}/check-out`, {
     method: "POST",
     token,

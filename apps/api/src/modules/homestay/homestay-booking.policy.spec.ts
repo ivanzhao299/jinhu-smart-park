@@ -6,6 +6,7 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
+  assertHomestayNoShowWindow,
   homestayMoneyDifference,
   turnoverLockEnd
 } from "./homestay-booking.policy";
@@ -25,6 +26,13 @@ test("check-in must be inside the booked business period", () => {
   assert.doesNotThrow(() => assertHomestayCheckInWindow(new Date("2026-07-25T14:00:00+08:00"), start, end));
   assert.throws(() => assertHomestayCheckInWindow(new Date("2026-07-24T23:59:59+08:00"), start, end));
   assert.throws(() => assertHomestayCheckInWindow(end, start, end));
+});
+
+test("no-show is blocked until the Shanghai arrival date begins", () => {
+  const start = new Date("2026-07-25T00:00:00+08:00");
+  assert.throws(() => assertHomestayNoShowWindow(new Date("2026-07-24T23:59:59+08:00"), start));
+  assert.doesNotThrow(() => assertHomestayNoShowWindow(start, start));
+  assert.doesNotThrow(() => assertHomestayNoShowWindow(new Date("2026-07-26T09:00:00+08:00"), start));
 });
 
 test("every declared guest must be verified", () => {

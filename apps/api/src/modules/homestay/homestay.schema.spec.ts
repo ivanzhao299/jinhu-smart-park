@@ -110,7 +110,20 @@ test("no-show revokes issued credentials before releasing occupancy", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
   const noShow = service.slice(service.indexOf("async markNoShow"), service.indexOf("async cancelBooking"));
   assert.match(noShow, /voidIssuedCredentials\(manager, scope, actor, id\)/);
+  assert.match(noShow, /assertHomestayNoShowWindow\(new Date\(\), this\.businessDateStart\(booking\.arrivalDate\)\)/);
   assert.ok(noShow.indexOf("voidIssuedCredentials") < noShow.indexOf("releaseInTransaction"));
+});
+
+test("credential return locks the row and preserves the original return timestamp on replay", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const credentialReturn = service.slice(
+    service.indexOf("async returnCredential"),
+    service.indexOf("async checkIn")
+  );
+  assert.match(credentialReturn, /this\.dataSource\.transaction/);
+  assert.match(credentialReturn, /lock: \{ mode: "pessimistic_write" \}/);
+  assert.match(credentialReturn, /if \(credential\.status === "returned"\) return credential/);
+  assert.match(credentialReturn, /Only issued credentials can be returned/);
 });
 
 test("turnover evidence is locked in the same transaction that binds it", () => {

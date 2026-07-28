@@ -167,6 +167,17 @@ action against every state and sibling entry point before implementation:
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] A paginated dataset shared by multiple forms exposes paging beside every
+      authorized consumer; navigation must not live only inside a sibling
+      permission branch
+- [ ] Mutations that remove records from a filtered queue test the last-item-on-last-page
+      case and clamp/reload when the total shrinks
+- [ ] Time-gated lifecycle buttons have the same authoritative service guard using
+      the domain business timezone; hiding a button is never the only enforcement
+- [ ] Read and execute permissions are projected at sub-control level: read-only
+      users keep evidence and exception context but do not see upload/edit controls
+- [ ] Replay-safe terminal sub-actions preserve their first terminal timestamp even
+      when a caller retries with a different request key
 - [ ] Read-then-insert "upserts" are replaced by locking or one database atomic upsert
       whenever a unique key owns concurrent creation
 - [ ] Generic infrastructure records use a domain-specific protected type whenever

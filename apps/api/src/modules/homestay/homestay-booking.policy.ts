@@ -34,6 +34,12 @@ export function assertHomestayCheckInWindow(
   }
 }
 
+export function assertHomestayNoShowWindow(now: Date, stayStart: Date): void {
+  if (now < stayStart) {
+    throw new ConflictException("No-show is only allowed on or after the booked arrival date");
+  }
+}
+
 export function assertHomestayGuestRosterComplete(declaredGuests: number, verifiedGuests: number): void {
   if (verifiedGuests < declaredGuests) {
     throw new ConflictException("Every declared guest must be registered and verified before check-in");

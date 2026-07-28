@@ -48,6 +48,7 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
+  assertHomestayNoShowWindow,
   formatHomestayMoney,
   formatMoneyCents,
   homestayMoneyDifference,
@@ -424,6 +425,7 @@ export class HomestayService {
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "no_show") return booking;
       this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can be marked as no-show");
+      assertHomestayNoShowWindow(new Date(), this.businessDateStart(booking.arrivalDate));
       const revokedCredentials = await this.voidIssuedCredentials(manager, scope, actor, id);
       if (booking.occupancyId) {
         await this.propertyOccupanciesService.releaseInTransaction(
@@ -649,17 +651,24 @@ export class HomestayService {
   }
 
   async returnCredential(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, credentialId: string) {
-    const booking = await this.mustFindBooking(scope, bookingId);
-    await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-    const repository = this.dataSource.getRepository(HomestayStayCredentialEntity);
-    const credential = await repository.findOne({
-      where: { id: credentialId, bookingId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.lockBooking(manager, scope, bookingId);
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const repository = manager.getRepository(HomestayStayCredentialEntity);
+      const credential = await repository.findOne({
+        where: { id: credentialId, bookingId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!credential) throw new NotFoundException("Stay credential not found");
+      if (credential.status === "returned") return credential;
+      if (credential.status !== "issued") {
+        throw new ConflictException("Only issued credentials can be returned");
+      }
+      credential.status = "returned";
+      credential.returnedAt = new Date();
+      credential.updateBy = actor.sub;
+      return repository.save(credential);
     });
-    if (!credential) throw new NotFoundException("Stay credential not found");
-    credential.status = "returned";
-    credential.returnedAt = new Date();
-    credential.updateBy = actor.sub;
-    return repository.save(credential);
   }
 
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string) {

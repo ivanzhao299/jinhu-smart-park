@@ -15,6 +15,8 @@ import { addBusinessDateDays, businessDate } from "../../lib/business-date";
 import { hasPermission } from "../../lib/permissions";
 import type { UnitRow } from "../assets/units/types";
 import {
+  canMarkHomestayNoShow,
+  clampPageToTotal,
   defaultHomestayRateForm,
   homestayRateFormFromCalendar,
   homestayUnitSelectionAfterLoad,
@@ -155,6 +157,9 @@ export function HomestayOperationsClient() {
   const canReadRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ);
   const canManageRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE);
   const canReadTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
+  const canExecuteTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE);
+  const canUploadTurnoverEvidence =
+    canExecuteTurnovers && hasPermission(user, SYSTEM_PERMISSIONS.FILE_UPLOAD);
   const canReadUnitCandidates = canReadRates || canManageRates || canReadBookings || canCreateBookings;
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [units, setUnits] = useState<UnitRow[]>([]);
@@ -169,6 +174,7 @@ export function HomestayOperationsClient() {
   const [rateLoading, setRateLoading] = useState(false);
   const [rateReady, setRateReady] = useState(false);
   const [credentialSubmitting, setCredentialSubmitting] = useState(false);
+  const [credentialReturningId, setCredentialReturningId] = useState("");
   const [unitPage, setUnitPage] = useState(emptyUnitPageMeta);
   const [bookingPage, setBookingPage] = useState(emptyPageMeta);
   const [turnoverPage, setTurnoverPage] = useState(emptyTurnoverPageMeta);
@@ -203,6 +209,9 @@ export function HomestayOperationsClient() {
   const credentialSubmissionLock = useRef(false);
   const credentialSubmissionKey = useRef<string | null>(null);
   const credentialSubmissionSignature = useRef("");
+  const credentialReturnLock = useRef(false);
+  const credentialReturnKey = useRef<string | null>(null);
+  const credentialReturnSignature = useRef("");
 
   const unitName = useMemo(
     () => new Map(units.map((unit) => [unit.id, `${unit.unitCode} · ${unit.unitName}`])),
@@ -296,9 +305,14 @@ export function HomestayOperationsClient() {
         setTurnovers([]);
         setTurnoverPage(emptyTurnoverPageMeta());
       } else if ("data" in turnoversResponse) {
-        setTurnovers(turnoversResponse.data.items);
+        const clampedPage = clampPageToTotal(
+          turnoversResponse.data.page,
+          turnoversResponse.data.page_size,
+          turnoversResponse.data.total
+        );
+        setTurnovers(clampedPage === turnoversResponse.data.page ? turnoversResponse.data.items : []);
         setTurnoverPage({
-          page: turnoversResponse.data.page,
+          page: clampedPage,
           pageSize: turnoversResponse.data.page_size,
           total: turnoversResponse.data.total
         });
@@ -499,17 +513,33 @@ export function HomestayOperationsClient() {
   }
 
   async function returnCredential(credentialId: string) {
-    if (!selectedBookingId) return;
+    if (!selectedBookingId || credentialReturnLock.current) return;
     const originatingBookingId = selectedBookingId;
-    const succeeded = await runAction("入住凭证已回收", () =>
-      apiRequest(`/homestay/bookings/${originatingBookingId}/credentials/${credentialId}/return`, {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey("homestay-credential-return")
-      })
-    );
-    if (succeeded && selectedBookingIdRef.current === originatingBookingId) {
-      await prepareBooking(originatingBookingId);
+    const submissionSignature = `${originatingBookingId}:${credentialId}`;
+    if (!credentialReturnKey.current || credentialReturnSignature.current !== submissionSignature) {
+      credentialReturnKey.current = createIdempotencyKey("homestay-credential-return");
+      credentialReturnSignature.current = submissionSignature;
+    }
+    credentialReturnLock.current = true;
+    setCredentialReturningId(credentialId);
+    try {
+      const succeeded = await runAction("入住凭证已回收", () =>
+        apiRequest(`/homestay/bookings/${originatingBookingId}/credentials/${credentialId}/return`, {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: credentialReturnKey.current!
+        })
+      );
+      if (succeeded) {
+        credentialReturnKey.current = null;
+        credentialReturnSignature.current = "";
+        if (selectedBookingIdRef.current === originatingBookingId) {
+          await prepareBooking(originatingBookingId);
+        }
+      }
+    } finally {
+      credentialReturnLock.current = false;
+      setCredentialReturningId("");
     }
   }
 
@@ -663,6 +693,7 @@ export function HomestayOperationsClient() {
             <option value="">选择房源</option>
             {units.map((unit) => <option value={unit.id} key={unit.id}>{unitName.get(unit.id)}</option>)}
           </select></label>
+          <PaginationControls meta={unitPage} disabled={loading} onPageChange={(page) => setUnitPage((current) => ({ ...current, page }))} />
           <div className={styles.formGrid}>
             <label>入住日<input type="date" required value={bookingForm.arrivalDate} onChange={(event) => {
               const arrivalDate = event.target.value;
@@ -696,7 +727,7 @@ export function HomestayOperationsClient() {
                 <td className={styles.actions}>
                   {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
                   {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => { void prepareBooking(booking.id); setMessage("请先在下方登记实名住客和入住凭证"); }}>入住准备</PermissionButton> : null}
-                  {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
+                  {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
                   {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
                   {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
                 </td>
@@ -711,7 +742,7 @@ export function HomestayOperationsClient() {
             <div className={styles.actions}>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
               {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void prepareBooking(booking.id)}>入住准备</PermissionButton> : null}
-              {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
+              {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
               {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
               {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
             </div>
@@ -765,9 +796,10 @@ export function HomestayOperationsClient() {
                 <PermissionButton
                   permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
                   type="button"
+                  disabled={credentialReturningId === credential.id}
                   onClick={() => void returnCredential(credential.id)}
                 >
-                  回收凭证
+                  {credentialReturningId === credential.id ? "正在回收…" : "回收凭证"}
                 </PermissionButton>
               ) : null}
             </div>
@@ -806,7 +838,13 @@ export function HomestayOperationsClient() {
         <div className={styles.turnoverGrid}>{turnovers.map((task) => (
           <article className={styles.turnoverCard} key={task.id}>
             <div><strong>{unitName.get(task.unitId) ?? task.unitId}</strong><span>{task.status}</span></div>
-            <FileUploader
+            {task.status === "exception" && task.exceptionDescription ? (
+              <div className={styles.turnoverException} role="alert">
+                <strong>异常说明</strong>
+                <span>{task.exceptionDescription}</span>
+              </div>
+            ) : null}
+            {canUploadTurnoverEvidence ? <FileUploader
               bizType="homestay_turnover"
               bizId={task.id}
               policyKey="image"
@@ -816,14 +854,14 @@ export function HomestayOperationsClient() {
                 ...current,
                 [task.id]: (current[task.id] ?? 0) + 1
               }))}
-            />
+            /> : null}
             <AttachmentList
               bizType="homestay_turnover"
               bizId={task.id}
               compact
               refreshKey={turnoverAttachmentRefresh[task.id] ?? 0}
             />
-            <label>关联维修工单 ID（可选）
+            {canExecuteTurnovers ? <label>关联维修工单 ID（可选）
               <input
                 value={turnoverWorkOrders[task.id] ?? ""}
                 placeholder="UUID"
@@ -832,7 +870,7 @@ export function HomestayOperationsClient() {
                   [task.id]: event.target.value
                 }))}
               />
-            </label>
+            </label> : null}
             <div className={styles.actions}>
               {task.status === "pending" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE} onClick={() => void turnoverAction(task, "start")}>开始保洁</PermissionButton> : null}
               {["cleaning", "exception"].includes(task.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE} onClick={() => void turnoverAction(task, "complete")}>完成保洁</PermissionButton> : null}
