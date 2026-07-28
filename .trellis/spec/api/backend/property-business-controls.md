@@ -7,6 +7,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 ## 2. Signatures
 
 - `GET /homestay/rates/:unitId?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
+- `GET /homestay/unit-candidates?page=1&page_size=20`
+- `GET /homestay/turnovers?status=open&page=1&page_size=20`
 - `POST /homestay/bookings/:id/guests`
 - `GET /housing/leases/:id`
 - `POST /housing/leases`
@@ -120,6 +122,15 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   including `checkout_requires_inspection`.
 - Homestay unit candidates retain server pagination, and page changes replace stale
   selections with a unit visible on the loaded page.
+- Homestay rate and booking selectors use the authoritative unit-candidate endpoint,
+  which returns only active, enabled `short_stay` units inside the actor's property
+  scope. A generic park-unit list is not an operational candidate source.
+- Homestay turnover lists are server-paginated. The operations surface requests the
+  `open` subset (`pending`, `cleaning`, `inspection`, and `exception`) rather than
+  loading unbounded completed history.
+- Turnover completion resolves evidence from the active `homestay_turnover` file
+  associations stored by the backend. Client-supplied file IDs may narrow validation,
+  but an empty list after refresh must not discard already associated evidence.
 
 ## 4. Validation & Error Matrix
 
@@ -170,6 +181,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Turnover occupancy is created for its own pending task | Exclude only that task; create the occupancy |
 | Two operators create the first unit rate concurrently | Both requests complete through atomic upsert |
 | Selected unit rate cannot be loaded | Keep rate submission disabled; do not submit stale form values |
+| Generic park unit is not enabled for short stay | Exclude it from homestay unit candidates |
+| Turnover query requests `status=open` | Return only open workflow states with bounded pagination metadata |
+| Turnover completion follows a refresh and sends no file IDs | Recover active task-associated evidence before validating completion |
 
 ## 5. Good / Base / Bad Cases
 
@@ -235,6 +249,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   reads round-trip every editable form field.
 - Frontend: unit pagination synchronizes rate and booking selections; late rate responses
   cannot overwrite a newer unit selection.
+- API/integration: unit candidates enforce short-stay enablement, actor scope, and
+  pagination; turnover `open` filtering excludes completed history.
+- API/E2E: upload turnover evidence, reload the workflow context, complete with an
+  empty client file-ID list, and verify that the backend preserves the associated file.
 
 ## 7. Wrong vs Correct
 

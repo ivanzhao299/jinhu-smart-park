@@ -26,6 +26,8 @@ import {
   ExecuteHomestayTurnoverDto,
   HomestayBookingQueryDto,
   HomestayReasonDto,
+  HomestayTurnoverQueryDto,
+  HomestayUnitCandidateQueryDto,
   IssueHomestayCredentialDto,
   RegisterHomestayLedgerEntryDto,
   RescheduleHomestayBookingDto,
@@ -58,6 +60,21 @@ export class HomestayController {
     @Query("date_to") dateTo: string
   ) {
     return this.service.availability(scope, actor, dateFrom, dateTo);
+  }
+
+  @Get("unit-candidates")
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE,
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CREATE
+  )
+  unitCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayUnitCandidateQueryDto
+  ) {
+    return this.service.listUnitCandidates(scope, actor, query);
   }
 
   @Get("rates/:unitId")
@@ -266,9 +283,9 @@ export class HomestayController {
   listTurnovers(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Query("status") status?: string
+    @Query() query: HomestayTurnoverQueryDto
   ) {
-    return this.service.listTurnovers(scope, actor, status);
+    return this.service.listTurnovers(scope, actor, query);
   }
 
   @Post("turnovers/:id/actions/:action")

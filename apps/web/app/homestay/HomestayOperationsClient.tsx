@@ -6,6 +6,7 @@ import { CalendarDays, CheckCircle2, Hotel, RefreshCw, Sparkles, Users } from "l
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionButton } from "../../components/auth/PermissionButton";
+import { AttachmentList } from "../../components/files/AttachmentList";
 import { FileUploader } from "../../components/files/FileUploader";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
@@ -92,8 +93,10 @@ type OptionalLoad<T> = { data: T } | { error: string } | null;
 
 const BOOKING_PAGE_SIZE = 20;
 const UNIT_PAGE_SIZE = 20;
+const TURNOVER_PAGE_SIZE = 20;
 const emptyPageMeta = (): PageMeta => ({ page: 1, pageSize: BOOKING_PAGE_SIZE, total: 0 });
 const emptyUnitPageMeta = (): PageMeta => ({ page: 1, pageSize: UNIT_PAGE_SIZE, total: 0 });
+const emptyTurnoverPageMeta = (): PageMeta => ({ page: 1, pageSize: TURNOVER_PAGE_SIZE, total: 0 });
 
 function PaginationControls({
   meta,
@@ -145,6 +148,14 @@ const tomorrow = () => addBusinessDateDays(today(), 1);
 
 export function HomestayOperationsClient() {
   const user = useAuthUser();
+  const canReadDashboard = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ);
+  const canReadBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ);
+  const canCreateBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CREATE);
+  const canReadFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+  const canReadRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ);
+  const canManageRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE);
+  const canReadTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
+  const canReadUnitCandidates = canReadRates || canManageRates || canReadBookings || canCreateBookings;
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -157,10 +168,13 @@ export function HomestayOperationsClient() {
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
   const [rateLoading, setRateLoading] = useState(false);
   const [rateReady, setRateReady] = useState(false);
+  const [credentialSubmitting, setCredentialSubmitting] = useState(false);
   const [unitPage, setUnitPage] = useState(emptyUnitPageMeta);
   const [bookingPage, setBookingPage] = useState(emptyPageMeta);
+  const [turnoverPage, setTurnoverPage] = useState(emptyTurnoverPageMeta);
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [guestPartyId, setGuestPartyId] = useState("");
+  const [credentialType, setCredentialType] = useState<StayCredential["credentialType"]>("card");
   const [credentialLabel, setCredentialLabel] = useState("前台门卡");
   const [rateForm, setRateForm] = useState(defaultHomestayRateForm);
   const [bookingForm, setBookingForm] = useState({
@@ -170,7 +184,7 @@ export function HomestayOperationsClient() {
     guestCount: "1",
     sourceType: "direct"
   });
-  const [turnoverPhotos, setTurnoverPhotos] = useState<Record<string, string[]>>({});
+  const [turnoverAttachmentRefresh, setTurnoverAttachmentRefresh] = useState<Record<string, number>>({});
   const [turnoverWorkOrders, setTurnoverWorkOrders] = useState<Record<string, string>>({});
   const [financeForm, setFinanceForm] = useState({
     entryType: "payment",
@@ -186,11 +200,23 @@ export function HomestayOperationsClient() {
   const financeSubmissionLock = useRef(false);
   const financeSubmissionKey = useRef<string | null>(null);
   const financeSubmissionSignature = useRef("");
+  const credentialSubmissionLock = useRef(false);
+  const credentialSubmissionKey = useRef<string | null>(null);
+  const credentialSubmissionSignature = useRef("");
 
   const unitName = useMemo(
     () => new Map(units.map((unit) => [unit.id, `${unit.unitCode} · ${unit.unitName}`])),
     [units]
   );
+
+  const clearBookingContext = useCallback(() => {
+    bookingDetailSequence.current += 1;
+    selectedBookingIdRef.current = "";
+    setSelectedBookingId("");
+    setGuestPartyId("");
+    setCredentials([]);
+    setLedgerSummary(null);
+  }, []);
 
   const refresh = useCallback(async () => {
     const sequence = refreshSequence.current + 1;
@@ -198,21 +224,20 @@ export function HomestayOperationsClient() {
     setLoading(true);
     try {
       const token = getAccessToken();
-      const canReadDashboard = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ);
-      const canReadUnits = hasPermission(user, SYSTEM_PERMISSIONS.UNIT_READ);
-      const canReadBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ);
-      const canReadTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
       const [dashboardResponse, unitsResponse, bookingsResponse, turnoversResponse, roomStateResponse] = await Promise.all([
         loadOptional(canReadDashboard, () => apiRequest<Dashboard>("/homestay/dashboard", { token })),
-        loadOptional(canReadUnits, () => apiRequest<PaginatedResult<UnitRow>>(
-          `/park-units?page=${unitPage.page}&page_size=${UNIT_PAGE_SIZE}`,
+        loadOptional(canReadUnitCandidates, () => apiRequest<PaginatedResult<UnitRow>>(
+          `/homestay/unit-candidates?page=${unitPage.page}&page_size=${UNIT_PAGE_SIZE}`,
           { token }
         )),
         loadOptional(canReadBookings, () => apiRequest<PaginatedResult<Booking>>(
           `/homestay/bookings?page=${bookingPage.page}&page_size=${BOOKING_PAGE_SIZE}`,
           { token }
         )),
-        loadOptional(canReadTurnovers, () => apiRequest<Turnover[]>("/homestay/turnovers", { token })),
+        loadOptional(canReadTurnovers, () => apiRequest<PaginatedResult<Turnover>>(
+          `/homestay/turnovers?status=open&page=${turnoverPage.page}&page_size=${TURNOVER_PAGE_SIZE}`,
+          { token }
+        )),
         loadOptional(canReadBookings, () => apiRequest<RoomState[]>(
           `/homestay/availability?date_from=${today()}&date_to=${tomorrow()}`,
           { token }
@@ -252,6 +277,7 @@ export function HomestayOperationsClient() {
       if (!bookingsResponse) {
         setBookings([]);
         setBookingPage(emptyPageMeta());
+        clearBookingContext();
       } else if ("data" in bookingsResponse) {
         setBookings(bookingsResponse.data.items);
         setBookingPage({
@@ -259,22 +285,46 @@ export function HomestayOperationsClient() {
           pageSize: bookingsResponse.data.page_size,
           total: bookingsResponse.data.total
         });
+        if (
+          selectedBookingIdRef.current
+          && !bookingsResponse.data.items.some((booking) => booking.id === selectedBookingIdRef.current)
+        ) {
+          clearBookingContext();
+        }
       }
-      if (!turnoversResponse) setTurnovers([]);
-      else if ("data" in turnoversResponse) setTurnovers(turnoversResponse.data);
+      if (!turnoversResponse) {
+        setTurnovers([]);
+        setTurnoverPage(emptyTurnoverPageMeta());
+      } else if ("data" in turnoversResponse) {
+        setTurnovers(turnoversResponse.data.items);
+        setTurnoverPage({
+          page: turnoversResponse.data.page,
+          pageSize: turnoversResponse.data.page_size,
+          total: turnoversResponse.data.total
+        });
+      }
       if (!roomStateResponse) setRoomStates([]);
       else if ("data" in roomStateResponse) setRoomStates(roomStateResponse.data);
     } finally {
       if (refreshSequence.current === sequence) setLoading(false);
     }
-  }, [bookingPage.page, unitPage.page, user]);
+  }, [
+    bookingPage.page,
+    canReadBookings,
+    canReadDashboard,
+    canReadTurnovers,
+    canReadUnitCandidates,
+    clearBookingContext,
+    turnoverPage.page,
+    unitPage.page
+  ]);
 
   const loadRate = useCallback(async (unitId: string) => {
     const sequence = rateLoadSequence.current + 1;
     rateLoadSequence.current = sequence;
     selectedRateUnitIdRef.current = unitId;
     setRateReady(false);
-    if (!unitId) {
+    if (!canReadRates || !unitId) {
       setRateForm(defaultHomestayRateForm());
       setRateLoading(false);
       return;
@@ -299,7 +349,7 @@ export function HomestayOperationsClient() {
     } finally {
       if (rateLoadSequence.current === sequence) setRateLoading(false);
     }
-  }, []);
+  }, [canReadRates]);
 
   const prepareBooking = useCallback(async (bookingId: string) => {
     const sequence = bookingDetailSequence.current + 1;
@@ -332,8 +382,14 @@ export function HomestayOperationsClient() {
   }, [refresh]);
 
   useEffect(() => {
-    void loadRate(rateForm.unitId);
-  }, [loadRate, rateForm.unitId]);
+    if (canReadRates) {
+      void loadRate(rateForm.unitId);
+    } else {
+      rateLoadSequence.current += 1;
+      setRateLoading(false);
+      setRateReady(false);
+    }
+  }, [canReadRates, loadRate, rateForm.unitId]);
 
   async function saveRate(event: FormEvent) {
     event.preventDefault();
@@ -400,18 +456,45 @@ export function HomestayOperationsClient() {
   }
 
   async function issueCredential() {
-    if (!selectedBookingId || !credentialLabel.trim()) return;
+    if (
+      !selectedBookingId
+      || !credentialLabel.trim()
+      || credentialSubmissionLock.current
+    ) return;
     const originatingBookingId = selectedBookingId;
-    const succeeded = await runAction("入住凭证已人工发放", () =>
-      apiRequest(`/homestay/bookings/${originatingBookingId}/credentials`, {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey("homestay-credential"),
-        body: { credential_type: "card", credential_label: credentialLabel }
-      })
-    );
-    if (succeeded && selectedBookingIdRef.current === originatingBookingId) {
-      await prepareBooking(originatingBookingId);
+    const payload = {
+      credential_type: credentialType,
+      credential_label: credentialLabel.trim()
+    };
+    const submissionSignature = JSON.stringify({ originatingBookingId, ...payload });
+    if (
+      !credentialSubmissionKey.current
+      || credentialSubmissionSignature.current !== submissionSignature
+    ) {
+      credentialSubmissionKey.current = createIdempotencyKey("homestay-credential");
+      credentialSubmissionSignature.current = submissionSignature;
+    }
+    credentialSubmissionLock.current = true;
+    setCredentialSubmitting(true);
+    try {
+      const succeeded = await runAction("入住凭证已人工发放", () =>
+        apiRequest(`/homestay/bookings/${originatingBookingId}/credentials`, {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: credentialSubmissionKey.current!,
+          body: payload
+        })
+      );
+      if (succeeded) {
+        credentialSubmissionKey.current = null;
+        credentialSubmissionSignature.current = "";
+        if (selectedBookingIdRef.current === originatingBookingId) {
+          await prepareBooking(originatingBookingId);
+        }
+      }
+    } finally {
+      credentialSubmissionLock.current = false;
+      setCredentialSubmitting(false);
     }
   }
 
@@ -476,7 +559,7 @@ export function HomestayOperationsClient() {
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(`homestay-turnover-${action}`),
         body: {
-          photo_file_ids: turnoverPhotos[task.id] ?? task.photoFileIds,
+          photo_file_ids: task.photoFileIds,
           exception_description: action === "exception" ? "现场发现异常，等待维修处理" : undefined,
           linked_work_order_id: turnoverWorkOrders[task.id] || undefined
         }
@@ -500,9 +583,11 @@ export function HomestayOperationsClient() {
     }
   }
 
-  const canReadDashboard = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ);
-  const canReadBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ);
-  const canReadFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+  function changeBookingPage(page: number) {
+    clearBookingContext();
+    setBookingPage((current) => ({ ...current, page }));
+  }
+
   const bookingTotalPages = Math.max(1, Math.ceil(bookingPage.total / bookingPage.pageSize));
 
   return (
@@ -555,7 +640,7 @@ export function HomestayOperationsClient() {
       </section>
 
       <section className={styles.commandGrid}>
-        <form className="ds-panel" onSubmit={saveRate}>
+        {canReadRates ? <form className="ds-panel" onSubmit={saveRate}>
           <h2>房源日价与取消规则</h2>
           <label>整套房源<select value={rateForm.unitId} onChange={(event) => setRateForm({ ...rateForm, unitId: event.target.value })}>
             <option value="">选择房源</option>
@@ -563,14 +648,14 @@ export function HomestayOperationsClient() {
           </select></label>
           <div className={styles.formGrid}>
             <label>基础日价<input type="number" min="0" step="0.01" value={rateForm.baseDailyRate} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, baseDailyRate: event.target.value })} /></label>
-            <label>免费取消（小时前）<input type="number" min="0" step="1" value={rateForm.freeCancelHours} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, freeCancelHours: event.target.value })} /></label>
+            <label>免费取消（小时前）<input type="number" min="0" max="8760" step="1" value={rateForm.freeCancelHours} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, freeCancelHours: event.target.value })} /></label>
             <label>超时取消费<select value={rateForm.feeType} onChange={(event) => setRateForm({ ...rateForm, feeType: event.target.value as "fixed" | "percentage" })}><option value="fixed">固定金额</option><option value="percentage">房费比例</option></select></label>
-            <label>费用值<input type="number" min="0" step="0.01" value={rateForm.feeValue} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, feeValue: event.target.value })} /></label>
+            <label>费用值<input type="number" min="0" max={rateForm.feeType === "percentage" ? "100" : undefined} step="0.01" value={rateForm.feeValue} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, feeValue: event.target.value })} /></label>
           </div>
           <label className={styles.checkbox}><input type="checkbox" checked={rateForm.requiresInspection} onChange={(event) => setRateForm({ ...rateForm, requiresInspection: event.target.checked })} />保洁后需复检才恢复可售</label>
           <div><small>价格与预订共用房源候选</small><PaginationControls meta={unitPage} disabled={loading || rateLoading} onPageChange={(page) => setUnitPage((current) => ({ ...current, page }))} /></div>
           <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE} className="button button-primary" type="submit" disabled={!rateReady || rateLoading}>{rateLoading ? "正在加载价格…" : "保存价格规则"}</PermissionButton>
-        </form>
+        </form> : null}
 
         <form className="ds-panel" onSubmit={createBooking}>
           <h2>直订 / 人工录单</h2>
@@ -579,8 +664,18 @@ export function HomestayOperationsClient() {
             {units.map((unit) => <option value={unit.id} key={unit.id}>{unitName.get(unit.id)}</option>)}
           </select></label>
           <div className={styles.formGrid}>
-            <label>入住日<input type="date" required value={bookingForm.arrivalDate} onChange={(event) => setBookingForm({ ...bookingForm, arrivalDate: event.target.value })} /></label>
-            <label>退房日<input type="date" required min={bookingForm.arrivalDate} value={bookingForm.departureDate} onChange={(event) => setBookingForm({ ...bookingForm, departureDate: event.target.value })} /></label>
+            <label>入住日<input type="date" required value={bookingForm.arrivalDate} onChange={(event) => {
+              const arrivalDate = event.target.value;
+              const departureMinimum = arrivalDate ? addBusinessDateDays(arrivalDate, 1) : "";
+              setBookingForm({
+                ...bookingForm,
+                arrivalDate,
+                departureDate: departureMinimum && bookingForm.departureDate < departureMinimum
+                  ? departureMinimum
+                  : bookingForm.departureDate
+              });
+            }} /></label>
+            <label>退房日<input type="date" required min={bookingForm.arrivalDate ? addBusinessDateDays(bookingForm.arrivalDate, 1) : undefined} value={bookingForm.departureDate} onChange={(event) => setBookingForm({ ...bookingForm, departureDate: event.target.value })} /></label>
             <label>住客人数<input type="number" min="1" max="50" step="1" value={bookingForm.guestCount} onFocus={(event) => event.target.select()} onChange={(event) => setBookingForm({ ...bookingForm, guestCount: event.target.value })} /></label>
             <label>订单来源<select value={bookingForm.sourceType} onChange={(event) => setBookingForm({ ...bookingForm, sourceType: event.target.value })}><option value="direct">自营直订</option><option value="manual">人工录单</option><option value="ota_reserved">OTA 预留字段</option></select></label>
           </div>
@@ -611,7 +706,7 @@ export function HomestayOperationsClient() {
         </div>
         <div className="ds-mobile-record-list">
           {bookings.map((booking) => <article className="ds-mobile-record" key={booking.id}>
-            <strong>{booking.bookingCode}</strong><span>{unitName.get(booking.unitId)}</span>
+            <strong>{booking.bookingCode}</strong><span>{unitName.get(booking.unitId) ?? booking.unitId}</span>
             <span>{booking.arrivalDate} → {booking.departureDate}</span><span>{booking.status} · ¥{booking.totalAmount}</span>
             <div className={styles.actions}>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
@@ -628,7 +723,7 @@ export function HomestayOperationsClient() {
             className="pagination-button"
             type="button"
             disabled={loading || bookingPage.page <= 1}
-            onClick={() => setBookingPage((current) => ({ ...current, page: current.page - 1 }))}
+            onClick={() => changeBookingPage(bookingPage.page - 1)}
           >
             上一页
           </button>
@@ -636,7 +731,7 @@ export function HomestayOperationsClient() {
             className="pagination-button"
             type="button"
             disabled={loading || bookingPage.page >= bookingTotalPages}
-            onClick={() => setBookingPage((current) => ({ ...current, page: current.page + 1 }))}
+            onClick={() => changeBookingPage(bookingPage.page + 1)}
           >
             下一页
           </button>
@@ -649,8 +744,20 @@ export function HomestayOperationsClient() {
         <div className={styles.inlineForm}>
           <label>共享个人档案 ID<input value={guestPartyId} placeholder="UUID" onChange={(event) => setGuestPartyId(event.target.value)} /></label>
           <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} type="button" onClick={() => void addGuest()}>登记并内部核验</PermissionButton>
+          <label>凭证类型<select value={credentialType} onChange={(event) => setCredentialType(event.target.value as StayCredential["credentialType"])}>
+            <option value="key">钥匙</option>
+            <option value="card">门卡</option>
+            <option value="voucher">入住凭证</option>
+          </select></label>
           <label>门卡 / 钥匙标签<input value={credentialLabel} onChange={(event) => setCredentialLabel(event.target.value)} /></label>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} type="button" onClick={() => void issueCredential()}>人工发放凭证</PermissionButton>
+          <PermissionButton
+            permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
+            type="button"
+            disabled={credentialSubmitting}
+            onClick={() => void issueCredential()}
+          >
+            {credentialSubmitting ? "正在发放…" : "人工发放凭证"}
+          </PermissionButton>
           {credentials.map((credential) => (
             <div className={styles.credential} key={credential.id}>
               <span>{credential.credentialLabel} · {credential.status}</span>
@@ -705,10 +812,16 @@ export function HomestayOperationsClient() {
               policyKey="image"
               compact
               label="上传现场照片"
-              onUploaded={(file) => setTurnoverPhotos((current) => ({
+              onUploaded={() => setTurnoverAttachmentRefresh((current) => ({
                 ...current,
-                [task.id]: [...(current[task.id] ?? task.photoFileIds), file.id]
+                [task.id]: (current[task.id] ?? 0) + 1
               }))}
+            />
+            <AttachmentList
+              bizType="homestay_turnover"
+              bizId={task.id}
+              compact
+              refreshKey={turnoverAttachmentRefresh[task.id] ?? 0}
             />
             <label>关联维修工单 ID（可选）
               <input
@@ -728,6 +841,13 @@ export function HomestayOperationsClient() {
             </div>
           </article>
         ))}</div>
+        {canReadTurnovers ? (
+          <PaginationControls
+            meta={turnoverPage}
+            disabled={loading}
+            onPageChange={(page) => setTurnoverPage((current) => ({ ...current, page }))}
+          />
+        ) : null}
       </section>
     </main>
   );

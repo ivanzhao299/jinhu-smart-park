@@ -73,6 +73,40 @@ export class HomestayBookingQueryDto {
   page_size = 20;
 }
 
+export class HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  page_size = 20;
+}
+
+export class HomestayTurnoverQueryDto {
+  @IsOptional()
+  @IsIn(["open", "pending", "cleaning", "inspection", "completed", "exception"])
+  status: "open" | "pending" | "cleaning" | "inspection" | "completed" | "exception" = "open";
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  page_size = 20;
+}
+
 export class UpsertHomestayRateDto {
   @Transform(({ value }) => trimDecimalString(value))
   @IsString()

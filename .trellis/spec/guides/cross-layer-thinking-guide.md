@@ -155,6 +155,18 @@ action against every state and sibling entry point before implementation:
       a hard-coded default is used only after an authoritative not-found response
 - [ ] Candidate selectors preserve server pagination or search and synchronize stale
       selections when the visible candidate page changes
+- [ ] Paginated candidate and record lists preserve action context deliberately:
+      when a selected record leaves the current page, clear the detail/action target;
+      when only its display label leaves the page, retain a stable ID fallback
+- [ ] Browser constraints mirror backend bounds, including relational date rules
+      (for example departure strictly after arrival) and conditional bounds such as
+      percentage values capped at 100
+- [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
+      React/render state alone is not a lock against two events in the same tick
+- [ ] Long-lived operational queues use a bounded server-side active subset and
+      paginate history instead of loading all historical records into the main surface
+- [ ] Permission-aware effects are gated by the exact read permission of their
+      endpoint, independently from write controls and unrelated page visibility
 - [ ] Read-then-insert "upserts" are replaced by locking or one database atomic upsert
       whenever a unique key owns concurrent creation
 - [ ] Generic infrastructure records use a domain-specific protected type whenever

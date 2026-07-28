@@ -55,6 +55,31 @@ async function tryRequest(path, { token, idempotent = false, ...options } = {}) 
   return { ok: response.ok, status: response.status, body: unwrap(body) };
 }
 
+async function uploadTurnoverPhoto(token, turnoverId) {
+  const form = new FormData();
+  form.append("biz_type", "homestay_turnover");
+  form.append("biz_id", turnoverId);
+  form.append(
+    "file",
+    new Blob([Buffer.from("homestay-turnover-evidence")], { type: "image/png" }),
+    `turnover-${runId}.png`
+  );
+  const response = await fetch(`${apiBaseUrl}/files`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "x-idempotency-key": key("turnover-photo")
+    },
+    body: form
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`POST /files -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+  }
+  console.log(`[PASS] POST /files (${response.status})`);
+  return unwrap(body);
+}
+
 async function run() {
   console.log(`[INFO] Homestay API E2E ${runId} against ${apiBaseUrl}`);
   const login = await request("/auth/login", {
@@ -106,6 +131,8 @@ async function run() {
     }
   }
   assert(Boolean(unit?.id), "selected an available whole-unit property that can enter short-stay mode");
+  const candidates = await request("/homestay/unit-candidates?page=1&page_size=100", { token });
+  assert(candidates.items.some((candidate) => candidate.id === unit.id), "candidate API includes the enabled short-stay unit");
 
   const rateBodies = [
     {
@@ -205,6 +232,11 @@ async function run() {
   assert(checkout.booking.status === "checked_out", "checkout completes after creating its turnover task");
   assert(checkout.turnover.status === "pending", "checkout returns the generated turnover task");
   assert(Boolean(checkout.turnover.occupancyId), "turnover task owns an active availability lock");
+  const openTurnovers = await request("/homestay/turnovers?status=open&page=1&page_size=100", { token });
+  assert(
+    openTurnovers.items.some((turnover) => turnover.id === checkout.turnover.id),
+    "open turnover pagination includes the checkout task"
+  );
 
   await request(`/homestay/turnovers/${checkout.turnover.id}/actions/start`, {
     method: "POST",
@@ -212,13 +244,26 @@ async function run() {
     idempotent: true,
     body: { assignee_name: "Homestay API E2E" }
   });
+  const turnoverPhoto = await uploadTurnoverPhoto(token, checkout.turnover.id);
   const completed = await request(`/homestay/turnovers/${checkout.turnover.id}/actions/complete`, {
     method: "POST",
     token,
     idempotent: true,
-    body: {}
+    body: { photo_file_ids: [] }
   });
   assert(completed.status === "completed", "turnover completion releases the availability lock");
+  assert(
+    completed.photoFileIds.includes(turnoverPhoto.id),
+    "turnover action recovers evidence uploaded before a reload"
+  );
+  const completedTurnovers = await request(
+    "/homestay/turnovers?status=completed&page=1&page_size=100",
+    { token }
+  );
+  assert(
+    completedTurnovers.items.some((turnover) => turnover.id === checkout.turnover.id),
+    "completed turnover history remains available through bounded pagination"
+  );
   console.log(`[PASS] Homestay real API E2E completed: booking=${booking.id}, turnover=${checkout.turnover.id}`);
 }
 

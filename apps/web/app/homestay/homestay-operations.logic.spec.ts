@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   defaultHomestayRateForm,
@@ -43,4 +45,28 @@ test("an unconfigured unit receives a complete fresh default form", () => {
     feeValue: "0",
     requiresInspection: false
   });
+});
+
+test("homestay operations UI mirrors backend constraints and protects paged action context", () => {
+  const source = readFileSync(resolve(__dirname, "HomestayOperationsClient.tsx"), "utf8");
+
+  assert.match(source, /max="8760"/);
+  assert.match(source, /rateForm\.feeType === "percentage" \? "100" : undefined/);
+  assert.match(source, /min=\{bookingForm\.arrivalDate \? addBusinessDateDays\(bookingForm\.arrivalDate, 1\) : undefined\}/);
+  assert.match(source, /unitName\.get\(booking\.unitId\) \?\? booking\.unitId/);
+  assert.match(source, /function changeBookingPage[\s\S]*clearBookingContext\(\)/);
+  assert.match(source, /credentialSubmissionLock\.current/);
+  assert.match(source, /idempotencyKey: credentialSubmissionKey\.current!/);
+  assert.match(source, /credential_type: credentialType/);
+});
+
+test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {
+  const source = readFileSync(resolve(__dirname, "HomestayOperationsClient.tsx"), "utf8");
+
+  assert.match(source, /\/homestay\/unit-candidates\?page=/);
+  assert.match(source, /\/homestay\/turnovers\?status=open&page=/);
+  assert.match(source, /apiRequest<PaginatedResult<Turnover>>/);
+  assert.match(source, /<AttachmentList[\s\S]*bizType="homestay_turnover"/);
+  assert.match(source, /if \(canReadRates\)[\s\S]*void loadRate\(rateForm\.unitId\)/);
+  assert.match(source, /\{canReadRates \? <form className="ds-panel" onSubmit=\{saveRate\}>/);
 });

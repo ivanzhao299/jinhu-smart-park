@@ -121,6 +121,9 @@ test("turnover evidence is locked in the same transaction that binds it", () => 
   );
   assert.match(resolver, /manager\.getRepository\(FileEntity\)/);
   assert.match(resolver, /\.setLock\("pessimistic_write"\)/);
+  assert.match(resolver, /file\.biz_id = :turnoverTaskId/);
+  assert.match(resolver, /associatedIds/);
+  assert.doesNotMatch(resolver, /if \(ids\.length === 0\) return \[\]/);
 });
 
 test("rate reads expose every persisted field edited by the operations form", () => {
@@ -132,4 +135,25 @@ test("rate reads expose every persisted field edited by the operations form", ()
   assert.match(calendar, /base_daily_rate: config\.baseDailyRate/);
   assert.match(calendar, /checkout_requires_inspection: config\.checkoutRequiresInspection/);
   assert.match(calendar, /cancellation_policy: this\.cancellationSnapshot\(config\)/);
+});
+
+test("homestay operational lists use authoritative candidates and bounded turnover pages", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const candidates = service.slice(
+    service.indexOf("async listUnitCandidates"),
+    service.indexOf("async getRateCalendar")
+  );
+  assert.match(candidates, /operation\.operating_mode = 'short_stay'/);
+  assert.match(candidates, /operation\.operating_status = 'enabled'/);
+  assert.match(candidates, /LIMIT \$3 OFFSET \$4/);
+  assert.match(candidates, /unit\.id = ANY\(\$5::uuid\[\]\)/);
+  assert.match(candidates, /unit\.id = ANY\(\$3::uuid\[\]\)/);
+
+  const turnovers = service.slice(
+    service.indexOf("async listTurnovers"),
+    service.indexOf("async executeTurnover")
+  );
+  assert.match(turnovers, /statuses: \["pending", "cleaning", "inspection", "exception"\]/);
+  assert.match(turnovers, /\.getManyAndCount\(\)/);
+  assert.match(turnovers, /page_size: query\.page_size/);
 });

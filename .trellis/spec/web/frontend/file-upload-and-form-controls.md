@@ -31,6 +31,11 @@
 - Workflows that permit pre-object uploads must reload the current actor's pending
   files after refresh/revisit; relying only on the current-session `onUploaded`
   callback makes successfully uploaded evidence unreachable.
+- Workflows that upload against an existing `bizId` must render a shared
+  `AttachmentList` (or equivalent shared recovery surface) for that exact business
+  association. After reload, the persisted association is authoritative; an
+  action payload assembled only from the current session's callback IDs must not
+  erase or hide previously uploaded evidence.
 - Compact attachment lists must show uploaded-file preview affordance; image files should display thumbnails and click-to-preview.
 
 ### 4. Validation & Error Matrix
@@ -52,6 +57,8 @@
 - Browser check on the affected page: file input not visible, helper text visible, uploaded attachment preview visible.
 - Browser/API check: a pending upload survives page refresh and can be submitted with
   the later-created business object.
+- Browser/API check: an upload already associated with a business object remains
+  visible after refresh and the next workflow action retains that evidence.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

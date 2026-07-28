@@ -6,6 +6,8 @@ import { validate } from "class-validator";
 import {
   CreateHomestayBookingDto,
   HomestayBookingQueryDto,
+  HomestayTurnoverQueryDto,
+  HomestayUnitCandidateQueryDto,
   RegisterHomestayLedgerEntryDto,
   RescheduleHomestayBookingDto,
   UpsertHomestayRateDto,
@@ -70,4 +72,18 @@ test("homestay DTOs accept real business calendar dates", async () => {
     departure_date: "2026-03-01"
   });
   assert.deepEqual(await validate(dto), []);
+});
+
+test("homestay candidate and turnover queries enforce bounded pagination and known statuses", async () => {
+  const candidate = plainToInstance(HomestayUnitCandidateQueryDto, { page: 2, page_size: 100 });
+  assert.deepEqual(await validate(candidate), []);
+
+  const oversizedCandidate = plainToInstance(HomestayUnitCandidateQueryDto, { page_size: 101 });
+  assert.ok((await validate(oversizedCandidate)).some((error) => error.property === "page_size"));
+
+  const openTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "open", page: 1, page_size: 20 });
+  assert.deepEqual(await validate(openTurnovers), []);
+
+  const invalidTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "all" });
+  assert.ok((await validate(invalidTurnovers)).some((error) => error.property === "status"));
 });

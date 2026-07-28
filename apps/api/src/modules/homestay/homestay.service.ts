@@ -23,6 +23,8 @@ import type {
   CreateHomestayBookingDto,
   ExecuteHomestayTurnoverDto,
   HomestayBookingQueryDto,
+  HomestayTurnoverQueryDto,
+  HomestayUnitCandidateQueryDto,
   IssueHomestayCredentialDto,
   RegisterHomestayLedgerEntryDto,
   RescheduleHomestayBookingDto,
@@ -81,6 +83,52 @@ export class HomestayService {
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource
   ) {}
+
+  async listUnitCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HomestayUnitCandidateQueryDto
+  ): Promise<PaginatedResult<{ id: string; unitCode: string; unitName: string }>> {
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+    const itemAccessClause = allowedUnitIds === null ? "" : " AND unit.id = ANY($5::uuid[])";
+    const countAccessClause = allowedUnitIds === null ? "" : " AND unit.id = ANY($3::uuid[])";
+    const params = allowedUnitIds === null
+      ? [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size]
+      : [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size, allowedUnitIds];
+    const commonSql = (accessClause: string) => `
+      FROM biz_unit unit
+      JOIN biz_property_operation_config operation
+        ON operation.unit_id = unit.id
+       AND operation.tenant_id = unit.tenant_id
+       AND operation.park_id = unit.park_id
+       AND operation.is_deleted = false
+       AND operation.operating_mode = 'short_stay'
+       AND operation.operating_status = 'enabled'
+      WHERE unit.tenant_id = $1
+        AND unit.park_id = $2
+        AND unit.status = 1
+        AND unit.is_deleted = false${accessClause}`;
+    const [items, countRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+         ${commonSql(itemAccessClause)}
+         ORDER BY unit.unit_code ASC
+         LIMIT $3 OFFSET $4`,
+        params
+      ) as Promise<Array<{ id: string; unitCode: string; unitName: string }>>,
+      this.dataSource.query(
+        `SELECT count(*)::int AS total ${commonSql(countAccessClause)}`,
+        allowedUnitIds === null
+          ? [scope.tenantId, scope.parkId]
+          : [scope.tenantId, scope.parkId, allowedUnitIds]
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    const total = Number(countRows[0]?.total ?? 0);
+    return { items, total, page: query.page, page_size: query.page_size };
+  }
 
   async getRateCalendar(
     scope: TenantParkScope,
@@ -769,16 +817,32 @@ export class HomestayService {
     });
   }
 
-  async listTurnovers(scope: TenantParkScope, actor: JwtPrincipal, status?: string) {
+  async listTurnovers(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HomestayTurnoverQueryDto
+  ): Promise<PaginatedResult<HomestayTurnoverTaskEntity>> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && allowedUnitIds.length === 0) return [];
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
     const builder = this.turnoversRepository.createQueryBuilder("task")
       .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("task.is_deleted = false");
     if (allowedUnitIds !== null) builder.andWhere("task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
-    if (status) builder.andWhere("task.status = :status", { status });
-    return builder.orderBy("task.create_time", "ASC").getMany();
+    if (query.status === "open") {
+      builder.andWhere("task.status IN (:...statuses)", {
+        statuses: ["pending", "cleaning", "inspection", "exception"]
+      });
+    } else {
+      builder.andWhere("task.status = :status", { status: query.status });
+    }
+    const [items, total] = await builder.orderBy("task.create_time", "ASC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
+    return { items, total, page: query.page, page_size: query.page_size };
   }
 
   async executeTurnover(
@@ -1163,24 +1227,24 @@ export class HomestayService {
     turnoverTaskId: string,
     fileIds: string[]
   ): Promise<string[]> {
-    const ids = [...new Set(fileIds.map((fileId) => fileId.trim()).filter(Boolean))];
-    if (ids.length === 0) return [];
+    const requestedIds = [...new Set(fileIds.map((fileId) => fileId.trim()).filter(Boolean))];
     const files = await manager.getRepository(FileEntity).createQueryBuilder("file")
       .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("file.id IN (:...ids)", { ids })
       .andWhere("file.biz_type = :bizType", { bizType: "homestay_turnover" })
       .andWhere("file.biz_id = :turnoverTaskId", { turnoverTaskId })
       .andWhere("file.status = 1")
       .andWhere("file.is_deleted = false")
       .setLock("pessimistic_write")
       .getMany();
-    if (files.length !== ids.length) {
+    const associatedIds = files.map((file) => file.id);
+    const associatedIdSet = new Set(associatedIds);
+    if (requestedIds.some((fileId) => !associatedIdSet.has(fileId))) {
       throw new BadRequestException(
         "photo_file_ids must be active homestay_turnover files for this task in the current scope"
       );
     }
-    return ids;
+    return associatedIds;
   }
 
   private async voidIssuedCredentials(
