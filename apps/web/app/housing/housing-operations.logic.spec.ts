@@ -5,7 +5,10 @@ import test from "node:test";
 import {
   canRechargeHousingLease,
   canActivateHousingLease,
+  housingLeaseContextShouldClear,
   housingLeaseContextStillCurrent,
+  housingLeaseTenantLabel,
+  housingLeaseUnitLabel,
   housingLedgerChargeType,
   housingSelectionAfterLoad
 } from "./housing-operations.logic";
@@ -39,6 +42,21 @@ test("async lease completions apply only to their originating selection", () => 
   assert.equal(housingLeaseContextStillCurrent("", ""), false);
 });
 
+test("lease page changes clear stale detail context and use response-owned labels", () => {
+  assert.equal(housingLeaseContextShouldClear("lease-a", ["lease-a", "lease-b"]), false);
+  assert.equal(housingLeaseContextShouldClear("lease-a", ["lease-b"]), true);
+  assert.equal(housingLeaseContextShouldClear("", ["lease-b"]), false);
+  assert.equal(
+    housingLeaseUnitLabel({ unitId: "unit-1", unitCode: "A-101", unitName: "人才公寓 101" }),
+    "A-101 · 人才公寓 101"
+  );
+  assert.equal(housingLeaseUnitLabel({ unitId: "unit-1", unitCode: null, unitName: null }), "unit-1");
+  assert.equal(
+    housingLeaseTenantLabel({ tenantPartyId: "party-1", tenantDisplayName: "张三" }),
+    "张三"
+  );
+});
+
 test("purchase recharge is enabled only for collectible lease states", () => {
   assert.equal(canRechargeHousingLease("active"), true);
   assert.equal(canRechargeHousingLease("expiring"), true);
@@ -68,4 +86,23 @@ test("housing file-backed forms project domain and generic file permissions toge
   assert.match(client, /\{canUploadHandoverPhotos \? <FileUploader bizType="housing_handover"/);
   assert.match(client, /\{canManageRepairs \? <form onSubmit=\{createRepair\}>/);
   assert.match(client, /\{canManagePurchases \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
+});
+
+test("housing lease detail restores evidence and gates every mutation surface", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /biz_type=housing_lease_signature&biz_id=\$\{id\}/);
+  assert.match(client, /biz_type=housing_handover&biz_id=\$\{id\}/);
+  assert.match(client, /biz_type=housing_repair&biz_id=\$\{id\}/);
+  assert.match(client, /housingLeaseContextShouldClear\(/);
+  assert.match(client, /\{canManageTenants \? <form className="ds-panel" onSubmit=\{createTenant\}>/);
+  assert.match(client, /\{canCreateLeases \? <form className="ds-panel" onSubmit=\{createLease\}>/);
+  assert.match(client, /\{canCreateLeases \? <form onSubmit=\{saveChargePlan\}>/);
+  assert.match(client, /\{canGenerateBills \? <form onSubmit=\{generateBills\}>/);
+  assert.match(client, /detail\.finance_summary && canManageFinance/);
+  assert.match(client, /\{canTransferPurchases \? <form className="ds-panel" onSubmit=\{transferPurchase\}>/);
+  assert.match(client, /leaseSubmissionLock\.current/);
+  assert.match(client, /idempotencyKey: leaseSubmissionKey\.current!/);
+  assert.match(client, /housingLeaseUnitLabel\(lease\)/);
+  assert.match(client, /housingLeaseTenantLabel\(lease\)/);
 });

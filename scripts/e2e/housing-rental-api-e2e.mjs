@@ -162,6 +162,22 @@ async function run() {
     });
   }
 
+  await expectRequestStatus("/property/occupancies", 403, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      unit_id: unit.id,
+      source_domain: "housing_rental",
+      source_type: "housing_lease",
+      source_id: crypto.randomUUID(),
+      start_at: `${startDate}T00:00:00+08:00`,
+      end_at: `${endDate}T00:00:00+08:00`,
+      status: "active",
+      remark: "generic route must not forge a housing occupancy"
+    }
+  });
+
   await expectRequestStatus("/housing/tenants", 400, {
     method: "POST",
     token,
@@ -208,6 +224,11 @@ async function run() {
       tail_period_rule: "prorate"
     }
   });
+  const leasePage = await request("/housing/leases?page=1&page_size=100", { token });
+  const listedLease = leasePage.items.find((item) => item.id === lease.id);
+  assert(listedLease?.unitCode === unit.unitCode, "lease list owns its stable unit code");
+  assert(listedLease?.unitName === unit.unitName, "lease list owns its stable unit name");
+  assert(listedLease?.tenantDisplayName === tenant.displayName, "lease list owns its stable tenant label");
 
   await request(`/housing/leases/${lease.id}/submit`, { method: "POST", token, idempotent: true });
   await request(`/housing/leases/${lease.id}/approve`, {

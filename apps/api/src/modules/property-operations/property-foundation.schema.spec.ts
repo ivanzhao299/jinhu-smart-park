@@ -118,3 +118,12 @@ test("party document-type changes cannot retain an identity from the old documen
   assert.match(service, /entity\.identityNumberEncrypted = null/);
   assert.match(service, /entity\.identityNumberHash = null/);
 });
+
+test("generic occupancy creation rejects aggregates owned by business workflows", () => {
+  const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  const create = service.slice(service.indexOf("async create("), service.indexOf("async createInTransaction"));
+
+  assert.match(create, /"commercial_leasing", "housing_rental", "homestay"/);
+  assert.match(create, /throw new ForbiddenException\("Business-owned occupancies/);
+  assert.ok(create.indexOf("ForbiddenException") < create.indexOf("createInTransaction"));
+});

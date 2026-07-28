@@ -67,6 +67,14 @@ test("homestay dashboard occupancy follows the requested stay date", () => {
   assert.match(service, /booking\.status = 'checked_out'/);
   assert.match(service, /round\(COALESCE\(avg\(night\.final_rate\), 0\), 2\)::text/);
   assert.doesNotMatch(service, /Number\(rateSummary\?\.average_daily_rate/);
+  assert.match(service, /booking\.status IN \('confirmed','checked_in','checked_out'\)/);
+  assert.match(service, /JOIN biz_unit unit/);
+  assert.match(service, /unit\.is_deleted = false/);
+  assert.match(service, /unit\.status = 1/);
+  assert.match(
+    service,
+    /ON CONFLICT \(tenant_id, park_id, unit_id, business_date\) WHERE is_deleted = false/
+  );
 });
 
 test("homestay availability and check-in use current cross-domain truth", () => {

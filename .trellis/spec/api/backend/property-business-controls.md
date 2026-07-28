@@ -154,6 +154,22 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Turnover completion resolves evidence from the active `homestay_turnover` file
   associations stored by the backend. Client-supplied file IDs may narrow validation,
   but an empty list after refresh must not discard already associated evidence.
+- Every housing mutation form is mounted only when its exact domain-write permission
+  is present; button-level permission checks do not make an otherwise visible form
+  an acceptable read-only projection.
+- Lease-list responses own `unitCode`, `unitName`, and `tenantDisplayName`; display
+  labels must not depend on unrelated paginated candidate datasets.
+- A selected lease is cleared with all action/evidence context when the refreshed
+  lease page no longer contains it. Reloading a lease recovers active signature,
+  handover, and repair uploads from the authoritative file service.
+- Lease creation uses one synchronous in-flight lock and one stable idempotency key
+  per unchanged payload. An ambiguous failure retains the key.
+- Dated homestay rate overrides use one PostgreSQL `INSERT ... ON CONFLICT` statement
+  against the active unit/date unique key; read-then-insert is forbidden.
+- Homestay arrival KPIs retain bookings that arrived on the business date after those
+  bookings check out. Rentable capacity counts only active, non-deleted unit rows.
+- A refreshed homestay booking action panel remains open only for operational states
+  (`draft`, `confirmed`, `checked_in`); terminal states clear the entire action context.
 
 ## 4. Validation & Error Matrix
 
@@ -207,6 +223,13 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Generic park unit is not enabled for short stay | Exclude it from homestay unit candidates |
 | Turnover query requests `status=open` | Return only open workflow states with bounded pagination metadata |
 | Turnover completion follows a refresh and sends no file IDs | Recover active task-associated evidence before validating completion |
+| Housing lease page changes while a detail is selected | Clear detail and every pending action/evidence reference |
+| Housing operator lacks a mutation permission | Do not mount that mutation form or its candidate controls |
+| Lease creation is double-clicked or retried after an ambiguous failure | One in-flight request; unchanged payload reuses the original key |
+| Two operators write the same dated rate override | Atomic upsert; one active row for the unit/date |
+| Same-day arrival later checks out | Arrival KPI remains counted; occupied KPI follows checkout time |
+| Enabled short-stay config points to deleted/inactive unit | Exclude it from rentable capacity |
+| Booking refresh returns a terminal status | Clear preparation/action context |
 | Confirmed booking arrival date is still in the future | HTTP 409 on `no-show`; do not release occupancy |
 | Credential return is retried under another request key | Return the existing record without changing `returned_at` |
 | Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
@@ -293,6 +316,14 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   neither-permission combinations for every file-backed form or evidence list.
 - API/E2E: a turnover item returns its own `unitCode` and `unitName` even when that
   unit is outside the current candidate selector page.
+- API/E2E: a lease page returns its own unit and tenant labels independently of
+  candidate pages; generic occupancy creation cannot forge housing/homestay ownership.
+- Frontend: permission fixtures cover every mutation form, not only its submit button;
+  page changes and refresh/revisit recover or clear the full selected-lease context.
+- Unit/integration: concurrent dated override writes use atomic upsert; dashboard
+  status matrices cover confirmed, checked-in, checked-out, deleted, and inactive rows.
+- Frontend: double-click lease creation issues one request and ambiguous retry reuses
+  the same idempotency key; terminal booking refresh clears its action panel.
 
 ## 7. Wrong vs Correct
 

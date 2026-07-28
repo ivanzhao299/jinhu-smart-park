@@ -40,6 +40,10 @@ export function canMarkHomestayNoShow(arrivalDate: string, currentBusinessDate: 
   return arrivalDate <= currentBusinessDate;
 }
 
+export function isHomestayBookingOperational(status: string): boolean {
+  return ["draft", "confirmed", "checked_in"].includes(status);
+}
+
 export function homestayTurnoverUnitLabel(turnover: {
   unitId: string;
   unitCode: string | null;

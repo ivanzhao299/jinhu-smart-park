@@ -71,6 +71,12 @@ import {
   housingReceivableStatus
 } from "./housing-finance.policy";
 
+type HousingLeaseListItem = HousingLeaseEntity & {
+  unitCode: string | null;
+  unitName: string | null;
+  tenantDisplayName: string | null;
+};
+
 @Injectable()
 export class HousingService {
   constructor(
@@ -165,7 +171,7 @@ export class HousingService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HousingLeaseQueryDto
-  ): Promise<PaginatedResult<HousingLeaseEntity>> {
+  ): Promise<PaginatedResult<HousingLeaseListItem>> {
     const builder = this.leasesRepository.createQueryBuilder("lease")
       .where("lease.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("lease.park_id=:parkId", { parkId: scope.parkId })
@@ -178,10 +184,43 @@ export class HousingService {
     if (query.status) builder.andWhere("lease.status=:status", { status: query.status });
     if (query.unit_id) builder.andWhere("lease.unit_id=:unitId", { unitId: query.unit_id });
     if (query.tenant_party_id) builder.andWhere("lease.tenant_party_id=:partyId", { partyId: query.tenant_party_id });
-    const [items, total] = await builder.orderBy("lease.start_date", "DESC")
+    const [leases, total] = await builder.orderBy("lease.start_date", "DESC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
+    const displayRows = leases.length
+      ? await this.dataSource.query(
+        `SELECT lease.id,
+                unit.unit_code AS "unitCode",
+                unit.unit_name AS "unitName",
+                party.display_name AS "tenantDisplayName"
+         FROM biz_housing_lease lease
+         LEFT JOIN biz_unit unit
+           ON unit.id = lease.unit_id
+          AND unit.tenant_id = lease.tenant_id
+          AND unit.park_id = lease.park_id
+         LEFT JOIN biz_party party
+           ON party.id = lease.tenant_party_id
+          AND party.tenant_id = lease.tenant_id
+          AND party.park_id = lease.park_id
+         WHERE lease.tenant_id = $1
+           AND lease.park_id = $2
+           AND lease.id = ANY($3::uuid[])`,
+        [scope.tenantId, scope.parkId, leases.map((lease) => lease.id)]
+      ) as Array<{
+        id: string;
+        unitCode: string | null;
+        unitName: string | null;
+        tenantDisplayName: string | null;
+      }>
+      : [];
+    const displayByLease = new Map(displayRows.map((row) => [row.id, row]));
+    const items = leases.map((lease) => ({
+      ...lease,
+      unitCode: displayByLease.get(lease.id)?.unitCode ?? null,
+      unitName: displayByLease.get(lease.id)?.unitName ?? null,
+      tenantDisplayName: displayByLease.get(lease.id)?.tenantDisplayName ?? null
+    }));
     return { items, total, page: query.page, page_size: query.page_size };
   }
 

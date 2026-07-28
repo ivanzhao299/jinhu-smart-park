@@ -374,6 +374,23 @@ Create detailed flow docs when:
 
 ---
 
+## Sibling-Parity Release Gate
+
+When one review finding exposes a missing contract in a repeated workflow, audit every
+sibling before the next commit. Do not stop at the named line.
+
+- [ ] Enumerate all forms/endpoints on the same operational surface and map read,
+      create, transition, finance, file-read, and file-upload permissions.
+- [ ] Compare list, detail, refresh, pagination, revisit, and terminal-state behavior.
+- [ ] Compare every create/upsert path for synchronous submission locks, stable retry
+      keys, transaction locks, and database-owned uniqueness.
+- [ ] Build lifecycle matrices for KPIs and availability, including terminal,
+      deleted, inactive, and historical records.
+- [ ] Record which unit, integration, real API E2E, and desktop/390px checks cover
+      each row. A passing happy-path suite is not proof of sibling parity.
+
+---
+
 ## Event Log / Projection Boundary
 
 Append-only logs are cross-layer contracts. A single event travels through:

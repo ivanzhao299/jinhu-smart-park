@@ -256,6 +256,7 @@ async function run() {
     token,
     idempotent: true
   });
+  const checkedInDashboard = await request("/homestay/dashboard", { token });
   const returnedCredential = await request(`/homestay/bookings/${booking.id}/credentials/${credential.id}/return`, {
     method: "POST",
     token,
@@ -277,6 +278,11 @@ async function run() {
   assert(checkout.booking.status === "checked_out", "checkout completes after creating its turnover task");
   assert(checkout.turnover.status === "pending", "checkout returns the generated turnover task");
   assert(Boolean(checkout.turnover.occupancyId), "turnover task owns an active availability lock");
+  const checkedOutDashboard = await request("/homestay/dashboard", { token });
+  assert(
+    checkedOutDashboard.arrivals === checkedInDashboard.arrivals,
+    "same-day checkout retains the booking in the arrival KPI"
+  );
   const openTurnovers = await request("/homestay/turnovers?status=open&page=1&page_size=100", { token });
   assert(
     openTurnovers.items.some((turnover) => turnover.id === checkout.turnover.id),

@@ -29,6 +29,25 @@ export function housingLeaseContextStillCurrent(originatingLeaseId: string, curr
   return Boolean(originatingLeaseId) && originatingLeaseId === currentLeaseId;
 }
 
+export function housingLeaseContextShouldClear(selectedLeaseId: string, visibleLeaseIds: string[]): boolean {
+  return Boolean(selectedLeaseId) && !visibleLeaseIds.includes(selectedLeaseId);
+}
+
+export function housingLeaseUnitLabel(lease: {
+  unitId: string;
+  unitCode: string | null;
+  unitName: string | null;
+}): string {
+  return [lease.unitCode, lease.unitName].filter(Boolean).join(" · ") || lease.unitId;
+}
+
+export function housingLeaseTenantLabel(lease: {
+  tenantPartyId: string;
+  tenantDisplayName: string | null;
+}): string {
+  return lease.tenantDisplayName || lease.tenantPartyId;
+}
+
 export function canRechargeHousingLease(status: string | undefined): boolean {
   return Boolean(status && ["active", "expiring", "checkout_pending"].includes(status));
 }

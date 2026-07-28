@@ -72,6 +72,9 @@ export class PropertyOccupanciesService {
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePropertyOccupancyDto, idempotencyKey?: string) {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
+    if (["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)) {
+      throw new ForbiddenException("Business-owned occupancies must be created by their owning domain workflow");
+    }
     try {
       return await this.dataSource.transaction((manager) =>
         this.createInTransaction(manager, scope, actor, dto, idempotencyKey)

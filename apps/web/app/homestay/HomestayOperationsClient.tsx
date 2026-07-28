@@ -21,6 +21,7 @@ import {
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
+  isHomestayBookingOperational,
   type HomestayRateCalendar
 } from "./homestay-operations.logic";
 import styles from "./homestay-operations.module.css";
@@ -299,10 +300,10 @@ export function HomestayOperationsClient() {
           pageSize: bookingsResponse.data.page_size,
           total: bookingsResponse.data.total
         });
-        if (
-          selectedBookingIdRef.current
-          && !bookingsResponse.data.items.some((booking) => booking.id === selectedBookingIdRef.current)
-        ) {
+        const selectedBooking = bookingsResponse.data.items.find(
+          (booking) => booking.id === selectedBookingIdRef.current
+        );
+        if (selectedBookingIdRef.current && (!selectedBooking || !isHomestayBookingOperational(selectedBooking.status))) {
           clearBookingContext();
         }
       }

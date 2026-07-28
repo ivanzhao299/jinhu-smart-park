@@ -65,3 +65,55 @@ test("initial homestay rate configuration uses one atomic database upsert", asyn
   ]);
   assert.equal(result, expected);
 });
+
+test("dated homestay rate overrides use one atomic database upsert", async () => {
+  const events: string[] = [];
+  const expected = { id: "override-1", unitId: "unit-1", businessDate: "2026-08-01", dailyRate: "788.00" };
+  let statement = "";
+  let parameters: unknown[] = [];
+  const service = new HomestayService(
+    { findOne: async () => ({ id: "rate-1" }) } as never,
+    {
+      findOne: async () => {
+        events.push("read");
+        return expected;
+      }
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { assertAccess: async () => undefined } as never,
+    {
+      query: async (sql: string, values: unknown[]) => {
+        events.push("upsert");
+        statement = sql;
+        parameters = values;
+      }
+    } as never
+  );
+
+  const result = await service.upsertRateOverride(scope, actor, "unit-1", {
+    business_date: "2026-08-01",
+    daily_rate: "788.00",
+    reason: "周末价"
+  });
+
+  assert.deepEqual(events, ["upsert", "read"]);
+  assert.match(
+    statement,
+    /ON CONFLICT \(tenant_id, park_id, unit_id, business_date\) WHERE is_deleted = false/
+  );
+  assert.match(statement, /version = biz_homestay_rate_override\.version \+ 1/);
+  assert.deepEqual(parameters, [
+    scope.tenantId,
+    scope.parkId,
+    "unit-1",
+    "2026-08-01",
+    "788.00",
+    "周末价",
+    actor.sub
+  ]);
+  assert.equal(result, expected);
+});

@@ -43,6 +43,10 @@ Database owners:
 - An unfinished homestay turnover task keeps the unit unavailable even when a same-day arriving booking already owns the active occupancy and no separate turnover occupancy can be created.
 - Homestay availability reads both the shared occupancy ledger and active legacy commercial-contract relations before reporting a unit available.
 - All writes require `X-Idempotency-Key` and `IdempotencyInterceptor`.
+- Public generic occupancy creation accepts only genuinely generic ownership domains.
+  `commercial_leasing`, `housing_rental`, and `homestay` occupancies are created only
+  through their owning aggregate workflows, which may call the internal transactional
+  service after persisting and locking the source record.
 - Production requires stable `PARTY_DATA_ENCRYPTION_KEY` with at least 32 characters.
 
 ## 4. Validation & Error Matrix
@@ -63,6 +67,7 @@ Database owners:
 | Mode switch has future occupancy, contract, pending checkout, open work order, or unsettled receivable | HTTP 409 with check snapshot |
 | Unit, party, or occupancy belongs to another tenant/park | HTTP 404/403 without cross-scope data |
 | Sensitive party field requested without `party:sensitive_read` | Return masked projection only |
+| Generic occupancy route claims `commercial_leasing`, `housing_rental`, or `homestay` | HTTP 403 before any occupancy transaction |
 
 ## 5. Good / Base / Bad Cases
 
@@ -90,6 +95,8 @@ Database owners:
 - Integration: period replacement releases expired holds and observes a mode/status change made after the original occupancy was created.
 - Integration: availability remains unavailable for an overlapping active legacy commercial contract, including when the database session timezone is UTC.
 - Security: plaintext identity is absent from persistence and audit logs; authorized detail decrypts, normal detail masks.
+- API/E2E: the generic create route rejects every business-owned source domain while
+  legitimate aggregate workflows still create their scoped occupancy.
 
 ## 7. Wrong vs Correct
 

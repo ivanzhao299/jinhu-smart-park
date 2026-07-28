@@ -8,7 +8,8 @@ import {
   defaultHomestayRateForm,
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
-  homestayUnitSelectionAfterLoad
+  homestayUnitSelectionAfterLoad,
+  isHomestayBookingOperational
 } from "./homestay-operations.logic";
 
 test("homestay unit pagination keeps only a selection visible on the loaded page", () => {
@@ -23,6 +24,15 @@ test("operational pages clamp deleted-tail pages and gate no-show by business da
   assert.equal(clampPageToTotal(1, 20, 0), 1);
   assert.equal(canMarkHomestayNoShow("2026-07-29", "2026-07-28"), false);
   assert.equal(canMarkHomestayNoShow("2026-07-28", "2026-07-28"), true);
+});
+
+test("terminal homestay bookings cannot retain an action panel after refresh", () => {
+  assert.equal(isHomestayBookingOperational("draft"), true);
+  assert.equal(isHomestayBookingOperational("confirmed"), true);
+  assert.equal(isHomestayBookingOperational("checked_in"), true);
+  assert.equal(isHomestayBookingOperational("checked_out"), false);
+  assert.equal(isHomestayBookingOperational("cancelled"), false);
+  assert.equal(isHomestayBookingOperational("no_show"), false);
 });
 
 test("turnover labels come from their own response instead of candidate paging", () => {
@@ -87,6 +97,7 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /credentialReturnLock\.current/);
   assert.match(source, /idempotencyKey: credentialReturnKey\.current!/);
   assert.match(source, /canMarkHomestayNoShow\(booking\.arrivalDate, today\(\)\)/);
+  assert.match(source, /!selectedBooking \|\| !isHomestayBookingOperational\(selectedBooking\.status\)/);
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {

@@ -225,22 +225,33 @@ export class HomestayService {
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     await this.mustFindRate(scope, unitId);
     const businessDate = dto.business_date.slice(0, 10);
-    let entity = await this.overridesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, businessDate, isDeleted: false }
-    });
-    if (!entity) {
-      entity = this.overridesRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
+    await this.dataSource.query(
+      `INSERT INTO biz_homestay_rate_override (
+         tenant_id, park_id, unit_id, business_date, daily_rate, reason,
+         create_by, update_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+       ON CONFLICT (tenant_id, park_id, unit_id, business_date) WHERE is_deleted = false
+       DO UPDATE SET
+         daily_rate = EXCLUDED.daily_rate,
+         reason = EXCLUDED.reason,
+         update_by = EXCLUDED.update_by,
+         update_time = now(),
+         version = biz_homestay_rate_override.version + 1`,
+      [
+        scope.tenantId,
+        scope.parkId,
         unitId,
         businessDate,
-        createBy: actor.sub
-      });
-    }
-    entity.dailyRate = formatHomestayMoney(dto.daily_rate);
-    entity.reason = dto.reason.trim();
-    entity.updateBy = actor.sub;
-    return this.overridesRepository.save(entity);
+        formatHomestayMoney(dto.daily_rate),
+        dto.reason.trim(),
+        actor.sub
+      ]
+    );
+    const entity = await this.overridesRepository.findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, businessDate, isDeleted: false }
+    });
+    if (!entity) throw new NotFoundException("Homestay rate override not found after upsert");
+    return entity;
   }
 
   async listBookings(
@@ -979,7 +990,10 @@ export class HomestayService {
     if (allowedUnitIds !== null) parameters.push(allowedUnitIds);
     const [summary] = await this.dataSource.query(
       `SELECT
-         count(*) FILTER (WHERE booking.arrival_date = $3::date AND booking.status IN ('confirmed','checked_in'))::int AS arrivals,
+         count(*) FILTER (
+           WHERE booking.arrival_date = $3::date
+             AND booking.status IN ('confirmed','checked_in','checked_out')
+         )::int AS arrivals,
          count(*) FILTER (
            WHERE (booking.status = 'checked_in' AND booking.departure_date = $3::date)
               OR (booking.status = 'checked_out'
@@ -1021,9 +1035,15 @@ export class HomestayService {
     const modeUnitClause = allowedUnitIds === null ? "" : " AND config.unit_id = ANY($3::uuid[])";
     if (allowedUnitIds !== null) modeParameters.push(allowedUnitIds);
     const [capacity] = await this.dataSource.query(
-      `SELECT count(*)::int AS rentable_units
-       FROM biz_property_operation_config config
-       WHERE config.tenant_id = $1
+       `SELECT count(*)::int AS rentable_units
+        FROM biz_property_operation_config config
+        JOIN biz_unit unit
+          ON unit.id = config.unit_id
+         AND unit.tenant_id = config.tenant_id
+         AND unit.park_id = config.park_id
+         AND unit.is_deleted = false
+         AND unit.status = 1
+        WHERE config.tenant_id = $1
          AND config.park_id = $2
          AND config.is_deleted = false
          AND config.operating_mode = 'short_stay'

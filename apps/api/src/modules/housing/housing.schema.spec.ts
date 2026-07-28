@@ -73,3 +73,15 @@ test("housing billing and repair files preserve exact domain boundaries", () => 
   assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
   assert.match(service, /bizType: "housing_repair"/);
 });
+
+test("housing lease pages own stable unit and tenant display labels", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  const listLeases = service.slice(service.indexOf("async listLeases"), service.indexOf("async getLease"));
+
+  assert.match(listLeases, /unit\.unit_code AS "unitCode"/);
+  assert.match(listLeases, /unit\.unit_name AS "unitName"/);
+  assert.match(listLeases, /party\.display_name AS "tenantDisplayName"/);
+  assert.match(listLeases, /lease\.id = ANY\(\$3::uuid\[\]\)/);
+  assert.match(listLeases, /unitCode: displayByLease\.get\(lease\.id\)\?\.unitCode/);
+  assert.match(listLeases, /tenantDisplayName: displayByLease\.get\(lease\.id\)\?\.tenantDisplayName/);
+});
