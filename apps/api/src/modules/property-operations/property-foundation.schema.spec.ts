@@ -77,6 +77,14 @@ test("occupancy period replacement rechecks enabled operation and releases expir
   assert.match(replacePeriod, /config\?\.operatingStatus !== "enabled"/);
 });
 
+test("initial occupancy conflict checks do not null-filter commercial leases", () => {
+  const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  assert.match(
+    service,
+    /\$6::text IS NOT NULL AND \$7::text IS NOT NULL\s+AND \$6::text = 'leasing_contract'/
+  );
+});
+
 test("party document-type changes cannot retain an identity from the old document type", () => {
   const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
   assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);

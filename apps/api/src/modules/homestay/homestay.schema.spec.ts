@@ -52,6 +52,8 @@ test("homestay dashboard occupancy follows the requested stay date", () => {
   assert.doesNotMatch(service, /FILTER \(WHERE booking\.status = 'checked_in'\)::int AS occupied/);
   assert.match(service, /booking\.actual_check_out_time AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(service, /booking\.status = 'checked_out'/);
+  assert.match(service, /round\(COALESCE\(avg\(night\.final_rate\), 0\), 2\)::text/);
+  assert.doesNotMatch(service, /Number\(rateSummary\?\.average_daily_rate/);
 });
 
 test("homestay availability and check-in use current cross-domain truth", () => {
@@ -82,12 +84,28 @@ test("booking cancellation revokes credentials before releasing occupancy", () =
   const cancelStart = service.indexOf("async cancelBooking");
   const issueStart = service.indexOf("async issueCredential");
   const cancellation = service.slice(cancelStart, issueStart);
-  assert.match(cancellation, /status: "issued"/);
-  assert.match(cancellation, /status: "void"/);
-  assert.ok(cancellation.indexOf('status: "void"') < cancellation.indexOf("releaseInTransaction"));
+  assert.match(cancellation, /voidIssuedCredentials\(manager, scope, actor, id\)/);
+  assert.ok(cancellation.indexOf("voidIssuedCredentials") < cancellation.indexOf("releaseInTransaction"));
 
   const issueEnd = service.indexOf("async returnCredential");
   const issuance = service.slice(issueStart, issueEnd);
   assert.match(issuance, /this\.dataSource\.transaction/);
   assert.match(issuance, /this\.lockBooking\(manager, scope, bookingId\)/);
+});
+
+test("no-show revokes issued credentials before releasing occupancy", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const noShow = service.slice(service.indexOf("async markNoShow"), service.indexOf("async cancelBooking"));
+  assert.match(noShow, /voidIssuedCredentials\(manager, scope, actor, id\)/);
+  assert.ok(noShow.indexOf("voidIssuedCredentials") < noShow.indexOf("releaseInTransaction"));
+});
+
+test("turnover evidence is locked in the same transaction that binds it", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const resolver = service.slice(
+    service.indexOf("private async resolveTurnoverPhotoFileIds"),
+    service.indexOf("private async voidIssuedCredentials")
+  );
+  assert.match(resolver, /manager\.getRepository\(FileEntity\)/);
+  assert.match(resolver, /\.setLock\("pessimistic_write"\)/);
 });

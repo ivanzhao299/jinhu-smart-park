@@ -564,8 +564,8 @@ export function HousingOperationsClient() {
         charge_plan_id: billForm.chargePlanId,
         period_start: billForm.periodStart,
         period_end: billForm.periodEnd,
-        opening_reading: selectedPlan?.billingSource === "energy_meter" ? Number(billForm.openingReading) : undefined,
-        closing_reading: selectedPlan?.billingSource === "energy_meter" ? Number(billForm.closingReading) : undefined,
+        opening_reading: selectedPlan?.billingSource === "energy_meter" ? billForm.openingReading : undefined,
+        closing_reading: selectedPlan?.billingSource === "energy_meter" ? billForm.closingReading : undefined,
         manual_amount: selectedPlan?.billingSource === "manual" ? billForm.manualAmount : undefined,
         reason: "运营人员生成周期账单"
       }

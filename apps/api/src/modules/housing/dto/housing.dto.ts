@@ -8,7 +8,6 @@ import {
   IsDefined,
   IsIn,
   IsInt,
-  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -105,8 +104,8 @@ export class GenerateHousingBillsDto {
   @IsDateString() period_start!: string;
   @IsDateString() period_end!: string;
   @IsUUID() charge_plan_id!: string;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) opening_reading?: number;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) closing_reading?: number;
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/) opening_reading?: string;
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/) closing_reading?: string;
   @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) manual_amount?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) reason?: string;
 }

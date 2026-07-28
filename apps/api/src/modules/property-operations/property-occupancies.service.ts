@@ -346,7 +346,10 @@ export class PropertyOccupanciesService {
          AND contract.is_deleted = false AND contract.status NOT IN ('90', '91')
          AND (relation.start_date::timestamp AT TIME ZONE 'Asia/Shanghai') < $5::timestamptz
          AND ((relation.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai') > $4::timestamptz
-         AND NOT ($6::text = 'leasing_contract' AND contract.id::text = $7::text)
+          AND NOT (
+            $6::text IS NOT NULL AND $7::text IS NOT NULL
+            AND $6::text = 'leasing_contract' AND contract.id::text = $7::text
+          )
        ORDER BY start_at`,
       [scope.tenantId, scope.parkId, unitId, startAt.toISOString(), endAt.toISOString(), exclude?.sourceType ?? null, exclude?.sourceId ?? null]
     ) as Promise<AvailabilityConflict[]>;

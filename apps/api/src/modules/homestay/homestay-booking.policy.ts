@@ -2,12 +2,26 @@ import { BadRequestException, ConflictException } from "@nestjs/common";
 
 const BUSINESS_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-export function toMoneyCents(value: string | number): number {
-  return Math.round(Number(value) * 100);
+export function toMoneyCents(value: string | number): bigint {
+  const match = value.toString().match(/^(-?)(\d+)(?:\.(\d{1,2}))?$/);
+  if (!match) throw new BadRequestException("Invalid homestay money amount");
+  const fraction = (match[3] ?? "").padEnd(2, "0");
+  const cents = BigInt(match[2]!) * 100n + BigInt(fraction || "0");
+  return match[1] === "-" ? -cents : cents;
 }
 
-export function homestayMoneyDifference(currentValue: string | number, previousValue: string | number): number {
-  return (toMoneyCents(currentValue) - toMoneyCents(previousValue)) / 100;
+export function formatMoneyCents(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  return `${sign}${absolute / 100n}.${(absolute % 100n).toString().padStart(2, "0")}`;
+}
+
+export function formatHomestayMoney(value: string | number): string {
+  return formatMoneyCents(toMoneyCents(value));
+}
+
+export function homestayMoneyDifference(currentValue: string | number, previousValue: string | number): string {
+  return formatMoneyCents(toMoneyCents(currentValue) - toMoneyCents(previousValue));
 }
 
 export function assertHomestayCheckInWindow(

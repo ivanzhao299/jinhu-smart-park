@@ -128,10 +128,19 @@ test("purchase recharge is limited to collectible lease lifecycles", () => {
 test("energy meter charges apply the configured multiplier to usage and amount", () => {
   assert.deepEqual(
     calculateHousingMeterCharge(120, 135, 2.5, 0.8),
-    { usageAmount: 37.5, amount: 30 }
+    { usageAmount: "37.500000", amount: "30.00" }
   );
   assert.throws(() => calculateHousingMeterCharge(135, 120, 2.5, 0.8));
   assert.throws(() => calculateHousingMeterCharge(120, 135, 0, 0.8));
+  assert.deepEqual(
+    calculateHousingMeterCharge(
+      "999999999999.000001",
+      "999999999999.000002",
+      "1.000000",
+      "999999999999.000000"
+    ),
+    { usageAmount: "0.000001", amount: "1000000.00" }
+  );
 });
 
 test("receivable reuse includes the source identity used by the database uniqueness key", () => {
@@ -153,4 +162,13 @@ test("housing service revalidates meter state and makes completed handover retri
   );
   assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
   assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
+});
+
+test("housing repair binds evidence under the same file-row lock transaction", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  const repair = service.slice(service.indexOf("async createRepair"), service.indexOf("async checkoutLease"));
+  assert.match(repair, /this\.dataSource\.transaction\(async \(manager\)/);
+  assert.match(repair, /this\.assertFiles\(manager/);
+  assert.doesNotMatch(repair, /lock:\s*false/);
+  assert.match(repair, /this\.workOrdersService\.create\([\s\S]*manager\)/);
 });

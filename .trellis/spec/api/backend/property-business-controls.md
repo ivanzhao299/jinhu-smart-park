@@ -64,6 +64,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - The first generated rent receivable uses `first_due_date`; later periods derive their due date from the configured billing day.
 - Energy-meter charge plans and bill generation accept only enabled meters whose operational status is exactly `ONLINE`, in the same tenant, park, and housing unit as the lease.
 - Energy-meter usage and charge amounts both apply the meter multiplier to the raw reading difference.
+- Meter readings, multipliers, unit prices, usage, and charges remain decimal strings
+  or scaled integers throughout calculation; large readings with small increments
+  must not collapse through JavaScript floating-point conversion.
 - Duplicate housing purchase codes are translated from database unique violations to HTTP 409.
 - Dashboard finance and purchase aggregates are queried and returned only when the actor has the corresponding granular read permission.
 - Activating a previously held occupancy revalidates current unit scope, operating mode, and operating status inside the activation transaction.
@@ -88,11 +91,18 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   and later converting persisted values to `number` is prohibited.
 - Cancelling a homestay booking atomically voids every issued credential before its
   occupancy is released. Credential issuance locks the same booking row as cancellation.
+- Marking a homestay booking as no-show follows the same credential rule as cancellation:
+  atomically void issued credentials before releasing occupancy.
+- Homestay rates, room totals, ledger amounts, summaries, refund limits, waivers, and
+  cancellation adjustments remain decimal strings or scaled integer cents across HTTP,
+  service calculations, persistence, and frontend submissions.
 - A housing purchase with transferred lines cannot be refunded or voided until an
   explicit audited reversal workflow clears those transfers.
 - A protected file already referenced by a lease signature, completed handover,
   housing repair work order, purchase, or turnover task cannot be deleted through the
   generic file endpoint.
+- Initial occupancy conflict checks include active commercial contracts when no source
+  exclusion is supplied; SQL exclusion predicates must be null-safe.
 
 ## 4. Validation & Error Matrix
 
@@ -131,6 +141,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Energy-meter plan omits meter or unit price | HTTP 400 |
 | Settlement uses a JSON number instead of an exact decimal string | HTTP 400 |
 | Booking cancellation finds issued credentials | Atomically void credentials, then release occupancy |
+| Booking no-show finds issued credentials | Atomically void credentials, then release occupancy |
+| Commercial conflict query has no exclusion source | Commercial contracts remain visible to the conflict check |
+| Meter reading differs by `0.000001` near the numeric limit | Preserve usage and charge exactly without floating-point collapse |
+| Homestay ledger amount exceeds JavaScript safe-cent range | Preserve exact cents through validation, limits, summary, and persistence |
 | Purchase with transferred lines is refunded | HTTP 409 |
 | Generic deletion targets referenced protected evidence | HTTP 409 |
 
@@ -172,6 +186,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Unit/integration: fixed rent proration uses exact fractions and preserves cents above JavaScript's safe integer range.
 - Integration: guest registration locks the booking against cancellation, no-show, and checkout.
 - Integration: housing repair and project-wide purchase attachments enforce their business permission and property data scope.
+- Integration: protected evidence binding and generic deletion acquire the same file-row
+  lock inside the transaction that writes or checks the business reference.
+- Unit/integration: every booking terminal transition that releases occupancy first
+  revokes issued credentials.
+- Unit: homestay ledger and meter calculations cover values above JavaScript safe
+  integer precision plus minimum persisted reading increments.
 - DTO/unit: charge-plan source fields are conditionally required and settlement values
   preserve the final cent near the `numeric(18,2)` boundary.
 - Integration: cancellation and concurrent credential issuance serialize on the booking

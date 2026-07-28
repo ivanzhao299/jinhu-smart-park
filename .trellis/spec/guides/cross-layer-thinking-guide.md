@@ -141,6 +141,12 @@ action against every state and sibling entry point before implementation:
       preserving the stored string is insufficient if a later calculation converts it
 - [ ] Generic infrastructure records use a domain-specific protected type whenever
       their authorization is narrower than the generic workflow
+- [ ] Both sides of a cross-aggregate reference invariant use the same row-lock order
+      and keep validation plus reference mutation in one transaction
+- [ ] Every sibling terminal transition applies the same dependent-resource cleanup
+      before releasing or closing the parent resource
+- [ ] SQL optional-exclusion predicates have explicit null cases and are tested both
+      with and without exclusions
 
 Add behavioral tests for both the allowed transition and its nearest forbidden
 neighbor. Source-pattern assertions may supplement, but not replace, these tests.

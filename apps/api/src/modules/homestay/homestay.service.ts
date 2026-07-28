@@ -46,6 +46,8 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
+  formatHomestayMoney,
+  formatMoneyCents,
   homestayMoneyDifference,
   toMoneyCents,
   turnoverLockEnd
@@ -124,7 +126,7 @@ export class HomestayService {
 
   async upsertRate(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: UpsertHomestayRateDto) {
     await this.unitAccessService.assertAccess(scope, actor, unitId);
-    if (dto.late_cancel_fee_type === "percentage" && dto.late_cancel_fee_value > 100) {
+    if (dto.late_cancel_fee_type === "percentage" && toMoneyCents(dto.late_cancel_fee_value) > 10_000n) {
       throw new BadRequestException("Percentage cancellation fee cannot exceed 100");
     }
     let entity = await this.ratesRepository.findOne({
@@ -138,11 +140,11 @@ export class HomestayService {
         createBy: actor.sub
       });
     }
-    entity.baseDailyRate = dto.base_daily_rate.toFixed(2);
+    entity.baseDailyRate = formatHomestayMoney(dto.base_daily_rate);
     entity.currency = "CNY";
     entity.freeCancelBeforeHours = dto.free_cancel_before_hours;
     entity.lateCancelFeeType = dto.late_cancel_fee_type;
-    entity.lateCancelFeeValue = dto.late_cancel_fee_value.toFixed(2);
+    entity.lateCancelFeeValue = formatHomestayMoney(dto.late_cancel_fee_value);
     entity.checkoutRequiresInspection = dto.checkout_requires_inspection;
     entity.updateBy = actor.sub;
     return this.ratesRepository.save(entity);
@@ -169,7 +171,7 @@ export class HomestayService {
         createBy: actor.sub
       });
     }
-    entity.dailyRate = dto.daily_rate.toFixed(2);
+    entity.dailyRate = formatHomestayMoney(dto.daily_rate);
     entity.reason = dto.reason.trim();
     entity.updateBy = actor.sub;
     return this.overridesRepository.save(entity);
@@ -284,9 +286,9 @@ export class HomestayService {
           channelSyncStatus: dto.source_type === "ota_reserved" ? "reserved_not_connected" : "not_applicable",
           guestCount: dto.guest_count,
           currency: pricing.config.currency,
-          roomAmount: pricing.total.toFixed(2),
+          roomAmount: pricing.total,
           adjustmentAmount: "0.00",
-          totalAmount: pricing.total.toFixed(2),
+          totalAmount: pricing.total,
           cancellationPolicySnapshot: this.cancellationSnapshot(pricing.config),
           createBy: actor.sub,
           updateBy: actor.sub,
@@ -343,11 +345,11 @@ export class HomestayService {
       booking.status = "confirmed";
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      if (Number(saved.roomAmount) > 0) {
+      if (toMoneyCents(saved.roomAmount) > 0n) {
         await this.createLedgerEntry(manager, scope, actor, saved.id, {
           entry_type: "charge",
           charge_type: "room",
-          amount: Number(saved.roomAmount),
+          amount: saved.roomAmount,
           reason: "订单确认自动生成房费应收"
         });
       }
@@ -362,6 +364,7 @@ export class HomestayService {
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "no_show") return booking;
       this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can be marked as no-show");
+      const revokedCredentials = await this.voidIssuedCredentials(manager, scope, actor, id);
       if (booking.occupancyId) {
         await this.propertyOccupanciesService.releaseInTransaction(
           manager,
@@ -377,7 +380,9 @@ export class HomestayService {
       booking.noShowAt = new Date();
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.log(manager, scope, actor, saved, "no_show", before, saved.status, reason);
+      await this.log(manager, scope, actor, saved, "no_show", before, saved.status, reason, {
+        revoked_credentials: revokedCredentials
+      });
       return saved;
     });
   }
@@ -386,23 +391,11 @@ export class HomestayService {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      const revokedCredentials = await manager.getRepository(HomestayStayCredentialEntity).update(
-        {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bookingId: id,
-          status: "issued",
-          isDeleted: false
-        },
-        {
-          status: "void",
-          updateBy: actor.sub
-        }
-      );
+      const revokedCredentials = await this.voidIssuedCredentials(manager, scope, actor, id);
       if (booking.status === "cancelled") return booking;
       this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
       const before = booking.status;
-      const cancellationFee = before === "confirmed" ? this.calculateCancellationFee(booking) : 0;
+      const cancellationFee = before === "confirmed" ? this.calculateCancellationFee(booking) : "0.00";
       if (booking.occupancyId) {
         await this.propertyOccupanciesService.releaseInTransaction(
           manager,
@@ -429,7 +422,7 @@ export class HomestayService {
           }
         });
         const cancellableRoomCharge = calculateCancellableRoomCharge(ledger);
-        if (cancellableRoomCharge > 0.005) {
+        if (toMoneyCents(cancellableRoomCharge) > 0n) {
           await this.createLedgerEntry(manager, scope, actor, saved.id, {
             entry_type: "waiver",
             charge_type: "room_cancellation",
@@ -438,7 +431,7 @@ export class HomestayService {
           });
         }
       }
-      if (cancellationFee > 0) {
+      if (toMoneyCents(cancellationFee) > 0n) {
         await this.createLedgerEntry(manager, scope, actor, saved.id, {
           entry_type: "charge",
           charge_type: "cancellation_fee",
@@ -448,7 +441,7 @@ export class HomestayService {
       }
       await this.log(manager, scope, actor, saved, "cancel", before, saved.status, reason, {
         cancellation_fee: cancellationFee,
-        revoked_credentials: revokedCredentials.affected ?? 0
+        revoked_credentials: revokedCredentials
       });
       return saved;
     });
@@ -496,21 +489,22 @@ export class HomestayService {
           updateBy: actor.sub
         }))
       );
-      const previousAmount = Number(booking.roomAmount);
+      const previousAmount = booking.roomAmount;
       const difference = homestayMoneyDifference(pricing.total, previousAmount);
+      const differenceCents = toMoneyCents(difference);
       booking.arrivalDate = pricing.arrivalDate;
       booking.departureDate = pricing.departureDate;
       booking.occupancyId = occupancy.id;
-      booking.roomAmount = pricing.total.toFixed(2);
-      booking.adjustmentAmount = difference.toFixed(2);
-      booking.totalAmount = pricing.total.toFixed(2);
+      booking.roomAmount = pricing.total;
+      booking.adjustmentAmount = difference;
+      booking.totalAmount = pricing.total;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      if (booking.status === "confirmed" && difference !== 0) {
+      if (booking.status === "confirmed" && differenceCents !== 0n) {
         await this.createLedgerEntry(manager, scope, actor, saved.id, {
-          entry_type: difference > 0 ? "charge" : "waiver",
-          charge_type: difference > 0 ? "reschedule_increase" : "reschedule_decrease",
-          amount: Math.abs(difference),
+          entry_type: differenceCents > 0n ? "charge" : "waiver",
+          charge_type: differenceCents > 0n ? "reschedule_increase" : "reschedule_decrease",
+          amount: formatMoneyCents(differenceCents < 0n ? -differenceCents : differenceCents),
           reason: `订单改期差价：${dto.reason}`
         });
       }
@@ -830,7 +824,7 @@ export class HomestayService {
       if (dto.assignee_id) task.assigneeId = dto.assignee_id;
       if (dto.assignee_name?.trim()) task.assigneeName = dto.assignee_name.trim();
       if (dto.photo_file_ids) {
-        task.photoFileIds = await this.resolveTurnoverPhotoFileIds(scope, task.id, dto.photo_file_ids);
+        task.photoFileIds = await this.resolveTurnoverPhotoFileIds(manager, scope, task.id, dto.photo_file_ids);
       }
       if (dto.consumables) task.consumables = dto.consumables;
       if (dto.linked_work_order_id) {
@@ -928,7 +922,7 @@ export class HomestayService {
       modeParameters
     ) as Array<{ rentable_units: number }>;
     const [rateSummary] = await this.dataSource.query(
-      `SELECT COALESCE(avg(night.final_rate), 0)::text AS average_daily_rate
+      `SELECT round(COALESCE(avg(night.final_rate), 0), 2)::text AS average_daily_rate
        FROM biz_homestay_booking_night night
        JOIN biz_homestay_booking booking ON booking.id = night.booking_id
        WHERE night.tenant_id = $1
@@ -954,7 +948,7 @@ export class HomestayService {
       occupied,
       rentable_units: rentableUnits,
       occupancy_rate: rentableUnits > 0 ? ((occupied / rentableUnits) * 100).toFixed(2) : "0.00",
-      average_daily_rate: Number(rateSummary?.average_daily_rate ?? 0).toFixed(2),
+      average_daily_rate: formatHomestayMoney(rateSummary?.average_daily_rate ?? "0"),
       pending_turnovers: pendingTurnovers,
       ...(canReadFinance ? { revenue: finance?.revenue ?? "0.00" } : {})
     };
@@ -1078,7 +1072,7 @@ export class HomestayService {
       departureDate,
       config,
       nights,
-      total: nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0) / 100
+       total: formatMoneyCents(nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0n))
     };
   }
 
@@ -1111,15 +1105,15 @@ export class HomestayService {
     };
   }
 
-  private calculateCancellationFee(booking: HomestayBookingEntity): number {
+  private calculateCancellationFee(booking: HomestayBookingEntity): string {
     const policy = booking.cancellationPolicySnapshot;
     const hours = Number(policy.free_cancel_before_hours ?? 0);
     const cutoff = this.businessDateStart(booking.arrivalDate).getTime() - hours * 60 * 60_000;
-    if (Date.now() <= cutoff) return 0;
-    const value = Number(policy.late_cancel_fee_value ?? 0);
-    return policy.late_cancel_fee_type === "percentage"
-      ? Math.round(Number(booking.roomAmount) * value) / 100
-      : value;
+    if (Date.now() <= cutoff) return "0.00";
+    const value = formatHomestayMoney(String(policy.late_cancel_fee_value ?? "0"));
+    if (policy.late_cancel_fee_type !== "percentage") return value;
+    const numerator = toMoneyCents(booking.roomAmount) * toMoneyCents(value);
+    return formatMoneyCents((numerator + 5_000n) / 10_000n);
   }
 
   private async createLedgerEntry(
@@ -1136,7 +1130,7 @@ export class HomestayService {
       bookingId,
       entryType: dto.entry_type,
       chargeType: dto.charge_type.trim(),
-      amount: dto.amount.toFixed(2),
+      amount: formatHomestayMoney(dto.amount),
       paymentMethod: dto.payment_method?.trim() ?? null,
       paymentChannel: dto.payment_channel?.trim() ?? null,
       transactionReference: dto.transaction_reference?.trim() ?? null,
@@ -1149,13 +1143,14 @@ export class HomestayService {
   }
 
   private async resolveTurnoverPhotoFileIds(
+    manager: EntityManager,
     scope: TenantParkScope,
     turnoverTaskId: string,
     fileIds: string[]
   ): Promise<string[]> {
     const ids = [...new Set(fileIds.map((fileId) => fileId.trim()).filter(Boolean))];
     if (ids.length === 0) return [];
-    const count = await this.filesRepository.createQueryBuilder("file")
+    const files = await manager.getRepository(FileEntity).createQueryBuilder("file")
       .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("file.id IN (:...ids)", { ids })
@@ -1163,13 +1158,36 @@ export class HomestayService {
       .andWhere("file.biz_id = :turnoverTaskId", { turnoverTaskId })
       .andWhere("file.status = 1")
       .andWhere("file.is_deleted = false")
-      .getCount();
-    if (count !== ids.length) {
+      .setLock("pessimistic_write")
+      .getMany();
+    if (files.length !== ids.length) {
       throw new BadRequestException(
         "photo_file_ids must be active homestay_turnover files for this task in the current scope"
       );
     }
     return ids;
+  }
+
+  private async voidIssuedCredentials(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string
+  ): Promise<number> {
+    const result = await manager.getRepository(HomestayStayCredentialEntity).update(
+      {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        bookingId,
+        status: "issued",
+        isDeleted: false
+      },
+      {
+        status: "void",
+        updateBy: actor.sub
+      }
+    );
+    return result.affected ?? 0;
   }
 
   private async lockBooking(manager: EntityManager, scope: TenantParkScope, id: string) {

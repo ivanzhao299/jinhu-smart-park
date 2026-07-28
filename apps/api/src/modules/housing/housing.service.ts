@@ -63,6 +63,7 @@ import {
   calculateHousingDepositBalance,
   calculateHousingMoneyBalance,
   calculateHousingMeterCharge,
+  formatHousingDecimal,
   calculateHousingPurchaseAmounts,
   compareHousingMoney,
   formatHousingMoney,
@@ -586,7 +587,7 @@ export class HousingService {
         openingReading: dto.opening_reading,
         closingReading: dto.closing_reading,
         usageAmount: calculation.usageAmount,
-        unitPrice: plan.unitPrice === null ? undefined : Number(plan.unitPrice),
+        unitPrice: plan.unitPrice ?? undefined,
         remark: dto.reason
       })];
     });
@@ -853,29 +854,30 @@ export class HousingService {
     leaseId: string,
     dto: CreateHousingRepairDto
   ) {
-    const lease = await this.mustLease(this.dataSource.manager, scope, leaseId);
-    await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-    this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-    await this.assertFiles(this.dataSource.manager, scope, dto.image_file_ids ?? [], {
-      allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
-      bizType: "housing_repair",
-      bizId: lease.id,
-      lock: false
-    });
-    const tenant = await this.mustParty(this.dataSource.manager, scope, lease.tenantPartyId);
-    return this.workOrdersService.create(scope, actor, {
-      title: dto.title,
-      wo_type: "repair",
-      priority: dto.priority,
-      urgency: dto.urgency,
-      source_type: "tenant_request",
-      source_id: lease.id,
-      unit_id: lease.unitId,
-      reporter_name: tenant.displayName,
-      reporter_mobile: tenant.mobile ?? undefined,
-      description: dto.description,
-      image_file_ids: dto.image_file_ids,
-      remark: dto.remark ?? `住房租约 ${lease.leaseCode} 代录报修`
+    return this.dataSource.transaction(async (manager) => {
+      const lease = await this.lockLease(manager, scope, leaseId);
+      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      await this.assertFiles(manager, scope, dto.image_file_ids ?? [], {
+        allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
+        bizType: "housing_repair",
+        bizId: lease.id
+      });
+      const tenant = await this.mustParty(manager, scope, lease.tenantPartyId);
+      return this.workOrdersService.create(scope, actor, {
+        title: dto.title,
+        wo_type: "repair",
+        priority: dto.priority,
+        urgency: dto.urgency,
+        source_type: "tenant_request",
+        source_id: lease.id,
+        unit_id: lease.unitId,
+        reporter_name: tenant.displayName,
+        reporter_mobile: tenant.mobile ?? undefined,
+        description: dto.description,
+        image_file_ids: dto.image_file_ids,
+        remark: dto.remark ?? `住房租约 ${lease.leaseCode} 代录报修`
+      }, manager);
     });
   }
 
@@ -1263,8 +1265,8 @@ export class HousingService {
       const calculation = calculateHousingMeterCharge(
         dto.opening_reading,
         dto.closing_reading,
-        Number(meter?.multiplier),
-        Number(plan.unitPrice ?? 0)
+        meter?.multiplier ?? "0",
+        plan.unitPrice ?? "0"
       );
       return calculation;
     }
@@ -1296,10 +1298,10 @@ export class HousingService {
       periodEnd: string;
       dueDate: string;
       amount: string | number;
-      openingReading?: number;
-      closingReading?: number;
-      usageAmount?: number;
-      unitPrice?: number;
+      openingReading?: string | number;
+      closingReading?: string | number;
+      usageAmount?: string | number;
+      unitPrice?: string | number;
       remark?: string;
       accumulateIfExisting?: boolean;
     }
@@ -1339,10 +1341,10 @@ export class HousingService {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       dueDate: input.dueDate,
-      openingReading: input.openingReading === undefined ? null : input.openingReading.toFixed(6),
-      closingReading: input.closingReading === undefined ? null : input.closingReading.toFixed(6),
-      usageAmount: input.usageAmount === undefined ? null : input.usageAmount.toFixed(6),
-      unitPrice: input.unitPrice === undefined ? null : input.unitPrice.toFixed(6),
+      openingReading: input.openingReading === undefined ? null : formatHousingDecimal(input.openingReading),
+      closingReading: input.closingReading === undefined ? null : formatHousingDecimal(input.closingReading),
+      usageAmount: input.usageAmount === undefined ? null : formatHousingDecimal(input.usageAmount),
+      unitPrice: input.unitPrice === undefined ? null : formatHousingDecimal(input.unitPrice),
       amount: formatHousingMoney(input.amount),
       paidAmount: "0.00",
       waivedAmount: "0.00",

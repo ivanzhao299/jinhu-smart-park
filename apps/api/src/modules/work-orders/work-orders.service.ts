@@ -453,12 +453,17 @@ export class WorkOrdersService {
     return saved;
   }
 
-  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateWorkOrderDto): Promise<WorkOrderEntity> {
+  async create(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreateWorkOrderDto,
+    transactionManager?: EntityManager
+  ): Promise<WorkOrderEntity> {
     await this.validateDictionaryValues(scope, dto.wo_type, dto.priority, dto.urgency, dto.source_type ?? WORK_ORDER_SOURCE_MANUAL, WORK_ORDER_STATUS_SUBMITTED);
     await this.validateOptionalParkTenant(scope, dto.park_tenant_id);
     const location = await this.resolveLocation(scope, dto.unit_id, dto.building_id, dto.floor_id, dto.room_label);
-    await this.validateFileIds(scope, dto.image_file_ids ?? []);
-    await this.validateFileIds(scope, dto.video_file_ids ?? []);
+    await this.validateFileIds(scope, dto.image_file_ids ?? [], transactionManager);
+    await this.validateFileIds(scope, dto.video_file_ids ?? [], transactionManager);
     const woCode = await this.resolveWorkOrderCode(scope, actor.sub, dto.wo_code);
     await this.assertWorkOrderCodeAvailable(scope, woCode);
     const matchedSla = await this.resolveSlaSettings(scope, dto.wo_type, dto.urgency, dto.priority);
@@ -501,11 +506,14 @@ export class WorkOrdersService {
       createBy: actor.sub,
       updateBy: actor.sub
     });
-    let saved!: WorkOrderEntity;
-    await this.workOrdersRepository.manager.transaction(async (manager) => {
-      saved = await manager.getRepository(WorkOrderEntity).save(entity);
+    const persist = async (manager: EntityManager) => {
+      const saved = await manager.getRepository(WorkOrderEntity).save(entity);
       await this.createWorkOrderLog(scope, actor, saved, "create", null, saved.status, "手工创建工单", manager.getRepository(WorkOrderLogEntity));
-    });
+      return saved;
+    };
+    const saved = transactionManager
+      ? await persist(transactionManager)
+      : await this.workOrdersRepository.manager.transaction(persist);
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "workorder", "work_order", saved);
   }
 
@@ -1156,18 +1164,23 @@ export class WorkOrdersService {
     }
   }
 
-  private async validateFileIds(scope: TenantParkScope, fileIds: string[]): Promise<void> {
+  private async validateFileIds(
+    scope: TenantParkScope,
+    fileIds: string[],
+    transactionManager?: EntityManager
+  ): Promise<void> {
     if (fileIds.length === 0) return;
     const uniqueFileIds = [...new Set(fileIds)];
-    const count = await this.filesRepository
+    const builder = (transactionManager?.getRepository(FileEntity) ?? this.filesRepository)
       .createQueryBuilder("file")
       .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("file.is_deleted = false")
       .andWhere("file.status = :status", { status: 1 })
-      .andWhere("file.id IN (:...fileIds)", { fileIds: uniqueFileIds })
-      .getCount();
-    if (count !== uniqueFileIds.length) {
+      .andWhere("file.id IN (:...fileIds)", { fileIds: uniqueFileIds });
+    if (transactionManager) builder.setLock("pessimistic_write");
+    const files = await builder.getMany();
+    if (files.length !== uniqueFileIds.length) {
       throw new NotFoundException("File not found in current park");
     }
   }

@@ -6,7 +6,9 @@ import { validate } from "class-validator";
 import {
   CreateHomestayBookingDto,
   HomestayBookingQueryDto,
+  RegisterHomestayLedgerEntryDto,
   RescheduleHomestayBookingDto,
+  UpsertHomestayRateDto,
   UpsertHomestayRateOverrideDto
 } from "./homestay.dto";
 
@@ -35,6 +37,30 @@ test("homestay DTOs reject impossible business calendar dates", async () => {
   for (const input of inputs) {
     assert.ok((await validate(input)).length > 0);
   }
+});
+
+test("homestay money remains an exact decimal string and rejects numeric JSON input", async () => {
+  const ledger = plainToInstance(RegisterHomestayLedgerEntryDto, {
+    entry_type: "payment",
+    charge_type: "room",
+    amount: "9999999999999999.99",
+    reason: "exact"
+  });
+  assert.deepEqual(await validate(ledger), []);
+  assert.equal(ledger.amount, "9999999999999999.99");
+
+  const numericLedger = plainToInstance(RegisterHomestayLedgerEntryDto, {
+    entry_type: "payment",
+    charge_type: "room",
+    amount: Number("9999999999999999.99"),
+    reason: "unsafe"
+  });
+  assert.ok((await validate(numericLedger)).some((error) => error.property === "amount"));
+
+  const numericRate = plainToInstance(UpsertHomestayRateDto, {
+    base_daily_rate: Number("9999999999999999.99")
+  });
+  assert.ok((await validate(numericRate)).some((error) => error.property === "base_daily_rate"));
 });
 
 test("homestay DTOs accept real business calendar dates", async () => {

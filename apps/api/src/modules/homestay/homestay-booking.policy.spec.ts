@@ -11,8 +11,12 @@ import {
 } from "./homestay-booking.policy";
 
 test("reschedule differences are compared in integer cents", () => {
-  assert.equal(homestayMoneyDifference(0.01 + 17.82, "17.83"), 0);
-  assert.equal(homestayMoneyDifference("20.00", "17.83"), 2.17);
+  assert.equal(homestayMoneyDifference("17.83", "17.83"), "0.00");
+  assert.equal(homestayMoneyDifference("20.00", "17.83"), "2.17");
+  assert.equal(
+    homestayMoneyDifference("9999999999999999.99", "9999999999999999.98"),
+    "0.01"
+  );
 });
 
 test("check-in must be inside the booked business period", () => {

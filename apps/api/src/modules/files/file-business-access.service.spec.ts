@@ -135,7 +135,7 @@ test("project-wide purchase files require unrestricted property scope", async ()
 
 test("referenced business evidence cannot be deleted through the generic file endpoint", async () => {
   const referenced = new FileBusinessAccessService(
-    { query: async () => [{ "?column?": 1 }] } as never,
+    { manager: { query: async () => [{ "?column?": 1 }] } } as never,
     {} as never
   );
   await assert.rejects(
@@ -148,7 +148,7 @@ test("referenced business evidence cannot be deleted through the generic file en
   );
 
   const pending = new FileBusinessAccessService(
-    { query: async () => [] } as never,
+    { manager: { query: async () => [] } } as never,
     {} as never
   );
   await assert.doesNotReject(

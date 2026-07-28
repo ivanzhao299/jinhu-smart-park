@@ -110,6 +110,8 @@ const emptyDashboard: Dashboard = {
   pending_turnovers: 0,
   revenue: "0.00"
 };
+const isPositiveMoney = (value: string) =>
+  /^(?=.*[1-9])(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/.test(value.trim());
 
 const today = () => businessDate();
 const tomorrow = () => addBusinessDateDays(today(), 1);
@@ -262,10 +264,10 @@ export function HomestayOperationsClient() {
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("homestay-rate"),
         body: {
-          base_daily_rate: Number(rateForm.baseDailyRate),
+          base_daily_rate: rateForm.baseDailyRate,
           free_cancel_before_hours: Number(rateForm.freeCancelHours),
           late_cancel_fee_type: rateForm.feeType,
-          late_cancel_fee_value: Number(rateForm.feeValue),
+          late_cancel_fee_value: rateForm.feeValue,
           checkout_requires_inspection: rateForm.requiresInspection
         }
       })
@@ -349,12 +351,12 @@ export function HomestayOperationsClient() {
   }
 
   async function registerFinance() {
-    if (!selectedBookingId || Number(financeForm.amount) <= 0 || financeSubmissionLock.current) return;
+    if (!selectedBookingId || !isPositiveMoney(financeForm.amount) || financeSubmissionLock.current) return;
     const originatingBookingId = selectedBookingId;
     const payload = {
       entry_type: financeForm.entryType,
       charge_type: financeForm.entryType === "payment" ? "room_collection" : "manual_adjustment",
-      amount: Number(financeForm.amount),
+      amount: financeForm.amount,
       payment_method: financeForm.entryType === "payment" ? financeForm.paymentMethod : undefined,
       reason: financeForm.reason
     };

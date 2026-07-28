@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -25,6 +26,10 @@ const trimOptional = (value: unknown): string | undefined => {
   const text = String(value).trim();
   return text || undefined;
 };
+const trimDecimalString = (value: unknown): unknown =>
+  typeof value === "string" ? value.trim() : value;
+const HOMESTAY_MONEY_PATTERN = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+const HOMESTAY_POSITIVE_MONEY_PATTERN = /^(?=.*[1-9])(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
 @ValidatorConstraint({ name: "homestayBusinessDate", async: false })
 class HomestayBusinessDateConstraint implements ValidatorConstraintInterface {
@@ -69,10 +74,10 @@ export class HomestayBookingQueryDto {
 }
 
 export class UpsertHomestayRateDto {
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  base_daily_rate!: number;
+  @Transform(({ value }) => trimDecimalString(value))
+  @IsString()
+  @Matches(HOMESTAY_MONEY_PATTERN)
+  base_daily_rate!: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -86,10 +91,10 @@ export class UpsertHomestayRateDto {
   late_cancel_fee_type: "fixed" | "percentage" = "fixed";
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  late_cancel_fee_value = 0;
+  @Transform(({ value }) => trimDecimalString(value))
+  @IsString()
+  @Matches(HOMESTAY_MONEY_PATTERN)
+  late_cancel_fee_value = "0";
 
   @IsOptional()
   @IsBoolean()
@@ -100,10 +105,10 @@ export class UpsertHomestayRateOverrideDto {
   @Validate(HomestayBusinessDateConstraint)
   business_date!: string;
 
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  daily_rate!: number;
+  @Transform(({ value }) => trimDecimalString(value))
+  @IsString()
+  @Matches(HOMESTAY_MONEY_PATTERN)
+  daily_rate!: string;
 
   @Transform(({ value }) => trimOptional(value))
   @IsString()
@@ -224,10 +229,10 @@ export class RegisterHomestayLedgerEntryDto {
   @MaxLength(32)
   charge_type!: string;
 
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
-  amount!: number;
+  @Transform(({ value }) => trimDecimalString(value))
+  @IsString()
+  @Matches(HOMESTAY_POSITIVE_MONEY_PATTERN)
+  amount!: string;
 
   @IsOptional()
   @Transform(({ value }) => trimOptional(value))

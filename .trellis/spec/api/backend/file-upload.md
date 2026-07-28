@@ -30,6 +30,10 @@
   referenced by the owning business aggregate. Removal must happen through a domain
   detach/reversal workflow so signature, handover, repair, receipt, and turnover records
   never retain dangling file IDs.
+- Every workflow that binds protected file IDs must acquire the same file-row
+  `pessimistic_write` lock and retain it in the transaction that writes the owning
+  reference. Locking only the deletion path, validating outside the write transaction,
+  or counting files through a different repository connection leaves a dangling-reference race.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
@@ -54,6 +58,9 @@
 - Security test unitless project-level references with both restricted and unrestricted property scopes.
 - Security/integration test that referenced protected evidence is not generically
   deletable, while an uploaded but unreferenced file can still be removed.
+- Concurrency/integration test both orderings of protected evidence binding versus
+  generic deletion; exactly one operation may succeed and no committed owner may
+  reference a deleted file.
 
 ### 7. Wrong vs Correct
 

@@ -264,7 +264,7 @@ export class FilesService {
         "write",
         file.createBy ?? undefined
       );
-      await this.businessAccessService.assertDeletionAllowed(scope, file);
+      await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
       file.isDeleted = true;
       file.updateBy = actor.sub;
       await repository.save(file);

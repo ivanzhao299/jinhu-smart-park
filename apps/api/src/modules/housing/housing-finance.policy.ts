@@ -14,22 +14,47 @@ export interface HousingPurchaseAmountInput {
 const MAX_HOUSING_MONEY_CENTS = 999_999_999_999_999_999n;
 
 export function calculateHousingMeterCharge(
-  openingReading: number,
-  closingReading: number,
-  multiplier: number,
-  unitPrice: number
+  openingReading: string | number,
+  closingReading: string | number,
+  multiplier: string | number,
+  unitPrice: string | number
 ) {
-  if (closingReading < openingReading) {
+  const opening = parseScaledDecimal(openingReading, 6);
+  const closing = parseScaledDecimal(closingReading, 6);
+  const multiplierScaled = parseScaledDecimal(multiplier, 6);
+  const unitPriceScaled = parseScaledDecimal(unitPrice, 6);
+  if (closing < opening) {
     throw new BadRequestException("Closing reading cannot be less than opening reading");
   }
-  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+  if (multiplierScaled <= 0n) {
     throw new BadRequestException("Energy meter multiplier must be greater than zero");
   }
-  const usageAmount = (closingReading - openingReading) * multiplier;
+  if (unitPriceScaled < 0n) {
+    throw new BadRequestException("Energy meter unit price cannot be negative");
+  }
+  const usageScaled = divideAndRound((closing - opening) * multiplierScaled, 1_000_000n);
+  const chargeCents = divideAndRound(usageScaled * unitPriceScaled, 10_000_000_000n);
   return {
-    usageAmount,
-    amount: usageAmount * unitPrice
+    usageAmount: formatScaledDecimal(usageScaled, 6),
+    amount: formatCents(chargeCents)
   };
+}
+
+function divideAndRound(numerator: bigint, denominator: bigint): bigint {
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  return remainder * 2n >= denominator ? quotient + 1n : quotient;
+}
+
+function formatScaledDecimal(value: bigint, scale: number): string {
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  const divisor = 10n ** BigInt(scale);
+  return `${sign}${absolute / divisor}.${(absolute % divisor).toString().padStart(scale, "0")}`;
+}
+
+export function formatHousingDecimal(value: string | number, scale = 6): string {
+  return formatScaledDecimal(parseScaledDecimal(value, scale), scale);
 }
 
 function parseScaledDecimal(value: string | number, scale: number): bigint {

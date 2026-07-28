@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
-import { DataSource } from "typeorm";
+import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import type { FileEntity } from "./entities/file.entity";
@@ -119,7 +119,11 @@ export class FileBusinessAccessService {
     }
   }
 
-  async assertDeletionAllowed(scope: TenantParkScope, file: FileEntity): Promise<void> {
+  async assertDeletionAllowed(
+    scope: TenantParkScope,
+    file: FileEntity,
+    manager: EntityManager = this.dataSource.manager
+  ): Promise<void> {
     if (!this.isProtectedBizType(file.bizType) || !file.bizId) return;
     let sql: string | null = null;
     switch (file.bizType) {
@@ -159,7 +163,7 @@ export class FileBusinessAccessService {
         break;
     }
     if (!sql) return;
-    const references = await this.dataSource.query(
+    const references = await manager.query(
       `${sql} LIMIT 1`,
       [file.id, scope.tenantId, scope.parkId, file.bizId]
     ) as Array<{ "?column?": number }>;
