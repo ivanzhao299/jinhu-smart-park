@@ -80,6 +80,19 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Fixed housing rent and partial-period proration use integer cents and an exact rational month fraction; persisted rent must never pass through JavaScript `number` during billing.
 - Homestay guest registration locks the booking row inside the same transaction that validates status and saves the guest.
 - Project-wide housing purchase attachments require unrestricted park property scope when the referenced purchase has no unit.
+- Housing charge-plan DTOs require `amount` for fixed plans and both `meter_id` and
+  exact decimal-string `unit_price` for energy-meter plans; irrelevant source fields
+  are cleared instead of carried into persistence.
+- Housing settlements, deposit balances, checkout balances, and finance summaries use
+  decimal strings and scaled integer cents throughout; accepting an exact HTTP string
+  and later converting persisted values to `number` is prohibited.
+- Cancelling a homestay booking atomically voids every issued credential before its
+  occupancy is released. Credential issuance locks the same booking row as cancellation.
+- A housing purchase with transferred lines cannot be refunded or voided until an
+  explicit audited reversal workflow clears those transfers.
+- A protected file already referenced by a lease signature, completed handover,
+  housing repair work order, purchase, or turnover task cannot be deleted through the
+  generic file endpoint.
 
 ## 4. Validation & Error Matrix
 
@@ -114,6 +127,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Guest registration races a terminal booking transition | Booking lock serializes both actions; terminal status rejects registration |
 | Generic file reader requests `housing_repair` evidence without housing access | HTTP 403 |
 | Restricted unit-scope actor requests a project-wide purchase attachment | HTTP 403 |
+| Fixed charge plan omits amount | HTTP 400 |
+| Energy-meter plan omits meter or unit price | HTTP 400 |
+| Settlement uses a JSON number instead of an exact decimal string | HTTP 400 |
+| Booking cancellation finds issued credentials | Atomically void credentials, then release occupancy |
+| Purchase with transferred lines is refunded | HTTP 409 |
+| Generic deletion targets referenced protected evidence | HTTP 409 |
 
 ## 5. Good / Base / Bad Cases
 
@@ -153,6 +172,13 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Unit/integration: fixed rent proration uses exact fractions and preserves cents above JavaScript's safe integer range.
 - Integration: guest registration locks the booking against cancellation, no-show, and checkout.
 - Integration: housing repair and project-wide purchase attachments enforce their business permission and property data scope.
+- DTO/unit: charge-plan source fields are conditionally required and settlement values
+  preserve the final cent near the `numeric(18,2)` boundary.
+- Integration: cancellation and concurrent credential issuance serialize on the booking
+  row, leaving no issued credential after a successful cancellation.
+- Integration: transferred purchases reject both refund and void actions.
+- Integration: referenced protected evidence rejects generic deletion while unbound
+  pending uploads remain removable.
 - E2E: an ordinary payment against a deposit receivable produces a deposit receipt and the checkout balance remains consistent.
 - Unit: cached idempotent responses preserve `Date` values as ISO strings.
 

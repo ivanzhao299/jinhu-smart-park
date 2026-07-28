@@ -26,6 +26,10 @@
 - Housing repair evidence uses `biz_type=housing_repair` with `biz_id=<lease UUID>`; do not reuse the generic `workorder_create` type for tenant repair photos.
 - Reading `housing_repair` requires housing lease-read or repair-manage permission plus unit data scope; writing requires repair-manage permission plus unit data scope.
 - A `housing_purchase` reference whose `unit_id` is null is project-wide and requires `PropertyUnitAccessService.allowedUnitIds(...) === null`.
+- Generic deletion locks the file row and rejects protected evidence once its ID is
+  referenced by the owning business aggregate. Removal must happen through a domain
+  detach/reversal workflow so signature, handover, repair, receipt, and turnover records
+  never retain dangling file IDs.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
@@ -34,6 +38,7 @@
 - File ID used by another business object must belong to current tenant and park.
 - Missing domain permission, cross-tenant/park reference, or out-of-scope unit -> `ForbiddenException` without revealing whether the file exists outside scope.
 - Restricted property scope on a unitless project purchase -> `ForbiddenException`.
+- Referenced protected evidence deletion -> `ConflictException`.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan endpoint delegates to `FilesService.upload` with `biz_type: "floorplan"`.
@@ -47,6 +52,8 @@
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
 - Security test unitless project-level references with both restricted and unrestricted property scopes.
+- Security/integration test that referenced protected evidence is not generically
+  deletable, while an uploaded but unreferenced file can still be removed.
 
 ### 7. Wrong vs Correct
 

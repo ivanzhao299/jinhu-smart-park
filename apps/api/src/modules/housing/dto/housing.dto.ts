@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsDefined,
   IsIn,
   IsInt,
   IsNumber,
@@ -16,6 +17,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested
 } from "class-validator";
 import { HOUSING_LEASE_STATUSES, HOUSING_LEDGER_ENTRY_TYPES } from "@jinhu/shared";
@@ -30,6 +32,8 @@ const trimDecimalString = ({ value }: { value: unknown }): unknown =>
   typeof value === "string" ? value.trim() : value;
 
 const HOUSING_MONEY_PATTERN = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+const HOUSING_POSITIVE_MONEY_PATTERN = /^(?!0(?:\.0{1,2})?$)(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+const HOUSING_RATE_PATTERN = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/;
 
 export class HousingLeaseQueryDto {
   @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
@@ -77,9 +81,22 @@ export class UpsertHousingChargePlanDto {
   @Transform(trim) @IsString() @MaxLength(32) charge_type!: string;
   @IsIn(["fixed", "energy_meter", "manual"]) billing_source!: "fixed" | "energy_meter" | "manual";
   @Type(() => Number) @IsInt() @Min(1) @Max(120) cycle_months!: number;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) amount?: number;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) unit_price?: number;
-  @IsOptional() @IsUUID() meter_id?: string;
+  @ValidateIf((dto: UpsertHousingChargePlanDto) => dto.billing_source === "fixed")
+  @IsDefined()
+  @Transform(trimDecimalString)
+  @IsString()
+  @Matches(HOUSING_MONEY_PATTERN)
+  amount?: string;
+  @ValidateIf((dto: UpsertHousingChargePlanDto) => dto.billing_source === "energy_meter")
+  @IsDefined()
+  @Transform(trimDecimalString)
+  @IsString()
+  @Matches(HOUSING_RATE_PATTERN)
+  unit_price?: string;
+  @ValidateIf((dto: UpsertHousingChargePlanDto) => dto.billing_source === "energy_meter")
+  @IsDefined()
+  @IsUUID()
+  meter_id?: string;
   @IsOptional() @IsBoolean() enabled = true;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?: string;
 }
@@ -90,7 +107,7 @@ export class GenerateHousingBillsDto {
   @IsUUID() charge_plan_id!: string;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) opening_reading?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 6 }) @Min(0) closing_reading?: number;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) manual_amount?: number;
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) manual_amount?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) reason?: string;
 }
 
@@ -98,7 +115,7 @@ export class RegisterHousingLedgerEntryDto {
   @IsIn(HOUSING_LEDGER_ENTRY_TYPES) entry_type!: typeof HOUSING_LEDGER_ENTRY_TYPES[number];
   @IsOptional() @IsUUID() receivable_id?: string;
   @Transform(trim) @IsString() @MaxLength(32) charge_type!: string;
-  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) amount!: number;
+  @Transform(trimDecimalString) @IsString() @Matches(HOUSING_POSITIVE_MONEY_PATTERN) amount!: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(32) payment_method?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(100) transaction_reference?: string;
   @Transform(trim) @IsString() @MaxLength(500) reason!: string;
@@ -111,9 +128,9 @@ export class CompleteHousingHandoverDto {
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsObject({ each: true }) credentials?: Record<string, unknown>[];
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsUUID("4", { each: true }) photo_file_ids?: string[];
   @IsOptional() @IsUUID() signature_file_id?: string;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) damage_amount = 0;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) unsettled_amount = 0;
-  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) deposit_deduction_amount = 0;
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) damage_amount = "0.00";
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) unsettled_amount = "0.00";
+  @IsOptional() @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) deposit_deduction_amount = "0.00";
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?: string;
 }
 

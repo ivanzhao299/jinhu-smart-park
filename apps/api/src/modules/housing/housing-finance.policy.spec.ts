@@ -14,17 +14,17 @@ import {
 } from "./housing-finance.policy";
 
 test("payment and waiver settle one receivable without exceeding its amount", () => {
-  const partial = applyHousingReceivableMutation(120, 0, 0, "payment", 100);
-  assert.deepEqual(partial, { paidAmount: 100, waivedAmount: 0, status: "partial" });
+  const partial = applyHousingReceivableMutation("120.00", "0.00", "0.00", "payment", "100.00");
+  assert.deepEqual(partial, { paidAmount: "100.00", waivedAmount: "0.00", status: "partial" });
   const settled = applyHousingReceivableMutation(120, partial.paidAmount, partial.waivedAmount, "waiver", 20);
-  assert.deepEqual(settled, { paidAmount: 100, waivedAmount: 20, status: "paid" });
+  assert.deepEqual(settled, { paidAmount: "100.00", waivedAmount: "20.00", status: "paid" });
   assert.throws(() => applyHousingReceivableMutation(120, 100, 20, "payment", 1));
 });
 
 test("refund reverses only an existing paid amount", () => {
   assert.deepEqual(
     applyHousingReceivableMutation(100, 100, 0, "refund", 40),
-    { paidAmount: 60, waivedAmount: 0, status: "partial" }
+    { paidAmount: "60.00", waivedAmount: "0.00", status: "partial" }
   );
   assert.throws(() => applyHousingReceivableMutation(100, 20, 0, "refund", 21));
 });
@@ -34,10 +34,39 @@ test("deposit receipt, deduction, and refund stay within the agreed balance", ()
     { entryType: "deposit_receipt", amount: 3000 },
     { entryType: "deposit_deduction", amount: 500 }
   ]);
-  assert.equal(current, 2500);
-  assert.equal(assertHousingDepositMutation(3000, current, "deposit_refund", 2500), 0);
+  assert.equal(current, "2500.00");
+  assert.equal(assertHousingDepositMutation(3000, current, "deposit_refund", 2500), "0.00");
   assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_refund", 2501));
   assert.throws(() => assertHousingDepositMutation(3000, current, "deposit_receipt", 501));
+});
+
+test("settlements preserve cents beyond JavaScript safe integer precision", () => {
+  const partial = applyHousingReceivableMutation(
+    "99999999999999.99",
+    "0.00",
+    "0.00",
+    "payment",
+    "99999999999999.98"
+  );
+  assert.deepEqual(partial, {
+    paidAmount: "99999999999999.98",
+    waivedAmount: "0.00",
+    status: "partial"
+  });
+  assert.deepEqual(
+    applyHousingReceivableMutation(
+      "99999999999999.99",
+      partial.paidAmount,
+      partial.waivedAmount,
+      "payment",
+      "0.01"
+    ),
+    {
+      paidAmount: "99999999999999.99",
+      waivedAmount: "0.00",
+      status: "paid"
+    }
+  );
 });
 
 test("purchase header total is derived from persisted rounded line amounts", () => {
@@ -123,4 +152,5 @@ test("housing service revalidates meter state and makes completed handover retri
       < service.indexOf("Deposit deduction cannot exceed agreed deposit")
   );
   assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
+  assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
 });

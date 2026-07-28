@@ -61,8 +61,10 @@ import {
   assertHousingDepositMutation,
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
+  calculateHousingMoneyBalance,
   calculateHousingMeterCharge,
   calculateHousingPurchaseAmounts,
+  compareHousingMoney,
   formatHousingMoney,
   multiplyHousingMoneyByRatio,
   housingReceivableStatus
@@ -142,15 +144,17 @@ export class HousingService {
       active_leases: (counts.active ?? 0) + (counts.expiring ?? 0),
       checkout_pending: counts.checkout_pending ?? 0,
       ...(canReadFinance ? {
-        receivable_amount: Number(finance.receivable).toFixed(2),
-        collected_amount: Number(finance.paid).toFixed(2),
-        outstanding_amount: Math.max(
-          0,
-          Number(finance.receivable) - Number(finance.paid) - Number(finance.waived)
-        ).toFixed(2)
+        receivable_amount: formatHousingMoney(finance.receivable),
+        collected_amount: formatHousingMoney(finance.paid),
+        outstanding_amount: compareHousingMoney(
+          calculateHousingMoneyBalance([finance.receivable], [finance.paid, finance.waived]),
+          "0.00"
+        ) > 0
+          ? calculateHousingMoneyBalance([finance.receivable], [finance.paid, finance.waived])
+          : "0.00"
       } : {}),
       ...(canReadPurchases ? {
-        approved_purchase_cost: Number(purchaseRows[0]?.cost ?? 0).toFixed(2)
+        approved_purchase_cost: formatHousingMoney(purchaseRows[0]?.cost ?? "0")
       } : {})
     };
   }
@@ -485,9 +489,9 @@ export class HousingService {
         });
         plan.billingSource = dto.billing_source;
         plan.cycleMonths = dto.cycle_months;
-        plan.amount = dto.amount === undefined ? null : dto.amount.toFixed(2);
-        plan.unitPrice = dto.unit_price === undefined ? null : dto.unit_price.toFixed(6);
-        plan.meterId = dto.meter_id ?? null;
+        plan.amount = dto.billing_source === "fixed" ? formatHousingMoney(dto.amount!) : null;
+        plan.unitPrice = dto.billing_source === "energy_meter" ? dto.unit_price! : null;
+        plan.meterId = dto.billing_source === "energy_meter" ? dto.meter_id! : null;
         plan.enabled = dto.enabled;
         plan.updateBy = actor.sub;
         plan.remark = dto.remark ?? null;
@@ -660,7 +664,7 @@ export class HousingService {
           }
         });
         const currentDeposit = calculateHousingDepositBalance(depositEntries);
-        assertHousingDepositMutation(Number(lease.depositAmount), currentDeposit, entryType, dto.amount);
+        assertHousingDepositMutation(lease.depositAmount, currentDeposit, entryType, dto.amount);
       }
       if (receivable) {
         let receivableChanged = true;
@@ -688,7 +692,7 @@ export class HousingService {
         receivableId: receivable?.id ?? null,
         entryType,
         chargeType,
-        amount: dto.amount.toFixed(2),
+        amount: formatHousingMoney(dto.amount),
         paymentMethod: dto.payment_method ?? null,
         transactionReference: dto.transaction_reference ?? null,
         sourceType: "manual",
@@ -727,7 +731,11 @@ export class HousingService {
       else this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       if (
         dto.handover_type === "move_in"
-        && (dto.damage_amount > 0 || dto.unsettled_amount > 0 || dto.deposit_deduction_amount > 0)
+        && (
+          compareHousingMoney(dto.damage_amount, "0.00") > 0
+          || compareHousingMoney(dto.unsettled_amount, "0.00") > 0
+          || compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0
+        )
       ) {
         throw new BadRequestException("Move-in handover cannot include damage, unsettled, or deposit deduction amounts");
       }
@@ -742,10 +750,10 @@ export class HousingService {
           bizId: lease.id
         });
       }
-      if (dto.deposit_deduction_amount > Number(lease.depositAmount)) {
+      if (compareHousingMoney(dto.deposit_deduction_amount, lease.depositAmount) > 0) {
         throw new BadRequestException("Deposit deduction cannot exceed agreed deposit");
       }
-      if (dto.handover_type === "move_out" && dto.deposit_deduction_amount > 0) {
+      if (dto.handover_type === "move_out" && compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0) {
         const depositEntries = await manager.getRepository(HousingLedgerEntryEntity).find({
           where: {
             tenantId: scope.tenantId,
@@ -756,7 +764,7 @@ export class HousingService {
           }
         });
         const depositBalance = calculateHousingDepositBalance(depositEntries);
-        if (dto.deposit_deduction_amount > depositBalance + 0.005) {
+        if (compareHousingMoney(dto.deposit_deduction_amount, depositBalance) > 0) {
           throw new ConflictException("Deposit deduction exceeds current deposit balance");
         }
       }
@@ -774,19 +782,19 @@ export class HousingService {
       handover.credentials = dto.credentials ?? [];
       handover.photoFileIds = dto.photo_file_ids ?? [];
       handover.signatureFileId = dto.signature_file_id ?? null;
-      handover.damageAmount = dto.damage_amount.toFixed(2);
-      handover.unsettledAmount = dto.unsettled_amount.toFixed(2);
-      handover.depositDeductionAmount = dto.deposit_deduction_amount.toFixed(2);
+      handover.damageAmount = formatHousingMoney(dto.damage_amount);
+      handover.unsettledAmount = formatHousingMoney(dto.unsettled_amount);
+      handover.depositDeductionAmount = formatHousingMoney(dto.deposit_deduction_amount);
       handover.updateBy = actor.sub;
       handover.remark = dto.remark ?? null;
       const saved = await repository.save(handover);
       if (dto.handover_type === "move_out") {
-        const checkoutCharge = dto.damage_amount + dto.unsettled_amount;
-        if (dto.deposit_deduction_amount > checkoutCharge + 0.005) {
+        const checkoutCharge = addHousingMoneyAmounts([dto.damage_amount, dto.unsettled_amount]);
+        if (compareHousingMoney(dto.deposit_deduction_amount, checkoutCharge) > 0) {
           throw new BadRequestException("Deposit deduction cannot exceed move-out damage and unsettled charges");
         }
         let checkoutReceivable: HousingReceivableEntity | null = null;
-        if (checkoutCharge > 0.005) {
+        if (compareHousingMoney(checkoutCharge, "0.00") > 0) {
           const businessDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
           checkoutReceivable = await this.createReceivable(manager, scope, actor, lease, {
             chargePlanId: null,
@@ -799,7 +807,7 @@ export class HousingService {
             amount: checkoutCharge,
             remark: dto.remark ?? "Move-out damage and unsettled charges"
           });
-          if (dto.deposit_deduction_amount > 0) {
+          if (compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0) {
             this.applyReceivableEntry(checkoutReceivable, {
               entry_type: "payment",
               charge_type: "checkout_deduction",
@@ -813,7 +821,7 @@ export class HousingService {
         lease.status = "checkout_pending";
         lease.updateBy = actor.sub;
         await manager.getRepository(HousingLeaseEntity).save(lease);
-        if (dto.deposit_deduction_amount > 0) {
+        if (compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0) {
           const ledger = manager.getRepository(HousingLedgerEntryEntity);
           await ledger.save(ledger.create({
             tenantId: scope.tenantId,
@@ -822,7 +830,7 @@ export class HousingService {
             receivableId: checkoutReceivable?.id ?? null,
             entryType: "deposit_deduction",
             chargeType: "checkout_deduction",
-            amount: dto.deposit_deduction_amount.toFixed(2),
+            amount: formatHousingMoney(dto.deposit_deduction_amount),
             paymentMethod: null,
             transactionReference: null,
             sourceType: "housing_handover",
@@ -891,10 +899,14 @@ export class HousingService {
       const receivables = await manager.getRepository(HousingReceivableEntity).find({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, leaseId, isDeleted: false }
       });
-      const outstanding = receivables
-        .filter((item) => item.status !== "void")
-        .reduce((sum, item) => sum + Number(item.amount) - Number(item.paidAmount) - Number(item.waivedAmount), 0);
-      if (outstanding > 0.005) throw new ConflictException(`Outstanding tenant charges remain: ${outstanding.toFixed(2)}`);
+      const activeReceivables = receivables.filter((item) => item.status !== "void");
+      const outstanding = calculateHousingMoneyBalance(
+        activeReceivables.map((item) => item.amount),
+        activeReceivables.flatMap((item) => [item.paidAmount, item.waivedAmount])
+      );
+      if (compareHousingMoney(outstanding, "0.00") > 0) {
+        throw new ConflictException(`Outstanding tenant charges remain: ${outstanding}`);
+      }
       const depositEntries = await manager.getRepository(HousingLedgerEntryEntity).find({
         where: {
           tenantId: scope.tenantId,
@@ -905,8 +917,8 @@ export class HousingService {
         }
       });
       const depositBalance = calculateHousingDepositBalance(depositEntries);
-      if (depositBalance > 0.005) {
-        throw new ConflictException(`Deposit balance must be settled before checkout: ${depositBalance.toFixed(2)}`);
+      if (compareHousingMoney(depositBalance, "0.00") > 0) {
+        throw new ConflictException(`Deposit balance must be settled before checkout: ${depositBalance}`);
       }
       if (lease.occupancyId) {
         await this.occupancyService.releaseInTransaction(
@@ -1065,18 +1077,14 @@ export class HousingService {
           break;
         case "refund":
           if (purchase.paymentStatus !== "paid") throw new ConflictException("Only paid purchase can be refunded");
+          if (await this.hasTransferredPurchaseItems(manager, scope, purchaseId)) {
+            throw new ConflictException("Transferred purchase items must be reversed before refunding the purchase");
+          }
           purchase.paymentStatus = "refunded";
           break;
         case "void":
           if (purchase.paymentStatus === "paid") throw new ConflictException("Paid purchase cannot be voided");
-          if (await manager.getRepository(HousingPurchaseItemEntity)
-            .createQueryBuilder("item")
-            .where("item.tenant_id=:tenantId", { tenantId: scope.tenantId })
-            .andWhere("item.park_id=:parkId", { parkId: scope.parkId })
-            .andWhere("item.purchase_id=:purchaseId", { purchaseId })
-            .andWhere("item.is_deleted=false")
-            .andWhere("item.transferred_receivable_id IS NOT NULL")
-            .getExists()) {
+          if (await this.hasTransferredPurchaseItems(manager, scope, purchaseId)) {
             throw new ConflictException("Transferred purchase items must be reversed before voiding the purchase");
           }
           purchase.approvalStatus = "void";
@@ -1348,36 +1356,47 @@ export class HousingService {
 
   private applyReceivableEntry(receivable: HousingReceivableEntity, dto: RegisterHousingLedgerEntryDto) {
     const result = applyHousingReceivableMutation(
-      Number(receivable.amount),
-      Number(receivable.paidAmount),
-      Number(receivable.waivedAmount),
+      receivable.amount,
+      receivable.paidAmount,
+      receivable.waivedAmount,
       dto.entry_type,
       dto.amount
     );
-    receivable.paidAmount = result.paidAmount.toFixed(2);
-    receivable.waivedAmount = result.waivedAmount.toFixed(2);
+    receivable.paidAmount = result.paidAmount;
+    receivable.waivedAmount = result.waivedAmount;
     receivable.status = result.status;
   }
 
   private financeSummary(receivables: HousingReceivableEntity[], ledger: HousingLedgerEntryEntity[]) {
     const activeReceivables = receivables.filter((item) => item.status !== "void");
-    const total = activeReceivables.reduce((sum, item) => sum + Number(item.amount), 0);
-    const paid = activeReceivables.reduce((sum, item) => sum + Number(item.paidAmount), 0);
-    const waived = activeReceivables.reduce((sum, item) => sum + Number(item.waivedAmount), 0);
+    const total = addHousingMoneyAmounts(activeReceivables.map((item) => item.amount));
+    const paid = addHousingMoneyAmounts(activeReceivables.map((item) => item.paidAmount));
+    const waived = addHousingMoneyAmounts(activeReceivables.map((item) => item.waivedAmount));
     const activeLedger = ledger.filter((item) => item.status === "confirmed");
-    const depositReceived = activeLedger
-      .filter((item) => item.entryType === "deposit_receipt")
-      .reduce((sum, item) => sum + Number(item.amount), 0);
-    const depositOut = activeLedger
-      .filter((item) => ["deposit_deduction", "deposit_refund"].includes(item.entryType))
-      .reduce((sum, item) => sum + Number(item.amount), 0);
+    const outstanding = calculateHousingMoneyBalance([total], [paid, waived]);
+    const depositBalance = calculateHousingDepositBalance(activeLedger);
     return {
-      receivable: total.toFixed(2),
-      paid: paid.toFixed(2),
-      waived: waived.toFixed(2),
-      outstanding: Math.max(0, total - paid - waived).toFixed(2),
-      deposit_balance: Math.max(0, depositReceived - depositOut).toFixed(2)
+      receivable: total,
+      paid,
+      waived,
+      outstanding: compareHousingMoney(outstanding, "0.00") > 0 ? outstanding : "0.00",
+      deposit_balance: compareHousingMoney(depositBalance, "0.00") > 0 ? depositBalance : "0.00"
     };
+  }
+
+  private hasTransferredPurchaseItems(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    purchaseId: string
+  ): Promise<boolean> {
+    return manager.getRepository(HousingPurchaseItemEntity)
+      .createQueryBuilder("item")
+      .where("item.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("item.park_id=:parkId", { parkId: scope.parkId })
+      .andWhere("item.purchase_id=:purchaseId", { purchaseId })
+      .andWhere("item.is_deleted=false")
+      .andWhere("item.transferred_receivable_id IS NOT NULL")
+      .getExists();
   }
 
   private assertStatus(lease: HousingLeaseEntity, allowed: HousingLeaseEntity["status"][]) {

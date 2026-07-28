@@ -67,6 +67,24 @@ export function addHousingMoneyAmounts(values: Array<string | number>): string {
   return formatCents(total);
 }
 
+export function calculateHousingMoneyBalance(
+  additions: Array<string | number>,
+  deductions: Array<string | number> = []
+): string {
+  const total = additions.reduce((sum, value) => sum + parseScaledDecimal(value, 2), 0n)
+    - deductions.reduce((sum, value) => sum + parseScaledDecimal(value, 2), 0n);
+  if (total > MAX_HOUSING_MONEY_CENTS || total < -MAX_HOUSING_MONEY_CENTS) {
+    throw new BadRequestException("Housing money amount exceeds numeric(18,2)");
+  }
+  return formatCents(total);
+}
+
+export function compareHousingMoney(left: string | number, right: string | number): number {
+  const leftCents = parseScaledDecimal(left, 2);
+  const rightCents = parseScaledDecimal(right, 2);
+  return leftCents < rightCents ? -1 : leftCents > rightCents ? 1 : 0;
+}
+
 export function multiplyHousingMoneyByRatio(
   value: string | number,
   numerator: bigint,
@@ -125,51 +143,60 @@ export function assertHousingPurchaseTransferLeaseStatus(status: HousingLeaseSta
   }
 }
 
-export function calculateHousingDepositBalance(entries: HousingFinancialEntry[]): number {
-  return entries.reduce((balance, entry) => {
-    if (entry.entryType === "deposit_receipt") return balance + Number(entry.amount);
-    if (["deposit_deduction", "deposit_refund"].includes(entry.entryType)) return balance - Number(entry.amount);
-    return balance;
-  }, 0);
+export function calculateHousingDepositBalance(entries: HousingFinancialEntry[]): string {
+  return calculateHousingMoneyBalance(
+    entries.filter((entry) => entry.entryType === "deposit_receipt").map((entry) => entry.amount),
+    entries
+      .filter((entry) => ["deposit_deduction", "deposit_refund"].includes(entry.entryType))
+      .map((entry) => entry.amount)
+  );
 }
 
 export function assertHousingDepositMutation(
-  agreedDeposit: number,
-  currentDeposit: number,
+  agreedDeposit: string | number,
+  currentDeposit: string | number,
   entryType: HousingLedgerEntryType,
-  amount: number
-): number {
+  amount: string | number
+): string {
   if (!entryType.startsWith("deposit_")) throw new BadRequestException("Entry is not a deposit mutation");
   const nextDeposit = entryType === "deposit_receipt"
-    ? currentDeposit + amount
-    : currentDeposit - amount;
-  if (nextDeposit < -0.005) throw new ConflictException("Deposit deduction or refund exceeds current deposit balance");
-  if (nextDeposit > agreedDeposit + 0.005) throw new ConflictException("Deposit receipt exceeds agreed deposit amount");
-  return Math.max(0, nextDeposit);
+    ? calculateHousingMoneyBalance([currentDeposit, amount])
+    : calculateHousingMoneyBalance([currentDeposit], [amount]);
+  if (compareHousingMoney(nextDeposit, "0.00") < 0) {
+    throw new ConflictException("Deposit deduction or refund exceeds current deposit balance");
+  }
+  if (compareHousingMoney(nextDeposit, agreedDeposit) > 0) {
+    throw new ConflictException("Deposit receipt exceeds agreed deposit amount");
+  }
+  return nextDeposit;
 }
 
 export function applyHousingReceivableMutation(
-  receivableAmount: number,
-  currentPaid: number,
-  currentWaived: number,
+  receivableAmount: string | number,
+  currentPaid: string | number,
+  currentWaived: string | number,
   entryType: HousingLedgerEntryType,
-  entryAmount: number
+  entryAmount: string | number
 ) {
-  let paid = currentPaid;
-  let waived = currentWaived;
-  if (entryType === "payment") paid += entryAmount;
-  else if (entryType === "refund") paid -= entryAmount;
-  else if (entryType === "waiver") waived += entryAmount;
+  let paid = formatHousingMoney(currentPaid);
+  let waived = formatHousingMoney(currentWaived);
+  if (entryType === "payment") paid = calculateHousingMoneyBalance([paid, entryAmount]);
+  else if (entryType === "refund") paid = calculateHousingMoneyBalance([paid], [entryAmount]);
+  else if (entryType === "waiver") waived = calculateHousingMoneyBalance([waived, entryAmount]);
   else throw new BadRequestException("Entry does not settle a receivable");
-  if (paid < -0.005 || waived < -0.005 || paid + waived > receivableAmount + 0.005) {
+  if (
+    compareHousingMoney(paid, "0.00") < 0
+    || compareHousingMoney(waived, "0.00") < 0
+    || compareHousingMoney(calculateHousingMoneyBalance([paid, waived]), receivableAmount) > 0
+  ) {
     throw new ConflictException("Financial entry exceeds receivable balance");
   }
-  const settled = paid + waived;
+  const settled = calculateHousingMoneyBalance([paid, waived]);
   return {
-    paidAmount: Math.max(0, paid),
-    waivedAmount: Math.max(0, waived),
-    status: settled >= receivableAmount - 0.005
-      ? (paid <= 0.005 ? "waived" as const : "paid" as const)
-      : settled > 0.005 ? "partial" as const : "unpaid" as const
+    paidAmount: paid,
+    waivedAmount: waived,
+    status: compareHousingMoney(settled, receivableAmount) >= 0
+      ? (compareHousingMoney(paid, "0.00") === 0 ? "waived" as const : "paid" as const)
+      : compareHousingMoney(settled, "0.00") > 0 ? "partial" as const : "unpaid" as const
   };
 }

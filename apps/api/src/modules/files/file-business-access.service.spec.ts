@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileBusinessAccessService } from "./file-business-access.service";
@@ -130,5 +130,32 @@ test("project-wide purchase files require unrestricted property scope", async ()
       "purchase-1",
       "read"
     )
+  );
+});
+
+test("referenced business evidence cannot be deleted through the generic file endpoint", async () => {
+  const referenced = new FileBusinessAccessService(
+    { query: async () => [{ "?column?": 1 }] } as never,
+    {} as never
+  );
+  await assert.rejects(
+    referenced.assertDeletionAllowed(scope, {
+      id: "11111111-1111-4111-8111-111111111111",
+      bizType: "housing_purchase",
+      bizId: "22222222-2222-4222-8222-222222222222"
+    } as never),
+    ConflictException
+  );
+
+  const pending = new FileBusinessAccessService(
+    { query: async () => [] } as never,
+    {} as never
+  );
+  await assert.doesNotReject(
+    pending.assertDeletionAllowed(scope, {
+      id: "11111111-1111-4111-8111-111111111111",
+      bizType: "housing_handover",
+      bizId: "22222222-2222-4222-8222-222222222222"
+    } as never)
   );
 });

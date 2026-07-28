@@ -7,7 +7,9 @@ import {
   CreateHousingLeaseDto,
   CreateHousingPurchaseDto,
   GenerateHousingBillsDto,
-  TransferHousingPurchaseDto
+  RegisterHousingLedgerEntryDto,
+  TransferHousingPurchaseDto,
+  UpsertHousingChargePlanDto
 } from "./housing.dto";
 
 const leaseInput = {
@@ -29,6 +31,63 @@ test("bill generation requires one explicit charge plan", async () => {
   });
   const errors = await validate(dto);
   assert.ok(errors.some((error) => error.property === "charge_plan_id"));
+});
+
+test("charge plans require fields for their selected billing source", async () => {
+  const missingFixedAmount = plainToInstance(UpsertHousingChargePlanDto, {
+    charge_type: "rent",
+    billing_source: "fixed",
+    cycle_months: 1
+  });
+  assert.ok((await validate(missingFixedAmount)).some((error) => error.property === "amount"));
+
+  const missingEnergyPrice = plainToInstance(UpsertHousingChargePlanDto, {
+    charge_type: "electricity",
+    billing_source: "energy_meter",
+    cycle_months: 1,
+    meter_id: "11111111-1111-4111-8111-111111111111"
+  });
+  assert.ok((await validate(missingEnergyPrice)).some((error) => error.property === "unit_price"));
+
+  const completeEnergyPlan = plainToInstance(UpsertHousingChargePlanDto, {
+    charge_type: "electricity",
+    billing_source: "energy_meter",
+    cycle_months: 1,
+    meter_id: "11111111-1111-4111-8111-111111111111",
+    unit_price: "0.618888"
+  });
+  assert.deepEqual(await validate(completeEnergyPlan), []);
+  assert.equal(completeEnergyPlan.unit_price, "0.618888");
+});
+
+test("housing settlement amounts remain exact decimal strings", async () => {
+  const exact = plainToInstance(RegisterHousingLedgerEntryDto, {
+    entry_type: "payment",
+    receivable_id: "11111111-1111-4111-8111-111111111111",
+    charge_type: "rent",
+    amount: "99999999999999.99",
+    reason: "manual settlement"
+  });
+  assert.deepEqual(await validate(exact), []);
+  assert.equal(exact.amount, "99999999999999.99");
+
+  const unsafeNumber = plainToInstance(RegisterHousingLedgerEntryDto, {
+    entry_type: "payment",
+    receivable_id: "11111111-1111-4111-8111-111111111111",
+    charge_type: "rent",
+    amount: 2500.01,
+    reason: "manual settlement"
+  });
+  assert.ok((await validate(unsafeNumber)).some((error) => error.property === "amount"));
+
+  const zero = plainToInstance(RegisterHousingLedgerEntryDto, {
+    entry_type: "payment",
+    receivable_id: "11111111-1111-4111-8111-111111111111",
+    charge_type: "rent",
+    amount: "0.00",
+    reason: "manual settlement"
+  });
+  assert.ok((await validate(zero)).some((error) => error.property === "amount"));
 });
 
 test("lease money remains an exact decimal string across DTO transformation", async () => {

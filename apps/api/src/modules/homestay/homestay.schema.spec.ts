@@ -76,3 +76,18 @@ test("guest registration locks the booking inside its write transaction", () => 
   assert.match(addGuest, /this\.lockBooking\(manager, scope, bookingId\)/);
   assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
 });
+
+test("booking cancellation revokes credentials before releasing occupancy", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const cancelStart = service.indexOf("async cancelBooking");
+  const issueStart = service.indexOf("async issueCredential");
+  const cancellation = service.slice(cancelStart, issueStart);
+  assert.match(cancellation, /status: "issued"/);
+  assert.match(cancellation, /status: "void"/);
+  assert.ok(cancellation.indexOf('status: "void"') < cancellation.indexOf("releaseInTransaction"));
+
+  const issueEnd = service.indexOf("async returnCredential");
+  const issuance = service.slice(issueStart, issueEnd);
+  assert.match(issuance, /this\.dataSource\.transaction/);
+  assert.match(issuance, /this\.lockBooking\(manager, scope, bookingId\)/);
+});

@@ -248,8 +248,28 @@ export class FilesService {
     actor: JwtPrincipal,
     id: string
   ): Promise<{ id: string }> {
-    await this.detailForActor(scope, actor, id, "write");
-    return this.softDelete(scope, actor.sub, id);
+    return this.fileRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(FileEntity);
+      const file = await repository.findOne({
+        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!file) throw new NotFoundException("File not found");
+      this.businessAccessService.assertPendingFileOwner(actor, file);
+      await this.businessAccessService.assertReferenceAccess(
+        scope,
+        actor,
+        file.bizType,
+        file.bizId,
+        "write",
+        file.createBy ?? undefined
+      );
+      await this.businessAccessService.assertDeletionAllowed(scope, file);
+      file.isDeleted = true;
+      file.updateBy = actor.sub;
+      await repository.save(file);
+      return { id };
+    });
   }
 
   createReadStream(absolutePath: string) {

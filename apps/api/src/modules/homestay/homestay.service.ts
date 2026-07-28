@@ -386,6 +386,19 @@ export class HomestayService {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const revokedCredentials = await manager.getRepository(HomestayStayCredentialEntity).update(
+        {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bookingId: id,
+          status: "issued",
+          isDeleted: false
+        },
+        {
+          status: "void",
+          updateBy: actor.sub
+        }
+      );
       if (booking.status === "cancelled") return booking;
       this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
       const before = booking.status;
@@ -434,7 +447,8 @@ export class HomestayService {
         });
       }
       await this.log(manager, scope, actor, saved, "cancel", before, saved.status, reason, {
-        cancellation_fee: cancellationFee
+        cancellation_fee: cancellationFee,
+        revoked_credentials: revokedCredentials.affected ?? 0
       });
       return saved;
     });
@@ -557,25 +571,27 @@ export class HomestayService {
     bookingId: string,
     dto: IssueHomestayCredentialDto
   ) {
-    const booking = await this.mustFindBooking(scope, bookingId);
-    this.assertStatus(booking, ["confirmed", "checked_in"], "Credentials require a confirmed or checked-in booking");
-    await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-    const repository = this.dataSource.getRepository(HomestayStayCredentialEntity);
-    return repository.save(repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      bookingId,
-      credentialType: dto.credential_type,
-      credentialLabel: dto.credential_label.trim(),
-      credentialReference: dto.credential_reference?.trim() ?? null,
-      lockDeviceId: dto.lock_device_id?.trim() ?? null,
-      temporaryCodeTaskStatus: dto.lock_device_id ? "reserved_not_connected" : "not_applicable",
-      status: "issued",
-      issuedAt: new Date(),
-      returnedAt: null,
-      createBy: actor.sub,
-      updateBy: actor.sub
-    }));
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.lockBooking(manager, scope, bookingId);
+      this.assertStatus(booking, ["confirmed", "checked_in"], "Credentials require a confirmed or checked-in booking");
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const repository = manager.getRepository(HomestayStayCredentialEntity);
+      return repository.save(repository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        bookingId,
+        credentialType: dto.credential_type,
+        credentialLabel: dto.credential_label.trim(),
+        credentialReference: dto.credential_reference?.trim() ?? null,
+        lockDeviceId: dto.lock_device_id?.trim() ?? null,
+        temporaryCodeTaskStatus: dto.lock_device_id ? "reserved_not_connected" : "not_applicable",
+        status: "issued",
+        issuedAt: new Date(),
+        returnedAt: null,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      }));
+    });
   }
 
   async returnCredential(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, credentialId: string) {

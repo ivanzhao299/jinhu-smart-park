@@ -544,8 +544,8 @@ export function HousingOperationsClient() {
         charge_type: chargeForm.chargeType,
         billing_source: chargeForm.billingSource,
         cycle_months: Number(chargeForm.cycleMonths),
-        amount: chargeForm.billingSource === "fixed" ? Number(chargeForm.amount) : undefined,
-        unit_price: chargeForm.billingSource === "energy_meter" ? Number(chargeForm.unitPrice) : undefined,
+        amount: chargeForm.billingSource === "fixed" ? chargeForm.amount : undefined,
+        unit_price: chargeForm.billingSource === "energy_meter" ? chargeForm.unitPrice : undefined,
         meter_id: chargeForm.billingSource === "energy_meter" ? chargeForm.meterId : undefined,
         enabled: true
       }
@@ -555,6 +555,7 @@ export function HousingOperationsClient() {
   async function generateBills(event: FormEvent) {
     event.preventDefault();
     if (!selectedLeaseId) return;
+    const selectedPlan = detail?.charge_plans.find((item) => item.id === billForm.chargePlanId);
     await runAction("周期账单已生成", () => apiRequest(`/housing/leases/${selectedLeaseId}/generate-bills`, {
       method: "POST",
       token: getAccessToken(),
@@ -563,9 +564,9 @@ export function HousingOperationsClient() {
         charge_plan_id: billForm.chargePlanId,
         period_start: billForm.periodStart,
         period_end: billForm.periodEnd,
-        opening_reading: Number(billForm.openingReading),
-        closing_reading: Number(billForm.closingReading),
-        manual_amount: Number(billForm.manualAmount),
+        opening_reading: selectedPlan?.billingSource === "energy_meter" ? Number(billForm.openingReading) : undefined,
+        closing_reading: selectedPlan?.billingSource === "energy_meter" ? Number(billForm.closingReading) : undefined,
+        manual_amount: selectedPlan?.billingSource === "manual" ? billForm.manualAmount : undefined,
         reason: "运营人员生成周期账单"
       }
     }), true);
@@ -602,7 +603,7 @@ export function HousingOperationsClient() {
           receivable_id: financeForm.entryType.startsWith("deposit_") ? undefined : financeForm.receivableId,
           entry_type: financeForm.entryType,
           charge_type: chargeType,
-          amount: Number(financeForm.amount),
+          amount: financeForm.amount,
           payment_method: financeForm.paymentMethod,
           reason: financeForm.reason
         }
@@ -632,9 +633,9 @@ export function HousingOperationsClient() {
           meter_readings: [{ description: handoverForm.meterText }],
           credentials: [{ description: handoverForm.credentialText, managed_offline: true }],
           photo_file_ids: handoverPhotos.map((file) => file.id),
-          damage_amount: handoverForm.handoverType === "move_out" ? Number(handoverForm.damageAmount) : undefined,
-          unsettled_amount: handoverForm.handoverType === "move_out" ? Number(handoverForm.unsettledAmount) : undefined,
-          deposit_deduction_amount: handoverForm.handoverType === "move_out" ? Number(handoverForm.deductionAmount) : undefined,
+          damage_amount: handoverForm.handoverType === "move_out" ? handoverForm.damageAmount : undefined,
+          unsettled_amount: handoverForm.handoverType === "move_out" ? handoverForm.unsettledAmount : undefined,
+          deposit_deduction_amount: handoverForm.handoverType === "move_out" ? handoverForm.deductionAmount : undefined,
           remark: handoverForm.handoverType === "move_out" ? "退租现场验收" : "入住现场交割"
         }
       });

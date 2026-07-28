@@ -88,7 +88,7 @@ async function payReceivable(token, leaseId, receivable) {
       receivable_id: receivable.id,
       entry_type: "payment",
       charge_type: receivable.chargeType,
-      amount: outstanding,
+      amount: outstanding.toFixed(2),
       payment_method: "bank_transfer",
       transaction_reference: `E2E-${runId}`,
       reason: "真实 API E2E 人工收款核销"
@@ -212,18 +212,10 @@ async function run() {
     idempotent: true,
     body: { signature_file_id: signature.id }
   });
-  await request(`/files/${signature.id}`, { method: "DELETE", token, idempotent: true });
-  await expectRequestStatus(`/housing/leases/${lease.id}/activate`, 404, {
-    method: "POST",
+  await expectRequestStatus(`/files/${signature.id}`, 409, {
+    method: "DELETE",
     token,
     idempotent: true
-  });
-  const replacementSignature = await uploadSignature(token, lease.id);
-  await request(`/housing/leases/${lease.id}/sign`, {
-    method: "POST",
-    token,
-    idempotent: true,
-    body: { signature_file_id: replacementSignature.id }
   });
   await request(`/housing/leases/${lease.id}/activate`, { method: "POST", token, idempotent: true });
 
@@ -231,7 +223,7 @@ async function run() {
     method: "PUT",
     token,
     idempotent: true,
-    body: { charge_type: "property", billing_source: "fixed", cycle_months: 1, amount: 100, enabled: true }
+    body: { charge_type: "property", billing_source: "fixed", cycle_months: 1, amount: "100.00", enabled: true }
   });
   const billEnd = new Date(start);
   billEnd.setUTCMonth(billEnd.getUTCMonth() + 1);
@@ -285,7 +277,7 @@ async function run() {
       receivable_id: depositReceivable.id,
       entry_type: "payment",
       charge_type: "deposit",
-      amount: 2500,
+      amount: "2500.00",
       payment_method: "bank_transfer",
       reason: "真实 API E2E 押金收取"
     }
@@ -384,6 +376,12 @@ async function run() {
     idempotent: true,
     body: { action: "void", reason: "transferred purchases cannot be voided" }
   });
+  await expectRequestStatus(`/housing/purchases/${purchase.id}/actions`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { action: "refund", reason: "transferred purchases cannot be refunded" }
+  });
 
   detail = await request(`/housing/leases/${lease.id}`, { token });
   for (const receivable of detail.receivables) await payReceivable(token, lease.id, receivable);
@@ -396,9 +394,9 @@ async function run() {
       item_snapshot: [{ description: "现场物品验收完成", checked: true }],
       meter_readings: [{ type: "electricity", reading: 100 }],
       credentials: [{ type: "door_card", returned: 2 }],
-      damage_amount: 0,
-      unsettled_amount: 0,
-      deposit_deduction_amount: 0,
+      damage_amount: "0.00",
+      unsettled_amount: "0.00",
+      deposit_deduction_amount: "0.00",
       remark: "真实 API E2E 退租交割"
     }
   });
@@ -409,7 +407,7 @@ async function run() {
     body: {
       entry_type: "deposit_deduction",
       charge_type: "deposit",
-      amount: 1,
+      amount: "1.00",
       reason: "manual deposit deductions are forbidden"
     }
   });
@@ -427,7 +425,7 @@ async function run() {
       receivable_id: depositReceivable.id,
       entry_type: "refund",
       charge_type: "deposit",
-      amount: 2500,
+      amount: "2500.00",
       payment_method: "bank_transfer",
       reason: "真实 API E2E 押金退还"
     }
@@ -450,7 +448,7 @@ async function run() {
       receivable_id: depositReceivable.id,
       entry_type: "refund",
       charge_type: "deposit",
-      amount: 1,
+      amount: "1.00",
       reason: "terminated lease is immutable"
     }
   });

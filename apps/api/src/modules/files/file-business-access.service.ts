@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -116,6 +116,57 @@ export class FileBusinessAccessService {
       && file.createBy !== actor.sub
     ) {
       throw new ForbiddenException("Unassociated business files are private to their uploader");
+    }
+  }
+
+  async assertDeletionAllowed(scope: TenantParkScope, file: FileEntity): Promise<void> {
+    if (!this.isProtectedBizType(file.bizType) || !file.bizId) return;
+    let sql: string | null = null;
+    switch (file.bizType) {
+      case "housing_lease_signature":
+        sql = `SELECT 1
+               FROM biz_housing_lease
+               WHERE tenant_id=$2 AND park_id=$3 AND id=$4::uuid
+                 AND signature_file_id=$1::uuid AND is_deleted=false`;
+        break;
+      case "housing_handover":
+        sql = `SELECT 1
+               FROM biz_housing_handover
+               WHERE tenant_id=$2 AND park_id=$3 AND lease_id=$4::uuid
+                 AND (signature_file_id=$1::uuid OR photo_file_ids ? $1::text)
+                 AND is_deleted=false`;
+        break;
+      case "housing_repair":
+        sql = `SELECT 1
+               FROM biz_work_order
+               WHERE tenant_id=$2 AND park_id=$3
+                 AND $1::uuid=ANY(image_file_ids)
+                 AND is_deleted=false`;
+        break;
+      case "housing_purchase":
+        sql = `SELECT 1
+               FROM biz_housing_purchase
+               WHERE tenant_id=$2 AND park_id=$3 AND id=$4::uuid
+                 AND receipt_file_ids ? $1::text
+                 AND is_deleted=false`;
+        break;
+      case "homestay_turnover":
+        sql = `SELECT 1
+               FROM biz_homestay_turnover_task
+               WHERE tenant_id=$2 AND park_id=$3 AND id=$4::uuid
+                 AND photo_file_ids ? $1::text
+                 AND is_deleted=false`;
+        break;
+    }
+    if (!sql) return;
+    const references = await this.dataSource.query(
+      `${sql} LIMIT 1`,
+      [file.id, scope.tenantId, scope.parkId, file.bizId]
+    ) as Array<{ "?column?": number }>;
+    if (references.length > 0) {
+      throw new ConflictException(
+        "Referenced business evidence cannot be deleted; detach or reverse it through the owning workflow"
+      );
     }
   }
 
