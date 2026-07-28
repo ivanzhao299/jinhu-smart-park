@@ -502,8 +502,8 @@ export function HousingOperationsClient() {
         end_date: leaseForm.endDate,
         payment_cycle_months: Number(leaseForm.cycleMonths),
         billing_day: Number(leaseForm.billingDay),
-        monthly_rent: Number(leaseForm.monthlyRent),
-        deposit_amount: Number(leaseForm.depositAmount),
+        monthly_rent: leaseForm.monthlyRent,
+        deposit_amount: leaseForm.depositAmount,
         first_due_date: leaseForm.firstDueDate,
         tail_period_rule: "prorate"
       }

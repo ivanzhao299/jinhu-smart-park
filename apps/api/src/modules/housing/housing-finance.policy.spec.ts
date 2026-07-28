@@ -104,7 +104,7 @@ test("housing service revalidates meter state and makes completed handover retri
   const servicePath = resolve(__dirname, "housing.service.ts");
   const service = readFileSync(servicePath, "utf8");
 
-  assert.match(service, /!meter\.isEnabled \|\| meter\.status === "DISABLED"/);
+  assert.match(service, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
   assert.match(service, /if \(handover\?\.status === "completed"\) return handover;/);
   assert.ok(
     service.indexOf('if (handover?.status === "completed") return handover;')

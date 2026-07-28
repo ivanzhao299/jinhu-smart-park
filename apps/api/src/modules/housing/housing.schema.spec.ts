@@ -47,4 +47,21 @@ test("housing billing locks its lease and rejects overlapping plan periods", () 
   assert.match(service, /const lease = await this\.lockLease\(manager, scope, leaseId\)/);
   assert.match(service, /receivable\.period_start < :periodEnd/);
   assert.match(service, /receivable\.period_end > :periodStart/);
+  assert.doesNotMatch(service, /overlapping\.periodStart === dto\.period_start/);
+});
+
+test("housing final-state, attachment, meter, privacy, and purchase guards stay explicit", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  assert.match(service, /this\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
+  assert.match(service, /Final housing leases cannot accept new occupants/);
+  assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
+  assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
+  assert.match(service, /meter\.status !== "ONLINE"/);
+  assert.match(service, /canReadLease \? this\.dataSource\.getRepository\(PartyEntity\)/);
+
+  const activationStart = service.indexOf("async activateLease");
+  const activationEnd = service.indexOf("async voidLease", activationStart);
+  const activation = service.slice(activationStart, activationEnd);
+  assert.match(activation, /this\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);
+  assert.match(activation, /bizType: "housing_lease_signature"/);
 });

@@ -186,8 +186,8 @@ async function run() {
       end_date: endDate,
       payment_cycle_months: 1,
       billing_day: 1,
-      monthly_rent: 2500,
-      deposit_amount: 2500,
+      monthly_rent: "2500",
+      deposit_amount: "2500",
       first_due_date: startDate,
       tail_period_rule: "prorate"
     }
@@ -206,6 +206,19 @@ async function run() {
     token,
     idempotent: true,
     body: { signature_file_id: signature.id }
+  });
+  await request(`/files/${signature.id}`, { method: "DELETE", token, idempotent: true });
+  await expectRequestStatus(`/housing/leases/${lease.id}/activate`, 404, {
+    method: "POST",
+    token,
+    idempotent: true
+  });
+  const replacementSignature = await uploadSignature(token, lease.id);
+  await request(`/housing/leases/${lease.id}/sign`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { signature_file_id: replacementSignature.id }
   });
   await request(`/housing/leases/${lease.id}/activate`, { method: "POST", token, idempotent: true });
 
@@ -226,6 +239,17 @@ async function run() {
       period_start: startDate,
       period_end: billEnd.toISOString().slice(0, 10),
       reason: "真实 API E2E 周期账单"
+    }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/generate-bills`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      charge_plan_id: propertyChargePlan.id,
+      period_start: startDate,
+      period_end: billEnd.toISOString().slice(0, 10),
+      reason: "a new request cannot silently reuse an existing billing period"
     }
   });
 
@@ -343,6 +367,12 @@ async function run() {
   });
   assert(firstTransfer.receivable.id === secondTransfer.receivable.id, "partial transfers reuse one source receivable");
   assert(Number(secondTransfer.receivable.amount) === 35.15, "later transferred items accumulate into the receivable");
+  await expectRequestStatus(`/housing/purchases/${purchase.id}/actions`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { action: "void", reason: "transferred purchases cannot be voided" }
+  });
 
   detail = await request(`/housing/leases/${lease.id}`, { token });
   for (const receivable of detail.receivables) await payReceivable(token, lease.id, receivable);
@@ -359,6 +389,17 @@ async function run() {
       unsettled_amount: 0,
       deposit_deduction_amount: 0,
       remark: "真实 API E2E 退租交割"
+    }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/ledger`, 400, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      entry_type: "deposit_deduction",
+      charge_type: "deposit",
+      amount: 1,
+      reason: "manual deposit deductions are forbidden"
     }
   });
   await expectRequestStatus(`/housing/leases/${lease.id}/checkout`, 409, {
@@ -389,6 +430,28 @@ async function run() {
     token,
     idempotent: true,
     body: { reason: "真实 API E2E 退租结清" }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/ledger`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      receivable_id: depositReceivable.id,
+      entry_type: "refund",
+      charge_type: "deposit",
+      amount: 1,
+      reason: "terminated lease is immutable"
+    }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/occupants`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      party_id: tenant.id,
+      occupant_role: "cohabitant",
+      emergency_contact: false
+    }
   });
   assert(terminated.status === "terminated", "tenant-to-checkout real API workflow completed");
   console.log(`[PASS] Housing rental real API E2E completed: lease=${lease.id}, workOrder=${repair.id}`);

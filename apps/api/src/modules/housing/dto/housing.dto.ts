@@ -29,6 +29,8 @@ const trim = ({ value }: { value: unknown }): string | undefined => {
 const trimDecimalString = ({ value }: { value: unknown }): unknown =>
   typeof value === "string" ? value.trim() : value;
 
+const HOUSING_MONEY_PATTERN = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+
 export class HousingLeaseQueryDto {
   @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
   @IsOptional() @IsUUID() unit_id?: string;
@@ -45,8 +47,8 @@ export class CreateHousingLeaseDto {
   @IsDateString() end_date!: string;
   @Type(() => Number) @IsInt() @Min(1) @Max(120) payment_cycle_months!: number;
   @Type(() => Number) @IsInt() @Min(1) @Max(28) billing_day!: number;
-  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) monthly_rent!: number;
-  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) deposit_amount!: number;
+  @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) monthly_rent!: string;
+  @Transform(trimDecimalString) @IsString() @Matches(HOUSING_MONEY_PATTERN) deposit_amount!: string;
   @IsDateString() first_due_date!: string;
   @IsOptional() @IsIn(["prorate"]) tail_period_rule = "prorate" as const;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?: string;

@@ -181,13 +181,16 @@ export class HousingService {
   async getLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const lease = await this.mustLease(this.dataSource.manager, scope, id);
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+    const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
     const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
     const [tenant, occupants, chargePlans, receivables, ledger, handovers, repairEntities] = await Promise.all([
-      this.dataSource.getRepository(PartyEntity).findOne({
+      canReadLease ? this.dataSource.getRepository(PartyEntity).findOne({
         where: { id: lease.tenantPartyId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      }),
-      this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common }),
+      }) : Promise.resolve(null),
+      canReadLease
+        ? this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common })
+        : Promise.resolve([]),
       this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }),
       canReadFinance ? this.dataSource.getRepository(HousingReceivableEntity).find({
         where: common,
@@ -197,8 +200,10 @@ export class HousingService {
         where: common,
         order: { occurredAt: "ASC" }
       }) : Promise.resolve([]),
-      this.dataSource.getRepository(HousingHandoverEntity).find({ where: common }),
-      this.dataSource.getRepository(WorkOrderEntity).find({
+      canReadLease
+        ? this.dataSource.getRepository(HousingHandoverEntity).find({ where: common })
+        : Promise.resolve([]),
+      canReadLease ? this.dataSource.getRepository(WorkOrderEntity).find({
         where: {
           tenantId: scope.tenantId,
           parkId: scope.parkId,
@@ -208,7 +213,7 @@ export class HousingService {
           isDeleted: false
         },
         order: { createTime: "DESC" }
-      })
+      }) : Promise.resolve([])
     ]);
     return {
       lease,
@@ -258,8 +263,8 @@ export class HousingService {
           endDate: dto.end_date.slice(0, 10),
           paymentCycleMonths: dto.payment_cycle_months,
           billingDay: dto.billing_day,
-          monthlyRent: dto.monthly_rent.toFixed(2),
-          depositAmount: dto.deposit_amount.toFixed(2),
+          monthlyRent: formatHousingMoney(dto.monthly_rent),
+          depositAmount: formatHousingMoney(dto.deposit_amount),
           firstDueDate: dto.first_due_date.slice(0, 10),
           tailPeriodRule: dto.tail_period_rule,
           approvalNote: null,
@@ -282,7 +287,7 @@ export class HousingService {
           chargeType: "rent",
           billingSource: "fixed",
           cycleMonths: dto.payment_cycle_months,
-          amount: dto.monthly_rent.toFixed(2),
+          amount: formatHousingMoney(dto.monthly_rent),
           unitPrice: null,
           meterId: null,
           enabled: true,
@@ -350,6 +355,11 @@ export class HousingService {
         if (!lease.signatureFileId || !lease.signedAt || !lease.approvedAt) {
           throw new ConflictException("Approval and offline signature registration are required before activation");
         }
+        await this.assertFiles(manager, scope, [lease.signatureFileId], {
+          mimePrefix: "application/pdf",
+          bizType: "housing_lease_signature",
+          bizId: lease.id
+        });
         const occupancy = await this.occupancyService.createInTransaction(manager, scope, actor, {
           unit_id: lease.unitId,
           source_domain: "housing_rental",
@@ -374,7 +384,7 @@ export class HousingService {
             periodStart: saved.startDate,
             periodEnd: this.addDays(saved.startDate, 1),
             dueDate: saved.firstDueDate,
-            amount: Number(saved.depositAmount)
+            amount: saved.depositAmount
           });
         }
         return saved;
@@ -400,8 +410,11 @@ export class HousingService {
 
   async addOccupant(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: AddHousingOccupantDto) {
     return this.dataSource.transaction(async (manager) => {
-      const lease = await this.mustLease(manager, scope, id);
+      const lease = await this.lockLease(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      if (["terminated", "void"].includes(lease.status)) {
+        throw new ConflictException("Final housing leases cannot accept new occupants");
+      }
       await this.mustParty(manager, scope, dto.party_id);
       const repository = manager.getRepository(HousingLeaseOccupantEntity);
       const current = await repository.findOne({
@@ -447,9 +460,7 @@ export class HousingService {
             }
           });
           if (!meter) throw new NotFoundException("Energy meter not found");
-          if (!meter.isEnabled || meter.status === "DISABLED") {
-            throw new ConflictException("Energy meter must be enabled");
-          }
+          this.assertHousingMeterOnline(meter);
           if (meter.roomId !== lease.unitId) {
             throw new BadRequestException("Energy meter must belong to the housing lease unit");
           }
@@ -525,9 +536,6 @@ export class HousingService {
         .andWhere("receivable.period_end > :periodStart", { periodStart: dto.period_start })
         .getOne();
       if (overlapping) {
-        if (overlapping.periodStart === dto.period_start && overlapping.periodEnd === dto.period_end) {
-          return [overlapping];
-        }
         throw new ConflictException("Billing period overlaps an existing receivable for this charge plan");
       }
       const meter = plan.billingSource === "energy_meter"
@@ -542,9 +550,7 @@ export class HousingService {
         : null;
       if (plan.billingSource === "energy_meter") {
         if (!meter) throw new NotFoundException("Energy meter not found");
-        if (!meter.isEnabled || meter.status === "DISABLED") {
-          throw new ConflictException("Energy meter must be enabled");
-        }
+        this.assertHousingMeterOnline(meter);
         if (meter.roomId !== lease.unitId) {
           throw new BadRequestException("Energy meter must belong to the housing lease unit");
         }
@@ -596,8 +602,12 @@ export class HousingService {
     return this.dataSource.transaction(async (manager) => {
       const lease = await this.lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       if (dto.entry_type === "charge") {
         throw new BadRequestException("Create tenant charges through a charge plan and receivable");
+      }
+      if (dto.entry_type === "deposit_deduction") {
+        throw new BadRequestException("Deposit deductions can only be created by the move-out handover workflow");
       }
       let entryType = dto.entry_type;
       let receivable: HousingReceivableEntity | null = null;
@@ -657,8 +667,6 @@ export class HousingService {
           this.applyReceivableEntry(receivable, { ...dto, entry_type: "payment" });
         } else if (entryType === "deposit_refund") {
           receivableChanged = false;
-        } else if (entryType === "deposit_deduction") {
-          throw new BadRequestException("Deposit deduction must settle a checkout charge, not the deposit receivable");
         } else {
           this.applyReceivableEntry(receivable, dto);
         }
@@ -1060,6 +1068,16 @@ export class HousingService {
           break;
         case "void":
           if (purchase.paymentStatus === "paid") throw new ConflictException("Paid purchase cannot be voided");
+          if (await manager.getRepository(HousingPurchaseItemEntity)
+            .createQueryBuilder("item")
+            .where("item.tenant_id=:tenantId", { tenantId: scope.tenantId })
+            .andWhere("item.park_id=:parkId", { parkId: scope.parkId })
+            .andWhere("item.purchase_id=:purchaseId", { purchaseId })
+            .andWhere("item.is_deleted=false")
+            .andWhere("item.transferred_receivable_id IS NOT NULL")
+            .getExists()) {
+            throw new ConflictException("Transferred purchase items must be reversed before voiding the purchase");
+          }
           purchase.approvalStatus = "void";
           break;
         default:
@@ -1360,6 +1378,12 @@ export class HousingService {
   private assertStatus(lease: HousingLeaseEntity, allowed: HousingLeaseEntity["status"][]) {
     if (!allowed.includes(lease.status)) {
       throw new ConflictException(`Lease status ${lease.status} does not allow this action`);
+    }
+  }
+
+  private assertHousingMeterOnline(meter: EnergyMeterEntity): void {
+    if (!meter.isEnabled || meter.status !== "ONLINE") {
+      throw new ConflictException("Energy meter must be enabled and ONLINE");
     }
   }
 

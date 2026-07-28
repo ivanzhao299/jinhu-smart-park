@@ -18,6 +18,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Business date strings are real `YYYY-MM-DD` calendar dates and use `Asia/Shanghai` when derived from the current instant.
 - A homestay guest is verified only when the current scoped Party is verified and has both identity document type and protected identity data; check-in must not trust a stale booking-guest snapshot after Party identity changes.
 - Housing lease readers without `housing:finance:read` receive no receivable, ledger, or finance-summary data.
+- Housing finance-only readers receive finance data without tenant profile, occupant, handover, or repair projections unless they also have `housing:lease:read`.
+- Lease rent and deposit values remain decimal strings from HTTP input through persistence; JavaScript `number` is not an acceptable lease-money boundary.
 - Billing month advancement remains anchored to the original start day; each target month alone may clamp to its last day.
 - Purchase line amounts are rounded to cents first; the header total is the sum of persisted rounded lines.
 - Purchase recharge requires at least one item and rejects refunded purchases.
@@ -47,7 +49,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - File upload is a separate action; its native file input must not impose required validation on a parent business form.
 - Pending workflow uploads keep their file metadata for preview/removal, and a completed upload is discarded when its lease context is no longer current.
 - Move-out handover exposes damage, unsettled charges, and deposit deduction together.
-- Lease activation is offered only after the persisted offline signature reference exists.
+- Lease activation is offered only after the persisted offline signature reference exists, and activation revalidates the current, non-deleted PDF business attachment inside the transaction.
 - Lease detail renders the occupants and finance ledger returned by the API, while finance data remains absent without finance-read permission.
 - Desktop tables and mobile record cards switch at the same breakpoint, and mobile labels retain server IDs when paginated names are unavailable.
 - Purchase operations expose every supported transition that is valid for the current approval/payment state, including reject, refund, and void.
@@ -60,7 +62,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Booking-detail and post-action refreshes retain the originating booking ID and discard late responses after the operator changes selection.
 - Purchase amount calculation uses decimal strings or scaled integers across the full `numeric(18,2)` range; JavaScript `number` is not an acceptable persisted total.
 - The first generated rent receivable uses `first_due_date`; later periods derive their due date from the configured billing day.
-- Energy-meter charge plans and bill generation accept only meters whose enable flag and operational status are both active, in the same tenant, park, and housing unit as the lease.
+- Energy-meter charge plans and bill generation accept only enabled meters whose operational status is exactly `ONLINE`, in the same tenant, park, and housing unit as the lease.
 - Energy-meter usage and charge amounts both apply the meter multiplier to the raw reading difference.
 - Duplicate housing purchase codes are translated from database unique violations to HTTP 409.
 - Dashboard finance and purchase aggregates are queried and returned only when the actor has the corresponding granular read permission.
@@ -68,6 +70,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Payments and refunds posted to the deposit receivable are normalized to `deposit_receipt` and `deposit_refund`; deposit balances must never depend on a caller choosing a special ledger type.
 - Active receivables for one charge plan use non-overlapping `[period_start, period_end)` periods, enforced by both the lease-locked service transaction and a database exclusion constraint.
 - One active charge plan exists per tenant, park, lease, and charge type; upsert locks the lease and the database owns the final unique constraint.
+- A new bill-generation request whose period is identical to an existing receivable returns HTTP 409; only a replay with the same idempotency key may return the cached original response.
+- Final housing leases (`terminated` or `void`) accept no new occupants or ledger entries.
+- Deposit deductions are created only by the completed move-out handover workflow; the generic ledger endpoint rejects caller-supplied deductions.
+- A purchase with any transferred line cannot be voided until the transfer is explicitly reversed by a supported audited workflow.
 - Purchase quantities, unit prices, persisted line amounts, and recharge totals remain decimal strings or scaled integers from HTTP input through persistence.
 - Changing `identity_document_type` without a replacement identity number clears the old encrypted, hashed, and masked identity values.
 - A checked-out homestay booking stops contributing to occupied units and average daily rate on and after its actual Shanghai checkout date; departures use the actual checkout date.
@@ -79,22 +85,28 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Missing or impossible property-business calendar date | HTTP 400 |
 | Guest marked verified without verified identity data | HTTP 400 |
 | Lease-only reader requests lease detail | Finance arrays empty and finance summary `null` |
+| Finance-only reader requests lease detail | Finance data present; tenant, occupants, handovers, and repairs absent |
 | Duplicate lease code in tenant/park | HTTP 409 |
 | Purchase transfer has no items | HTTP 400 |
 | Purchase was refunded | HTTP 409 on recharge |
 | Optional Party field is `null` or blank during update | Clear the persisted value |
 | Party identity type or protected identity changes after verification | Persist `verification_status=unverified` |
 | Occupancy `source_type` or `source_id` is blank after trimming | HTTP 400 |
-| Energy meter is disabled, cross-scope, or attached to another unit | HTTP 404/409/400 without creating the plan |
+| Energy meter is disabled, not `ONLINE`, cross-scope, or attached to another unit | HTTP 404/409/400 without creating the plan |
 | Meter multiplier is not positive or closing reading precedes opening reading | HTTP 400 without creating a receivable |
 | Move-in handover contains move-out financial amounts | HTTP 400 |
 | Purchase code collides in the current tenant and park | HTTP 409 |
 | Dashboard reader lacks finance or purchase permission | Omit the corresponding aggregate and do not query it |
 | Held occupancy becomes mode-incompatible or disabled before activation | HTTP 409 |
 | Charge-plan period overlaps a non-void receivable | HTTP 409 |
+| New idempotency key requests an identical existing billing period | HTTP 409 |
 | Concurrent active charge-plan creation for the same lease/type | One result; database conflict translated to HTTP 409 |
 | Ordinary payment/refund targets the deposit receivable | Persist as deposit receipt/refund and update both receivable and deposit balance |
 | Identity document type changes without a new identity number | Clear protected identity and reset verification |
+| Signature attachment is deleted after signing but before activation | HTTP 404 without activating occupancy |
+| Occupant or ledger write targets a final lease | HTTP 409 |
+| Generic ledger request supplies `deposit_deduction` | HTTP 400 |
+| Purchase with transferred lines is voided | HTTP 409 |
 
 ## 5. Good / Base / Bad Cases
 
@@ -113,6 +125,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Unit: end-of-month billing anchors and partial tail periods.
 - Unit: decimal-safe purchase line rounding and header reconciliation, including half-cent boundaries.
 - Unit: purchase totals near the `numeric(18,2)` boundary remain exact decimal strings.
+- Unit/DTO: lease rent and deposit near the `numeric(18,2)` boundary remain exact decimal strings and numeric JSON inputs are rejected.
 - Unit: cancellation ignores non-room waivers and dashboard occupancy follows the requested date.
 - Unit/DTO: impossible calendar dates, whitespace-only occupancy source identifiers, and identity-change verification reset.
 - DTO: non-empty purchase transfer and explicit Party field clearing.
@@ -126,7 +139,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
 - Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
 - DTO/frontend: supported identity-document formats reject arbitrary identifiers and newly created parties remain unverified.
-- Integration: overlapping housing billing periods fail, exact retries return the existing period, and concurrent charge-plan upserts cannot create duplicates.
+- Integration: overlapping or identical housing billing periods under a new request fail; same-key replay is owned by the idempotency interceptor; concurrent charge-plan upserts cannot create duplicates.
+- Integration: final leases reject occupant and ledger writes; manual deposit deduction and voiding a transferred purchase fail.
+- Integration: lease activation revalidates its signature attachment, and finance-only detail reads do not expose tenant profile data.
 - E2E: an ordinary payment against a deposit receivable produces a deposit receipt and the checkout balance remains consistent.
 - Unit: cached idempotent responses preserve `Date` values as ISO strings.
 

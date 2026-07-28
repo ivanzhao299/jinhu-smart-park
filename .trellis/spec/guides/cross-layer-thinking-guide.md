@@ -121,6 +121,26 @@ After implementation:
 - [ ] Checked that derived state points back to the source event identifier
       (`seq`, `id`, `version`) instead of inventing a second cursor
 
+### Stateful Business Action Matrix
+
+For lifecycle, finance, occupancy, or attachment-backed actions, enumerate each
+action against every state and sibling entry point before implementation:
+
+- [ ] Terminal states are immutable across generic and domain-specific write paths
+- [ ] Referenced records are revalidated inside the action transaction, not only
+      when an earlier step stored their IDs
+- [ ] Forward transitions and reverse/void transitions preserve dependent records
+      or reject the operation
+- [ ] Same-key replay is separated from a new request that happens to carry the
+      same business payload
+- [ ] Permission-aware responses project only fields authorized by each granular
+      read permission
+- [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
+      without passing through JavaScript `number`
+
+Add behavioral tests for both the allowed transition and its nearest forbidden
+neighbor. Source-pattern assertions may supplement, but not replace, these tests.
+
 ---
 
 ## Cross-Platform Template Consistency
