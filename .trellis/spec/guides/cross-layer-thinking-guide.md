@@ -137,6 +137,10 @@ action against every state and sibling entry point before implementation:
       read permission
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
+- [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
+      preserving the stored string is insufficient if a later calculation converts it
+- [ ] Generic infrastructure records use a domain-specific protected type whenever
+      their authorization is narrower than the generic workflow
 
 Add behavioral tests for both the allowed transition and its nearest forbidden
 neighbor. Source-pattern assertions may supplement, but not replace, these tests.

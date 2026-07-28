@@ -52,7 +52,7 @@ import {
 } from "./entities/housing.entities";
 import {
   assertHousingBillingPeriodWithinLease,
-  calculateHousingMonthFraction,
+  calculateHousingMonthFractionRatio,
   parseHousingCalendarDate
 } from "./housing-billing.policy";
 import {
@@ -64,6 +64,7 @@ import {
   calculateHousingMeterCharge,
   calculateHousingPurchaseAmounts,
   formatHousingMoney,
+  multiplyHousingMoneyByRatio,
   housingReceivableStatus
 } from "./housing-finance.policy";
 
@@ -848,8 +849,8 @@ export class HousingService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
     await this.assertFiles(this.dataSource.manager, scope, dto.image_file_ids ?? [], {
-      allowedMimeTypes: resolveFileUploadPolicy("workorder_create").mimeTypes,
-      bizType: "workorder_create",
+      allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
+      bizType: "housing_repair",
       bizId: lease.id,
       lock: false
     });
@@ -1259,12 +1260,16 @@ export class HousingService {
       );
       return calculation;
     }
-    const months = calculateHousingMonthFraction(dto.period_start, dto.period_end, leaseStartDate);
-    if (months > plan.cycleMonths + 0.000001) {
+    const monthFraction = calculateHousingMonthFractionRatio(dto.period_start, dto.period_end, leaseStartDate);
+    if (monthFraction.numerator > BigInt(plan.cycleMonths) * monthFraction.denominator) {
       throw new BadRequestException(`Billing period exceeds configured ${plan.cycleMonths}-month cycle for ${plan.chargeType}`);
     }
     return {
-      amount: Number(plan.amount ?? 0) * months,
+      amount: multiplyHousingMoneyByRatio(
+        plan.amount ?? "0",
+        monthFraction.numerator,
+        monthFraction.denominator
+      ),
       usageAmount: undefined
     };
   }

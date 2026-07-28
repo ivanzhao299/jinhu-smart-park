@@ -9,7 +9,8 @@ import {
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
   calculateHousingMeterCharge,
-  calculateHousingPurchaseAmounts
+  calculateHousingPurchaseAmounts,
+  multiplyHousingMoneyByRatio
 } from "./housing-finance.policy";
 
 test("payment and waiver settle one receivable without exceeding its amount", () => {
@@ -64,6 +65,17 @@ test("purchase header total is derived from persisted rounded line amounts", () 
       { quantity: "900000000000", unitPrice: "9999" }
     ]),
     { lineAmounts: ["8999100000000000.00"], totalAmount: "8999100000000000.00" }
+  );
+});
+
+test("fixed rent proration preserves cents beyond JavaScript safe integer range", () => {
+  assert.equal(
+    multiplyHousingMoneyByRatio("99999999999999.99", 1n, 1n),
+    "99999999999999.99"
+  );
+  assert.equal(
+    multiplyHousingMoneyByRatio("99999999999999.99", 1n, 2n),
+    "50000000000000.00"
   );
 });
 

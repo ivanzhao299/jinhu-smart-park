@@ -48,9 +48,11 @@ function parseScaledDecimal(value: string | number, scale: number): bigint {
 }
 
 function formatCents(value: bigint): string {
-  const integerPart = value / 100n;
-  const fractionPart = (value % 100n).toString().padStart(2, "0");
-  return `${integerPart}.${fractionPart}`;
+  const sign = value < 0n ? "-" : "";
+  const absolute = value < 0n ? -value : value;
+  const integerPart = absolute / 100n;
+  const fractionPart = (absolute % 100n).toString().padStart(2, "0");
+  return `${sign}${integerPart}.${fractionPart}`;
 }
 
 export function formatHousingMoney(value: string | number): string {
@@ -63,6 +65,24 @@ export function addHousingMoneyAmounts(values: Array<string | number>): string {
     throw new BadRequestException("Housing money amount exceeds numeric(18,2)");
   }
   return formatCents(total);
+}
+
+export function multiplyHousingMoneyByRatio(
+  value: string | number,
+  numerator: bigint,
+  denominator: bigint
+): string {
+  if (numerator < 0n || denominator <= 0n) {
+    throw new BadRequestException("Housing money ratio must be non-negative with a positive denominator");
+  }
+  const product = parseScaledDecimal(value, 2) * numerator;
+  const quotient = product / denominator;
+  const remainder = product % denominator;
+  const rounded = remainder * 2n >= denominator ? quotient + 1n : quotient;
+  if (rounded > MAX_HOUSING_MONEY_CENTS || rounded < -MAX_HOUSING_MONEY_CENTS) {
+    throw new BadRequestException("Housing money amount exceeds numeric(18,2)");
+  }
+  return formatCents(rounded);
 }
 
 export function housingReceivableStatus(

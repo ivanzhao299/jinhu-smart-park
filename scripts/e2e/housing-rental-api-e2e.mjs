@@ -64,11 +64,16 @@ async function uploadSignature(token, leaseId) {
   return request("/files", { method: "POST", token, idempotent: true, body: form });
 }
 
-async function uploadRepairImage(token, leaseId) {
+function repairImageForm(leaseId, bizType = "housing_repair") {
   const form = new FormData();
-  form.append("biz_type", "workorder_create");
+  form.append("biz_type", bizType);
   form.append("biz_id", leaseId);
   form.append("file", new Blob([Buffer.from("housing-repair-image")], { type: "image/png" }), `repair-${runId}.png`);
+  return form;
+}
+
+async function uploadRepairImage(token, leaseId, bizType = "housing_repair") {
+  const form = repairImageForm(leaseId, bizType);
   return request("/files", { method: "POST", token, idempotent: true, body: form });
 }
 
@@ -290,7 +295,13 @@ async function run() {
     "deposit receivable payment is normalized to a deposit receipt"
   );
 
-  const wrongLeaseRepairImage = await uploadRepairImage(token, randomUUID());
+  await expectRequestStatus("/files", 403, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: repairImageForm(randomUUID())
+  });
+  const wrongLeaseRepairImage = await uploadRepairImage(token, lease.id, "workorder_create");
   const repairPayload = {
     title: `水龙头漏水 ${runId}`,
     description: "运营人员根据租客电话代录，需要维修人员上门处理。",

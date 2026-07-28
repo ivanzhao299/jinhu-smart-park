@@ -47,6 +47,7 @@ test("commercial contract compatibility uses Shanghai business-day boundaries", 
 
   assert.match(migration, /start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(migration, /\(relation\.end_date \+ 1\)::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.match(migration, /occupancy\.end_at > \(NEW\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'\)/);
   assert.match(migration, /\(NEW\.end_date \+ 1\)::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
 });
 

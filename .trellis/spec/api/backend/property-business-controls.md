@@ -36,7 +36,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Housing bill generation targets one explicit charge plan per request.
 - Later purchase-line transfers into the same source receivable add only newly transferred line amounts; idempotent replay does not add them twice.
 - Housing checkout requires both tenant receivables and the confirmed deposit balance to be settled.
-- Housing repair evidence must use the shared image policy and remain scoped to `workorder_create` plus the current lease.
+- Housing repair evidence uses the protected `housing_repair` business type, shared image policy, current lease reference, housing permission, and unit data scope; generic work-order or file permissions are insufficient.
 - Purchase recharge requires the operator to select the exact untransferred line items; loading a purchase must not select every line automatically.
 - Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
 - New Party records remain unverified; general updates cannot change verification status, and a dedicated transition verifies only records with protected identity data.
@@ -77,6 +77,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Purchase quantities, unit prices, persisted line amounts, and recharge totals remain decimal strings or scaled integers from HTTP input through persistence.
 - Changing `identity_document_type` without a replacement identity number clears the old encrypted, hashed, and masked identity values.
 - A checked-out homestay booking stops contributing to occupied units and average daily rate on and after its actual Shanghai checkout date; departures use the actual checkout date.
+- Fixed housing rent and partial-period proration use integer cents and an exact rational month fraction; persisted rent must never pass through JavaScript `number` during billing.
+- Homestay guest registration locks the booking row inside the same transaction that validates status and saves the guest.
+- Project-wide housing purchase attachments require unrestricted park property scope when the referenced purchase has no unit.
 
 ## 4. Validation & Error Matrix
 
@@ -107,6 +110,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Occupant or ledger write targets a final lease | HTTP 409 |
 | Generic ledger request supplies `deposit_deduction` | HTTP 400 |
 | Purchase with transferred lines is voided | HTTP 409 |
+| Fixed rent exceeds JavaScript safe-cent range | Preserve the exact decimal amount through bill creation |
+| Guest registration races a terminal booking transition | Booking lock serializes both actions; terminal status rejects registration |
+| Generic file reader requests `housing_repair` evidence without housing access | HTTP 403 |
+| Restricted unit-scope actor requests a project-wide purchase attachment | HTTP 403 |
 
 ## 5. Good / Base / Bad Cases
 
@@ -114,6 +121,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Good: three rounded purchase lines reconcile exactly with the purchase header.
 - Good: a January 31 lease keeps the January 31 anchor when a later bill covers February 28 through March 31.
 - Good: a retried homestay ledger submission reuses one idempotency key until that logical payload succeeds.
+- Good: `99999999999999.99` monthly rent remains exactly `99999999999999.99` for one full billing month.
 - Base: a lease-only operator can inspect lease and handover data without seeing finance data.
 - Bad: trusting a request-level `verification_status=verified` without inspecting the Party identity record.
 - Bad: using `new Date().toISOString().slice(0, 10)` for a Shanghai operating date.
@@ -142,6 +150,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Integration: overlapping or identical housing billing periods under a new request fail; same-key replay is owned by the idempotency interceptor; concurrent charge-plan upserts cannot create duplicates.
 - Integration: final leases reject occupant and ledger writes; manual deposit deduction and voiding a transferred purchase fail.
 - Integration: lease activation revalidates its signature attachment, and finance-only detail reads do not expose tenant profile data.
+- Unit/integration: fixed rent proration uses exact fractions and preserves cents above JavaScript's safe integer range.
+- Integration: guest registration locks the booking against cancellation, no-show, and checkout.
+- Integration: housing repair and project-wide purchase attachments enforce their business permission and property data scope.
 - E2E: an ordinary payment against a deposit receivable produces a deposit receipt and the checkout balance remains consistent.
 - Unit: cached idempotent responses preserve `Date` values as ISO strings.
 
@@ -161,6 +172,7 @@ await prepareBooking(selectedBookingId); // selectedBookingId may now identify a
 const quantityThousandths = parseScaledDecimal(item.quantity, 3);
 const unitPriceCents = parseScaledDecimal(item.unitPrice, 2);
 const lineCents = (quantityThousandths * unitPriceCents + 500n) / 1_000n;
+const rentCents = multiplyHousingMoneyByRatio(plan.amount, monthNumerator, monthDenominator);
 
 const originatingBookingId = selectedBookingId;
 const succeeded = await submit(originatingBookingId);

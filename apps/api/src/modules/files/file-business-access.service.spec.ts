@@ -75,3 +75,60 @@ test("unassociated purchase receipts remain private to their uploader", () => {
     ForbiddenException
   );
 });
+
+test("housing repair evidence requires repair or lease permission and unit scope", async () => {
+  const checkedUnits: string[] = [];
+  const service = new FileBusinessAccessService(
+    { query: async () => [{ unit_id: "unit-1" }] } as never,
+    {
+      assertAccess: async (_scope: TenantParkScope, _actor: JwtPrincipal, unitId: string) => {
+        checkedUnits.push(unitId);
+        return { id: unitId };
+      }
+    } as never
+  );
+
+  await assert.rejects(
+    service.assertReferenceAccess(scope, actor([SYSTEM_PERMISSIONS.FILE_READ]), "housing_repair", "lease-1", "read"),
+    ForbiddenException
+  );
+  await service.assertReferenceAccess(
+    scope,
+    actor([SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE]),
+    "housing_repair",
+    "lease-1",
+    "read"
+  );
+  assert.deepEqual(checkedUnits, ["unit-1"]);
+});
+
+test("project-wide purchase files require unrestricted property scope", async () => {
+  const restricted = new FileBusinessAccessService(
+    { query: async () => [{ unit_id: null }] } as never,
+    { allowedUnitIds: async () => ["unit-1"] } as never
+  );
+  await assert.rejects(
+    restricted.assertReferenceAccess(
+      scope,
+      actor([SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ]),
+      "housing_purchase",
+      "purchase-1",
+      "read"
+    ),
+    ForbiddenException
+  );
+
+  const unrestricted = new FileBusinessAccessService(
+    { query: async () => [{ unit_id: null }] } as never,
+    { allowedUnitIds: async () => null } as never
+  );
+  await assert.doesNotReject(
+    unrestricted.assertReferenceAccess(
+      scope,
+      actor([SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ]),
+      "housing_purchase",
+      "purchase-1",
+      "read"
+    )
+  );
+});

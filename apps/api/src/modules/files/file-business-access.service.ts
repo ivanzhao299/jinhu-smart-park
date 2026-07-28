@@ -8,6 +8,7 @@ import type { FileEntity } from "./entities/file.entity";
 export const PROPERTY_BUSINESS_FILE_TYPES = [
   "housing_lease_signature",
   "housing_handover",
+  "housing_repair",
   "housing_purchase",
   "homestay_turnover"
 ] as const;
@@ -16,28 +17,36 @@ type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type AccessAction = "read" | "write";
 
 const ACCESS_RULES: Record<PropertyBusinessFileType, {
-  readPermission: string;
-  writePermission: string;
+  readPermissions: readonly string[];
+  writePermissions: readonly string[];
   referenceTable: string;
 }> = {
   housing_lease_signature: {
-    readPermission: SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
-    writePermission: SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN,
+    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN],
     referenceTable: "biz_housing_lease"
   },
   housing_handover: {
-    readPermission: SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
-    writePermission: SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
+    referenceTable: "biz_housing_lease"
+  },
+  housing_repair: {
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE
+    ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE],
     referenceTable: "biz_housing_lease"
   },
   housing_purchase: {
-    readPermission: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ,
-    writePermission: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
+    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE],
     referenceTable: "biz_housing_purchase"
   },
   homestay_turnover: {
-    readPermission: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ,
-    writePermission: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE,
+    readPermissions: [SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE],
     referenceTable: "biz_homestay_turnover_task"
   }
 };
@@ -63,9 +72,9 @@ export class FileBusinessAccessService {
   ): Promise<void> {
     if (!this.isProtectedBizType(bizType)) return;
     const rule = ACCESS_RULES[bizType];
-    const permission = action === "write" ? rule.writePermission : rule.readPermission;
-    if (!this.hasPermission(actor, permission)) {
-      throw new ForbiddenException(`${permission} permission is required`);
+    const permissions = action === "write" ? rule.writePermissions : rule.readPermissions;
+    if (!permissions.some((permission) => this.hasPermission(actor, permission))) {
+      throw new ForbiddenException(`One of ${permissions.join(", ")} permissions is required`);
     }
     if (!bizId) {
       if (
@@ -92,6 +101,11 @@ export class FileBusinessAccessService {
     }
     if (reference.unit_id) {
       await this.unitAccessService.assertAccess(scope, actor, reference.unit_id);
+    } else if (bizType === "housing_purchase") {
+      const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+      if (allowedUnitIds !== null) {
+        throw new ForbiddenException("Project-wide purchase files require unrestricted park data scope");
+      }
     }
   }
 

@@ -65,3 +65,14 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   assert.match(service, /assertBusinessDate\(startValue, "arrival_date"\)/);
   assert.doesNotMatch(service, /businessDateStart\(startValue\.slice\(0, 10\)\)/);
 });
+
+test("guest registration locks the booking inside its write transaction", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const start = service.indexOf("async addGuest");
+  const end = service.indexOf("async registerStay", start);
+  const addGuest = service.slice(start, end);
+
+  assert.match(addGuest, /this\.dataSource\.transaction\(async \(manager\)/);
+  assert.match(addGuest, /this\.lockBooking\(manager, scope, bookingId\)/);
+  assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
+});

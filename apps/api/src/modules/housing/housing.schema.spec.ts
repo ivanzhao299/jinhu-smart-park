@@ -65,3 +65,11 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
   assert.match(activation, /this\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);
   assert.match(activation, /bizType: "housing_lease_signature"/);
 });
+
+test("housing billing and repair files preserve exact domain boundaries", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  assert.doesNotMatch(service, /Number\(plan\.amount/);
+  assert.match(service, /multiplyHousingMoneyByRatio\(/);
+  assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
+  assert.match(service, /bizType: "housing_repair"/);
+});

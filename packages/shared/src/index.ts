@@ -127,6 +127,7 @@ export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
   leasing_payment: "receipt",
   homestay_turnover: "image",
   housing_handover: "image",
+  housing_repair: "image",
   housing_lease_signature: "pdf",
   housing_purchase: "receipt"
 };

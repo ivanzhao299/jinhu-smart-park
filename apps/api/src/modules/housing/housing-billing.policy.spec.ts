@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   assertHousingBillingPeriodWithinLease,
   calculateHousingMonthFraction,
+  calculateHousingMonthFractionRatio,
   parseHousingCalendarDate
 } from "./housing-billing.policy";
 
@@ -28,6 +29,17 @@ test("month advancement preserves the original billing-day anchor after February
 
 test("tail period is prorated against the current calendar cycle", () => {
   assert.equal(calculateHousingMonthFraction("2026-09-01", "2026-09-16"), 0.5);
+  assert.deepEqual(
+    calculateHousingMonthFractionRatio("2026-09-01", "2026-09-16"),
+    { numerator: 1n, denominator: 2n }
+  );
+});
+
+test("month fractions remain exact across calendar cycles with different lengths", () => {
+  assert.deepEqual(
+    calculateHousingMonthFractionRatio("2026-01-16", "2026-02-15", "2026-01-01"),
+    { numerator: 63n, denominator: 62n }
+  );
 });
 
 test("billing period may use the complete inclusive lease term", () => {

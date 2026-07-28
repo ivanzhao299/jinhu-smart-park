@@ -24,23 +24,58 @@ function addCalendarMonthsFromAnchor(value: Date, months: number): Date {
   return targetMonthStart;
 }
 
-function calculateHousingMonthPosition(anchor: Date, target: Date): number {
-  if (target < anchor) throw new BadRequestException("Billing period cannot precede its month anchor");
-  let wholeMonths = 0;
+export interface HousingMonthFractionRatio {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+function greatestCommonDivisor(left: bigint, right: bigint): bigint {
+  let a = left < 0n ? -left : left;
+  let b = right < 0n ? -right : right;
+  while (b !== 0n) {
+    const remainder = a % b;
+    a = b;
+    b = remainder;
+  }
+  return a || 1n;
+}
+
+export function calculateHousingMonthFractionRatio(
+  startValue: string,
+  endValue: string,
+  anchorValue = startValue
+): HousingMonthFractionRatio {
+  const start = parseHousingCalendarDate(startValue);
+  const end = parseHousingCalendarDate(endValue);
+  const anchor = parseHousingCalendarDate(anchorValue);
+  if (start >= end) throw new BadRequestException("Billing period start must be before end");
+  if (start < anchor) throw new BadRequestException("Billing period cannot precede its month anchor");
+
+  let cycleIndex = 0;
+  while (addCalendarMonthsFromAnchor(anchor, cycleIndex + 1) <= start) {
+    cycleIndex += 1;
+  }
+
+  let numerator = 0n;
+  let denominator = 1n;
   while (true) {
-    const next = addCalendarMonthsFromAnchor(anchor, wholeMonths + 1);
-    if (next > target) break;
-    wholeMonths += 1;
+    const cycleStart = addCalendarMonthsFromAnchor(anchor, cycleIndex);
+    const cycleEnd = addCalendarMonthsFromAnchor(anchor, cycleIndex + 1);
+    if (cycleStart >= end) break;
+    const overlapStart = cycleStart > start ? cycleStart : start;
+    const overlapEnd = cycleEnd < end ? cycleEnd : end;
+    if (overlapStart < overlapEnd) {
+      const overlapDays = BigInt((overlapEnd.getTime() - overlapStart.getTime()) / 86_400_000);
+      const cycleDays = BigInt((cycleEnd.getTime() - cycleStart.getTime()) / 86_400_000);
+      numerator = numerator * cycleDays + overlapDays * denominator;
+      denominator *= cycleDays;
+      const divisor = greatestCommonDivisor(numerator, denominator);
+      numerator /= divisor;
+      denominator /= divisor;
+    }
+    cycleIndex += 1;
   }
-  const cursor = addCalendarMonthsFromAnchor(anchor, wholeMonths);
-  let months = wholeMonths;
-  if (cursor < target) {
-    const next = addCalendarMonthsFromAnchor(anchor, wholeMonths + 1);
-    const partialDays = (target.getTime() - cursor.getTime()) / 86_400_000;
-    const cycleDays = (next.getTime() - cursor.getTime()) / 86_400_000;
-    months += partialDays / cycleDays;
-  }
-  return months;
+  return { numerator, denominator };
 }
 
 export function calculateHousingMonthFraction(
@@ -48,11 +83,8 @@ export function calculateHousingMonthFraction(
   endValue: string,
   anchorValue = startValue
 ): number {
-  const start = parseHousingCalendarDate(startValue);
-  const end = parseHousingCalendarDate(endValue);
-  const anchor = parseHousingCalendarDate(anchorValue);
-  if (start >= end) throw new BadRequestException("Billing period start must be before end");
-  return calculateHousingMonthPosition(anchor, end) - calculateHousingMonthPosition(anchor, start);
+  const fraction = calculateHousingMonthFractionRatio(startValue, endValue, anchorValue);
+  return Number(fraction.numerator) / Number(fraction.denominator);
 }
 
 export function assertHousingBillingPeriodWithinLease(

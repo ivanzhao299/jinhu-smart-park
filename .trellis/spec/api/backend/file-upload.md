@@ -23,6 +23,9 @@
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
 - Unassociated purchase receipts are visible only to their uploader and authorized purchase operators until the purchase workflow associates them.
+- Housing repair evidence uses `biz_type=housing_repair` with `biz_id=<lease UUID>`; do not reuse the generic `workorder_create` type for tenant repair photos.
+- Reading `housing_repair` requires housing lease-read or repair-manage permission plus unit data scope; writing requires repair-manage permission plus unit data scope.
+- A `housing_purchase` reference whose `unit_id` is null is project-wide and requires `PropertyUnitAccessService.allowedUnitIds(...) === null`.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
@@ -30,17 +33,20 @@
 - Oversized file -> `BadRequestException`.
 - File ID used by another business object must belong to current tenant and park.
 - Missing domain permission, cross-tenant/park reference, or out-of-scope unit -> `ForbiddenException` without revealing whether the file exists outside scope.
+- Restricted property scope on a unitless project purchase -> `ForbiddenException`.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan endpoint delegates to `FilesService.upload` with `biz_type: "floorplan"`.
 - Base: `/files` generic endpoint accepts only policies supported by shared constants.
 - Bad: Controller-level file size only with no service validation; hard-coded MIME checks in individual feature services.
 - Bad: Granting `file:read` or `file:download` alone access to lease signatures, handover evidence, purchase receipts, or turnover evidence.
+- Bad: Treating a null referenced `unit_id` as "no scope check required".
 
 ### 6. Tests Required
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
+- Security test unitless project-level references with both restricted and unrestricted property scopes.
 
 ### 7. Wrong vs Correct
 

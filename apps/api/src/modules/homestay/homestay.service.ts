@@ -515,38 +515,40 @@ export class HomestayService {
   }
 
   async addGuest(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, dto: AddHomestayGuestDto) {
-    const booking = await this.mustFindBooking(scope, bookingId);
-    await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-    assertHomestayGuestRegistrationOpen(booking.status);
-    const party = await this.dataSource.getRepository(PartyEntity)
-      .createQueryBuilder("party")
-      .addSelect("party.identityNumberHash")
-      .where("party.id = :partyId", { partyId: dto.party_id })
-      .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("party.is_deleted = false")
-      .getOne();
-    if (!party || party.partyType !== "person") throw new NotFoundException("Guest party not found");
-    assertHomestayGuestIdentityVerified(dto.verification_status, party);
-    const repository = this.dataSource.getRepository(HomestayBookingGuestEntity);
-    let entity = await repository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, partyId: dto.party_id, isDeleted: false }
-    });
-    if (!entity) {
-      entity = repository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        bookingId,
-        partyId: dto.party_id,
-        createBy: actor.sub
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.lockBooking(manager, scope, bookingId);
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      assertHomestayGuestRegistrationOpen(booking.status);
+      const party = await manager.getRepository(PartyEntity)
+        .createQueryBuilder("party")
+        .addSelect("party.identityNumberHash")
+        .where("party.id = :partyId", { partyId: dto.party_id })
+        .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("party.is_deleted = false")
+        .getOne();
+      if (!party || party.partyType !== "person") throw new NotFoundException("Guest party not found");
+      assertHomestayGuestIdentityVerified(dto.verification_status, party);
+      const repository = manager.getRepository(HomestayBookingGuestEntity);
+      let entity = await repository.findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, partyId: dto.party_id, isDeleted: false }
       });
-    }
-    entity.isPrimary = dto.is_primary;
-    entity.verificationStatus = dto.verification_status;
-    entity.verifiedBy = dto.verification_status === "verified" ? actor.sub : null;
-    entity.verifiedAt = dto.verification_status === "verified" ? new Date() : null;
-    entity.updateBy = actor.sub;
-    return repository.save(entity);
+      if (!entity) {
+        entity = repository.create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bookingId,
+          partyId: dto.party_id,
+          createBy: actor.sub
+        });
+      }
+      entity.isPrimary = dto.is_primary;
+      entity.verificationStatus = dto.verification_status;
+      entity.verifiedBy = dto.verification_status === "verified" ? actor.sub : null;
+      entity.verifiedAt = dto.verification_status === "verified" ? new Date() : null;
+      entity.updateBy = actor.sub;
+      return repository.save(entity);
+    });
   }
 
   async issueCredential(
