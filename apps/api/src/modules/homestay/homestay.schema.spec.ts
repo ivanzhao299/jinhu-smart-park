@@ -51,3 +51,15 @@ test("homestay dashboard occupancy follows the requested stay date", () => {
   assert.match(service, /booking\.departure_date > \$3::date/);
   assert.doesNotMatch(service, /FILTER \(WHERE booking\.status = 'checked_in'\)::int AS occupied/);
 });
+
+test("homestay availability and check-in use current cross-domain truth", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+
+  assert.match(service, /party\.verification_status = 'verified'/);
+  assert.match(service, /party\.identity_number_hash IS NOT NULL/);
+  assert.match(service, /FROM rel_leasing_contract_unit lease_unit/);
+  assert.match(service, /contract\.status NOT IN \('90', '91'\)/);
+  assert.match(service, /lease_unit\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.match(service, /assertBusinessDate\(startValue, "arrival_date"\)/);
+  assert.doesNotMatch(service, /businessDateStart\(startValue\.slice\(0, 10\)\)/);
+});

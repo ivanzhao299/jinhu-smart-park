@@ -7,6 +7,7 @@ import {
   assertHousingDepositMutation,
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
+  calculateHousingMeterCharge,
   calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
 
@@ -74,9 +75,31 @@ test("purchase recharge is limited to collectible lease lifecycles", () => {
   assert.throws(() => assertHousingPurchaseTransferLeaseStatus("void"));
 });
 
+test("energy meter charges apply the configured multiplier to usage and amount", () => {
+  assert.deepEqual(
+    calculateHousingMeterCharge(120, 135, 2.5, 0.8),
+    { usageAmount: 37.5, amount: 30 }
+  );
+  assert.throws(() => calculateHousingMeterCharge(135, 120, 2.5, 0.8));
+  assert.throws(() => calculateHousingMeterCharge(120, 135, 0, 0.8));
+});
+
 test("receivable reuse includes the source identity used by the database uniqueness key", () => {
   const servicePath = resolve(__dirname, "housing.service.ts");
   const service = readFileSync(servicePath, "utf8");
 
   assert.match(service, /sourceId: input\.sourceId \?\? IsNull\(\)/);
+});
+
+test("housing service revalidates meter state and makes completed handover retries side-effect free", () => {
+  const servicePath = resolve(__dirname, "housing.service.ts");
+  const service = readFileSync(servicePath, "utf8");
+
+  assert.match(service, /!meter\.isEnabled \|\| meter\.status === "DISABLED"/);
+  assert.match(service, /if \(handover\?\.status === "completed"\) return handover;/);
+  assert.ok(
+    service.indexOf('if (handover?.status === "completed") return handover;')
+      < service.indexOf("Deposit deduction cannot exceed agreed deposit")
+  );
+  assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
 });

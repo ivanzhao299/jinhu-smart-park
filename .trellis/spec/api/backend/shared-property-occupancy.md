@@ -29,6 +29,7 @@ Database owners:
 
 - Period semantics are always `[start_at, end_at)` and require `start_at < end_at`.
 - Date-only commercial contract boundaries are converted at `00:00 Asia/Shanghai` before comparison with `timestamptz` occupancy periods; the inclusive contract end date becomes the next Shanghai midnight.
+- Every service-level commercial-contract/shared-occupancy comparison must use explicit `AT TIME ZONE 'Asia/Shanghai'`; PostgreSQL session timezone is never part of the domain contract.
 - Active blocking statuses are `active` and unexpired `held`.
 - `held` requires `hold_expires_at`.
 - Modes are `none`, `short_stay`, and `long_rent`.
@@ -39,6 +40,7 @@ Database owners:
 - Activating a `held` occupancy is a new concurrency-sensitive write: lock the unit scope and re-read the current operation configuration inside the same transaction before changing status to `active`.
 - Occupancy source type and source ID must remain non-empty after boundary trimming.
 - An unfinished homestay turnover task keeps the unit unavailable even when a same-day arriving booking already owns the active occupancy and no separate turnover occupancy can be created.
+- Homestay availability reads both the shared occupancy ledger and active legacy commercial-contract relations before reporting a unit available.
 - All writes require `X-Idempotency-Key` and `IdempotencyInterceptor`.
 - Production requires stable `PARTY_DATA_ENCRYPTION_KEY` with at least 32 characters.
 
@@ -83,6 +85,7 @@ Database owners:
 - E2E: tenant/park/data-scope isolation, mode blocker snapshot, idempotent replay, forced release permission.
 - E2E: suspended/disabled units reject new bookings; same-day back-to-back checkout succeeds while the next check-in remains blocked until turnover completion.
 - Integration: changing mode/status between hold creation and activation is observed by the activation transaction.
+- Integration: availability remains unavailable for an overlapping active legacy commercial contract, including when the database session timezone is UTC.
 - Security: plaintext identity is absent from persistence and audit logs; authorized detail decrypts, normal detail masks.
 
 ## 7. Wrong vs Correct

@@ -60,6 +60,7 @@ import {
   assertHousingDepositMutation,
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
+  calculateHousingMeterCharge,
   calculateHousingPurchaseAmounts
 } from "./housing-finance.policy";
 
@@ -441,7 +442,9 @@ export class HousingService {
         }
       });
       if (!meter) throw new NotFoundException("Energy meter not found");
-      if (!meter.isEnabled) throw new ConflictException("Energy meter must be enabled");
+      if (!meter.isEnabled || meter.status === "DISABLED") {
+        throw new ConflictException("Energy meter must be enabled");
+      }
       if (meter.roomId !== lease.unitId) {
         throw new BadRequestException("Energy meter must belong to the housing lease unit");
       }
@@ -497,7 +500,26 @@ export class HousingService {
         }
       });
       if (!plan) throw new NotFoundException("Enabled charge plan not found");
-      const amount = this.calculateBillAmount(plan, dto, lease.startDate);
+      const meter = plan.billingSource === "energy_meter"
+        ? await manager.getRepository(EnergyMeterEntity).findOne({
+            where: {
+              id: plan.meterId!,
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              isDeleted: false
+            }
+          })
+        : null;
+      if (plan.billingSource === "energy_meter") {
+        if (!meter) throw new NotFoundException("Energy meter not found");
+        if (!meter.isEnabled || meter.status === "DISABLED") {
+          throw new ConflictException("Energy meter must be enabled");
+        }
+        if (meter.roomId !== lease.unitId) {
+          throw new BadRequestException("Energy meter must belong to the housing lease unit");
+        }
+      }
+      const calculation = this.calculateBillAmount(plan, dto, lease.startDate, meter);
       const firstRentReceivable = plan.chargeType === "rent"
         ? await manager.getRepository(HousingReceivableEntity).findOne({
           where: {
@@ -519,12 +541,10 @@ export class HousingService {
         dueDate: plan.chargeType === "rent" && !firstRentReceivable
           ? lease.firstDueDate
           : this.dueDateForPeriod(dto.period_start, lease.billingDay),
-        amount,
+        amount: calculation.amount,
         openingReading: dto.opening_reading,
         closingReading: dto.closing_reading,
-        usageAmount: dto.opening_reading === undefined || dto.closing_reading === undefined
-          ? undefined
-          : dto.closing_reading - dto.opening_reading,
+        usageAmount: calculation.usageAmount,
         unitPrice: plan.unitPrice === null ? undefined : Number(plan.unitPrice),
         remark: dto.reason
       })];
@@ -639,8 +659,26 @@ export class HousingService {
     return this.dataSource.transaction(async (manager) => {
       const lease = await this.lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      const repository = manager.getRepository(HousingHandoverEntity);
+      let handover = await repository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          leaseId,
+          handoverType: dto.handover_type,
+          isDeleted: false
+        },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (handover?.status === "completed") return handover;
       if (dto.handover_type === "move_in") this.assertStatus(lease, ["active"]);
       else this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      if (
+        dto.handover_type === "move_in"
+        && (dto.damage_amount > 0 || dto.unsettled_amount > 0 || dto.deposit_deduction_amount > 0)
+      ) {
+        throw new BadRequestException("Move-in handover cannot include damage, unsettled, or deposit deduction amounts");
+      }
       await this.assertFiles(manager, scope, dto.photo_file_ids ?? [], {
         mimePrefix: "image/",
         bizType: "housing_handover",
@@ -670,18 +708,6 @@ export class HousingService {
           throw new ConflictException("Deposit deduction exceeds current deposit balance");
         }
       }
-      const repository = manager.getRepository(HousingHandoverEntity);
-      let handover = await repository.findOne({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId,
-          handoverType: dto.handover_type,
-          isDeleted: false
-        },
-        lock: { mode: "pessimistic_write" }
-      });
-      if (handover?.status === "completed") return handover;
       handover ??= repository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
@@ -1150,24 +1176,33 @@ export class HousingService {
   private calculateBillAmount(
     plan: HousingChargePlanEntity,
     dto: GenerateHousingBillsDto,
-    leaseStartDate: string
+    leaseStartDate: string,
+    meter: EnergyMeterEntity | null
   ) {
     if (plan.billingSource === "manual") {
       if (dto.manual_amount === undefined) throw new BadRequestException(`Manual amount is required for ${plan.chargeType}`);
-      return dto.manual_amount;
+      return { amount: dto.manual_amount, usageAmount: undefined };
     }
     if (plan.billingSource === "energy_meter") {
       if (dto.opening_reading === undefined || dto.closing_reading === undefined) {
         throw new BadRequestException(`Meter readings are required for ${plan.chargeType}`);
       }
-      if (dto.closing_reading < dto.opening_reading) throw new BadRequestException("Closing reading cannot be less than opening reading");
-      return (dto.closing_reading - dto.opening_reading) * Number(plan.unitPrice ?? 0);
+      const calculation = calculateHousingMeterCharge(
+        dto.opening_reading,
+        dto.closing_reading,
+        Number(meter?.multiplier),
+        Number(plan.unitPrice ?? 0)
+      );
+      return calculation;
     }
     const months = calculateHousingMonthFraction(dto.period_start, dto.period_end, leaseStartDate);
     if (months > plan.cycleMonths + 0.000001) {
       throw new BadRequestException(`Billing period exceeds configured ${plan.cycleMonths}-month cycle for ${plan.chargeType}`);
     }
-    return Number(plan.amount ?? 0) * months;
+    return {
+      amount: Number(plan.amount ?? 0) * months,
+      usageAmount: undefined
+    };
   }
 
   private async createReceivable(

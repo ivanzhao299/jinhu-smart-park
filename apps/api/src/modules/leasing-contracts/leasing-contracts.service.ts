@@ -1198,8 +1198,8 @@ export class LeasingContractsService {
              AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
            )
          )
-         AND occupancy.start_at < ($5::date + interval '1 day')
-         AND occupancy.end_at > $4::date
+         AND occupancy.start_at < (($5::date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')
+         AND occupancy.end_at > ($4::date::timestamp AT TIME ZONE 'Asia/Shanghai')
          AND NOT (
            occupancy.source_type = 'leasing_contract'
            AND occupancy.source_id = $6
@@ -1290,8 +1290,8 @@ export class LeasingContractsService {
                  AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
                )
              )
-             AND occupancy.start_at < ($5::date + interval '1 day')
-             AND occupancy.end_at > $4::date
+              AND occupancy.start_at < (($5::date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')
+              AND occupancy.end_at > ($4::date::timestamp AT TIME ZONE 'Asia/Shanghai')
              AND NOT (
                occupancy.source_type = 'leasing_contract'
                AND occupancy.source_id = $6

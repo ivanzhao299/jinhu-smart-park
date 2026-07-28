@@ -11,6 +11,25 @@ export interface HousingPurchaseAmountInput {
   unitPrice: number;
 }
 
+export function calculateHousingMeterCharge(
+  openingReading: number,
+  closingReading: number,
+  multiplier: number,
+  unitPrice: number
+) {
+  if (closingReading < openingReading) {
+    throw new BadRequestException("Closing reading cannot be less than opening reading");
+  }
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    throw new BadRequestException("Energy meter multiplier must be greater than zero");
+  }
+  const usageAmount = (closingReading - openingReading) * multiplier;
+  return {
+    usageAmount,
+    amount: usageAmount * unitPrice
+  };
+}
+
 function parseScaledDecimal(value: number, scale: number): bigint {
   const match = value.toString().toLowerCase().match(/^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/);
   if (!match) throw new BadRequestException("Invalid purchase decimal");

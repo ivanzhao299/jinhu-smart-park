@@ -16,7 +16,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 ## 3. Contracts
 
 - Business date strings are real `YYYY-MM-DD` calendar dates and use `Asia/Shanghai` when derived from the current instant.
-- A homestay guest is verified only when the scoped Party is verified and has both identity document type and protected identity data.
+- A homestay guest is verified only when the current scoped Party is verified and has both identity document type and protected identity data; check-in must not trust a stale booking-guest snapshot after Party identity changes.
 - Housing lease readers without `housing:finance:read` receive no receivable, ledger, or finance-summary data.
 - Billing month advancement remains anchored to the original start day; each target month alone may clamp to its last day.
 - Purchase line amounts are rounded to cents first; the header total is the sum of persisted rounded lines.
@@ -42,7 +42,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Paginated KPIs use server totals rather than the current page length.
 - Permission-specific KPIs and workflow blocks are not rendered for users who cannot load their source datasets.
 - Handover evidence is scoped to one lease and one handover attempt and is cleared after success or context changes.
-- Move-in handovers omit move-out-only damage, unsettled, and deduction values.
+- Move-in handovers reject non-zero move-out-only damage, unsettled, and deduction values.
+- A completed handover is returned before validating replay payload evidence or financial balances, so retries cannot repeat or invalidate completed financial effects.
 - File upload is a separate action; its native file input must not impose required validation on a parent business form.
 - Pending workflow uploads keep their file metadata for preview/removal, and a completed upload is discarded when its lease context is no longer current.
 - Move-out handover exposes damage, unsettled charges, and deposit deduction together.
@@ -59,7 +60,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Booking-detail and post-action refreshes retain the originating booking ID and discard late responses after the operator changes selection.
 - Purchase amount calculation uses decimal strings or scaled integers across the full `numeric(18,2)` range; JavaScript `number` is not an acceptable persisted total.
 - The first generated rent receivable uses `first_due_date`; later periods derive their due date from the configured billing day.
-- Energy-meter charge plans accept only enabled meters in the same tenant, park, and housing unit as the lease.
+- Energy-meter charge plans and bill generation accept only meters whose enable flag and operational status are both active, in the same tenant, park, and housing unit as the lease.
+- Energy-meter usage and charge amounts both apply the meter multiplier to the raw reading difference.
 - Duplicate housing purchase codes are translated from database unique violations to HTTP 409.
 - Dashboard finance and purchase aggregates are queried and returned only when the actor has the corresponding granular read permission.
 - Activating a previously held occupancy revalidates current unit scope, operating mode, and operating status inside the activation transaction.
@@ -78,6 +80,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Party identity type or protected identity changes after verification | Persist `verification_status=unverified` |
 | Occupancy `source_type` or `source_id` is blank after trimming | HTTP 400 |
 | Energy meter is disabled, cross-scope, or attached to another unit | HTTP 404/409/400 without creating the plan |
+| Meter multiplier is not positive or closing reading precedes opening reading | HTTP 400 without creating a receivable |
+| Move-in handover contains move-out financial amounts | HTTP 400 |
 | Purchase code collides in the current tenant and park | HTTP 409 |
 | Dashboard reader lacks finance or purchase permission | Omit the corresponding aggregate and do not query it |
 | Held occupancy becomes mode-incompatible or disabled before activation | HTTP 409 |
@@ -103,7 +107,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Unit/DTO: impossible calendar dates, whitespace-only occupancy source identifiers, and identity-change verification reset.
 - DTO: non-empty purchase transfer and explicit Party field clearing.
 - Integration: duplicate lease/purchase codes return 409; refunded purchase cannot recharge.
-- Integration: held occupancy activation rechecks the latest mode/status and energy-meter plans enforce scope, enabled state, and unit binding.
+- Integration: held occupancy activation rechecks the latest mode/status and energy-meter plans enforce scope, enable flag, operational status, unit binding, and multiplier.
+- Integration: completed handover replay returns the original result before balance/evidence revalidation; move-in rejects move-out-only amounts.
+- Integration: check-in re-reads current Party verification and identity data instead of trusting the guest-row snapshot.
 - Integration: first rent uses `first_due_date`; split later periods retain the original lease start-day anchor.
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
 - Frontend: optional dataset failures do not discard successful loads; stale lease-detail responses cannot retarget forms.

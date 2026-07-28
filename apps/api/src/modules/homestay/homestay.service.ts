@@ -602,15 +602,24 @@ export class HomestayService {
         this.businessDateStart(booking.arrivalDate),
         this.businessDateStart(booking.departureDate)
       );
-      const verifiedGuests = await manager.getRepository(HomestayBookingGuestEntity).count({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bookingId: id,
-          verificationStatus: "verified",
-          isDeleted: false
-        }
-      });
+      const verifiedGuests = await manager.getRepository(HomestayBookingGuestEntity)
+        .createQueryBuilder("guest")
+        .innerJoin(PartyEntity, "party", `
+          party.id = guest.party_id
+          AND party.tenant_id = guest.tenant_id
+          AND party.park_id = guest.park_id
+          AND party.is_deleted = false
+        `)
+        .where("guest.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("guest.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("guest.booking_id = :bookingId", { bookingId: id })
+        .andWhere("guest.verification_status = 'verified'")
+        .andWhere("guest.is_deleted = false")
+        .andWhere("party.party_type = 'person'")
+        .andWhere("party.verification_status = 'verified'")
+        .andWhere("party.identity_document_type IS NOT NULL")
+        .andWhere("party.identity_number_hash IS NOT NULL")
+        .getCount();
       assertHomestayGuestRosterComplete(booking.guestCount, verifiedGuests);
       const pendingTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
         .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -948,6 +957,23 @@ export class HomestayService {
                 WHEN count(turnover.id) > 0 THEN 'turnover'
                 WHEN bool_or(occupancy.source_type = 'homestay_turnover') THEN 'turnover'
                 WHEN bool_or(occupancy.status IN ('held', 'active')) THEN 'occupied'
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM rel_leasing_contract_unit lease_unit
+                  INNER JOIN biz_leasing_contract contract
+                    ON contract.id = lease_unit.contract_id
+                   AND contract.tenant_id = lease_unit.tenant_id
+                   AND contract.park_id = lease_unit.park_id
+                   AND contract.is_deleted = false
+                   AND contract.status NOT IN ('90', '91')
+                  WHERE lease_unit.tenant_id = unit.tenant_id
+                    AND lease_unit.park_id = unit.park_id
+                    AND lease_unit.unit_id = unit.id
+                    AND lease_unit.status = 1
+                    AND lease_unit.is_deleted = false
+                    AND (lease_unit.start_date::timestamp AT TIME ZONE 'Asia/Shanghai') < $4::timestamptz
+                    AND ((lease_unit.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai') > $3::timestamptz
+                ) THEN 'occupied'
                 ELSE 'available'
               END AS room_state
        FROM biz_unit unit
@@ -1023,9 +1049,11 @@ export class HomestayService {
   }
 
   private businessDates(startValue: string, endValue: string): string[] {
-    const start = this.businessDateStart(startValue.slice(0, 10));
-    const end = this.businessDateStart(endValue.slice(0, 10));
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
+    assertBusinessDate(startValue, "arrival_date");
+    assertBusinessDate(endValue, "departure_date");
+    const start = this.businessDateStart(startValue);
+    const end = this.businessDateStart(endValue);
+    if (start >= end) {
       throw new BadRequestException("arrival_date must be before departure_date");
     }
     const result: string[] = [];
