@@ -147,6 +147,16 @@ action against every state and sibling entry point before implementation:
       from all derived totals, KPIs, availability views, and projections
 - [ ] A dependent operational record remains an active constraint after its original
       parent or occupancy is later cancelled, released, or otherwise disappears
+- [ ] When one aggregate is persisted before creating its matching shared projection,
+      the projection write excludes only that exact source from its own blocker query
+- [ ] Every backend recovery/list capability has a production UI consumer that restores
+      state after refresh, revisit, or interrupted submission
+- [ ] Edit forms load the complete persisted record when their selected entity changes;
+      a hard-coded default is used only after an authoritative not-found response
+- [ ] Candidate selectors preserve server pagination or search and synchronize stale
+      selections when the visible candidate page changes
+- [ ] Read-then-insert "upserts" are replaced by locking or one database atomic upsert
+      whenever a unique key owns concurrent creation
 - [ ] Generic infrastructure records use a domain-specific protected type whenever
       their authorization is narrower than the generic workflow
 - [ ] Both sides of a cross-aggregate reference invariant use the same row-lock order

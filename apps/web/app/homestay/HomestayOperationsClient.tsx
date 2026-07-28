@@ -7,12 +7,18 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionButton } from "../../components/auth/PermissionButton";
 import { FileUploader } from "../../components/files/FileUploader";
-import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { ApiError, apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { addBusinessDateDays, businessDate } from "../../lib/business-date";
 import { hasPermission } from "../../lib/permissions";
 import type { UnitRow } from "../assets/units/types";
+import {
+  defaultHomestayRateForm,
+  homestayRateFormFromCalendar,
+  homestayUnitSelectionAfterLoad,
+  type HomestayRateCalendar
+} from "./homestay-operations.logic";
 import styles from "./homestay-operations.module.css";
 
 interface Dashboard {
@@ -85,7 +91,28 @@ interface PageMeta {
 type OptionalLoad<T> = { data: T } | { error: string } | null;
 
 const BOOKING_PAGE_SIZE = 20;
+const UNIT_PAGE_SIZE = 20;
 const emptyPageMeta = (): PageMeta => ({ page: 1, pageSize: BOOKING_PAGE_SIZE, total: 0 });
+const emptyUnitPageMeta = (): PageMeta => ({ page: 1, pageSize: UNIT_PAGE_SIZE, total: 0 });
+
+function PaginationControls({
+  meta,
+  disabled,
+  onPageChange
+}: {
+  meta: PageMeta;
+  disabled: boolean;
+  onPageChange(page: number): void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(meta.total / meta.pageSize));
+  return (
+    <span className="pagination-actions">
+      <span>共 {meta.total} 条，第 {meta.page}/{totalPages} 页</span>
+      <button className="pagination-button" type="button" disabled={disabled || meta.page <= 1} onClick={() => onPageChange(meta.page - 1)}>上一页</button>
+      <button className="pagination-button" type="button" disabled={disabled || meta.page >= totalPages} onClick={() => onPageChange(meta.page + 1)}>下一页</button>
+    </span>
+  );
+}
 
 async function loadOptional<T>(
   enabled: boolean,
@@ -128,18 +155,14 @@ export function HomestayOperationsClient() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateReady, setRateReady] = useState(false);
+  const [unitPage, setUnitPage] = useState(emptyUnitPageMeta);
   const [bookingPage, setBookingPage] = useState(emptyPageMeta);
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [guestPartyId, setGuestPartyId] = useState("");
   const [credentialLabel, setCredentialLabel] = useState("前台门卡");
-  const [rateForm, setRateForm] = useState({
-    unitId: "",
-    baseDailyRate: "300",
-    freeCancelHours: "24",
-    feeType: "fixed",
-    feeValue: "0",
-    requiresInspection: false
-  });
+  const [rateForm, setRateForm] = useState(defaultHomestayRateForm);
   const [bookingForm, setBookingForm] = useState({
     unitId: "",
     arrivalDate: today(),
@@ -156,6 +179,8 @@ export function HomestayOperationsClient() {
     reason: "人工收款登记"
   });
   const refreshSequence = useRef(0);
+  const rateLoadSequence = useRef(0);
+  const selectedRateUnitIdRef = useRef("");
   const bookingDetailSequence = useRef(0);
   const selectedBookingIdRef = useRef("");
   const financeSubmissionLock = useRef(false);
@@ -179,7 +204,10 @@ export function HomestayOperationsClient() {
       const canReadTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
       const [dashboardResponse, unitsResponse, bookingsResponse, turnoversResponse, roomStateResponse] = await Promise.all([
         loadOptional(canReadDashboard, () => apiRequest<Dashboard>("/homestay/dashboard", { token })),
-        loadOptional(canReadUnits, () => apiRequest<PaginatedResult<UnitRow>>("/park-units?page=1&page_size=100", { token })),
+        loadOptional(canReadUnits, () => apiRequest<PaginatedResult<UnitRow>>(
+          `/park-units?page=${unitPage.page}&page_size=${UNIT_PAGE_SIZE}`,
+          { token }
+        )),
         loadOptional(canReadBookings, () => apiRequest<PaginatedResult<Booking>>(
           `/homestay/bookings?page=${bookingPage.page}&page_size=${BOOKING_PAGE_SIZE}`,
           { token }
@@ -197,13 +225,29 @@ export function HomestayOperationsClient() {
 
       if (!dashboardResponse) setDashboard(emptyDashboard);
       else if ("data" in dashboardResponse) setDashboard(dashboardResponse.data);
-      if (!unitsResponse) setUnits([]);
+      if (!unitsResponse) {
+        setUnits([]);
+        setUnitPage(emptyUnitPageMeta());
+        setRateForm((current) => ({ ...current, unitId: "" }));
+        setBookingForm((current) => ({ ...current, unitId: "" }));
+      }
       else if ("data" in unitsResponse) {
         const availableUnits = unitsResponse.data.items;
+        const loadedUnitIds = availableUnits.map((unit) => unit.id);
         setUnits(availableUnits);
-        const firstUnit = availableUnits[0]?.id ?? "";
-        setRateForm((current) => ({ ...current, unitId: current.unitId || firstUnit }));
-        setBookingForm((current) => ({ ...current, unitId: current.unitId || firstUnit }));
+        setUnitPage({
+          page: unitsResponse.data.page,
+          pageSize: unitsResponse.data.page_size,
+          total: unitsResponse.data.total
+        });
+        setRateForm((current) => ({
+          ...current,
+          unitId: homestayUnitSelectionAfterLoad(current.unitId, loadedUnitIds)
+        }));
+        setBookingForm((current) => ({
+          ...current,
+          unitId: homestayUnitSelectionAfterLoad(current.unitId, loadedUnitIds)
+        }));
       }
       if (!bookingsResponse) {
         setBookings([]);
@@ -223,7 +267,39 @@ export function HomestayOperationsClient() {
     } finally {
       if (refreshSequence.current === sequence) setLoading(false);
     }
-  }, [bookingPage.page, user]);
+  }, [bookingPage.page, unitPage.page, user]);
+
+  const loadRate = useCallback(async (unitId: string) => {
+    const sequence = rateLoadSequence.current + 1;
+    rateLoadSequence.current = sequence;
+    selectedRateUnitIdRef.current = unitId;
+    setRateReady(false);
+    if (!unitId) {
+      setRateForm(defaultHomestayRateForm());
+      setRateLoading(false);
+      return;
+    }
+    setRateLoading(true);
+    try {
+      const response = await apiRequest<HomestayRateCalendar>(
+        `/homestay/rates/${unitId}?date_from=${today()}&date_to=${tomorrow()}`,
+        { token: getAccessToken() }
+      );
+      if (rateLoadSequence.current !== sequence || selectedRateUnitIdRef.current !== unitId) return;
+      setRateForm(homestayRateFormFromCalendar(unitId, response.data));
+      setRateReady(true);
+    } catch (error) {
+      if (rateLoadSequence.current !== sequence || selectedRateUnitIdRef.current !== unitId) return;
+      if (error instanceof ApiError && error.status === 404) {
+        setRateForm(defaultHomestayRateForm(unitId));
+        setRateReady(true);
+      } else {
+        setMessage(error instanceof Error ? error.message : "加载房源价格规则失败");
+      }
+    } finally {
+      if (rateLoadSequence.current === sequence) setRateLoading(false);
+    }
+  }, []);
 
   const prepareBooking = useCallback(async (bookingId: string) => {
     const sequence = bookingDetailSequence.current + 1;
@@ -255,9 +331,13 @@ export function HomestayOperationsClient() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    void loadRate(rateForm.unitId);
+  }, [loadRate, rateForm.unitId]);
+
   async function saveRate(event: FormEvent) {
     event.preventDefault();
-    if (!rateForm.unitId) return;
+    if (!rateForm.unitId || !rateReady || rateLoading) return;
     await runAction("基础日价已保存", () =>
       apiRequest(`/homestay/rates/${rateForm.unitId}`, {
         method: "PUT",
@@ -484,11 +564,12 @@ export function HomestayOperationsClient() {
           <div className={styles.formGrid}>
             <label>基础日价<input type="number" min="0" step="0.01" value={rateForm.baseDailyRate} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, baseDailyRate: event.target.value })} /></label>
             <label>免费取消（小时前）<input type="number" min="0" step="1" value={rateForm.freeCancelHours} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, freeCancelHours: event.target.value })} /></label>
-            <label>超时取消费<select value={rateForm.feeType} onChange={(event) => setRateForm({ ...rateForm, feeType: event.target.value })}><option value="fixed">固定金额</option><option value="percentage">房费比例</option></select></label>
+            <label>超时取消费<select value={rateForm.feeType} onChange={(event) => setRateForm({ ...rateForm, feeType: event.target.value as "fixed" | "percentage" })}><option value="fixed">固定金额</option><option value="percentage">房费比例</option></select></label>
             <label>费用值<input type="number" min="0" step="0.01" value={rateForm.feeValue} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, feeValue: event.target.value })} /></label>
           </div>
           <label className={styles.checkbox}><input type="checkbox" checked={rateForm.requiresInspection} onChange={(event) => setRateForm({ ...rateForm, requiresInspection: event.target.checked })} />保洁后需复检才恢复可售</label>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE} className="button button-primary" type="submit">保存价格规则</PermissionButton>
+          <div><small>价格与预订共用房源候选</small><PaginationControls meta={unitPage} disabled={loading || rateLoading} onPageChange={(page) => setUnitPage((current) => ({ ...current, page }))} /></div>
+          <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE} className="button button-primary" type="submit" disabled={!rateReady || rateLoading}>{rateLoading ? "正在加载价格…" : "保存价格规则"}</PermissionButton>
         </form>
 
         <form className="ds-panel" onSubmit={createBooking}>

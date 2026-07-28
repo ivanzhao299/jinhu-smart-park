@@ -122,3 +122,14 @@ test("turnover evidence is locked in the same transaction that binds it", () => 
   assert.match(resolver, /manager\.getRepository\(FileEntity\)/);
   assert.match(resolver, /\.setLock\("pessimistic_write"\)/);
 });
+
+test("rate reads expose every persisted field edited by the operations form", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const calendar = service.slice(
+    service.indexOf("async getRateCalendar"),
+    service.indexOf("async upsertRate")
+  );
+  assert.match(calendar, /base_daily_rate: config\.baseDailyRate/);
+  assert.match(calendar, /checkout_requires_inspection: config\.checkoutRequiresInspection/);
+  assert.match(calendar, /cancellation_policy: this\.cancellationSnapshot\(config\)/);
+});

@@ -89,7 +89,8 @@ export class PropertyOccupanciesService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     dto: CreatePropertyOccupancyDto,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    exclude?: { sourceType?: string; sourceId?: string }
   ): Promise<PropertyOccupancyEntity> {
     const period = normalizePropertyPeriod(dto.start_at, dto.end_at);
     if (dto.status === "held") {
@@ -118,7 +119,14 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an enabled operating unit");
     }
-    const conflicts = await this.findConflicts(manager, scope, dto.unit_id, period.startAt, period.endAt);
+    const conflicts = await this.findConflicts(
+      manager,
+      scope,
+      dto.unit_id,
+      period.startAt,
+      period.endAt,
+      exclude
+    );
     if (conflicts.length > 0) {
       throw new ConflictException({ message: "Property occupancy conflicts with an existing period", conflicts });
     }
@@ -361,6 +369,10 @@ export class PropertyOccupanciesService {
        FROM biz_homestay_turnover_task task
        WHERE task.tenant_id = $1 AND task.park_id = $2 AND task.unit_id = $3
          AND task.is_deleted = false AND task.status <> 'completed'
+         AND NOT (
+           $6::text IS NOT NULL AND $7::text IS NOT NULL
+           AND $6::text = 'homestay_turnover' AND task.id::text = $7::text
+         )
        ORDER BY start_at`,
       [scope.tenantId, scope.parkId, unitId, startAt.toISOString(), endAt.toISOString(), exclude?.sourceType ?? null, exclude?.sourceId ?? null]
     ) as Promise<AvailabilityConflict[]>;

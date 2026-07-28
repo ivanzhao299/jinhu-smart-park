@@ -28,6 +28,9 @@
 - Frontend `accept`, max-size copy, selected-file validation, and helper text must be derived from the shared policy.
 - Backend must enforce the same policy; frontend validation is for UX only.
 - Uploaded files must be associated with `biz_type` and, when the business object exists, `biz_id`.
+- Workflows that permit pre-object uploads must reload the current actor's pending
+  files after refresh/revisit; relying only on the current-session `onUploaded`
+  callback makes successfully uploaded evidence unreachable.
 - Compact attachment lists must show uploaded-file preview affordance; image files should display thumbnails and click-to-preview.
 
 ### 4. Validation & Error Matrix
@@ -36,6 +39,8 @@
 - Oversized file -> show policy size limit and clear selected file.
 - Unauthorized download/preview -> clear session and redirect to login.
 - Backend rejection -> display API error message; do not silently succeed.
+- Pending-list load failure -> preserve current visible files and show an error; do not
+  replace them with an empty list.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan upload uses `policyKey="floorplan"`, accepts image/PDF, shows compact uploaded preview, and backend rejects other types.
@@ -45,6 +50,8 @@
 ### 6. Tests Required
 - Lint/build after changing shared policy or upload components.
 - Browser check on the affected page: file input not visible, helper text visible, uploaded attachment preview visible.
+- Browser/API check: a pending upload survives page refresh and can be submitted with
+  the later-created business object.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

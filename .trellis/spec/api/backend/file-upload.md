@@ -26,6 +26,9 @@
   unassociated purchase receipts with `GET /files?biz_type=housing_purchase` until
   the purchase workflow associates them. Pending receipts from other uploaders
   remain hidden, including from the generic file list.
+- The housing purchase form loads that pending list during its normal page refresh
+  and replaces the attachment state only after a successful response. An API recovery
+  endpoint without a production UI consumer is incomplete.
 - Housing repair evidence uses `biz_type=housing_repair` with `biz_id=<lease UUID>`; do not reuse the generic `workorder_create` type for tenant repair photos.
 - Reading `housing_repair` requires housing lease-read or repair-manage permission plus unit data scope; writing requires repair-manage permission plus unit data scope.
 - A `housing_purchase` reference whose `unit_id` is null is project-wide and requires `PropertyUnitAccessService.allowedUnitIds(...) === null`.
@@ -61,6 +64,8 @@
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
+- Frontend: reload the housing operations page after upload and assert the uploader's
+  pending receipt remains visible and bindable.
 - Security test unitless project-level references with both restricted and unrestricted property scopes.
 - Security/integration test that referenced protected evidence is not generically
   deletable, while an uploaded but unreferenced file can still be removed.

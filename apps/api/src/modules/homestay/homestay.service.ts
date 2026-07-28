@@ -110,6 +110,7 @@ export class HomestayService {
       unit_id: unitId,
       currency: config.currency,
       base_daily_rate: config.baseDailyRate,
+      checkout_requires_inspection: config.checkoutRequiresInspection,
       cancellation_policy: this.cancellationSnapshot(config),
       days: dates.map((date) => {
         const override = byDate.get(date);
@@ -129,25 +130,36 @@ export class HomestayService {
     if (dto.late_cancel_fee_type === "percentage" && toMoneyCents(dto.late_cancel_fee_value) > 10_000n) {
       throw new BadRequestException("Percentage cancellation fee cannot exceed 100");
     }
-    let entity = await this.ratesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
-    if (!entity) {
-      entity = this.ratesRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
+    await this.dataSource.query(
+      `INSERT INTO biz_homestay_rate_config (
+         tenant_id, park_id, unit_id, base_daily_rate, currency,
+         free_cancel_before_hours, late_cancel_fee_type, late_cancel_fee_value,
+         checkout_requires_inspection, create_by, update_by
+       ) VALUES ($1, $2, $3, $4, 'CNY', $5, $6, $7, $8, $9, $9)
+       ON CONFLICT (tenant_id, park_id, unit_id) WHERE is_deleted = false
+       DO UPDATE SET
+         base_daily_rate = EXCLUDED.base_daily_rate,
+         currency = EXCLUDED.currency,
+         free_cancel_before_hours = EXCLUDED.free_cancel_before_hours,
+         late_cancel_fee_type = EXCLUDED.late_cancel_fee_type,
+         late_cancel_fee_value = EXCLUDED.late_cancel_fee_value,
+         checkout_requires_inspection = EXCLUDED.checkout_requires_inspection,
+         update_by = EXCLUDED.update_by,
+         update_time = now(),
+         version = biz_homestay_rate_config.version + 1`,
+      [
+        scope.tenantId,
+        scope.parkId,
         unitId,
-        createBy: actor.sub
-      });
-    }
-    entity.baseDailyRate = formatHomestayMoney(dto.base_daily_rate);
-    entity.currency = "CNY";
-    entity.freeCancelBeforeHours = dto.free_cancel_before_hours;
-    entity.lateCancelFeeType = dto.late_cancel_fee_type;
-    entity.lateCancelFeeValue = formatHomestayMoney(dto.late_cancel_fee_value);
-    entity.checkoutRequiresInspection = dto.checkout_requires_inspection;
-    entity.updateBy = actor.sub;
-    return this.ratesRepository.save(entity);
+        formatHomestayMoney(dto.base_daily_rate),
+        dto.free_cancel_before_hours,
+        dto.late_cancel_fee_type,
+        formatHomestayMoney(dto.late_cancel_fee_value),
+        dto.checkout_requires_inspection,
+        actor.sub
+      ]
+    );
+    return this.mustFindRate(scope, unitId);
   }
 
   async upsertRateOverride(
@@ -709,6 +721,9 @@ export class HomestayService {
           end_at: lockEnd.toISOString(),
           status: "active",
           remark: `Turnover after ${booking.bookingCode}`
+        }, undefined, {
+          sourceType: "homestay_turnover",
+          sourceId: task.id
         });
         task.occupancyId = turnoverOccupancy.id;
       }

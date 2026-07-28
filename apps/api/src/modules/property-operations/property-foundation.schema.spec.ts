@@ -90,6 +90,10 @@ test("open turnover tasks remain shared availability and mode-transition blocker
   assert.match(occupancies, /'operations_task'::text AS conflict_type/);
   assert.match(occupancies, /FROM biz_homestay_turnover_task task/);
   assert.match(occupancies, /task\.status <> 'completed'/);
+  assert.match(
+    occupancies,
+    /\$6::text = 'homestay_turnover' AND task\.id::text = \$7::text/
+  );
 
   const operations = readFileSync(resolve(__dirname, "property-operations.service.ts"), "utf8");
   const snapshot = operations.slice(
@@ -98,6 +102,14 @@ test("open turnover tasks remain shared availability and mode-transition blocker
   );
   assert.match(snapshot, /FROM biz_homestay_turnover_task task/);
   assert.match(snapshot, /task\.status <> 'completed'/);
+
+  const homestay = readFileSync(resolve(__dirname, "../homestay/homestay.service.ts"), "utf8");
+  const checkout = homestay.slice(
+    homestay.indexOf("async checkOut"),
+    homestay.indexOf("async registerLedgerEntry")
+  );
+  assert.match(checkout, /sourceType: "homestay_turnover"/);
+  assert.match(checkout, /sourceId: task\.id/);
 });
 
 test("party document-type changes cannot retain an identity from the old document type", () => {

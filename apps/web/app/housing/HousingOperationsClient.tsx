@@ -322,16 +322,22 @@ export function HousingOperationsClient() {
       const canManageTenants = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
       const canReadLeases = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
       const canReadPurchases = hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
-      const [dashboardResult, unitsResult, tenantsResult, leasesResult, purchasesResult] = await Promise.all([
+      const canAccessPurchaseReceipts = canReadPurchases
+        || hasPermission(user, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE);
+      const [dashboardResult, unitsResult, tenantsResult, leasesResult, purchasesResult, pendingReceiptResult] = await Promise.all([
         loadOptional(canReadDashboard, () => apiRequest<Dashboard>("/housing/dashboard", { token })),
         loadOptional(canReadUnits, () => apiRequest<PaginatedResult<UnitRow>>(`/park-units?page=${unitPage.page}&page_size=${PAGE_SIZE}`, { token })),
         loadOptional(canManageTenants, () => apiRequest<PaginatedResult<Party>>(`/housing/tenants?page=${tenantPage.page}&page_size=${PAGE_SIZE}`, { token })),
         loadOptional(canReadLeases, () => apiRequest<PaginatedResult<Lease>>(`/housing/leases?page=${leasePage.page}&page_size=${PAGE_SIZE}`, { token })),
-        loadOptional(canReadPurchases, () => apiRequest<PaginatedResult<Purchase>>(`/housing/purchases?page=${purchasePage.page}&page_size=${PAGE_SIZE}`, { token }))
+        loadOptional(canReadPurchases, () => apiRequest<PaginatedResult<Purchase>>(`/housing/purchases?page=${purchasePage.page}&page_size=${PAGE_SIZE}`, { token })),
+        loadOptional(canAccessPurchaseReceipts, () => apiRequest<PaginatedResult<FileRecord>>(
+          "/files?biz_type=housing_purchase&page=1&page_size=100",
+          { token }
+        ))
       ]);
       if (refreshSequence.current !== sequence) return;
 
-      const errors = [dashboardResult, unitsResult, tenantsResult, leasesResult, purchasesResult]
+      const errors = [dashboardResult, unitsResult, tenantsResult, leasesResult, purchasesResult, pendingReceiptResult]
         .flatMap((result) => result && "error" in result ? [result.error] : []);
       if (errors.length) setMessage(`部分数据加载失败：${errors.join("；")}`);
 
@@ -371,6 +377,11 @@ export function HousingOperationsClient() {
       } else if ("data" in purchasesResult) {
         setPurchases(purchasesResult.data.items);
         setPurchasePage({ page: purchasesResult.data.page, pageSize: purchasesResult.data.page_size, total: purchasesResult.data.total });
+      }
+      if (!pendingReceiptResult) {
+        setPurchaseReceipts([]);
+      } else if ("data" in pendingReceiptResult) {
+        setPurchaseReceipts(pendingReceiptResult.data.items);
       }
       if (unitsResult && "data" in unitsResult) {
         const loadedUnitIds = loadedUnits.map((unit) => unit.id);

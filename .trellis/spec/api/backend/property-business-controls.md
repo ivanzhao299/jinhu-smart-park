@@ -111,6 +111,15 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   a nullable column must not silently weaken the business unique key.
 - An open homestay turnover task blocks shared availability and operating-mode
   transition even when its original booking occupancy has already been released.
+- Creating an occupancy that represents an already-persisted operational task must
+  exclude that exact `source_type` + `source_id` from conflict discovery; sibling
+  open tasks remain blockers.
+- Initial homestay rate configuration uses one PostgreSQL `INSERT ... ON CONFLICT`
+  statement against the active unit-scoped unique key; read-then-insert is forbidden.
+- `GET /homestay/rates/:unitId` returns every field editable by the rate form,
+  including `checkout_requires_inspection`.
+- Homestay unit candidates retain server pagination, and page changes replace stale
+  selections with a unit visible on the loaded page.
 
 ## 4. Validation & Error Matrix
 
@@ -158,6 +167,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Channel-less active bookings reuse one external order number | Database unique violation |
 | Refunded purchase remains approved | Exclude it from purchase-cost KPI |
 | Open turnover task exists without an occupancy | Unit remains unavailable and cannot switch mode |
+| Turnover occupancy is created for its own pending task | Exclude only that task; create the occupancy |
+| Two operators create the first unit rate concurrently | Both requests complete through atomic upsert |
+| Selected unit rate cannot be loaded | Keep rate submission disabled; do not submit stale form values |
 
 ## 5. Good / Base / Bad Cases
 
@@ -217,6 +229,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Migration/integration: nullable channel names cannot bypass active external-order uniqueness.
 - Integration: refund removes purchase cost from the KPI, and an orphaned open turnover
   task still blocks shared availability and mode transition.
+- Unit/integration: self-representing turnover occupancy excludes its task while another
+  open turnover task still conflicts.
+- Unit/API: concurrent initial rate writes use the active partial unique index and rate
+  reads round-trip every editable form field.
+- Frontend: unit pagination synchronizes rate and booking selections; late rate responses
+  cannot overwrite a newer unit selection.
 
 ## 7. Wrong vs Correct
 
