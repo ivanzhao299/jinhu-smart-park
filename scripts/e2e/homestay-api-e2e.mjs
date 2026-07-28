@@ -282,6 +282,9 @@ async function run() {
     openTurnovers.items.some((turnover) => turnover.id === checkout.turnover.id),
     "open turnover pagination includes the checkout task"
   );
+  const listedTurnover = openTurnovers.items.find((turnover) => turnover.id === checkout.turnover.id);
+  assert(listedTurnover?.unitCode === unit.unitCode, "turnover list returns its own unit code");
+  assert(listedTurnover?.unitName === unit.unitName, "turnover list returns its own unit name");
 
   await request(`/homestay/turnovers/${checkout.turnover.id}/actions/start`, {
     method: "POST",

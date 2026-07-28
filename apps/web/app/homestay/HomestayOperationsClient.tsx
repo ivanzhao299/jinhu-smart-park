@@ -19,6 +19,7 @@ import {
   clampPageToTotal,
   defaultHomestayRateForm,
   homestayRateFormFromCalendar,
+  homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
   type HomestayRateCalendar
 } from "./homestay-operations.logic";
@@ -53,6 +54,8 @@ interface Turnover {
   id: string;
   bookingId: string;
   unitId: string;
+  unitCode: string | null;
+  unitName: string | null;
   status: "pending" | "cleaning" | "inspection" | "completed" | "exception";
   assigneeName: string | null;
   photoFileIds: string[];
@@ -160,6 +163,8 @@ export function HomestayOperationsClient() {
   const canExecuteTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE);
   const canUploadTurnoverEvidence =
     canExecuteTurnovers && hasPermission(user, SYSTEM_PERMISSIONS.FILE_UPLOAD);
+  const canReadTurnoverEvidence =
+    canReadTurnovers && hasPermission(user, SYSTEM_PERMISSIONS.FILE_READ);
   const canReadUnitCandidates = canReadRates || canManageRates || canReadBookings || canCreateBookings;
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [units, setUnits] = useState<UnitRow[]>([]);
@@ -837,7 +842,7 @@ export function HomestayOperationsClient() {
         <div className={styles.sectionTitle}><div><h2>退房保洁</h2><p>退房立即转为不可售；保洁或复检完成后才释放运营占用。</p></div></div>
         <div className={styles.turnoverGrid}>{turnovers.map((task) => (
           <article className={styles.turnoverCard} key={task.id}>
-            <div><strong>{unitName.get(task.unitId) ?? task.unitId}</strong><span>{task.status}</span></div>
+            <div><strong>{homestayTurnoverUnitLabel(task)}</strong><span>{task.status}</span></div>
             {task.status === "exception" && task.exceptionDescription ? (
               <div className={styles.turnoverException} role="alert">
                 <strong>异常说明</strong>
@@ -855,12 +860,12 @@ export function HomestayOperationsClient() {
                 [task.id]: (current[task.id] ?? 0) + 1
               }))}
             /> : null}
-            <AttachmentList
+            {canReadTurnoverEvidence ? <AttachmentList
               bizType="homestay_turnover"
               bizId={task.id}
               compact
               refreshKey={turnoverAttachmentRefresh[task.id] ?? 0}
-            />
+            /> : null}
             {canExecuteTurnovers ? <label>关联维修工单 ID（可选）
               <input
                 value={turnoverWorkOrders[task.id] ?? ""}

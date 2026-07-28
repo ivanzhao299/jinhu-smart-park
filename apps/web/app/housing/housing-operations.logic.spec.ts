@@ -51,5 +51,21 @@ test("housing refresh restores pending purchase receipts into the production for
   const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
   assert.match(client, /\/files\?biz_type=housing_purchase&page=1&page_size=100/);
   assert.match(client, /setPurchaseReceipts\(pendingReceiptResult\.data\.items\)/);
-  assert.match(client, /SYSTEM_PERMISSIONS\.HOUSING_PURCHASE_MANAGE/);
+  assert.match(
+    client,
+    /canAccessPurchaseReceipts\s*=\s*canManagePurchases\s*&&\s*hasPermission\(user,\s*SYSTEM_PERMISSIONS\.FILE_READ\)/
+  );
+});
+
+test("housing file-backed forms project domain and generic file permissions together", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /canUploadHandoverPhotos = canManageHandovers && canUploadFiles/);
+  assert.match(client, /canUploadRepairPhotos = canManageRepairs && canUploadFiles/);
+  assert.match(client, /canUploadLeaseSignature = canSignLeases && canUploadFiles/);
+  assert.match(client, /canUploadPurchaseReceipts = canManagePurchases && canUploadFiles/);
+  assert.match(client, /\{canManageHandovers \? <form onSubmit=\{completeHandover\}>/);
+  assert.match(client, /\{canUploadHandoverPhotos \? <FileUploader bizType="housing_handover"/);
+  assert.match(client, /\{canManageRepairs \? <form onSubmit=\{createRepair\}>/);
+  assert.match(client, /\{canManagePurchases \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
 });

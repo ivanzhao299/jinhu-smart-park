@@ -40,6 +40,15 @@ export function canMarkHomestayNoShow(arrivalDate: string, currentBusinessDate: 
   return arrivalDate <= currentBusinessDate;
 }
 
+export function homestayTurnoverUnitLabel(turnover: {
+  unitId: string;
+  unitCode: string | null;
+  unitName: string | null;
+}): string {
+  const display = [turnover.unitCode, turnover.unitName].filter(Boolean).join(" · ");
+  return display || turnover.unitId;
+}
+
 export function homestayRateFormFromCalendar(
   unitId: string,
   calendar: HomestayRateCalendar

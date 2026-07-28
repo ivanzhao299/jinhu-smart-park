@@ -128,6 +128,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Homestay turnover lists are server-paginated. The operations surface requests the
   `open` subset (`pending`, `cleaning`, `inspection`, and `exception`) rather than
   loading unbounded completed history.
+- Each turnover list item carries its own nullable `unitCode` and `unitName` display
+  fields resolved from the scoped unit row. Queue labels must not depend on the
+  unrelated, paginated rate/booking candidate page.
 - A confirmed homestay booking may be marked `no_show` only on or after its
   `arrival_date` begins in `Asia/Shanghai`. Button visibility is UX only; the
   service enforces the same temporal boundary under the booking lock.
@@ -137,9 +140,13 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Every permission group that consumes paginated homestay unit candidates has a
   reachable pager beside its own selector. Rate-read permission must not be required
   to navigate booking-create candidates.
-- Turnover-read users may inspect task attachments and exception details. Work-order
+- Turnover-read users may inspect exception details. Attachment loading additionally
+  requires `file:read`; without it, the attachment component is not mounted. Work-order
   linking and execution controls require `homestay:turnover:execute`; evidence upload
   additionally requires `file:upload`, so the upload control requires both permissions.
+- Housing handover fields render only for `housing:handover:manage`; its uploader also
+  requires `file:upload`. Apply the same domain-write plus generic-file intersection
+  to housing repair, lease-signature, and purchase upload surfaces.
 - After an action removes the final item from an open-turnover page, the client clamps
   the requested page to the new last page and reloads it.
 - An `exception` turnover card renders the persisted `exception_description`
@@ -205,6 +212,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
 | Turnover-read role lacks execute permission | Show task/evidence/exception details; hide upload and mutation inputs |
 | Open turnover page becomes greater than the new last page | Clamp and reload the new last page |
+| Turnover reader lacks `file:read` | Keep task and exception context; do not request `/files` |
+| Handover manager lacks `file:upload` | Keep the handover form; omit the upload control |
+| Lease reader lacks handover management | Omit mutable handover fields and upload controls |
+| Turnover unit is outside the candidate page or suspended | Return and display its list-item unit label |
 
 ## 5. Good / Base / Bad Cases
 
@@ -278,6 +289,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Integration/API: returning one credential twice preserves its first `returned_at`.
 - Frontend/browser: booking-only candidate paging, turnover read/execute control
   projection, exception description, and queue page clamping work at desktop and 390px.
+- Frontend/browser: verify domain-only, generic-file-only, both-permission, and
+  neither-permission combinations for every file-backed form or evidence list.
+- API/E2E: a turnover item returns its own `unitCode` and `unitName` even when that
+  unit is outside the current candidate selector page.
 
 ## 7. Wrong vs Correct
 

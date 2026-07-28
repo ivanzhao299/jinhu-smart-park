@@ -168,5 +168,8 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   );
   assert.match(turnovers, /statuses: \["pending", "cleaning", "inspection", "exception"\]/);
   assert.match(turnovers, /\.getManyAndCount\(\)/);
+  assert.match(turnovers, /unit_code AS "unitCode", unit_name AS "unitName"/);
+  assert.match(turnovers, /id = ANY\(\$3::uuid\[\]\)/);
+  assert.match(turnovers, /unitCode: unitDisplay\.get\(task\.unitId\)\?\.unitCode/);
   assert.match(turnovers, /page_size: query\.page_size/);
 });

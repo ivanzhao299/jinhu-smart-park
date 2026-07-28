@@ -167,6 +167,10 @@ action against every state and sibling entry point before implementation:
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] A domain file policy is intersected with the generic file endpoint permission:
+      domain read + `file:read` for lists, domain write + `file:upload` for uploaders
+- [ ] Operational list rows carry their own stable human-readable identity; labels do
+      not depend on a separate candidate selector's current page or enabled subset
 - [ ] A paginated dataset shared by multiple forms exposes paging beside every
       authorized consumer; navigation must not live only inside a sibling
       permission branch

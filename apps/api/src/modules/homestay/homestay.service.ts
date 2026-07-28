@@ -65,6 +65,11 @@ import {
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
 
+type HomestayTurnoverListItem = HomestayTurnoverTaskEntity & {
+  unitCode: string | null;
+  unitName: string | null;
+};
+
 @Injectable()
 export class HomestayService {
   constructor(
@@ -830,7 +835,7 @@ export class HomestayService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HomestayTurnoverQueryDto
-  ): Promise<PaginatedResult<HomestayTurnoverTaskEntity>> {
+  ): Promise<PaginatedResult<HomestayTurnoverListItem>> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size };
@@ -847,10 +852,26 @@ export class HomestayService {
     } else {
       builder.andWhere("task.status = :status", { status: query.status });
     }
-    const [items, total] = await builder.orderBy("task.create_time", "ASC")
+    const [tasks, total] = await builder.orderBy("task.create_time", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
+    const unitRows = tasks.length
+      ? await this.dataSource.query(
+        `SELECT id, unit_code AS "unitCode", unit_name AS "unitName"
+         FROM biz_unit
+         WHERE tenant_id = $1
+           AND park_id = $2
+           AND id = ANY($3::uuid[])`,
+        [scope.tenantId, scope.parkId, tasks.map((task) => task.unitId)]
+      ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>
+      : [];
+    const unitDisplay = new Map(unitRows.map((unit) => [unit.id, unit]));
+    const items = tasks.map((task) => ({
+      ...task,
+      unitCode: unitDisplay.get(task.unitId)?.unitCode ?? null,
+      unitName: unitDisplay.get(task.unitId)?.unitName ?? null
+    }));
     return { items, total, page: query.page, page_size: query.page_size };
   }
 

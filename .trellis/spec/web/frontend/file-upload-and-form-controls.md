@@ -37,12 +37,23 @@
   action payload assembled only from the current session's callback IDs must not
   erase or hide previously uploaded evidence.
 - Compact attachment lists must show uploaded-file preview affordance; image files should display thumbnails and click-to-preview.
+- A business permission never implies a generic file permission. Mount `FileUploader`
+  only when the actor has both the domain write permission and `file:upload`; mount
+  API-backed attachment lists only when the actor has both the domain read permission
+  and `file:read`.
+- Read-only detail pages must not render mutable file-backed form fields merely because
+  the submit button is permission-aware. Gate the complete mutable form on its domain
+  write permission, then gate its uploader on the additional generic file permission.
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
 - Unsupported MIME -> show friendly validation message and clear selected file.
 - Oversized file -> show policy size limit and clear selected file.
 - Unauthorized download/preview -> clear session and redirect to login.
+- Domain read without `file:read` -> preserve business details; do not mount the
+  attachment list or issue a predictable unauthorized request.
+- Domain write without `file:upload` -> preserve non-file workflow actions; omit the
+  uploader.
 - Backend rejection -> display API error message; do not silently succeed.
 - Pending-list load failure -> preserve current visible files and show an error; do not
   replace them with an empty list.
@@ -51,6 +62,9 @@
 - Good: Floorplan upload uses `policyKey="floorplan"`, accepts image/PDF, shows compact uploaded preview, and backend rejects other types.
 - Base: Generic attachment upload resolves policy from `bizType` and falls back to `general`.
 - Bad: Native browser file input visible in production UI; page-local MIME strings; page-local max-size values; upload success with no visible uploaded-file record.
+- Bad: A read-only form shows editable fields and relies on a hidden submit button, or
+  a domain permission alone exposes a file control whose endpoint requires a second
+  generic permission.
 
 ### 6. Tests Required
 - Lint/build after changing shared policy or upload components.
@@ -59,6 +73,8 @@
   the later-created business object.
 - Browser/API check: an upload already associated with a business object remains
   visible after refresh and the next workflow action retains that evidence.
+- Permission test: cover domain-only, generic-file-only, both, and neither permission
+  combinations for uploader and attachment-list visibility/effects.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

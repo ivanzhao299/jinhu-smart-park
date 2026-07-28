@@ -7,6 +7,7 @@ import {
   clampPageToTotal,
   defaultHomestayRateForm,
   homestayRateFormFromCalendar,
+  homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad
 } from "./homestay-operations.logic";
 
@@ -22,6 +23,21 @@ test("operational pages clamp deleted-tail pages and gate no-show by business da
   assert.equal(clampPageToTotal(1, 20, 0), 1);
   assert.equal(canMarkHomestayNoShow("2026-07-29", "2026-07-28"), false);
   assert.equal(canMarkHomestayNoShow("2026-07-28", "2026-07-28"), true);
+});
+
+test("turnover labels come from their own response instead of candidate paging", () => {
+  assert.equal(
+    homestayTurnoverUnitLabel({
+      unitId: "unit-1",
+      unitCode: "A-101",
+      unitName: "人才公寓 101"
+    }),
+    "A-101 · 人才公寓 101"
+  );
+  assert.equal(
+    homestayTurnoverUnitLabel({ unitId: "unit-legacy", unitCode: null, unitName: null }),
+    "unit-legacy"
+  );
 });
 
 test("persisted homestay pricing replaces every editable rate field", () => {
@@ -87,6 +103,13 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
     source,
     /canUploadTurnoverEvidence\s*=\s*canExecuteTurnovers\s*&&\s*hasPermission\(user,\s*SYSTEM_PERMISSIONS\.FILE_UPLOAD\)/
   );
+  assert.match(
+    source,
+    /canReadTurnoverEvidence\s*=\s*canReadTurnovers\s*&&\s*hasPermission\(user,\s*SYSTEM_PERMISSIONS\.FILE_READ\)/
+  );
   assert.match(source, /\{canUploadTurnoverEvidence \? <FileUploader/);
+  assert.match(source, /\{canReadTurnoverEvidence \? <AttachmentList/);
+  assert.match(source, /homestayTurnoverUnitLabel\(task\)/);
+  assert.doesNotMatch(source, /unitName\.get\(task\.unitId\)/);
   assert.match(source, /task\.exceptionDescription/);
 });
