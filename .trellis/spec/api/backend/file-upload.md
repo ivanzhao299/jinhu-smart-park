@@ -20,21 +20,27 @@
 - Business-specific mappings live in `FILE_UPLOAD_BIZ_POLICY_MAP`.
 - Storage path remains tenant/park/day scoped and must not be built from user-supplied filenames.
 - File metadata must remain tenant_id + park_id scoped.
+- The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
+- Generic file listing without a business type excludes protected housing and homestay file types.
+- Unassociated purchase receipts are visible only to their uploader and authorized purchase operators until the purchase workflow associates them.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
 - Unsupported MIME -> `UnsupportedMediaTypeException`.
 - Oversized file -> `BadRequestException`.
 - File ID used by another business object must belong to current tenant and park.
+- Missing domain permission, cross-tenant/park reference, or out-of-scope unit -> `ForbiddenException` without revealing whether the file exists outside scope.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan endpoint delegates to `FilesService.upload` with `biz_type: "floorplan"`.
 - Base: `/files` generic endpoint accepts only policies supported by shared constants.
 - Bad: Controller-level file size only with no service validation; hard-coded MIME checks in individual feature services.
+- Bad: Granting `file:read` or `file:download` alone access to lease signatures, handover evidence, purchase receipts, or turnover evidence.
 
 ### 6. Tests Required
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
+- Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
 
 ### 7. Wrong vs Correct
 

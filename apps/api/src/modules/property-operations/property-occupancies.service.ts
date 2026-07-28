@@ -104,22 +104,7 @@ export class PropertyOccupanciesService {
     });
     if (!unit) throw new NotFoundException("Unit not found");
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
-    await manager.getRepository(PropertyOccupancyEntity)
-      .createQueryBuilder()
-      .update(PropertyOccupancyEntity)
-      .set({
-        status: "released",
-        releaseReason: "hold_expired",
-        releasedAt: new Date(),
-        updateBy: actor.sub
-      })
-      .where("tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("unit_id = :unitId", { unitId: dto.unit_id })
-      .andWhere("is_deleted = false")
-      .andWhere("status = 'held'")
-      .andWhere("hold_expires_at <= now()")
-      .execute();
+    await this.releaseExpiredHolds(manager, scope, actor, dto.unit_id);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: dto.unit_id, isDeleted: false }
     });
@@ -244,12 +229,19 @@ export class PropertyOccupanciesService {
     });
     if (!entity) throw new NotFoundException("Property occupancy not found");
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
+    await this.releaseExpiredHolds(manager, scope, actor, entity.unitId);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false }
     });
     const mode = config?.operatingMode ?? "none";
     if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
+    }
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      && config?.operatingStatus !== "enabled"
+    ) {
+      throw new ConflictException("Business occupancy requires an enabled operating unit");
     }
     const conflicts = await this.findConflicts(manager, scope, entity.unitId, period.startAt, period.endAt, {
       sourceType: entity.sourceType,
@@ -270,6 +262,30 @@ export class PropertyOccupanciesService {
     entity.releasedAt = null;
     entity.updateBy = actor.sub;
     return repository.save(entity);
+  }
+
+  private async releaseExpiredHolds(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    unitId: string
+  ): Promise<void> {
+    await manager.getRepository(PropertyOccupancyEntity)
+      .createQueryBuilder()
+      .update(PropertyOccupancyEntity)
+      .set({
+        status: "released",
+        releaseReason: "hold_expired",
+        releasedAt: new Date(),
+        updateBy: actor.sub
+      })
+      .where("tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("unit_id = :unitId", { unitId })
+      .andWhere("is_deleted = false")
+      .andWhere("status = 'held'")
+      .andWhere("hold_expires_at <= now()")
+      .execute();
   }
 
   async activate(scope: TenantParkScope, actor: JwtPrincipal, id: string) {

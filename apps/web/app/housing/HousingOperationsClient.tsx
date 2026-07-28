@@ -678,9 +678,9 @@ export function HousingOperationsClient() {
       cost_category: purchaseForm.costCategory,
       items: [{
         item_name: purchaseForm.itemName,
-        quantity: Number(purchaseForm.quantity),
+        quantity: purchaseForm.quantity,
         unit: purchaseForm.unit,
-        unit_price: Number(purchaseForm.unitPrice)
+        unit_price: purchaseForm.unitPrice
       }],
       receipt_file_ids: purchaseReceipts.map((file) => file.id)
     };

@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { extname } from "node:path";
 import type { Repository } from "typeorm";
-import { ILike } from "typeorm";
+import { ILike, In, Not } from "typeorm";
 import {
   formatFileSize,
   getFileUploadLimitForMime,
@@ -13,10 +13,15 @@ import {
   type TenantParkScope
 } from "@jinhu/shared";
 import { AuditService } from "../audit/audit.service";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { FileQueryDto } from "./dto/file-query.dto";
 import type { UploadFileDto } from "./dto/upload-file.dto";
 import { FileEntity } from "./entities/file.entity";
 import { FileStorageService } from "./storage/file-storage.service";
+import {
+  FileBusinessAccessService,
+  PROPERTY_BUSINESS_FILE_TYPES
+} from "./file-business-access.service";
 
 export interface UploadedFilePayload {
   originalname: string;
@@ -38,8 +43,26 @@ export class FilesService {
     @InjectRepository(FileEntity)
     private readonly fileRepository: Repository<FileEntity>,
     private readonly storageService: FileStorageService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly businessAccessService: FileBusinessAccessService
   ) {}
+
+  async uploadForActor(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: UploadFileDto,
+    file: UploadedFilePayload | undefined
+  ): Promise<FileEntity> {
+    await this.businessAccessService.assertReferenceAccess(
+      scope,
+      actor,
+      dto.biz_type,
+      dto.biz_id,
+      "write",
+      actor.sub
+    );
+    return this.upload(scope, actor.sub, dto, file);
+  }
 
   async upload(
     scope: TenantParkScope,
@@ -88,13 +111,28 @@ export class FilesService {
     return this.fileRepository.save(entity);
   }
 
-  async list(scope: TenantParkScope, query: FileQueryDto): Promise<PaginatedResult<FileEntity>> {
+  async list(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: FileQueryDto
+  ): Promise<PaginatedResult<FileEntity>> {
+    if (query.biz_type && this.businessAccessService.isProtectedBizType(query.biz_type)) {
+      await this.businessAccessService.assertReferenceAccess(
+        scope,
+        actor,
+        query.biz_type,
+        query.biz_id,
+        "read"
+      );
+    }
     const [items, total] = await this.fileRepository.findAndCount({
       where: {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         isDeleted: false,
-        ...(query.biz_type ? { bizType: query.biz_type } : {}),
+        ...(query.biz_type
+          ? { bizType: query.biz_type }
+          : { bizType: Not(In([...PROPERTY_BUSINESS_FILE_TYPES])) }),
         ...(query.biz_id ? { bizId: query.biz_id } : {}),
         ...(query.keyword ? { originalName: ILike(`%${query.keyword}%`) } : {})
       },
@@ -103,6 +141,25 @@ export class FilesService {
       take: query.page_size
     });
     return { items, total, page: query.page, page_size: query.page_size };
+  }
+
+  async detailForActor(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    action: "read" | "write" = "read"
+  ): Promise<FileEntity> {
+    const file = await this.detail(scope, id);
+    this.businessAccessService.assertPendingFileOwner(actor, file);
+    await this.businessAccessService.assertReferenceAccess(
+      scope,
+      actor,
+      file.bizType,
+      file.bizId,
+      action,
+      file.createBy ?? undefined
+    );
+    return file;
   }
 
   async detail(scope: TenantParkScope, id: string): Promise<FileEntity> {
@@ -115,8 +172,12 @@ export class FilesService {
     return entity;
   }
 
-  async prepareDownload(scope: TenantParkScope, id: string): Promise<DownloadFileResult> {
-    const file = await this.detail(scope, id);
+  async prepareDownload(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<DownloadFileResult> {
+    const file = await this.detailForActor(scope, actor, id);
     return {
       file,
       absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))
@@ -180,6 +241,15 @@ export class FilesService {
     entity.updateBy = actorId;
     await this.fileRepository.save(entity);
     return { id };
+  }
+
+  async softDeleteForActor(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<{ id: string }> {
+    await this.detailForActor(scope, actor, id, "write");
+    return this.softDelete(scope, actor.sub, id);
   }
 
   createReadStream(absolutePath: string) {

@@ -65,3 +65,20 @@ test("mode transition blockers compare commercial expiry at the Shanghai busines
   assert.match(service, /now\(\) AT TIME ZONE 'Asia\/Shanghai'/);
   assert.doesNotMatch(service, /> current_date/);
 });
+
+test("occupancy period replacement rechecks enabled operation and releases expired holds", () => {
+  const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  const replacePeriod = service.slice(
+    service.indexOf("async replacePeriodInTransaction"),
+    service.indexOf("async activate(", service.indexOf("async replacePeriodInTransaction"))
+  );
+  assert.match(replacePeriod, /releaseExpiredHolds\(manager, scope, actor, entity\.unitId\)/);
+  assert.match(replacePeriod, /config\?\.operatingStatus !== "enabled"/);
+});
+
+test("party document-type changes cannot retain an identity from the old document type", () => {
+  const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
+  assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);
+  assert.match(service, /entity\.identityNumberEncrypted = null/);
+  assert.match(service, /entity\.identityNumberHash = null/);
+});

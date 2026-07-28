@@ -50,6 +50,8 @@ test("homestay dashboard occupancy follows the requested stay date", () => {
   assert.match(service, /booking\.arrival_date <= \$3::date/);
   assert.match(service, /booking\.departure_date > \$3::date/);
   assert.doesNotMatch(service, /FILTER \(WHERE booking\.status = 'checked_in'\)::int AS occupied/);
+  assert.match(service, /booking\.actual_check_out_time AT TIME ZONE 'Asia\/Shanghai'/);
+  assert.match(service, /booking\.status = 'checked_out'/);
 });
 
 test("homestay availability and check-in use current cross-domain truth", () => {

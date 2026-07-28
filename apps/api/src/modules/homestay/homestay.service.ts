@@ -859,11 +859,21 @@ export class HomestayService {
     const [summary] = await this.dataSource.query(
       `SELECT
          count(*) FILTER (WHERE booking.arrival_date = $3::date AND booking.status IN ('confirmed','checked_in'))::int AS arrivals,
-         count(*) FILTER (WHERE booking.departure_date = $3::date AND booking.status IN ('checked_in','checked_out'))::int AS departures,
+         count(*) FILTER (
+           WHERE (booking.status = 'checked_in' AND booking.departure_date = $3::date)
+              OR (booking.status = 'checked_out'
+                  AND (booking.actual_check_out_time AT TIME ZONE 'Asia/Shanghai')::date = $3::date)
+         )::int AS departures,
          count(*) FILTER (
            WHERE booking.arrival_date <= $3::date
              AND booking.departure_date > $3::date
-             AND booking.status IN ('confirmed', 'checked_in', 'checked_out')
+             AND (
+               booking.status IN ('confirmed', 'checked_in')
+               OR (
+                 booking.status = 'checked_out'
+                 AND (booking.actual_check_out_time AT TIME ZONE 'Asia/Shanghai')::date > $3::date
+               )
+             )
          )::int AS occupied
        FROM biz_homestay_booking booking
        WHERE booking.tenant_id = $1 AND booking.park_id = $2 AND booking.is_deleted = false${unitClause}`,
@@ -907,7 +917,13 @@ export class HomestayService {
          AND night.park_id = $2
          AND night.is_deleted = false
          AND booking.is_deleted = false
-         AND booking.status IN ('confirmed', 'checked_in', 'checked_out')
+         AND (
+           booking.status IN ('confirmed', 'checked_in')
+           OR (
+             booking.status = 'checked_out'
+             AND (booking.actual_check_out_time AT TIME ZONE 'Asia/Shanghai')::date > $3::date
+           )
+         )
          AND night.business_date = $3::date${unitClause}`,
       parameters
     ) as Array<{ average_daily_rate: string }>;

@@ -229,18 +229,42 @@ async function run() {
     }
   });
 
-  await request(`/housing/leases/${lease.id}/ledger`, {
+  const overlappingStart = new Date(start);
+  overlappingStart.setUTCDate(overlappingStart.getUTCDate() + 10);
+  const overlappingEnd = new Date(billEnd);
+  overlappingEnd.setUTCDate(overlappingEnd.getUTCDate() + 10);
+  await expectRequestStatus(`/housing/leases/${lease.id}/generate-bills`, 409, {
     method: "POST",
     token,
     idempotent: true,
     body: {
-      entry_type: "deposit_receipt",
+      charge_plan_id: propertyChargePlan.id,
+      period_start: overlappingStart.toISOString().slice(0, 10),
+      period_end: overlappingEnd.toISOString().slice(0, 10),
+      reason: "overlapping billing period must be rejected"
+    }
+  });
+
+  const activatedDetail = await request(`/housing/leases/${lease.id}`, { token });
+  const depositReceivable = activatedDetail.receivables.find((item) => item.chargeType === "deposit");
+  assert(depositReceivable, "lease activation creates a deposit receivable");
+  const depositReceipt = await request(`/housing/leases/${lease.id}/ledger`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      receivable_id: depositReceivable.id,
+      entry_type: "payment",
       charge_type: "deposit",
       amount: 2500,
       payment_method: "bank_transfer",
       reason: "真实 API E2E 押金收取"
     }
   });
+  assert(
+    depositReceipt.entryType === "deposit_receipt",
+    "deposit receivable payment is normalized to a deposit receipt"
+  );
 
   const wrongLeaseRepairImage = await uploadRepairImage(token, randomUUID());
   const repairPayload = {
@@ -283,8 +307,8 @@ async function run() {
       purchase_date: startDate,
       cost_category: "repair",
       items: [
-        { item_name: "维修软管", quantity: 1, unit: "根", unit_price: 35 },
-        { item_name: "密封耗材", quantity: 0.004, unit: "批", unit_price: 36.25 }
+        { item_name: "维修软管", quantity: "1", unit: "根", unit_price: "35" },
+        { item_name: "密封耗材", quantity: "0.004", unit: "批", unit_price: "36.25" }
       ]
     }
   });
@@ -343,18 +367,23 @@ async function run() {
     idempotent: true,
     body: { reason: "押金尚未退还时不得完成退租" }
   });
-  await request(`/housing/leases/${lease.id}/ledger`, {
+  const depositRefund = await request(`/housing/leases/${lease.id}/ledger`, {
     method: "POST",
     token,
     idempotent: true,
     body: {
-      entry_type: "deposit_refund",
+      receivable_id: depositReceivable.id,
+      entry_type: "refund",
       charge_type: "deposit",
       amount: 2500,
       payment_method: "bank_transfer",
       reason: "真实 API E2E 押金退还"
     }
   });
+  assert(
+    depositRefund.entryType === "deposit_refund",
+    "deposit receivable refund is normalized without reopening the settled receivable"
+  );
   const terminated = await request(`/housing/leases/${lease.id}/checkout`, {
     method: "POST",
     token,

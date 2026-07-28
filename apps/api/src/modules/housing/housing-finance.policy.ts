@@ -7,9 +7,11 @@ export interface HousingFinancialEntry {
 }
 
 export interface HousingPurchaseAmountInput {
-  quantity: number;
-  unitPrice: number;
+  quantity: string;
+  unitPrice: string;
 }
+
+const MAX_HOUSING_MONEY_CENTS = 999_999_999_999_999_999n;
 
 export function calculateHousingMeterCharge(
   openingReading: number,
@@ -30,14 +32,13 @@ export function calculateHousingMeterCharge(
   };
 }
 
-function parseScaledDecimal(value: number, scale: number): bigint {
-  const match = value.toString().toLowerCase().match(/^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/);
+function parseScaledDecimal(value: string | number, scale: number): bigint {
+  const match = value.toString().match(/^(-?)(\d+)(?:\.(\d+))?$/);
   if (!match) throw new BadRequestException("Invalid purchase decimal");
   const sign = match[1] === "-" ? -1n : 1n;
   const fraction = match[3] ?? "";
-  const exponent = Number(match[4] ?? 0);
   const digits = BigInt(`${match[2]}${fraction}`);
-  const shift = scale - (fraction.length - exponent);
+  const shift = scale - fraction.length;
   if (shift >= 0) return sign * digits * (10n ** BigInt(shift));
   const divisor = 10n ** BigInt(-shift);
   const quotient = digits / divisor;
@@ -52,15 +53,49 @@ function formatCents(value: bigint): string {
   return `${integerPart}.${fractionPart}`;
 }
 
+export function formatHousingMoney(value: string | number): string {
+  return formatCents(parseScaledDecimal(value, 2));
+}
+
+export function addHousingMoneyAmounts(values: Array<string | number>): string {
+  const total = values.reduce((sum, value) => sum + parseScaledDecimal(value, 2), 0n);
+  if (total > MAX_HOUSING_MONEY_CENTS || total < -MAX_HOUSING_MONEY_CENTS) {
+    throw new BadRequestException("Housing money amount exceeds numeric(18,2)");
+  }
+  return formatCents(total);
+}
+
+export function housingReceivableStatus(
+  amount: string | number,
+  paidAmount: string | number,
+  waivedAmount: string | number
+) {
+  const amountCents = parseScaledDecimal(amount, 2);
+  const paidCents = parseScaledDecimal(paidAmount, 2);
+  const waivedCents = parseScaledDecimal(waivedAmount, 2);
+  const settledCents = paidCents + waivedCents;
+  return settledCents >= amountCents
+    ? (paidCents === 0n ? "waived" as const : "paid" as const)
+    : settledCents > 0n ? "partial" as const : "unpaid" as const;
+}
+
 export function calculateHousingPurchaseAmounts(items: HousingPurchaseAmountInput[]) {
   const lineAmountCents = items.map((item) => {
     const quantityThousandths = parseScaledDecimal(item.quantity, 3);
     const unitPriceCents = parseScaledDecimal(item.unitPrice, 2);
-    return (quantityThousandths * unitPriceCents + 500n) / 1_000n;
+    const amount = (quantityThousandths * unitPriceCents + 500n) / 1_000n;
+    if (amount > MAX_HOUSING_MONEY_CENTS || amount < -MAX_HOUSING_MONEY_CENTS) {
+      throw new BadRequestException("Purchase line amount exceeds numeric(18,2)");
+    }
+    return amount;
   });
+  const totalAmountCents = lineAmountCents.reduce((total, amount) => total + amount, 0n);
+  if (totalAmountCents > MAX_HOUSING_MONEY_CENTS || totalAmountCents < -MAX_HOUSING_MONEY_CENTS) {
+    throw new BadRequestException("Purchase total amount exceeds numeric(18,2)");
+  }
   return {
     lineAmounts: lineAmountCents.map(formatCents),
-    totalAmount: formatCents(lineAmountCents.reduce((total, amount) => total + amount, 0n))
+    totalAmount: formatCents(totalAmountCents)
   };
 }
 

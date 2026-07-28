@@ -170,6 +170,22 @@ test("tryBegin returns cached response after success", async () => {
   assert.deepEqual(cached.cachedResponse?.responseBody, { ok: true, token: "***" });
 });
 
+test("cached responses preserve Date values as ISO strings", async () => {
+  const { service } = createService();
+  const input = makeContext({ requestFingerprint: "fp-date" });
+  const begin = await service.tryBegin(input);
+  assert.equal(begin.outcome, "began");
+  await service.markSucceeded(begin.request.id, 201, {
+    createdAt: new Date("2026-07-28T01:02:03.000Z")
+  });
+
+  const cached = await service.tryBegin(input);
+  assert.equal(cached.outcome, "cached");
+  assert.deepEqual(cached.cachedResponse?.responseBody, {
+    createdAt: "2026-07-28T01:02:03.000Z"
+  });
+});
+
 test("tryBegin rejects different fingerprint and allows retry after failure", async () => {
   const { service } = createService();
   const input = makeContext({ requestFingerprint: "fp-1" });

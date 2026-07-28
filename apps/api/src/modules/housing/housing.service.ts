@@ -56,12 +56,15 @@ import {
   parseHousingCalendarDate
 } from "./housing-billing.policy";
 import {
+  addHousingMoneyAmounts,
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
   calculateHousingMeterCharge,
-  calculateHousingPurchaseAmounts
+  calculateHousingPurchaseAmounts,
+  formatHousingMoney,
+  housingReceivableStatus
 } from "./housing-finance.policy";
 
 @Injectable()
@@ -424,57 +427,66 @@ export class HousingService {
     leaseId: string,
     dto: UpsertHousingChargePlanDto
   ) {
-    const lease = await this.mustLease(this.dataSource.manager, scope, leaseId);
-    await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     if (dto.billing_source === "fixed" && dto.amount === undefined) {
       throw new BadRequestException("Fixed charge plan requires amount");
     }
     if (dto.billing_source === "energy_meter" && (!dto.meter_id || dto.unit_price === undefined)) {
       throw new BadRequestException("Energy meter charge plan requires meter_id and unit_price");
     }
-    if (dto.billing_source === "energy_meter") {
-      const meter = await this.dataSource.getRepository(EnergyMeterEntity).findOne({
-        where: {
-          id: dto.meter_id!,
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const lease = await this.lockLease(manager, scope, leaseId);
+        await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+        if (dto.billing_source === "energy_meter") {
+          const meter = await manager.getRepository(EnergyMeterEntity).findOne({
+            where: {
+              id: dto.meter_id!,
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              isDeleted: false
+            }
+          });
+          if (!meter) throw new NotFoundException("Energy meter not found");
+          if (!meter.isEnabled || meter.status === "DISABLED") {
+            throw new ConflictException("Energy meter must be enabled");
+          }
+          if (meter.roomId !== lease.unitId) {
+            throw new BadRequestException("Energy meter must belong to the housing lease unit");
+          }
+        }
+        const repository = manager.getRepository(HousingChargePlanEntity);
+        const existing = await repository.findOne({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            leaseId,
+            chargeType: dto.charge_type,
+            isDeleted: false
+          }
+        });
+        const plan = existing ?? repository.create({
           tenantId: scope.tenantId,
           parkId: scope.parkId,
-          isDeleted: false
-        }
+          leaseId,
+          chargeType: dto.charge_type,
+          createBy: actor.sub
+        });
+        plan.billingSource = dto.billing_source;
+        plan.cycleMonths = dto.cycle_months;
+        plan.amount = dto.amount === undefined ? null : dto.amount.toFixed(2);
+        plan.unitPrice = dto.unit_price === undefined ? null : dto.unit_price.toFixed(6);
+        plan.meterId = dto.meter_id ?? null;
+        plan.enabled = dto.enabled;
+        plan.updateBy = actor.sub;
+        plan.remark = dto.remark ?? null;
+        return repository.save(plan);
       });
-      if (!meter) throw new NotFoundException("Energy meter not found");
-      if (!meter.isEnabled || meter.status === "DISABLED") {
-        throw new ConflictException("Energy meter must be enabled");
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException("Charge plan already exists for this lease and charge type");
       }
-      if (meter.roomId !== lease.unitId) {
-        throw new BadRequestException("Energy meter must belong to the housing lease unit");
-      }
+      throw error;
     }
-    const repository = this.dataSource.getRepository(HousingChargePlanEntity);
-    const existing = await repository.findOne({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseId,
-        chargeType: dto.charge_type,
-        isDeleted: false
-      }
-    });
-    const plan = existing ?? repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      leaseId,
-      chargeType: dto.charge_type,
-      createBy: actor.sub
-    });
-    plan.billingSource = dto.billing_source;
-    plan.cycleMonths = dto.cycle_months;
-    plan.amount = dto.amount === undefined ? null : dto.amount.toFixed(2);
-    plan.unitPrice = dto.unit_price === undefined ? null : dto.unit_price.toFixed(6);
-    plan.meterId = dto.meter_id ?? null;
-    plan.enabled = dto.enabled;
-    plan.updateBy = actor.sub;
-    plan.remark = dto.remark ?? null;
-    return repository.save(plan);
   }
 
   async generateBills(
@@ -500,6 +512,24 @@ export class HousingService {
         }
       });
       if (!plan) throw new NotFoundException("Enabled charge plan not found");
+      const overlapping = await manager.getRepository(HousingReceivableEntity)
+        .createQueryBuilder("receivable")
+        .setLock("pessimistic_write")
+        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("receivable.lease_id = :leaseId", { leaseId })
+        .andWhere("receivable.charge_plan_id = :chargePlanId", { chargePlanId: plan.id })
+        .andWhere("receivable.is_deleted = false")
+        .andWhere("receivable.status <> 'void'")
+        .andWhere("receivable.period_start < :periodEnd", { periodEnd: dto.period_end })
+        .andWhere("receivable.period_end > :periodStart", { periodStart: dto.period_start })
+        .getOne();
+      if (overlapping) {
+        if (overlapping.periodStart === dto.period_start && overlapping.periodEnd === dto.period_end) {
+          return [overlapping];
+        }
+        throw new ConflictException("Billing period overlaps an existing receivable for this charge plan");
+      }
       const meter = plan.billingSource === "energy_meter"
         ? await manager.getRepository(EnergyMeterEntity).findOne({
             where: {
@@ -569,37 +599,8 @@ export class HousingService {
       if (dto.entry_type === "charge") {
         throw new BadRequestException("Create tenant charges through a charge plan and receivable");
       }
-      if (dto.entry_type.startsWith("deposit_")) {
-        const depositEntries = await manager.getRepository(HousingLedgerEntryEntity).find({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            leaseId,
-            status: "confirmed",
-            isDeleted: false
-          }
-        });
-        const currentDeposit = calculateHousingDepositBalance(depositEntries);
-        assertHousingDepositMutation(Number(lease.depositAmount), currentDeposit, dto.entry_type, dto.amount);
-      }
+      let entryType = dto.entry_type;
       let receivable: HousingReceivableEntity | null = null;
-      if (dto.entry_type === "deposit_receipt" && !dto.receivable_id) {
-        receivable = await manager.getRepository(HousingReceivableEntity).findOne({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            leaseId,
-            chargeType: "deposit",
-            sourceType: "lease_deposit",
-            isDeleted: false
-          },
-          lock: { mode: "pessimistic_write" }
-        });
-        if (!receivable) throw new ConflictException("Lease deposit receivable is missing");
-        this.applyReceivableEntry(receivable, { ...dto, entry_type: "payment" });
-        receivable.updateBy = actor.sub;
-        await manager.getRepository(HousingReceivableEntity).save(receivable);
-      }
       if (dto.receivable_id) {
         receivable = await manager.getRepository(HousingReceivableEntity).findOne({
           where: {
@@ -613,20 +614,62 @@ export class HousingService {
         });
         if (!receivable) throw new NotFoundException("Housing receivable not found");
         if (receivable.status === "void") throw new ConflictException("Void receivable cannot receive financial entries");
-        if (dto.entry_type === "deposit_receipt") {
-          if (receivable.chargeType !== "deposit") {
-            throw new BadRequestException("Deposit receipt can only settle the lease deposit receivable");
+        if (receivable.chargeType === "deposit") {
+          if (entryType === "payment") entryType = "deposit_receipt";
+          else if (entryType === "refund") entryType = "deposit_refund";
+          else if (entryType === "waiver") {
+            throw new BadRequestException("Deposit receivables cannot be waived");
           }
+        } else if (entryType.startsWith("deposit_")) {
+          throw new BadRequestException("Deposit entries can only target the lease deposit receivable");
+        }
+      }
+      if (entryType === "deposit_receipt" && !receivable) {
+        receivable = await manager.getRepository(HousingReceivableEntity).findOne({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            leaseId,
+            chargeType: "deposit",
+            sourceType: "lease_deposit",
+            isDeleted: false
+          },
+          lock: { mode: "pessimistic_write" }
+        });
+        if (!receivable) throw new ConflictException("Lease deposit receivable is missing");
+      }
+      if (entryType.startsWith("deposit_")) {
+        const depositEntries = await manager.getRepository(HousingLedgerEntryEntity).find({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            leaseId,
+            status: "confirmed",
+            isDeleted: false
+          }
+        });
+        const currentDeposit = calculateHousingDepositBalance(depositEntries);
+        assertHousingDepositMutation(Number(lease.depositAmount), currentDeposit, entryType, dto.amount);
+      }
+      if (receivable) {
+        let receivableChanged = true;
+        if (entryType === "deposit_receipt") {
           this.applyReceivableEntry(receivable, { ...dto, entry_type: "payment" });
+        } else if (entryType === "deposit_refund") {
+          receivableChanged = false;
+        } else if (entryType === "deposit_deduction") {
+          throw new BadRequestException("Deposit deduction must settle a checkout charge, not the deposit receivable");
         } else {
           this.applyReceivableEntry(receivable, dto);
         }
-        receivable.updateBy = actor.sub;
-        await manager.getRepository(HousingReceivableEntity).save(receivable);
-      } else if (["payment", "refund", "waiver"].includes(dto.entry_type) && !dto.entry_type.startsWith("deposit_")) {
+        if (receivableChanged) {
+          receivable.updateBy = actor.sub;
+          await manager.getRepository(HousingReceivableEntity).save(receivable);
+        }
+      } else if (["payment", "refund", "waiver"].includes(entryType)) {
         throw new BadRequestException("Receivable is required for payment, refund, or waiver");
       }
-      const chargeType = dto.entry_type.startsWith("deposit_") ? "deposit" : receivable?.chargeType;
+      const chargeType = entryType.startsWith("deposit_") ? "deposit" : receivable?.chargeType;
       if (!chargeType) throw new BadRequestException("Receivable charge type is required for financial entries");
       const repository = manager.getRepository(HousingLedgerEntryEntity);
       return repository.save(repository.create({
@@ -634,7 +677,7 @@ export class HousingService {
         parkId: scope.parkId,
         leaseId,
         receivableId: receivable?.id ?? null,
-        entryType: dto.entry_type,
+        entryType,
         chargeType,
         amount: dto.amount.toFixed(2),
         paymentMethod: dto.payment_method ?? null,
@@ -929,6 +972,9 @@ export class HousingService {
       if (receiptFiles.some((file) => file.bizId !== null)) {
         throw new ConflictException("Purchase receipt file is already associated with another record");
       }
+      if (receiptFiles.some((file) => file.createBy !== actor.sub)) {
+        throw new ForbiddenException("Purchase receipt file belongs to another uploader");
+      }
       const purchaseAmounts = calculateHousingPurchaseAmounts(dto.items.map((item) => ({
         quantity: item.quantity,
         unitPrice: item.unit_price
@@ -956,9 +1002,9 @@ export class HousingService {
         parkId: scope.parkId,
         purchaseId: purchase.id,
         itemName: item.item_name,
-        quantity: item.quantity.toFixed(3),
+        quantity: item.quantity,
         unit: item.unit ?? null,
-        unitPrice: item.unit_price.toFixed(2),
+        unitPrice: item.unit_price,
         amount: purchaseAmounts.lineAmounts[index]!,
         transferredReceivableId: null,
         createBy: actor.sub,
@@ -1060,7 +1106,7 @@ export class HousingService {
       if (items.some((item) => item.transferredReceivableId)) {
         throw new ConflictException("One or more purchase items have already been transferred");
       }
-      const amount = items.reduce((sum, item) => sum + Number(item.amount), 0);
+      const amount = addHousingMoneyAmounts(items.map((item) => item.amount));
       const receivable = await this.createReceivable(manager, scope, actor, lease, {
         chargePlanId: null,
         sourceType: "purchase_transfer",
@@ -1218,7 +1264,7 @@ export class HousingService {
       periodStart: string;
       periodEnd: string;
       dueDate: string;
-      amount: number;
+      amount: string | number;
       openingReading?: number;
       closingReading?: number;
       usageAmount?: number;
@@ -1243,12 +1289,9 @@ export class HousingService {
     });
     if (existing) {
       if (!input.accumulateIfExisting) return existing;
-      const nextAmount = Number(existing.amount) + input.amount;
-      const settled = Number(existing.paidAmount) + Number(existing.waivedAmount);
-      existing.amount = nextAmount.toFixed(2);
-      existing.status = settled >= nextAmount - 0.005
-        ? (Number(existing.paidAmount) <= 0.005 ? "waived" : "paid")
-        : settled > 0.005 ? "partial" : "unpaid";
+      const nextAmount = addHousingMoneyAmounts([existing.amount, input.amount]);
+      existing.amount = nextAmount;
+      existing.status = housingReceivableStatus(nextAmount, existing.paidAmount, existing.waivedAmount);
       existing.dueDate = input.dueDate;
       existing.updateBy = actor.sub;
       existing.remark = input.remark ?? existing.remark;
@@ -1269,7 +1312,7 @@ export class HousingService {
       closingReading: input.closingReading === undefined ? null : input.closingReading.toFixed(6),
       usageAmount: input.usageAmount === undefined ? null : input.usageAmount.toFixed(6),
       unitPrice: input.unitPrice === undefined ? null : input.unitPrice.toFixed(6),
-      amount: input.amount.toFixed(2),
+      amount: formatHousingMoney(input.amount),
       paidAmount: "0.00",
       waivedAmount: "0.00",
       status: "unpaid",

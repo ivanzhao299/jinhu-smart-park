@@ -92,6 +92,10 @@ export class HousingLeaseOccupantEntity extends AuditableEntity {
 }
 
 @Entity("biz_housing_charge_plan")
+@Index("uq_housing_charge_plan_scope_type", ["tenantId", "parkId", "leaseId", "chargeType"], {
+  unique: true,
+  where: "is_deleted = false"
+})
 export class HousingChargePlanEntity extends AuditableEntity {
   @Column({ name: "lease_id", type: "uuid" })
   leaseId!: string;

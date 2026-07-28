@@ -125,7 +125,10 @@ export class PartiesService {
     if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
     if (dto.identity_document_type !== undefined) {
       entity.identityDocumentType = dto.identity_document_type?.trim() ?? null;
-      if (!entity.identityDocumentType && dto.identity_number === undefined) {
+      if (
+        dto.identity_number === undefined
+        && entity.identityDocumentType !== previousIdentityDocumentType
+      ) {
         entity.identityNumberEncrypted = null;
         entity.identityNumberHash = null;
         entity.identityNumberMasked = null;

@@ -65,6 +65,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Duplicate housing purchase codes are translated from database unique violations to HTTP 409.
 - Dashboard finance and purchase aggregates are queried and returned only when the actor has the corresponding granular read permission.
 - Activating a previously held occupancy revalidates current unit scope, operating mode, and operating status inside the activation transaction.
+- Payments and refunds posted to the deposit receivable are normalized to `deposit_receipt` and `deposit_refund`; deposit balances must never depend on a caller choosing a special ledger type.
+- Active receivables for one charge plan use non-overlapping `[period_start, period_end)` periods, enforced by both the lease-locked service transaction and a database exclusion constraint.
+- One active charge plan exists per tenant, park, lease, and charge type; upsert locks the lease and the database owns the final unique constraint.
+- Purchase quantities, unit prices, persisted line amounts, and recharge totals remain decimal strings or scaled integers from HTTP input through persistence.
+- Changing `identity_document_type` without a replacement identity number clears the old encrypted, hashed, and masked identity values.
+- A checked-out homestay booking stops contributing to occupied units and average daily rate on and after its actual Shanghai checkout date; departures use the actual checkout date.
 
 ## 4. Validation & Error Matrix
 
@@ -85,6 +91,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Purchase code collides in the current tenant and park | HTTP 409 |
 | Dashboard reader lacks finance or purchase permission | Omit the corresponding aggregate and do not query it |
 | Held occupancy becomes mode-incompatible or disabled before activation | HTTP 409 |
+| Charge-plan period overlaps a non-void receivable | HTTP 409 |
+| Concurrent active charge-plan creation for the same lease/type | One result; database conflict translated to HTTP 409 |
+| Ordinary payment/refund targets the deposit receivable | Persist as deposit receipt/refund and update both receivable and deposit balance |
+| Identity document type changes without a new identity number | Clear protected identity and reset verification |
 
 ## 5. Good / Base / Bad Cases
 
@@ -116,6 +126,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
 - Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
 - DTO/frontend: supported identity-document formats reject arbitrary identifiers and newly created parties remain unverified.
+- Integration: overlapping housing billing periods fail, exact retries return the existing period, and concurrent charge-plan upserts cannot create duplicates.
+- E2E: an ordinary payment against a deposit receivable produces a deposit receipt and the checkout balance remains consistent.
+- Unit: cached idempotent responses preserve `Date` values as ISO strings.
 
 ## 7. Wrong vs Correct
 

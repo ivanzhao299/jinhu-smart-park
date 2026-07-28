@@ -340,6 +340,9 @@ function sanitizeValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeValue(item));
   }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
   if (typeof value !== "object" || value === null || Buffer.isBuffer(value)) {
     return value;
   }

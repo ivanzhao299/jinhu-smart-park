@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -24,6 +25,9 @@ const trim = ({ value }: { value: unknown }): string | undefined => {
   const result = String(value).trim();
   return result || undefined;
 };
+
+const trimDecimalString = ({ value }: { value: unknown }): unknown =>
+  typeof value === "string" ? value.trim() : value;
 
 export class HousingLeaseQueryDto {
   @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
@@ -122,9 +126,11 @@ export class CreateHousingRepairDto {
 
 export class HousingPurchaseItemDto {
   @Transform(trim) @IsString() @MaxLength(200) item_name!: string;
-  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.001) quantity!: number;
+  @Transform(trimDecimalString) @IsString() @Matches(/^(?=.*[1-9])(?:0|[1-9]\d{0,14})(?:\.\d{1,3})?$/)
+  quantity!: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(20) unit?: string;
-  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) unit_price!: number;
+  @Transform(trimDecimalString) @IsString() @Matches(/^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/)
+  unit_price!: string;
 }
 
 export class CreateHousingPurchaseDto {

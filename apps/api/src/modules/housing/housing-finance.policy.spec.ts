@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  addHousingMoneyAmounts,
   applyHousingReceivableMutation,
   assertHousingDepositMutation,
   assertHousingPurchaseTransferLeaseStatus,
@@ -40,30 +41,38 @@ test("deposit receipt, deduction, and refund stay within the agreed balance", ()
 
 test("purchase header total is derived from persisted rounded line amounts", () => {
   assert.deepEqual(
-    calculateHousingPurchaseAmounts([{ quantity: 0.004, unitPrice: 36.25 }]),
+    calculateHousingPurchaseAmounts([{ quantity: "0.004", unitPrice: "36.25" }]),
     { lineAmounts: ["0.15"], totalAmount: "0.15" }
   );
   assert.deepEqual(
     calculateHousingPurchaseAmounts([
-      { quantity: 0.333, unitPrice: 0.01 },
-      { quantity: 0.333, unitPrice: 0.01 },
-      { quantity: 0.333, unitPrice: 0.01 }
+      { quantity: "0.333", unitPrice: "0.01" },
+      { quantity: "0.333", unitPrice: "0.01" },
+      { quantity: "0.333", unitPrice: "0.01" }
     ]),
     { lineAmounts: ["0.00", "0.00", "0.00"], totalAmount: "0.00" }
   );
   assert.deepEqual(
     calculateHousingPurchaseAmounts([
-      { quantity: 1, unitPrice: 0.015 },
-      { quantity: 1, unitPrice: 0.015 }
+      { quantity: "1", unitPrice: "0.015" },
+      { quantity: "1", unitPrice: "0.015" }
     ]),
     { lineAmounts: ["0.02", "0.02"], totalAmount: "0.04" }
   );
   assert.deepEqual(
     calculateHousingPurchaseAmounts([
-      { quantity: 900000000000, unitPrice: 9999 }
+      { quantity: "900000000000", unitPrice: "9999" }
     ]),
     { lineAmounts: ["8999100000000000.00"], totalAmount: "8999100000000000.00" }
   );
+});
+
+test("purchase transfers add persisted numeric strings without JavaScript precision loss", () => {
+  assert.equal(
+    addHousingMoneyAmounts(["1234567890123456.78", "0.11"]),
+    "1234567890123456.89"
+  );
+  assert.throws(() => addHousingMoneyAmounts(["9999999999999999.99", "0.01"]));
 });
 
 test("purchase recharge is limited to collectible lease lifecycles", () => {

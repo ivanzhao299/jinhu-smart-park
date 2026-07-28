@@ -38,6 +38,7 @@ Database owners:
 - `maintenance` and `operations` may lock a unit in any mode.
 - New commercial-leasing, housing-rental, and homestay occupancies require `operating_status = enabled`; `suspended` and `disabled` units reject new business occupancy.
 - Activating a `held` occupancy is a new concurrency-sensitive write: lock the unit scope and re-read the current operation configuration inside the same transaction before changing status to `active`.
+- Replacing an occupancy period is also a concurrency-sensitive write: after locking the unit scope, release expired holds, re-read current mode/status, and only then check conflicts and save.
 - Occupancy source type and source ID must remain non-empty after boundary trimming.
 - An unfinished homestay turnover task keeps the unit unavailable even when a same-day arriving booking already owns the active occupancy and no separate turnover occupancy can be created.
 - Homestay availability reads both the shared occupancy ledger and active legacy commercial-contract relations before reporting a unit available.
@@ -53,6 +54,7 @@ Database owners:
 | New business occupancy targets a suspended/disabled unit | HTTP 409 |
 | Homestay booking/check-in targets a unit with unfinished turnover | HTTP 409 |
 | Held occupancy expires, changes mode compatibility, or becomes disabled before activation | HTTP 409 |
+| Period replacement targets a now-disabled or mode-incompatible business unit | HTTP 409 |
 | Occupancy source identifier is whitespace-only | HTTP 400 |
 | Active/held period overlaps shared occupancy | PostgreSQL `23P01`, translated to HTTP 409 |
 | Shared occupancy overlaps legacy commercial contract | Trigger `23P01`, translated to HTTP 409 |
@@ -85,6 +87,7 @@ Database owners:
 - E2E: tenant/park/data-scope isolation, mode blocker snapshot, idempotent replay, forced release permission.
 - E2E: suspended/disabled units reject new bookings; same-day back-to-back checkout succeeds while the next check-in remains blocked until turnover completion.
 - Integration: changing mode/status between hold creation and activation is observed by the activation transaction.
+- Integration: period replacement releases expired holds and observes a mode/status change made after the original occupancy was created.
 - Integration: availability remains unavailable for an overlapping active legacy commercial contract, including when the database session timezone is UTC.
 - Security: plaintext identity is absent from persistence and audit logs; authorized detail decrypts, normal detail masks.
 
