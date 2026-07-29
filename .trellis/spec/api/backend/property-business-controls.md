@@ -177,10 +177,26 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Booking detail context is separate from stay-operation context. A readable selected
   booking remains inspectable after terminal transition or refresh while it remains on
   the current page. Terminal states hide stay mutations, not the detail itself.
-- Booking-read, stay-manage, finance-read, finance-register, and finance-waive are
-  projected independently. An auditor may inspect the authorized detail and ledger
-  summary without stay controls; an authorized finance operator may register a
-  supported ledger entry on a terminal booking when the backend permits it.
+- `homestay:booking:read` is the context prerequisite for every booking-bound
+  confirm, cancel, reschedule, stay, and finance write. The API enforces it together
+  with the action permission. Built-in roles that receive an action permission also
+  receive booking-read; custom roles must grant the documented composite.
+- After booking context is authorized, stay-manage, finance-read, finance-register,
+  and finance-waive remain independently projected at sub-control level. An auditor
+  may inspect the authorized detail and ledger summary without stay controls; an
+  authorized finance operator may register a supported ledger entry on a terminal
+  booking when the backend permits it.
+- Default booking pagination ranks `checked_in`, `confirmed`, and `draft` ahead of
+  terminal history so the first operations page cannot be consumed by old records.
+- Booking mutations that may change ledger entries refresh both the list and the
+  selected booking detail before the operator continues.
+- Refresh failures have dedicated state. A later all-successful refresh clears the
+  failure without erasing an unrelated action-success message.
+- Cancellation and no-show require a visible confirmation step and a trimmed
+  operator-entered reason of at most 500 characters before the request is sent.
+- Turnover exception actions require the operator's task-specific description of at
+  most 1000 characters. Cleaning/exception completion sends the visible consumables
+  list with name, positive quantity of at most three decimals, and optional unit.
 - Booking creation, confirmation, rescheduling, and check-in require the current unit
   row to remain active and enabled for short stay. Check-in additionally requires the
   booking's exact occupancy ID/source/unit/date tuple to remain `active`; a force-released
@@ -247,6 +263,13 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Booking refresh returns a terminal status | Retain readable detail; hide stay-operation controls |
 | Booking reader lacks stay-manage but has finance-read | Show detail and ledger summary; hide guest, credential, check-in, and checkout mutations |
 | Terminal booking reader also has finance-register | Keep the permitted finance entry form available |
+| Actor has stay or finance action permission without booking-read | HTTP 403 and no booking-bound UI context |
+| More than one page of historical bookings exists | First page ranks current operational statuses before terminal history |
+| Successful refresh follows a partial-load failure | Clear the stale refresh failure; preserve unrelated action feedback |
+| Selected booking is confirmed or cancelled | Reload list and selected detail; never retain the previous ledger summary |
+| Operator clicks cancel or no-show | Show confirmation; require the actual reason before sending |
+| Turnover exception description is blank | Do not send; backend returns HTTP 400 if bypassed |
+| Turnover consumable has blank name, non-positive/over-precision quantity, or overlong unit | Do not send; backend DTO rejects bypassed invalid input |
 | Confirmed booking arrival date is still in the future | HTTP 409 on `no-show`; do not release occupancy |
 | Credential return is retried under another request key | Return the existing record without changing `returned_at` |
 | Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
@@ -274,6 +297,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Bad: clearing attachments or replacing booking detail after an asynchronous request if the operator has switched to another lease or booking.
 - Bad: clearing the entire booking detail merely because it became terminal, thereby
   removing authorized audit and finance access.
+- Bad: exposing a finance or stay button whose required booking list/detail endpoint
+  cannot be called by that permission combination.
+- Bad: persisting one generic sentence for every cancellation, no-show, or turnover
+  exception instead of collecting the operator's actual reason.
 
 ## 6. Tests Required
 
@@ -295,6 +322,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
 - Frontend: booking-read-only, finance-read, finance-register, and stay-manage fixtures
   independently verify terminal detail retention and exact sub-control visibility.
+- Frontend: a no-booking-read fixture receives no booking-bound stay or finance
+  capability even when action permissions are present.
+- Frontend/browser: cancellation/no-show confirmation requires a real reason; turnover
+  exception and consumable controls remain touch-friendly at 390px.
+- API/E2E: with more than one page of history, a new operational booking is on page 1;
+  exception description and consumables round-trip through turnover completion.
 - Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
 - DTO/frontend: supported identity-document formats reject arbitrary identifiers and newly created parties remain unverified.
 - Integration: overlapping or identical housing billing periods under a new request fail; same-key replay is owned by the idempotency interceptor; concurrent charge-plan upserts cannot create duplicates.

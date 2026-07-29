@@ -21,9 +21,12 @@ import {
   homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
+  homestayTurnoverConsumablesPayload,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
+  normalizeHomestayRequiredReason,
   shouldRetainHomestayBookingDetail,
+  type HomestayConsumableDraft,
   type HomestayRateCalendar
 } from "./homestay-operations.logic";
 import styles from "./homestay-operations.module.css";
@@ -64,6 +67,7 @@ interface Turnover {
   status: "pending" | "cleaning" | "inspection" | "completed" | "exception";
   assigneeName: string | null;
   photoFileIds: string[];
+  consumables: Array<{ name: string; quantity: number; unit?: string }>;
   exceptionDescription: string | null;
 }
 
@@ -100,6 +104,7 @@ interface PageMeta {
 }
 
 type OptionalLoad<T> = { data: T } | { error: string } | null;
+type BookingTerminationAction = "cancel" | "no-show";
 
 const BOOKING_PAGE_SIZE = 20;
 const UNIT_PAGE_SIZE = 20;
@@ -182,6 +187,7 @@ export function HomestayOperationsClient() {
   const [credentials, setCredentials] = useState<StayCredential[]>([]);
   const [ledgerSummary, setLedgerSummary] = useState<BookingDetail["ledger_summary"] | null>(null);
   const [message, setMessage] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [loading, setLoading] = useState(false);
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
   const [rateLoading, setRateLoading] = useState(false);
@@ -205,6 +211,15 @@ export function HomestayOperationsClient() {
   });
   const [turnoverAttachmentRefresh, setTurnoverAttachmentRefresh] = useState<Record<string, number>>({});
   const [turnoverWorkOrders, setTurnoverWorkOrders] = useState<Record<string, string>>({});
+  const [turnoverExceptions, setTurnoverExceptions] = useState<Record<string, string>>({});
+  const [turnoverConsumables, setTurnoverConsumables] = useState<
+    Record<string, HomestayConsumableDraft[]>
+  >({});
+  const [pendingBookingTermination, setPendingBookingTermination] = useState<{
+    bookingId: string;
+    action: BookingTerminationAction;
+  } | null>(null);
+  const [bookingTerminationReason, setBookingTerminationReason] = useState("");
   const [financeForm, setFinanceForm] = useState({
     entryType: "payment",
     amount: "0",
@@ -225,6 +240,12 @@ export function HomestayOperationsClient() {
   const credentialReturnLock = useRef(false);
   const credentialReturnKey = useRef<string | null>(null);
   const credentialReturnSignature = useRef("");
+  const bookingActionLock = useRef(false);
+  const bookingActionKey = useRef<string | null>(null);
+  const bookingActionSignature = useRef("");
+  const turnoverActionLock = useRef(false);
+  const turnoverActionKey = useRef<string | null>(null);
+  const turnoverActionSignature = useRef("");
 
   const unitName = useMemo(
     () => new Map(units.map((unit) => [unit.id, `${unit.unitCode} · ${unit.unitName}`])),
@@ -236,6 +257,7 @@ export function HomestayOperationsClient() {
   );
   const bookingDetailCapabilities = selectedBooking
     ? homestayBookingDetailCapabilities(selectedBooking.status, {
+      readBooking: canReadBookings,
       manageStay: canManageStay,
       readFinance: canReadFinance,
       registerFinance: canRegisterFinance,
@@ -280,7 +302,7 @@ export function HomestayOperationsClient() {
       if (refreshSequence.current !== sequence) return;
       const errors = [dashboardResponse, unitsResponse, bookingsResponse, turnoversResponse, roomStateResponse]
         .flatMap((result) => result && "error" in result ? [result.error] : []);
-      if (errors.length) setMessage(`部分数据加载失败：${errors.join("；")}`);
+      setRefreshError(errors.length ? `部分数据加载失败：${errors.join("；")}` : "");
 
       if (!dashboardResponse) setDashboard(emptyDashboard);
       else if ("data" in dashboardResponse) setDashboard(dashboardResponse.data);
@@ -336,6 +358,26 @@ export function HomestayOperationsClient() {
           turnoversResponse.data.total
         );
         setTurnovers(clampedPage === turnoversResponse.data.page ? turnoversResponse.data.items : []);
+        setTurnoverExceptions((current) => {
+          const next = { ...current };
+          for (const task of turnoversResponse.data.items) {
+            if (!(task.id in next)) next[task.id] = task.exceptionDescription ?? "";
+          }
+          return next;
+        });
+        setTurnoverConsumables((current) => {
+          const next = { ...current };
+          for (const task of turnoversResponse.data.items) {
+            if (!(task.id in next)) {
+              next[task.id] = (task.consumables ?? []).map((item) => ({
+                name: item.name,
+                quantity: String(item.quantity),
+                unit: item.unit ?? ""
+              }));
+            }
+          }
+          return next;
+        });
         setTurnoverPage({
           page: clampedPage,
           pageSize: turnoversResponse.data.page_size,
@@ -481,17 +523,72 @@ export function HomestayOperationsClient() {
 
   async function bookingAction(
     booking: Booking,
-    action: "confirm" | "check-in" | "check-out" | "cancel" | "no-show"
+    action: "confirm" | "check-in" | "check-out" | BookingTerminationAction,
+    reason?: string
   ) {
-    const body = ["cancel", "no-show"].includes(action) ? { reason: "运营人员人工确认" } : undefined;
-    await runAction(`订单操作已完成：${action}`, () =>
-      apiRequest(`/homestay/bookings/${booking.id}/${action}`, {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey(`homestay-${action}`),
-        body
-      })
+    if (bookingActionLock.current) return false;
+    const destructive = action === "cancel" || action === "no-show";
+    const normalizedReason = destructive
+      ? normalizeHomestayRequiredReason(reason ?? "", 500)
+      : null;
+    if (destructive && !normalizedReason) {
+      setMessage("请填写 1—500 字的真实业务原因后再确认操作");
+      return false;
+    }
+    const body = destructive ? { reason: normalizedReason } : undefined;
+    const signature = JSON.stringify({ bookingId: booking.id, action, body });
+    if (!bookingActionKey.current || bookingActionSignature.current !== signature) {
+      bookingActionKey.current = createIdempotencyKey(`homestay-${action}`);
+      bookingActionSignature.current = signature;
+    }
+    bookingActionLock.current = true;
+    try {
+      const succeeded = await runAction(`订单操作已完成：${action}`, () =>
+        apiRequest(`/homestay/bookings/${booking.id}/${action}`, {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: bookingActionKey.current!,
+          body
+        })
+      );
+      if (succeeded) {
+        bookingActionKey.current = null;
+        bookingActionSignature.current = "";
+        if (selectedBookingIdRef.current === booking.id) {
+          await loadBookingDetail(booking.id);
+        }
+      }
+      return succeeded;
+    } finally {
+      bookingActionLock.current = false;
+    }
+  }
+
+  function openBookingTermination(booking: Booking, action: BookingTerminationAction) {
+    setPendingBookingTermination({ bookingId: booking.id, action });
+    setBookingTerminationReason("");
+    setMessage("");
+  }
+
+  async function confirmBookingTermination(event: FormEvent) {
+    event.preventDefault();
+    if (!pendingBookingTermination) return;
+    const booking = bookings.find((item) => item.id === pendingBookingTermination.bookingId);
+    if (!booking) {
+      setPendingBookingTermination(null);
+      setBookingTerminationReason("");
+      setMessage("订单已离开当前列表，请刷新后重试");
+      return;
+    }
+    const succeeded = await bookingAction(
+      booking,
+      pendingBookingTermination.action,
+      bookingTerminationReason
     );
+    if (succeeded) {
+      setPendingBookingTermination(null);
+      setBookingTerminationReason("");
+    }
   }
 
   async function addGuest() {
@@ -628,18 +725,49 @@ export function HomestayOperationsClient() {
   }
 
   async function turnoverAction(task: Turnover, action: "start" | "complete" | "inspect" | "exception") {
-    await runAction(`保洁任务已更新：${action}`, () =>
-      apiRequest(`/homestay/turnovers/${task.id}/actions/${action}`, {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey(`homestay-turnover-${action}`),
-        body: {
-          photo_file_ids: task.photoFileIds,
-          exception_description: action === "exception" ? "现场发现异常，等待维修处理" : undefined,
-          linked_work_order_id: turnoverWorkOrders[task.id] || undefined
-        }
-      })
-    );
+    if (turnoverActionLock.current) return;
+    const exceptionDescription = action === "exception"
+      ? normalizeHomestayRequiredReason(turnoverExceptions[task.id] ?? "", 1000)
+      : null;
+    if (action === "exception" && !exceptionDescription) {
+      setMessage("请填写 1—1000 字的现场异常说明");
+      return;
+    }
+    const consumables = ["complete", "exception"].includes(action)
+      ? homestayTurnoverConsumablesPayload(turnoverConsumables[task.id] ?? [])
+      : [];
+    if (consumables === null) {
+      setMessage("请完整填写耗材名称、最多三位小数的正数数量和不超过 20 字的单位");
+      return;
+    }
+    const body = {
+      photo_file_ids: task.photoFileIds,
+      consumables: ["complete", "exception"].includes(action) ? consumables : undefined,
+      exception_description: exceptionDescription ?? undefined,
+      linked_work_order_id: turnoverWorkOrders[task.id]?.trim() || undefined
+    };
+    const signature = JSON.stringify({ taskId: task.id, action, body });
+    if (!turnoverActionKey.current || turnoverActionSignature.current !== signature) {
+      turnoverActionKey.current = createIdempotencyKey(`homestay-turnover-${action}`);
+      turnoverActionSignature.current = signature;
+    }
+    turnoverActionLock.current = true;
+    try {
+      const succeeded = await runAction(`保洁任务已更新：${action}`, () =>
+        apiRequest(`/homestay/turnovers/${task.id}/actions/${action}`, {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: turnoverActionKey.current!,
+          body
+        })
+      );
+      if (succeeded) {
+        turnoverActionKey.current = null;
+        turnoverActionSignature.current = "";
+      }
+    } finally {
+      turnoverActionLock.current = false;
+    }
   }
 
   async function runAction(messageText: string, action: () => Promise<unknown>): Promise<boolean> {
@@ -679,6 +807,7 @@ export function HomestayOperationsClient() {
       </section>
 
       {message ? <div className={styles.message}>{message}</div> : null}
+      {refreshError ? <div className={styles.errorMessage} role="alert">{refreshError}</div> : null}
 
       {canReadDashboard ? <section className="ds-kpi-grid">
         {([
@@ -732,7 +861,7 @@ export function HomestayOperationsClient() {
           <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE} className="button button-primary" type="submit" disabled={!rateReady || rateLoading}>{rateLoading ? "正在加载价格…" : "保存价格规则"}</PermissionButton>
         </form> : null}
 
-        <form className="ds-panel" onSubmit={createBooking}>
+        {canCreateBookings ? <form className="ds-panel" onSubmit={createBooking}>
           <h2>直订 / 人工录单</h2>
           <label>整套房源<select required value={bookingForm.unitId} onChange={(event) => setBookingForm({ ...bookingForm, unitId: event.target.value })}>
             <option value="">选择房源</option>
@@ -756,7 +885,7 @@ export function HomestayOperationsClient() {
             <label>订单来源<select value={bookingForm.sourceType} onChange={(event) => setBookingForm({ ...bookingForm, sourceType: event.target.value })}><option value="direct">自营直订</option><option value="manual">人工录单</option><option value="ota_reserved">OTA 预留字段</option></select></label>
           </div>
           <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CREATE} className="button button-primary" type="submit">计算逐夜价格并锁房</PermissionButton>
-        </form>
+        </form> : null}
       </section>
 
       <section className="ds-panel">
@@ -772,9 +901,9 @@ export function HomestayOperationsClient() {
                 <td className={styles.actions}>
                   <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
                   {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
-                  {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
+                  {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => openBookingTermination(booking, "no-show")}>未到店</PermissionButton> : null}
                   {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
-                  {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
+                  {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => openBookingTermination(booking, "cancel")}>取消</PermissionButton> : null}
                 </td>
               </tr>
             ))}</tbody>
@@ -787,9 +916,9 @@ export function HomestayOperationsClient() {
             <div className={styles.actions}>
               <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
-              {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
+              {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => openBookingTermination(booking, "no-show")}>未到店</PermissionButton> : null}
               {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
-              {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
+              {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => openBookingTermination(booking, "cancel")}>取消</PermissionButton> : null}
             </div>
           </article>)}
         </div>
@@ -813,6 +942,43 @@ export function HomestayOperationsClient() {
           </button>
         </div> : null}
       </section>
+
+      {pendingBookingTermination ? <form
+        className={`ds-panel ${styles.confirmPanel}`}
+        role="alertdialog"
+        aria-labelledby="homestay-termination-title"
+        onSubmit={(event) => void confirmBookingTermination(event)}
+      >
+        <div>
+          <h2 id="homestay-termination-title">
+            确认{pendingBookingTermination.action === "cancel" ? "取消订单" : "登记未到店"}
+          </h2>
+          <p>该操作会终止订单、释放房源，并可能生成取消相关财务流水。请填写真实业务原因。</p>
+        </div>
+        <label>业务原因
+          <textarea
+            required
+            maxLength={500}
+            value={bookingTerminationReason}
+            onChange={(event) => setBookingTerminationReason(event.target.value)}
+            placeholder="例如：客人临时取消行程，并已由前台电话确认"
+          />
+        </label>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            onClick={() => {
+              setPendingBookingTermination(null);
+              setBookingTerminationReason("");
+            }}
+          >
+            返回
+          </button>
+          <button className="button button-primary" type="submit" disabled={loading}>
+            {pendingBookingTermination.action === "cancel" ? "确认取消订单" : "确认登记未到店"}
+          </button>
+        </div>
+      </form> : null}
 
       {selectedBookingId && selectedBooking ? <section className={`ds-panel ${styles.stayPanel}`}>
         <h2>订单详情与业务处理</h2>
@@ -928,6 +1094,82 @@ export function HomestayOperationsClient() {
                 }))}
               />
             </label> : null}
+            {canExecuteTurnovers && task.status !== "completed" ? <label>现场异常说明
+              <textarea
+                maxLength={1000}
+                value={turnoverExceptions[task.id] ?? ""}
+                placeholder="上报异常前必填：描述损坏、污染位置、影响范围和建议处理方式"
+                onChange={(event) => setTurnoverExceptions((current) => ({
+                  ...current,
+                  [task.id]: event.target.value
+                }))}
+              />
+            </label> : null}
+            {canExecuteTurnovers && ["cleaning", "exception"].includes(task.status) ? <div className={styles.consumables}>
+              <div>
+                <strong>保洁耗材</strong>
+                <button
+                  type="button"
+                  onClick={() => setTurnoverConsumables((current) => ({
+                    ...current,
+                    [task.id]: [
+                      ...(current[task.id] ?? []),
+                      { name: "", quantity: "1", unit: "" }
+                    ]
+                  }))}
+                >
+                  添加耗材
+                </button>
+              </div>
+              {(turnoverConsumables[task.id] ?? []).map((item, index) => (
+                <div className={styles.consumableRow} key={`${task.id}-${index}`}>
+                  <label>名称<input
+                    required
+                    maxLength={100}
+                    value={item.name}
+                    onChange={(event) => setTurnoverConsumables((current) => ({
+                      ...current,
+                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                        draftIndex === index ? { ...draft, name: event.target.value } : draft
+                      )
+                    }))}
+                  /></label>
+                  <label>数量<input
+                    required
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={item.quantity}
+                    onFocus={(event) => event.target.select()}
+                    onChange={(event) => setTurnoverConsumables((current) => ({
+                      ...current,
+                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                        draftIndex === index ? { ...draft, quantity: event.target.value } : draft
+                      )
+                    }))}
+                  /></label>
+                  <label>单位<input
+                    maxLength={20}
+                    value={item.unit}
+                    onChange={(event) => setTurnoverConsumables((current) => ({
+                      ...current,
+                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                        draftIndex === index ? { ...draft, unit: event.target.value } : draft
+                      )
+                    }))}
+                  /></label>
+                  <button
+                    type="button"
+                    onClick={() => setTurnoverConsumables((current) => ({
+                      ...current,
+                      [task.id]: (current[task.id] ?? []).filter((_, draftIndex) => draftIndex !== index)
+                    }))}
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
+            </div> : null}
             <div className={styles.actions}>
               {task.status === "pending" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE} onClick={() => void turnoverAction(task, "start")}>开始保洁</PermissionButton> : null}
               {["cleaning", "exception"].includes(task.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE} onClick={() => void turnoverAction(task, "complete")}>完成保洁</PermissionButton> : null}

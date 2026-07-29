@@ -150,7 +150,10 @@ export class HomestayController {
 
   @Post("bookings/:id/confirm")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "确认订单", bizType: "biz_homestay_booking", bizIdParam: "id" })
   confirmBooking(
     @CurrentScope() scope: TenantParkScope,
@@ -162,7 +165,10 @@ export class HomestayController {
 
   @Post("bookings/:id/cancel")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "取消订单", bizType: "biz_homestay_booking", bizIdParam: "id" })
   cancelBooking(
     @CurrentScope() scope: TenantParkScope,
@@ -175,7 +181,10 @@ export class HomestayController {
 
   @Post("bookings/:id/no-show")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "登记未到店", bizType: "biz_homestay_booking", bizIdParam: "id" })
   markNoShow(
     @CurrentScope() scope: TenantParkScope,
@@ -188,7 +197,10 @@ export class HomestayController {
 
   @Post("bookings/:id/reschedule")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_RESCHEDULE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_RESCHEDULE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "订单改期", bizType: "biz_homestay_booking", bizIdParam: "id" })
   rescheduleBooking(
     @CurrentScope() scope: TenantParkScope,
@@ -201,7 +213,10 @@ export class HomestayController {
 
   @Post("bookings/:id/guests")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "rel.homestay_booking_guest", action: "登记入住人", bizType: "rel_homestay_booking_guest", bizIdParam: "id" })
   addGuest(
     @CurrentScope() scope: TenantParkScope,
@@ -214,7 +229,10 @@ export class HomestayController {
 
   @Post("bookings/:id/credentials")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_stay_credential", action: "发放入住凭证", bizType: "biz_homestay_stay_credential", bizIdParam: "id" })
   issueCredential(
     @CurrentScope() scope: TenantParkScope,
@@ -227,7 +245,10 @@ export class HomestayController {
 
   @Post("bookings/:id/credentials/:credentialId/return")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_stay_credential", action: "回收入住凭证", bizType: "biz_homestay_stay_credential", bizIdParam: "credentialId" })
   returnCredential(
     @CurrentScope() scope: TenantParkScope,
@@ -240,7 +261,10 @@ export class HomestayController {
 
   @Post("bookings/:id/check-in")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "办理入住", bizType: "biz_homestay_booking", bizIdParam: "id" })
   checkIn(
     @CurrentScope() scope: TenantParkScope,
@@ -252,7 +276,10 @@ export class HomestayController {
 
   @Post("bookings/:id/check-out")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "办理退房", bizType: "biz_homestay_booking", bizIdParam: "id" })
   checkOut(
     @CurrentScope() scope: TenantParkScope,
@@ -268,6 +295,7 @@ export class HomestayController {
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
   )
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_ledger", action: "登记费用收退款", bizType: "biz_homestay_ledger_entry", bizIdParam: "id" })
   registerLedgerEntry(
     @CurrentScope() scope: TenantParkScope,

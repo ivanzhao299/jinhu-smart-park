@@ -232,10 +232,38 @@ test("booking pricing and list projections fit their persistence and display con
   assert.match(list, /id = ANY\(\$3::uuid\[\]\)/);
   assert.match(list, /unitCode: unitDisplay\.get\(booking\.unitId\)\?\.unitCode/);
   assert.match(list, /unitName: unitDisplay\.get\(booking\.unitId\)\?\.unitName/);
+  assert.match(list, /WHEN booking\.status = 'checked_in' THEN 0/);
+  assert.match(list, /WHEN booking\.status = 'confirmed' THEN 1/);
+  assert.match(list, /WHEN booking\.status = 'draft' THEN 2/);
+  assert.match(list, /\.orderBy\("booking_operation_rank", "ASC"\)/);
 
   const pricing = service.slice(
     service.indexOf("private async calculatePricing"),
     service.indexOf("private async assertActiveBookingOccupancy")
   );
   assert.match(pricing, /assertHomestayMoneyFitsNumeric/);
+});
+
+test("booking-bound writes require readable booking context plus their action permission", () => {
+  const controller = readFileSync(resolve(__dirname, "homestay.controller.ts"), "utf8");
+  const bookingWrites = controller.slice(
+    controller.indexOf('@Post("bookings/:id/confirm")'),
+    controller.indexOf('@Get("turnovers")')
+  );
+  for (const permission of [
+    "HOMESTAY_BOOKING_CONFIRM",
+    "HOMESTAY_BOOKING_CANCEL",
+    "HOMESTAY_BOOKING_RESCHEDULE",
+    "HOMESTAY_STAY_MANAGE"
+  ]) {
+    assert.match(
+      bookingWrites,
+      new RegExp(`@RequirePermissions\\([\\s\\S]*?HOMESTAY_BOOKING_READ,[\\s\\S]*?${permission}`)
+    );
+  }
+  const ledger = bookingWrites.slice(
+    bookingWrites.indexOf('@Post("bookings/:id/ledger")')
+  );
+  assert.match(ledger, /@RequirePermissions\(SYSTEM_PERMISSIONS\.HOMESTAY_BOOKING_READ\)/);
+  assert.match(ledger, /@RequireAnyPermissions\([\s\S]*HOMESTAY_FINANCE_REGISTER[\s\S]*HOMESTAY_FINANCE_WAIVE/);
 });

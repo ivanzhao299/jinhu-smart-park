@@ -6,6 +6,7 @@ import { validate } from "class-validator";
 import {
   CreateHomestayBookingDto,
   HomestayBookingQueryDto,
+  HomestayReasonDto,
   HomestayTurnoverQueryDto,
   HomestayUnitCandidateQueryDto,
   RegisterHomestayLedgerEntryDto,
@@ -72,6 +73,15 @@ test("homestay DTOs accept real business calendar dates", async () => {
     departure_date: "2026-03-01"
   });
   assert.deepEqual(await validate(dto), []);
+});
+
+test("homestay destructive booking actions require a real operator reason", async () => {
+  const blankReason = plainToInstance(HomestayReasonDto, { reason: "   " });
+  assert.ok((await validate(blankReason)).some((error) => error.property === "reason"));
+
+  const realReason = plainToInstance(HomestayReasonDto, { reason: "住客行程取消" });
+  assert.deepEqual(await validate(realReason), []);
+  assert.equal(realReason.reason, "住客行程取消");
 });
 
 test("homestay candidate and turnover queries enforce bounded pagination and known statuses", async () => {

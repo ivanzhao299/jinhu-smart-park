@@ -167,10 +167,16 @@ action against every state and sibling entry point before implementation:
       percentage values capped at 100
 - [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
       React/render state alone is not a lock against two events in the same tick
+- [ ] Destructive lifecycle actions collect a required operator reason and show an
+      explicit consequence confirmation before sending; generic hard-coded reasons
+      are not an auditable substitute
 - [ ] Long-lived operational queues use a bounded server-side active subset and
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] Permission capability graphs include the dataset needed to discover and select
+      the target. If an action requires list/detail context, enforce that read
+      permission as an API composite prerequisite; button checks alone are not access
 - [ ] A domain file policy is intersected with the generic file endpoint permission:
       domain read + `file:read` for lists, domain write + `file:upload` for uploaders
 - [ ] Operational list rows carry their own stable human-readable identity; labels do
@@ -184,6 +190,9 @@ action against every state and sibling entry point before implementation:
       the domain business timezone; hiding a button is never the only enforcement
 - [ ] Read and execute permissions are projected at sub-control level: read-only
       users keep evidence and exception context but do not see upload/edit controls
+- [ ] Every backend-supported operational payload field needed in the MVP (such as
+      exception description, consumables, evidence, and linked work order) has a
+      reachable production input and a round-trip test
 - [ ] Permission fixtures exercise the lattice, not only broad roles: base read,
       granular read, granular write, and lifecycle-execute combinations each retain
       only their authorized detail blocks and controls
@@ -197,6 +206,10 @@ action against every state and sibling entry point before implementation:
       and keep validation plus reference mutation in one transaction
 - [ ] Every sibling terminal transition applies the same dependent-resource cleanup
       before releasing or closing the parent resource
+- [ ] A successful mutation reloads every selected projection it can invalidate,
+      including ledger summaries, credentials, action history, and status-derived UI
+- [ ] Refresh-error state is separate from action feedback and is cleared on the next
+      fully successful refresh
 - [ ] SQL optional-exclusion predicates have explicit null cases and are tested both
       with and without exclusions
 

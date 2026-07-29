@@ -54,6 +54,7 @@ export function shouldRetainHomestayBookingDetail(
 export function homestayBookingDetailCapabilities(
   status: string,
   permissions: {
+    readBooking: boolean;
     manageStay: boolean;
     readFinance: boolean;
     registerFinance: boolean;
@@ -61,14 +62,61 @@ export function homestayBookingDetailCapabilities(
   }
 ) {
   const operational = isHomestayBookingOperational(status);
+  const hasBookingContext = permissions.readBooking;
   return {
-    showStayOperations: permissions.manageStay && operational,
+    showStayOperations: hasBookingContext && permissions.manageStay && operational,
     canIssueCredential:
-      permissions.manageStay && ["confirmed", "checked_in"].includes(status),
-    canCheckIn: permissions.manageStay && status === "confirmed",
-    showFinanceSummary: permissions.readFinance,
-    showFinanceForm: permissions.registerFinance || permissions.waiveFinance
+      hasBookingContext && permissions.manageStay && ["confirmed", "checked_in"].includes(status),
+    canCheckIn: hasBookingContext && permissions.manageStay && status === "confirmed",
+    showFinanceSummary: hasBookingContext && permissions.readFinance,
+    showFinanceForm:
+      hasBookingContext && (permissions.registerFinance || permissions.waiveFinance)
   };
+}
+
+export interface HomestayConsumableDraft {
+  name: string;
+  quantity: string;
+  unit: string;
+}
+
+export interface HomestayConsumablePayload {
+  name: string;
+  quantity: number;
+  unit?: string;
+}
+
+export function normalizeHomestayRequiredReason(value: string, maxLength: number): string | null {
+  const normalized = value.trim();
+  return normalized && normalized.length <= maxLength ? normalized : null;
+}
+
+export function homestayTurnoverConsumablesPayload(
+  drafts: HomestayConsumableDraft[]
+): HomestayConsumablePayload[] | null {
+  if (drafts.length > 50) return null;
+  const payload: HomestayConsumablePayload[] = [];
+  for (const draft of drafts) {
+    const name = draft.name.trim();
+    const quantity = draft.quantity.trim();
+    const unit = draft.unit.trim();
+    if (!name && !quantity && !unit) continue;
+    if (
+      !name
+      || name.length > 100
+      || !/^(?:0|[1-9]\d*)(?:\.\d{1,3})?$/.test(quantity)
+      || Number(quantity) < 0.001
+      || unit.length > 20
+    ) {
+      return null;
+    }
+    payload.push({
+      name,
+      quantity: Number(quantity),
+      unit: unit || undefined
+    });
+  }
+  return payload;
 }
 
 export function homestayBookingUnitLabel(booking: {

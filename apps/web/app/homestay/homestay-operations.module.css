@@ -49,6 +49,14 @@
   background: var(--color-primary-light);
 }
 
+.errorMessage {
+  padding: 12px 16px;
+  border: 1px solid var(--status-danger);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--status-danger) 10%, var(--surface-primary));
+  color: var(--status-danger);
+}
+
 .commandGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -61,7 +69,9 @@
 }
 
 .commandGrid label,
-.inlineForm label {
+.inlineForm label,
+.confirmPanel label,
+.turnoverCard label {
   display: grid;
   gap: 6px;
   color: var(--text-secondary);
@@ -71,7 +81,10 @@
 .commandGrid input,
 .commandGrid select,
 .inlineForm input,
-.inlineForm select {
+.inlineForm select,
+.confirmPanel textarea,
+.turnoverCard input,
+.turnoverCard textarea {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -81,6 +94,27 @@
   border-radius: 9px;
   background: var(--surface-primary);
   color: var(--text-primary);
+}
+
+.confirmPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.confirmPanel h2,
+.confirmPanel p {
+  margin: 0;
+}
+
+.confirmPanel p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+.confirmPanel textarea,
+.turnoverCard textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .formGrid {
@@ -190,6 +224,29 @@
   overflow-wrap: anywhere;
 }
 
+.consumables {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-primary);
+}
+
+.consumables > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.consumableRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(90px, 1fr) minmax(80px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
 @media (max-width: 900px) {
   .commandGrid,
   .turnoverGrid {
@@ -199,6 +256,10 @@
   .inlineForm {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .consumableRow {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -212,6 +273,10 @@
   }
 
   .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .consumableRow {
     grid-template-columns: 1fr;
   }
 

@@ -9,9 +9,11 @@ import {
   homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
+  homestayTurnoverConsumablesPayload,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
   isHomestayBookingOperational,
+  normalizeHomestayRequiredReason,
   shouldRetainHomestayBookingDetail
 } from "./homestay-operations.logic";
 
@@ -41,6 +43,7 @@ test("terminal bookings retain readable detail while losing stay operations", ()
 
   assert.deepEqual(
     homestayBookingDetailCapabilities("checked_out", {
+      readBooking: true,
       manageStay: true,
       readFinance: true,
       registerFinance: true,
@@ -59,6 +62,7 @@ test("terminal bookings retain readable detail while losing stay operations", ()
 test("booking detail capabilities separate audit, finance, and stay permissions", () => {
   assert.deepEqual(
     homestayBookingDetailCapabilities("confirmed", {
+      readBooking: true,
       manageStay: false,
       readFinance: true,
       registerFinance: false,
@@ -74,6 +78,7 @@ test("booking detail capabilities separate audit, finance, and stay permissions"
   );
   assert.deepEqual(
     homestayBookingDetailCapabilities("confirmed", {
+      readBooking: true,
       manageStay: true,
       readFinance: false,
       registerFinance: false,
@@ -86,6 +91,44 @@ test("booking detail capabilities separate audit, finance, and stay permissions"
       showFinanceSummary: false,
       showFinanceForm: false
     }
+  );
+  assert.deepEqual(
+    homestayBookingDetailCapabilities("confirmed", {
+      readBooking: false,
+      manageStay: true,
+      readFinance: true,
+      registerFinance: true,
+      waiveFinance: true
+    }),
+    {
+      showStayOperations: false,
+      canIssueCredential: false,
+      canCheckIn: false,
+      showFinanceSummary: false,
+      showFinanceForm: false
+    }
+  );
+});
+
+test("destructive reasons and turnover consumables preserve real field data", () => {
+  assert.equal(normalizeHomestayRequiredReason("  客人电话确认取消  ", 500), "客人电话确认取消");
+  assert.equal(normalizeHomestayRequiredReason("   ", 500), null);
+  assert.equal(normalizeHomestayRequiredReason("a".repeat(501), 500), null);
+
+  assert.deepEqual(
+    homestayTurnoverConsumablesPayload([
+      { name: " 垃圾袋 ", quantity: "2.5", unit: "包" },
+      { name: "", quantity: "", unit: "" }
+    ]),
+    [{ name: "垃圾袋", quantity: 2.5, unit: "包" }]
+  );
+  assert.equal(
+    homestayTurnoverConsumablesPayload([{ name: "清洁剂", quantity: "0", unit: "瓶" }]),
+    null
+  );
+  assert.equal(
+    homestayTurnoverConsumablesPayload([{ name: "", quantity: "1", unit: "瓶" }]),
+    null
   );
 });
 
@@ -173,6 +216,12 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /bookingDetailCapabilities\?\.showStayOperations/);
   assert.match(source, /bookingDetailCapabilities\?\.showFinanceSummary/);
   assert.match(source, /bookingDetailCapabilities\?\.showFinanceForm/);
+  assert.match(source, /readBooking: canReadBookings/);
+  assert.match(source, /role="alertdialog"/);
+  assert.match(source, /required[\s\S]*maxLength=\{500\}[\s\S]*bookingTerminationReason/);
+  assert.doesNotMatch(source, /reason: "运营人员人工确认"/);
+  assert.match(source, /if \(selectedBookingIdRef\.current === booking\.id\)[\s\S]*await loadBookingDetail\(booking\.id\)/);
+  assert.match(source, /setRefreshError\(errors\.length \? `部分数据加载失败/);
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {
@@ -198,4 +247,9 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
   assert.match(source, /homestayTurnoverUnitLabel\(task\)/);
   assert.doesNotMatch(source, /unitName\.get\(task\.unitId\)/);
   assert.match(source, /task\.exceptionDescription/);
+  assert.match(source, /turnoverExceptions\[task\.id\]/);
+  assert.doesNotMatch(source, /现场发现异常，等待维修处理/);
+  assert.match(source, /homestayTurnoverConsumablesPayload\(turnoverConsumables\[task\.id\]/);
+  assert.match(source, /consumables: \["complete", "exception"\]\.includes\(action\)/);
+  assert.match(source, />\s*添加耗材\s*<\/button>/);
 });

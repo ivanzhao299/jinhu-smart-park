@@ -383,7 +383,11 @@ async function run() {
       remark: "Homestay real API E2E"
     }
   });
-  const bookings = await request("/homestay/bookings?page=1&page_size=100", { token });
+  const bookings = await request("/homestay/bookings?page=1&page_size=20", { token });
+  assert(
+    bookings.items.some((item) => item.id === booking.id),
+    "operational booking remains on the first page ahead of historical records"
+  );
   const listedBooking = bookings.items.find((item) => item.id === booking.id);
   assert(listedBooking?.unitCode === unit.unitCode, "booking list returns its own unit code");
   assert(listedBooking?.unitName === unit.unitName, "booking list returns its own unit name");
@@ -469,16 +473,45 @@ async function run() {
     body: { assignee_name: "Homestay API E2E" }
   });
   const turnoverPhoto = await uploadTurnoverPhoto(token, checkout.turnover.id);
+  const exception = await request(`/homestay/turnovers/${checkout.turnover.id}/actions/exception`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      photo_file_ids: [],
+      exception_description: "浴室地面发现顽固污渍，已现场复核并追加清洁",
+      consumables: [{ name: "强力清洁剂", quantity: 0.5, unit: "瓶" }]
+    }
+  });
+  assert(
+    exception.exceptionDescription === "浴室地面发现顽固污渍，已现场复核并追加清洁",
+    "turnover exception preserves the operator's actual field description"
+  );
+  assert(
+    exception.consumables?.[0]?.name === "强力清洁剂"
+      && exception.consumables?.[0]?.quantity === 0.5,
+    "turnover exception persists consumable quantity and unit data"
+  );
   const completed = await request(`/homestay/turnovers/${checkout.turnover.id}/actions/complete`, {
     method: "POST",
     token,
     idempotent: true,
-    body: { photo_file_ids: [] }
+    body: {
+      photo_file_ids: exception.photoFileIds,
+      consumables: [
+        { name: "强力清洁剂", quantity: 0.5, unit: "瓶" },
+        { name: "垃圾袋", quantity: 2, unit: "个" }
+      ]
+    }
   });
   assert(completed.status === "completed", "turnover completion releases the availability lock");
   assert(
     completed.photoFileIds.includes(turnoverPhoto.id),
     "turnover action recovers evidence uploaded before a reload"
+  );
+  assert(
+    completed.consumables?.length === 2,
+    "turnover completion preserves the submitted consumables list"
   );
   const completedTurnovers = await request(
     "/homestay/turnovers?status=completed&page=1&page_size=100",

@@ -278,7 +278,18 @@ export class HomestayService {
     if (query.unit_id) builder.andWhere("booking.unit_id = :unitId", { unitId: query.unit_id });
     if (query.date_from) builder.andWhere("booking.departure_date > :dateFrom", { dateFrom: query.date_from.slice(0, 10) });
     if (query.date_to) builder.andWhere("booking.arrival_date < :dateTo", { dateTo: query.date_to.slice(0, 10) });
-    const [bookings, total] = await builder.orderBy("booking.arrival_date", "ASC")
+    const [bookings, total] = await builder
+      .addSelect(
+        `CASE
+          WHEN booking.status = 'checked_in' THEN 0
+          WHEN booking.status = 'confirmed' THEN 1
+          WHEN booking.status = 'draft' THEN 2
+          ELSE 3
+        END`,
+        "booking_operation_rank"
+      )
+      .orderBy("booking_operation_rank", "ASC")
+      .addOrderBy("booking.arrival_date", "DESC")
       .addOrderBy("booking.create_time", "DESC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
