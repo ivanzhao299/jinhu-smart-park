@@ -326,11 +326,13 @@ async function run() {
     body: repairImageForm(randomUUID())
   });
   const wrongLeaseRepairImage = await uploadRepairImage(token, lease.id, "workorder_create");
+  const repairImage = await uploadRepairImage(token, lease.id);
   const repairPayload = {
     title: `水龙头漏水 ${runId}`,
     description: "运营人员根据租客电话代录，需要维修人员上门处理。",
     priority: "medium",
-    urgency: "normal"
+    urgency: "normal",
+    image_file_ids: [repairImage.id]
   };
   await expectRequestStatus(`/housing/leases/${lease.id}/repairs`, 400, {
     method: "POST",
@@ -340,6 +342,11 @@ async function run() {
   });
   const repairKey = `housing-api-e2e-repair-replay-${runId}`;
   const repairHeaders = { "x-idempotency-key": repairKey };
+  const pendingRepairDetail = await request(`/housing/leases/${lease.id}`, { token });
+  assert(
+    pendingRepairDetail.pending_repair_files.some((file) => file.id === repairImage.id),
+    "lease detail returns unconsumed repair evidence from one server snapshot"
+  );
   const repair = await request(`/housing/leases/${lease.id}/repairs`, {
     method: "POST", token, headers: repairHeaders, body: repairPayload
   });
@@ -350,6 +357,16 @@ async function run() {
 
   let detail = await request(`/housing/leases/${lease.id}`, { token });
   assert(detail.repairs.some((item) => item.id === repair.id), "lease detail exposes the linked repair work order");
+  assert(
+    detail.pending_repair_files.every((file) => file.id !== repairImage.id),
+    "work-order-bound repair evidence is excluded from the next repair draft"
+  );
+  await expectRequestStatus(`/housing/leases/${lease.id}/repairs`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { ...repairPayload, title: `重复附件 ${runId}` }
+  });
   const workOrder = await request(`/work-orders/${repair.id}`, { token });
   assert(
     workOrder.sourceType === "tenant_request" && workOrder.sourceId === lease.id && workOrder.unitId === unit.id,

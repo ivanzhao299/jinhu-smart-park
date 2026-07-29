@@ -93,7 +93,8 @@ test("housing lease detail restores evidence and gates every mutation surface", 
 
   assert.match(client, /biz_type=housing_lease_signature&biz_id=\$\{id\}/);
   assert.match(client, /biz_type=housing_handover&biz_id=\$\{id\}/);
-  assert.match(client, /biz_type=housing_repair&biz_id=\$\{id\}/);
+  assert.doesNotMatch(client, /\/files\?biz_type=housing_repair&biz_id=\$\{id\}/);
+  assert.match(client, /pending_repair_files/);
   assert.match(client, /housingLeaseContextShouldClear\(/);
   assert.match(client, /\{canManageTenants \? <form className="ds-panel" onSubmit=\{createTenant\}>/);
   assert.match(client, /\{canCreateLeases \? <form className="ds-panel" onSubmit=\{createLease\}>/);
@@ -111,6 +112,7 @@ test("housing lease detail restores evidence and gates every mutation surface", 
   assert.match(client, /repairSubmissionSignature\.current !== submissionSignature/);
   assert.match(client, /disabled=\{repairSubmitting\}/);
   assert.match(client, /mutationDisabled=\{repairSubmitting\}/);
-  assert.match(client, /consumedRepairFileIds/);
-  assert.match(client, /!consumedRepairFileIds\.has\(file\.id\)/);
+  assert.match(client, /repairUploadLock\.current/);
+  assert.match(client, /onUploadingChange=\{handleRepairUploadingChange\}/);
+  assert.match(client, /disabled=\{repairSubmitting \|\| repairUploading\}/);
 });

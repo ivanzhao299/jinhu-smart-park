@@ -175,8 +175,13 @@ action against every state and sibling entry point before implementation:
 - [ ] Attachment-backed actions define the consumption boundary: after submission,
       referenced evidence is excluded from the next draft while remaining visible in
       the completed record
+- [ ] A draft derived from multiple tables is returned by one server-side snapshot;
+      the browser does not join independently timed API responses and call the result
+      authoritative
 - [ ] Submission locks cover every mutable contributor to the payload, including
       upload, pending removal, and persisted attachment deletion
+- [ ] A child uploader reports active work to its owning form; form submission waits
+      for all upload promises, including uploads started before the submit lock
 - [ ] Destructive lifecycle actions collect a required operator reason and show an
       explicit consequence confirmation before sending; generic hard-coded reasons
       are not an auditable substitute

@@ -73,7 +73,9 @@ test("housing billing and repair files preserve exact domain boundaries", () => 
   assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
   assert.match(service, /bizType: "housing_repair"/);
   assert.match(service, /canRecoverRepairEvidence/);
-  assert.match(service, /imageFileIds: repair\.imageFileIds/);
+  assert.match(service, /pending_repair_files: pendingRepairFiles/);
+  assert.match(service, /NOT EXISTS \([\s\S]*file\.id = ANY\(repair\.image_file_ids\)/);
+  assert.match(service, /One or more repair attachments are already bound to a work order/);
 });
 
 test("housing lease pages own stable unit and tenant display labels", () => {

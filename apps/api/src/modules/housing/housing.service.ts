@@ -233,7 +233,16 @@ export class HousingService {
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
-    const [tenant, occupants, chargePlans, receivables, ledger, handovers, repairEntities] = await Promise.all([
+    const [
+      tenant,
+      occupants,
+      chargePlans,
+      receivables,
+      ledger,
+      handovers,
+      repairEntities,
+      pendingRepairFiles
+    ] = await Promise.all([
       canReadLease ? this.dataSource.getRepository(PartyEntity).findOne({
         where: { id: lease.tenantPartyId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
       }) : Promise.resolve(null),
@@ -262,7 +271,26 @@ export class HousingService {
           isDeleted: false
         },
         order: { createTime: "DESC" }
-      }) : Promise.resolve([])
+      }) : Promise.resolve([]),
+      canRecoverRepairEvidence
+        ? this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
+          .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+          .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+          .andWhere("file.biz_type = :bizType", { bizType: "housing_repair" })
+          .andWhere("file.biz_id = :leaseId", { leaseId: id })
+          .andWhere("file.status = 1")
+          .andWhere("file.is_deleted = false")
+          .andWhere(`NOT EXISTS (
+            SELECT 1
+            FROM biz_work_order repair
+            WHERE repair.tenant_id = file.tenant_id
+              AND repair.park_id = file.park_id
+              AND repair.is_deleted = false
+              AND file.id = ANY(repair.image_file_ids)
+          )`)
+          .orderBy("file.create_time", "DESC")
+          .getMany()
+        : Promise.resolve([])
     ]);
     return {
       lease,
@@ -281,10 +309,10 @@ export class HousingService {
         status: repair.status,
         assigneeName: repair.assigneeName,
         overdueFlag: repair.overdueFlag,
-        ...(canRecoverRepairEvidence ? { imageFileIds: repair.imageFileIds } : {}),
         createTime: repair.createTime,
         updateTime: repair.updateTime
       })),
+      pending_repair_files: pendingRepairFiles,
       finance_summary: canReadFinance ? this.financeSummary(receivables, ledger) : null
     };
   }
@@ -902,11 +930,30 @@ export class HousingService {
       const lease = await this.lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-      await this.assertFiles(manager, scope, dto.image_file_ids ?? [], {
+      const repairFiles = await this.assertFiles(manager, scope, dto.image_file_ids ?? [], {
         allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
         bizType: "housing_repair",
         bizId: lease.id
       });
+      if (repairFiles.length) {
+        const [referencedFile] = await manager.query(
+          `SELECT file_id
+           FROM unnest($3::uuid[]) AS file_id
+           WHERE EXISTS (
+             SELECT 1
+             FROM biz_work_order work_order
+             WHERE work_order.tenant_id = $1
+               AND work_order.park_id = $2
+               AND work_order.is_deleted = false
+               AND file_id = ANY(work_order.image_file_ids)
+           )
+           LIMIT 1`,
+          [scope.tenantId, scope.parkId, repairFiles.map((file) => file.id)]
+        ) as Array<{ file_id: string }>;
+        if (referencedFile) {
+          throw new ConflictException("One or more repair attachments are already bound to a work order");
+        }
+      }
       const tenant = await this.mustParty(manager, scope, lease.tenantPartyId);
       return this.workOrdersService.create(scope, actor, {
         title: dto.title,

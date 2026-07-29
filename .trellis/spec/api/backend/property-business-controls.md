@@ -207,9 +207,14 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - A logical housing-repair submission holds a synchronous in-flight lock and one
   stable idempotency key per unchanged lease/payload. While it is in flight, text,
   select, upload, and attachment-removal controls are immutable.
-- Repair uploads associated with a lease are pending draft evidence only when no
-  returned repair work order references their IDs. After reload, referenced files
-  remain historical work-order evidence and must not be added to the next repair.
+- `GET /housing/leases/:id` returns `pending_repair_files` when the actor has lease
+  read, repair-manage, and file-read permissions. One server-side SQL snapshot selects
+  active `housing_repair` files for the lease with `NOT EXISTS` against every active
+  work-order `image_file_ids`; the browser must not join `/files` and repair rows from
+  independently timed requests.
+- Repair creation locks and validates every submitted file, then rejects HTTP 409 if
+  any active work order already references it. Referenced files remain historical
+  evidence and cannot enter a later repair even when the browser held a stale draft.
 - New tenant creation never infers personal-data consent from operator data entry;
   without an explicit consent interaction, the backend default remains `pending`.
 - Dated homestay overrides require a strictly positive daily rate in both the DTO and
@@ -460,6 +465,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Frontend/API: tenant creation omits uncollected consent, repair double-click emits
   one request, ambiguous retry retains its key, and reload excludes work-order-bound
   evidence from the next repair draft.
+- Frontend/API: a running repair upload disables work-order creation until its callback
+  settles; lease-detail failure blocks the form instead of treating attachment recovery
+  as empty; the server projection and create-time conflict guard own consumption.
 
 ## 7. Wrong vs Correct
 

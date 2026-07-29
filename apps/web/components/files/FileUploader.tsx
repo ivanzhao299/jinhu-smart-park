@@ -22,6 +22,7 @@ interface FileUploaderProps {
   helperText?: string;
   compact?: boolean;
   disabled?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
   onUploaded: (file: FileRecord) => void;
 }
 
@@ -34,6 +35,7 @@ export function FileUploader({
   helperText,
   compact = false,
   disabled = false,
+  onUploadingChange,
   onUploaded
 }: FileUploaderProps) {
   const fileInputId = useId();
@@ -91,6 +93,7 @@ export function FileUploader({
       return;
     }
     setUploading(true);
+    onUploadingChange?.(true);
     const form = new FormData();
     form.set("file", selectedFile);
     form.set("biz_type", bizType);
@@ -119,6 +122,7 @@ export function FileUploader({
       setMessage(error instanceof Error ? error.message : "上传失败");
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
     }
   }
 

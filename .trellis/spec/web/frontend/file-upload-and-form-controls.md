@@ -17,6 +17,7 @@
   - `helperText?: string`
   - `compact?: boolean`
   - `disabled?: boolean`
+  - `onUploadingChange?(uploading: boolean): void`
   - `onUploaded(file: FileRecord): void`
 - `AttachmentList` props:
   - `bizType: string`
@@ -66,6 +67,8 @@
   replace them with an empty list.
 - Business action in flight -> disable file selection, upload, pending-file removal,
   and persisted-file deletion for the submitted aggregate until success or failure.
+- Upload in flight -> notify the owning business form through `onUploadingChange`;
+  block snapshot/submission until every uploader contributing IDs has settled.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan upload uses `policyKey="floorplan"`, accepts image/PDF, shows compact uploaded preview, and backend rejects other types.
