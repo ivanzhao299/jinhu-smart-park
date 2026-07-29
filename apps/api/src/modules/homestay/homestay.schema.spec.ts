@@ -138,6 +138,8 @@ test("guest registration locks the booking inside its write transaction", () => 
   assert.match(addGuest, /this\.dataSource\.transaction\(async \(manager\)/);
   assert.match(addGuest, /this\.lockBooking\(manager, scope, bookingId\)/);
   assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
+  assert.match(addGuest, /const existingPrimary = await repository\.findOne/);
+  assert.match(addGuest, /dto\.is_primary && !existingPrimary/);
 });
 
 test("booking cancellation revokes credentials before releasing occupancy", () => {

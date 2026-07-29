@@ -167,6 +167,16 @@ action against every state and sibling entry point before implementation:
       percentage values capped at 100
 - [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
       React/render state alone is not a lock against two events in the same tick
+- [ ] Same-target refresh failures preserve the last successful projection; clearing
+      data is reserved for a real target change or a successful empty response
+- [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate
+      lock (and backed by a database constraint where practical), never trusted from
+      concurrent client flags alone
+- [ ] Attachment-backed actions define the consumption boundary: after submission,
+      referenced evidence is excluded from the next draft while remaining visible in
+      the completed record
+- [ ] Submission locks cover every mutable contributor to the payload, including
+      upload, pending removal, and persisted attachment deletion
 - [ ] Destructive lifecycle actions collect a required operator reason and show an
       explicit consequence confirmation before sending; generic hard-coded reasons
       are not an auditable substitute

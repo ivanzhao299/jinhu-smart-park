@@ -86,6 +86,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - A checked-out homestay booking stops contributing to occupied units and average daily rate on and after its actual Shanghai checkout date; departures use the actual checkout date.
 - Fixed housing rent and partial-period proration use integer cents and an exact rational month fraction; persisted rent must never pass through JavaScript `number` during billing.
 - Homestay guest registration locks the booking row inside the same transaction that validates status and saves the guest.
+- Under that booking lock, guest registration derives primary-guest status from the
+  persisted active roster; concurrent callers cannot both create a primary guest.
 - Project-wide housing purchase attachments require unrestricted park property scope when the referenced purchase has no unit.
 - Housing charge-plan DTOs require `amount` for fixed plans and both `meter_id` and
   exact decimal-string `unit_price` for energy-meter plans; irrelevant source fields
@@ -199,6 +201,19 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Booking-detail failures have dedicated state separate from action and refresh
   feedback. Starting or completing a later successful detail selection clears the
   stale detail error.
+- Reloading the same booking preserves its last successful guest, credential, and
+  ledger projections until a replacement response succeeds. Selecting another
+  booking clears those projections immediately.
+- A logical housing-repair submission holds a synchronous in-flight lock and one
+  stable idempotency key per unchanged lease/payload. While it is in flight, text,
+  select, upload, and attachment-removal controls are immutable.
+- Repair uploads associated with a lease are pending draft evidence only when no
+  returned repair work order references their IDs. After reload, referenced files
+  remain historical work-order evidence and must not be added to the next repair.
+- New tenant creation never infers personal-data consent from operator data entry;
+  without an explicit consent interaction, the backend default remains `pending`.
+- Dated homestay overrides require a strictly positive daily rate in both the DTO and
+  frontend control.
 - Cancellation and no-show require a visible confirmation step and a trimmed
   operator-entered reason of at most 500 characters before the request is sent. The
   confirmation identifies the immutable target snapshot by booking code, unit label,
@@ -439,6 +454,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   and reschedule drafts; explicit refresh reloads guest roster, credentials, and ledger.
 - Frontend: read-without-download attachment fixtures issue no `/download` requests;
   turnover actions send an empty photo list and disable task drafts while submitting.
+- Frontend/API: same-booking reload failure preserves the previous detail; turnover
+  submission disables upload and deletion; concurrent first-guest registration leaves
+  exactly one primary guest; a zero dated rate is rejected.
+- Frontend/API: tenant creation omits uncollected consent, repair double-click emits
+  one request, ambiguous retry retains its key, and reload excludes work-order-bound
+  evidence from the next repair draft.
 
 ## 7. Wrong vs Correct
 

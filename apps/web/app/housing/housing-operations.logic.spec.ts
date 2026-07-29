@@ -105,4 +105,12 @@ test("housing lease detail restores evidence and gates every mutation surface", 
   assert.match(client, /idempotencyKey: leaseSubmissionKey\.current!/);
   assert.match(client, /housingLeaseUnitLabel\(lease\)/);
   assert.match(client, /housingLeaseTenantLabel\(lease\)/);
+  assert.doesNotMatch(client, /consent_status:\s*"granted"/);
+  assert.match(client, /repairSubmissionLock\.current/);
+  assert.match(client, /idempotencyKey: repairSubmissionKey\.current!/);
+  assert.match(client, /repairSubmissionSignature\.current !== submissionSignature/);
+  assert.match(client, /disabled=\{repairSubmitting\}/);
+  assert.match(client, /mutationDisabled=\{repairSubmitting\}/);
+  assert.match(client, /consumedRepairFileIds/);
+  assert.match(client, /!consumedRepairFileIds\.has\(file\.id\)/);
 });

@@ -284,6 +284,10 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /已登记住客 \{guests\.length\}\/\{selectedBooking\.guestCount\}/);
   assert.match(source, /\/homestay\/bookings\/\$\{booking\.id\}\/reschedule/);
   assert.match(source, /setBookingDetailRefreshVersion/);
+  assert.match(
+    source,
+    /if \(targetChanged\) \{\s*setGuests\(\[\]\);\s*setCredentials\(\[\]\);\s*setLedgerSummary\(null\);\s*\}/
+  );
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {
@@ -325,8 +329,11 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
   assert.match(source, /turnoverConsumablesDirty\.current\.delete\(task\.id\)/);
   assert.match(source, /photo_file_ids: \[\]/);
   assert.match(source, /turnoverSubmittingTaskId === task\.id/);
+  assert.match(source, /disabled=\{turnoverSubmittingTaskId === task\.id\}/);
+  assert.match(source, /mutationDisabled=\{turnoverSubmittingTaskId === task\.id\}/);
   assert.match(source, />\s*添加耗材\s*<\/button>/);
   assert.match(attachmentSource, /hasPermission\(user, SYSTEM_PERMISSIONS\.FILE_DOWNLOAD\)/);
   assert.match(attachmentSource, /if \(!isImage \|\| !canDownload\)/);
   assert.match(attachmentSource, /return canDownload \? \(/);
+  assert.match(attachmentSource, /if \(mutationDisabled\) return/);
 });

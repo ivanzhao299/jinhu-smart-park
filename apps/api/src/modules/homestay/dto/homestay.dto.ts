@@ -141,7 +141,7 @@ export class UpsertHomestayRateOverrideDto {
 
   @Transform(({ value }) => trimDecimalString(value))
   @IsString()
-  @Matches(HOMESTAY_MONEY_PATTERN)
+  @Matches(HOMESTAY_POSITIVE_MONEY_PATTERN)
   daily_rate!: string;
 
   @Transform(({ value }) => trimOptional(value))

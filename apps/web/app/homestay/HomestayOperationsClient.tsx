@@ -580,9 +580,11 @@ export function HomestayOperationsClient() {
       setSelectedBooking(bookingSnapshot);
     }
     setSelectedBookingId(bookingId);
-    setGuests([]);
-    setCredentials([]);
-    setLedgerSummary(null);
+    if (targetChanged) {
+      setGuests([]);
+      setCredentials([]);
+      setLedgerSummary(null);
+    }
     setDetailError("");
     try {
       const response = await apiRequest<BookingDetail>(`/homestay/bookings/${bookingId}`, {
@@ -1501,6 +1503,7 @@ export function HomestayOperationsClient() {
               policyKey="image"
               compact
               label="上传现场照片"
+              disabled={turnoverSubmittingTaskId === task.id}
               onUploaded={() => setTurnoverAttachmentRefresh((current) => ({
                 ...current,
                 [task.id]: (current[task.id] ?? 0) + 1
@@ -1511,6 +1514,7 @@ export function HomestayOperationsClient() {
               bizId={task.id}
               compact
               refreshKey={turnoverAttachmentRefresh[task.id] ?? 0}
+              mutationDisabled={turnoverSubmittingTaskId === task.id}
             /> : null}
             {canExecuteTurnovers ? <label>关联维修工单 ID（可选）
               <input

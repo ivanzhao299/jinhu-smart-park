@@ -12,9 +12,10 @@ import { FilePreview } from "./FilePreview";
 interface PendingAttachmentListProps {
   files: FileRecord[];
   onRemove?(fileId: string): void;
+  mutationDisabled?: boolean;
 }
 
-export function PendingAttachmentList({ files, onRemove }: PendingAttachmentListProps) {
+export function PendingAttachmentList({ files, onRemove, mutationDisabled = false }: PendingAttachmentListProps) {
   const [message, setMessage] = useState("");
   const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -76,7 +77,9 @@ export function PendingAttachmentList({ files, onRemove }: PendingAttachmentList
           <span className="attachment-compact-actions">
             <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="预览" onClick={() => void preview(file).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
             <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="下载" onClick={() => void download(file).catch((error: Error) => setMessage(error.message))}><Download size={16} /></PermissionButton>
-            {onRemove ? <button type="button" title="从本次提交移除" onClick={() => onRemove(file.id)}><X size={16} /></button> : null}
+            {onRemove ? <button disabled={mutationDisabled} type="button" title="从本次提交移除" onClick={() => {
+              if (!mutationDisabled) onRemove(file.id);
+            }}><X size={16} /></button> : null}
           </span>
         </article>
       ))}

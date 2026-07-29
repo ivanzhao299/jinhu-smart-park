@@ -16,11 +16,18 @@ interface AttachmentListProps {
   bizId?: string;
   compact?: boolean;
   refreshKey?: number;
+  mutationDisabled?: boolean;
 }
 
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
 
-export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0 }: AttachmentListProps) {
+export function AttachmentList({
+  bizType,
+  bizId,
+  compact = false,
+  refreshKey = 0,
+  mutationDisabled = false
+}: AttachmentListProps) {
   const user = useAuthUser();
   const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
   const [data, setData] = useState(emptyPage);
@@ -81,6 +88,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
   }
 
   async function remove(file: FileRecord) {
+    if (mutationDisabled) return;
     if (!window.confirm(`确认删除附件：${file.originalName}？`)) {
       return;
     }
@@ -125,7 +133,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
                   <span className="attachment-compact-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}>预览</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}>下载</PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
+                    <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
                   </span>
                 </article>
               ))}
@@ -160,7 +168,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
                 <span className="data-table-actions">
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="预览" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="下载" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}><Download size={16} /></PermissionButton>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
+                  <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
                 </span>
               </td>
             </tr>

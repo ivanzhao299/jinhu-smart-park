@@ -670,7 +670,16 @@ export class HomestayService {
           createBy: actor.sub
         });
       }
-      entity.isPrimary = dto.is_primary;
+      const existingPrimary = await repository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bookingId,
+          isPrimary: true,
+          isDeleted: false
+        }
+      });
+      entity.isPrimary = entity.isPrimary || (dto.is_primary && !existingPrimary);
       entity.verificationStatus = dto.verification_status;
       entity.verifiedBy = dto.verification_status === "verified" ? actor.sub : null;
       entity.verifiedAt = dto.verification_status === "verified" ? new Date() : null;

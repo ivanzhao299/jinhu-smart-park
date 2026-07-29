@@ -229,6 +229,9 @@ export class HousingService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canRecoverRepairEvidence = canReadLease
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
     const [tenant, occupants, chargePlans, receivables, ledger, handovers, repairEntities] = await Promise.all([
       canReadLease ? this.dataSource.getRepository(PartyEntity).findOne({
@@ -278,6 +281,7 @@ export class HousingService {
         status: repair.status,
         assigneeName: repair.assigneeName,
         overdueFlag: repair.overdueFlag,
+        ...(canRecoverRepairEvidence ? { imageFileIds: repair.imageFileIds } : {}),
         createTime: repair.createTime,
         updateTime: repair.updateTime
       })),

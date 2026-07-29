@@ -75,6 +75,22 @@ test("homestay DTOs accept real business calendar dates", async () => {
   assert.deepEqual(await validate(dto), []);
 });
 
+test("homestay dated rate overrides require a positive daily rate", async () => {
+  const zeroRate = plainToInstance(UpsertHomestayRateOverrideDto, {
+    business_date: "2026-08-01",
+    daily_rate: "0",
+    reason: "invalid zero rate"
+  });
+  assert.ok((await validate(zeroRate)).some((error) => error.property === "daily_rate"));
+
+  const positiveRate = plainToInstance(UpsertHomestayRateOverrideDto, {
+    business_date: "2026-08-01",
+    daily_rate: "0.01",
+    reason: "valid minimum rate"
+  });
+  assert.deepEqual(await validate(positiveRate), []);
+});
+
 test("homestay destructive booking actions require a real operator reason", async () => {
   const blankReason = plainToInstance(HomestayReasonDto, { reason: "   " });
   assert.ok((await validate(blankReason)).some((error) => error.property === "reason"));

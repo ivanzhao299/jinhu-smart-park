@@ -16,12 +16,14 @@
   - `label?: string`
   - `helperText?: string`
   - `compact?: boolean`
+  - `disabled?: boolean`
   - `onUploaded(file: FileRecord): void`
 - `AttachmentList` props:
   - `bizType: string`
   - `bizId?: string`
   - `compact?: boolean`
   - `refreshKey?: number`
+  - `mutationDisabled?: boolean`
 
 ### 3. Contracts
 - Upload policy source of truth: `FILE_UPLOAD_POLICIES` and `FILE_UPLOAD_BIZ_POLICY_MAP` in `packages/shared/src/index.ts`.
@@ -62,6 +64,8 @@
 - Backend rejection -> display API error message; do not silently succeed.
 - Pending-list load failure -> preserve current visible files and show an error; do not
   replace them with an empty list.
+- Business action in flight -> disable file selection, upload, pending-file removal,
+  and persisted-file deletion for the submitted aggregate until success or failure.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan upload uses `policyKey="floorplan"`, accepts image/PDF, shows compact uploaded preview, and backend rejects other types.
