@@ -654,6 +654,7 @@ export class HomestayService {
         .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
         .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
         .andWhere("party.is_deleted = false")
+        .setLock("pessimistic_read")
         .getOne();
       if (!party || party.partyType !== "person") throw new NotFoundException("Guest party not found");
       assertHomestayGuestIdentityVerified(dto.verification_status, party);
@@ -752,25 +753,26 @@ export class HomestayService {
         this.businessDateStart(booking.arrivalDate),
         this.businessDateStart(booking.departureDate)
       );
-      const verifiedGuests = await manager.getRepository(HomestayBookingGuestEntity)
-        .createQueryBuilder("guest")
-        .innerJoin(PartyEntity, "party", `
-          party.id = guest.party_id
-          AND party.tenant_id = guest.tenant_id
-          AND party.park_id = guest.park_id
-          AND party.is_deleted = false
+      const verifiedGuestParties = await manager.getRepository(PartyEntity)
+        .createQueryBuilder("party")
+        .innerJoin(HomestayBookingGuestEntity, "guest", `
+          guest.party_id = party.id
+          AND guest.tenant_id = party.tenant_id
+          AND guest.park_id = party.park_id
+          AND guest.is_deleted = false
         `)
-        .where("guest.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("guest.park_id = :parkId", { parkId: scope.parkId })
+        .where("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
         .andWhere("guest.booking_id = :bookingId", { bookingId: id })
         .andWhere("guest.verification_status = 'verified'")
-        .andWhere("guest.is_deleted = false")
+        .andWhere("party.is_deleted = false")
         .andWhere("party.party_type = 'person'")
         .andWhere("party.verification_status = 'verified'")
         .andWhere("party.identity_document_type IS NOT NULL")
         .andWhere("party.identity_number_hash IS NOT NULL")
-        .getCount();
-      assertHomestayGuestRosterComplete(booking.guestCount, verifiedGuests);
+        .setLock("pessimistic_read")
+        .getMany();
+      assertHomestayGuestRosterComplete(booking.guestCount, verifiedGuestParties.length);
       const pendingTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
         .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
         .andWhere("task.park_id = :parkId", { parkId: scope.parkId })

@@ -60,6 +60,17 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Purchase recharge requires the operator to select the exact untransferred line items; loading a purchase must not select every line automatically.
 - Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
 - New Party records remain unverified; general updates cannot change verification status, and a dedicated transition verifies only records with protected identity data.
+- Party identity updates validate the effective merged identity pair: when a partial
+  update supplies only `identity_number`, the service uses the persisted document
+  type rather than requiring the client to resend it.
+- ID-card identity numbers use one canonical representation before encryption,
+  hashing, masking, and uniqueness checks; a terminal `x` is normalized to `X`.
+  Duplicate detection also recognizes legacy lowercase-check-digit hashes.
+- Party identity updates and verification transitions acquire the same Party-row
+  write lock. Homestay guest registration and check-in hold a compatible Party-row
+  read lock until their transaction commits, so lifecycle decisions cannot retain a
+  stale verified identity.
+- Party role types must remain non-empty after request normalization.
 - Party-role creation treats its database unique constraint as the concurrency
   authority: after a unique violation, reload and return the concurrently committed
   normalized role; unrelated persistence errors must still propagate.
@@ -303,6 +314,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Purchase was refunded | HTTP 409 on recharge |
 | Optional Party field is `null` or blank during update | Clear the persisted value |
 | Party identity type or protected identity changes after verification | Persist `verification_status=unverified` |
+| Identity-only update matches the persisted document type | Validate the merged pair and persist the canonical value |
+| ID-card number differs only by terminal `x` / `X` | Treat as the same scoped identity; duplicate returns HTTP 409 |
+| Identity update races verification or a homestay identity-dependent action | Party-row locks serialize the decisions |
+| Party role type is blank after trimming | HTTP 400 |
 | Occupancy `source_type` or `source_id` is blank after trimming | HTTP 400 |
 | Energy meter is disabled, not `ONLINE`, cross-scope, or attached to another unit | HTTP 404/409/400 without creating the plan |
 | Meter multiplier is not positive or closing reading precedes opening reading | HTTP 400 without creating a receivable |
@@ -429,6 +444,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Unit/DTO: lease rent and deposit near the `numeric(18,2)` boundary remain exact decimal strings and numeric JSON inputs are rejected.
 - Unit: cancellation ignores non-room waivers and dashboard occupancy follows the requested date.
 - Unit/DTO: impossible calendar dates, whitespace-only occupancy source identifiers, and identity-change verification reset.
+- Unit/DTO: identity-only Party updates use the persisted document type, terminal
+  `x` canonicalizes before all protected representations, legacy lowercase hashes
+  remain duplicate-protected, and blank role types fail validation.
 - DTO: non-empty purchase transfer and explicit Party field clearing.
 - Integration: duplicate lease/purchase codes return 409; refunded purchase cannot recharge.
 - Integration: held occupancy activation rechecks the latest mode/status and energy-meter plans enforce scope, enable flag, operational status, unit binding, and multiplier.
@@ -436,6 +454,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Integration/API E2E: typed handover evidence appears only in its pending type,
   moves into the completed handover snapshot after submission, and cannot be reused.
 - Integration: check-in re-reads current Party verification and identity data instead of trusting the guest-row snapshot.
+- Integration: Party identity update and verification take the same write lock;
+  homestay guest registration and check-in hold Party read locks while consuming
+  verified identity state.
 - Integration: first rent uses `first_due_date`; split later periods retain the original lease start-day anchor.
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
 - Frontend: optional dataset failures do not discard successful loads; stale lease-detail responses cannot retarget forms.

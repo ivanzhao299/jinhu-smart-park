@@ -1,4 +1,4 @@
-import { PartialType } from "@nestjs/mapped-types";
+import { OmitType, PartialType } from "@nestjs/mapped-types";
 import { Transform } from "class-transformer";
 import {
   IsEmail,
@@ -89,7 +89,13 @@ export class CreatePartyDto {
   remark?: string | null;
 }
 
-export class UpdatePartyDto extends PartialType(CreatePartyDto) {}
+export class UpdatePartyDto extends PartialType(OmitType(CreatePartyDto, ["identity_number"] as const)) {
+  @IsOptional()
+  @Transform(optionalTrim)
+  @IsString()
+  @MaxLength(128)
+  identity_number?: string | null;
+}
 
 export class VerifyPartyDto {
   @IsIn(["verified", "rejected"])
@@ -133,6 +139,7 @@ export class AddPartyRoleDto {
 
   @Transform(({ value }) => String(value ?? "").trim())
   @IsString()
+  @MinLength(1)
   @MaxLength(32)
   role_type!: string;
 

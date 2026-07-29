@@ -99,6 +99,9 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   );
   assert.match(checkIn, /assertUnitBookable\(manager, scope, booking\.unitId\)/);
   assert.match(checkIn, /assertActiveBookingOccupancy\(manager, scope, booking\)/);
+  assert.match(checkIn, /manager\.getRepository\(PartyEntity\)/);
+  assert.match(checkIn, /\.setLock\("pessimistic_read"\)/);
+  assert.match(checkIn, /verifiedGuestParties\.length/);
 
   const occupancy = service.slice(
     service.indexOf("private async assertActiveBookingOccupancy"),
@@ -137,6 +140,8 @@ test("guest registration locks the booking inside its write transaction", () => 
 
   assert.match(addGuest, /this\.dataSource\.transaction\(async \(manager\)/);
   assert.match(addGuest, /this\.lockBooking\(manager, scope, bookingId\)/);
+  assert.match(addGuest, /manager\.getRepository\(PartyEntity\)/);
+  assert.match(addGuest, /\.setLock\("pessimistic_read"\)/);
   assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
   assert.match(addGuest, /const existingPrimary = await repository\.findOne/);
   assert.match(addGuest, /dto\.is_primary && !existingPrimary/);

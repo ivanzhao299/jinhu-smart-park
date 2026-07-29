@@ -1,7 +1,7 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
-import { Brackets, IsNull, type Repository } from "typeorm";
+import { Brackets, IsNull, Not, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type {
   AddPartyRoleDto,
@@ -13,7 +13,11 @@ import type {
 import { PartyRoleEntity } from "./entities/party-role.entity";
 import { PartyEntity } from "./entities/party.entity";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
-import { didPartyIdentityChange } from "./party-identity.policy";
+import {
+  didPartyIdentityChange,
+  isValidPartyIdentityNumber,
+  normalizePartyIdentityNumber
+} from "./party-identity.policy";
 
 export interface PartyResponse {
   id: string;
@@ -88,7 +92,9 @@ export class PartiesService {
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePartyDto) {
-    const identity = dto.identity_number?.trim();
+    const identityDocumentType = dto.identity_document_type?.trim() ?? null;
+    const identity = normalizePartyIdentityNumber(identityDocumentType, dto.identity_number);
+    await this.assertNoLegacyIdentityDuplicate(this.partiesRepository, scope, identityDocumentType, identity);
     const entity = this.partiesRepository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -96,7 +102,7 @@ export class PartiesService {
       displayName: dto.display_name.trim(),
       mobile: dto.mobile?.trim() ?? null,
       email: dto.email?.trim() ?? null,
-      identityDocumentType: dto.identity_document_type?.trim() ?? null,
+      identityDocumentType,
       identityNumberEncrypted: identity ? this.sensitiveDataService.encrypt(identity) : null,
       identityNumberHash: identity ? this.sensitiveDataService.hash(identity) : null,
       identityNumberMasked: identity ? this.sensitiveDataService.mask(identity) : null,
@@ -116,45 +122,63 @@ export class PartiesService {
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdatePartyDto) {
-    const entity = await this.mustFind(scope, id, true);
-    const previousIdentityDocumentType = entity.identityDocumentType;
-    const previousIdentityNumberHash = entity.identityNumberHash;
-    if (dto.party_type !== undefined) entity.partyType = dto.party_type;
-    if (dto.display_name !== undefined) entity.displayName = dto.display_name.trim();
-    if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
-    if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
-    if (dto.identity_document_type !== undefined) {
-      entity.identityDocumentType = dto.identity_document_type?.trim() ?? null;
-      if (
-        dto.identity_number === undefined
-        && entity.identityDocumentType !== previousIdentityDocumentType
-      ) {
-        entity.identityNumberEncrypted = null;
-        entity.identityNumberHash = null;
-        entity.identityNumberMasked = null;
-      }
-    }
-    if (dto.identity_number !== undefined) {
-      const identity = dto.identity_number?.trim();
-      entity.identityNumberEncrypted = identity ? this.sensitiveDataService.encrypt(identity) : null;
-      entity.identityNumberHash = identity ? this.sensitiveDataService.hash(identity) : null;
-      entity.identityNumberMasked = identity ? this.sensitiveDataService.mask(identity) : null;
-      if (!identity) entity.identityDocumentType = null;
-    }
-    if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
-    if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
-    if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
-    if (didPartyIdentityChange(
-      previousIdentityDocumentType,
-      previousIdentityNumberHash,
-      entity.identityDocumentType,
-      entity.identityNumberHash
-    )) {
-      entity.verificationStatus = "unverified";
-    }
-    entity.updateBy = actor.sub;
     try {
-      return this.toResponse(await this.partiesRepository.save(entity));
+      return await this.partiesRepository.manager.transaction(async (manager) => {
+        const repository = manager.getRepository(PartyEntity);
+        const entity = await this.mustFind(scope, id, true, repository, true);
+        const previousIdentityDocumentType = entity.identityDocumentType;
+        const previousIdentityNumberHash = entity.identityNumberHash;
+        const effectiveIdentityDocumentType = dto.identity_document_type !== undefined
+          ? dto.identity_document_type?.trim() ?? null
+          : entity.identityDocumentType;
+        const identity = dto.identity_number !== undefined
+          ? normalizePartyIdentityNumber(effectiveIdentityDocumentType, dto.identity_number)
+          : undefined;
+        if (identity && !isValidPartyIdentityNumber(effectiveIdentityDocumentType, identity)) {
+          throw new BadRequestException("identity_number does not match identity_document_type");
+        }
+        await this.assertNoLegacyIdentityDuplicate(
+          repository,
+          scope,
+          effectiveIdentityDocumentType,
+          identity,
+          entity.id
+        );
+        if (dto.party_type !== undefined) entity.partyType = dto.party_type;
+        if (dto.display_name !== undefined) entity.displayName = dto.display_name.trim();
+        if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
+        if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
+        if (dto.identity_document_type !== undefined) {
+          entity.identityDocumentType = effectiveIdentityDocumentType;
+          if (
+            dto.identity_number === undefined
+            && entity.identityDocumentType !== previousIdentityDocumentType
+          ) {
+            entity.identityNumberEncrypted = null;
+            entity.identityNumberHash = null;
+            entity.identityNumberMasked = null;
+          }
+        }
+        if (dto.identity_number !== undefined) {
+          entity.identityNumberEncrypted = identity ? this.sensitiveDataService.encrypt(identity) : null;
+          entity.identityNumberHash = identity ? this.sensitiveDataService.hash(identity) : null;
+          entity.identityNumberMasked = identity ? this.sensitiveDataService.mask(identity) : null;
+          if (!identity) entity.identityDocumentType = null;
+        }
+        if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
+        if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
+        if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
+        if (didPartyIdentityChange(
+          previousIdentityDocumentType,
+          previousIdentityNumberHash,
+          entity.identityDocumentType,
+          entity.identityNumberHash
+        )) {
+          entity.verificationStatus = "unverified";
+        }
+        entity.updateBy = actor.sub;
+        return this.toResponse(await repository.save(entity));
+      });
     } catch (error) {
       if (this.isUniqueViolation(error)) throw new ConflictException("Party identity already exists in current tenant and park");
       throw error;
@@ -162,19 +186,23 @@ export class PartiesService {
   }
 
   async verify(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: VerifyPartyDto) {
-    const entity = await this.mustFind(scope, id, true);
-    if (dto.verification_status === "verified" && (!entity.identityDocumentType || !entity.identityNumberEncrypted)) {
-      throw new ConflictException("Identity document type and number are required before verification");
-    }
-    entity.verificationStatus = dto.verification_status;
-    if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
-    entity.updateBy = actor.sub;
-    return this.toResponse(await this.partiesRepository.save(entity));
+    return this.partiesRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(PartyEntity);
+      const entity = await this.mustFind(scope, id, true, repository, true);
+      if (dto.verification_status === "verified" && (!entity.identityDocumentType || !entity.identityNumberEncrypted)) {
+        throw new ConflictException("Identity document type and number are required before verification");
+      }
+      entity.verificationStatus = dto.verification_status;
+      if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
+      entity.updateBy = actor.sub;
+      return this.toResponse(await repository.save(entity));
+    });
   }
 
   async addRole(scope: TenantParkScope, actor: JwtPrincipal, dto: AddPartyRoleDto) {
-    await this.mustFind(scope, dto.party_id);
     const roleType = dto.role_type.trim();
+    if (!roleType) throw new BadRequestException("role_type is required");
+    await this.mustFind(scope, dto.party_id);
     const sourceType = dto.source_type?.trim() ?? null;
     const sourceId = dto.source_id?.trim() ?? null;
     const where = {
@@ -222,8 +250,14 @@ export class PartiesService {
     return this.rolesRepository.save(role);
   }
 
-  private async mustFind(scope: TenantParkScope, id: string, includeSensitive = false): Promise<PartyEntity> {
-    const builder = this.partiesRepository.createQueryBuilder("party")
+  private async mustFind(
+    scope: TenantParkScope,
+    id: string,
+    includeSensitive = false,
+    repository: Repository<PartyEntity> = this.partiesRepository,
+    lock = false
+  ): Promise<PartyEntity> {
+    const builder = repository.createQueryBuilder("party")
       .where("party.id = :id", { id })
       .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
@@ -231,6 +265,7 @@ export class PartiesService {
     if (includeSensitive) {
       builder.addSelect("party.identityNumberEncrypted").addSelect("party.identityNumberHash");
     }
+    if (lock) builder.setLock("pessimistic_write");
     const entity = await builder.getOne();
     if (!entity) throw new NotFoundException("Party not found");
     return entity;
@@ -261,6 +296,28 @@ export class PartiesService {
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
+  }
+
+  private async assertNoLegacyIdentityDuplicate(
+    repository: Repository<PartyEntity>,
+    scope: TenantParkScope,
+    documentType: string | null,
+    identity: string | null | undefined,
+    excludedId?: string
+  ): Promise<void> {
+    if (documentType !== "id_card" || !identity?.endsWith("X")) return;
+    const legacyIdentity = `${identity.slice(0, -1)}x`;
+    const existing = await repository.findOne({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        identityDocumentType: documentType,
+        identityNumberHash: this.sensitiveDataService.hash(legacyIdentity),
+        isDeleted: false,
+        ...(excludedId ? { id: Not(excludedId) } : {})
+      }
+    });
+    if (existing) throw new ConflictException("Party identity already exists in current tenant and park");
   }
 
   private isUniqueViolation(error: unknown): boolean {

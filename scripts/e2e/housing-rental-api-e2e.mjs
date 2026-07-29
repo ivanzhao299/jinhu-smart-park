@@ -230,6 +230,31 @@ async function run() {
       consent_status: "granted"
     }
   });
+  const identityWithLowercaseCheckDigit = `11010519900101${String(Date.now()).slice(-3)}x`;
+  const updatedTenant = await request(`/property/parties/${tenant.id}`, {
+    method: "PUT",
+    token,
+    idempotent: true,
+    body: { identity_number: identityWithLowercaseCheckDigit }
+  });
+  assert(updatedTenant.verificationStatus === "unverified", "identity-only update resets Party verification");
+  const updatedTenantDetail = await request(`/property/parties/${tenant.id}`, { token });
+  assert(
+    updatedTenantDetail.identityNumber === identityWithLowercaseCheckDigit.toUpperCase(),
+    "identity-only update uses the persisted type and returns the canonical ID-card value"
+  );
+  await expectRequestStatus(`/property/parties/${tenant.id}`, 400, {
+    method: "PUT",
+    token,
+    idempotent: true,
+    body: { identity_number: "not-an-id-card" }
+  });
+  await expectRequestStatus("/property/parties/roles", 400, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { party_id: tenant.id, role_type: "   " }
+  });
 
   const lease = await request("/housing/leases", {
     method: "POST",

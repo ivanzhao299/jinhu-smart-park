@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { CreatePartyDto, UpdatePartyDto, VerifyPartyDto } from "./party.dto";
+import { AddPartyRoleDto, CreatePartyDto, UpdatePartyDto, VerifyPartyDto } from "./party.dto";
 
 test("party updates preserve explicit clearing signals", async () => {
   const dto = plainToInstance(UpdatePartyDto, {
@@ -33,4 +33,20 @@ test("party verification uses a dedicated transition DTO", async () => {
 
   const verification = plainToInstance(VerifyPartyDto, { verification_status: "verified" });
   assert.deepEqual(await validate(verification), []);
+});
+
+test("identity-only party updates defer format validation to the persisted document type", async () => {
+  const dto = plainToInstance(UpdatePartyDto, {
+    identity_number: "11010519491231002x"
+  });
+  assert.deepEqual(await validate(dto), []);
+});
+
+test("party roles reject a blank normalized role type", async () => {
+  const dto = plainToInstance(AddPartyRoleDto, {
+    party_id: "00000000-0000-4000-8000-000000000001",
+    role_type: "   "
+  });
+  const errors = await validate(dto);
+  assert.ok(errors.some((error) => error.property === "role_type"));
 });

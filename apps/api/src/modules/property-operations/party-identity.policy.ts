@@ -1,5 +1,14 @@
 export const PARTY_IDENTITY_DOCUMENT_TYPES = ["id_card", "passport"] as const;
 
+export function normalizePartyIdentityNumber(
+  documentType: string | null | undefined,
+  identityNumber: string | null | undefined
+): string | null {
+  const normalized = identityNumber?.trim();
+  if (!normalized) return null;
+  return documentType === "id_card" ? normalized.toUpperCase() : normalized;
+}
+
 export function isValidPartyIdentityNumber(
   documentType: string | null | undefined,
   identityNumber: string | null | undefined

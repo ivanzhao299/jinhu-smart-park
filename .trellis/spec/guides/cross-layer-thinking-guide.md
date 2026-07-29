@@ -110,6 +110,10 @@ Before implementation:
 - [ ] Identified all layer boundaries
 - [ ] Defined format at each boundary
 - [ ] Decided where validation happens
+- [ ] For partial updates with cross-field rules, DTO validation accepts omitted
+      persisted siblings and service validation checks the effective merged record
+- [ ] Canonicalization happens before every encrypted, hashed, masked, compared, or
+      uniqueness-key representation of the same logical value
 
 After implementation:
 
@@ -446,6 +450,11 @@ sibling before the next commit. Do not stop at the named line.
 - [ ] Apply a newly learned sibling contract retroactively to the entire current diff
       before requesting another review; documenting the gate without executing its
       matrix is not release completion.
+- [ ] When a lifecycle decision consumes mutable state from another aggregate,
+      identify every writer and reader, then use compatible row locks throughout the
+      decision transaction; testing only the named writer race is insufficient.
+- [ ] When canonicalization changes a persisted hash or unique key, test both new
+      writes and compatibility with legacy representations already stored in UAT.
 - [ ] Compare browser `required` / `min` / `max` / `step` constraints with the exact
       DTO and service inequalities, including equality and the nearest valid neighbor.
 - [ ] When one child uploader needs an in-flight submission lock, enumerate every
