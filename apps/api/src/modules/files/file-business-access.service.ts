@@ -8,6 +8,8 @@ import type { FileEntity } from "./entities/file.entity";
 export const PROPERTY_BUSINESS_FILE_TYPES = [
   "housing_lease_signature",
   "housing_handover",
+  "housing_handover_move_in",
+  "housing_handover_move_out",
   "housing_repair",
   "housing_purchase",
   "homestay_turnover"
@@ -27,6 +29,16 @@ const ACCESS_RULES: Record<PropertyBusinessFileType, {
     referenceTable: "biz_housing_lease"
   },
   housing_handover: {
+    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
+    referenceTable: "biz_housing_lease"
+  },
+  housing_handover_move_in: {
+    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
+    referenceTable: "biz_housing_lease"
+  },
+  housing_handover_move_out: {
     readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
     referenceTable: "biz_housing_lease"
@@ -137,6 +149,8 @@ export class FileBusinessAccessService {
                  AND signature_file_id=$1::uuid AND is_deleted=false`;
         break;
       case "housing_handover":
+      case "housing_handover_move_in":
+      case "housing_handover_move_out":
         sql = `SELECT 1
                FROM biz_housing_handover
                WHERE tenant_id=$2 AND park_id=$3 AND lease_id=$4::uuid

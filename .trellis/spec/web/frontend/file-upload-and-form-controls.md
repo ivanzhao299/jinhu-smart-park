@@ -69,6 +69,12 @@
   and persisted-file deletion for the submitted aggregate until success or failure.
 - Upload in flight -> notify the owning business form through `onUploadingChange`;
   block snapshot/submission until every uploader contributing IDs has settled.
+- Completed workflow snapshots may contain structured records without a
+  `description` field. Render their non-empty key/value data instead of silently
+  displaying “未登记”.
+- Evidence history needed on both desktop and mobile must use an always-visible
+  shared card/grid surface, not a `ds-mobile-record-list` container that hides on
+  desktop.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan upload uses `policyKey="floorplan"`, accepts image/PDF, shows compact uploaded preview, and backend rejects other types.
@@ -119,19 +125,29 @@
 ### 3. Contracts
 - Frontend controls must express `min`, `max`, `step`, required/optional state, and user-facing error copy when possible.
 - Backend DTO/service must reject invalid or unsafe values.
+- For a strict date period `start < end`, the end-date input minimum is the next
+  business date, not the start date itself. Changing the start date reconciles an
+  end date that is now below that minimum.
+- Repeated selector forms own separate candidate arrays and pagination state; sharing
+  an endpoint does not authorize sharing mutable page/selection state.
 
 ### 4. Validation & Error Matrix
 - Negative where not allowed -> backend rejects.
 - Empty required value -> frontend blocks and backend rejects.
 - Invalid enum/status -> backend rejects.
+- End date equal to or before start date -> native form validation blocks submission;
+  backend independently returns HTTP 400.
 
 ### 5. Good/Base/Bad Cases
 - Good: area field has numeric step and backend decimal/numeric DTO validation.
+- Good: `start=2026-07-29` produces `min=2026-07-30` for a strict lease period.
 - Bad: free-text input for amount, area, GPS, count, or status.
+- Bad: `min={startDate}` when the service rejects `startDate >= endDate`.
 
 ### 6. Tests Required
 - Browser check for important forms.
 - API validation test or targeted smoke for business-critical forms.
+- Unit test the nearest boundary: equal dates rejected and the next business date accepted.
 
 ### 7. Wrong vs Correct
 
@@ -143,4 +159,5 @@
 #### Correct
 ```tsx
 <input type="number" min="0" step="0.01" onFocus={(event) => event.target.select()} />
+<input type="date" min={addBusinessDateDays(startDate, 1)} />
 ```

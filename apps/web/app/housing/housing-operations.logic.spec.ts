@@ -10,7 +10,8 @@ import {
   housingLeaseTenantLabel,
   housingLeaseUnitLabel,
   housingLedgerChargeType,
-  housingSelectionAfterLoad
+  housingSelectionAfterLoad,
+  minimumHousingLeaseEndDate
 } from "./housing-operations.logic";
 
 test("housing ledger entries use deposit or selected receivable charge types", () => {
@@ -34,6 +35,12 @@ test("successful candidate loads keep a visible selection or choose the first re
   assert.equal(housingSelectionAfterLoad("tenant-b", ["tenant-a", "tenant-b"]), "tenant-b");
   assert.equal(housingSelectionAfterLoad("missing", ["tenant-a", "tenant-b"]), "tenant-a");
   assert.equal(housingSelectionAfterLoad("missing", []), "");
+});
+
+test("housing lease end date begins on the business day after its start", () => {
+  assert.equal(minimumHousingLeaseEndDate("2026-07-29"), "2026-07-30");
+  assert.equal(minimumHousingLeaseEndDate("2026-12-31"), "2027-01-01");
+  assert.equal(minimumHousingLeaseEndDate(""), "");
 });
 
 test("async lease completions apply only to their originating selection", () => {
@@ -83,7 +90,7 @@ test("housing file-backed forms project domain and generic file permissions toge
   assert.match(client, /canUploadLeaseSignature = canSignLeases && canUploadFiles/);
   assert.match(client, /canUploadPurchaseReceipts = canManagePurchases && canUploadFiles/);
   assert.match(client, /\{canManageHandovers \? <form onSubmit=\{completeHandover\}>/);
-  assert.match(client, /\{canUploadHandoverPhotos \? <FileUploader bizType="housing_handover"/);
+  assert.match(client, /bizType=\{`housing_handover_\$\{handoverForm\.handoverType\}`\}/);
   assert.match(client, /\{canManageRepairs \? <form onSubmit=\{createRepair\}>/);
   assert.match(client, /\{canManagePurchases \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
 });
@@ -92,13 +99,15 @@ test("housing lease detail restores evidence and gates every mutation surface", 
   const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
 
   assert.match(client, /biz_type=housing_lease_signature&biz_id=\$\{id\}/);
-  assert.match(client, /biz_type=housing_handover&biz_id=\$\{id\}/);
+  assert.doesNotMatch(client, /\/files\?biz_type=housing_handover&biz_id=\$\{id\}/);
+  assert.match(client, /pending_handover_files/);
+  assert.match(client, /photo_files/);
   assert.doesNotMatch(client, /\/files\?biz_type=housing_repair&biz_id=\$\{id\}/);
   assert.match(client, /pending_repair_files/);
   assert.match(client, /housingLeaseContextShouldClear\(/);
   assert.match(client, /\{canManageTenants \? <form className="ds-panel" onSubmit=\{createTenant\}>/);
-  assert.match(client, /\{canCreateLeases \? <form className="ds-panel" onSubmit=\{createLease\}>/);
-  assert.match(client, /\{canCreateLeases \? <form onSubmit=\{saveChargePlan\}>/);
+  assert.match(client, /\{canAccessLeaseCreation \? <form className="ds-panel" onSubmit=\{createLease\}>/);
+  assert.match(client, /canCreateLeases && !\["terminated", "void"\]\.includes\(detail\.lease\.status\)/);
   assert.match(client, /\{canGenerateBills \? <form onSubmit=\{generateBills\}>/);
   assert.match(client, /detail\.finance_summary && canManageFinance/);
   assert.match(client, /\{canTransferPurchases \? <form className="ds-panel" onSubmit=\{transferPurchase\}>/);
@@ -115,4 +124,28 @@ test("housing lease detail restores evidence and gates every mutation surface", 
   assert.match(client, /repairUploadLock\.current/);
   assert.match(client, /onUploadingChange=\{handleRepairUploadingChange\}/);
   assert.match(client, /disabled=\{repairSubmitting \|\| repairUploading\}/);
+});
+
+test("housing sibling forms enforce selector, upload, refresh, and idempotency contracts", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /canAccessLeaseCreation = canCreateLeases && canManageTenants && canReadUnits/);
+  assert.match(client, /min=\{minimumHousingLeaseEndDate\(leaseForm\.startDate\)\}/);
+  assert.match(client, /tenantSubmissionLock\.current/);
+  assert.match(client, /idempotencyKey: tenantSubmissionKey\.current!/);
+  assert.match(client, /setRefreshError\(errors\.length \?/);
+  assert.match(client, /setRefreshError\(error instanceof Error/);
+  assert.match(client, /purchaseUnitsResult/);
+  assert.match(client, /meta=\{purchaseUnitPage\}/);
+  assert.match(client, /handoverUploadLock\.current/);
+  assert.match(client, /onUploadingChange=\{handleHandoverUploadingChange\}/);
+  assert.match(client, /disabled=\{handoverSubmitting \|\| handoverUploading\}/);
+  assert.match(client, /purchaseUploadLock\.current/);
+  assert.match(client, /onUploadingChange=\{handlePurchaseUploadingChange\}/);
+  assert.match(client, /disabled=\{purchaseSubmitting \|\| purchaseUploading\}/);
+  assert.match(client, /detail\.handovers\.map/);
+  assert.match(client, /detail\.handovers\.length \? <div className="ds-scene-grid">/);
+  assert.match(client, /<PendingAttachmentList files=\{handover\.photo_files\}/);
+  assert.match(client, /Object\.entries\(item\)/);
+  assert.match(client, /disabled=\{handoverSubmitting \|\| handoverUploading\} value=\{handoverForm\.handoverType\}/);
 });

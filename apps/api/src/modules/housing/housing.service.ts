@@ -13,7 +13,7 @@ import {
   type TenantParkScope
 } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
-import { DataSource, IsNull, type EntityManager, type Repository } from "typeorm";
+import { DataSource, In, IsNull, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
@@ -229,6 +229,12 @@ export class HousingService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canManageHandovers = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE);
+    const canReadHandovers = canReadLease || canManageHandovers;
+    const canReadHandoverEvidence = canReadHandovers
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const canRecoverHandoverEvidence = canReadHandoverEvidence
+      && canManageHandovers;
     const canRecoverRepairEvidence = canReadLease
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
@@ -240,6 +246,8 @@ export class HousingService {
       receivables,
       ledger,
       handovers,
+      handoverEvidenceFiles,
+      pendingHandoverFiles,
       repairEntities,
       pendingRepairFiles
     ] = await Promise.all([
@@ -258,8 +266,51 @@ export class HousingService {
         where: common,
         order: { occurredAt: "ASC" }
       }) : Promise.resolve([]),
-      canReadLease
+      canReadHandovers
         ? this.dataSource.getRepository(HousingHandoverEntity).find({ where: common })
+        : Promise.resolve([]),
+      canReadHandoverEvidence
+        ? this.dataSource.getRepository(FileEntity).find({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            bizType: In([
+              "housing_handover",
+              "housing_handover_move_in",
+              "housing_handover_move_out"
+            ]),
+            bizId: id,
+            status: 1,
+            isDeleted: false
+          },
+          order: { createTime: "DESC" }
+        })
+        : Promise.resolve([]),
+      canRecoverHandoverEvidence
+        ? this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
+          .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+          .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+          .andWhere("file.biz_type IN (:...bizTypes)", {
+            bizTypes: [
+              "housing_handover",
+              "housing_handover_move_in",
+              "housing_handover_move_out"
+            ]
+          })
+          .andWhere("file.biz_id = :leaseId", { leaseId: id })
+          .andWhere("file.status = 1")
+          .andWhere("file.is_deleted = false")
+          .andWhere(`NOT EXISTS (
+            SELECT 1
+            FROM biz_housing_handover handover
+            WHERE handover.tenant_id = file.tenant_id
+              AND handover.park_id = file.park_id
+              AND handover.lease_id = file.biz_id
+              AND handover.is_deleted = false
+              AND handover.photo_file_ids ? file.id::text
+          )`)
+          .orderBy("file.create_time", "DESC")
+          .getMany()
         : Promise.resolve([]),
       canReadLease ? this.dataSource.getRepository(WorkOrderEntity).find({
         where: {
@@ -299,7 +350,32 @@ export class HousingService {
       charge_plans: chargePlans,
       receivables,
       ledger,
-      handovers,
+      handovers: handovers.map((handover) => ({
+        ...handover,
+        photo_files: handover.photoFileIds
+          .map((fileId) => handoverEvidenceFiles.find((file) => file.id === fileId))
+          .filter((file): file is FileEntity => Boolean(file))
+      })),
+      pending_handover_files: {
+        move_in: pendingHandoverFiles.filter((file) =>
+          file.bizType === "housing_handover_move_in"
+          || (
+            file.bizType === "housing_handover"
+            && !handovers.some((handover) =>
+              handover.handoverType === "move_in" && handover.status === "completed"
+            )
+          )
+        ),
+        move_out: pendingHandoverFiles.filter((file) =>
+          file.bizType === "housing_handover_move_out"
+          || (
+            file.bizType === "housing_handover"
+            && handovers.some((handover) =>
+              handover.handoverType === "move_in" && handover.status === "completed"
+            )
+          )
+        )
+      },
       repairs: repairEntities.map((repair) => ({
         id: repair.id,
         woCode: repair.woCode,
@@ -528,6 +604,9 @@ export class HousingService {
       return await this.dataSource.transaction(async (manager) => {
         const lease = await this.lockLease(manager, scope, leaseId);
         await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+        if (["terminated", "void"].includes(lease.status)) {
+          throw new ConflictException("Final housing leases cannot change charge plans");
+        }
         if (dto.billing_source === "energy_meter") {
           const meter = await manager.getRepository(EnergyMeterEntity).findOne({
             where: {
@@ -812,11 +891,36 @@ export class HousingService {
       ) {
         throw new BadRequestException("Move-in handover cannot include damage, unsettled, or deposit deduction amounts");
       }
-      await this.assertFiles(manager, scope, dto.photo_file_ids ?? [], {
+      const handoverPhotoIds = dto.photo_file_ids ?? [];
+      await this.assertFiles(manager, scope, handoverPhotoIds, {
         mimePrefix: "image/",
-        bizType: "housing_handover",
+        allowedBizTypes: [
+          "housing_handover",
+          `housing_handover_${dto.handover_type}`
+        ],
         bizId: lease.id
       });
+      if (handoverPhotoIds.length) {
+        const previouslyBound = await manager.query(
+          `SELECT 1
+           FROM biz_housing_handover bound_handover
+           WHERE bound_handover.tenant_id = $1
+             AND bound_handover.park_id = $2
+             AND bound_handover.lease_id = $3
+             AND bound_handover.handover_type <> $4
+             AND bound_handover.is_deleted = false
+             AND EXISTS (
+               SELECT 1
+               FROM jsonb_array_elements_text(bound_handover.photo_file_ids) bound_file_id
+               WHERE bound_file_id = ANY($5::text[])
+             )
+           LIMIT 1`,
+          [scope.tenantId, scope.parkId, lease.id, dto.handover_type, handoverPhotoIds]
+        ) as Array<{ "?column?": number }>;
+        if (previouslyBound.length) {
+          throw new ConflictException("One or more handover attachments are already bound to another handover");
+        }
+      }
       if (dto.signature_file_id) {
         await this.assertFiles(manager, scope, [dto.signature_file_id], {
           bizType: "housing_handover",
@@ -853,7 +957,7 @@ export class HousingService {
       handover.itemSnapshot = dto.item_snapshot ?? [];
       handover.meterReadings = dto.meter_readings ?? [];
       handover.credentials = dto.credentials ?? [];
-      handover.photoFileIds = dto.photo_file_ids ?? [];
+      handover.photoFileIds = handoverPhotoIds;
       handover.signatureFileId = dto.signature_file_id ?? null;
       handover.damageAmount = formatHousingMoney(dto.damage_amount);
       handover.unsettledAmount = formatHousingMoney(dto.unsettled_amount);
@@ -1299,6 +1403,7 @@ export class HousingService {
       mimePrefix?: string;
       allowedMimeTypes?: readonly string[];
       bizType?: string;
+      allowedBizTypes?: readonly string[];
       bizId?: string;
       lock?: boolean;
     }
@@ -1321,6 +1426,9 @@ export class HousingService {
     }
     if (options?.bizType && files.some((file) => file.bizType !== options.bizType)) {
       throw new BadRequestException(`Attachment business type must be ${options.bizType}`);
+    }
+    if (options?.allowedBizTypes && files.some((file) => !options.allowedBizTypes!.includes(file.bizType))) {
+      throw new BadRequestException(`Attachment business type must be one of ${options.allowedBizTypes.join(", ")}`);
     }
     if (options?.bizId && files.some((file) => file.bizId !== options.bizId)) {
       throw new BadRequestException("Attachment is not associated with the current housing record");

@@ -78,7 +78,11 @@ export class HousingController {
 
   @Post("leases")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
+    SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE,
+    SYSTEM_PERMISSIONS.UNIT_READ
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "创建住房租约", bizType: "biz_housing_lease" })
   createLease(
     @CurrentScope() scope: TenantParkScope,

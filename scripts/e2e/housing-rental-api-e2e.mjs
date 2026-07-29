@@ -77,6 +77,18 @@ async function uploadRepairImage(token, leaseId, bizType = "housing_repair") {
   return request("/files", { method: "POST", token, idempotent: true, body: form });
 }
 
+async function uploadHandoverImage(token, leaseId, handoverType) {
+  const form = new FormData();
+  form.append("biz_type", `housing_handover_${handoverType}`);
+  form.append("biz_id", leaseId);
+  form.append(
+    "file",
+    new Blob([Buffer.from(`housing-handover-${handoverType}`)], { type: "image/png" }),
+    `handover-${handoverType}-${runId}.png`
+  );
+  return request("/files", { method: "POST", token, idempotent: true, body: form });
+}
+
 async function uploadPendingPurchaseReceipt(token) {
   const form = new FormData();
   form.append("biz_type", "housing_purchase");
@@ -442,6 +454,12 @@ async function run() {
 
   detail = await request(`/housing/leases/${lease.id}`, { token });
   for (const receivable of detail.receivables) await payReceivable(token, lease.id, receivable);
+  const moveOutPhoto = await uploadHandoverImage(token, lease.id, "move_out");
+  detail = await request(`/housing/leases/${lease.id}`, { token });
+  assert(
+    detail.pending_handover_files.move_out.some((file) => file.id === moveOutPhoto.id),
+    "lease detail restores the pending move-out evidence under its exact handover type"
+  );
   await request(`/housing/leases/${lease.id}/handovers`, {
     method: "POST",
     token,
@@ -451,12 +469,23 @@ async function run() {
       item_snapshot: [{ description: "现场物品验收完成", checked: true }],
       meter_readings: [{ type: "electricity", reading: 100 }],
       credentials: [{ type: "door_card", returned: 2 }],
+      photo_file_ids: [moveOutPhoto.id],
       damage_amount: "0.00",
       unsettled_amount: "0.00",
       deposit_deduction_amount: "0.00",
       remark: "真实 API E2E 退租交割"
     }
   });
+  detail = await request(`/housing/leases/${lease.id}`, { token });
+  const completedMoveOut = detail.handovers.find((handover) => handover.handoverType === "move_out");
+  assert(
+    completedMoveOut?.photo_files.some((file) => file.id === moveOutPhoto.id),
+    "completed handover detail exposes its immutable evidence snapshot"
+  );
+  assert(
+    detail.pending_handover_files.move_out.every((file) => file.id !== moveOutPhoto.id),
+    "completed handover evidence is excluded from the next handover draft"
+  );
   await expectRequestStatus(`/housing/leases/${lease.id}/ledger`, 400, {
     method: "POST",
     token,
@@ -517,6 +546,18 @@ async function run() {
       party_id: tenant.id,
       occupant_role: "cohabitant",
       emergency_contact: false
+    }
+  });
+  await expectRequestStatus(`/housing/leases/${lease.id}/charge-plans`, 409, {
+    method: "PUT",
+    token,
+    idempotent: true,
+    body: {
+      charge_type: "property",
+      billing_source: "fixed",
+      cycle_months: 1,
+      amount: "101.00",
+      enabled: true
     }
   });
   assert(terminated.status === "terminated", "tenant-to-checkout real API workflow completed");

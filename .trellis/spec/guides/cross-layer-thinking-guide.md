@@ -436,6 +436,13 @@ sibling before the next commit. Do not stop at the named line.
 - [ ] Apply a newly learned sibling contract retroactively to the entire current diff
       before requesting another review; documenting the gate without executing its
       matrix is not release completion.
+- [ ] Compare browser `required` / `min` / `max` / `step` constraints with the exact
+      DTO and service inequalities, including equality and the nearest valid neighbor.
+- [ ] When one child uploader needs an in-flight submission lock, enumerate every
+      uploader-backed sibling form on that page and prove each payload waits for its
+      own upload promises.
+- [ ] When two forms call the same paginated candidate endpoint, verify they still own
+      separate arrays, page state, selection reconciliation, and reachable controls.
 - [ ] Compare every backend MVP endpoint with actual Web callers. A tested API without
       an authorized desktop/mobile workflow is not a delivered product capability.
 - [ ] Inventory target-bound drafts for each selected aggregate. When the target ID

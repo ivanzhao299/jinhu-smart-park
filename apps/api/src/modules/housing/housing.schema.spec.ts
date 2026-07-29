@@ -54,6 +54,7 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
   const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
   assert.match(service, /this\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
   assert.match(service, /Final housing leases cannot accept new occupants/);
+  assert.match(service, /Final housing leases cannot change charge plans/);
   assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
   assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
   assert.match(service, /meter\.status !== "ONLINE"/);
@@ -76,6 +77,26 @@ test("housing billing and repair files preserve exact domain boundaries", () => 
   assert.match(service, /pending_repair_files: pendingRepairFiles/);
   assert.match(service, /NOT EXISTS \([\s\S]*file\.id = ANY\(repair\.image_file_ids\)/);
   assert.match(service, /One or more repair attachments are already bound to a work order/);
+  assert.match(service, /pending_handover_files:/);
+  assert.match(service, /const canReadHandovers = canReadLease \|\| canManageHandovers/);
+  assert.match(service, /canReadHandovers\s*\n\s*\? this\.dataSource\.getRepository\(HousingHandoverEntity\)/);
+  assert.match(service, /housing_handover_move_in/);
+  assert.match(service, /housing_handover_move_out/);
+  assert.match(service, /handover\.photo_file_ids \? file\.id::text/);
+  assert.match(service, /One or more handover attachments are already bound to another handover/);
+  assert.match(service, /photo_files: handover\.photoFileIds/);
+});
+
+test("housing lease creation requires every selector permission at the API boundary", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const createLease = controller.slice(
+    controller.indexOf('@Post("leases")'),
+    controller.indexOf('@Post("leases/:id/submit")')
+  );
+
+  assert.match(createLease, /SYSTEM_PERMISSIONS\.HOUSING_LEASE_CREATE/);
+  assert.match(createLease, /SYSTEM_PERMISSIONS\.HOUSING_TENANT_MANAGE/);
+  assert.match(createLease, /SYSTEM_PERMISSIONS\.UNIT_READ/);
 });
 
 test("housing lease pages own stable unit and tenant display labels", () => {

@@ -1,3 +1,5 @@
+import { addBusinessDateDays } from "../../lib/business-date";
+
 interface ChargeTypeSource {
   id: string;
   chargeType: string;
@@ -50,4 +52,8 @@ export function housingLeaseTenantLabel(lease: {
 
 export function canRechargeHousingLease(status: string | undefined): boolean {
   return Boolean(status && ["active", "expiring", "checkout_pending"].includes(status));
+}
+
+export function minimumHousingLeaseEndDate(startDate: string): string {
+  return startDate ? addBusinessDateDays(startDate, 1) : "";
 }

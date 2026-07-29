@@ -12,6 +12,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - `POST /homestay/bookings/:id/guests`
 - `GET /housing/leases/:id`
 - `POST /housing/leases`
+- `PUT /housing/leases/:id/charge-plans`
+- `POST /housing/leases/:id/handovers`
 - `POST /housing/purchases`
 - `POST /housing/purchases/:id/transfer`
 
@@ -20,7 +22,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Business date strings are real `YYYY-MM-DD` calendar dates and use `Asia/Shanghai` when derived from the current instant.
 - A homestay guest is verified only when the current scoped Party is verified and has both identity document type and protected identity data; check-in must not trust a stale booking-guest snapshot after Party identity changes.
 - Housing lease readers without `housing:finance:read` receive no receivable, ledger, or finance-summary data.
-- Housing finance-only readers receive finance data without tenant profile, occupant, handover, or repair projections unless they also have `housing:lease:read`.
+- Housing finance-only readers receive finance data without tenant profile, occupant,
+  handover, or repair projections. Handover managers may read completed handover
+  snapshots without `housing:lease:read`; attachment metadata still requires
+  `file:read`.
 - Lease rent and deposit values remain decimal strings from HTTP input through persistence; JavaScript `number` is not an acceptable lease-money boundary.
 - Billing month advancement remains anchored to the original start day; each target month alone may clamp to its last day.
 - Purchase line amounts are rounded to cents first; the header total is the sum of persisted rounded lines.
@@ -28,8 +33,15 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Optional Party contact and identity fields preserve an explicit clearing signal.
 - Operations pages load permission-separated data blocks independently so one unauthorized optional request cannot discard authorized data.
 - Housing operations page defaults and calendar offsets derive from the Shanghai business date.
+- Housing lease creation requires `housing:lease:create`, `housing:tenant:manage`,
+  and `unit:read` together because the write depends on both selector datasets.
+- Housing lease `end_date` is strictly later than `start_date`; the Web date input
+  uses `min=addBusinessDateDays(start_date, 1)` and adjusts a now-invalid end date
+  when the start changes.
 - Overlapping operations-page refreshes are sequenced; only the latest response may replace visible datasets, messages, or loading state.
 - Housing unit, tenant, lease, and purchase datasets retain server pagination; changing a candidate page must also synchronize the selected option.
+- Lease creation and purchase cost collection own independent unit candidate arrays,
+  pagination state, and selection synchronization even though both call `/park-units`.
 - A newly created tenant remains rendered and selected until the server page containing it has loaded.
 - Lease detail selection clears stale detail and attachments before loading, and ignores out-of-order responses.
 - Housing ledger charge types come from the selected receivable, while deposit entries always use the deposit charge type.
@@ -45,7 +57,18 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Failed optional unit or tenant loads preserve existing visible selections; successful loads alone synchronize form candidates.
 - Paginated KPIs use server totals rather than the current page length.
 - Permission-specific KPIs and workflow blocks are not rendered for users who cannot load their source datasets.
-- Handover evidence is scoped to one lease and one handover attempt and is cleared after success or context changes.
+- Handover evidence is scoped to one lease and one handover type. New uploads use
+  protected `housing_handover_move_in` or `housing_handover_move_out` business types;
+  the legacy `housing_handover` type remains readable only for UAT compatibility.
+- `GET /housing/leases/:id` returns `pending_handover_files.move_in`,
+  `pending_handover_files.move_out`, and each completed handover's `photo_files`.
+  Pending projections exclude every file ID already referenced by a handover.
+- Completed handover snapshots are readable with either `housing:lease:read` or
+  `housing:handover:manage`; attachment metadata remains independently gated by
+  `file:read`.
+- Handover creation locks its submitted file rows and rejects a file already bound
+  to the sibling handover type. Upload-in-flight state blocks type switching,
+  evidence removal, and submission.
 - Move-in handovers reject non-zero move-out-only damage, unsettled, and deduction values.
 - A completed handover is returned before validating replay payload evidence or financial balances, so retries cannot repeat or invalidate completed financial effects.
 - File upload is a separate action; its native file input must not impose required validation on a parent business form.
@@ -78,7 +101,11 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Active receivables for one charge plan use non-overlapping `[period_start, period_end)` periods, enforced by both the lease-locked service transaction and a database exclusion constraint.
 - One active charge plan exists per tenant, park, lease, and charge type; upsert locks the lease and the database owns the final unique constraint.
 - A new bill-generation request whose period is identical to an existing receivable returns HTTP 409; only a replay with the same idempotency key may return the cached original response.
-- Final housing leases (`terminated` or `void`) accept no new occupants or ledger entries.
+- Final housing leases (`terminated` or `void`) accept no new occupants, ledger
+  entries, or charge-plan changes.
+- Tenant creation, lease creation, handover completion, purchase creation, finance,
+  and repair submission each hold a synchronous lock plus one stable idempotency key
+  for the unchanged payload until success.
 - Deposit deductions are created only by the completed move-out handover workflow; the generic ledger endpoint rejects caller-supplied deductions.
 - A purchase with any transferred line cannot be voided until the transfer is explicitly reversed by a supported audited workflow.
 - Purchase quantities, unit prices, persisted line amounts, and recharge totals remain decimal strings or scaled integers from HTTP input through persistence.
@@ -255,6 +282,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Energy meter is disabled, not `ONLINE`, cross-scope, or attached to another unit | HTTP 404/409/400 without creating the plan |
 | Meter multiplier is not positive or closing reading precedes opening reading | HTTP 400 without creating a receivable |
 | Move-in handover contains move-out financial amounts | HTTP 400 |
+| Handover file belongs to the other handover type | HTTP 400 |
+| Handover file is already bound to another handover | HTTP 409 |
+| Completed handover evidence is loaded again | Return it under `handovers[].photo_files`, never under `pending_handover_files` |
+| Lease creator lacks tenant-manage or unit-read | API rejects creation; Web does not mount an unusable selector form |
+| Lease end date equals its start date | Native Web validation blocks it; API returns HTTP 400 if called directly |
+| Charge-plan write targets a terminated or void lease | HTTP 409 |
 | Purchase code collides in the current tenant and park | HTTP 409 |
 | Dashboard reader lacks finance or purchase permission | Omit the corresponding aggregate and do not query it |
 | Held occupancy becomes mode-incompatible or disabled before activation | HTTP 409 |
@@ -375,11 +408,16 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Integration: duplicate lease/purchase codes return 409; refunded purchase cannot recharge.
 - Integration: held occupancy activation rechecks the latest mode/status and energy-meter plans enforce scope, enable flag, operational status, unit binding, and multiplier.
 - Integration: completed handover replay returns the original result before balance/evidence revalidation; move-in rejects move-out-only amounts.
+- Integration/API E2E: typed handover evidence appears only in its pending type,
+  moves into the completed handover snapshot after submission, and cannot be reused.
 - Integration: check-in re-reads current Party verification and identity data instead of trusting the guest-row snapshot.
 - Integration: first rent uses `first_due_date`; split later periods retain the original lease start-day anchor.
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
 - Frontend: optional dataset failures do not discard successful loads; stale lease-detail responses cannot retarget forms.
 - Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
+- Frontend: same-day lease ranges fail native validation, tenant double-click uses one
+  key, handover and purchase uploads block submission, refresh errors clear after a
+  fully successful refresh, and purchase unit paging is independent from lease paging.
 - Frontend: booking-read-only, finance-read, finance-register, and stay-manage fixtures
   independently verify terminal detail retention and exact sub-control visibility.
 - Frontend: a no-booking-read fixture receives no booking-bound stay or finance
@@ -500,4 +538,9 @@ const bookingCreateKey = retryKeyForUnchangedPayload(payload);
 const rateUnits = await loadCandidates(rateUnitPage);
 const bookingUnits = await loadCandidates(bookingUnitPage);
 await executeTurnover(task.id, { photo_file_ids: [] }); // backend derives active files
+
+const minimumLeaseEnd = addBusinessDateDays(leaseStart, 1);
+const leaseUnits = await loadUnits(leaseUnitPage);
+const purchaseUnits = await loadUnits(purchaseUnitPage);
+const handoverBizType = `housing_handover_${handoverType}`;
 ```

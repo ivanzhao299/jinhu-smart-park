@@ -34,6 +34,8 @@ test("protected housing files require their business permission", async () => {
     ),
     ForbiddenException
   );
+  assert.equal(service.isProtectedBizType("housing_handover_move_in"), true);
+  assert.equal(service.isProtectedBizType("housing_handover_move_out"), true);
 });
 
 test("protected file references are resolved inside tenant and park before unit scope", async () => {
