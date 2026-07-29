@@ -24,22 +24,34 @@ const ACCESS_RULES: Record<PropertyBusinessFileType, {
   referenceTable: string;
 }> = {
   housing_lease_signature: {
-    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN
+    ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN],
     referenceTable: "biz_housing_lease"
   },
   housing_handover: {
-    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+    ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
     referenceTable: "biz_housing_lease"
   },
   housing_handover_move_in: {
-    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+    ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
     referenceTable: "biz_housing_lease"
   },
   housing_handover_move_out: {
-    readPermissions: [SYSTEM_PERMISSIONS.HOUSING_LEASE_READ],
+    readPermissions: [
+      SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+    ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
     referenceTable: "biz_housing_lease"
   },

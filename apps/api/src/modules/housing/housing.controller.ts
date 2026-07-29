@@ -303,7 +303,10 @@ export class HousingController {
 
   @Post("purchases")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
+    SYSTEM_PERMISSIONS.UNIT_READ
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "创建采购单", bizType: "biz_housing_purchase" })
   createPurchase(
     @CurrentScope() scope: TenantParkScope,

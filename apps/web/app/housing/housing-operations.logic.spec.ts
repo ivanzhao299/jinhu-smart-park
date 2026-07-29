@@ -78,7 +78,7 @@ test("housing refresh restores pending purchase receipts into the production for
   assert.match(client, /setPurchaseReceipts\(pendingReceiptResult\.data\.items\)/);
   assert.match(
     client,
-    /canAccessPurchaseReceipts\s*=\s*canManagePurchases\s*&&\s*hasPermission\(user,\s*SYSTEM_PERMISSIONS\.FILE_READ\)/
+    /canAccessPurchaseReceipts = canAccessPurchaseCreation && canReadFiles/
   );
 });
 
@@ -88,11 +88,11 @@ test("housing file-backed forms project domain and generic file permissions toge
   assert.match(client, /canUploadHandoverPhotos = canManageHandovers && canUploadFiles/);
   assert.match(client, /canUploadRepairPhotos = canManageRepairs && canUploadFiles/);
   assert.match(client, /canUploadLeaseSignature = canSignLeases && canUploadFiles/);
-  assert.match(client, /canUploadPurchaseReceipts = canManagePurchases && canUploadFiles/);
+  assert.match(client, /canUploadPurchaseReceipts = canAccessPurchaseCreation && canUploadFiles/);
   assert.match(client, /\{canManageHandovers \? <form onSubmit=\{completeHandover\}>/);
   assert.match(client, /bizType=\{`housing_handover_\$\{handoverForm\.handoverType\}`\}/);
   assert.match(client, /\{canManageRepairs \? <form onSubmit=\{createRepair\}>/);
-  assert.match(client, /\{canManagePurchases \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
+  assert.match(client, /\{canAccessPurchaseCreation \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
 });
 
 test("housing lease detail restores evidence and gates every mutation surface", () => {
@@ -160,6 +160,28 @@ test("housing workflow reachability and persisted labels do not depend on unrela
   assert.match(client, /partyDisplayName: string \| null/);
   assert.match(client, /occupant\.partyDisplayName \?\? occupant\.partyId/);
   assert.doesNotMatch(client, /tenantName\.get\(occupant\.partyId\)/);
+});
+
+test("housing granular roles recover authorized evidence and workflow context", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /canRecoverLeaseSignature = \(canReadLeases \|\| canSignLeases\) && canReadFiles/);
+  assert.match(client, /canReadHandoverEvidence = \(canReadLeases \|\| canManageHandovers\) && canReadFiles/);
+  assert.match(client, /const canAccessPurchaseCreation = canManagePurchases && canReadUnits/);
+  assert.match(client, /loadOptional\(canAccessPurchaseCreation,[\s\S]*?\/park-units/);
+  assert.match(client, /\{canAccessPurchaseCreation \? <form className="ds-panel" onSubmit=\{createPurchase\}>/);
+});
+
+test("housing purchase detail errors and bound receipts follow their authoritative loads", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /const \[purchaseDetailError, setPurchaseDetailError\] = useState\(""\)/);
+  assert.match(client, /setPurchaseDetailError\(""\)[\s\S]*?setTransferItems\(\[\]\)/);
+  assert.match(client, /setPurchaseDetailError\(error instanceof Error \? error\.message : "加载采购明细失败"\)/);
+  assert.match(client, /purchaseDetailError \? <div className=\{styles\.message\}>/);
+  assert.match(client, /receiptFiles: FileRecord\[\]/);
+  assert.match(client, /canReadPurchaseEvidence = \(canReadPurchases \|\| canManagePurchases\) && canReadFiles/);
+  assert.match(client, /<PendingAttachmentList files=\{purchase\.receiptFiles\} mutationDisabled \/>/);
 });
 
 test("housing detail, signature, and purchase drafts follow authoritative lifecycle state", () => {

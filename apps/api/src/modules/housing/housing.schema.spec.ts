@@ -101,6 +101,17 @@ test("housing lease creation requires every selector permission at the API bound
   assert.match(createLease, /SYSTEM_PERMISSIONS\.UNIT_READ/);
 });
 
+test("housing purchase creation requires its scoped unit selector permission", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const createPurchase = controller.slice(
+    controller.indexOf('@Post("purchases")'),
+    controller.indexOf('@Post("purchases/:id/actions")')
+  );
+
+  assert.match(createPurchase, /SYSTEM_PERMISSIONS\.HOUSING_PURCHASE_MANAGE/);
+  assert.match(createPurchase, /SYSTEM_PERMISSIONS\.UNIT_READ/);
+});
+
 test("housing lease pages own stable unit and tenant display labels", () => {
   const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
   const listLeases = service.slice(service.indexOf("async listLeases"), service.indexOf("async getLease"));
@@ -157,4 +168,17 @@ test("housing detail and purchase list own persisted relationship and lifecycle 
   assert.match(listPurchases, /COUNT\(\*\)::int AS "transferredItemCount"/);
   assert.match(listPurchases, /item\.transferred_receivable_id IS NOT NULL/);
   assert.match(listPurchases, /transferredItemCount: transferredCountByPurchase\.get\(item\.id\) \?\? 0/);
+  assert.match(listPurchases, /const canReadPurchaseEvidence/);
+  assert.match(listPurchases, /bizType: "housing_purchase"/);
+  assert.match(listPurchases, /receiptFiles: receiptFilesByPurchase\.get\(item\.id\) \?\? \[\]/);
+});
+
+test("housing finance writers receive the minimum lease finance projection", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  const getLease = service.slice(service.indexOf("async getLease"), service.indexOf("async createLease"));
+
+  assert.match(getLease, /const canAccessFinance = canReadFinance \|\| canRegisterFinance \|\| canWaiveFinance/);
+  assert.match(getLease, /canAccessFinance \? this\.dataSource\.getRepository\(HousingReceivableEntity\)/);
+  assert.match(getLease, /canAccessFinance \? this\.dataSource\.getRepository\(HousingLedgerEntryEntity\)/);
+  assert.match(getLease, /finance_summary: canAccessFinance \? this\.financeSummary\(receivables, ledger\) : null/);
 });

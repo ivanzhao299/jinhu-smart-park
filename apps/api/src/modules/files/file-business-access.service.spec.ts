@@ -67,6 +67,51 @@ test("protected file references are resolved inside tenant and park before unit 
   assert.deepEqual(checkedUnits, ["unit-1"]);
 });
 
+test("lease readers and signers can recover lease signature evidence", async () => {
+  const service = new FileBusinessAccessService(
+    { query: async () => [{ unit_id: "unit-1" }] } as never,
+    { assertAccess: async () => ({ id: "unit-1" }) } as never
+  );
+
+  for (const permission of [
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN
+  ]) {
+    await assert.doesNotReject(
+      service.assertReferenceAccess(
+        scope,
+        actor([permission]),
+        "housing_lease_signature",
+        "lease-1",
+        "read"
+      )
+    );
+  }
+});
+
+test("handover managers can read every supported handover evidence type", async () => {
+  const service = new FileBusinessAccessService(
+    { query: async () => [{ unit_id: "unit-1" }] } as never,
+    { assertAccess: async () => ({ id: "unit-1" }) } as never
+  );
+
+  for (const bizType of [
+    "housing_handover",
+    "housing_handover_move_in",
+    "housing_handover_move_out"
+  ]) {
+    await assert.doesNotReject(
+      service.assertReferenceAccess(
+        scope,
+        actor([SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE]),
+        bizType,
+        "lease-1",
+        "read"
+      )
+    );
+  }
+});
+
 test("unassociated purchase receipts remain private to their uploader", () => {
   const service = new FileBusinessAccessService({} as never, {} as never);
   assert.throws(

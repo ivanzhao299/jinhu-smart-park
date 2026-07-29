@@ -50,6 +50,10 @@ Database owners:
 - A released occupancy or expired hold cannot be resurrected by period replacement.
   The owning workflow must reject it or create a new occupancy through an explicit
   lifecycle action.
+- A mode transition checks both the shared occupancy projection and the live owning
+  aggregates. An active, expiring, or checkout-pending housing lease blocks leaving
+  `long_rent`; a confirmed or checked-in homestay booking blocks leaving `short_stay`,
+  even if its shared occupancy was force-released or otherwise became inconsistent.
 - Occupancy source type and source ID must remain non-empty after boundary trimming.
 - An unfinished homestay turnover task keeps the unit unavailable even when a same-day arriving booking already owns the active occupancy and no separate turnover occupancy can be created.
 - Homestay availability reads both the shared occupancy ledger and active legacy commercial-contract relations before reporting a unit available.
@@ -79,6 +83,7 @@ Database owners:
 | UTC database session compares a date-only commercial contract | Use explicit `AT TIME ZONE 'Asia/Shanghai'`; never rely on session timezone casts |
 | Commercial contract targets short-stay unit or overlaps shared occupancy | Trigger/service HTTP 409 |
 | Mode switch has future occupancy, contract, pending checkout, open work order, or unsettled receivable | HTTP 409 with check snapshot |
+| Mode switch finds a live housing lease or homestay booking whose shared occupancy was force-released | HTTP 409 with the source aggregate in the check snapshot |
 | Unit, party, or occupancy belongs to another tenant/park | HTTP 404/403 without cross-scope data |
 | Sensitive party field requested without `party:sensitive_read` | Return masked projection only |
 | Generic occupancy route claims `commercial_leasing`, `housing_rental`, or `homestay` | HTTP 403 before any occupancy transaction |

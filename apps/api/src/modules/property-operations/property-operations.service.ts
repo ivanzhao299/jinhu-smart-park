@@ -19,6 +19,8 @@ interface ModeTransitionCheckSnapshot {
   incompatible_occupancy_count: number;
   maintenance_or_operations_count: number;
   commercial_contract_count: number;
+  housing_lease_count: number;
+  homestay_booking_count: number;
   pending_checkout_count: number;
   open_workorder_count: number;
   unsettled_receivable_count: number;
@@ -227,6 +229,20 @@ export class PropertyOperationsService {
            AND contract.is_deleted = false AND contract.status NOT IN ('90', '91')
             AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
        ),
+       housing_leases AS (
+         SELECT count(*)::int AS housing_lease_count
+         FROM biz_housing_lease lease
+         WHERE lease.tenant_id = $1 AND lease.park_id = $2 AND lease.unit_id = $3
+           AND lease.is_deleted = false
+           AND lease.status IN ('active', 'expiring', 'checkout_pending')
+       ),
+       homestay_bookings AS (
+         SELECT count(*)::int AS homestay_booking_count
+         FROM biz_homestay_booking booking
+         WHERE booking.tenant_id = $1 AND booking.park_id = $2 AND booking.unit_id = $3
+           AND booking.is_deleted = false
+           AND booking.status IN ('confirmed', 'checked_in')
+       ),
        checkouts AS (
          SELECT count(DISTINCT checkout.id)::int AS pending_checkout_count
          FROM rel_leasing_contract_unit relation
@@ -274,7 +290,14 @@ export class PropertyOperationsService {
          SELECT count(*)::int AS unsettled_receivable_count
          FROM financial_items
        )
-       SELECT * FROM occupancy CROSS JOIN contracts CROSS JOIN checkouts CROSS JOIN workorders CROSS JOIN receivables`,
+       SELECT *
+       FROM occupancy
+       CROSS JOIN contracts
+       CROSS JOIN housing_leases
+       CROSS JOIN homestay_bookings
+       CROSS JOIN checkouts
+       CROSS JOIN workorders
+       CROSS JOIN receivables`,
       [scope.tenantId, scope.parkId, unitId, targetMode]
     ) as Array<Omit<ModeTransitionCheckSnapshot, "checked_at" | "blocking_reasons">>;
     const counts = rows[0] ?? {
@@ -282,11 +305,19 @@ export class PropertyOperationsService {
       incompatible_occupancy_count: 0,
       maintenance_or_operations_count: 0,
       commercial_contract_count: 0,
+      housing_lease_count: 0,
+      homestay_booking_count: 0,
       pending_checkout_count: 0,
       open_workorder_count: 0,
       unsettled_receivable_count: 0
     };
     const reasons: string[] = [];
+    if (Number(counts.housing_lease_count) > 0 && targetMode !== "long_rent") {
+      reasons.push("存在仍有效的住房租约");
+    }
+    if (Number(counts.homestay_booking_count) > 0 && targetMode !== "short_stay") {
+      reasons.push("存在仍有效的民宿订单");
+    }
     if (Number(counts.incompatible_occupancy_count) > 0) reasons.push("存在与目标经营模式冲突的未来或当前占用");
     if (Number(counts.maintenance_or_operations_count) > 0) reasons.push("存在维修停用、保洁或运营锁房占用");
     if (Number(counts.commercial_contract_count) > 0 && targetMode !== "long_rent") reasons.push("存在未结束的商业租赁合同");
@@ -299,6 +330,8 @@ export class PropertyOperationsService {
       incompatible_occupancy_count: Number(counts.incompatible_occupancy_count),
       maintenance_or_operations_count: Number(counts.maintenance_or_operations_count),
       commercial_contract_count: Number(counts.commercial_contract_count),
+      housing_lease_count: Number(counts.housing_lease_count),
+      homestay_booking_count: Number(counts.homestay_booking_count),
       pending_checkout_count: Number(counts.pending_checkout_count),
       open_workorder_count: Number(counts.open_workorder_count),
       unsettled_receivable_count: Number(counts.unsettled_receivable_count),

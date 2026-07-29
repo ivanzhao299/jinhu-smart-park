@@ -132,28 +132,41 @@ async function run() {
   start.setUTCDate(start.getUTCDate() + 2);
   const end = new Date(start);
   end.setUTCFullYear(end.getUTCFullYear() + 1);
-  const startDate = start.toISOString().slice(0, 10);
-  const endDate = end.toISOString().slice(0, 10);
+  let startDate = start.toISOString().slice(0, 10);
+  let endDate = end.toISOString().slice(0, 10);
   const unitList = await request("/park-units?page=1&page_size=100", { token });
   let unit = process.env.HOUSING_UNIT_ID
     ? unitList.items.find((item) => item.id === process.env.HOUSING_UNIT_ID)
     : null;
   if (!unit) {
     for (const candidate of unitList.items) {
-      const availability = await request("/property/occupancies/availability", {
-        method: "POST",
-        token,
-        idempotent: true,
-        body: {
-          unit_id: candidate.id,
-          start_at: `${startDate}T00:00:00+08:00`,
-          end_at: `${endDate}T23:59:59+08:00`
+      const candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+      if (candidateOperation.operating_mode !== "long_rent") continue;
+      for (let yearOffset = 0; yearOffset < 5; yearOffset += 1) {
+        const candidateStart = new Date(start);
+        candidateStart.setUTCFullYear(candidateStart.getUTCFullYear() + yearOffset);
+        const candidateEnd = new Date(candidateStart);
+        candidateEnd.setUTCFullYear(candidateEnd.getUTCFullYear() + 1);
+        const candidateStartDate = candidateStart.toISOString().slice(0, 10);
+        const candidateEndDate = candidateEnd.toISOString().slice(0, 10);
+        const availability = await request("/property/occupancies/availability", {
+          method: "POST",
+          token,
+          idempotent: true,
+          body: {
+            unit_id: candidate.id,
+            start_at: `${candidateStartDate}T00:00:00+08:00`,
+            end_at: `${candidateEndDate}T23:59:59+08:00`
+          }
+        });
+        if (availability.available) {
+          unit = candidate;
+          startDate = candidateStartDate;
+          endDate = candidateEndDate;
+          break;
         }
-      });
-      if (availability.available) {
-        unit = candidate;
-        break;
       }
+      if (unit) break;
     }
   }
   assert(Boolean(unit?.id), "selected an actual operating unit");
@@ -285,7 +298,7 @@ async function run() {
     idempotent: true,
     body: { charge_type: "property", billing_source: "fixed", cycle_months: 1, amount: "100.00", enabled: true }
   });
-  const billEnd = new Date(start);
+  const billEnd = new Date(`${startDate}T00:00:00Z`);
   billEnd.setUTCMonth(billEnd.getUTCMonth() + 1);
   await request(`/housing/leases/${lease.id}/generate-bills`, {
     method: "POST",
@@ -310,7 +323,7 @@ async function run() {
     }
   });
 
-  const overlappingStart = new Date(start);
+  const overlappingStart = new Date(`${startDate}T00:00:00Z`);
   overlappingStart.setUTCDate(overlappingStart.getUTCDate() + 10);
   const overlappingEnd = new Date(billEnd);
   overlappingEnd.setUTCDate(overlappingEnd.getUTCDate() + 10);
@@ -460,6 +473,10 @@ async function run() {
   assert(
     transferredPurchase?.transferredItemCount === 2,
     "purchase list projects transferred item count for authoritative action gating"
+  );
+  assert(
+    transferredPurchase?.receiptFiles?.some((file) => file.id === pendingPurchaseReceipt.id),
+    "purchase list keeps bound receipt evidence visible after creation"
   );
   await expectRequestStatus(`/housing/purchases/${purchase.id}/actions`, 409, {
     method: "POST",

@@ -21,7 +21,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 
 - Business date strings are real `YYYY-MM-DD` calendar dates and use `Asia/Shanghai` when derived from the current instant.
 - A homestay guest is verified only when the current scoped Party is verified and has both identity document type and protected identity data; check-in must not trust a stale booking-guest snapshot after Party identity changes.
-- Housing lease readers without `housing:finance:read` receive no receivable, ledger, or finance-summary data.
+- Housing lease readers without any housing finance permission receive no receivable,
+  ledger, or finance-summary data. Actors with finance-read, finance-register, or
+  finance-waive receive the minimum finance projection needed to perform their
+  authorized action.
 - Housing finance-only readers receive finance data without tenant profile, occupant,
   handover, or repair projections. Handover managers may read completed handover
   snapshots without `housing:lease:read`; attachment metadata still requires
@@ -42,6 +45,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Housing unit, tenant, lease, and purchase datasets retain server pagination; changing a candidate page must also synchronize the selected option.
 - Lease creation and purchase cost collection own independent unit candidate arrays,
   pagination state, and selection synchronization even though both call `/park-units`.
+- Housing purchase creation requires purchase-manage and unit-read together because
+  the form depends on the scoped unit selector. Bound receipt metadata remains on the
+  purchase list for authorized purchase/file readers after creation.
 - A newly created tenant remains rendered and selected until the server page containing it has loaded.
 - Lease detail selection clears stale detail and attachments before loading, and ignores out-of-order responses.
 - Housing ledger charge types come from the selected receivable, while deposit entries always use the deposit charge type.
@@ -54,6 +60,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Purchase recharge requires the operator to select the exact untransferred line items; loading a purchase must not select every line automatically.
 - Purchase recharge resets when the selected lease changes, targets only active/expiring/checkout leases, and reuses receivables only when their source IDs also match.
 - New Party records remain unverified; general updates cannot change verification status, and a dedicated transition verifies only records with protected identity data.
+- Party-role creation treats its database unique constraint as the concurrency
+  authority: after a unique violation, reload and return the concurrently committed
+  normalized role; unrelated persistence errors must still propagate.
 - Failed optional unit or tenant loads preserve existing visible selections; successful loads alone synchronize form candidates.
 - Paginated KPIs use server totals rather than the current page length.
 - Permission-specific KPIs and workflow blocks are not rendered for users who cannot load their source datasets.

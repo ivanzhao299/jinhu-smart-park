@@ -79,6 +79,7 @@ type HousingLeaseListItem = HousingLeaseEntity & {
 
 type HousingPurchaseListItem = HousingPurchaseEntity & {
   transferredItemCount: number;
+  receiptFiles: FileEntity[];
 };
 
 @Injectable()
@@ -233,6 +234,9 @@ export class HousingService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canRegisterFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER);
+    const canWaiveFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE);
+    const canAccessFinance = canReadFinance || canRegisterFinance || canWaiveFinance;
     const canManageTenants = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
     const canManageHandovers = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE);
     const canManageRepairs = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE);
@@ -265,11 +269,11 @@ export class HousingService {
         ? this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common })
         : Promise.resolve([]),
       this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }),
-      canReadFinance ? this.dataSource.getRepository(HousingReceivableEntity).find({
+      canAccessFinance ? this.dataSource.getRepository(HousingReceivableEntity).find({
         where: common,
         order: { dueDate: "ASC" }
       }) : Promise.resolve([]),
-      canReadFinance ? this.dataSource.getRepository(HousingLedgerEntryEntity).find({
+      canAccessFinance ? this.dataSource.getRepository(HousingLedgerEntryEntity).find({
         where: common,
         order: { occurredAt: "ASC" }
       }) : Promise.resolve([]),
@@ -412,7 +416,7 @@ export class HousingService {
         updateTime: repair.updateTime
       })),
       pending_repair_files: pendingRepairFiles,
-      finance_summary: canReadFinance ? this.financeSummary(receivables, ledger) : null
+      finance_summary: canAccessFinance ? this.financeSummary(receivables, ledger) : null
     };
   }
 
@@ -1195,10 +1199,36 @@ export class HousingService {
     const transferredCountByPurchase = new Map(
       transferredRows.map((row) => [row.purchaseId, Number(row.transferredItemCount)])
     );
+    const canReadPurchaseEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
+      && (
+        this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
+        || this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
+      );
+    const receiptFiles = items.length && canReadPurchaseEvidence
+      ? await this.dataSource.getRepository(FileEntity).find({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bizType: "housing_purchase",
+          bizId: In(items.map((item) => item.id)),
+          status: 1,
+          isDeleted: false
+        },
+        order: { createTime: "DESC" }
+      })
+      : [];
+    const receiptFilesByPurchase = new Map<string, FileEntity[]>();
+    for (const file of receiptFiles) {
+      if (!file.bizId) continue;
+      const current = receiptFilesByPurchase.get(file.bizId) ?? [];
+      current.push(file);
+      receiptFilesByPurchase.set(file.bizId, current);
+    }
     return {
       items: items.map((item) => ({
         ...item,
-        transferredItemCount: transferredCountByPurchase.get(item.id) ?? 0
+        transferredItemCount: transferredCountByPurchase.get(item.id) ?? 0,
+        receiptFiles: receiptFilesByPurchase.get(item.id) ?? []
       })),
       total,
       page: query.page,

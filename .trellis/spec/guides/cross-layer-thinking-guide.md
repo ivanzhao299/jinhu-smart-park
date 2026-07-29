@@ -137,6 +137,11 @@ action against every state and sibling entry point before implementation:
       same business payload
 - [ ] Permission-aware responses project only fields authorized by each granular
       read permission
+- [ ] Every projected attachment is exercised through metadata list, file detail,
+      and blob download policy for each allowed granular business role
+- [ ] Write-only roles receive the minimum read context required to reach their
+      authorized action, or the permission contract explicitly requires the missing
+      selector/context permission at both controller and UI boundaries
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
@@ -149,6 +154,8 @@ action against every state and sibling entry point before implementation:
       from all derived totals, KPIs, availability views, and projections
 - [ ] A dependent operational record remains an active constraint after its original
       parent or occupancy is later cancelled, released, or otherwise disappears
+- [ ] Mode and availability transitions validate live source aggregates independently
+      of denormalized/shared occupancy projections, including force-release drift
 - [ ] When one aggregate is persisted before creating its matching shared projection,
       the projection write excludes only that exact source from its own blocker query
 - [ ] Every backend recovery/list capability has a production UI consumer that restores
@@ -172,6 +179,9 @@ action against every state and sibling entry point before implementation:
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate
       lock (and backed by a database constraint where practical), never trusted from
       concurrent client flags alone
+- [ ] A pre-read uniqueness check is followed by database-conflict recovery: translate
+      or reload the committed winner on the known constraint, and rethrow unrelated
+      persistence failures
 - [ ] Attachment-backed actions define the consumption boundary: after submission,
       referenced evidence is excluded from the next draft while remaining visible in
       the completed record

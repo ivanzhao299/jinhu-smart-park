@@ -174,30 +174,41 @@ export class PartiesService {
 
   async addRole(scope: TenantParkScope, actor: JwtPrincipal, dto: AddPartyRoleDto) {
     await this.mustFind(scope, dto.party_id);
-    const existing = await this.rolesRepository.findOne({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        partyId: dto.party_id,
-        roleType: dto.role_type,
-        sourceType: dto.source_type ?? IsNull(),
-        sourceId: dto.source_id ?? IsNull(),
-        isDeleted: false
-      }
-    });
-    if (existing) return existing;
-    return this.rolesRepository.save(this.rolesRepository.create({
+    const roleType = dto.role_type.trim();
+    const sourceType = dto.source_type?.trim() ?? null;
+    const sourceId = dto.source_id?.trim() ?? null;
+    const where = {
       tenantId: scope.tenantId,
       parkId: scope.parkId,
       partyId: dto.party_id,
-      roleType: dto.role_type.trim(),
-      sourceType: dto.source_type?.trim() ?? null,
-      sourceId: dto.source_id?.trim() ?? null,
-      status: "active",
-      createBy: actor.sub,
-      updateBy: actor.sub,
-      remark: dto.remark?.trim() ?? null
-    }));
+      roleType,
+      sourceType: sourceType ?? IsNull(),
+      sourceId: sourceId ?? IsNull(),
+      isDeleted: false
+    };
+    const existing = await this.rolesRepository.findOne({
+      where
+    });
+    if (existing) return existing;
+    try {
+      return await this.rolesRepository.save(this.rolesRepository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        partyId: dto.party_id,
+        roleType,
+        sourceType,
+        sourceId,
+        status: "active",
+        createBy: actor.sub,
+        updateBy: actor.sub,
+        remark: dto.remark?.trim() ?? null
+      }));
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+      const concurrent = await this.rolesRepository.findOne({ where });
+      if (concurrent) return concurrent;
+      throw error;
+    }
   }
 
   async removeRole(scope: TenantParkScope, actor: JwtPrincipal, roleId: string) {

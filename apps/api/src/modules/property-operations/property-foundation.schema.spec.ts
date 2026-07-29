@@ -116,6 +116,34 @@ test("open turnover tasks remain shared availability and mode-transition blocker
   assert.match(checkout, /sourceId: task\.id/);
 });
 
+test("live source aggregates remain mode-transition blockers after occupancy release", () => {
+  const operations = readFileSync(resolve(__dirname, "property-operations.service.ts"), "utf8");
+  const snapshot = operations.slice(
+    operations.indexOf("private async buildTransitionSnapshot"),
+    operations.lastIndexOf("\n}")
+  );
+
+  assert.match(snapshot, /FROM biz_housing_lease lease/);
+  assert.match(snapshot, /lease\.status IN \('active', 'expiring', 'checkout_pending'\)/);
+  assert.match(snapshot, /counts\.housing_lease_count/);
+  assert.match(snapshot, /targetMode !== "long_rent"/);
+  assert.match(snapshot, /FROM biz_homestay_booking booking/);
+  assert.match(snapshot, /booking\.status IN \('confirmed', 'checked_in'\)/);
+  assert.match(snapshot, /counts\.homestay_booking_count/);
+  assert.match(snapshot, /targetMode !== "short_stay"/);
+});
+
+test("party role creation normalizes keys and recovers a concurrent winner", () => {
+  const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
+  const addRole = service.slice(service.indexOf("async addRole"), service.indexOf("async removeRole"));
+
+  assert.match(addRole, /const roleType = dto\.role_type\.trim\(\)/);
+  assert.match(addRole, /sourceType: sourceType \?\? IsNull\(\)/);
+  assert.match(addRole, /if \(!this\.isUniqueViolation\(error\)\) throw error/);
+  assert.match(addRole, /const concurrent = await this\.rolesRepository\.findOne\(\{ where \}\)/);
+  assert.match(addRole, /if \(concurrent\) return concurrent/);
+});
+
 test("party document-type changes cannot retain an identity from the old document type", () => {
   const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
   assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);

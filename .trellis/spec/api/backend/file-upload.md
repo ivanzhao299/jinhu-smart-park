@@ -31,6 +31,14 @@
   endpoint without a production UI consumer is incomplete.
 - Housing repair evidence uses `biz_type=housing_repair` with `biz_id=<lease UUID>`; do not reuse the generic `workorder_create` type for tenant repair photos.
 - Reading `housing_repair` requires housing lease-read or repair-manage permission plus unit data scope; writing requires repair-manage permission plus unit data scope.
+- Reading a registered housing signature requires either lease-read or lease-sign plus
+  generic file-read permission. Reading legacy, move-in, or move-out handover evidence
+  requires either lease-read or handover-manage plus generic file-read permission.
+  The business detail projection and the file detail/download policy must authorize
+  the same granular business-role alternatives.
+- Housing purchase list projections include active bound receipt metadata for actors
+  with purchase-read or purchase-manage plus file-read, so evidence remains recoverable
+  after the pending upload is associated with its purchase.
 - A `housing_purchase` reference whose `unit_id` is null is project-wide and requires `PropertyUnitAccessService.allowedUnitIds(...) === null`.
 - Generic deletion locks the file row and rejects protected evidence once its ID is
   referenced by the owning business aggregate. Removal must happen through a domain
@@ -65,7 +73,10 @@
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
 - Frontend: reload the housing operations page after upload and assert the uploader's
-  pending receipt remains visible and bindable.
+  pending receipt remains visible and bindable; after purchase creation, assert the
+  bound receipt remains visible on the purchase record.
+- Security test every protected evidence projection against the actual file detail and
+  download policy for each permitted granular role, not only against returned metadata.
 - Security test unitless project-level references with both restricted and unrestricted property scopes.
 - Security/integration test that referenced protected evidence is not generically
   deletable, while an uploaded but unreferenced file can still be removed.

@@ -55,6 +55,9 @@
 - Terminal attachment registration changes ownership: an unsigned pending lease may
   upload/select its signature, while a persisted signature is read-only evidence and
   the uploader is unmounted.
+- When a pending purchase receipt becomes bound, remove it from draft recovery but
+  render it from the authoritative purchase-list projection. Association must never
+  make successfully submitted evidence disappear from the operations page.
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
