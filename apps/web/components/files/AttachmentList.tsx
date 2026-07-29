@@ -4,7 +4,9 @@ import { Download, Eye, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatFileSize, SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
+import { hasPermission } from "../../lib/permissions";
 import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
@@ -19,6 +21,8 @@ interface AttachmentListProps {
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
 
 export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0 }: AttachmentListProps) {
+  const user = useAuthUser();
+  const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
   const [message, setMessage] = useState("");
@@ -108,7 +112,12 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
             <div className="attachment-compact-list">
               {data.items.map((item) => (
                 <article className="attachment-compact-item" key={item.id}>
-                  <CompactAttachmentThumb file={item} fetchFileBlob={fetchFileBlob} onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))} />
+                  <CompactAttachmentThumb
+                    file={item}
+                    canDownload={canDownload}
+                    fetchFileBlob={fetchFileBlob}
+                    onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))}
+                  />
                   <div className="attachment-compact-main">
                     <strong>{item.originalName}</strong>
                     <span>{item.mimeType} · {formatFileSize(Number(item.fileSize))}</span>
@@ -169,10 +178,12 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
 
 function CompactAttachmentThumb({
   file,
+  canDownload,
   fetchFileBlob,
   onPreview
 }: {
   file: FileRecord;
+  canDownload: boolean;
   fetchFileBlob: (file: FileRecord) => Promise<Blob>;
   onPreview: () => void;
 }) {
@@ -183,7 +194,7 @@ function CompactAttachmentThumb({
     let active = true;
     let objectUrl: string | null = null;
 
-    if (!isImage) {
+    if (!isImage || !canDownload) {
       setThumbnailUrl(null);
       return undefined;
     }
@@ -202,7 +213,7 @@ function CompactAttachmentThumb({
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [file.id, isImage]);
+  }, [canDownload, file.id, isImage]);
 
   const suffix = file.originalName.includes(".") ? file.originalName.split(".").pop()?.slice(0, 4).toUpperCase() : "FILE";
 
@@ -214,9 +225,11 @@ function CompactAttachmentThumb({
     );
   }
 
-  return (
+  return canDownload ? (
     <button className="attachment-thumb" aria-label={`预览 ${file.originalName}`} type="button" onClick={onPreview}>
       {suffix}
     </button>
+  ) : (
+    <span className="attachment-thumb" aria-hidden="true">{suffix}</span>
   );
 }

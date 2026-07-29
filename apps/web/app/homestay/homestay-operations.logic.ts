@@ -6,6 +6,13 @@ export interface HomestayRateCalendar {
     late_cancel_fee_type: "fixed" | "percentage";
     late_cancel_fee_value: string;
   };
+  days: Array<{
+    business_date: string;
+    base_rate: string;
+    override_rate: string | null;
+    final_rate: string;
+    price_source: "base" | "date_override";
+  }>;
 }
 
 export interface HomestayRateFormState {

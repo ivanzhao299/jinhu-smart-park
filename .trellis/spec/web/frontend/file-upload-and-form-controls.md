@@ -37,6 +37,9 @@
   action payload assembled only from the current session's callback IDs must not
   erase or hide previously uploaded evidence.
 - Compact attachment lists must show uploaded-file preview affordance; image files should display thumbnails and click-to-preview.
+- Compact attachment lists may load image blobs and expose preview affordances only
+  when the actor has `file:download`. With `file:read` alone, render metadata and a
+  non-interactive file marker without issuing `/files/:id/download`.
 - A business permission never implies a generic file permission. Mount `FileUploader`
   only when the actor has both the domain write permission and `file:upload`; mount
   API-backed attachment lists only when the actor has both the domain read permission
@@ -52,6 +55,8 @@
 - Unauthorized download/preview -> clear session and redirect to login.
 - Domain read without `file:read` -> preserve business details; do not mount the
   attachment list or issue a predictable unauthorized request.
+- `file:read` without `file:download` -> list metadata, but do not fetch thumbnails,
+  create object URLs, or offer preview/download actions.
 - Domain write without `file:upload` -> preserve non-file workflow actions; omit the
   uploader.
 - Backend rejection -> display API error message; do not silently succeed.

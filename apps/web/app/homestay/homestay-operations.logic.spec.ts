@@ -210,7 +210,8 @@ test("persisted homestay pricing replaces every editable rate field", () => {
         free_cancel_before_hours: 48,
         late_cancel_fee_type: "percentage",
         late_cancel_fee_value: "25.00"
-      }
+      },
+      days: []
     }),
     {
       unitId: "unit-b",
@@ -269,19 +270,39 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /setDetailError\(error instanceof Error/);
   assert.match(source, /loadedRateUnitIdRef\.current = ""[\s\S]*setLoadedRateUnitId\(""\)/);
   assert.match(source, /isHomestayRateReadyForUnit\(loadedRateUnitIdRef\.current, rateForm\.unitId, rateLoading\)/);
-  assert.match(source, /disabled=\{!canManageRates \|\| rateLoading\}/);
+  assert.match(source, /disabled=\{!canManageRates \|\| rateLoading \|\| rateSubmitting\}/);
+  assert.match(source, /rateSubmissionLock\.current/);
+  assert.match(source, /idempotencyKey: rateSubmissionKey\.current!/);
+  assert.match(source, /\/homestay\/rates\/\$\{rateForm\.unitId\}\/overrides/);
+  assert.match(source, /idempotencyKey: overrideSubmissionKey\.current!/);
+  assert.match(source, /bookingSubmissionLock\.current/);
+  assert.match(source, /idempotencyKey: bookingSubmissionKey\.current!/);
+  assert.match(source, /A lost response may still mean the booking committed[\s\S]*await refresh\(\)/);
+  assert.match(source, /selectedBookingIdRef\.current !== bookingId[\s\S]*resetBookingBoundDrafts\(\)/);
+  assert.match(source, /setFinanceForm\(defaultFinanceForm/);
+  assert.match(source, /response\.data\.guests/);
+  assert.match(source, /已登记住客 \{guests\.length\}\/\{selectedBooking\.guestCount\}/);
+  assert.match(source, /\/homestay\/bookings\/\$\{booking\.id\}\/reschedule/);
+  assert.match(source, /setBookingDetailRefreshVersion/);
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {
   const source = readFileSync(resolve(__dirname, "HomestayOperationsClient.tsx"), "utf8");
+  const attachmentSource = readFileSync(
+    resolve(__dirname, "../../components/files/AttachmentList.tsx"),
+    "utf8"
+  );
 
-  assert.match(source, /\/homestay\/unit-candidates\?page=/);
+  assert.match(source, /rateUnitsResponse/);
+  assert.match(source, /bookingUnitsResponse/);
+  assert.match(source, /rateUnitPage\.page/);
+  assert.match(source, /bookingUnitPage\.page/);
   assert.match(source, /\/homestay\/turnovers\?status=open&page=/);
   assert.match(source, /apiRequest<PaginatedResult<Turnover>>/);
   assert.match(source, /<AttachmentList[\s\S]*bizType="homestay_turnover"/);
-  assert.match(source, /if \(canReadRates\)[\s\S]*void loadRate\(rateForm\.unitId\)/);
+  assert.match(source, /if \(canReadRates\)[\s\S]*void loadRate\(rateForm\.unitId, rateOverrideForm\.businessDate\)/);
   assert.match(source, /\{canReadRates \? <form className="ds-panel" onSubmit=\{saveRate\}>/);
-  assert.match(source, /<form className="ds-panel" onSubmit=\{createBooking\}>[\s\S]*<PaginationControls meta=\{unitPage\}/);
+  assert.match(source, /<form className="ds-panel" onSubmit=\{createBooking\}>[\s\S]*<PaginationControls meta=\{bookingUnitPage\}/);
   assert.match(
     source,
     /canUploadTurnoverEvidence\s*=\s*canExecuteTurnovers\s*&&\s*hasPermission\(user,\s*SYSTEM_PERMISSIONS\.FILE_UPLOAD\)/
@@ -302,5 +323,10 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
   assert.match(source, /homestayAuthoritativeDraftsAfterRefresh\([\s\S]*turnoverConsumablesDirty\.current/);
   assert.match(source, /turnoverConsumablesDirty\.current\.add\(taskId\)/);
   assert.match(source, /turnoverConsumablesDirty\.current\.delete\(task\.id\)/);
+  assert.match(source, /photo_file_ids: \[\]/);
+  assert.match(source, /turnoverSubmittingTaskId === task\.id/);
   assert.match(source, />\s*添加耗材\s*<\/button>/);
+  assert.match(attachmentSource, /hasPermission\(user, SYSTEM_PERMISSIONS\.FILE_DOWNLOAD\)/);
+  assert.match(attachmentSource, /if \(!isImage \|\| !canDownload\)/);
+  assert.match(attachmentSource, /return canDownload \? \(/);
 });

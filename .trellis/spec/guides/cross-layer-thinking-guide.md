@@ -421,6 +421,17 @@ sibling before the next commit. Do not stop at the named line.
 - [ ] Apply a newly learned sibling contract retroactively to the entire current diff
       before requesting another review; documenting the gate without executing its
       matrix is not release completion.
+- [ ] Compare every backend MVP endpoint with actual Web callers. A tested API without
+      an authorized desktop/mobile workflow is not a delivered product capability.
+- [ ] Inventory target-bound drafts for each selected aggregate. When the target ID
+      changes, reset or key all mutation drafts—not only response projections.
+- [ ] Do not share pagination state between independent mutation forms merely because
+      they call the same candidate endpoint.
+- [ ] For attachment-backed actions, decide whether the payload is a client-owned
+      replacement or a backend-derived association. Never replay stale aggregate IDs
+      after an attachment list can mutate independently.
+- [ ] Separate metadata-read permission from blob-download permission; thumbnail
+      effects and preview buttons must follow the download capability.
 
 ---
 

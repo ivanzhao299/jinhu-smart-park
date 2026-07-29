@@ -214,6 +214,23 @@
   color: var(--text-secondary);
 }
 
+.overridePanel,
+.guestRoster {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.guestRoster span {
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
 .turnoverGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

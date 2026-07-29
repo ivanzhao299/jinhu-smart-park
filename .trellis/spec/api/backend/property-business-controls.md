@@ -306,6 +306,16 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Booking unit is inactive at create, confirm, reschedule, or check-in | HTTP 409 |
 | Booking occupancy was force released or no longer matches the booked dates | HTTP 409 on check-in |
 | Exact nightly total exceeds `numeric(18,2)` | HTTP 400 before booking persistence |
+| Pricing operator needs a holiday/special-date price | Web must call `POST /homestay/rates/:unitId/overrides` with business date, positive daily rate, reason, stable retry key, and an in-flight lock |
+| Draft or confirmed booking needs new stay dates | Web must expose `POST /homestay/bookings/:id/reschedule`; preserve occupancy swap, nightly repricing, difference ledger, reason, and audit semantics |
+| Booking selection changes | Reset every target-bound mutation draft: guest party, credential fields, finance form, cancellation/no-show dialog, and reschedule form |
+| Main refresh has a selected booking | Reload list snapshot and `GET /homestay/bookings/:id`; refresh guests, credentials, and ledger under the same selected-ID sequence owner |
+| Rate and booking forms paginate unit candidates | Keep independent page state and candidate arrays; changing one form's page must never retarget the other form |
+| Rate or booking create submission is slow, double-clicked, or ambiguously fails | Lock synchronously, disable its mutable form, and reuse one key for the unchanged payload until success |
+| Booking has multiple declared guests | Render the detail response `guests` roster and verified count; reload after guest registration |
+| Turnover attachment was deleted or detached after the task list loaded | Send `photo_file_ids: []` so the backend derives the current active task association; never echo stale task JSON |
+| Turnover action is in flight | Disable that task's work-order, exception, consumable, and transition controls until the submitted snapshot succeeds or fails |
+| File reader lacks `file:download` | Keep attachment metadata visible, but do not fetch thumbnails and do not render clickable preview affordances |
 
 ## 5. Good / Base / Bad Cases
 
@@ -328,6 +338,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   as proof that form values belong to whichever unit is currently selected.
 - Bad: retaining every initialized draft forever; this converts refresh into a stale
   overwrite risk in multi-operator workflows.
+- Bad: sharing one paginated candidate list between two mutation forms, echoing
+  attachment IDs from a stale aggregate snapshot, or leaving target-bound drafts
+  mounted after their booking ID changes.
 
 ## 6. Tests Required
 
@@ -418,6 +431,14 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   status matrices cover confirmed, checked-in, checked-out, deleted, and inactive rows.
 - Frontend: double-click lease creation issues one request and ambiguous retry reuses
   the same idempotency key; terminal booking refresh clears its action panel.
+- Frontend/browser: date override and booking reschedule are reachable on desktop and
+  390px; both send validated reasons and retain one retry key for an unchanged payload.
+- Frontend: rate and booking candidate pagination are independent; a page change in one
+  form cannot alter the other form's selected unit or remaining draft fields.
+- Frontend: changing booking selection clears guest, credential, finance, termination,
+  and reschedule drafts; explicit refresh reloads guest roster, credentials, and ledger.
+- Frontend: read-without-download attachment fixtures issue no `/download` requests;
+  turnover actions send an empty photo list and disable task drafts while submitting.
 
 ## 7. Wrong vs Correct
 
@@ -445,4 +466,9 @@ if (succeeded && selectedBookingIdRef.current === originatingBookingId) {
 
 const ready = loadedRateUnitId === selectedUnitId && !rateLoading;
 const nextDraft = dirtyTaskIds.has(task.id) ? localDraft : serverDraft;
+
+const bookingCreateKey = retryKeyForUnchangedPayload(payload);
+const rateUnits = await loadCandidates(rateUnitPage);
+const bookingUnits = await loadCandidates(bookingUnitPage);
+await executeTurnover(task.id, { photo_file_ids: [] }); // backend derives active files
 ```
