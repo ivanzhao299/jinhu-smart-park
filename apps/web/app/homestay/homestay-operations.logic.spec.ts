@@ -6,15 +6,17 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayAuthoritativeDraftsAfterRefresh,
   homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
+  homestaySelectedRecordAfterRefresh,
   homestayTurnoverConsumablesPayload,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
+  isHomestayRateReadyForUnit,
   isHomestayBookingOperational,
-  normalizeHomestayRequiredReason,
-  shouldRetainHomestayBookingDetail
+  normalizeHomestayRequiredReason
 } from "./homestay-operations.logic";
 
 test("homestay unit pagination keeps only a selection visible on the loaded page", () => {
@@ -31,15 +33,22 @@ test("operational pages clamp deleted-tail pages and gate no-show by business da
   assert.equal(canMarkHomestayNoShow("2026-07-28", "2026-07-28"), true);
 });
 
-test("terminal bookings retain readable detail while losing stay operations", () => {
+test("terminal bookings retain readable detail independently of the visible page", () => {
   assert.equal(isHomestayBookingOperational("draft"), true);
   assert.equal(isHomestayBookingOperational("confirmed"), true);
   assert.equal(isHomestayBookingOperational("checked_in"), true);
   assert.equal(isHomestayBookingOperational("checked_out"), false);
   assert.equal(isHomestayBookingOperational("cancelled"), false);
   assert.equal(isHomestayBookingOperational("no_show"), false);
-  assert.equal(shouldRetainHomestayBookingDetail("booking-1", ["booking-1"]), true);
-  assert.equal(shouldRetainHomestayBookingDetail("booking-1", ["booking-2"]), false);
+  const selected = { id: "booking-1", status: "confirmed" };
+  assert.deepEqual(
+    homestaySelectedRecordAfterRefresh(selected, [{ id: "booking-1", status: "cancelled" }]),
+    { id: "booking-1", status: "cancelled" }
+  );
+  assert.equal(
+    homestaySelectedRecordAfterRefresh(selected, [{ id: "booking-2", status: "draft" }]),
+    selected
+  );
 
   assert.deepEqual(
     homestayBookingDetailCapabilities("checked_out", {
@@ -132,6 +141,36 @@ test("destructive reasons and turnover consumables preserve real field data", ()
   );
 });
 
+test("explicit refresh replaces clean drafts but preserves in-progress operator edits", () => {
+  const current = {
+    "task-clean": [{ name: "旧耗材", quantity: "1", unit: "瓶" }],
+    "task-dirty": [{ name: "现场正在填写", quantity: "2", unit: "包" }]
+  };
+  const authoritative = {
+    "task-clean": [{ name: "另一操作员更新", quantity: "3", unit: "瓶" }],
+    "task-dirty": [{ name: "服务端旧值", quantity: "1", unit: "包" }]
+  };
+
+  assert.deepEqual(
+    homestayAuthoritativeDraftsAfterRefresh(
+      current,
+      authoritative,
+      new Set(["task-dirty"])
+    ),
+    {
+      "task-clean": [{ name: "另一操作员更新", quantity: "3", unit: "瓶" }],
+      "task-dirty": [{ name: "现场正在填写", quantity: "2", unit: "包" }]
+    }
+  );
+});
+
+test("rate readiness is bound to the exact unit whose values were loaded", () => {
+  assert.equal(isHomestayRateReadyForUnit("unit-a", "unit-a", false), true);
+  assert.equal(isHomestayRateReadyForUnit("unit-a", "unit-b", false), false);
+  assert.equal(isHomestayRateReadyForUnit("unit-a", "unit-a", true), false);
+  assert.equal(isHomestayRateReadyForUnit("", "unit-a", false), false);
+});
+
 test("turnover labels come from their own response instead of candidate paging", () => {
   assert.equal(
     homestayTurnoverUnitLabel({
@@ -210,7 +249,8 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /credentialReturnLock\.current/);
   assert.match(source, /idempotencyKey: credentialReturnKey\.current!/);
   assert.match(source, /canMarkHomestayNoShow\(booking\.arrivalDate, today\(\)\)/);
-  assert.match(source, /shouldRetainHomestayBookingDetail/);
+  assert.match(source, /homestaySelectedRecordAfterRefresh/);
+  assert.doesNotMatch(source, /visibleBookingIds\.includes/);
   assert.doesNotMatch(source, /!isHomestayBookingOperational\(selectedBooking\.status\)/);
   assert.match(source, />查看详情<\/button>/);
   assert.match(source, /bookingDetailCapabilities\?\.showStayOperations/);
@@ -219,9 +259,17 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /readBooking: canReadBookings/);
   assert.match(source, /role="alertdialog"/);
   assert.match(source, /required[\s\S]*maxLength=\{500\}[\s\S]*bookingTerminationReason/);
+  assert.match(source, /pendingBookingTermination\.booking\.bookingCode/);
+  assert.match(source, /homestayBookingUnitLabel\(pendingBookingTermination\.booking\)/);
+  assert.match(source, /pendingBookingTermination\.booking\.arrivalDate/);
   assert.doesNotMatch(source, /reason: "运营人员人工确认"/);
   assert.match(source, /if \(selectedBookingIdRef\.current === booking\.id\)[\s\S]*await loadBookingDetail\(booking\.id\)/);
   assert.match(source, /setRefreshError\(errors\.length \? `部分数据加载失败/);
+  assert.match(source, /setDetailError\(""\)[\s\S]*apiRequest<BookingDetail>/);
+  assert.match(source, /setDetailError\(error instanceof Error/);
+  assert.match(source, /loadedRateUnitIdRef\.current = ""[\s\S]*setLoadedRateUnitId\(""\)/);
+  assert.match(source, /isHomestayRateReadyForUnit\(loadedRateUnitIdRef\.current, rateForm\.unitId, rateLoading\)/);
+  assert.match(source, /disabled=\{!canManageRates \|\| rateLoading\}/);
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {
@@ -251,5 +299,8 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
   assert.doesNotMatch(source, /现场发现异常，等待维修处理/);
   assert.match(source, /homestayTurnoverConsumablesPayload\(turnoverConsumables\[task\.id\]/);
   assert.match(source, /consumables: \["complete", "exception"\]\.includes\(action\)/);
+  assert.match(source, /homestayAuthoritativeDraftsAfterRefresh\([\s\S]*turnoverConsumablesDirty\.current/);
+  assert.match(source, /turnoverConsumablesDirty\.current\.add\(taskId\)/);
+  assert.match(source, /turnoverConsumablesDirty\.current\.delete\(task\.id\)/);
   assert.match(source, />\s*添加耗材\s*<\/button>/);
 });

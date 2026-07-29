@@ -44,11 +44,32 @@ export function isHomestayBookingOperational(status: string): boolean {
   return ["draft", "confirmed", "checked_in"].includes(status);
 }
 
-export function shouldRetainHomestayBookingDetail(
-  selectedBookingId: string,
-  visibleBookingIds: string[]
+export function homestaySelectedRecordAfterRefresh<T extends { id: string }>(
+  selected: T | null,
+  visibleRecords: T[]
+): T | null {
+  if (!selected) return null;
+  return visibleRecords.find((record) => record.id === selected.id) ?? selected;
+}
+
+export function homestayAuthoritativeDraftsAfterRefresh<T>(
+  current: Record<string, T>,
+  authoritative: Record<string, T>,
+  dirtyIds: ReadonlySet<string>
+): Record<string, T> {
+  const next = { ...current };
+  for (const [id, value] of Object.entries(authoritative)) {
+    if (!dirtyIds.has(id)) next[id] = value;
+  }
+  return next;
+}
+
+export function isHomestayRateReadyForUnit(
+  loadedUnitId: string,
+  selectedUnitId: string,
+  loading: boolean
 ): boolean {
-  return Boolean(selectedBookingId && visibleBookingIds.includes(selectedBookingId));
+  return Boolean(selectedUnitId && loadedUnitId === selectedUnitId && !loading);
 }
 
 export function homestayBookingDetailCapabilities(

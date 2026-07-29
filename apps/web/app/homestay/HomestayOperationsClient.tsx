@@ -18,14 +18,16 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayAuthoritativeDraftsAfterRefresh,
   homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
+  homestaySelectedRecordAfterRefresh,
   homestayTurnoverConsumablesPayload,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
+  isHomestayRateReadyForUnit,
   normalizeHomestayRequiredReason,
-  shouldRetainHomestayBookingDetail,
   type HomestayConsumableDraft,
   type HomestayRateCalendar
 } from "./homestay-operations.logic";
@@ -69,6 +71,7 @@ interface Turnover {
   photoFileIds: string[];
   consumables: Array<{ name: string; quantity: number; unit?: string }>;
   exceptionDescription: string | null;
+  linkedWorkOrderId: string | null;
 }
 
 interface StayCredential {
@@ -79,6 +82,7 @@ interface StayCredential {
 }
 
 interface BookingDetail {
+  booking: Omit<Booking, "unitCode" | "unitName">;
   credentials: StayCredential[];
   ledger_summary: {
     charges: string;
@@ -188,16 +192,18 @@ export function HomestayOperationsClient() {
   const [ledgerSummary, setLedgerSummary] = useState<BookingDetail["ledger_summary"] | null>(null);
   const [message, setMessage] = useState("");
   const [refreshError, setRefreshError] = useState("");
+  const [detailError, setDetailError] = useState("");
   const [loading, setLoading] = useState(false);
   const [financeSubmitting, setFinanceSubmitting] = useState(false);
   const [rateLoading, setRateLoading] = useState(false);
-  const [rateReady, setRateReady] = useState(false);
+  const [loadedRateUnitId, setLoadedRateUnitId] = useState("");
   const [credentialSubmitting, setCredentialSubmitting] = useState(false);
   const [credentialReturningId, setCredentialReturningId] = useState("");
   const [unitPage, setUnitPage] = useState(emptyUnitPageMeta);
   const [bookingPage, setBookingPage] = useState(emptyPageMeta);
   const [turnoverPage, setTurnoverPage] = useState(emptyTurnoverPageMeta);
   const [selectedBookingId, setSelectedBookingId] = useState("");
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [guestPartyId, setGuestPartyId] = useState("");
   const [credentialType, setCredentialType] = useState<StayCredential["credentialType"]>("card");
   const [credentialLabel, setCredentialLabel] = useState("前台门卡");
@@ -216,7 +222,7 @@ export function HomestayOperationsClient() {
     Record<string, HomestayConsumableDraft[]>
   >({});
   const [pendingBookingTermination, setPendingBookingTermination] = useState<{
-    bookingId: string;
+    booking: Booking;
     action: BookingTerminationAction;
   } | null>(null);
   const [bookingTerminationReason, setBookingTerminationReason] = useState("");
@@ -229,8 +235,13 @@ export function HomestayOperationsClient() {
   const refreshSequence = useRef(0);
   const rateLoadSequence = useRef(0);
   const selectedRateUnitIdRef = useRef("");
+  const loadedRateUnitIdRef = useRef("");
   const bookingDetailSequence = useRef(0);
   const selectedBookingIdRef = useRef("");
+  const selectedBookingRef = useRef<Booking | null>(null);
+  const turnoverConsumablesDirty = useRef(new Set<string>());
+  const turnoverExceptionsDirty = useRef(new Set<string>());
+  const turnoverWorkOrdersDirty = useRef(new Set<string>());
   const financeSubmissionLock = useRef(false);
   const financeSubmissionKey = useRef<string | null>(null);
   const financeSubmissionSignature = useRef("");
@@ -251,10 +262,6 @@ export function HomestayOperationsClient() {
     () => new Map(units.map((unit) => [unit.id, `${unit.unitCode} · ${unit.unitName}`])),
     [units]
   );
-  const selectedBooking = useMemo(
-    () => bookings.find((booking) => booking.id === selectedBookingId) ?? null,
-    [bookings, selectedBookingId]
-  );
   const bookingDetailCapabilities = selectedBooking
     ? homestayBookingDetailCapabilities(selectedBooking.status, {
       readBooking: canReadBookings,
@@ -264,14 +271,22 @@ export function HomestayOperationsClient() {
       waiveFinance: canWaiveFinance
     })
     : null;
+  const rateReady = isHomestayRateReadyForUnit(
+    loadedRateUnitId,
+    rateForm.unitId,
+    rateLoading
+  );
 
   const clearBookingContext = useCallback(() => {
     bookingDetailSequence.current += 1;
     selectedBookingIdRef.current = "";
+    selectedBookingRef.current = null;
     setSelectedBookingId("");
+    setSelectedBooking(null);
     setGuestPartyId("");
     setCredentials([]);
     setLedgerSummary(null);
+    setDetailError("");
   }, []);
 
   const refresh = useCallback(async () => {
@@ -341,12 +356,12 @@ export function HomestayOperationsClient() {
           pageSize: bookingsResponse.data.page_size,
           total: bookingsResponse.data.total
         });
-        if (!shouldRetainHomestayBookingDetail(
-          selectedBookingIdRef.current,
-          bookingsResponse.data.items.map((booking) => booking.id)
-        )) {
-          clearBookingContext();
-        }
+        const refreshedSelection = homestaySelectedRecordAfterRefresh(
+          selectedBookingRef.current,
+          bookingsResponse.data.items
+        );
+        selectedBookingRef.current = refreshedSelection;
+        setSelectedBooking(refreshedSelection);
       }
       if (!turnoversResponse) {
         setTurnovers([]);
@@ -358,26 +373,37 @@ export function HomestayOperationsClient() {
           turnoversResponse.data.total
         );
         setTurnovers(clampedPage === turnoversResponse.data.page ? turnoversResponse.data.items : []);
-        setTurnoverExceptions((current) => {
-          const next = { ...current };
-          for (const task of turnoversResponse.data.items) {
-            if (!(task.id in next)) next[task.id] = task.exceptionDescription ?? "";
-          }
-          return next;
-        });
-        setTurnoverConsumables((current) => {
-          const next = { ...current };
-          for (const task of turnoversResponse.data.items) {
-            if (!(task.id in next)) {
-              next[task.id] = (task.consumables ?? []).map((item) => ({
-                name: item.name,
-                quantity: String(item.quantity),
-                unit: item.unit ?? ""
-              }));
-            }
-          }
-          return next;
-        });
+        const authoritativeExceptions = Object.fromEntries(
+          turnoversResponse.data.items.map((task) => [task.id, task.exceptionDescription ?? ""])
+        );
+        const authoritativeConsumables = Object.fromEntries(
+          turnoversResponse.data.items.map((task) => [
+            task.id,
+            (task.consumables ?? []).map((item) => ({
+              name: item.name,
+              quantity: String(item.quantity),
+              unit: item.unit ?? ""
+            }))
+          ])
+        );
+        const authoritativeWorkOrders = Object.fromEntries(
+          turnoversResponse.data.items.map((task) => [task.id, task.linkedWorkOrderId ?? ""])
+        );
+        setTurnoverExceptions((current) => homestayAuthoritativeDraftsAfterRefresh(
+          current,
+          authoritativeExceptions,
+          turnoverExceptionsDirty.current
+        ));
+        setTurnoverConsumables((current) => homestayAuthoritativeDraftsAfterRefresh(
+          current,
+          authoritativeConsumables,
+          turnoverConsumablesDirty.current
+        ));
+        setTurnoverWorkOrders((current) => homestayAuthoritativeDraftsAfterRefresh(
+          current,
+          authoritativeWorkOrders,
+          turnoverWorkOrdersDirty.current
+        ));
         setTurnoverPage({
           page: clampedPage,
           pageSize: turnoversResponse.data.page_size,
@@ -404,7 +430,8 @@ export function HomestayOperationsClient() {
     const sequence = rateLoadSequence.current + 1;
     rateLoadSequence.current = sequence;
     selectedRateUnitIdRef.current = unitId;
-    setRateReady(false);
+    loadedRateUnitIdRef.current = "";
+    setLoadedRateUnitId("");
     if (!canReadRates || !unitId) {
       setRateForm(defaultHomestayRateForm());
       setRateLoading(false);
@@ -418,12 +445,14 @@ export function HomestayOperationsClient() {
       );
       if (rateLoadSequence.current !== sequence || selectedRateUnitIdRef.current !== unitId) return;
       setRateForm(homestayRateFormFromCalendar(unitId, response.data));
-      setRateReady(true);
+      loadedRateUnitIdRef.current = unitId;
+      setLoadedRateUnitId(unitId);
     } catch (error) {
       if (rateLoadSequence.current !== sequence || selectedRateUnitIdRef.current !== unitId) return;
       if (error instanceof ApiError && error.status === 404) {
         setRateForm(defaultHomestayRateForm(unitId));
-        setRateReady(true);
+        loadedRateUnitIdRef.current = unitId;
+        setLoadedRateUnitId(unitId);
       } else {
         setMessage(error instanceof Error ? error.message : "加载房源价格规则失败");
       }
@@ -432,13 +461,18 @@ export function HomestayOperationsClient() {
     }
   }, [canReadRates]);
 
-  const loadBookingDetail = useCallback(async (bookingId: string) => {
+  const loadBookingDetail = useCallback(async (bookingId: string, bookingSnapshot?: Booking) => {
     const sequence = bookingDetailSequence.current + 1;
     bookingDetailSequence.current = sequence;
     selectedBookingIdRef.current = bookingId;
+    if (bookingSnapshot) {
+      selectedBookingRef.current = bookingSnapshot;
+      setSelectedBooking(bookingSnapshot);
+    }
     setSelectedBookingId(bookingId);
     setCredentials([]);
     setLedgerSummary(null);
+    setDetailError("");
     try {
       const response = await apiRequest<BookingDetail>(`/homestay/bookings/${bookingId}`, {
         token: getAccessToken()
@@ -447,14 +481,24 @@ export function HomestayOperationsClient() {
         bookingDetailSequence.current !== sequence
         || selectedBookingIdRef.current !== bookingId
       ) return;
+      const currentBooking = selectedBookingRef.current;
+      const refreshedBooking: Booking = {
+        ...(currentBooking ?? bookingSnapshot ?? response.data.booking),
+        ...response.data.booking,
+        unitCode: currentBooking?.unitCode ?? bookingSnapshot?.unitCode ?? null,
+        unitName: currentBooking?.unitName ?? bookingSnapshot?.unitName ?? null
+      };
+      selectedBookingRef.current = refreshedBooking;
+      setSelectedBooking(refreshedBooking);
       setCredentials(response.data.credentials);
       setLedgerSummary(response.data.ledger_summary);
+      setDetailError("");
     } catch (error) {
       if (
         bookingDetailSequence.current !== sequence
         || selectedBookingIdRef.current !== bookingId
       ) return;
-      setMessage(error instanceof Error ? error.message : "加载民宿订单详情失败");
+      setDetailError(error instanceof Error ? error.message : "加载民宿订单详情失败");
     }
   }, []);
 
@@ -480,13 +524,27 @@ export function HomestayOperationsClient() {
     } else {
       rateLoadSequence.current += 1;
       setRateLoading(false);
-      setRateReady(false);
+      selectedRateUnitIdRef.current = "";
+      loadedRateUnitIdRef.current = "";
+      setLoadedRateUnitId("");
     }
   }, [canReadRates, loadRate, rateForm.unitId]);
 
+  function changeRateUnit(unitId: string) {
+    rateLoadSequence.current += 1;
+    selectedRateUnitIdRef.current = unitId;
+    loadedRateUnitIdRef.current = "";
+    setLoadedRateUnitId("");
+    setRateLoading(Boolean(unitId));
+    setRateForm(defaultHomestayRateForm(unitId));
+  }
+
   async function saveRate(event: FormEvent) {
     event.preventDefault();
-    if (!rateForm.unitId || !rateReady || rateLoading) return;
+    if (
+      !canManageRates
+      || !isHomestayRateReadyForUnit(loadedRateUnitIdRef.current, rateForm.unitId, rateLoading)
+    ) return;
     await runAction("基础日价已保存", () =>
       apiRequest(`/homestay/rates/${rateForm.unitId}`, {
         method: "PUT",
@@ -565,7 +623,7 @@ export function HomestayOperationsClient() {
   }
 
   function openBookingTermination(booking: Booking, action: BookingTerminationAction) {
-    setPendingBookingTermination({ bookingId: booking.id, action });
+    setPendingBookingTermination({ booking, action });
     setBookingTerminationReason("");
     setMessage("");
   }
@@ -573,15 +631,8 @@ export function HomestayOperationsClient() {
   async function confirmBookingTermination(event: FormEvent) {
     event.preventDefault();
     if (!pendingBookingTermination) return;
-    const booking = bookings.find((item) => item.id === pendingBookingTermination.bookingId);
-    if (!booking) {
-      setPendingBookingTermination(null);
-      setBookingTerminationReason("");
-      setMessage("订单已离开当前列表，请刷新后重试");
-      return;
-    }
     const succeeded = await bookingAction(
-      booking,
+      pendingBookingTermination.booking,
       pendingBookingTermination.action,
       bookingTerminationReason
     );
@@ -724,6 +775,27 @@ export function HomestayOperationsClient() {
     }
   }
 
+  function updateTurnoverWorkOrder(taskId: string, value: string) {
+    turnoverWorkOrdersDirty.current.add(taskId);
+    setTurnoverWorkOrders((current) => ({ ...current, [taskId]: value }));
+  }
+
+  function updateTurnoverException(taskId: string, value: string) {
+    turnoverExceptionsDirty.current.add(taskId);
+    setTurnoverExceptions((current) => ({ ...current, [taskId]: value }));
+  }
+
+  function updateTurnoverConsumables(
+    taskId: string,
+    update: (drafts: HomestayConsumableDraft[]) => HomestayConsumableDraft[]
+  ) {
+    turnoverConsumablesDirty.current.add(taskId);
+    setTurnoverConsumables((current) => ({
+      ...current,
+      [taskId]: update(current[taskId] ?? [])
+    }));
+  }
+
   async function turnoverAction(task: Turnover, action: "start" | "complete" | "inspect" | "exception") {
     if (turnoverActionLock.current) return;
     const exceptionDescription = action === "exception"
@@ -759,7 +831,14 @@ export function HomestayOperationsClient() {
           token: getAccessToken(),
           idempotencyKey: turnoverActionKey.current!,
           body
-        })
+        }),
+        () => {
+          turnoverWorkOrdersDirty.current.delete(task.id);
+          if (["complete", "exception"].includes(action)) {
+            turnoverExceptionsDirty.current.delete(task.id);
+            turnoverConsumablesDirty.current.delete(task.id);
+          }
+        }
       );
       if (succeeded) {
         turnoverActionKey.current = null;
@@ -770,11 +849,16 @@ export function HomestayOperationsClient() {
     }
   }
 
-  async function runAction(messageText: string, action: () => Promise<unknown>): Promise<boolean> {
+  async function runAction(
+    messageText: string,
+    action: () => Promise<unknown>,
+    beforeRefresh?: () => void
+  ): Promise<boolean> {
     setLoading(true);
     setMessage("");
     try {
       await action();
+      beforeRefresh?.();
       setMessage(messageText);
       await refresh();
       return true;
@@ -808,6 +892,7 @@ export function HomestayOperationsClient() {
 
       {message ? <div className={styles.message}>{message}</div> : null}
       {refreshError ? <div className={styles.errorMessage} role="alert">{refreshError}</div> : null}
+      {detailError ? <div className={styles.errorMessage} role="alert">{detailError}</div> : null}
 
       {canReadDashboard ? <section className="ds-kpi-grid">
         {([
@@ -846,17 +931,17 @@ export function HomestayOperationsClient() {
       <section className={styles.commandGrid}>
         {canReadRates ? <form className="ds-panel" onSubmit={saveRate}>
           <h2>房源日价与取消规则</h2>
-          <label>整套房源<select value={rateForm.unitId} onChange={(event) => setRateForm({ ...rateForm, unitId: event.target.value })}>
+          <label>整套房源<select value={rateForm.unitId} onChange={(event) => changeRateUnit(event.target.value)}>
             <option value="">选择房源</option>
             {units.map((unit) => <option value={unit.id} key={unit.id}>{unitName.get(unit.id)}</option>)}
           </select></label>
           <div className={styles.formGrid}>
-            <label>基础日价<input type="number" min="0" step="0.01" value={rateForm.baseDailyRate} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, baseDailyRate: event.target.value })} /></label>
-            <label>免费取消（小时前）<input type="number" min="0" max="8760" step="1" value={rateForm.freeCancelHours} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, freeCancelHours: event.target.value })} /></label>
-            <label>超时取消费<select value={rateForm.feeType} onChange={(event) => setRateForm({ ...rateForm, feeType: event.target.value as "fixed" | "percentage" })}><option value="fixed">固定金额</option><option value="percentage">房费比例</option></select></label>
-            <label>费用值<input type="number" min="0" max={rateForm.feeType === "percentage" ? "100" : undefined} step="0.01" value={rateForm.feeValue} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, feeValue: event.target.value })} /></label>
+            <label>基础日价<input disabled={!canManageRates || rateLoading} type="number" min="0" step="0.01" value={rateForm.baseDailyRate} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, baseDailyRate: event.target.value })} /></label>
+            <label>免费取消（小时前）<input disabled={!canManageRates || rateLoading} type="number" min="0" max="8760" step="1" value={rateForm.freeCancelHours} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, freeCancelHours: event.target.value })} /></label>
+            <label>超时取消费<select disabled={!canManageRates || rateLoading} value={rateForm.feeType} onChange={(event) => setRateForm({ ...rateForm, feeType: event.target.value as "fixed" | "percentage" })}><option value="fixed">固定金额</option><option value="percentage">房费比例</option></select></label>
+            <label>费用值<input disabled={!canManageRates || rateLoading} type="number" min="0" max={rateForm.feeType === "percentage" ? "100" : undefined} step="0.01" value={rateForm.feeValue} onFocus={(event) => event.target.select()} onChange={(event) => setRateForm({ ...rateForm, feeValue: event.target.value })} /></label>
           </div>
-          <label className={styles.checkbox}><input type="checkbox" checked={rateForm.requiresInspection} onChange={(event) => setRateForm({ ...rateForm, requiresInspection: event.target.checked })} />保洁后需复检才恢复可售</label>
+          <label className={styles.checkbox}><input disabled={!canManageRates || rateLoading} type="checkbox" checked={rateForm.requiresInspection} onChange={(event) => setRateForm({ ...rateForm, requiresInspection: event.target.checked })} />保洁后需复检才恢复可售</label>
           <div><small>价格与预订共用房源候选</small><PaginationControls meta={unitPage} disabled={loading || rateLoading} onPageChange={(page) => setUnitPage((current) => ({ ...current, page }))} /></div>
           <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE} className="button button-primary" type="submit" disabled={!rateReady || rateLoading}>{rateLoading ? "正在加载价格…" : "保存价格规则"}</PermissionButton>
         </form> : null}
@@ -899,7 +984,7 @@ export function HomestayOperationsClient() {
                 <td>{booking.arrivalDate} → {booking.departureDate}</td><td>¥{booking.totalAmount}</td>
                 <td><span className={styles.status}>{booking.status}</span></td>
                 <td className={styles.actions}>
-                  <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
+                  <button type="button" onClick={() => void loadBookingDetail(booking.id, booking)}>查看详情</button>
                   {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
                   {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => openBookingTermination(booking, "no-show")}>未到店</PermissionButton> : null}
                   {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
@@ -914,7 +999,7 @@ export function HomestayOperationsClient() {
             <strong>{booking.bookingCode}</strong><span>{homestayBookingUnitLabel(booking)}</span>
             <span>{booking.arrivalDate} → {booking.departureDate}</span><span>{booking.status} · ¥{booking.totalAmount}</span>
             <div className={styles.actions}>
-              <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
+              <button type="button" onClick={() => void loadBookingDetail(booking.id, booking)}>查看详情</button>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
               {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => openBookingTermination(booking, "no-show")}>未到店</PermissionButton> : null}
               {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
@@ -954,6 +1039,18 @@ export function HomestayOperationsClient() {
             确认{pendingBookingTermination.action === "cancel" ? "取消订单" : "登记未到店"}
           </h2>
           <p>该操作会终止订单、释放房源，并可能生成取消相关财务流水。请填写真实业务原因。</p>
+          <dl className={styles.confirmIdentity}>
+            <div><dt>订单</dt><dd>{pendingBookingTermination.booking.bookingCode}</dd></div>
+            <div><dt>房源</dt><dd>{homestayBookingUnitLabel(pendingBookingTermination.booking)}</dd></div>
+            <div>
+              <dt>住期</dt>
+              <dd>
+                {pendingBookingTermination.booking.arrivalDate}
+                {" → "}
+                {pendingBookingTermination.booking.departureDate}
+              </dd>
+            </div>
+          </dl>
         </div>
         <label>业务原因
           <textarea
@@ -1088,10 +1185,7 @@ export function HomestayOperationsClient() {
               <input
                 value={turnoverWorkOrders[task.id] ?? ""}
                 placeholder="UUID"
-                onChange={(event) => setTurnoverWorkOrders((current) => ({
-                  ...current,
-                  [task.id]: event.target.value
-                }))}
+                onChange={(event) => updateTurnoverWorkOrder(task.id, event.target.value)}
               />
             </label> : null}
             {canExecuteTurnovers && task.status !== "completed" ? <label>现场异常说明
@@ -1099,10 +1193,7 @@ export function HomestayOperationsClient() {
                 maxLength={1000}
                 value={turnoverExceptions[task.id] ?? ""}
                 placeholder="上报异常前必填：描述损坏、污染位置、影响范围和建议处理方式"
-                onChange={(event) => setTurnoverExceptions((current) => ({
-                  ...current,
-                  [task.id]: event.target.value
-                }))}
+                onChange={(event) => updateTurnoverException(task.id, event.target.value)}
               />
             </label> : null}
             {canExecuteTurnovers && ["cleaning", "exception"].includes(task.status) ? <div className={styles.consumables}>
@@ -1110,13 +1201,10 @@ export function HomestayOperationsClient() {
                 <strong>保洁耗材</strong>
                 <button
                   type="button"
-                  onClick={() => setTurnoverConsumables((current) => ({
-                    ...current,
-                    [task.id]: [
-                      ...(current[task.id] ?? []),
-                      { name: "", quantity: "1", unit: "" }
-                    ]
-                  }))}
+                  onClick={() => updateTurnoverConsumables(task.id, (drafts) => [
+                    ...drafts,
+                    { name: "", quantity: "1", unit: "" }
+                  ])}
                 >
                   添加耗材
                 </button>
@@ -1127,12 +1215,12 @@ export function HomestayOperationsClient() {
                     required
                     maxLength={100}
                     value={item.name}
-                    onChange={(event) => setTurnoverConsumables((current) => ({
-                      ...current,
-                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                    onChange={(event) => updateTurnoverConsumables(
+                      task.id,
+                      (drafts) => drafts.map((draft, draftIndex) =>
                         draftIndex === index ? { ...draft, name: event.target.value } : draft
                       )
-                    }))}
+                    )}
                   /></label>
                   <label>数量<input
                     required
@@ -1141,29 +1229,29 @@ export function HomestayOperationsClient() {
                     step="0.001"
                     value={item.quantity}
                     onFocus={(event) => event.target.select()}
-                    onChange={(event) => setTurnoverConsumables((current) => ({
-                      ...current,
-                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                    onChange={(event) => updateTurnoverConsumables(
+                      task.id,
+                      (drafts) => drafts.map((draft, draftIndex) =>
                         draftIndex === index ? { ...draft, quantity: event.target.value } : draft
                       )
-                    }))}
+                    )}
                   /></label>
                   <label>单位<input
                     maxLength={20}
                     value={item.unit}
-                    onChange={(event) => setTurnoverConsumables((current) => ({
-                      ...current,
-                      [task.id]: (current[task.id] ?? []).map((draft, draftIndex) =>
+                    onChange={(event) => updateTurnoverConsumables(
+                      task.id,
+                      (drafts) => drafts.map((draft, draftIndex) =>
                         draftIndex === index ? { ...draft, unit: event.target.value } : draft
                       )
-                    }))}
+                    )}
                   /></label>
                   <button
                     type="button"
-                    onClick={() => setTurnoverConsumables((current) => ({
-                      ...current,
-                      [task.id]: (current[task.id] ?? []).filter((_, draftIndex) => draftIndex !== index)
-                    }))}
+                    onClick={() => updateTurnoverConsumables(
+                      task.id,
+                      (drafts) => drafts.filter((_, draftIndex) => draftIndex !== index)
+                    )}
                   >
                     移除
                   </button>

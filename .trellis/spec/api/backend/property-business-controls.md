@@ -190,13 +190,29 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   terminal history so the first operations page cannot be consumed by old records.
 - Booking mutations that may change ledger entries refresh both the list and the
   selected booking detail before the operator continues.
+- Selected booking detail owns an independent booking snapshot. A list refresh may
+  replace that snapshot when the booking remains visible, but must not clear it merely
+  because a terminal transition reorders the booking off the current page. Explicit
+  operator pagination clears the selection; a post-action detail reload may retain it.
 - Refresh failures have dedicated state. A later all-successful refresh clears the
   failure without erasing an unrelated action-success message.
+- Booking-detail failures have dedicated state separate from action and refresh
+  feedback. Starting or completing a later successful detail selection clears the
+  stale detail error.
 - Cancellation and no-show require a visible confirmation step and a trimmed
-  operator-entered reason of at most 500 characters before the request is sent.
+  operator-entered reason of at most 500 characters before the request is sent. The
+  confirmation identifies the immutable target snapshot by booking code, unit label,
+  arrival date, and departure date.
 - Turnover exception actions require the operator's task-specific description of at
   most 1000 characters. Cleaning/exception completion sends the visible consumables
   list with name, positive quantity of at most three decimals, and optional unit.
+- Turnover exception, consumable, and linked-work-order drafts track task-specific
+  dirty state. Refresh replaces clean fields from the authoritative response, retains
+  active local edits, and clears dirty state only after the matching write succeeds.
+- Homestay rate readiness is the exact loaded unit ID, not a page-wide boolean.
+  Changing the selector synchronously invalidates the loaded target and disables
+  submission until the new unit response arrives. Rate-read-only actors may change
+  the selector but every mutable pricing control remains disabled.
 - Booking creation, confirmation, rescheduling, and check-in require the current unit
   row to remain active and enabled for short stay. Check-in additionally requires the
   booking's exact occupancy ID/source/unit/date tuple to remain `active`; a force-released
@@ -267,9 +283,16 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | More than one page of historical bookings exists | First page ranks current operational statuses before terminal history |
 | Successful refresh follows a partial-load failure | Clear the stale refresh failure; preserve unrelated action feedback |
 | Selected booking is confirmed or cancelled | Reload list and selected detail; never retain the previous ledger summary |
+| Terminal transition reorders selected booking off page 1 | Preserve its independent detail target and reload the terminal detail |
+| One booking detail fails, then another succeeds | Clear the old detail error and show the new detail without a failure banner |
 | Operator clicks cancel or no-show | Show confirmation; require the actual reason before sending |
+| Confirmation list contains similar bookings | Show booking code, unit, and stay dates for the exact target snapshot |
 | Turnover exception description is blank | Do not send; backend returns HTTP 400 if bypassed |
 | Turnover consumable has blank name, non-positive/over-precision quantity, or overlong unit | Do not send; backend DTO rejects bypassed invalid input |
+| Another operator updates a clean turnover draft | Explicit refresh replaces the local clean values with the server response |
+| Current operator has unsaved turnover edits | Refresh retains only those dirty task fields until submit succeeds |
+| Rate reader lacks rate-manage | Keep selector/read projection; disable price, policy, and inspection controls |
+| Operator switches rate unit before a passive effect runs | Invalidate the loaded unit synchronously; block stale-target submission |
 | Confirmed booking arrival date is still in the future | HTTP 409 on `no-show`; do not release occupancy |
 | Credential return is retried under another request key | Return the existing record without changing `returned_at` |
 | Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
@@ -301,6 +324,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   cannot be called by that permission combination.
 - Bad: persisting one generic sentence for every cancellation, no-show, or turnover
   exception instead of collecting the operator's actual reason.
+- Bad: using list-page membership as the ownership of selected detail, or one boolean
+  as proof that form values belong to whichever unit is currently selected.
+- Bad: retaining every initialized draft forever; this converts refresh into a stale
+  overwrite risk in multi-operator workflows.
 
 ## 6. Tests Required
 
@@ -326,6 +353,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   capability even when action permissions are present.
 - Frontend/browser: cancellation/no-show confirmation requires a real reason; turnover
   exception and consumable controls remain touch-friendly at 390px.
+- Frontend: terminal reordering cannot clear selected detail; clean turnover drafts
+  accept authoritative refresh while dirty task fields remain local; successful detail
+  selection clears a previous detail error.
+- Frontend/browser: destructive confirmation shows booking code, unit, and dates;
+  rate-read-only controls are disabled; switching units blocks save until that exact
+  unit's pricing has loaded.
 - API/E2E: with more than one page of history, a new operational booking is on page 1;
   exception description and consumables round-trip through turnover completion.
 - Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
@@ -409,4 +442,7 @@ const succeeded = await submit(originatingBookingId);
 if (succeeded && selectedBookingIdRef.current === originatingBookingId) {
   await prepareBooking(originatingBookingId);
 }
+
+const ready = loadedRateUnitId === selectedUnitId && !rateLoading;
+const nextDraft = dirtyTaskIds.has(task.id) ? localDraft : serverDraft;
 ```

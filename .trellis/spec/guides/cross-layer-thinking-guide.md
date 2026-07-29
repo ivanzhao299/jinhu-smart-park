@@ -210,6 +210,16 @@ action against every state and sibling entry point before implementation:
       including ledger summaries, credentials, action history, and status-derived UI
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
+- [ ] Selected detail has an identity independent from current list-page membership;
+      automatic reordering preserves it while explicit pagination clears it
+- [ ] Editable server-backed drafts track field/task dirty ownership so refresh replaces
+      clean values without overwriting active local edits
+- [ ] Form readiness is bound to the exact entity/version whose data was loaded, not a
+      generic boolean that survives a selector change
+- [ ] Destructive confirmations repeat the immutable target identity (code, unit, dates)
+      instead of relying on the operator to remember which list-row button was clicked
+- [ ] Load-error state is scoped to its dataset and cleared by the next successful load
+      of that dataset
 - [ ] SQL optional-exclusion predicates have explicit null cases and are tested both
       with and without exclusions
 
