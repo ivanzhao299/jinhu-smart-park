@@ -44,6 +44,15 @@ export function isHomestayBookingOperational(status: string): boolean {
   return ["draft", "confirmed", "checked_in"].includes(status);
 }
 
+export function homestayBookingUnitLabel(booking: {
+  unitId: string;
+  unitCode: string | null;
+  unitName: string | null;
+}): string {
+  const display = [booking.unitCode, booking.unitName].filter(Boolean).join(" · ");
+  return display || booking.unitId;
+}
+
 export function homestayTurnoverUnitLabel(turnover: {
   unitId: string;
   unitCode: string | null;

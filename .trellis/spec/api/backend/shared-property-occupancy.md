@@ -37,6 +37,8 @@ Database owners:
 - `housing_rental` and `commercial_leasing` require or are treated as `long_rent`.
 - `maintenance` and `operations` may lock a unit in any mode.
 - New commercial-leasing, housing-rental, and homestay occupancies require `operating_status = enabled`; `suspended` and `disabled` units reject new business occupancy.
+- Business occupancy creation, activation, and period replacement also require the
+  underlying `biz_unit.status = 1` in the same transaction.
 - Activating a `held` occupancy is a new concurrency-sensitive write: lock the unit scope and re-read the current operation configuration inside the same transaction before changing status to `active`.
 - Replacing an occupancy period is also a concurrency-sensitive write: after locking the unit scope, release expired holds, re-read current mode/status, and only then check conflicts and save.
 - Occupancy source type and source ID must remain non-empty after boundary trimming.
@@ -47,6 +49,8 @@ Database owners:
   `commercial_leasing`, `housing_rental`, and `homestay` occupancies are created only
   through their owning aggregate workflows, which may call the internal transactional
   service after persisting and locking the source record.
+- Public generic occupancy activation follows the same ownership boundary: business-owned
+  holds can be activated only by their owning aggregate workflow.
 - Production requires stable `PARTY_DATA_ENCRYPTION_KEY` with at least 32 characters.
 
 ## 4. Validation & Error Matrix
@@ -68,6 +72,8 @@ Database owners:
 | Unit, party, or occupancy belongs to another tenant/park | HTTP 404/403 without cross-scope data |
 | Sensitive party field requested without `party:sensitive_read` | Return masked projection only |
 | Generic occupancy route claims `commercial_leasing`, `housing_rental`, or `homestay` | HTTP 403 before any occupancy transaction |
+| Generic activation targets a business-owned hold | HTTP 403 before activation |
+| Business occupancy targets an inactive `biz_unit` during create, activate, or period replacement | HTTP 409 |
 
 ## 5. Good / Base / Bad Cases
 
@@ -97,6 +103,8 @@ Database owners:
 - Security: plaintext identity is absent from persistence and audit logs; authorized detail decrypts, normal detail masks.
 - API/E2E: the generic create route rejects every business-owned source domain while
   legitimate aggregate workflows still create their scoped occupancy.
+- Unit/integration: business create, activation, and period replacement each observe an
+  inactive unit; the public generic activation route cannot advance a business-owned hold.
 
 ## 7. Wrong vs Correct
 

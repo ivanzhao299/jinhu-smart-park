@@ -75,6 +75,7 @@ test("occupancy period replacement rechecks enabled operation and releases expir
   );
   assert.match(replacePeriod, /releaseExpiredHolds\(manager, scope, actor, entity\.unitId\)/);
   assert.match(replacePeriod, /config\?\.operatingStatus !== "enabled"/);
+  assert.match(replacePeriod, /unit\.status !== 1/);
 });
 
 test("initial occupancy conflict checks do not null-filter commercial leases", () => {
@@ -126,4 +127,24 @@ test("generic occupancy creation rejects aggregates owned by business workflows"
   assert.match(create, /"commercial_leasing", "housing_rental", "homestay"/);
   assert.match(create, /throw new ForbiddenException\("Business-owned occupancies/);
   assert.ok(create.indexOf("ForbiddenException") < create.indexOf("createInTransaction"));
+});
+
+test("business occupancy lifecycle requires an active unit and owning-domain activation", () => {
+  const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  const createInTransaction = service.slice(
+    service.indexOf("async createInTransaction"),
+    service.indexOf("async releaseInTransaction")
+  );
+  const activateInTransaction = service.slice(
+    service.indexOf("async activateInTransaction"),
+    service.indexOf("async replacePeriodInTransaction")
+  );
+  const activate = service.slice(
+    service.indexOf("async activate("),
+    service.indexOf("async release(", service.indexOf("async activate("))
+  );
+
+  assert.match(createInTransaction, /unit\.status !== 1/);
+  assert.match(activateInTransaction, /unit\.status !== 1/);
+  assert.match(activate, /Business-owned occupancies must be activated by their owning domain workflow/);
 });

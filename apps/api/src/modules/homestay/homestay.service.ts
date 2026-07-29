@@ -48,6 +48,7 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
+  assertHomestayMoneyFitsNumeric,
   assertHomestayNoShowWindow,
   formatHomestayMoney,
   formatMoneyCents,
@@ -66,6 +67,11 @@ const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
 
 type HomestayTurnoverListItem = HomestayTurnoverTaskEntity & {
+  unitCode: string | null;
+  unitName: string | null;
+};
+
+type HomestayBookingListItem = HomestayBookingEntity & {
   unitCode: string | null;
   unitName: string | null;
 };
@@ -258,7 +264,7 @@ export class HomestayService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HomestayBookingQueryDto
-  ): Promise<PaginatedResult<HomestayBookingEntity>> {
+  ): Promise<PaginatedResult<HomestayBookingListItem>> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size };
@@ -272,11 +278,29 @@ export class HomestayService {
     if (query.unit_id) builder.andWhere("booking.unit_id = :unitId", { unitId: query.unit_id });
     if (query.date_from) builder.andWhere("booking.departure_date > :dateFrom", { dateFrom: query.date_from.slice(0, 10) });
     if (query.date_to) builder.andWhere("booking.arrival_date < :dateTo", { dateTo: query.date_to.slice(0, 10) });
-    const [items, total] = await builder.orderBy("booking.arrival_date", "ASC")
+    const [bookings, total] = await builder.orderBy("booking.arrival_date", "ASC")
       .addOrderBy("booking.create_time", "DESC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
+    const unitRows = bookings.length
+      ? await this.dataSource.query(
+        `SELECT unit.id,
+                unit.unit_code AS "unitCode",
+                unit.unit_name AS "unitName"
+         FROM biz_unit unit
+         WHERE unit.tenant_id = $1
+           AND unit.park_id = $2
+           AND unit.id = ANY($3::uuid[])`,
+        [scope.tenantId, scope.parkId, [...new Set(bookings.map((booking) => booking.unitId))]]
+      ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>
+      : [];
+    const unitDisplay = new Map(unitRows.map((row) => [row.id, row]));
+    const items = bookings.map((booking) => ({
+      ...booking,
+      unitCode: unitDisplay.get(booking.unitId)?.unitCode ?? null,
+      unitName: unitDisplay.get(booking.unitId)?.unitName ?? null
+    }));
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
@@ -693,6 +717,8 @@ export class HomestayService {
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "checked_in") return booking;
       this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can check in");
+      await this.assertUnitBookable(manager, scope, booking.unitId);
+      await this.assertActiveBookingOccupancy(manager, scope, booking);
       const now = new Date();
       assertHomestayCheckInWindow(
         now,
@@ -1196,12 +1222,16 @@ export class HomestayService {
         priceSource: overrideRate ? "date_override" as const : "base" as const
       };
     });
+    const totalCents = assertHomestayMoneyFitsNumeric(
+      nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0n),
+      "Homestay room total"
+    );
     return {
       arrivalDate,
       departureDate,
       config,
       nights,
-       total: formatMoneyCents(nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0n))
+      total: formatMoneyCents(totalCents)
     };
   }
 
@@ -1350,6 +1380,7 @@ export class HomestayService {
       lock: { mode: "pessimistic_write" }
     });
     if (!unit) throw new NotFoundException("Unit not found");
+    if (unit.status !== 1) throw new ConflictException("Unit must be active before booking");
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
     });
@@ -1364,6 +1395,37 @@ export class HomestayService {
       .andWhere("task.is_deleted = false")
       .getCount();
     if (openTurnovers > 0) throw new ConflictException("Unit turnover must be completed before booking");
+  }
+
+  private async assertActiveBookingOccupancy(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    booking: HomestayBookingEntity
+  ): Promise<void> {
+    if (!booking.occupancyId) throw new ConflictException("Booking occupancy is missing");
+    const occupancy = await manager.getRepository(PropertyOccupancyEntity).findOne({
+      where: {
+        id: booking.occupancyId,
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        unitId: booking.unitId,
+        sourceDomain: "homestay",
+        sourceType: "homestay_booking",
+        sourceId: booking.id,
+        status: "active",
+        isDeleted: false
+      },
+      lock: { mode: "pessimistic_write" }
+    });
+    const expectedStart = this.businessDateStart(booking.arrivalDate).getTime();
+    const expectedEnd = this.businessDateStart(booking.departureDate).getTime();
+    if (
+      !occupancy
+      || occupancy.startAt.getTime() !== expectedStart
+      || occupancy.endAt.getTime() !== expectedEnd
+    ) {
+      throw new ConflictException("Booking must retain its matching active occupancy before check-in");
+    }
   }
 
   private assertStatus(booking: HomestayBookingEntity, allowed: string[], message: string): void {

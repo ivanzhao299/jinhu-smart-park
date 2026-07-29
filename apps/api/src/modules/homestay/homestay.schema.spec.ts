@@ -87,6 +87,27 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   assert.match(service, /lease_unit\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(service, /assertBusinessDate\(startValue, "arrival_date"\)/);
   assert.doesNotMatch(service, /businessDateStart\(startValue\.slice\(0, 10\)\)/);
+
+  const checkIn = service.slice(
+    service.indexOf("async checkIn"),
+    service.indexOf("async checkOut")
+  );
+  assert.match(checkIn, /assertUnitBookable\(manager, scope, booking\.unitId\)/);
+  assert.match(checkIn, /assertActiveBookingOccupancy\(manager, scope, booking\)/);
+
+  const occupancy = service.slice(
+    service.indexOf("private async assertActiveBookingOccupancy"),
+    service.indexOf("private assertStatus", service.indexOf("private async assertActiveBookingOccupancy"))
+  );
+  assert.match(occupancy, /sourceDomain: "homestay"/);
+  assert.match(occupancy, /sourceType: "homestay_booking"/);
+  assert.match(occupancy, /sourceId: booking\.id/);
+  assert.match(occupancy, /status: "active"/);
+  assert.match(occupancy, /occupancy\.startAt\.getTime\(\) !== expectedStart/);
+  assert.match(occupancy, /occupancy\.endAt\.getTime\(\) !== expectedEnd/);
+
+  const bookable = service.slice(service.indexOf("private async assertUnitBookable"));
+  assert.match(bookable, /unit\.status !== 1/);
 });
 
 test("guest registration locks the booking inside its write transaction", () => {
@@ -180,4 +201,22 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   assert.match(turnovers, /id = ANY\(\$3::uuid\[\]\)/);
   assert.match(turnovers, /unitCode: unitDisplay\.get\(task\.unitId\)\?\.unitCode/);
   assert.match(turnovers, /page_size: query\.page_size/);
+});
+
+test("booking pricing and list projections fit their persistence and display contracts", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const list = service.slice(
+    service.indexOf("async listBookings"),
+    service.indexOf("async getBooking")
+  );
+  assert.match(list, /unit_code AS "unitCode",\s+unit\.unit_name AS "unitName"/);
+  assert.match(list, /id = ANY\(\$3::uuid\[\]\)/);
+  assert.match(list, /unitCode: unitDisplay\.get\(booking\.unitId\)\?\.unitCode/);
+  assert.match(list, /unitName: unitDisplay\.get\(booking\.unitId\)\?\.unitName/);
+
+  const pricing = service.slice(
+    service.indexOf("private async calculatePricing"),
+    service.indexOf("private async assertActiveBookingOccupancy")
+  );
+  assert.match(pricing, /assertHomestayMoneyFitsNumeric/);
 });

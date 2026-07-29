@@ -18,6 +18,7 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
@@ -49,6 +50,8 @@ interface Booking {
   roomAmount: string;
   totalAmount: string;
   sourceType: string;
+  unitCode: string | null;
+  unitName: string | null;
 }
 
 interface Turnover {
@@ -727,7 +730,7 @@ export function HomestayOperationsClient() {
             <thead><tr><th>订单</th><th>房源</th><th>住期</th><th>金额</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>{bookings.map((booking) => (
               <tr key={booking.id}>
-                <td>{booking.bookingCode}</td><td>{unitName.get(booking.unitId) ?? booking.unitId}</td>
+                <td>{booking.bookingCode}</td><td>{homestayBookingUnitLabel(booking)}</td>
                 <td>{booking.arrivalDate} → {booking.departureDate}</td><td>¥{booking.totalAmount}</td>
                 <td><span className={styles.status}>{booking.status}</span></td>
                 <td className={styles.actions}>
@@ -743,7 +746,7 @@ export function HomestayOperationsClient() {
         </div>
         <div className="ds-mobile-record-list">
           {bookings.map((booking) => <article className="ds-mobile-record" key={booking.id}>
-            <strong>{booking.bookingCode}</strong><span>{unitName.get(booking.unitId) ?? booking.unitId}</span>
+            <strong>{booking.bookingCode}</strong><span>{homestayBookingUnitLabel(booking)}</span>
             <span>{booking.arrivalDate} → {booking.departureDate}</span><span>{booking.status} · ¥{booking.totalAmount}</span>
             <div className={styles.actions}>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}

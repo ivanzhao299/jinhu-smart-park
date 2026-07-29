@@ -185,6 +185,82 @@ async function run() {
     body: { verification_status: "verified", remark: "Homestay API E2E identity verification" }
   });
 
+  await request(`/park-units/${unit.id}`, {
+    method: "PUT",
+    token,
+    idempotent: true,
+    body: { status: 0 }
+  });
+  let inactiveUnitBooking;
+  try {
+    inactiveUnitBooking = await tryRequest("/homestay/bookings", {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: {
+        booking_code: `HS-INACTIVE-${runId}`.slice(0, 64),
+        unit_id: unit.id,
+        booker_party_id: guest.id,
+        arrival_date: today,
+        departure_date: tomorrow,
+        source_type: "direct",
+        guest_count: 1
+      }
+    });
+  } finally {
+    await request(`/park-units/${unit.id}`, {
+      method: "PUT",
+      token,
+      idempotent: true,
+      body: { status: 1 }
+    });
+  }
+  assert(inactiveUnitBooking.status === 409, "inactive unit cannot create a homestay booking");
+
+  await request(`/homestay/rates/${unit.id}`, {
+    method: "PUT",
+    token,
+    idempotent: true,
+    body: {
+      base_daily_rate: "9999999999999999.99",
+      free_cancel_before_hours: 24,
+      late_cancel_fee_type: "fixed",
+      late_cancel_fee_value: "0.00",
+      checkout_requires_inspection: false
+    }
+  });
+  let overflowingBooking;
+  try {
+    overflowingBooking = await tryRequest("/homestay/bookings", {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: {
+        booking_code: `HS-OVERFLOW-${runId}`.slice(0, 64),
+        unit_id: unit.id,
+        booker_party_id: guest.id,
+        arrival_date: today,
+        departure_date: dayAfterTomorrow,
+        source_type: "direct",
+        guest_count: 1
+      }
+    });
+  } finally {
+    await request(`/homestay/rates/${unit.id}`, {
+      method: "PUT",
+      token,
+      idempotent: true,
+      body: {
+        base_daily_rate: rate.base_daily_rate,
+        free_cancel_before_hours: rate.cancellation_policy.free_cancel_before_hours,
+        late_cancel_fee_type: rate.cancellation_policy.late_cancel_fee_type,
+        late_cancel_fee_value: rate.cancellation_policy.late_cancel_fee_value,
+        checkout_requires_inspection: rate.checkout_requires_inspection
+      }
+    });
+  }
+  assert(overflowingBooking.status === 400, "nightly sum exceeding numeric(18,2) is rejected before persistence");
+
   const futureBooking = await request("/homestay/bookings", {
     method: "POST",
     token,
@@ -219,6 +295,53 @@ async function run() {
     body: { reason: "clean up future no-show boundary E2E" }
   });
 
+  const releasedOccupancyBooking = await request("/homestay/bookings", {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      booking_code: `HS-RELEASED-${runId}`.slice(0, 64),
+      unit_id: unit.id,
+      booker_party_id: guest.id,
+      arrival_date: today,
+      departure_date: tomorrow,
+      source_type: "direct",
+      guest_count: 1,
+      remark: "Forced occupancy release E2E"
+    }
+  });
+  await request(`/homestay/bookings/${releasedOccupancyBooking.id}/confirm`, {
+    method: "POST",
+    token,
+    idempotent: true
+  });
+  await request(`/homestay/bookings/${releasedOccupancyBooking.id}/guests`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { party_id: guest.id, is_primary: true, verification_status: "verified" }
+  });
+  await request(`/property/occupancies/${releasedOccupancyBooking.occupancyId}/release`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "Homestay forced release regression", force: true }
+  });
+  const releasedOccupancyCheckIn = await tryRequest(
+    `/homestay/bookings/${releasedOccupancyBooking.id}/check-in`,
+    { method: "POST", token, idempotent: true }
+  );
+  assert(
+    releasedOccupancyCheckIn.status === 409,
+    "booking cannot check in after its occupancy was force released"
+  );
+  await request(`/homestay/bookings/${releasedOccupancyBooking.id}/cancel`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "clean up forced occupancy release E2E" }
+  });
+
   const booking = await request("/homestay/bookings", {
     method: "POST",
     token,
@@ -234,6 +357,10 @@ async function run() {
       remark: "Homestay real API E2E"
     }
   });
+  const bookings = await request("/homestay/bookings?page=1&page_size=100", { token });
+  const listedBooking = bookings.items.find((item) => item.id === booking.id);
+  assert(listedBooking?.unitCode === unit.unitCode, "booking list returns its own unit code");
+  assert(listedBooking?.unitName === unit.unitName, "booking list returns its own unit name");
   await request(`/homestay/bookings/${booking.id}/confirm`, {
     method: "POST",
     token,

@@ -6,6 +6,7 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
+  assertHomestayMoneyFitsNumeric,
   assertHomestayNoShowWindow,
   homestayMoneyDifference,
   turnoverLockEnd
@@ -17,6 +18,19 @@ test("reschedule differences are compared in integer cents", () => {
   assert.equal(
     homestayMoneyDifference("9999999999999999.99", "9999999999999999.98"),
     "0.01"
+  );
+});
+
+test("persisted homestay amounts stay inside the numeric(18,2) boundary", () => {
+  assert.equal(
+    assertHomestayMoneyFitsNumeric(999_999_999_999_999_999n, "room_total"),
+    999_999_999_999_999_999n
+  );
+  assert.throws(() =>
+    assertHomestayMoneyFitsNumeric(1_000_000_000_000_000_000n, "room_total")
+  );
+  assert.throws(() =>
+    assertHomestayMoneyFitsNumeric(-1_000_000_000_000_000_000n, "price_difference")
   );
 });
 

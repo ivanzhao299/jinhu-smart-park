@@ -388,6 +388,9 @@ sibling before the next commit. Do not stop at the named line.
       deleted, inactive, and historical records.
 - [ ] Record which unit, integration, real API E2E, and desktop/390px checks cover
       each row. A passing happy-path suite is not proof of sibling parity.
+- [ ] Apply a newly learned sibling contract retroactively to the entire current diff
+      before requesting another review; documenting the gate without executing its
+      matrix is not release completion.
 
 ---
 

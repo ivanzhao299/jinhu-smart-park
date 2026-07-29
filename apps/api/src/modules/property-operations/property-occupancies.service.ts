@@ -107,6 +107,12 @@ export class PropertyOccupanciesService {
       lock: { mode: "pessimistic_write" }
     });
     if (!unit) throw new NotFoundException("Unit not found");
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)
+      && unit.status !== 1
+    ) {
+      throw new ConflictException("Business occupancy requires an active unit");
+    }
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
     await this.releaseExpiredHolds(manager, scope, actor, dto.unit_id);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
@@ -198,6 +204,12 @@ export class PropertyOccupanciesService {
       lock: { mode: "pessimistic_write" }
     });
     if (!unit) throw new NotFoundException("Unit not found");
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      && unit.status !== 1
+    ) {
+      throw new ConflictException("Business occupancy requires an active unit");
+    }
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
       scope.tenantId,
       scope.parkId,
@@ -239,6 +251,17 @@ export class PropertyOccupanciesService {
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Property occupancy not found");
+    const unit = await manager.getRepository(UnitEntity).findOne({
+      where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" }
+    });
+    if (!unit) throw new NotFoundException("Unit not found");
+    if (
+      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      && unit.status !== 1
+    ) {
+      throw new ConflictException("Business occupancy requires an active unit");
+    }
     await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
     await this.releaseExpiredHolds(manager, scope, actor, entity.unitId);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
@@ -302,6 +325,9 @@ export class PropertyOccupanciesService {
   async activate(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const entity = await this.mustFindOccupancy(scope, id);
     await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
+    if (["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)) {
+      throw new ForbiddenException("Business-owned occupancies must be activated by their owning domain workflow");
+    }
     return this.dataSource.transaction((manager) =>
       this.activateInTransaction(manager, scope, actor, id)
     );

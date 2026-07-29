@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
 
 const BUSINESS_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_HOMESTAY_MONEY_CENTS = 999_999_999_999_999_999n;
 
 export function toMoneyCents(value: string | number): bigint {
   const match = value.toString().match(/^(-?)(\d+)(?:\.(\d{1,2}))?$/);
@@ -20,8 +21,20 @@ export function formatHomestayMoney(value: string | number): string {
   return formatMoneyCents(toMoneyCents(value));
 }
 
+export function assertHomestayMoneyFitsNumeric(value: bigint, fieldName: string): bigint {
+  if (value > MAX_HOMESTAY_MONEY_CENTS || value < -MAX_HOMESTAY_MONEY_CENTS) {
+    throw new BadRequestException(`${fieldName} exceeds numeric(18,2)`);
+  }
+  return value;
+}
+
 export function homestayMoneyDifference(currentValue: string | number, previousValue: string | number): string {
-  return formatMoneyCents(toMoneyCents(currentValue) - toMoneyCents(previousValue));
+  return formatMoneyCents(
+    assertHomestayMoneyFitsNumeric(
+      toMoneyCents(currentValue) - toMoneyCents(previousValue),
+      "Homestay money difference"
+    )
+  );
 }
 
 export function assertHomestayCheckInWindow(

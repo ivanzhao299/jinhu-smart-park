@@ -6,6 +6,7 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
@@ -50,6 +51,21 @@ test("turnover labels come from their own response instead of candidate paging",
   );
 });
 
+test("booking labels come from their own response instead of candidate paging", () => {
+  assert.equal(
+    homestayBookingUnitLabel({
+      unitId: "unit-1",
+      unitCode: "A-101",
+      unitName: "人才公寓 101"
+    }),
+    "A-101 · 人才公寓 101"
+  );
+  assert.equal(
+    homestayBookingUnitLabel({ unitId: "unit-legacy", unitCode: null, unitName: null }),
+    "unit-legacy"
+  );
+});
+
 test("persisted homestay pricing replaces every editable rate field", () => {
   assert.deepEqual(
     homestayRateFormFromCalendar("unit-b", {
@@ -89,7 +105,8 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /max="8760"/);
   assert.match(source, /rateForm\.feeType === "percentage" \? "100" : undefined/);
   assert.match(source, /min=\{bookingForm\.arrivalDate \? addBusinessDateDays\(bookingForm\.arrivalDate, 1\) : undefined\}/);
-  assert.match(source, /unitName\.get\(booking\.unitId\) \?\? booking\.unitId/);
+  assert.match(source, /homestayBookingUnitLabel\(booking\)/);
+  assert.doesNotMatch(source, /unitName\.get\(booking\.unitId\)/);
   assert.match(source, /function changeBookingPage[\s\S]*clearBookingContext\(\)/);
   assert.match(source, /credentialSubmissionLock\.current/);
   assert.match(source, /idempotencyKey: credentialSubmissionKey\.current!/);

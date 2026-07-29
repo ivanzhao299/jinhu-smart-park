@@ -61,6 +61,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Homestay cancellation reverses only room-related waivers and never subtracts unrelated manual waivers from room revenue.
 - Homestay dashboard occupancy is calculated for the requested business date, not from the current booking status alone.
 - Homestay booking lists use server pagination; clients must not silently truncate the operational dataset to a fixed first page.
+- Every homestay booking list item carries its own nullable `unitCode` and `unitName`;
+  booking labels must not depend on the separately paginated active-unit candidate list.
 - Booking-detail and post-action refreshes retain the originating booking ID and discard late responses after the operator changes selection.
 - Purchase amount calculation uses decimal strings or scaled integers across the full `numeric(18,2)` range; JavaScript `number` is not an acceptable persisted total.
 - The first generated rent receivable uses `first_due_date`; later periods derive their due date from the configured billing day.
@@ -98,6 +100,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Homestay rates, room totals, ledger amounts, summaries, refund limits, waivers, and
   cancellation adjustments remain decimal strings or scaled integer cents across HTTP,
   service calculations, persistence, and frontend submissions.
+- Every aggregate homestay amount is checked against the target `numeric(18,2)` range
+  after exact scaled-integer calculation and before any booking or nightly snapshot is saved.
 - A housing purchase with transferred lines cannot be refunded or voided until an
   explicit audited reversal workflow clears those transfers.
 - A protected file already referenced by a lease signature, completed handover,
@@ -170,6 +174,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   bookings check out. Rentable capacity counts only active, non-deleted unit rows.
 - A refreshed homestay booking action panel remains open only for operational states
   (`draft`, `confirmed`, `checked_in`); terminal states clear the entire action context.
+- Booking creation, confirmation, rescheduling, and check-in require the current unit
+  row to remain active and enabled for short stay. Check-in additionally requires the
+  booking's exact occupancy ID/source/unit/date tuple to remain `active`; a force-released
+  or replaced occupancy cannot authorize entry.
 
 ## 4. Validation & Error Matrix
 
@@ -239,6 +247,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Handover manager lacks `file:upload` | Keep the handover form; omit the upload control |
 | Lease reader lacks handover management | Omit mutable handover fields and upload controls |
 | Turnover unit is outside the candidate page or suspended | Return and display its list-item unit label |
+| Booking unit is outside the candidate page or later suspended | Return and display its list-item unit label |
+| Booking unit is inactive at create, confirm, reschedule, or check-in | HTTP 409 |
+| Booking occupancy was force released or no longer matches the booked dates | HTTP 409 on check-in |
+| Exact nightly total exceeds `numeric(18,2)` | HTTP 400 before booking persistence |
 
 ## 5. Good / Base / Bad Cases
 
@@ -316,6 +328,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   neither-permission combinations for every file-backed form or evidence list.
 - API/E2E: a turnover item returns its own `unitCode` and `unitName` even when that
   unit is outside the current candidate selector page.
+- API/E2E: a booking item returns its own `unitCode` and `unitName`; inactive units reject
+  booking writes, force-released occupancies reject check-in, and aggregate price overflow
+  is rejected before persistence.
 - API/E2E: a lease page returns its own unit and tenant labels independently of
   candidate pages; generic occupancy creation cannot forge housing/homestay ownership.
 - Frontend: permission fixtures cover every mutation form, not only its submit button;
