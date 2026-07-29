@@ -6,11 +6,13 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
-  isHomestayBookingOperational
+  isHomestayBookingOperational,
+  shouldRetainHomestayBookingDetail
 } from "./homestay-operations.logic";
 
 test("homestay unit pagination keeps only a selection visible on the loaded page", () => {
@@ -27,13 +29,64 @@ test("operational pages clamp deleted-tail pages and gate no-show by business da
   assert.equal(canMarkHomestayNoShow("2026-07-28", "2026-07-28"), true);
 });
 
-test("terminal homestay bookings cannot retain an action panel after refresh", () => {
+test("terminal bookings retain readable detail while losing stay operations", () => {
   assert.equal(isHomestayBookingOperational("draft"), true);
   assert.equal(isHomestayBookingOperational("confirmed"), true);
   assert.equal(isHomestayBookingOperational("checked_in"), true);
   assert.equal(isHomestayBookingOperational("checked_out"), false);
   assert.equal(isHomestayBookingOperational("cancelled"), false);
   assert.equal(isHomestayBookingOperational("no_show"), false);
+  assert.equal(shouldRetainHomestayBookingDetail("booking-1", ["booking-1"]), true);
+  assert.equal(shouldRetainHomestayBookingDetail("booking-1", ["booking-2"]), false);
+
+  assert.deepEqual(
+    homestayBookingDetailCapabilities("checked_out", {
+      manageStay: true,
+      readFinance: true,
+      registerFinance: true,
+      waiveFinance: false
+    }),
+    {
+      showStayOperations: false,
+      canIssueCredential: false,
+      canCheckIn: false,
+      showFinanceSummary: true,
+      showFinanceForm: true
+    }
+  );
+});
+
+test("booking detail capabilities separate audit, finance, and stay permissions", () => {
+  assert.deepEqual(
+    homestayBookingDetailCapabilities("confirmed", {
+      manageStay: false,
+      readFinance: true,
+      registerFinance: false,
+      waiveFinance: false
+    }),
+    {
+      showStayOperations: false,
+      canIssueCredential: false,
+      canCheckIn: false,
+      showFinanceSummary: true,
+      showFinanceForm: false
+    }
+  );
+  assert.deepEqual(
+    homestayBookingDetailCapabilities("confirmed", {
+      manageStay: true,
+      readFinance: false,
+      registerFinance: false,
+      waiveFinance: false
+    }),
+    {
+      showStayOperations: true,
+      canIssueCredential: true,
+      canCheckIn: true,
+      showFinanceSummary: false,
+      showFinanceForm: false
+    }
+  );
 });
 
 test("turnover labels come from their own response instead of candidate paging", () => {
@@ -114,7 +167,12 @@ test("homestay operations UI mirrors backend constraints and protects paged acti
   assert.match(source, /credentialReturnLock\.current/);
   assert.match(source, /idempotencyKey: credentialReturnKey\.current!/);
   assert.match(source, /canMarkHomestayNoShow\(booking\.arrivalDate, today\(\)\)/);
-  assert.match(source, /!selectedBooking \|\| !isHomestayBookingOperational\(selectedBooking\.status\)/);
+  assert.match(source, /shouldRetainHomestayBookingDetail/);
+  assert.doesNotMatch(source, /!isHomestayBookingOperational\(selectedBooking\.status\)/);
+  assert.match(source, />查看详情<\/button>/);
+  assert.match(source, /bookingDetailCapabilities\?\.showStayOperations/);
+  assert.match(source, /bookingDetailCapabilities\?\.showFinanceSummary/);
+  assert.match(source, /bookingDetailCapabilities\?\.showFinanceForm/);
 });
 
 test("homestay operations UI consumes bounded authoritative lists and recoverable evidence", () => {

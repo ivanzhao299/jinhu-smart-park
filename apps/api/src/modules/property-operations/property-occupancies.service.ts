@@ -12,7 +12,11 @@ import type {
 } from "./dto/property-occupancy.dto";
 import { PropertyOccupancyEntity } from "./entities/property-occupancy.entity";
 import { PropertyOperationConfigEntity } from "./entities/property-operation-config.entity";
-import { normalizePropertyPeriod, occupancyDomainMatchesMode } from "./property-period.policy";
+import {
+  assertPropertyOccupancyReplaceable,
+  normalizePropertyPeriod,
+  occupancyDomainMatchesMode
+} from "./property-period.policy";
 import { PropertyUnitAccessService } from "./property-unit-access.service";
 
 export interface AvailabilityConflict {
@@ -23,6 +27,15 @@ export interface AvailabilityConflict {
   start_at: string;
   end_at: string;
   status: string;
+}
+
+interface OccupancyReplacementInput {
+  sourceDomain: string;
+  sourceType: string;
+  sourceId: string;
+  startAt: string;
+  endAt: string;
+  status: "held" | "active";
 }
 
 @Injectable()
@@ -239,18 +252,24 @@ export class PropertyOccupanciesService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     id: string,
+    expected: OccupancyReplacementInput,
     startAtValue: string,
     endAtValue: string,
-    status: "held" | "active",
     holdExpiresAtValue?: string
   ): Promise<PropertyOccupancyEntity> {
     const period = normalizePropertyPeriod(startAtValue, endAtValue);
+    const expectedPeriod = normalizePropertyPeriod(expected.startAt, expected.endAt);
     const repository = manager.getRepository(PropertyOccupancyEntity);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Property occupancy not found");
+    assertPropertyOccupancyReplaceable(entity, {
+      ...expected,
+      startAt: expectedPeriod.startAt,
+      endAt: expectedPeriod.endAt
+    });
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -285,15 +304,12 @@ export class PropertyOccupanciesService {
       throw new ConflictException({ message: "Property occupancy conflicts with an existing period", conflicts });
     }
     const holdExpiresAt = holdExpiresAtValue ? new Date(holdExpiresAtValue) : null;
-    if (status === "held" && (!holdExpiresAt || holdExpiresAt.getTime() <= Date.now())) {
+    if (entity.status === "held" && (!holdExpiresAt || holdExpiresAt.getTime() <= Date.now())) {
       throw new BadRequestException("held occupancy requires hold_expires_at in the future");
     }
     entity.startAt = period.startAt;
     entity.endAt = period.endAt;
-    entity.status = status;
-    entity.holdExpiresAt = holdExpiresAt;
-    entity.releaseReason = null;
-    entity.releasedAt = null;
+    entity.holdExpiresAt = entity.status === "held" ? holdExpiresAt : null;
     entity.updateBy = actor.sub;
     return repository.save(entity);
   }

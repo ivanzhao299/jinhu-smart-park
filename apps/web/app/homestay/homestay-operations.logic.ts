@@ -44,6 +44,33 @@ export function isHomestayBookingOperational(status: string): boolean {
   return ["draft", "confirmed", "checked_in"].includes(status);
 }
 
+export function shouldRetainHomestayBookingDetail(
+  selectedBookingId: string,
+  visibleBookingIds: string[]
+): boolean {
+  return Boolean(selectedBookingId && visibleBookingIds.includes(selectedBookingId));
+}
+
+export function homestayBookingDetailCapabilities(
+  status: string,
+  permissions: {
+    manageStay: boolean;
+    readFinance: boolean;
+    registerFinance: boolean;
+    waiveFinance: boolean;
+  }
+) {
+  const operational = isHomestayBookingOperational(status);
+  return {
+    showStayOperations: permissions.manageStay && operational,
+    canIssueCredential:
+      permissions.manageStay && ["confirmed", "checked_in"].includes(status),
+    canCheckIn: permissions.manageStay && status === "confirmed",
+    showFinanceSummary: permissions.readFinance,
+    showFinanceForm: permissions.registerFinance || permissions.waiveFinance
+  };
+}
+
 export function homestayBookingUnitLabel(booking: {
   unitId: string;
   unitCode: string | null;

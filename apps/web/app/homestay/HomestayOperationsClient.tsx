@@ -18,11 +18,12 @@ import {
   canMarkHomestayNoShow,
   clampPageToTotal,
   defaultHomestayRateForm,
+  homestayBookingDetailCapabilities,
   homestayBookingUnitLabel,
   homestayRateFormFromCalendar,
   homestayTurnoverUnitLabel,
   homestayUnitSelectionAfterLoad,
-  isHomestayBookingOperational,
+  shouldRetainHomestayBookingDetail,
   type HomestayRateCalendar
 } from "./homestay-operations.logic";
 import styles from "./homestay-operations.module.css";
@@ -81,7 +82,7 @@ interface BookingDetail {
     refunds: string;
     waivers: string;
     balance: string;
-  };
+  } | null;
 }
 
 interface RoomState {
@@ -161,6 +162,9 @@ export function HomestayOperationsClient() {
   const canReadBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ);
   const canCreateBookings = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CREATE);
   const canReadFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+  const canManageStay = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE);
+  const canRegisterFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER);
+  const canWaiveFinance = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE);
   const canReadRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ);
   const canManageRates = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE);
   const canReadTurnovers = hasPermission(user, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
@@ -226,6 +230,18 @@ export function HomestayOperationsClient() {
     () => new Map(units.map((unit) => [unit.id, `${unit.unitCode} · ${unit.unitName}`])),
     [units]
   );
+  const selectedBooking = useMemo(
+    () => bookings.find((booking) => booking.id === selectedBookingId) ?? null,
+    [bookings, selectedBookingId]
+  );
+  const bookingDetailCapabilities = selectedBooking
+    ? homestayBookingDetailCapabilities(selectedBooking.status, {
+      manageStay: canManageStay,
+      readFinance: canReadFinance,
+      registerFinance: canRegisterFinance,
+      waiveFinance: canWaiveFinance
+    })
+    : null;
 
   const clearBookingContext = useCallback(() => {
     bookingDetailSequence.current += 1;
@@ -303,10 +319,10 @@ export function HomestayOperationsClient() {
           pageSize: bookingsResponse.data.page_size,
           total: bookingsResponse.data.total
         });
-        const selectedBooking = bookingsResponse.data.items.find(
-          (booking) => booking.id === selectedBookingIdRef.current
-        );
-        if (selectedBookingIdRef.current && (!selectedBooking || !isHomestayBookingOperational(selectedBooking.status))) {
+        if (!shouldRetainHomestayBookingDetail(
+          selectedBookingIdRef.current,
+          bookingsResponse.data.items.map((booking) => booking.id)
+        )) {
           clearBookingContext();
         }
       }
@@ -374,7 +390,7 @@ export function HomestayOperationsClient() {
     }
   }, [canReadRates]);
 
-  const prepareBooking = useCallback(async (bookingId: string) => {
+  const loadBookingDetail = useCallback(async (bookingId: string) => {
     const sequence = bookingDetailSequence.current + 1;
     bookingDetailSequence.current = sequence;
     selectedBookingIdRef.current = bookingId;
@@ -399,6 +415,18 @@ export function HomestayOperationsClient() {
       setMessage(error instanceof Error ? error.message : "加载民宿订单详情失败");
     }
   }, []);
+
+  useEffect(() => {
+    setFinanceForm((current) => {
+      const currentAllowed = current.entryType === "waiver"
+        ? canWaiveFinance
+        : canRegisterFinance;
+      if (currentAllowed) return current;
+      if (canRegisterFinance) return { ...current, entryType: "payment" };
+      if (canWaiveFinance) return { ...current, entryType: "waiver" };
+      return current;
+    });
+  }, [canRegisterFinance, canWaiveFinance]);
 
   useEffect(() => {
     void refresh();
@@ -512,7 +540,7 @@ export function HomestayOperationsClient() {
         credentialSubmissionKey.current = null;
         credentialSubmissionSignature.current = "";
         if (selectedBookingIdRef.current === originatingBookingId) {
-          await prepareBooking(originatingBookingId);
+          await loadBookingDetail(originatingBookingId);
         }
       }
     } finally {
@@ -543,7 +571,7 @@ export function HomestayOperationsClient() {
         credentialReturnKey.current = null;
         credentialReturnSignature.current = "";
         if (selectedBookingIdRef.current === originatingBookingId) {
-          await prepareBooking(originatingBookingId);
+          await loadBookingDetail(originatingBookingId);
         }
       }
     } finally {
@@ -553,7 +581,15 @@ export function HomestayOperationsClient() {
   }
 
   async function registerFinance() {
-    if (!selectedBookingId || !isPositiveMoney(financeForm.amount) || financeSubmissionLock.current) return;
+    const entryAllowed = financeForm.entryType === "waiver"
+      ? canWaiveFinance
+      : canRegisterFinance;
+    if (
+      !selectedBookingId
+      || !entryAllowed
+      || !isPositiveMoney(financeForm.amount)
+      || financeSubmissionLock.current
+    ) return;
     const originatingBookingId = selectedBookingId;
     const payload = {
       entry_type: financeForm.entryType,
@@ -582,7 +618,7 @@ export function HomestayOperationsClient() {
         financeSubmissionKey.current = null;
         financeSubmissionSignature.current = "";
         if (selectedBookingIdRef.current === originatingBookingId) {
-          await prepareBooking(originatingBookingId);
+          await loadBookingDetail(originatingBookingId);
         }
       }
     } finally {
@@ -734,8 +770,8 @@ export function HomestayOperationsClient() {
                 <td>{booking.arrivalDate} → {booking.departureDate}</td><td>¥{booking.totalAmount}</td>
                 <td><span className={styles.status}>{booking.status}</span></td>
                 <td className={styles.actions}>
+                  <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
                   {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
-                  {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => { void prepareBooking(booking.id); setMessage("请先在下方登记实名住客和入住凭证"); }}>入住准备</PermissionButton> : null}
                   {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
                   {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
                   {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
@@ -749,8 +785,8 @@ export function HomestayOperationsClient() {
             <strong>{booking.bookingCode}</strong><span>{homestayBookingUnitLabel(booking)}</span>
             <span>{booking.arrivalDate} → {booking.departureDate}</span><span>{booking.status} · ¥{booking.totalAmount}</span>
             <div className={styles.actions}>
+              <button type="button" onClick={() => void loadBookingDetail(booking.id)}>查看详情</button>
               {booking.status === "draft" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM} onClick={() => void bookingAction(booking, "confirm")}>确认</PermissionButton> : null}
-              {booking.status === "confirmed" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void prepareBooking(booking.id)}>入住准备</PermissionButton> : null}
               {booking.status === "confirmed" && canMarkHomestayNoShow(booking.arrivalDate, today()) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "no-show")}>未到店</PermissionButton> : null}
               {booking.status === "checked_in" ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} onClick={() => void bookingAction(booking, "check-out")}>退房</PermissionButton> : null}
               {["draft", "confirmed"].includes(booking.status) ? <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL} onClick={() => void bookingAction(booking, "cancel")}>取消</PermissionButton> : null}
@@ -778,30 +814,35 @@ export function HomestayOperationsClient() {
         </div> : null}
       </section>
 
-      {selectedBookingId ? <section className={`ds-panel ${styles.stayPanel}`}>
-        <h2>入住准备</h2>
-        <p>订单：{bookings.find((item) => item.id === selectedBookingId)?.bookingCode}</p>
+      {selectedBookingId && selectedBooking ? <section className={`ds-panel ${styles.stayPanel}`}>
+        <h2>订单详情与业务处理</h2>
+        <p>订单：{selectedBooking.bookingCode} · 状态：{selectedBooking.status}</p>
         <div className={styles.inlineForm}>
-          <label>共享个人档案 ID<input value={guestPartyId} placeholder="UUID" onChange={(event) => setGuestPartyId(event.target.value)} /></label>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} type="button" onClick={() => void addGuest()}>登记并内部核验</PermissionButton>
-          <label>凭证类型<select value={credentialType} onChange={(event) => setCredentialType(event.target.value as StayCredential["credentialType"])}>
-            <option value="key">钥匙</option>
-            <option value="card">门卡</option>
-            <option value="voucher">入住凭证</option>
-          </select></label>
-          <label>门卡 / 钥匙标签<input value={credentialLabel} onChange={(event) => setCredentialLabel(event.target.value)} /></label>
-          <PermissionButton
-            permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
-            type="button"
-            disabled={credentialSubmitting}
-            onClick={() => void issueCredential()}
-          >
-            {credentialSubmitting ? "正在发放…" : "人工发放凭证"}
-          </PermissionButton>
+          {bookingDetailCapabilities?.showStayOperations ? <>
+            <strong>实名入住与凭证</strong>
+            <label>共享个人档案 ID<input value={guestPartyId} placeholder="UUID" onChange={(event) => setGuestPartyId(event.target.value)} /></label>
+            <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} type="button" onClick={() => void addGuest()}>登记并内部核验</PermissionButton>
+          </> : null}
+          {bookingDetailCapabilities?.canIssueCredential ? <>
+            <label>凭证类型<select value={credentialType} onChange={(event) => setCredentialType(event.target.value as StayCredential["credentialType"])}>
+              <option value="key">钥匙</option>
+              <option value="card">门卡</option>
+              <option value="voucher">入住凭证</option>
+            </select></label>
+            <label>门卡 / 钥匙标签<input value={credentialLabel} onChange={(event) => setCredentialLabel(event.target.value)} /></label>
+            <PermissionButton
+              permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
+              type="button"
+              disabled={credentialSubmitting}
+              onClick={() => void issueCredential()}
+            >
+              {credentialSubmitting ? "正在发放…" : "人工发放凭证"}
+            </PermissionButton>
+          </> : null}
           {credentials.map((credential) => (
             <div className={styles.credential} key={credential.id}>
               <span>{credential.credentialLabel} · {credential.status}</span>
-              {credential.status === "issued" ? (
+              {bookingDetailCapabilities?.showStayOperations && credential.status === "issued" ? (
                 <PermissionButton
                   permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
                   type="button"
@@ -813,32 +854,39 @@ export function HomestayOperationsClient() {
               ) : null}
             </div>
           ))}
-          <label>流水类型<select value={financeForm.entryType} onChange={(event) => setFinanceForm({ ...financeForm, entryType: event.target.value })}>
-            <option value="payment">人工收款</option>
-            <option value="refund">人工退款确认</option>
-            <option value="charge">其他费用</option>
-            <option value="waiver">人工减免</option>
-          </select></label>
-          <label>金额<input type="number" min="0.01" step="0.01" value={financeForm.amount} onFocus={(event) => event.target.select()} onChange={(event) => setFinanceForm({ ...financeForm, amount: event.target.value })} /></label>
-          <label>收款方式<select value={financeForm.paymentMethod} onChange={(event) => setFinanceForm({ ...financeForm, paymentMethod: event.target.value })}>
-            <option value="cash">现金</option><option value="bank_transfer">银行转账</option><option value="offline_other">其他线下方式</option>
-          </select></label>
-          <label>登记原因<input maxLength={500} value={financeForm.reason} onChange={(event) => setFinanceForm({ ...financeForm, reason: event.target.value })} /></label>
-          <PermissionButton
-            permission={financeForm.entryType === "waiver"
-              ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
-              : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER}
+          {bookingDetailCapabilities?.showFinanceSummary && ledgerSummary ? (
+            <div className={styles.ledgerSummary}>应收 ¥{ledgerSummary.charges} · 已收 ¥{ledgerSummary.payments} · 退款 ¥{ledgerSummary.refunds} · 减免 ¥{ledgerSummary.waivers} · 余额 ¥{ledgerSummary.balance}</div>
+          ) : null}
+          {bookingDetailCapabilities?.showFinanceForm ? <>
+            <strong>财务登记</strong>
+            <label>流水类型<select value={financeForm.entryType} onChange={(event) => setFinanceForm({ ...financeForm, entryType: event.target.value })}>
+              {canRegisterFinance ? <option value="payment">人工收款</option> : null}
+              {canRegisterFinance ? <option value="refund">人工退款确认</option> : null}
+              {canRegisterFinance ? <option value="charge">其他费用</option> : null}
+              {canWaiveFinance ? <option value="waiver">人工减免</option> : null}
+            </select></label>
+            <label>金额<input type="number" min="0.01" step="0.01" value={financeForm.amount} onFocus={(event) => event.target.select()} onChange={(event) => setFinanceForm({ ...financeForm, amount: event.target.value })} /></label>
+            {financeForm.entryType === "payment" ? <label>收款方式<select value={financeForm.paymentMethod} onChange={(event) => setFinanceForm({ ...financeForm, paymentMethod: event.target.value })}>
+              <option value="cash">现金</option><option value="bank_transfer">银行转账</option><option value="offline_other">其他线下方式</option>
+            </select></label> : null}
+            <label>登记原因<input maxLength={500} value={financeForm.reason} onChange={(event) => setFinanceForm({ ...financeForm, reason: event.target.value })} /></label>
+            <PermissionButton
+              permission={financeForm.entryType === "waiver"
+                ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
+                : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER}
+              type="button"
+              disabled={financeSubmitting}
+              onClick={() => void registerFinance()}
+            >
+              登记流水
+            </PermissionButton>
+          </> : null}
+          {bookingDetailCapabilities?.canCheckIn ? <PermissionButton
+            permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE}
+            className="button button-primary"
             type="button"
-            disabled={financeSubmitting}
-            onClick={() => void registerFinance()}
-          >
-            登记流水
-          </PermissionButton>
-          {ledgerSummary ? <div className={styles.ledgerSummary}>应收 ¥{ledgerSummary.charges} · 已收 ¥{ledgerSummary.payments} · 退款 ¥{ledgerSummary.refunds} · 减免 ¥{ledgerSummary.waivers} · 余额 ¥{ledgerSummary.balance}</div> : null}
-          <PermissionButton permission={SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE} className="button button-primary" type="button" onClick={() => {
-            const booking = bookings.find((item) => item.id === selectedBookingId);
-            if (booking) void bookingAction(booking, "check-in");
-          }}>办理入住</PermissionButton>
+            onClick={() => void bookingAction(selectedBooking, "check-in")}
+          >办理入住</PermissionButton> : null}
         </div>
       </section> : null}
 

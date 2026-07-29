@@ -76,6 +76,9 @@ test("occupancy period replacement rechecks enabled operation and releases expir
   assert.match(replacePeriod, /releaseExpiredHolds\(manager, scope, actor, entity\.unitId\)/);
   assert.match(replacePeriod, /config\?\.operatingStatus !== "enabled"/);
   assert.match(replacePeriod, /unit\.status !== 1/);
+  assert.match(replacePeriod, /assertPropertyOccupancyReplaceable\(entity/);
+  assert.doesNotMatch(replacePeriod, /entity\.status = status/);
+  assert.doesNotMatch(replacePeriod, /entity\.releasedAt = null/);
 });
 
 test("initial occupancy conflict checks do not null-filter commercial leases", () => {

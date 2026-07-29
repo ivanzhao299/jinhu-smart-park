@@ -127,6 +127,8 @@ For lifecycle, finance, occupancy, or attachment-backed actions, enumerate each
 action against every state and sibling entry point before implementation:
 
 - [ ] Terminal states are immutable across generic and domain-specific write paths
+- [ ] Period replacement preserves lifecycle state and verifies the exact source,
+      current period, and expected status; editing dates is not a state transition
 - [ ] Referenced records are revalidated inside the action transaction, not only
       when an earlier step stored their IDs
 - [ ] Forward transitions and reverse/void transitions preserve dependent records
@@ -158,6 +160,8 @@ action against every state and sibling entry point before implementation:
 - [ ] Paginated candidate and record lists preserve action context deliberately:
       when a selected record leaves the current page, clear the detail/action target;
       when only its display label leaves the page, retain a stable ID fallback
+- [ ] Detail context and mutation context are modeled separately: a terminal transition
+      may hide lifecycle actions while retaining authorized audit and finance detail
 - [ ] Browser constraints mirror backend bounds, including relational date rules
       (for example departure strictly after arrival) and conditional bounds such as
       percentage values capped at 100
@@ -180,6 +184,9 @@ action against every state and sibling entry point before implementation:
       the domain business timezone; hiding a button is never the only enforcement
 - [ ] Read and execute permissions are projected at sub-control level: read-only
       users keep evidence and exception context but do not see upload/edit controls
+- [ ] Permission fixtures exercise the lattice, not only broad roles: base read,
+      granular read, granular write, and lifecycle-execute combinations each retain
+      only their authorized detail blocks and controls
 - [ ] Replay-safe terminal sub-actions preserve their first terminal timestamp even
       when a caller retries with a different request key
 - [ ] Read-then-insert "upserts" are replaced by locking or one database atomic upsert

@@ -193,6 +193,15 @@ async function run() {
   });
   let inactiveUnitBooking;
   try {
+    const inactiveRoomStates = await request(
+      `/homestay/availability?date_from=${today}&date_to=${tomorrow}`,
+      { token }
+    );
+    const inactiveRoomState = inactiveRoomStates.find((item) => item.unit_id === unit.id);
+    assert(
+      inactiveRoomState?.room_state === "out_of_service",
+      "inactive unit is classified out of service instead of available"
+    );
     inactiveUnitBooking = await tryRequest("/homestay/bookings", {
       method: "POST",
       token,
@@ -327,6 +336,23 @@ async function run() {
     idempotent: true,
     body: { reason: "Homestay forced release regression", force: true }
   });
+  const releasedOccupancyReschedule = await tryRequest(
+    `/homestay/bookings/${releasedOccupancyBooking.id}/reschedule`,
+    {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: {
+        arrival_date: today,
+        departure_date: tomorrow,
+        reason: "force-released occupancy must not be resurrected"
+      }
+    }
+  );
+  assert(
+    releasedOccupancyReschedule.status === 409,
+    "force-released booking occupancy cannot be resurrected by rescheduling"
+  );
   const releasedOccupancyCheckIn = await tryRequest(
     `/homestay/bookings/${releasedOccupancyBooking.id}/check-in`,
     { method: "POST", token, idempotent: true }
@@ -405,6 +431,23 @@ async function run() {
   assert(checkout.booking.status === "checked_out", "checkout completes after creating its turnover task");
   assert(checkout.turnover.status === "pending", "checkout returns the generated turnover task");
   assert(Boolean(checkout.turnover.occupancyId), "turnover task owns an active availability lock");
+  await request(`/homestay/bookings/${booking.id}/ledger`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      entry_type: "payment",
+      charge_type: "room_collection",
+      amount: "1.00",
+      payment_method: "cash",
+      reason: "Post-checkout finance registration E2E"
+    }
+  });
+  const checkedOutBookingDetail = await request(`/homestay/bookings/${booking.id}`, { token });
+  assert(
+    checkedOutBookingDetail.ledger_summary?.payments === "1.00",
+    "checked-out booking remains readable and accepts authorized finance registration"
+  );
   const checkedOutDashboard = await request("/homestay/dashboard", { token });
   assert(
     checkedOutDashboard.arrivals === checkedInDashboard.arrivals,

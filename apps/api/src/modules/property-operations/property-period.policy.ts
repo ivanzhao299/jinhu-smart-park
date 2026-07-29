@@ -1,9 +1,49 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import type { PropertyOccupancyDomain, PropertyOperatingMode } from "@jinhu/shared";
 
 export interface NormalizedPropertyPeriod {
   startAt: Date;
   endAt: Date;
+}
+
+export interface PropertyOccupancyReplacementExpectation {
+  sourceDomain: string;
+  sourceType: string;
+  sourceId: string;
+  startAt: Date;
+  endAt: Date;
+  status: "held" | "active";
+}
+
+export function assertPropertyOccupancyReplaceable(
+  current: {
+    sourceDomain: string;
+    sourceType: string;
+    sourceId: string;
+    startAt: Date;
+    endAt: Date;
+    status: string;
+    holdExpiresAt: Date | null;
+  },
+  expected: PropertyOccupancyReplacementExpectation,
+  now = new Date()
+): void {
+  if (
+    current.sourceDomain !== expected.sourceDomain
+    || current.sourceType !== expected.sourceType
+    || current.sourceId !== expected.sourceId
+    || current.status !== expected.status
+    || current.startAt.getTime() !== expected.startAt.getTime()
+    || current.endAt.getTime() !== expected.endAt.getTime()
+  ) {
+    throw new ConflictException("Property occupancy no longer matches the expected source lifecycle");
+  }
+  if (
+    current.status === "held"
+    && (!current.holdExpiresAt || current.holdExpiresAt.getTime() <= now.getTime())
+  ) {
+    throw new ConflictException("Expired occupancy holds cannot be rescheduled");
+  }
 }
 
 export function normalizePropertyPeriod(start: string | Date, end: string | Date): NormalizedPropertyPeriod {

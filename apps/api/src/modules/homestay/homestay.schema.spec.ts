@@ -87,6 +87,11 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   assert.match(service, /lease_unit\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(service, /assertBusinessDate\(startValue, "arrival_date"\)/);
   assert.doesNotMatch(service, /businessDateStart\(startValue\.slice\(0, 10\)\)/);
+  const availability = service.slice(
+    service.indexOf("async availability"),
+    service.indexOf("private async calculatePricing")
+  );
+  assert.match(availability, /WHEN unit\.status <> 1 THEN 'out_of_service'/);
 
   const checkIn = service.slice(
     service.indexOf("async checkIn"),
@@ -108,6 +113,20 @@ test("homestay availability and check-in use current cross-domain truth", () => 
 
   const bookable = service.slice(service.indexOf("private async assertUnitBookable"));
   assert.match(bookable, /unit\.status !== 1/);
+});
+
+test("homestay rescheduling preserves the exact live occupancy lifecycle", () => {
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const reschedule = service.slice(
+    service.indexOf("async rescheduleBooking"),
+    service.indexOf("async addGuest")
+  );
+  assert.match(reschedule, /sourceDomain: "homestay"/);
+  assert.match(reschedule, /sourceType: "homestay_booking"/);
+  assert.match(reschedule, /sourceId: booking\.id/);
+  assert.match(reschedule, /startAt: this\.businessDateStart\(booking\.arrivalDate\)/);
+  assert.match(reschedule, /endAt: this\.businessDateStart\(booking\.departureDate\)/);
+  assert.match(reschedule, /status: booking\.status === "confirmed" \? "active" : "held"/);
 });
 
 test("guest registration locks the booking inside its write transaction", () => {

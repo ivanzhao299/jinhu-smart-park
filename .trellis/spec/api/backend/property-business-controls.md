@@ -172,8 +172,15 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   against the active unit/date unique key; read-then-insert is forbidden.
 - Homestay arrival KPIs retain bookings that arrived on the business date after those
   bookings check out. Rentable capacity counts only active, non-deleted unit rows.
-- A refreshed homestay booking action panel remains open only for operational states
-  (`draft`, `confirmed`, `checked_in`); terminal states clear the entire action context.
+- Homestay availability may retain inactive units for operational visibility, but it
+  classifies them as `out_of_service`; they are never reported as rentable.
+- Booking detail context is separate from stay-operation context. A readable selected
+  booking remains inspectable after terminal transition or refresh while it remains on
+  the current page. Terminal states hide stay mutations, not the detail itself.
+- Booking-read, stay-manage, finance-read, finance-register, and finance-waive are
+  projected independently. An auditor may inspect the authorized detail and ledger
+  summary without stay controls; an authorized finance operator may register a
+  supported ledger entry on a terminal booking when the backend permits it.
 - Booking creation, confirmation, rescheduling, and check-in require the current unit
   row to remain active and enabled for short stay. Check-in additionally requires the
   booking's exact occupancy ID/source/unit/date tuple to remain `active`; a force-released
@@ -236,8 +243,10 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Lease creation is double-clicked or retried after an ambiguous failure | One in-flight request; unchanged payload reuses the original key |
 | Two operators write the same dated rate override | Atomic upsert; one active row for the unit/date |
 | Same-day arrival later checks out | Arrival KPI remains counted; occupied KPI follows checkout time |
-| Enabled short-stay config points to deleted/inactive unit | Exclude it from rentable capacity |
-| Booking refresh returns a terminal status | Clear preparation/action context |
+| Enabled short-stay config points to deleted/inactive unit | Exclude it from rentable capacity and classify inactive availability as `out_of_service` |
+| Booking refresh returns a terminal status | Retain readable detail; hide stay-operation controls |
+| Booking reader lacks stay-manage but has finance-read | Show detail and ledger summary; hide guest, credential, check-in, and checkout mutations |
+| Terminal booking reader also has finance-register | Keep the permitted finance entry form available |
 | Confirmed booking arrival date is still in the future | HTTP 409 on `no-show`; do not release occupancy |
 | Credential return is retried under another request key | Return the existing record without changing `returned_at` |
 | Booking-create role lacks rate-read permission | Unit candidate pagination remains reachable in the booking form |
@@ -263,6 +272,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Bad: trusting a request-level `verification_status=verified` without inspecting the Party identity record.
 - Bad: using `new Date().toISOString().slice(0, 10)` for a Shanghai operating date.
 - Bad: clearing attachments or replacing booking detail after an asynchronous request if the operator has switched to another lease or booking.
+- Bad: clearing the entire booking detail merely because it became terminal, thereby
+  removing authorized audit and finance access.
 
 ## 6. Tests Required
 
@@ -282,6 +293,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Frontend: granular roles retain authorized page data and mobile booking cards expose cancellation.
 - Frontend: optional dataset failures do not discard successful loads; stale lease-detail responses cannot retarget forms.
 - Frontend: finance charge-type derivation, retry-key retention, in-flight submission locking, handover evidence reset, upload context races, pagination, and signed activation visibility.
+- Frontend: booking-read-only, finance-read, finance-register, and stay-manage fixtures
+  independently verify terminal detail retention and exact sub-control visibility.
 - Frontend: explicit charge-plan billing, explicit purchase-line recharge selection, occupant/ledger detail rendering, permission-aware KPIs, and aligned desktop/mobile breakpoints.
 - DTO/frontend: supported identity-document formats reject arbitrary identifiers and newly created parties remain unverified.
 - Integration: overlapping or identical housing billing periods under a new request fail; same-key replay is owned by the idempotency interceptor; concurrent charge-plan upserts cannot create duplicates.

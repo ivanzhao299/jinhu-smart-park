@@ -572,9 +572,16 @@ export class HomestayService {
         scope,
         actor,
         booking.occupancyId,
+        {
+          sourceDomain: "homestay",
+          sourceType: "homestay_booking",
+          sourceId: booking.id,
+          startAt: this.businessDateStart(booking.arrivalDate).toISOString(),
+          endAt: this.businessDateStart(booking.departureDate).toISOString(),
+          status: booking.status === "confirmed" ? "active" : "held"
+        },
         this.businessDateStart(pricing.arrivalDate).toISOString(),
         this.businessDateStart(pricing.departureDate).toISOString(),
-        booking.status === "confirmed" ? "active" : "held",
         booking.status === "draft" ? new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString() : undefined
       );
       await manager.getRepository(HomestayBookingNightEntity).update(
@@ -1135,6 +1142,7 @@ export class HomestayService {
               unit.unit_name,
               mode.operating_mode AS operation_mode,
               CASE
+                WHEN unit.status <> 1 THEN 'out_of_service'
                 WHEN mode.operating_mode IS DISTINCT FROM 'short_stay' THEN 'mode_unavailable'
                 WHEN mode.operating_status IS DISTINCT FROM 'enabled' THEN 'out_of_service'
                 WHEN count(turnover.id) > 0 THEN 'turnover'
