@@ -119,8 +119,8 @@ test("housing lease detail restores evidence and gates every mutation surface", 
   assert.match(client, /repairSubmissionLock\.current/);
   assert.match(client, /idempotencyKey: repairSubmissionKey\.current!/);
   assert.match(client, /repairSubmissionSignature\.current !== submissionSignature/);
-  assert.match(client, /disabled=\{repairSubmitting\}/);
-  assert.match(client, /mutationDisabled=\{repairSubmitting\}/);
+  assert.match(client, /disabled=\{repairSubmitting \|\| repairUploading\}/);
+  assert.match(client, /mutationDisabled=\{repairSubmitting \|\| repairUploading\}/);
   assert.match(client, /repairUploadLock\.current/);
   assert.match(client, /onUploadingChange=\{handleRepairUploadingChange\}/);
   assert.match(client, /disabled=\{repairSubmitting \|\| repairUploading\}/);
@@ -148,4 +148,47 @@ test("housing sibling forms enforce selector, upload, refresh, and idempotency c
   assert.match(client, /<PendingAttachmentList files=\{handover\.photo_files\}/);
   assert.match(client, /Object\.entries\(item\)/);
   assert.match(client, /disabled=\{handoverSubmitting \|\| handoverUploading\} value=\{handoverForm\.handoverType\}/);
+});
+
+test("housing workflow reachability and persisted labels do not depend on unrelated read pages", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /const canAccessLeaseWorkflows =/);
+  assert.match(client, /loadOptional\(canAccessLeaseWorkflows,[\s\S]*?\/housing\/leases/);
+  assert.match(client, /const canAccessPurchases = canReadPurchases \|\| canManagePurchases \|\| canTransferPurchases/);
+  assert.match(client, /loadOptional\(canAccessPurchases,[\s\S]*?\/housing\/purchases/);
+  assert.match(client, /partyDisplayName: string \| null/);
+  assert.match(client, /occupant\.partyDisplayName \?\? occupant\.partyId/);
+  assert.doesNotMatch(client, /tenantName\.get\(occupant\.partyId\)/);
+});
+
+test("housing detail, signature, and purchase drafts follow authoritative lifecycle state", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /setDetailError\(""\)/);
+  assert.match(client, /setDetailError\(error instanceof Error \? error\.message : "加载租约详情失败"\)/);
+  assert.match(client, /detail\.lease\.status === "pending_signature" && !detail\.lease\.signatureFileId/);
+  assert.match(client, /<PendingAttachmentList files=\{\[signatureFile\]\} mutationDisabled \/>/);
+  assert.match(client, /detail\.lease\.signatureFileId \? "签署件已登记"/);
+  assert.match(client, /setTransferForm\(\(current\) => \(\{ \.\.\.current, purchaseId: "", itemIds: \[\] \}\)\)/);
+  assert.match(client, /setTransferItems\(\[\]\)/);
+  assert.match(client, /purchase\.transferredItemCount > 0/);
+  assert.match(client, /purchase\.paymentStatus === "paid" && purchase\.transferredItemCount === 0/);
+  assert.match(client, /purchase\.approvalStatus !== "void" && purchase\.transferredItemCount === 0/);
+});
+
+test("housing retryable transitions and lease inputs preserve cross-layer contracts", () => {
+  const client = readFileSync(resolve(__dirname, "HousingOperationsClient.tsx"), "utf8");
+
+  assert.match(client, /retryableActionAttempts/);
+  assert.match(client, /currentAttempt\?\.signature === signature/);
+  assert.match(client, /if \(succeeded\) retryableActionAttempts\.current\.delete\(scope\)/);
+  assert.match(client, /runRetryableAction\(\s*`housing-purchase-\$\{purchase\.id\}-\$\{action\}`/);
+  assert.doesNotMatch(client, /idempotencyKey: createIdempotencyKey/);
+  assert.match(client, /支付周期<select required/);
+  assert.match(client, /自定义月数<input type="number" required/);
+  assert.match(client, /月租金<input type="number" required/);
+  assert.match(client, /押金<input type="number" required/);
+  assert.match(client, /每期应收日<input type="number" required/);
+  assert.match(client, /首期应收日<input type="date" required/);
 });

@@ -264,6 +264,22 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   row to remain active and enabled for short stay. Check-in additionally requires the
   booking's exact occupancy ID/source/unit/date tuple to remain `active`; a force-released
   or replaced occupancy cannot authorize entry.
+- Every housing lease workflow permission that requires an existing lease target must
+  be able to reach the scoped lease list and detail endpoints. Detail projections
+  remain independently permission-gated; reachability must not expose unrelated data.
+- Housing lease detail owns each occupant's nullable `partyDisplayName`; persisted
+  labels must not depend on the browser's current tenant-candidate page.
+- A persisted lease signature is authoritative and read-only. The uploader exists only
+  for an unsigned `pending_signature` lease; registration replaces it with evidence.
+- Housing purchase list items expose `transferredItemCount`. A positive count blocks
+  refund and void controls until a supported audited reversal clears the transfer.
+- Every retryable housing transition keeps one idempotency key per unchanged payload
+  across ambiguous failures and clears it only after success. This includes secondary
+  purchase, lease, billing, charge-plan, occupant, and transfer actions.
+- A successful purchase transfer clears its selected purchase and line-item draft.
+  Dataset-specific detail errors clear on the next successful load.
+- Required browser fields and bounds mirror required DTO/service contracts, including
+  payment cycle, rent, deposit, billing day, first due date, and strict date order.
 
 ## 4. Validation & Error Matrix
 

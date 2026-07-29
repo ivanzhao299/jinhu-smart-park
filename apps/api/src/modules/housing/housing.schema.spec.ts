@@ -58,7 +58,7 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
   assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
   assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
   assert.match(service, /meter\.status !== "ONLINE"/);
-  assert.match(service, /canReadLease \? this\.dataSource\.getRepository\(PartyEntity\)/);
+  assert.match(service, /canReadTenantData \? this\.dataSource\.getRepository\(PartyEntity\)/);
 
   const activationStart = service.indexOf("async activateLease");
   const activationEnd = service.indexOf("async voidLease", activationStart);
@@ -79,7 +79,9 @@ test("housing billing and repair files preserve exact domain boundaries", () => 
   assert.match(service, /One or more repair attachments are already bound to a work order/);
   assert.match(service, /pending_handover_files:/);
   assert.match(service, /const canReadHandovers = canReadLease \|\| canManageHandovers/);
+  assert.match(service, /const canReadRepairs = canReadLease \|\| canManageRepairs/);
   assert.match(service, /canReadHandovers\s*\n\s*\? this\.dataSource\.getRepository\(HousingHandoverEntity\)/);
+  assert.match(service, /canReadRepairs \? this\.dataSource\.getRepository\(WorkOrderEntity\)/);
   assert.match(service, /housing_handover_move_in/);
   assert.match(service, /housing_handover_move_out/);
   assert.match(service, /handover\.photo_file_ids \? file\.id::text/);
@@ -109,4 +111,50 @@ test("housing lease pages own stable unit and tenant display labels", () => {
   assert.match(listLeases, /lease\.id = ANY\(\$3::uuid\[\]\)/);
   assert.match(listLeases, /unitCode: displayByLease\.get\(lease\.id\)\?\.unitCode/);
   assert.match(listLeases, /tenantDisplayName: displayByLease\.get\(lease\.id\)\?\.tenantDisplayName/);
+});
+
+test("housing workflow permissions can reach their scoped lease and purchase records", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const leaseReads = controller.slice(
+    controller.indexOf('@Get("leases")'),
+    controller.indexOf('@Post("leases")')
+  );
+  const purchaseReads = controller.slice(
+    controller.indexOf('@Get("purchases")'),
+    controller.indexOf('@Post("purchases")')
+  );
+
+  for (const permission of [
+    "HOUSING_LEASE_READ",
+    "HOUSING_TENANT_MANAGE",
+    "HOUSING_HANDOVER_MANAGE",
+    "HOUSING_REPAIR_MANAGE",
+    "HOUSING_BILLING_GENERATE",
+    "HOUSING_FINANCE_REGISTER",
+    "HOUSING_PURCHASE_TRANSFER"
+  ]) {
+    assert.match(leaseReads, new RegExp(`SYSTEM_PERMISSIONS\\.${permission}`));
+  }
+  for (const permission of [
+    "HOUSING_PURCHASE_READ",
+    "HOUSING_PURCHASE_MANAGE",
+    "HOUSING_PURCHASE_TRANSFER"
+  ]) {
+    assert.match(purchaseReads, new RegExp(`SYSTEM_PERMISSIONS\\.${permission}`));
+  }
+});
+
+test("housing detail and purchase list own persisted relationship and lifecycle projections", () => {
+  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  const getLease = service.slice(service.indexOf("async getLease"), service.indexOf("async createLease"));
+  const listPurchases = service.slice(
+    service.indexOf("async listPurchases"),
+    service.indexOf("async getPurchase")
+  );
+
+  assert.match(getLease, /occupantNameByParty/);
+  assert.match(getLease, /partyDisplayName: occupantNameByParty\.get\(occupant\.partyId\) \?\? null/);
+  assert.match(listPurchases, /COUNT\(\*\)::int AS "transferredItemCount"/);
+  assert.match(listPurchases, /item\.transferred_receivable_id IS NOT NULL/);
+  assert.match(listPurchases, /transferredItemCount: transferredCountByPurchase\.get\(item\.id\) \?\? 0/);
 });

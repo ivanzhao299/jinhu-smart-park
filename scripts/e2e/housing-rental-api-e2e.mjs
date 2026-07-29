@@ -262,6 +262,22 @@ async function run() {
     idempotent: true
   });
   await request(`/housing/leases/${lease.id}/activate`, { method: "POST", token, idempotent: true });
+  await request(`/housing/leases/${lease.id}/occupants`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      party_id: tenant.id,
+      occupant_role: "cohabitant",
+      emergency_contact: false
+    }
+  });
+  const occupantDetail = await request(`/housing/leases/${lease.id}`, { token });
+  const listedOccupant = occupantDetail.occupants.find((item) => item.partyId === tenant.id);
+  assert(
+    listedOccupant?.partyDisplayName === tenant.displayName,
+    "lease detail owns each persisted occupant display label"
+  );
 
   const propertyChargePlan = await request(`/housing/leases/${lease.id}/charge-plans`, {
     method: "PUT",
@@ -439,6 +455,12 @@ async function run() {
   });
   assert(firstTransfer.receivable.id === secondTransfer.receivable.id, "partial transfers reuse one source receivable");
   assert(Number(secondTransfer.receivable.amount) === 35.15, "later transferred items accumulate into the receivable");
+  const transferredPurchasePage = await request("/housing/purchases?page=1&page_size=100", { token });
+  const transferredPurchase = transferredPurchasePage.items.find((item) => item.id === purchase.id);
+  assert(
+    transferredPurchase?.transferredItemCount === 2,
+    "purchase list projects transferred item count for authoritative action gating"
+  );
   await expectRequestStatus(`/housing/purchases/${purchase.id}/actions`, 409, {
     method: "POST",
     token,

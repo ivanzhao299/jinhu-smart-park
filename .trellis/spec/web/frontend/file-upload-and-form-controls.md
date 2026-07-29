@@ -50,6 +50,11 @@
 - Read-only detail pages must not render mutable file-backed form fields merely because
   the submit button is permission-aware. Gate the complete mutable form on its domain
   write permission, then gate its uploader on the additional generic file permission.
+- Attachment mutation is locked for the complete child-upload interval. Housing repair
+  evidence cannot be removed while upload is in flight, even before submission starts.
+- Terminal attachment registration changes ownership: an unsigned pending lease may
+  upload/select its signature, while a persisted signature is read-only evidence and
+  the uploader is unmounted.
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
@@ -130,6 +135,9 @@
   end date that is now below that minimum.
 - Repeated selector forms own separate candidate arrays and pagination state; sharing
   an endpoint does not authorize sharing mutable page/selection state.
+- Browser `required`, `min`, `max`, and `step` attributes mirror the DTO/service
+  contract. Backend-required housing cycle, rent, deposit, billing-day, and first-due
+  fields must not be optional in native validation.
 
 ### 4. Validation & Error Matrix
 - Negative where not allowed -> backend rejects.

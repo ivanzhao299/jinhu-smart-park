@@ -454,6 +454,17 @@ sibling before the next commit. Do not stop at the named line.
       after an attachment list can mutate independently.
 - [ ] Separate metadata-read permission from blob-download permission; thumbnail
       effects and preview buttons must follow the download capability.
+- [ ] For every action permission, prove list and detail reachability without granting
+      unrelated broad read access; keep each detail projection independently gated.
+- [ ] Persisted relationship rows carry response-owned display labels; never resolve
+      historical names from a separately paginated candidate list.
+- [ ] Terminal attachment references define authoritative ownership: after registration,
+      replace upload/remove controls with read-only evidence unless an explicit audited
+      replacement workflow exists.
+- [ ] Every successful target-bound mutation resets its completed draft, and every
+      dataset-specific error is cleared by that dataset's next successful load.
+- [ ] If one retryable action needs a stable idempotency key, scan every transition on
+      the surface—including pay/refund and secondary actions—not only create forms.
 
 ---
 

@@ -77,6 +77,10 @@ type HousingLeaseListItem = HousingLeaseEntity & {
   tenantDisplayName: string | null;
 };
 
+type HousingPurchaseListItem = HousingPurchaseEntity & {
+  transferredItemCount: number;
+};
+
 @Injectable()
 export class HousingService {
   constructor(
@@ -229,14 +233,17 @@ export class HousingService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canManageTenants = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
     const canManageHandovers = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE);
+    const canManageRepairs = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE);
+    const canReadTenantData = canReadLease || canManageTenants;
     const canReadHandovers = canReadLease || canManageHandovers;
+    const canReadRepairs = canReadLease || canManageRepairs;
     const canReadHandoverEvidence = canReadHandovers
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const canRecoverHandoverEvidence = canReadHandoverEvidence
       && canManageHandovers;
-    const canRecoverRepairEvidence = canReadLease
-      && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
+    const canRecoverRepairEvidence = canManageRepairs
       && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
     const [
@@ -251,10 +258,10 @@ export class HousingService {
       repairEntities,
       pendingRepairFiles
     ] = await Promise.all([
-      canReadLease ? this.dataSource.getRepository(PartyEntity).findOne({
+      canReadTenantData ? this.dataSource.getRepository(PartyEntity).findOne({
         where: { id: lease.tenantPartyId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
       }) : Promise.resolve(null),
-      canReadLease
+      canReadTenantData
         ? this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common })
         : Promise.resolve([]),
       this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }),
@@ -312,7 +319,7 @@ export class HousingService {
           .orderBy("file.create_time", "DESC")
           .getMany()
         : Promise.resolve([]),
-      canReadLease ? this.dataSource.getRepository(WorkOrderEntity).find({
+      canReadRepairs ? this.dataSource.getRepository(WorkOrderEntity).find({
         where: {
           tenantId: scope.tenantId,
           parkId: scope.parkId,
@@ -343,10 +350,26 @@ export class HousingService {
           .getMany()
         : Promise.resolve([])
     ]);
+    const occupantParties = occupants.length
+      ? await this.dataSource.getRepository(PartyEntity).find({
+        where: {
+          id: In(occupants.map((occupant) => occupant.partyId)),
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false
+        }
+      })
+      : [];
+    const occupantNameByParty = new Map(
+      occupantParties.map((party) => [party.id, party.displayName])
+    );
     return {
       lease,
       tenant,
-      occupants,
+      occupants: occupants.map((occupant) => ({
+        ...occupant,
+        partyDisplayName: occupantNameByParty.get(occupant.partyId) ?? null
+      })),
       charge_plans: chargePlans,
       receivables,
       ledger,
@@ -1139,7 +1162,7 @@ export class HousingService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HousingPurchaseQueryDto
-  ): Promise<PaginatedResult<HousingPurchaseEntity>> {
+  ): Promise<PaginatedResult<HousingPurchaseListItem>> {
     const builder = this.purchasesRepository.createQueryBuilder("purchase")
       .where("purchase.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("purchase.park_id=:parkId", { parkId: scope.parkId })
@@ -1155,7 +1178,32 @@ export class HousingService {
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
-    return { items, total, page: query.page, page_size: query.page_size };
+    const transferredRows = items.length
+      ? await this.dataSource.query(
+        `SELECT item.purchase_id AS "purchaseId",
+                COUNT(*)::int AS "transferredItemCount"
+         FROM biz_housing_purchase_item item
+         WHERE item.tenant_id = $1
+           AND item.park_id = $2
+           AND item.purchase_id = ANY($3::uuid[])
+           AND item.transferred_receivable_id IS NOT NULL
+           AND item.is_deleted = false
+         GROUP BY item.purchase_id`,
+        [scope.tenantId, scope.parkId, items.map((item) => item.id)]
+      ) as Array<{ purchaseId: string; transferredItemCount: number }>
+      : [];
+    const transferredCountByPurchase = new Map(
+      transferredRows.map((row) => [row.purchaseId, Number(row.transferredItemCount)])
+    );
+    return {
+      items: items.map((item) => ({
+        ...item,
+        transferredItemCount: transferredCountByPurchase.get(item.id) ?? 0
+      })),
+      total,
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
   async getPurchase(scope: TenantParkScope, actor: JwtPrincipal, purchaseId: string) {
