@@ -194,10 +194,10 @@ export default function IotAlertRulesPage() {
       setPoints([]);
       return;
     }
-    const response = await apiRequest<PaginatedResult<PointRow>>(`/iot/devices/${deviceId}/points?page=1&page_size=100&sort=point_code`, {
+    const response = await apiRequest<PointRow[]>(`/iot/devices/${deviceId}/points?page=1&page_size=100&sort=point_code`, {
       token: getAccessToken()
     });
-    setPoints(response.data.items);
+    setPoints(response.data);
   }, []);
 
   useEffect(() => {
