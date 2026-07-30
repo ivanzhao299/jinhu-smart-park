@@ -33,7 +33,7 @@ At minimum set:
 - `WEB_ORIGIN`
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
-- `PARTY_DATA_ENCRYPTION_KEY`（业务相对方证件号独立加密密钥）
+- `PARTY_DATA_ENCRYPTION_KEY`（至少 32 字符的业务相对方证件号独立加密密钥；生产部署工作流会在缺失时于生产主机生成，已存在的有效值不会被轮换）
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `FILE_STORAGE_LOCAL_ROOT`
