@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/config/backend/database-initialization.md", "reason": "Migration history, initialization ordering, prerequisite fail-fast, and verification contracts."}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "Repository-level migration and production-safety quality gate."}

@@ -116,5 +116,11 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - 检查 migration 文件是否被变更
   - 参考 [../release/production-migration-execution-policy.md](../release/production-migration-execution-policy.md)
   - 参考 [../release/migration-history-checksum-design.md](../release/migration-history-checksum-design.md)
+- migration prerequisite：
+  - 运行 `pnpm test:e2e:migration-prerequisites` 检查 `000175` 不变、最小角色边界和 runner 执行顺序
+  - 空库执行 `pnpm db:migrate` 后，确认两张 history 表中的
+    `prerequisite:000175_2026_responsibility_user_role_queue.sql:001_core_role_templates.sql`
+    均为 `succeeded`
+  - prerequisite 失败或 running 时不得继续目标 migration
 
 更多运行态排查可参考 [../deployment/troubleshooting.md](../deployment/troubleshooting.md)。

@@ -472,6 +472,9 @@ Migration execution behavior:
 - If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command exits immediately and does not re-run individual migrations.
 - If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
 - If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.
+- If a pending migration has files under `database/migration-prerequisites/<migration-name>/`, the runner applies
+  them first with independent checksum/status history. A prerequisite failure stops before the target migration.
+- If the target migration is already recorded as succeeded, its prerequisites are not retroactively executed.
 - Set `MIGRATION_BASELINE_ON_NONEMPTY_DB=no` only for controlled diagnostics where automatic baseline must be disabled.
 
 If you are using the production compose file directly, pass both compose-related variables explicitly:

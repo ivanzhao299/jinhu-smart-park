@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.yml}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-$ROOT_DIR/database/migrations}"
+MIGRATION_PREREQUISITES_DIR="${MIGRATION_PREREQUISITES_DIR:-$ROOT_DIR/database/migration-prerequisites}"
 POSTGRES_USER="${POSTGRES_USER:-jinhu}"
 POSTGRES_DB="${POSTGRES_DB:-jinhu_smart_park}"
 MIGRATION_EXECUTED_BY="${MIGRATION_EXECUTED_BY:-${USER:-unknown}}"
@@ -129,51 +130,51 @@ ensure_dependency() {
 }
 
 write_history_row_for_table() {
-  target_table="$1"
+  history_target_table="$1"
   shift
-  filename="$1"
-  checksum="$2"
-  status="$3"
-  started_at="$4"
-  finished_at="$5"
-  error_message="$6"
+  history_filename="$1"
+  history_checksum="$2"
+  history_status="$3"
+  history_started_at="$4"
+  history_finished_at="$5"
+  history_error_message="$6"
 
-  filename_sql="$(sql_escape "$filename")"
-  checksum_sql="$(sql_escape "$checksum")"
-  status_sql="$(sql_escape "$status")"
-  executed_by_sql="$(sql_escape "$MIGRATION_EXECUTED_BY")"
-  batch_id_sql="$(sql_escape "$BATCH_ID")"
-  started_at_sql="$(sql_escape "$started_at")"
-  finished_at_sql=""
-  if [ -n "$finished_at" ]; then
-    finished_at_sql="$(sql_escape "$finished_at")"
+  history_filename_sql="$(sql_escape "$history_filename")"
+  history_checksum_sql="$(sql_escape "$history_checksum")"
+  history_status_sql="$(sql_escape "$history_status")"
+  history_executed_by_sql="$(sql_escape "$MIGRATION_EXECUTED_BY")"
+  history_batch_id_sql="$(sql_escape "$BATCH_ID")"
+  history_started_at_sql="$(sql_escape "$history_started_at")"
+  history_finished_at_sql=""
+  if [ -n "$history_finished_at" ]; then
+    history_finished_at_sql="$(sql_escape "$history_finished_at")"
   fi
-  error_message_sql="$(sql_escape "$error_message")"
+  history_error_message_sql="$(sql_escape "$history_error_message")"
 
-  existing_row="$(psql_query <<SQL
+  history_existing_row="$(psql_query <<SQL
 SELECT status || '|' || checksum
-FROM ${target_table}
-WHERE filename = '${filename_sql}';
+FROM ${history_target_table}
+WHERE filename = '${history_filename_sql}';
 SQL
 )"
 
-  if [ -n "$existing_row" ]; then
+  if [ -n "$history_existing_row" ]; then
     psql_exec <<SQL
-UPDATE ${target_table}
+UPDATE ${history_target_table}
 SET
-  checksum = '${checksum_sql}',
-  status = '${status_sql}',
-  started_at = '${started_at_sql}',
-  finished_at = $(if [ -n "$finished_at_sql" ]; then printf "'%s'" "$finished_at_sql"; else printf "NULL"; fi),
-  error_message = $(if [ -n "$error_message_sql" ]; then printf "'%s'" "$error_message_sql"; else printf "NULL"; fi),
-  executed_by = '${executed_by_sql}',
-  batch_id = '${batch_id_sql}',
+  checksum = '${history_checksum_sql}',
+  status = '${history_status_sql}',
+  started_at = '${history_started_at_sql}',
+  finished_at = $(if [ -n "$history_finished_at_sql" ]; then printf "'%s'" "$history_finished_at_sql"; else printf "NULL"; fi),
+  error_message = $(if [ -n "$history_error_message_sql" ]; then printf "'%s'" "$history_error_message_sql"; else printf "NULL"; fi),
+  executed_by = '${history_executed_by_sql}',
+  batch_id = '${history_batch_id_sql}',
   updated_at = CURRENT_TIMESTAMP
-WHERE filename = '${filename_sql}';
+WHERE filename = '${history_filename_sql}';
 SQL
   else
     psql_exec <<SQL
-INSERT INTO ${target_table} (
+INSERT INTO ${history_target_table} (
   filename,
   checksum,
   status,
@@ -185,14 +186,14 @@ INSERT INTO ${target_table} (
   created_at,
   updated_at
 ) VALUES (
-  '${filename_sql}',
-  '${checksum_sql}',
-  '${status_sql}',
-  '${started_at_sql}',
-  $(if [ -n "$finished_at_sql" ]; then printf "'%s'" "$finished_at_sql"; else printf "NULL"; fi),
-  $(if [ -n "$error_message_sql" ]; then printf "'%s'" "$error_message_sql"; else printf "NULL"; fi),
-  '${executed_by_sql}',
-  '${batch_id_sql}',
+  '${history_filename_sql}',
+  '${history_checksum_sql}',
+  '${history_status_sql}',
+  '${history_started_at_sql}',
+  $(if [ -n "$history_finished_at_sql" ]; then printf "'%s'" "$history_finished_at_sql"; else printf "NULL"; fi),
+  $(if [ -n "$history_error_message_sql" ]; then printf "'%s'" "$history_error_message_sql"; else printf "NULL"; fi),
+  '${history_executed_by_sql}',
+  '${history_batch_id_sql}',
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 );
@@ -203,6 +204,100 @@ SQL
 write_history_row() {
   write_history_row_for_table "$HISTORY_TABLE" "$@"
   write_history_row_for_table "$STANDARD_HISTORY_TABLE" "$@"
+}
+
+run_prerequisite_file() {
+  prerequisite_target_filename="$1"
+  prerequisite_file="$2"
+  prerequisite_filename="${prerequisite_file##*/}"
+  prerequisite_history_filename="prerequisite:${prerequisite_target_filename}:${prerequisite_filename}"
+  prerequisite_checksum="$(sha256sum "$prerequisite_file" | awk '{ print $1 }')"
+  prerequisite_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  prerequisite_history_row="$(psql_query <<SQL
+SELECT status || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE filename = '$(sql_escape "$prerequisite_history_filename")';
+SQL
+)"
+
+  prerequisite_existing_status=""
+  prerequisite_existing_checksum=""
+  if [ -n "$prerequisite_history_row" ]; then
+    prerequisite_existing_status="$(printf '%s' "$prerequisite_history_row" | cut -d'|' -f1)"
+    prerequisite_existing_checksum="$(printf '%s' "$prerequisite_history_row" | cut -d'|' -f2-)"
+  fi
+
+  if [ "$prerequisite_existing_status" = "succeeded" ] && [ "$prerequisite_existing_checksum" = "$prerequisite_checksum" ]; then
+    prerequisite_skipped_count=$((prerequisite_skipped_count + 1))
+    echo "SKIP PREREQUISITE: $prerequisite_history_filename (already succeeded, checksum matched)"
+    return 0
+  fi
+
+  if [ "$prerequisite_existing_status" = "succeeded" ] && [ "$prerequisite_existing_checksum" != "$prerequisite_checksum" ]; then
+    echo "ERROR: migration prerequisite changed after success: $prerequisite_history_filename" >&2
+    echo "ERROR: recorded checksum=$prerequisite_existing_checksum current checksum=$prerequisite_checksum" >&2
+    echo "ERROR: stop before executing target migration $prerequisite_target_filename" >&2
+    exit 1
+  fi
+
+  if [ "$prerequisite_existing_status" = "running" ]; then
+    echo "ERROR: migration prerequisite is already marked running: $prerequisite_history_filename" >&2
+    echo "ERROR: manual inspection required before executing target migration $prerequisite_target_filename" >&2
+    exit 1
+  fi
+
+  if [ "$prerequisite_existing_status" = "failed" ] && [ "$prerequisite_existing_checksum" != "$prerequisite_checksum" ]; then
+    echo "WARNING: retrying failed migration prerequisite with updated checksum: $prerequisite_history_filename" >&2
+    echo "WARNING: recorded checksum=$prerequisite_existing_checksum current checksum=$prerequisite_checksum" >&2
+  fi
+
+  write_history_row "$prerequisite_history_filename" "$prerequisite_checksum" "running" "$prerequisite_started_at" "" ""
+
+  prerequisite_stdout_file="$TMP_DIR/prerequisite.${prerequisite_target_filename}.${prerequisite_filename}.stdout.log"
+  prerequisite_stderr_file="$TMP_DIR/prerequisite.${prerequisite_target_filename}.${prerequisite_filename}.stderr.log"
+
+  echo "APPLY PREREQUISITE: $prerequisite_history_filename"
+  if psql_exec < "$prerequisite_file" >"$prerequisite_stdout_file" 2>"$prerequisite_stderr_file"; then
+    prerequisite_finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    write_history_row "$prerequisite_history_filename" "$prerequisite_checksum" "succeeded" "$prerequisite_started_at" "$prerequisite_finished_at" ""
+    prerequisite_success_count=$((prerequisite_success_count + 1))
+    echo "SUCCESS PREREQUISITE: $prerequisite_history_filename"
+    return 0
+  else
+    prerequisite_rc=$?
+  fi
+
+  prerequisite_finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  prerequisite_error_summary="$(tail -n 20 "$prerequisite_stderr_file" 2>/dev/null || true)"
+  if [ -z "$prerequisite_error_summary" ]; then
+    prerequisite_error_summary="$(tail -n 20 "$prerequisite_stdout_file" 2>/dev/null || true)"
+  fi
+  prerequisite_error_summary="$(printf '%s' "$prerequisite_error_summary" | tr '\r\n' '  ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c 1-1000)"
+  write_history_row "$prerequisite_history_filename" "$prerequisite_checksum" "failed" "$prerequisite_started_at" "$prerequisite_finished_at" "$prerequisite_error_summary"
+  prerequisite_failed_count=$((prerequisite_failed_count + 1))
+  echo "FAILED PREREQUISITE: $prerequisite_history_filename" >&2
+  echo "Target migration not executed: $prerequisite_target_filename" >&2
+  echo "Error summary: $prerequisite_error_summary" >&2
+  echo "Batch id: $BATCH_ID" >&2
+  exit "$prerequisite_rc"
+}
+
+run_prerequisites_for_migration() {
+  target_filename="$1"
+  target_name="${target_filename%.sql}"
+  prerequisite_dir="$MIGRATION_PREREQUISITES_DIR/$target_name"
+  prerequisite_files="$TMP_DIR/prerequisites.${target_name}.txt"
+
+  if [ ! -d "$prerequisite_dir" ]; then
+    return 0
+  fi
+
+  find "$prerequisite_dir" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort > "$prerequisite_files"
+  while IFS= read -r prerequisite_file; do
+    [ -n "$prerequisite_file" ] || continue
+    run_prerequisite_file "$target_filename" "$prerequisite_file"
+  done < "$prerequisite_files"
 }
 
 build_migration_manifest() {
@@ -326,6 +421,9 @@ total_count="$(awk 'END { print NR }' "$FILES_LIST")"
 skipped_count=0
 success_count=0
 failed_count=0
+prerequisite_skipped_count=0
+prerequisite_success_count=0
+prerequisite_failed_count=0
 last_success_file=""
 
 baseline_nonempty_database_if_needed
@@ -381,6 +479,8 @@ SQL
     echo "WARNING: recorded checksum=$existing_checksum current checksum=$current_checksum" >&2
   fi
 
+  run_prerequisites_for_migration "$filename"
+
   if [ -n "$existing_status" ]; then
     write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
   else
@@ -420,5 +520,8 @@ echo "Total files: $total_count"
 echo "Skipped files: $skipped_count"
 echo "Succeeded files: $success_count"
 echo "Failed files: $failed_count"
+echo "Skipped prerequisites: $prerequisite_skipped_count"
+echo "Succeeded prerequisites: $prerequisite_success_count"
+echo "Failed prerequisites: $prerequisite_failed_count"
 echo "Last successful file: ${last_success_file:-none}"
 echo "Migrations applied."

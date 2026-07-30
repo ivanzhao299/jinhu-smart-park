@@ -27,6 +27,11 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - The PostgreSQL data volume may contain database state only.
 - Do not mount `database/migrations` into `/docker-entrypoint-initdb.d`.
 - Schema changes run only through `pnpm db:migrate`; seed and migration responsibilities remain separate.
+- Historical data migrations that need minimal prerequisite metadata may use
+  `database/migration-prerequisites/<target-migration>/`. The runner executes these files only when the
+  target migration is pending, records independent checksum/status history, and stops before the target on failure.
+- A migration prerequisite must contain only the minimum production-safe state needed by its target. It must not
+  create credentials, demo data, broad permissions, or replace the production seed.
 - `MIGRATION_BASELINE_ON_NONEMPTY_DB=yes` is for a deliberately audited legacy database, not recovery from
   a failed automatic initialization.
 
@@ -36,6 +41,8 @@ The local Compose service is named `postgres`. Migration history is recorded in
 |---|---|
 | Empty database | Every migration executes and receives a succeeded history row |
 | Migration SQL fails | Stop immediately; do not seed, bootstrap, deploy, or continue later migrations |
+| Migration prerequisite fails or is marked running | Stop before marking or executing its target migration |
+| Succeeded prerequisite checksum changes while its target is pending | Fail with checksum conflict |
 | Succeeded filename checksum changes | Fail with checksum conflict |
 | Non-empty database with empty history | Do not auto-baseline until the existing schema is audited |
 | Host port is unavailable or reserved | Choose a local `POSTGRES_PORT` override and verify TCP connectivity |
@@ -54,6 +61,7 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - `docker compose -f infra/docker/docker-compose.yml config --quiet`.
 - On an independent empty volume, run `pnpm db:migrate` and assert zero failed/running history rows.
 - Assert a late-schema column exists, not only that migration history contains its filename.
+- Assert required prerequisite history exists in both history tables and contains no failed/running state.
 - Run the release order through production-safe seed and baseline checks.
 - For local API E2E, verify `/api/v1/ready` reports the database and initialization checks as `ok`.
 
