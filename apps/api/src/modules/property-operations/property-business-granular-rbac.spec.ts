@@ -3,22 +3,30 @@ import { readdirSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import test from "node:test";
 import {
+  ASSET_PARTY_WORKBENCH_SURFACE,
   PROPERTY_BUSINESS_LEGACY_PAGE_PERMISSIONS,
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
-  PROPERTY_PERMISSION_BUNDLES
+  PROPERTY_PERMISSION_BUNDLES,
+  SYSTEM_PERMISSIONS
 } from "@jinhu/shared";
 
-const migrationPath = resolve(
+const baseMigrationPath = resolve(
   __dirname,
   "../../../../../database/migrations/000183_property_business_granular_rbac.sql"
 );
+const extensionMigrationPath = resolve(
+  __dirname,
+  "../../../../../database/migrations/000184_property_workbench_read_permissions.sql"
+);
 const migrationsDir = resolve(__dirname, "../../../../../database/migrations");
-const sql = readFileSync(migrationPath, "utf8");
+const baseSql = readFileSync(baseMigrationPath, "utf8");
+const extensionSql = readFileSync(extensionMigrationPath, "utf8");
+const sql = `${baseSql}\n${extensionSql}`;
 
-function markedRows(start: string, end: string): string[][] {
-  const block = sql.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
+function markedRows(source: string, start: string, end: string): string[][] {
+  const block = source.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
   assert.ok(block, `missing SQL marker block ${start}`);
   return [...block.matchAll(/^\s*\((.+)\),?\s*$/gm)].map((match) =>
     [...match[1]!.matchAll(/'(?:''|[^'])*'|NULL|true|false|-?\d+/g)].map((token) => {
@@ -38,7 +46,7 @@ function sorted(values: readonly string[]): string[] {
   return [...values].sort();
 }
 
-test("migration number is the next reservation and only historical 000136 is duplicated", () => {
+test("000184 is the next reservation and only historical 000136 is duplicated", () => {
   const filenames = readdirSync(migrationsDir).filter((name) => /^\d{6}_.+\.sql$/.test(name));
   const byNumber = new Map<string, string[]>();
   for (const filename of filenames) {
@@ -49,23 +57,52 @@ test("migration number is the next reservation and only historical 000136 is dup
     .filter(([, names]) => names.length > 1)
     .map(([number]) => number);
   assert.deepEqual(duplicates, ["000136"]);
-  assert.equal(basename(migrationPath), "000183_property_business_granular_rbac.sql");
-  assert.equal(sorted([...byNumber.keys()]).at(-1), "000183");
+  assert.equal(basename(baseMigrationPath), "000183_property_business_granular_rbac.sql");
+  assert.equal(
+    basename(extensionMigrationPath),
+    "000184_property_workbench_read_permissions.sql"
+  );
+  assert.equal(sorted([...byNumber.keys()]).at(-1), "000184");
 });
 
-test("migration permission definitions exactly equal the 65 shared permission values", () => {
-  const definitionRows = markedRows(
+test("historical 65 plus the exact 7 read permissions equal the 72 shared values", () => {
+  const baseDefinitionRows = markedRows(
+    baseSql,
     "PROPERTY_PERMISSION_DEFINITIONS_START",
     "PROPERTY_PERMISSION_DEFINITIONS_END"
   );
-  const migrationCodes = definitionRows.map((row) => cell(row, 1));
-  assert.equal(definitionRows.length, 65);
-  assert.equal(new Set(migrationCodes).size, 65);
-  assert.deepEqual(sorted(migrationCodes), sorted(Object.values(PROPERTY_BUSINESS_PERMISSIONS)));
+  const extensionDefinitionRows = markedRows(
+    extensionSql,
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_START",
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_END"
+  );
+  const baseCodes = baseDefinitionRows.map((row) => cell(row, 1));
+  const extensionCodes = extensionDefinitionRows.map((row) => cell(row, 1));
+  const expectedExtensionCodes = [
+    PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASK_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+  ];
+
+  assert.equal(baseDefinitionRows.length, 65);
+  assert.equal(new Set(baseCodes).size, 65);
+  assert.equal(extensionDefinitionRows.length, 7);
+  assert.equal(new Set(extensionCodes).size, 7);
+  assert.deepEqual(sorted(extensionCodes), sorted(expectedExtensionCodes));
+  assert.equal(baseCodes.some((code) => extensionCodes.includes(code)), false);
+  assert.deepEqual(
+    sorted([...baseCodes, ...extensionCodes]),
+    sorted(Object.values(PROPERTY_BUSINESS_PERMISSIONS))
+  );
 });
 
 test("17 canonical page definitions preserve parent, route and landing sort order", () => {
   const definitionRows = markedRows(
+    baseSql,
     "PROPERTY_PERMISSION_DEFINITIONS_START",
     "PROPERTY_PERMISSION_DEFINITIONS_END"
   );
@@ -100,11 +137,13 @@ test("17 canonical page definitions preserve parent, route and landing sort orde
 
 test("legacy operations remain hidden compatibility pages and grant no bundle capability", () => {
   const definitionRows = markedRows(
+    baseSql,
     "PROPERTY_PERMISSION_DEFINITIONS_START",
     "PROPERTY_PERMISSION_DEFINITIONS_END"
   );
   const byCode = new Map(definitionRows.map((row) => [row[1], row]));
   const bundleRows = markedRows(
+    baseSql,
     "PROPERTY_BUNDLE_PERMISSIONS_START",
     "PROPERTY_BUNDLE_PERMISSIONS_END"
   );
@@ -121,10 +160,18 @@ test("legacy operations remain hidden compatibility pages and grant no bundle ca
 });
 
 test("14 literal SQL bundles exactly equal the shared bundle contract", () => {
-  const migrationPairs = markedRows(
-    "PROPERTY_BUNDLE_PERMISSIONS_START",
-    "PROPERTY_BUNDLE_PERMISSIONS_END"
-  ).map((row) => `${cell(row, 0)}\u0000${cell(row, 1)}`);
+  const migrationPairs = [
+    ...markedRows(
+      baseSql,
+      "PROPERTY_BUNDLE_PERMISSIONS_START",
+      "PROPERTY_BUNDLE_PERMISSIONS_END"
+    ),
+    ...markedRows(
+      extensionSql,
+      "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_START",
+      "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_END"
+    )
+  ].map((row) => `${cell(row, 0)}\u0000${cell(row, 1)}`);
   const sharedPairs = Object.values(PROPERTY_PERMISSION_BUNDLES).flatMap((bundle) =>
     bundle.permissions.map((permission) => `${bundle.code}\u0000${permission}`)
   );
@@ -134,8 +181,81 @@ test("14 literal SQL bundles exactly equal the shared bundle contract", () => {
   assert.deepEqual(sorted(migrationPairs), sorted(sharedPairs));
 });
 
+test("A-2.5 read definitions preserve exact module, method, API and frontend routes", () => {
+  const rows = markedRows(
+    extensionSql,
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_START",
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_END"
+  );
+  const expected = new Map([
+    ["homestay:task:read", ["homestay", "biz.homestay_task", "/api/v1/homestay/tasks", "/homestay/tasks"]],
+    ["homestay:stay:read", ["homestay", "biz.homestay_stay", "/api/v1/homestay/stays", "/homestay/stays"]],
+    ["housing:task:read", ["housing_rental", "biz.housing_task", "/api/v1/housing/tasks", "/housing/tasks"]],
+    ["housing:tenant:read", ["housing_rental", "biz.party", "/api/v1/housing/tenants", "/housing/tenants"]],
+    ["housing:handover:read", ["housing_rental", "biz.housing_handover", "/api/v1/housing/handovers", "/housing/handovers"]],
+    ["housing:billing:read", ["housing_rental", "biz.housing_billing", "/api/v1/housing/billing", "/housing/billing"]],
+    ["housing:repair:read", ["housing_rental", "biz.housing_repair", "/api/v1/housing/repairs", "/housing/repairs"]]
+  ]);
+
+  for (const row of rows) {
+    const contract = expected.get(cell(row, 1));
+    assert.ok(contract, `unexpected A-2.5 permission ${cell(row, 1)}`);
+    assert.equal(cell(row, 0), contract[0]);
+    assert.equal(cell(row, 3), contract[1]);
+    assert.equal(cell(row, 6), "40");
+    assert.equal(cell(row, 7), "GET");
+    assert.equal(cell(row, 8), contract[2]);
+    assert.equal(cell(row, 9), contract[3]);
+  }
+});
+
+test("asset Party target is parent-guarded, hidden and outside property bundles and grants", () => {
+  const rows = markedRows(
+    extensionSql,
+    "ASSET_PARTY_PAGE_DEFINITION_START",
+    "ASSET_PARTY_PAGE_DEFINITION_END"
+  );
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0], [
+    SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE,
+    "业务相对方页面",
+    "asset.party",
+    "page",
+    "page",
+    "20",
+    ASSET_PARTY_WORKBENCH_SURFACE.route,
+    "65",
+    "false",
+    "false",
+    "false"
+  ]);
+  assert.equal(
+    Object.values(PROPERTY_BUSINESS_PERMISSIONS).includes(
+      SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE as never
+    ),
+    false
+  );
+  assert.equal(
+    Object.values(PROPERTY_PERMISSION_BUNDLES).some((bundle) =>
+      bundle.permissions.includes(SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE as never)
+    ),
+    false
+  );
+
+  const grantSection = extensionSql.slice(
+    extensionSql.indexOf("-- Only the new read members")
+  );
+  assert.doesNotMatch(grantSection, /asset:party/);
+  assert.match(extensionSql, /module\.module_code = 'asset'/);
+  assert.match(
+    extensionSql,
+    /JOIN sys_permission parent[\s\S]*parent\.tenant_id = active\.tenant_id[\s\S]*parent\.code = 'asset'[\s\S]*parent\.is_deleted = false[\s\S]*parent\.is_enabled = true[\s\S]*parent\.status = 'enabled'/
+  );
+});
+
 test("built-in role grants are explicit, narrow and park-module scoped", () => {
   const roleRows = markedRows(
+    baseSql,
     "PROPERTY_ROLE_BUNDLES_START",
     "PROPERTY_ROLE_BUNDLES_END"
   );
@@ -265,28 +385,56 @@ test("built-in role grants are explicit, narrow and park-module scoped", () => {
   assert.doesNotMatch(sql, /permission\.code\s*=\s*'\*'/i);
 });
 
+test("A-2.5 grants only existing built-in role and bundle intersections", () => {
+  const baseRoleRows = markedRows(
+    baseSql,
+    "PROPERTY_ROLE_BUNDLES_START",
+    "PROPERTY_ROLE_BUNDLES_END"
+  );
+  const extensionBundleRows = markedRows(
+    extensionSql,
+    "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_START",
+    "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_END"
+  );
+  const extensionRoleRows = markedRows(
+    extensionSql,
+    "PROPERTY_WORKBENCH_READ_ROLE_BUNDLES_START",
+    "PROPERTY_WORKBENCH_READ_ROLE_BUNDLES_END"
+  );
+  const extensionBundles = new Set(extensionBundleRows.map((row) => cell(row, 0)));
+  const expectedRoleRows = baseRoleRows.filter((row) => extensionBundles.has(cell(row, 2)));
+
+  assert.equal(new Set(extensionRoleRows.map((row) => row.join("\u0000"))).size, extensionRoleRows.length);
+  assert.deepEqual(
+    sorted(extensionRoleRows.map((row) => row.join("\u0000"))),
+    sorted(expectedRoleRows.map((row) => row.join("\u0000")))
+  );
+});
+
 test("module authority, deterministic definitions and rerun stability are explicit", () => {
-  for (const predicate of [
-    "assignment.enabled = true",
-    "assignment.status = 'enabled'",
-    "assignment.is_deleted = false",
-    "assignment.expire_time IS NULL OR assignment.expire_time > now()",
-    "module.status = 1",
-    "module.is_deleted = false"
-  ]) {
-    assert.ok(sql.includes(predicate), `missing module predicate ${predicate}`);
+  for (const source of [baseSql, extensionSql]) {
+    for (const predicate of [
+      "assignment.enabled = true",
+      "assignment.status = 'enabled'",
+      "assignment.is_deleted = false",
+      "assignment.expire_time IS NULL OR assignment.expire_time > now()",
+      "module.status = 1",
+      "module.is_deleted = false"
+    ]) {
+      assert.ok(source.includes(predicate), `missing module predicate ${predicate}`);
+    }
   }
 
   assert.match(
-    sql,
+    extensionSql,
     /DISTINCT ON \(active\.tenant_id, definition\.code\)[\s\S]*ORDER BY active\.tenant_id, definition\.code, active\.park_id/
   );
   assert.match(
-    sql,
+    extensionSql,
     /ON CONFLICT \(tenant_id, code\) WHERE is_deleted = false DO UPDATE[\s\S]*IS DISTINCT FROM ROW/
   );
   assert.match(
-    sql,
+    extensionSql,
     /ON CONFLICT \(tenant_id, park_id, role_id, permission_id\)[\s\S]*DO NOTHING/
   );
 });

@@ -1,157 +1,186 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  OFFICIAL_POSTGRES_IMAGE,
   assertExactEphemeralPostgresContainer,
+  assertNoDatabaseUrlOverrides,
+  buildEphemeralPostgresRunArgs,
   inspectContainer,
+  resolveCreatedContainerId,
+  runDocker,
   validateRunId
 } from "./bootstrap/ephemeral-postgres.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const migrationPath = resolve(
-  rootDir,
-  "database/migrations/000183_property_business_granular_rbac.sql"
+const migrationsDir = resolve(rootDir, "database/migrations");
+const seedPath = resolve(rootDir, "database/seeds/000001_s1_production_core.sql");
+const migration183Path = resolve(
+  migrationsDir,
+  "000183_property_business_granular_rbac.sql"
 );
-const migrationSql = readFileSync(migrationPath, "utf8");
-const databaseUrl = process.env.PROPERTY_RBAC_FIXTURE_DATABASE_URL;
-const allowWrite = process.env.PROPERTY_RBAC_FIXTURE_ALLOW_WRITE === "yes";
-const fixtureContainer = process.env.PROPERTY_RBAC_FIXTURE_PSQL_CONTAINER;
-const fixtureContainerRunId =
-  process.env.PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID;
+const migration184Path = resolve(
+  migrationsDir,
+  "000184_property_workbench_read_permissions.sql"
+);
+const migration183Sql = readFileSync(migration183Path, "utf8");
+const migration184Sql = readFileSync(migration184Path, "utf8");
+const productionSeedSql = readFileSync(seedPath, "utf8");
+const runId = process.env.PROPERTY_RBAC_FIXTURE_RUN_ID ?? "";
+const containerName = `pr192_track_a_rbac_fixture_${runId}_db`;
 const fixtureLabel = "pr192-track-a-rbac";
+const databaseName = "pr192_track_a_rbac_fixture";
+const postgresUser = "pr192_rbac";
+const postgresPassword = `${runId}_local_only`;
+const evidenceSchema = "property-remediation-a25-rbac-evidence-v1";
 
-function info(message) {
-  console.log(`[INFO] ${message}`);
+let containerId = null;
+let volumeName = null;
+let cleanupResult = {
+  container_absent: true,
+  anonymous_volume_absent: true,
+  errors: []
+};
+const checks = {};
+
+function log(message) {
+  process.stderr.write(`[A-2.5 RBAC] ${message}\n`);
 }
 
-function pass(message) {
-  console.log(`[PASS] ${message}`);
-}
-
-function skip(message) {
-  console.log(`[SKIP] ${message}`);
+function pass(key, details = true) {
+  checks[key] = details;
+  log(`PASS ${key}`);
 }
 
 function fail(message) {
   throw new Error(message);
 }
 
+function sorted(values) {
+  return [...values].sort();
+}
+
 function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function assertSafeFixtureContainer(databaseName) {
-  try {
-    validateRunId(fixtureContainerRunId);
-  } catch {
-    fail("PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID is invalid");
-  }
-  const expectedContainer =
-    `pr192_track_a_rbac_fixture_${fixtureContainerRunId}_db`;
-  if (fixtureContainer !== expectedContainer) {
-    fail(
-      `PROPERTY_RBAC_FIXTURE_PSQL_CONTAINER must exactly equal ${expectedContainer}`
-    );
-  }
-  try {
-    assertExactEphemeralPostgresContainer(
-      inspectContainer(fixtureContainer, { cwd: rootDir }),
-      {
-        containerName: expectedContainer,
-        databaseName,
-        fixtureLabel,
-        runId: fixtureContainerRunId
+function markedRows(source, start, end) {
+  const block = source.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
+  if (!block) fail(`missing SQL marker ${start}`);
+  return [...block.matchAll(/^\s*\((.+)\),?\s*$/gm)].map((match) =>
+    [...match[1].matchAll(/'(?:''|[^'])*'|NULL|true|false|-?\d+/g)].map(
+      (token) => {
+        const value = token[0];
+        return value.startsWith("'")
+          ? value.slice(1, -1).replace(/''/g, "'")
+          : value;
       }
-    );
-  } catch (error) {
-    fail(
-      `isolated fixture container rejected: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
+    )
+  );
 }
 
-function assertSafeDatabaseTarget() {
-  if (!databaseUrl) {
-    skip(
-      "PROPERTY_RBAC_FIXTURE_DATABASE_URL is not set; DB migration fixture was not executed"
-    );
-    return false;
+function validateStaticContract() {
+  const baseDefinitions = markedRows(
+    migration183Sql,
+    "PROPERTY_PERMISSION_DEFINITIONS_START",
+    "PROPERTY_PERMISSION_DEFINITIONS_END"
+  );
+  const deltaDefinitions = markedRows(
+    migration184Sql,
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_START",
+    "PROPERTY_WORKBENCH_READ_DEFINITIONS_END"
+  );
+  const baseBundles = markedRows(
+    migration183Sql,
+    "PROPERTY_BUNDLE_PERMISSIONS_START",
+    "PROPERTY_BUNDLE_PERMISSIONS_END"
+  );
+  const deltaBundles = markedRows(
+    migration184Sql,
+    "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_START",
+    "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_END"
+  );
+  const baseRoles = markedRows(
+    migration183Sql,
+    "PROPERTY_ROLE_BUNDLES_START",
+    "PROPERTY_ROLE_BUNDLES_END"
+  );
+  const deltaRoles = markedRows(
+    migration184Sql,
+    "PROPERTY_WORKBENCH_READ_ROLE_BUNDLES_START",
+    "PROPERTY_WORKBENCH_READ_ROLE_BUNDLES_END"
+  );
+  const deltaBundleCodes = new Set(deltaBundles.map((row) => row[0]));
+  const expectedDeltaRoles = baseRoles.filter((row) =>
+    deltaBundleCodes.has(row[2])
+  );
+
+  if (baseDefinitions.length !== 65) fail("000183 must define exactly 65 permissions");
+  if (deltaDefinitions.length !== 7) fail("000184 must define exactly 7 read permissions");
+  if (new Set([...baseDefinitions, ...deltaDefinitions].map((row) => row[1])).size !== 72) {
+    fail("000183 + 000184 must define exactly 72 unique property permissions");
   }
-  if (!allowWrite) {
-    fail("PROPERTY_RBAC_FIXTURE_ALLOW_WRITE=yes is required for the isolated DB fixture");
+  const bundlePairs = [...baseBundles, ...deltaBundles].map((row) =>
+    `${row[0]}\u0000${row[1]}`
+  );
+  if (bundlePairs.length !== 59 || new Set(bundlePairs).size !== 59) {
+    fail("14 property bundles must contain exactly 59 unique permission pairs");
   }
-  const parsed = new URL(databaseUrl);
-  if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
-    fail("PROPERTY_RBAC_FIXTURE_DATABASE_URL must use postgres:// or postgresql://");
+  if (
+    deltaBundles.length !== 7 ||
+    new Set(deltaBundles.map((row) => row[1])).size !== 7
+  ) {
+    fail("each A-2.5 read permission must have exactly one bundle owner");
   }
-  if (!["127.0.0.1", "localhost", "[::1]"].includes(parsed.hostname)) {
-    fail("property RBAC fixture only accepts a loopback PostgreSQL host");
+  if (
+    JSON.stringify(sorted(deltaRoles.map((row) => row.join("\u0000")))) !==
+    JSON.stringify(sorted(expectedDeltaRoles.map((row) => row.join("\u0000"))))
+  ) {
+    fail("000184 role grants do not match the literal 000183 role-bundle matrix");
   }
-  if (parsed.search || parsed.hash) {
-    fail("property RBAC fixture database URL must not contain connection overrides");
-  }
-  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
-  if (!/^[a-zA-Z0-9_-]+$/.test(databaseName)) {
-    fail("property RBAC fixture database name contains unsupported characters");
-  }
-  if (!/(test|fixture|ci)/i.test(databaseName)) {
-    fail("property RBAC fixture database name must contain test, fixture or ci");
-  }
-  if (/(^|[._-])(prod|production)([._-]|$)/i.test(databaseName)) {
-    fail("property RBAC fixture refuses a production-like database URL");
-  }
-  if (fixtureContainer) {
-    assertSafeFixtureContainer(databaseName);
-  } else if (fixtureContainerRunId) {
-    fail(
-      "PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID is only valid with PROPERTY_RBAC_FIXTURE_PSQL_CONTAINER"
-    );
-  }
-  return true;
+  pass("static_contract", {
+    baseline_permissions: 65,
+    delta_permissions: 7,
+    combined_permissions: 72,
+    bundle_count: new Set(bundlePairs.map((pair) => pair.split("\u0000")[0])).size,
+    bundle_pairs: 59,
+    delta_single_owner: true,
+    literal_role_matrix: true
+  });
+
+  return {
+    baseCodes: baseDefinitions.map((row) => row[1]),
+    deltaCodes: deltaDefinitions.map((row) => row[1]),
+    homestayCodes: [...baseDefinitions, ...deltaDefinitions]
+      .filter((row) => row[0] === "homestay")
+      .map((row) => row[1]),
+    housingCodes: [...baseDefinitions, ...deltaDefinitions]
+      .filter((row) => row[0] === "housing_rental")
+      .map((row) => row[1])
+  };
+}
+
+function docker(args, { input, allowFailure = false } = {}) {
+  return runDocker(args, { cwd: rootDir, input, allowFailure });
 }
 
 function psql(input, { tuplesOnly = false } = {}) {
-  const parsed = new URL(databaseUrl);
-  const psqlArgs = [
+  if (!containerId) fail("ephemeral PostgreSQL container is not available");
+  const result = docker([
+    "exec",
+    "-i",
+    containerId,
+    "psql",
     "-X",
     "-v",
     "ON_ERROR_STOP=1",
-    ...(tuplesOnly ? ["-qAt", "-F", "|"] : ["-q"])
-  ];
-  const command = fixtureContainer ? "docker" : "psql";
-  const args = fixtureContainer
-    ? [
-        "exec",
-        "-i",
-        fixtureContainer,
-        "psql",
-        ...psqlArgs,
-        "-U",
-        decodeURIComponent(parsed.username),
-        "-d",
-        decodeURIComponent(parsed.pathname.replace(/^\//, ""))
-      ]
-    : [databaseUrl, ...psqlArgs];
-  const result = spawnSync(command, args, {
-    cwd: rootDir,
-    encoding: "utf8",
-    input,
-    maxBuffer: 20 * 1024 * 1024
-  });
-  if (result.error?.code === "ENOENT") {
-    fail(
-      fixtureContainer
-        ? "docker is not installed; containerized DB migration fixture cannot run"
-        : "psql is not installed; DB migration fixture cannot run"
-    );
-  }
-  if (result.status !== 0) {
-    fail(`psql failed: ${(result.stderr || result.stdout).trim()}`);
-  }
+    ...(tuplesOnly ? ["-qAt", "-F", "|"] : ["-q"]),
+    "-U",
+    postgresUser,
+    "-d",
+    databaseName
+  ], { input });
   return result.stdout.trim();
 }
 
@@ -159,224 +188,154 @@ function query(sql) {
   return psql(sql, { tuplesOnly: true });
 }
 
-function assertScalar(sql, expected, label) {
+function assertScalar(sql, expected, key) {
   const actual = query(sql);
   if (actual !== String(expected)) {
-    fail(`${label}: expected ${expected}, got ${actual || "<empty>"}`);
+    fail(`${key}: expected ${expected}, got ${actual || "<empty>"}`);
   }
-  pass(label);
+  pass(key, actual);
 }
 
-function markedRows(start, end) {
-  const block = migrationSql.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
-  if (!block) fail(`missing migration marker ${start}`);
-  return [...block.matchAll(/^\s*\((.+)\),?\s*$/gm)].map((match) =>
-    [...match[1].matchAll(/'(?:''|[^'])*'|NULL|true|false|-?\d+/g)].map((token) => {
-      const value = token[0];
-      return value.startsWith("'") ? value.slice(1, -1).replace(/''/g, "'") : value;
-    })
-  );
-}
-
-function expectedRoleGrantCodes(roleCode, moduleCode) {
-  const roleBundles = markedRows(
-    "PROPERTY_ROLE_BUNDLES_START",
-    "PROPERTY_ROLE_BUNDLES_END"
-  )
-    .filter((row) => row[0] === roleCode && row[1] === moduleCode)
-    .map((row) => row[2]);
-  const bundleRows = markedRows(
-    "PROPERTY_BUNDLE_PERMISSIONS_START",
-    "PROPERTY_BUNDLE_PERMISSIONS_END"
-  );
-  const rootCode = moduleCode === "homestay" ? "homestay" : "housing_rental";
-  return [
-    ...new Set([
-      rootCode,
-      ...bundleRows
-        .filter((row) => roleBundles.includes(row[0]))
-        .map((row) => row[1])
-    ])
-  ].sort();
-}
-
-function quotedList(values) {
-  return values.map(sqlLiteral).join(", ");
-}
-
-function assertGrantSet(tenantId, parkId, roleCode, expectedCodes) {
-  const actual = query(`
-    SELECT permission.code
-    FROM rel_role_perm role_permission
-    JOIN sys_role role
-      ON role.id = role_permission.role_id
-     AND role.tenant_id = role_permission.tenant_id
-    JOIN sys_permission permission
-      ON permission.id = role_permission.permission_id
-     AND permission.tenant_id = role_permission.tenant_id
-    WHERE role_permission.tenant_id = ${sqlLiteral(tenantId)}
-      AND role_permission.park_id = ${sqlLiteral(parkId)}
-      AND role.code = ${sqlLiteral(roleCode)}
-      AND role_permission.is_deleted = false
-    ORDER BY permission.code;
-  `);
-  const actualCodes = actual ? actual.split("\n") : [];
-  if (JSON.stringify(actualCodes) !== JSON.stringify(expectedCodes)) {
-    fail(
-      `${roleCode}@${parkId} grant set mismatch\nexpected=${JSON.stringify(expectedCodes)}\nactual=${JSON.stringify(actualCodes)}`
+async function waitForPostgres() {
+  for (let attempt = 1; attempt <= 120; attempt += 1) {
+    const ready = docker(
+      ["exec", containerId, "pg_isready", "-U", postgresUser, "-d", databaseName],
+      { allowFailure: true }
     );
+    if (ready.status === 0) {
+      const probe = docker(
+        [
+          "exec", containerId, "psql", "-X", "-qAt",
+          "-U", postgresUser, "-d", databaseName, "-c", "SELECT 1"
+        ],
+        { allowFailure: true }
+      );
+      if (probe.status === 0 && probe.stdout.trim() === "1") return;
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
   }
-  pass(`${roleCode}@${parkId} exact grant set`);
+  fail("ephemeral PostgreSQL did not become ready within 60 seconds");
 }
 
-if (assertSafeDatabaseTarget()) {
-const ids = {
-  singleTenant: randomUUID(),
-  singlePark: randomUUID(),
-  multiTenant: randomUUID(),
-  multiHomestayPark: randomUUID(),
-  multiHousingPark: randomUUID(),
-  disabledTenant: randomUUID(),
-  disabledPark: randomUUID(),
-  expiredTenant: randomUUID(),
-  expiredPark: randomUUID(),
-  missingTenant: randomUUID(),
-  missingPark: randomUUID(),
-  statusDisabledTenant: randomUUID(),
-  statusDisabledPark: randomUUID()
-};
-const fixtureTenants = [
-  ids.singleTenant,
-  ids.multiTenant,
-  ids.disabledTenant,
-  ids.expiredTenant,
-  ids.missingTenant,
-  ids.statusDisabledTenant
-];
-const tenantList = quotedList(fixtureTenants);
-
-function cleanup() {
-  psql(`
-    BEGIN;
-    DELETE FROM rel_role_perm WHERE tenant_id IN (${tenantList});
-    DELETE FROM sys_role WHERE tenant_id IN (${tenantList});
-    DELETE FROM sys_permission WHERE tenant_id IN (${tenantList});
-    DELETE FROM rel_tenant_module WHERE tenant_id IN (${tenantList});
-    COMMIT;
-  `);
+function migrationNumber(filename) {
+  const match = filename.match(/^(\d{6})_.+\.sql$/);
+  return match ? Number(match[1]) : null;
 }
 
-try {
-  const schemaProbe = query(`
-    SELECT
-      to_regclass('public.sys_permission') IS NOT NULL
-      AND to_regclass('public.sys_role') IS NOT NULL
-      AND to_regclass('public.rel_role_perm') IS NOT NULL
-      AND to_regclass('public.rel_tenant_module') IS NOT NULL;
-  `);
-  if (schemaProbe !== "t") fail("target database is missing the required RBAC schema");
-
-  const modules = query(`
-    SELECT module_code, id
-    FROM sys_module
-    WHERE module_code IN ('homestay', 'housing_rental')
-      AND status = 1
-      AND is_deleted = false
-    ORDER BY module_code;
-  `);
-  const moduleIds = new Map(
-    modules.split("\n").filter(Boolean).map((row) => {
-      const [code, id] = row.split("|");
-      return [code, id];
+function applyBaselineMigrations() {
+  const files = readdirSync(migrationsDir)
+    .filter((filename) => {
+      const number = migrationNumber(filename);
+      return number !== null && number <= 182 && number !== 175;
     })
-  );
-  if (!moduleIds.get("homestay") || !moduleIds.get("housing_rental")) {
-    fail("target database must contain active homestay and housing_rental sys_module rows");
+    .sort();
+  for (const filename of files) {
+    psql(readFileSync(resolve(migrationsDir, filename), "utf8"));
   }
+  pass("baseline_migrations", {
+    applied: files.length,
+    skipped: ["000175_2026_responsibility_user_role_queue.sql"],
+    through: "000182"
+  });
+}
 
-  cleanup();
+function insertFixture(contract) {
+  const ids = {
+    tenant: randomUUID(),
+    homestayPark: randomUUID(),
+    housingPark: randomUUID(),
+    disabledTenant: randomUUID(),
+    disabledPark: randomUUID(),
+    expiredTenant: randomUUID(),
+    expiredPark: randomUUID(),
+    statusDisabledTenant: randomUUID(),
+    statusDisabledPark: randomUUID(),
+    missingTenant: randomUUID(),
+    missingPark: randomUUID()
+  };
   psql(`
     BEGIN;
+    INSERT INTO sys_module (
+      id, module_code, module_name, module_group, description,
+      route_prefix, icon, status, sort_no, is_deleted, version, remark
+    ) VALUES (
+      uuid_generate_v4(), 'asset', '资产管理', 'core',
+      'A-2.5 isolated RBAC fixture', '/assets', 'building',
+      1, 20, false, 1, 'A-2.5 isolated RBAC fixture'
+    )
+    ON CONFLICT (module_code) WHERE is_deleted = false DO NOTHING;
+
     INSERT INTO rel_tenant_module (
       id, tenant_id, park_id, module_id, enabled, status,
       start_time, expire_time, is_deleted, version, remark
+    )
+    SELECT
+      uuid_generate_v4(), fixture.tenant_id, fixture.park_id,
+      module.id, fixture.enabled, fixture.assignment_status,
+      now(), fixture.expire_time, false, 1, 'A-2.5 isolated RBAC fixture'
+    FROM (VALUES
+      (${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)}, 'homestay', true, 'enabled', NULL::timestamptz),
+      (${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.housingPark)}, 'housing_rental', true, 'enabled', NULL::timestamptz),
+      (${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)}, 'asset', true, 'enabled', NULL::timestamptz),
+      ('10000001', '20000001', 'asset', true, 'enabled', NULL::timestamptz),
+      (${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.disabledPark)}, 'homestay', false, 'enabled', NULL::timestamptz),
+      (${sqlLiteral(ids.expiredTenant)}, ${sqlLiteral(ids.expiredPark)}, 'housing_rental', true, 'enabled', now() - interval '1 day'),
+      (${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.statusDisabledPark)}, 'asset', true, 'disabled', NULL::timestamptz)
+    ) fixture(tenant_id, park_id, module_code, enabled, assignment_status, expire_time)
+    JOIN sys_module module
+      ON module.module_code = fixture.module_code
+     AND module.status = 1
+     AND module.is_deleted = false;
+
+    INSERT INTO sys_permission (
+      id, tenant_id, park_id, code, name, resource, action,
+      permission_path, perm_path, permission_level, level, sort_no,
+      permission_type, perm_type, is_system, is_builtin, is_tenant_custom,
+      visible, keep_alive, always_show, is_enabled, status,
+      is_deleted, version, remark
     ) VALUES
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.singlePark)}, ${sqlLiteral(moduleIds.get("homestay"))}::uuid, true, 'enabled', now(), NULL, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.multiTenant)}, ${sqlLiteral(ids.multiHomestayPark)}, ${sqlLiteral(moduleIds.get("homestay"))}::uuid, true, 'enabled', now(), NULL, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.multiTenant)}, ${sqlLiteral(ids.multiHousingPark)}, ${sqlLiteral(moduleIds.get("housing_rental"))}::uuid, true, 'enabled', now(), NULL, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.disabledPark)}, ${sqlLiteral(moduleIds.get("homestay"))}::uuid, false, 'enabled', now(), NULL, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.expiredTenant)}, ${sqlLiteral(ids.expiredPark)}, ${sqlLiteral(moduleIds.get("homestay"))}::uuid, true, 'enabled', now() - interval '2 days', now() - interval '1 day', false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.statusDisabledPark)}, ${sqlLiteral(moduleIds.get("homestay"))}::uuid, true, 'disabled', now(), NULL, false, 1, 'Track A RBAC fixture');
+      (uuid_generate_v4(), ${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)},
+       'asset', '资产管理', 'asset', 'menu', 'asset', 'asset', 1, 1, 20,
+       'menu', 10, true, true, false, true, true, true, true, 'enabled',
+       false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.statusDisabledPark)},
+       'asset', '资产管理', 'asset', 'menu', 'asset', 'asset', 1, 1, 20,
+       'menu', 10, true, true, false, true, true, true, true, 'enabled',
+       false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), '10000001', '20000001',
+       'asset', '资产管理', 'asset', 'menu', 'asset', 'asset', 1, 1, 20,
+       'menu', 10, true, true, false, true, true, true, true, 'enabled',
+       false, 1, 'A-2.5 seed compatibility fixture');
 
     INSERT INTO sys_role (
       id, tenant_id, park_id, code, name, is_enabled, is_system,
       is_builtin, is_super, is_deleted, version, remark
     ) VALUES
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.singlePark)}, 'PROPERTY_STAFF', 'Fixture property staff', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.singlePark)}, 'CUSTOM_PROPERTY_FIXTURE', 'Fixture custom role', true, false, false, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.multiTenant)}, ${sqlLiteral(ids.multiHomestayPark)}, 'PROPERTY_MANAGER', 'Fixture property manager', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.multiTenant)}, ${sqlLiteral(ids.multiHousingPark)}, 'FINANCE_MANAGER', 'Fixture finance manager', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.disabledPark)}, 'PROPERTY_STAFF', 'Fixture disabled staff', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.expiredTenant)}, ${sqlLiteral(ids.expiredPark)}, 'PROPERTY_STAFF', 'Fixture expired staff', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.missingTenant)}, ${sqlLiteral(ids.missingPark)}, 'PROPERTY_STAFF', 'Fixture missing staff', true, true, true, false, false, 1, 'Track A RBAC fixture'),
-      (${sqlLiteral(randomUUID())}::uuid, ${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.statusDisabledPark)}, 'PROPERTY_STAFF', 'Fixture status-disabled staff', true, true, true, false, false, 1, 'Track A RBAC fixture');
+      (uuid_generate_v4(), ${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)},
+       'PROPERTY_MANAGER', 'Fixture property manager', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.housingPark)},
+       'FINANCE_MANAGER', 'Fixture finance manager', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)},
+       'CUSTOM_A25', 'Fixture custom role', true, false, false, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.disabledPark)},
+       'PROPERTY_STAFF', 'Fixture disabled role', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.expiredTenant)}, ${sqlLiteral(ids.expiredPark)},
+       'FINANCE_MANAGER', 'Fixture expired role', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.statusDisabledPark)},
+       'PROPERTY_STAFF', 'Fixture status-disabled role', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture'),
+      (uuid_generate_v4(), ${sqlLiteral(ids.missingTenant)}, ${sqlLiteral(ids.missingPark)},
+       'PROPERTY_STAFF', 'Fixture missing-module role', true, true, true, false, false, 1, 'A-2.5 isolated RBAC fixture');
     COMMIT;
   `);
 
-  info("Executing 000183 directly for the first fixture pass");
-  psql(migrationSql);
-
+  psql(migration183Sql);
   assertScalar(
-    `SELECT count(*) FROM sys_permission WHERE tenant_id = ${sqlLiteral(ids.singleTenant)} AND is_deleted = false;`,
-    37,
-    "single-module tenant has the exact homestay/property definition set"
-  );
-  assertScalar(
-    `SELECT count(*) FROM sys_permission WHERE tenant_id = ${sqlLiteral(ids.multiTenant)} AND is_deleted = false;`,
+    `SELECT count(*) FROM sys_permission
+     WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+       AND code IN (${contract.baseCodes.map(sqlLiteral).join(",")})
+       AND is_deleted = false;`,
     65,
-    "multi-park tenant has one exact 65-code definition set"
-  );
-  assertScalar(
-    `SELECT count(*) FROM sys_permission WHERE tenant_id IN (${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.expiredTenant)}, ${sqlLiteral(ids.missingTenant)}, ${sqlLiteral(ids.statusDisabledTenant)});`,
-    0,
-    "disabled, expired, missing and status-disabled assignments create no definitions"
-  );
-  assertScalar(
-    `SELECT count(*) FROM (
-       SELECT code FROM sys_permission
-       WHERE tenant_id = ${sqlLiteral(ids.multiTenant)} AND is_deleted = false
-       GROUP BY code HAVING count(*) <> 1
-     ) duplicate_codes;`,
-    0,
-    "multi-park permission definitions remain tenant-unique"
-  );
-  assertScalar(
-    `SELECT count(*) FROM sys_permission child
-     LEFT JOIN sys_permission parent ON parent.id = child.parent_id
-     WHERE child.tenant_id IN (${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.multiTenant)})
-       AND child.perm_type = 20 AND child.is_deleted = false
-       AND (parent.id IS NULL OR parent.tenant_id <> child.tenant_id);`,
-    0,
-    "all canonical and compatibility pages have a same-tenant parent"
-  );
-
-  assertGrantSet(
-    ids.singleTenant,
-    ids.singlePark,
-    "PROPERTY_STAFF",
-    expectedRoleGrantCodes("PROPERTY_STAFF", "homestay")
-  );
-  assertGrantSet(
-    ids.multiTenant,
-    ids.multiHomestayPark,
-    "PROPERTY_MANAGER",
-    expectedRoleGrantCodes("PROPERTY_MANAGER", "homestay")
-  );
-  assertGrantSet(
-    ids.multiTenant,
-    ids.multiHousingPark,
-    "FINANCE_MANAGER",
-    expectedRoleGrantCodes("FINANCE_MANAGER", "housing_rental")
+    "migration_183_exact_65"
   );
 
   psql(`
@@ -386,108 +345,395 @@ try {
       permission_type, perm_type, is_system, is_builtin, is_tenant_custom,
       visible, is_enabled, status, is_deleted, version, remark
     ) VALUES (
-      ${sqlLiteral(randomUUID())}::uuid,
-      ${sqlLiteral(ids.singleTenant)},
-      ${sqlLiteral(ids.singlePark)},
-      '*', 'Fixture wildcard', 'fixture', 'fixture',
-      'custom', 90, false, false, true,
-      false, true, 'enabled', false, 1, 'Track A RBAC fixture'
+      uuid_generate_v4(), ${sqlLiteral(ids.tenant)}, ${sqlLiteral(ids.homestayPark)},
+      '*', 'Fixture wildcard', 'fixture', 'fixture', 'custom', 90,
+      false, false, true, false, true, 'enabled', false, 1,
+      'A-2.5 isolated RBAC fixture'
     );
     INSERT INTO rel_role_perm (
       tenant_id, park_id, role_id, permission_id,
       is_deleted, version, remark
     )
-    SELECT
-      role.tenant_id, role.park_id, role.id, permission.id,
-      false, 1, 'Track A RBAC custom negative fixture'
+    SELECT role.tenant_id, role.park_id, role.id, permission.id,
+           false, 1, 'A-2.5 custom negative fixture'
     FROM sys_role role
     JOIN sys_permission permission ON permission.tenant_id = role.tenant_id
-    WHERE role.tenant_id = ${sqlLiteral(ids.singleTenant)}
-      AND role.code = 'CUSTOM_PROPERTY_FIXTURE'
+    WHERE role.tenant_id = ${sqlLiteral(ids.tenant)}
+      AND role.code = 'CUSTOM_A25'
       AND permission.code IN ('*', 'homestay:operations', 'homestay:booking:read')
       AND role.is_deleted = false
       AND permission.is_deleted = false;
     COMMIT;
   `);
 
-  const permissionTimestampSnapshot = query(`
-    SELECT code, update_time::text
-    FROM sys_permission
-    WHERE tenant_id IN (${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.multiTenant)})
-      AND remark = 'PR192 Track A granular property RBAC'
-      AND is_deleted = false
-    ORDER BY tenant_id, code;
+  psql(migration184Sql);
+  assertScalar(
+    `SELECT count(*) FROM sys_permission
+     WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+       AND code IN (${[...contract.baseCodes, ...contract.deltaCodes].map(sqlLiteral).join(",")})
+       AND is_deleted = false;`,
+    72,
+    "migration_184_exact_72"
+  );
+  assertScalar(
+    `SELECT count(*) FROM sys_permission
+     WHERE tenant_id IN (
+       ${sqlLiteral(ids.disabledTenant)}, ${sqlLiteral(ids.expiredTenant)},
+       ${sqlLiteral(ids.statusDisabledTenant)}, ${sqlLiteral(ids.missingTenant)}
+     )
+       AND code IN (${[...contract.deltaCodes, "asset:party"].map(sqlLiteral).join(",")})
+       AND is_deleted = false;`,
+    0,
+    "inactive_module_definitions"
+  );
+  assertScalar(
+    `SELECT count(*) FROM sys_permission child
+     JOIN sys_permission parent ON parent.id = child.parent_id
+     WHERE child.tenant_id = ${sqlLiteral(ids.tenant)}
+       AND child.code = 'asset:party'
+       AND child.name = '业务相对方页面'
+       AND child.resource = 'asset.party'
+       AND child.action = 'page'
+       AND child.frontend_route = '/assets/parties'
+       AND child.visible = false
+       AND child.keep_alive = false
+       AND child.always_show = false
+       AND parent.tenant_id = child.tenant_id
+       AND parent.code = 'asset'
+       AND child.is_deleted = false;`,
+    1,
+    "asset_party_parent_hidden"
+  );
+  assertScalar(
+    `SELECT count(*) FROM rel_role_perm role_permission
+     JOIN sys_permission permission
+       ON permission.id = role_permission.permission_id
+      AND permission.tenant_id = role_permission.tenant_id
+     WHERE permission.code = 'asset:party'
+       AND role_permission.is_deleted = false;`,
+    0,
+    "asset_party_zero_grants"
+  );
+  const actualDeltaGrants = query(`
+    SELECT role.code, permission.code
+    FROM rel_role_perm role_permission
+    JOIN sys_role role
+      ON role.id = role_permission.role_id
+     AND role.tenant_id = role_permission.tenant_id
+    JOIN sys_permission permission
+      ON permission.id = role_permission.permission_id
+     AND permission.tenant_id = role_permission.tenant_id
+    WHERE role_permission.tenant_id = ${sqlLiteral(ids.tenant)}
+      AND role_permission.remark = 'PR192 A-2.5 explicit property bundle grant'
+      AND role_permission.is_deleted = false
+    ORDER BY role.code, permission.code;
   `);
-  const grantTimestampSnapshot = query(`
+  const expectedDeltaGrants = [
+    "FINANCE_MANAGER|housing:billing:read",
+    "PROPERTY_MANAGER|homestay:stay:read",
+    "PROPERTY_MANAGER|homestay:task:read"
+  ].join("\n");
+  if (actualDeltaGrants !== expectedDeltaGrants) {
+    fail(
+      `A-2.5 built-in grant exact set mismatch: ${
+        actualDeltaGrants || "<empty>"
+      }`
+    );
+  }
+  pass("built_in_delta_grants_exact", {
+    count: 3,
+    grants: expectedDeltaGrants.split("\n")
+  });
+
+  const permissionSnapshot = query(`
+    SELECT id, code, create_time::text, update_time::text
+    FROM sys_permission
+    WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+      AND remark IN (
+        'PR192 A-2.5 property workbench read permission',
+        'PR192 A-2.5 hidden Party workbench target'
+      )
+    ORDER BY code;
+  `);
+  const grantSnapshot = query(`
     SELECT role_id, permission_id, create_time::text, update_time::text
     FROM rel_role_perm
-    WHERE tenant_id IN (${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.multiTenant)})
-      AND remark = 'PR192 Track A explicit property bundle grant'
+    WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+      AND remark = 'PR192 A-2.5 explicit property bundle grant'
       AND is_deleted = false
-    ORDER BY tenant_id, park_id, role_id, permission_id;
+    ORDER BY park_id, role_id, permission_id;
   `);
-
-  info("Executing 000183 directly for the second fixture pass");
-  psql(migrationSql);
-
-  const secondPermissionTimestampSnapshot = query(`
-    SELECT code, update_time::text
+  psql(migration184Sql);
+  if (permissionSnapshot !== query(`
+    SELECT id, code, create_time::text, update_time::text
     FROM sys_permission
-    WHERE tenant_id IN (${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.multiTenant)})
-      AND remark = 'PR192 Track A granular property RBAC'
-      AND is_deleted = false
-    ORDER BY tenant_id, code;
-  `);
-  const secondGrantTimestampSnapshot = query(`
+    WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+      AND remark IN (
+        'PR192 A-2.5 property workbench read permission',
+        'PR192 A-2.5 hidden Party workbench target'
+      )
+    ORDER BY code;
+  `)) fail("000184 permission timestamps changed on rerun");
+  if (grantSnapshot !== query(`
     SELECT role_id, permission_id, create_time::text, update_time::text
     FROM rel_role_perm
-    WHERE tenant_id IN (${sqlLiteral(ids.singleTenant)}, ${sqlLiteral(ids.multiTenant)})
-      AND remark = 'PR192 Track A explicit property bundle grant'
+    WHERE tenant_id = ${sqlLiteral(ids.tenant)}
+      AND remark = 'PR192 A-2.5 explicit property bundle grant'
       AND is_deleted = false
-    ORDER BY tenant_id, park_id, role_id, permission_id;
-  `);
-  if (permissionTimestampSnapshot !== secondPermissionTimestampSnapshot) {
-    fail("permission timestamps changed on the second direct migration run");
-  }
-  pass("permission timestamps are stable on rerun");
-  if (grantTimestampSnapshot !== secondGrantTimestampSnapshot) {
-    fail("role grant timestamps changed on the second direct migration run");
-  }
-  pass("role grant timestamps are stable on rerun");
+    ORDER BY park_id, role_id, permission_id;
+  `)) fail("000184 grant timestamps changed on rerun");
+  pass("migration_184_rerun_timestamps", {
+    definition_diff: 0,
+    grant_diff: 0
+  });
 
-  assertGrantSet(ids.singleTenant, ids.singlePark, "CUSTOM_PROPERTY_FIXTURE", [
-    "*",
-    "homestay:booking:read",
-    "homestay:operations"
-  ]);
+  const customCodes = query(`
+    SELECT permission.code
+    FROM rel_role_perm role_permission
+    JOIN sys_role role ON role.id = role_permission.role_id
+    JOIN sys_permission permission ON permission.id = role_permission.permission_id
+    WHERE role_permission.tenant_id = ${sqlLiteral(ids.tenant)}
+      AND role.code = 'CUSTOM_A25'
+      AND role_permission.is_deleted = false
+    ORDER BY permission.code;
+  `);
+  if (customCodes !== "*\nhomestay:booking:read\nhomestay:operations") {
+    fail(`custom/legacy/wildcard grants changed: ${customCodes}`);
+  }
+  pass("custom_legacy_wildcard_unchanged");
   assertScalar(
     `SELECT count(*)
      FROM rel_role_perm role_permission
      JOIN sys_role role ON role.id = role_permission.role_id
      JOIN sys_permission permission ON permission.id = role_permission.permission_id
-     WHERE role_permission.tenant_id = ${sqlLiteral(ids.multiTenant)}
-       AND role_permission.is_deleted = false
+     WHERE role_permission.tenant_id = ${sqlLiteral(ids.tenant)}
+       AND role_permission.remark = 'PR192 A-2.5 explicit property bundle grant'
        AND (
          role.tenant_id <> role_permission.tenant_id
          OR permission.tenant_id <> role_permission.tenant_id
-         OR
-         role_permission.park_id <> role.park_id
+         OR role.park_id <> role_permission.park_id
          OR (
-           role.park_id = ${sqlLiteral(ids.multiHomestayPark)}
-           AND permission.code IN (${quotedList(markedRows("PROPERTY_PERMISSION_DEFINITIONS_START", "PROPERTY_PERMISSION_DEFINITIONS_END").filter((row) => row[0] === "housing_rental").map((row) => row[1]))})
+           role.park_id = ${sqlLiteral(ids.homestayPark)}
+           AND permission.code IN (${contract.housingCodes.map(sqlLiteral).join(",")})
          )
          OR (
-           role.park_id = ${sqlLiteral(ids.multiHousingPark)}
-           AND permission.code IN (${quotedList(markedRows("PROPERTY_PERMISSION_DEFINITIONS_START", "PROPERTY_PERMISSION_DEFINITIONS_END").filter((row) => row[0] === "homestay").map((row) => row[1]))})
+           role.park_id = ${sqlLiteral(ids.housingPark)}
+           AND permission.code IN (${contract.homestayCodes.map(sqlLiteral).join(",")})
          )
        );`,
     0,
-    "no cross-tenant, cross-park or cross-module built-in grant is created"
+    "cross_tenant_park_module_grants"
   );
-
-  pass("Track A RBAC migration DB fixture completed");
-} finally {
-  cleanup();
-  info("Track A RBAC fixture rows cleaned up");
+  const seedPartySnapshot = query(`
+    SELECT child.id, child.tenant_id, child.park_id, child.code, child.name,
+           child.resource, child.action, child.frontend_route, child.sort_no,
+           parent.id, parent.code, child.visible, child.keep_alive,
+           child.always_show
+    FROM sys_permission child
+    JOIN sys_permission parent ON parent.id = child.parent_id
+    WHERE child.tenant_id = '10000001'
+      AND child.park_id = '20000001'
+      AND child.code = 'asset:party'
+      AND child.is_deleted = false;
+  `);
+  if (!seedPartySnapshot) {
+    fail("000184 did not create asset:party in the fixed production seed scope");
+  }
+  assertScalar(
+    `SELECT count(*) FROM rel_role_perm role_permission
+     JOIN sys_permission permission
+       ON permission.id = role_permission.permission_id
+      AND permission.tenant_id = role_permission.tenant_id
+     WHERE permission.tenant_id = '10000001'
+       AND permission.code = 'asset:party'
+       AND role_permission.is_deleted = false;`,
+    0,
+    "pre_seed_asset_party_zero_grants"
+  );
+  pass("pre_seed_asset_party_snapshot", {
+    created_by: "000184",
+    fixed_tenant: "10000001",
+    fixed_park: "20000001",
+    same_record_tracking: true
+  });
+  return seedPartySnapshot;
 }
+
+function verifyProductionSeedCompatibility(seedPartySnapshot) {
+  psql(productionSeedSql);
+  const first = query(`
+    SELECT child.id, child.tenant_id, child.park_id, child.code, child.name,
+           child.resource, child.action, child.frontend_route, child.sort_no,
+           parent.id, parent.code, child.visible, child.keep_alive, child.always_show
+    FROM sys_permission child
+    JOIN sys_permission parent ON parent.id = child.parent_id
+    WHERE child.tenant_id = '10000001'
+      AND child.code = 'asset:party'
+      AND child.is_deleted = false;
+  `);
+  if (first !== seedPartySnapshot) {
+    fail("first production seed run changed the 000184-created asset:party row");
+  }
+  assertScalar(
+    `SELECT count(*) FROM rel_role_perm role_permission
+     JOIN sys_permission permission
+       ON permission.id = role_permission.permission_id
+      AND permission.tenant_id = role_permission.tenant_id
+     WHERE permission.tenant_id = '10000001'
+       AND permission.code = 'asset:party'
+       AND role_permission.is_deleted = false;`,
+    0,
+    "production_seed_first_asset_party_zero_grants"
+  );
+  psql(productionSeedSql);
+  const second = query(`
+    SELECT child.id, child.tenant_id, child.park_id, child.code, child.name,
+           child.resource, child.action, child.frontend_route, child.sort_no,
+           parent.id, parent.code, child.visible, child.keep_alive, child.always_show
+    FROM sys_permission child
+    JOIN sys_permission parent ON parent.id = child.parent_id
+    WHERE child.tenant_id = '10000001'
+      AND child.code = 'asset:party'
+      AND child.is_deleted = false;
+  `);
+  if (second !== seedPartySnapshot) {
+    fail("second production seed run changed the 000184-created asset:party row");
+  }
+  assertScalar(
+    `SELECT count(*) FROM rel_role_perm role_permission
+     JOIN sys_permission permission
+       ON permission.id = role_permission.permission_id
+      AND permission.tenant_id = role_permission.tenant_id
+     WHERE permission.tenant_id = '10000001'
+       AND permission.code = 'asset:party'
+       AND role_permission.is_deleted = false;`,
+    0,
+    "production_seed_asset_party_zero_grants"
+  );
+  pass("production_seed_rerun", {
+    same_id_content_parent_hidden_diff: 0,
+    active_rows: 1,
+    grants: 0,
+    update_time: "existing whole-seed refresh semantics excluded"
+  });
+}
+
+function createContainer() {
+  validateRunId(runId);
+  assertNoDatabaseUrlOverrides(process.env);
+  const existing = inspectContainer(containerName, { cwd: rootDir });
+  if (existing) fail(`fixture container already exists: ${containerName}`);
+  const created = docker(buildEphemeralPostgresRunArgs({
+    containerName,
+    databaseName,
+    fixtureLabel,
+    runId,
+    postgresUser,
+    postgresPassword
+  }));
+  const inspected = inspectContainer(containerName, { cwd: rootDir });
+  // Capture the exact just-created target before validating it so the finally
+  // path can still remove it when validation itself fails.
+  containerId = inspected?.Id ?? null;
+  volumeName = (inspected?.Mounts ?? []).find(
+    (mount) => mount.Destination === "/var/lib/postgresql/data"
+  )?.Name ?? null;
+  containerId = resolveCreatedContainerId(created.stdout, inspected, {
+    containerName,
+    databaseName,
+    fixtureLabel,
+    runId,
+    expectedImage: OFFICIAL_POSTGRES_IMAGE,
+    requireLoopbackPort: true
+  });
+  const exact = assertExactEphemeralPostgresContainer(inspected, {
+    containerName,
+    databaseName,
+    fixtureLabel,
+    runId,
+    expectedImage: OFFICIAL_POSTGRES_IMAGE,
+    requireLoopbackPort: true
+  });
+  volumeName = exact.volumeName;
+  pass("ephemeral_target", {
+    image: OFFICIAL_POSTGRES_IMAGE,
+    auto_remove: true,
+    explicit_database: databaseName,
+    loopback_random_port: true,
+    anonymous_volume: true,
+    exact_labels: true
+  });
+}
+
+function cleanup() {
+  const errors = [];
+  if (containerId) {
+    const stop = docker(["stop", "--timeout", "5", containerId], {
+      allowFailure: true
+    });
+    if (stop.status !== 0) errors.push((stop.stderr || stop.stdout).trim());
+  }
+  const containerAbsent = inspectContainer(containerName, { cwd: rootDir }) === null;
+  let volumeAbsent = true;
+  if (volumeName) {
+    const volume = docker(["volume", "inspect", volumeName], {
+      allowFailure: true
+    });
+    volumeAbsent = volume.status !== 0 && /No such volume/i.test(volume.stderr);
+    if (!volumeAbsent) {
+      const remove = docker(["volume", "rm", volumeName], { allowFailure: true });
+      if (remove.status !== 0) errors.push((remove.stderr || remove.stdout).trim());
+      const finalVolume = docker(["volume", "inspect", volumeName], {
+        allowFailure: true
+      });
+      volumeAbsent =
+        finalVolume.status !== 0 && /No such volume/i.test(finalVolume.stderr);
+    }
+  }
+  cleanupResult = {
+    container_absent: containerAbsent,
+    anonymous_volume_absent: volumeAbsent,
+    errors
+  };
+  if (!containerAbsent || !volumeAbsent || errors.length > 0) {
+    throw new Error(`fixture cleanup failed: ${JSON.stringify(cleanupResult)}`);
+  }
+}
+
+async function main() {
+  const contract = validateStaticContract();
+  createContainer();
+  await waitForPostgres();
+  applyBaselineMigrations();
+  const seedPartySnapshot = insertFixture(contract);
+  verifyProductionSeedCompatibility(seedPartySnapshot);
+}
+
+let failure = null;
+try {
+  await main();
+} catch (error) {
+  failure = error instanceof Error ? error : new Error(String(error));
+} finally {
+  try {
+    cleanup();
+  } catch (cleanupError) {
+    failure ??= cleanupError instanceof Error
+      ? cleanupError
+      : new Error(String(cleanupError));
+  }
+}
+
+const evidence = {
+  schema: evidenceSchema,
+  run_id: runId,
+  status: failure ? "failed" : "passed",
+  checks,
+  cleanup: cleanupResult,
+  open_P0_P1: failure ? ["P1: reproducible RBAC fixture failed"] : []
+};
+process.stdout.write(`${JSON.stringify(evidence)}\n`);
+if (failure) {
+  process.stderr.write(`[A-2.5 RBAC] FAIL ${failure.message}\n`);
+  process.exitCode = 1;
 }

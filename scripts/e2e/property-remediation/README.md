@@ -1,51 +1,48 @@
 # Property remediation database fixtures
 
-`track-a-rbac-migration.mjs` directly executes migration `000183` twice against an
-isolated PostgreSQL database and then removes its random fixture rows.
+`track-a-rbac-migration.mjs` is the reproducible A-2.5 database gate. It creates
+and owns one exact disposable PostgreSQL 16 Alpine container, applies the
+migration chain through `000182` (with the reviewed `000175` production-data
+patch skipped), and then proves:
 
-The script refuses non-loopback hosts, connection-override query parameters,
-unsupported database-name characters, and database names that do not contain
-`test`, `fixture`, or `ci`. Run it only after the database has been migrated
-through `000182`:
+- `000183` creates the exact 65-permission baseline;
+- `000184` adds exactly seven read permissions for a combined set of 72;
+- the 14 bundles contain exactly 59 literal pairs and each new read permission
+  has one bundle owner;
+- the actual built-in grants equal the fixture's expected three-row set, so an
+  empty or incomplete grant insert fails the gate;
+- disabled, expired, status-disabled and missing module assignments receive no
+  new permissions;
+- custom, legacy and wildcard grants remain unchanged and cross-scope grants
+  remain zero;
+- `asset:party` is hidden, parented to `asset`, and receives no automatic grant;
+- the second `000184` run leaves definition and grant timestamps unchanged;
+- `000184` first creates the Party page in the fixed production seed scope, and
+  two production-safe seed runs preserve that same row ID, content, parent,
+  hidden state and zero-grant state.
+
+The runner rejects every database URL override and accepts only a unique
+lowercase 12–64 character run ID. It verifies the exact container name, two
+fixture labels, running state, official image, `--rm`, explicit `POSTGRES_DB`,
+random loopback port and Docker-created anonymous volume. Its `finally` path
+removes the exact container and anonymous volume on both success and failure.
+
+Run from the repository root. The single stdout line is the machine-readable
+evidence summary; progress is written to stderr:
 
 ```bash
-PROPERTY_RBAC_FIXTURE_DATABASE_URL=postgresql://user:password@127.0.0.1:5432/jinhu_fixture \
-PROPERTY_RBAC_FIXTURE_ALLOW_WRITE=yes \
-node scripts/e2e/property-remediation/track-a-rbac-migration.mjs
+set -o pipefail
+mkdir -p artifacts/property-remediation
+PROPERTY_RBAC_FIXTURE_RUN_ID=a25rbac20260731a1 \
+node scripts/e2e/property-remediation/track-a-rbac-migration.mjs \
+  | tee artifacts/property-remediation/a25-rbac-evidence.json
 ```
 
-When the host does not have `psql`, create a new disposable PostgreSQL container
-for one fixture run. The fallback verifies the exact run ID and container name,
-the two fixture labels, `--rm`, the official PostgreSQL image, `POSTGRES_DB`,
-and anonymous temporary storage before it executes any SQL:
-
-```bash
-fixture_run_id=20260730_f7c2a9b8
-fixture_container="pr192_track_a_rbac_fixture_${fixture_run_id}_db"
-
-docker run --detach --rm \
-  --name "${fixture_container}" \
-  --label com.jinhu.fixture=pr192-track-a-rbac \
-  --label "com.jinhu.fixture.run-id=${fixture_run_id}" \
-  --env POSTGRES_USER=user \
-  --env POSTGRES_PASSWORD=password \
-  --env POSTGRES_DB=jinhu_fixture \
-  postgres:16-alpine
-
-# Wait for PostgreSQL, then initialize this disposable database through 000182
-# using the repository migration procedure before executing the fixture.
-
-PROPERTY_RBAC_FIXTURE_DATABASE_URL=postgresql://user:password@127.0.0.1:5432/jinhu_fixture \
-PROPERTY_RBAC_FIXTURE_ALLOW_WRITE=yes \
-PROPERTY_RBAC_FIXTURE_PSQL_CONTAINER="${fixture_container}" \
-PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID="${fixture_run_id}" \
-node scripts/e2e/property-remediation/track-a-rbac-migration.mjs
-
-docker stop "${fixture_container}"
-```
-
-Without `PROPERTY_RBAC_FIXTURE_DATABASE_URL`, the script exits successfully with
-an explicit `[SKIP]` reason and performs no database writes.
+The evidence is successful only when `status="passed"`,
+`open_P0_P1=[]`, and cleanup reports both
+`container_absent=true` and `anonymous_volume_absent=true`. Generated evidence
+under `artifacts/property-remediation/` is runtime output and must not be
+committed.
 
 ## A-ephemeral-db-bootstrap
 

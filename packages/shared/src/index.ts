@@ -819,6 +819,7 @@ export const SYSTEM_PERMISSIONS = {
   UNIT_EXPORT: "unit:export",
   ...PROPERTY_BUSINESS_PERMISSIONS,
   ASSET_READ: "asset:read",
+  ASSET_PARTY_PAGE: "asset:party",
   ASSET_STATUS_BOARD: "asset:status_board",
   ASSET_STATISTICS: "asset:statistics",
   ASSET_STATISTICS_READ: "asset:statistics:read",
@@ -868,6 +869,24 @@ export const SYSTEM_PERMISSIONS = {
 } as const;
 
 export type SystemPermissionCode = (typeof SYSTEM_PERMISSIONS)[keyof typeof SYSTEM_PERMISSIONS];
+
+export interface CanonicalWorkbenchPageSurface {
+  featureId: string;
+  moduleCode: string;
+  menuCode: string;
+  pageCode: SystemPermissionCode;
+  route: string;
+  detailRoutes: readonly string[];
+}
+
+export const ASSET_PARTY_WORKBENCH_SURFACE = {
+  featureId: "asset.parties",
+  moduleCode: "asset",
+  menuCode: "asset",
+  pageCode: SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE,
+  route: "/assets/parties",
+  detailRoutes: ["/assets/parties/[partyId]"]
+} as const satisfies CanonicalWorkbenchPageSurface;
 
 export interface PermissionSeed {
   code: SystemPermissionCode;
@@ -1359,6 +1378,7 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE, name: "住房采购管理", resource: "biz.housing_purchase", action: "manage" },
   { code: SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER, name: "住房采购转收费", resource: "biz.housing_purchase", action: "transfer" },
   { code: SYSTEM_PERMISSIONS.ASSET_READ, name: "资产读取", resource: "biz.asset", action: "read" },
+  { code: SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE, name: "业务相对方页面", resource: "asset.party", action: "page" },
   { code: SYSTEM_PERMISSIONS.ASSET_STATUS_BOARD, name: "房源状态看板", resource: "biz.asset", action: "status_board" },
   { code: SYSTEM_PERMISSIONS.ASSET_STATISTICS, name: "资产统计", resource: "biz.asset", action: "statistics" },
   { code: SYSTEM_PERMISSIONS.ASSET_STATISTICS_READ, name: "资产统计读取", resource: "biz.asset", action: "statistics:read" },
