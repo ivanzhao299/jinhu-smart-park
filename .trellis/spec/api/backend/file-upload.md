@@ -24,7 +24,9 @@
   `original_name`; preserve ASCII and already-valid Unicode names unchanged. A
   Latin-1/UTF-8 round trip is not sufficient evidence of mojibake because valid
   names such as `Ã©.pdf` and `Â£.pdf` are also reversible. Recovery must require
-  an additional signal from the product's affected script (currently CJK text).
+  an additional signal from the product's affected script. CJK recovery covers Han
+  ideographs, Japanese hiragana/katakana, and Korean Hangul rather than treating
+  “CJK” as Han-only.
 - File metadata must remain tenant_id + park_id scoped.
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
@@ -85,8 +87,9 @@
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
-- Filename tests include affected CJK mojibake, already-valid CJK, ASCII, accented
-  Unicode, and reversible Latin-1 counterexamples such as `Ã©` and `Â£`.
+- Filename tests include mojibake and already-valid examples for Chinese, Japanese,
+  and Korean, plus ASCII, accented Unicode, and reversible Latin-1 counterexamples
+  such as `Ã©` and `Â£`.
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
 - Frontend: reload the housing operations page after upload and assert the uploader's

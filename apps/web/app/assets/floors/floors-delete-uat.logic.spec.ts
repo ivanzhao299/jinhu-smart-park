@@ -11,6 +11,8 @@ test("blocked floor deletion is localized and shown in an immediate dialog", () 
   );
 
   assert.match(page, /window\.alert\(failureMessage\)/);
+  assert.match(page, /removeCommittedItem\(current, row\.id\)/);
+  assert.match(page, /getCommittedDeleteRefreshError\(\(\) => load\(pageData\.page\)\)/);
   assert.match(service, /该楼层下仍有未删除房源，无法删除/);
   assert.doesNotMatch(service, /Floor has undeleted units and cannot be deleted/);
 });

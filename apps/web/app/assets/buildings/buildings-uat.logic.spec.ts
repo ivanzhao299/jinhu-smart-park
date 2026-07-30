@@ -11,6 +11,8 @@ test("blocked building deletion is localized and shown in an immediate dialog", 
   );
 
   assert.match(page, /window\.alert\(failureMessage\)/);
+  assert.match(page, /removeCommittedItem\(current, row\.id\)/);
+  assert.match(page, /getCommittedDeleteRefreshError\(\(\) => load\(pageData\.page\)\)/);
   assert.match(service, /该楼栋下仍有未删除楼层，无法删除/);
   assert.doesNotMatch(service, /Building has undeleted floors and cannot be deleted/);
 });

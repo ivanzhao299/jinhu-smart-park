@@ -79,6 +79,9 @@
   replace them with an empty list.
 - Post-delete attachment refresh failure -> retain deletion success in the owning form,
   report the refresh error separately, and allow the next refresh to reconcile the list.
+- Post-delete record-list refresh failure -> remove the committed row from the local
+  page immediately, decrement the visible total, and distinguish refresh failure from
+  deletion failure. Apply this to every sibling delete handler changed in the same PR.
 - Business action in flight -> disable file selection, upload, pending-file removal,
   and persisted-file deletion for the submitted aggregate until success or failure.
 - Upload in flight -> notify the owning business form through `onUploadingChange`;

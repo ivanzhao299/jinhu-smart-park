@@ -18,6 +18,10 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import {
+  getCommittedDeleteRefreshError,
+  removeCommittedItem
+} from "../../../lib/committed-delete.logic";
 
 type BuildingStatus = 0 | 1;
 
@@ -142,12 +146,15 @@ export default function BuildingsPage() {
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("building-delete")
       });
-      setMessage("删除成功");
-      await load(pageData.page);
     } catch (error) {
       const failureMessage = error instanceof Error ? error.message : "楼栋删除失败";
       window.alert(failureMessage);
+      return;
     }
+    setPageData((current) => removeCommittedItem(current, row.id));
+    setMessage("删除成功");
+    const refreshError = await getCommittedDeleteRefreshError(() => load(pageData.page));
+    if (refreshError) setMessage(`删除成功，但列表刷新失败：${refreshError}`);
   }
 
   return (

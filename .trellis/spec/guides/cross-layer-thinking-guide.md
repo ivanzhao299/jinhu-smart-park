@@ -207,6 +207,9 @@ action against every state and sibling entry point before implementation:
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] Action-only candidate effects run only after the authorized action is entered
+      (for example, opening its permission-gated drawer); a page-level read guard does
+      not authorize eager calls to an endpoint protected by create/execute permission
 - [ ] Permission capability graphs include the dataset needed to discover and select
       the target. If an action requires list/detail context, enforce that read
       permission as an API composite prerequisite; button checks alone are not access
@@ -244,6 +247,9 @@ action against every state and sibling entry point before implementation:
 - [ ] Mutation success and projection refresh are separate events: commit owner-state
       cleanup immediately after the successful response, then refresh secondary lists;
       a refresh error must not roll back client state to a server-invalid reference
+- [ ] Successful list deletion removes the row and decrements the visible total before
+      the follow-up GET. If that GET fails, report “mutation succeeded, refresh failed”
+      instead of restoring the deleted row or showing a generic deletion failure
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;
@@ -499,6 +505,8 @@ sibling before the next commit. Do not stop at the named line.
       unrelated broad read access; keep each detail projection independently gated.
 - [ ] Open every new selector under the narrowest supported action-role fixture and
       assert its network calls require no sibling module read permissions.
+- [ ] Also open the containing page with read-only permission and assert action-only
+      candidate requests are absent until the permission-gated action is entered.
 - [ ] Persisted relationship rows carry response-owned display labels; never resolve
       historical names from a separately paginated candidate list.
 - [ ] Terminal attachment references define authoritative ownership: after registration,

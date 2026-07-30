@@ -38,7 +38,7 @@ export interface DownloadFileResult {
 export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
 
 function containsCjk(value: string): boolean {
-  return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u.test(value);
+  return /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\ua960-\ua97f\uac00-\ud7af\ud7b0-\ud7ff\uf900-\ufaff\uff66-\uff9f]/u.test(value);
 }
 
 export function normalizeMultipartFileName(originalName: string): string {

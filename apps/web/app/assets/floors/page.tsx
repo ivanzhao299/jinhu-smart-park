@@ -11,6 +11,10 @@ import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import {
+  getCommittedDeleteRefreshError,
+  removeCommittedItem
+} from "../../../lib/committed-delete.logic";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 
 type FloorStatus = 0 | 1;
@@ -173,12 +177,15 @@ export default function FloorsPage() {
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("floor-delete")
       });
-      setMessage("删除成功");
-      await load(pageData.page);
     } catch (error) {
       const failureMessage = error instanceof Error ? error.message : "楼层删除失败";
       window.alert(failureMessage);
+      return;
     }
+    setPageData((current) => removeCommittedItem(current, row.id));
+    setMessage("删除成功");
+    const refreshError = await getCommittedDeleteRefreshError(() => load(pageData.page));
+    if (refreshError) setMessage(`删除成功，但列表刷新失败：${refreshError}`);
   }
 
   function handleLayoutUploaded(_file: FileRecord) {

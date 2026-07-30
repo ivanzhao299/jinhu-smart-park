@@ -15,5 +15,7 @@ test("new energy adjustments select a readable posted billing item", () => {
   assert.match(page, /disabled=\{!item\.receivableId\}/);
   assert.match(page, /loadBillingItemOptions\(billingItemPage \+ 1\)/);
   assert.match(page, /formatBillingItemOption\(item\)/);
+  assert.match(page, /function openCreate\(\)[\s\S]*loadBillingItemOptions\(1\)/);
+  assert.doesNotMatch(page, /useEffect\(\(\) => \{ void loadBillingItemOptions/);
   assert.doesNotMatch(page, /<Field label="账单项 ID"><input required/);
 });

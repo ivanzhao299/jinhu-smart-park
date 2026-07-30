@@ -119,12 +119,12 @@ export default function EnergyBillingAdjustmentsPage() {
   }, []);
 
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
-  useEffect(() => { void loadBillingItemOptions(1).catch((error: Error) => setMessage(error.message)); }, [loadBillingItemOptions]);
   useEffect(() => { void load().catch((error: Error) => setMessage(error.message)); }, [load]);
 
   function openCreate() {
     setForm(emptyForm);
     setFormOpen(true);
+    void loadBillingItemOptions(1).catch((error: Error) => setMessage(error.message));
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
