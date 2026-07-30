@@ -9,8 +9,9 @@
   checksum；它来自 automated-gates 的早期 fixture 阶段，不等待
   `A-route-evidence`、浏览器证据或 automated-gates 整体完成。
 - `07-30-pr192-a-shared-web-foundation` 已提供不依赖 identity schema 或 approval
-  runtime 的 integration-ready SHA（静态/单测、lint/typecheck/build 已通过）；
-  final UI Gate 等待首个 domain route SHA 的真实浏览器证据。
+  runtime 的 integration-ready SHA
+  `d2a015f9ba931b2024e6360570697c77b74ea3fb`（三路 S2 PASS，
+  `open_P0_P1=[]`）；final UI Gate 等待首个 domain route SHA 的真实浏览器证据。
 - 不要求 menu、landing 或 legacy redirect handoff；这些是消费本任务输出的后置
   A2 交付，A1 不等待 A2。
 - 已运行 `trellis-before-dev`，读取 Web/shared、upload/form、cross-layer、reuse、

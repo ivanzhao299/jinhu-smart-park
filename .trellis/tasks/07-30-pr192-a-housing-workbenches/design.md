@@ -22,7 +22,8 @@ apps/web/features/housing/**
 - Track A 子任务 `07-30-pr192-a-shared-web-foundation` 的 shared Web foundation
   integration-ready SHA：picker、detail/dialog、task presentation、DS surface 和
   permission adapters；handoff Gate 是静态/单测与 lint/typecheck/build，不含
-  preview route。
+  preview route。当前消费 SHA 为
+  `d2a015f9ba931b2024e6360570697c77b74ea3fb`。
 - 早期 A-base-core fixture/profile checksum。
 
 该 shared Web 子任务属于 A0/A1，先于住房工作台 handoff，且不依赖 Track B

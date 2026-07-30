@@ -53,8 +53,12 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 
 当前结论：**A-server-safety stop-ship 已关闭，contract/server-safety baseline
 已于 2026-07-30 冻结为 `e709459a034807b3575db604a76bc69bf1c5ff5b`；A-C2
-migration+API-only projection slice runtime Gate 已通过，但 A-1 仍未完成。下一立即
-动作是启动 shared Web foundation 与 A-base，再交付两个领域 route SHA。Web menu
+migration+API-only projection slice runtime Gate 已通过，但 A-1 仍未完成。A-base
+S0 发现的 bootstrap P1 已由独立 checker 关闭，正式 handoff SHA 为
+`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
+Shared Web foundation commit
+`d2a015f9ba931b2024e6360570697c77b74ea3fb` 也已冻结。A0 implementation 已解除
+阻塞但尚未开始；下一动作是启动 A0，再交付两个领域 route SHA。Web menu
 必须等待真实 route SHA，不得提前把 A-1 标记完成。**
 
 ## 5. Track A：页面、菜单与权限整改
@@ -68,8 +72,8 @@ Track A 的目标是先把民宿与住房出租拆成清晰、可授权、可单
 |---|---|---|---|---|---|---|---|
 | A-0 启动确认 | 已完成 | 项目负责人；产品、架构、研发、测试代表 | 多角色复审结论已通过 | 分支、父任务、11 个子任务、唯一负责人边界和停工条件均已登记；这只代表规划启动完成 | [父任务资料](./) | 2026-07-30 | 2026-07-30 |
 | A-1 合同与权限基础 | 进行中 | 共享合同、server safety、民宿/住房 API、环境文档、API menu projection、数据库变更负责人；产品与安全参与 | A-0 完成 | A-C2 migration+API projection slice 已技术通过；等待 shared Web、workbenches、最终 Web 接入与 route evidence，Web 不暴露未落地 route | [合同与权限任务；A0-S 与 A-C2 slice PASS，A-1 继续进行](../07-30-pr192-a-contract-rbac-foundation/) | 2026-07-30 | 2026-07-30 启动 |
-| A-2 共享界面基础 | 未开始 | 共享房产 Web 负责人持组件；首个 domain route owner 持浏览器执行；QA 持证据 | A-1 的访问与响应合同已冻结 | integration-ready handoff 通过静态/单测与 lint/typecheck/build；不建 preview route；首个真实 route 补 desktop/mobile/keyboard/focus/zoom/ARIA 后才完成 final UI Gate | [待补：共享界面交付证据](../07-30-pr192-a-shared-web-foundation/) | 待排期 | — |
-| A-3 民宿与住房工作台并行整改 | 未开始 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-C2 slice 通过；A-2 共享界面完成；A-base 基础测试数据可用 | 民宿和住房分别形成清晰页面；每个页面只承载对应任务；桌面与手机均可操作；不保留新旧两套重复实现 | [待补：民宿工作台证据](../07-30-pr192-a-homestay-workbenches/)；[待补：住房工作台证据](../07-30-pr192-a-housing-workbenches/) | 待排期 | — |
+| A-2 共享界面基础 | 进行中 / handoff-ready | 共享房产 Web 负责人持组件；首个 domain route owner 持浏览器执行；QA 持证据 | A-1 的访问与响应合同已冻结 | integration-ready SHA=`d2a015f9ba931b2024e6360570697c77b74ea3fb` 已通过三路 S2；首个真实 route 补 desktop/mobile/keyboard/focus/zoom/ARIA 后才完成 final UI Gate | [共享界面 handoff](../07-30-pr192-a-shared-web-foundation/) | 2026-07-30 | handoff ready，final UI awaiting route |
+| A-3 民宿与住房工作台并行整改 | 未开始 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-C2 slice 通过；A-2 handoff ready；A-ephemeral-db-bootstrap 独立 PASS；A-base 可用 | 民宿和住房分别形成清晰页面；每个页面只承载对应任务；桌面与手机均可操作；不保留新旧两套重复实现 | [待补：民宿工作台证据](../07-30-pr192-a-homestay-workbenches/)；[待补：住房工作台证据](../07-30-pr192-a-housing-workbenches/) | 待排期 | — |
 | A-4 Web 菜单、落地页与深链防护 | 未开始 | 菜单权限负责人；住房 route owner 持有 tenant alias；民宿 route owner 参与 | A-3 两份 canonical route SHA 已交付 | Web menu 消费真实 route SHA；legacy landing、tenant alias 正确；未知 property 深链默认拒绝且不落到 catch-all placeholder | 待补：Web 菜单与权限验收报告 | 待排期 | — |
 | A-5 自动验收与独立复审 | 未开始 | 自动化测试负责人；独立的产品、权限、UX、测试审查者 | A-1 至 A-4 完成 | 精确角色、园区隔离、页面直达、接口、字段、附件、手机、无障碍、迁移重跑和清理全部通过；没有未关闭的 P0/P1 | [待补：Track A 自动验收证据](../07-30-pr192-a-automated-gates/) | 待排期 | — |
 
@@ -180,7 +184,8 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | 2026-07-30 至待更新 | 进行中 | 启动 A-1 代码/契约基线研究；当前仅只读盘点 shared、route、RBAC、迁移和测试模式 | 汇合 IA/route 与 RBAC 研究，冻结 A-contract 实施输入 | [A-1 任务](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
 | 2026-07-30 至待更新 | 进行中 | 已形成 shared contract candidate 并完成基础构建、类型、lint 和合同测试；独立复审发现 server fail-closed 缺口及 housing tenant、homestay credential 两组字段投影漂移，A-1 未完成 | 由 infrastructure/homestay/housing/env-doc owners 闭合 A-server-safety Gate；通过前不启动 A-C2 menu/migration | [A-1 stop-ship](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
 | 2026-07-30 至待更新 | 进行中 | A0-S PASS，baseline 已冻结；A-C2 只读复审发现 17 routes 未落地，提前完成 Web menu 会进入 catch-all placeholder；权威顺序已修正 | 先 schema migration/exact tests，再 API `/users/me` projection；随后 shared/A-base、domain route SHA、Web menu、route evidence | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
-| 2026-07-30 至待更新 | 进行中 | A-C2 独立 DB runtime fixture 与 API projection slice PASS：000183 双跑、65 exact、scope/module/relation 负向、timestamp 稳定、cleanup `0|0|0|0`；临时容器/卷已删除 | 启动 shared Web foundation/A-base；A-1 保持进行中，等待 workbenches、最终 Web menu 和 route evidence | [A-C2 Gate 记录](review-gates.md) | emvia / Codex |
+| 2026-07-30 至待更新 | 进行中 | A-C2 独立 DB runtime fixture 与 API projection slice PASS：000183 双跑、65 exact、scope/module/relation 负向、timestamp 稳定、cleanup `0|0|0|0`；临时容器/卷已删除 | 启动 shared Web；A-base 先完成 reusable ephemeral bootstrap | [A-C2 Gate 记录](review-gates.md) | emvia / Codex |
+| 2026-07-30 至待更新 | 进行中 | A-base S0 P1 已关闭：bootstrap 独立 review PASS，4项P1修复，owner 7/0/1、Linux SIGTERM 1/1、same-run-id 双链、checker runtime 与 residual=0 | 基于冻结 bootstrap SHA 启动 A0 implementation；当前尚未开始 | [A-base S0 Gate](review-gates.md) | emvia / Codex |
 
 ## 11. 风险、决策与阻塞记录
 
@@ -192,6 +197,7 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | RISK-A-001 | 2026-07-30 | manifest 标记 blocked 但缺 server-side high-risk 409 boundary，且 canonical metadata 缺失/不匹配曾可能 fail open | A-1 / A-C2 | 中 / P0 | 已实现三态、8-action exact matrix、canonical metadata default-deny 并通过独立复审 | property-workbench-safety、homestay API、housing API owner | 2026-07-30 | 关闭 | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) |
 | RISK-A-002 | 2026-07-30 | housing tenant list/create 可能返回完整 `mobile`/`email` | A-1 | 高 / P1 | server response projection + list/create snapshot 负向断言已通过 | housing API owner | 2026-07-30 | 关闭 | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) |
 | RISK-A-003 | 2026-07-30 | homestay booking/credential 响应可能返回完整 `credentialReference` | A-1 | 高 / P1 | detail/issue/return 共用 masked projection + 三入口 snapshot 已通过 | homestay API owner | 2026-07-30 | 关闭 | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) |
+| RISK-A-004 | 2026-07-30 | A-C2 临时 DB bootstrap 未复用，A0 docker harness 不能独立复验 | A-base | 高 / P1 | 4项P1修复并独立review PASS；handoff=`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`；关键runtime与residual=0 | a-bootstrap-owner / independent checker | 2026-07-30 | 关闭 | [A-base S0 Gate](review-gates.md) |
 
 ### 11.2 决策记录模板
 
@@ -215,8 +221,13 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
    `e709459a034807b3575db604a76bc69bf1c5ff5b`。
 3. A-C2 migration+API-only projection slice 已技术通过；保存独立 fixture、
    `000176`–`000182` 基线、000183 双跑、65 exact 与 cleanup 证据。
-4. 启动 shared Web foundation 与 A-base；Web 继续保持不可见，A-1 不关闭。
-5. shared Web/A-base → 两份 domain route SHA → Web menu/landing/alias/deep-link
+4. Shared Web foundation integration-ready SHA
+   `d2a015f9ba931b2024e6360570697c77b74ea3fb` 已交付但 final UI Gate 等待首个
+   canonical route；bootstrap handoff
+   `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`
+   已独立 PASS，启动尚未开始的 A0 implementation。Web 保持不可见，A-1 不关闭。
+5. A-base → 两份 domain route SHA → Web
+   menu/landing/alias/deep-link
    → route evidence/独立 Gate，严格按顺序执行。
 
 在上述步骤完成前，不启动 Track B/C，不开启生产高风险能力，也不把规划完成误报为

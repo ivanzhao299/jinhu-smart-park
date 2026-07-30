@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import {
+  assertExactEphemeralPostgresContainer,
+  inspectContainer,
+  validateRunId
+} from "./bootstrap/ephemeral-postgres.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const migrationPath = resolve(
@@ -38,13 +43,10 @@ function sqlLiteral(value) {
 }
 
 function assertSafeFixtureContainer(databaseName) {
-  if (
-    !fixtureContainerRunId ||
-    !/^[a-z0-9][a-z0-9_-]{11,63}$/.test(fixtureContainerRunId)
-  ) {
-    fail(
-      "PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID must be a unique 12-64 character lowercase run id"
-    );
+  try {
+    validateRunId(fixtureContainerRunId);
+  } catch {
+    fail("PROPERTY_RBAC_FIXTURE_CONTAINER_RUN_ID is invalid");
   }
   const expectedContainer =
     `pr192_track_a_rbac_fixture_${fixtureContainerRunId}_db`;
@@ -53,51 +55,21 @@ function assertSafeFixtureContainer(databaseName) {
       `PROPERTY_RBAC_FIXTURE_PSQL_CONTAINER must exactly equal ${expectedContainer}`
     );
   }
-  const result = spawnSync(
-    "docker",
-    ["inspect", "--type", "container", fixtureContainer],
-    { cwd: rootDir, encoding: "utf8", maxBuffer: 1024 * 1024 }
-  );
-  if (result.error?.code === "ENOENT") {
-    fail("docker is not installed; containerized DB migration fixture cannot run");
-  }
-  if (result.status !== 0) {
-    fail(`isolated fixture container inspect failed: ${result.stderr.trim()}`);
-  }
-  let inspected;
   try {
-    [inspected] = JSON.parse(result.stdout);
-  } catch {
-    fail("isolated fixture container inspect returned invalid JSON");
-  }
-  if (
-    !inspected ||
-    inspected.Name !== `/${expectedContainer}` ||
-    inspected.State?.Running !== true ||
-    inspected.HostConfig?.AutoRemove !== true ||
-    !/^postgres(?::|@)/.test(inspected.Config?.Image ?? "") ||
-    inspected.Config?.Labels?.["com.jinhu.fixture"] !== fixtureLabel ||
-    inspected.Config?.Labels?.["com.jinhu.fixture.run-id"] !==
-      fixtureContainerRunId
-  ) {
-    fail(
-      "fixture container must be the running --rm PostgreSQL container carrying the exact fixture and run-id labels"
+    assertExactEphemeralPostgresContainer(
+      inspectContainer(fixtureContainer, { cwd: rootDir }),
+      {
+        containerName: expectedContainer,
+        databaseName,
+        fixtureLabel,
+        runId: fixtureContainerRunId
+      }
     );
-  }
-  const containerDatabase = (inspected.Config?.Env ?? [])
-    .find((entry) => entry.startsWith("POSTGRES_DB="))
-    ?.slice("POSTGRES_DB=".length);
-  if (containerDatabase !== databaseName) {
-    fail("fixture container POSTGRES_DB must exactly match the guarded database URL");
-  }
-  const unsafeMount = (inspected.Mounts ?? []).find(
-    (mount) =>
-      mount.Type !== "volume" ||
-      !/^[a-f0-9]{64}$/.test(mount.Name ?? "")
-  );
-  if (unsafeMount) {
+  } catch (error) {
     fail(
-      "fixture container must not use bind mounts or reusable named volumes"
+      `isolated fixture container rejected: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 }

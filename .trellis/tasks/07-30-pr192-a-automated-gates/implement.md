@@ -2,27 +2,64 @@
 
 ## Preconditions
 
-- A-base-core 启动前：fixture contract、A-C2 schema/exact-test SHA、API-only
-  `/users/me` projection SHA 与 PR #192 现有 domain runtime 已冻结；不要求页面或
-  Web menu final handoff。
+- A-base-core implementation 启动前：fixture contract、A-C2 schema/exact-test SHA、
+  API-only `/users/me` projection SHA、PR #192 现有 domain runtime 与
+  `A-ephemeral-db-bootstrap SHA` 已冻结，且 bootstrap 已独立 review PASS；不要求
+  页面或 Web menu final handoff。
 - A-route-evidence 启动前：A-base-core fixture handoff SHA 可校验，两份 canonical
   route SHA、Web menu/landing/deep-link SHA、housing tenant alias SHA 与 API
   projection SHA 均已冻结。
 - 测试 PostgreSQL、API、Web 和浏览器可用，目标环境明确非生产。
 - 父任务的 IA/permission manifest、A-base 规格和 stopship 清单已审批。
 
+## Batch A-pre — Ephemeral DB Bootstrap
+
+Owner: `a-bootstrap-owner`
+
+1. 独占 bootstrap source/tests；提取或新增可由 A0 独立调用的 migration harness。
+2. 只允许 exact ephemeral container，复用 A-C2 的 exact run-id、双 label、running、
+   `docker run --rm`、official PostgreSQL、显式 `POSTGRES_DB`、匿名 volume、拒绝
+   DB URL override 与 cleanup residual=0 约束。
+3. 执行 `000001`–`000174`，写结构化 `skip-record:000175`，再执行
+   `000176`–`000183`；skip record 必须说明 000175 是空库 fail-fast 的生产数据
+   补丁且不提供后续所需 schema。
+4. 输出 `A-ephemeral-db-bootstrap SHA`、命令、迁移序列、skip record、cleanup 和
+   container/volume deletion evidence。
+5. 由非实现 checker 独立 review；P0/P1=0 才允许 A0 implementation 启动。
+
+Machine gate A-pre：仅 exact ephemeral target；完整声明序列可复验；异常/中断清理
+为零；无 URL override；独立 review PASS。
+
+最终执行记录：独立 checker PASS，`open_P0_P1=[]`；冻结 handoff SHA：
+`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
+Reviewer 提出的 4 项 P1 均已修复；owner 自验 7 pass / 0 fail / 1 Windows platform
+skip，Linux SIGTERM 1/1，same-run-id 双链 PASS；checker 关键 runtime 复验通过，
+最终 residual=0。RISK-A-004 CLOSED，A0 为 `unblocked_not_started`。
+
 ## Batch A0 — A-base-core Provision
 
 Owner: `a-profile-owner`
 
-1. 校验 A-schema 与 API-only projection 输入 SHA；定义 profile、role、
+1. 校验 A-schema、API-only projection 与 `A-ephemeral-db-bootstrap SHA`；定义
+   profile、role、
    traceability、evidence、cleanup JSON/JSONL schema 和中央 decoder。
-2. 实现 `property-remediation-a-base-v1` builder、固定 clock/seed、canonical checksum 和精确行数/分布断言。
+2. 实现 `property-remediation-a-base-v1` builder、固定 clock/seed、canonical
+   checksum 和 exact rows：
+   building=3、floor=3、party=4000、booking=10000、booking_night=20000、
+   lease=2000、housing_receivable=10000、charge_plan=2000、turnover=2000、
+   handover=1000、purchase=1000、purchase_item=2000、work_order=1000、
+   property_occupancy=6500、sys_file=2000；park=3、unit=100，保持 60/30/10。
+   occupancy 固定为每 unit 65 条（3900/1950/650）；2,000 sys_file 关联小型有效
+   测试 PNG。
 3. 增加环境 denylist、专用测试 scope 标记和“无 B 数据/无 B 依赖”断言。
 4. 实现 write-ahead manifest、fsync、signal/startup reconcile、幂等清理和 residual scan。
 5. 以正常、SIGINT、SIGTERM、创建中崩溃和清理中崩溃验证零残留。
 6. 生成包含 contract/schema/generator/profile checksum 和 artifact hashes 的 immutable
    handoff manifest，发布 canonical fixture handoff SHA 给 homestay/housing owner。
+7. Support fixture 使用显式最小权限；exception super actor 只作为独立负向主体，
+   不进入 support/普通岗位正向集合。
+8. 所有生成结果写入 ignored `artifacts/property-remediation/runs/<run-id>/**`；
+   `scripts/**` 只保留可提交 runner/profile/schema/tests，不生成或提交 runs。
 
 Machine gate A0: 两次独立创建 checksum 相等；故障注入全部恢复；非测试环境 fail closed；residual=0；fixture handoff SHA 可复验。完成后标记 `A-base-core provisioned` 并释放 owner，不等待页面。
 
@@ -36,6 +73,12 @@ focus/zoom/ARIA；shared owner 修复组件缺陷并签收，QA owner 记录
 
 该 checkpoint 未通过前不得标记 foundation final UI Gate；它也不替代两份 route
 SHA 与 Web 接入完成后的 A-route-evidence。
+
+已接收 integration-ready SHA：
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`
+（`feat(property): add shared workbench foundation`）。三路 S2 final review PASS，
+`open_P0_P1=[]`；14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web
+build 通过。`A-foundation-first-route-ui` 仍 awaiting。
 
 ## Batch A1 — A-route-evidence Authorization
 
@@ -75,10 +118,12 @@ Owner: `a-browser-evidence-owner`
 1. 建立需求 → 用户旅程 → 测试 → evidence 追溯矩阵和 waiver 校验器。
 2. 执行 L5 浏览器矩阵，覆盖 landing、状态、picker、分页、刷新、深链和主流程。
 3. 在 desktop、320/360/390/768px 检查 DS surface、移动卡片、无溢出和触控。
-4. 执行 axe/键盘/focus 与固定资源下的 5 次性能采样。
+4. 执行 axe/键盘/focus 与固定资源下的 5 次性能采样。Candidate threshold 只记录
+   观测，不得产生 PASS；只有带 owner/批准人/日期的冻结阈值可用于 Gate。
 5. 汇总 summary/evidence、artifact SHA-256、命令/exit/失败日志和 cleanup verdict。
 
-Machine gate A2: 追溯 100%；UX/WCAG 2.2 AA/冻结阈值通过；artifact 完整且 hash 可验证。
+Machine gate A2: 追溯 100%；UX/WCAG 2.2 AA 通过；只有批准并冻结的性能阈值可判
+PASS，candidate 状态保持 awaiting approval；artifact 完整且 hash 可验证。
 
 ## Integration Gate A3
 
@@ -92,6 +137,10 @@ Machine gate A2: 追溯 100%；UX/WCAG 2.2 AA/冻结阈值通过；artifact 完�
 
 - A0 按 provision/cleanup manifest checkpoint 恢复；A1/A2 按 fixture SHA、route handoff
   SHA 和 test/evidence checkpoint 恢复。
+- A-pre 已以
+  `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`
+  独立 review PASS；A0 已解除 bootstrap 阻塞但尚未开始。若 SHA 漂移，重新进入
+  `blocked_by_bootstrap`，不得复用 A-C2 一次性 shell 继续。
 - 页面未完成时，状态是 `A-base-core provisioned / A-route-evidence awaiting_handoff`，
   不是整个任务不能开始。
 - 只有 foundation SHA、尚无真实 route 时，状态是

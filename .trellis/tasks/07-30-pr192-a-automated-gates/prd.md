@@ -6,6 +6,9 @@
 
 ## Scope
 
+- 先行交付 `A-ephemeral-db-bootstrap`：把 A-C2 临时 DB 做法提取为可独立复验、
+  仅允许 exact ephemeral container 的 bootstrap harness；独立复审通过前不启动
+  A-base implementation。
 - 先行交付 `A-base-core provision`：固化 `property-remediation-a-base-v1` 数据画像、版本、checksum 与 fixture handoff SHA，供 homestay/housing 页面实现使用。
 - 页面/menu/API handoff 后交付 `A-route-evidence`：运行路由、权限、浏览器、UX 与最终证据门禁。
 - 在首个 domain route SHA 产生时先登记 `A-foundation-first-route-ui` evidence，
@@ -26,7 +29,8 @@
 
 ### A-base-core provision
 
-该阶段在 A-C2 schema/exact tests 与 API-only `/users/me` projection 冻结后启动，
+该阶段在 A-C2 schema/exact tests、API-only `/users/me` projection 与
+`A-ephemeral-db-bootstrap SHA` 冻结后启动，
 只依赖 fixture contract、Track A 可用 schema、API projection contract 和 PR #192
 现有 domain runtime；不依赖页面或 Web menu 最终 handoff。它必须在页面开发前可运行，
 输出：
@@ -40,6 +44,9 @@ homestay/housing owner 只依赖此不可变 fixture handoff SHA 开始页面与
 Shared foundation 不为浏览器验收创建 preview/生产 route；其 integration-ready
 handoff 只要求静态/单测和 lint/typecheck/build。首个 domain route owner 在真实
 route 上补 UI evidence，shared owner 签收，QA 追溯。
+当前 handoff SHA 为
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`；final UI Gate 仍
+`awaiting_first_canonical_route`。
 
 ### A-route-evidence
 
@@ -56,7 +63,31 @@ A-base-core 不以页面完成为前置，因而不存在相互完成依赖或�
 
 ### A1. 独立 A-base 画像
 
-`property-remediation-a-base-v1` 必须确定性生成父设计规定的 3 park、100 unit、10,000 booking、2,000 lease、10,000 housing receivable、2,000 turnover、1,000 purchase，以及 work order、附件、日期、金额和 60/30/10 园区分布。它必须：
+`property-remediation-a-base-v1` 必须确定性生成以下 exact rows：
+
+```text
+park=3
+building=3
+floor=3
+unit=100
+party=4000
+booking=10000
+booking_night=20000
+lease=2000
+housing_receivable=10000
+charge_plan=2000
+turnover=2000
+handover=1000
+purchase=1000
+purchase_item=2000
+work_order=1000
+property_occupancy=6500
+sys_file=2000
+```
+
+`property_occupancy=6500` 的公式是 100 unit × 每 unit 65 条，park 分布
+3900/1950/650。每个 park 恰好 1 building、1 floor；unit 与所有可分配业务量保持
+60/30/10。2,000 个 `sys_file` 均关联小型有效测试 PNG。它必须：
 
 - 只依赖 Track A 与 PR #192 已有 schema；
 - 不创建 Track B 表记录；
@@ -79,6 +110,11 @@ expected.data_scopes
 
 property granular permission oracle 必须恰好为 65 项，不是 69；custom role、legacy
 operations 与 wildcard 不得自动扩展为 granular page permission。
+
+Support actor 使用显式、最小化 `expected.permissions`，不得用 `*`、superuser 或
+legacy operations 代替；未明确列出的写、财务、敏感字段和文件下载能力均为禁止。
+Exception super actor 是单独的负向测试主体，只用于 module disabled、跨 scope 与
+fail-closed 场景，不计入普通岗位/support bundle，也不作为正常放行依据。
 
 ### A3. 需求追溯
 
@@ -115,6 +151,9 @@ operations 与 wildcard 不得自动扩展为 granular page permission。
 ### A6. Evidence 与 Cleanup
 
 每次运行输出机器可读 summary 和人可读报告，包含 commit、环境、profile/checksum、命令、开始/结束时间、退出码、失败日志、测试/截图/trace/axe/perf artifact 路径与 SHA-256。
+运行 artifact 唯一写入已 ignored 的
+`artifacts/property-remediation/runs/<run-id>/**`；`scripts/**` 只保存 runner、
+profile/schema 和可提交测试源码，禁止提交 `runs/**`。
 
 任何创建数据前必须先向 append-only JSONL write-ahead manifest 写入并持久化 `planned`，随后记录 `creating -> created -> cleanup_pending -> cleaned|failed`。SIGINT/SIGTERM、runner 崩溃和下次启动均执行 reconcile。清理只按 manifest 的精确 scope/key 操作；结束时 residual scan 必须为 0，否则失败。
 
@@ -143,12 +182,28 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
 
 - [ ] `property-remediation-a-base-v1` 可从空测试环境重复创建并产生相同 checksum。
 - [ ] A-base-core 在页面/menu/API handoff 前可独立运行，并输出可校验的 fixture handoff SHA 给 homestay/housing。
-- [ ] A-base-core 只在 A-schema 与 API-only projection SHA 冻结后启动，且不要求 Web
-  menu 或 canonical routes 已完成。
+- [ ] A-base-core 只在 A-schema、API-only projection 与
+  `A-ephemeral-db-bootstrap SHA` 冻结后启动，且不要求 Web menu 或 canonical
+  routes 已完成。
+- [x] `A-ephemeral-db-bootstrap` 独立 review PASS，覆盖
+  `000001`–`000174` + `skip-record:000175` + `000176`–`000183`，并复用 A-C2
+  ephemeral-container 安全约束；未通过时 A0 implementation 不启动。
+- [x] Handoff SHA
+  `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`
+  已通过独立 checker；4项P1关闭、owner 7/0/1、Linux SIGTERM 1/1、
+  same-run-id 双链、关键 runtime 与 residual=0。RISK-A-004 CLOSED，A0
+  `unblocked_not_started`。
 - [ ] A-base-core 与 A-route-evidence 均可按 checkpoint 暂停/恢复，且没有相互完成依赖。
 - [ ] `A-foundation-first-route-ui` 来自首个真实 domain route SHA，无 preview route；
   在它通过前 foundation 不标 final UI Gate 完成。
 - [ ] A-base manifest 明确断言 Track B 表/记录不存在或为零，且不把 B schema 作为前置。
+- [ ] A-base exact-row contract 全部相等：3/3 building/floor、4,000 Party、
+  20,000 booking_night、2,000 charge_plan、1,000 handover、2,000 purchase_item、
+  1,000 work_order、6,500 property_occupancy、2,000 sys_file，以及原有
+  3 park/100 unit/10,000 booking/2,000 lease/10,000 receivable/2,000 turnover/
+  1,000 purchase 与 60/30/10。
+- [ ] Support 是显式最小权限正向 actor；exception super actor 是隔离负向 actor；
+  2,000 sys_file 均为小型有效测试 PNG。
 - [ ] 每个岗位 `actual == expected`，无 wildcard/super/legacy 宽权限。
 - [ ] property permission exact set 恰好 65，任何 69 项或隐式 granular 扩权均失败。
 - [x] A-C2 fixture fallback exact run-id/双 label/running、`--rm`、official
@@ -157,5 +212,9 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
 - [ ] 模块停用超管、跨租户、跨园区、最近禁止角色、深链和旧入口均默认拒绝。
 - [ ] requirement-to-test-to-evidence 追溯覆盖率 100%。
 - [ ] 适用 L0-L6、桌面与 320/360/390/768px、WCAG 2.2 AA 和性能基线全部通过。
+- [ ] Candidate 性能阈值仅产生观测结果；只有带 owner、批准人和日期的阈值冻结后
+  才能形成 performance PASS，candidate 不得使 Gate 变绿。
+- [ ] 所有 run artifacts 位于 ignored
+  `artifacts/property-remediation/runs/**`，`scripts/**` 无已生成 runs。
 - [ ] 中断恢复后 cleanup residual=0，证据 schema 和 artifact hash 校验通过。
 - [ ] 运行报告明确列出命令、结果、跳过项、原因和剩余风险。

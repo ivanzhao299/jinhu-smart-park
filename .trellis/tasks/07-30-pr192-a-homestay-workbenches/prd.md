@@ -12,6 +12,10 @@ permission schema、API-only `/users/me` projection、共享 picker/task/upload 
 A-base 的冻结 SHA，不建立第二份契约。Web 菜单/landing 必须消费本任务完成后的
 route SHA，不能成为本任务前置。
 
+Shared Web integration-ready handoff SHA：
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`；其 final UI Gate 仍等待首个
+canonical route。
+
 ## 2. 用户与岗位任务
 
 - 运营负责人：查看总览、房态和异常，不因拥有 dashboard 页面而获得写权限。

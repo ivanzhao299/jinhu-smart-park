@@ -65,6 +65,10 @@ baseline、A-C2 schema/exact-test SHA 与 API-only `/users/me` property projecti
 - `07-30-pr192-a-homestay-workbenches`
 - `07-30-pr192-a-housing-workbenches`
 
+当前 integration-ready handoff SHA：
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`
+（`feat(property): add shared workbench foundation`）。
+
 Foundation handoff 包含 owned paths、contract SHA、组件 API、纯函数/组件静态检查、
 单测、lint/typecheck/build、已知限制和 open P0/P1。由于此阶段没有真实 domain
 route，不创建 preview/生产 route 来伪造浏览器证据。两个工作台可在 handoff 后开始
@@ -81,7 +85,8 @@ desktop/mobile/keyboard/focus/zoom/ARIA 浏览器证据，并交由 shared owner
 - [ ] Task presentation 不持有业务完成状态，count/stale/deep-link 可测试。
 - [ ] Permission adapter 不因 page、Persona、wildcard 推导 module/API 能力。
 - [ ] 三类 empty、403、failed、offline/stale、conflict、submit/success 状态通过。
-- [ ] Foundation handoff 的纯函数/组件静态与单测、lint/typecheck/build 通过。
+- [x] Foundation handoff 的纯函数/组件静态与单测、lint/typecheck/build 通过
+  （14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web build）。
 - [ ] 首个 domain route SHA 上的 desktop/mobile/keyboard/focus/zoom/ARIA 浏览器
   证据通过后，foundation final UI Gate 才完成。
 - [ ] 两个工作台均只消费同一 foundation SHA。

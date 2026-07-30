@@ -190,6 +190,15 @@ maker-checker 默认覆盖：
 - [ ] 页面区分 initial empty、filtered empty、scope empty、403、失败、冲突和提交状态。
 - [ ] 桌面、360px、390px、键盘和基础 WCAG/Design System Gate 通过。
 - [ ] `property-remediation-a-base-v1` 可重复生成和清理。
+- [ ] A-base-v1 exact rows 为 building=3、floor=3、party=4,000、
+  booking=10,000、booking_night=20,000、lease=2,000、
+  housing_receivable=10,000、charge_plan=2,000、turnover=2,000、
+  handover=1,000、purchase=1,000、purchase_item=2,000、work_order=1,000、
+  property_occupancy=6,500、sys_file=2,000；100 unit 与可分配业务量保持
+  60/30/10。
+- [x] A0 只在 `A-ephemeral-db-bootstrap` 独立复审通过后开始；bootstrap 覆盖
+  `000001`–`000174`、显式 `skip-record:000175`、`000176`–`000183`，且只允许
+  exact ephemeral container。
 - [x] A-C2 migration 的 expected permission exact set 为 65，不是 69；custom role、
   legacy operations 和 wildcard 不自动获得 granular page。
 - [x] `/users/me` property projection 只使用 active `enabledModules`、granular page

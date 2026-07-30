@@ -361,35 +361,56 @@ property-remediation-a-base-v1
 
 只依赖 Track A 和 PR #192 现有 schema，生成：
 
-- 3 park、100 unit。
+- 3 park、每 park 1 building、每 building 1 floor，共 3 building、3 floor。
+- 100 unit，按 park 60/30/10。
 - 精确 module/menu/page/API/data-scope users。
-- legacy Party。
+- 4,000 Party。
 - 10,000 booking。
+- 20,000 booking_night。
 - 2,000 lease。
 - 10,000 housing receivable。
+- 2,000 charge_plan。
 - 2,000 turnover。
+- 1,000 handover。
 - 1,000 purchase。
-- work order、附件、日期、金额和 60/30/10 park 分布。
+- 2,000 purchase_item。
+- 1,000 work_order。
+- 6,500 property_occupancy：100 unit × 每 unit 65 条，按 park 精确分为
+  3,900/1,950/650。
+- 2,000 sys_file，每条对应一个小型、有效的测试 PNG。
+- 日期、金额及所有可按 park 分配的业务量保持 60/30/10 分布。
 
 不生成 identity submission、approval、assignment 或 outbox。
 
-A-base 分成两个有序交付：
+A-base 分成三个有序交付：
 
-1. `A-shared-web-foundation`：在 A contract SHA 冻结后、领域工作台开始前，由
+1. `A-ephemeral-db-bootstrap`：由独立 `a-bootstrap-owner` 将可复验的
+   `000001`–`000174` + `skip-record:000175` + `000176`–`000183` bootstrap 提取为
+   只允许 exact ephemeral container 的 harness。复用 A-C2 的 exact run-id、双
+   label、running、`--rm`、official PostgreSQL、显式 `POSTGRES_DB`、匿名 volume、
+   URL override rejection 和 cleanup 约束；独立 review PASS 后 A-base implementation
+   才能开始。
+   冻结 handoff SHA：
+   `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
+2. `A-shared-web-foundation`：在 A contract SHA 冻结后、领域工作台开始前，由
    `shared-property-web-owner` 建立 picker、task presentation、detail shell、dialog、
    page state 和 DS adapter，输出 integration-ready `A-shared-web-foundation SHA`。
    Handoff 以静态/单测和 lint/typecheck/build 为准，不建 preview route；final UI
    Gate 在首个 domain route SHA 上关闭。它不依赖 Track B identity/approval/task
    schema。
-2. `A-base-core`：只在 A contract SHA 与 Track A schema migration SHA 均冻结后生成，
+   当前 integration-ready SHA 为
+   `d2a015f9ba931b2024e6360570697c77b74ea3fb`；final UI 状态仍为
+   `awaiting_first_canonical_route`。
+3. `A-base-core`：只在 A contract SHA、Track A schema migration SHA 与
+   `A-ephemeral-db-bootstrap SHA` 均冻结后生成，
    输出 profile/version/data checksum、fixture SHA、生产保护和 cleanup 证据；这是
    homestay、housing 工作台页面开始实现前的稳定输入。
-3. A workbench 消费 contract SHA、schema SHA、`A-base-core fixture SHA` 和
+4. A workbench 消费 contract SHA、schema SHA、`A-base-core fixture SHA` 和
    `A-shared-web-foundation SHA`，不把 menu/landing handoff 作为页面前置。仅
    homestay、housing 两个页面 owner 输出各自 route SHA；随后
    menu-projection-owner 消费这些 route SHA，实现 canonical menu、landing 和
    redirect。
-4. `A-route-evidence`：页面 route SHA、canonical menu、landing/redirect 全部
+5. `A-route-evidence`：页面 route SHA、canonical menu、landing/redirect 全部
    handoff 后运行；
    复用同一 `A-base-core` checksum，只补 route/page/API/data/file、viewport、WCAG 和
    cleanup evidence，不允许静默改写 core fixture。若确需改变 core，重新发布

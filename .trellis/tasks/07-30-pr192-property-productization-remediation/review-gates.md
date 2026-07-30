@@ -159,6 +159,46 @@ menu/landing/alias/deep-link 与 route evidence 尚未完成。
 
 该调整不改变既定六步顺序，A-1 继续保持 `in_progress`。
 
+执行进展（2026-07-30）：integration-ready SHA 已冻结为
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`
+（`feat(property): add shared workbench foundation`）。三路 S2 final review PASS，
+`open_P0_P1=[]`；14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web
+build 全绿。该结果不改变上述结论：final UI Gate 仍
+`awaiting_first_canonical_route`，shared child 不得标 complete。
+
+### 3.8 A-base S0 只读设计：P1 / implementation blocked
+
+S0 将 A-base-v1 数量冻结为 exact contract，并发现 A-C2 受控临时 DB bootstrap
+尚未提取为 A0 可独立调用的 harness。直接开始 profile implementation 会使环境准备
+不可复验，定级 P1。
+
+整改决策：
+
+- 新增 `A-ephemeral-db-bootstrap` 与独占 `a-bootstrap-owner`；
+- harness 只允许 exact ephemeral container，执行 `000001`–`000174`、
+  `skip-record:000175`、`000176`–`000183`，复用 A-C2 全部容器安全约束；
+- 独立 review PASS、`open_P0_P1=[]` 后才允许 A0 implementation；
+- generated runs 只写 ignored `artifacts/property-remediation/runs/**`；
+- support 使用显式最小权限，exception super actor 仅用于负向测试；
+- sys_file 固定 2,000 个小型有效 PNG；
+- candidate 性能阈值只能观测，不能形成批准 PASS。
+
+最终复审（2026-07-30）：**PASS / CLOSED**，`open_P0_P1=[]`。
+
+- Reviewer 提出的 4 项 P1 已全部修复。
+- Owner 自验：7 pass / 0 fail / 1 Windows platform skip。
+- Linux SIGTERM：1/1 PASS。
+- same-run-id 双链：PASS。
+- 独立 checker 完成关键 runtime 复验，最终 residual=0。
+
+冻结 `A-ephemeral-db-bootstrap` handoff SHA：
+`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
+
+RISK-A-004 已关闭；A0 implementation 状态为 `unblocked_not_started`，不是已开始或
+已完成。父任务与 A-1 继续保持 `in_progress`。Shared foundation commit
+`d2a015f9ba931b2024e6360570697c77b74ea3fb` 保持冻结，final UI Gate 仍等待首个
+canonical route。
+
 ## 4. 方案落盘结论
 
 本目录下的：

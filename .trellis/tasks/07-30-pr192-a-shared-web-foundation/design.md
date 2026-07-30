@@ -127,3 +127,8 @@ DS adapters 只组合既有 surface/token。Page-local exceptions 由领域工�
 不得为 shared foundation 创建 preview route 或临时生产 route。首个交付 canonical
 route SHA 的 homestay/housing owner 拥有浏览器执行与 artifact 采集，shared owner
 拥有组件问题修复和 final UI Gate 签收，QA owner 维护 evidence 追溯。
+
+Integration-ready baseline：
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`。它已通过三路 S2 final review
+（14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web build，
+`open_P0_P1=[]`），但不携带首个真实 route 的浏览器证据。

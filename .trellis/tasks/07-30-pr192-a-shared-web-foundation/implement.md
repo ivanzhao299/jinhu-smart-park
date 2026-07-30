@@ -49,6 +49,14 @@ Checker 不直接修复；P0/P1 回派原 owner并独立复验。
 handoff，不等于 final UI Gate；首个 domain route owner 在真实 route 上补浏览器
 证据后，由 shared owner 与 QA 关闭 final UI Gate。
 
+执行记录（2026-07-30）：integration-ready SHA 已冻结为
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`
+（`feat(property): add shared workbench foundation`）。三路 S2 final review
+**PASS**，`open_P0_P1=[]`；14 specs、boundary 5/5、ESLint、workspace typecheck、
+shared build、Web build 全部通过。该记录只关闭 integration-ready handoff Gate；
+child 保持 `in_progress`，final UI Gate 仍
+`awaiting_first_canonical_route`。
+
 ## 3. 实施步骤
 
 1. 搜索并决定 reuse/extend/new，记录不复用原因。

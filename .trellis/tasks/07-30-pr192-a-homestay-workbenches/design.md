@@ -21,6 +21,7 @@ apps/web/features/homestay/**
    `shared-property-web-owner` 提供远程 picker、详情/对话框 shell、任务展示、
    Design System 和 permission adapters 的 integration-ready SHA。该 SHA 的
    handoff Gate 是静态/单测与 lint/typecheck/build，不含虚构 preview route。
+   当前消费 SHA 为 `d2a015f9ba931b2024e6360570697c77b74ea3fb`。
 3. `schema-migration-owner` 提供 Track A permission/schema SHA。
 4. `menu-projection-owner` 提供 API-only `A-api-menu-projection SHA`；该输入尚不允许
    Web 暴露 property route。

@@ -10,6 +10,10 @@
 contract、API-only `/users/me` projection、共享 Web 组件和 A-base fixture，不修改
 其权威来源。菜单/landing 消费本任务的 route SHA，不能成为本任务前置。
 
+Shared Web integration-ready handoff SHA：
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`；其 final UI Gate 仍等待首个
+canonical route。
+
 ## 2. 用户与岗位任务
 
 - 住房运营：查看总览和任务队列。

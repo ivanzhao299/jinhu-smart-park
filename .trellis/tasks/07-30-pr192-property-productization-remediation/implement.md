@@ -35,7 +35,8 @@
 | homestay-api-owner | `apps/api/src/modules/homestay/**` 和本领域 API/integration tests；Track A 负责 high-risk server gate、booking/credential projection，Track B 再接 approval adapter |
 | housing-api-owner | `apps/api/src/modules/housing/**` 和本领域 API/integration tests；Track A 负责 high-risk server gate、tenant list/create projection，Track B 再接 approval adapter |
 | migration-reconcile-owner | `scripts/property-remediation/migration/**` |
-| qa-automation-owner | `scripts/e2e/property-remediation/**`、fixture、performance、evidence runner |
+| a-bootstrap-owner | `scripts/e2e/property-remediation/bootstrap/**` 及 bootstrap tests；只交 ephemeral DB harness，不写 profile |
+| qa-automation-owner | `scripts/e2e/property-remediation/**`（排除 `bootstrap/**`）、fixture、performance、evidence runner；generated runs 只写 ignored `artifacts/property-remediation/runs/**` |
 | property-env-doc-owner | `.env.example`、`.env.production.example` 和 Track A feature-flag/409 compatibility 的环境、部署、测试文档 |
 | docs-release-owner | 本任务后续 PRD/UAT/角色手册/发布/回滚文档，但不覆盖 `property-env-doc-owner` 的 env/feature-flag 文档 |
 
@@ -135,18 +136,43 @@ container fallback exact rerun 使用 exact run-id、双 label、running 状态�
 dialog、page-state 和 DS adapters。本批一个实现 owner，最多两个只读/独立 checker；
 不得依赖 Track B identity、approval 或 task runtime。
 
-输出规范的 `A-shared-web-foundation SHA`，handoff 包含 owned paths、A-contract
+Integration-ready 输出已冻结为
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`
+（`feat(property): add shared workbench foundation`），三路 S2 final review PASS，
+`open_P0_P1=[]`；14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web
+build 全绿。Handoff 包含 owned paths、A-contract
 base SHA、组件 API、纯函数/组件静态与单测、lint/typecheck/build、known
 limitations 和 `open_P0_P1=[]`。本批不得创建 preview/生产 route；该 SHA 仅表示
-integration-ready，不代表 final UI Gate。
+integration-ready，不代表 final UI Gate。Shared child 保持 `in_progress`，直到首个
+canonical route 补齐浏览器证据。
+
+### Batch A0.6-pre：Ephemeral DB Bootstrap
+
+`a-bootstrap-owner` 先提取/新增 `A-ephemeral-db-bootstrap`，只允许 exact ephemeral
+container，执行 `000001`–`000174` + 结构化 `skip-record:000175` +
+`000176`–`000183`。复用 A-C2 exact run-id、双 label、running、`--rm`、official
+PostgreSQL、显式 `POSTGRES_DB`、匿名 volume、拒绝 URL override 和 cleanup 约束。
+独立 checker PASS、`open_P0_P1=[]` 后输出 `A-ephemeral-db-bootstrap SHA`；此前
+A-base implementation 不得开始。
+
+执行记录（2026-07-30）：独立 checker **PASS**，`open_P0_P1=[]`；正式
+`A-ephemeral-db-bootstrap` handoff SHA：
+`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
+Reviewer 提出的 4 项 P1 已全部修复。Owner 自验为 7 pass / 0 fail / 1 Windows
+platform skip，并在 Linux 完成 SIGTERM 1/1；same-run-id 双链通过。Checker 完成
+关键 runtime 复验，最终 residual=0。RISK-A-004 已关闭，A0 implementation
+`unblocked_not_started`，不得误报为已开始或完成。
 
 ### Batch A0.6：A-base-core
 
-严格依赖 A-contract SHA、A-schema SHA 与 `A-api-menu-projection SHA`，由
-qa-automation-owner 生成 `A-base-core`，完成 deterministic checksum、生产保护和
-cleanup rehearsal，输出
+严格依赖 A-contract SHA、A-schema SHA、`A-api-menu-projection SHA` 与
+`A-ephemeral-db-bootstrap SHA`，由 qa-automation-owner 生成 `A-base-core`，完成
+父设计全部 exact rows、deterministic checksum、support 最小权限、独立 exception
+super actor、2,000 个小型有效测试 PNG、生产保护和 cleanup rehearsal，输出
 `A-base-core fixture SHA`。A1 页面 worker 只能基于该 SHA 开始；core 发布后不得由
-页面 worker 改写。
+页面 worker 改写。所有 generated artifacts 写入 ignored
+`artifacts/property-remediation/runs/**`，不得在 `scripts/**` 下提交 runs。
+Candidate 性能阈值只记录观测，不能产生批准 PASS。
 
 ### Batch A1：前端 extract-first
 
