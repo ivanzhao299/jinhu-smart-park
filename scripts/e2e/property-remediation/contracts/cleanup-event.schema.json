@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-cleanup-event-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "seq", "resource_type", "resource_key",
+    "state", "attempt", "timestamp", "previous_hash", "event_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "property-remediation-cleanup-event-v1" },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{11,63}$" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "resource_type": {
+      "enum": ["postgres_container", "postgres_volume", "fixture_scope", "physical_file"]
+    },
+    "resource_key": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": ["string", "null"] },
+    "park_id": { "type": ["string", "null"] },
+    "state": {
+      "enum": ["planned", "creating", "created", "cleanup_pending", "cleaned", "failed"]
+    },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "error": { "type": ["string", "null"] },
+    "previous_hash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

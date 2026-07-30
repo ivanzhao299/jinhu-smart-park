@@ -98,3 +98,69 @@ that one case is skipped on Windows. Its Linux proof uses an OS-level SIGTERM
 and the repository's temporary fake-Docker child-process harness; it does not
 mount the host Docker socket. The real PostgreSQL runtime cases continue to
 cover readiness, migration failure, cleanup errors, and repeated full chains.
+
+## A-base-core
+
+`a-base-core.mjs` provisions the immutable
+`property-remediation-a-base-v1` profile for Track A. It creates two separate,
+exactly identified PostgreSQL 16 Alpine containers and proves that both runs
+produce the same canonical profile checksum. It never accepts a database URL
+and never connects to an existing database. Every database container uses
+`--rm`, the two reviewed fixture labels, an explicit test database, a random
+loopback port and a Docker-created anonymous data volume.
+
+The profile uses a fixed seed, `Asia/Shanghai` business clock and UUIDv5 keys.
+It creates the reviewed exact counts and 60/30/10 park distribution, including
+6,500 shared occupancy rows and 2,000 small valid PNG files associated with
+same-scope housing handovers. Track B tables are neither required nor written.
+Rows are loaded with bounded transactional `COPY` chunks under a PostgreSQL
+advisory transaction lock.
+
+Before any resource write, the runner appends `planned` to a durable JSONL
+journal, calls `fsync`, and then records
+`creating -> created -> cleanup_pending -> cleaned|failed`. Each event is
+linked to the previous event by SHA-256. Cleanup deletes only deterministic
+primary keys in reverse dependency order; it never uses `LIKE`, a date range,
+or a tenant-wide delete. Physical files are also removed by their exact
+journaled paths. Summary, evidence and handoff files use fsync plus atomic
+rename and are written only below the ignored
+`artifacts/property-remediation/runs/<run-id>/` directory.
+
+Run the pure contract suite:
+
+```bash
+node scripts/e2e/property-remediation/tests/a-base-contract.spec.mjs
+```
+
+Run the real isolated double provision:
+
+```bash
+PROPERTY_A_BASE_RUN_ID=abase20260730example \
+node scripts/e2e/property-remediation/a-base-core.mjs
+```
+
+If an uncatchable process crash leaves a journaled run unfinished, replay only
+that exact run ID. Reconcile validates the exact container name, image,
+database and two labels before it touches the container, removes only
+journaled files and deterministic database keys, and recovers a stale PID lock
+only when `/proc/<pid>` no longer exists:
+
+```bash
+PROPERTY_A_BASE_RUN_ID=abase20260730example \
+PROPERTY_A_BASE_RECONCILE_ONLY=yes \
+node scripts/e2e/property-remediation/a-base-core.mjs
+```
+
+The opt-in runtime test source covers normal double provision, injected file
+creation and cleanup failures, `SIGINT`, `SIGTERM`, `SIGKILL`, same-run
+reconcile and zero residual. It is intentionally not part of ordinary unit
+tests because it creates multiple isolated PostgreSQL containers:
+
+```bash
+PROPERTY_A_BASE_RUNTIME_TEST=yes \
+node scripts/e2e/property-remediation/tests/a-base-runtime.spec.mjs
+```
+
+Performance data emitted by A-base is candidate observation only. It cannot
+turn a gate green until an owner, approver and approval date freeze a separate
+threshold contract.

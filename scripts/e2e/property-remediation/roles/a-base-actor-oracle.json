@@ -1,0 +1,112 @@
+{
+  "schema_version": "property-remediation-a-base-actor-oracle-v1",
+  "actors": [
+    {
+      "id": "homestay_frontdesk",
+      "kind": "ordinary",
+      "identity": { "is_super": false, "raw_permissions": [] },
+      "bundle_codes": [
+        "property-bundle:homestay-overview",
+        "property-bundle:homestay-bookings",
+        "property-bundle:homestay-stays"
+      ],
+      "expected": {
+        "modules": ["asset", "homestay"],
+        "permissions": [
+          "homestay:availability:page",
+          "homestay:booking:cancel",
+          "homestay:booking:confirm",
+          "homestay:booking:create",
+          "homestay:booking:read",
+          "homestay:booking:reschedule",
+          "homestay:bookings:page",
+          "homestay:dashboard:page",
+          "homestay:dashboard:read",
+          "homestay:stay:manage",
+          "homestay:stays:page",
+          "homestay:tasks:page"
+        ],
+        "menu_routes": [
+          "/homestay/availability",
+          "/homestay/bookings",
+          "/homestay/dashboard",
+          "/homestay/stays",
+          "/homestay/tasks"
+        ],
+        "data_scopes": ["current_park"]
+      }
+    },
+    {
+      "id": "housing_operator",
+      "kind": "ordinary",
+      "identity": { "is_super": false, "raw_permissions": [] },
+      "bundle_codes": [
+        "property-bundle:housing-overview",
+        "property-bundle:housing-tenants",
+        "property-bundle:housing-leases"
+      ],
+      "expected": {
+        "modules": ["asset", "housing_rental"],
+        "permissions": [
+          "housing:dashboard:page",
+          "housing:dashboard:read",
+          "housing:lease:activate",
+          "housing:lease:approve",
+          "housing:lease:checkout",
+          "housing:lease:create",
+          "housing:lease:read",
+          "housing:lease:sign",
+          "housing:leases:page",
+          "housing:tasks:page",
+          "housing:tenant:manage",
+          "housing:tenants:page"
+        ],
+        "menu_routes": [
+          "/housing/dashboard",
+          "/housing/leases",
+          "/housing/tasks",
+          "/housing/tenants"
+        ],
+        "data_scopes": ["current_park"]
+      }
+    },
+    {
+      "id": "property_support",
+      "kind": "support",
+      "identity": { "is_super": false, "raw_permissions": [] },
+      "bundle_codes": [],
+      "expected": {
+        "modules": ["asset", "homestay", "housing_rental"],
+        "permissions": [
+          "homestay:booking:read",
+          "homestay:bookings:page",
+          "homestay:dashboard:page",
+          "homestay:dashboard:read",
+          "housing:dashboard:page",
+          "housing:dashboard:read",
+          "housing:lease:read",
+          "housing:leases:page"
+        ],
+        "menu_routes": [
+          "/homestay/bookings",
+          "/homestay/dashboard",
+          "/housing/dashboard",
+          "/housing/leases"
+        ],
+        "data_scopes": ["current_park"]
+      }
+    },
+    {
+      "id": "exception_super_disabled_module",
+      "kind": "exception_super",
+      "identity": { "is_super": true, "raw_permissions": ["*"] },
+      "bundle_codes": [],
+      "expected": {
+        "modules": [],
+        "permissions": [],
+        "menu_routes": [],
+        "data_scopes": []
+      }
+    }
+  ]
+}
