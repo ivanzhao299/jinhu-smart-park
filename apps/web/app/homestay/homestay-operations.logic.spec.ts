@@ -335,5 +335,6 @@ test("homestay operations UI consumes bounded authoritative lists and recoverabl
   assert.match(attachmentSource, /hasPermission\(user, SYSTEM_PERMISSIONS\.FILE_DOWNLOAD\)/);
   assert.match(attachmentSource, /if \(!isImage \|\| !canDownload\)/);
   assert.match(attachmentSource, /return canDownload \? \(/);
-  assert.match(attachmentSource, /if \(mutationDisabled\) return/);
+  assert.match(attachmentSource, /if \(mutationDisabled \|\| !canDelete\) return/);
+  assert.match(attachmentSource, /hasPermission\(user, SYSTEM_PERMISSIONS\.FILE_DELETE\)/);
 });

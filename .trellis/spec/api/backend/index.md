@@ -58,6 +58,10 @@ Global validation is configured in `apps/api/src/main.ts` with:
 
 DTOs should use `class-validator` decorators and `class-transformer` transforms for trimming and numeric coercion. Reuse existing helpers when a domain already exposes them, such as `trimOptional` and `optionalNumber` in leasing receivable DTOs.
 
+Pagination DTOs must validate `page` and `page_size` as integers and cap
+`page_size` at the endpoint's documented maximum before values reach
+`skip`/`take`. Candidate endpoints are not exempt from the bound.
+
 Reference files:
 - `apps/api/src/main.ts`
 - `apps/api/src/modules/leasing-payments/dto/create-leasing-payment.dto.ts`
@@ -104,6 +108,11 @@ Guard-only idempotency is not equivalent to replay/conflict semantics. When docu
 ## Persistence And Financial Safety
 
 Entities extend `AuditableEntity` when they participate in tenant/park scoped business data. It provides `id`, `tenantId`, `parkId`, audit columns, soft-delete state, optimistic `version`, and `remark`.
+
+Historical financial selectors must not discard an otherwise actionable record
+because its current reference row was soft-deleted. Join the historical label
+without an `is_deleted = false` filter (and provide a stable fallback if the
+reference is absent), while retaining tenant/park scoping.
 
 Reference files:
 - `apps/api/src/shared/entities/auditable.entity.ts`

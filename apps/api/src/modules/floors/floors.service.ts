@@ -6,6 +6,7 @@ import { BuildingEntity } from "../buildings/entities/building.entity";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
+import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { UnitEntity } from "../units/entities/unit.entity";
@@ -135,9 +136,20 @@ export class FloorsService {
     return this.floorsRepository.save(entity);
   }
 
-  async uploadLayout(scope: TenantParkScope, actor: JwtPrincipal, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
+  async uploadLayout(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    file: UploadedFilePayload | undefined,
+    metadata: MultipartFileMetadataDto
+  ): Promise<FileEntity> {
     const entity = await this.findDetail(scope, id, actor);
-    const uploaded = await this.filesService.upload(scope, actor.sub, { biz_type: "floorplan", biz_id: id, remark }, file);
+    const uploaded = await this.filesService.upload(
+      scope,
+      actor.sub,
+      { biz_type: "floorplan", biz_id: id, ...metadata },
+      file
+    );
     entity.layoutFileId = uploaded.id;
     entity.layoutUrl = uploaded.fileUrl;
     entity.updateBy = actor.sub;
@@ -148,7 +160,7 @@ export class FloorsService {
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findDetail(scope, id, actor);
     if (await this.hasUndeletedUnits(scope, id)) {
-      throw new BadRequestException("Floor has undeleted units and cannot be deleted");
+      throw new BadRequestException("该楼层下仍有未删除房源，无法删除");
     }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;

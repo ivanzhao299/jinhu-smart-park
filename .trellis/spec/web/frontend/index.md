@@ -52,6 +52,11 @@ Reference files:
 
 Use `PermissionGuard` and `PermissionButton` for permission-gated UI instead of open-coding permission checks in JSX. Use shared constants from `@jinhu/shared` where available.
 
+When an API mutation requires a generic permission plus a domain permission,
+the visible control must require both. After a create flow continues into an
+existing-record drawer, independently gated update surfaces must remain
+read-only unless the actor also has the update permission.
+
 Superuser status bypasses permission-code checks only; it does not bypass tenant product
 availability. For module menus, routes, and login destinations, follow the cross-layer contract
 in [Tenant Module Access Control](../../api/backend/module-access-control.md).

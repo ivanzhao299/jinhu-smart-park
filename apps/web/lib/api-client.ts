@@ -65,6 +65,11 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
 
+  const file = options.body.get("file");
+  if (file && typeof file !== "string") {
+    options.body.set("original_name", file.name);
+  }
+
   if (options.token) {
     headers.set("Authorization", `Bearer ${options.token}`);
   }

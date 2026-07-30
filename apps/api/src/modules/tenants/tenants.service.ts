@@ -32,6 +32,7 @@ import {
   TENANT_BRAND_LOGO_BIZ_TYPE,
   type UploadedFilePayload
 } from "../files/files.service";
+import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
@@ -162,11 +163,16 @@ export class TenantsService {
     return branding;
   }
 
-  uploadBrandLogo(scope: TenantParkScope, actorId: string, file?: UploadedFilePayload) {
+  uploadBrandLogo(
+    scope: TenantParkScope,
+    actorId: string,
+    file?: UploadedFilePayload,
+    metadata: MultipartFileMetadataDto = {}
+  ) {
     return this.filesService.upload(
       scope,
       actorId,
-      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE },
+      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE, ...metadata },
       file
     );
   }

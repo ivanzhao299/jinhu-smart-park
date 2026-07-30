@@ -1,6 +1,18 @@
 import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 
-export class UploadFileDto {
+export class MultipartFileMetadataDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  original_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  remark?: string;
+}
+
+export class UploadFileDto extends MultipartFileMetadataDto {
   @IsString()
   @MaxLength(64)
   biz_type!: string;
@@ -8,9 +20,4 @@ export class UploadFileDto {
   @IsOptional()
   @IsUUID()
   biz_id?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  remark?: string;
 }

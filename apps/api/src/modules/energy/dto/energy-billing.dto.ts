@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from "class-validator";
 import { PartialType } from "@nestjs/mapped-types";
 
 export const ENERGY_BILLING_CYCLE_STATUS = ["DRAFT", "CALCULATED", "CONFIRMED", "POSTED", "CANCELLED"] as const;
@@ -116,14 +116,15 @@ export class EnergyBillingItemQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => optionalNumber(value) ?? 1)
-  @IsNumber()
+  @IsInt()
   @Min(1)
   page = 1;
 
   @IsOptional()
   @Transform(({ value }) => optionalNumber(value) ?? 50)
-  @IsNumber()
+  @IsInt()
   @Min(1)
+  @Max(100)
   page_size = 50;
 }
 

@@ -10,6 +10,7 @@ import { hasPermission } from "../../lib/permissions";
 import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
+import { completeAttachmentDeletion } from "./attachment-list.logic";
 
 interface AttachmentListProps {
   bizType: string;
@@ -17,6 +18,8 @@ interface AttachmentListProps {
   compact?: boolean;
   refreshKey?: number;
   mutationDisabled?: boolean;
+  mutationPermission?: string;
+  onDeleted?: (file: FileRecord) => void;
 }
 
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
@@ -26,10 +29,14 @@ export function AttachmentList({
   bizId,
   compact = false,
   refreshKey = 0,
-  mutationDisabled = false
+  mutationDisabled = false,
+  mutationPermission,
+  onDeleted
 }: AttachmentListProps) {
   const user = useAuthUser();
   const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
+  const canDelete = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DELETE)
+    && (!mutationPermission || hasPermission(user, mutationPermission));
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
   const [message, setMessage] = useState("");
@@ -88,7 +95,7 @@ export function AttachmentList({
   }
 
   async function remove(file: FileRecord) {
-    if (mutationDisabled) return;
+    if (mutationDisabled || !canDelete) return;
     if (!window.confirm(`确认删除附件：${file.originalName}？`)) {
       return;
     }
@@ -97,7 +104,22 @@ export function AttachmentList({
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("file-delete")
     });
-    await load(data.page);
+    const refreshError = await completeAttachmentDeletion(
+      file,
+      onDeleted,
+      (deleted) => setData((current) => {
+        const items = current.items.filter((item) => item.id !== deleted.id);
+        return items.length === current.items.length
+          ? current
+          : { ...current, items, total: Math.max(0, current.total - 1) };
+      }),
+      () => load(data.page)
+    );
+    setMessage(
+      refreshError
+        ? `附件已删除，但列表刷新失败：${refreshError}`
+        : "附件已删除"
+    );
   }
 
   function closePreview() {
@@ -133,7 +155,7 @@ export function AttachmentList({
                   <span className="attachment-compact-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}>预览</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}>下载</PermissionButton>
-                    <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
+                    <PermissionButton disabled={mutationDisabled || !canDelete} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
                   </span>
                 </article>
               ))}
@@ -168,7 +190,7 @@ export function AttachmentList({
                 <span className="data-table-actions">
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="预览" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="下载" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}><Download size={16} /></PermissionButton>
-                  <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
+                  <PermissionButton disabled={mutationDisabled || !canDelete} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
                 </span>
               </td>
             </tr>

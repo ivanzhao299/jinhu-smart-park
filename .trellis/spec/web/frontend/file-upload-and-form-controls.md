@@ -30,6 +30,10 @@
 - Upload policy source of truth: `FILE_UPLOAD_POLICIES` and `FILE_UPLOAD_BIZ_POLICY_MAP` in `packages/shared/src/index.ts`.
 - Frontend `accept`, max-size copy, selected-file validation, and helper text must be derived from the shared policy.
 - Backend must enforce the same policy; frontend validation is for UX only.
+- The shared multipart request helper sends the selected `File.name` in the
+  independent UTF-8 `original_name` text field. Do not ask the backend to infer
+  mojibake from filename characters; valid Latin-1 text can be byte-identical to a
+  misdecoded Unicode name.
 - Uploaded files must be associated with `biz_type` and, when the business object exists, `biz_id`.
 - Workflows that permit pre-object uploads must reload the current actor's pending
   files after refresh/revisit; relying only on the current-session `onUploaded`
@@ -58,6 +62,14 @@
 - When a pending purchase receipt becomes bound, remove it from draft recovery but
   render it from the authoritative purchase-list projection. Association must never
   make successfully submitted evidence disappear from the operations page.
+- After a successful file-delete response, notify the owning business component before
+  refreshing the attachment projection and remove the file from the shared list's
+  local projection. The server mutation is authoritative; a secondary list-refresh
+  failure must become a separate warning, must not reject the completed deletion, and
+  must not leave the deleted row or file ID in client state.
+- Protected business-file deletion controls require both `file:delete` and the domain
+  mutation permission enforced by the backend (for example,
+  `floor:upload_layout` for a floorplan).
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
@@ -73,6 +85,11 @@
 - Backend rejection -> display API error message; do not silently succeed.
 - Pending-list load failure -> preserve current visible files and show an error; do not
   replace them with an empty list.
+- Post-delete attachment refresh failure -> retain deletion success in the owning form,
+  report the refresh error separately, and allow the next refresh to reconcile the list.
+- Post-delete record-list refresh failure -> remove the committed row from the local
+  page immediately, decrement the visible total, and distinguish refresh failure from
+  deletion failure. Apply this to every sibling delete handler changed in the same PR.
 - Business action in flight -> disable file selection, upload, pending-file removal,
   and persisted-file deletion for the submitted aggregate until success or failure.
 - Upload in flight -> notify the owning business form through `onUploadingChange`;
@@ -100,7 +117,10 @@
 - Browser/API check: an upload already associated with a business object remains
   visible after refresh and the next workflow action retains that evidence.
 - Permission test: cover domain-only, generic-file-only, both, and neither permission
-  combinations for uploader and attachment-list visibility/effects.
+  combinations for uploader and attachment-list visibility/effects, including delete.
+- Deletion-order test: owner notification runs after DELETE success and before list
+  refresh, the shared list removes the committed row before refresh, and a rejected
+  refresh returns a warning instead of rejecting the deletion.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

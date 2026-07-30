@@ -146,6 +146,14 @@ action against every state and sibling entry point before implementation:
 - [ ] Write-only roles receive the minimum read context required to reach their
       authorized action, or the permission contract explicitly requires the missing
       selector/context permission at both controller and UI boundaries
+- [ ] Action-specific candidate endpoints are authorized by the action permission,
+      apply the same data scope as the mutation, and return the labels needed by the
+      selector in one projection; the browser must not join several unrelated
+      read-permission endpoints to make an authorized action reachable
+- [ ] Candidate pagination is an integer-only, server-bounded contract before SQL
+      `skip`/`take`; defaults do not substitute for an explicit maximum
+- [ ] Historical financial candidates remain reachable when a current reference is
+      soft-deleted; label joins preserve historical rows and provide stable fallbacks
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
@@ -203,11 +211,15 @@ action against every state and sibling entry point before implementation:
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] Action-only candidate effects run only after the authorized action is entered
+      (for example, opening its permission-gated drawer); a page-level read guard does
+      not authorize eager calls to an endpoint protected by create/execute permission
 - [ ] Permission capability graphs include the dataset needed to discover and select
       the target. If an action requires list/detail context, enforce that read
       permission as an API composite prerequisite; button checks alone are not access
 - [ ] A domain file policy is intersected with the generic file endpoint permission:
-      domain read + `file:read` for lists, domain write + `file:upload` for uploaders
+      domain read + `file:read` for lists, domain write + `file:upload` for uploaders,
+      and domain mutation + `file:delete` for protected deletion controls
 - [ ] Operational list rows carry their own stable human-readable identity; labels do
       not depend on a separate candidate selector's current page or enabled subset
 - [ ] A paginated dataset shared by multiple forms exposes paging beside every
@@ -219,6 +231,9 @@ action against every state and sibling entry point before implementation:
       the domain business timezone; hiding a button is never the only enforcement
 - [ ] Read and execute permissions are projected at sub-control level: read-only
       users keep evidence and exception context but do not see upload/edit controls
+- [ ] Post-create continuation re-evaluates permissions for the persisted-record
+      state. Create permission may continue to authorized child actions, but it must
+      not expose profile update controls that require an independent update permission
 - [ ] Every backend-supported operational payload field needed in the MVP (such as
       exception description, consumables, evidence, and linked work order) has a
       reachable production input and a round-trip test
@@ -237,6 +252,15 @@ action against every state and sibling entry point before implementation:
       before releasing or closing the parent resource
 - [ ] A successful mutation reloads every selected projection it can invalidate,
       including ledger summaries, credentials, action history, and status-derived UI
+- [ ] Mutation success and projection refresh are separate events: commit owner-state
+      cleanup immediately after the successful response, then refresh secondary lists;
+      a refresh error must not roll back client state to a server-invalid reference
+- [ ] Successful list deletion removes the row and decrements the visible total before
+      the follow-up GET. If that GET fails, report “mutation succeeded, refresh failed”
+      instead of restoring the deleted row or showing a generic deletion failure
+- [ ] Shared attachment deletion follows the same committed-mutation rule: notify the
+      owner, remove the local row, then refresh; refresh rejection is warning data and
+      never a rejection of the completed DELETE
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;
@@ -490,6 +514,10 @@ sibling before the next commit. Do not stop at the named line.
       effects and preview buttons must follow the download capability.
 - [ ] For every action permission, prove list and detail reachability without granting
       unrelated broad read access; keep each detail projection independently gated.
+- [ ] Open every new selector under the narrowest supported action-role fixture and
+      assert its network calls require no sibling module read permissions.
+- [ ] Also open the containing page with read-only permission and assert action-only
+      candidate requests are absent until the permission-gated action is entered.
 - [ ] Persisted relationship rows carry response-owned display labels; never resolve
       historical names from a separately paginated candidate list.
 - [ ] Terminal attachment references define authoritative ownership: after registration,

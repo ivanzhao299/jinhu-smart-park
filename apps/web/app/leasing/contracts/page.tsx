@@ -525,6 +525,7 @@ export default function LeasingContractsPage() {
   const canReadPayments = hasPermission(authUser, CONTRACT_PERMISSIONS.paymentRead);
   const canReadInvoices = hasPermission(authUser, CONTRACT_PERMISSIONS.invoiceRead);
   const canReadRefunds = hasPermission(authUser, CONTRACT_PERMISSIONS.refundRead);
+  const canUpdateContract = hasPermission(authUser, CONTRACT_PERMISSIONS.update);
   const canCreateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitCreate);
   const canUpdateContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitUpdate);
   const canDeleteContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitDelete);
@@ -828,6 +829,10 @@ export default function LeasingContractsPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    if (editing && !canUpdateContract) {
+      setMessage("当前账号没有合同更新权限");
+      return;
+    }
     const body: Record<string, unknown> = coreDisabled ? {
       remark: emptyToUndefined(form.remark)
     } : {
@@ -855,15 +860,27 @@ export default function LeasingContractsPage() {
     if (canEditContractPdf) body.contract_pdf_file_id = emptyToUndefined(form.contractPdfFileId);
     if (canEditScanPdf) body.scan_pdf_file_id = emptyToUndefined(form.scanPdfFileId);
     const path = editing ? `/leasing/contracts/${editing.id}` : "/leasing/contracts";
-    await apiRequest<LeasingContractRow>(path, {
+    const response = await apiRequest<LeasingContractRow>(path, {
       method: editing ? "PUT" : "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey(editing ? "leasing-contract-update" : "leasing-contract-create"),
       body
     });
-    setShowForm(false);
-    setMessage(editing ? "合同已更新" : "合同草稿已创建");
-    await load(editing ? pageData.page : 1);
+    if (editing) {
+      setShowForm(false);
+      setMessage("合同已更新");
+      await load(pageData.page);
+      return;
+    }
+
+    setEditing(response.data);
+    syncFormFromContract(response.data, setForm);
+    setContractUnits([]);
+    setUnitForm(emptyUnitForm);
+    setContractDetailTab("units");
+    setMessage("合同草稿已创建，请关联至少一个房源后再提交");
+    await loadContractUnits(response.data.id);
+    await load(1);
   }
 
   async function remove(row: LeasingContractRow) {
@@ -1327,6 +1344,9 @@ export default function LeasingContractsPage() {
                   canViewPropertyFeeUnitPrice={canViewPropertyFeeUnitPrice}
                 />
               ) : null}
+              {editing && contractDetailTab === "profile" && !canUpdateContract ? (
+                <p className="status-pill status-warning">当前账号没有合同更新权限，基础信息仅供查看。</p>
+              ) : null}
               {editing ? (
                 <section className="detail-stack">
                   <div className="system-toolbar">
@@ -1587,7 +1607,7 @@ export default function LeasingContractsPage() {
                   ) : null}
                 </section>
               ) : null}
-              {(!editing || contractDetailTab === "profile" || contractDetailTab === "units") ? (
+              {(!editing || contractDetailTab === "units" || (contractDetailTab === "profile" && canUpdateContract)) ? (
               <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
                 {(!editing || contractDetailTab === "profile") ? (
                 <div className="system-grid">

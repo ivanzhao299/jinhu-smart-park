@@ -37,6 +37,16 @@ export interface DownloadFileResult {
 
 export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
 
+export function normalizeMultipartFileName(parserName: string, utf8Name?: string): string {
+  if (!utf8Name || utf8Name.includes("\0")) {
+    return parserName;
+  }
+  return utf8Name === parserName
+    || Buffer.from(utf8Name, "utf8").toString("latin1") === parserName
+    ? utf8Name
+    : parserName;
+}
+
 @Injectable()
 export class FilesService {
   constructor(
@@ -74,11 +84,12 @@ export class FilesService {
       throw new BadRequestException("file is required");
     }
     this.validateFile(dto.biz_type, file);
+    const originalName = normalizeMultipartFileName(file.originalname, dto.original_name);
 
     const now = new Date();
     const day = this.formatDay(now);
     const fileCode = await this.nextFileCode(scope, day);
-    const originalExt = extname(file.originalname);
+    const originalExt = extname(originalName);
     const storedName = `${randomUUID()}${originalExt}`;
     const relativeDir = `${scope.tenantId}/${scope.parkId}/${day}`;
     const md5 = createHash("md5").update(file.buffer).digest("hex");
@@ -89,7 +100,7 @@ export class FilesService {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         fileCode,
-        originalName: file.originalname,
+        originalName,
         storedName,
         fileUrl: "",
         fileSize: String(file.size),
@@ -271,6 +282,7 @@ export class FilesService {
         file.createBy ?? undefined
       );
       await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
+      await this.businessAccessService.detachReferencesOnDelete(scope, file, actor, manager);
       file.isDeleted = true;
       file.updateBy = actor.sub;
       await repository.save(file);

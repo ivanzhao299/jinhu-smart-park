@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query, UploadedFile, U
 import { FileInterceptor } from "@nestjs/platform-express";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import { type UploadedFilePayload } from "../files/files.service";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -57,10 +58,10 @@ export class FloorsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body("remark") remark: string | undefined,
+    @Body() metadata: MultipartFileMetadataDto,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.floorsService.uploadLayout(scope, user, id, file, remark);
+    return this.floorsService.uploadLayout(scope, user, id, file, metadata);
   }
 
   @Delete(":id")

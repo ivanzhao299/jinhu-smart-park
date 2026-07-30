@@ -89,12 +89,13 @@ test("apiRequest keeps refresh cookie credentials even when callers pass another
 test("apiFormRequest sends credentials for cookie-backed requests", async () => {
   const calls = installFetchRecorder();
   const body = new FormData();
-  body.set("file", new Blob(["hello"]), "hello.txt");
+  body.set("file", new Blob(["hello"]), "𠀀-你好.txt");
 
   await apiFormRequest("/files", { method: "POST", body });
 
   assert.equal(calls[0]?.input, "/api/v1/files");
   assert.equal(calls[0]?.init?.credentials, "include");
+  assert.equal((calls[0]?.init?.body as FormData).get("original_name"), "𠀀-你好.txt");
 });
 
 test("apiRequest does not clear refresh cookie on auth login failures", async () => {
