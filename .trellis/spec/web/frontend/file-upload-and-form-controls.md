@@ -59,9 +59,13 @@
   render it from the authoritative purchase-list projection. Association must never
   make successfully submitted evidence disappear from the operations page.
 - After a successful file-delete response, notify the owning business component before
-  refreshing the attachment projection. The server mutation is authoritative; a
-  secondary list-refresh failure must not suppress parent cleanup or make the deleted
-  file ID remain in form state.
+  refreshing the attachment projection and remove the file from the shared list's
+  local projection. The server mutation is authoritative; a secondary list-refresh
+  failure must become a separate warning, must not reject the completed deletion, and
+  must not leave the deleted row or file ID in client state.
+- Protected business-file deletion controls require both `file:delete` and the domain
+  mutation permission enforced by the backend (for example,
+  `floor:upload_layout` for a floorplan).
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
@@ -109,9 +113,10 @@
 - Browser/API check: an upload already associated with a business object remains
   visible after refresh and the next workflow action retains that evidence.
 - Permission test: cover domain-only, generic-file-only, both, and neither permission
-  combinations for uploader and attachment-list visibility/effects.
+  combinations for uploader and attachment-list visibility/effects, including delete.
 - Deletion-order test: owner notification runs after DELETE success and before list
-  refresh, including when that refresh rejects.
+  refresh, the shared list removes the committed row before refresh, and a rejected
+  refresh returns a warning instead of rejecting the deletion.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

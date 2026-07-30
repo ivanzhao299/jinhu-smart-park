@@ -5,17 +5,16 @@ import { completeAttachmentDeletion } from "./attachment-list.logic";
 test("a successful delete notifies the owner before refreshing the attachment projection", async () => {
   const events: string[] = [];
 
-  await assert.rejects(
-    completeAttachmentDeletion(
-      { id: "file-1" },
-      () => events.push("owner-notified"),
-      async () => {
-        events.push("refresh-started");
-        throw new Error("refresh failed");
-      }
-    ),
-    /refresh failed/
+  const refreshError = await completeAttachmentDeletion(
+    { id: "file-1" },
+    () => events.push("owner-notified"),
+    () => events.push("removed-locally"),
+    async () => {
+      events.push("refresh-started");
+      throw new Error("refresh failed");
+    }
   );
 
-  assert.deepEqual(events, ["owner-notified", "refresh-started"]);
+  assert.equal(refreshError, "refresh failed");
+  assert.deepEqual(events, ["owner-notified", "removed-locally", "refresh-started"]);
 });

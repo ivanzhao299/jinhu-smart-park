@@ -12,6 +12,7 @@ test("editing a floor keeps an existing plan without requiring a replacement fil
 
   assert.match(page, /\{editingFloor \? \(/);
   assert.match(page, /<AttachmentList bizType="floorplan" bizId=\{editingFloor\.id\}/);
+  assert.match(page, /mutationPermission=\{SYSTEM_PERMISSIONS\.FLOOR_UPLOAD_LAYOUT\}/);
   assert.match(uploader, /<input[^>]*type="file"/);
   assert.doesNotMatch(uploader, /<input[^>]*required[^>]*type="file"/);
   assert.doesNotMatch(uploader, /<input[^>]*type="file"[^>]*required/);

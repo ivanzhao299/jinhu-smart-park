@@ -150,6 +150,10 @@ action against every state and sibling entry point before implementation:
       apply the same data scope as the mutation, and return the labels needed by the
       selector in one projection; the browser must not join several unrelated
       read-permission endpoints to make an authorized action reachable
+- [ ] Candidate pagination is an integer-only, server-bounded contract before SQL
+      `skip`/`take`; defaults do not substitute for an explicit maximum
+- [ ] Historical financial candidates remain reachable when a current reference is
+      soft-deleted; label joins preserve historical rows and provide stable fallbacks
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
@@ -214,7 +218,8 @@ action against every state and sibling entry point before implementation:
       the target. If an action requires list/detail context, enforce that read
       permission as an API composite prerequisite; button checks alone are not access
 - [ ] A domain file policy is intersected with the generic file endpoint permission:
-      domain read + `file:read` for lists, domain write + `file:upload` for uploaders
+      domain read + `file:read` for lists, domain write + `file:upload` for uploaders,
+      and domain mutation + `file:delete` for protected deletion controls
 - [ ] Operational list rows carry their own stable human-readable identity; labels do
       not depend on a separate candidate selector's current page or enabled subset
 - [ ] A paginated dataset shared by multiple forms exposes paging beside every
@@ -226,6 +231,9 @@ action against every state and sibling entry point before implementation:
       the domain business timezone; hiding a button is never the only enforcement
 - [ ] Read and execute permissions are projected at sub-control level: read-only
       users keep evidence and exception context but do not see upload/edit controls
+- [ ] Post-create continuation re-evaluates permissions for the persisted-record
+      state. Create permission may continue to authorized child actions, but it must
+      not expose profile update controls that require an independent update permission
 - [ ] Every backend-supported operational payload field needed in the MVP (such as
       exception description, consumables, evidence, and linked work order) has a
       reachable production input and a round-trip test
@@ -250,6 +258,9 @@ action against every state and sibling entry point before implementation:
 - [ ] Successful list deletion removes the row and decrements the visible total before
       the follow-up GET. If that GET fails, report “mutation succeeded, refresh failed”
       instead of restoring the deleted row or showing a generic deletion failure
+- [ ] Shared attachment deletion follows the same committed-mutation rule: notify the
+      owner, remove the local row, then refresh; refresh rejection is warning data and
+      never a rejection of the completed DELETE
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;

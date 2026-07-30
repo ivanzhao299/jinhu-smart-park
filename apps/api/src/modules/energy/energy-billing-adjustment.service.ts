@@ -85,10 +85,10 @@ export class EnergyBillingAdjustmentService {
         "cycle",
         "cycle.id = item.cycle_id AND cycle.tenant_id = item.tenant_id AND cycle.park_id = item.park_id AND cycle.is_deleted = false"
       )
-      .innerJoin(
+      .leftJoin(
         "biz_park_tenant",
         "parkTenant",
-        "parkTenant.id = item.related_park_tenant_id AND parkTenant.tenant_id = item.tenant_id AND parkTenant.park_id = item.park_id AND parkTenant.is_deleted = false"
+        "parkTenant.id = item.related_park_tenant_id AND parkTenant.tenant_id = item.tenant_id AND parkTenant.park_id = item.park_id"
       )
       .where("item.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("item.park_id = :parkId", { parkId: scope.parkId })
@@ -103,8 +103,8 @@ export class EnergyBillingAdjustmentService {
       .addSelect("cycle.cycle_code", "cycleCode")
       .addSelect("cycle.cycle_name", "cycleName")
       .addSelect("item.related_park_tenant_id", "relatedParkTenantId")
-      .addSelect("parkTenant.park_tenant_code", "parkTenantCode")
-      .addSelect("parkTenant.company_name", "companyName")
+      .addSelect("COALESCE(parkTenant.park_tenant_code, item.related_park_tenant_id::text)", "parkTenantCode")
+      .addSelect("COALESCE(parkTenant.company_name, '历史租户')", "companyName")
       .addSelect("item.billing_method", "billingMethod")
       .addSelect("item.final_amount", "finalAmount")
       .addSelect("item.confirmation_status", "confirmationStatus")

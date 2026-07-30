@@ -383,7 +383,7 @@ export default function FloorsPage() {
                         />
                       </PermissionGuard>
                     ) : null}
-                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} onDeleted={handleLayoutDeleted} /> : null}
+                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={handleLayoutDeleted} /> : null}
                   </div>
                 ) : (
                   <div className="ds-drawer-upload-placeholder">
@@ -420,7 +420,7 @@ export default function FloorsPage() {
                 />
               </PermissionGuard>
             ) : null}
-            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} onDeleted={handleLayoutDeleted} /> : null}
+            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={handleLayoutDeleted} /> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setLayoutTarget(null)}>关闭</button>
             </DrawerFooter>
