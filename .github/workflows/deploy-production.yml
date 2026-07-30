@@ -81,6 +81,22 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
         run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
 
+      - name: Ensure required production secrets
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          rsync -az \
+            -e "ssh $SSH_OPTS" \
+            scripts/ensure-production-secrets.sh \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/ensure-production-secrets.sh"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
+
       - name: Write release marker
         run: |
           cat > .release.json <<EOF
