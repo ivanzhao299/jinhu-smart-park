@@ -51,6 +51,10 @@ export interface PropertyAccessAction {
    */
   anyPermissions?: readonly string[];
   variant?: string;
+  variantPredicate?: {
+    allEquals?: Readonly<Record<string, string>>;
+    anyNonZero?: readonly string[];
+  };
   idempotency: "required" | "not-required";
   approvalPolicy: PropertyApprovalPolicy;
   highRisk?: boolean;
@@ -127,6 +131,7 @@ function mutation(
     requiredPermissions?: readonly string[];
     anyPermissions?: readonly string[];
     variant?: string;
+    variantPredicate?: PropertyAccessAction["variantPredicate"];
     highRiskPolicyId?: string;
   } = {}
 ): PropertyAccessAction {
@@ -139,6 +144,7 @@ function mutation(
     requiredPermissions: options.requiredPermissions,
     anyPermissions: options.anyPermissions,
     variant: options.variant,
+    variantPredicate: options.variantPredicate,
     idempotency: "required",
     approvalPolicy: highRisk
       ? {
@@ -172,6 +178,16 @@ const financial = (field: string, readPermission: string): PropertyFieldPolicy =
   classification: "financial",
   readPermission,
   projection: "full"
+});
+
+const readonlyReference = (
+  field: string,
+  readPermission: string
+): PropertyFieldPolicy => ({
+  field,
+  classification: "internal",
+  readPermission,
+  projection: "readonly"
 });
 
 const protectedFiles = (
@@ -224,7 +240,13 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     featureId: "homestay.tasks",
     module: { required: "homestay", dependencies: ["asset"] },
     surface: surface("homestay.tasks"),
-    actions: [],
+    actions: [
+      read(
+        "homestay.tasks.list",
+        "/homestay/tasks",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASK_READ
+      )
+    ],
     data: { dimensions: ["tenant", "park", "unit", "assignee"], enforcement: "both" },
     fields: [],
     files: []
@@ -277,6 +299,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     actions: [
       read("homestay.bookings.list", "/homestay/bookings", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ),
       read("homestay.bookings.detail", "/homestay/bookings/:id", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ),
+      read(
+        "homestay.bookings.guest-candidates",
+        "/homestay/guest-candidates",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ
+      ),
       mutation("homestay.bookings.create", "POST", "/homestay/bookings", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CREATE),
       mutation("homestay.bookings.confirm", "POST", "/homestay/bookings/:id/confirm", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
@@ -308,6 +335,16 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "homestay", dependencies: ["asset"] },
     surface: surface("homestay.stays"),
     actions: [
+      read(
+        "homestay.stays.list",
+        "/homestay/stays",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ
+      ),
+      read(
+        "homestay.stays.detail",
+        "/homestay/stays/:stayId",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ
+      ),
       mutation("homestay.stays.no-show", "POST", "/homestay/bookings/:id/no-show", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
       }),
@@ -344,10 +381,25 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     surface: surface("homestay.turnovers"),
     actions: [
       read("homestay.turnovers.list", "/homestay/turnovers", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ),
+      read(
+        "homestay.turnovers.detail",
+        "/homestay/turnovers/:id",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ
+      ),
+      read(
+        "homestay.turnovers.work-order-candidates",
+        "/homestay/work-order-candidates",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ
+      ),
       mutation("homestay.turnovers.execute", "POST", "/homestay/turnovers/:id/actions/:action", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE)
     ],
     data: { dimensions: ["tenant", "park", "unit", "assignee"], enforcement: "both" },
-    fields: [],
+    fields: [
+      readonlyReference(
+        "turnover.evidence_file_ids",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ
+      )
+    ],
     files: [
       protectedFiles(
         "homestay_turnover",
@@ -361,6 +413,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "homestay", dependencies: ["asset"] },
     surface: surface("homestay.finance"),
     actions: [
+      read(
+        "homestay.finance.list",
+        "/homestay/finance",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_READ
+      ),
       mutation("homestay.finance.register", "POST", "/homestay/bookings/:id/ledger", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
         anyPermissions: [
@@ -406,7 +463,13 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     featureId: "housing.tasks",
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.tasks"),
-    actions: [],
+    actions: [
+      read(
+        "housing.tasks.list",
+        "/housing/tasks",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ
+      )
+    ],
     data: { dimensions: ["tenant", "park", "unit", "assignee"], enforcement: "both" },
     fields: [],
     files: []
@@ -416,7 +479,7 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.tenants"),
     actions: [
-      read("housing.tenants.list", "/housing/tenants", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_MANAGE),
+      read("housing.tenants.list", "/housing/tenants", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ),
       mutation("housing.tenants.create", "POST", "/housing/tenants", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_MANAGE)
     ],
     data: tenantParkData,
@@ -533,7 +596,41 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.handovers"),
     actions: [
-      mutation("housing.handovers.complete", "POST", "/housing/leases/:id/handovers", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE)
+      read(
+        "housing.handovers.list",
+        "/housing/handovers",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ
+      ),
+      read(
+        "housing.handovers.detail",
+        "/housing/handovers/:id",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ
+      ),
+      mutation(
+        "housing.handovers.complete",
+        "POST",
+        "/housing/leases/:id/handovers",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+        { variant: "move-in-or-zero-financial-move-out" }
+      ),
+      mutation(
+        "housing.handovers.complete-move-out-financial",
+        "POST",
+        "/housing/leases/:id/handovers",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+        {
+          variant: "move-out-and-any-of-damage-unsettled-deposit-deduction-non-zero",
+          variantPredicate: {
+            allEquals: { handover_type: "move_out" },
+            anyNonZero: [
+              "damage_amount",
+              "unsettled_amount",
+              "deposit_deduction_amount"
+            ]
+          },
+          highRiskPolicyId: "housing.handover.move-out-financial"
+        }
+      )
     ],
     data: unitScopedData,
     fields: [
@@ -544,17 +641,23 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         projection: "masked"
       },
       financial("handover.damage_amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ),
-      financial("handover.deposit_deduction_amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ)
+      financial("handover.unsettled_amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ),
+      financial("handover.deposit_deduction_amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ),
+      readonlyReference(
+        "handover.photo_file_ids",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ
+      )
     ],
     files: [
       ...["housing_handover", "housing_handover_move_in", "housing_handover_move_out"]
         .map((bizType) => protectedFiles(
           bizType,
-          PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+          PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
           {
             readAnyPermissions: [
               PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ,
+              PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
               PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE
             ]
           }
@@ -566,6 +669,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.billing"),
     actions: [
+      read(
+        "housing.billing.list",
+        "/housing/billing",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ
+      ),
       mutation("housing.billing.save-plan", "PUT", "/housing/leases/:id/charge-plans", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE),
       mutation("housing.billing.generate", "POST", "/housing/leases/:id/generate-bills", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_GENERATE)
     ],
@@ -581,6 +689,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.finance"),
     actions: [
+      read(
+        "housing.finance.list",
+        "/housing/finance",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ
+      ),
       mutation("housing.finance.register", "POST", "/housing/leases/:id/ledger", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_REGISTER, {
         anyPermissions: [
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_REGISTER,
@@ -610,18 +723,34 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     module: { required: "housing_rental", dependencies: ["asset"] },
     surface: surface("housing.repairs"),
     actions: [
+      read(
+        "housing.repairs.list",
+        "/housing/repairs",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+      ),
+      read(
+        "housing.repairs.detail",
+        "/housing/repairs/:id",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+      ),
       mutation("housing.repairs.create", "POST", "/housing/leases/:id/repairs", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_MANAGE)
     ],
     data: unitScopedData,
-    fields: [],
+    fields: [
+      readonlyReference(
+        "repair.image_file_ids",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+      )
+    ],
     files: [
       protectedFiles(
         "housing_repair",
-        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_MANAGE,
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ,
         PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_MANAGE,
         {
           readAnyPermissions: [
             PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ,
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ,
             PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_MANAGE
           ]
         }
@@ -660,7 +789,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
     data: unitScopedData,
     fields: [
       financial("purchase.total_amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_READ),
-      financial("purchase.items.amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_READ)
+      financial("purchase.items.amount", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_READ),
+      readonlyReference(
+        "purchase.receipt_file_ids",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_READ
+      )
     ],
     files: [
       protectedFiles(
@@ -679,6 +812,36 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
   }
 ] as const;
 
+export const PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS = [
+  "homestay.dashboard.read",
+  "homestay.tasks.list",
+  "homestay.availability.read",
+  "homestay.rates.unit-candidates",
+  "homestay.rates.read",
+  "homestay.bookings.list",
+  "homestay.bookings.detail",
+  "homestay.bookings.guest-candidates",
+  "homestay.stays.list",
+  "homestay.stays.detail",
+  "homestay.turnovers.list",
+  "homestay.turnovers.detail",
+  "homestay.turnovers.work-order-candidates",
+  "homestay.finance.list",
+  "housing.dashboard.read",
+  "housing.tasks.list",
+  "housing.tenants.list",
+  "housing.leases.list",
+  "housing.leases.detail",
+  "housing.handovers.list",
+  "housing.handovers.detail",
+  "housing.billing.list",
+  "housing.finance.list",
+  "housing.repairs.list",
+  "housing.repairs.detail",
+  "housing.purchases.list",
+  "housing.purchases.detail"
+] as const;
+
 export const TRACK_A_HIGH_RISK_ACTION_IDS = [
   "homestay.bookings.cancel",
   "homestay.finance.refund-or-waive",
@@ -686,6 +849,7 @@ export const TRACK_A_HIGH_RISK_ACTION_IDS = [
   "housing.leases.void",
   "housing.leases.checkout",
   "housing.finance.refund-waive-or-deposit-refund",
+  "housing.handovers.complete-move-out-financial",
   "housing.purchases.lifecycle",
   "housing.purchases.transfer"
 ] as const;
@@ -992,6 +1156,27 @@ export function validatePropertyAccessManifest(
     } else if (!action.highRisk) {
       issues.push(`Track A high-risk action is not marked high-risk: ${actionId}`);
     }
+  }
+  for (const actionId of PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS) {
+    const action = actionsById.get(actionId);
+    if (!action) {
+      issues.push(`Missing workbench GET action: ${actionId}`);
+    } else if (action.method !== "GET") {
+      issues.push(`Workbench read action is not GET: ${actionId}`);
+    }
+  }
+  const moveOutFinancial = actionsById.get(
+    "housing.handovers.complete-move-out-financial"
+  );
+  if (
+    moveOutFinancial?.variantPredicate?.allEquals?.handover_type !== "move_out"
+    || JSON.stringify(moveOutFinancial.variantPredicate.anyNonZero) !== JSON.stringify([
+      "damage_amount",
+      "unsettled_amount",
+      "deposit_deduction_amount"
+    ])
+  ) {
+    issues.push("Housing move-out financial discriminator is incomplete");
   }
   const expectedHighRisk = new Set<string>(TRACK_A_HIGH_RISK_ACTION_IDS);
   for (const action of actionsById.values()) {

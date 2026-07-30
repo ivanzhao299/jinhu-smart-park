@@ -58,7 +58,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAYS_PAGE,
     route: "/homestay/stays",
-    detailRoutes: []
+    detailRoutes: ["/homestay/stays/[stayId]"]
   },
   {
     featureId: "homestay.turnovers",
@@ -184,14 +184,19 @@ export const PROPERTY_BUSINESS_LANDING = {
   }
 } as const;
 
-export const PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS = [
-  {
-    source: "/housing/tenants/[partyId]",
-    target: "/assets/parties/[partyId]",
-    sourcePagePermission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
-    targetAuthorization: "canonical-target"
-  }
-] as const;
+export interface PropertyBusinessCompatibilityRedirect {
+  source: string;
+  target: string;
+  sourcePagePermission: string;
+  targetAuthorization: "canonical-target";
+}
+
+/**
+ * Remains empty until the canonical Party target has an explicit route and
+ * six-layer authorization handoff. A planned route is not a live redirect.
+ */
+export const PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS:
+  readonly PropertyBusinessCompatibilityRedirect[] = [];
 
 export function findPropertyBusinessSurface(path: string): PropertyBusinessSurfaceRoute | undefined {
   return PROPERTY_BUSINESS_SURFACES.find((surface) =>

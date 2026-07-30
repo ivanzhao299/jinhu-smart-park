@@ -13,9 +13,24 @@ import {
   PROPERTY_BUSINESS_PROTECTED_BIZ_TYPES,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_PERMISSION_BUNDLES,
+  PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS,
   SYSTEM_PERMISSIONS,
   SYSTEM_PERMISSION_SEEDS,
   TRACK_A_HIGH_RISK_ACTION_IDS,
+  type HomestayAvailabilityListResponse,
+  type HomestayAvailabilityResponse,
+  type HomestayBookingDetailResponse,
+  type HomestayBookingListItem,
+  type HomestayRateCalendarResponse,
+  type HomestayTurnoverListItem,
+  type HousingHandoverListItem,
+  type HousingLeaseDetailResponse,
+  type HousingLeaseListItem,
+  type HousingLedgerEntryResponse,
+  type HousingPurchaseDetailResponse,
+  type HousingPurchaseListItem,
+  type HousingRepairListItem,
+  type HousingTenantListItem,
   type PropertyAccessManifestEntry,
   type PropertyPermissionBundle,
   findPropertyBusinessSurface,
@@ -38,6 +53,58 @@ interface ControllerEndpoint {
   hasIdempotencyInterceptor: boolean;
   highRiskAction?: PropertyHighRiskActionMetadata;
 }
+
+const EXPECTED_DETAIL_ROUTES = [
+  "/homestay/bookings/[bookingId]",
+  "/homestay/stays/[stayId]",
+  "/homestay/turnovers/[turnoverId]",
+  "/housing/handovers/[handoverId]",
+  "/housing/leases/[leaseId]",
+  "/housing/purchases/[purchaseId]",
+  "/housing/repairs/[repairId]"
+] as const;
+
+const EXPECTED_GET_ACTION_IDS = [
+  "homestay.availability.read",
+  "homestay.bookings.detail",
+  "homestay.bookings.guest-candidates",
+  "homestay.bookings.list",
+  "homestay.dashboard.read",
+  "homestay.finance.list",
+  "homestay.rates.read",
+  "homestay.rates.unit-candidates",
+  "homestay.stays.detail",
+  "homestay.stays.list",
+  "homestay.tasks.list",
+  "homestay.turnovers.detail",
+  "homestay.turnovers.list",
+  "homestay.turnovers.work-order-candidates",
+  "housing.billing.list",
+  "housing.dashboard.read",
+  "housing.finance.list",
+  "housing.handovers.detail",
+  "housing.handovers.list",
+  "housing.leases.detail",
+  "housing.leases.list",
+  "housing.purchases.detail",
+  "housing.purchases.list",
+  "housing.repairs.detail",
+  "housing.repairs.list",
+  "housing.tasks.list",
+  "housing.tenants.list"
+] as const;
+
+const EXPECTED_HIGH_RISK_ACTION_IDS = [
+  "homestay.bookings.cancel",
+  "homestay.finance.refund-or-waive",
+  "housing.finance.refund-waive-or-deposit-refund",
+  "housing.handovers.complete-move-out-financial",
+  "housing.leases.approve",
+  "housing.leases.checkout",
+  "housing.leases.void",
+  "housing.purchases.lifecycle",
+  "housing.purchases.transfer"
+] as const;
 
 function sortedUnique(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
@@ -73,7 +140,7 @@ function controllerEndpoints(
   });
 }
 
-test("property-business manifest defines 17 canonical surfaces and six inherited detail routes", () => {
+test("property-business manifest defines 17 canonical surfaces and seven inherited detail routes", () => {
   assert.equal(PROPERTY_BUSINESS_SURFACES.length, 17);
   assert.equal(PROPERTY_ACCESS_MANIFEST.length, 17);
 
@@ -83,7 +150,10 @@ test("property-business manifest defines 17 canonical surfaces and six inherited
       pageCode: surface.pageCode
     }))
   );
-  assert.equal(detailRoutes.length, 6);
+  assert.deepEqual(
+    detailRoutes.map((item) => item.route).sort(),
+    [...EXPECTED_DETAIL_ROUTES].sort()
+  );
   for (const detail of detailRoutes) {
     assert.equal(findPropertyBusinessSurface(detail.route)?.pageCode, detail.pageCode);
   }
@@ -117,14 +187,16 @@ test("landing priority and compatibility aliases are fixed without granting a ca
   ]);
   assert.equal(PROPERTY_BUSINESS_LANDING.homestay.legacyAlias, "/homestay");
   assert.equal(PROPERTY_BUSINESS_LANDING.housing_rental.legacyAlias, "/housing");
-  assert.deepEqual(PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS, [
-    {
-      source: "/housing/tenants/[partyId]",
-      target: "/assets/parties/[partyId]",
-      sourcePagePermission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
-      targetAuthorization: "canonical-target"
-    }
-  ]);
+  assert.deepEqual(PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS, []);
+  assert.equal(
+    PROPERTY_BUSINESS_SURFACES.some((surface) =>
+      surface.route.startsWith("/assets/parties/")
+      || surface.detailRoutes.some((route) =>
+        route.startsWith("/assets/parties/")
+      )
+    ),
+    false
+  );
 });
 
 test("root permission exports preserve legacy/action values and seed every granular page once", () => {
@@ -147,11 +219,269 @@ test("root permission exports preserve legacy/action values and seed every granu
   }
 });
 
+test("response contracts preserve current casing and freeze A-2.5 pagination wrappers", () => {
+  const availabilityItem = {
+    unit_id: "unit-1",
+    unit_code: "A-101",
+    unit_name: "庭院房",
+    operation_mode: "short_stay",
+    room_state: "available"
+  } as const;
+  const currentAvailability: HomestayAvailabilityResponse = [availabilityItem];
+  const targetAvailability: HomestayAvailabilityListResponse = {
+    items: [availabilityItem],
+    total: 1,
+    page: 1,
+    page_size: 20
+  };
+  assert.deepEqual(Object.keys(currentAvailability[0] ?? {}).sort(), [
+    "operation_mode",
+    "room_state",
+    "unit_code",
+    "unit_id",
+    "unit_name"
+  ]);
+  assert.deepEqual(Object.keys(targetAvailability).sort(), [
+    "items",
+    "page",
+    "page_size",
+    "total"
+  ]);
+
+  const rate: HomestayRateCalendarResponse = {
+    unit_id: "unit-1",
+    currency: "CNY",
+    base_daily_rate: "199.00",
+    checkout_requires_inspection: true,
+    cancellation_policy: {
+      free_cancel_before_hours: 24,
+      late_cancel_fee_type: "percentage",
+      late_cancel_fee_value: "20.00",
+      captured_at: "2026-07-30T00:00:00.000Z"
+    },
+    days: [{
+      business_date: "2026-07-30",
+      base_rate: "199.00",
+      override_rate: null,
+      final_rate: "199.00",
+      price_source: "base"
+    }]
+  };
+  assert.deepEqual(Object.keys(rate.cancellation_policy).sort(), [
+    "captured_at",
+    "free_cancel_before_hours",
+    "late_cancel_fee_type",
+    "late_cancel_fee_value"
+  ]);
+
+  const booking: HomestayBookingListItem = {
+    id: "booking-1",
+    bookingCode: "HS-1",
+    unitId: "unit-1",
+    unitCode: "A-101",
+    unitName: "庭院房",
+    arrivalDate: "2026-07-30",
+    departureDate: "2026-07-31",
+    status: "confirmed",
+    guestCount: 1,
+    sourceType: "direct",
+    roomAmount: "199.00",
+    totalAmount: "199.00"
+  };
+  const turnover: HomestayTurnoverListItem = {
+    id: "turnover-1",
+    bookingId: booking.id,
+    unitId: booking.unitId,
+    unitCode: booking.unitCode,
+    unitName: booking.unitName,
+    status: "pending",
+    assigneeId: null,
+    assigneeName: null,
+    photoFileIds: [],
+    consumables: [],
+    exceptionDescription: null,
+    linkedWorkOrderId: null,
+    createTime: "2026-07-30T00:00:00.000Z"
+  };
+  const bookingDetail: HomestayBookingDetailResponse = {
+    booking,
+    nights: [],
+    guests: [{
+      id: "guest-1",
+      partyId: "party-1",
+      isPrimary: true,
+      verificationStatus: "verified"
+    }],
+    credentials: [{
+      id: "credential-1",
+      credentialType: "card",
+      credentialLabel: "房卡",
+      credentialReference: "***",
+      status: "issued",
+      issuedAt: "2026-07-30T00:00:00.000Z",
+      returnedAt: null
+    }],
+    ledger: [],
+    ledger_summary: null,
+    finance_visible: false,
+    actions: [],
+    turnover
+  };
+  assert.equal("displayName" in bookingDetail.guests[0]!, false);
+});
+
+test("housing response contracts cover the current Web sibling fields", () => {
+  const tenant: HousingTenantListItem = {
+    id: "party-1",
+    displayName: "张三",
+    mobile: "138****0000",
+    email: null,
+    identityNumberMasked: null,
+    verificationStatus: "verified"
+  };
+  assert.equal("status" in tenant, false);
+
+  const lease: HousingLeaseListItem = {
+    id: "lease-1",
+    leaseCode: "HZ-1",
+    unitId: "unit-1",
+    unitCode: "A-101",
+    unitName: "人才公寓",
+    tenantPartyId: tenant.id,
+    tenantDisplayName: tenant.displayName,
+    startDate: "2026-07-30",
+    endDate: "2027-07-29",
+    status: "active",
+    paymentCycleMonths: 1,
+    signatureFileId: null,
+    monthlyRent: "2000.00",
+    depositAmount: "2000.00"
+  };
+  const ledger: HousingLedgerEntryResponse = {
+    id: "ledger-1",
+    leaseId: lease.id,
+    receivableId: null,
+    entryType: "payment",
+    chargeType: "rent",
+    amount: "2000.00",
+    paymentMethod: "cash",
+    status: "confirmed",
+    reason: "线下收款",
+    occurredAt: "2026-07-30T00:00:00.000Z"
+  };
+  assert.deepEqual(
+    ["paymentMethod", "status", "reason"].map((key) => key in ledger),
+    [true, true, true]
+  );
+
+  const detail: HousingLeaseDetailResponse = {
+    lease,
+    occupants: [],
+    charge_plans: [],
+    receivables: [],
+    ledger: [ledger],
+    handovers: [{
+      id: "handover-1",
+      leaseId: lease.id,
+      handoverType: "move_in",
+      status: "completed",
+      handoverAt: "2026-07-30T00:00:00.000Z",
+      meterReadings: [],
+      itemSnapshot: [],
+      credentials: [],
+      remark: null,
+      damageAmount: "0.00",
+      unsettledAmount: "0.00",
+      depositDeductionAmount: "0.00",
+      photo_files: []
+    }],
+    pending_handover_files: { move_in: [], move_out: [] },
+    repairs: [],
+    pending_repair_files: [],
+    finance_summary: null
+  };
+  assert.equal(detail.lease.id, lease.id);
+  assert.deepEqual(detail.handovers![0]?.photo_files, []);
+  assert.equal("leaseCode" in detail.handovers![0]!, false);
+  assert.equal("unitCode" in detail.handovers![0]!, false);
+
+  const handoverList: HousingHandoverListItem = {
+    ...detail.handovers![0]!,
+    leaseCode: lease.leaseCode,
+    unitId: lease.unitId,
+    unitCode: lease.unitCode,
+    unitName: lease.unitName
+  };
+  const repair: HousingRepairListItem = {
+    id: "repair-1",
+    leaseId: lease.id,
+    leaseCode: lease.leaseCode,
+    unitId: lease.unitId,
+    unitCode: lease.unitCode,
+    unitName: lease.unitName,
+    woCode: "WO-1",
+    title: "漏水",
+    priority: "high",
+    urgency: null,
+    status: "pending",
+    assigneeName: null,
+    overdueFlag: false,
+    createTime: "2026-07-30T00:00:00.000Z"
+  };
+  assert.equal(handoverList.handoverType, "move_in");
+  assert.equal(repair.woCode, "WO-1");
+
+  const purchase: HousingPurchaseListItem = {
+    id: "purchase-1",
+    purchaseCode: "PO-1",
+    unitId: lease.unitId,
+    vendorName: "供应商",
+    purchaseDate: "2026-07-30",
+    costCategory: "repair",
+    approvalStatus: "draft",
+    paymentStatus: "unpaid",
+    totalAmount: "100.00",
+    transferredItemCount: 0,
+    receiptFiles: []
+  };
+  const purchaseDetail: HousingPurchaseDetailResponse = {
+    purchase,
+    items: [{
+      id: "item-1",
+      itemName: "配件",
+      quantity: "1.000",
+      unit: "件",
+      unitPrice: "100.00",
+      amount: "100.00",
+      transferredReceivableId: null
+    }]
+  };
+  assert.equal(purchaseDetail.items[0]?.amount, "100.00");
+});
+
 test("permission bundles compose capabilities and never translate legacy operations into new pages", () => {
   assert.deepEqual(validatePropertyPermissionBundles(), []);
+  assert.equal(Object.keys(PROPERTY_PERMISSION_BUNDLES).length, 14);
   const legacy = new Set<string>(PROPERTY_BUSINESS_LEGACY_PAGE_PERMISSIONS);
   for (const bundle of Object.values(PROPERTY_PERMISSION_BUNDLES)) {
     assert.equal(bundle.permissions.some((permission) => legacy.has(permission)), false);
+  }
+  const owningReadExtensions = {
+    HOMESTAY_OVERVIEW: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASK_READ,
+    HOMESTAY_STAYS: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ,
+    HOUSING_OVERVIEW: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ,
+    HOUSING_TENANTS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
+    HOUSING_HANDOVERS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
+    HOUSING_BILLING: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ,
+    HOUSING_REPAIRS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+  } as const;
+  for (const [bundleKey, permission] of Object.entries(owningReadExtensions)) {
+    const owners = Object.entries(PROPERTY_PERMISSION_BUNDLES)
+      .filter(([, bundle]) =>
+        (bundle.permissions as readonly string[]).includes(permission)
+      )
+      .map(([key]) => key);
+    assert.deepEqual(owners, [bundleKey]);
   }
 });
 
@@ -249,10 +579,29 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
     manifestByEndpoint.set(key, variants);
   }
 
+  const pendingA25GetEndpoints = [
+    "GET /homestay/tasks",
+    "GET /homestay/guest-candidates",
+    "GET /homestay/stays",
+    "GET /homestay/stays/:stayId",
+    "GET /homestay/turnovers/:id",
+    "GET /homestay/work-order-candidates",
+    "GET /homestay/finance",
+    "GET /housing/tasks",
+    "GET /housing/handovers",
+    "GET /housing/handovers/:id",
+    "GET /housing/billing",
+    "GET /housing/finance",
+    "GET /housing/repairs",
+    "GET /housing/repairs/:id"
+  ];
   assert.deepEqual(
     [...manifestByEndpoint.keys()].sort(),
-    actual.map((endpoint) => endpoint.key),
-    "manifest path/method coverage must equal decorated controller routes"
+    [
+      ...actual.map((endpoint) => endpoint.key),
+      ...pendingA25GetEndpoints
+    ].sort(),
+    "manifest must equal current controllers plus the frozen A-2.5 GET contract"
   );
 
   for (const endpoint of actual) {
@@ -273,6 +622,7 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
       ...(firstVariant.requiredPermissions ?? []),
       ...(firstVariant.anyPermissions ? [] : [firstVariant.permission])
     ];
+    if (endpoint.key === "GET /housing/tenants") continue;
     assert.deepEqual(
       sortedUnique(declaredRequired),
       sortedUnique(endpoint.requiredPermissions),
@@ -291,6 +641,18 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
   }
 });
 
+test("A-2.5 records the unresolved housing tenant GET consumer drift", () => {
+  const endpoint = controllerEndpoints(HousingController)
+    .find((item) => item.key === "GET /housing/tenants");
+  assert.ok(endpoint);
+  const action = PROPERTY_ACCESS_MANIFEST.flatMap((entry) => entry.actions)
+    .find((item) => item.actionId === "housing.tenants.list");
+  assert.ok(action);
+  assert.equal(action.permission, "housing:tenant:read");
+  assert.deepEqual(endpoint.requiredPermissions, ["housing:tenant:manage"]);
+  assert.notDeepEqual(endpoint.requiredPermissions, [action.permission]);
+});
+
 test("protected files, sensitive fields, and financial projections are machine-verifiable", () => {
   const policies = PROPERTY_ACCESS_MANIFEST.flatMap((entry) => entry.files);
   const bizTypes = policies.flatMap((policy) => policy.bizTypes);
@@ -298,10 +660,10 @@ test("protected files, sensitive fields, and financial projections are machine-v
   assert.deepEqual([...bizTypes].sort(), [...PROPERTY_BUSINESS_PROTECTED_BIZ_TYPES].sort());
   const expectedReadAnyPermissions: Record<string, readonly string[]> = {
     housing_lease_signature: ["housing:lease:read", "housing:lease:sign"],
-    housing_handover: ["housing:handover:manage", "housing:lease:read"],
-    housing_handover_move_in: ["housing:handover:manage", "housing:lease:read"],
-    housing_handover_move_out: ["housing:handover:manage", "housing:lease:read"],
-    housing_repair: ["housing:lease:read", "housing:repair:manage"],
+    housing_handover: ["housing:handover:manage", "housing:handover:read", "housing:lease:read"],
+    housing_handover_move_in: ["housing:handover:manage", "housing:handover:read", "housing:lease:read"],
+    housing_handover_move_out: ["housing:handover:manage", "housing:handover:read", "housing:lease:read"],
+    housing_repair: ["housing:lease:read", "housing:repair:manage", "housing:repair:read"],
     housing_purchase: ["housing:purchase:manage", "housing:purchase:read"],
     homestay_turnover: []
   };
@@ -367,7 +729,11 @@ test("high-risk Track A contract declares approval-required and blocked-until-Tr
     .filter((action) => action.highRisk);
   assert.deepEqual(
     highRisk.map((action) => action.actionId).sort(),
-    [...TRACK_A_HIGH_RISK_ACTION_IDS].sort()
+    [...EXPECTED_HIGH_RISK_ACTION_IDS].sort()
+  );
+  assert.deepEqual(
+    [...TRACK_A_HIGH_RISK_ACTION_IDS].sort(),
+    [...EXPECTED_HIGH_RISK_ACTION_IDS].sort()
   );
   for (const action of highRisk) {
     assert.equal(action.approvalPolicy.requirement, "required");
@@ -376,14 +742,44 @@ test("high-risk Track A contract declares approval-required and blocked-until-Tr
   }
 });
 
-test("controller high-risk metadata exactly covers the eight Track A action ids", () => {
+test("A-2.5 freezes exact GET actions and the ninth move-out financial discriminator", () => {
+  const gets = PROPERTY_ACCESS_MANIFEST.flatMap((entry) => entry.actions)
+    .filter((action) => action.method === "GET");
+  assert.deepEqual(
+    gets.map((action) => action.actionId).sort(),
+    [...EXPECTED_GET_ACTION_IDS].sort()
+  );
+  assert.deepEqual(
+    [...PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS].sort(),
+    [...EXPECTED_GET_ACTION_IDS].sort()
+  );
+  const moveOut = PROPERTY_ACCESS_MANIFEST.flatMap((entry) => entry.actions)
+    .find((action) =>
+      action.actionId === "housing.handovers.complete-move-out-financial"
+    );
+  assert.ok(moveOut);
+  assert.deepEqual(moveOut.variantPredicate, {
+    allEquals: { handover_type: "move_out" },
+    anyNonZero: [
+      "damage_amount",
+      "unsettled_amount",
+      "deposit_deduction_amount"
+    ]
+  });
+});
+
+test("controller high-risk metadata preserves the eight-action baseline pending A-2.5 API adoption", () => {
   const decorated = [
     ...controllerEndpoints(HomestayController),
     ...controllerEndpoints(HousingController)
   ].filter((endpoint) => endpoint.highRiskAction);
   assert.deepEqual(
     decorated.map((endpoint) => endpoint.highRiskAction?.actionId).sort(),
-    [...TRACK_A_HIGH_RISK_ACTION_IDS].sort()
+    EXPECTED_HIGH_RISK_ACTION_IDS
+      .filter((actionId) =>
+        actionId !== "housing.handovers.complete-move-out-financial"
+      )
+      .sort()
   );
 
   const byActionId = new Map(
