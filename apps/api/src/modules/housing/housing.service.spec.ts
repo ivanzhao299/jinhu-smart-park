@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import type { PartyResponse } from "../property-operations/parties.service";
@@ -58,6 +58,7 @@ function housingService(partiesService: {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     {} as never
   );
 }
@@ -69,7 +70,11 @@ test("housing tenant list masks contact fields without mutating the Party respon
     create: async () => source
   });
 
-  const result = await service.listTenants(scope, { page: 1, page_size: 20 });
+  const result = await service.listTenants(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE] },
+    { page: 1, page_size: 20 }
+  );
   const serialized = JSON.stringify(result);
 
   assert.equal(result.items[0]?.mobile, "138****5678");
@@ -78,6 +83,60 @@ test("housing tenant list masks contact fields without mutating the Party respon
   assert.equal(source.mobile, "13812345678");
   assert.equal(source.email, "tenant@example.com");
   assert.notEqual(result.items[0], source);
+  assert.deepEqual(Object.keys(result.items[0]!).sort(), [
+    "displayName",
+    "email",
+    "id",
+    "mobile",
+    "verificationStatus"
+  ]);
+});
+
+test("housing tenant read-only projection omits contact fields and raw Party metadata", async () => {
+  const source = partyResponse({ identityNumber: "320123199001011234" });
+  const service = housingService({
+    list: async () => ({ items: [source], total: 1, page: 1, page_size: 20 }),
+    create: async () => source
+  });
+
+  const result = await service.listTenants(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_TENANT_READ] },
+    { page: 1, page_size: 20 }
+  );
+
+  assert.deepEqual(Object.keys(result.items[0]!).sort(), [
+    "displayName",
+    "id",
+    "verificationStatus"
+  ]);
+  assert.equal("identityNumber" in result.items[0]!, false);
+  assert.equal("tenantId" in result.items[0]!, false);
+});
+
+test("housing tenant identity mask requires exact party sensitive read", async () => {
+  const source = partyResponse({ identityNumberMasked: "320***********1234" });
+  const service = housingService({
+    list: async () => ({ items: [source], total: 1, page: 1, page_size: 20 }),
+    create: async () => source
+  });
+
+  const withoutSensitive = await service.listTenants(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE] },
+    { page: 1, page_size: 20 }
+  );
+  const withSensitive = await service.listTenants(
+    scope,
+    { ...actor, permissions: [
+      SYSTEM_PERMISSIONS.HOUSING_TENANT_READ,
+      SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ
+    ] },
+    { page: 1, page_size: 20 }
+  );
+
+  assert.equal("identityNumberMasked" in withoutSensitive.items[0]!, false);
+  assert.equal(withSensitive.items[0]?.identityNumberMasked, "320***********1234");
 });
 
 test("housing tenant creation masks contacts while preserving nulls and short-value privacy", async () => {
@@ -94,12 +153,16 @@ test("housing tenant creation masks contacts while preserving nulls and short-va
     }
   });
 
-  const result = await service.createTenant(scope, actor, {
+  const result = await service.createTenant(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE] },
+    {
     party_type: "organization",
     display_name: "Tenant",
     mobile: "123",
     email: "a@b"
-  });
+    }
+  );
   const serialized = JSON.stringify(result);
 
   assert.equal(receivedDto?.party_type, "person");
@@ -115,10 +178,11 @@ test("housing tenant creation masks contacts while preserving nulls and short-va
     list: async () => ({ items: [], total: 0, page: 1, page_size: 20 }),
     create: async () => nullContacts
   });
-  const nullResult = await nullService.createTenant(scope, actor, {
-    party_type: "person",
-    display_name: "Tenant"
-  });
+  const nullResult = await nullService.createTenant(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE] },
+    { party_type: "person", display_name: "Tenant" }
+  );
   assert.equal(nullResult.mobile, null);
   assert.equal(nullResult.email, null);
 });

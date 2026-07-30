@@ -42,6 +42,38 @@ export class HousingLeaseQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
 }
 
+export class HousingWorkbenchPageQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
+}
+
+export class HousingTaskQueryDto extends HousingWorkbenchPageQueryDto {
+  @IsOptional()
+  @IsIn(["pending", "active", "exception", "completed"])
+  status?: "pending" | "active" | "exception" | "completed";
+
+  @IsOptional()
+  @IsIn(["housing_lease", "housing_handover", "housing_repair", "housing_billing", "housing_purchase"])
+  source_type?: "housing_lease" | "housing_handover" | "housing_repair" | "housing_billing" | "housing_purchase";
+}
+
+export class HousingHandoverQueryDto extends HousingWorkbenchPageQueryDto {
+  @IsOptional() @IsIn(["move_in", "move_out"]) handover_type?: "move_in" | "move_out";
+  @IsOptional() @IsIn(["draft", "completed"]) status?: "draft" | "completed";
+}
+
+export class HousingBillingQueryDto extends HousingWorkbenchPageQueryDto {
+  @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
+}
+
+export class HousingFinanceQueryDto extends HousingWorkbenchPageQueryDto {
+  @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
+}
+
+export class HousingRepairQueryDto extends HousingWorkbenchPageQueryDto {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) status?: string;
+}
+
 export class CreateHousingLeaseDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(64) lease_code?: string;
   @IsUUID() unit_id!: string;

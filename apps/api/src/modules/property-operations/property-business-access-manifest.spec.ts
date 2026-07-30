@@ -24,11 +24,14 @@ import {
   type HomestayRateCalendarResponse,
   type HomestayTurnoverListItem,
   type HousingHandoverListItem,
+  type HousingEmbeddedHandoverResponse,
+  type HousingChargePlanResponse,
   type HousingLeaseDetailResponse,
   type HousingLeaseListItem,
   type HousingLedgerEntryResponse,
   type HousingPurchaseDetailResponse,
   type HousingPurchaseListItem,
+  type HousingReceivableResponse,
   type HousingRepairListItem,
   type HousingTenantListItem,
   type PropertyAccessManifestEntry,
@@ -331,6 +334,17 @@ test("response contracts preserve current casing and freeze A-2.5 pagination wra
 });
 
 test("housing response contracts cover the current Web sibling fields", () => {
+  const readOnlyTenant: HousingTenantListItem = {
+    id: "party-read-only",
+    displayName: "只读租客",
+    verificationStatus: "unverified"
+  };
+  assert.deepEqual(Object.keys(readOnlyTenant).sort(), [
+    "displayName",
+    "id",
+    "verificationStatus"
+  ]);
+
   const tenant: HousingTenantListItem = {
     id: "party-1",
     displayName: "张三",
@@ -459,6 +473,142 @@ test("housing response contracts cover the current Web sibling fields", () => {
   assert.equal(purchaseDetail.items[0]?.amount, "100.00");
 });
 
+test("housing field projections allow read-only omission and authorized minimum blocks", () => {
+  const readOnlyLease: HousingLeaseListItem = {
+    id: "lease-read",
+    leaseCode: "HZ-READ",
+    unitId: "unit-1",
+    unitCode: "A-101",
+    unitName: "人才公寓",
+    tenantPartyId: "party-1",
+    tenantDisplayName: "张三",
+    startDate: "2026-07-30",
+    endDate: "2027-07-29",
+    status: "active",
+    paymentCycleMonths: 1
+  };
+  assert.equal("monthlyRent" in readOnlyLease, false);
+  assert.equal("depositAmount" in readOnlyLease, false);
+  assert.equal("signatureFileId" in readOnlyLease, false);
+
+  const readOnlyPlan: HousingChargePlanResponse = {
+    id: "plan-1",
+    leaseId: readOnlyLease.id,
+    chargeType: "rent",
+    billingSource: "fixed",
+    cycleMonths: 1,
+    meterId: null,
+    enabled: true
+  };
+  const readOnlyReceivable: HousingReceivableResponse = {
+    id: "receivable-1",
+    leaseId: readOnlyLease.id,
+    chargeType: "rent",
+    periodStart: "2026-07-30",
+    periodEnd: "2026-08-30",
+    dueDate: "2026-07-30",
+    status: "pending"
+  };
+  const readOnlyHandover: HousingEmbeddedHandoverResponse = {
+    id: "handover-read",
+    leaseId: readOnlyLease.id,
+    handoverType: "move_in",
+    status: "completed",
+    handoverAt: "2026-07-30T00:00:00.000Z",
+    meterReadings: [],
+    itemSnapshot: [],
+    remark: null
+  };
+  const manageTransferOnlyPurchase: HousingPurchaseDetailResponse = {
+    purchase: {
+      id: "purchase-manage-only",
+      purchaseCode: "PO-MANAGE",
+      unitId: "unit-1",
+      vendorName: "供应商",
+      purchaseDate: "2026-07-30",
+      costCategory: "repair",
+      approvalStatus: "approved",
+      paymentStatus: "unpaid"
+    },
+    items: [{
+      id: "item-manage-only",
+      itemName: "配件",
+      quantity: "1.000",
+      unit: "件",
+      transferredReceivableId: null
+    }]
+  };
+  assert.deepEqual(
+    ["amount", "unitPrice"].map((key) => key in readOnlyPlan),
+    [false, false]
+  );
+  assert.deepEqual(
+    ["amount", "paidAmount", "waivedAmount"].map((key) =>
+      key in readOnlyReceivable
+    ),
+    [false, false, false]
+  );
+  assert.equal("credentials" in readOnlyHandover, false);
+  assert.equal("photo_files" in readOnlyHandover, false);
+  assert.equal("totalAmount" in manageTransferOnlyPurchase.purchase, false);
+  assert.deepEqual(
+    ["unitPrice", "amount"].map((key) =>
+      key in manageTransferOnlyPurchase.items[0]!
+    ),
+    [false, false]
+  );
+
+  const authorizedPlan: HousingChargePlanResponse = {
+    ...readOnlyPlan,
+    amount: "2000.00",
+    unitPrice: null
+  };
+  const authorizedReceivable: HousingReceivableResponse = {
+    ...readOnlyReceivable,
+    amount: "2000.00",
+    paidAmount: "0.00",
+    waivedAmount: "0.00"
+  };
+  const authorizedHandover: HousingEmbeddedHandoverResponse = {
+    ...readOnlyHandover,
+    credentials: [{ label: "房门钥匙", reference: "***" }],
+    damageAmount: "0.00",
+    unsettledAmount: "0.00",
+    depositDeductionAmount: "0.00",
+    photo_files: [{
+      id: "file-handover-1",
+      originalName: "handover.jpg",
+      mimeType: "image/jpeg",
+      fileSize: "1024"
+    }]
+  };
+  const authorizedLease: HousingLeaseListItem = {
+    ...readOnlyLease,
+    monthlyRent: "2000.00",
+    depositAmount: "2000.00",
+    signatureFileId: "file-signature-1"
+  };
+  const purchaseReadProjection: HousingPurchaseDetailResponse = {
+    purchase: {
+      ...manageTransferOnlyPurchase.purchase,
+      totalAmount: "100.00"
+    },
+    items: [{
+      ...manageTransferOnlyPurchase.items[0]!,
+      unitPrice: "100.00",
+      amount: "100.00"
+    }]
+  };
+  assert.equal(authorizedPlan.amount, "2000.00");
+  assert.equal(authorizedReceivable.paidAmount, "0.00");
+  assert.equal(authorizedHandover.credentials?.[0]?.reference, "***");
+  assert.equal(authorizedHandover.photo_files?.[0]?.id, "file-handover-1");
+  assert.equal(authorizedLease.signatureFileId, "file-signature-1");
+  assert.equal(purchaseReadProjection.purchase.totalAmount, "100.00");
+  assert.equal(purchaseReadProjection.items[0]?.unitPrice, "100.00");
+  assert.equal(purchaseReadProjection.items[0]?.amount, "100.00");
+});
+
 test("permission bundles compose capabilities and never translate legacy operations into new pages", () => {
   assert.deepEqual(validatePropertyPermissionBundles(), []);
   assert.equal(Object.keys(PROPERTY_PERMISSION_BUNDLES).length, 14);
@@ -579,22 +729,10 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
     manifestByEndpoint.set(key, variants);
   }
 
-  const pendingA25GetEndpoints = [
-    "GET /housing/tasks",
-    "GET /housing/handovers",
-    "GET /housing/handovers/:id",
-    "GET /housing/billing",
-    "GET /housing/finance",
-    "GET /housing/repairs",
-    "GET /housing/repairs/:id"
-  ];
   assert.deepEqual(
     [...manifestByEndpoint.keys()].sort(),
-    [
-      ...actual.map((endpoint) => endpoint.key),
-      ...pendingA25GetEndpoints
-    ].sort(),
-    "manifest must equal current controllers plus the frozen A-2.5 GET contract"
+    actual.map((endpoint) => endpoint.key).sort(),
+    "manifest must equal the current controllers and frozen A-2.5 contract"
   );
 
   for (const endpoint of actual) {
@@ -615,7 +753,6 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
       ...(firstVariant.requiredPermissions ?? []),
       ...(firstVariant.anyPermissions ? [] : [firstVariant.permission])
     ];
-    if (endpoint.key === "GET /housing/tenants") continue;
     assert.deepEqual(
       sortedUnique(declaredRequired),
       sortedUnique(endpoint.requiredPermissions),
@@ -634,7 +771,7 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
   }
 });
 
-test("A-2.5 records the unresolved housing tenant GET consumer drift", () => {
+test("A-2.5 housing tenant GET consumer adopts the read permission", () => {
   const endpoint = controllerEndpoints(HousingController)
     .find((item) => item.key === "GET /housing/tenants");
   assert.ok(endpoint);
@@ -642,8 +779,7 @@ test("A-2.5 records the unresolved housing tenant GET consumer drift", () => {
     .find((item) => item.actionId === "housing.tenants.list");
   assert.ok(action);
   assert.equal(action.permission, "housing:tenant:read");
-  assert.deepEqual(endpoint.requiredPermissions, ["housing:tenant:manage"]);
-  assert.notDeepEqual(endpoint.requiredPermissions, [action.permission]);
+  assert.deepEqual(endpoint.requiredPermissions, [action.permission]);
 });
 
 test("protected files, sensitive fields, and financial projections are machine-verifiable", () => {
@@ -761,18 +897,14 @@ test("A-2.5 freezes exact GET actions and the ninth move-out financial discrimin
   });
 });
 
-test("controller high-risk metadata preserves the eight-action baseline pending A-2.5 API adoption", () => {
+test("controller high-risk metadata adopts all nine A-2.5 actions", () => {
   const decorated = [
     ...controllerEndpoints(HomestayController),
     ...controllerEndpoints(HousingController)
   ].filter((endpoint) => endpoint.highRiskAction);
   assert.deepEqual(
     decorated.map((endpoint) => endpoint.highRiskAction?.actionId).sort(),
-    EXPECTED_HIGH_RISK_ACTION_IDS
-      .filter((actionId) =>
-        actionId !== "housing.handovers.complete-move-out-financial"
-      )
-      .sort()
+    [...EXPECTED_HIGH_RISK_ACTION_IDS].sort()
   );
 
   const byActionId = new Map(
@@ -780,20 +912,23 @@ test("controller high-risk metadata preserves the eight-action baseline pending 
       endpoint.highRiskAction?.actionId,
       {
         key: endpoint.key,
-        discriminator: endpoint.highRiskAction?.discriminator
+        discriminator: endpoint.highRiskAction?.discriminator,
+        variantPredicate: endpoint.highRiskAction?.variantPredicate
       }
     ])
   );
   assert.deepEqual(byActionId.get("homestay.bookings.cancel"), {
     key: "POST /homestay/bookings/:id/cancel",
-    discriminator: undefined
+    discriminator: undefined,
+    variantPredicate: undefined
   });
   assert.deepEqual(byActionId.get("homestay.finance.refund-or-waive"), {
     key: "POST /homestay/bookings/:id/ledger",
     discriminator: {
       bodyField: "entry_type",
       highRiskValues: ["refund", "waiver"]
-    }
+    },
+    variantPredicate: undefined
   });
   assert.deepEqual(
     byActionId.get("housing.finance.refund-waive-or-deposit-refund"),
@@ -802,12 +937,31 @@ test("controller high-risk metadata preserves the eight-action baseline pending 
       discriminator: {
         bodyField: "entry_type",
         highRiskValues: ["refund", "waiver", "deposit_refund"]
+      },
+      variantPredicate: undefined
+    }
+  );
+  assert.deepEqual(
+    byActionId.get("housing.handovers.complete-move-out-financial"),
+    {
+      key: "POST /housing/leases/:id/handovers",
+      discriminator: undefined,
+      variantPredicate: {
+        allEquals: { handover_type: "move_out" },
+        anyNonZero: [
+          "damage_amount",
+          "unsettled_amount",
+          "deposit_deduction_amount"
+        ]
       }
     }
   );
   assert.deepEqual(
     [...byActionId.entries()]
-      .filter(([, value]) => value.discriminator === undefined)
+      .filter(([, value]) =>
+        value.discriminator === undefined
+        && value.variantPredicate === undefined
+      )
       .map(([actionId, value]) => `${actionId} ${value.key}`)
       .sort(),
     [

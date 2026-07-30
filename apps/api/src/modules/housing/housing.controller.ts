@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Put, Query, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
@@ -17,21 +17,30 @@ import {
   CreateHousingLeaseDto,
   CreateHousingPurchaseDto,
   GenerateHousingBillsDto,
+  HousingBillingQueryDto,
+  HousingFinanceQueryDto,
+  HousingHandoverQueryDto,
   HousingLeaseQueryDto,
   HousingPurchaseActionDto,
   HousingPurchaseQueryDto,
+  HousingRepairQueryDto,
   HousingReasonDto,
+  HousingTaskQueryDto,
   RegisterHousingLedgerEntryDto,
   SignHousingLeaseDto,
   TransferHousingPurchaseDto,
   UpsertHousingChargePlanDto
 } from "./dto/housing.dto";
 import { HousingService } from "./housing.service";
+import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 
 @Controller("housing")
 @RequireModule("housing_rental")
 export class HousingController {
-  constructor(private readonly service: HousingService) {}
+  constructor(
+    private readonly service: HousingService,
+    private readonly workbenchQuery: HousingWorkbenchQueryService
+  ) {}
 
   @Get("dashboard")
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_DASHBOARD_READ)
@@ -39,10 +48,91 @@ export class HousingController {
     return this.service.dashboard(scope, actor);
   }
 
+  @Get("tasks")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_TASK_READ)
+  listTasks(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingTaskQueryDto
+  ) {
+    return this.workbenchQuery.listTasks(scope, actor, query);
+  }
+
   @Get("tenants")
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE)
-  listTenants(@CurrentScope() scope: TenantParkScope, @Query() query: PartyQueryDto) {
-    return this.service.listTenants(scope, query);
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_TENANT_READ)
+  listTenants(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: PartyQueryDto
+  ) {
+    return this.service.listTenants(scope, actor, query);
+  }
+
+  @Get("handovers")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ)
+  listHandovers(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingHandoverQueryDto
+  ) {
+    return this.workbenchQuery.listHandovers(scope, actor, query);
+  }
+
+  @Get("handovers/:id")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ)
+  getHandover(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
+  ) {
+    return this.workbenchQuery.getHandover(scope, actor, id);
+  }
+
+  @Get("billing")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_BILLING_READ)
+  listBilling(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingBillingQueryDto
+  ) {
+    return this.workbenchQuery.listBilling(scope, actor, query);
+  }
+
+  @Get("finance")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ)
+  listFinance(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingFinanceQueryDto
+  ) {
+    return this.workbenchQuery.listFinance(scope, actor, query);
+  }
+
+  @Get("repairs")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ)
+  listRepairs(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingRepairQueryDto
+  ) {
+    return this.workbenchQuery.listRepairs(scope, actor, query);
+  }
+
+  @Get("repairs/:id")
+  @RequireModule("housing_rental", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ)
+  getRepair(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
+  ) {
+    return this.workbenchQuery.getRepair(scope, actor, id);
   }
 
   @Post("tenants")
@@ -242,6 +332,12 @@ export class HousingController {
   }
 
   @Post("leases/:id/handovers")
+  @PropertyHighRiskAction("housing.handovers.complete-move-out-financial", {
+    variantPredicate: {
+      allEquals: { handover_type: "move_out" },
+      anyNonZero: ["damage_amount", "unsettled_amount", "deposit_deduction_amount"]
+    }
+  })
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_handover", action: "完成住房交割", bizType: "biz_housing_handover", bizIdParam: "id" })

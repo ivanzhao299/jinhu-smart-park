@@ -278,7 +278,7 @@ export type HousingTaskListResponse =
 export interface HomestayFinanceItem {
   bookingId: string;
   bookingCode: string;
-  totalAmount: string;
+  totalAmount?: string;
   paidAmount: string;
   refundedAmount: string;
   waivedAmount: string;
@@ -289,8 +289,8 @@ export type HomestayFinanceListResponse =
   PaginatedResult<HomestayFinanceItem>;
 
 export interface HousingTenantListItem extends PropertyWorkbenchPartyRef {
-  mobile: string | null;
-  email: string | null;
+  mobile?: string | null;
+  email?: string | null;
   identityNumberMasked?: string | null;
   verificationStatus: string;
 }
@@ -308,7 +308,7 @@ export interface HousingLeaseResponse {
   endDate: string;
   status: string;
   paymentCycleMonths: number;
-  signatureFileId: string | null;
+  signatureFileId?: string | null;
   monthlyRent?: string;
   depositAmount?: string;
 }
@@ -355,7 +355,7 @@ export interface HousingHandoverResponse {
   handoverAt: string | null;
   meterReadings: ReadonlyArray<Record<string, unknown>>;
   itemSnapshot: ReadonlyArray<Record<string, unknown>>;
-  credentials: ReadonlyArray<Record<string, unknown>>;
+  credentials?: ReadonlyArray<Record<string, unknown>>;
   remark: string | null;
   damageAmount?: string;
   unsettledAmount?: string;
@@ -363,13 +363,13 @@ export interface HousingHandoverResponse {
 }
 
 /**
- * `GET /housing/leases/:id` always embeds the `photo_files` collection on
- * each authorized handover. List-only unit/lease display enrichment is not
- * required at this boundary.
+ * `GET /housing/leases/:id` embeds `photo_files` only when the actor has both
+ * handover-domain read access and `file:read`. List-only unit/lease display
+ * enrichment is not required at this boundary.
  */
 export interface HousingEmbeddedHandoverResponse
   extends HousingHandoverResponse {
-  photo_files: PropertyWorkbenchFileRef[];
+  photo_files?: PropertyWorkbenchFileRef[];
 }
 
 export interface HousingHandoverListItem extends HousingHandoverResponse {
@@ -393,8 +393,8 @@ export interface HousingChargePlanResponse {
   chargeType: string;
   billingSource: string;
   cycleMonths: number;
-  amount: string | null;
-  unitPrice: string | null;
+  amount?: string | null;
+  unitPrice?: string | null;
   meterId: string | null;
   enabled: boolean;
 }
@@ -406,9 +406,9 @@ export interface HousingReceivableResponse {
   periodStart: string;
   periodEnd: string;
   dueDate: string;
-  amount: string;
-  paidAmount: string;
-  waivedAmount: string;
+  amount?: string;
+  paidAmount?: string;
+  waivedAmount?: string;
   status: string;
 }
 
@@ -487,7 +487,7 @@ export interface HousingPurchaseResponse {
   costCategory: string;
   approvalStatus: string;
   paymentStatus: string;
-  totalAmount: string;
+  totalAmount?: string;
 }
 
 export interface HousingPurchaseListItem extends HousingPurchaseResponse {
@@ -503,8 +503,8 @@ export interface HousingPurchaseItemResponse {
   itemName: string;
   quantity: string;
   unit: string | null;
-  unitPrice: string;
-  amount: string;
+  unitPrice?: string;
+  amount?: string;
   transferredReceivableId: string | null;
 }
 

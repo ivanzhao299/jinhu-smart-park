@@ -77,9 +77,17 @@ const highRiskCases = [
   },
   {
     metadata: {
-      actionId: "housing.handovers.complete-move-out-financial"
+      actionId: "housing.handovers.complete-move-out-financial",
+      variantPredicate: {
+        allEquals: { handover_type: "move_out" },
+        anyNonZero: [
+          "damage_amount",
+          "unsettled_amount",
+          "deposit_deduction_amount"
+        ]
+      }
     },
-    body: {}
+    body: { handover_type: "move_out", damage_amount: "0.01" }
   },
   {
     metadata: {
@@ -102,6 +110,11 @@ const highRiskCases = [
 ] as const;
 
 test("guard is a complete no-op unless the trimmed case-insensitive flag is true", () => {
+  const principals = [
+    { isSuper: false, permissions: [] },
+    { isSuper: true, permissions: [] },
+    { isSuper: false, permissions: ["*"] }
+  ];
   for (const flag of [
     undefined,
     null,
@@ -120,8 +133,13 @@ test("guard is a complete no-op unless the trimmed case-insensitive flag is true
       ...highRiskCases,
       { metadata: { actionId: "unknown.property.action" }, body: {} }
     ]) {
-      const guard = createGuard(flag, item.metadata);
-      assert.equal(guard.canActivate(createContext(item.body) as never), true);
+      for (const principal of principals) {
+        const guard = createGuard(flag, item.metadata);
+        assert.equal(
+          guard.canActivate(createContext(item.body, principal) as never),
+          true
+        );
+      }
     }
   }
 });
@@ -184,6 +202,52 @@ test("guard fails closed with the stable contract for unknown or drifted metadat
         bodyField: "entry_type",
         highRiskValues: ["deposit_refund", "refund", "waiver"]
       }
+    },
+    {
+      actionId: "housing.handovers.complete-move-out-financial"
+    },
+    {
+      actionId: "housing.handovers.complete-move-out-financial",
+      variantPredicate: {
+        allEquals: { handover_type: "move_out" },
+        anyNonZero: [
+          "damage_amount",
+          "unsettled_amount",
+          "deposit_deduction_amount",
+          "unexpected_amount"
+        ]
+      }
+    },
+    {
+      actionId: "housing.handovers.complete-move-out-financial",
+      variantPredicate: {
+        allEquals: { handover_type: "move_in" },
+        anyNonZero: [
+          "damage_amount",
+          "unsettled_amount",
+          "deposit_deduction_amount"
+        ]
+      }
+    },
+    {
+      actionId: "housing.handovers.complete-move-out-financial",
+      variantPredicate: {
+        allEquals: { handover_type: "move_out" },
+        anyNonZero: [
+          "damage_amount",
+          "unsettled_amount",
+          "deposit_deduction_amount"
+        ]
+      },
+      unexpected: true
+    },
+    {
+      actionId: "homestay.finance.refund-or-waive",
+      discriminator: {
+        bodyField: "entry_type",
+        highRiskValues: ["refund", "waiver"],
+        unexpected: true
+      }
     }
   ];
   for (const metadata of invalidMetadata) {
@@ -231,6 +295,84 @@ test("guard blocks housing refund, waiver, and deposit refund ledger entries", (
   for (const entry_type of ["refund", "waiver", "deposit_refund"]) {
     assertStableApprovalConflict(
       () => guard.canActivate(createContext({ entry_type }) as never)
+    );
+  }
+});
+
+const moveOutFinancialGuardMetadata = {
+  actionId: "housing.handovers.complete-move-out-financial",
+  variantPredicate: {
+    allEquals: { handover_type: "move_out" },
+    anyNonZero: [
+      "damage_amount",
+      "unsettled_amount",
+      "deposit_deduction_amount"
+    ]
+  }
+} as const;
+
+test("move-out financial predicate blocks each non-zero field independently", () => {
+  for (const field of moveOutFinancialGuardMetadata.variantPredicate.anyNonZero) {
+    for (const value of ["0.01", "12.30", "-0.01", "-12.30"]) {
+      assertStableApprovalConflict(
+        () => createGuard("true", moveOutFinancialGuardMetadata)
+          .canActivate(createContext({
+            handover_type: "move_out",
+            [field]: value
+          }) as never)
+      );
+    }
+  }
+});
+
+test("move-in and zero-valued move-out handovers pass through to DTO validation", () => {
+  const guard = createGuard("true", moveOutFinancialGuardMetadata);
+  for (const body of [
+    { handover_type: "move_in" },
+    { handover_type: "move_in", damage_amount: "9.99" },
+    { handover_type: "move_out" },
+    {
+      handover_type: "move_out",
+      damage_amount: "0",
+      unsettled_amount: "0.00",
+      deposit_deduction_amount: 0
+    },
+    {
+      handover_type: "move_out",
+      damage_amount: " 0.00 ",
+      unsettled_amount: -0,
+      deposit_deduction_amount: "+0.0"
+    }
+  ]) {
+    assert.equal(guard.canActivate(createContext(body) as never), true);
+  }
+});
+
+test("move-out predicate fails closed for malformed or ambiguous raw amounts", () => {
+  const invalidValues = [
+    null,
+    "",
+    "not-a-decimal",
+    "00.00",
+    {},
+    [],
+    true,
+    Number.NaN,
+    Number.POSITIVE_INFINITY
+  ];
+  for (const value of invalidValues) {
+    assertStableApprovalConflict(
+      () => createGuard("true", moveOutFinancialGuardMetadata)
+        .canActivate(createContext({
+          handover_type: "move_out",
+          damage_amount: value
+        }) as never)
+    );
+  }
+  for (const body of [undefined, null, {}, { handover_type: 1 }]) {
+    assertStableApprovalConflict(
+      () => createGuard("true", moveOutFinancialGuardMetadata)
+        .canActivate(createContext(body) as never)
     );
   }
 });
