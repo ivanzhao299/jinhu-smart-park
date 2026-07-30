@@ -855,15 +855,27 @@ export default function LeasingContractsPage() {
     if (canEditContractPdf) body.contract_pdf_file_id = emptyToUndefined(form.contractPdfFileId);
     if (canEditScanPdf) body.scan_pdf_file_id = emptyToUndefined(form.scanPdfFileId);
     const path = editing ? `/leasing/contracts/${editing.id}` : "/leasing/contracts";
-    await apiRequest<LeasingContractRow>(path, {
+    const response = await apiRequest<LeasingContractRow>(path, {
       method: editing ? "PUT" : "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey(editing ? "leasing-contract-update" : "leasing-contract-create"),
       body
     });
-    setShowForm(false);
-    setMessage(editing ? "合同已更新" : "合同草稿已创建");
-    await load(editing ? pageData.page : 1);
+    if (editing) {
+      setShowForm(false);
+      setMessage("合同已更新");
+      await load(pageData.page);
+      return;
+    }
+
+    setEditing(response.data);
+    syncFormFromContract(response.data, setForm);
+    setContractUnits([]);
+    setUnitForm(emptyUnitForm);
+    setContractDetailTab("units");
+    setMessage("合同草稿已创建，请关联至少一个房源后再提交");
+    await loadContractUnits(response.data.id);
+    await load(1);
   }
 
   async function remove(row: LeasingContractRow) {
