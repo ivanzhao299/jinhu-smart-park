@@ -6,6 +6,7 @@ import { BuildingEntity } from "../buildings/entities/building.entity";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
+import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { UnitEntity } from "../units/entities/unit.entity";
@@ -140,14 +141,13 @@ export class FloorsService {
     actor: JwtPrincipal,
     id: string,
     file: UploadedFilePayload | undefined,
-    remark?: string,
-    originalName?: string
+    metadata: MultipartFileMetadataDto
   ): Promise<FileEntity> {
     const entity = await this.findDetail(scope, id, actor);
     const uploaded = await this.filesService.upload(
       scope,
       actor.sub,
-      { biz_type: "floorplan", biz_id: id, remark, original_name: originalName },
+      { biz_type: "floorplan", biz_id: id, ...metadata },
       file
     );
     entity.layoutFileId = uploaded.id;

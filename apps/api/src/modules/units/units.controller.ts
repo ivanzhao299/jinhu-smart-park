@@ -23,6 +23,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { SkipResponseWrap } from "../../shared/decorators/skip-response-wrap.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { UploadedFilePayload } from "../files/files.service";
 import { CreateUnitDto } from "./dto/create-unit.dto";
 import { TransitionUnitStatusDto } from "./dto/transition-unit-status.dto";
@@ -174,10 +175,10 @@ export class UnitsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body("remark") remark: string | undefined,
+    @Body() metadata: MultipartFileMetadataDto,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.unitsService.uploadPhoto(scope, user, id, file, remark);
+    return this.unitsService.uploadPhoto(scope, user, id, file, metadata);
   }
 
   @Post(":id/floorplan")
@@ -188,10 +189,10 @@ export class UnitsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body("remark") remark: string | undefined,
+    @Body() metadata: MultipartFileMetadataDto,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.unitsService.uploadFloorplan(scope, user, id, file, remark);
+    return this.unitsService.uploadFloorplan(scope, user, id, file, metadata);
   }
 
   @Post(":id/change-status")

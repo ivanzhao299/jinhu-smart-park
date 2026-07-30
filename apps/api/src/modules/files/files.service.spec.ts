@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -72,4 +74,33 @@ test("multipart filename normalization does not guess without transport evidence
 test("multipart filename normalization ignores an inconsistent or unsafe hint", () => {
   assert.equal(normalizeMultipartFileName("report.pdf", "other.pdf"), "report.pdf");
   assert.equal(normalizeMultipartFileName("report.pdf", "report\0.pdf"), "report.pdf");
+});
+
+test("every custom FilesService upload adapter forwards validated multipart metadata", () => {
+  const moduleRoot = resolve(__dirname, "..");
+  const servicePaths = readdirSync(moduleRoot, { recursive: true, encoding: "utf8" })
+    .filter((relativePath) => relativePath.endsWith(".service.ts"))
+    .map((relativePath) => resolve(moduleRoot, relativePath))
+    .filter((absolutePath) => readFileSync(absolutePath, "utf8").includes("filesService.upload("));
+
+  assert.ok(servicePaths.length > 0, "expected at least one custom FilesService upload adapter");
+  for (const absolutePath of servicePaths) {
+    const source = readFileSync(absolutePath, "utf8");
+    const uploadCalls = source.match(/filesService\.upload\(/g) ?? [];
+    const metadataForwards = source.match(/\{ biz_type: [^,]+,(?: biz_id: id,)? \.\.\.metadata \}/g) ?? [];
+    assert.equal(
+      metadataForwards.length,
+      uploadCalls.length,
+      `${absolutePath} must forward MultipartFileMetadataDto through every FilesService.upload call`
+    );
+  }
+
+  const unitController = readFileSync(resolve(__dirname, "../units/units.controller.ts"), "utf8");
+  for (const method of ["uploadPhoto", "uploadFloorplan"]) {
+    assert.match(
+      unitController,
+      new RegExp(`${method}\\([\\s\\S]*?@Body\\(\\) metadata: MultipartFileMetadataDto`),
+      `${method} must validate the shared multipart metadata DTO`
+    );
+  }
 });

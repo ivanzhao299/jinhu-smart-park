@@ -30,6 +30,10 @@
   or its UTF-8 bytes decoded as Latin-1 equal the parser name; otherwise preserve the
   parser value. Never rewrite a filename based only on reversibility or CJK-looking
   output.
+- Custom upload controllers use the shared `MultipartFileMetadataDto` and forward the
+  complete validated metadata object through their service adapter. Do not destructure
+  only `remark` or add one-off filename parameters; adapter contract tests must cover
+  every production `FilesService.upload` call.
 - File metadata must remain tenant_id + park_id scoped.
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
@@ -97,6 +101,9 @@
   Unicode; and reversible Latin-1 counterexamples such as `Ã©`, `Â£`, and `ä½ `.
 - Frontend request tests assert `/files` uploads include the selected `File.name` as
   the independent `original_name` multipart text field.
+- Adapter contract tests scan every custom `FilesService.upload` caller and assert it
+  forwards the shared validated multipart metadata, including unit photos/floorplans,
+  floor layouts, and tenant branding.
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
 - Frontend: reload the housing operations page after upload and assert the uploader's

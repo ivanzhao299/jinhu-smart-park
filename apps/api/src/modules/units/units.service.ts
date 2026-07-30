@@ -21,6 +21,7 @@ import { DataScopeService } from "../data-scopes/data-scope.service";
 import { DictItemEntity } from "../dicts/entities/dict-item.entity";
 import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
+import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import { FileEntity } from "../files/entities/file.entity";
 import { FilesService, type UploadedFilePayload } from "../files/files.service";
 import { FloorEntity } from "../floors/entities/floor.entity";
@@ -361,9 +362,20 @@ export class UnitsService {
     return this.unitsRepository.save(entity);
   }
 
-  async uploadPhoto(scope: TenantParkScope, actor: JwtPrincipal, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
+  async uploadPhoto(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    file: UploadedFilePayload | undefined,
+    metadata: MultipartFileMetadataDto
+  ): Promise<FileEntity> {
     const entity = await this.findDetail(scope, id, actor);
-    const uploaded = await this.filesService.upload(scope, actor.sub, { biz_type: "unit_photo", biz_id: id, remark }, file);
+    const uploaded = await this.filesService.upload(
+      scope,
+      actor.sub,
+      { biz_type: "unit_photo", biz_id: id, ...metadata },
+      file
+    );
     entity.photoFileIds = [...(entity.photoFileIds ?? []), uploaded.id];
     entity.photoUrls = [...(entity.photoUrls ?? []), uploaded.fileUrl];
     entity.updateBy = actor.sub;
@@ -371,9 +383,20 @@ export class UnitsService {
     return uploaded;
   }
 
-  async uploadFloorplan(scope: TenantParkScope, actor: JwtPrincipal, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
+  async uploadFloorplan(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    file: UploadedFilePayload | undefined,
+    metadata: MultipartFileMetadataDto
+  ): Promise<FileEntity> {
     const entity = await this.findDetail(scope, id, actor);
-    const uploaded = await this.filesService.upload(scope, actor.sub, { biz_type: "unit_floorplan", biz_id: id, remark }, file);
+    const uploaded = await this.filesService.upload(
+      scope,
+      actor.sub,
+      { biz_type: "unit_floorplan", biz_id: id, ...metadata },
+      file
+    );
     entity.floorplanFileId = uploaded.id;
     entity.floorplanUrl = uploaded.fileUrl;
     entity.updateBy = actor.sub;
