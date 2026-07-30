@@ -15,9 +15,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const status = this.resolveStatus(exception);
     const body = exception instanceof HttpException ? exception.getResponse() : undefined;
-    const message = this.resolveMessage(body, exception);
+    const message = this.isDatabaseConflict(exception)
+      ? "Resource conflicts with an existing active record"
+      : this.resolveMessage(body, exception);
     const payload: ApiResponse<null> = {
       code: status,
       message,
@@ -26,6 +28,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
       server_time: Date.now()
     };
     response.status(status).json(payload);
+  }
+
+  private resolveStatus(exception: unknown): number {
+    if (exception instanceof HttpException) return exception.getStatus();
+    return this.isDatabaseConflict(exception) ? HttpStatus.CONFLICT : HttpStatus.INTERNAL_SERVER_ERROR;
+  }
+
+  private isDatabaseConflict(exception: unknown): boolean {
+    if (!exception || typeof exception !== "object") return false;
+    const value = exception as { code?: unknown; driverError?: { code?: unknown } };
+    const code = value.code ?? value.driverError?.code;
+    return code === "23P01";
   }
 
   private resolveMessage(body: string | object | undefined, exception: unknown): string {

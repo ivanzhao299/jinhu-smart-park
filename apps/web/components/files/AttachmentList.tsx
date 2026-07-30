@@ -4,7 +4,9 @@ import { Download, Eye, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatFileSize, SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
+import { hasPermission } from "../../lib/permissions";
 import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
@@ -14,11 +16,20 @@ interface AttachmentListProps {
   bizId?: string;
   compact?: boolean;
   refreshKey?: number;
+  mutationDisabled?: boolean;
 }
 
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
 
-export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0 }: AttachmentListProps) {
+export function AttachmentList({
+  bizType,
+  bizId,
+  compact = false,
+  refreshKey = 0,
+  mutationDisabled = false
+}: AttachmentListProps) {
+  const user = useAuthUser();
+  const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
   const [message, setMessage] = useState("");
@@ -77,6 +88,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
   }
 
   async function remove(file: FileRecord) {
+    if (mutationDisabled) return;
     if (!window.confirm(`确认删除附件：${file.originalName}？`)) {
       return;
     }
@@ -108,7 +120,12 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
             <div className="attachment-compact-list">
               {data.items.map((item) => (
                 <article className="attachment-compact-item" key={item.id}>
-                  <CompactAttachmentThumb file={item} fetchFileBlob={fetchFileBlob} onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))} />
+                  <CompactAttachmentThumb
+                    file={item}
+                    canDownload={canDownload}
+                    fetchFileBlob={fetchFileBlob}
+                    onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))}
+                  />
                   <div className="attachment-compact-main">
                     <strong>{item.originalName}</strong>
                     <span>{item.mimeType} · {formatFileSize(Number(item.fileSize))}</span>
@@ -116,7 +133,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
                   <span className="attachment-compact-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}>预览</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}>下载</PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
+                    <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
                   </span>
                 </article>
               ))}
@@ -151,7 +168,7 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
                 <span className="data-table-actions">
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="预览" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}><Eye size={16} /></PermissionButton>
                   <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" title="下载" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}><Download size={16} /></PermissionButton>
-                  <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
+                  <PermissionButton disabled={mutationDisabled} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" title="删除" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}><Trash2 size={16} /></PermissionButton>
                 </span>
               </td>
             </tr>
@@ -169,10 +186,12 @@ export function AttachmentList({ bizType, bizId, compact = false, refreshKey = 0
 
 function CompactAttachmentThumb({
   file,
+  canDownload,
   fetchFileBlob,
   onPreview
 }: {
   file: FileRecord;
+  canDownload: boolean;
   fetchFileBlob: (file: FileRecord) => Promise<Blob>;
   onPreview: () => void;
 }) {
@@ -183,7 +202,7 @@ function CompactAttachmentThumb({
     let active = true;
     let objectUrl: string | null = null;
 
-    if (!isImage) {
+    if (!isImage || !canDownload) {
       setThumbnailUrl(null);
       return undefined;
     }
@@ -202,7 +221,7 @@ function CompactAttachmentThumb({
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [file.id, isImage]);
+  }, [canDownload, file.id, isImage]);
 
   const suffix = file.originalName.includes(".") ? file.originalName.split(".").pop()?.slice(0, 4).toUpperCase() : "FILE";
 
@@ -214,9 +233,11 @@ function CompactAttachmentThumb({
     );
   }
 
-  return (
+  return canDownload ? (
     <button className="attachment-thumb" aria-label={`预览 ${file.originalName}`} type="button" onClick={onPreview}>
       {suffix}
     </button>
+  ) : (
+    <span className="attachment-thumb" aria-hidden="true">{suffix}</span>
   );
 }

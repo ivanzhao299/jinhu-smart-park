@@ -20,21 +20,69 @@
 - Business-specific mappings live in `FILE_UPLOAD_BIZ_POLICY_MAP`.
 - Storage path remains tenant/park/day scoped and must not be built from user-supplied filenames.
 - File metadata must remain tenant_id + park_id scoped.
+- The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
+- Generic file listing without a business type excludes protected housing and homestay file types.
+- An uploader with housing-purchase read or manage permission can list their own
+  unassociated purchase receipts with `GET /files?biz_type=housing_purchase` until
+  the purchase workflow associates them. Pending receipts from other uploaders
+  remain hidden, including from the generic file list.
+- The housing purchase form loads that pending list during its normal page refresh
+  and replaces the attachment state only after a successful response. An API recovery
+  endpoint without a production UI consumer is incomplete.
+- Housing repair evidence uses `biz_type=housing_repair` with `biz_id=<lease UUID>`; do not reuse the generic `workorder_create` type for tenant repair photos.
+- Reading `housing_repair` requires housing lease-read or repair-manage permission plus unit data scope; writing requires repair-manage permission plus unit data scope.
+- Reading a registered housing signature requires either lease-read or lease-sign plus
+  generic file-read permission. Reading legacy, move-in, or move-out handover evidence
+  requires either lease-read or handover-manage plus generic file-read permission.
+  The business detail projection and the file detail/download policy must authorize
+  the same granular business-role alternatives.
+- Housing purchase list projections include active bound receipt metadata for actors
+  with purchase-read or purchase-manage plus file-read, so evidence remains recoverable
+  after the pending upload is associated with its purchase.
+- A `housing_purchase` reference whose `unit_id` is null is project-wide and requires `PropertyUnitAccessService.allowedUnitIds(...) === null`.
+- Generic deletion locks the file row and rejects protected evidence once its ID is
+  referenced by the owning business aggregate. Removal must happen through a domain
+  detach/reversal workflow so signature, handover, repair, receipt, and turnover records
+  never retain dangling file IDs.
+- Every workflow that binds protected file IDs must acquire the same file-row
+  `pessimistic_write` lock and retain it in the transaction that writes the owning
+  reference. Locking only the deletion path, validating outside the write transaction,
+  or counting files through a different repository connection leaves a dangling-reference race.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
 - Unsupported MIME -> `UnsupportedMediaTypeException`.
 - Oversized file -> `BadRequestException`.
 - File ID used by another business object must belong to current tenant and park.
+- Missing domain permission, cross-tenant/park reference, or out-of-scope unit -> `ForbiddenException` without revealing whether the file exists outside scope.
+- Restricted property scope on a unitless project purchase -> `ForbiddenException`.
+- Referenced protected evidence deletion -> `ConflictException`.
+- Pending purchase receipt list -> only current actor's active, unassociated files.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan endpoint delegates to `FilesService.upload` with `biz_type: "floorplan"`.
 - Base: `/files` generic endpoint accepts only policies supported by shared constants.
 - Bad: Controller-level file size only with no service validation; hard-coded MIME checks in individual feature services.
+- Bad: Granting `file:read` or `file:download` alone access to lease signatures, handover evidence, purchase receipts, or turnover evidence.
+- Bad: Treating a null referenced `unit_id` as "no scope check required".
 
 ### 6. Tests Required
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
+- Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
+- API E2E: upload an unassociated purchase receipt, recover it through the protected
+  pending list, and bind that exact file when creating the purchase.
+- Frontend: reload the housing operations page after upload and assert the uploader's
+  pending receipt remains visible and bindable; after purchase creation, assert the
+  bound receipt remains visible on the purchase record.
+- Security test every protected evidence projection against the actual file detail and
+  download policy for each permitted granular role, not only against returned metadata.
+- Security test unitless project-level references with both restricted and unrestricted property scopes.
+- Security/integration test that referenced protected evidence is not generically
+  deletable, while an uploaded but unreferenced file can still be removed.
+- Concurrency/integration test both orderings of protected evidence binding versus
+  generic deletion; exactly one operation may succeed and no committed owner may
+  reference a deleted file.
 
 ### 7. Wrong vs Correct
 

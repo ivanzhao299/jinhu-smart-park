@@ -1184,6 +1184,32 @@ export class LeasingContractsService {
     if (occupied) {
       throw new ConflictException("Renewal units are occupied by another effective contract during this period");
     }
+    const sharedOccupied = await this.contractUnitsRepository.manager.query(
+      `SELECT 1
+       FROM biz_property_occupancy occupancy
+       WHERE occupancy.tenant_id = $1
+         AND occupancy.park_id = $2
+         AND occupancy.unit_id = ANY($3::uuid[])
+         AND occupancy.is_deleted = false
+         AND (
+           occupancy.status = 'active'
+           OR (
+             occupancy.status = 'held'
+             AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
+           )
+         )
+         AND occupancy.start_at < (($5::date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')
+         AND occupancy.end_at > ($4::date::timestamp AT TIME ZONE 'Asia/Shanghai')
+         AND NOT (
+           occupancy.source_type = 'leasing_contract'
+           AND occupancy.source_id = $6
+         )
+       LIMIT 1`,
+      [scope.tenantId, scope.parkId, unitIds, startDate, endDate, originalContractId]
+    ) as Array<{ exists: number }>;
+    if (sharedOccupied.length > 0) {
+      throw new ConflictException("Renewal units conflict with shared property occupancy during this period");
+    }
   }
 
   private async assertUnitBindable(
@@ -1233,6 +1259,51 @@ export class LeasingContractsService {
     }
     if (await conflictBuilder.getExists()) {
       throw new ConflictException("Unit is occupied by another active contract during this period");
+    }
+    await this.assertNoSharedPropertyConflict(scope, contractId, unit.id, startDate, endDate);
+  }
+
+  private async assertNoSharedPropertyConflict(
+    scope: TenantParkScope,
+    contractId: string,
+    unitId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<void> {
+    const rows = await this.contractUnitsRepository.manager.query(
+      `SELECT
+         EXISTS (
+           SELECT 1
+           FROM biz_property_operation_config config
+           WHERE config.tenant_id = $1 AND config.park_id = $2 AND config.unit_id = $3
+             AND config.is_deleted = false AND config.operating_mode = 'short_stay'
+         ) AS short_stay_mode,
+         EXISTS (
+           SELECT 1
+           FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id = $1 AND occupancy.park_id = $2 AND occupancy.unit_id = $3
+             AND occupancy.is_deleted = false
+             AND (
+               occupancy.status = 'active'
+               OR (
+                 occupancy.status = 'held'
+                 AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
+               )
+             )
+              AND occupancy.start_at < (($5::date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')
+              AND occupancy.end_at > ($4::date::timestamp AT TIME ZONE 'Asia/Shanghai')
+             AND NOT (
+               occupancy.source_type = 'leasing_contract'
+               AND occupancy.source_id = $6
+             )
+         ) AS shared_occupancy`,
+      [scope.tenantId, scope.parkId, unitId, startDate, endDate, contractId]
+    ) as Array<{ short_stay_mode: boolean; shared_occupancy: boolean }>;
+    if (rows[0]?.short_stay_mode) {
+      throw new ConflictException("Unit is configured for short-stay operation and cannot be linked to a leasing contract");
+    }
+    if (rows[0]?.shared_occupancy) {
+      throw new ConflictException("Unit conflicts with shared property occupancy during this period");
     }
   }
 

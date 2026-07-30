@@ -7,6 +7,10 @@
 - [当前产品范围与分批开放策略](product/current-product-scope.md)
 - [环境矩阵](deployment/environment-matrix.md)
 - [全量产品 UAT 验收矩阵](uat/full-product-acceptance-matrix.md)
+- [共享房产底座架构](architecture/shared-property-foundation.md)
+- [共享房产底座专项验证证据](uat/shared-property-foundation-evidence.md)
+- [民宿 MVP 专项验证证据](uat/homestay-mvp-evidence.md)
+- [住房出租 MVP 专项验证证据](uat/housing-rental-mvp-evidence.md)
 
 当前项目仍处于开发完善和 UAT 阶段，尚未真实投入生产。全部已设计开发功能均属于计划上线范围，允许分批 UAT 和分批正式开放。历史“首发/二期/生产开放”材料继续作为阶段性证据，不覆盖以上当前口径。
 

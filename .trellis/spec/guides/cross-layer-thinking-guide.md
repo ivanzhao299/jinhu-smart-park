@@ -110,6 +110,10 @@ Before implementation:
 - [ ] Identified all layer boundaries
 - [ ] Defined format at each boundary
 - [ ] Decided where validation happens
+- [ ] For partial updates with cross-field rules, DTO validation accepts omitted
+      persisted siblings and service validation checks the effective merged record
+- [ ] Canonicalization happens before every encrypted, hashed, masked, compared, or
+      uniqueness-key representation of the same logical value
 
 After implementation:
 
@@ -120,6 +124,136 @@ After implementation:
       casting payload fields locally
 - [ ] Checked that derived state points back to the source event identifier
       (`seq`, `id`, `version`) instead of inventing a second cursor
+
+### Stateful Business Action Matrix
+
+For lifecycle, finance, occupancy, or attachment-backed actions, enumerate each
+action against every state and sibling entry point before implementation:
+
+- [ ] Terminal states are immutable across generic and domain-specific write paths
+- [ ] Period replacement preserves lifecycle state and verifies the exact source,
+      current period, and expected status; editing dates is not a state transition
+- [ ] Referenced records are revalidated inside the action transaction, not only
+      when an earlier step stored their IDs
+- [ ] Forward transitions and reverse/void transitions preserve dependent records
+      or reject the operation
+- [ ] Same-key replay is separated from a new request that happens to carry the
+      same business payload
+- [ ] Permission-aware responses project only fields authorized by each granular
+      read permission
+- [ ] Every projected attachment is exercised through metadata list, file detail,
+      and blob download policy for each allowed granular business role
+- [ ] Write-only roles receive the minimum read context required to reach their
+      authorized action, or the permission contract explicitly requires the missing
+      selector/context permission at both controller and UI boundaries
+- [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
+      without passing through JavaScript `number`
+- [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
+      preserving the stored string is insufficient if a later calculation converts it
+- [ ] Display or persistence rounding is not reused as an intermediate monetary input;
+      each rounding boundary is named and the final charge uses full precision
+- [ ] Nullable columns inside a business unique key are normalized, made non-null, or
+      covered by an expression index, with the null case included in migration tests
+- [ ] Every reverse action (refund, void, cancellation) updates or excludes the record
+      from all derived totals, KPIs, availability views, and projections
+- [ ] A dependent operational record remains an active constraint after its original
+      parent or occupancy is later cancelled, released, or otherwise disappears
+- [ ] Mode and availability transitions validate live source aggregates independently
+      of denormalized/shared occupancy projections, including force-release drift
+- [ ] When one aggregate is persisted before creating its matching shared projection,
+      the projection write excludes only that exact source from its own blocker query
+- [ ] Every backend recovery/list capability has a production UI consumer that restores
+      state after refresh, revisit, or interrupted submission
+- [ ] Edit forms load the complete persisted record when their selected entity changes;
+      a hard-coded default is used only after an authoritative not-found response
+- [ ] Candidate selectors preserve server pagination or search and synchronize stale
+      selections when the visible candidate page changes
+- [ ] Paginated candidate and record lists preserve action context deliberately:
+      when a selected record leaves the current page, clear the detail/action target;
+      when only its display label leaves the page, retain a stable ID fallback
+- [ ] Detail context and mutation context are modeled separately: a terminal transition
+      may hide lifecycle actions while retaining authorized audit and finance detail
+- [ ] Browser constraints mirror backend bounds, including relational date rules
+      (for example departure strictly after arrival) and conditional bounds such as
+      percentage values capped at 100
+- [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
+      React/render state alone is not a lock against two events in the same tick
+- [ ] Same-target refresh failures preserve the last successful projection; clearing
+      data is reserved for a real target change or a successful empty response
+- [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate
+      lock (and backed by a database constraint where practical), never trusted from
+      concurrent client flags alone
+- [ ] A pre-read uniqueness check is followed by database-conflict recovery: translate
+      or reload the committed winner on the known constraint, and rethrow unrelated
+      persistence failures
+- [ ] Attachment-backed actions define the consumption boundary: after submission,
+      referenced evidence is excluded from the next draft while remaining visible in
+      the completed record
+- [ ] A draft derived from multiple tables is returned by one server-side snapshot;
+      the browser does not join independently timed API responses and call the result
+      authoritative
+- [ ] Submission locks cover every mutable contributor to the payload, including
+      upload, pending removal, and persisted attachment deletion
+- [ ] A child uploader reports active work to its owning form; form submission waits
+      for all upload promises, including uploads started before the submit lock
+- [ ] Destructive lifecycle actions collect a required operator reason and show an
+      explicit consequence confirmation before sending; generic hard-coded reasons
+      are not an auditable substitute
+- [ ] Long-lived operational queues use a bounded server-side active subset and
+      paginate history instead of loading all historical records into the main surface
+- [ ] Permission-aware effects are gated by the exact read permission of their
+      endpoint, independently from write controls and unrelated page visibility
+- [ ] Permission capability graphs include the dataset needed to discover and select
+      the target. If an action requires list/detail context, enforce that read
+      permission as an API composite prerequisite; button checks alone are not access
+- [ ] A domain file policy is intersected with the generic file endpoint permission:
+      domain read + `file:read` for lists, domain write + `file:upload` for uploaders
+- [ ] Operational list rows carry their own stable human-readable identity; labels do
+      not depend on a separate candidate selector's current page or enabled subset
+- [ ] A paginated dataset shared by multiple forms exposes paging beside every
+      authorized consumer; navigation must not live only inside a sibling
+      permission branch
+- [ ] Mutations that remove records from a filtered queue test the last-item-on-last-page
+      case and clamp/reload when the total shrinks
+- [ ] Time-gated lifecycle buttons have the same authoritative service guard using
+      the domain business timezone; hiding a button is never the only enforcement
+- [ ] Read and execute permissions are projected at sub-control level: read-only
+      users keep evidence and exception context but do not see upload/edit controls
+- [ ] Every backend-supported operational payload field needed in the MVP (such as
+      exception description, consumables, evidence, and linked work order) has a
+      reachable production input and a round-trip test
+- [ ] Permission fixtures exercise the lattice, not only broad roles: base read,
+      granular read, granular write, and lifecycle-execute combinations each retain
+      only their authorized detail blocks and controls
+- [ ] Replay-safe terminal sub-actions preserve their first terminal timestamp even
+      when a caller retries with a different request key
+- [ ] Read-then-insert "upserts" are replaced by locking or one database atomic upsert
+      whenever a unique key owns concurrent creation
+- [ ] Generic infrastructure records use a domain-specific protected type whenever
+      their authorization is narrower than the generic workflow
+- [ ] Both sides of a cross-aggregate reference invariant use the same row-lock order
+      and keep validation plus reference mutation in one transaction
+- [ ] Every sibling terminal transition applies the same dependent-resource cleanup
+      before releasing or closing the parent resource
+- [ ] A successful mutation reloads every selected projection it can invalidate,
+      including ledger summaries, credentials, action history, and status-derived UI
+- [ ] Refresh-error state is separate from action feedback and is cleared on the next
+      fully successful refresh
+- [ ] Selected detail has an identity independent from current list-page membership;
+      automatic reordering preserves it while explicit pagination clears it
+- [ ] Editable server-backed drafts track field/task dirty ownership so refresh replaces
+      clean values without overwriting active local edits
+- [ ] Form readiness is bound to the exact entity/version whose data was loaded, not a
+      generic boolean that survives a selector change
+- [ ] Destructive confirmations repeat the immutable target identity (code, unit, dates)
+      instead of relying on the operator to remember which list-row button was clicked
+- [ ] Load-error state is scoped to its dataset and cleared by the next successful load
+      of that dataset
+- [ ] SQL optional-exclusion predicates have explicit null cases and are tested both
+      with and without exclusions
+
+Add behavioral tests for both the allowed transition and its nearest forbidden
+neighbor. Source-pattern assertions may supplement, but not replace, these tests.
 
 ---
 
@@ -296,6 +430,60 @@ Create detailed flow docs when:
 - Multiple teams are involved
 - Data format is complex
 - Feature has caused bugs before
+
+---
+
+## Sibling-Parity Release Gate
+
+When one review finding exposes a missing contract in a repeated workflow, audit every
+sibling before the next commit. Do not stop at the named line.
+
+- [ ] Enumerate all forms/endpoints on the same operational surface and map read,
+      create, transition, finance, file-read, and file-upload permissions.
+- [ ] Compare list, detail, refresh, pagination, revisit, and terminal-state behavior.
+- [ ] Compare every create/upsert path for synchronous submission locks, stable retry
+      keys, transaction locks, and database-owned uniqueness.
+- [ ] Build lifecycle matrices for KPIs and availability, including terminal,
+      deleted, inactive, and historical records.
+- [ ] Record which unit, integration, real API E2E, and desktop/390px checks cover
+      each row. A passing happy-path suite is not proof of sibling parity.
+- [ ] Apply a newly learned sibling contract retroactively to the entire current diff
+      before requesting another review; documenting the gate without executing its
+      matrix is not release completion.
+- [ ] When a lifecycle decision consumes mutable state from another aggregate,
+      identify every writer and reader, then use compatible row locks throughout the
+      decision transaction; testing only the named writer race is insufficient.
+- [ ] When canonicalization changes a persisted hash or unique key, test both new
+      writes and compatibility with legacy representations already stored in UAT.
+- [ ] Compare browser `required` / `min` / `max` / `step` constraints with the exact
+      DTO and service inequalities, including equality and the nearest valid neighbor.
+- [ ] When one child uploader needs an in-flight submission lock, enumerate every
+      uploader-backed sibling form on that page and prove each payload waits for its
+      own upload promises.
+- [ ] When two forms call the same paginated candidate endpoint, verify they still own
+      separate arrays, page state, selection reconciliation, and reachable controls.
+- [ ] Compare every backend MVP endpoint with actual Web callers. A tested API without
+      an authorized desktop/mobile workflow is not a delivered product capability.
+- [ ] Inventory target-bound drafts for each selected aggregate. When the target ID
+      changes, reset or key all mutation drafts—not only response projections.
+- [ ] Do not share pagination state between independent mutation forms merely because
+      they call the same candidate endpoint.
+- [ ] For attachment-backed actions, decide whether the payload is a client-owned
+      replacement or a backend-derived association. Never replay stale aggregate IDs
+      after an attachment list can mutate independently.
+- [ ] Separate metadata-read permission from blob-download permission; thumbnail
+      effects and preview buttons must follow the download capability.
+- [ ] For every action permission, prove list and detail reachability without granting
+      unrelated broad read access; keep each detail projection independently gated.
+- [ ] Persisted relationship rows carry response-owned display labels; never resolve
+      historical names from a separately paginated candidate list.
+- [ ] Terminal attachment references define authoritative ownership: after registration,
+      replace upload/remove controls with read-only evidence unless an explicit audited
+      replacement workflow exists.
+- [ ] Every successful target-bound mutation resets its completed draft, and every
+      dataset-specific error is cleared by that dataset's next successful load.
+- [ ] If one retryable action needs a stable idempotency key, scan every transition on
+      the surface—including pay/refund and secondary actions—not only create forms.
 
 ---
 

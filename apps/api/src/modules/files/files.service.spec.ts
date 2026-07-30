@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import type { TenantParkScope } from "@jinhu/shared";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { FilesService } from "./files.service";
+
+const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
+const actor: JwtPrincipal = {
+  sub: "user-1",
+  username: "user-1",
+  tenantId: scope.tenantId,
+  parkId: scope.parkId,
+  roles: [],
+  permissions: []
+};
+
+test("pending purchase receipt listing is restricted to the uploader", async () => {
+  let where: Record<string, unknown> | undefined;
+  const accessCalls: unknown[][] = [];
+  const service = new FilesService(
+    {
+      findAndCount: async (options: { where: Record<string, unknown> }) => {
+        where = options.where;
+        return [[], 0];
+      }
+    } as never,
+    {} as never,
+    {} as never,
+    {
+      isProtectedBizType: () => true,
+      assertReferenceAccess: async (...args: unknown[]) => {
+        accessCalls.push(args);
+      }
+    } as never
+  );
+
+  await service.list(scope, actor, {
+    biz_type: "housing_purchase",
+    page: 1,
+    page_size: 20
+  });
+
+  assert.equal(accessCalls.length, 1);
+  assert.equal(accessCalls[0]?.[5], actor.sub);
+  assert.equal(where?.createBy, actor.sub);
+  assert.ok(where?.bizId);
+});

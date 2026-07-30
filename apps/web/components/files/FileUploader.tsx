@@ -21,6 +21,8 @@ interface FileUploaderProps {
   label?: string;
   helperText?: string;
   compact?: boolean;
+  disabled?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
   onUploaded: (file: FileRecord) => void;
 }
 
@@ -32,6 +34,8 @@ export function FileUploader({
   label,
   helperText,
   compact = false,
+  disabled = false,
+  onUploadingChange,
   onUploaded
 }: FileUploaderProps) {
   const fileInputId = useId();
@@ -82,12 +86,14 @@ export function FileUploader({
   }
 
   async function handleUpload() {
+    if (disabled || uploading) return;
     setMessage("");
     if (!selectedFile) {
       setMessage("请先选择文件");
       return;
     }
     setUploading(true);
+    onUploadingChange?.(true);
     const form = new FormData();
     form.set("file", selectedFile);
     form.set("biz_type", bizType);
@@ -116,6 +122,7 @@ export function FileUploader({
       setMessage(error instanceof Error ? error.message : "上传失败");
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
     }
   }
 
@@ -124,7 +131,7 @@ export function FileUploader({
       <div className="field">
         <span>{label ?? (compact ? policy.label : "选择文件")}</span>
         <label className="ds-file-picker" htmlFor={fileInputId}>
-          <input ref={fileInputRef} className="sr-only" accept={accept} id={fileInputId} name="file" required type="file" onChange={handleFileChange} />
+          <input ref={fileInputRef} className="sr-only" accept={accept} disabled={disabled || uploading} id={fileInputId} name="file" type="file" onChange={handleFileChange} />
           <span className="ds-file-picker-button">
             <FileUp size={16} />
             选择文件
@@ -137,9 +144,9 @@ export function FileUploader({
       </div>
       <div className="field">
         <label htmlFor={remarkInputId}>备注</label>
-        <input id={remarkInputId} name="remark" placeholder="可选" value={remark} onChange={(event) => setRemark(event.target.value)} />
+        <input disabled={disabled || uploading} id={remarkInputId} name="remark" placeholder="可选" value={remark} onChange={(event) => setRemark(event.target.value)} />
       </div>
-      <button className="primary-button" disabled={uploading} type="button" onClick={() => void handleUpload()}>
+      <button className="primary-button" disabled={disabled || uploading} type="button" onClick={() => void handleUpload()}>
         <Upload size={16} />
         {uploading ? "上传中" : "上传"}
       </button>

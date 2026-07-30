@@ -45,13 +45,17 @@ export class FilesController {
     @Body() dto: UploadFileDto,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.filesService.upload(scope, user.sub, dto, file);
+    return this.filesService.uploadForActor(scope, user, dto, file);
   }
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: FileQueryDto) {
-    return this.filesService.list(scope, query);
+  list(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Query() query: FileQueryDto
+  ) {
+    return this.filesService.list(scope, user, query);
   }
 
   @Public()
@@ -69,8 +73,12 @@ export class FilesController {
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_READ)
-  detail(@CurrentScope() scope: TenantParkScope, @Param("id") id: string) {
-    return this.filesService.detail(scope, id);
+  detail(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string
+  ) {
+    return this.filesService.detailForActor(scope, user, id);
   }
 
   @Get(":id/download")
@@ -83,7 +91,7 @@ export class FilesController {
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response
   ) {
-    const result = await this.filesService.prepareDownload(scope, id);
+    const result = await this.filesService.prepareDownload(scope, user, id);
     await this.filesService.recordDownload(
       scope,
       { id: user.sub, username: user.username, realName: user.realName, roles: user.roles },
@@ -100,6 +108,6 @@ export class FilesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_DELETE)
   @AuditLog({ module: "附件中心", resource: "system.file", action: "附件删除", bizType: "file", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.filesService.softDelete(scope, user.sub, id);
+    return this.filesService.softDeleteForActor(scope, user, id);
   }
 }
