@@ -3,6 +3,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
+import { PropertyHighRiskAction } from "../../shared/decorators/property-high-risk-action.decorator";
 import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -131,6 +132,7 @@ export class HousingController {
   }
 
   @Post("leases/:id/approve")
+  @PropertyHighRiskAction("housing.leases.approve")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "审批住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
@@ -170,6 +172,7 @@ export class HousingController {
   }
 
   @Post("leases/:id/void")
+  @PropertyHighRiskAction("housing.leases.void")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "作废住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
@@ -222,6 +225,10 @@ export class HousingController {
   }
 
   @Post("leases/:id/ledger")
+  @PropertyHighRiskAction("housing.finance.refund-waive-or-deposit-refund", {
+    bodyField: "entry_type",
+    highRiskValues: ["refund", "waiver", "deposit_refund"]
+  })
   @UseInterceptors(new IdempotencyInterceptor())
   @RequireAnyPermissions(SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER, SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_ledger", action: "登记住房财务流水", bizType: "biz_housing_ledger_entry", bizIdParam: "id" })
@@ -261,6 +268,7 @@ export class HousingController {
   }
 
   @Post("leases/:id/checkout")
+  @PropertyHighRiskAction("housing.leases.checkout")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT)
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "完成退租结算", bizType: "biz_housing_lease", bizIdParam: "id" })
@@ -317,6 +325,7 @@ export class HousingController {
   }
 
   @Post("purchases/:id/actions")
+  @PropertyHighRiskAction("housing.purchases.lifecycle")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "更新采购状态", bizType: "biz_housing_purchase", bizIdParam: "id" })
@@ -330,6 +339,7 @@ export class HousingController {
   }
 
   @Post("purchases/:id/transfer")
+  @PropertyHighRiskAction("housing.purchases.transfer")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER)
   @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "采购成本转租客收费", bizType: "biz_housing_purchase", bizIdParam: "id" })

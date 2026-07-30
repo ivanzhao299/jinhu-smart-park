@@ -13,6 +13,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
+import { PropertyHighRiskAction } from "../../shared/decorators/property-high-risk-action.decorator";
 import {
   RequireAnyPermissions,
   RequirePermissions
@@ -164,6 +165,7 @@ export class HomestayController {
   }
 
   @Post("bookings/:id/cancel")
+  @PropertyHighRiskAction("homestay.bookings.cancel")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
@@ -290,6 +292,10 @@ export class HomestayController {
   }
 
   @Post("bookings/:id/ledger")
+  @PropertyHighRiskAction("homestay.finance.refund-or-waive", {
+    bodyField: "entry_type",
+    highRiskValues: ["refund", "waiver"]
+  })
   @UseInterceptors(new IdempotencyInterceptor())
   @RequireAnyPermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,

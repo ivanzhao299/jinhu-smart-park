@@ -177,7 +177,10 @@ test("credential return locks the row and preserves the original return timestam
   );
   assert.match(credentialReturn, /this\.dataSource\.transaction/);
   assert.match(credentialReturn, /lock: \{ mode: "pessimistic_write" \}/);
-  assert.match(credentialReturn, /if \(credential\.status === "returned"\) return credential/);
+  assert.match(
+    credentialReturn,
+    /if \(credential\.status === "returned"\) return this\.projectCredential\(credential\)/
+  );
   assert.match(credentialReturn, /Only issued credentials can be returned/);
 });
 

@@ -44,6 +44,11 @@ Do not commit `.env.production`.
 
 `PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
 
+`PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
+`true` 时启用。Track B 审批执行能力完成发布门禁前，生产环境必须保持
+`false`；若提前启用，民宿订单取消、租约审批/作废/退租、退款减免、采购状态
+流转及转租客收费等高风险动作会以 HTTP 409 拒绝，且超级管理员也不会绕过。
+
 ## 1.1 Authentication Release Constraints
 
 The first release supports password login only.

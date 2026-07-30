@@ -348,7 +348,7 @@ export class HomestayService {
       booking,
       nights,
       guests,
-      credentials,
+      credentials: credentials.map((credential) => this.projectCredential(credential)),
       ledger,
       ledger_summary: canReadFinance ? formatHomestayLedgerSummary(ledger) : null,
       finance_visible: canReadFinance,
@@ -700,7 +700,7 @@ export class HomestayService {
       this.assertStatus(booking, ["confirmed", "checked_in"], "Credentials require a confirmed or checked-in booking");
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       const repository = manager.getRepository(HomestayStayCredentialEntity);
-      return repository.save(repository.create({
+      const saved = await repository.save(repository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         bookingId,
@@ -715,6 +715,7 @@ export class HomestayService {
         createBy: actor.sub,
         updateBy: actor.sub
       }));
+      return this.projectCredential(saved);
     });
   }
 
@@ -728,14 +729,14 @@ export class HomestayService {
         lock: { mode: "pessimistic_write" }
       });
       if (!credential) throw new NotFoundException("Stay credential not found");
-      if (credential.status === "returned") return credential;
+      if (credential.status === "returned") return this.projectCredential(credential);
       if (credential.status !== "issued") {
         throw new ConflictException("Only issued credentials can be returned");
       }
       credential.status = "returned";
       credential.returnedAt = new Date();
       credential.updateBy = actor.sub;
-      return repository.save(credential);
+      return this.projectCredential(await repository.save(credential));
     });
   }
 
@@ -1460,6 +1461,13 @@ export class HomestayService {
 
   private assertStatus(booking: HomestayBookingEntity, allowed: string[], message: string): void {
     if (!allowed.includes(booking.status)) throw new ConflictException(message);
+  }
+
+  private projectCredential(credential: HomestayStayCredentialEntity) {
+    return {
+      ...credential,
+      credentialReference: credential.credentialReference === null ? null : "***"
+    };
   }
 
   private async log(

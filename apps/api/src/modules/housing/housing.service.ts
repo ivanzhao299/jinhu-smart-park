@@ -19,7 +19,7 @@ import { FileEntity } from "../files/entities/file.entity";
 import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PartyEntity } from "../property-operations/entities/party.entity";
-import { PartiesService } from "../property-operations/parties.service";
+import { PartiesService, type PartyResponse } from "../property-operations/parties.service";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
@@ -82,6 +82,11 @@ type HousingPurchaseListItem = HousingPurchaseEntity & {
   receiptFiles: FileEntity[];
 };
 
+type HousingTenantResponse = Omit<PartyResponse, "mobile" | "email"> & {
+  mobile: string | null;
+  email: string | null;
+};
+
 @Injectable()
 export class HousingService {
   constructor(
@@ -96,16 +101,55 @@ export class HousingService {
     private readonly dataSource: DataSource
   ) {}
 
-  listTenants(scope: TenantParkScope, query: PartyQueryDto) {
-    return this.partiesService.list(scope, { ...query, party_type: "person" });
+  async listTenants(
+    scope: TenantParkScope,
+    query: PartyQueryDto
+  ): Promise<PaginatedResult<HousingTenantResponse>> {
+    const result = await this.partiesService.list(scope, { ...query, party_type: "person" });
+    return {
+      ...result,
+      items: result.items.map((tenant) => this.toTenantResponse(tenant))
+    };
   }
 
-  createTenant(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePartyDto) {
-    return this.partiesService.create(scope, actor, {
+  async createTenant(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreatePartyDto
+  ): Promise<HousingTenantResponse> {
+    const tenant = await this.partiesService.create(scope, actor, {
       ...dto,
       party_type: "person",
       source_domain: "housing_rental"
     });
+    return this.toTenantResponse(tenant);
+  }
+
+  private toTenantResponse(tenant: PartyResponse): HousingTenantResponse {
+    return {
+      ...tenant,
+      mobile: this.maskTenantMobile(tenant.mobile),
+      email: this.maskTenantEmail(tenant.email)
+    };
+  }
+
+  private maskTenantMobile(value: string | null): string | null {
+    if (value === null) return null;
+    if (/^\d{11}$/u.test(value)) return `${value.slice(0, 3)}****${value.slice(-4)}`;
+    if (value.length <= 4) return "****";
+    return `${value.slice(0, 2)}***${value.slice(-2)}`;
+  }
+
+  private maskTenantEmail(value: string | null): string | null {
+    if (value === null) return null;
+    const separatorIndex = value.indexOf("@");
+    if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
+      if (value.length <= 4) return "****";
+      return `${value.slice(0, 2)}***${value.slice(-2)}`;
+    }
+    const name = value.slice(0, separatorIndex);
+    const domain = value.slice(separatorIndex + 1);
+    return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
   }
 
   async dashboard(scope: TenantParkScope, actor: JwtPrincipal) {
