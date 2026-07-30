@@ -153,13 +153,57 @@ jobs:
                     UNION ALL
                     SELECT filename, status FROM public.schema_migrations
                   ) history
-                  WHERE filename = 'prerequisite:000175_2026_responsibility_user_role_queue.sql:001_core_role_templates.sql'
+                  WHERE filename = 'prerequisite:000064_s3e_checkout_effective.sql:001_core_role_templates.sql'
                     AND status = 'succeeded';"
           )"
           test "$prerequisite_succeeded_count" = "2"
 
+          history_conflict_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*)
+                  FROM public.sys_schema_migration_history primary_history
+                  FULL JOIN public.schema_migrations standard_history USING (filename)
+                  WHERE primary_history.filename IS NULL
+                     OR standard_history.filename IS NULL
+                     OR primary_history.status IS DISTINCT FROM standard_history.status
+                     OR primary_history.checksum IS DISTINCT FROM standard_history.checksum;"
+          )"
+          test "$history_conflict_count" = "0"
+
       - name: Run production seed
         run: ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+
+      - name: Verify repaired core-role permissions
+        run: |
+          repaired_grant_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*)
+                  FROM (VALUES
+                    ('OPERATIONS_OWNER', 'safety_inspect_point:read'),
+                    ('OPERATIONS_OWNER', 'ENGINEERING_PROJECT_VIEW'),
+                    ('EXECUTIVE', 'safety_hazard:read'),
+                    ('AUDITOR', 'ENGINEERING_PROJECT_VIEW')
+                  ) expected(role_code, permission_code)
+                  JOIN public.sys_role role
+                    ON role.tenant_id = '10000001'
+                   AND role.park_id = '20000001'
+                   AND role.code = expected.role_code
+                   AND role.is_deleted = false
+                  JOIN public.sys_permission permission
+                    ON permission.tenant_id = role.tenant_id
+                   AND permission.park_id = role.park_id
+                   AND permission.code = expected.permission_code
+                   AND permission.is_deleted = false
+                  JOIN public.rel_role_perm relation
+                    ON relation.tenant_id = role.tenant_id
+                   AND relation.park_id = role.park_id
+                   AND relation.role_id = role.id
+                   AND relation.permission_id = permission.id
+                   AND relation.is_deleted = false;"
+          )"
+          test "$repaired_grant_count" = "4"
 
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log

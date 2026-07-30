@@ -28,10 +28,14 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - Do not mount `database/migrations` into `/docker-entrypoint-initdb.d`.
 - Schema changes run only through `pnpm db:migrate`; seed and migration responsibilities remain separate.
 - Historical data migrations that need minimal prerequisite metadata may use
-  `database/migration-prerequisites/<target-migration>/`. The runner executes these files only when the
-  target migration is pending, records independent checksum/status history, and stops before the target on failure.
+  `database/migration-prerequisites/<target-migration>/`. When any migration remains pending, the runner evaluates
+  these files in migration order, including a newly added prerequisite on an already-succeeded earlier target,
+  records independent checksum/status history, and stops before later pending work on failure.
 - A migration prerequisite must contain only the minimum production-safe state needed by its target. It must not
   create credentials, demo data, broad permissions, or replace the production seed.
+- The two history tables must agree on status/checksum for every shared filename before fast-skip or execution.
+  Conflicts fail for manual inspection; a single-sided row may be copied to the missing table.
+- One history state transition must update both history tables in one database transaction.
 - `MIGRATION_BASELINE_ON_NONEMPTY_DB=yes` is for a deliberately audited legacy database, not recovery from
   a failed automatic initialization.
 
@@ -44,6 +48,9 @@ The local Compose service is named `postgres`. Migration history is recorded in
 | Migration prerequisite fails or is marked running | Stop before marking or executing its target migration |
 | Succeeded prerequisite checksum changes while its target is pending | Fail with checksum conflict |
 | Succeeded filename checksum changes | Fail with checksum conflict |
+| History tables disagree on status/checksum | Fail before fast-skip; do not choose a winner automatically |
+| One history table is missing a filename | Copy the complete row to the missing table, then verify consistency |
+| Second history-table write fails | Roll back the first history-table write in the same transaction |
 | Non-empty database with empty history | Do not auto-baseline until the existing schema is audited |
 | Host port is unavailable or reserved | Choose a local `POSTGRES_PORT` override and verify TCP connectivity |
 | Production-safe seed prerequisite is required by a migration | Treat as migration-order defect; do not silently claim the standard release order passed |
@@ -62,6 +69,8 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - On an independent empty volume, run `pnpm db:migrate` and assert zero failed/running history rows.
 - Assert a late-schema column exists, not only that migration history contains its filename.
 - Assert required prerequisite history exists in both history tables and contains no failed/running state.
+- Inject history status/checksum divergence and a second-table write failure; assert fail-fast and atomic rollback.
+- After production seed, assert representative safety and engineering grants for the seven core roles.
 - Run the release order through production-safe seed and baseline checks.
 - For local API E2E, verify `/api/v1/ready` reports the database and initialization checks as `ok`.
 

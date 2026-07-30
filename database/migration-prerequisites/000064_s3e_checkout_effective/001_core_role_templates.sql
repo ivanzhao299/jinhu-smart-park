@@ -1,4 +1,5 @@
--- Minimal production-safe role templates required by
+-- Minimal production-safe role templates required before the first historical
+-- role-dependent permission grants and later by
 -- 000175_2026_responsibility_user_role_queue.sql.
 --
 -- This prerequisite intentionally creates no users, credentials, permissions,

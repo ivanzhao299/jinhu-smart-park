@@ -36,6 +36,8 @@ psql_query() {
 
 bootstrap_history_table() {
   psql_exec <<'SQL'
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS public.sys_schema_migration_history (
   id BIGSERIAL PRIMARY KEY,
   filename varchar(255) NOT NULL UNIQUE,
@@ -119,6 +121,8 @@ SELECT
   updated_at
 FROM public.schema_migrations
 ON CONFLICT (filename) DO NOTHING;
+
+COMMIT;
 SQL
 }
 
@@ -129,9 +133,29 @@ ensure_dependency() {
   fi
 }
 
-write_history_row_for_table() {
-  history_target_table="$1"
-  shift
+assert_history_tables_consistent() {
+  history_conflicts="$(psql_query <<SQL
+SELECT
+  primary_history.filename
+    || '|primary=' || primary_history.status || ':' || primary_history.checksum
+    || '|standard=' || standard_history.status || ':' || standard_history.checksum
+FROM ${HISTORY_TABLE} primary_history
+JOIN ${STANDARD_HISTORY_TABLE} standard_history
+  ON standard_history.filename = primary_history.filename
+WHERE primary_history.status IS DISTINCT FROM standard_history.status
+   OR primary_history.checksum IS DISTINCT FROM standard_history.checksum
+ORDER BY primary_history.filename;
+SQL
+)"
+
+  if [ -n "$history_conflicts" ]; then
+    echo "ERROR: migration history tables disagree; manual inspection is required." >&2
+    printf '%s\n' "$history_conflicts" >&2
+    exit 1
+  fi
+}
+
+write_history_row() {
   history_filename="$1"
   history_checksum="$2"
   history_status="$3"
@@ -151,30 +175,10 @@ write_history_row_for_table() {
   fi
   history_error_message_sql="$(sql_escape "$history_error_message")"
 
-  history_existing_row="$(psql_query <<SQL
-SELECT status || '|' || checksum
-FROM ${history_target_table}
-WHERE filename = '${history_filename_sql}';
-SQL
-)"
+  psql_exec <<SQL
+BEGIN;
 
-  if [ -n "$history_existing_row" ]; then
-    psql_exec <<SQL
-UPDATE ${history_target_table}
-SET
-  checksum = '${history_checksum_sql}',
-  status = '${history_status_sql}',
-  started_at = '${history_started_at_sql}',
-  finished_at = $(if [ -n "$history_finished_at_sql" ]; then printf "'%s'" "$history_finished_at_sql"; else printf "NULL"; fi),
-  error_message = $(if [ -n "$history_error_message_sql" ]; then printf "'%s'" "$history_error_message_sql"; else printf "NULL"; fi),
-  executed_by = '${history_executed_by_sql}',
-  batch_id = '${history_batch_id_sql}',
-  updated_at = CURRENT_TIMESTAMP
-WHERE filename = '${history_filename_sql}';
-SQL
-  else
-    psql_exec <<SQL
-INSERT INTO ${history_target_table} (
+INSERT INTO ${HISTORY_TABLE} (
   filename,
   checksum,
   status,
@@ -196,14 +200,50 @@ INSERT INTO ${history_target_table} (
   '${history_batch_id_sql}',
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
-);
-SQL
-  fi
-}
+) ON CONFLICT (filename) DO UPDATE SET
+  checksum = EXCLUDED.checksum,
+  status = EXCLUDED.status,
+  started_at = EXCLUDED.started_at,
+  finished_at = EXCLUDED.finished_at,
+  error_message = EXCLUDED.error_message,
+  executed_by = EXCLUDED.executed_by,
+  batch_id = EXCLUDED.batch_id,
+  updated_at = CURRENT_TIMESTAMP;
 
-write_history_row() {
-  write_history_row_for_table "$HISTORY_TABLE" "$@"
-  write_history_row_for_table "$STANDARD_HISTORY_TABLE" "$@"
+INSERT INTO ${STANDARD_HISTORY_TABLE} (
+  filename,
+  checksum,
+  status,
+  started_at,
+  finished_at,
+  error_message,
+  executed_by,
+  batch_id,
+  created_at,
+  updated_at
+) VALUES (
+  '${history_filename_sql}',
+  '${history_checksum_sql}',
+  '${history_status_sql}',
+  '${history_started_at_sql}',
+  $(if [ -n "$history_finished_at_sql" ]; then printf "'%s'" "$history_finished_at_sql"; else printf "NULL"; fi),
+  $(if [ -n "$history_error_message_sql" ]; then printf "'%s'" "$history_error_message_sql"; else printf "NULL"; fi),
+  '${history_executed_by_sql}',
+  '${history_batch_id_sql}',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+) ON CONFLICT (filename) DO UPDATE SET
+  checksum = EXCLUDED.checksum,
+  status = EXCLUDED.status,
+  started_at = EXCLUDED.started_at,
+  finished_at = EXCLUDED.finished_at,
+  error_message = EXCLUDED.error_message,
+  executed_by = EXCLUDED.executed_by,
+  batch_id = EXCLUDED.batch_id,
+  updated_at = CURRENT_TIMESTAMP;
+
+COMMIT;
+SQL
 }
 
 run_prerequisite_file() {
@@ -392,6 +432,7 @@ if [ ! -s "$FILES_LIST" ]; then
 fi
 
 bootstrap_history_table
+assert_history_tables_consistent
 build_migration_manifest
 
 duplicate_prefixes="$(awk '
@@ -454,13 +495,6 @@ SQL
     existing_checksum="$(printf '%s' "$history_row" | cut -d'|' -f2-)"
   fi
 
-  if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" = "$current_checksum" ]; then
-    skipped_count=$((skipped_count + 1))
-    last_success_file="$filename"
-    echo "SKIP: $filename (already succeeded, checksum matched)"
-    continue
-  fi
-
   if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" != "$current_checksum" ]; then
     echo "ERROR: migration file changed after success: $filename" >&2
     echo "ERROR: recorded checksum=$existing_checksum current checksum=$current_checksum" >&2
@@ -479,13 +513,21 @@ SQL
     echo "WARNING: recorded checksum=$existing_checksum current checksum=$current_checksum" >&2
   fi
 
+  # When a database stopped part-way through an older initialization, a newly
+  # introduced prerequisite may belong to an already-succeeded target. Apply it
+  # only after validating the target's existing history, and before skipping
+  # that target, so later pending migrations and the repair seed can converge.
+  # Fully migrated databases still exit via fast-skip.
   run_prerequisites_for_migration "$filename"
 
-  if [ -n "$existing_status" ]; then
-    write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
-  else
-    write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
+  if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" = "$current_checksum" ]; then
+    skipped_count=$((skipped_count + 1))
+    last_success_file="$filename"
+    echo "SKIP: $filename (already succeeded, checksum matched)"
+    continue
   fi
+
+  write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
 
   stdout_file="$TMP_DIR/${filename}.stdout.log"
   stderr_file="$TMP_DIR/${filename}.stderr.log"
