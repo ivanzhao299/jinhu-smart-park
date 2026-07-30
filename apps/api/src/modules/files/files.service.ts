@@ -37,6 +37,17 @@ export interface DownloadFileResult {
 
 export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
 
+export function normalizeMultipartFileName(originalName: string): string {
+  if (![...originalName].some((character) => character.charCodeAt(0) > 0x7f)) {
+    return originalName;
+  }
+  const decoded = Buffer.from(originalName, "latin1").toString("utf8");
+  if (decoded.includes("\uFFFD")) return originalName;
+  return Buffer.from(decoded, "utf8").toString("latin1") === originalName
+    ? decoded
+    : originalName;
+}
+
 @Injectable()
 export class FilesService {
   constructor(
@@ -74,11 +85,12 @@ export class FilesService {
       throw new BadRequestException("file is required");
     }
     this.validateFile(dto.biz_type, file);
+    const originalName = normalizeMultipartFileName(file.originalname);
 
     const now = new Date();
     const day = this.formatDay(now);
     const fileCode = await this.nextFileCode(scope, day);
-    const originalExt = extname(file.originalname);
+    const originalExt = extname(originalName);
     const storedName = `${randomUUID()}${originalExt}`;
     const relativeDir = `${scope.tenantId}/${scope.parkId}/${day}`;
     const md5 = createHash("md5").update(file.buffer).digest("hex");
@@ -89,7 +101,7 @@ export class FilesService {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         fileCode,
-        originalName: file.originalname,
+        originalName,
         storedName,
         fileUrl: "",
         fileSize: String(file.size),

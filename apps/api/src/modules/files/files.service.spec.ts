@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { FilesService } from "./files.service";
+import { FilesService, normalizeMultipartFileName } from "./files.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -44,4 +44,16 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
   assert.equal(accessCalls[0]?.[5], actor.sub);
   assert.equal(where?.createBy, actor.sub);
   assert.ok(where?.bizId);
+});
+
+test("multipart filenames recover UTF-8 text decoded as latin1", () => {
+  const expected = "热转印桌面打印机用户指南.pdf";
+  const mojibake = Buffer.from(expected, "utf8").toString("latin1");
+  assert.equal(normalizeMultipartFileName(mojibake), expected);
+});
+
+test("multipart filename normalization preserves ASCII and valid Unicode", () => {
+  assert.equal(normalizeMultipartFileName("floor-plan.pdf"), "floor-plan.pdf");
+  assert.equal(normalizeMultipartFileName("平面图.pdf"), "平面图.pdf");
+  assert.equal(normalizeMultipartFileName("café.pdf"), "café.pdf");
 });

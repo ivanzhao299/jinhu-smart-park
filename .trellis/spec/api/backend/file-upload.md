@@ -19,6 +19,9 @@
 - Allowed MIME types and max sizes live in `FILE_UPLOAD_POLICIES`.
 - Business-specific mappings live in `FILE_UPLOAD_BIZ_POLICY_MAP`.
 - Storage path remains tenant/park/day scoped and must not be built from user-supplied filenames.
+- Multipart `originalname` may contain UTF-8 bytes decoded as Latin-1 by the upload parser.
+  Normalize that boundary value before deriving the extension or persisting
+  `original_name`; preserve ASCII and already-valid Unicode names unchanged.
 - File metadata must remain tenant_id + park_id scoped.
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
@@ -51,6 +54,8 @@
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
+- UTF-8 filename decoded as Latin-1 -> recover the original Unicode name before
+  extension parsing and metadata persistence.
 - Unsupported MIME -> `UnsupportedMediaTypeException`.
 - Oversized file -> `BadRequestException`.
 - File ID used by another business object must belong to current tenant and park.
