@@ -26,7 +26,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { UserMenuTreeNode } from "@jinhu/shared";
+import {
+  PROPERTY_BUSINESS_SURFACES,
+  type UserMenuTreeNode
+} from "@jinhu/shared";
 
 export interface MenuNode {
   label: string;
@@ -88,6 +91,13 @@ const DISABLED_PLACEHOLDER_HREFS = new Set([
   "/energy/overview",
   "/video/overview"
 ]);
+
+// Track A exposes the canonical property menu contract before the corresponding
+// Web routes are delivered. Keep those backend-projected entries hidden until
+// the homestay and housing route handoffs replace this temporary gate.
+const NOT_YET_ROUTABLE_PROPERTY_HREFS = new Set<string>(
+  PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route)
+);
 
 export const FIRST_RELEASE_MENU_PATHS = [
   "/dashboard",
@@ -403,7 +413,13 @@ function toMenuNode(node: UserMenuTreeNode): MenuNode {
 }
 
 function prunePlaceholderMenus(menu: MenuNode): MenuNode | undefined {
-  if (menu.href && DISABLED_PLACEHOLDER_HREFS.has(menu.href)) {
+  if (
+    menu.href &&
+    (
+      DISABLED_PLACEHOLDER_HREFS.has(menu.href) ||
+      NOT_YET_ROUTABLE_PROPERTY_HREFS.has(menu.href)
+    )
+  ) {
     return undefined;
   }
   const children = menu.children

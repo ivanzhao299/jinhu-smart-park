@@ -55,6 +55,10 @@
     `mobile`/`email`。
   - `GET /homestay/bookings/:id`、issue credential 和 return credential 响应不得返回
     完整 `credentialReference`，必须符合 manifest 的 masked projection。
+- Track A 交付顺序必须避免菜单指向尚未存在的页面：先完成 permission schema 和
+  `/users/me` 服务端 property projection 基础，但 Web 不得暴露 canonical 入口；只有
+  17 个 canonical routes 与各自 route guard 实际交付后，才允许修改 Web menu、
+  legacy landing/tenant alias 和 unknown property deep-link fail-closed。
 
 ### 3.2 Track B：安全业务执行
 
@@ -186,6 +190,15 @@ maker-checker 默认覆盖：
 - [ ] 页面区分 initial empty、filtered empty、scope empty、403、失败、冲突和提交状态。
 - [ ] 桌面、360px、390px、键盘和基础 WCAG/Design System Gate 通过。
 - [ ] `property-remediation-a-base-v1` 可重复生成和清理。
+- [x] A-C2 migration 的 expected permission exact set 为 65，不是 69；custom role、
+  legacy operations 和 wildcard 不自动获得 granular page。
+- [x] `/users/me` property projection 只使用 active `enabledModules`、granular page
+  permission 和当前 tenant+park relation；API 基础交付阶段 Web 不显示未落地 route。
+- [ ] Web menu/landing/redirect 只在 homestay/housing route SHA 之后交付；未知
+  property deep-link 默认拒绝，不能落入 catch-all placeholder。
+- [ ] Shared foundation 不创建 preview/生产 route；handoff 先以静态/单测和
+  lint/typecheck/build 放行，真实 desktop/mobile/keyboard/focus/zoom/ARIA 证据由
+  首个 domain route SHA 补齐，补齐前不标 final UI Gate 完成。
 
 ### 8.2 Track B Technical
 

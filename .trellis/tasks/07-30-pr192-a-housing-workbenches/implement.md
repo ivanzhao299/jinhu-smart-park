@@ -3,13 +3,14 @@
 ## 1. 前置条件
 
 - 父任务和 A-contract 已冻结。
-- route/page permission contract SHA、Track A permission/schema SHA 和早期
-  `A-base-core` fixture handoff SHA 均已冻结。
+- route/page permission contract SHA、Track A permission/schema SHA、API-only
+  `A-api-menu-projection SHA` 和早期 `A-base-core` fixture handoff SHA 均已冻结。
 - `A-base-core` 只要求确定性基础数据、精确角色/权限集、profile ID 和 core
   checksum；它来自 automated-gates 的早期 fixture 阶段，不等待
   `A-route-evidence`、浏览器证据或 automated-gates 整体完成。
-- `07-30-pr192-a-shared-web-foundation` 已在 Track A A0/A1 完成，提供不依赖
-  identity schema 或 approval runtime 的 shared Web foundation SHA。
+- `07-30-pr192-a-shared-web-foundation` 已提供不依赖 identity schema 或 approval
+  runtime 的 integration-ready SHA（静态/单测、lint/typecheck/build 已通过）；
+  final UI Gate 等待首个 domain route SHA 的真实浏览器证据。
 - 不要求 menu、landing 或 legacy redirect handoff；这些是消费本任务输出的后置
   A2 交付，A1 不等待 A2。
 - 已运行 `trellis-before-dev`，读取 Web/shared、upload/form、cross-layer、reuse、
@@ -51,6 +52,10 @@ block、targeted test 和 handoff 后退出。禁止并行改同一文件。
 - accessibility/DS checker。
 
 Checker 不直接修复；P0/P1 回派原 owner 并由另一个 checker 复验。
+若本任务先输出 Track A 的首个 canonical domain route SHA，browser/mobile 与
+accessibility checkers 同时采集 shared foundation 的 desktop/mobile/keyboard/
+focus/zoom/ARIA 集成证据；shared owner 修复组件问题并签收 final UI Gate，QA
+归档证据。
 
 ## 3. 实施步骤
 
@@ -58,18 +63,20 @@ Checker 不直接修复；P0/P1 回派原 owner 并由另一个 checker 复验�
 2. 消费 shared response contracts，删除重复接口。
 3. 建 feature API/query/mutation/permission adapters。
 4. legacy `/housing` 逐闭包消费 feature 并删除原 block。
-5. 建 canonical list/detail routes 和 Party canonical alias；冻结固定 landing
-   priority、module/scope/403 与 legacy alias 输入，但不实现 menu、legacy
-   `/housing` landing 或 redirect。
+5. 建 canonical list/detail routes 与 route guards；冻结固定 landing priority、
+   module/scope/403 与 Party alias contract 输入，但此时不实现 menu、legacy
+   `/housing` landing 或 tenant alias redirect。
 6. 接入 shared picker/task/upload/status surfaces。
 7. 仅启用 manifest 无 approvalPolicy 的低风险 mutation。
 8. 将所有高风险 slot 保持只读并验证服务端拒绝。
-9. 完成移动、DS、WCAG 和 handoff 证据。
+9. 完成移动、DS、WCAG 和 handoff 证据；若为首个 domain route SHA，同时关闭
+   shared foundation 延后的真实浏览器 evidence。
 10. 将 canonical route SHA、route/page/action mapping 和浏览器入口反向 handoff
     给 automated-gates 的 `A-route-evidence` 阶段，由其完成最终角色 E2E 与证据；
     住房实现不得等待该最终 evidence 作为前置。
-11. 输出 `housing-route-landing-input SHA` 给后置 A2 `menu-projection-owner`，
-    由其实现 menu、`/housing` landing 和 legacy redirect。
+11. 输出 `housing-route-landing-input SHA` 给后置 A2；menu owner 消费它实现 menu、
+    `/housing` landing 和 unknown deep-link fail-closed，housing owner 在自己的 app
+    route 独占范围内实现 tenant alias redirect/guard，并输出 alias handoff SHA。
 
 ## 4. 验证
 
@@ -85,11 +92,12 @@ pnpm typecheck
 
 另运行住房组件/contract tests、精确角色 Web/API E2E、相关 first-release housing/
 files/idempotency regression。财务、附件、Party、module 和 scope 负向测试不得省略。
+浏览器证据必须来自真实住房 route；不得为 shared foundation 创建 preview/生产 route。
 
 Machine Gate：
 
-- Canonical route eligibility/priority input 与 Party canonical alias；运行时
-  menu/legacy landing/redirect 由后置 A2 验收。
+- Canonical route eligibility/priority 与 Party alias contract input；运行时
+  menu/legacy landing/tenant alias redirect 由后置 A2 验收。
 - route/page/API/data/field/file exact-set。
 - no UUID、picker revoke、pending/persisted attachment recovery。
 - decimal/date/input/idempotency/state guards。

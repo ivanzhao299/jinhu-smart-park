@@ -99,6 +99,39 @@ interface PropertyAccessManifestEntry {
 - 普通业务动作通过 owning aggregate 调用共享占用服务。
 - 强制释放和模式切换只从资产共享控制面发起，并进入 approval。
 
+### 3.1 Track A 权威交付顺序
+
+当前 17 个 canonical Web routes 尚未全部落地；提前写入 Web menu、landing 或
+redirect 会把用户导向 catch-all placeholder，并形成“菜单看似完成、页面实际不存在”
+的假通过。权威顺序固定为：
+
+1. schema migration 与 exact tests：expected property permission set 恰好 65；
+   migration 文件名 `000183_*` 在创建前仅为候选，schema owner 重扫全部文件和
+   migration history 后实际创建
+   `000183_property_business_granular_rbac.sql`，此后才成为 reservation。
+2. API `/users/me` property menu projection 基础：只使用 active enabled modules、
+   granular page permission、当前 tenant+park 的 role/relation；不读取
+   custom/legacy/wildcard 作为自动扩权来源。此阶段 Web feature flag/菜单继续不暴露
+   canonical routes。
+3. shared Web foundation 与 A-base fixture。
+4. homestay/housing domain Web owners 建立真实 canonical app routes 和 route guards，
+   分别输出 route SHA。
+5. 两份 route SHA 交付后才进入 Web 接入批次：menu-projection-owner 修改
+   `apps/web/lib/menu.ts` 并实现 legacy module landing、unknown property deep-link
+   fail-closed；housing-web-owner 仍在其独占 app route 内实现 tenant alias redirect
+   与 guard。两者共同输出 Web 接入 handoff。
+6. route evidence 与独立 Gate。
+
+Domain Web owners 独占各自 app route/route guard（包括 housing tenant alias）；
+menu owner 不创建 placeholder 页面或领域 route，且不得在 route SHA 前预注册可见菜单。
+
+Shared foundation 的浏览器验收不改变上述六步顺序。Foundation 阶段没有真实 domain
+route，只交付纯函数/组件静态与单测、lint/typecheck/build 通过的 integration-ready
+SHA；不得创建 preview 或临时生产 route。首个输出 canonical route SHA 的 domain
+owner 在该真实 route 上采集 desktop/mobile/keyboard/focus/zoom/ARIA 证据，shared
+owner 修复组件问题并签收 final UI Gate，QA owner 归档 evidence。证据补齐前不得称
+foundation final UI Gate 完成。
+
 ## 4. 单一响应契约和前端迁移
 
 响应契约唯一真源：
@@ -344,8 +377,10 @@ A-base 分成两个有序交付：
 
 1. `A-shared-web-foundation`：在 A contract SHA 冻结后、领域工作台开始前，由
    `shared-property-web-owner` 建立 picker、task presentation、detail shell、dialog、
-   page state 和 DS adapter，输出规范的 `A-shared-web-foundation SHA`。它不依赖
-   Track B identity/approval/task schema。
+   page state 和 DS adapter，输出 integration-ready `A-shared-web-foundation SHA`。
+   Handoff 以静态/单测和 lint/typecheck/build 为准，不建 preview route；final UI
+   Gate 在首个 domain route SHA 上关闭。它不依赖 Track B identity/approval/task
+   schema。
 2. `A-base-core`：只在 A contract SHA 与 Track A schema migration SHA 均冻结后生成，
    输出 profile/version/data checksum、fixture SHA、生产保护和 cleanup 证据；这是
    homestay、housing 工作台页面开始实现前的稳定输入。

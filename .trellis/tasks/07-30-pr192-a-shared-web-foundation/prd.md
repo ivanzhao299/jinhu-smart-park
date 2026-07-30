@@ -4,8 +4,9 @@
 
 在 Track A A0/A1 建立民宿与住房工作台共同消费的 Web 展示基础，避免两个领域分别
 实现远程实体选择、详情容器、危险确认、任务展示、权限适配和 Design System 状态。
-本任务必须先于两个工作台完成 handoff，且只依赖 Track A access/response contract，
-不依赖 Track B identity schema、approval runtime、task assignment 或控制面。
+本任务必须先于两个工作台完成 handoff；启动输入依次为 Track A contract/server-safety
+baseline、A-C2 schema/exact-test SHA 与 API-only `/users/me` property projection SHA。
+它不依赖 Track B identity schema、approval runtime、task assignment 或控制面。
 
 ## 2. 范围
 
@@ -33,7 +34,8 @@
 
 ## 4. 契约要求
 
-- 输入是 `shared-contract-owner` 冻结的 A-contract SHA。
+- 输入是 `shared-contract-owner` 冻结的 A-contract/server-safety SHA、A-schema SHA 与
+  A-api-menu-projection SHA。
 - Picker 只接收服务端授权后的 `{id,label,secondaryLabel,disabledReason}`；组件不从
   手机号、证件号等原始字段拼 label。
 - Permission adapter 只解释 manifest capability，不替代 API/service 判权。
@@ -63,8 +65,12 @@
 - `07-30-pr192-a-homestay-workbenches`
 - `07-30-pr192-a-housing-workbenches`
 
-Handoff 包含 owned paths、contract SHA、组件 API、验证命令、浏览器/无障碍证据、
-已知限制和 open P0/P1。两个工作台不得在 handoff 前开始依赖这些组件的 route 实现。
+Foundation handoff 包含 owned paths、contract SHA、组件 API、纯函数/组件静态检查、
+单测、lint/typecheck/build、已知限制和 open P0/P1。由于此阶段没有真实 domain
+route，不创建 preview/生产 route 来伪造浏览器证据。两个工作台可在 handoff 后开始
+集成；首个产出 canonical route SHA 的 domain owner 必须在真实 route 上补齐
+desktop/mobile/keyboard/focus/zoom/ARIA 浏览器证据，并交由 shared owner 与 QA
+共同关闭 foundation final UI Gate。
 
 ## 7. 验收标准
 
@@ -75,6 +81,11 @@ Handoff 包含 owned paths、contract SHA、组件 API、验证命令、浏览�
 - [ ] Task presentation 不持有业务完成状态，count/stale/deep-link 可测试。
 - [ ] Permission adapter 不因 page、Persona、wildcard 推导 module/API 能力。
 - [ ] 三类 empty、403、failed、offline/stale、conflict、submit/success 状态通过。
-- [ ] DS/WCAG/mobile machine gates 通过，无重复视觉系统。
+- [ ] Foundation handoff 的纯函数/组件静态与单测、lint/typecheck/build 通过。
+- [ ] 首个 domain route SHA 上的 desktop/mobile/keyboard/focus/zoom/ARIA 浏览器
+  证据通过后，foundation final UI Gate 才完成。
 - [ ] 两个工作台均只消费同一 foundation SHA。
+- [ ] 本任务不创建 canonical domain route，不修改 Web menu/landing/redirect，也不把
+  尚未落地的 property route 暴露给用户。
+- [ ] 不创建 preview route 或临时生产 route 来提前满足浏览器验收。
 - [ ] 无 Track B 依赖且 open P0/P1 为零。

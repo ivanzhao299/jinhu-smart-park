@@ -19,18 +19,26 @@ apps/web/features/homestay/**
    manifest 和权限常量。
 2. Track A 子任务 `07-30-pr192-a-shared-web-foundation` 的
    `shared-property-web-owner` 提供远程 picker、详情/对话框 shell、任务展示、
-   Design System 和 permission adapters 的冻结 SHA。
+   Design System 和 permission adapters 的 integration-ready SHA。该 SHA 的
+   handoff Gate 是静态/单测与 lint/typecheck/build，不含虚构 preview route。
 3. `schema-migration-owner` 提供 Track A permission/schema SHA。
-4. `qa-automation-owner` 提供早期 A-base-core fixture/profile checksum。
+4. `menu-projection-owner` 提供 API-only `A-api-menu-projection SHA`；该输入尚不允许
+   Web 暴露 property route。
+5. `qa-automation-owner` 提供早期 A-base-core fixture/profile checksum。
 
 `07-30-pr192-a-shared-web-foundation` 属于 A0/A1，必须先于本工作台进入实现；它不
 依赖 Track B identity。上述合同需变更时提交 change request，由原 owner修改并发布
 新 SHA；本任务不得复制或局部修补权威合同。
 
 Menu、legacy `/homestay` landing 和 redirect 不是本任务启动前置，也不由 A1 实现。
-本任务完成 canonical routes 后输出 `homestay-route-landing-input SHA`，包含 route
+本任务完成 canonical routes 与 guards 后输出 `homestay-route-landing-input SHA`，包含 route
 存在性、page permission、固定 priority、module/scope/403 语义和 legacy alias；后置
 A2 `menu-projection-owner` 消费该 SHA 实现 menu/landing/redirect。
+
+若民宿先输出 Track A 首个 canonical domain route SHA，homestay Web owner 拥有该
+真实 route 上的 desktop/mobile/keyboard/focus/zoom/ARIA 执行与 artifact；shared
+owner 拥有组件修复和 final UI Gate 签收，QA owner 拥有 evidence 追溯。证据补齐前
+不得宣称 shared foundation final UI Gate PASS。
 
 ## 2. Feature 结构
 

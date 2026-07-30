@@ -20,6 +20,10 @@ apps/web/features/property-shared/**
 如必须修改现有全局 DS/文件组件，先向其当前 owner 提交 change request；不得顺手扩大
 本任务 ownership。
 
+本任务只在 A-schema SHA 与 API-only `A-api-menu-projection SHA` 冻结后启动。
+它不得创建 domain app route/guard、修改 Web menu 或把未落地 route 注册为可见入口；
+这些分别由 homestay/housing Web owners 与后置 Web 接入批次持有。
+
 ## 2. 模块结构
 
 ```text
@@ -112,6 +116,14 @@ DS adapters 只组合既有 surface/token。Page-local exceptions 由领域工�
 - Component：状态 union 穷举、picker/dialog/detail/task 行为测试。
 - Effects：未授权 optional component 不调用 loader/callback。
 - Navigation：allowlist、refresh、back/forward、scroll。
-- Accessibility：axe、键盘、NVDA/等价、zoom/reflow、forced-colors、focus。
-- Responsive/DS：320/360/390/768/desktop 和 computed-style/static surface evidence。
+- Foundation handoff accessibility：ARIA/state/focus contracts 的静态检查与组件
+  单测。
+- Foundation final UI Gate：首个真实 domain canonical route SHA 上执行 axe、
+  keyboard、focus、zoom/reflow、ARIA、forced-colors 与读屏等价检查。
+- Responsive/DS：handoff 阶段只需 static surface evidence；320/360/390/768/
+  desktop computed/runtime evidence 延后到上述真实 route。
 - Complexity：组件 ≤300 行、函数 ≤80 行、cyclomatic complexity ≤15。
+
+不得为 shared foundation 创建 preview route 或临时生产 route。首个交付 canonical
+route SHA 的 homestay/housing owner 拥有浏览器执行与 artifact 采集，shared owner
+拥有组件问题修复和 final UI Gate 签收，QA owner 维护 evidence 追溯。

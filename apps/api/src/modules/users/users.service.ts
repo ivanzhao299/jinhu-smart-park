@@ -4,7 +4,17 @@ import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
 import type { Repository } from "typeorm";
 import { ILike, In } from "typeorm";
-import type { PaginatedResult, TenantParkScope, UserContext, UserMenuTreeNode, UserParkContext } from "@jinhu/shared";
+import {
+  PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
+  PROPERTY_BUSINESS_SURFACES,
+  type EnabledModuleContext,
+  type PaginatedResult,
+  type PropertyBusinessModuleCode,
+  type TenantParkScope,
+  type UserContext,
+  type UserMenuTreeNode,
+  type UserParkContext
+} from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
@@ -309,21 +319,20 @@ export class UsersService {
       relations: { org: true }
     });
     const principal = this.buildJwtPrincipal(user);
-    const activeRoleLinks = user.roleLinks.filter((link) => !link.isDeleted && !link.role.isDeleted && link.role.isEnabled);
+    const activeRoleLinks = this.getActiveRoleLinks(user);
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
-      link.role.permissionLinks
-        .filter((permissionLink) => !permissionLink.isDeleted && !permissionLink.permission.isDeleted && permissionLink.permission.isEnabled)
+      this.getActivePermissionLinks(link.role, user.tenantId, user.parkId)
         .map((permissionLink) => permissionLink.permission)
     );
     const { permissions } = principal;
     const dataScope = principal.dataScope ?? "self";
     const isSuper = principal.isSuper ?? false;
-    const menuTree = this.buildPermissionMenuTree(activePermissionEntities, permissions);
     const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
     const currentPark = accessibleParks.find((park) => park.is_default) ?? accessibleParks[0] ?? null;
     const fieldPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, principal);
     const dataScopes = await this.dataScopeService.getUserDataScopes(scope, principal);
     const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, user.parkId);
+    const menuTree = this.buildPermissionMenuTree(activePermissionEntities, permissions, enabledModules);
     const securedSelf = await this.fieldPolicyService.applyFieldPolicies(
       scope,
       principal,
@@ -947,17 +956,9 @@ export class UsersService {
   }
 
   private buildJwtPrincipal(user: UserEntity): JwtPrincipal {
-    const activeRoleLinks = user.roleLinks.filter(
-      (link) => !link.isDeleted && !link.role.isDeleted && link.role.isEnabled
-    );
+    const activeRoleLinks = this.getActiveRoleLinks(user);
     const basePermissions = activeRoleLinks.flatMap((link) =>
-      link.role.permissionLinks
-        .filter(
-          (permissionLink) =>
-            !permissionLink.isDeleted &&
-            !permissionLink.permission.isDeleted &&
-            permissionLink.permission.isEnabled
-        )
+      this.getActivePermissionLinks(link.role, user.tenantId, user.parkId)
         .map((permissionLink) => permissionLink.permission.code)
     );
     const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
@@ -990,20 +991,165 @@ export class UsersService {
     return filter(USER_MENU_TREE);
   }
 
-  private buildPermissionMenuTree(permissions: PermissionEntity[], permissionCodes: string[]): UserMenuTreeNode[] {
+  private getActiveRoleLinks(user: UserEntity): UserRoleEntity[] {
+    return user.roleLinks.filter(
+      (link) =>
+        !link.isDeleted &&
+        link.tenantId === user.tenantId &&
+        link.parkId === user.parkId &&
+        !link.role.isDeleted &&
+        link.role.isEnabled &&
+        link.role.status === "enabled" &&
+        link.role.tenantId === user.tenantId &&
+        link.role.parkId === user.parkId
+    );
+  }
+
+  private getActivePermissionLinks(role: RoleEntity, tenantId: string, parkId: string) {
+    return role.permissionLinks.filter(
+      (permissionLink) =>
+        !permissionLink.isDeleted &&
+        permissionLink.tenantId === tenantId &&
+        permissionLink.parkId === parkId &&
+        !permissionLink.permission.isDeleted &&
+        permissionLink.permission.isEnabled &&
+        permissionLink.permission.status === "enabled" &&
+        permissionLink.permission.tenantId === tenantId
+    );
+  }
+
+  private buildPermissionMenuTree(
+    permissions: PermissionEntity[],
+    permissionCodes: string[],
+    enabledModules: EnabledModuleContext[]
+  ): UserMenuTreeNode[] {
     const granted = new Set(permissionCodes);
     const menuPermissions = permissions
       .filter((permission) => permission.visible && permission.isEnabled && !permission.isDeleted)
       .filter((permission) => permission.permType === 10 || permission.permType === 20)
       .sort((left, right) => (left.level - right.level) || (left.sortNo - right.sortNo) || left.createTime.getTime() - right.createTime.getTime());
 
-    if (menuPermissions.length === 0 || granted.has("*")) {
-      const seededMenu = this.buildSeededMenuTree(menuPermissions, granted);
-      return seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
-    }
-
     const seededMenu = this.buildSeededMenuTree(menuPermissions, granted);
-    return seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
+    const baseMenu = seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
+    return this.projectPropertyBusinessMenus(baseMenu, permissions, granted, enabledModules);
+  }
+
+  private projectPropertyBusinessMenus(
+    menuTree: UserMenuTreeNode[],
+    permissionEntities: PermissionEntity[],
+    granted: Set<string>,
+    enabledModules: EnabledModuleContext[]
+  ): UserMenuTreeNode[] {
+    const enabledModuleCodes = new Set(
+      enabledModules
+        .filter((module) => module.enabled !== false)
+        .map((module) => module.module_code)
+    );
+    const propertyMenuIndexes = menuTree.flatMap((node, index) =>
+      this.isPropertyBusinessMenuNode(node) ? [index] : []
+    );
+    const insertionIndex = propertyMenuIndexes[0]
+      ?? menuTree.findIndex((node) => node.module === "iot");
+    const nonPropertyMenus = menuTree.filter((node) => !this.isPropertyBusinessMenuNode(node));
+    const canonicalPropertyMenus = (["homestay", "housing_rental"] as const)
+      .flatMap((moduleCode) => {
+        if (!enabledModuleCodes.has(moduleCode)) {
+          return [];
+        }
+        const children = PROPERTY_BUSINESS_SURFACES
+          .filter((surface) => surface.moduleCode === moduleCode)
+          .flatMap((surface) => {
+            if (!granted.has("*") && !granted.has(surface.pageCode)) {
+              return [];
+            }
+            const seededMetadata = this.resolvePropertyPageMetadata(
+              permissionEntities,
+              surface.pageCode,
+              surface.route,
+              surface.moduleCode
+            );
+            if (seededMetadata === null) {
+              return [];
+            }
+            const fallbackName = PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS
+              .find((seed) => seed.code === surface.pageCode)
+              ?.name.replace(/页面$/u, "");
+            return [{
+              label: seededMetadata?.name ?? fallbackName ?? surface.featureId,
+              href: surface.route,
+              permission: surface.pageCode,
+              module: surface.moduleCode,
+              icon: seededMetadata?.icon ?? undefined
+            } satisfies UserMenuTreeNode];
+          });
+        if (children.length === 0) {
+          return [];
+        }
+        return [{
+          label: moduleCode === "homestay" ? "民宿管理" : "住房出租",
+          module: moduleCode,
+          icon: moduleCode === "homestay" ? "hotel" : "house",
+          children
+        } satisfies UserMenuTreeNode];
+      });
+
+    const targetIndex = insertionIndex < 0
+      ? nonPropertyMenus.length
+      : Math.min(insertionIndex, nonPropertyMenus.length);
+    return [
+      ...nonPropertyMenus.slice(0, targetIndex),
+      ...canonicalPropertyMenus,
+      ...nonPropertyMenus.slice(targetIndex)
+    ];
+  }
+
+  private resolvePropertyPageMetadata(
+    permissionEntities: PermissionEntity[],
+    pageCode: string,
+    route: string,
+    moduleCode: PropertyBusinessModuleCode
+  ): Pick<PermissionEntity, "name" | "icon"> | undefined | null {
+    const definitions = [
+      ...new Map(
+        permissionEntities
+          .filter((permission) => permission.code === pageCode)
+          .map((permission) => [permission.id, permission])
+      ).values()
+    ];
+    if (definitions.length === 0) {
+      return undefined;
+    }
+    if (definitions.length !== 1) {
+      return null;
+    }
+    const [definition] = definitions;
+    if (
+      !definition ||
+      definition.isDeleted ||
+      !definition.isEnabled ||
+      !definition.visible ||
+      definition.permissionType !== "page" ||
+      definition.permType !== 20 ||
+      definition.action !== "page" ||
+      definition.frontendRoute !== route ||
+      this.inferModuleCode(definition.frontendRoute, definition.code) !== moduleCode
+    ) {
+      return null;
+    }
+    return definition;
+  }
+
+  private isPropertyBusinessMenuNode(node: UserMenuTreeNode): boolean {
+    return (
+      node.module === "homestay" ||
+      node.module === "housing_rental" ||
+      node.href === "/homestay" ||
+      node.href?.startsWith("/homestay/") ||
+      node.href === "/housing" ||
+      node.href?.startsWith("/housing/") ||
+      node.permission === "homestay:operations" ||
+      node.permission === "housing_rental:operations"
+    );
   }
 
   private buildSeededMenuTree(menuPermissions: PermissionEntity[], granted: Set<string>): UserMenuTreeNode[] {

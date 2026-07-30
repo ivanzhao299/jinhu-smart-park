@@ -45,15 +45,17 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 |---|---|---|
 | 总体规划与多角色复审 | 已完成 | 已形成父任务、11 个规划子任务、阶段依赖、负责人边界和验收门禁 |
 | 开发分支与任务登记 | 已完成 | 已建立本次整改分支和 Trellis 任务结构 |
-| Track A 合同实现 | 进行中 | contract/server-safety candidate 已通过独立复审并可冻结；A-C2 migration/menu 尚未完成 |
+| Track A 合同实现 | 进行中 | contract/server-safety baseline=`e709459a034807b3575db604a76bc69bf1c5ff5b`；A-C2 migration+API projection slice runtime Gate PASS；后置 Web 交付尚未完成 |
 | 业务页面整改 | 未开始 | 尚未开始民宿和住房 canonical 页面拆分 |
-| 自动化验收执行 | 进行中 | A-C1 合同测试已运行；A-server-safety、迁移、页面和 E2E Gate 尚未执行 |
+| 自动化验收执行 | 进行中 | A-C1/A-server-safety 与 A-C2 migration+API projection slice Gate 已通过；页面和最终 E2E Gate 尚未执行 |
 | 外部人工 UAT | 未开始 | 等待 Track B 技术通过和隔离验收环境 |
 | 生产就绪 | 未开始 | 必须等待 Track A、B、C 技术结果和人工签署 |
 
-当前结论：**A-server-safety stop-ship 已关闭，contract/server-safety candidate
-可以冻结；A-1 仍未完成。下一立即动作是按已通过 Gate 的 candidate 启动 A-C2
-migration/menu，不得提前把 A-1 标记完成。**
+当前结论：**A-server-safety stop-ship 已关闭，contract/server-safety baseline
+已于 2026-07-30 冻结为 `e709459a034807b3575db604a76bc69bf1c5ff5b`；A-C2
+migration+API-only projection slice runtime Gate 已通过，但 A-1 仍未完成。下一立即
+动作是启动 shared Web foundation 与 A-base，再交付两个领域 route SHA。Web menu
+必须等待真实 route SHA，不得提前把 A-1 标记完成。**
 
 ## 5. Track A：页面、菜单与权限整改
 
@@ -65,20 +67,25 @@ Track A 的目标是先把民宿与住房出租拆成清晰、可授权、可单
 | 阶段 | 状态 | 负责人 / 参与角色 | 前置条件 | 完成标准 | 证据链接 | 计划日期 | 实际日期 |
 |---|---|---|---|---|---|---|---|
 | A-0 启动确认 | 已完成 | 项目负责人；产品、架构、研发、测试代表 | 多角色复审结论已通过 | 分支、父任务、11 个子任务、唯一负责人边界和停工条件均已登记；这只代表规划启动完成 | [父任务资料](./) | 2026-07-30 | 2026-07-30 |
-| A-1 合同与权限基础 | 进行中 | 共享合同、server safety、民宿 API、住房 API、环境文档、菜单权限和数据库变更负责人；产品与安全参与 | A-0 完成 | server-safety 与字段投影 Gate 已通过；canonical metadata 缺失时 fail closed；待完成 A-C2 migration/menu、权限差异与重跑证据后才可关闭 A-1 | [合同与权限任务；A0-S PASS，A-C2 待完成](../07-30-pr192-a-contract-rbac-foundation/) | 2026-07-30 | 2026-07-30 启动 |
-| A-2 共享界面基础 | 未开始 | 共享房产 Web 负责人；UI、交互、无障碍与前端测试参与 | A-1 的访问与响应合同已冻结 | 民宿和住房可共同使用选择器、详情框架、任务展示、状态提示、确认对话框和设计系统组件；不依赖 Track B | [待补：共享界面交付证据](../07-30-pr192-a-shared-web-foundation/) | 待排期 | — |
-| A-3 民宿与住房工作台并行整改 | 未开始 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-1 合同与权限完成；A-2 共享界面完成；A-base 基础测试数据可用 | 民宿和住房分别形成清晰页面；每个页面只承载对应任务；桌面与手机均可操作；不保留新旧两套重复实现 | [待补：民宿工作台证据](../07-30-pr192-a-homestay-workbenches/)；[待补：住房工作台证据](../07-30-pr192-a-housing-workbenches/) | 待排期 | — |
-| A-4 菜单、落地页与权限投影 | 未开始 | 菜单权限负责人；共享合同、民宿、住房负责人参与 | A-3 两个领域页面地址和权限已交付 | 菜单按页面权限显示；无权页面不可直达；旧入口安全跳转；菜单、页面、接口权限保持一致 | 待补：菜单与权限验收报告 | 待排期 | — |
+| A-1 合同与权限基础 | 进行中 | 共享合同、server safety、民宿/住房 API、环境文档、API menu projection、数据库变更负责人；产品与安全参与 | A-0 完成 | A-C2 migration+API projection slice 已技术通过；等待 shared Web、workbenches、最终 Web 接入与 route evidence，Web 不暴露未落地 route | [合同与权限任务；A0-S 与 A-C2 slice PASS，A-1 继续进行](../07-30-pr192-a-contract-rbac-foundation/) | 2026-07-30 | 2026-07-30 启动 |
+| A-2 共享界面基础 | 未开始 | 共享房产 Web 负责人持组件；首个 domain route owner 持浏览器执行；QA 持证据 | A-1 的访问与响应合同已冻结 | integration-ready handoff 通过静态/单测与 lint/typecheck/build；不建 preview route；首个真实 route 补 desktop/mobile/keyboard/focus/zoom/ARIA 后才完成 final UI Gate | [待补：共享界面交付证据](../07-30-pr192-a-shared-web-foundation/) | 待排期 | — |
+| A-3 民宿与住房工作台并行整改 | 未开始 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-C2 slice 通过；A-2 共享界面完成；A-base 基础测试数据可用 | 民宿和住房分别形成清晰页面；每个页面只承载对应任务；桌面与手机均可操作；不保留新旧两套重复实现 | [待补：民宿工作台证据](../07-30-pr192-a-homestay-workbenches/)；[待补：住房工作台证据](../07-30-pr192-a-housing-workbenches/) | 待排期 | — |
+| A-4 Web 菜单、落地页与深链防护 | 未开始 | 菜单权限负责人；住房 route owner 持有 tenant alias；民宿 route owner 参与 | A-3 两份 canonical route SHA 已交付 | Web menu 消费真实 route SHA；legacy landing、tenant alias 正确；未知 property 深链默认拒绝且不落到 catch-all placeholder | 待补：Web 菜单与权限验收报告 | 待排期 | — |
 | A-5 自动验收与独立复审 | 未开始 | 自动化测试负责人；独立的产品、权限、UX、测试审查者 | A-1 至 A-4 完成 | 精确角色、园区隔离、页面直达、接口、字段、附件、手机、无障碍、迁移重跑和清理全部通过；没有未关闭的 P0/P1 | [待补：Track A 自动验收证据](../07-30-pr192-a-automated-gates/) | 待排期 | — |
 
 ### 5.2 Track A 放行原则
 
-- A-1 是当前下一立即动作。
+- A-1 保持进行中；当前下一立即动作是 shared Web foundation 与 A-base。
 - A-1 内部顺序固定为：A-contract candidate → A-server-safety/field-projection Gate
-  → 最终 A-contract SHA → menu/migration；后两者不得越过开放的 stop-ship。
-- A-2 完成后，民宿和住房两个工作台才开始依赖共享界面组件。
+  → 最终 A-contract SHA → schema migration/exact tests → API-only `/users/me`
+  projection。Web menu 不属于此时的可见交付。
+- A-2 达到 `foundation handoff ready` 后，民宿和住房工作台可开始依赖共享组件；
+  首个 domain route 负责补真实浏览器证据，final UI Gate 在证据补齐后完成，禁止
+  preview/生产 route。
 - A-3 先交付实际页面地址，A-4 再建立菜单、落地页和跳转，避免菜单指向不存在或
   尚未验收的页面。
+- A-4 只能消费 homestay/housing route SHA；domain Web owners 保持各自 app
+  routes/guards ownership，menu owner 不创建 route。
 - A-5 通过只代表 Track A 技术通过，不代表高风险审批动作可在生产启用。
 
 ## 6. Track B：共享控制、审批、任务与领域集成
@@ -172,7 +179,8 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | 2026-07-30 至待更新 | 未开始 | 完成整改规划、多角色复审、任务拆分和执行路线图 | 启动 Track A 合同与权限基础 | [父任务资料](./) | emvia / Codex |
 | 2026-07-30 至待更新 | 进行中 | 启动 A-1 代码/契约基线研究；当前仅只读盘点 shared、route、RBAC、迁移和测试模式 | 汇合 IA/route 与 RBAC 研究，冻结 A-contract 实施输入 | [A-1 任务](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
 | 2026-07-30 至待更新 | 进行中 | 已形成 shared contract candidate 并完成基础构建、类型、lint 和合同测试；独立复审发现 server fail-closed 缺口及 housing tenant、homestay credential 两组字段投影漂移，A-1 未完成 | 由 infrastructure/homestay/housing/env-doc owners 闭合 A-server-safety Gate；通过前不启动 A-C2 menu/migration | [A-1 stop-ship](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
-| 2026-07-30 至待更新 | 进行中 | A0-S 独立复审 PASS、open P0/P1 为空；修复 canonical metadata 缺失/不匹配时的 fail-open；focused 44/44，API lint/typecheck/build、Shared build、Web typecheck、diff check 通过 | 冻结 contract/server-safety candidate，进入 A-C2 migration/menu；A-1 继续进行中 | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
+| 2026-07-30 至待更新 | 进行中 | A0-S PASS，baseline 已冻结；A-C2 只读复审发现 17 routes 未落地，提前完成 Web menu 会进入 catch-all placeholder；权威顺序已修正 | 先 schema migration/exact tests，再 API `/users/me` projection；随后 shared/A-base、domain route SHA、Web menu、route evidence | [A-1 Gate 记录](../07-30-pr192-a-contract-rbac-foundation/) | emvia / Codex |
+| 2026-07-30 至待更新 | 进行中 | A-C2 独立 DB runtime fixture 与 API projection slice PASS：000183 双跑、65 exact、scope/module/relation 负向、timestamp 稳定、cleanup `0|0|0|0`；临时容器/卷已删除 | 启动 shared Web foundation/A-base；A-1 保持进行中，等待 workbenches、最终 Web menu 和 route evidence | [A-C2 Gate 记录](review-gates.md) | emvia / Codex |
 
 ## 11. 风险、决策与阻塞记录
 
@@ -203,10 +211,13 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 下一立即动作：
 
 1. 保持 `pr192-a-contract-rbac-foundation` 为进行中。
-2. 冻结已通过独立复审的 contract/server-safety candidate；未产生 commit 前不填写 SHA。
-3. schema/menu owners 按最终 candidate 进入 A-C2，完成 forward migration、menu
-   projection、精确权限差异与重跑验证。
-4. A-C2 通过并附上真实 handoff SHA 和证据后，再评估是否关闭 A-1。
+2. 使用 2026-07-30 冻结的 contract/server-safety baseline
+   `e709459a034807b3575db604a76bc69bf1c5ff5b`。
+3. A-C2 migration+API-only projection slice 已技术通过；保存独立 fixture、
+   `000176`–`000182` 基线、000183 双跑、65 exact 与 cleanup 证据。
+4. 启动 shared Web foundation 与 A-base；Web 继续保持不可见，A-1 不关闭。
+5. shared Web/A-base → 两份 domain route SHA → Web menu/landing/alias/deep-link
+   → route evidence/独立 Gate，严格按顺序执行。
 
 在上述步骤完成前，不启动 Track B/C，不开启生产高风险能力，也不把规划完成误报为
 整改完成。

@@ -22,11 +22,11 @@
 |---|---|
 | shared-contract-owner | `packages/shared/src/property-business/**`；本计划中唯一允许改 `packages/shared/src/index.ts` 的 owner |
 | schema-migration-owner | 本计划全部 `database/migrations/<reserved>_*.sql` |
-| menu-projection-owner | `apps/web/lib/menu.ts`；`apps/api/src/modules/users/users.service.ts` 的 property menu projection |
+| menu-projection-owner | 分阶段独占 `apps/api/src/modules/users/users.service.ts` 的 property projection 与 `apps/web/lib/menu.ts`；先交付 API-only SHA，收到两份 domain route SHA 后才写 Web menu |
 | property-workbench-safety-owner | `apps/api/src/shared/property-workbench/**` 和 Track A feature-flag/fail-closed policy tests；不得写领域 service |
 | shared-property-web-owner | `apps/web/features/property-shared/**`、`apps/web/app/assets/parties/**`、`apps/web/app/assets/property-operations/**`、`apps/web/app/assets/property-occupancies/**`、`apps/web/app/assets/property-mode-transitions/**` |
-| homestay-web-owner | `apps/web/app/homestay/**`、`apps/web/features/homestay/**`、本领域 Web tests |
-| housing-web-owner | `apps/web/app/housing/**`、`apps/web/features/housing/**`、本领域 Web tests |
+| homestay-web-owner | `apps/web/app/homestay/**`（含 canonical routes/route guards）、`apps/web/features/homestay/**`、本领域 Web tests |
+| housing-web-owner | `apps/web/app/housing/**`（含 canonical routes/route guards、tenant alias redirect）、`apps/web/features/housing/**`、本领域 Web tests |
 | property-foundation-api-owner | `apps/api/src/modules/property-operations/**` |
 | approval-runtime-owner | `apps/api/src/modules/property-approvals/**` |
 | property-task-owner | `apps/api/src/modules/property-tasks/**` |
@@ -59,6 +59,8 @@
 5. 其他 worker 只提交 schema request。
 6. 新 migration 并发进入仓库时重新检查编号。
 7. checksum/history 冲突立即 stop-ship。
+8. `000183_*` 只是当前候选编号；实际创建文件前必须重新扫描工作树和 migration
+   history，再登记 reservation，不能由计划文档永久占号。
 
 ## 4. 执行批次
 
@@ -94,29 +96,55 @@
 执行记录（2026-07-30）：A0-S 独立复审已 PASS，`open_P0_P1=[]`。复审期间发现并
 修复 canonical metadata 缺失/不匹配时可能 fail open 的问题；focused tests 44/44，
 API lint/typecheck/build、Shared build、Web typecheck 和 diff check 全部通过。
-当前可冻结 contract/server-safety candidate；尚未生成 commit SHA，不在计划中编造。
+contract/server-safety baseline 已于 2026-07-30 冻结：
+`e709459a034807b3575db604a76bc69bf1c5ff5b`
+（`feat(property): freeze Track A access safety baseline`）。
 
-只有 `A-server-safety SHA` 和最终 `A-contract SHA` 均已交付后：
+只有 `A-server-safety SHA` 和最终 `A-contract SHA` 均已交付后，按顺序执行：
 
-- schema-migration-owner 完成 Track A permissions/menu schema migration。
-- qa-automation-owner 只建立 traceability/evidence schema，不生成页面 route evidence。
+1. schema-migration-owner 完成 Track A permission schema migration 和 exact tests；
+   expected permission set 恰好 65，不是 69。custom、legacy operations、wildcard
+   均不得自动扩权。
+2. menu-projection-owner 只完成 API `/users/me` property projection 基础：
+   enabledModules、granular page-only、current tenant+park relation filtering，输出
+   `A-api-menu-projection SHA`。此时禁止修改 `apps/web/lib/menu.ts`，Web 不暴露
+   canonical route。
+3. qa-automation-owner 只建立 traceability/evidence schema，不生成页面 route evidence。
 
-输出：A-contract SHA、A-server-safety SHA、A-schema SHA。
+输出：A-contract SHA、A-server-safety SHA、A-schema SHA、
+`A-api-menu-projection SHA`。
+
+执行记录（2026-07-30）：A-C2 migration+API-only projection slice
+**CLOSED / TECHNICAL PASS**，`open_P0_P1=[]`。独立临时 PostgreSQL
+容器/volume 以 `000176`–`000182` 为
+声明基线，000183 连续直跑两次通过；65 exact、多园区、
+disabled/expired/missing/status-disabled、timestamp 稳定以及 custom/legacy/
+wildcard 不扩权均通过。cleanup residual counters=`0|0|0|0`，容器和 volume 已删除。
+cross-scope permission assignment 与 role tenant 一致性通过。增量 review 自修后的
+container fallback exact rerun 使用 exact run-id、双 label、running 状态、
+`docker run --rm`、official PostgreSQL image、显式 `POSTGRES_DB`、匿名 volume，
+并拒绝数据库 URL override。
+空库 `000175` 是 fail-fast 回滚的生产数据补丁且不提供 fixture schema，故隔离基线
+跳过；不得将此证据解释为全量空库 migration-chain PASS。A-1 保持 `in_progress`。
 
 ### Batch A0.5：Shared Web Foundation
 
-严格依赖 A-contract SHA 与 A-server-safety SHA，由 shared-property-web-owner 独占
+严格依赖 A-contract SHA、A-server-safety SHA、A-schema SHA 和
+`A-api-menu-projection SHA`，由 shared-property-web-owner 独占
 `apps/web/features/property-shared/**`，完成共享 picker、task presentation、detail、
 dialog、page-state 和 DS adapters。本批一个实现 owner，最多两个只读/独立 checker；
 不得依赖 Track B identity、approval 或 task runtime。
 
 输出规范的 `A-shared-web-foundation SHA`，handoff 包含 owned paths、A-contract
-base SHA、组件 API、验证证据、known limitations 和 `open_P0_P1=[]`。
+base SHA、组件 API、纯函数/组件静态与单测、lint/typecheck/build、known
+limitations 和 `open_P0_P1=[]`。本批不得创建 preview/生产 route；该 SHA 仅表示
+integration-ready，不代表 final UI Gate。
 
 ### Batch A0.6：A-base-core
 
-严格依赖 A-contract SHA 与 A-schema SHA，由 qa-automation-owner 生成
-`A-base-core`，完成 deterministic checksum、生产保护和 cleanup rehearsal，输出
+严格依赖 A-contract SHA、A-schema SHA 与 `A-api-menu-projection SHA`，由
+qa-automation-owner 生成 `A-base-core`，完成 deterministic checksum、生产保护和
+cleanup rehearsal，输出
 `A-base-core fixture SHA`。A1 页面 worker 只能基于该 SHA 开始；core 发布后不得由
 页面 worker 改写。
 
@@ -133,16 +161,28 @@ subagent 并行：
 两份 handoff 均须包含 consumed foundation SHA、owned routes、base/output SHA、验证结果和
 `open_P0_P1=[]`。
 
-### Batch A2：Menu Projection 与 Route Evidence
+首个输出 domain route SHA 的 owner 还必须在真实 route 上执行 shared foundation 的
+desktop/mobile/keyboard/focus/zoom/ARIA 浏览器矩阵并交 evidence；shared owner负责
+组件缺陷修复与 final UI Gate 签收，qa-automation-owner 负责追溯。该证据未完成时
+不阻止 integration-ready SHA 被消费，但不得报告 foundation final UI Gate PASS。
 
-- menu-projection-owner：消费两份 A1 route SHA，实现 canonical
-  menu/landing/redirect，输出 `A-menu-projection SHA`。
-- qa-automation-owner：消费两份 route SHA 和 `A-menu-projection SHA` 后生成
+### Batch A2：Web Menu Projection
+
+- menu-projection-owner：消费两份 A1 route SHA 后才修改 Web menu，实现 canonical
+  menu、legacy module landing 和 unknown property deep-link fail-closed；不得创建
+  领域 route 或 placeholder。
+- housing-web-owner：在 `apps/web/app/housing/**` 独占范围内、收到两份 route SHA
+  后实现 tenant alias redirect 与 route guard；menu owner 不接管该路径。
+- 两者共同输出 `A-web-menu-projection SHA`。
+
+### Batch A2.5：Route Evidence
+
+- qa-automation-owner：消费两份 route SHA 和 `A-web-menu-projection SHA` 后生成
   `A-route-evidence`，运行精确角色
   Web/API E2E、route/page/API/data/file、viewport/WCAG 和 cleanup；不得改写
   `A-base-core`。
 
-本批最多两个 subagent；输出 `A-menu-projection SHA` 与 `A-route-evidence SHA`。
+输出 `A-route-evidence SHA` 后才能进入独立检查。
 
 ### Batch A3：独立检查
 

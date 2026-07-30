@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PROPERTY_BUSINESS_SURFACES,
+  type UserMenuTreeNode
+} from "@jinhu/shared";
+import {
   FIRST_RELEASE_MENU_PATH_SET,
   findMenuByPath,
   getDashboardMenus
@@ -61,6 +65,57 @@ test("backend menu projection merges without duplicating property business entri
   );
   assert.equal(
     menus.flatMap((menu) => menu.children ?? []).filter((menu) => menu.href === "/housing").length,
+    1
+  );
+});
+
+test("backend canonical property menus stay hidden until their route handoffs", () => {
+  const propertyGroups = (["homestay", "housing_rental"] as const).map((moduleCode) => ({
+    label: moduleCode === "homestay" ? "民宿管理" : "住房出租",
+    module: moduleCode,
+    children: PROPERTY_BUSINESS_SURFACES
+      .filter((surface) => surface.moduleCode === moduleCode)
+      .map((surface) => ({
+        label: surface.featureId,
+        href: surface.route,
+        permission: surface.pageCode,
+        module: surface.moduleCode
+      }))
+  }));
+  const menus = getDashboardMenus([
+    ...propertyGroups,
+    {
+      label: "IoT 平台",
+      module: "iot",
+      children: [
+        {
+          label: "厂商运行台",
+          href: "/iot/vendor-console",
+          permission: "iot_vendor_console:read",
+          module: "iot"
+        }
+      ]
+    }
+  ] satisfies UserMenuTreeNode[]);
+  const canonicalPropertyHrefs = new Set<string>(
+    PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route)
+  );
+  const mergedChildren = menus.flatMap((menu) => menu.children ?? []);
+
+  assert.equal(
+    mergedChildren.filter((menu) => menu.href && canonicalPropertyHrefs.has(menu.href)).length,
+    0
+  );
+  assert.equal(
+    mergedChildren.some((menu) => menu.href === "/iot/vendor-console"),
+    true
+  );
+  assert.equal(
+    mergedChildren.filter((menu) => menu.href === "/homestay").length,
+    1
+  );
+  assert.equal(
+    mergedChildren.filter((menu) => menu.href === "/housing").length,
     1
   );
 });

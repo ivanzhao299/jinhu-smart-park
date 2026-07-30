@@ -2,11 +2,13 @@
 
 ## 1. 前置条件
 
-- A-contract SHA、access manifest 和 response contracts 已冻结。
+- A-contract/server-safety SHA、A-C2 schema/exact-test SHA 与 API-only
+  `/users/me` property projection SHA 已冻结；Web menu 仍不可见。
 - 已运行 `trellis-before-dev`，读取 Web/shared/UI、upload/form、reuse 和 cross-layer
   specs。
 - `apps/web/features/property-shared/**` 没有其他 active owner。
-- 本任务作为 Track A A0/A1 执行，不等待 Track B。
+- 本任务作为 Track A Web foundation 执行，晚于 schema/API projection、早于
+  homestay/housing routes，不等待 Track B。
 
 ## 2. Subagent 批次
 
@@ -35,7 +37,7 @@
 ### S2：独立检查
 
 - component/effect checker。
-- mobile/DS/accessibility checker。
+- static DS/accessibility contract checker。
 - dependency-boundary checker。
 
 Checker 不直接修复；P0/P1 回派原 owner并独立复验。
@@ -43,7 +45,9 @@ Checker 不直接修复；P0/P1 回派原 owner并独立复验。
 ### S3：A Handoff
 
 冻结 `A-shared-web-foundation SHA`，分别交给 homestay/housing workbench。Handoff
-后两个领域才能建立依赖这些组件的 canonical route。
+后两个领域才能建立依赖这些组件的 canonical route。该 SHA 是 integration-ready
+handoff，不等于 final UI Gate；首个 domain route owner 在真实 route 上补浏览器
+证据后，由 shared owner 与 QA 关闭 final UI Gate。
 
 ## 3. 实施步骤
 
@@ -53,8 +57,11 @@ Checker 不直接修复；P0/P1 回派原 owner并独立复验。
 4. 建 CanonicalDetailShell、return context 和 ConsequenceDialog。
 5. 建 PageState/LiveRegion 与 TaskPresentation。
 6. 组合现有 DS surface，不修改领域页面。
-7. 完成组件、effect、navigation、mobile 和 accessibility tests。
+7. 完成纯函数/组件静态检查、组件/effect/navigation 单测以及 lint/typecheck/build。
 8. 输出 API 文档和双工作台 handoff。
+
+不得在本批次创建 canonical domain route、修改 `apps/web/lib/menu.ts`，或用
+catch-all placeholder 充当 route 完成证据。
 
 ## 4. 验证
 
@@ -66,8 +73,9 @@ pnpm --filter @jinhu/web build
 pnpm typecheck
 ```
 
-另运行 shared component tests、browser keyboard/screen-reader checks 和静态 import/
-DS surface checks。
+另运行 shared component tests 与静态 import/DS/accessibility contract checks。
+此阶段不运行依赖真实页面的 browser keyboard/screen-reader/viewport 验收；这些在
+首个 domain canonical route SHA 上执行。
 
 Machine Gate：
 
@@ -75,12 +83,17 @@ Machine Gate：
 - 无 permission/response/upload policy 分叉。
 - picker/detail/dialog/task/state 全部行为与 effect 测试通过。
 - unauthorized loader/callback 调用数为零。
-- 320/360/390/768/desktop、WCAG 2.2 AA 和 DS 证据通过。
+- 静态 DS/accessibility contracts 通过；真实 desktop/mobile/keyboard/focus/zoom/
+  ARIA 证据登记为首个 domain route SHA 的强制 follow-up。
 - complexity 通过，open P0/P1 为零。
 
 ## 5. 完成
 
 - 只修改独占 property-shared 路径。
-- 记录 contract/base/handoff SHA、命令、结果、artifact 和已知限制。
+- 记录 contract/server-safety、A-schema、A-api-menu-projection、foundation handoff
+  SHA、命令、结果、artifact 和已知限制。
 - 两个工作台确认可从同一 SHA 消费组件 API。
+- 未取得首个 domain route 浏览器证据前，只能称 `foundation handoff ready`，不得称
+  `foundation final UI gate passed`。
+- 不创建 preview route 或临时生产 route。
 - 不把人工 UAT 或 Track B 能力误报为本任务完成。

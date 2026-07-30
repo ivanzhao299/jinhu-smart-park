@@ -4,9 +4,9 @@
 
 该 runner 有两个可独立恢复的交付单元：
 
-- `A-base-core provision` 输入 fixture contract/schema SHA、PR #192 现有 domain runtime
-  和测试环境，页面前即可输出 A-base profile/checksum、provision evidence 与 fixture
-  handoff SHA。
+- `A-base-core provision` 输入 fixture contract、A-C2 schema/exact-test SHA、
+  API-only `/users/me` projection SHA、PR #192 现有 domain runtime 和测试环境，
+  页面前即可输出 A-base profile/checksum、provision evidence 与 fixture handoff SHA。
 - `A-route-evidence` 输入上述 fixture handoff SHA，以及后续页面/menu/API final
   handoff，输出 technical gate verdict、traceability coverage、evidence bundle 和
   cleanup verdict。
@@ -45,23 +45,32 @@ manifest schema version
 
 敏感明文不进入 checksum 或日志。运行开始校验目标租户带有专用测试标记且环境 denylist 不包含 shared/staging/production；任一判断不确定即 fail closed。
 
+PostgreSQL fallback container 只能按 exact run-id、双 label 与 running 状态定位；
+使用 `docker run --rm`、official PostgreSQL image、显式 `POSTGRES_DB` 和匿名 volume，
+拒绝数据库 URL override。权限 grant/assignment 与 role tenant 必须一致，cross-scope
+组合 fail closed。
+
 ## 4. Exact-set Oracle
 
 每个角色使用相同管线采集实际集合：
 
 ```text
-DB assignment -> /users/me -> enabled_modules
+DB assignment -> /users/me -> active enabled_modules + granular pages + current tenant/park relation
 menu materialization -> visible routes
 direct route -> page guard
 HTTP endpoint -> module + permission + data/field/file projection
 ```
 
 比较器对集合排序去重后执行双向差集；报告 `missing` 与 `unexpected`。模块可用性与权限提升分别断言，尤其覆盖 superuser + disabled module。字段和附件使用权限交集，不因业务权限推导通用文件权限。
+property granular permission 集合固定为 65，不是 69；custom role、legacy operations
+和 wildcard 不能被 oracle 或实现自动展开为 page permission。
 
 ## 5. Layered Execution
 
-整体顺序为 A-base-core provision → 发布 fixture handoff SHA → homestay/housing
-并行实现 → 页面/menu/API final handoff → A-route-evidence。A-route-evidence 内部运行
+整体顺序为 A-C2 schema/exact tests → API-only `/users/me` projection → shared Web
+foundation/A-base-core provision → 发布 fixture handoff SHA → homestay/housing
+并行实现并输出 route SHA → Web menu/landing/deep-link 与 housing tenant alias
+handoff → A-route-evidence。A-route-evidence 内部运行
 L0 → L1/L2/L3 → L4 → L5 → L6。前置数据或安全断言失败立即停止后续写操作，但仍进入 cleanup。每层输出独立 verdict 和 evidence IDs：
 
 - L0 扫描共享权限常量、API 元数据、页面/菜单 manifest。
@@ -70,6 +79,11 @@ L0 → L1/L2/L3 → L4 → L5 → L6。前置数据或安全断言失败立即�
 - L4 使用真实登录 token 和 HTTP，不用 service mock 证明授权。
 - L5 使用浏览器覆盖 landing、深链、刷新、选择器、桌面/手机。
 - L6 聚合 axe、viewport overflow、触控、性能、证据和清理。
+
+在上述“homestay/housing 并行实现”阶段，首个 domain route SHA 触发一次
+`A-foundation-first-route-ui` checkpoint：只为 shared foundation 补
+desktop/mobile/keyboard/focus/zoom/ARIA 真实集成证据。它不改变六步顺序，也不提前
+运行最终 A-route-evidence。禁止建立 preview/临时生产 route。
 
 ## 6. UX And Performance Harness
 
@@ -92,6 +106,10 @@ traceability validator 保证每条父需求至少有一个正向和最近反向
 1. `a-profile-owner`：先行 A-base-core builder、checksum、fixture handoff SHA、生产保护、cleanup/reconcile；不等待页面 owner。
 2. `a-authz-owner`：收到页面/menu/API handoff 后执行 A-route-evidence 的 exact-set oracle、L0-L4 权限/范围/字段/文件矩阵。
 3. `a-browser-evidence-owner`：在同一 route handoff 上执行 L5-L6、UX/axe/perf、traceability/evidence 报告。
+
+首个 domain route owner 负责 `A-foundation-first-route-ui` 的浏览器执行和 artifact；
+shared owner 负责组件问题修复与 Gate 签收；`a-browser-evidence-owner` 负责 evidence
+schema/追溯。两份 routes 与 Web 接入完成后的最终 L5-L6 仍由第 3 批执行。
 
 批次合并后由独立 check agent 只读复核 profile 边界、双向差集、证据链与残留。任何 agent 不得修改其他 Track 的 task 目录。
 

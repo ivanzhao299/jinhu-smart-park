@@ -13,7 +13,7 @@ Ownership 表中任何文件的局部 ownership。实现只能由父任务指定
 | `homestay-api-owner` | `apps/api/src/modules/homestay/**` | 接入 cancel/ledger safety policy；闭合 booking/credential projection |
 | `housing-api-owner` | `apps/api/src/modules/housing/**` | 接入 lease/ledger/purchase safety policy；闭合 tenant list/create projection |
 | `property-env-doc-owner` | `.env.example`、`.env.production.example`、相关环境/部署/测试文档 | 冻结 flag 默认值、三态语义、409 compatibility 和 rollout 说明 |
-| `menu-projection-owner` | `apps/web/lib/menu.ts`、`apps/api/src/modules/users/users.service.ts` 的 property projection | 提供菜单、landing、redirect 要求并验收 |
+| `menu-projection-owner` | 分阶段独占 `apps/api/src/modules/users/users.service.ts` property projection 与 `apps/web/lib/menu.ts` | A-C2 先交付 API-only SHA；收到两份 domain route SHA 后才写 Web menu/landing/redirect |
 | `schema-migration-owner` | `database/migrations/<reserved-A-permission-menu>.sql` | 提交 schema request，验收 reservation、rerun、diff 和 checksum |
 
 本子任务中的 planner、reviewer 和 checker 不得写入上述文件。需要实现或修复时，
@@ -101,6 +101,16 @@ request；未取得 Track B SHA 时 fail closed。
 
 数据库 seeded menu 是首选运行时来源，静态 menu 是兼容 fallback。两者必须使用相同 canonical route、page permission 和 module code。
 
+当前 canonical Web routes 尚未全部存在，会被 catch-all placeholder 接住。因此
+projection 分两段：
+
+1. A-C2 API-only：`/users/me` 仅按 active enabledModules、granular page permission
+   和当前 tenant+park role/relation 过滤；custom、legacy operations、wildcard
+   不得推导新 page。Web menu/feature flag 不暴露这些 route。
+2. route SHA 后：menu owner 消费 homestay/housing route SHA，再实现 Web menu、
+   legacy landing 与 unknown property deep-link fail-closed；housing Web owner 在其
+   app route 独占范围实现 tenant alias redirect/guard。
+
 Menu tree：
 
 - 民宿父菜单 `homestay`。
@@ -142,6 +152,14 @@ Migration 必须幂等、forward-only，并提供：
 - before/after role-permission diff。
 - 新增/缺失/多余 grant 报告。
 - rerun 结果。
+- expected permission exact set 为 65，不是 69。
+- `000183_*` 在创建前只作为候选；schema owner 重扫工作树/history 并实际创建后，
+  `000183_property_business_granular_rbac.sql` 成为本切片 reservation。
+
+隔离 runtime fixture 的 container fallback 必须绑定 exact run-id、双 label 和
+running 状态；只允许 `docker run --rm`、official PostgreSQL image、显式
+`POSTGRES_DB`、匿名 volume，拒绝数据库 URL override。permission assignment 与 role
+必须属于同一 tenant，cross-scope 错配 fail closed。
 
 ## 5. Landing 和 Redirect
 

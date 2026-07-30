@@ -18,19 +18,30 @@ apps/web/features/housing/**
 - route/page permission contract SHA：manifest、response contracts、permission
   constants。
 - Track A permission/schema SHA。
+- API-only `A-api-menu-projection SHA`；该输入尚不允许 Web 暴露 property route。
 - Track A 子任务 `07-30-pr192-a-shared-web-foundation` 的 shared Web foundation
-  SHA：picker、detail/dialog、task presentation、DS surface 和 permission adapters。
+  integration-ready SHA：picker、detail/dialog、task presentation、DS surface 和
+  permission adapters；handoff Gate 是静态/单测与 lint/typecheck/build，不含
+  preview route。
 - 早期 A-base-core fixture/profile checksum。
 
 该 shared Web 子任务属于 A0/A1，先于住房工作台 handoff，且不依赖 Track B
 identity。附件复用仓库既有共享上传组件；离线 draft/upload queue 仍属于 Track C，
 不得被解释为本前置 SHA。任何契约变更由对应 owner 处理；住房页面不得本地复制。
 
-Menu、legacy `/housing` landing 和 redirect 不是本任务启动前置，也不由 A1 实现。
+Menu、legacy `/housing` landing 和 redirect 不是本任务启动前置，也不由初始 route
+批次实现。
 本任务完成 canonical routes 后输出 `housing-route-landing-input SHA`，包含 route
-存在性、page permission、固定 priority、module/scope/403 语义和 legacy alias；后置
-A2 `menu-projection-owner` 消费该 SHA 实现 menu/landing/redirect。住房 Party
-canonical alias 属住房 route contract，不能被解释为 A2 的前置产物。
+存在性、page permission、固定 priority、module/scope/403 语义和 Party alias
+contract；后置 A2 中，`menu-projection-owner` 消费该 SHA 实现 menu/landing 与
+unknown deep-link fail-closed，`housing-web-owner` 仍独占 app route 并实现 Party
+canonical alias redirect/guard。alias 是后置 Web 接入产物，不是 route SHA 的虚假
+前置；menu owner 不得接管 housing route。
+
+若住房先输出 Track A 首个 canonical domain route SHA，housing Web owner 拥有该
+真实 route 上的 desktop/mobile/keyboard/focus/zoom/ARIA 执行与 artifact；shared
+owner 拥有组件修复和 final UI Gate 签收，QA owner 拥有 evidence 追溯。证据补齐前
+不得宣称 shared foundation final UI Gate PASS。
 
 ## 2. Feature 分层
 
@@ -55,7 +66,7 @@ apps/web/features/housing/
 ## 3. Extract 顺序
 
 1. dashboard query。
-2. tenant/Party list 与 canonical redirect。
+2. tenant/Party list；canonical redirect 留到 route SHA 后的 Web 接入批次。
 3. lease list/create/detail。
 4. billing。
 5. finance/deposit。
@@ -118,7 +129,8 @@ Track A A2 接收：
 
 - `housing-route-landing-input SHA`。
 - canonical route/page permission/priority/legacy alias 清单。
-- 页面直达、Party canonical alias、403/empty-scope 验证结果。
+- 页面直达、403/empty-scope 验证结果。
+- 后置 A2 由 housing owner 另交 Party canonical alias redirect/guard SHA。
 
 Track C 接收超限文件、query/request 性能基线、draft/upload 队列接入点。Handoff
 记录 base/handoff SHA、路径、命令、已知失败；open P0/P1 时禁止交接。

@@ -60,19 +60,76 @@ homestay booking detail + credential issue/return: credentialReference masked
 执行记录（2026-07-30）：A-C1.5 独立复审 PASS，`open_P0_P1=[]`。复审发现并修复
 canonical metadata 缺失/不匹配时可能 fail open 的问题；focused tests 44/44，
 API lint/typecheck/build、Shared build、Web typecheck、diff check 全部通过。
-contract/server-safety candidate 已可冻结；当前没有 commit SHA，不填写虚构 SHA。
-A-1 仍为 `in_progress`，因为 A-C2 migration/menu 尚未完成。
+contract/server-safety baseline 已于 2026-07-30 冻结为
+`e709459a034807b3575db604a76bc69bf1c5ff5b`
+（`feat(property): freeze Track A access safety baseline`）。A-1 仍为
+`in_progress`；在该 checkpoint，A-C2 schema、API projection 与后置 Web 接入尚未
+按 Gate 完成。后续 A-C2 slice 结果见下方 runtime fixture 执行记录。
 
-### A-C2：Menu 与 Migration
+### A-C2a：Schema Migration 与 Exact Tests
 
 严格依赖最终 A-contract SHA 与 A-server-safety SHA，且 stop-ship
 `open_P0_P1=[]`：
 
 - 父表唯一 `schema-migration-owner`：接收本任务 schema request，是唯一 Track A migration writer。
-- 父表唯一 `menu-projection-owner`：接收本任务 projection request，只改 Web menu 与 users menu projection。
 - `migration-test-owner`：只写/运行 Track A migration exact-set tests。
 
-三个 owner 不交叉文件。
+要求：
+
+- expected permission exact set 恰好 65，不是 69。
+- custom role、legacy operations、wildcard 不自动获得 granular page。
+- `000183_*` 仅为候选编号；创建文件前重扫全部 migrations 和 history，再 reservation。
+- migration 连续执行两次，definition/grant snapshot 相等。
+
+### A-C2b：API `/users/me` Property Projection
+
+严格依赖 A-C2a schema/exact tests：
+
+- 父表唯一 `menu-projection-owner` 只修改
+  `apps/api/src/modules/users/users.service.ts` 的 property projection。
+- 只接受 active enabledModules、granular page permission、当前 tenant+park
+  role/relation。
+- custom、legacy、wildcard 不自动扩权。
+- 输出 `A-api-menu-projection SHA`；此阶段不得修改 `apps/web/lib/menu.ts`，Web
+  feature flag/菜单仍不暴露尚未落地的 canonical route。
+
+### A-C2c：Web Menu（后置，不在当前 A-1 提前完成）
+
+等待 shared Web foundation、A-base 和 homestay/housing 两份 route SHA。menu owner
+消费 route SHA 后才实现 Web menu、legacy landing、unknown property deep-link
+fail-closed；housing Web owner 在其独占 app route 内实现 tenant alias redirect/
+guard。Domain Web owners 持续持有各自 app routes/guards；menu owner不得创建
+placeholder 或领域 route。
+
+### A-C2 Runtime Fixture 执行记录（2026-07-30）
+
+A-C2a migration 与 A-C2b API-only projection 切片最终 Gate：
+**CLOSED / PASS**，`open_P0_P1=[]`。该结论基于独立临时 PostgreSQL 容器和独立
+volume，不代表 A-C2c Web menu 或 A-1 整体完成。
+
+- 隔离 fixture 以 `000176`–`000182` 建立 A-C2 所需基线。
+- `000183_property_business_granular_rbac.sql` 连续直跑两次均通过。
+- property permission definition/grant exact set 为 65，且二次运行后 timestamp
+  稳定。
+- 覆盖多园区、module disabled、relation expired、relation missing、relation
+  status disabled；`/users/me` projection 均按当前 tenant+park 和 active module
+  fail closed。
+- custom role、legacy operations 与 wildcard 不会自动扩展 granular page
+  permission。
+- cross-scope permission assignment 与 role 的 tenant 必须一致，错配默认拒绝。
+- cleanup residual counters 为 `0|0|0|0`；临时容器和 volume 已删除。
+
+增量 reviewer 发现 fixture container fallback 不够精确后已自修并复跑：fallback
+必须绑定 exact run-id 与双 label，只处理 running container；使用 `docker run --rm`、
+official PostgreSQL image、显式 `POSTGRES_DB` 和匿名 volume，并拒绝数据库 URL
+override。修复后的同一 Gate 全绿。
+
+`000175` 在空库中是生产数据补丁，会 fail-fast 并完整回滚，且不创建本次 fixture
+所需 schema，因此隔离 A-C2 基线明确跳过它。此记录不把该跳过解释为全量空库
+migration chain 通过；只证明 A-C2 切片在声明的 `000176`–`000182` 前置基线上成立。
+
+A-1 继续保持 `in_progress`：shared Web foundation、homestay/housing workbenches、
+最终 Web menu/landing/alias/deep-link 和 route evidence 尚未交付。
 
 ### A-C3：Machine Gate
 
@@ -94,10 +151,13 @@ A-1 仍为 `in_progress`，因为 A-C2 migration/menu 尚未完成。
   fail-closed 证据。
 - [ ] 接收 homestay/housing 两组 field projection response snapshot。
 - [ ] 接收 `property-env-doc-owner` 的 env/default/409 compatibility 同步证据。
-- [ ] 向 `schema-migration-owner` 交付 schema request；reservation 后验收 forward migration。
-- [ ] 向 `menu-projection-owner` 交付 seeded/static menu 和 landing/redirect 要求并验收。
-- [ ] 运行 exact-set migration 两次。
-- [ ] 输出 before/after permission diff。
+- [x] 向 `schema-migration-owner` 交付 schema request；reservation 后验收 forward migration。
+- [x] 验收 65-permission exact set，custom/legacy/wildcard 无自动扩权。
+- [x] 验收 API-only `/users/me` projection slice，确认 Web 未提前暴露。
+- [ ] 两份 domain route SHA 后，才向 `menu-projection-owner` 交付 Web
+  menu/landing/redirect 工作包。
+- [x] 运行 exact-set migration 两次。
+- [x] 输出 before/after permission diff。
 - [ ] 独立 checker 无 P0/P1。
 - [ ] 生成 handoff SHA。
 
@@ -111,7 +171,10 @@ A-1 仍为 `in_progress`，因为 A-C2 migration/menu 尚未完成。
 - active/missing/disabled/expired module matrix。
 - normal/superuser matrix。
 - single/multi-park matrix。
+- cross-scope permission assignment / role tenant consistency。
 - exact fixture equality。
+- fixture container exact run-id/dual-label/running fallback、`--rm`、official
+  PostgreSQL、`POSTGRES_DB`、anonymous volume、URL override rejection。
 - legacy-only/custom-role negative cases。
 - direct route landing/403 contract。
 - `PROPERTY_WORKBENCH_V2` unset/off/true matrix。

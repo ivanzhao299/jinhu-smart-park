@@ -7,9 +7,10 @@
 桌面与手机共用的 canonical 工作面。Track A 直接解决“一个万能页承载全部岗位”
 和页面权限无法隔离的问题。
 
-本任务只交付 Track A 民宿 Web 能力。共享 access/response contract、菜单/RBAC
-迁移、共享 picker/task/upload 组件及跨角色自动化分别由父任务指定 owner 交付，
-本任务只消费冻结 SHA，不建立第二份契约。
+本任务只交付 Track A 民宿 Web 能力。它消费共享 access/response contract、
+permission schema、API-only `/users/me` projection、共享 picker/task/upload 组件和
+A-base 的冻结 SHA，不建立第二份契约。Web 菜单/landing 必须消费本任务完成后的
+route SHA，不能成为本任务前置。
 
 ## 2. 用户与岗位任务
 
@@ -128,4 +129,6 @@ module/tenant/park/scope/permission 变化时清除失效上下文并阻止提�
 - [ ] 360/390/768/desktop、横竖屏、软键盘、键盘、读屏和 WCAG/DS 证据通过。
 - [ ] 局部 mutation 不刷新三个以上无关上下文；失败保留最后成功投影。
 - [ ] Web lint、typecheck/build、组件测试和精确角色浏览器 E2E 通过。
+- [ ] 若本任务为首个 domain route SHA，已在真实 route 补齐 shared foundation 的
+  desktop/mobile/keyboard/focus/zoom/ARIA 证据；未创建 preview/生产 route。
 - [ ] 与 shared/menu/QA owners 的 handoff 记录无 open P0/P1。

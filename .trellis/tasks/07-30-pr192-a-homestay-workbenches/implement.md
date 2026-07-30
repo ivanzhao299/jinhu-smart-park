@@ -3,13 +3,14 @@
 ## 1. 前置条件
 
 - 父任务 Track A 合同冻结。
-- route/page permission contract SHA、Track A permission/schema SHA 和早期
-  `A-base-core` fixture handoff SHA 已冻结。
+- route/page permission contract SHA、Track A permission/schema SHA、API-only
+  `A-api-menu-projection SHA` 和早期 `A-base-core` fixture handoff SHA 已冻结。
 - `A-base-core` 只包含页面开发所需的确定性基础数据、精确角色/权限集、profile ID
   和 core checksum；它来自 automated-gates 的早期 fixture 阶段，不要求
   `A-route-evidence`、浏览器证据或 automated-gates 整体完成。
-- `07-30-pr192-a-shared-web-foundation` 已在 Track A A0/A1 完成，并交付不依赖
-  Track B identity 的 shared Web foundation SHA。
+- `07-30-pr192-a-shared-web-foundation` 已交付不依赖 Track B identity 的
+  integration-ready SHA（静态/单测、lint/typecheck/build 已通过）；它的 final UI
+  Gate 等待首个 domain route SHA 的真实浏览器证据。
 - 不要求 menu、landing 或 redirect handoff；它们是消费本任务输出的后置 A2
   交付，A1 不等待 A2。
 - 运行 `trellis-before-dev` 并读取 Web、shared、upload/form、cross-layer 和 reuse spec。
@@ -61,6 +62,9 @@ Feature extract 全部通过后并行：
 - accessibility checker：axe、键盘、NVDA/等价、zoom/reflow、forced-colors。
 
 Checker 只报告问题；修复回派原 owner。任何 P0/P1 必须由非修复者复审。
+若本任务先输出 Track A 的首个 canonical domain route SHA，browser/accessibility
+checkers 同时负责 shared foundation 的 desktop/mobile/keyboard/focus/zoom/ARIA
+集成证据；shared owner 修复组件问题并签收 final UI Gate，QA 归档证据。
 
 ## 3. 实施步骤
 
@@ -68,11 +72,13 @@ Checker 只报告问题；修复回派原 owner。任何 P0/P1 必须由非修�
 2. 消费 shared response contracts，删除 route-local 重复 response interfaces。
 3. 建立 feature API/query/mutation/permission adapters。
 4. 逐工作流抽取并让 `/homestay` 继续调用同一 feature。
-5. 建立 canonical list/detail routes；冻结固定 landing priority、page permission、
-   module/scope/403 语义和 legacy alias 输入，但不实现 menu/legacy landing/redirect。
+5. 建立 canonical list/detail routes 与 route guards；冻结固定 landing priority、
+   page permission、module/scope/403 语义和 legacy alias 输入，但不实现
+   menu/legacy landing/redirect。
 6. 接入共享 picker/task/upload/status components。
 7. 将 manifest 标注的高风险动作渲染为只读并验证 API fail closed。
-8. 完成 DS、移动和无障碍整改。
+8. 完成 DS、移动和无障碍整改；若为首个 domain route SHA，同时关闭 shared
+   foundation 延后的真实浏览器 evidence。
 9. 生成 handoff：owned paths、base/handoff SHA、命令、证据、已知风险。
 10. 将 canonical route SHA、route/page/action mapping 和浏览器入口反向 handoff
     给 automated-gates 的 `A-route-evidence` 阶段，由其完成最终角色 E2E 与证据；
@@ -94,6 +100,7 @@ pnpm typecheck
 
 并运行本任务新增的组件/contract 测试、Track A 精确角色 Web E2E、相关
 first-release regression。浏览器证据必须覆盖实际页面而非静态源码断言。
+不得为 shared foundation 单独创建 preview route 或临时生产 route。
 
 Machine Gate：
 

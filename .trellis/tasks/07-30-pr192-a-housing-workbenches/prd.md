@@ -7,7 +7,8 @@
 页面、动作、数据、字段和文件访问均可独立授权，并由同一组件树支持桌面和手机。
 
 本任务只拥有 Track A 住房 Web 路径，消费父任务冻结的 shared access/response
-contract、共享 Web 组件、菜单/landing 和 A-base fixture，不修改其权威来源。
+contract、API-only `/users/me` projection、共享 Web 组件和 A-base fixture，不修改
+其权威来源。菜单/landing 消费本任务的 route SHA，不能成为本任务前置。
 
 ## 2. 用户与岗位任务
 
@@ -40,7 +41,8 @@ Persona 不参与运行时判权，built-in/custom role 只组合 manifest permi
 
 `/housing/tenants/[partyId]` 不实现第二套 Party 详情，重定向到
 `/assets/parties/[partyId]`。不得创建 `/housing/terminal/*`。审批使用 canonical
-detail 的 tab/query，不创建重复审批 CRUD。
+detail 的 tab/query，不创建重复审批 CRUD。该 alias redirect 由 housing Web owner
+在 canonical route SHA 后的 Web 接入批次实现；menu owner 不接管 housing app route。
 
 ## 4. 功能要求
 
@@ -125,3 +127,5 @@ filter/page/sort 进入 URL；详情可刷新、可分享，allowlist `returnTo`
 - [ ] deep-link、refresh、back/forward、returnTo、分页缩减和 scroll 恢复通过。
 - [ ] desktop/360/390/768、横竖屏、软键盘、WCAG/DS Gate 通过。
 - [ ] shared/file 组件和 complexity 门禁通过，无 open P0/P1 handoff。
+- [ ] 若本任务为首个 domain route SHA，已在真实 route 补齐 shared foundation 的
+  desktop/mobile/keyboard/focus/zoom/ARIA 证据；未创建 preview/生产 route。

@@ -25,9 +25,11 @@
   - permission constants、bundle definitions、response contracts。
   - manifest validator 所需稳定类型。
 - `packages/shared/src/index.ts` 的一次性入口导出。
-- Track A permission/menu forward migration。
-- `apps/web/lib/menu.ts` canonical menu 和 landing 合同。
-- `apps/api/src/modules/users/users.service.ts` 的 property menu projection。
+- Track A permission forward migration 与 exact tests；expected set 恰好 65。
+- `apps/api/src/modules/users/users.service.ts` 的 API-only property menu projection
+  基础。
+- `apps/web/lib/menu.ts` canonical menu 和 landing 合同只作为两份 domain route SHA
+  之后的后置交付。
 - tenant-wide permission definition、park-scoped role grant。
 - legacy `/homestay`、`/housing` redirect 和 legacy permission 不扩权合同。
 - built-in permission bundles 与 Persona/reference 分离。
@@ -114,12 +116,21 @@ data scope 为空进入首个授权页面并显示 `empty-scope`，不得改变 
 - [ ] 每个 mutation API 恰好一个 action permission。
 - [ ] 每个 protected file biz type 有独立 policy。
 - [ ] tenant 内 active permission code 无重复。
-- [ ] migration 连续执行两次结果相同。
-- [ ] 多 park tenant 只有一份 permission definition，各 park role grant 正确。
+- [x] migration 连续执行两次结果相同。
+- [x] 多 park tenant 只有一份 permission definition，各 park role grant 正确。
 - [ ] actual modules/permissions/menu/data scope 与 exact fixture 相等。
-- [ ] fixture 中多余、wildcard 或 legacy 扩权立即失败。
+- [x] fixture 中多余、wildcard 或 legacy 扩权立即失败。
 - [ ] module missing/disabled/expired 时 normal 和 superuser 均被拒绝。
 - [ ] legacy route 跳到首个授权页面；无授权时返回安全 403。
+- [x] migration exact permission set 为 65，不是 69；custom/legacy/wildcard 均不
+  自动扩权。
+- [x] `/users/me` 只按 enabledModules、granular page permission、当前 tenant+park
+  relation 投影；API-only 阶段 Web 不暴露 canonical route。
+- [x] cross-scope permission assignment 与 role tenant 一致；fixture fallback 使用
+  exact run-id/双 label/running、`--rm`、official PostgreSQL、显式
+  `POSTGRES_DB`、匿名卷并拒绝 URL override；`open_P0_P1=[]`。
+- [ ] Web menu/landing/redirect 等待 homestay/housing route SHA；未知 property
+  deep-link 默认拒绝且不进入 catch-all placeholder。
 - [ ] flag off/unset 的 legacy API characterization 相等。
 - [ ] flag true 的 8-action × normal/super/wildcard 返回 409。
 - [ ] 两个 ledger discriminator 覆盖 safe 邻接值与 high-risk 值，押金退款不可绕过。

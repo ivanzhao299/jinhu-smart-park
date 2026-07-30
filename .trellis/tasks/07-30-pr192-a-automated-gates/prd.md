@@ -8,6 +8,9 @@
 
 - 先行交付 `A-base-core provision`：固化 `property-remediation-a-base-v1` 数据画像、版本、checksum 与 fixture handoff SHA，供 homestay/housing 页面实现使用。
 - 页面/menu/API handoff 后交付 `A-route-evidence`：运行路由、权限、浏览器、UX 与最终证据门禁。
+- 在首个 domain route SHA 产生时先登记 `A-foundation-first-route-ui` evidence，
+  专门关闭 shared foundation 延后的 desktop/mobile/keyboard/focus/zoom/ARIA Gate；
+  它不替代两份 routes 和 Web 接入后的最终 `A-route-evidence`。
 - 建立精确岗位用户、模块、菜单、路由、API、数据范围、字段和文件能力夹具。
 - 覆盖正向可达性、最近的反向能力、跨园区/跨租户、超管但模块停用、深链与旧入口。
 - 建立需求追溯、运行证据、写前清理清单、异常恢复和残留扫描。
@@ -23,8 +26,10 @@
 
 ### A-base-core provision
 
-该阶段只依赖已冻结的 fixture contract、Track A 可用 schema 和 PR #192 现有 domain
-runtime，不依赖页面、菜单或 API 最终 handoff。它必须在页面开发前可运行，输出：
+该阶段在 A-C2 schema/exact tests 与 API-only `/users/me` projection 冻结后启动，
+只依赖 fixture contract、Track A 可用 schema、API projection contract 和 PR #192
+现有 domain runtime；不依赖页面或 Web menu 最终 handoff。它必须在页面开发前可运行，
+输出：
 
 - `property-remediation-a-base-v1` profile/version/checksum；
 - generator/schema/contract SHA；
@@ -32,10 +37,14 @@ runtime，不依赖页面、菜单或 API 最终 handoff。它必须在页面开
 - provision evidence、write-ahead cleanup manifest 与 residual=0 证明。
 
 homestay/housing owner 只依赖此不可变 fixture handoff SHA 开始页面与领域验证。
+Shared foundation 不为浏览器验收创建 preview/生产 route；其 integration-ready
+handoff 只要求静态/单测和 lint/typecheck/build。首个 domain route owner 在真实
+route 上补 UI evidence，shared owner 签收，QA 追溯。
 
 ### A-route-evidence
 
-该阶段等待页面/menu/API final handoff 后，消费 A-base-core 的 fixture handoff SHA，
+该阶段等待两份 canonical route SHA、Web menu/landing/deep-link handoff、housing tenant
+alias handoff 与 API projection SHA 后，消费 A-base-core 的 fixture handoff SHA，
 执行 exact-set、L0-L6 中适用层、浏览器/UX/perf、traceability 和最终 cleanup/evidence
 技术门禁。
 
@@ -67,6 +76,9 @@ expected.data_scopes
 ```
 
 运行时分别采集 `/users/me`、菜单树、路由守卫、API 授权和数据投影，断言 `actual == expected`，不能只断言包含。夹具必须显式禁止 `*`、superuser、旧 `homestay:operations:*` / `housing:operations:*` 等宽权限。每个受保护动作至少覆盖允许角色、最近禁止角色、跨园区、跨租户、模块停用和直接深链。
+
+property granular permission oracle 必须恰好为 65 项，不是 69；custom role、legacy
+operations 与 wildcard 不得自动扩展为 granular page permission。
 
 ### A3. 需求追溯
 
@@ -131,9 +143,17 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
 
 - [ ] `property-remediation-a-base-v1` 可从空测试环境重复创建并产生相同 checksum。
 - [ ] A-base-core 在页面/menu/API handoff 前可独立运行，并输出可校验的 fixture handoff SHA 给 homestay/housing。
+- [ ] A-base-core 只在 A-schema 与 API-only projection SHA 冻结后启动，且不要求 Web
+  menu 或 canonical routes 已完成。
 - [ ] A-base-core 与 A-route-evidence 均可按 checkpoint 暂停/恢复，且没有相互完成依赖。
+- [ ] `A-foundation-first-route-ui` 来自首个真实 domain route SHA，无 preview route；
+  在它通过前 foundation 不标 final UI Gate 完成。
 - [ ] A-base manifest 明确断言 Track B 表/记录不存在或为零，且不把 B schema 作为前置。
 - [ ] 每个岗位 `actual == expected`，无 wildcard/super/legacy 宽权限。
+- [ ] property permission exact set 恰好 65，任何 69 项或隐式 granular 扩权均失败。
+- [x] A-C2 fixture fallback exact run-id/双 label/running、`--rm`、official
+  PostgreSQL、显式 `POSTGRES_DB`、匿名卷、拒绝 URL override 与 cross-scope
+  permission/role tenant 一致性通过，`open_P0_P1=[]`。
 - [ ] 模块停用超管、跨租户、跨园区、最近禁止角色、深链和旧入口均默认拒绝。
 - [ ] requirement-to-test-to-evidence 追溯覆盖率 100%。
 - [ ] 适用 L0-L6、桌面与 320/360/390/768px、WCAG 2.2 AA 和性能基线全部通过。

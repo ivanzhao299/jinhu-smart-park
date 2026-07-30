@@ -90,8 +90,74 @@ PASS
 - Web typecheck：PASS。
 - diff check：PASS。
 
-contract/server-safety candidate 已可冻结，但当前没有可登记的 commit SHA，不得编造。
-A-1 仍为进行中，因为 A-C2 migration/menu 尚未完成。
+contract/server-safety baseline 已于 2026-07-30 冻结，精确 SHA：
+`e709459a034807b3575db604a76bc69bf1c5ff5b`
+（`feat(property): freeze Track A access safety baseline`）。A-1 仍为进行中，因为
+在该 A-C1 checkpoint，A-C2 schema、API projection 与后置 Web 接入尚未按 Gate
+完成；后续增量结论见 3.6。
+
+### 3.5 A-C2 只读复审：发现顺序冲突并修正计划
+
+2026-07-30 只读复审确认：计划中的 17 个 canonical Web routes 尚未落地，当前会命中
+catch-all placeholder；因此 Web menu、landing 或 redirect 不能标记完成。复审将权威
+顺序修正为：
+
+1. A-C2 schema migration/exact tests（property permission exact set=65，不是 69；
+   `000183_*` 仅为候选编号，创建前重扫并即时 reservation）。
+2. API-only `/users/me` property projection（active enabled modules、granular page
+   permission、current tenant+park relation；custom/legacy/wildcard 不自动扩权），
+   Web 继续不可见。
+3. shared Web foundation 与 A-base。
+4. homestay/housing domain owners 实现真实 routes/guards 并分别输出 route SHA。
+5. 收到两份 route SHA 后才实现 Web menu、legacy landing、housing tenant alias 与
+   unknown property deep-link fail-closed；domain owners 保持 app routes/guards
+   ownership，menu owner 不创建 placeholder 或领域 route。
+6. route evidence 与独立 Gate。
+
+本次结论是“计划顺序已修正”，不是 A-C2 实现通过。A-1 必须保持
+`in_progress`，直到 schema、API projection、下游 Web 接入及相应 Gate 按阶段完成。
+
+### 3.6 A-C2 DB Runtime Fixture 与 API Projection Gate：CLOSED / PASS
+
+2026-07-30 在独立临时 PostgreSQL 容器与独立 volume 中完成 A-C2 增量技术复验：
+
+- 以 `000176`–`000182` 为声明的隔离基线；
+- `000183_property_business_granular_rbac.sql` 连续直跑两次通过；
+- property permission exact set=65，二次运行后 definition、grant 与 timestamp 稳定；
+- 多园区、module disabled、relation expired/missing/status-disabled 全部按当前
+  tenant+park 和 active module 默认拒绝；
+- custom role、legacy operations、wildcard 均不自动扩展 granular page permission；
+- cross-scope permission assignment 与 role tenant 一致性通过，跨 tenant 错配拒绝；
+- cleanup residual counters=`0|0|0|0`，临时容器和 volume 已删除。
+
+增量独立 review 发现 container fallback 选择范围不够精确，已自修并 exact rerun：
+fallback 绑定 exact run-id 与双 label、只接受 running container；容器使用
+`docker run --rm`、official PostgreSQL image、显式 `POSTGRES_DB` 和匿名 volume；
+任何数据库 URL override 均拒绝。复跑后 `open_P0_P1=[]`。
+
+空库执行 `000175` 时按其生产数据补丁语义 fail-fast 并回滚；它不提供 A-C2 fixture
+所需 schema，所以本次隔离基线跳过 `000175`。该处理不是把全量空库 migration chain
+标为通过，而是明确限定本 Gate 只验证 `000176`–`000182` 基线上的 A-C2 切片。
+
+结论：A-C2 migration + API-only `/users/me` projection slice 为
+**CLOSED / TECHNICAL PASS**，`open_P0_P1=[]`。
+A-1 仍为 `in_progress`，因为 shared Web foundation、两个 workbench、最终 Web
+menu/landing/alias/deep-link 与 route evidence 尚未完成。
+
+### 3.7 Shared Web 浏览器验收顺序复审：计划修正
+
+只读复审发现：foundation 在 canonical domain route 之前要求真实 browser evidence，
+会迫使实现者创建无业务归属的 preview/生产 route，与 route ownership 和六步顺序
+冲突。决策为“延后到首个 domain route SHA”：
+
+- foundation handoff 只要求纯函数/组件静态与单测、lint/typecheck/build；
+- 不创建 preview route 或临时生产 route；
+- 首个输出 canonical route SHA 的 homestay/housing owner 在真实 route 上执行
+  desktop/mobile/keyboard/focus/zoom/ARIA；
+- shared owner 负责组件缺陷修复和 final UI Gate 签收，QA owner 负责证据追溯；
+- 证据未补齐前 foundation 可标 `handoff ready`，不得标 `final UI gate passed`。
+
+该调整不改变既定六步顺序，A-1 继续保持 `in_progress`。
 
 ## 4. 方案落盘结论
 
