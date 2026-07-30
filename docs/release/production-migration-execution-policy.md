@@ -12,6 +12,12 @@
 - 当前 migration 以 `database/migrations` 目录下的 SQL 文件为输入。
 - 当前执行方式为按文件名顺序执行未成功记录过的 SQL 文件。
 - 当前使用 `public.sys_schema_migration_history` 作为兼容主记录表，同时维护标准命名表 `public.schema_migrations`。
+- 对不能修改的历史 migration，可在 `database/migration-prerequisites/<target-migration>/`
+  放置最小前置 SQL。只要本批仍有 pending migration，runner 就按 migration 顺序检查前置项；
+  因此新补到已成功早期 migration 的 prerequisite 也会在后续 pending migration 前执行。
+  全量已完成环境仍直接 fast-skip。前置项以独立 filename/checksum/status 写入两张 history 表。
+- 两张 history 表在 bootstrap 后必须具有一致的 status/checksum；冲突立即阻断且不自动选边。
+  同一状态变更在单个数据库事务内写入两表，第二表失败时第一表同步回滚。
 - 每个 migration 成功后记录 `filename`、`checksum`、`status`、开始/结束时间、执行人和批次。
 - 部署前会先生成 migration manifest；如果 manifest 中所有文件都已按相同 checksum 记录为 `succeeded`，脚本直接退出，不再逐个陪跑。
 - 如果目标库已有业务表但 migration history 为空，脚本会自动 baseline：把当前仓库所有 migration 文件标记为已成功，不执行旧 SQL，以保护已有生产数据。
@@ -21,6 +27,9 @@
 - `production seed` 与 `migration` 是不同职责：
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
+  - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
+  - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
+    既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 
 当前治理状态：
 
@@ -302,6 +311,7 @@ pnpm db:check:init
   - 恢复数据库备份
   - 放弃本次发布
 - 不允许人工随意改 SQL 后直接在生产重跑。
+- 不允许用 prerequisite 修改成功 migration 的效果、放宽 checksum，或提前运行整套 production seed。
 
 补充要求：
 

@@ -1,0 +1,32 @@
+# Migration Prerequisites
+
+This directory contains narrowly scoped SQL prerequisites for historical migrations
+that cannot be edited after successful deployment.
+
+Layout:
+
+```text
+database/migration-prerequisites/
+  <target-migration-name-without-.sql>/
+    <ordered-prerequisite>.sql
+```
+
+When a batch still has pending migrations, the runner evaluates prerequisites in
+migration order, including prerequisites newly attached to an already-succeeded
+earlier target. This lets a partially initialized database acquire a newly discovered
+dependency before later pending migrations run. A fully migrated database still exits
+through fast-skip and is not forced to acquire retroactive prerequisite history.
+
+Each prerequisite receives its own checksum and running/succeeded/failed history
+record in both migration history tables. Any prerequisite failure stops before later
+pending migrations execute.
+
+Prerequisites are not production seeds. They must contain only the minimum
+production-safe state required for the target migration, be idempotent, and must not
+create credentials, demo data, or silently expand business authorization.
+
+Do not use this mechanism to revise a successful migration or bypass its checksum.
+
+The two history rows for one execution are written in one database transaction.
+After bootstrap, any status/checksum disagreement between the history tables fails
+before fast-skip or migration execution and requires manual inspection.
