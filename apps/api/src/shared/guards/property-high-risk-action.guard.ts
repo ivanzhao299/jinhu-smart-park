@@ -12,6 +12,9 @@ import {
   PROPERTY_HIGH_RISK_ACTION_KEY,
   isPropertyHighRiskActionMetadata
 } from "../decorators/property-high-risk-action.decorator";
+import {
+  isPropertyWorkbenchV2Enabled
+} from "../property-workbench/property-workbench-v2";
 
 export const PROPERTY_APPROVAL_REQUIRED_MESSAGE =
   "PROPERTY_APPROVAL_REQUIRED: High-risk property action is disabled until approval enforcement is available";
@@ -28,7 +31,7 @@ export class PropertyHighRiskActionGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    if (!this.isWorkbenchV2Enabled()) {
+    if (!isPropertyWorkbenchV2Enabled(this.configService)) {
       return true;
     }
 
@@ -64,10 +67,5 @@ export class PropertyHighRiskActionGuard implements CanActivate {
     }
 
     throw new ConflictException(PROPERTY_APPROVAL_REQUIRED_MESSAGE);
-  }
-
-  private isWorkbenchV2Enabled(): boolean {
-    const value = this.configService.get<unknown>("PROPERTY_WORKBENCH_V2");
-    return typeof value === "string" && value.trim().toLowerCase() === "true";
   }
 }

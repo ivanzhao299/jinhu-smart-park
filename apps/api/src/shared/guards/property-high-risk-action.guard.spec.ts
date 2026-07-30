@@ -77,6 +77,12 @@ const highRiskCases = [
   },
   {
     metadata: {
+      actionId: "housing.handovers.complete-move-out-financial"
+    },
+    body: {}
+  },
+  {
+    metadata: {
       actionId: "housing.finance.refund-waive-or-deposit-refund",
       discriminator: {
         bodyField: "entry_type",
@@ -131,7 +137,7 @@ test("guard blocks a known high-risk action with the stable 409 contract", () =>
   }
 });
 
-test("all eight high-risk actions block normal, superuser, and wildcard principals", () => {
+test("all high-risk actions block normal, superuser, and wildcard principals", () => {
   assert.deepEqual(
     highRiskCases.map((item) => item.metadata.actionId).sort(),
     [...TRACK_A_HIGH_RISK_ACTION_IDS].sort()

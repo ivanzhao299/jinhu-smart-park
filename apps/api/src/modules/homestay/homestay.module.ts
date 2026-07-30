@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { FileEntity } from "../files/entities/file.entity";
+import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import { PropertyOperationsModule } from "../property-operations/property-operations.module";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./entities/homestay.entities";
 import { HomestayController } from "./homestay.controller";
 import { HomestayService } from "./homestay.service";
+import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
 @Module({
   imports: [
@@ -32,10 +34,11 @@ import { HomestayService } from "./homestay.service";
       FileEntity,
       WorkOrderEntity
     ]),
+    DataScopesModule,
     PropertyOperationsModule
   ],
   controllers: [HomestayController],
-  providers: [HomestayService],
+  providers: [HomestayService, HomestayWorkbenchQueryService],
   exports: [HomestayService]
 })
 export class HomestayModule {}

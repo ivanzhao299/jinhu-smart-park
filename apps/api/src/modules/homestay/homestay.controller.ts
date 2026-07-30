@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -25,8 +26,13 @@ import {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
   ExecuteHomestayTurnoverDto,
+  HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
+  HomestayCandidateQueryDto,
+  HomestayFinanceQueryDto,
   HomestayReasonDto,
+  HomestayStayQueryDto,
+  HomestayTaskQueryDto,
   HomestayTurnoverQueryDto,
   HomestayUnitCandidateQueryDto,
   IssueHomestayCredentialDto,
@@ -36,11 +42,15 @@ import {
   UpsertHomestayRateOverrideDto
 } from "./dto/homestay.dto";
 import { HomestayService } from "./homestay.service";
+import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
 @Controller("homestay")
 @RequireModule("homestay")
 export class HomestayController {
-  constructor(private readonly service: HomestayService) {}
+  constructor(
+    private readonly service: HomestayService,
+    private readonly workbenchQuery: HomestayWorkbenchQueryService
+  ) {}
 
   @Get("dashboard")
   @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ)
@@ -57,10 +67,41 @@ export class HomestayController {
   availability(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Query("date_from") dateFrom: string,
-    @Query("date_to") dateTo: string
+    @Query() query: HomestayAvailabilityQueryDto
   ) {
-    return this.service.availability(scope, actor, dateFrom, dateTo);
+    return this.service.availability(scope, actor, query);
+  }
+
+  @Get("tasks")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TASK_READ)
+  tasks(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayTaskQueryDto
+  ) {
+    return this.workbenchQuery.listTasks(scope, actor, query);
+  }
+
+  @Get("guest-candidates")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
+  guestCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @Query() query: HomestayCandidateQueryDto
+  ) {
+    return this.workbenchQuery.listGuestCandidates(scope, query);
+  }
+
+  @Get("work-order-candidates")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ)
+  workOrderCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayCandidateQueryDto
+  ) {
+    return this.workbenchQuery.listWorkOrderCandidates(scope, actor, query);
   }
 
   @Get("unit-candidates")
@@ -83,7 +124,7 @@ export class HomestayController {
   rateCalendar(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("unitId") unitId: string,
+    @Param("unitId", new ParseUUIDPipe({ version: "4" })) unitId: string,
     @Query("date_from") dateFrom: string,
     @Query("date_to") dateTo: string
   ) {
@@ -131,9 +172,42 @@ export class HomestayController {
   getBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.getBooking(scope, actor, id);
+  }
+
+  @Get("stays")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ)
+  listStays(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayStayQueryDto
+  ) {
+    return this.service.listStays(scope, actor, query);
+  }
+
+  @Get("stays/:stayId")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ)
+  getStay(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("stayId", new ParseUUIDPipe({ version: "4" })) stayId: string
+  ) {
+    return this.service.getStay(scope, actor, stayId);
+  }
+
+  @Get("finance")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ)
+  finance(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayFinanceQueryDto
+  ) {
+    return this.workbenchQuery.listFinance(scope, actor, query);
   }
 
   @Post("bookings")
@@ -320,6 +394,17 @@ export class HomestayController {
     @Query() query: HomestayTurnoverQueryDto
   ) {
     return this.service.listTurnovers(scope, actor, query);
+  }
+
+  @Get("turnovers/:id")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ)
+  getTurnover(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
+  ) {
+    return this.service.getTurnover(scope, actor, id);
   }
 
   @Post("turnovers/:id/actions/:action")

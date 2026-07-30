@@ -580,13 +580,6 @@ test("manifest endpoint and permission gates exactly cover the real homestay and
   }
 
   const pendingA25GetEndpoints = [
-    "GET /homestay/tasks",
-    "GET /homestay/guest-candidates",
-    "GET /homestay/stays",
-    "GET /homestay/stays/:stayId",
-    "GET /homestay/turnovers/:id",
-    "GET /homestay/work-order-candidates",
-    "GET /homestay/finance",
     "GET /housing/tasks",
     "GET /housing/handovers",
     "GET /housing/handovers/:id",

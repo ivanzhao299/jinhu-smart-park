@@ -5,10 +5,38 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import {
+  SYSTEM_PERMISSIONS,
+  type HomestayAvailabilityItem,
+  type HomestayAvailabilityListResponse,
+  type HomestayAvailabilityResponse,
+  type HomestayBookingDetailResponse,
+  type HomestayBookingListItem,
+  type HomestayBookingListResponse,
+  type HomestayBookingResponse,
+  type HomestayCredentialResponse,
+  type HomestayDashboardResponse,
+  type HomestayRateCalendarResponse,
+  type HomestayStayListItem,
+  type HomestayStayListResponse,
+  type HomestayTurnoverDetailResponse,
+  type HomestayTurnoverListItem,
+  type HomestayTurnoverListResponse,
+  type HomestayTurnoverResponse,
+  type HomestayUnitCandidateListResponse,
+  type PropertyWorkbenchFileRef,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
-import { DataSource, type EntityManager, type Repository } from "typeorm";
+import {
+  DataSource,
+  type EntityManager,
+  type Repository,
+  type SelectQueryBuilder
+} from "typeorm";
+import { isPropertyWorkbenchV2Enabled } from "../../shared/property-workbench/property-workbench-v2";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
@@ -22,7 +50,9 @@ import type {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
   ExecuteHomestayTurnoverDto,
+  HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
+  HomestayStayQueryDto,
   HomestayTurnoverQueryDto,
   HomestayUnitCandidateQueryDto,
   IssueHomestayCredentialDto,
@@ -66,15 +96,20 @@ import {
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
 
-type HomestayTurnoverListItem = HomestayTurnoverTaskEntity & {
-  unitCode: string | null;
-  unitName: string | null;
-};
+interface BookingDetailAccess {
+  canReadFinance: boolean;
+  canReadTurnover: boolean;
+  canReadTurnoverFiles: boolean;
+}
 
-type HomestayBookingListItem = HomestayBookingEntity & {
-  unitCode: string | null;
-  unitName: string | null;
-};
+interface BookingDetailRelations {
+  nights: HomestayBookingNightEntity[];
+  guests: HomestayBookingGuestEntity[];
+  credentials: HomestayStayCredentialEntity[];
+  ledger: HomestayLedgerEntryEntity[];
+  actions: HomestayBookingActionLogEntity[];
+  turnover: HomestayTurnoverTaskEntity | null;
+}
 
 @Injectable()
 export class HomestayService {
@@ -93,14 +128,15 @@ export class HomestayService {
     private readonly workOrdersRepository: Repository<WorkOrderEntity>,
     private readonly propertyOccupanciesService: PropertyOccupanciesService,
     private readonly unitAccessService: PropertyUnitAccessService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly configService: ConfigService = new ConfigService()
   ) {}
 
   async listUnitCandidates(
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HomestayUnitCandidateQueryDto
-  ): Promise<PaginatedResult<{ id: string; unitCode: string; unitName: string }>> {
+  ): Promise<HomestayUnitCandidateListResponse> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size };
@@ -148,13 +184,13 @@ export class HomestayService {
     unitId: string,
     dateFrom: string,
     dateTo: string
-  ) {
+  ): Promise<HomestayRateCalendarResponse> {
     if (!dateFrom || !dateTo) {
       throw new BadRequestException("date_from and date_to are required");
     }
     assertBusinessDate(dateFrom, "date_from");
     assertBusinessDate(dateTo, "date_to");
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    await this.assertUnitReadScope(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.mustFindRate(scope, unitId);
     const overrides = await this.overridesRepository.createQueryBuilder("rate")
@@ -264,7 +300,7 @@ export class HomestayService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HomestayBookingQueryDto
-  ): Promise<PaginatedResult<HomestayBookingListItem>> {
+  ): Promise<HomestayBookingListResponse> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size };
@@ -307,53 +343,275 @@ export class HomestayService {
       ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>
       : [];
     const unitDisplay = new Map(unitRows.map((row) => [row.id, row]));
-    const items = bookings.map((booking) => ({
-      ...booking,
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+    const items = bookings.map((booking): HomestayBookingListItem => ({
+      ...this.projectBooking(booking, canReadFinance),
       unitCode: unitDisplay.get(booking.unitId)?.unitCode ?? null,
       unitName: unitDisplay.get(booking.unitId)?.unitName ?? null
     }));
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
-  async getBooking(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
-    const booking = await this.mustFindBooking(scope, id);
-    await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+  async getBooking(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<HomestayBookingDetailResponse> {
+    return this.getBookingDetail(scope, actor, id);
+  }
+
+  async listStays(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HomestayStayQueryDto
+  ): Promise<HomestayStayListResponse> {
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+    const businessDate = query.business_date
+      ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    const builder = this.buildStayListQuery(
+      scope,
+      allowedUnitIds,
+      query,
+      businessDate
+    );
+    const countBuilder = builder.clone();
+    const [bookings, total] = await Promise.all([
+      builder
+        .orderBy("booking.arrival_date", "ASC")
+        .addOrderBy("booking.create_time", "ASC")
+        .skip((query.page - 1) * query.page_size)
+        .take(query.page_size)
+        .getMany(),
+      countBuilder.getCount()
+    ]);
+    const enrichment = await this.loadStayListEnrichment(scope, bookings);
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+    return {
+      items: bookings.map((booking) =>
+        this.projectStayListItem(booking, enrichment, canReadFinance)),
+      total,
+      page: query.page,
+      page_size: query.page_size
+    };
+  }
+
+  private buildStayListQuery(
+    scope: TenantParkScope,
+    allowedUnitIds: string[] | null,
+    query: HomestayStayQueryDto,
+    businessDate: string
+  ): SelectQueryBuilder<HomestayBookingEntity> {
+    const builder = this.bookingsRepository.createQueryBuilder("booking")
+      .where("booking.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("booking.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("booking.is_deleted = false")
+      .andWhere("booking.status IN (:...stayStatuses)", {
+        stayStatuses: ["confirmed", "checked_in", "checked_out"]
+      });
+    if (allowedUnitIds !== null) {
+      builder.andWhere("booking.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
+    }
+    if (query.queue === "arrivals") {
+      builder
+        .andWhere("booking.arrival_date = :businessDate", { businessDate })
+        .andWhere("booking.status IN (:...arrivalStatuses)", {
+          arrivalStatuses: ["confirmed", "checked_in", "checked_out"]
+        });
+    } else if (query.queue === "departures") {
+      builder
+        .andWhere("booking.departure_date = :businessDate", { businessDate })
+        .andWhere("booking.status IN (:...departureStatuses)", {
+          departureStatuses: ["checked_in", "checked_out"]
+        });
+    } else if (query.queue === "in_house") {
+      builder.andWhere("booking.status = 'checked_in'");
+    }
+    return builder;
+  }
+
+  private async loadStayListEnrichment(
+    scope: TenantParkScope,
+    bookings: HomestayBookingEntity[]
+  ) {
+    if (bookings.length === 0) {
+      return {
+        unitDisplay: new Map<string, { unitCode: string | null; unitName: string | null }>(),
+        credentialCount: new Map<string, number>()
+      };
+    }
+    const bookingIds = bookings.map((booking) => booking.id);
+    const unitIds = [...new Set(bookings.map((booking) => booking.unitId))];
+    const [unitRows, credentialRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT id, unit_code AS "unitCode", unit_name AS "unitName"
+         FROM biz_unit
+         WHERE tenant_id = $1 AND park_id = $2 AND id = ANY($3::uuid[])`,
+        [scope.tenantId, scope.parkId, unitIds]
+      ) as Promise<Array<{ id: string; unitCode: string | null; unitName: string | null }>>,
+      this.dataSource.query(
+        `SELECT booking_id AS "bookingId", count(*)::int AS "credentialCount"
+         FROM biz_homestay_stay_credential
+         WHERE tenant_id = $1 AND park_id = $2
+           AND booking_id = ANY($3::uuid[]) AND is_deleted = false
+         GROUP BY booking_id`,
+        [scope.tenantId, scope.parkId, bookingIds]
+      ) as Promise<Array<{ bookingId: string; credentialCount: number }>>
+    ]);
+    return {
+      unitDisplay: new Map(unitRows.map((unit) => [unit.id, unit])),
+      credentialCount: new Map(
+        credentialRows.map((row) => [row.bookingId, Number(row.credentialCount)])
+      )
+    };
+  }
+
+  private projectStayListItem(
+    booking: HomestayBookingEntity,
+    enrichment: Awaited<ReturnType<HomestayService["loadStayListEnrichment"]>>,
+    canReadFinance: boolean
+  ): HomestayStayListItem {
+    return {
+      ...this.projectBooking(booking, canReadFinance),
+      unitCode: enrichment.unitDisplay.get(booking.unitId)?.unitCode ?? null,
+      unitName: enrichment.unitDisplay.get(booking.unitId)?.unitName ?? null,
+      checkedInAt: booking.actualCheckInTime?.toISOString() ?? null,
+      checkedOutAt: booking.actualCheckOutTime?.toISOString() ?? null,
+      credentialCount: enrichment.credentialCount.get(booking.id) ?? 0
+    };
+  }
+
+  async getStay(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    stayId: string
+  ): Promise<HomestayBookingDetailResponse> {
+    return this.getBookingDetail(
+      scope,
+      actor,
+      stayId,
+      new Set(["confirmed", "checked_in", "checked_out"])
+    );
+  }
+
+  private async getBookingDetail(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    allowedStatuses?: ReadonlySet<string>
+  ): Promise<HomestayBookingDetailResponse> {
+    const booking = await this.mustFindAuthorizedBooking(scope, actor, id);
+    if (allowedStatuses && !allowedStatuses.has(booking.status)) {
+      throw new NotFoundException("Homestay stay not found");
+    }
+    const access = this.bookingDetailAccess(actor);
+    const relations = await this.loadBookingDetailRelations(scope, id, access);
+    return this.projectBookingDetail(booking, relations, access);
+  }
+
+  private bookingDetailAccess(actor: JwtPrincipal): BookingDetailAccess {
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+    const canReadTurnover = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
+    return {
+      canReadFinance,
+      canReadTurnover,
+      canReadTurnoverFiles: canReadTurnover
+        && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
+    };
+  }
+
+  private async loadBookingDetailRelations(
+    scope: TenantParkScope,
+    bookingId: string,
+    access: BookingDetailAccess
+  ): Promise<BookingDetailRelations> {
     const [nights, guests, credentials, ledger, actions, turnover] = await Promise.all([
       this.dataSource.getRepository(HomestayBookingNightEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, isDeleted: false },
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false },
         order: { businessDate: "ASC" }
       }),
       this.dataSource.getRepository(HomestayBookingGuestEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, isDeleted: false }
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
       }),
       this.dataSource.getRepository(HomestayStayCredentialEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, isDeleted: false }
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
       }),
-      canReadFinance
+      access.canReadFinance
         ? this.dataSource.getRepository(HomestayLedgerEntryEntity).find({
-            where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, isDeleted: false },
+            where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false },
             order: { occurredAt: "ASC" }
           })
         : Promise.resolve([]),
       this.dataSource.getRepository(HomestayBookingActionLogEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id },
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId },
         order: { actionTime: "DESC" }
       }),
-      this.turnoversRepository.findOne({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, isDeleted: false }
-      })
+      access.canReadTurnover
+        ? this.turnoversRepository.findOne({
+            where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
+          })
+        : Promise.resolve(null)
     ]);
+    return { nights, guests, credentials, ledger, actions, turnover };
+  }
+
+  private projectBookingDetail(
+    booking: HomestayBookingEntity,
+    relations: BookingDetailRelations,
+    access: BookingDetailAccess
+  ): HomestayBookingDetailResponse {
+    const { nights, guests, credentials, ledger, actions, turnover } = relations;
     return {
-      booking,
-      nights,
-      guests,
+      booking: this.projectBooking(booking, access.canReadFinance),
+      nights: nights.map((night) => ({
+        id: night.id,
+        businessDate: night.businessDate,
+        ...(access.canReadFinance
+          ? {
+              baseRate: night.baseRate,
+              overrideRate: night.overrideRate,
+              finalRate: night.finalRate,
+              priceSource: night.priceSource
+            }
+          : {})
+      })),
+      guests: guests.map((guest) => ({
+        id: guest.id,
+        partyId: guest.partyId,
+        isPrimary: guest.isPrimary,
+        verificationStatus: guest.verificationStatus
+      })),
       credentials: credentials.map((credential) => this.projectCredential(credential)),
-      ledger,
-      ledger_summary: canReadFinance ? formatHomestayLedgerSummary(ledger) : null,
-      finance_visible: canReadFinance,
-      actions,
-      turnover
+      ...(access.canReadFinance
+        ? {
+            ledger: ledger.map((entry) => ({
+              id: entry.id,
+              entryType: entry.entryType,
+              chargeType: entry.chargeType,
+              amount: entry.amount,
+              paymentMethod: entry.paymentMethod,
+              status: entry.status,
+              occurredAt: entry.occurredAt.toISOString(),
+              reason: entry.reason
+            })),
+            ledger_summary: formatHomestayLedgerSummary(ledger)
+          }
+        : {}),
+      finance_visible: access.canReadFinance,
+      actions: actions.map((action) => ({
+        id: action.id,
+        action: action.action,
+        beforeStatus: action.beforeStatus,
+        afterStatus: action.afterStatus,
+        reason: action.reason,
+        operatorName: action.operatorName,
+        actionTime: action.actionTime.toISOString()
+      })),
+      turnover: turnover
+        ? this.projectTurnover(turnover, access.canReadTurnoverFiles)
+        : null
     };
   }
 
@@ -902,7 +1160,7 @@ export class HomestayService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HomestayTurnoverQueryDto
-  ): Promise<PaginatedResult<HomestayTurnoverListItem>> {
+  ): Promise<HomestayTurnoverListResponse> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return { items: [], total: 0, page: query.page, page_size: query.page_size };
@@ -934,12 +1192,83 @@ export class HomestayService {
       ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>
       : [];
     const unitDisplay = new Map(unitRows.map((unit) => [unit.id, unit]));
-    const items = tasks.map((task) => ({
-      ...task,
+    const canReadFiles = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const items = tasks.map((task): HomestayTurnoverListItem => ({
+      ...this.projectTurnover(task, canReadFiles),
       unitCode: unitDisplay.get(task.unitId)?.unitCode ?? null,
-      unitName: unitDisplay.get(task.unitId)?.unitName ?? null
+      unitName: unitDisplay.get(task.unitId)?.unitName ?? null,
+      createTime: task.createTime.toISOString()
     }));
     return { items, total, page: query.page, page_size: query.page_size };
+  }
+
+  async getTurnover(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<HomestayTurnoverDetailResponse> {
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      throw new NotFoundException("Turnover task not found");
+    }
+    const builder = this.turnoversRepository.createQueryBuilder("task")
+      .where("task.id = :id", { id })
+      .andWhere("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("task.is_deleted = false");
+    if (allowedUnitIds !== null) {
+      builder.andWhere("task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
+    }
+    const task = await builder.getOne();
+    if (!task) throw new NotFoundException("Turnover task not found");
+    const canReadFiles = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const [unitRows, files] = await Promise.all([
+      this.dataSource.query(
+        `SELECT unit_code AS "unitCode", unit_name AS "unitName"
+         FROM biz_unit
+         WHERE tenant_id = $1
+           AND park_id = $2
+           AND id = $3
+           AND is_deleted = false
+         LIMIT 1`,
+        [scope.tenantId, scope.parkId, task.unitId]
+      ) as Promise<Array<{ unitCode: string | null; unitName: string | null }>>,
+      canReadFiles && task.photoFileIds.length > 0
+        ? this.filesRepository.createQueryBuilder("file")
+            .select([
+              "file.id",
+              "file.originalName",
+              "file.mimeType",
+              "file.fileSize"
+            ])
+            .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+            .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+            .andWhere("file.biz_type = 'homestay_turnover'")
+            .andWhere("file.biz_id = :taskId", { taskId: task.id })
+            .andWhere("file.id IN (:...photoFileIds)", { photoFileIds: task.photoFileIds })
+            .andWhere("file.status = 1")
+            .andWhere("file.is_deleted = false")
+            .orderBy("file.create_time", "ASC")
+            .getMany()
+        : Promise.resolve([])
+    ]);
+    const unit = unitRows[0];
+    return {
+      ...this.projectTurnover(task, canReadFiles),
+      unitCode: unit?.unitCode ?? null,
+      unitName: unit?.unitName ?? null,
+      createTime: task.createTime.toISOString(),
+      ...(canReadFiles
+        ? {
+            evidence: files.map((file): PropertyWorkbenchFileRef => ({
+              id: file.id,
+              originalName: file.originalName,
+              mimeType: file.mimeType,
+              fileSize: file.fileSize
+            }))
+          }
+        : {})
+    };
   }
 
   async executeTurnover(
@@ -1022,11 +1351,16 @@ export class HomestayService {
     });
   }
 
-  async dashboard(scope: TenantParkScope, actor: JwtPrincipal, businessDate?: string) {
+  async dashboard(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    businessDate?: string
+  ): Promise<HomestayDashboardResponse> {
     if (businessDate) assertBusinessDate(businessDate, "business_date");
     const date = businessDate
       || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
+    const canReadRates = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ);
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return {
@@ -1036,7 +1370,7 @@ export class HomestayService {
         occupied: 0,
         rentable_units: 0,
         occupancy_rate: "0.00",
-        average_daily_rate: "0.00",
+        ...(canReadRates ? { average_daily_rate: "0.00" } : {}),
         pending_turnovers: 0,
         ...(canReadFinance ? { revenue: "0.00" } : {})
       };
@@ -1106,7 +1440,7 @@ export class HomestayService {
          AND config.operating_status = 'enabled'${modeUnitClause}`,
       modeParameters
     ) as Array<{ rentable_units: number }>;
-    const [rateSummary] = await this.dataSource.query(
+    const [rateSummary] = canReadRates ? await this.dataSource.query(
       `SELECT round(COALESCE(avg(night.final_rate), 0), 2)::text AS average_daily_rate
        FROM biz_homestay_booking_night night
        JOIN biz_homestay_booking booking ON booking.id = night.booking_id
@@ -1123,7 +1457,7 @@ export class HomestayService {
          )
          AND night.business_date = $3::date${unitClause}`,
       parameters
-    ) as Array<{ average_daily_rate: string }>;
+    ) as Array<{ average_daily_rate: string }> : [{ average_daily_rate: "0.00" }];
     const rentableUnits = Number(capacity?.rentable_units ?? 0);
     const occupied = Number(summary?.occupied ?? 0);
     return {
@@ -1133,7 +1467,9 @@ export class HomestayService {
       occupied,
       rentable_units: rentableUnits,
       occupancy_rate: rentableUnits > 0 ? ((occupied / rentableUnits) * 100).toFixed(2) : "0.00",
-      average_daily_rate: formatHomestayMoney(rateSummary?.average_daily_rate ?? "0"),
+      ...(canReadRates
+        ? { average_daily_rate: formatHomestayMoney(rateSummary?.average_daily_rate ?? "0") }
+        : {}),
       pending_turnovers: pendingTurnovers,
       ...(canReadFinance ? { revenue: finance?.revenue ?? "0.00" } : {})
     };
@@ -1142,82 +1478,150 @@ export class HomestayService {
   async availability(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    dateFrom: string,
-    dateTo: string
-  ) {
-    if (!dateFrom || !dateTo) {
-      throw new BadRequestException("date_from and date_to are required");
-    }
-    this.businessDates(dateFrom, dateTo);
+    query: HomestayAvailabilityQueryDto
+  ): Promise<HomestayAvailabilityResponse | HomestayAvailabilityListResponse> {
+    this.businessDates(query.date_from, query.date_to);
+    const v2Enabled = isPropertyWorkbenchV2Enabled(this.configService);
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && allowedUnitIds.length === 0) return [];
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      return v2Enabled
+        ? { items: [], total: 0, page: query.page, page_size: query.page_size }
+        : [];
+    }
+    const parameters = this.availabilityParameters(scope, query, allowedUnitIds);
+    const baseSql = this.availabilityCteSql(allowedUnitIds !== null);
+    return v2Enabled
+      ? this.loadV2Availability(baseSql, parameters, query)
+      : this.loadLegacyAvailability(baseSql, parameters);
+  }
+
+  private availabilityParameters(
+    scope: TenantParkScope,
+    query: HomestayAvailabilityQueryDto,
+    allowedUnitIds: string[] | null
+  ): unknown[] {
     const parameters: unknown[] = [
       scope.tenantId,
       scope.parkId,
-      this.businessDateStart(dateFrom).toISOString(),
-      this.businessDateStart(dateTo).toISOString()
+      this.businessDateStart(query.date_from).toISOString(),
+      this.businessDateStart(query.date_to).toISOString()
     ];
-    const unitClause = allowedUnitIds === null ? "" : " AND unit.id = ANY($5::uuid[])";
     if (allowedUnitIds !== null) parameters.push(allowedUnitIds);
-    return this.dataSource.query(
-      `SELECT unit.id AS unit_id,
-              unit.unit_code,
-              unit.unit_name,
-              mode.operating_mode AS operation_mode,
-              CASE
-                WHEN unit.status <> 1 THEN 'out_of_service'
-                WHEN mode.operating_mode IS DISTINCT FROM 'short_stay' THEN 'mode_unavailable'
-                WHEN mode.operating_status IS DISTINCT FROM 'enabled' THEN 'out_of_service'
-                WHEN count(turnover.id) > 0 THEN 'turnover'
-                WHEN bool_or(occupancy.source_type = 'homestay_turnover') THEN 'turnover'
-                WHEN bool_or(occupancy.status IN ('held', 'active')) THEN 'occupied'
-                WHEN EXISTS (
-                  SELECT 1
-                  FROM rel_leasing_contract_unit lease_unit
-                  INNER JOIN biz_leasing_contract contract
-                    ON contract.id = lease_unit.contract_id
-                   AND contract.tenant_id = lease_unit.tenant_id
-                   AND contract.park_id = lease_unit.park_id
-                   AND contract.is_deleted = false
-                   AND contract.status NOT IN ('90', '91')
-                  WHERE lease_unit.tenant_id = unit.tenant_id
-                    AND lease_unit.park_id = unit.park_id
-                    AND lease_unit.unit_id = unit.id
-                    AND lease_unit.status = 1
-                    AND lease_unit.is_deleted = false
-                    AND (lease_unit.start_date::timestamp AT TIME ZONE 'Asia/Shanghai') < $4::timestamptz
-                    AND ((lease_unit.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai') > $3::timestamptz
-                ) THEN 'occupied'
-                ELSE 'available'
-              END AS room_state
-       FROM biz_unit unit
-       LEFT JOIN biz_property_operation_config mode
-         ON mode.tenant_id = unit.tenant_id
-        AND mode.park_id = unit.park_id
-        AND mode.unit_id = unit.id
-        AND mode.is_deleted = false
-       LEFT JOIN biz_property_occupancy occupancy
-         ON occupancy.tenant_id = unit.tenant_id
-        AND occupancy.park_id = unit.park_id
-        AND occupancy.unit_id = unit.id
-        AND occupancy.is_deleted = false
-        AND occupancy.status IN ('held', 'active')
-        AND (occupancy.status <> 'held' OR occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now())
-        AND occupancy.start_at < $4::timestamptz
-        AND occupancy.end_at > $3::timestamptz
-       LEFT JOIN biz_homestay_turnover_task turnover
-         ON turnover.tenant_id = unit.tenant_id
-        AND turnover.park_id = unit.park_id
-        AND turnover.unit_id = unit.id
-        AND turnover.is_deleted = false
-        AND turnover.status <> 'completed'
-       WHERE unit.tenant_id = $1
-         AND unit.park_id = $2
-         AND unit.is_deleted = false${unitClause}
-       GROUP BY unit.id, unit.unit_code, unit.unit_name, mode.operating_mode, mode.operating_status
-       ORDER BY unit.unit_code`,
+    return parameters;
+  }
+
+  private async loadLegacyAvailability(
+    baseSql: string,
+    parameters: unknown[]
+  ): Promise<HomestayAvailabilityResponse> {
+    const rows = await this.dataSource.query(
+      `${baseSql}
+       SELECT unit_id, unit_code, unit_name, operation_mode, room_state
+       FROM availability ORDER BY unit_code`,
       parameters
-    );
+    ) as HomestayAvailabilityItem[];
+    return this.projectAvailabilityRows(rows);
+  }
+
+  private async loadV2Availability(
+    baseSql: string,
+    parameters: unknown[],
+    query: HomestayAvailabilityQueryDto
+  ): Promise<HomestayAvailabilityListResponse> {
+    const limitIndex = parameters.length + 1;
+    const offsetIndex = parameters.length + 2;
+    const [rows, countRows] = await Promise.all([
+      this.dataSource.query(
+        `${baseSql}
+         SELECT unit_id, unit_code, unit_name, operation_mode, room_state
+         FROM availability
+         ORDER BY unit_code
+         LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+        [...parameters, query.page_size, (query.page - 1) * query.page_size]
+      ) as Promise<HomestayAvailabilityItem[]>,
+      this.dataSource.query(
+        `${baseSql} SELECT count(*)::int AS total FROM availability`,
+        parameters
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    return {
+      items: this.projectAvailabilityRows(rows),
+      total: Number(countRows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
+  }
+
+  private projectAvailabilityRows(
+    rows: HomestayAvailabilityItem[]
+  ): HomestayAvailabilityItem[] {
+    return rows.map((row) => ({
+      unit_id: row.unit_id,
+      unit_code: row.unit_code,
+      unit_name: row.unit_name,
+      operation_mode: row.operation_mode,
+      room_state: row.room_state
+    }));
+  }
+
+  private availabilityCteSql(withUnitScope: boolean): string {
+    const unitClause = withUnitScope ? " AND unit.id = ANY($5::uuid[])" : "";
+    return `WITH availability AS (
+      SELECT unit.id AS unit_id, unit.unit_code, unit.unit_name,
+             mode.operating_mode AS operation_mode,
+        CASE
+          WHEN unit.status <> 1 THEN 'out_of_service'
+          WHEN mode.operating_mode IS DISTINCT FROM 'short_stay' THEN 'mode_unavailable'
+          WHEN mode.operating_status IS DISTINCT FROM 'enabled' THEN 'out_of_service'
+          WHEN count(turnover.id) > 0 THEN 'turnover'
+          WHEN bool_or(occupancy.source_type = 'homestay_turnover') THEN 'turnover'
+          WHEN bool_or(occupancy.status IN ('held', 'active')) THEN 'occupied'
+          WHEN EXISTS (
+            SELECT 1
+            FROM rel_leasing_contract_unit lease_unit
+            INNER JOIN biz_leasing_contract contract
+              ON contract.id = lease_unit.contract_id
+             AND contract.tenant_id = lease_unit.tenant_id
+             AND contract.park_id = lease_unit.park_id
+             AND contract.is_deleted = false
+             AND contract.status NOT IN ('90', '91')
+            WHERE lease_unit.tenant_id = unit.tenant_id
+              AND lease_unit.park_id = unit.park_id
+              AND lease_unit.unit_id = unit.id
+              AND lease_unit.status = 1
+              AND lease_unit.is_deleted = false
+              AND (lease_unit.start_date::timestamp AT TIME ZONE 'Asia/Shanghai') < $4::timestamptz
+              AND ((lease_unit.end_date + 1)::timestamp AT TIME ZONE 'Asia/Shanghai') > $3::timestamptz
+          ) THEN 'occupied'
+          ELSE 'available'
+        END AS room_state
+      FROM biz_unit unit
+      LEFT JOIN biz_property_operation_config mode
+        ON mode.tenant_id = unit.tenant_id
+       AND mode.park_id = unit.park_id
+       AND mode.unit_id = unit.id
+       AND mode.is_deleted = false
+      LEFT JOIN biz_property_occupancy occupancy
+        ON occupancy.tenant_id = unit.tenant_id
+       AND occupancy.park_id = unit.park_id
+       AND occupancy.unit_id = unit.id
+       AND occupancy.is_deleted = false
+       AND occupancy.status IN ('held', 'active')
+       AND (occupancy.status <> 'held' OR occupancy.hold_expires_at IS NULL
+            OR occupancy.hold_expires_at > now())
+       AND occupancy.start_at < $4::timestamptz
+       AND occupancy.end_at > $3::timestamptz
+      LEFT JOIN biz_homestay_turnover_task turnover
+        ON turnover.tenant_id = unit.tenant_id
+       AND turnover.park_id = unit.park_id
+       AND turnover.unit_id = unit.id
+       AND turnover.is_deleted = false
+       AND turnover.status <> 'completed'
+      WHERE unit.tenant_id = $1 AND unit.park_id = $2
+        AND unit.is_deleted = false${unitClause}
+      GROUP BY unit.id, unit.unit_code, unit.unit_name,
+               mode.operating_mode, mode.operating_status
+    )`;
   }
 
   private async calculatePricing(
@@ -1463,11 +1867,97 @@ export class HomestayService {
     if (!allowed.includes(booking.status)) throw new ConflictException(message);
   }
 
-  private projectCredential(credential: HomestayStayCredentialEntity) {
+  private projectBooking(
+    booking: HomestayBookingEntity,
+    canReadFinance: boolean
+  ): HomestayBookingResponse {
     return {
-      ...credential,
-      credentialReference: credential.credentialReference === null ? null : "***"
+      id: booking.id,
+      bookingCode: booking.bookingCode,
+      unitId: booking.unitId,
+      arrivalDate: booking.arrivalDate,
+      departureDate: booking.departureDate,
+      status: booking.status,
+      guestCount: booking.guestCount,
+      sourceType: booking.sourceType,
+      ...(canReadFinance
+        ? {
+            roomAmount: booking.roomAmount,
+            adjustmentAmount: booking.adjustmentAmount,
+            totalAmount: booking.totalAmount
+          }
+        : {})
     };
+  }
+
+  private projectCredential(
+    credential: HomestayStayCredentialEntity
+  ): HomestayCredentialResponse {
+    return {
+      id: credential.id,
+      credentialType: credential.credentialType,
+      credentialLabel: credential.credentialLabel,
+      credentialReference: credential.credentialReference === null ? null : "***",
+      status: credential.status,
+      issuedAt: credential.issuedAt.toISOString(),
+      returnedAt: credential.returnedAt?.toISOString() ?? null
+    };
+  }
+
+  private projectTurnover(
+    task: HomestayTurnoverTaskEntity,
+    canReadFiles: boolean
+  ): HomestayTurnoverResponse {
+    return {
+      id: task.id,
+      bookingId: task.bookingId,
+      unitId: task.unitId,
+      status: task.status,
+      assigneeId: task.assigneeId,
+      assigneeName: task.assigneeName,
+      ...(canReadFiles ? { photoFileIds: [...task.photoFileIds] } : {}),
+      consumables: task.consumables.map((item) => ({ ...item })),
+      exceptionDescription: task.exceptionDescription,
+      linkedWorkOrderId: task.linkedWorkOrderId
+    };
+  }
+
+  private async mustFindAuthorizedBooking(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<HomestayBookingEntity> {
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      throw new NotFoundException("Homestay booking not found");
+    }
+    if (allowedUnitIds === null) {
+      const booking = await this.bookingsRepository.findOne({
+        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (!booking) throw new NotFoundException("Homestay booking not found");
+      return booking;
+    }
+    const builder = this.bookingsRepository.createQueryBuilder("booking")
+      .where("booking.id = :id", { id })
+      .andWhere("booking.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("booking.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("booking.is_deleted = false");
+    builder.andWhere("booking.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
+    const booking = await builder.getOne();
+    if (!booking) throw new NotFoundException("Homestay booking not found");
+    return booking;
+  }
+
+  private async assertUnitReadScope(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    unitId: string
+  ): Promise<void> {
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && !allowedUnitIds.includes(unitId)) {
+      throw new NotFoundException("Unit not found");
+    }
   }
 
   private async log(
