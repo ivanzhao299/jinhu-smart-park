@@ -271,6 +271,7 @@ export class FilesService {
         file.createBy ?? undefined
       );
       await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
+      await this.businessAccessService.detachReferencesOnDelete(scope, file, actor.sub, manager);
       file.isDeleted = true;
       file.updateBy = actor.sub;
       await repository.save(file);

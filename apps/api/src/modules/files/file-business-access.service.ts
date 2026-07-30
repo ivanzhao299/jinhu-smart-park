@@ -203,6 +203,29 @@ export class FileBusinessAccessService {
     }
   }
 
+  async detachReferencesOnDelete(
+    scope: TenantParkScope,
+    file: FileEntity,
+    actorId: string,
+    manager: EntityManager = this.dataSource.manager
+  ): Promise<void> {
+    if (file.bizType !== "floorplan" || !file.bizId) return;
+    await manager.query(
+      `UPDATE biz_floor
+       SET layout_file_id = NULL,
+           layout_url = NULL,
+           update_by = $1,
+           update_time = now(),
+           version = version + 1
+       WHERE tenant_id = $2
+         AND park_id = $3
+         AND id = $4::uuid
+         AND layout_file_id = $5::uuid
+         AND is_deleted = false`,
+      [actorId, scope.tenantId, scope.parkId, file.bizId, file.id]
+    );
+  }
+
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
   }
