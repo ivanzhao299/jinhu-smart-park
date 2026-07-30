@@ -233,7 +233,7 @@ Independent final review PASS，`open_P0_P1=[]`。
 pass；homestay/housing Web 仍由 A-2.5 stop-ship 阻塞，A-route-evidence 尚未完成，
 A-gates 与父任务继续 `in_progress`。
 
-### 3.11 A-2.5 与双域工作台最终机器 Gate：PASS / 浏览器证据待补
+### 3.11 A-2.5 与双域工作台最终机器 Gate：PASS
 
 交付 SHA 为 `3766509`、`44d6769`、`8a0bd17`、`5a557e5`、`d33fad9`、
 `bc2ed7f`、`992a6a4`。Shared、Homestay、Housing、RBAC、17 canonical pages、
@@ -243,8 +243,9 @@ A-gates 与父任务继续 `in_progress`。
 不得作为最终口径。Web default `tsc`/lint/build 154、独立多轮 Gate 与 DB evidence
 均 PASS。
 
-唯一未完成 Gate 是 Chrome connector `sandboxCwd` 基础设施阻止真实 desktop/390
-visual、keyboard、zoom/reflow。不得据机器 PASS 宣称 A-2.5 完全 release-ready。
+真实 desktop/390 visual、keyboard、zoom/reflow 未执行；按用户决定，该项转入
+外部 UAT，不再作为 Track A 技术关闭条件。不得据机器 PASS 宣称人工 UAT 或生产
+就绪已通过。
 
 P2 mixed-scope 文案用例保留为报告规范：同一批次含 shared、SQL 和 Web 时，必须按
 scope/owner/evidence 拆分描述，不能把某 scope 的 P2 文案或 fixture 差异升级成另一

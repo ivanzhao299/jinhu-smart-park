@@ -261,6 +261,6 @@ A-2.5 最终 API full unit 为 91/91；此前 92 的口径包含后来撤销的�
 assets-unit-picker spec，不作为最终数字。Web default `tsc`/lint/build 154、独立
 多轮 Gate 与 DB evidence 均通过，`open_P0_P1=[]`。
 
-唯一未完成层是 Chrome connector `sandboxCwd` 基础设施阻塞的真实 desktop/390
-visual、keyboard 与 zoom/reflow。该 skip 阻止整体 release-ready，不能以机器测试
+真实 desktop/390 visual、keyboard 与 zoom/reflow 未执行，按用户决定转入外部
+UAT。该项不阻塞 Track A 技术关闭，但在生产就绪签署前仍需完成，且不能用机器测试
 替代真实浏览器证据。

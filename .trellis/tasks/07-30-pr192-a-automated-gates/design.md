@@ -22,8 +22,8 @@ A-base-core 最终 source commit 为
 `abase20260730final32ccc01`，fixture handoff
 `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
 profile `68da…107b`。Independent final review PASS、`open_P0_P1=[]`，因此
-A-2.5 已 unblocked/next；domain Web 与 A-route-evidence 仍 blocked/pending，
-整个 automated-gates 任务继续 `in_progress`。
+该段记录 A-base handoff 当时状态；后续 A-2.5、domain Web 与 A-route-evidence
+均已完成，automated-gates 技术任务已关闭。
 
 整个任务从 bootstrap 提取与独立 review 开始，A-base implementation 不得提前；
 页面冻结仍不是 A-base 前置。任何 B schema 探测都必须是“确认未依赖”，不能变成 A
@@ -188,8 +188,7 @@ Gate aggregator 使用 AND 语义；skip 默认失败，只有父计划明确标
 ## 11. 2026-07-31 最终机器 Gate 与 P2 文案规则
 
 最终 API full unit 91/91，Web default `tsc`/lint/build 154，独立多轮 Gate 与 DB
-evidence PASS，`open_P0_P1=[]`。Chrome connector `sandboxCwd` 是唯一未完成的
-browser infrastructure Gate。
+evidence PASS，`open_P0_P1=[]`。真实浏览器验证按用户决定转入外部 UAT，未执行。
 
 P2 mixed-scope 用例必须按 owner 拆分表述：例如同批报告含 shared contract、SQL
 migration/seed 和 Web evidence 时，SQL fixture 或文案 P2 不得被写成 shared/API

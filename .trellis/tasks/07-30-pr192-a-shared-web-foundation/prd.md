@@ -107,5 +107,5 @@ detail routes 与 Party target 均已交付。最终 API full unit 91/91、Web d
 `tsc`/lint/build 154、独立多轮 Gate 通过，`open_P0_P1=[]`。
 
 唯一未完成的是 Chrome connector `sandboxCwd` 基础设施导致真实 desktop/390
-visual、keyboard、focus、zoom/reflow 未验；foundation 保持 `in_progress`，不得称
+visual、keyboard、focus、zoom/reflow 未验并转入外部 UAT；foundation 技术任务完成，不得称
 final UI Gate 或 release-ready 已完成。

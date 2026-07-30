@@ -45,24 +45,17 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 |---|---|---|
 | 总体规划与多角色复审 | 已完成 | 已形成父任务、11 个规划子任务、阶段依赖、负责人边界和验收门禁 |
 | 开发分支与任务登记 | 已完成 | 已建立本次整改分支和 Trellis 任务结构 |
-| Track A 合同实现 | 进行中 | contract/server-safety baseline=`e709459a034807b3575db604a76bc69bf1c5ff5b`；A-C2 migration+API projection slice runtime Gate PASS；后置 Web 交付尚未完成 |
-| 业务页面整改 | 未开始 | 尚未开始民宿和住房 canonical 页面拆分 |
-| 自动化验收执行 | 进行中 | A-C1/A-server-safety 与 A-C2 migration+API projection slice Gate 已通过；页面和最终 E2E Gate 尚未执行 |
+| Track A 合同实现 | 已完成 | shared、民宿/住房 API、数据库权限迁移、17 个 canonical 页面、7 个详情页和 Party 目标均已交付 |
+| 业务页面整改 | 已完成 | 民宿 8 个、住房 9 个工作台及对应详情页已拆分并接入权限菜单 |
+| 自动化验收执行 | 已完成 | API 91/91、Web 类型检查/静态检查/154 页面构建、数据库证据和独立多轮 Gate 均通过，`open_P0_P1=[]` |
 | 外部人工 UAT | 未开始 | 等待 Track B 技术通过和隔离验收环境 |
 | 生产就绪 | 未开始 | 必须等待 Track A、B、C 技术结果和人工签署 |
 
-当前结论：**A-server-safety stop-ship 已关闭，contract/server-safety baseline
-已于 2026-07-30 冻结为 `e709459a034807b3575db604a76bc69bf1c5ff5b`；A-C2
-migration+API-only projection slice runtime Gate 已通过，但 A-1 仍未完成。A-base
-S0 发现的 bootstrap P1 已由独立 checker 关闭，正式 handoff SHA 为
-`b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
-Shared Web foundation commit
-`d2a015f9ba931b2024e6360570697c77b74ea3fb` 也已冻结。A-base-core 已基于
-`32ccc02852c3201c6f68e3b6b89e4398cb102a17` provisioned，fixture handoff
-`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`
-已冻结。下一动作是 A-2.5，再交付两个领域 route SHA。任何 workbench Web 必须等待
-A-2.5，Web menu 还必须等待真实 route SHA，
-不得提前把 A-1 标记完成。**
+当前结论：**Track A 技术交付已完成。shared、民宿与住房 API、数据库权限迁移、
+共享 Web 基础、17 个 canonical 页面、7 个详情页、Party canonical target、菜单与
+自动化门禁均已闭合，`open_P0_P1=[]`。按用户决定，真实 desktop/390、键盘及
+zoom/reflow 验收暂不执行，作为外部 UAT 待办保留；该项不阻塞 Track B，但仍是
+生产就绪签署前必须完成的证据。下一动作进入 Track B 的 B-0 合同与数据库扩展。**
 
 ## 5. Track A：页面、菜单与权限整改
 
@@ -75,11 +68,11 @@ Track A 的目标是先把民宿与住房出租拆成清晰、可授权、可单
 |---|---|---|---|---|---|---|---|
 | A-0 启动确认 | 已完成 | 项目负责人；产品、架构、研发、测试代表 | 多角色复审结论已通过 | 分支、父任务、11 个子任务、唯一负责人边界和停工条件均已登记；这只代表规划启动完成 | [父任务资料](./) | 2026-07-30 | 2026-07-30 |
 | A-1 合同与权限基础 | 已完成 | 共享合同、server safety、民宿/住房 API、环境文档、API menu projection、数据库变更负责人；产品与安全参与 | A-0 完成 | shared、RBAC、17/7 routes、Party target 与 DB evidence 全部闭合，open_P0_P1=[] | [合同与权限任务](../07-30-pr192-a-contract-rbac-foundation/) | 2026-07-30 | 2026-07-31 |
-| A-2 共享界面基础 | 机器 Gate 已完成 / 浏览器待验 | 共享房产 Web 负责人持组件；domain route owner 持浏览器执行；QA 持证据 | A-1 的访问与响应合同已冻结 | 双域已消费同一 foundation；仅 Chrome connector sandboxCwd 阻塞真实浏览器证据 | [共享界面 handoff](../07-30-pr192-a-shared-web-foundation/) | 2026-07-30 | 机器 Gate 2026-07-31 |
-| A-2.5 Workbench API/response contract closure | 已完成 / 非 release-ready | shared-contract、homestay-api、housing-api、schema-migration、asset-party owners；独立 checker | A-base handoff | 全 response/GET/field/file contracts、7 detail routes、9 high-risk、Party target 闭合；open_P0_P1=[] | `3766509`/`44d6769`/`8a0bd17`/`5a557e5`/`d33fad9` | 2026-07-31 | 2026-07-31 |
-| A-3 民宿与住房工作台并行整改 | 机器 Gate 已完成 / 浏览器待验 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-2.5 PASS | 双域工作台已交付；Chrome connector sandboxCwd 恢复后补 desktop/390/keyboard/zoom evidence | [民宿](../07-30-pr192-a-homestay-workbenches/)；[住房](../07-30-pr192-a-housing-workbenches/) | 2026-07-31 | 机器 Gate 2026-07-31 |
+| A-2 共享界面基础 | 已完成 | 共享房产 Web 负责人；domain route owner；QA | A-1 的访问与响应合同已冻结 | 双域消费同一 foundation，机器 Gate 通过；真实浏览器验收转入外部 UAT | [共享界面 handoff](../07-30-pr192-a-shared-web-foundation/) | 2026-07-30 | 2026-07-31 |
+| A-2.5 Workbench API/response contract closure | 已完成 | shared-contract、homestay-api、housing-api、schema-migration、asset-party owners；独立 checker | A-base handoff | 全 response/GET/field/file contracts、7 detail routes、9 high-risk、Party target 闭合；open_P0_P1=[] | `3766509`/`44d6769`/`8a0bd17`/`5a557e5`/`d33fad9` | 2026-07-31 | 2026-07-31 |
+| A-3 民宿与住房工作台并行整改 | 已完成 | 民宿 Web 负责人、住房 Web 负责人；产品、UI、交互、测试与岗位代表参与 | A-2.5 PASS | 双域工作台和机器 Gate 已交付；真实浏览器验收转入外部 UAT | [民宿](../07-30-pr192-a-homestay-workbenches/)；[住房](../07-30-pr192-a-housing-workbenches/) | 2026-07-31 | 2026-07-31 |
 | A-4 Web 菜单、落地页与深链防护 | 已完成 | 菜单权限负责人；住房 route owner 持有 tenant alias；民宿 route owner 参与 | A-3 两份 canonical route SHA | Web menu、legacy landing、Party alias 与 unknown deep-link fail-closed 已进入 integration Gate | `d33fad9`、`bc2ed7f`、`992a6a4` | 2026-07-31 | 2026-07-31 |
-| A-5 自动验收与独立复审 | 机器 Gate PASS / 浏览器基础设施阻塞 | 自动化测试负责人；独立的产品、权限、UX、测试审查者 | A-base 与 routes 已完成 | API 91/91、Web default tsc/lint/build154、DB evidence、open_P0_P1=[]；真实视觉证据待 connector | [Track A 自动验收证据](../07-30-pr192-a-automated-gates/) | 2026-07-30 | 2026-07-31 |
+| A-5 自动验收与独立复审 | 已完成 | 自动化测试负责人；独立的产品、权限、UX、测试审查者 | A-base 与 routes 已完成 | API 91/91、Web default tsc/lint/build154、DB evidence、open_P0_P1=[]；真实浏览器证据转入外部 UAT | [Track A 自动验收证据](../07-30-pr192-a-automated-gates/) | 2026-07-30 | 2026-07-31 |
 
 ### 5.2 Track A 放行原则
 
@@ -87,11 +80,9 @@ Track A 的目标是先把民宿与住房出租拆成清晰、可授权、可单
 - A-1 内部顺序固定为：A-contract candidate → A-server-safety/field-projection Gate
   → 最终 A-contract SHA → schema migration/exact tests → API-only `/users/me`
   projection。Web menu 不属于此时的可见交付。
-- A-2 达到 `foundation handoff ready` 后，民宿和住房负责人可以研究共享组件的
-  消费方式；任何 workbench Web 文件仍不得开始。首个 domain route 负责补真实
-  浏览器证据，final UI Gate 在证据补齐后完成，禁止 preview/生产 route。
-- A-base handoff 已冻结；A-2.5 已解除依赖并作为下一步串行 Gate。合同研究可先行，
-  workbench Web 必须等待 `A-2.5-contract-closure SHA`。
+- A-2 已完成并由两个领域共同消费；真实浏览器证据按用户决定转入外部 UAT，
+  不回填为自动化已通过。
+- A-base handoff、A-2.5 合同和领域 route SHA 均已冻结。
 - A-3 先交付实际页面地址，A-4 再建立菜单、落地页和跳转，避免菜单指向不存在或
   尚未验收的页面。
 - A-4 只能消费 homestay/housing route SHA；domain Web owners 保持各自 app
@@ -236,11 +227,11 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
    fixture handoff
    `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`
    已冻结。Web 保持不可见，A-1 不关闭。
-5. A-2.5、两份 domain route、Party alias 与机器 Gate 已完成；下一步仅在 Chrome
-   connector `sandboxCwd` 恢复后补 desktop/390/keyboard/zoom route evidence。
+5. A-2.5、两份 domain route、Party alias 与机器 Gate 已完成；真实
+   desktop/390/keyboard/zoom route evidence 转入外部 UAT，当前下一步启动 B-0。
 
-在上述步骤完成前，不启动 Track B/C，不开启生产高风险能力，也不把规划完成误报为
-整改完成。
+Track B 可以启动；在 Track B/C 与外部 UAT 完成前，不开启生产高风险能力，也不把
+Track A 技术完成误报为生产就绪。
 
 ## 13. 2026-07-31 最终同步
 
@@ -248,5 +239,5 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 `992a6a4`。最终 API full unit 91/91（此前 92 含已撤销临时 spec）、Web default
 `tsc`/lint/build 154、DB 与独立多轮 Gate PASS，`open_P0_P1=[]`。
 
-唯一未完成事项是 Chrome connector `sandboxCwd` 基础设施造成的真实 desktop/390
-视觉、键盘、zoom/reflow 未验；因此 roadmap 不宣称 A-2.5/Track A release-ready。
+真实 desktop/390 视觉、键盘、zoom/reflow 未执行，按用户决定转入外部 UAT。
+因此 Track A 标记为技术完成，但 roadmap 不宣称生产就绪或人工 UAT 已通过。

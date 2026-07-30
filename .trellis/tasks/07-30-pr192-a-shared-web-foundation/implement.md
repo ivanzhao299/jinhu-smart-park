@@ -54,8 +54,8 @@ handoff，不等于 final UI Gate；首个 domain route owner 在真实 route �
 （`feat(property): add shared workbench foundation`）。三路 S2 final review
 **PASS**，`open_P0_P1=[]`；14 specs、boundary 5/5、ESLint、workspace typecheck、
 shared build、Web build 全部通过。该记录只关闭 integration-ready handoff Gate；
-child 保持 `in_progress`，final UI Gate 仍
-`awaiting_first_canonical_route`。
+child 技术状态标记完成；首批 canonical routes 已交付，真实浏览器 final UI Gate
+转入外部 UAT。
 
 Handoff 附带 stop-ship：A-base 后必须取得 `A-2.5-contract-closure SHA` 才允许领域
 Web 开始。Foundation owner 不创建 route-local response interface、不以组件 adapter

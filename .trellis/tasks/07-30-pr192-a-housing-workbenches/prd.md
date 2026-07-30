@@ -155,4 +155,5 @@ Housing API `8a0bd17` 与工作台 `992a6a4` 已交付；shared/RBAC/integration
 `open_P0_P1=[]`。
 
 唯一未完成项是 Chrome connector `sandboxCwd` 基础设施导致真实 desktop/390
-visual、keyboard、zoom/reflow 未验；任务保持 `in_progress`，不得标记 release-ready。
+visual、keyboard、zoom/reflow 未验并按用户决定转入外部 UAT；技术任务标记完成，
+但不代表生产就绪。

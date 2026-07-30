@@ -3,7 +3,7 @@
   "name": "pr192-a-automated-gates",
   "title": "PR192 A 自动化门禁",
   "description": "Track A 精确角色、A-base数据集、权限与页面自动化技术门禁",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": "workspace",
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "emvia",
   "assignee": "emvia",
   "createdAt": "2026-07-30",
-  "completedAt": null,
+  "completedAt": "2026-07-31",
   "branch": "codex/pr192-property-productization-remediation",
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "Final API full unit 91/91, Web default tsc/lint/build 154, independent multi-round gates and DB evidence pass with open_P0_P1=[]; only Chrome connector sandboxCwd blocks real desktop/390 visual, keyboard and zoom evidence",
+  "notes": "Final API full unit 91/91, Web default tsc/lint/build 154, independent multi-round gates and DB evidence pass with open_P0_P1=[]. Real desktop/390 visual, keyboard and zoom evidence is explicitly deferred to external UAT and was not executed.",
   "meta": {}
 }

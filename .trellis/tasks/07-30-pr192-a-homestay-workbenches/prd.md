@@ -157,4 +157,4 @@ Homestay A-2.5 API `44d6769` 与工作台 `bc2ed7f` 已交付，shared/RBAC/inte
 
 最终 API full unit 91/91 与 Web default `tsc`/lint/build 154 属于整体验证证据。唯一未完成的是
 Chrome connector `sandboxCwd` 基础设施导致的真实 desktop/390 visual、keyboard、
-zoom/reflow 验证；因此任务保持 `in_progress`，不得标记完全 release-ready。
+zoom/reflow 验证按用户决定转入外部 UAT。本技术任务标记完成，但不代表生产就绪。

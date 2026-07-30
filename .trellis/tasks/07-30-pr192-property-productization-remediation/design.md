@@ -555,7 +555,6 @@ Codex 只负责自动化、环境、记录、统计和缺陷回派，不冒充�
 - `bc2ed7f`：Homestay workbenches。
 - `992a6a4`：Housing workbenches。
 
-上述设计经过独立多轮 Gate 与数据库证据复核，`open_P0_P1=[]`。当前唯一缺口不是
-产品或代码设计缺陷，而是 Chrome connector 无法在仓库 `sandboxCwd` 中启动，故真实
-desktop/390、keyboard、zoom/reflow 仍待基础设施恢复后补验；该缺口阻止
-release-ready 结论。
+上述设计经过独立多轮 Gate 与数据库证据复核，`open_P0_P1=[]`。真实
+desktop/390、keyboard、zoom/reflow 按用户决定暂不执行并转入外部 UAT；该证据
+不阻塞 Track B，但在生产就绪签署前仍需完成。

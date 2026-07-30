@@ -212,6 +212,5 @@ manifest/recovery 测试和 technical verdict。该 verdict 只代表 Track A �
 Web default `tsc`/lint/build 154、独立多轮 Gate 与 DB evidence PASS，
 `open_P0_P1=[]`。
 
-唯一未执行的是 Chrome connector `sandboxCwd` 下的真实 desktop/390 visual、
-keyboard、zoom/reflow；因此自动化任务保持 `in_progress`，且不得输出 A-2.5
-完全 release-ready。
+真实 desktop/390 visual、keyboard、zoom/reflow 未执行，按用户决定转入外部 UAT。
+自动化技术任务标记完成，但不得输出人工 UAT 或生产就绪结论。

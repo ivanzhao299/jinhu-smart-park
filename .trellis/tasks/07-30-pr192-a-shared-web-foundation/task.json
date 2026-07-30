@@ -3,7 +3,7 @@
   "name": "pr192-a-shared-web-foundation",
   "title": "PR192 A 共享 Web 基础",
   "description": "Track A 共享 picker、task、detail、dialog 与 Design System 基础，不依赖 Track B identity",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": "workspace",
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "emvia",
   "assignee": "emvia",
   "createdAt": "2026-07-30",
-  "completedAt": null,
+  "completedAt": "2026-07-31",
   "branch": "codex/pr192-property-productization-remediation",
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "Shared Web foundation and downstream integration are machine-verified; only Chrome connector sandboxCwd infrastructure blocks real desktop/390 visual, keyboard and zoom verification",
+  "notes": "Shared Web foundation and downstream integration are machine-verified. By user decision, real desktop/390 visual, keyboard and zoom verification is deferred to external UAT and was not executed.",
   "meta": {}
 }

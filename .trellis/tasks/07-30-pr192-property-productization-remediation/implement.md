@@ -585,9 +585,8 @@ A-2.5 实现与机器门禁已完成：shared/Homestay/Housing/RBAC、17/7 route
 canonical target 均已闭合，最终 API full unit 91/91、Web default `tsc`/lint/build 154、独立多轮
 Gate 和 DB evidence 通过，`open_P0_P1=[]`。
 
-当前只保留一个基础设施待办：Chrome connector `sandboxCwd` 限制导致真实
-desktop/390 visual、keyboard、zoom/reflow 未验。修复 connector 后补采 artifact；
-在此之前不得宣称 A-2.5 完全 release-ready。
+真实 desktop/390 visual、keyboard、zoom/reflow 未执行，并按用户决定转入外部
+UAT。Track A 技术任务关闭并允许进入 Track B；在补齐人工证据前不得宣称生产就绪。
 
 P2 mixed-scope 文案用例：同一检查批次同时包含 shared contract、SQL migration/seed
 和 Web evidence 时，报告必须按 owner 与证据拆分，不能把某一 scope 的 P2 文案或

@@ -265,6 +265,5 @@ page routes、7 个 detail routes 和 Party canonical list/detail target 均已�
 `open_P0_P1=[]`。最终 API full unit 91/91、Web default `tsc`/lint/build（154 routes）、独立多轮
 Gate 与隔离数据库证据通过。
 
-唯一未完成项是 Chrome connector 的 `sandboxCwd` 基础设施限制，导致真实
-desktop/390 视觉、键盘与 zoom/reflow 证据尚未执行。Codex 技术交付可标记完成，但
-不得把 A-2.5 或 Track A 标记为完全 release-ready，也不得把自动化结果表述为真人 UAT。
+真实 desktop/390 视觉、键盘与 zoom/reflow 证据尚未执行，并按用户决定转入外部
+UAT。Codex Track A 技术交付标记完成，但不得把它表述为生产就绪或真人 UAT 已通过。
