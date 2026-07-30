@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TenantParkScope } from "@jinhu/shared";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
+import { Brackets } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { PartyQueryDto } from "./dto/party.dto";
 import type { PartyEntity } from "./entities/party.entity";
 import { PartiesService } from "./parties.service";
 
@@ -80,6 +84,263 @@ function lockedPartyHarness(entity: PartyEntity) {
     service: new PartiesService(partiesRepository as never, {} as never, sensitiveDataService as never)
   };
 }
+
+test("party list uses shared projection and hides every sensitive field without exact permission", async () => {
+  const entity = partyFixture({
+    mobile: "13812345678",
+    email: "tenant@example.com"
+  });
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => [[entity], 1]
+  };
+  const service = new PartiesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never
+  );
+
+  const result = await service.list(scope, { page: 1, page_size: 20 }, actor);
+  const item = result.items[0]!;
+
+  assert.equal("mobile" in item, false);
+  assert.equal("email" in item, false);
+  assert.equal("identityDocumentType" in item, false);
+  assert.equal("identityNumberMasked" in item, false);
+  assert.equal("identityNumber" in item, false);
+  assert.equal(item.createTime, "2026-01-01T00:00:00.000Z");
+  assert.deepEqual(Object.keys(item).sort(), [
+    "consentStatus",
+    "createTime",
+    "displayName",
+    "id",
+    "parkId",
+    "partyType",
+    "remark",
+    "sourceDomain",
+    "tenantId",
+    "updateTime",
+    "verificationStatus",
+    "version"
+  ]);
+});
+
+test("party keyword cannot probe mobile without party sensitive read", async () => {
+  const predicates: string[] = [];
+  const nested = {
+    where: (predicate: string) => {
+      predicates.push(predicate);
+      return nested;
+    },
+    orWhere: (predicate: string) => {
+      predicates.push(predicate);
+      return nested;
+    }
+  };
+  const builder = {
+    where: () => builder,
+    andWhere: (condition: unknown) => {
+      if (condition instanceof Brackets) condition.whereFactory(nested as never);
+      return builder;
+    },
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => [[], 0]
+  };
+  const service = new PartiesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.list(scope, { keyword: "138", page: 1, page_size: 20 }, actor);
+  assert.deepEqual(predicates, ["party.display_name ILIKE :keyword"]);
+
+  predicates.length = 0;
+  await service.list(
+    scope,
+    { keyword: "138", page: 1, page_size: 20 },
+    { ...actor, permissions: ["party:sensitive_read"] }
+  );
+  assert.deepEqual(predicates, [
+    "party.display_name ILIKE :keyword",
+    "party.mobile ILIKE :keyword"
+  ]);
+});
+
+test("party and housing tenant sort contract rejects raw columns and maps stable SQL", async () => {
+  const valid = plainToInstance(PartyQueryDto, {
+    sort: "displayName",
+    order: "asc",
+    page: "2",
+    page_size: "100"
+  });
+  assert.deepEqual(await validate(valid), []);
+  for (const input of [
+    { sort: "update_time; DROP TABLE biz_party" },
+    { order: "sideways" }
+  ]) {
+    assert.ok((await validate(plainToInstance(PartyQueryDto, input))).length > 0);
+  }
+
+  const orders: Array<[string, string]> = [];
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    orderBy: (column: string, direction: string) => {
+      orders.push([column, direction]);
+      return builder;
+    },
+    addOrderBy: (column: string, direction: string) => {
+      orders.push([column, direction]);
+      return builder;
+    },
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => [[], 0]
+  };
+  const service = new PartiesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never
+  );
+  await service.list(scope, valid, actor);
+  assert.deepEqual(orders, [
+    ["party.display_name", "ASC"],
+    ["party.id", "ASC"]
+  ]);
+});
+
+test("restricted housing tenant list is one scoped query and excludes unrelated or unbound parties", async () => {
+  const predicates: Array<{ sql: unknown; parameters?: Record<string, unknown> }> = [];
+  let pageQueries = 0;
+  const builder = {
+    where: (sql: unknown, parameters?: Record<string, unknown>) => {
+      predicates.push({ sql, parameters });
+      return builder;
+    },
+    andWhere: (sql: unknown, parameters?: Record<string, unknown>) => {
+      predicates.push({ sql, parameters });
+      return builder;
+    },
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => {
+      pageQueries += 1;
+      return [[], 0];
+    }
+  };
+  const service = new PartiesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never
+  );
+
+  const result = await service.listForDomainProjection(
+    scope,
+    { party_type: "person", page: 8, page_size: 20 },
+    actor,
+    ["00000000-0000-4000-8000-000000000010"]
+  );
+  const scopePredicate = predicates.find((item) =>
+    typeof item.sql === "string" && item.sql.includes("biz_housing_lease")
+  );
+  assert.ok(scopePredicate);
+  assert.match(String(scopePredicate.sql), /scoped_lease\.unit_id IN \(:\.\.\.housingUnitIds\)/u);
+  assert.match(String(scopePredicate.sql), /biz_property_occupancy scoped_occupancy/u);
+  assert.match(String(scopePredicate.sql), /scoped_occupancy\.unit_id IN \(:\.\.\.housingUnitIds\)/u);
+  assert.match(String(scopePredicate.sql), /scoped_lease\.tenant_party_id = party\.id/u);
+  assert.match(String(scopePredicate.sql), /rel_housing_lease_occupant/u);
+  assert.match(String(scopePredicate.sql), /scoped_occupant\.party_id = party\.id/u);
+  assert.deepEqual(scopePredicate.parameters?.housingUnitIds, [
+    "00000000-0000-4000-8000-000000000010"
+  ]);
+  assert.equal(pageQueries, 1);
+  assert.deepEqual(result, { items: [], total: 0, page: 8, page_size: 20 });
+});
+
+test("empty housing unit scope returns zero without querying parties", async () => {
+  let builders = 0;
+  const service = new PartiesService(
+    { createQueryBuilder: () => {
+      builders += 1;
+      return {};
+    } } as never,
+    {} as never,
+    {} as never
+  );
+  assert.deepEqual(
+    await service.listForDomainProjection(
+      scope,
+      { page: 99, page_size: 20 },
+      actor,
+      []
+    ),
+    { items: [], total: 0, page: 99, page_size: 20 }
+  );
+  assert.equal(builders, 0);
+});
+
+test("party detail exposes protected fields and minimal roles only with sensitive read", async () => {
+  const entity = partyFixture({
+    mobile: "13812345678",
+    email: "tenant@example.com"
+  });
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    addSelect: () => builder,
+    getOne: async () => entity
+  };
+  const role = {
+    id: "role-1",
+    roleType: "tenant",
+    sourceType: "housing_lease",
+    sourceId: "lease-1",
+    status: "active",
+    createTime: new Date("2026-01-02T00:00:00.000Z"),
+    updateBy: "must-not-project"
+  };
+  let decryptCount = 0;
+  const service = new PartiesService(
+    { createQueryBuilder: () => builder } as never,
+    { find: async () => [role] } as never,
+    {
+      decrypt: () => {
+        decryptCount += 1;
+        return "11010519491231002X";
+      }
+    } as never
+  );
+  const sensitiveActor = {
+    ...actor,
+    permissions: ["party:sensitive_read"]
+  };
+
+  const detail = await service.detail(scope, sensitiveActor, entity.id);
+
+  assert.equal(decryptCount, 1);
+  assert.equal(detail.mobile, entity.mobile);
+  assert.equal(detail.identityNumber, "11010519491231002X");
+  assert.deepEqual(detail.roles, [{
+    id: role.id,
+    roleType: role.roleType,
+    sourceType: role.sourceType,
+    sourceId: role.sourceId,
+    status: role.status,
+    createTime: "2026-01-02T00:00:00.000Z"
+  }]);
+  assert.equal("updateBy" in detail.roles[0]!, false);
+});
 
 test("concurrent duplicate party-role creation returns the committed relation", async () => {
   const concurrent = { id: "role-1", roleType: "tenant", sourceType: null, sourceId: null };

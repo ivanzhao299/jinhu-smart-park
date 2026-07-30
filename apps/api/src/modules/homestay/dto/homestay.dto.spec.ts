@@ -120,6 +120,17 @@ test("homestay candidate and turnover queries enforce bounded pagination and kno
 });
 
 test("A-2.5 homestay read DTOs validate queues, UUID filters, dates, and pagination", async () => {
+  const bookingQuery = plainToInstance(HomestayBookingQueryDto, {
+    keyword: "  HS-2026  "
+  });
+  assert.deepEqual(await validate(bookingQuery), []);
+  assert.equal(bookingQuery.keyword, "HS-2026");
+  assert.ok(
+    (await validate(plainToInstance(HomestayBookingQueryDto, {
+      keyword: "x".repeat(101)
+    }))).some((error) => error.property === "keyword")
+  );
+
   const availability = plainToInstance(HomestayAvailabilityQueryDto, {
     date_from: "2026-07-31",
     date_to: "2026-08-02",

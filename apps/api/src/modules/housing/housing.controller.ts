@@ -18,6 +18,7 @@ import {
   CreateHousingPurchaseDto,
   GenerateHousingBillsDto,
   HousingBillingQueryDto,
+  HousingEnergyMeterCandidateQueryDto,
   HousingFinanceQueryDto,
   HousingHandoverQueryDto,
   HousingLeaseQueryDto,
@@ -26,6 +27,7 @@ import {
   HousingRepairQueryDto,
   HousingReasonDto,
   HousingTaskQueryDto,
+  HousingUnitCandidateQueryDto,
   RegisterHousingLedgerEntryDto,
   SignHousingLeaseDto,
   TransferHousingPurchaseDto,
@@ -170,6 +172,36 @@ export class HousingController {
     @Query() query: HousingLeaseQueryDto
   ) {
     return this.service.listLeases(scope, actor, query);
+  }
+
+  @Get("unit-candidates")
+  @RequireModule("housing_rental", "asset")
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
+    SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE
+  )
+  listUnitCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HousingUnitCandidateQueryDto
+  ) {
+    return this.service.listUnitCandidates(scope, actor, query);
+  }
+
+  @Get("leases/:id/energy-meter-candidates")
+  @RequireModule("housing_rental", "asset", "energy")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ENERGY_METER_READ)
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+  )
+  listEnergyMeterCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Query() query: HousingEnergyMeterCandidateQueryDto
+  ) {
+    return this.service.listEnergyMeterCandidates(scope, actor, id, query);
   }
 
   @Get("leases/:id")

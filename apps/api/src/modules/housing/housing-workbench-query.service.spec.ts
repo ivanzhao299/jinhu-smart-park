@@ -130,6 +130,36 @@ test("every paginated housing workbench read keeps two aggregate statements at 1
   }
 });
 
+test("housing workbench sort values map only to frozen SQL columns with stable id ties", async () => {
+  const pageStatements: string[] = [];
+  const service = serviceWith(async (sql) => {
+    if (!sql.includes("count(*)::int AS total")) pageStatements.push(sql);
+    return sql.includes("count(*)::int AS total") ? [{ total: 0 }] : [];
+  });
+  const privileged = { ...actor, isSuper: true };
+  await service.listTasks(scope, privileged, {
+    sort: "title", order: "desc", page: 1, page_size: 20
+  });
+  await service.listHandovers(scope, privileged, {
+    sort: "leaseCode", order: "asc", page: 1, page_size: 20
+  });
+  await service.listBilling(scope, privileged, {
+    sort: "status", order: "asc", page: 1, page_size: 20
+  });
+  await service.listFinance(scope, privileged, {
+    sort: "leaseCode", order: "desc", page: 1, page_size: 20
+  });
+  await service.listRepairs(scope, privileged, {
+    sort: "code", order: "asc", page: 1, page_size: 20
+  });
+
+  assert.match(pageStatements[0] ?? "", /ORDER BY title DESC NULLS LAST, id ASC/u);
+  assert.match(pageStatements[1] ?? "", /ORDER BY lease\.lease_code ASC NULLS LAST, handover\.id ASC/u);
+  assert.match(pageStatements[2] ?? "", /ORDER BY lease\.status ASC NULLS LAST, lease\.id ASC/u);
+  assert.match(pageStatements[3] ?? "", /ORDER BY lease\.lease_code DESC NULLS LAST, lease\.id ASC/u);
+  assert.match(pageStatements[4] ?? "", /ORDER BY work_order\.wo_code ASC NULLS LAST, work_order\.id ASC/u);
+});
+
 test("all housing list reads bind restricted unit scope into both page and count predicates", async () => {
   const statements: string[] = [];
   const service = serviceWith(async (sql) => {
@@ -448,9 +478,16 @@ test("billing omits financial blocks without finance-read and finance stays in h
       }],
       receivables: [{
         id: "r-1", leaseId: "lease-1", chargeType: "rent",
+        sourceType: "charge_plan",
         periodStart: "2026-01-01", periodEnd: "2026-02-01",
         dueDate: "2026-01-05", amount: "1000", paidAmount: "200",
         waivedAmount: "0", status: "partial"
+      }, {
+        id: "r-deposit", leaseId: "lease-1", chargeType: "deposit",
+        sourceType: "lease_deposit",
+        periodStart: "2026-01-01", periodEnd: "2026-01-01",
+        dueDate: "2026-01-01", amount: "2000", paidAmount: "0",
+        waivedAmount: "0", status: "unpaid"
       }],
       receivable: "1000",
       paid: "200",
@@ -479,10 +516,42 @@ test("billing omits financial blocks without finance-read and finance stays in h
     outstanding: "800.00",
     deposit_balance: "500.00"
   });
-  assert.deepEqual(Object.keys(finance.items[0]!).sort(), ["lease", "summary"]);
+  assert.deepEqual(finance.items[0]!.receivables, [
+    {
+      id: "r-1",
+      receivableType: "ordinary",
+      entryKind: "payment",
+      chargeType: "rent",
+      dueDate: "2026-01-05",
+      amount: "1000.00",
+      paidAmount: "200.00",
+      waivedAmount: "0.00",
+      balance: "800.00",
+      status: "partial"
+    },
+    {
+      id: "r-deposit",
+      receivableType: "deposit",
+      entryKind: "deposit_receipt",
+      chargeType: "deposit",
+      dueDate: "2026-01-01",
+      amount: "2000.00",
+      paidAmount: "0.00",
+      waivedAmount: "0.00",
+      balance: "2000.00",
+      status: "unpaid"
+    }
+  ]);
+  assert.deepEqual(Object.keys(finance.items[0]!).sort(), [
+    "lease", "receivables", "summary"
+  ]);
   assert.deepEqual(Object.keys(finance.items[0]!.summary).sort(), [
     "deposit_balance", "outstanding", "paid", "receivable", "waived"
   ]);
+  assert.ok(statements.some((sql) =>
+    sql.includes("jsonb_agg(jsonb_build_object(")
+    && sql.includes("'chargeType', r.charge_type")
+  ));
   assert.equal(statements.some((sql) => /leasing/i.test(sql)), false);
 });
 

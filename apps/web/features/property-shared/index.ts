@@ -1,5 +1,6 @@
 export {
   projectPropertyCapabilities,
+  resolveAuthorizedPropertyRoute,
   resolvePropertyRoute
 } from "./access/capability-adapter";
 export type {

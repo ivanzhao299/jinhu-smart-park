@@ -10,6 +10,7 @@ import {
   projectPropertyCapabilities,
   propertyDetailRouteCount,
   propertySurfaceCount,
+  resolveAuthorizedPropertyRoute,
   resolvePropertyRoute
 } from "./capability-adapter";
 
@@ -474,9 +475,9 @@ test("invalidation key fingerprints scope config without exposing its values", (
   assert.equal(first.includes("building-secret"), false);
 });
 
-test("route resolver covers the frozen 17 surfaces and 6 inherited detail routes exactly", () => {
+test("route resolver covers the frozen 17 surfaces and 7 inherited detail routes exactly", () => {
   assert.equal(propertySurfaceCount(), 17);
-  assert.equal(propertyDetailRouteCount(), 6);
+  assert.equal(propertyDetailRouteCount(), 7);
 
   for (const surface of PROPERTY_BUSINESS_SURFACES) {
     const resolved = resolvePropertyRoute(surface.route);
@@ -510,7 +511,7 @@ test("route resolver distinguishes legacy, compatibility redirect and unknown pa
     sourcePagePermission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
     routePattern: "/housing/tenants/[partyId]",
     redirectTo: "/assets/parties/party-1",
-    targetAuthorization: "canonical-target",
+    targetAuthorization: "module-page-read",
     params: { partyId: "party-1" }
   });
   assert.deepEqual(resolvePropertyRoute("/housing"), {
@@ -553,7 +554,46 @@ test("compatibility redirects encode safe parameters and preserve canonical auth
     sourcePagePermission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
     routePattern: "/housing/tenants/[partyId]",
     redirectTo: "/assets/parties/%E5%BC%A0%E4%B8%89",
-    targetAuthorization: "canonical-target",
+    targetAuthorization: "module-page-read",
     params: { partyId: "张三" }
   });
+});
+
+test("compatibility redirect fails closed unless source and canonical target access intersect", () => {
+  const enabledModules = [
+    { module_code: "housing_rental", module_name: "住房", module_group: "property", enabled: true },
+    { module_code: "asset", module_name: "资产", module_group: "asset", enabled: true }
+  ];
+  const allowed = user({
+    enabled_modules: enabledModules,
+    permissions: [
+      PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
+      "asset:party",
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ
+    ]
+  });
+  assert.equal(
+    resolveAuthorizedPropertyRoute("/housing/tenants/party-1", allowed).kind,
+    "compatibility-redirect"
+  );
+  assert.deepEqual(
+    resolveAuthorizedPropertyRoute("/housing/tenants/party-1", null),
+    { kind: "unknown-property" }
+  );
+  for (const missing of [
+    { enabled_modules: enabledModules.filter((module) => module.module_code !== "housing_rental") },
+    { enabled_modules: enabledModules.filter((module) => module.module_code !== "asset") },
+    { permissions: allowed.permissions.filter((permission) => permission !== PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE) },
+    { permissions: allowed.permissions.filter((permission) => permission !== "asset:party") },
+    { permissions: allowed.permissions.filter((permission) => permission !== PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ) }
+  ]) {
+    assert.deepEqual(
+      resolveAuthorizedPropertyRoute("/housing/tenants/party-1", user({
+        enabled_modules: enabledModules,
+        permissions: allowed.permissions,
+        ...missing
+      })),
+      { kind: "unknown-property" }
+    );
+  }
 });

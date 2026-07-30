@@ -3,7 +3,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -92,6 +93,7 @@ import {
   formatHomestayLedgerSummary,
   summarizeHomestayLedger
 } from "./homestay-finance.policy";
+import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
@@ -109,6 +111,7 @@ interface BookingDetailRelations {
   ledger: HomestayLedgerEntryEntity[];
   actions: HomestayBookingActionLogEntity[];
   turnover: HomestayTurnoverTaskEntity | null;
+  guestDisplayNames: ReadonlyMap<string, string>;
 }
 
 @Injectable()
@@ -129,7 +132,9 @@ export class HomestayService {
     private readonly propertyOccupanciesService: PropertyOccupanciesService,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService = new ConfigService()
+    private readonly configService: ConfigService = new ConfigService(),
+    @Optional()
+    private readonly workbenchQuery?: HomestayWorkbenchQueryService
   ) {}
 
   async listUnitCandidates(
@@ -312,6 +317,11 @@ export class HomestayService {
     if (allowedUnitIds !== null) builder.andWhere("booking.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
     if (query.status) builder.andWhere("booking.status = :status", { status: query.status });
     if (query.unit_id) builder.andWhere("booking.unit_id = :unitId", { unitId: query.unit_id });
+    if (query.keyword) {
+      builder.andWhere("booking.booking_code ILIKE :bookingKeyword", {
+        bookingKeyword: `%${query.keyword}%`
+      });
+    }
     if (query.date_from) builder.andWhere("booking.departure_date > :dateFrom", { dateFrom: query.date_from.slice(0, 10) });
     if (query.date_to) builder.andWhere("booking.arrival_date < :dateTo", { dateTo: query.date_to.slice(0, 10) });
     const [bookings, total] = await builder
@@ -554,7 +564,27 @@ export class HomestayService {
           })
         : Promise.resolve(null)
     ]);
-    return { nights, guests, credentials, ledger, actions, turnover };
+    const guestPartyIds = [...new Set(guests.map((guest) => guest.partyId))];
+    const guestPartyRows = guestPartyIds.length
+      ? await this.dataSource.query(
+        `SELECT party.id, party.display_name AS "displayName"
+         FROM biz_party party
+         WHERE party.tenant_id = $1
+           AND party.park_id = $2
+           AND party.id = ANY($3::uuid[])
+           AND party.is_deleted = false`,
+        [scope.tenantId, scope.parkId, guestPartyIds]
+      ) as Array<{ id: string; displayName: string }>
+      : [];
+    return {
+      nights,
+      guests,
+      credentials,
+      ledger,
+      actions,
+      turnover,
+      guestDisplayNames: new Map(guestPartyRows.map((party) => [party.id, party.displayName]))
+    };
   }
 
   private projectBookingDetail(
@@ -562,7 +592,15 @@ export class HomestayService {
     relations: BookingDetailRelations,
     access: BookingDetailAccess
   ): HomestayBookingDetailResponse {
-    const { nights, guests, credentials, ledger, actions, turnover } = relations;
+    const {
+      nights,
+      guests,
+      credentials,
+      ledger,
+      actions,
+      turnover,
+      guestDisplayNames
+    } = relations;
     return {
       booking: this.projectBooking(booking, access.canReadFinance),
       nights: nights.map((night) => ({
@@ -580,6 +618,7 @@ export class HomestayService {
       guests: guests.map((guest) => ({
         id: guest.id,
         partyId: guest.partyId,
+        partyDisplayName: guestDisplayNames.get(guest.partyId) ?? "未命名住客",
         isPrimary: guest.isPrimary,
         verificationStatus: guest.verificationStatus
       })),
@@ -1222,7 +1261,7 @@ export class HomestayService {
     const task = await builder.getOne();
     if (!task) throw new NotFoundException("Turnover task not found");
     const canReadFiles = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
-    const [unitRows, files] = await Promise.all([
+    const [unitRows, files, linkedWorkOrder] = await Promise.all([
       this.dataSource.query(
         `SELECT unit_code AS "unitCode", unit_name AS "unitName"
          FROM biz_unit
@@ -1250,7 +1289,14 @@ export class HomestayService {
             .andWhere("file.is_deleted = false")
             .orderBy("file.create_time", "ASC")
             .getMany()
-        : Promise.resolve([])
+        : Promise.resolve([]),
+      task.linkedWorkOrderId && this.workbenchQuery
+        ? this.workbenchQuery.getAuthorizedWorkOrderReference(
+            scope,
+            actor,
+            task.linkedWorkOrderId
+          )
+        : Promise.resolve(undefined)
     ]);
     const unit = unitRows[0];
     return {
@@ -1267,7 +1313,8 @@ export class HomestayService {
               fileSize: file.fileSize
             }))
           }
-        : {})
+        : {}),
+      ...(linkedWorkOrder ? { linkedWorkOrder } : {})
     };
   }
 

@@ -44,6 +44,12 @@ class HomestayBusinessDateConstraint implements ValidatorConstraintInterface {
 
 export class HomestayBookingQueryDto {
   @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(100)
+  keyword?: string;
+
+  @IsOptional()
   @IsIn(["draft", "confirmed", "checked_in", "checked_out", "cancelled", "no_show"])
   status?: string;
 

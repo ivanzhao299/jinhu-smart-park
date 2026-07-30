@@ -168,6 +168,7 @@ export interface HomestayBookingNightResponse {
 export interface HomestayBookingGuestResponse {
   id: string;
   partyId: string;
+  partyDisplayName: string;
   isPrimary: boolean;
   verificationStatus: "unverified" | "verified" | "rejected";
 }
@@ -258,6 +259,11 @@ export type HomestayTurnoverListResponse =
 export interface HomestayTurnoverDetailResponse
   extends HomestayTurnoverListItem {
   evidence?: PropertyWorkbenchFileRef[];
+  linkedWorkOrder?: {
+    code: string;
+    title: string;
+    status: string;
+  };
 }
 
 export interface PropertyWorkbenchTaskItem {
@@ -312,6 +318,104 @@ export interface HousingLeaseResponse {
   monthlyRent?: string;
   depositAmount?: string;
 }
+
+export interface HousingLeaseListQuery {
+  keyword?: string;
+  status?: string;
+  unit_id?: string;
+  tenant_party_id?: string;
+  sort?: HousingLeaseSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export const HOUSING_SORT_ORDERS = ["asc", "desc"] as const;
+export type HousingSortOrder = typeof HOUSING_SORT_ORDERS[number];
+
+export const HOUSING_TASK_SORTS = ["dueAt", "status", "title"] as const;
+export type HousingTaskSort = typeof HOUSING_TASK_SORTS[number];
+export const HOUSING_HANDOVER_SORTS = ["createTime", "status", "leaseCode"] as const;
+export type HousingHandoverSort = typeof HOUSING_HANDOVER_SORTS[number];
+export const HOUSING_LEASE_SORTS = ["startDate", "status", "leaseCode"] as const;
+export type HousingLeaseSort = typeof HOUSING_LEASE_SORTS[number];
+export const HOUSING_BILLING_SORTS = ["startDate", "status", "leaseCode"] as const;
+export type HousingBillingSort = typeof HOUSING_BILLING_SORTS[number];
+export const HOUSING_FINANCE_SORTS = ["startDate", "status", "leaseCode"] as const;
+export type HousingFinanceSort = typeof HOUSING_FINANCE_SORTS[number];
+export const HOUSING_REPAIR_SORTS = ["createTime", "status", "code"] as const;
+export type HousingRepairSort = typeof HOUSING_REPAIR_SORTS[number];
+export const HOUSING_PURCHASE_SORTS = ["purchaseDate", "status", "code"] as const;
+export type HousingPurchaseSort = typeof HOUSING_PURCHASE_SORTS[number];
+export const HOUSING_UNIT_CANDIDATE_SORTS = ["code", "name"] as const;
+export type HousingUnitCandidateSort = typeof HOUSING_UNIT_CANDIDATE_SORTS[number];
+export const HOUSING_ENERGY_METER_CANDIDATE_SORTS = ["code", "name"] as const;
+export type HousingEnergyMeterCandidateSort =
+  typeof HOUSING_ENERGY_METER_CANDIDATE_SORTS[number];
+
+export interface HousingTaskListQuery {
+  status?: string;
+  source_type?: string;
+  sort?: HousingTaskSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingHandoverListQuery {
+  handover_type?: string;
+  status?: string;
+  sort?: HousingHandoverSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingBillingListQuery {
+  status?: string;
+  sort?: HousingBillingSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingFinanceListQuery {
+  status?: string;
+  sort?: HousingFinanceSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingRepairListQuery {
+  status?: string;
+  sort?: HousingRepairSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingPurchaseListQuery {
+  approval_status?: string;
+  unit_id?: string;
+  sort?: HousingPurchaseSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingUnitCandidateQuery {
+  keyword?: string;
+  sort?: HousingUnitCandidateSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export type HousingUnitCandidateResponse = PropertyWorkbenchUnitRef;
+
+export type HousingUnitCandidateListResponse =
+  PaginatedResult<HousingUnitCandidateResponse>;
 
 export interface HousingLeaseListItem extends HousingLeaseResponse {
   unitCode: string | null;
@@ -442,9 +546,31 @@ export interface HousingFinanceSummaryResponse {
   deposit_balance: string;
 }
 
+export const HOUSING_FINANCE_RECEIVABLE_TYPES = ["ordinary", "deposit"] as const;
+export type HousingFinanceReceivableType =
+  typeof HOUSING_FINANCE_RECEIVABLE_TYPES[number];
+
+export const HOUSING_FINANCE_ENTRY_KINDS = ["payment", "deposit_receipt"] as const;
+export type HousingFinanceEntryKind =
+  typeof HOUSING_FINANCE_ENTRY_KINDS[number];
+
+export interface HousingFinanceReceivableRef {
+  id: string;
+  receivableType: HousingFinanceReceivableType;
+  entryKind: HousingFinanceEntryKind;
+  chargeType: string;
+  dueDate: string;
+  amount: string;
+  paidAmount: string;
+  waivedAmount: string;
+  balance: string;
+  status: string;
+}
+
 export interface HousingFinanceListItem {
   lease: HousingLeaseListItem;
   summary: HousingFinanceSummaryResponse;
+  receivables: HousingFinanceReceivableRef[];
 }
 
 export type HousingFinanceListResponse =
@@ -461,6 +587,31 @@ export interface HousingRepairSummaryResponse {
   overdueFlag: boolean;
   createTime: string;
 }
+
+export type HousingRepairWorkOrderRef = Pick<
+  HousingRepairSummaryResponse,
+  "id" | "woCode" | "title" | "status"
+>;
+
+export interface HousingEnergyMeterCandidateQuery {
+  keyword?: string;
+  sort?: HousingEnergyMeterCandidateSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export interface HousingEnergyMeterCandidateResponse {
+  id: string;
+  meterCode: string;
+  meterName: string;
+  meterType: string;
+  unit: string;
+  multiplier: string;
+}
+
+export type HousingEnergyMeterCandidateListResponse =
+  PaginatedResult<HousingEnergyMeterCandidateResponse>;
 
 export interface HousingRepairListItem extends HousingRepairSummaryResponse {
   leaseId: string;
@@ -511,4 +662,58 @@ export interface HousingPurchaseItemResponse {
 export interface HousingPurchaseDetailResponse {
   purchase: HousingPurchaseResponse;
   items: HousingPurchaseItemResponse[];
+  receiptFiles?: PropertyWorkbenchFileRef[];
+}
+
+export interface PartyRoleResponse {
+  id: string;
+  roleType: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  status: string;
+  createTime: string;
+}
+
+export interface PartyListItemResponse {
+  id: string;
+  tenantId: string;
+  parkId: string;
+  partyType: string;
+  displayName: string;
+  sourceDomain: string | null;
+  verificationStatus: string;
+  consentStatus: string;
+  createTime: string;
+  updateTime: string;
+  version: number;
+  remark: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  identityDocumentType?: string | null;
+  identityNumberMasked?: string | null;
+  identityNumber?: string | null;
+}
+
+export const PARTY_LIST_SORTS = [
+  "displayName",
+  "createTime",
+  "verificationStatus"
+] as const;
+export type PartyListSort = typeof PARTY_LIST_SORTS[number];
+
+export interface PartyListQuery {
+  party_type?: string;
+  keyword?: string | null;
+  sort?: PartyListSort;
+  order?: HousingSortOrder;
+  page: number;
+  page_size: number;
+}
+
+export type HousingTenantListQuery = PartyListQuery;
+
+export type PartyListResponse = PaginatedResult<PartyListItemResponse>;
+
+export interface PartyDetailResponse extends PartyListItemResponse {
+  roles: PartyRoleResponse[];
 }

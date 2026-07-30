@@ -2,6 +2,8 @@ import { PROPERTY_BUSINESS_PERMISSIONS } from "./permissions";
 
 export type PropertyBusinessModuleCode = "homestay" | "housing_rental";
 
+export const HOUSING_REPAIR_WORK_ORDER_DETAIL_ROUTE = "/workorders/[id]";
+
 export interface PropertyBusinessSurfaceRoute {
   featureId: string;
   moduleCode: PropertyBusinessModuleCode;
@@ -187,16 +189,48 @@ export const PROPERTY_BUSINESS_LANDING = {
 export interface PropertyBusinessCompatibilityRedirect {
   source: string;
   target: string;
+  sourceModule: PropertyBusinessModuleCode;
   sourcePagePermission: string;
-  targetAuthorization: "canonical-target";
+  targetModule: "asset";
+  targetPagePermission: string;
+  targetReadPermission: string;
+  targetAuthorization: "module-page-read";
 }
 
-/**
- * Remains empty until the canonical Party target has an explicit route and
- * six-layer authorization handoff. A planned route is not a live redirect.
- */
 export const PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS:
-  readonly PropertyBusinessCompatibilityRedirect[] = [];
+  readonly PropertyBusinessCompatibilityRedirect[] = [
+    {
+      source: "/housing/tenants/[partyId]",
+      target: "/assets/parties/[partyId]",
+      sourceModule: "housing_rental",
+      sourcePagePermission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
+      targetModule: "asset",
+      targetPagePermission: "asset:party",
+      targetReadPermission: PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+      targetAuthorization: "module-page-read"
+    }
+  ];
+
+export interface PropertyCompatibilityAccess {
+  enabledModules: readonly string[];
+  permissions: readonly string[];
+  isSuper?: boolean;
+}
+
+export function canResolvePropertyCompatibilityRedirect(
+  redirect: PropertyBusinessCompatibilityRedirect,
+  access: PropertyCompatibilityAccess
+): boolean {
+  const modules = new Set(access.enabledModules);
+  const permissions = new Set(access.permissions);
+  const hasPermission = (permission: string) =>
+    access.isSuper === true || permissions.has("*") || permissions.has(permission);
+  return modules.has(redirect.sourceModule)
+    && modules.has(redirect.targetModule)
+    && hasPermission(redirect.sourcePagePermission)
+    && hasPermission(redirect.targetPagePermission)
+    && hasPermission(redirect.targetReadPermission);
+}
 
 export function findPropertyBusinessSurface(path: string): PropertyBusinessSurfaceRoute | undefined {
   return PROPERTY_BUSINESS_SURFACES.find((surface) =>

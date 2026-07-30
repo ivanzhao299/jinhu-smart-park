@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import {
@@ -46,11 +47,12 @@ const purchaseItem = {
   transferredReceivableId: null
 };
 
-function purchaseService() {
+function purchaseService(receiptFiles: unknown[] = []) {
   const builder = {
     where: () => builder,
     andWhere: () => builder,
     orderBy: () => builder,
+    addOrderBy: () => builder,
     skip: () => builder,
     take: () => builder,
     getManyAndCount: async () => [[purchase], 1]
@@ -64,6 +66,9 @@ function purchaseService() {
     getRepository: (entity: unknown) => {
       if (entity === HousingPurchaseItemEntity) {
         return { find: async () => [purchaseItem] };
+      }
+      if (entity === FileEntity) {
+        return { find: async () => receiptFiles };
       }
       return { find: async () => [] };
     }
@@ -228,6 +233,57 @@ test("purchase read list and detail expose formatted decimal strings with strict
     "amount", "id", "itemName", "quantity",
     "transferredReceivableId", "unit", "unitPrice"
   ]);
+});
+
+test("purchase receipt metadata requires purchase read intersected with file read", async () => {
+  const receipt = {
+    id: "00000000-0000-4000-8000-000000000040",
+    bizId: purchase.id,
+    originalName: "receipt.pdf",
+    mimeType: "application/pdf",
+    fileSize: "4096",
+    storagePath: "/must-not-project",
+    createTime: new Date("2026-07-31T00:00:00.000Z")
+  };
+  for (const permissions of [
+    [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ],
+    [SYSTEM_PERMISSIONS.FILE_READ],
+    [SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE, SYSTEM_PERMISSIONS.FILE_READ]
+  ]) {
+    const service = purchaseService([receipt]);
+    const principal = { ...actor, permissions };
+    const list = await service.listPurchases(scope, principal, { page: 1, page_size: 20 });
+    const detail = await service.getPurchase(scope, principal, purchase.id);
+    assert.equal("receiptFiles" in list.items[0]!, false, permissions.join(","));
+    assert.equal("receiptFiles" in detail, false, permissions.join(","));
+  }
+
+  const service = purchaseService([receipt]);
+  const principal = {
+    ...actor,
+    permissions: [
+      SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ,
+      SYSTEM_PERMISSIONS.FILE_READ
+    ]
+  };
+  const list = await service.listPurchases(scope, principal, { page: 1, page_size: 20 });
+  const detail = await service.getPurchase(scope, principal, purchase.id);
+  const expected = [{
+    id: receipt.id,
+    originalName: receipt.originalName,
+    mimeType: receipt.mimeType,
+    fileSize: receipt.fileSize
+  }];
+
+  assert.deepEqual(list.items[0]?.receiptFiles, expected);
+  assert.deepEqual(detail.receiptFiles, expected);
+  assert.deepEqual(Object.keys(detail.receiptFiles![0]!).sort(), [
+    "fileSize",
+    "id",
+    "mimeType",
+    "originalName"
+  ]);
+  assert.doesNotMatch(JSON.stringify(detail), /storagePath/u);
 });
 
 test("lease detail without block read permissions neither queries nor returns optional blocks", async () => {

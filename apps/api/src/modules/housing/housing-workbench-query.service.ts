@@ -146,7 +146,7 @@ export class HousingWorkbenchQueryService {
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
         `${TASK_CTE} SELECT id, "sourceType", "sourceId", title, status, "assigneeId", "dueAt"
-         FROM task${this.where(filters)} ORDER BY "dueAt" ASC NULLS LAST, id ASC
+         FROM task${this.where(filters)} ORDER BY ${this.taskOrder(query)}, id ASC
          LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`,
         [...parameters, query.page_size, this.offset(query)]
       ) as Promise<Array<PropertyWorkbenchTaskItem & { dueAt: Date | string | null }>>,
@@ -180,7 +180,7 @@ export class HousingWorkbenchQueryService {
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
         `${select} ${from}${this.where(filters)}
-         ORDER BY handover.create_time DESC, handover.id ASC
+         ORDER BY ${this.handoverOrder(query)}, handover.id ASC
          LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`,
         [...parameters, query.page_size, this.offset(query)]
       ) as Promise<HandoverRow[]>,
@@ -246,7 +246,7 @@ export class HousingWorkbenchQueryService {
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
         `${select} ${from}${this.where(filters)}
-         ORDER BY work_order.create_time DESC, work_order.id ASC
+         ORDER BY ${this.repairOrder(query)}, work_order.id ASC
          LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`,
         [...parameters, query.page_size, this.offset(query)]
       ) as Promise<RepairRow[]>,
@@ -296,8 +296,8 @@ export class HousingWorkbenchQueryService {
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
         kind === "billing"
-          ? this.billingSql(filters, parameters.length)
-          : this.financeSql(filters, parameters.length),
+          ? this.billingSql(filters, parameters.length, query as HousingBillingQueryDto)
+          : this.financeSql(filters, parameters.length, query as HousingFinanceQueryDto),
         [...parameters, query.page_size, this.offset(query)]
       ),
       this.dataSource.query(
@@ -555,7 +555,11 @@ export class HousingWorkbenchQueryService {
     return ids.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []);
   }
 
-  private billingSql(filters: string[], parameterCount: number): string {
+  private billingSql(
+    filters: string[],
+    parameterCount: number,
+    query: HousingBillingQueryDto
+  ): string {
     return `${this.leaseProjectionSelect()},
       COALESCE(plan.items, '[]'::jsonb) AS "chargePlans",
       COALESCE(receivable.items, '[]'::jsonb) AS receivables
@@ -563,21 +567,26 @@ export class HousingWorkbenchQueryService {
       ${this.leaseDisplayJoins()}
       LEFT JOIN LATERAL (${this.chargePlanAggregateSql()}) plan ON true
       LEFT JOIN LATERAL (${this.receivableAggregateSql()}) receivable ON true
-      ${this.where(filters)} ORDER BY lease.start_date DESC, lease.id ASC
+      ${this.where(filters)} ORDER BY ${this.leaseAggregateOrder(query)}, lease.id ASC
       LIMIT $${parameterCount + 1} OFFSET $${parameterCount + 2}`;
   }
 
-  private financeSql(filters: string[], parameterCount: number): string {
+  private financeSql(
+    filters: string[],
+    parameterCount: number,
+    query: HousingFinanceQueryDto
+  ): string {
     return `${this.leaseProjectionSelect()},
       COALESCE(receivable.receivable,0)::text AS receivable,
       COALESCE(receivable.paid,0)::text AS paid,
       COALESCE(receivable.waived,0)::text AS waived,
+      COALESCE(receivable.items, '[]'::jsonb) AS receivables,
       COALESCE(deposit.balance,0)::text AS "depositBalance"
       FROM biz_housing_lease lease
       ${this.leaseDisplayJoins()}
       LEFT JOIN LATERAL (${this.financeReceivableAggregateSql()}) receivable ON true
       LEFT JOIN LATERAL (${this.depositAggregateSql()}) deposit ON true
-      ${this.where(filters)} ORDER BY lease.start_date DESC, lease.id ASC
+      ${this.where(filters)} ORDER BY ${this.leaseAggregateOrder(query)}, lease.id ASC
       LIMIT $${parameterCount + 1} OFFSET $${parameterCount + 2}`;
   }
 
@@ -622,7 +631,13 @@ export class HousingWorkbenchQueryService {
   private financeReceivableAggregateSql(): string {
     return `SELECT sum(r.amount) FILTER (WHERE r.status<>'void') AS receivable,
       sum(r.paid_amount) FILTER (WHERE r.status<>'void') AS paid,
-      sum(r.waived_amount) FILTER (WHERE r.status<>'void') AS waived
+      sum(r.waived_amount) FILTER (WHERE r.status<>'void') AS waived,
+      jsonb_agg(jsonb_build_object(
+        'id', r.id, 'chargeType', r.charge_type, 'sourceType', r.source_type,
+        'dueDate', r.due_date,
+        'amount', r.amount, 'paidAmount', r.paid_amount,
+        'waivedAmount', r.waived_amount, 'status', r.status
+      ) ORDER BY r.due_date, r.id) FILTER (WHERE r.status<>'void') AS items
     FROM biz_housing_receivable r WHERE r.tenant_id=lease.tenant_id
       AND r.park_id=lease.park_id AND r.lease_id=lease.id AND r.is_deleted=false`;
   }
@@ -674,6 +689,26 @@ export class HousingWorkbenchQueryService {
     const outstanding = this.nonNegativeMoney(row.receivable, row.paid, row.waived);
     return {
       lease: this.leaseProjection(row),
+      receivables: (row.receivables ?? []).map((receivable) => ({
+        id: receivable.id,
+        receivableType: receivable.chargeType === "deposit"
+          ? "deposit" as const
+          : "ordinary" as const,
+        entryKind: receivable.chargeType === "deposit"
+          ? "deposit_receipt" as const
+          : "payment" as const,
+        chargeType: receivable.chargeType,
+        dueDate: receivable.dueDate,
+        amount: formatHousingMoney(receivable.amount),
+        paidAmount: formatHousingMoney(receivable.paidAmount),
+        waivedAmount: formatHousingMoney(receivable.waivedAmount),
+        balance: this.nonNegativeMoney(
+          receivable.amount,
+          receivable.paidAmount,
+          receivable.waivedAmount
+        ),
+        status: receivable.status
+      })),
       summary: {
         receivable: formatHousingMoney(row.receivable),
         paid: formatHousingMoney(row.paid),
@@ -713,6 +748,48 @@ export class HousingWorkbenchQueryService {
 
   private centsMoney(value: bigint): string {
     return `${value / 100n}.${(value % 100n).toString().padStart(2, "0")}`;
+  }
+
+  private direction(order: "asc" | "desc" | undefined, fallback: "ASC" | "DESC"): "ASC" | "DESC" {
+    return order ? (order === "asc" ? "ASC" : "DESC") : fallback;
+  }
+
+  private taskOrder(query: HousingTaskQueryDto): string {
+    const columns = { dueAt: `"dueAt"`, status: "status", title: "title" } as const;
+    const sort = query.sort ?? "dueAt";
+    return `${columns[sort]} ${this.direction(query.order, "ASC")} NULLS LAST`;
+  }
+
+  private handoverOrder(query: HousingHandoverQueryDto): string {
+    const columns = {
+      createTime: "handover.create_time",
+      status: "handover.status",
+      leaseCode: "lease.lease_code"
+    } as const;
+    const sort = query.sort ?? "createTime";
+    return `${columns[sort]} ${this.direction(query.order, "DESC")} NULLS LAST`;
+  }
+
+  private leaseAggregateOrder(
+    query: HousingBillingQueryDto | HousingFinanceQueryDto
+  ): string {
+    const columns = {
+      startDate: "lease.start_date",
+      status: "lease.status",
+      leaseCode: "lease.lease_code"
+    } as const;
+    const sort = query.sort ?? "startDate";
+    return `${columns[sort]} ${this.direction(query.order, "DESC")} NULLS LAST`;
+  }
+
+  private repairOrder(query: HousingRepairQueryDto): string {
+    const columns = {
+      createTime: "work_order.create_time",
+      status: "work_order.status",
+      code: "work_order.wo_code"
+    } as const;
+    const sort = query.sort ?? "createTime";
+    return `${columns[sort]} ${this.direction(query.order, "DESC")} NULLS LAST`;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
@@ -783,4 +860,14 @@ type FinanceRawRow = LeaseRawRow & {
   paid: string;
   waived: string;
   depositBalance: string;
+  receivables: Array<{
+    id: string;
+    chargeType: string;
+    sourceType: string;
+    dueDate: string;
+    amount: string;
+    paidAmount: string;
+    waivedAmount: string;
+    status: string;
+  }>;
 };

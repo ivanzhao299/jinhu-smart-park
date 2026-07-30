@@ -136,6 +136,41 @@ export class HomestayWorkbenchQueryService {
     };
   }
 
+  async getAuthorizedWorkOrderReference(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    workOrderId: string
+  ): Promise<{ code: string; title: string; status: string } | undefined> {
+    if (
+      !actor.isSuper
+      && !actor.permissions.includes("*")
+      && !actor.permissions.includes(SYSTEM_PERMISSIONS.WORKORDER_READ)
+    ) {
+      return undefined;
+    }
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) return undefined;
+    const builder = this.workOrdersRepository.createQueryBuilder("workOrder")
+      .where("workOrder.id = :workOrderId", { workOrderId })
+      .andWhere("workOrder.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("workOrder.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("workOrder.is_deleted = false");
+    if (allowedUnitIds !== null) {
+      builder.andWhere("workOrder.unit_id IN (:...linkedWorkOrderUnitIds)", {
+        linkedWorkOrderUnitIds: allowedUnitIds
+      });
+    }
+    await this.applyWorkOrderDataScope(builder, actor);
+    const workOrder = await builder.getOne();
+    return workOrder
+      ? {
+          code: workOrder.woCode,
+          title: workOrder.title,
+          status: workOrder.status
+        }
+      : undefined;
+  }
+
   async listTasks(
     scope: TenantParkScope,
     actor: JwtPrincipal,

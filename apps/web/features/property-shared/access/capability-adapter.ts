@@ -1,4 +1,5 @@
 import {
+  canResolvePropertyCompatibilityRedirect,
   PROPERTY_ACCESS_MANIFEST,
   PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS,
   PROPERTY_BUSINESS_LANDING,
@@ -305,7 +306,7 @@ interface ResolvedCompatibilityRoute {
   sourcePagePermission: string;
   routePattern: string;
   redirectTo: string;
-  targetAuthorization: "canonical-target";
+  targetAuthorization: "module-page-read";
   params: Readonly<Record<string, string>>;
 }
 
@@ -481,6 +482,29 @@ export function resolvePropertyRoute(rawPath: string): PropertyRouteResolution {
     }
   }
   return { kind: "unknown-property" };
+}
+
+export function resolveAuthorizedPropertyRoute(
+  rawPath: string,
+  user: CapabilityUser | null
+): PropertyRouteResolution {
+  const resolution = resolvePropertyRoute(rawPath);
+  if (resolution.kind !== "compatibility-redirect") return resolution;
+  if (!user) return { kind: "unknown-property" };
+  const redirect = PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS.find(
+    (candidate) => candidate.source === resolution.routePattern
+  );
+  if (!redirect) return { kind: "unknown-property" };
+  const enabledModules = (user.enabled_modules ?? [])
+    .filter((module) => module.enabled !== false)
+    .map((module) => module.module_code);
+  return canResolvePropertyCompatibilityRedirect(redirect, {
+    enabledModules,
+    permissions: user.permissions,
+    isSuper: user.is_super
+  })
+    ? resolution
+    : { kind: "unknown-property" };
 }
 
 export function propertySurfaceCount(): number {

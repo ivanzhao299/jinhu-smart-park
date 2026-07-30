@@ -14,6 +14,7 @@ import {
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_PERMISSION_BUNDLES,
   PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS,
+  HOUSING_REPAIR_WORK_ORDER_DETAIL_ROUTE,
   SYSTEM_PERMISSIONS,
   SYSTEM_PERMISSION_SEEDS,
   TRACK_A_HIGH_RISK_ACTION_IDS,
@@ -33,6 +34,7 @@ import {
   type HousingPurchaseListItem,
   type HousingReceivableResponse,
   type HousingRepairListItem,
+  type HousingRepairWorkOrderRef,
   type HousingTenantListItem,
   type PropertyAccessManifestEntry,
   type PropertyPermissionBundle,
@@ -87,8 +89,10 @@ const EXPECTED_GET_ACTION_IDS = [
   "housing.finance.list",
   "housing.handovers.detail",
   "housing.handovers.list",
+  "housing.billing.energy-meter-candidates",
   "housing.leases.detail",
   "housing.leases.list",
+  "housing.leases.unit-candidates",
   "housing.purchases.detail",
   "housing.purchases.list",
   "housing.repairs.detail",
@@ -190,7 +194,18 @@ test("landing priority and compatibility aliases are fixed without granting a ca
   ]);
   assert.equal(PROPERTY_BUSINESS_LANDING.homestay.legacyAlias, "/homestay");
   assert.equal(PROPERTY_BUSINESS_LANDING.housing_rental.legacyAlias, "/housing");
-  assert.deepEqual(PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS, []);
+  assert.deepEqual(PROPERTY_BUSINESS_COMPATIBILITY_REDIRECTS, [
+    {
+      source: "/housing/tenants/[partyId]",
+      target: "/assets/parties/[partyId]",
+      sourceModule: "housing_rental",
+      sourcePagePermission: "housing:tenants:page",
+      targetModule: "asset",
+      targetPagePermission: "asset:party",
+      targetReadPermission: "party:read",
+      targetAuthorization: "module-page-read"
+    }
+  ]);
   assert.equal(
     PROPERTY_BUSINESS_SURFACES.some((surface) =>
       surface.route.startsWith("/assets/parties/")
@@ -312,6 +327,7 @@ test("response contracts preserve current casing and freeze A-2.5 pagination wra
     guests: [{
       id: "guest-1",
       partyId: "party-1",
+      partyDisplayName: "住客一",
       isPrimary: true,
       verificationStatus: "verified"
     }],
@@ -895,6 +911,17 @@ test("A-2.5 freezes exact GET actions and the ninth move-out financial discrimin
       "deposit_deduction_amount"
     ]
   });
+});
+
+test("housing repair rows link through the canonical minimal work-order contract", () => {
+  const reference: HousingRepairWorkOrderRef = {
+    id: "00000000-0000-4000-8000-000000000021",
+    woCode: "WO-2026-001",
+    title: "卫生间漏水",
+    status: "20"
+  };
+  assert.deepEqual(Object.keys(reference).sort(), ["id", "status", "title", "woCode"]);
+  assert.equal(HOUSING_REPAIR_WORK_ORDER_DETAIL_ROUTE, "/workorders/[id]");
 });
 
 test("controller high-risk metadata adopts all nine A-2.5 actions", () => {

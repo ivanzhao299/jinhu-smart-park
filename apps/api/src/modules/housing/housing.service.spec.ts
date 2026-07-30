@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import {
+  SYSTEM_PERMISSIONS,
+  type PartyListItemResponse,
+  type TenantParkScope
+} from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
-import type { PartyResponse } from "../property-operations/parties.service";
 import { HousingService } from "./housing.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
@@ -16,7 +19,9 @@ const actor: JwtPrincipal = {
   permissions: []
 };
 
-function partyResponse(overrides: Partial<PartyResponse> = {}): PartyResponse {
+function partyResponse(
+  overrides: Partial<PartyListItemResponse> = {}
+): PartyListItemResponse {
   return {
     id: "party-1",
     tenantId: scope.tenantId,
@@ -30,8 +35,8 @@ function partyResponse(overrides: Partial<PartyResponse> = {}): PartyResponse {
     sourceDomain: "housing_rental",
     verificationStatus: "unverified",
     consentStatus: "pending",
-    createTime: new Date("2026-01-01T00:00:00Z"),
-    updateTime: new Date("2026-01-01T00:00:00Z"),
+    createTime: "2026-01-01T00:00:00.000Z",
+    updateTime: "2026-01-01T00:00:00.000Z",
     version: 1,
     remark: null,
     ...overrides
@@ -40,7 +45,7 @@ function partyResponse(overrides: Partial<PartyResponse> = {}): PartyResponse {
 
 function housingService(partiesService: {
   list: (scope: TenantParkScope, query: PartyQueryDto) => Promise<{
-    items: PartyResponse[];
+    items: PartyListItemResponse[];
     total: number;
     page: number;
     page_size: number;
@@ -49,19 +54,50 @@ function housingService(partiesService: {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     dto: CreatePartyDto
-  ) => Promise<PartyResponse>;
-}) {
+  ) => Promise<PartyListItemResponse>;
+}, allowedUnitIds: string[] | null = null) {
   return new HousingService(
     {} as never,
     {} as never,
-    partiesService as never,
+    {
+      ...partiesService,
+      listForDomainProjection: partiesService.list
+    } as never,
     {} as never,
-    {} as never,
+    { allowedUnitIds: async () => allowedUnitIds } as never,
     {} as never,
     {} as never,
     {} as never
   );
 }
+
+test("housing tenant API passes the actor's allowed unit set to the Party projection", async () => {
+  let receivedUnitIds: string[] | null | undefined;
+  const partiesService = {
+    listForDomainProjection: async (
+      _scope: TenantParkScope,
+      _query: PartyQueryDto,
+      _actor: JwtPrincipal,
+      unitIds: string[] | null
+    ) => {
+      receivedUnitIds = unitIds;
+      return { items: [], total: 0, page: 1, page_size: 20 };
+    },
+    create: async () => partyResponse()
+  };
+  const service = new HousingService(
+    {} as never,
+    {} as never,
+    partiesService as never,
+    {} as never,
+    { allowedUnitIds: async () => ["unit-allowed"] } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+  await service.listTenants(scope, actor, { page: 1, page_size: 20 });
+  assert.deepEqual(receivedUnitIds, ["unit-allowed"]);
+});
 
 test("housing tenant list masks contact fields without mutating the Party response", async () => {
   const source = partyResponse();

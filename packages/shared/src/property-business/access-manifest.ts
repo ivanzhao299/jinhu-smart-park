@@ -546,6 +546,17 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_TRANSFER
         ]
       }),
+      read(
+        "housing.leases.unit-candidates",
+        "/housing/unit-candidates",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
+        {
+          anyPermissions: [
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_MANAGE
+          ]
+        }
+      ),
       mutation("housing.leases.create", "POST", "/housing/leases", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE, {
         requiredPermissions: [
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_MANAGE,
@@ -673,6 +684,18 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         "housing.billing.list",
         "/housing/billing",
         PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ
+      ),
+      read(
+        "housing.billing.energy-meter-candidates",
+        "/housing/leases/:id/energy-meter-candidates",
+        PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
+        {
+          requiredPermissions: ["energy_meter:read"],
+          anyPermissions: [
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+          ]
+        }
       ),
       mutation("housing.billing.save-plan", "PUT", "/housing/leases/:id/charge-plans", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE),
       mutation("housing.billing.generate", "POST", "/housing/leases/:id/generate-bills", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_GENERATE)
@@ -832,9 +855,11 @@ export const PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS = [
   "housing.tenants.list",
   "housing.leases.list",
   "housing.leases.detail",
+  "housing.leases.unit-candidates",
   "housing.handovers.list",
   "housing.handovers.detail",
   "housing.billing.list",
+  "housing.billing.energy-meter-candidates",
   "housing.finance.list",
   "housing.repairs.list",
   "housing.repairs.detail",
@@ -901,6 +926,14 @@ export function validatePropertyAccessManifest(
     PROPERTY_BUSINESS_SURFACES.map((item) => [item.featureId, item])
   );
   const knownPropertyPermissions = new Set<string>(Object.values(PROPERTY_BUSINESS_PERMISSIONS));
+  const allowedExternalPermissions = new Set([
+    "unit:read",
+    "energy_meter:read",
+    "file:read",
+    "file:download",
+    "file:upload",
+    "file:delete"
+  ]);
   const validatePermission = (
     permission: string,
     label: string,
@@ -912,7 +945,7 @@ export function validatePropertyAccessManifest(
     }
     if (
       !knownPropertyPermissions.has(permission)
-      && !(allowExternal && ["unit:read", "file:read", "file:download", "file:upload", "file:delete"].includes(permission))
+      && !(allowExternal && allowedExternalPermissions.has(permission))
     ) {
       issues.push(`Unknown ${label}: ${permission}`);
     }
@@ -1142,7 +1175,7 @@ export function validatePropertyAccessManifest(
     if (canonicalRoutes.has(redirect.source)) {
       issues.push(`Compatibility redirect cannot be canonical: ${redirect.source}`);
     }
-    if (redirect.targetAuthorization !== "canonical-target") {
+    if (redirect.targetAuthorization !== "module-page-read") {
       issues.push(`Compatibility redirect must re-authorize its target: ${redirect.source}`);
     }
     if (!pageCodes.has(redirect.sourcePagePermission)) {

@@ -156,11 +156,18 @@ test("booking detail masks every credential reference without changing null", as
     finalRate: "600.00",
     priceSource: "base"
   };
+  const guest = {
+    id: "guest-1",
+    partyId: "party-1",
+    isPrimary: true,
+    verificationStatus: "verified"
+  };
+  let guestDisplayQueryCount = 0;
   const emptyRepository = { find: async () => [] };
   const dataSource = {
     getRepository: (entity: unknown) => {
       if (entity === HomestayBookingNightEntity) return { find: async () => [night] };
-      if (entity === HomestayBookingGuestEntity) return emptyRepository;
+      if (entity === HomestayBookingGuestEntity) return { find: async () => [guest] };
       if (entity === HomestayStayCredentialEntity) return { find: async () => credentials };
       if (entity === HomestayLedgerEntryEntity) {
         return { find: async () => {
@@ -169,6 +176,11 @@ test("booking detail masks every credential reference without changing null", as
       }
       if (entity === HomestayBookingActionLogEntity) return emptyRepository;
       throw new Error("Unexpected repository");
+    },
+    query: async (sql: string) => {
+      assert.match(sql, /FROM biz_party party/u);
+      guestDisplayQueryCount += 1;
+      return [{ id: guest.partyId, displayName: "张三" }];
     }
   };
   const service = new HomestayService(
@@ -199,6 +211,14 @@ test("booking detail masks every credential reference without changing null", as
   assert.equal("baseRate" in result.nights[0]!, false);
   assert.equal("finalRate" in result.nights[0]!, false);
   assert.equal(result.finance_visible, false);
+  assert.equal(guestDisplayQueryCount, 1);
+  assert.deepEqual(result.guests, [{
+    id: guest.id,
+    partyId: guest.partyId,
+    partyDisplayName: "张三",
+    isPrimary: true,
+    verificationStatus: "verified"
+  }]);
   assert.deepEqual(Object.keys(result).sort(), [
     "actions",
     "booking",
@@ -449,9 +469,13 @@ test("booking lists omit every finance field without homestay:finance:read", asy
     adjustmentAmount: "0.00",
     totalAmount: "600.00"
   };
+  const conditions: string[] = [];
   const bookingBuilder = {
     where: () => bookingBuilder,
-    andWhere: () => bookingBuilder,
+    andWhere: (condition: string) => {
+      conditions.push(condition);
+      return bookingBuilder;
+    },
     addSelect: () => bookingBuilder,
     orderBy: () => bookingBuilder,
     addOrderBy: () => bookingBuilder,
@@ -474,10 +498,12 @@ test("booking lists omit every finance field without homestay:finance:read", asy
   );
 
   const result = await service.listBookings(scope, actor, {
+    keyword: "HS-1",
     page: 1,
     page_size: 20
   });
 
+  assert.ok(conditions.includes("booking.booking_code ILIKE :bookingKeyword"));
   assert.equal("roomAmount" in result.items[0]!, false);
   assert.equal("adjustmentAmount" in result.items[0]!, false);
   assert.equal("totalAmount" in result.items[0]!, false);
@@ -853,4 +879,54 @@ test("turnover detail adds only attachment metadata with domain read plus file:r
     "mimeType",
     "originalName"
   ]);
+});
+
+test("turnover detail exposes only the authorized scoped work-order reference", async () => {
+  const task = {
+    id: "turnover-1",
+    bookingId: "booking-1",
+    unitId: "unit-1",
+    status: "exception",
+    assigneeId: null,
+    assigneeName: null,
+    photoFileIds: [],
+    consumables: [],
+    exceptionDescription: "空调异常",
+    linkedWorkOrderId: "work-order-1",
+    createTime: new Date("2026-07-31T00:00:00.000Z")
+  };
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    getOne: async () => task
+  };
+  let referenceCalls = 0;
+  const service = new HomestayService(
+    {} as never,
+    {} as never,
+    {} as never,
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { allowedUnitIds: async () => null } as never,
+    { query: async () => [{ unitCode: "A-101", unitName: "101" }] } as never,
+    undefined,
+    {
+      getAuthorizedWorkOrderReference: async () => {
+        referenceCalls += 1;
+        return { code: "WO-1", title: "检修空调", status: "20" };
+      }
+    } as never
+  );
+
+  const result = await service.getTurnover(scope, actor, task.id);
+
+  assert.equal(referenceCalls, 1);
+  assert.deepEqual(result.linkedWorkOrder, {
+    code: "WO-1",
+    title: "检修空调",
+    status: "20"
+  });
+  assert.deepEqual(Object.keys(result.linkedWorkOrder!).sort(), ["code", "status", "title"]);
 });

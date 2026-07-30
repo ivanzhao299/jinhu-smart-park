@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
@@ -110,6 +110,58 @@ test("candidate statement counts stay constant for page sizes 1, 20, and 100", a
     { guest: 2, workOrderMany: 1, workOrderCount: 1 },
     { guest: 2, workOrderMany: 1, workOrderCount: 1 }
   ]);
+});
+
+test("linked work-order reference requires workorder read and applies handler scope once", async () => {
+  let builderCreations = 0;
+  const conditions: unknown[] = [];
+  const builder = {
+    where: () => builder,
+    andWhere: (condition: unknown) => {
+      conditions.push(condition);
+      return builder;
+    },
+    getOne: async () => ({
+      id: "work-order-1",
+      woCode: "WO-1",
+      title: "检修空调",
+      status: "20"
+    })
+  };
+  let scopeCalls = 0;
+  const service = new HomestayWorkbenchQueryService(
+    {
+      createQueryBuilder: () => {
+        builderCreations += 1;
+        return builder;
+      }
+    } as never,
+    { allowedUnitIds: async () => null } as never,
+    {} as never,
+    {
+      buildScopeFilter: async () => {
+        scopeCalls += 1;
+        return { unrestricted: true, allowed_ids: [], scope_types: [] };
+      }
+    } as never
+  );
+
+  assert.equal(
+    await service.getAuthorizedWorkOrderReference(scope, actor, "work-order-1"),
+    undefined
+  );
+  assert.equal(builderCreations, 0);
+
+  const result = await service.getAuthorizedWorkOrderReference(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.WORKORDER_READ] },
+    "work-order-1"
+  );
+
+  assert.deepEqual(result, { code: "WO-1", title: "检修空调", status: "20" });
+  assert.equal(builderCreations, 1);
+  assert.equal(scopeCalls, 5);
+  assert.ok(conditions.some((condition) => typeof condition === "object"));
 });
 
 test("tasks use fixed item/count statements and preserve total on an empty page", async () => {

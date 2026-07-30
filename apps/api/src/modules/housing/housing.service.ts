@@ -10,14 +10,18 @@ import {
   resolveFileUploadPolicy,
   SYSTEM_PERMISSIONS,
   type HousingChargePlanResponse,
+  type HousingEnergyMeterCandidateListResponse,
   type HousingLedgerEntryResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
   type HousingLeaseResponse,
   type HousingPurchaseListItem as HousingPurchaseListResponseItem,
+  type HousingPurchaseDetailResponse,
   type HousingPurchaseResponse,
   type HousingReceivableResponse,
   type HousingRepairSummaryResponse,
   type HousingTenantResponse,
+  type HousingUnitCandidateListResponse,
+  type PartyListItemResponse,
   type PaginatedResult,
   type PropertyWorkbenchFileRef,
   type TenantParkScope
@@ -30,7 +34,7 @@ import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PartyEntity } from "../property-operations/entities/party.entity";
-import { PartiesService, type PartyResponse } from "../property-operations/parties.service";
+import { PartiesService } from "../property-operations/parties.service";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
@@ -43,9 +47,11 @@ import type {
   CreateHousingLeaseDto,
   CreateHousingPurchaseDto,
   GenerateHousingBillsDto,
+  HousingEnergyMeterCandidateQueryDto,
   HousingLeaseQueryDto,
   HousingPurchaseActionDto,
   HousingPurchaseQueryDto,
+  HousingUnitCandidateQueryDto,
   RegisterHousingLedgerEntryDto,
   SignHousingLeaseDto,
   TransferHousingPurchaseDto,
@@ -127,7 +133,13 @@ export class HousingService {
     actor: JwtPrincipal,
     query: PartyQueryDto
   ): Promise<PaginatedResult<HousingTenantResponse>> {
-    const result = await this.partiesService.list(scope, { ...query, party_type: "person" });
+    const housingUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    const result = await this.partiesService.listForDomainProjection(
+      scope,
+      { ...query, party_type: "person" },
+      actor,
+      housingUnitIds
+    );
     return {
       ...result,
       items: result.items.map((tenant) => this.toTenantResponse(tenant, actor))
@@ -148,7 +160,7 @@ export class HousingService {
   }
 
   private toTenantResponse(
-    tenant: PartyResponse,
+    tenant: PartyListItemResponse,
     actor: JwtPrincipal
   ): HousingTenantResponse {
     const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
@@ -161,8 +173,8 @@ export class HousingService {
         identityNumberMasked: tenant.identityNumberMasked
       } : {}),
       ...(canManage ? {
-        mobile: this.maskTenantMobile(tenant.mobile),
-        email: this.maskTenantEmail(tenant.email)
+        mobile: this.maskTenantMobile(tenant.mobile ?? null),
+        email: this.maskTenantEmail(tenant.email ?? null)
       } : {})
     };
   }
@@ -267,7 +279,44 @@ export class HousingService {
     if (query.status) builder.andWhere("lease.status=:status", { status: query.status });
     if (query.unit_id) builder.andWhere("lease.unit_id=:unitId", { unitId: query.unit_id });
     if (query.tenant_party_id) builder.andWhere("lease.tenant_party_id=:partyId", { partyId: query.tenant_party_id });
-    const [leases, total] = await builder.orderBy("lease.start_date", "DESC")
+    if (query.keyword) {
+      builder.andWhere(
+        `(lease.lease_code ILIKE :leaseKeyword
+          OR EXISTS (
+            SELECT 1
+            FROM biz_unit keyword_unit
+            WHERE keyword_unit.id = lease.unit_id
+              AND keyword_unit.tenant_id = lease.tenant_id
+              AND keyword_unit.park_id = lease.park_id
+              AND keyword_unit.is_deleted = false
+              AND (
+                keyword_unit.unit_code ILIKE :leaseKeyword
+                OR keyword_unit.unit_name ILIKE :leaseKeyword
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM biz_party keyword_party
+            WHERE keyword_party.id = lease.tenant_party_id
+              AND keyword_party.tenant_id = lease.tenant_id
+              AND keyword_party.park_id = lease.park_id
+              AND keyword_party.is_deleted = false
+              AND keyword_party.display_name ILIKE :leaseKeyword
+          ))`,
+        { leaseKeyword: `%${query.keyword}%` }
+      );
+    }
+    const leaseSortColumns = {
+      startDate: "lease.start_date",
+      status: "lease.status",
+      leaseCode: "lease.lease_code"
+    } as const;
+    const [leases, total] = await builder
+      .orderBy(
+        leaseSortColumns[query.sort ?? "startDate"],
+        this.sortDirection(query.order, "DESC")
+      )
+      .addOrderBy("lease.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -304,6 +353,121 @@ export class HousingService {
       tenantDisplayName: displayByLease.get(lease.id)?.tenantDisplayName ?? null
     }));
     return { items, total, page: query.page, page_size: query.page_size };
+  }
+
+  async listUnitCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HousingUnitCandidateQueryDto
+  ): Promise<HousingUnitCandidateListResponse> {
+    const unitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (unitIds !== null && !unitIds.length) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const filters = [
+      "unit.tenant_id=$1",
+      "unit.park_id=$2",
+      "unit.is_deleted=false"
+    ];
+    if (unitIds !== null) {
+      parameters.push(unitIds);
+      filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);
+    }
+    if (query.keyword) {
+      parameters.push(`%${query.keyword}%`);
+      filters.push(
+        `(unit.unit_code ILIKE $${parameters.length} OR unit.unit_name ILIKE $${parameters.length})`
+      );
+    }
+    const paginationStart = parameters.length + 1;
+    const where = filters.join(" AND ");
+    const unitSortColumns = { code: "unit.unit_code", name: "unit.unit_name" } as const;
+    const unitSort = unitSortColumns[query.sort ?? "code"];
+    const unitOrder = this.sortDirection(query.order, "ASC");
+    const [rows, countRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+         FROM biz_unit unit
+         WHERE ${where}
+         ORDER BY ${unitSort} ${unitOrder} NULLS LAST, unit.id ASC
+         LIMIT $${paginationStart} OFFSET $${paginationStart + 1}`,
+        [...parameters, query.page_size, (query.page - 1) * query.page_size]
+      ),
+      this.dataSource.query(
+        `SELECT count(*)::int AS total
+         FROM biz_unit unit
+         WHERE ${where}`,
+        parameters
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    return {
+      items: (rows as HousingUnitCandidateListResponse["items"]).map((row) => ({
+        id: row.id,
+        unitCode: row.unitCode,
+        unitName: row.unitName
+      })),
+      total: Number(countRows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
+  }
+
+  async listEnergyMeterCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    leaseId: string,
+    query: HousingEnergyMeterCandidateQueryDto
+  ): Promise<HousingEnergyMeterCandidateListResponse> {
+    const lease = await this.mustLease(this.dataSource.manager, scope, leaseId);
+    await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+    const parameters: unknown[] = [scope.tenantId, scope.parkId, lease.unitId];
+    const keywordFilter = query.keyword
+      ? ` AND (meter.meter_code ILIKE $4 OR meter.meter_name ILIKE $4)`
+      : "";
+    if (query.keyword) parameters.push(`%${query.keyword}%`);
+    const paginationStart = parameters.length + 1;
+    const meterSortColumns = {
+      code: "meter.meter_code",
+      name: "meter.meter_name"
+    } as const;
+    const meterSort = meterSortColumns[query.sort ?? "code"];
+    const meterOrder = this.sortDirection(query.order, "ASC");
+    const [rows, countRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT meter.id, meter.meter_code AS "meterCode",
+                meter.meter_name AS "meterName", meter.meter_type AS "meterType",
+                meter.unit, meter.multiplier::text AS multiplier
+         FROM energy_meter meter
+         WHERE meter.tenant_id=$1 AND meter.park_id=$2
+           AND meter.room_id=$3 AND meter.is_deleted=false
+           AND meter.is_enabled=true AND meter.status='ONLINE'${keywordFilter}
+         ORDER BY ${meterSort} ${meterOrder} NULLS LAST, meter.id ASC
+         LIMIT $${paginationStart} OFFSET $${paginationStart + 1}`,
+        [...parameters, query.page_size, (query.page - 1) * query.page_size]
+      ),
+      this.dataSource.query(
+        `SELECT count(*)::int AS total
+         FROM energy_meter meter
+         WHERE meter.tenant_id=$1 AND meter.park_id=$2
+           AND meter.room_id=$3 AND meter.is_deleted=false
+           AND meter.is_enabled=true AND meter.status='ONLINE'${keywordFilter}`,
+        parameters
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    return {
+      items: (rows as HousingEnergyMeterCandidateListResponse["items"]).map((row) => ({
+        id: row.id,
+        meterCode: row.meterCode,
+        meterName: row.meterName,
+        meterType: row.meterType,
+        unit: row.unit,
+        multiplier: String(row.multiplier)
+      })),
+      total: Number(countRows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
   async getLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
@@ -917,10 +1081,10 @@ export class HousingService {
         if (!receivable) throw new NotFoundException("Housing receivable not found");
         if (receivable.status === "void") throw new ConflictException("Void receivable cannot receive financial entries");
         if (receivable.chargeType === "deposit") {
-          if (entryType === "payment") entryType = "deposit_receipt";
-          else if (entryType === "refund") entryType = "deposit_refund";
-          else if (entryType === "waiver") {
-            throw new BadRequestException("Deposit receivables cannot be waived");
+          if (!["deposit_receipt", "deposit_refund"].includes(entryType)) {
+            throw new BadRequestException(
+              "Deposit receivables require deposit_receipt or deposit_refund"
+            );
           }
         } else if (entryType.startsWith("deposit_")) {
           throw new BadRequestException("Deposit entries can only target the lease deposit receivable");
@@ -1286,7 +1450,17 @@ export class HousingService {
     }
     if (query.unit_id) builder.andWhere("purchase.unit_id=:unitId", { unitId: query.unit_id });
     if (query.approval_status) builder.andWhere("purchase.approval_status=:status", { status: query.approval_status });
-    const [items, total] = await builder.orderBy("purchase.purchase_date", "DESC")
+    const purchaseSortColumns = {
+      purchaseDate: "purchase.purchase_date",
+      status: "purchase.approval_status",
+      code: "purchase.purchase_code"
+    } as const;
+    const [items, total] = await builder
+      .orderBy(
+        purchaseSortColumns[query.sort ?? "purchaseDate"],
+        this.sortDirection(query.order, "DESC")
+      )
+      .addOrderBy("purchase.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -1320,10 +1494,7 @@ export class HousingService {
     }
     const ids = items.map((item) => item.id);
     const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
-      && (
-        this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
-        || this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
-      );
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
     const [transferredRows, files] = await Promise.all([
       this.loadPurchaseTransferredCounts(scope, ids),
       includeEvidence ? this.dataSource.getRepository(FileEntity).find({
@@ -1363,20 +1534,41 @@ export class HousingService {
     ) as Promise<Array<{ purchaseId: string; transferredItemCount: number }>>;
   }
 
-  async getPurchase(scope: TenantParkScope, actor: JwtPrincipal, purchaseId: string) {
+  async getPurchase(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    purchaseId: string
+  ): Promise<HousingPurchaseDetailResponse> {
     const purchase = await this.purchasesRepository.findOne({
       where: { id: purchaseId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
     });
     if (!purchase) throw new NotFoundException("Housing purchase not found");
     await this.assertPurchaseAccess(scope, actor, purchase.unitId);
-    const items = await this.dataSource.getRepository(HousingPurchaseItemEntity).find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        purchaseId,
-        isDeleted: false
-      }
-    });
+    const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const [items, receiptFiles] = await Promise.all([
+      this.dataSource.getRepository(HousingPurchaseItemEntity).find({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          purchaseId,
+          isDeleted: false
+        }
+      }),
+      includeEvidence
+        ? this.dataSource.getRepository(FileEntity).find({
+            where: {
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              bizType: "housing_purchase",
+              bizId: purchaseId,
+              status: 1,
+              isDeleted: false
+            },
+            order: { createTime: "DESC" }
+          })
+        : Promise.resolve([])
+    ]);
     return {
       purchase: this.toPurchaseResponse(purchase, actor),
       items: items.map((item) => ({
@@ -1389,7 +1581,10 @@ export class HousingService {
           unitPrice: formatHousingMoney(item.unitPrice),
           amount: formatHousingMoney(item.amount)
         } : {})
-      }))
+      })),
+      ...(includeEvidence
+        ? { receiptFiles: receiptFiles.map((file) => this.toFileRef(file)) }
+        : {})
     };
   }
 
@@ -2051,6 +2246,13 @@ export class HousingService {
 
   private hasPermission(actor: JwtPrincipal, permission: string) {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
+  }
+
+  private sortDirection(
+    order: "asc" | "desc" | undefined,
+    fallback: "ASC" | "DESC"
+  ): "ASC" | "DESC" {
+    return order ? (order === "asc" ? "ASC" : "DESC") : fallback;
   }
 
   private isDatabaseConflict(error: unknown) {
