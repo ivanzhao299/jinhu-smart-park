@@ -146,6 +146,10 @@ action against every state and sibling entry point before implementation:
 - [ ] Write-only roles receive the minimum read context required to reach their
       authorized action, or the permission contract explicitly requires the missing
       selector/context permission at both controller and UI boundaries
+- [ ] Action-specific candidate endpoints are authorized by the action permission,
+      apply the same data scope as the mutation, and return the labels needed by the
+      selector in one projection; the browser must not join several unrelated
+      read-permission endpoints to make an authorized action reachable
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
@@ -237,6 +241,9 @@ action against every state and sibling entry point before implementation:
       before releasing or closing the parent resource
 - [ ] A successful mutation reloads every selected projection it can invalidate,
       including ledger summaries, credentials, action history, and status-derived UI
+- [ ] Mutation success and projection refresh are separate events: commit owner-state
+      cleanup immediately after the successful response, then refresh secondary lists;
+      a refresh error must not roll back client state to a server-invalid reference
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;
@@ -490,6 +497,8 @@ sibling before the next commit. Do not stop at the named line.
       effects and preview buttons must follow the download capability.
 - [ ] For every action permission, prove list and detail reachability without granting
       unrelated broad read access; keep each detail projection independently gated.
+- [ ] Open every new selector under the narrowest supported action-role fixture and
+      assert its network calls require no sibling module read permissions.
 - [ ] Persisted relationship rows carry response-owned display labels; never resolve
       historical names from a separately paginated candidate list.
 - [ ] Terminal attachment references define authoritative ownership: after registration,

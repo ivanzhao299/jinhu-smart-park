@@ -37,13 +37,19 @@ export interface DownloadFileResult {
 
 export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
 
+function containsCjk(value: string): boolean {
+  return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u.test(value);
+}
+
 export function normalizeMultipartFileName(originalName: string): string {
   if (![...originalName].some((character) => character.charCodeAt(0) > 0x7f)) {
     return originalName;
   }
   const decoded = Buffer.from(originalName, "latin1").toString("utf8");
   if (decoded.includes("\uFFFD")) return originalName;
-  return Buffer.from(decoded, "utf8").toString("latin1") === originalName
+  return containsCjk(decoded)
+    && !containsCjk(originalName)
+    && Buffer.from(decoded, "utf8").toString("latin1") === originalName
     ? decoded
     : originalName;
 }
@@ -283,7 +289,7 @@ export class FilesService {
         file.createBy ?? undefined
       );
       await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
-      await this.businessAccessService.detachReferencesOnDelete(scope, file, actor.sub, manager);
+      await this.businessAccessService.detachReferencesOnDelete(scope, file, actor, manager);
       file.isDeleted = true;
       file.updateBy = actor.sub;
       await repository.save(file);

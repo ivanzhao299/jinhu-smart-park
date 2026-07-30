@@ -58,6 +58,10 @@
 - When a pending purchase receipt becomes bound, remove it from draft recovery but
   render it from the authoritative purchase-list projection. Association must never
   make successfully submitted evidence disappear from the operations page.
+- After a successful file-delete response, notify the owning business component before
+  refreshing the attachment projection. The server mutation is authoritative; a
+  secondary list-refresh failure must not suppress parent cleanup or make the deleted
+  file ID remain in form state.
 
 ### 4. Validation & Error Matrix
 - Missing file -> block submit.
@@ -73,6 +77,8 @@
 - Backend rejection -> display API error message; do not silently succeed.
 - Pending-list load failure -> preserve current visible files and show an error; do not
   replace them with an empty list.
+- Post-delete attachment refresh failure -> retain deletion success in the owning form,
+  report the refresh error separately, and allow the next refresh to reconcile the list.
 - Business action in flight -> disable file selection, upload, pending-file removal,
   and persisted-file deletion for the submitted aggregate until success or failure.
 - Upload in flight -> notify the owning business form through `onUploadingChange`;
@@ -101,6 +107,8 @@
   visible after refresh and the next workflow action retains that evidence.
 - Permission test: cover domain-only, generic-file-only, both, and neither permission
   combinations for uploader and attachment-list visibility/effects.
+- Deletion-order test: owner notification runs after DELETE success and before list
+  refresh, including when that refresh rejects.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

@@ -56,4 +56,6 @@ test("multipart filename normalization preserves ASCII and valid Unicode", () =>
   assert.equal(normalizeMultipartFileName("floor-plan.pdf"), "floor-plan.pdf");
   assert.equal(normalizeMultipartFileName("平面图.pdf"), "平面图.pdf");
   assert.equal(normalizeMultipartFileName("café.pdf"), "café.pdf");
+  assert.equal(normalizeMultipartFileName("Ã©.pdf"), "Ã©.pdf");
+  assert.equal(normalizeMultipartFileName("Â£.pdf"), "Â£.pdf");
 });

@@ -21,7 +21,10 @@
 - Storage path remains tenant/park/day scoped and must not be built from user-supplied filenames.
 - Multipart `originalname` may contain UTF-8 bytes decoded as Latin-1 by the upload parser.
   Normalize that boundary value before deriving the extension or persisting
-  `original_name`; preserve ASCII and already-valid Unicode names unchanged.
+  `original_name`; preserve ASCII and already-valid Unicode names unchanged. A
+  Latin-1/UTF-8 round trip is not sufficient evidence of mojibake because valid
+  names such as `Ã©.pdf` and `Â£.pdf` are also reversible. Recovery must require
+  an additional signal from the product's affected script (currently CJK text).
 - File metadata must remain tenant_id + park_id scoped.
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
@@ -47,6 +50,10 @@
   referenced by the owning business aggregate. Removal must happen through a domain
   detach/reversal workflow so signature, handover, repair, receipt, and turnover records
   never retain dangling file IDs.
+- A generic file mutation that also changes an owning aggregate must authorize that
+  aggregate before the side effect. Floorplan list/detail/download requires floor-read;
+  floorplan upload/delete requires floor-layout permission; all paths enforce the
+  referenced floor's park/building/floor data scope inside the mutation path.
 - Every workflow that binds protected file IDs must acquire the same file-row
   `pessimistic_write` lock and retain it in the transaction that writes the owning
   reference. Locking only the deletion path, validating outside the write transaction,
@@ -56,6 +63,7 @@
 - Missing file -> `BadRequestException`.
 - UTF-8 filename decoded as Latin-1 -> recover the original Unicode name before
   extension parsing and metadata persistence.
+- Valid Latin-1 text that merely looks like mojibake -> preserve it byte-for-byte.
 - Unsupported MIME -> `UnsupportedMediaTypeException`.
 - Oversized file -> `BadRequestException`.
 - File ID used by another business object must belong to current tenant and park.
@@ -70,11 +78,15 @@
 - Bad: Controller-level file size only with no service validation; hard-coded MIME checks in individual feature services.
 - Bad: Granting `file:read` or `file:download` alone access to lease signatures, handover evidence, purchase receipts, or turnover evidence.
 - Bad: Treating a null referenced `unit_id` as "no scope check required".
+- Bad: Clearing a floor's layout reference from `/files/:id` after checking only
+  generic file-delete permission and tenant/park equality.
 
 ### 6. Tests Required
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
+- Filename tests include affected CJK mojibake, already-valid CJK, ASCII, accented
+  Unicode, and reversible Latin-1 counterexamples such as `Ã©` and `Â£`.
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
 - Frontend: reload the housing operations page after upload and assert the uploader's

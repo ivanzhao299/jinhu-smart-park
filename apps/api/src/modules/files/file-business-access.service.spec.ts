@@ -6,6 +6,13 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileBusinessAccessService } from "./file-business-access.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
+const unrestrictedDataScopes = {
+  buildScopeFilter: async (_actor: JwtPrincipal, dimension: string) => ({
+    dimension,
+    unrestricted: true,
+    allowed_ids: []
+  })
+} as never;
 
 function actor(permissions: string[], sub = "user-1"): JwtPrincipal {
   return {
@@ -21,7 +28,8 @@ function actor(permissions: string[], sub = "user-1"): JwtPrincipal {
 test("protected housing files require their business permission", async () => {
   const service = new FileBusinessAccessService(
     { query: async () => [{ unit_id: "unit-1" }] } as never,
-    { assertAccess: async () => ({ id: "unit-1" }) } as never
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
+    unrestrictedDataScopes
   );
 
   await assert.rejects(
@@ -53,7 +61,8 @@ test("protected file references are resolved inside tenant and park before unit 
         checkedUnits.push(unitId);
         return { id: unitId };
       }
-    } as never
+    } as never,
+    unrestrictedDataScopes
   );
 
   await service.assertReferenceAccess(
@@ -70,7 +79,8 @@ test("protected file references are resolved inside tenant and park before unit 
 test("lease readers and signers can recover lease signature evidence", async () => {
   const service = new FileBusinessAccessService(
     { query: async () => [{ unit_id: "unit-1" }] } as never,
-    { assertAccess: async () => ({ id: "unit-1" }) } as never
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
+    unrestrictedDataScopes
   );
 
   for (const permission of [
@@ -92,7 +102,8 @@ test("lease readers and signers can recover lease signature evidence", async () 
 test("handover managers can read every supported handover evidence type", async () => {
   const service = new FileBusinessAccessService(
     { query: async () => [{ unit_id: "unit-1" }] } as never,
-    { assertAccess: async () => ({ id: "unit-1" }) } as never
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
+    unrestrictedDataScopes
   );
 
   for (const bizType of [
@@ -113,7 +124,7 @@ test("handover managers can read every supported handover evidence type", async 
 });
 
 test("unassociated purchase receipts remain private to their uploader", () => {
-  const service = new FileBusinessAccessService({} as never, {} as never);
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
   assert.throws(
     () => service.assertPendingFileOwner(
       actor([SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ], "other-user"),
@@ -124,7 +135,7 @@ test("unassociated purchase receipts remain private to their uploader", () => {
 });
 
 test("purchase managers can recover their own pending receipts", async () => {
-  const service = new FileBusinessAccessService({} as never, {} as never);
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
   await assert.doesNotReject(
     service.assertReferenceAccess(
       scope,
@@ -146,7 +157,8 @@ test("housing repair evidence requires repair or lease permission and unit scope
         checkedUnits.push(unitId);
         return { id: unitId };
       }
-    } as never
+    } as never,
+    unrestrictedDataScopes
   );
 
   await assert.rejects(
@@ -166,7 +178,8 @@ test("housing repair evidence requires repair or lease permission and unit scope
 test("project-wide purchase files require unrestricted property scope", async () => {
   const restricted = new FileBusinessAccessService(
     { query: async () => [{ unit_id: null }] } as never,
-    { allowedUnitIds: async () => ["unit-1"] } as never
+    { allowedUnitIds: async () => ["unit-1"] } as never,
+    unrestrictedDataScopes
   );
   await assert.rejects(
     restricted.assertReferenceAccess(
@@ -181,7 +194,8 @@ test("project-wide purchase files require unrestricted property scope", async ()
 
   const unrestricted = new FileBusinessAccessService(
     { query: async () => [{ unit_id: null }] } as never,
-    { allowedUnitIds: async () => null } as never
+    { allowedUnitIds: async () => null } as never,
+    unrestrictedDataScopes
   );
   await assert.doesNotReject(
     unrestricted.assertReferenceAccess(
@@ -197,7 +211,8 @@ test("project-wide purchase files require unrestricted property scope", async ()
 test("referenced business evidence cannot be deleted through the generic file endpoint", async () => {
   const referenced = new FileBusinessAccessService(
     { manager: { query: async () => [{ "?column?": 1 }] } } as never,
-    {} as never
+    {} as never,
+    unrestrictedDataScopes
   );
   await assert.rejects(
     referenced.assertDeletionAllowed(scope, {
@@ -210,7 +225,8 @@ test("referenced business evidence cannot be deleted through the generic file en
 
   const pending = new FileBusinessAccessService(
     { manager: { query: async () => [] } } as never,
-    {} as never
+    {} as never,
+    unrestrictedDataScopes
   );
   await assert.doesNotReject(
     pending.assertDeletionAllowed(scope, {
@@ -223,7 +239,7 @@ test("referenced business evidence cannot be deleted through the generic file en
 
 test("deleting a floorplan clears only its scoped owning floor reference", async () => {
   const calls: Array<{ sql: string; parameters: unknown[] }> = [];
-  const service = new FileBusinessAccessService({} as never, {} as never);
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
   await service.detachReferencesOnDelete(
     scope,
     {
@@ -231,20 +247,27 @@ test("deleting a floorplan clears only its scoped owning floor reference", async
       bizType: "floorplan",
       bizId: "22222222-2222-4222-8222-222222222222"
     } as never,
-    "user-1",
+    actor([SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT]),
     {
       query: async (sql: string, parameters: unknown[]) => {
         calls.push({ sql, parameters });
+        if (sql.includes("SELECT id")) {
+          return [{
+            id: "22222222-2222-4222-8222-222222222222",
+            park_id: scope.parkId,
+            building_id: "building-1"
+          }];
+        }
         return [];
       }
     } as never
   );
 
-  assert.equal(calls.length, 1);
-  assert.match(calls[0]!.sql, /layout_file_id = \$5::uuid/);
-  assert.match(calls[0]!.sql, /tenant_id = \$2/);
-  assert.match(calls[0]!.sql, /park_id = \$3/);
-  assert.deepEqual(calls[0]!.parameters, [
+  assert.equal(calls.length, 2);
+  assert.match(calls[1]!.sql, /layout_file_id = \$5::uuid/);
+  assert.match(calls[1]!.sql, /tenant_id = \$2/);
+  assert.match(calls[1]!.sql, /park_id = \$3/);
+  assert.deepEqual(calls[1]!.parameters, [
     "user-1",
     "tenant-1",
     "park-1",
@@ -255,12 +278,60 @@ test("deleting a floorplan clears only its scoped owning floor reference", async
 
 test("deleting an unrelated file does not update floor references", async () => {
   let queryCount = 0;
-  const service = new FileBusinessAccessService({} as never, {} as never);
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
   await service.detachReferencesOnDelete(
     scope,
     { id: "file-1", bizType: "general", bizId: "floor-1" } as never,
-    "user-1",
+    actor([]),
     { query: async () => { queryCount += 1; } } as never
   );
   assert.equal(queryCount, 0);
+});
+
+test("floorplan deletion requires floor layout permission and floor data scope", async () => {
+  const floorRow = {
+    id: "22222222-2222-4222-8222-222222222222",
+    park_id: scope.parkId,
+    building_id: "building-1"
+  };
+  const manager = {
+    query: async (sql: string) => sql.includes("SELECT id")
+      ? [floorRow]
+      : []
+  } as never;
+  const restricted = new FileBusinessAccessService(
+    { manager } as never,
+    {} as never,
+    {
+      buildScopeFilter: async (_actor: JwtPrincipal, dimension: string) => ({
+        dimension,
+        unrestricted: dimension !== "building",
+        allowed_ids: dimension === "building" ? ["building-2"] : []
+      })
+    } as never
+  );
+  const file = {
+    id: "11111111-1111-4111-8111-111111111111",
+    bizType: "floorplan",
+    bizId: floorRow.id
+  } as never;
+
+  await assert.rejects(
+    restricted.detachReferencesOnDelete(
+      scope,
+      file,
+      actor([SYSTEM_PERMISSIONS.FILE_DELETE]),
+      manager
+    ),
+    ForbiddenException
+  );
+  await assert.rejects(
+    restricted.detachReferencesOnDelete(
+      scope,
+      file,
+      actor([SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT]),
+      manager
+    ),
+    /outside current data scope/
+  );
 });

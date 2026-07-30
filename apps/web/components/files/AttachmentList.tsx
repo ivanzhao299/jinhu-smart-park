@@ -10,6 +10,7 @@ import { hasPermission } from "../../lib/permissions";
 import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
+import { completeAttachmentDeletion } from "./attachment-list.logic";
 
 interface AttachmentListProps {
   bizType: string;
@@ -99,8 +100,7 @@ export function AttachmentList({
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("file-delete")
     });
-    await load(data.page);
-    onDeleted?.(file);
+    await completeAttachmentDeletion(file, onDeleted, () => load(data.page));
   }
 
   function closePreview() {

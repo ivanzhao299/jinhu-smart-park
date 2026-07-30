@@ -24,7 +24,6 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
-import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const ENERGY_MODULE = "energy";
 
@@ -60,23 +59,15 @@ interface AdjustmentForm {
 interface BillingItemOptionRow {
   id: string;
   cycleId: string;
+  cycleCode: string;
+  cycleName: string;
   relatedParkTenantId: string;
+  parkTenantCode: string;
+  companyName: string;
   billingMethod: string;
   finalAmount: string;
   confirmationStatus: string;
-  receivableId: string | null;
-}
-
-interface BillingCycleOptionRow {
-  id: string;
-  cycleCode: string;
-  cycleName: string;
-}
-
-interface ParkTenantOptionRow {
-  id: string;
-  parkTenantCode: string;
-  companyName: string;
+  receivableId: string;
 }
 
 const emptyPage: PaginatedResult<AdjustmentRow> = { items: [], total: 0, page: 1, page_size: 20 };
@@ -88,15 +79,11 @@ export default function EnergyBillingAdjustmentsPage() {
   const [billingItems, setBillingItems] = useState<BillingItemOptionRow[]>([]);
   const [billingItemPage, setBillingItemPage] = useState(1);
   const [billingItemTotal, setBillingItemTotal] = useState(0);
-  const [billingCycles, setBillingCycles] = useState<BillingCycleOptionRow[]>([]);
-  const [parkTenants, setParkTenants] = useState<ParkTenantOptionRow[]>([]);
   const [filters, setFilters] = useState({ keyword: "", billingItemId: "", adjustmentType: "", status: "" });
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<AdjustmentForm>(emptyForm);
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
-  const billingCycleMap = useMemo(() => new Map(billingCycles.map((item) => [item.id, `${item.cycleCode} ${item.cycleName}`.trim()])), [billingCycles]);
-  const parkTenantMap = useMemo(() => new Map(parkTenants.map((item) => [item.id, `${item.parkTenantCode} ${item.companyName}`.trim()])), [parkTenants]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -122,16 +109,13 @@ export default function EnergyBillingAdjustmentsPage() {
   }, []);
 
   const loadBillingItemOptions = useCallback(async (page = 1) => {
-    const [itemResponse, cycleResponse, references] = await Promise.all([
-      apiRequest<PaginatedResult<BillingItemOptionRow>>(`/energy/billing-items?page=${page}&page_size=50`, { token: getAccessToken() }),
-      apiRequest<PaginatedResult<BillingCycleOptionRow>>("/energy/billing-cycles?page=1&page_size=200", { token: getAccessToken() }),
-      fetchReferenceFormOptions()
-    ]);
+    const itemResponse = await apiRequest<PaginatedResult<BillingItemOptionRow>>(
+      `/energy/billing-adjustments/candidates?page=${page}&page_size=50`,
+      { token: getAccessToken() }
+    );
     setBillingItems(itemResponse.data.items);
     setBillingItemPage(itemResponse.data.page);
     setBillingItemTotal(itemResponse.data.total);
-    setBillingCycles(cycleResponse.data.items);
-    setParkTenants(references.parkTenants as ParkTenantOptionRow[]);
   }, []);
 
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
@@ -235,7 +219,7 @@ export default function EnergyBillingAdjustmentsPage() {
                     <option value="">请选择已发布账单项</option>
                     {billingItems.map((item) => (
                       <option key={item.id} value={item.id} disabled={!item.receivableId}>
-                        {formatBillingItemOption(item, billingCycleMap, parkTenantMap)}
+                        {formatBillingItemOption(item)}
                       </option>
                     ))}
                   </select>
@@ -294,12 +278,10 @@ function adjustmentActionHint(row: AdjustmentRow) {
 }
 
 function formatBillingItemOption(
-  item: BillingItemOptionRow,
-  cycleMap: Map<string, string>,
-  parkTenantMap: Map<string, string>
+  item: BillingItemOptionRow
 ) {
-  const cycle = cycleMap.get(item.cycleId) ?? item.cycleId.slice(0, 8);
-  const tenant = parkTenantMap.get(item.relatedParkTenantId) ?? item.relatedParkTenantId.slice(0, 8);
+  const cycle = `${item.cycleCode} ${item.cycleName}`.trim();
+  const tenant = `${item.parkTenantCode} ${item.companyName}`.trim();
   const availability = item.receivableId ? "已发布" : "未发布";
   return `${cycle} · ${tenant} · ${item.billingMethod} · ¥${item.finalAmount} · ${availability}`;
 }
