@@ -27,8 +27,12 @@ test("property business menu migration adds menu/page nodes without changing API
     "perm_type = 10",
     "permission_type = 'page'",
     "perm_type = 20",
-    "registry.status = 'enabled'",
-    "AND status = 'enabled'",
+    "FROM rel_tenant_module assignment",
+    "JOIN sys_module module",
+    "assignment.enabled = true",
+    "assignment.status = 'enabled'",
+    "assignment.expire_time IS NULL OR assignment.expire_time > now()",
+    "module.status = 1",
     "api_permission.perm_type = 40",
     "INSERT INTO rel_role_perm",
     "existing.permission_id = resolved.permission_id"
@@ -38,6 +42,7 @@ test("property business menu migration adds menu/page nodes without changing API
 
   assert.doesNotMatch(sql, /INSERT INTO sys_module\s*\(/);
   assert.doesNotMatch(sql, /INSERT INTO rel_tenant_module\s*\(/);
+  assert.doesNotMatch(sql, /sys_module_registry/);
   assert.equal(sql.includes("SET perm_type = 40"), false);
 });
 

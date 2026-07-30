@@ -1,18 +1,24 @@
 BEGIN;
 
 -- Menu permissions are tenant-wide (`uq_sys_permission_tenant_code_active`), while
--- role grants remain park-scoped. Pick one registered park as the permission row's
--- storage scope, then bridge the menu nodes to eligible roles in every registered park.
+-- role grants remain park-scoped. Pick one actively authorized park as the permission
+-- row's storage scope, then bridge the menu nodes to eligible roles in every authorized park.
 WITH module_tenants AS (
-  SELECT DISTINCT ON (registry.tenant_id, registry.module_code)
-    registry.tenant_id,
-    registry.park_id,
-    registry.module_code
-  FROM sys_module_registry registry
-  WHERE registry.module_code IN ('homestay', 'housing_rental')
-    AND registry.status = 'enabled'
-    AND registry.is_deleted = false
-  ORDER BY registry.tenant_id, registry.module_code, registry.park_id
+  SELECT DISTINCT ON (assignment.tenant_id, module.module_code)
+    assignment.tenant_id,
+    assignment.park_id,
+    module.module_code
+  FROM rel_tenant_module assignment
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.status = 1
+   AND module.is_deleted = false
+  WHERE module.module_code IN ('homestay', 'housing_rental')
+    AND assignment.enabled = true
+    AND assignment.status = 'enabled'
+    AND assignment.is_deleted = false
+    AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+  ORDER BY assignment.tenant_id, module.module_code, assignment.park_id
 ),
 menu_definitions(module_code, code, name, resource, icon, sort_no) AS (
   VALUES
@@ -61,15 +67,21 @@ WHERE permission.tenant_id = definitions.tenant_id
   AND permission.is_deleted = false;
 
 WITH module_tenants AS (
-  SELECT DISTINCT ON (registry.tenant_id, registry.module_code)
-    registry.tenant_id,
-    registry.park_id,
-    registry.module_code
-  FROM sys_module_registry registry
-  WHERE registry.module_code IN ('homestay', 'housing_rental')
-    AND registry.status = 'enabled'
-    AND registry.is_deleted = false
-  ORDER BY registry.tenant_id, registry.module_code, registry.park_id
+  SELECT DISTINCT ON (assignment.tenant_id, module.module_code)
+    assignment.tenant_id,
+    assignment.park_id,
+    module.module_code
+  FROM rel_tenant_module assignment
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.status = 1
+   AND module.is_deleted = false
+  WHERE module.module_code IN ('homestay', 'housing_rental')
+    AND assignment.enabled = true
+    AND assignment.status = 'enabled'
+    AND assignment.is_deleted = false
+    AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+  ORDER BY assignment.tenant_id, module.module_code, assignment.park_id
 ),
 menu_definitions(module_code, code, name, resource, icon, sort_no) AS (
   VALUES
@@ -103,15 +115,21 @@ WHERE NOT EXISTS (
 );
 
 WITH module_tenants AS (
-  SELECT DISTINCT ON (registry.tenant_id, registry.module_code)
-    registry.tenant_id,
-    registry.park_id,
-    registry.module_code
-  FROM sys_module_registry registry
-  WHERE registry.module_code IN ('homestay', 'housing_rental')
-    AND registry.status = 'enabled'
-    AND registry.is_deleted = false
-  ORDER BY registry.tenant_id, registry.module_code, registry.park_id
+  SELECT DISTINCT ON (assignment.tenant_id, module.module_code)
+    assignment.tenant_id,
+    assignment.park_id,
+    module.module_code
+  FROM rel_tenant_module assignment
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.status = 1
+   AND module.is_deleted = false
+  WHERE module.module_code IN ('homestay', 'housing_rental')
+    AND assignment.enabled = true
+    AND assignment.status = 'enabled'
+    AND assignment.is_deleted = false
+    AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+  ORDER BY assignment.tenant_id, module.module_code, assignment.park_id
 ),
 page_definitions(module_code, parent_code, code, name, resource, frontend_route, sort_no) AS (
   VALUES
@@ -168,15 +186,21 @@ WHERE permission.tenant_id = definitions.tenant_id
   AND permission.is_deleted = false;
 
 WITH module_tenants AS (
-  SELECT DISTINCT ON (registry.tenant_id, registry.module_code)
-    registry.tenant_id,
-    registry.park_id,
-    registry.module_code
-  FROM sys_module_registry registry
-  WHERE registry.module_code IN ('homestay', 'housing_rental')
-    AND registry.status = 'enabled'
-    AND registry.is_deleted = false
-  ORDER BY registry.tenant_id, registry.module_code, registry.park_id
+  SELECT DISTINCT ON (assignment.tenant_id, module.module_code)
+    assignment.tenant_id,
+    assignment.park_id,
+    module.module_code
+  FROM rel_tenant_module assignment
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.status = 1
+   AND module.is_deleted = false
+  WHERE module.module_code IN ('homestay', 'housing_rental')
+    AND assignment.enabled = true
+    AND assignment.status = 'enabled'
+    AND assignment.is_deleted = false
+    AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+  ORDER BY assignment.tenant_id, module.module_code, assignment.park_id
 ),
 page_definitions(module_code, parent_code, code, name, resource, frontend_route, sort_no) AS (
   VALUES
@@ -216,12 +240,21 @@ WHERE NOT EXISTS (
     AND existing.is_deleted = false
 );
 
-WITH registered_modules AS (
-  SELECT DISTINCT tenant_id, park_id, module_code
-  FROM sys_module_registry
-  WHERE module_code IN ('homestay', 'housing_rental')
-    AND status = 'enabled'
-    AND is_deleted = false
+WITH enabled_modules AS (
+  SELECT DISTINCT
+    assignment.tenant_id,
+    assignment.park_id,
+    module.module_code
+  FROM rel_tenant_module assignment
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.status = 1
+   AND module.is_deleted = false
+  WHERE module.module_code IN ('homestay', 'housing_rental')
+    AND assignment.enabled = true
+    AND assignment.status = 'enabled'
+    AND assignment.is_deleted = false
+    AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
 ),
 eligible_roles AS (
   SELECT DISTINCT
@@ -244,10 +277,10 @@ eligible_roles AS (
    AND role.tenant_id = role_link.tenant_id
    AND role.park_id = role_link.park_id
    AND role.is_deleted = false
-  JOIN registered_modules registered
-    ON registered.tenant_id = role_link.tenant_id
-   AND registered.park_id = role_link.park_id
-   AND registered.module_code = CASE
+  JOIN enabled_modules enabled_module
+    ON enabled_module.tenant_id = role_link.tenant_id
+   AND enabled_module.park_id = role_link.park_id
+   AND enabled_module.module_code = CASE
      WHEN api_permission.code LIKE 'homestay:%' THEN 'homestay'
      WHEN api_permission.code LIKE 'housing:%' THEN 'housing_rental'
    END

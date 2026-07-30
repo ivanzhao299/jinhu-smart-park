@@ -127,6 +127,12 @@ The cross-table concurrency contract is mandatory: service checks alone do not p
 
 Read [property-business-controls.md](./property-business-controls.md) before changing homestay/housing business dates, guest identity verification, finance detail permissions, billing-period math, purchase rounding/recharge, or granular-role page loading.
 
+## Tenant Module Access Control
+
+Read [module-access-control.md](./module-access-control.md) before changing tenant module
+assignments, `@RequireModule`, `/users/me.enabled_modules`, frontend module filtering,
+post-login routing, or module-specific menu migrations.
+
 ## Migrations And Seeds
 
 Migrations are forward-only SQL files in `database/migrations`. Do not edit migrations that may already have succeeded in production. `scripts/db-migrate.sh` records filename, checksum, running/succeeded/failed status, executor, and batch id in `public.sys_schema_migration_history`.

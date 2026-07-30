@@ -1,6 +1,6 @@
 # PR #192 菜单接入实施计划
 
-> 当前状态：实现、数据库/API 运行时验证及桌面/390px 浏览器验收全部完成。
+> 当前状态：PR #196 评审修复、自测、数据库运行时回归和浏览器负向验收已完成。
 
 ## 1. 实施前门禁
 
@@ -14,6 +14,8 @@
 
 - [x] 新增 `database/migrations/000182_property_business_menu_access.sql`。
 - [x] 基于已注册且启用的模块范围 upsert 民宿/住房菜单及页面节点。
+- [x] PR #196 评审修正：范围改为运行时权威的有效 `rel_tenant_module + sys_module`，
+  不再依赖标准开通 API 不维护的 `sys_module_registry`。
 - [x] 建立正确父子关系、路径、层级、图标、路由和启用状态。
 - [x] 从既有 `perm_type = 40` 模块 API 权限派生目标角色。
 - [x] 幂等补授父菜单和页面权限，不扩大 API/数据/模块授权。
@@ -43,6 +45,8 @@
 - [x] 同步历史兼容路径 `/homestay`、`/housing`。
 - [x] 添加动态/静态菜单合并与不重复测试，并沿用现有权限/模块过滤链路。
 - [x] 不创建不存在的子路由菜单。
+- [x] PR #196 评审修正：超级管理员只旁路权限码，不旁路 `enabled_modules`；无可用模块时
+  移动端登录回退到 `/dashboard`。
 - [x] 修复 390px 实测发现的民宿复选框宽度继承导致的 18px 内容裁切。
 
 回滚点：在文档和运行时验证前，检查 `/users/me → menu.ts → AppSidebar/DashboardLayout` 全链路字段一致。
@@ -68,6 +72,27 @@
 - [x] 数据库执行迁移、重复执行及目标角色 `/users/me` 抽样。
 - [x] 浏览器桌面和 390px 检查菜单、跳转、高亮、面包屑和拒绝路径。
 - [x] `git diff --check`
+
+PR #196 评审追加验证：
+
+- [x] Web 权限、登录落点及菜单目标测试。
+- [x] API 全量单元测试（73/73）。
+- [x] 标准 `rel_tenant_module`-only 范围执行 `000182` 并验证角色桥接。
+- [x] 超级管理员模块禁用态 `/users/me` 投影、页面路由与浏览器复验。
+- [x] API/Web lint、typecheck、build 与菜单兼容脚本复验。
+
+PR #196 评审修复证据：
+
+- 正式迁移器从已知 000175 失败基线恢复，前置脚本与 000175～000182 共新增成功 9 条
+  历史记录（其中前置记录 1 条），迁移失败为 0；第二次运行报告 `No new migrations`。
+- 一次性克隆库构造 `review-tenant-196/review-park-196`：存在启用的 homestay
+  `rel_tenant_module`，`sys_module_registry` 记录为 0。首次执行 000182 新增一个菜单父节点、
+  一个页面节点和两条角色桥接；第二次新增均为 0。页面父级为 `homestay`。
+- Web `permissions`、`post-login-route`、`menu` 三个目标测试通过；API 全量单元测试 73/73。
+- API/Web lint、typecheck、build 均通过；首发菜单兼容脚本通过。
+- 390px 隔离 Chrome 使用 superuser + `permissions=["*"]` + 仅启用 homestay 的
+  `/users/me` 夹具：侧栏只显示民宿、不显示住房；直达 `/housing` 跳转
+  `/403?reason=module`，页面无横向溢出。
 
 运行时证据（基于已合并 PR #195 的 `origin/main`）：
 

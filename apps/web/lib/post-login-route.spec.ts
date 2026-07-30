@@ -42,12 +42,24 @@ test("mobile engineering users land in engineering terminal", () => {
   assert.equal(route, "/engineering/terminal");
 });
 
-test("mobile super users land in operations terminal", () => {
-  const user = createUser({ is_super: true, permissions: ["*"] });
+test("mobile super users land in operations terminal only when its module is enabled", () => {
+  const user = createUser({
+    is_super: true,
+    permissions: ["*"],
+    enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }]
+  });
 
   const route = resolvePostLoginPath(user, { viewportWidth: 390, pointerCoarse: true, touchPoints: 5, userAgent: "iPhone" });
 
   assert.equal(route, "/operations/terminal");
+});
+
+test("mobile super users without enabled operational modules fall back to a module-free route", () => {
+  const user = createUser({ is_super: true, permissions: ["*"] });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 390, pointerCoarse: true, touchPoints: 5, userAgent: "iPhone" });
+
+  assert.equal(route, "/dashboard");
 });
 
 test("desktop users fall back to first visible menu item", () => {
