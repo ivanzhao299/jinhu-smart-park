@@ -35,7 +35,7 @@
 - 建立页面状态、深链、远程实体选择器和桌面/移动响应式基线。
 - 高风险动作在 Track B 生产 enforce 前保持只读或关闭。
 - `PROPERTY_WORKBENCH_V2` 未设置或为 false 时保持 PR #192 legacy API 行为；设置为
-  true 时，下列 8 个高风险 action 必须在服务端返回 HTTP 409，不能依赖页面隐藏，
+  true 时，下列 9 个高风险 action/variant 必须在服务端返回 HTTP 409，不能依赖页面隐藏，
   superuser/wildcard 也不得绕过：
   - `homestay.bookings.cancel`
   - `homestay.finance.refund-or-waive`，由
@@ -46,6 +46,8 @@
   - `housing.finance.refund-waive-or-deposit-refund`，由
     `POST /housing/leases/:id/ledger` 的 `entry_type=refund|waiver` 判别；退款指向押金
     receivable 时仍属于同一高风险 action
+  - `housing.handovers.complete-move-out-financial`：`handover_type=move_out` 且
+    damage/unsettled/deposit deduction 任一金额非零的 completion variant
   - `housing.purchases.lifecycle`
   - `housing.purchases.transfer`
 - 上述 409 只能在 Track B approval adapter 已接入并通过其独立 Gate 后，替换为
@@ -57,7 +59,8 @@
     完整 `credentialReference`，必须符合 manifest 的 masked projection。
 - Track A 交付顺序必须避免菜单指向尚未存在的页面：先完成 permission schema 和
   `/users/me` 服务端 property projection 基础，但 Web 不得暴露 canonical 入口；只有
-  17 个 canonical routes 与各自 route guard 实际交付后，才允许修改 Web menu、
+  17 个 canonical page routes、7 个 detail routes 与各自 route guard 实际交付后，
+  才允许修改 Web menu、
   legacy landing/tenant alias 和 unknown property deep-link fail-closed。
 
 ### 3.2 Track B：安全业务执行
@@ -85,7 +88,8 @@
 - `/assets/property-mode-transitions`
 - `/assets/parties/[partyId]`：唯一 Party 详情、身份维护和核验表面
 
-`/housing/tenants/[partyId]` 不实现第二套详情，重定向到 canonical Party detail。
+`/housing/tenants/[partyId]` 不实现第二套详情；asset-party owner 已交付
+canonical Party detail target，住房租客入口重定向到该唯一表面。
 
 ### 4.2 民宿
 
@@ -96,6 +100,8 @@
 - `/homestay/bookings`
 - `/homestay/bookings/[bookingId]`
 - `/homestay/stays`
+- `/homestay/stays/[stayId]`：只作为 server-authorized stay→booking detail alias，
+  不实现第二套详情
 - `/homestay/turnovers`
 - `/homestay/turnovers/[turnoverId]`
 - `/homestay/finance`
@@ -180,7 +186,7 @@ maker-checker 默认覆盖：
 - [ ] legacy `*:operations` 不授予任何新子页面或动作。
 - [ ] 菜单、直达 URL、API、module、data scope 的正向和负向用例通过。
 - [ ] `PROPERTY_WORKBENCH_V2` off/unset 的 legacy API characterization 全部通过。
-- [ ] `PROPERTY_WORKBENCH_V2=true` 时 8 个高风险 action（含两个 ledger
+- [ ] `PROPERTY_WORKBENCH_V2=true` 时 9 个高风险 action/variant（含两个 ledger
   discriminator）均由服务端返回 409；normal、superuser 和 wildcard 结果一致。
 - [ ] Track B approval adapter 未交付前，不存在可把上述 409 恢复为直接 mutation 的
   配置组合。
@@ -189,8 +195,11 @@ maker-checker 默认覆盖：
 - [ ] 无业务表单要求手填内部 UUID。
 - [ ] 页面区分 initial empty、filtered empty、scope empty、403、失败、冲突和提交状态。
 - [ ] 桌面、360px、390px、键盘和基础 WCAG/Design System Gate 通过。
-- [ ] `property-remediation-a-base-v1` 可重复生成和清理。
-- [ ] A-base-v1 exact rows 为 building=3、floor=3、party=4,000、
+- [x] `property-remediation-a-base-v1` 已从 source commit
+  `32ccc02852c3201c6f68e3b6b89e4398cb102a17` 重复生成和清理；fixture handoff
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`
+  已冻结。
+- [x] A-base-v1 exact rows 为 building=3、floor=3、party=4,000、
   booking=10,000、booking_night=20,000、lease=2,000、
   housing_receivable=10,000、charge_plan=2,000、turnover=2,000、
   handover=1,000、purchase=1,000、purchase_item=2,000、work_order=1,000、
@@ -208,6 +217,10 @@ maker-checker 默认覆盖：
 - [ ] Shared foundation 不创建 preview/生产 route；handoff 先以静态/单测和
   lint/typecheck/build 放行，真实 desktop/mobile/keyboard/focus/zoom/ARIA 证据由
   首个 domain route SHA 补齐，补齐前不标 final UI Gate 完成。
+- [ ] A-base handoff 后、任何 workbench Web 开始前，A-2.5 API/response contract
+  closure 独立 Gate PASS；研究可先行，但页面代码不得先行。
+- [x] Party canonical list/detail target 与 housing tenant alias 已交付并纳入独立权限
+  和 route guard。
 
 ### 8.2 Track B Technical
 
@@ -244,3 +257,14 @@ maker-checker 默认覆盖：
 - `production_readiness_status`：是否允许生产开放。
 
 允许 Codex 已完成而生产仍等待人工 Gate；不得把自动化 PASS 描述为真人业务验收完成。
+
+## 13. 2026-07-31 当前权威状态
+
+A-2.5 的 shared contract、Homestay API/Web、Housing API/Web、RBAC、17 个 canonical
+page routes、7 个 detail routes 和 Party canonical list/detail target 均已交付，
+`open_P0_P1=[]`。最终 API full unit 91/91、Web default `tsc`/lint/build（154 routes）、独立多轮
+Gate 与隔离数据库证据通过。
+
+唯一未完成项是 Chrome connector 的 `sandboxCwd` 基础设施限制，导致真实
+desktop/390 视觉、键盘与 zoom/reflow 证据尚未执行。Codex 技术交付可标记完成，但
+不得把 A-2.5 或 Track A 标记为完全 release-ready，也不得把自动化结果表述为真人 UAT。

@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Shared Web foundation and downstream integration are machine-verified; only Chrome connector sandboxCwd infrastructure blocks real desktop/390 visual, keyboard and zoom verification",
   "meta": {}
 }

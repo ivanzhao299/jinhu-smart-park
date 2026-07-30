@@ -14,6 +14,11 @@ Shared Web integration-ready handoff SHA：
 `d2a015f9ba931b2024e6360570697c77b74ea3fb`；其 final UI Gate 仍等待首个
 canonical route。
 
+A-base-core 已 provisioned，source commit
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，fixture handoff
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile `68da…107b`。该段记录当时前置状态；A-2.5 与本 Web 工作台现已交付。
+
 ## 2. 用户与岗位任务
 
 - 住房运营：查看总览和任务队列。
@@ -43,10 +48,10 @@ Persona 不参与运行时判权，built-in/custom role 只组合 manifest permi
 | 采购成本 | `/housing/purchases` | 采购列表与经办草稿 |
 | 采购详情 | `/housing/purchases/[purchaseId]` | 明细、票据、审批和付款状态 |
 
-`/housing/tenants/[partyId]` 不实现第二套 Party 详情，重定向到
-`/assets/parties/[partyId]`。不得创建 `/housing/terminal/*`。审批使用 canonical
-detail 的 tab/query，不创建重复审批 CRUD。该 alias redirect 由 housing Web owner
-在 canonical route SHA 后的 Web 接入批次实现；menu owner 不接管 housing app route。
+`/housing/tenants/[partyId]` 不实现第二套 Party 详情。当前
+`/assets/parties/[partyId]` target 已正式交付，housing Web 只接入该 canonical
+detail。不得创建 `/housing/terminal/*`。审批使用 canonical detail 的
+tab/query，不创建重复审批 CRUD；menu owner 不接管 housing app route。
 
 ## 4. 功能要求
 
@@ -56,6 +61,11 @@ detail 的 tab/query，不创建重复审批 CRUD。该 alias redirect 由 housi
 query/mutation、permission adapter 和现有 UI block；原 `/housing` 必须先复用抽取
 结果并删除旧 block，行为等价后才能建立新 route。不得同时维护两套写入口、响应
 interface 或状态机解释。
+
+页面实现前必须取得 A-base handoff 与 `A-2.5-contract-closure SHA`。A-2.5 冻结
+tasks、handover list/detail、billing、finance、repair list/detail response；
+所有现有/新增类型进入 shared contract。禁止 N+1、route-local interface 或扩
+bundle。财务字段/附件 ID 只返回最小授权投影，GET 使用精确 read permission。
 
 ### 4.2 六层访问控制
 
@@ -120,9 +130,12 @@ filter/page/sort 进入 URL；详情可刷新、可分享，allowlist `returnTo`
 ## 7. 验收标准
 
 - [ ] canonical routes 与 page permissions 一一对应，`/housing` 固定安全跳转。
-- [ ] `/housing/tenants/[partyId]` 只重定向 canonical Party detail。
+- [x] `/housing/tenants/[partyId]` 不实现第二套详情，并重定向到 canonical Party
+  target。
 - [ ] 每个工作流单一 feature/API/hook/UI owner，旧 block 同变更删除。
 - [ ] route-local 无重复 shared response contract。
+- [x] Party target、独立页面权限、route guard 与 alias handoff 有证据。
+- [ ] move-out financial completion 是第 9 个 high-risk variant，Track B 前 unavailable。
 - [ ] module/page/action/data/field/file 正负组合和 legacy 不扩权测试通过。
 - [ ] Track A 低风险动作可执行；所有高风险动作只读且 API fail closed。
 - [ ] 住房账务始终使用 housing 子账，金额/日期/幂等合同保持兼容。
@@ -133,3 +146,13 @@ filter/page/sort 进入 URL；详情可刷新、可分享，allowlist `returnTo`
 - [ ] shared/file 组件和 complexity 门禁通过，无 open P0/P1 handoff。
 - [ ] 若本任务为首个 domain route SHA，已在真实 route 补齐 shared foundation 的
   desktop/mobile/keyboard/focus/zoom/ARIA 证据；未创建 preview/生产 route。
+
+## 8. 2026-07-31 当前验收状态
+
+Housing API `8a0bd17` 与工作台 `992a6a4` 已交付；shared/RBAC/integration 为
+`3766509`、`5a557e5`、`d33fad9`。Party canonical target 与 alias 已闭合，
+最终 API full unit 91/91、Web default `tsc`/lint/build 154、独立多轮 Gate 和 DB evidence 通过，
+`open_P0_P1=[]`。
+
+唯一未完成项是 Chrome connector `sandboxCwd` 基础设施导致真实 desktop/390
+visual、keyboard、zoom/reflow 未验；任务保持 `in_progress`，不得标记 release-ready。

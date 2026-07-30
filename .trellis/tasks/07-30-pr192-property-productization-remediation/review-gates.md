@@ -194,10 +194,61 @@ S0 将 A-base-v1 数量冻结为 exact contract，并发现 A-C2 受控临时 DB
 冻结 `A-ephemeral-db-bootstrap` handoff SHA：
 `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
 
-RISK-A-004 已关闭；A0 implementation 状态为 `unblocked_not_started`，不是已开始或
-已完成。父任务与 A-1 继续保持 `in_progress`。Shared foundation commit
+RISK-A-004 已关闭；该 S0 Gate 当时将 A0 implementation 状态更新为
+`unblocked_not_started`，后续状态以 3.10 A-base Final Gate 为准。父任务与 A-1
+继续保持 `in_progress`。Shared foundation commit
 `d2a015f9ba931b2024e6360570697c77b74ea3fb` 保持冻结，final UI Gate 仍等待首个
 canonical route。
+
+### 3.9 Multi-domain API/Response Contract 只读复审：P1 Stop-ship
+
+页面前复审发现 response/GET/alias/high-risk 合同未闭合。新增串行
+`A-2.5 workbench API/response contract closure`：A-base 可以继续，合同研究可以
+先行，但任何 homestay/housing Web workbench 必须等待 A-base handoff 与 A-2.5 独立
+Gate PASS。
+
+必须闭合 shared 全量 response types、两域候选 endpoint、7 个 detail routes、
+第 9 个 move-out financial high-risk variant、财务字段/附件 ID 最小投影和 GET
+精确 read permission。禁止 N+1、route-local interface 和 bundle expansion。
+Track B high-risk 继续 unavailable。
+
+该段为当时 stop-ship 记录。Party canonical target 后续已正式交付，A-2.5 由 shared-contract、homestay-api、
+housing-api、schema-migration、asset-party decision owners 与独立 checker 共同
+签署。当前 stop-ship 开放，父任务保持 `in_progress`。
+
+### 3.10 A-base-core Final Gate：PASS / handoff frozen
+
+2026-07-30 最终运行基于 source commit
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，run ID
+`abase20260730final32ccc01`。Canonical fixture handoff SHA 为
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile checksum 为 `68da…107b`。
+
+Owner gate 为 21 pass / 0 fail / 6 runtime skip，且有真实双 run 覆盖；两次 run
+各生成 journals 10,010 events / 2,002 resources，均完成清理，final residual=0。
+Independent final review PASS，`open_P0_P1=[]`。
+
+因此状态冻结为 `A-base-core provisioned / handoff frozen`，A-2.5 从
+`blocked_by_a_base` 变为 `unblocked / next`。该 PASS 不等于 Track A technical
+pass；homestay/housing Web 仍由 A-2.5 stop-ship 阻塞，A-route-evidence 尚未完成，
+A-gates 与父任务继续 `in_progress`。
+
+### 3.11 A-2.5 与双域工作台最终机器 Gate：PASS / 浏览器证据待补
+
+交付 SHA 为 `3766509`、`44d6769`、`8a0bd17`、`5a557e5`、`d33fad9`、
+`bc2ed7f`、`992a6a4`。Shared、Homestay、Housing、RBAC、17 canonical pages、
+7 detail routes 和 Party canonical target 全部完成，`open_P0_P1=[]`。
+
+最终 API full unit 91/91；此前 92 包含后来撤销的临时 assets-unit-picker spec，
+不得作为最终口径。Web default `tsc`/lint/build 154、独立多轮 Gate 与 DB evidence
+均 PASS。
+
+唯一未完成 Gate 是 Chrome connector `sandboxCwd` 基础设施阻止真实 desktop/390
+visual、keyboard、zoom/reflow。不得据机器 PASS 宣称 A-2.5 完全 release-ready。
+
+P2 mixed-scope 文案用例保留为报告规范：同一批次含 shared、SQL 和 Web 时，必须按
+scope/owner/evidence 拆分描述，不能把某 scope 的 P2 文案或 fixture 差异升级成另一
+scope 的 P1；该 P2 不改变 `open_P0_P1=[]`。
 
 ## 4. 方案落盘结论
 

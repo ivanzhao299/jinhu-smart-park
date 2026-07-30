@@ -46,14 +46,16 @@ handoff 记录；独立 stop-ship 未关闭前不得称为最终 A-contract SHA�
 
 ```text
 flag=unset/off: legacy characterization
-flag=true: 8 actions × normal/super/wildcard = HTTP 409
+flag=true: 当时已实现的 8 actions × normal/super/wildcard = HTTP 409
 homestay ledger: charge/payment safe neighbor; refund/waiver blocked
 housing ledger: charge/payment safe neighbor; refund/waiver/deposit refund blocked
 housing tenant list/create: mobile/email masked
 homestay booking detail + credential issue/return: credentialReference masked
 ```
 
-输出 `A-server-safety SHA`，随后 shared-contract-owner 发布内容不漂移的最终
+以上为 A-C1 当时的已通过历史基线；A-2.5 必须在页面启动前加入第 9 个 move-out
+financial variant 并重新通过 exact matrix。输出 `A-server-safety SHA`，随后
+shared-contract-owner 发布内容不漂移的最终
 `A-contract SHA`。任一矩阵或 projection 失败均为 stop-ship，A-1 继续
 `in_progress`，不得进入 A-C2。
 
@@ -95,11 +97,11 @@ contract/server-safety baseline 已于 2026-07-30 冻结为
 
 ### A-C2c：Web Menu（后置，不在当前 A-1 提前完成）
 
-等待 shared Web foundation、A-base 和 homestay/housing 两份 route SHA。menu owner
+等待 shared Web foundation、A-base、A-2.5 closure 和 homestay/housing 两份 route SHA。menu owner
 消费 route SHA 后才实现 Web menu、legacy landing、unknown property deep-link
-fail-closed；housing Web owner 在其独占 app route 内实现 tenant alias redirect/
-guard。Domain Web owners 持续持有各自 app routes/guards；menu owner不得创建
-placeholder 或领域 route。
+  fail-closed；Party target 已 handoff，housing Web owner 在其独占 app
+  route 内实现 tenant alias redirect/guard。Domain Web
+owners 持续持有各自 app routes/guards；menu owner不得创建 placeholder 或领域 route。
 
 ### A-C2 Runtime Fixture 执行记录（2026-07-30）
 
@@ -131,6 +133,29 @@ migration chain 通过；只证明 A-C2 切片在声明的 `000176`–`000182` �
 A-1 继续保持 `in_progress`：shared Web foundation、homestay/housing workbenches、
 最终 Web menu/landing/alias/deep-link 和 route evidence 尚未交付。
 
+A-base-core 最终 handoff 已冻结：source commit
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，final run
+`abase20260730final32ccc01`，fixture SHA
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile `68da…107b`；21 pass / 0 fail / 6 runtime skip，真实双 run、journals cleanup
+与 residual=0 已由 independent final review PASS，`open_P0_P1=[]`。这只使 A-C2.5
+解除依赖并成为下一步，不等于 A-1 或 Track A technical pass；domain Web 仍 blocked。
+
+### A-C2.5：Workbench API/Response Contract Closure
+
+研究可在 A-base 期间先行；Gate 严格位于 A-base handoff 后、任何 workbench Web
+实现前。shared-contract、homestay-api、housing-api、schema-migration、
+asset-party-decision owners 分别按父计划独占路径，独立 checker 汇总
+`A-2.5-contract-closure SHA`。
+
+必须覆盖：shared 全量 response types；homestay tasks/stays/turnover detail/finance
+及 guest/work-order candidates；housing tasks/handover list+detail/billing/finance/
+repair list+detail；stays detail alias（detail 6→7）；第 9 个 move-out financial
+high-risk variant；财务字段/附件 ID 最小投影与 GET read permission。禁止 N+1、
+route-local interface、bundle expansion。Party target 使用独立 `asset:party`
+权限与 canonical list/detail routes。
+Track B high-risk 仍 unavailable。
+
 ### A-C3：Machine Gate
 
 独立 checker：
@@ -158,7 +183,10 @@ A-1 继续保持 `in_progress`：shared Web foundation、homestay/housing workbe
   menu/landing/redirect 工作包。
 - [x] 运行 exact-set migration 两次。
 - [x] 输出 before/after permission diff。
-- [ ] 独立 checker 无 P0/P1。
+- [x] A-base handoff 后完成 A-2.5，输出交付 SHA 链。
+- [x] 9-action/variant、7 detail routes、response/GET/field/file matrix 全部闭合。
+- [x] Party canonical list/detail target 与独立页面权限完成 handoff。
+- [x] 独立 checker 无 P0/P1。
 - [ ] 生成 handoff SHA。
 
 ## 3. Machine Gates
@@ -178,7 +206,7 @@ A-1 继续保持 `in_progress`：shared Web foundation、homestay/housing workbe
 - legacy-only/custom-role negative cases。
 - direct route landing/403 contract。
 - `PROPERTY_WORKBENCH_V2` unset/off/true matrix。
-- 8 high-risk action normal/super/wildcard 409 exact set。
+- 9 high-risk action/variant normal/super/wildcard 409 exact set。
 - 两个 ledger discriminator 的 safe/high-risk 邻接矩阵。
 - housing tenant list/create 与 homestay credential 三入口敏感字段负向 snapshot。
 
@@ -222,3 +250,12 @@ Codex 完成 machine Gate 后输出 IA/bundle 差异包。产品/业务负责人
 - Track B shared-contract owner
 
 Handoff 必须包含 SHA、路径、命令、结果和 `open_P0_P1=[]`。
+
+## 8. 2026-07-31 最终执行记录
+
+交付 SHA：`3766509` shared、`44d6769` Homestay API、`8a0bd17` Housing API、
+`5a557e5` RBAC、`d33fad9` integration/Party。最终 API full unit 91/91、Web default
+`tsc`/lint/build 154、独立多轮 Gate 与 DB evidence 均通过，`open_P0_P1=[]`。
+
+真实 desktop/390、keyboard、zoom/reflow 仍因 Chrome connector `sandboxCwd`
+基础设施未验；该项属于整体 UI/release Gate，不回退本合同任务完成状态。

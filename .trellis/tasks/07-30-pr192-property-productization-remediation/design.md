@@ -72,9 +72,9 @@ interface PropertyAccessManifestEntry {
 
 - off 或未设置：保持 PR #192 legacy API 行为，不以 Track A 未完成的 approval
   合同改变旧客户端响应。
-- true：8 个 `TRACK_A_HIGH_RISK_ACTION_IDS` 在进入领域 service 和 transaction 前
-  由服务端统一返回 409 `approval-required`；Web 隐藏按钮只能作为 UX，不能作为
-  安全控制。
+- true：9 个 `TRACK_A_HIGH_RISK_ACTION_IDS`/variant 在进入领域 service 和
+  transaction 前由服务端统一返回 409 `approval-required`；Web 隐藏按钮只能作为
+  UX，不能作为安全控制。
 - 两个 ledger endpoint 必须在服务端读取已验证 DTO 的 `entry_type`：
   homestay 的 `refund|waiver`、housing 的 `refund|waiver` 命中高风险分支；housing
   押金退款不得因内部转换为 `deposit_refund` 绕过。
@@ -113,13 +113,16 @@ redirect 会把用户导向 catch-all placeholder，并形成“菜单看似完�
    granular page permission、当前 tenant+park 的 role/relation；不读取
    custom/legacy/wildcard 作为自动扩权来源。此阶段 Web feature flag/菜单继续不暴露
    canonical routes。
-3. shared Web foundation 与 A-base fixture。
+3. shared Web foundation 与 A-base fixture；A-base handoff 后立即串行执行
+   `A-2.5 workbench API/response contract closure`。合同代码可提前研究，但任何
+   workbench Web 不得在 A-2.5 独立 Gate 前开始。
 4. homestay/housing domain Web owners 建立真实 canonical app routes 和 route guards，
    分别输出 route SHA。
 5. 两份 route SHA 交付后才进入 Web 接入批次：menu-projection-owner 修改
    `apps/web/lib/menu.ts` 并实现 legacy module landing、unknown property deep-link
-   fail-closed；housing-web-owner 仍在其独占 app route 内实现 tenant alias redirect
-   与 guard。两者共同输出 Web 接入 handoff。
+   fail-closed；仅当 Party target 已 handoff 时，housing-web-owner 才在其独占 app
+   route 内实现 tenant alias redirect 与 guard，否则提交 link/redirect=0 evidence。
+   两者共同输出 Web 接入 handoff。
 6. route evidence 与独立 Gate。
 
 Domain Web owners 独占各自 app route/route guard（包括 housing tenant alias）；
@@ -131,6 +134,27 @@ SHA；不得创建 preview 或临时生产 route。首个输出 canonical route 
 owner 在该真实 route 上采集 desktop/mobile/keyboard/focus/zoom/ARIA 证据，shared
 owner 修复组件问题并签收 final UI Gate，QA owner 归档 evidence。证据补齐前不得称
 foundation final UI Gate 完成。
+
+### 3.2 A-2.5 Workbench API/Response Contract Closure
+
+该 stop-ship 位于 A-base handoff 之后、domain routes 之前。输出必须冻结：
+
+- `packages/shared` 中所有现有和新增 workbench response types，禁止 route-local
+  interface。
+- Homestay：tasks、stays、turnover detail、finance，以及 guest/work-order
+  candidates 的采用/移除决定。
+- Housing：tasks、handover list/detail、billing、finance、repair list/detail。
+- `/homestay/stays/[stayId]` detail alias，使 Track A detail routes 从 6 增至 7；
+  alias 只解析到 authorized booking detail，不产生第二套详情。
+- 第 9 个高风险 variant
+  `housing.handovers.complete-move-out-financial`；Track B 前保持 unavailable/409。
+- 财务字段与附件 ID 的最小服务端投影；GET endpoint 使用精确 read permission，
+  不以 manage/write 或宽 bundle 替代。
+
+列表/详情必须由批量 query、join 或明确 projection endpoint 提供，禁止 N+1 拼装。
+不得为了闭合合同扩 permission bundle。Party canonical target 已由 asset-party
+owner 交付为 `/assets/parties` 与 `/assets/parties/[partyId]`，使用独立
+`asset:party` 页面权限；housing alias 只指向该 target。
 
 ## 4. 单一响应契约和前端迁移
 
@@ -405,8 +429,14 @@ A-base 分成三个有序交付：
    `A-ephemeral-db-bootstrap SHA` 均冻结后生成，
    输出 profile/version/data checksum、fixture SHA、生产保护和 cleanup 证据；这是
    homestay、housing 工作台页面开始实现前的稳定输入。
+   当前 source commit 为 `32ccc02852c3201c6f68e3b6b89e4398cb102a17`，final run
+   `abase20260730final32ccc01`，fixture handoff
+   `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+   profile checksum `68da…107b`；独立 final review PASS、`open_P0_P1=[]`。
+   该 milestone 已 provisioned/frozen，但不等于 Track A technical pass。
 4. A workbench 消费 contract SHA、schema SHA、`A-base-core fixture SHA` 和
-   `A-shared-web-foundation SHA`，不把 menu/landing handoff 作为页面前置。仅
+   `A-shared-web-foundation SHA`，并必须先通过 A-2.5；不把 menu/landing handoff
+   作为页面前置。A-2.5 当前已 unblocked 且为下一步，domain Web 仍 blocked。仅
    homestay、housing 两个页面 owner 输出各自 route SHA；随后
    menu-projection-owner 消费这些 route SHA，实现 canonical menu、landing 和
    redirect。
@@ -506,8 +536,26 @@ Codex 只负责自动化、环境、记录、统计和缺陷回派，不冒充�
 - schema expand-only，修复使用 forward migration。
 - legacy routes 保留两个发布周期。
 - Track A 可关闭 `PROPERTY_WORKBENCH_V2`；off/unset 必须同时恢复 legacy Web 入口和
-  legacy API 行为。true 时仍必须保持 8-action server-side 409，不能只关闭按钮。
+  legacy API 行为。true 时仍必须保持 9-action/variant server-side 409，不能只关闭
+  按钮。
 - Track B 可关闭 UI/enforce/publisher，但 executed approval 永不回退。
 - 关闭 enforce 不恢复旧宽权限、同人核验或高风险直执。
 - Track C 按事务闭包回退代码。
 - 财务/审批 RPO=0，非财务 Web/API 目标 RTO≤30 分钟。
+
+## 14. 2026-07-31 交付设计状态
+
+最终交付链为：
+
+- `3766509`：A-2.5 shared workbench contracts。
+- `44d6769`：Homestay A-2.5 APIs。
+- `8a0bd17`：Housing A-2.5 APIs。
+- `5a557e5`：A-2.5 RBAC permissions。
+- `d33fad9`：workbench integration contracts 与 Party canonical target。
+- `bc2ed7f`：Homestay workbenches。
+- `992a6a4`：Housing workbenches。
+
+上述设计经过独立多轮 Gate 与数据库证据复核，`open_P0_P1=[]`。当前唯一缺口不是
+产品或代码设计缺陷，而是 Chrome connector 无法在仓库 `sandboxCwd` 中启动，故真实
+desktop/390、keyboard、zoom/reflow 仍待基础设施恢复后补验；该缺口阻止
+release-ready 结论。

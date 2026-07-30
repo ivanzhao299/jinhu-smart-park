@@ -8,6 +8,10 @@
 - `A-base-core` 只包含页面开发所需的确定性基础数据、精确角色/权限集、profile ID
   和 core checksum；它来自 automated-gates 的早期 fixture 阶段，不要求
   `A-route-evidence`、浏览器证据或 automated-gates 整体完成。
+- 当前 A-base source commit 为
+  `32ccc02852c3201c6f68e3b6b89e4398cb102a17`，fixture handoff 为
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+  profile 为 `68da…107b`；core 已 provisioned/frozen。
 - `07-30-pr192-a-shared-web-foundation` 已交付不依赖 Track B identity 的
   integration-ready SHA
   `d2a015f9ba931b2024e6360570697c77b74ea3fb`（三路 S2 PASS，
@@ -15,6 +19,9 @@
   证据。
 - 不要求 menu、landing 或 redirect handoff；它们是消费本任务输出的后置 A2
   交付，A1 不等待 A2。
+- 必须等待 A-base handoff 与 `A-2.5-contract-closure SHA`；合同研究可以先行，
+  任何 homestay Web 实现不得先行。
+- A-base 与 A-2.5 依赖均已满足；本任务已完成代码和机器 Gate。
 - 运行 `trellis-before-dev` 并读取 Web、shared、upload/form、cross-layer 和 reuse spec。
 - 工作区没有其他 owner 正在修改 `apps/web/app/homestay/**` 或
   `apps/web/features/homestay/**`。
@@ -71,10 +78,12 @@ checkers 同时负责 shared foundation 的 desktop/mobile/keyboard/focus/zoom/A
 ## 3. 实施步骤
 
 1. 建立 characterization tests，记录现有 URL、payload、状态、文件和幂等语义。
-2. 消费 shared response contracts，删除 route-local 重复 response interfaces。
+2. 消费 A-2.5 冻结的 shared response contracts（tasks/stays/turnover detail/
+   finance 及 guest/work-order decisions），删除 route-local 重复 interfaces。
 3. 建立 feature API/query/mutation/permission adapters。
 4. 逐工作流抽取并让 `/homestay` 继续调用同一 feature。
-5. 建立 canonical list/detail routes 与 route guards；冻结固定 landing priority、
+5. 建立 canonical list/detail routes 与 route guards，包含 authorized
+   `/homestay/stays/[stayId]` alias（detail routes 6→7）；冻结固定 landing priority、
    page permission、module/scope/403 语义和 legacy alias 输入，但不实现
    menu/legacy landing/redirect。
 6. 接入共享 picker/task/upload/status components。
@@ -123,5 +132,15 @@ Machine Gate：
 - 向 menu/RBAC、QA、Track B owners 提供 handoff SHA。
 - A2 handoff 只发生在 canonical routes 完成后；本任务没有任何 A2 产物前置。
 - 向 `A-route-evidence` 提供页面完成后的反向 handoff，顺序固定为
-  `A-base-core → homestay implementation → A-route-evidence`。
+  `A-base-core → A-2.5-contract-closure → homestay implementation → A-route-evidence`。
 - Open P0/P1 为零；否则任务保持 implementing。
+
+## 8. 2026-07-31 执行结果
+
+实现 SHA `bc2ed7f`，API 依赖 SHA `44d6769`；shared/RBAC/integration 依赖为
+`3766509`、`5a557e5`、`d33fad9`。最终 API full unit 91/91、Web default `tsc`/lint/build 154
+及独立多轮 Gate 通过，`open_P0_P1=[]`。
+
+唯一跳过项：受 Chrome connector `sandboxCwd` 基础设施限制，真实 desktop/390
+visual、keyboard、zoom/reflow 未验。基础设施恢复后只需补采该证据；在此之前任务
+不标记 release-ready。

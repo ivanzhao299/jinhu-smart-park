@@ -3,7 +3,7 @@
   "name": "pr192-a-housing-workbenches",
   "title": "PR192 A 住房岗位工作台",
   "description": "Track A 住房出租canonical页面拆分、岗位工作台与响应式交互",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "workspace",
   "package": null,
@@ -15,12 +15,12 @@
   "branch": "codex/pr192-property-productization-remediation",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "992a6a496cc2155ca2fc456182b2657b6de0a3ed",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Housing workbenches, Party alias and machine gates complete with open_P0_P1=[]; only Chrome connector sandboxCwd infrastructure blocks real desktop/390 visual, keyboard and zoom verification",
   "meta": {}
 }

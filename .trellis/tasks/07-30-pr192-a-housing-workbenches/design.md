@@ -24,7 +24,14 @@ apps/web/features/housing/**
   permission adapters；handoff Gate 是静态/单测与 lint/typecheck/build，不含
   preview route。当前消费 SHA 为
   `d2a015f9ba931b2024e6360570697c77b74ea3fb`。
-- 早期 A-base-core fixture/profile checksum。
+- 已冻结的 A-base-core fixture
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`、
+  profile `68da…107b` 与 source commit
+  `32ccc02852c3201c6f68e3b6b89e4398cb102a17`；该 PASS 不等于 Track A technical
+  pass。
+- `A-2.5-contract-closure SHA`：shared 全量 response types、housing
+  tasks/handover list+detail/billing/finance/repair list+detail，以及 Party target
+  decision。
 
 该 shared Web 子任务属于 A0/A1，先于住房工作台 handoff，且不依赖 Track B
 identity。附件复用仓库既有共享上传组件；离线 draft/upload queue 仍属于 Track C，
@@ -38,6 +45,12 @@ contract；后置 A2 中，`menu-projection-owner` 消费该 SHA 实现 menu/lan
 unknown deep-link fail-closed，`housing-web-owner` 仍独占 app route 并实现 Party
 canonical alias redirect/guard。alias 是后置 Web 接入产物，不是 route SHA 的虚假
 前置；menu owner 不得接管 housing route。
+
+Party canonical target 与独立页面权限已交付，housing alias 只指向
+`/assets/parties/[partyId]`。A-2.5 独立 Gate 已通过，Housing Web 已交付。列表/详情
+使用批量 projection，禁止 N+1；财务字段/附件 ID 最小投影，
+GET 只用精确 read permission。Move-out financial completion 是第 9 个 high-risk
+variant，Track B 前仍 unavailable。
 
 若住房先输出 Track A 首个 canonical domain route SHA，housing Web owner 拥有该
 真实 route 上的 desktop/mobile/keyboard/focus/zoom/ARIA 执行与 artifact；shared
@@ -131,7 +144,8 @@ Track A A2 接收：
 - `housing-route-landing-input SHA`。
 - canonical route/page permission/priority/legacy alias 清单。
 - 页面直达、403/empty-scope 验证结果。
-- 后置 A2 由 housing owner 另交 Party canonical alias redirect/guard SHA。
+- 后置 A2 仅在 Party target handoff 后由 housing owner 另交 canonical alias
+  redirect/guard SHA；否则提供 link/redirect=0 evidence。
 
 Track C 接收超限文件、query/request 性能基线、draft/upload 队列接入点。Handoff
 记录 base/handoff SHA、路径、命令、已知失败；open P0/P1 时禁止交接。
@@ -147,3 +161,9 @@ Track C 接收超限文件、query/request 性能基线、draft/upload 队列接
 - 360/390/768/desktop、WCAG 2.2 AA、DS surface 证据通过。
 - 新 route client ≤450 行、普通组件 ≤300 行、函数 ≤80 行、复杂度 ≤15；现有超限
   文件不增长。例外不得覆盖财务、权限、数据隔离、附件或并发 Gate。
+
+## 8. 2026-07-31 最终设计实现状态
+
+`8a0bd17` 与 `992a6a4` 已实现本设计；最终 API full unit 91/91、Web default
+`tsc`/lint/build 154、独立 Gate 与 DB evidence 通过，`open_P0_P1=[]`。唯一缺口为
+Chrome connector `sandboxCwd` 阻止真实 desktop/390、keyboard、zoom/reflow 验证。

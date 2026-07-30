@@ -16,6 +16,11 @@ Shared Web integration-ready handoff SHA：
 `d2a015f9ba931b2024e6360570697c77b74ea3fb`；其 final UI Gate 仍等待首个
 canonical route。
 
+A-base-core 已 provisioned，source commit
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，fixture handoff
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile `68da…107b`。该段记录当时前置状态；A-2.5 与本 Web 工作台现已交付。
+
 ## 2. 用户与岗位任务
 
 - 运营负责人：查看总览、房态和异常，不因拥有 dashboard 页面而获得写权限。
@@ -39,6 +44,7 @@ data scope、field projection 和 file policy 决定。
 | 订单管理 | `/homestay/bookings` | 列表、筛选、创建与允许的生命周期动作 |
 | 订单详情 | `/homestay/bookings/[bookingId]` | 订单、住客、凭证、账务摘要和审计上下文 |
 | 入住接待 | `/homestay/stays` | 今日到店/离店队列及 canonical 订单详情深链 |
+| 入住详情别名 | `/homestay/stays/[stayId]` | 授权解析到 canonical booking detail；不复制详情 |
 | 保洁周转 | `/homestay/turnovers` | 周转队列、分页和岗位筛选 |
 | 周转详情 | `/homestay/turnovers/[turnoverId]` | 执行、复检、异常、证据和关联工单 |
 | 民宿财务 | `/homestay/finance` | 民宿子账只读投影及允许的普通登记 |
@@ -55,6 +61,11 @@ data scope、field projection 和 file policy 决定。
 feature API、query/mutation hook、现有 UI block 抽取、原路由复用抽取结果并删除旧
 block，确认行为等价后才能建立新 route。不得在万能页与新页面保留同一写操作的
 双实现。
+
+页面实现前必须取得 A-base handoff 和 `A-2.5-contract-closure SHA`。A-2.5 冻结
+tasks、stays、turnover detail、finance response，并对 guest/work-order candidates
+作正式采用/移除决定；所有现有/新增类型进入 shared contract。禁止 N+1、route-local
+interface 或扩 bundle。
 
 ### 4.2 六层访问控制
 
@@ -126,6 +137,7 @@ module/tenant/park/scope/permission 变化时清除失效上下文并阻止提�
 - [ ] `/homestay` 固定优先级跳转、module 403、page 403 和 empty-scope 组合通过。
 - [ ] 每个迁移工作流只有一个 API/hook/UI 实现，旧 block 在同一变更中删除。
 - [ ] route-local 不再声明共享 response interface；API 调用消费 shared contract。
+- [ ] `/homestay/stays/[stayId]` 是第 7 个 detail route，只做 authorized alias。
 - [ ] 精确岗位只看到授权菜单/页面/字段/文件/动作，未授权 block 不发请求。
 - [ ] 所有可执行动作符合 Track A 动作边界；高风险动作只读且 API fail closed。
 - [ ] 无表单要求输入 UUID；picker label 不泄露敏感字段。
@@ -136,3 +148,13 @@ module/tenant/park/scope/permission 变化时清除失效上下文并阻止提�
 - [ ] 若本任务为首个 domain route SHA，已在真实 route 补齐 shared foundation 的
   desktop/mobile/keyboard/focus/zoom/ARIA 证据；未创建 preview/生产 route。
 - [ ] 与 shared/menu/QA owners 的 handoff 记录无 open P0/P1。
+
+## 8. 2026-07-31 当前验收状态
+
+Homestay A-2.5 API `44d6769` 与工作台 `bc2ed7f` 已交付，shared/RBAC/integration
+依赖分别由 `3766509`、`5a557e5`、`d33fad9` 提供。canonical routes（含第 7 个
+`/homestay/stays/[stayId]` detail alias）和机器门禁已闭合，`open_P0_P1=[]`。
+
+最终 API full unit 91/91 与 Web default `tsc`/lint/build 154 属于整体验证证据。唯一未完成的是
+Chrome connector `sandboxCwd` 基础设施导致的真实 desktop/390 visual、keyboard、
+zoom/reflow 验证；因此任务保持 `in_progress`，不得标记完全 release-ready。

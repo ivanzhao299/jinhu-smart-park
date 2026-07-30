@@ -24,6 +24,11 @@ apps/web/features/property-shared/**
 它不得创建 domain app route/guard、修改 Web menu 或把未落地 route 注册为可见入口；
 这些分别由 homestay/housing Web owners 与后置 Web 接入批次持有。
 
+Shared component props 可使用业务中立 view model，但不得替代 `packages/shared`
+response contract。所有 workbench 现有/新增 response types 由后置 A-2.5
+shared-contract owner 冻结；领域 route consumer 必须等待
+`A-2.5-contract-closure SHA`，禁止 route-local interface、N+1 adapter 或扩 bundle。
+
 ## 2. 模块结构
 
 ```text
@@ -132,3 +137,10 @@ Integration-ready baseline：
 `d2a015f9ba931b2024e6360570697c77b74ea3fb`。它已通过三路 S2 final review
 （14 specs、boundary 5/5、ESLint、workspace typecheck、shared/Web build，
 `open_P0_P1=[]`），但不携带首个真实 route 的浏览器证据。
+
+## 8. 2026-07-31 集成状态
+
+`bc2ed7f` 与 `992a6a4` 已在真实 canonical routes 消费 foundation，默认 Web build
+输出 154 routes 并通过。代码与机器 Gate 无 open P0/P1。Chrome connector 因
+`sandboxCwd` 无法执行浏览器会话，因此 desktop/390、keyboard、focus、zoom/reflow
+artifact 仍待补采；这是一项基础设施阻塞，不应伪报为已验证。

@@ -76,7 +76,7 @@ server safety Gate：
 PROPERTY_WORKBENCH_V2 off/unset -> legacy API
 PROPERTY_WORKBENCH_V2 true
   -> safe read/mutation 保持现有合同
-  -> 8 high-risk action 在领域 service/transaction 前返回 409 approval-required
+  -> 9 high-risk action/variant 在领域 service/transaction 前返回 409 approval-required
 ```
 
 infrastructure owner 只提供单一 policy，不解析领域 DTO。homestay/housing owner 在
@@ -86,6 +86,24 @@ DTO validation 后传入稳定 action ID；ledger 必须传入 `entry_type` 判�
 Policy 必须以 canonical manifest metadata 为权威解析 action。独立复审发现过
 metadata 缺失/不匹配时可能 fail open 的实现；该路径必须 default-deny，调用方不能
 通过未知 action ID、自声明风险级别或遗漏 discriminator 绕过 409。
+
+A-2.5 新增第 9 个
+`housing.handovers.complete-move-out-financial` discriminator：
+`handover_type=move_out` 且 damage/unsettled/deposit deduction 任一非零。它与原 8
+action 一样，在 Track B adapter 前 unavailable。
+
+## 2.2 A-2.5 Response Closure
+
+Shared contract 必须覆盖所有现有/新增 workbench response types。Homestay closure
+覆盖 tasks、stays、turnover detail、finance 与 guest/work-order candidates；
+Housing 覆盖 tasks、handover list/detail、billing、finance、repair list/detail。
+GET 使用精确 read permission，财务字段与附件 ID 使用最小投影。禁止 N+1 拼装、
+route-local interface 和扩大 bundle。
+
+新增 `/homestay/stays/[stayId]` authorized detail alias，使 detail routes 从 6 到 7。
+Party canonical target 已交付为 `/assets/parties` 与
+`/assets/parties/[partyId]`，使用独立 `asset:party` 页面权限；它不属于
+`PROPERTY_BUSINESS_PERMISSIONS` 或 14 个 bundles。
 
 Track B approval adapter 接管时，仍使用同一 action ID，将 409 替换为创建 approval
 request；未取得 Track B SHA 时 fail closed。
@@ -208,3 +226,12 @@ open P0/P1
 
 `open P0/P1` 必须为空。交接后，本子任务冻结需求基线；需要变更时由
 `shared-contract-owner` 回收文件 ownership、发布新 contract SHA，再通知所有消费者。
+
+## 9. 2026-07-31 最终设计证据
+
+交付链 `3766509`、`44d6769`、`8a0bd17`、`5a557e5`、`d33fad9` 已完成 shared、
+双域 API、RBAC、集成合同与 Party target；后续 `bc2ed7f`、`992a6a4` 证明双域 Web
+消费者已落地。最终独立 Gate 为 `open_P0_P1=[]`。
+
+唯一未闭合的是 connector 基础设施下的真实视觉证据，不是契约、权限、DB 或
+消费者代码缺口，因此本 contract 子任务完成，但不能据此宣称整体 release-ready。

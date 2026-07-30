@@ -36,7 +36,8 @@
 - module、menu/page/API/data/field/file traceability 基线。
 - Track A server-side safety boundary：
   - `PROPERTY_WORKBENCH_V2` off/unset 保持 legacy API。
-  - true 时 manifest 的 8 个 high-risk action 返回 409，superuser/wildcard 不绕过。
+  - true 时 manifest 的 9 个 high-risk action/variant 返回 409，
+    superuser/wildcard 不绕过。
   - 两个 ledger endpoint 按已验证 DTO 的 `entry_type` 判别 high-risk。
 - 两组 field projection drift 的 Track A 闭环：
   - housing tenant list/create 的 Party `mobile`/`email` masked projection。
@@ -95,11 +96,13 @@ data scope 为空进入首个授权页面并显示 `empty-scope`，不得改变 
 ### 5.5 Track A Server Safety 与字段投影
 
 - `PROPERTY_WORKBENCH_V2` 未设置或为 false：现有 PR #192 API 保持 legacy 行为。
-- `PROPERTY_WORKBENCH_V2=true`：以下 8 个 action 必须在领域 mutation 前返回 HTTP 409：
+- `PROPERTY_WORKBENCH_V2=true`：以下 9 个 action/variant 必须在领域 mutation 前返回 HTTP 409：
   `homestay.bookings.cancel`、`homestay.finance.refund-or-waive`、
   `housing.leases.approve`、`housing.leases.void`、`housing.leases.checkout`、
   `housing.finance.refund-waive-or-deposit-refund`、`housing.purchases.lifecycle`、
-  `housing.purchases.transfer`。
+  `housing.purchases.transfer`、`housing.handovers.complete-move-out-financial`。
+- move-out financial variant 指 `handover_type=move_out` 且 damage、unsettled、
+  deposit deduction 任一非零；Track B adapter 前仍 unavailable。
 - homestay ledger 的 `entry_type=refund|waiver` 与 housing ledger 的
   `entry_type=refund|waiver` 是两个必须独立测试的 discriminator；housing 押金退款
   也必须命中。
@@ -132,7 +135,7 @@ data scope 为空进入首个授权页面并显示 `empty-scope`，不得改变 
 - [ ] Web menu/landing/redirect 等待 homestay/housing route SHA；未知 property
   deep-link 默认拒绝且不进入 catch-all placeholder。
 - [ ] flag off/unset 的 legacy API characterization 相等。
-- [ ] flag true 的 8-action × normal/super/wildcard 返回 409。
+- [ ] flag true 的 9-action/variant × normal/super/wildcard 返回 409。
 - [ ] 两个 ledger discriminator 覆盖 safe 邻接值与 high-risk 值，押金退款不可绕过。
 - [ ] housing tenant list/create 与 homestay detail/credential mutation response
   snapshot 不含完整敏感值。
@@ -141,3 +144,13 @@ data scope 为空进入首个授权页面并显示 `empty-scope`，不得改变 
 ## 7. 人工 Gate 边界
 
 产品负责人需要确认最终 IA、page names 和 permission bundle 语义。Codex 可以生成差异报告和候选矩阵，但不得代替业务负责人签署。该人工确认属于 Track A 产品合同冻结，不等于生产 readiness。
+
+## 8. 2026-07-31 完成状态
+
+A-2.5 contract/RBAC 已完成：shared response contracts、Homestay/Housing consumers、
+72 项房产业务权限、14 个 bundles、17 个 canonical pages、7 个 detail routes，以及
+独立 `asset:party` Party canonical surface 均已闭合。最终 API full unit 91/91、Web default
+`tsc`/lint/build 154、独立多轮 Gate 和数据库证据通过，`open_P0_P1=[]`。
+
+合同任务已完成，但这不构成 A-2.5 完全 release-ready：Chrome connector
+`sandboxCwd` 基础设施仍阻止真实 desktop/390 visual、keyboard、zoom/reflow 验证。

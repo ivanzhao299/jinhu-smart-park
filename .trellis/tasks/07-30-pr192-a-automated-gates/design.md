@@ -2,7 +2,7 @@
 
 ## 1. Boundary
 
-该 runner 有一个强制 bootstrap 前置和两个可独立恢复的交付单元：
+该 runner 有一个强制 bootstrap 前置和三个可独立恢复的交付单元：
 
 - `A-ephemeral-db-bootstrap` 输入 migration tree，输出只允许 exact ephemeral
   container 的 `000001`–`000174` + `skip-record:000175` +
@@ -14,6 +14,16 @@
 - `A-route-evidence` 输入上述 fixture handoff SHA，以及后续页面/menu/API final
   handoff，输出 technical gate verdict、traceability coverage、evidence bundle 和
   cleanup verdict。
+- `A-2.5-contract-closure` 位于 A-base handoff 与页面之间；合同研究可提前，但
+  Web implementation 不能提前。
+
+A-base-core 最终 source commit 为
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，final run
+`abase20260730final32ccc01`，fixture handoff
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile `68da…107b`。Independent final review PASS、`open_P0_P1=[]`，因此
+A-2.5 已 unblocked/next；domain Web 与 A-route-evidence 仍 blocked/pending，
+整个 automated-gates 任务继续 `in_progress`。
 
 整个任务从 bootstrap 提取与独立 review 开始，A-base implementation 不得提前；
 页面冻结仍不是 A-base 前置。任何 B schema 探测都必须是“确认未依赖”，不能变成 A
@@ -101,7 +111,8 @@ super actor 是独立负向 fixture，不进入普通岗位/support bundle 或�
 ## 5. Layered Execution
 
 整体顺序为 A-C2 schema/exact tests → API-only `/users/me` projection → shared Web
-foundation/A-base-core provision → 发布 fixture handoff SHA → homestay/housing
+foundation/A-base-core provision → 发布 fixture handoff SHA → A-2.5 contract
+closure → homestay/housing
 并行实现并输出 route SHA → Web menu/landing/deep-link 与 housing tenant alias
 handoff → A-route-evidence。A-route-evidence 内部运行
 L0 → L1/L2/L3 → L4 → L5 → L6。前置数据或安全断言失败立即停止后续写操作，但仍进入 cleanup。每层输出独立 verdict 和 evidence IDs：
@@ -117,6 +128,12 @@ L0 → L1/L2/L3 → L4 → L5 → L6。前置数据或安全断言失败立即�
 `A-foundation-first-route-ui` checkpoint：只为 shared foundation 补
 desktop/mobile/keyboard/focus/zoom/ARIA 真实集成证据。它不改变六步顺序，也不提前
 运行最终 A-route-evidence。禁止建立 preview/临时生产 route。
+
+A-2.5 oracle 对 shared response export 与 API DTO/service/query 做双向映射；财务字段
+和附件 ID 验证最小投影，GET 验证 exact read permission。Query plan/request counter
+证明无 N+1。Route scanner 要求 7 detail routes 和 stays authorized alias。
+Party target 已交付；Gate 精确验证 canonical list/detail、独立页面权限和 housing
+alias，不得用第二套 detail 或 dead route 满足 acceptance。
 
 ## 6. UX And Performance Harness
 
@@ -167,3 +184,13 @@ RISK-A-004 已关闭。
 ## 10. Gate And Failure Policy
 
 Gate aggregator 使用 AND 语义；skip 默认失败，只有父计划明确标记为该层“不适用”且带依据时才可接受。P0/P1 立即 stopship。失败报告必须保留已生成证据并完成清理，不能通过删日志、重跑覆盖或放宽阈值获得绿色结果。
+
+## 11. 2026-07-31 最终机器 Gate 与 P2 文案规则
+
+最终 API full unit 91/91，Web default `tsc`/lint/build 154，独立多轮 Gate 与 DB
+evidence PASS，`open_P0_P1=[]`。Chrome connector `sandboxCwd` 是唯一未完成的
+browser infrastructure Gate。
+
+P2 mixed-scope 用例必须按 owner 拆分表述：例如同批报告含 shared contract、SQL
+migration/seed 和 Web evidence 时，SQL fixture 或文案 P2 不得被写成 shared/API
+P1；报告需分别列 scope、证据、owner 与是否影响最终 verdict。

@@ -8,12 +8,19 @@
 - `A-base-core` 只要求确定性基础数据、精确角色/权限集、profile ID 和 core
   checksum；它来自 automated-gates 的早期 fixture 阶段，不等待
   `A-route-evidence`、浏览器证据或 automated-gates 整体完成。
+- 当前 A-base source commit 为
+  `32ccc02852c3201c6f68e3b6b89e4398cb102a17`，fixture handoff 为
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+  profile 为 `68da…107b`；core 已 provisioned/frozen。
 - `07-30-pr192-a-shared-web-foundation` 已提供不依赖 identity schema 或 approval
   runtime 的 integration-ready SHA
   `d2a015f9ba931b2024e6360570697c77b74ea3fb`（三路 S2 PASS，
   `open_P0_P1=[]`）；final UI Gate 等待首个 domain route SHA 的真实浏览器证据。
 - 不要求 menu、landing 或 legacy redirect handoff；这些是消费本任务输出的后置
   A2 交付，A1 不等待 A2。
+- 必须等待 A-base handoff 与 `A-2.5-contract-closure SHA`；合同研究可以先行，
+  任何 housing Web 实现不得先行。
+- A-base 与 A-2.5 依赖均已满足；本任务代码与机器 Gate 已完成。
 - 已运行 `trellis-before-dev`，读取 Web/shared、upload/form、cross-layer、reuse、
   module 和 property-business specs。
 - 住房 Web 独占路径没有其他 active owner。
@@ -61,14 +68,16 @@ focus/zoom/ARIA 集成证据；shared owner 修复组件问题并签收 final UI
 ## 3. 实施步骤
 
 1. 补 characterization，冻结既有 API/金额/日期/状态/附件语义。
-2. 消费 shared response contracts，删除重复接口。
+2. 消费 A-2.5 冻结的 shared response contracts（tasks/handover list+detail/
+   billing/finance/repair list+detail），删除重复接口。
 3. 建 feature API/query/mutation/permission adapters。
 4. legacy `/housing` 逐闭包消费 feature 并删除原 block。
 5. 建 canonical list/detail routes 与 route guards；冻结固定 landing priority、
-   module/scope/403 与 Party alias contract 输入，但此时不实现 menu、legacy
-   `/housing` landing 或 tenant alias redirect。
+   module/scope/403 与 Party alias decision；target 已交付，alias 指向 canonical
+   detail，不实现第二套 Party 详情。
 6. 接入 shared picker/task/upload/status surfaces。
-7. 仅启用 manifest 无 approvalPolicy 的低风险 mutation。
+7. 仅启用 manifest 无 approvalPolicy 的低风险 mutation；move-out financial
+   completion 作为第 9 个 high-risk variant 保持 unavailable。
 8. 将所有高风险 slot 保持只读并验证服务端拒绝。
 9. 完成移动、DS、WCAG 和 handoff 证据；若为首个 domain route SHA，同时关闭
    shared foundation 延后的真实浏览器 evidence。
@@ -76,8 +85,9 @@ focus/zoom/ARIA 集成证据；shared owner 修复组件问题并签收 final UI
     给 automated-gates 的 `A-route-evidence` 阶段，由其完成最终角色 E2E 与证据；
     住房实现不得等待该最终 evidence 作为前置。
 11. 输出 `housing-route-landing-input SHA` 给后置 A2；menu owner 消费它实现 menu、
-    `/housing` landing 和 unknown deep-link fail-closed，housing owner 在自己的 app
-    route 独占范围内实现 tenant alias redirect/guard，并输出 alias handoff SHA。
+    `/housing` landing 和 unknown deep-link fail-closed。只有 Party target handoff
+    后，housing owner 才在自己的 app route 独占范围内实现 tenant alias
+    redirect/guard 并输出 alias handoff SHA；否则输出 link/redirect=0 evidence。
 
 ## 4. 验证
 
@@ -97,8 +107,9 @@ files/idempotency regression。财务、附件、Party、module 和 scope 负向
 
 Machine Gate：
 
-- Canonical route eligibility/priority 与 Party alias contract input；运行时
-  menu/legacy landing/tenant alias redirect 由后置 A2 验收。
+- Canonical route eligibility/priority 与 Party alias decision input；运行时
+  menu/legacy landing 由后置 A2 验收，tenant alias 仅在 target handoff 后验收，
+  否则验收 link/redirect=0。
 - route/page/API/data/field/file exact-set。
 - no UUID、picker revoke、pending/persisted attachment recovery。
 - decimal/date/input/idempotency/state guards。
@@ -114,5 +125,12 @@ Machine Gate：
 - 向 menu/RBAC、QA、identity、approval、Track C owners 提供 handoff SHA。
 - A2 handoff 只发生在 canonical routes 完成后；本任务没有任何 A2 产物前置。
 - 向 `A-route-evidence` 提供页面完成后的反向 handoff，顺序固定为
-  `A-base-core → housing implementation → A-route-evidence`。
+  `A-base-core → A-2.5-contract-closure → housing implementation → A-route-evidence`。
 - Open P0/P1 为零；否则不得标记 technical pass。
+
+## 8. 2026-07-31 执行结果
+
+实现 `992a6a4`、API `8a0bd17`，并消费 `3766509`、`5a557e5`、`d33fad9`。
+最终 API full unit 91/91、Web default `tsc`/lint/build 154、独立多轮 Gate 与 DB evidence 通过，
+`open_P0_P1=[]`。唯一跳过项为 Chrome connector `sandboxCwd` 导致真实
+desktop/390 visual、keyboard、zoom/reflow 未验；此前不得标记 release-ready。

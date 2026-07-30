@@ -72,9 +72,13 @@ baseline、A-C2 schema/exact-test SHA 与 API-only `/users/me` property projecti
 Foundation handoff 包含 owned paths、contract SHA、组件 API、纯函数/组件静态检查、
 单测、lint/typecheck/build、已知限制和 open P0/P1。由于此阶段没有真实 domain
 route，不创建 preview/生产 route 来伪造浏览器证据。两个工作台可在 handoff 后开始
-集成；首个产出 canonical route SHA 的 domain owner 必须在真实 route 上补齐
+消费研究，但 Web 集成必须等待 A-base handoff 后的 `A-2.5-contract-closure SHA`；
+首个产出 canonical route SHA 的 domain owner 必须在真实 route 上补齐
 desktop/mobile/keyboard/focus/zoom/ARIA 浏览器证据，并交由 shared owner 与 QA
 共同关闭 foundation final UI Gate。
+
+A-2.5 由 shared-contract owner 冻结所有现有/新增 response types；foundation 不授权
+领域 route 声明本地 response interface。
 
 ## 7. 验收标准
 
@@ -93,4 +97,15 @@ desktop/mobile/keyboard/focus/zoom/ARIA 浏览器证据，并交由 shared owner
 - [ ] 本任务不创建 canonical domain route，不修改 Web menu/landing/redirect，也不把
   尚未落地的 property route 暴露给用户。
 - [ ] 不创建 preview route 或临时生产 route 来提前满足浏览器验收。
+- [ ] Foundation 无 route-local response interface；领域 Web 等待 A-2.5 closure。
 - [ ] 无 Track B 依赖且 open P0/P1 为零。
+
+## 8. 2026-07-31 当前验收状态
+
+Shared Web foundation 已由双域工作台共同消费，A-2.5、17 个 canonical pages、7 个
+detail routes 与 Party target 均已交付。最终 API full unit 91/91、Web default
+`tsc`/lint/build 154、独立多轮 Gate 通过，`open_P0_P1=[]`。
+
+唯一未完成的是 Chrome connector `sandboxCwd` 基础设施导致真实 desktop/390
+visual、keyboard、focus、zoom/reflow 未验；foundation 保持 `in_progress`，不得称
+final UI Gate 或 release-ready 已完成。

@@ -7,8 +7,11 @@
   `A-ephemeral-db-bootstrap SHA` 已冻结，且 bootstrap 已独立 review PASS；不要求
   页面或 Web menu final handoff。
 - A-route-evidence 启动前：A-base-core fixture handoff SHA 可校验，两份 canonical
-  route SHA、Web menu/landing/deep-link SHA、housing tenant alias SHA 与 API
-  projection SHA 均已冻结。
+  route SHA、Web menu/landing/deep-link SHA 与 API projection SHA 均已冻结；仅在
+  Party target 已 handoff 时要求 housing tenant alias SHA，否则要求
+  canonical Party target/alias evidence。
+- Workbench Web 启动前：A-base handoff 与 `A-2.5-contract-closure SHA` 均冻结；
+  Party target 与 alias SHA 已纳入最终 evidence。
 - 测试 PostgreSQL、API、Web 和浏览器可用，目标环境明确非生产。
 - 父任务的 IA/permission manifest、A-base 规格和 stopship 清单已审批。
 
@@ -34,7 +37,8 @@ Machine gate A-pre：仅 exact ephemeral target；完整声明序列可复验；
 `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
 Reviewer 提出的 4 项 P1 均已修复；owner 自验 7 pass / 0 fail / 1 Windows platform
 skip，Linux SIGTERM 1/1，same-run-id 双链 PASS；checker 关键 runtime 复验通过，
-最终 residual=0。RISK-A-004 CLOSED，A0 为 `unblocked_not_started`。
+最终 residual=0。RISK-A-004 CLOSED；这是 bootstrap Gate 当时的记录，A0 随后已
+provisioned/frozen。
 
 ## Batch A0 — A-base-core Provision
 
@@ -63,6 +67,34 @@ Owner: `a-profile-owner`
 
 Machine gate A0: 两次独立创建 checksum 相等；故障注入全部恢复；非测试环境 fail closed；residual=0；fixture handoff SHA 可复验。完成后标记 `A-base-core provisioned` 并释放 owner，不等待页面。
 
+最终执行记录（2026-07-30）：
+
+- source commit：`32ccc02852c3201c6f68e3b6b89e4398cb102a17`；
+- final run：`abase20260730final32ccc01`；
+- fixture handoff SHA：
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`；
+- profile checksum：`68da…107b`（按最终 evidence 中的 canonical 完整值校验）；
+- owner gate：21 pass / 0 fail / 6 runtime skip；skip 均有运行时理由，真实双 run 已覆盖
+  确定性与 cleanup；
+- 两次 run 各生成 journals 10,010 events / 2,002 resources，均完成清理，
+  final residual=0；
+- independent final review PASS，`open_P0_P1=[]`。
+
+状态冻结为 `A-base-core provisioned / handoff frozen`。这不是
+`track_a_technical_passed`；A-2.5 现已解除依赖并成为下一步，homestay/housing Web
+继续 blocked，A-route-evidence 继续 awaiting handoff。
+
+## Batch A0.25 — A-2.5 Workbench Contract Closure
+
+在 A-base handoff 后串行执行；shared-contract、homestay-api、housing-api、
+schema-migration、asset-party decision owners 交付各自不重叠输入，由独立 checker
+汇总。检查 shared 全量 response types、两域 endpoint candidates、7 detail routes、
+9 high-risk variants、financial/file-ID 最小投影、GET read permission、无 N+1/
+route-local interface/bundle expansion，以及 Party target/acceptance decision。
+
+Machine gate A0.25：`open_P0_P1=[]` 并输出 `A-2.5-contract-closure SHA`。此前
+homestay/housing Web implementation 必须为 0；Track B high-risk 保持 unavailable。
+
 ## Batch A0.5 — Foundation First-route UI Checkpoint
 
 Shared foundation 的 integration-ready handoff 只校验纯函数/组件静态与单测、
@@ -84,8 +116,8 @@ build 通过。`A-foundation-first-route-ui` 仍 awaiting。
 
 Owner: `a-authz-owner`
 
-1. 校验 A-base-core fixture handoff SHA、两份 route SHA、Web 接入 SHA 与 API
-   projection SHA，再从已批准 manifest 生成精确岗位夹具，不手工复制宽权限。
+1. 校验 A-base-core、A-2.5 closure、两份 route、Web 接入与 API projection SHA，
+   再从已批准 manifest 生成精确岗位夹具，不手工复制宽权限。
 2. 建立 module/menu/route/API/data/field/file 的实际采集器和双向差集比较器。
 3. 执行 L0-L4：共享常量/元数据、策略单元、组件权限、Track A schema、真实 HTTP。
 4. 对每个动作覆盖允许、最近禁止、跨 park、跨 tenant、disabled module superuser、旧入口和直接深链。
@@ -139,16 +171,20 @@ PASS，candidate 状态保持 awaiting approval；artifact 完整且 hash 可验
   SHA 和 test/evidence checkpoint 恢复。
 - A-pre 已以
   `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`
-  独立 review PASS；A0 已解除 bootstrap 阻塞但尚未开始。若 SHA 漂移，重新进入
-  `blocked_by_bootstrap`，不得复用 A-C2 一次性 shell 继续。
+  独立 review PASS；A0 已基于 source commit
+  `32ccc02852c3201c6f68e3b6b89e4398cb102a17` 完成并冻结 fixture handoff
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`。
+  若任一输入 SHA 漂移，重新进入相应 provision Gate，不得复用 A-C2 一次性 shell
+  继续。
 - 页面未完成时，状态是 `A-base-core provisioned / A-route-evidence awaiting_handoff`，
   不是整个任务不能开始。
 - 只有 foundation SHA、尚无真实 route 时，状态是
   `foundation handoff ready / final UI gate awaiting first route`，不能通过 preview
   route 改写。
-- A0 依赖已冻结的 A-schema/API projection，但不依赖 homestay/housing 或 A1/A2
-  完成；homestay/housing 只依赖 A0 fixture SHA；
-  A1/A2 等待页面 final handoff。禁止把任何下游完成条件反写为 A0 前置。
+- A0 依赖已冻结的 A-schema/API projection，但不依赖 homestay/housing 或
+  A-route-evidence 完成；A-2.5 现只依赖已冻结的 A0 fixture handoff，并已
+  unblocked。homestay/housing Web 还必须等待 A-2.5 closure；A-route-evidence
+  等待页面 final handoff。禁止把任何下游完成条件反写为 A0 前置。
 
 ## Expected Validation Commands
 
@@ -169,3 +205,13 @@ UI 有意义变更必须实际浏览桌面和手机视口。涉及迁移时只�
 先行交付物是版本化 A-base 与 fixture handoff SHA；最终交付物再包括 exact-set
 fixtures、traceability matrix、L0-L6 runner、evidence bundle、cleanup
 manifest/recovery 测试和 technical verdict。该 verdict 只代表 Track A 技术通过，不代表真人 UAT、业务签署或生产就绪。
+
+## 8. 2026-07-31 最终执行记录
+
+最终 API full unit 91/91；此前 92 含临时 assets-unit-picker spec，撤销后不再采用。
+Web default `tsc`/lint/build 154、独立多轮 Gate 与 DB evidence PASS，
+`open_P0_P1=[]`。
+
+唯一未执行的是 Chrome connector `sandboxCwd` 下的真实 desktop/390 visual、
+keyboard、zoom/reflow；因此自动化任务保持 `in_progress`，且不得输出 A-2.5
+完全 release-ready。

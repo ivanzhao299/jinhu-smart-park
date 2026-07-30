@@ -57,6 +57,10 @@ shared build、Web build 全部通过。该记录只关闭 integration-ready han
 child 保持 `in_progress`，final UI Gate 仍
 `awaiting_first_canonical_route`。
 
+Handoff 附带 stop-ship：A-base 后必须取得 `A-2.5-contract-closure SHA` 才允许领域
+Web 开始。Foundation owner 不创建 route-local response interface、不以组件 adapter
+掩盖 N+1，也不扩 permission bundle。
+
 ## 3. 实施步骤
 
 1. 搜索并决定 reuse/extend/new，记录不复用原因。
@@ -105,3 +109,10 @@ Machine Gate：
   `foundation final UI gate passed`。
 - 不创建 preview route 或临时生产 route。
 - 不把人工 UAT 或 Track B 能力误报为本任务完成。
+
+## 8. 2026-07-31 执行结果
+
+Foundation 与双域集成机器验证通过：最终 API full unit 91/91、Web default
+`tsc`/lint/build 154、独立多轮 Gate `open_P0_P1=[]`。唯一跳过项是 Chrome
+connector `sandboxCwd` 基础设施导致真实 desktop/390 visual、keyboard/focus、
+zoom/reflow 未验；任务不标记 final UI/release-ready。

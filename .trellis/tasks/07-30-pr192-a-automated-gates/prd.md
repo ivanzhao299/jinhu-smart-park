@@ -9,7 +9,12 @@
 - 先行交付 `A-ephemeral-db-bootstrap`：把 A-C2 临时 DB 做法提取为可独立复验、
   仅允许 exact ephemeral container 的 bootstrap harness；独立复审通过前不启动
   A-base implementation。
-- 先行交付 `A-base-core provision`：固化 `property-remediation-a-base-v1` 数据画像、版本、checksum 与 fixture handoff SHA，供 homestay/housing 页面实现使用。
+- 先行交付 `A-base-core provision`：固化 `property-remediation-a-base-v1` 数据画像、
+  版本、checksum 与 fixture handoff SHA，供 homestay/housing 合同研究及 A-2.5
+  通过后的页面实现使用。
+- A-base handoff 后执行 `A-2.5-contract-closure`，在任何 workbench Web 前验证
+  shared/API response、GET permission、field/file projection、detail alias、
+  high-risk variant 与 Party target decision。
 - 页面/menu/API handoff 后交付 `A-route-evidence`：运行路由、权限、浏览器、UX 与最终证据门禁。
 - 在首个 domain route SHA 产生时先登记 `A-foundation-first-route-ui` evidence，
   专门关闭 shared foundation 延后的 desktop/mobile/keyboard/focus/zoom/ARIA Gate；
@@ -40,24 +45,31 @@
 - 可复验的 fixture handoff SHA；
 - provision evidence、write-ahead cleanup manifest 与 residual=0 证明。
 
-homestay/housing owner 只依赖此不可变 fixture handoff SHA 开始页面与领域验证。
+homestay/housing owner 可只依赖此不可变 fixture handoff SHA 开始合同消费研究，但
+页面与领域 Web 验证还必须等待 `A-2.5-contract-closure SHA`。
 Shared foundation 不为浏览器验收创建 preview/生产 route；其 integration-ready
 handoff 只要求静态/单测和 lint/typecheck/build。首个 domain route owner 在真实
 route 上补 UI evidence，shared owner 签收，QA 追溯。
 当前 handoff SHA 为
-`d2a015f9ba931b2024e6360570697c77b74ea3fb`；final UI Gate 仍
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+来自 source commit `32ccc02852c3201c6f68e3b6b89e4398cb102a17` 和 final run
+`abase20260730final32ccc01`；profile checksum 为 `68da…107b`。Shared Web
+integration-ready SHA 仍为
+`d2a015f9ba931b2024e6360570697c77b74ea3fb`，final UI Gate 仍
 `awaiting_first_canonical_route`。
 
 ### A-route-evidence
 
-该阶段等待两份 canonical route SHA、Web menu/landing/deep-link handoff、housing tenant
-alias handoff 与 API projection SHA 后，消费 A-base-core 的 fixture handoff SHA，
+该阶段等待两份 canonical route SHA、Web menu/landing/deep-link handoff、Party
+target decision（target 已交付时还需 housing alias handoff）与 API projection SHA
+后，消费 A-base-core 的 fixture handoff SHA，
 执行 exact-set、L0-L6 中适用层、浏览器/UX/perf、traceability 和最终 cleanup/evidence
 技术门禁。
 
-两个阶段允许独立暂停和恢复。A-base-core 完成不等待 A-route-evidence；A-route-evidence
-失败或等待页面不会反向撤销已发布的 core fixture。页面 owner 使用 core handoff，但
-A-base-core 不以页面完成为前置，因而不存在相互完成依赖或循环等待。
+A-base-core、A-2.5 和 A-route-evidence 三个阶段允许独立暂停和恢复。
+A-base-core 完成不等待后两者；A-2.5 必须在 core handoff 后串行 Gate，失败时只阻止
+页面启动，不反向撤销 core fixture。A-route-evidence 失败或等待页面也不会反向撤销
+已发布的 core fixture 或已通过的 contract closure，因而不存在相互完成依赖或循环等待。
 
 ## Requirements
 
@@ -115,6 +127,24 @@ Support actor 使用显式、最小化 `expected.permissions`，不得用 `*`、
 legacy operations 代替；未明确列出的写、财务、敏感字段和文件下载能力均为禁止。
 Exception super actor 是单独的负向测试主体，只用于 module disabled、跨 scope 与
 fail-closed 场景，不计入普通岗位/support bundle，也不作为正常放行依据。
+
+### A2.5. Workbench Contract Closure Gate
+
+必须验证：
+
+- shared 中存在所有现有/新增 response types；
+- homestay tasks/stays/turnover detail/finance 与 guest/work-order candidates；
+- housing tasks/handover list+detail/billing/finance/repair list+detail；
+- `/homestay/stays/[stayId]` 使 detail routes 6→7，且只做 authorized alias；
+- move-out financial completion 为第 9 个 high-risk variant，Track B 前 409/
+  unavailable；
+- financial fields/file IDs 最小投影，GET 精确 read permission；
+- 无 N+1、route-local interface 或 bundle expansion；
+- Party canonical target、独立页面权限与 housing alias 必须有精确 handoff evidence。
+
+Gate owners 为 shared-contract、homestay-api、housing-api、schema-migration、
+asset-party decision 与独立 checker。合同研究可以先行；A-base handoff 和本 Gate
+PASS 前 Web workbench 不得开始。
 
 ### A3. 需求追溯
 
@@ -180,9 +210,12 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
 
 ## Acceptance Criteria
 
-- [ ] `property-remediation-a-base-v1` 可从空测试环境重复创建并产生相同 checksum。
-- [ ] A-base-core 在页面/menu/API handoff 前可独立运行，并输出可校验的 fixture handoff SHA 给 homestay/housing。
-- [ ] A-base-core 只在 A-schema、API-only projection 与
+- [x] `property-remediation-a-base-v1` 可从空测试环境重复创建并产生相同 checksum；
+  final run=`abase20260730final32ccc01`，profile=`68da…107b`，真实双 run 已覆盖。
+- [x] A-base-core 在页面/menu/API handoff 前独立运行并输出 fixture handoff
+  `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`
+  给 homestay/housing。
+- [x] A-base-core 只在 A-schema、API-only projection 与
   `A-ephemeral-db-bootstrap SHA` 冻结后启动，且不要求 Web menu 或 canonical
   routes 已完成。
 - [x] `A-ephemeral-db-bootstrap` 独立 review PASS，覆盖
@@ -191,13 +224,16 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
 - [x] Handoff SHA
   `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`
   已通过独立 checker；4项P1关闭、owner 7/0/1、Linux SIGTERM 1/1、
-  same-run-id 双链、关键 runtime 与 residual=0。RISK-A-004 CLOSED，A0
-  `unblocked_not_started`。
-- [ ] A-base-core 与 A-route-evidence 均可按 checkpoint 暂停/恢复，且没有相互完成依赖。
+  same-run-id 双链、关键 runtime 与 residual=0。RISK-A-004 CLOSED；随后 A0
+  已 provisioned/frozen。
+- [x] A-base-core 已按 checkpoint 独立完成并冻结，不等待 A-route-evidence；
+  后者仍 awaiting handoff。
 - [ ] `A-foundation-first-route-ui` 来自首个真实 domain route SHA，无 preview route；
   在它通过前 foundation 不标 final UI Gate 完成。
-- [ ] A-base manifest 明确断言 Track B 表/记录不存在或为零，且不把 B schema 作为前置。
-- [ ] A-base exact-row contract 全部相等：3/3 building/floor、4,000 Party、
+- [ ] A-2.5 在 A-base handoff 后独立 PASS，`open_P0_P1=[]`；未取得 closure SHA 时
+  homestay/housing Web 变更数为 0。
+- [x] A-base manifest 明确断言 Track B 表/记录不存在或为零，且不把 B schema 作为前置。
+- [x] A-base exact-row contract 全部相等：3/3 building/floor、4,000 Party、
   20,000 booking_night、2,000 charge_plan、1,000 handover、2,000 purchase_item、
   1,000 work_order、6,500 property_occupancy、2,000 sys_file，以及原有
   3 park/100 unit/10,000 booking/2,000 lease/10,000 receivable/2,000 turnover/
@@ -218,3 +254,13 @@ P0/P1 未关闭不得标记 `track_a_technical_passed`，不得以 waiver 放行
   `artifacts/property-remediation/runs/**`，`scripts/**` 无已生成 runs。
 - [ ] 中断恢复后 cleanup residual=0，证据 schema 和 artifact hash 校验通过。
 - [ ] 运行报告明确列出命令、结果、跳过项、原因和剩余风险。
+
+## 8. 2026-07-31 当前 Gate 结论
+
+A-2.5 最终 API full unit 为 91/91；此前 92 的口径包含后来撤销的临时
+assets-unit-picker spec，不作为最终数字。Web default `tsc`/lint/build 154、独立
+多轮 Gate 与 DB evidence 均通过，`open_P0_P1=[]`。
+
+唯一未完成层是 Chrome connector `sandboxCwd` 基础设施阻塞的真实 desktop/390
+visual、keyboard 与 zoom/reflow。该 skip 阻止整体 release-ready，不能以机器测试
+替代真实浏览器证据。

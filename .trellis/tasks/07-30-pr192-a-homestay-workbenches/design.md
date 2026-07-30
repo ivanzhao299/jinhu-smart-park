@@ -25,7 +25,13 @@ apps/web/features/homestay/**
 3. `schema-migration-owner` 提供 Track A permission/schema SHA。
 4. `menu-projection-owner` 提供 API-only `A-api-menu-projection SHA`；该输入尚不允许
    Web 暴露 property route。
-5. `qa-automation-owner` 提供早期 A-base-core fixture/profile checksum。
+5. `qa-automation-owner` 已冻结 A-base-core fixture
+   `3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+   profile `68da…107b`，source commit
+   `32ccc02852c3201c6f68e3b6b89e4398cb102a17`；该 PASS 不等于 Track A technical
+   pass。
+6. `A-2.5-contract-closure SHA`：shared 全量 response types、homestay
+   tasks/stays/turnover detail/finance 与 guest/work-order decisions。
 
 `07-30-pr192-a-shared-web-foundation` 属于 A0/A1，必须先于本工作台进入实现；它不
 依赖 Track B identity。上述合同需变更时提交 change request，由原 owner修改并发布
@@ -35,6 +41,11 @@ Menu、legacy `/homestay` landing 和 redirect 不是本任务启动前置，也
 本任务完成 canonical routes 与 guards 后输出 `homestay-route-landing-input SHA`，包含 route
 存在性、page permission、固定 priority、module/scope/403 语义和 legacy alias；后置
 A2 `menu-projection-owner` 消费该 SHA 实现 menu/landing/redirect。
+
+该段是实施前依赖设计；当前 A-2.5 独立 Gate 已通过，Homestay Web 已交付。
+`/homestay/stays/[stayId]` 只通过服务端授权 relation 解析到
+booking detail，使全局 detail route 6→7。列表/详情使用批量 projection，禁止 N+1；
+财务字段和附件 ID 最小投影，GET 只用精确 read permission。
 
 若民宿先输出 Track A 首个 canonical domain route SHA，homestay Web owner 拥有该
 真实 route 上的 desktop/mobile/keyboard/focus/zoom/ARIA 执行与 artifact；shared
@@ -172,3 +183,13 @@ Track B 只能在 handoff 后把 read-only slot 接到 approval/identity command
 
 例外必须有 owner、理由、补偿测试和 expiry；权限、敏感字段、附件、幂等与数据隔离
 不可豁免。
+
+## 9. 2026-07-31 最终设计实现状态
+
+`44d6769` 与 `bc2ed7f` 已实现本设计，shared/RBAC/integration 消费链无漂移。
+独立多轮 Gate、最终 API full unit 91/91、Web default `tsc`/lint/build 154 均通过，
+`open_P0_P1=[]`。
+
+仍缺真实 browser artifact：Chrome connector 无法在仓库 `sandboxCwd` 中运行，
+故 desktop/390、keyboard、zoom/reflow 未实测。此项不推翻机器 Gate，但阻止
+release-ready 结论。

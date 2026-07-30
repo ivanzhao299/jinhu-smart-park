@@ -3,7 +3,7 @@
   "name": "pr192-a-automated-gates",
   "title": "PR192 A 自动化门禁",
   "description": "Track A 精确角色、A-base数据集、权限与页面自动化技术门禁",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "workspace",
   "package": null,
@@ -15,12 +15,12 @@
   "branch": "codex/pr192-property-productization-remediation",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "d33fad95ffe921f79fee9074ecffd2c27c1382de",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Final API full unit 91/91, Web default tsc/lint/build 154, independent multi-round gates and DB evidence pass with open_P0_P1=[]; only Chrome connector sandboxCwd blocks real desktop/390 visual, keyboard and zoom evidence",
   "meta": {}
 }

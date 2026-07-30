@@ -24,9 +24,10 @@
 | schema-migration-owner | 本计划全部 `database/migrations/<reserved>_*.sql` |
 | menu-projection-owner | 分阶段独占 `apps/api/src/modules/users/users.service.ts` 的 property projection 与 `apps/web/lib/menu.ts`；先交付 API-only SHA，收到两份 domain route SHA 后才写 Web menu |
 | property-workbench-safety-owner | `apps/api/src/shared/property-workbench/**` 和 Track A feature-flag/fail-closed policy tests；不得写领域 service |
-| shared-property-web-owner | `apps/web/features/property-shared/**`、`apps/web/app/assets/parties/**`、`apps/web/app/assets/property-operations/**`、`apps/web/app/assets/property-occupancies/**`、`apps/web/app/assets/property-mode-transitions/**` |
+| shared-property-web-owner | `apps/web/features/property-shared/**`、`apps/web/app/assets/property-operations/**`、`apps/web/app/assets/property-occupancies/**`、`apps/web/app/assets/property-mode-transitions/**` |
+| asset-party-decision-owner | 决定并独占 `apps/web/app/assets/parties/**` target handoff；未交付时要求 housing Party link/redirect=0，或提交正式 acceptance removal |
 | homestay-web-owner | `apps/web/app/homestay/**`（含 canonical routes/route guards）、`apps/web/features/homestay/**`、本领域 Web tests |
-| housing-web-owner | `apps/web/app/housing/**`（含 canonical routes/route guards、tenant alias redirect）、`apps/web/features/housing/**`、本领域 Web tests |
+| housing-web-owner | `apps/web/app/housing/**`（含 canonical routes/route guards；tenant alias 仅在 Party target handoff 后 redirect）、`apps/web/features/housing/**`、本领域 Web tests |
 | property-foundation-api-owner | `apps/api/src/modules/property-operations/**` |
 | approval-runtime-owner | `apps/api/src/modules/property-approvals/**` |
 | property-task-owner | `apps/api/src/modules/property-tasks/**` |
@@ -83,10 +84,11 @@
   修复 tenant list/create 的 `mobile`/`email` masked projection。
 
 三份实现完成后，property-env-doc-owner 串行同步 env example、部署/测试和 compatibility
-文档。独立安全/API checker 必须运行：
+文档。以下为 A-C1 当时已通过的独立安全/API checker 基线：
 
 - flag off、unset、true 三态矩阵。
-- 8 个 high-risk action × normal/super/wildcard；true 时均为 409。
+- 当时 8 个 high-risk action × normal/super/wildcard；true 时均为 409。A-2.5
+  必须再加入第 9 个 move-out financial variant 并重新 Gate。
 - 两个 ledger endpoint 的 safe/high-risk discriminator 邻接用例。
 - housing list/create 与 homestay detail/issue/return response snapshot，禁止完整敏感值。
 - API 全量 unit、shared/API/Web typecheck，以及 legacy characterization。
@@ -160,8 +162,9 @@ A-base implementation 不得开始。
 `b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268`。
 Reviewer 提出的 4 项 P1 已全部修复。Owner 自验为 7 pass / 0 fail / 1 Windows
 platform skip，并在 Linux 完成 SIGTERM 1/1；same-run-id 双链通过。Checker 完成
-关键 runtime 复验，最终 residual=0。RISK-A-004 已关闭，A0 implementation
-`unblocked_not_started`，不得误报为已开始或完成。
+关键 runtime 复验，最终 residual=0。RISK-A-004 已关闭；在该 bootstrap Gate
+完成时，A0 implementation 状态为 `unblocked_not_started`，其后已由 A-base final
+Gate 更新为 provisioned/frozen。
 
 ### Batch A0.6：A-base-core
 
@@ -169,15 +172,48 @@ platform skip，并在 Linux 完成 SIGTERM 1/1；same-run-id 双链通过。Che
 `A-ephemeral-db-bootstrap SHA`，由 qa-automation-owner 生成 `A-base-core`，完成
 父设计全部 exact rows、deterministic checksum、support 最小权限、独立 exception
 super actor、2,000 个小型有效测试 PNG、生产保护和 cleanup rehearsal，输出
-`A-base-core fixture SHA`。A1 页面 worker 只能基于该 SHA 开始；core 发布后不得由
-页面 worker 改写。所有 generated artifacts 写入 ignored
+`A-base-core fixture SHA`。A1 页面 worker 必须同时取得该 SHA 与后置
+`A-2.5-contract-closure SHA` 才能开始；core 发布后不得由页面 worker 改写。所有
+generated artifacts 写入 ignored
 `artifacts/property-remediation/runs/**`，不得在 `scripts/**` 下提交 runs。
 Candidate 性能阈值只记录观测，不能产生批准 PASS。
 
+执行记录（2026-07-30）：source commit
+`32ccc02852c3201c6f68e3b6b89e4398cb102a17`，final run
+`abase20260730final32ccc01`，fixture handoff SHA
+`3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c`，
+profile checksum `68da…107b`。Owner gate 21 pass / 0 fail / 6 runtime skip，
+真实双 run 已覆盖；两次 run 各有 journals 10,010 events / 2,002 resources 且均已
+清理，final residual=0。Independent final review PASS，`open_P0_P1=[]`。
+状态为 `A-base-core provisioned / handoff frozen`，不等于 Track A technical pass。
+A-2.5 已解除依赖并成为下一步；domain Web 继续 blocked。
+
+### Batch A-2.5：Workbench API/Response Contract Closure
+
+严格串行位于 A-base handoff 之后、Batch A1 Web 之前。合同代码可提前只读研究或由
+其 owner 实现，但任何 workbench Web owner 不得提前开始。
+
+- shared-contract-owner：冻结所有现有/新增 response types，禁止 route-local
+  interface。
+- homestay-api-owner：闭合 tasks、stays、turnover detail、finance，并对 guest/
+  work-order candidates 作正式采用/移除决定。
+- housing-api-owner：闭合 tasks、handover list/detail、billing、finance、repair
+  list/detail。
+- schema-migration-owner：独占任何必要 forward migration；不得由 API owner 写。
+- asset-party-decision-owner：交付存在的 canonical Party target，或形成正式
+  acceptance removal；此前 link/redirect 请求数为 0。
+- independent contract gate：核对 response/GET/field/file/high-risk/route matrix，
+  `open_P0_P1=[]` 后输出 `A-2.5-contract-closure SHA`。
+
+强制条件：stays detail alias 使 detail route 6→7；move-out financial variant 成为
+第 9 个 high-risk；财务字段和附件 ID 最小投影；GET 精确 read permission；禁止
+N+1、route-local interface 和扩 bundle；Track B high-risk 仍 unavailable。
+
 ### Batch A1：前端 extract-first
 
-前置仅为 A-contract SHA、A-schema SHA、A-base-core fixture SHA 和
-`A-shared-web-foundation SHA`；不依赖 menu/landing/redirect handoff。最多两个
+前置为 A-contract SHA、A-schema SHA、A-base-core fixture SHA、
+`A-shared-web-foundation SHA` 与 `A-2.5-contract-closure SHA`；不依赖
+menu/landing/redirect handoff。最多两个
 subagent 并行：
 
 - homestay-web-owner：输出 `A-homestay-route SHA`。
@@ -198,7 +234,8 @@ desktop/mobile/keyboard/focus/zoom/ARIA 浏览器矩阵并交 evidence；shared 
   menu、legacy module landing 和 unknown property deep-link fail-closed；不得创建
   领域 route 或 placeholder。
 - housing-web-owner：在 `apps/web/app/housing/**` 独占范围内、收到两份 route SHA
-  后实现 tenant alias redirect 与 route guard；menu owner 不接管该路径。
+  后且 Party target 已 handoff 时实现 tenant alias redirect 与 route guard；未交付
+  时保持 link/redirect=0，menu owner 不接管该路径。
 - 两者共同输出 `A-web-menu-projection SHA`。
 
 ### Batch A2.5：Route Evidence
@@ -391,8 +428,9 @@ PROPERTY_WORKBENCH_V2
 ```
 
 `PROPERTY_WORKBENCH_V2` off/unset 必须保持 legacy API；true 在
-`A-server-safety SHA` 后才能用于新工作台，并在 Track B adapter 前对 8 个高风险
-action 返回服务端 409。该 flag 不得只控制 Web。
+`A-server-safety SHA` 后才能用于新工作台；A-2.5 必须补齐第 9 个 move-out
+financial variant，并在 Track B adapter 前对全部 9 个高风险 action/variant 返回
+服务端 409。该 flag 不得只控制 Web。
 
 Track B：
 
@@ -423,7 +461,7 @@ PROPERTY_UPLOAD_QUEUE_V1
 - route/page/API 唯一映射。
 - permission tenant uniqueness / park grants。
 - ownership 和 complexity。
-- flag off/unset/true 与 8-action fail-closed matrix。
+- flag off/unset/true 与 9-action/variant fail-closed matrix。
 - housing tenant、homestay credential field projection snapshots。
 
 ### L1
@@ -539,4 +577,18 @@ Codex 任务完成不包含代替以下人员签署：
   9. `pr192-b-integration-reconcile`
   10. `pr192-c-architecture-reliability`
   11. `pr192-human-uat-production-readiness`
-- [ ] 尚未修改业务代码。
+- [x] Track A A-2.5 业务代码、共享契约、RBAC 与工作台已按交付 SHA 实现。
+
+## 15. 2026-07-31 执行结论
+
+A-2.5 实现与机器门禁已完成：shared/Homestay/Housing/RBAC、17/7 routes、Party
+canonical target 均已闭合，最终 API full unit 91/91、Web default `tsc`/lint/build 154、独立多轮
+Gate 和 DB evidence 通过，`open_P0_P1=[]`。
+
+当前只保留一个基础设施待办：Chrome connector `sandboxCwd` 限制导致真实
+desktop/390 visual、keyboard、zoom/reflow 未验。修复 connector 后补采 artifact；
+在此之前不得宣称 A-2.5 完全 release-ready。
+
+P2 mixed-scope 文案用例：同一检查批次同时包含 shared contract、SQL migration/seed
+和 Web evidence 时，报告必须按 owner 与证据拆分，不能把某一 scope 的 P2 文案或
+fixture 差异笼统归责为另一 scope 的实现失败；P2 不改变 `open_P0_P1=[]`。
