@@ -167,13 +167,18 @@ export default function FloorsPage() {
     if (!window.confirm(`确认删除楼层「${row.floorName}」？删除前系统会检查是否存在未删除房源。`)) {
       return;
     }
-    await apiRequest<{ id: string }>(`/floors/${row.id}`, {
-      method: "DELETE",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey("floor-delete")
-    });
-    setMessage("删除成功");
-    await load(pageData.page);
+    try {
+      await apiRequest<{ id: string }>(`/floors/${row.id}`, {
+        method: "DELETE",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey("floor-delete")
+      });
+      setMessage("删除成功");
+      await load(pageData.page);
+    } catch (error) {
+      const failureMessage = error instanceof Error ? error.message : "楼层删除失败";
+      window.alert(failureMessage);
+    }
   }
 
   function handleLayoutUploaded(_file: FileRecord) {
@@ -281,7 +286,7 @@ export default function FloorsPage() {
                         <span className="ds-row-action-label">平面图</span>
                       </PermissionButton>
                     ) : null}
-                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.FLOOR_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.FLOOR_DELETE} title="删除" type="button" onClick={() => void remove(row)}>
                       <Trash2 size={16} />
                       <span className="ds-row-action-label">删除</span>
                     </PermissionButton>

@@ -148,7 +148,7 @@ export class FloorsService {
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findDetail(scope, id, actor);
     if (await this.hasUndeletedUnits(scope, id)) {
-      throw new BadRequestException("Floor has undeleted units and cannot be deleted");
+      throw new BadRequestException("该楼层下仍有未删除房源，无法删除");
     }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
