@@ -1,0 +1,66 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+  align-items: flex-end;
+}
+
+fieldset.toolbar {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.toolbar label {
+  display: grid;
+  gap: var(--space-2, 8px);
+  min-width: min(220px, 100%);
+}
+
+.toolbar input,
+.toolbar select {
+  min-height: 44px;
+}
+
+.pager {
+  display: flex;
+  gap: var(--space-3, 12px);
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-4, 16px);
+}
+
+.detailGrid dl {
+  margin: 0;
+}
+
+.detailGrid dt {
+  color: var(--color-text-secondary);
+}
+
+.detailGrid dd {
+  margin: 4px 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.finance {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .toolbar > *,
+  .toolbar label,
+  .pager > button {
+    width: 100%;
+  }
+
+  .pager {
+    justify-content: stretch;
+  }
+}
