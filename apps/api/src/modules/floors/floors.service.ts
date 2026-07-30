@@ -135,9 +135,21 @@ export class FloorsService {
     return this.floorsRepository.save(entity);
   }
 
-  async uploadLayout(scope: TenantParkScope, actor: JwtPrincipal, id: string, file: UploadedFilePayload | undefined, remark?: string): Promise<FileEntity> {
+  async uploadLayout(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    file: UploadedFilePayload | undefined,
+    remark?: string,
+    originalName?: string
+  ): Promise<FileEntity> {
     const entity = await this.findDetail(scope, id, actor);
-    const uploaded = await this.filesService.upload(scope, actor.sub, { biz_type: "floorplan", biz_id: id, remark }, file);
+    const uploaded = await this.filesService.upload(
+      scope,
+      actor.sub,
+      { biz_type: "floorplan", biz_id: id, remark, original_name: originalName },
+      file
+    );
     entity.layoutFileId = uploaded.id;
     entity.layoutUrl = uploaded.fileUrl;
     entity.updateBy = actor.sub;

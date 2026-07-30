@@ -37,21 +37,14 @@ export interface DownloadFileResult {
 
 export const TENANT_BRAND_LOGO_BIZ_TYPE = "tenant_brand_logo";
 
-function containsCjk(value: string): boolean {
-  return /[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\ua960-\ua97f\uac00-\ud7af\ud7b0-\ud7ff\uf900-\ufaff\uff66-\uff9f]/u.test(value);
-}
-
-export function normalizeMultipartFileName(originalName: string): string {
-  if (![...originalName].some((character) => character.charCodeAt(0) > 0x7f)) {
-    return originalName;
+export function normalizeMultipartFileName(parserName: string, utf8Name?: string): string {
+  if (!utf8Name || utf8Name.includes("\0")) {
+    return parserName;
   }
-  const decoded = Buffer.from(originalName, "latin1").toString("utf8");
-  if (decoded.includes("\uFFFD")) return originalName;
-  return containsCjk(decoded)
-    && !containsCjk(originalName)
-    && Buffer.from(decoded, "utf8").toString("latin1") === originalName
-    ? decoded
-    : originalName;
+  return utf8Name === parserName
+    || Buffer.from(utf8Name, "utf8").toString("latin1") === parserName
+    ? utf8Name
+    : parserName;
 }
 
 @Injectable()
@@ -91,7 +84,7 @@ export class FilesService {
       throw new BadRequestException("file is required");
     }
     this.validateFile(dto.biz_type, file);
-    const originalName = normalizeMultipartFileName(file.originalname);
+    const originalName = normalizeMultipartFileName(file.originalname, dto.original_name);
 
     const now = new Date();
     const day = this.formatDay(now);

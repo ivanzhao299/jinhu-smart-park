@@ -162,11 +162,16 @@ export class TenantsService {
     return branding;
   }
 
-  uploadBrandLogo(scope: TenantParkScope, actorId: string, file?: UploadedFilePayload) {
+  uploadBrandLogo(
+    scope: TenantParkScope,
+    actorId: string,
+    file?: UploadedFilePayload,
+    originalName?: string
+  ) {
     return this.filesService.upload(
       scope,
       actorId,
-      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE },
+      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE, original_name: originalName },
       file
     );
   }

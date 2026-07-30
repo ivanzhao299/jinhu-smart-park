@@ -46,18 +46,19 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
   assert.ok(where?.bizId);
 });
 
-test("multipart filenames recover UTF-8 text decoded as latin1", () => {
+test("multipart filenames use an independently decoded UTF-8 name when its bytes match", () => {
   for (const expected of [
     "热转印桌面打印机用户指南.pdf",
     "こんにちは.pdf",
-    "사용자 안내서.pdf"
+    "사용자 안내서.pdf",
+    "𠀀.pdf"
   ]) {
     const mojibake = Buffer.from(expected, "utf8").toString("latin1");
-    assert.equal(normalizeMultipartFileName(mojibake), expected);
+    assert.equal(normalizeMultipartFileName(mojibake, expected), expected);
   }
 });
 
-test("multipart filename normalization preserves ASCII and valid Unicode", () => {
+test("multipart filename normalization does not guess without transport evidence", () => {
   assert.equal(normalizeMultipartFileName("floor-plan.pdf"), "floor-plan.pdf");
   assert.equal(normalizeMultipartFileName("平面图.pdf"), "平面图.pdf");
   assert.equal(normalizeMultipartFileName("こんにちは.pdf"), "こんにちは.pdf");
@@ -65,4 +66,10 @@ test("multipart filename normalization preserves ASCII and valid Unicode", () =>
   assert.equal(normalizeMultipartFileName("café.pdf"), "café.pdf");
   assert.equal(normalizeMultipartFileName("Ã©.pdf"), "Ã©.pdf");
   assert.equal(normalizeMultipartFileName("Â£.pdf"), "Â£.pdf");
+  assert.equal(normalizeMultipartFileName("ä½ .pdf"), "ä½ .pdf");
+});
+
+test("multipart filename normalization ignores an inconsistent or unsafe hint", () => {
+  assert.equal(normalizeMultipartFileName("report.pdf", "other.pdf"), "report.pdf");
+  assert.equal(normalizeMultipartFileName("report.pdf", "report\0.pdf"), "report.pdf");
 });

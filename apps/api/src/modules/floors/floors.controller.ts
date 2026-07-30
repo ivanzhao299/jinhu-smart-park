@@ -58,9 +58,10 @@ export class FloorsController {
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
     @Body("remark") remark: string | undefined,
+    @Body("original_name") originalName: string | undefined,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.floorsService.uploadLayout(scope, user, id, file, remark);
+    return this.floorsService.uploadLayout(scope, user, id, file, remark, originalName);
   }
 
   @Delete(":id")

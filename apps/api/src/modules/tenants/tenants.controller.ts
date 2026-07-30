@@ -56,9 +56,10 @@ export class TenantsController {
   uploadBrandLogo(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
+    @Body("original_name") originalName: string | undefined,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.tenantsService.uploadBrandLogo(scope, user.sub, file);
+    return this.tenantsService.uploadBrandLogo(scope, user.sub, file, originalName);
   }
 
   @Get()

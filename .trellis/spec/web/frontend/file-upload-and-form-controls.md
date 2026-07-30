@@ -30,6 +30,10 @@
 - Upload policy source of truth: `FILE_UPLOAD_POLICIES` and `FILE_UPLOAD_BIZ_POLICY_MAP` in `packages/shared/src/index.ts`.
 - Frontend `accept`, max-size copy, selected-file validation, and helper text must be derived from the shared policy.
 - Backend must enforce the same policy; frontend validation is for UX only.
+- The shared multipart request helper sends the selected `File.name` in the
+  independent UTF-8 `original_name` text field. Do not ask the backend to infer
+  mojibake from filename characters; valid Latin-1 text can be byte-identical to a
+  misdecoded Unicode name.
 - Uploaded files must be associated with `biz_type` and, when the business object exists, `biz_id`.
 - Workflows that permit pre-object uploads must reload the current actor's pending
   files after refresh/revisit; relying only on the current-session `onUploaded`

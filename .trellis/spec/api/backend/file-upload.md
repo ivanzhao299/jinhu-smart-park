@@ -12,6 +12,8 @@
   - `getFileUploadLimitForMime(policy, file.mimetype)`
 - Upload DTO fields:
   - `biz_type: string`
+  - `original_name?: string` (UTF-8 client hint, accepted only when byte-consistent
+    with the parser-provided filename)
   - `biz_id?: uuid`
   - `remark?: string`
 
@@ -19,14 +21,15 @@
 - Allowed MIME types and max sizes live in `FILE_UPLOAD_POLICIES`.
 - Business-specific mappings live in `FILE_UPLOAD_BIZ_POLICY_MAP`.
 - Storage path remains tenant/park/day scoped and must not be built from user-supplied filenames.
-- Multipart `originalname` may contain UTF-8 bytes decoded as Latin-1 by the upload parser.
-  Normalize that boundary value before deriving the extension or persisting
-  `original_name`; preserve ASCII and already-valid Unicode names unchanged. A
-  Latin-1/UTF-8 round trip is not sufficient evidence of mojibake because valid
-  names such as `Ã©.pdf` and `Â£.pdf` are also reversible. Recovery must require
-  an additional signal from the product's affected script. CJK recovery covers Han
-  ideographs, Japanese hiragana/katakana, and Korean Hangul rather than treating
-  “CJK” as Han-only.
+- Multipart `originalname` may contain UTF-8 bytes decoded as Latin-1 by the upload
+  parser. Content heuristics and script ranges cannot distinguish mojibake from a
+  legitimate Latin-1 name whose bytes happen to encode the same Unicode text. The
+  official multipart request helper therefore sends `original_name` as an independently
+  UTF-8-decoded text field for every selected `file`. Each upload controller must pass
+  that hint into `FilesService.upload`. Adopt it only when it equals the parser name
+  or its UTF-8 bytes decoded as Latin-1 equal the parser name; otherwise preserve the
+  parser value. Never rewrite a filename based only on reversibility or CJK-looking
+  output.
 - File metadata must remain tenant_id + park_id scoped.
 - The generic `/files` routes are not an authorization boundary by themselves. Protected business file types require their domain read/write permission and referenced unit data-scope check for upload, list, detail, download, and delete.
 - Generic file listing without a business type excludes protected housing and homestay file types.
@@ -63,8 +66,10 @@
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
-- UTF-8 filename decoded as Latin-1 -> recover the original Unicode name before
-  extension parsing and metadata persistence.
+- UTF-8 filename decoded as Latin-1 plus a byte-consistent `original_name` hint ->
+  recover the original Unicode name before extension parsing and metadata persistence.
+- Missing or inconsistent `original_name` hint -> preserve the parser-provided name;
+  do not guess from decoded content.
 - Valid Latin-1 text that merely looks like mojibake -> preserve it byte-for-byte.
 - Unsupported MIME -> `UnsupportedMediaTypeException`.
 - Oversized file -> `BadRequestException`.
@@ -87,9 +92,11 @@
 - API build after policy changes.
 - Smoke test for at least one accepted and one rejected MIME/size case when a new upload policy is added.
 - Security test each protected business type for missing domain permission, cross-scope reference, generic-list exclusion, and pending-upload ownership.
-- Filename tests include mojibake and already-valid examples for Chinese, Japanese,
-  and Korean, plus ASCII, accented Unicode, and reversible Latin-1 counterexamples
-  such as `Ã©` and `Â£`.
+- Filename tests include byte-consistent hints for Chinese, Japanese, Korean, and
+  supplementary Han characters; missing/inconsistent hints; ASCII and accented
+  Unicode; and reversible Latin-1 counterexamples such as `Ã©`, `Â£`, and `ä½ `.
+- Frontend request tests assert `/files` uploads include the selected `File.name` as
+  the independent `original_name` multipart text field.
 - API E2E: upload an unassociated purchase receipt, recover it through the protected
   pending list, and bind that exact file when creating the purchase.
 - Frontend: reload the housing operations page after upload and assert the uploader's

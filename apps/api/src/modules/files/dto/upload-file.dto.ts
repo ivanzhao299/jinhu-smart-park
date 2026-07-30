@@ -6,6 +6,11 @@ export class UploadFileDto {
   biz_type!: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  original_name?: string;
+
+  @IsOptional()
   @IsUUID()
   biz_id?: string;
 
