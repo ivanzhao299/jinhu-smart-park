@@ -1,0 +1,77 @@
+.hero,
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.toolbar,
+.filters,
+.actions,
+.pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filters {
+  align-items: end;
+}
+
+.filters label,
+.formGrid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filters input,
+.filters select,
+.formGrid input,
+.formGrid select,
+.formGrid textarea {
+  min-height: 44px;
+}
+
+.formGrid,
+.detailGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.detailGrid div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.detailGrid dt {
+  font-size: 0.875rem;
+}
+
+.detailGrid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pagination {
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .filters,
+  .filters label,
+  .filters input,
+  .filters select,
+  .toolbar,
+  .toolbar > *,
+  .actions,
+  .actions > * {
+    width: 100%;
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
