@@ -181,6 +181,11 @@ export default function FloorsPage() {
     void load(pageData.page).catch((error: Error) => setMessage(error.message));
   }
 
+  function handleLayoutDeleted(_file: FileRecord) {
+    setRefreshKey((value) => value + 1);
+    void load(pageData.page).catch((error: Error) => setMessage(error.message));
+  }
+
   return (
     <PermissionGuard permission={SYSTEM_PERMISSIONS.FLOOR_READ} fallback={<ForbiddenInline />}>
       <main className="content">
@@ -366,7 +371,7 @@ export default function FloorsPage() {
                         />
                       </PermissionGuard>
                     ) : null}
-                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} /> : null}
+                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} onDeleted={handleLayoutDeleted} /> : null}
                   </div>
                 ) : (
                   <div className="ds-drawer-upload-placeholder">
@@ -403,7 +408,7 @@ export default function FloorsPage() {
                 />
               </PermissionGuard>
             ) : null}
-            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} /> : null}
+            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} onDeleted={handleLayoutDeleted} /> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setLayoutTarget(null)}>关闭</button>
             </DrawerFooter>

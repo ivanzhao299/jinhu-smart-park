@@ -220,3 +220,47 @@ test("referenced business evidence cannot be deleted through the generic file en
     } as never)
   );
 });
+
+test("deleting a floorplan clears only its scoped owning floor reference", async () => {
+  const calls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const service = new FileBusinessAccessService({} as never, {} as never);
+  await service.detachReferencesOnDelete(
+    scope,
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      bizType: "floorplan",
+      bizId: "22222222-2222-4222-8222-222222222222"
+    } as never,
+    "user-1",
+    {
+      query: async (sql: string, parameters: unknown[]) => {
+        calls.push({ sql, parameters });
+        return [];
+      }
+    } as never
+  );
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0]!.sql, /layout_file_id = \$5::uuid/);
+  assert.match(calls[0]!.sql, /tenant_id = \$2/);
+  assert.match(calls[0]!.sql, /park_id = \$3/);
+  assert.deepEqual(calls[0]!.parameters, [
+    "user-1",
+    "tenant-1",
+    "park-1",
+    "22222222-2222-4222-8222-222222222222",
+    "11111111-1111-4111-8111-111111111111"
+  ]);
+});
+
+test("deleting an unrelated file does not update floor references", async () => {
+  let queryCount = 0;
+  const service = new FileBusinessAccessService({} as never, {} as never);
+  await service.detachReferencesOnDelete(
+    scope,
+    { id: "file-1", bizType: "general", bizId: "floor-1" } as never,
+    "user-1",
+    { query: async () => { queryCount += 1; } } as never
+  );
+  assert.equal(queryCount, 0);
+});

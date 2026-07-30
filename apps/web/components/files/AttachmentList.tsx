@@ -17,6 +17,7 @@ interface AttachmentListProps {
   compact?: boolean;
   refreshKey?: number;
   mutationDisabled?: boolean;
+  onDeleted?: (file: FileRecord) => void;
 }
 
 const emptyPage: PaginatedResult<FileRecord> = { items: [], page: 1, page_size: 20, total: 0 };
@@ -26,7 +27,8 @@ export function AttachmentList({
   bizId,
   compact = false,
   refreshKey = 0,
-  mutationDisabled = false
+  mutationDisabled = false,
+  onDeleted
 }: AttachmentListProps) {
   const user = useAuthUser();
   const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
@@ -98,6 +100,7 @@ export function AttachmentList({
       idempotencyKey: createIdempotencyKey("file-delete")
     });
     await load(data.page);
+    onDeleted?.(file);
   }
 
   function closePreview() {
