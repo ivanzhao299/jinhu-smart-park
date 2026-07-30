@@ -24,6 +24,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const ENERGY_MODULE = "energy";
 
@@ -56,17 +57,46 @@ interface AdjustmentForm {
   adjustmentReason: string;
 }
 
+interface BillingItemOptionRow {
+  id: string;
+  cycleId: string;
+  relatedParkTenantId: string;
+  billingMethod: string;
+  finalAmount: string;
+  confirmationStatus: string;
+  receivableId: string | null;
+}
+
+interface BillingCycleOptionRow {
+  id: string;
+  cycleCode: string;
+  cycleName: string;
+}
+
+interface ParkTenantOptionRow {
+  id: string;
+  parkTenantCode: string;
+  companyName: string;
+}
+
 const emptyPage: PaginatedResult<AdjustmentRow> = { items: [], total: 0, page: 1, page_size: 20 };
 const emptyForm: AdjustmentForm = { billingItemId: "", adjustmentType: "ADJUSTMENT", adjustmentAmount: "0", adjustmentReason: "" };
 
 export default function EnergyBillingAdjustmentsPage() {
   const [pageData, setPageData] = useState<PaginatedResult<AdjustmentRow>>(emptyPage);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [billingItems, setBillingItems] = useState<BillingItemOptionRow[]>([]);
+  const [billingItemPage, setBillingItemPage] = useState(1);
+  const [billingItemTotal, setBillingItemTotal] = useState(0);
+  const [billingCycles, setBillingCycles] = useState<BillingCycleOptionRow[]>([]);
+  const [parkTenants, setParkTenants] = useState<ParkTenantOptionRow[]>([]);
   const [filters, setFilters] = useState({ keyword: "", billingItemId: "", adjustmentType: "", status: "" });
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<AdjustmentForm>(emptyForm);
   const [message, setMessage] = useState("");
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
+  const billingCycleMap = useMemo(() => new Map(billingCycles.map((item) => [item.id, `${item.cycleCode} ${item.cycleName}`.trim()])), [billingCycles]);
+  const parkTenantMap = useMemo(() => new Map(parkTenants.map((item) => [item.id, `${item.parkTenantCode} ${item.companyName}`.trim()])), [parkTenants]);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -91,7 +121,21 @@ export default function EnergyBillingAdjustmentsPage() {
     setDicts(Object.fromEntries(entries));
   }, []);
 
+  const loadBillingItemOptions = useCallback(async (page = 1) => {
+    const [itemResponse, cycleResponse, references] = await Promise.all([
+      apiRequest<PaginatedResult<BillingItemOptionRow>>(`/energy/billing-items?page=${page}&page_size=50`, { token: getAccessToken() }),
+      apiRequest<PaginatedResult<BillingCycleOptionRow>>("/energy/billing-cycles?page=1&page_size=200", { token: getAccessToken() }),
+      fetchReferenceFormOptions()
+    ]);
+    setBillingItems(itemResponse.data.items);
+    setBillingItemPage(itemResponse.data.page);
+    setBillingItemTotal(itemResponse.data.total);
+    setBillingCycles(cycleResponse.data.items);
+    setParkTenants(references.parkTenants as ParkTenantOptionRow[]);
+  }, []);
+
   useEffect(() => { void loadDicts().catch((error: Error) => setMessage(error.message)); }, [loadDicts]);
+  useEffect(() => { void loadBillingItemOptions(1).catch((error: Error) => setMessage(error.message)); }, [loadBillingItemOptions]);
   useEffect(() => { void load().catch((error: Error) => setMessage(error.message)); }, [load]);
 
   function openCreate() {
@@ -186,7 +230,21 @@ export default function EnergyBillingAdjustmentsPage() {
             <DrawerHeader eyebrow="能源管理" title="新增调整或红冲" description="红冲自动按原账单最终金额取负数；补差可正可负。" onClose={() => setFormOpen(false)} closeIcon={<X size={18} />} />
             <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void save(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid single>
-                <Field label="账单项 ID"><input required value={form.billingItemId} onChange={(event) => setForm((current) => ({ ...current, billingItemId: event.target.value }))} /></Field>
+                <Field label="账单项">
+                  <select required value={form.billingItemId} onChange={(event) => setForm((current) => ({ ...current, billingItemId: event.target.value }))}>
+                    <option value="">请选择已发布账单项</option>
+                    {billingItems.map((item) => (
+                      <option key={item.id} value={item.id} disabled={!item.receivableId}>
+                        {formatBillingItemOption(item, billingCycleMap, parkTenantMap)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pagination-actions">
+                    <button className="pagination-button" type="button" disabled={billingItemPage <= 1 || Boolean(form.billingItemId)} onClick={() => void loadBillingItemOptions(billingItemPage - 1).catch((error: Error) => setMessage(error.message))}>上一页</button>
+                    <span>第 {billingItemPage} / {Math.max(1, Math.ceil(billingItemTotal / 50))} 页</span>
+                    <button className="pagination-button" type="button" disabled={billingItemPage >= Math.max(1, Math.ceil(billingItemTotal / 50)) || Boolean(form.billingItemId)} onClick={() => void loadBillingItemOptions(billingItemPage + 1).catch((error: Error) => setMessage(error.message))}>下一页</button>
+                  </span>
+                </Field>
                 <Field label="调整类型"><select value={form.adjustmentType} onChange={(event) => setForm((current) => ({ ...current, adjustmentType: event.target.value as AdjustmentForm["adjustmentType"] }))}><option value="ADJUSTMENT">补差</option><option value="REVERSAL">红冲</option></select></Field>
                 <Field label="调整金额"><input required={form.adjustmentType === "ADJUSTMENT"} disabled={form.adjustmentType === "REVERSAL"} type="number" step="0.01" value={form.adjustmentAmount} onFocus={(event) => event.target.select()} onChange={(event) => setForm((current) => ({ ...current, adjustmentAmount: event.target.value }))} /></Field>
                 <Field label="调整原因"><textarea required value={form.adjustmentReason} onChange={(event) => setForm((current) => ({ ...current, adjustmentReason: event.target.value }))} /></Field>
@@ -233,6 +291,17 @@ function adjustmentActionHint(row: AdjustmentRow) {
     default:
       return "当前无动作";
   }
+}
+
+function formatBillingItemOption(
+  item: BillingItemOptionRow,
+  cycleMap: Map<string, string>,
+  parkTenantMap: Map<string, string>
+) {
+  const cycle = cycleMap.get(item.cycleId) ?? item.cycleId.slice(0, 8);
+  const tenant = parkTenantMap.get(item.relatedParkTenantId) ?? item.relatedParkTenantId.slice(0, 8);
+  const availability = item.receivableId ? "已发布" : "未发布";
+  return `${cycle} · ${tenant} · ${item.billingMethod} · ¥${item.finalAmount} · ${availability}`;
 }
 
 function Forbidden() {
