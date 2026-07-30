@@ -95,9 +95,9 @@
 
 - [x] 同步 migration/初始化/测试文档。
 - [x] 重跑 shell/static tests、Docker 空库、production seed、重复迁移。
-- [ ] 确认工作区只包含本任务文件。
-- [ ] commit 并 push `fix/000175-empty-db-init-order`。
-- [ ] 附验证证据回复并解决 review thread
+- [x] 确认工作区只包含本任务文件。
+- [x] commit `95279eb` 并 push `fix/000175-empty-db-init-order`。
+- [x] 附验证证据回复并解决 review thread
   `PRRT_kwDOSeY9_c6U_JbC`、`PRRT_kwDOSeY9_c6U_JbG`。
 
 ### 9.4 评审修复验证结果
