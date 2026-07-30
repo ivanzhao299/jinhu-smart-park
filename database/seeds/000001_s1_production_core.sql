@@ -733,11 +733,13 @@ permission_parent_map AS (
    AND parent.park_id = child.park_id
    AND parent.is_deleted = false
    AND parent.code = CASE
-      WHEN child.code IN ('system', 'asset', 'leasing', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
+      WHEN child.code IN ('system', 'asset', 'leasing', 'homestay', 'housing_rental', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:tenant', 'system:module', 'system:dict-type', 'system:file', 'system:audit', 'system:audit-login-log') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
       WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
+      WHEN child.code = 'homestay:operations' THEN 'homestay'
+      WHEN child.code = 'housing_rental:operations' THEN 'housing_rental'
       WHEN child.code IN ('workorder:center', 'workorder:list-page', 'workorder:sla-rules', 'workorder:overdue-page', 'workorder:stats-page') THEN 'workorder'
       WHEN child.code IN ('iot:dashboard', 'iot:devices', 'iot:gateways', 'iot:metrics', 'iot:alert-rules', 'iot:alerts') THEN 'iot'
       WHEN child.code = 'energy:overview' THEN 'energy'

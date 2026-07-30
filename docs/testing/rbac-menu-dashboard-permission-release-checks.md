@@ -61,8 +61,19 @@ Use browser sampling in pre-production and, after approval, production. Each scr
 | A4-MENU-02 | Standard or denied role | Inspect entries denied by the sampled role's permissions or disabled modules and open their direct URLs | Denied entries are hidden and direct routes are rejected or unavailable |
 | A4-DASH-01 | Super-admin and limited role | Compare dashboard widgets/cards against permissions | Dashboard content matches permissions and enabled modules |
 | A4-PERM-01 | Standard and denied role | Compare menu, direct route, and user context | Menu visibility and route access agree with permission context |
+| A4-PROPERTY-MENU-01 | Homestay/housing authorized roles | Compare `/users/me`, left menu, `/homestay`, and `/housing` | Each enabled module exposes exactly one operations entry; the route, page permission, module code, API permissions, and data scope agree |
+| A4-PROPERTY-MENU-02 | Homestay/housing denied or module-disabled role | Inspect menu and directly open `/homestay` or `/housing` | Missing page permission hides/rejects the page; a disabled module is rejected independently of API and data permissions |
 
 Production read-only sampling must not click create, update, delete, enable, disable, import, export, approve, void, generate, pay, waive, invoice, dispatch, or cleanup actions.
+
+For the property-business modules, distinguish the controls explicitly:
+
+- `homestay` / `housing_rental` are menu permissions (`perm_type=10`);
+- `homestay:operations` / `housing_rental:operations` are page permissions (`perm_type=20`);
+- `homestay:*` / `housing:*` operation codes remain API permissions (`perm_type=40`);
+- enabled modules decide product availability, and property data scopes decide which units are visible.
+
+The legacy first-release whitelist only records `/homestay` and `/housing` for compatibility. It is not a substitute for these runtime samples.
 
 ## 5. Menu Fallback Manual Interception
 
@@ -131,4 +142,3 @@ Stop the release gate and open a follow-up task if any of these happen:
 - dashboard visibility does not match role permissions;
 - `/users/me` context does not match the visible menu or route result;
 - any production sampling writes data or changes permissions without approval.
-

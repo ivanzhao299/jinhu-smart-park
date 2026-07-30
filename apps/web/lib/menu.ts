@@ -9,6 +9,8 @@ import {
   FolderTree,
   HardHat,
   Home,
+  Hotel,
+  House,
   KeyRound,
   LifeBuoy,
   LayoutDashboard,
@@ -63,6 +65,8 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   tags: Tags,
   "folder-tree": FolderTree,
   "hard-hat": HardHat,
+  hotel: Hotel,
+  house: House,
   menu: FolderTree,
   "scroll-text": ScrollText,
   audit: ScrollText
@@ -98,6 +102,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/contracts",
   "/leasing/receivables",
   "/leasing/payments",
+  "/homestay",
+  "/housing",
   "/workorders",
   "/tenant/service",
   "/workflow/inbox",
@@ -186,6 +192,22 @@ export const dashboardMenus: MenuNode[] = [
       { label: "欠费账龄", href: "/leasing/aging", permission: "leasing_receivable:aging", module: "leasing" },
       { label: "豁免管理", href: "/leasing/waivers", permission: "leasing_waiver:read", module: "leasing" },
       { label: "发票登记", href: "/leasing/invoices", permission: "leasing_invoice:read", module: "leasing" }
+    ]
+  },
+  {
+    label: "民宿管理",
+    icon: Hotel,
+    module: "homestay",
+    children: [
+      { label: "民宿运营", href: "/homestay", permission: "homestay:operations", module: "homestay" }
+    ]
+  },
+  {
+    label: "住房出租",
+    icon: House,
+    module: "housing_rental",
+    children: [
+      { label: "住房运营", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
     ]
   },
   {
@@ -492,6 +514,12 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   }
   if (href.startsWith("/leasing") || startsWithAny(permission, ["leasing", "park_tenant"])) {
     return "leasing";
+  }
+  if (href.startsWith("/homestay") || permission.startsWith("homestay")) {
+    return "homestay";
+  }
+  if (href.startsWith("/housing") || startsWithAny(permission, ["housing:", "housing_rental"])) {
+    return "housing_rental";
   }
   if (href.startsWith("/workorders") || href.startsWith("/tenant/service") || href.startsWith("/workflow") || permission.startsWith("workorder")) {
     return "workorder";
