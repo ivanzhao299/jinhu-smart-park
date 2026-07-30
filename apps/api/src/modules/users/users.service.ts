@@ -1091,6 +1091,16 @@ export class UsersService {
     ) {
       return "leasing";
     }
+    if (frontendRoute?.startsWith("/homestay") || permissionCode?.startsWith("homestay")) {
+      return "homestay";
+    }
+    if (
+      frontendRoute?.startsWith("/housing")
+      || permissionCode?.startsWith("housing:")
+      || permissionCode?.startsWith("housing_rental")
+    ) {
+      return "housing_rental";
+    }
     if (frontendRoute?.startsWith("/workorders") || permissionCode?.startsWith("workorder")) {
       return "workorder";
     }
@@ -1169,6 +1179,22 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
       { label: "欠费账龄", href: "/leasing/aging", permission: "leasing_receivable:aging", module: "leasing" },
       { label: "豁免管理", href: "/leasing/waivers", permission: "leasing_waiver:read", module: "leasing" },
       { label: "发票登记", href: "/leasing/invoices", permission: "leasing_invoice:read", module: "leasing" }
+    ]
+  },
+  {
+    label: "民宿管理",
+    icon: "hotel",
+    module: "homestay",
+    children: [
+      { label: "民宿运营", href: "/homestay", permission: "homestay:operations", module: "homestay" }
+    ]
+  },
+  {
+    label: "住房出租",
+    icon: "house",
+    module: "housing_rental",
+    children: [
+      { label: "住房运营", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
     ]
   },
   {

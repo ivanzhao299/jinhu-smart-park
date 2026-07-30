@@ -41,9 +41,6 @@ export function hasModule(user: PermissionSubject | null, moduleCode?: string): 
   if (!user) {
     return false;
   }
-  if (isSuperUser(user)) {
-    return true;
-  }
   const modules = user.enabled_modules ?? user.enabledModules ?? [];
   return modules.some((module) => (module.module_code ?? module.moduleCode) === moduleCode && module.enabled !== false);
 }

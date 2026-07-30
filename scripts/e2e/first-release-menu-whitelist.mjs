@@ -51,6 +51,8 @@ function run() {
     "/leasing/contracts",
     "/leasing/receivables",
     "/leasing/payments",
+    "/homestay",
+    "/housing",
     "/workorders",
     "/workorders/list",
     "/operations/terminal",

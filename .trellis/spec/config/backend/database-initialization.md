@@ -27,6 +27,9 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - The PostgreSQL data volume may contain database state only.
 - Do not mount `database/migrations` into `/docker-entrypoint-initdb.d`.
 - Schema changes run only through `pnpm db:migrate`; seed and migration responsibilities remain separate.
+- When a forward migration adds built-in menu/page permission codes, every production-seed permission-tree
+  rebuild must recognize those roots and parent mappings. The standard `migrate -> seed` order must preserve
+  the migration-created `parent_id` relationships instead of resetting unknown codes to `NULL`.
 - Historical data migrations that need minimal prerequisite metadata may use
   `database/migration-prerequisites/<target-migration>/`. When any migration remains pending, the runner evaluates
   these files in migration order, including a newly added prerequisite on an already-succeeded earlier target,
@@ -54,14 +57,16 @@ The local Compose service is named `postgres`. Migration history is recorded in
 | Non-empty database with empty history | Do not auto-baseline until the existing schema is audited |
 | Host port is unavailable or reserved | Choose a local `POSTGRES_PORT` override and verify TCP connectivity |
 | Production-safe seed prerequisite is required by a migration | Treat as migration-order defect; do not silently claim the standard release order passed |
+| Production seed clears a migration-created menu/page `parent_id` | Fail release validation; add the new root/page codes to the seed parent map and rerun the production seed |
 
 ## 5. Good / Base / Bad Cases
 
 - Good: start a clean container, run `pnpm db:migrate`, confirm all history rows succeeded, then run the
-  production-safe seed.
+  production-safe seed; confirm migration-created menu/page nodes still reference their intended parents.
 - Base: reuse a database whose migration history and checksums already match; the migration command skips it.
 - Bad: let PostgreSQL execute the migration directory during image initialization and later auto-baseline the
   resulting non-empty database.
+- Bad: validate a new menu tree immediately after migration but never inspect it again after the production seed.
 
 ## 6. Tests Required
 
@@ -71,6 +76,7 @@ The local Compose service is named `postgres`. Migration history is recorded in
 - Assert required prerequisite history exists in both history tables and contains no failed/running state.
 - Inject history status/checksum divergence and a second-table write failure; assert fail-fast and atomic rollback.
 - After production seed, assert representative safety and engineering grants for the seven core roles.
+- After production seed, assert every newly migrated built-in page still has the expected parent permission code.
 - Run the release order through production-safe seed and baseline checks.
 - For local API E2E, verify `/api/v1/ready` reports the database and initialization checks as `ok`.
 
@@ -94,3 +100,14 @@ volumes:
 ```
 
 Then run `pnpm db:migrate` explicitly and inspect both the command result and the resulting schema.
+
+For migration-created permission trees:
+
+```sql
+-- Wrong: the production seed's fallback maps an unknown new page back to NULL.
+ELSE NULL
+
+-- Correct: recognize the new root and page before the fallback.
+WHEN child.code = 'homestay:operations' THEN 'homestay'
+ELSE NULL
+```

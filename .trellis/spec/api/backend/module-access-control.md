@@ -1,0 +1,117 @@
+# Tenant Module Access Control
+
+## 1. Scope / Trigger
+
+Read this contract before changing tenant module assignment, `@RequireModule`, `/users/me`,
+frontend module filtering, post-login routing, or a migration that materializes module-specific
+menus and role grants.
+
+## 2. Signatures
+
+- Database authority:
+  `rel_tenant_module(tenant_id, park_id, module_id, enabled, status, expire_time, is_deleted)`
+  joined to `sys_module(id, module_code, status, is_deleted)`.
+- Runtime projection:
+  `GET /users/me -> enabled_modules[]`.
+- API guard:
+  `@RequireModule(...moduleCodes)` -> `ModuleGuard`.
+- Web guard:
+  `hasModule(user, moduleCode)` and
+  `hasAccess(user, permissionCode, moduleCode)`.
+
+`sys_module_registry` is management metadata for the legacy registry surface. It is not the
+authorization authority for the signatures above.
+
+## 3. Contracts
+
+- An enabled module assignment satisfies all of:
+  - matching tenant and park;
+  - `rel_tenant_module.is_deleted = false`;
+  - `rel_tenant_module.enabled = true`;
+  - `rel_tenant_module.status = 'enabled'`;
+  - `expire_time IS NULL OR expire_time > now()`;
+  - joined `sys_module.is_deleted = false`;
+  - joined `sys_module.status = 1`.
+- `SaaSModulesService.listEnabledModulesForTenant`, `/users/me.enabled_modules`,
+  `ModuleGuard`, frontend `hasModule`, and module-dependent migrations must apply the same
+  predicate and source.
+- Superuser status or wildcard `*` bypasses permission-code checks only. It never bypasses
+  product availability.
+- A module-specific login destination requires the same enabled-module check as its menu and
+  route guard. A module-free destination such as `/dashboard` is the safe fallback.
+- Menu materialization may derive eligible roles from existing API permissions, but it must
+  intersect those roles with an active tenant-module assignment in the same tenant and park.
+
+## 4. Validation & Error Matrix
+
+| Assignment / principal | `/users/me.enabled_modules` | Web menu/route | API guard |
+|---|---|---|---|
+| Active assignment, normal authorized role | Includes module | Allowed | Allowed |
+| Active assignment, superuser | Includes module | Allowed | Allowed |
+| Missing assignment, superuser | Excludes module | Hidden / module 403 | HTTP 403 |
+| Disabled or soft-deleted assignment | Excludes module | Hidden / module 403 | HTTP 403 |
+| Expired assignment | Excludes module | Hidden / module 403 | HTTP 403 |
+| Active assignment without registry row | Includes module | Allowed | Allowed |
+| Registry row without active assignment | Excludes module | Hidden / module 403 | HTTP 403 |
+| Disabled or deleted `sys_module` | Excludes module | Hidden / module 403 | HTTP 403 |
+
+## 5. Good / Base / Bad Cases
+
+- Good: the standard module-assignment API creates only `rel_tenant_module`; a later menu
+  migration still recognizes the scope.
+- Good: a superuser retains wildcard permission behavior while a disabled housing module is
+  absent from the sidebar and rejected by route/API guards.
+- Base: an active assignment with no eligible API role creates the tenant menu definitions but
+  no role grants.
+- Bad: querying `sys_module_registry` to decide which tenant receives menu permissions.
+- Bad: returning `true` from `hasModule` solely because `is_super` or `permissions=["*"]`.
+- Bad: routing a mobile superuser directly to a module terminal without checking
+  `enabled_modules`.
+
+## 6. Tests Required
+
+- Unit: `hasPermission(super, permission)` is true while `hasModule(super, disabledOrMissing)`
+  is false; `hasAccess` therefore remains false.
+- Unit: disabled module entries reject both normal and super users.
+- Unit: post-login routing sends a superuser to a module terminal only when the required module
+  is in `enabled_modules`; otherwise it uses a module-free fallback.
+- Migration contract: SQL joins `rel_tenant_module` to `sys_module`, includes every active
+  predicate above, and does not read `sys_module_registry`.
+- Database integration: create an assignment through the standard data shape with no registry
+  row, execute the migration twice, and assert unique menu/page nodes plus park-scoped role
+  grants.
+- Runtime/browser: disable a module for a real superuser, reload `/users/me`, and assert the
+  menu disappears, direct navigation is denied, and the API returns 403.
+
+## 7. Wrong vs Correct
+
+### Wrong
+
+```ts
+if (user.is_super) return true;
+```
+
+```sql
+FROM sys_module_registry
+WHERE status = 'enabled';
+```
+
+### Correct
+
+```ts
+const modules = user.enabled_modules ?? [];
+return modules.some(
+  (module) => module.module_code === moduleCode && module.enabled !== false
+);
+```
+
+```sql
+FROM rel_tenant_module assignment
+JOIN sys_module module ON module.id = assignment.module_id
+WHERE assignment.enabled = true
+  AND assignment.status = 'enabled'
+  AND assignment.is_deleted = false
+  AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+  AND module.status = 1
+  AND module.is_deleted = false;
+```

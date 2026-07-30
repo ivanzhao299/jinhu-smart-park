@@ -75,16 +75,13 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
     (hasModule(user, "workorder") && hasAnyPermission(user, OPERATIONS_PERMISSIONS));
 
   if (prefersMobileWorkbench(signals)) {
-    if (user?.is_super) {
-      return "/operations/terminal";
-    }
     if (hasEngineeringAccess) {
       return "/engineering/terminal";
     }
     if (hasOperationsAccess) {
       return "/operations/terminal";
     }
-    return firstMenuHref ?? "/operations/terminal";
+    return firstMenuHref ?? "/dashboard";
   }
 
   if (firstMenuHref) {

@@ -350,6 +350,21 @@ When a CLI auto-detects a mode by probing a remote resource (e.g., checking if `
 
 **Real-world example**: Custom registry flow had 8 bugs across 3 review rounds: (1) probe only ran in interactive mode, (2) transient errors fell through to wrong mode, (3) giget URI had `#ref` in wrong position, (4) prefetched templates leaked across source switches, (5) `--template` shortcut bypassed probe but `downloadTemplateById` internally used catch-all `fetchTemplateIndex`, turning timeouts into "Template not found".
 
+## Product Module Availability Checklist
+
+Before changing module-gated menus, pages, APIs, login destinations, or migrations:
+
+- [ ] Identify the runtime authority by tracing storage → service → `/users/me` → UI; do not
+  substitute a similarly named registry table.
+- [ ] Separate permission elevation from product availability; verify superuser + disabled
+  module as an explicit negative case.
+- [ ] Exercise the standard write path's exact data shape, including a tenant-module assignment
+  with no legacy registry record.
+- [ ] Test disabled, deleted, expired, assignment-only, registry-only, normal-role, and
+  superuser combinations.
+- [ ] Read the executable contract in
+  `api/backend/module-access-control.md` before implementation.
+
 **Real-world example**: Agent-session update hints fetched npm `latest` metadata with `response.read(4096)` and then parsed it as complete JSON. The `@mindfoldhq/trellis` package metadata exceeded 4 KB, so the JSON was truncated, parse failed silently, and the first session injection showed no update hint. Fix: read the complete response before parsing, and add a regression where `version` is followed by an 8 KB metadata tail.
 
 ---

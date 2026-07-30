@@ -52,6 +52,10 @@ Reference files:
 
 Use `PermissionGuard` and `PermissionButton` for permission-gated UI instead of open-coding permission checks in JSX. Use shared constants from `@jinhu/shared` where available.
 
+Superuser status bypasses permission-code checks only; it does not bypass tenant product
+availability. For module menus, routes, and login destinations, follow the cross-layer contract
+in [Tenant Module Access Control](../../api/backend/module-access-control.md).
+
 Reference files:
 - `apps/web/components/auth/PermissionGuard.tsx`
 - `apps/web/components/auth/PermissionButton.tsx`
