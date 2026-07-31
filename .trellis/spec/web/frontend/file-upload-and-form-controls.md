@@ -242,6 +242,9 @@
   replacement-style optional fields, an unavailable projection omits the request
   field so the backend preserves its current association; only an available empty
   array means the actor intentionally submitted an empty replacement.
+- For repeated child records, availability belongs to each child input. Do not use
+  one parent flag or discard availability while mapping projections into a
+  `Record<id, Input>`; serialize each optional replacement field independently.
 
 ### 4. Validation & Error Matrix
 - `string[]` attachment IDs -> trim, remove empty entries, join for the control.
@@ -252,6 +255,9 @@
 - mask token, `NaN`, infinity, object, or missing numeric value -> `""`.
 - unavailable attachment projection on resubmit -> omit `photo_file_ids`; backend
   preserves the existing association.
+- unavailable attachment projection on one repeated result -> omit only that
+  result's `photo_file_ids`; preserve its existing association without changing
+  independently available siblings.
 - available empty attachment array -> submit `photo_file_ids: []`; backend applies
   normal required-count and replacement validation.
 

@@ -1,4 +1,4 @@
-export function resolveCheckInPhotoFileIds(
+export function resolveSubmittedPhotoFileIds(
   requestedPhotoFileIds: string[] | undefined,
   existingPhotoFileIds: string[] | null | undefined
 ): string[] {

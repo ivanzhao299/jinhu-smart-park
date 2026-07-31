@@ -25,7 +25,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
-import { normalizeFileIdInput, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
+import { buildFileIdReplacement, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
@@ -164,6 +164,7 @@ interface ResultInput {
   valueText: string;
   valueNumber: string;
   photoFileIds: string;
+  photoFileIdsAvailable: boolean;
   createHazard: boolean;
 }
 
@@ -368,11 +369,15 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
     setResultInputs(Object.fromEntries(items.map((item) => {
       const existing = existingMap.get(item.id);
+      const photoProjection = existing
+        ? normalizeFileIdProjection(existing.photoFileIds)
+        : { available: true, value: "" };
       return [item.id, {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
         valueText: existing?.valueText ?? "",
         valueNumber: existing?.valueNumber ?? "",
-        photoFileIds: normalizeFileIdInput(existing?.photoFileIds),
+        photoFileIds: photoProjection.value,
+        photoFileIdsAvailable: canViewTaskPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
     })));
@@ -470,7 +475,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
             result: input.result,
             value_text: input.valueText.trim() || undefined,
             value_number: input.valueNumber.trim() ? Number(input.valueNumber) : undefined,
-            photo_file_ids: parseFileIds(input.photoFileIds),
+            ...buildFileIdReplacement(input.photoFileIds, input.photoFileIdsAvailable),
             create_hazard: input.createHazard
           };
         })
@@ -809,7 +814,11 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                           <input type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
                         </td>
                         <td>
-                          <input value={input.photoFileIds} onChange={(event) => setResultInput(item.id, { photoFileIds: event.target.value })} placeholder="多个 file_id 逗号分隔" />
+                          {input.photoFileIdsAvailable ? (
+                            <input value={input.photoFileIds} onChange={(event) => setResultInput(item.id, { photoFileIds: event.target.value })} placeholder="多个 file_id 逗号分隔" />
+                          ) : (
+                            <span className="status-pill">字段不可用，保留已有附件</span>
+                          )}
                         </td>
                         <td>
                           <input checked={input.createHazard} type="checkbox" onChange={(event) => setResultInput(item.id, { createHazard: event.target.checked })} />
@@ -949,6 +958,7 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
     valueText: "",
     valueNumber: "",
     photoFileIds: "",
+    photoFileIdsAvailable: true,
     createHazard: false
   };
 }

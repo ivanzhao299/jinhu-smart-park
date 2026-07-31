@@ -25,7 +25,7 @@ import { SafetyActionLogEntity } from "./entities/safety-action-log.entity";
 import { SafetyHazardEntity } from "./entities/safety-hazard.entity";
 import { SafetyInspectTaskResultEntity } from "./entities/safety-inspect-task-result.entity";
 import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
-import { resolveCheckInPhotoFileIds } from "./safety-inspect-task-check-in.logic";
+import { resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
 
 const TASK_STATUS_PENDING = "10";
 const TASK_STATUS_IN_PROGRESS = "20";
@@ -328,7 +328,7 @@ export class SafetyInspectTasksService {
       throw new BadRequestException("Only pending, in-progress or overdue inspect tasks can check in");
     }
     const point = task.point ?? (await this.assertEnabledPoint(scope, task.pointId));
-    const photoIds = resolveCheckInPhotoFileIds(dto.photo_file_ids, task.photoFileIds);
+    const photoIds = resolveSubmittedPhotoFileIds(dto.photo_file_ids, task.photoFileIds);
     if (point.requiredScan) {
       const expectedQrCode = point.qrCode ?? point.pointCode;
       if (!dto.qr_code || dto.qr_code !== expectedQrCode) {
@@ -421,11 +421,11 @@ export class SafetyInspectTasksService {
       for (const payload of dto.results) {
         const item = itemMap.get(payload.item_id);
         if (!item) continue;
-        const photoIds = payload.photo_file_ids ?? [];
         const isAbnormal = payload.result === TASK_RESULT_ABNORMAL;
         hasAbnormal = hasAbnormal || isAbnormal;
         const resultRepository = manager.getRepository(SafetyInspectTaskResultEntity);
         const existingResult = existingByItem.get(item.id);
+        const photoIds = resolveSubmittedPhotoFileIds(payload.photo_file_ids, existingResult?.photoFileIds);
         let savedResult: SafetyInspectTaskResultEntity;
         if (existingResult) {
           existingResult.taskId = task.id;

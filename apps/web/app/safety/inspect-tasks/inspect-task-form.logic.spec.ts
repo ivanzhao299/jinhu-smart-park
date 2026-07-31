@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeFileIdInput, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
+import {
+  buildFileIdReplacement,
+  normalizeFileIdInput,
+  normalizeFileIdProjection,
+  normalizeNumericInput
+} from "./inspect-task-form.logic";
 
 test("inspection execution normalizes attachment projections before opening the form", () => {
   assert.equal(normalizeFileIdInput([" file-a ", "", "file-b"]), "file-a,file-b");
@@ -17,6 +22,14 @@ test("inspection execution distinguishes an explicit empty attachment list from 
   assert.deepEqual(normalizeFileIdProjection(["file-a", null]), { available: false, value: "" });
   assert.deepEqual(normalizeFileIdProjection(undefined), { available: false, value: "" });
   assert.deepEqual(normalizeFileIdProjection("***"), { available: false, value: "" });
+});
+
+test("inspection result payloads omit unavailable evidence and retain explicit replacement semantics", () => {
+  assert.deepEqual(buildFileIdReplacement("", false), {});
+  assert.deepEqual(buildFileIdReplacement("", true), { photo_file_ids: [] });
+  assert.deepEqual(buildFileIdReplacement(" file-a, file-b ", true), {
+    photo_file_ids: ["file-a", "file-b"]
+  });
 });
 
 test("inspection execution accepts only finite numeric GPS projections", () => {

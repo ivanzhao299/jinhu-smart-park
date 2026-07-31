@@ -158,6 +158,9 @@ action against every state and sibling entry point before implementation:
 - [ ] Replacement-array validators reject the entire projection when any member is
       malformed; lossy filtering must not turn unavailable data into an explicit
       partial or empty replacement
+- [ ] Repeated child updates carry replacement-field availability per child and the
+      service resolves omission against that child's persisted record; a fix for one
+      top-level occurrence is expanded to every nested sibling occurrence
 - [ ] List filters remain query context only; they never initialize persisted
       lifecycle flags unless the backend independently derives and validates that state
 - [ ] Every projected attachment is exercised through metadata list, file detail,

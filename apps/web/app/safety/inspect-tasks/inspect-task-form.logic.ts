@@ -21,6 +21,20 @@ export function normalizeFileIdInput(value: unknown): string {
   return normalizeFileIdProjection(value).value;
 }
 
+export function buildFileIdReplacement(
+  value: string,
+  available: boolean
+): { photo_file_ids?: string[] } {
+  if (!available) return {};
+
+  return {
+    photo_file_ids: value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  };
+}
+
 export function normalizeNumericInput(value: unknown): string {
   if (typeof value === "number") {
     return Number.isFinite(value) ? String(value) : "";
