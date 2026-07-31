@@ -270,8 +270,9 @@ action against every state and sibling entry point before implementation:
       owner, remove the local row, then refresh; refresh rejection is warning data and
       never a rejection of the completed DELETE
 - [ ] When an attachment ID or URL is denormalized into multiple owner projections,
-      reconcile every list/detail/edit/action snapshot immediately after commit and
-      compare the deleted file ID before clearing so a newer replacement survives
+      reconcile every list/detail/edit/action snapshot immediately after both upload
+      and deletion commits; project the replacement before older files can be deleted,
+      and compare the deleted file ID before clearing so the replacement survives
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;

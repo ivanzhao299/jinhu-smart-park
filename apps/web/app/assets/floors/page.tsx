@@ -16,7 +16,10 @@ import {
   removeCommittedItem
 } from "../../../lib/committed-delete.logic";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
-import { clearCommittedFloorLayout } from "./floor-layout-state.logic";
+import {
+  applyCommittedFloorLayout,
+  clearCommittedFloorLayout
+} from "./floor-layout-state.logic";
 
 type FloorStatus = 0 | 1;
 
@@ -189,9 +192,26 @@ export default function FloorsPage() {
     if (refreshError) setMessage(`删除成功，但列表刷新失败：${refreshError}`);
   }
 
-  function handleLayoutUploaded(_file: FileRecord) {
+  function handleLayoutUploaded(floorId: string, file: FileRecord) {
+    setPageData((current) => ({
+      ...current,
+      items: current.items.map((row) => applyCommittedFloorLayout(
+        row,
+        floorId,
+        file.id,
+        file.fileUrl
+      ))
+    }));
+    setLayoutTarget((current) => current
+      ? applyCommittedFloorLayout(current, floorId, file.id, file.fileUrl)
+      : null);
+    setDetail((current) => current
+      ? applyCommittedFloorLayout(current, floorId, file.id, file.fileUrl)
+      : null);
     setRefreshKey((value) => value + 1);
-    void load(pageData.page).catch((error: Error) => setMessage(error.message));
+    void load(pageData.page).catch((error: Error) => {
+      setMessage(`平面图已上传，但楼层列表刷新失败：${error.message}`);
+    });
   }
 
   function handleLayoutDeleted(floorId: string, file: FileRecord) {
@@ -392,7 +412,7 @@ export default function FloorsPage() {
                           compact
                           policyKey="floorplan"
                           uploadPath={`/floors/${editingFloor.id}/layout`}
-                          onUploaded={handleLayoutUploaded}
+                          onUploaded={(file) => handleLayoutUploaded(editingFloor.id, file)}
                         />
                       </PermissionGuard>
                     ) : null}
@@ -429,7 +449,7 @@ export default function FloorsPage() {
                   bizId={layoutTarget.id}
                   policyKey="floorplan"
                   uploadPath={`/floors/${layoutTarget.id}/layout`}
-                  onUploaded={handleLayoutUploaded}
+                  onUploaded={(file) => handleLayoutUploaded(layoutTarget.id, file)}
                 />
               </PermissionGuard>
             ) : null}
