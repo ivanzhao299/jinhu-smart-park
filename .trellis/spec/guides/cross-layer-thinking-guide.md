@@ -269,6 +269,10 @@ action against every state and sibling entry point before implementation:
 - [ ] Shared attachment deletion follows the same committed-mutation rule: notify the
       owner, remove the local row, then refresh; refresh rejection is warning data and
       never a rejection of the completed DELETE
+- [ ] When an attachment ID or URL is denormalized into multiple owner projections,
+      reconcile every list/detail/edit/action snapshot immediately after both upload
+      and deletion commits; project the replacement before older files can be deleted,
+      and compare the deleted file ID before clearing so the replacement survives
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;
@@ -286,6 +290,9 @@ action against every state and sibling entry point before implementation:
 
 Add behavioral tests for both the allowed transition and its nearest forbidden
 neighbor. Source-pattern assertions may supplement, but not replace, these tests.
+Every new package-local regression spec must also be reachable from that package's
+test command and from the root CI verification path; passing an ad-hoc invocation
+does not make the regression executable protection.
 
 ---
 

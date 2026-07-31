@@ -71,6 +71,12 @@
   local projection. The server mutation is authoritative; a secondary list-refresh
   failure must become a separate warning, must not reject the completed deletion, and
   must not leave the deleted row or file ID in client state.
+- When the owning record denormalizes an attachment ID or URL into list, detail, edit,
+  or action-target snapshots, apply both successful uploads and deletions to every
+  matching local snapshot synchronously before refreshing. Upload success must replace
+  the projected file ID/URL before an older attachment can be deleted; deletion must
+  compare both the business-record ID and deleted file ID so a late callback for an
+  older file cannot erase a newer replacement.
 - Protected business-file deletion controls require both `file:delete` and the domain
   mutation permission enforced by the backend (for example,
   `floor:upload_layout` for a floorplan).
@@ -130,6 +136,12 @@
 - Deletion-order test: owner notification runs after DELETE success and before list
   refresh, the shared list removes the committed row before refresh, and a rejected
   refresh returns a warning instead of rejecting the deletion.
+- Owner-projection lifecycle test: matching denormalized attachment references are
+  replaced on upload and cleared on deletion immediately, while another record and a
+  newer replacement file remain intact when an older attachment is deleted.
+- Attachment owner-projection regressions must be included in a Web package test
+  command that is invoked by the root `test:unit` CI verification path; a spec that
+  only passes through an ad-hoc local `node --test` command is not protected.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct
