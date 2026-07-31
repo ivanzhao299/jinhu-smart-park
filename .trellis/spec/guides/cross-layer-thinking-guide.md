@@ -149,6 +149,9 @@ action against every state and sibling entry point before implementation:
       same business payload
 - [ ] Permission-aware responses project only fields authorized by each granular
       read permission
+- [ ] Before permission-aware or legacy response fields enter editable controls,
+      consumers normalize runtime `unknown` values; compile-time row interfaces do
+      not authorize array methods or constrained-input assignment at the HTTP boundary
 - [ ] Every projected attachment is exercised through metadata list, file detail,
       and blob download policy for each allowed granular business role
 - [ ] Write-only roles receive the minimum read context required to reach their

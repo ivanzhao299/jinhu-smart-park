@@ -27,6 +27,7 @@ import { getAccessToken } from "../../lib/authz";
 import { canViewField, maskField } from "../../lib/field-policy";
 import { hasPermission } from "../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../lib/reference-data";
+import { initialHazardOverdueFlag } from "./hazards-create.logic";
 
 const SAFETY_MODULE = "safety";
 const HAZARD_ENTITY = "safety_hazard";
@@ -516,6 +517,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
       hazardType: hazardTypeItems[0]?.itemValue ?? "",
       riskLevel: riskItems[0]?.itemValue ?? "",
       sourceType: "manual",
+      overdueFlag: initialHazardOverdueFlag(effectiveOverdueOnly),
       status: "10"
     });
     setFormOpen(true);

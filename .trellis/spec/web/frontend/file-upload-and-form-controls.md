@@ -217,3 +217,61 @@
 <input type="number" min="0" step="0.01" onFocus={(event) => event.target.select()} />
 <input type="date" min={addBusinessDateDays(startDate, 1)} />
 ```
+
+## Scenario: Permission-Aware Projections Entering Editable Controls
+
+### 1. Scope / Trigger
+- Trigger: An API list/detail projection is copied into an editable form, especially
+  attachments, GPS values, encrypted fields, or fields governed by field policies.
+
+### 2. Signatures
+- Boundary normalizers accept `unknown` and return the exact control value type:
+  - attachment ID list -> comma-separated `string`
+  - numeric/GPS projection -> finite numeric `string` or `""`
+- Keep the normalizer next to the owning route when only that workflow uses it.
+
+### 3. Contracts
+- TypeScript response interfaces describe the canonical authorized response, but do
+  not prove the runtime value survived permission projection, legacy data, or partial
+  responses in that shape.
+- Components must normalize projection values before calling array/string methods or
+  assigning them to constrained inputs.
+- An absent, masked, or malformed optional projection degrades to an empty control;
+  it must not crash the page or be submitted as a mask token.
+
+### 4. Validation & Error Matrix
+- `string[]` attachment IDs -> trim, remove empty entries, join for the control.
+- `null`, missing, masked string, or non-array attachment value -> `""`.
+- finite number or finite numeric string -> preserve as a numeric input string.
+- mask token, `NaN`, infinity, object, or missing numeric value -> `""`.
+
+### 5. Good/Base/Bad Cases
+- Good: `normalizeFileIdInput(value: unknown)` validates with `Array.isArray` before
+  joining.
+- Base: canonical arrays and numeric strings retain their business values.
+- Bad: `row.photoFileIds?.join(",")` trusts a compile-time interface at an HTTP and
+  permission-policy boundary.
+- Bad: assigning `"***"` to `<input type="number">`.
+
+### 6. Tests Required
+- Unit-test canonical, empty, missing, masked, and wrong-shape values.
+- A regression test must exercise the normalizer used by the affected form.
+- Run Web typecheck and production build after changing the projection-to-form path.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```tsx
+setForm({
+  photoFileIds: row.photoFileIds?.join(",") ?? "",
+  gpsLng: row.gpsLng ?? ""
+});
+```
+
+#### Correct
+```tsx
+setForm({
+  photoFileIds: normalizeFileIdInput(row.photoFileIds),
+  gpsLng: normalizeNumericInput(row.gpsLng)
+});
+```

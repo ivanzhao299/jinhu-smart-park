@@ -22,19 +22,16 @@ import { VideoEvidencePanel } from "../../../components/video/VideoEvidencePanel
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { normalizeFileIdInput, normalizeNumericInput } from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
 
 type DictMap = Record<string, DictItemRow[]>;
 type PageMode = "all" | "mine";
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -233,7 +230,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
   const statusItems = dicts.safety_inspect_task_status ?? [];
-  const itemResultItems = dicts.safety_inspect_item_result ?? fallbackItemResultItems;
+  const configuredItemResultItems = dicts.safety_inspect_item_result ?? [];
+  const itemResultItems = configuredItemResultItems.length > 0 ? configuredItemResultItems : fallbackItemResultItems;
   const pointMap = useMemo(() => new Map(points.map((item) => [item.id, item])), [points]);
   const templateMap = useMemo(() => new Map(templates.map((item) => [item.id, item])), [templates]);
   const permission = mode === "mine" ? SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY : SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ;
@@ -257,20 +255,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }, [filters, mode]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["safety_inspect_task_status", "safety_inspect_result", "safety_inspect_item_result"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadRefs = useCallback(async () => {
@@ -339,9 +325,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     setExecuting(row);
     setCheckInForm({
       qrCode: row.point?.pointCode ?? "",
-      gpsLng: row.gpsLng ?? "",
-      gpsLat: row.gpsLat ?? "",
-      photoFileIds: row.photoFileIds?.join(",") ?? ""
+      gpsLng: normalizeNumericInput(row.gpsLng),
+      gpsLat: normalizeNumericInput(row.gpsLat),
+      photoFileIds: normalizeFileIdInput(row.photoFileIds)
     });
     setTemplateItems([]);
     setResultInputs({});
@@ -351,9 +337,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       setExecuting((current) => (current?.id === row.id ? task : current));
       setCheckInForm({
         qrCode: task.point?.pointCode ?? "",
-        gpsLng: task.gpsLng ?? "",
-        gpsLat: task.gpsLat ?? "",
-        photoFileIds: task.photoFileIds?.join(",") ?? ""
+        gpsLng: normalizeNumericInput(task.gpsLng),
+        gpsLat: normalizeNumericInput(task.gpsLat),
+        photoFileIds: normalizeFileIdInput(task.photoFileIds)
       });
       if (mode === "mine") {
         applyTemplateItems(task.items ?? [], task.results ?? []);
@@ -381,7 +367,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
         valueText: existing?.valueText ?? "",
         valueNumber: existing?.valueNumber ?? "",
-        photoFileIds: existing?.photoFileIds?.join(",") ?? "",
+        photoFileIds: normalizeFileIdInput(existing?.photoFileIds),
         createHazard: existing?.hazardCreated ?? false
       }] as const;
     })));
