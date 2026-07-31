@@ -38,3 +38,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 处理 PR214 Codex Review P1
+
+**Date**: 2026-07-31
+**Task**: 处理 PR214 Codex Review P1
+**Package**: api
+**Branch**: `agent/fix-safety-issues-206-213`
+
+### Summary
+
+分离超期筛选与业务状态，保护字段策略隐藏时的巡检附件证据，并补充 Web/API 回归与规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `016599f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
