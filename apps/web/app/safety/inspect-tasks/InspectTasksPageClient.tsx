@@ -29,6 +29,7 @@ import { buildFileIdReplacement, normalizeFileIdProjection, normalizeNumericInpu
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
+const INSPECT_TASK_RESULT_ENTITY = "inspect_task_result";
 
 type DictMap = Record<string, DictItemRow[]>;
 type PageMode = "all" | "mine";
@@ -240,6 +241,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const canViewGpsLng = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLng");
   const canViewGpsLat = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLat");
   const canViewTaskPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "photoFileIds");
+  const canViewResultPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-plan_time" });
@@ -377,7 +379,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         valueText: existing?.valueText ?? "",
         valueNumber: existing?.valueNumber ?? "",
         photoFileIds: photoProjection.value,
-        photoFileIdsAvailable: canViewTaskPhotos && photoProjection.available,
+        photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
     })));

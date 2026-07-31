@@ -245,6 +245,9 @@
 - For repeated child records, availability belongs to each child input. Do not use
   one parent flag or discard availability while mapping projections into a
   `Record<id, Input>`; serialize each optional replacement field independently.
+- A nested child field uses the field-policy entity declared for that child. Parent
+  and child fields with the same property name remain independent capabilities; do
+  not gate `inspect_task_result.photo_file_ids` with the `inspect_task` photo policy.
 
 ### 4. Validation & Error Matrix
 - `string[]` attachment IDs -> trim, remove empty entries, join for the control.

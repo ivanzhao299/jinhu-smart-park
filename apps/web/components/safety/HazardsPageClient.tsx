@@ -425,7 +425,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   const pagePermission = effectiveOverdueOnly ? SYSTEM_PERMISSIONS.SAFETY_HAZARD_OVERDUE : SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ;
   const canReadHazards = hasPermission(authUser, SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ);
   const canLoadStatusLogs = !effectiveOverdueOnly || canReadHazards;
-  const canCreateHazard = canCreateHazardFromPage(effectiveOverdueOnly);
+  const canCreateHazard = canCreateHazardFromPage({ forcedOverdueOnly });
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });

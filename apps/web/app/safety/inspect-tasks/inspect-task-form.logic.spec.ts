@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   buildFileIdReplacement,
@@ -30,6 +32,18 @@ test("inspection result payloads omit unavailable evidence and retain explicit r
   assert.deepEqual(buildFileIdReplacement(" file-a, file-b ", true), {
     photo_file_ids: ["file-a", "file-b"]
   });
+});
+
+test("inspection result photos use their independent field-policy entity", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+
+  assert.match(source, /INSPECT_TASK_RESULT_ENTITY = "inspect_task_result"/);
+  assert.match(
+    source,
+    /canViewResultPhotos = canViewField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/
+  );
+  assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && photoProjection\.available/);
+  assert.doesNotMatch(source, /photoFileIdsAvailable: canViewTaskPhotos && photoProjection\.available/);
 });
 
 test("inspection execution accepts only finite numeric GPS projections", () => {

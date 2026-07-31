@@ -161,8 +161,12 @@ action against every state and sibling entry point before implementation:
 - [ ] Repeated child updates carry replacement-field availability per child and the
       service resolves omission against that child's persisted record; a fix for one
       top-level occurrence is expanded to every nested sibling occurrence
+- [ ] Parent and child fields with matching names resolve their own field-policy
+      entity and key; a parent capability is never reused as a child capability
 - [ ] List filters remain query context only; they never initialize persisted
       lifecycle flags unless the backend independently derives and validates that state
+- [ ] Route-owned capabilities depend on explicit route mode, not an effective query
+      boolean that also includes mutable list filters
 - [ ] Every projected attachment is exercised through metadata list, file detail,
       and blob download policy for each allowed granular business role
 - [ ] Write-only roles receive the minimum read context required to reach their
