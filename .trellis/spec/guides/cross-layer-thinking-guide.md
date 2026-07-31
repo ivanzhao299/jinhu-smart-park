@@ -155,6 +155,9 @@ action against every state and sibling entry point before implementation:
 - [ ] Optional replacement fields distinguish unavailable/omitted from explicitly
       empty; the UI omits unavailable projections and the service preserves the
       existing association instead of defaulting a missing field to `[]`
+- [ ] Replacement-array validators reject the entire projection when any member is
+      malformed; lossy filtering must not turn unavailable data into an explicit
+      partial or empty replacement
 - [ ] List filters remain query context only; they never initialize persisted
       lifecycle flags unless the backend independently derives and validates that state
 - [ ] Every projected attachment is exercised through metadata list, file detail,

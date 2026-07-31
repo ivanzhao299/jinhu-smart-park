@@ -4,14 +4,13 @@ export interface FileIdInputProjection {
 }
 
 export function normalizeFileIdProjection(value: unknown): FileIdInputProjection {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     return { available: false, value: "" };
   }
 
   return {
     available: true,
     value: value
-      .filter((item): item is string => typeof item === "string")
       .map((item) => item.trim())
       .filter(Boolean)
       .join(",")

@@ -245,7 +245,9 @@
 
 ### 4. Validation & Error Matrix
 - `string[]` attachment IDs -> trim, remove empty entries, join for the control.
-- `null`, missing, masked string, or non-array attachment value -> `""`.
+- `null`, missing, masked string, non-array attachment value, or an array containing
+  any non-string member -> unavailable and `""`. Reject the entire malformed array;
+  never filter invalid members into an available partial or empty replacement.
 - finite number or finite numeric string -> preserve as a numeric input string.
 - mask token, `NaN`, infinity, object, or missing numeric value -> `""`.
 - unavailable attachment projection on resubmit -> omit `photo_file_ids`; backend

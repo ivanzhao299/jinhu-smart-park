@@ -7,12 +7,14 @@ test("inspection execution normalizes attachment projections before opening the 
   assert.equal(normalizeFileIdInput(undefined), "");
   assert.equal(normalizeFileIdInput(null), "");
   assert.equal(normalizeFileIdInput("***"), "");
-  assert.equal(normalizeFileIdInput(["file-a", 42, null]), "file-a");
+  assert.equal(normalizeFileIdInput(["file-a", 42, null]), "");
 });
 
 test("inspection execution distinguishes an explicit empty attachment list from an unavailable projection", () => {
   assert.deepEqual(normalizeFileIdProjection([]), { available: true, value: "" });
   assert.deepEqual(normalizeFileIdProjection(["file-a"]), { available: true, value: "file-a" });
+  assert.deepEqual(normalizeFileIdProjection([null]), { available: false, value: "" });
+  assert.deepEqual(normalizeFileIdProjection(["file-a", null]), { available: false, value: "" });
   assert.deepEqual(normalizeFileIdProjection(undefined), { available: false, value: "" });
   assert.deepEqual(normalizeFileIdProjection("***"), { available: false, value: "" });
 });
