@@ -63,6 +63,10 @@
   aggregate before the side effect. Floorplan list/detail/download requires floor-read;
   floorplan upload/delete requires floor-layout permission; all paths enforce the
   referenced floor's park/building/floor data scope inside the mutation path.
+- When a delete workflow starts clearing an owner's denormalized file ID or URL,
+  ship a forward data migration for owner rows that already reference files soft-deleted
+  before that workflow existed. The repair must join by the stored file ID, clear both
+  the ID and URL, preserve active-file references, and be safe to rerun.
 - Every workflow that binds protected file IDs must acquire the same file-row
   `pessimistic_write` lock and retain it in the transaction that writes the owning
   reference. Locking only the deletion path, validating outside the write transaction,
@@ -117,6 +121,8 @@
 - Concurrency/integration test both orderings of protected evidence binding versus
   generic deletion; exactly one operation may succeed and no committed owner may
   reference a deleted file.
+- Migration contract test: historical floor rows pointing to soft-deleted floorplan
+  files are cleared, while active file references and deleted floor rows are preserved.
 
 ### 7. Wrong vs Correct
 
