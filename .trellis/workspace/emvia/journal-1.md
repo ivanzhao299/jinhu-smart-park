@@ -140,3 +140,37 @@ Preserved unavailable per-result inspection photo associations across Web and AP
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: PR214 policy and route context review fixes
+
+**Date**: 2026-07-31
+**Task**: PR214 policy and route context review fixes
+**Package**: api
+**Branch**: `agent/fix-safety-issues-206-213`
+
+### Summary
+
+Separated result-photo field policy from task photos and kept ordinary hazard creation independent of the overdue list filter.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a18a811` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
