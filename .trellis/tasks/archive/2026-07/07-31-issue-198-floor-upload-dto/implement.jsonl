@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "Frontend multipart contract"}
+{"file": ".trellis/spec/api/backend/file-upload.md", "reason": "Custom endpoint metadata contract"}

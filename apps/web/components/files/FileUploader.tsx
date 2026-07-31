@@ -12,6 +12,7 @@ import {
 } from "@jinhu/shared";
 import { apiFormRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
+import { buildFileUploadFormData } from "./file-uploader.logic";
 
 interface FileUploaderProps {
   bizType: string;
@@ -94,15 +95,13 @@ export function FileUploader({
     }
     setUploading(true);
     onUploadingChange?.(true);
-    const form = new FormData();
-    form.set("file", selectedFile);
-    form.set("biz_type", bizType);
-    if (bizId) {
-      form.set("biz_id", bizId);
-    }
-    if (remark.trim()) {
-      form.set("remark", remark.trim());
-    }
+    const form = buildFileUploadFormData({
+      file: selectedFile,
+      bizType,
+      bizId,
+      remark,
+      uploadPath
+    });
 
     try {
       const response = await apiFormRequest<FileRecord>(uploadPath, {
