@@ -58,6 +58,13 @@ grep -r "keyword" .
 
 **Good**: Single source of truth, import everywhere
 
+### Pattern 3a: Business dictionary loading
+
+Web business forms use `loadDictMapByCodes` and query enabled dictionary items by
+`dict_code`. Do not first load `/dict-types` to translate codes into IDs: that
+duplicates the shared loader and incorrectly couples ordinary business pages to
+dictionary-type administration permissions.
+
 ### Pattern 4: Repeated Payload Field Extraction
 
 **Bad**: Multiple consumers cast the same JSON/event fields locally:

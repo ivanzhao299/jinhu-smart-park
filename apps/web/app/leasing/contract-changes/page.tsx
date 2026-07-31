@@ -329,7 +329,7 @@ export default function LeasingContractChangesPage() {
         method: editing ? "PUT" : "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(editing ? "contract-change-update" : "contract-change-create"),
-        body: JSON.stringify(payload)
+        body: payload
       });
       setNotice(editing ? "合同变更草稿已更新" : "合同变更草稿已创建");
       setDrawerOpen(false);
@@ -350,7 +350,7 @@ export default function LeasingContractChangesPage() {
         method: "DELETE",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("contract-change-delete"),
-        body: JSON.stringify({})
+        body: {}
       });
       setNotice("合同变更草稿已删除");
       await load(pageData.page);
@@ -369,7 +369,7 @@ export default function LeasingContractChangesPage() {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("contract-change-preview"),
-        body: JSON.stringify({})
+        body: {}
       });
       setFinanceImpact(response.data);
       setDetail((prev) => prev && prev.id === row.id ? { ...prev, financeImpact: response.data } : prev);
@@ -397,7 +397,7 @@ export default function LeasingContractChangesPage() {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(`contract-change-${action}`),
-        body: JSON.stringify(action === "reject" ? { reject_reason: text, opinion: text } : { opinion: text || undefined })
+        body: action === "reject" ? { reject_reason: text, opinion: text } : { opinion: text || undefined }
       });
       setNotice(actionNotice(action));
       setDetail(null);

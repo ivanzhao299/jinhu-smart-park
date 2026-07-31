@@ -86,6 +86,32 @@ test("apiRequest keeps refresh cookie credentials even when callers pass another
   assert.equal(calls[0]?.init?.credentials, "include");
 });
 
+test("apiRequest serializes structured request bodies exactly once", async () => {
+  const calls = installFetchRecorder();
+
+  await apiRequest("/leasing/contracts/contract-id/changes", {
+    method: "POST",
+    body: { change_type: "rent", change_content: { rent_per_month: 1200 } }
+  });
+
+  assert.equal(
+    calls[0]?.init?.body,
+    JSON.stringify({ change_type: "rent", change_content: { rent_per_month: 1200 } })
+  );
+});
+
+test("apiRequest rejects pre-serialized JSON bodies", async () => {
+  installFetchRecorder();
+
+  await assert.rejects(
+    () => apiRequest("/leasing/contracts/contract-id/changes", {
+      method: "POST",
+      body: JSON.stringify({ change_type: "rent" }) as never
+    }),
+    /JSON serialization is handled by apiRequest/
+  );
+});
+
 test("apiFormRequest sends credentials for cookie-backed requests", async () => {
   const calls = installFetchRecorder();
   const body = new FormData();

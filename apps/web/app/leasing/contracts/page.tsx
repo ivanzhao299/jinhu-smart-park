@@ -1309,6 +1309,11 @@ export default function LeasingContractsPage() {
                 closeIcon={<X size={18} />}
               />
               {coreDisabled ? <p className="status-pill status-warning">当前合同状态不允许编辑核心金额与日期字段</p> : null}
+              {!editing ? (
+                <p className="status-pill">
+                  保存基础信息后将自动进入“合同房源”步骤；至少关联一个房源后才能提交。
+                </p>
+              ) : null}
               {editing ? (
                 <ContractDetailTabs activeTab={contractDetailTab} onChange={setContractDetailTab} />
               ) : null}

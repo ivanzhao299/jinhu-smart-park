@@ -32,6 +32,14 @@ For each arrow, ask:
 - What could go wrong?
 - Who is responsible for validation?
 
+### Request serialization ownership
+
+The shared Web `apiRequest` helper owns JSON serialization. Callers pass
+structured bodies and must never call `JSON.stringify` first. The helper rejects
+string bodies so double-encoded payloads fail at the nearest boundary instead of
+surfacing later as an API JSON parse error. Direct `fetch` callers still own their
+own serialization.
+
 ### Step 2: Identify Boundaries
 
 | Boundary              | Common Issues                     |

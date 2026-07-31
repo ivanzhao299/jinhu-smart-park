@@ -34,6 +34,10 @@
   independent UTF-8 `original_name` text field. Do not ask the backend to infer
   mojibake from filename characters; valid Latin-1 text can be byte-identical to a
   misdecoded Unicode name.
+- `FileUploader` sends client-owned `biz_type` and optional `biz_id` only to the
+  generic `/files` endpoint. A custom `uploadPath` is a domain adapter whose route
+  parameters own the association; its FormData contains `file`, optional `remark`,
+  and the helper-added `original_name`, but no generic association fields.
 - Uploaded files must be associated with `biz_type` and, when the business object exists, `biz_id`.
 - Workflows that permit pre-object uploads must reload the current actor's pending
   files after refresh/revisit; relying only on the current-session `onUploaded`
@@ -83,6 +87,9 @@
 - Domain write without `file:upload` -> preserve non-file workflow actions; omit the
   uploader.
 - Backend rejection -> display API error message; do not silently succeed.
+- A custom upload rejects `biz_type` or `biz_id` as non-whitelisted -> fix the
+  frontend multipart boundary; do not weaken the domain DTO to accept ignored
+  association fields.
 - Pending-list load failure -> preserve current visible files and show an error; do not
   replace them with an empty list.
 - Post-delete attachment refresh failure -> retain deletion success in the owning form,
@@ -111,6 +118,8 @@
 
 ### 6. Tests Required
 - Lint/build after changing shared policy or upload components.
+- Frontend FormData tests cover both generic and custom upload paths: generic
+  uploads include association fields, while custom routes omit them.
 - Browser check on the affected page: file input not visible, helper text visible, uploaded attachment preview visible.
 - Browser/API check: a pending upload survives page refresh and can be submitted with
   the later-created business object.
@@ -158,6 +167,10 @@
   end date that is now below that minimum.
 - Repeated selector forms own separate candidate arrays and pagination state; sharing
   an endpoint does not authorize sharing mutable page/selection state.
+- A create flow with a mandatory child relation must disclose that next step
+  before the parent is saved, keep the workflow open after creation, switch to
+  the child-relation surface, and use the created parent ID for the first load.
+  Do not weaken the backend submit invariant to compensate for a hidden UI step.
 - Browser `required`, `min`, `max`, and `step` attributes mirror the DTO/service
   contract. Backend-required housing cycle, rent, deposit, billing-day, and first-due
   fields must not be optional in native validation.
