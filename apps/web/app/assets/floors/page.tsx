@@ -16,6 +16,7 @@ import {
   removeCommittedItem
 } from "../../../lib/committed-delete.logic";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { clearCommittedFloorLayout } from "./floor-layout-state.logic";
 
 type FloorStatus = 0 | 1;
 
@@ -193,9 +194,21 @@ export default function FloorsPage() {
     void load(pageData.page).catch((error: Error) => setMessage(error.message));
   }
 
-  function handleLayoutDeleted(_file: FileRecord) {
+  function handleLayoutDeleted(floorId: string, file: FileRecord) {
+    setPageData((current) => ({
+      ...current,
+      items: current.items.map((row) => clearCommittedFloorLayout(row, floorId, file.id))
+    }));
+    setLayoutTarget((current) => current
+      ? clearCommittedFloorLayout(current, floorId, file.id)
+      : null);
+    setDetail((current) => current
+      ? clearCommittedFloorLayout(current, floorId, file.id)
+      : null);
     setRefreshKey((value) => value + 1);
-    void load(pageData.page).catch((error: Error) => setMessage(error.message));
+    void load(pageData.page).catch((error: Error) => {
+      setMessage(`平面图已删除，但楼层列表刷新失败：${error.message}`);
+    });
   }
 
   return (
@@ -383,7 +396,7 @@ export default function FloorsPage() {
                         />
                       </PermissionGuard>
                     ) : null}
-                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={handleLayoutDeleted} /> : null}
+                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={(file) => handleLayoutDeleted(editingFloor.id, file)} /> : null}
                   </div>
                 ) : (
                   <div className="ds-drawer-upload-placeholder">
@@ -420,7 +433,7 @@ export default function FloorsPage() {
                 />
               </PermissionGuard>
             ) : null}
-            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={handleLayoutDeleted} /> : null}
+            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={(file) => handleLayoutDeleted(layoutTarget.id, file)} /> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setLayoutTarget(null)}>关闭</button>
             </DrawerFooter>
