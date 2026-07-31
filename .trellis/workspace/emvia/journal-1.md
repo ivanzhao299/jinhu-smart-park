@@ -72,3 +72,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: PR214 malformed photo projection review fix
+
+**Date**: 2026-07-31
+**Task**: PR214 malformed photo projection review fix
+**Package**: api
+**Branch**: `agent/fix-safety-issues-206-213`
+
+### Summary
+
+Rejected partially malformed attachment projections, added regression coverage, and documented strict replacement-array validation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `590df7d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
