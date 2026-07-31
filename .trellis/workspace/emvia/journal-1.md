@@ -106,3 +106,37 @@ Rejected partially malformed attachment projections, added regression coverage, 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: PR214 per-result photo evidence review fix
+
+**Date**: 2026-07-31
+**Task**: PR214 per-result photo evidence review fix
+**Package**: api
+**Branch**: `agent/fix-safety-issues-206-213`
+
+### Summary
+
+Preserved unavailable per-result inspection photo associations across Web and API, with nested replacement regression coverage and specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e00dfa1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
