@@ -238,12 +238,20 @@
   assigning them to constrained inputs.
 - An absent, masked, or malformed optional projection degrades to an empty control;
   it must not crash the page or be submitted as a mask token.
+- Normalization must retain availability separately from the display value. For
+  replacement-style optional fields, an unavailable projection omits the request
+  field so the backend preserves its current association; only an available empty
+  array means the actor intentionally submitted an empty replacement.
 
 ### 4. Validation & Error Matrix
 - `string[]` attachment IDs -> trim, remove empty entries, join for the control.
 - `null`, missing, masked string, or non-array attachment value -> `""`.
 - finite number or finite numeric string -> preserve as a numeric input string.
 - mask token, `NaN`, infinity, object, or missing numeric value -> `""`.
+- unavailable attachment projection on resubmit -> omit `photo_file_ids`; backend
+  preserves the existing association.
+- available empty attachment array -> submit `photo_file_ids: []`; backend applies
+  normal required-count and replacement validation.
 
 ### 5. Good/Base/Bad Cases
 - Good: `normalizeFileIdInput(value: unknown)` validates with `Array.isArray` before
@@ -251,10 +259,14 @@
 - Base: canonical arrays and numeric strings retain their business values.
 - Bad: `row.photoFileIds?.join(",")` trusts a compile-time interface at an HTTP and
   permission-policy boundary.
+- Bad: converting a masked attachment projection to `""` and then submitting it as
+  `photo_file_ids: []`.
 - Bad: assigning `"***"` to `<input type="number">`.
 
 ### 6. Tests Required
 - Unit-test canonical, empty, missing, masked, and wrong-shape values.
+- Unit-test omission versus explicit empty replacement at both Web projection and
+  API merge boundaries.
 - A regression test must exercise the normalizer used by the affected form.
 - Run Web typecheck and production build after changing the projection-to-form path.
 
@@ -271,7 +283,12 @@ setForm({
 #### Correct
 ```tsx
 setForm({
-  photoFileIds: normalizeFileIdInput(row.photoFileIds),
+  photoFileIds: normalizeFileIdProjection(row.photoFileIds).value,
   gpsLng: normalizeNumericInput(row.gpsLng)
 });
+
+const projection = normalizeFileIdProjection(row.photoFileIds);
+const payload = {
+  ...(projection.available ? { photo_file_ids: parseFileIds(projection.value) } : {})
+};
 ```

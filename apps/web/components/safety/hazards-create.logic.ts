@@ -1,3 +1,3 @@
-export function initialHazardOverdueFlag(overdueOnly: boolean): boolean {
-  return overdueOnly;
+export function canCreateHazardFromPage(overdueOnly: boolean): boolean {
+  return !overdueOnly;
 }

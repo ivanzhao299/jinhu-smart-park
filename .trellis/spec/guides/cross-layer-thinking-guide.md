@@ -152,6 +152,11 @@ action against every state and sibling entry point before implementation:
 - [ ] Before permission-aware or legacy response fields enter editable controls,
       consumers normalize runtime `unknown` values; compile-time row interfaces do
       not authorize array methods or constrained-input assignment at the HTTP boundary
+- [ ] Optional replacement fields distinguish unavailable/omitted from explicitly
+      empty; the UI omits unavailable projections and the service preserves the
+      existing association instead of defaulting a missing field to `[]`
+- [ ] List filters remain query context only; they never initialize persisted
+      lifecycle flags unless the backend independently derives and validates that state
 - [ ] Every projected attachment is exercised through metadata list, file detail,
       and blob download policy for each allowed granular business role
 - [ ] Write-only roles receive the minimum read context required to reach their

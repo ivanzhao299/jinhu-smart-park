@@ -25,7 +25,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
-import { normalizeFileIdInput, normalizeNumericInput } from "./inspect-task-form.logic";
+import { normalizeFileIdInput, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
@@ -223,6 +223,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const [executing, setExecuting] = useState<InspectTaskRow | null>(null);
   const [templateItems, setTemplateItems] = useState<InspectItemRow[]>([]);
   const [checkInForm, setCheckInForm] = useState<CheckInForm>(emptyCheckInForm);
+  const [checkInPhotoIdsAvailable, setCheckInPhotoIdsAvailable] = useState(false);
   const [resultInputs, setResultInputs] = useState<Record<string, ResultInput>>({});
   const [finishTask, setFinishTask] = useState(true);
   const [generateResult, setGenerateResult] = useState<GenerateResult | null>(null);
@@ -322,24 +323,28 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openExecute(row: InspectTaskRow) {
+    const rowPhotoProjection = normalizeFileIdProjection(row.photoFileIds);
     setExecuting(row);
+    setCheckInPhotoIdsAvailable(canViewTaskPhotos && rowPhotoProjection.available);
     setCheckInForm({
       qrCode: row.point?.pointCode ?? "",
       gpsLng: normalizeNumericInput(row.gpsLng),
       gpsLat: normalizeNumericInput(row.gpsLat),
-      photoFileIds: normalizeFileIdInput(row.photoFileIds)
+      photoFileIds: rowPhotoProjection.value
     });
     setTemplateItems([]);
     setResultInputs({});
     try {
       const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
       const task = response.data;
+      const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setExecuting((current) => (current?.id === row.id ? task : current));
+      setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
       setCheckInForm({
         qrCode: task.point?.pointCode ?? "",
         gpsLng: normalizeNumericInput(task.gpsLng),
         gpsLat: normalizeNumericInput(task.gpsLat),
-        photoFileIds: normalizeFileIdInput(task.photoFileIds)
+        photoFileIds: taskPhotoProjection.value
       });
       if (mode === "mine") {
         applyTemplateItems(task.items ?? [], task.results ?? []);
@@ -441,7 +446,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         qr_code: checkInForm.qrCode.trim() || undefined,
         gps_lng: checkInForm.gpsLng.trim() ? Number(checkInForm.gpsLng) : undefined,
         gps_lat: checkInForm.gpsLat.trim() ? Number(checkInForm.gpsLat) : undefined,
-        photo_file_ids: parseFileIds(checkInForm.photoFileIds)
+        ...(checkInPhotoIdsAvailable ? { photo_file_ids: parseFileIds(checkInForm.photoFileIds) } : {})
       }
     });
     setExecuting(response.data);
@@ -758,7 +763,11 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                   <input type="number" value={checkInForm.gpsLat} onFocus={(event) => event.target.select()} onChange={(event) => setCheckInForm((current) => ({ ...current, gpsLat: event.target.value }))} />
                 </Field>
                 <Field label="照片 file_id">
-                  <input value={checkInForm.photoFileIds} onChange={(event) => setCheckInForm((current) => ({ ...current, photoFileIds: event.target.value }))} placeholder="多个 file_id 用英文逗号分隔" />
+                  {checkInPhotoIdsAvailable ? (
+                    <input value={checkInForm.photoFileIds} onChange={(event) => setCheckInForm((current) => ({ ...current, photoFileIds: event.target.value }))} placeholder="多个 file_id 用英文逗号分隔" />
+                  ) : (
+                    <span className="status-pill">附件字段不可用，本次提交将保留已有附件</span>
+                  )}
                 </Field>
               </DrawerFormGrid>
               <DrawerFooter>

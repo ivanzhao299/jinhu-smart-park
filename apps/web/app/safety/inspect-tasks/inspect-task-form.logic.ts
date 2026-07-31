@@ -1,11 +1,25 @@
-export function normalizeFileIdInput(value: unknown): string {
-  if (!Array.isArray(value)) return "";
+export interface FileIdInputProjection {
+  available: boolean;
+  value: string;
+}
 
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .join(",");
+export function normalizeFileIdProjection(value: unknown): FileIdInputProjection {
+  if (!Array.isArray(value)) {
+    return { available: false, value: "" };
+  }
+
+  return {
+    available: true,
+    value: value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join(",")
+  };
+}
+
+export function normalizeFileIdInput(value: unknown): string {
+  return normalizeFileIdProjection(value).value;
 }
 
 export function normalizeNumericInput(value: unknown): string {

@@ -25,6 +25,7 @@ import { SafetyActionLogEntity } from "./entities/safety-action-log.entity";
 import { SafetyHazardEntity } from "./entities/safety-hazard.entity";
 import { SafetyInspectTaskResultEntity } from "./entities/safety-inspect-task-result.entity";
 import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
+import { resolveCheckInPhotoFileIds } from "./safety-inspect-task-check-in.logic";
 
 const TASK_STATUS_PENDING = "10";
 const TASK_STATUS_IN_PROGRESS = "20";
@@ -327,7 +328,7 @@ export class SafetyInspectTasksService {
       throw new BadRequestException("Only pending, in-progress or overdue inspect tasks can check in");
     }
     const point = task.point ?? (await this.assertEnabledPoint(scope, task.pointId));
-    const photoIds = dto.photo_file_ids ?? [];
+    const photoIds = resolveCheckInPhotoFileIds(dto.photo_file_ids, task.photoFileIds);
     if (point.requiredScan) {
       const expectedQrCode = point.qrCode ?? point.pointCode;
       if (!dto.qr_code || dto.qr_code !== expectedQrCode) {
