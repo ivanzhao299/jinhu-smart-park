@@ -139,6 +139,9 @@
 - Owner-projection lifecycle test: matching denormalized attachment references are
   replaced on upload and cleared on deletion immediately, while another record and a
   newer replacement file remain intact when an older attachment is deleted.
+- Attachment owner-projection regressions must be included in a Web package test
+  command that is invoked by the root `test:unit` CI verification path; a spec that
+  only passes through an ad-hoc local `node --test` command is not protected.
 - API build when backend file validation changes.
 
 ### 7. Wrong vs Correct

@@ -290,6 +290,9 @@ action against every state and sibling entry point before implementation:
 
 Add behavioral tests for both the allowed transition and its nearest forbidden
 neighbor. Source-pattern assertions may supplement, but not replace, these tests.
+Every new package-local regression spec must also be reachable from that package's
+test command and from the root CI verification path; passing an ad-hoc invocation
+does not make the regression executable protection.
 
 ---
 
