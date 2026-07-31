@@ -3,11 +3,12 @@
 import { Card, DataTable, StatusPill } from "@jinhu/ui";
 import { AlertTriangle, ClipboardCheck, Clock3, FileWarning, RefreshCw, Search, ShieldCheck, Siren } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
-import type { DictItemRow, DictMap, DictTypeRow, ParkTenantRow, UnitRow } from "../../../components/workorders/types";
+import type { DictItemRow, DictMap, ParkTenantRow, UnitRow } from "../../../components/workorders/types";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const SAFETY_MODULE = "safety";
@@ -177,10 +178,6 @@ export default function SafetyEmergencyDashboardPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "safety_emergency_incident_type",
       "safety_emergency_severity",
@@ -190,15 +187,7 @@ export default function SafetyEmergencyDashboardPage() {
       "safety_work_permit_status",
       "safety_risk_level"
     ];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadReferences = useCallback(async () => {

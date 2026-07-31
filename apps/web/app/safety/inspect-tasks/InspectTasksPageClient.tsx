@@ -22,19 +22,17 @@ import { VideoEvidencePanel } from "../../../components/video/VideoEvidencePanel
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { buildFileIdReplacement, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
+const INSPECT_TASK_RESULT_ENTITY = "inspect_task_result";
 
 type DictMap = Record<string, DictItemRow[]>;
 type PageMode = "all" | "mine";
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -167,6 +165,7 @@ interface ResultInput {
   valueText: string;
   valueNumber: string;
   photoFileIds: string;
+  photoFileIdsAvailable: boolean;
   createHazard: boolean;
 }
 
@@ -226,6 +225,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const [executing, setExecuting] = useState<InspectTaskRow | null>(null);
   const [templateItems, setTemplateItems] = useState<InspectItemRow[]>([]);
   const [checkInForm, setCheckInForm] = useState<CheckInForm>(emptyCheckInForm);
+  const [checkInPhotoIdsAvailable, setCheckInPhotoIdsAvailable] = useState(false);
   const [resultInputs, setResultInputs] = useState<Record<string, ResultInput>>({});
   const [finishTask, setFinishTask] = useState(true);
   const [generateResult, setGenerateResult] = useState<GenerateResult | null>(null);
@@ -233,13 +233,15 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(pageData.total / pageData.page_size)), [pageData]);
   const statusItems = dicts.safety_inspect_task_status ?? [];
-  const itemResultItems = dicts.safety_inspect_item_result ?? fallbackItemResultItems;
+  const configuredItemResultItems = dicts.safety_inspect_item_result ?? [];
+  const itemResultItems = configuredItemResultItems.length > 0 ? configuredItemResultItems : fallbackItemResultItems;
   const pointMap = useMemo(() => new Map(points.map((item) => [item.id, item])), [points]);
   const templateMap = useMemo(() => new Map(templates.map((item) => [item.id, item])), [templates]);
   const permission = mode === "mine" ? SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY : SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ;
   const canViewGpsLng = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLng");
   const canViewGpsLat = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLat");
   const canViewTaskPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "photoFileIds");
+  const canViewResultPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-plan_time" });
@@ -257,20 +259,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }, [filters, mode]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["safety_inspect_task_status", "safety_inspect_result", "safety_inspect_item_result"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadRefs = useCallback(async () => {
@@ -336,24 +326,28 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openExecute(row: InspectTaskRow) {
+    const rowPhotoProjection = normalizeFileIdProjection(row.photoFileIds);
     setExecuting(row);
+    setCheckInPhotoIdsAvailable(canViewTaskPhotos && rowPhotoProjection.available);
     setCheckInForm({
       qrCode: row.point?.pointCode ?? "",
-      gpsLng: row.gpsLng ?? "",
-      gpsLat: row.gpsLat ?? "",
-      photoFileIds: row.photoFileIds?.join(",") ?? ""
+      gpsLng: normalizeNumericInput(row.gpsLng),
+      gpsLat: normalizeNumericInput(row.gpsLat),
+      photoFileIds: rowPhotoProjection.value
     });
     setTemplateItems([]);
     setResultInputs({});
     try {
       const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
       const task = response.data;
+      const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setExecuting((current) => (current?.id === row.id ? task : current));
+      setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
       setCheckInForm({
         qrCode: task.point?.pointCode ?? "",
-        gpsLng: task.gpsLng ?? "",
-        gpsLat: task.gpsLat ?? "",
-        photoFileIds: task.photoFileIds?.join(",") ?? ""
+        gpsLng: normalizeNumericInput(task.gpsLng),
+        gpsLat: normalizeNumericInput(task.gpsLat),
+        photoFileIds: taskPhotoProjection.value
       });
       if (mode === "mine") {
         applyTemplateItems(task.items ?? [], task.results ?? []);
@@ -377,11 +371,15 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
     setResultInputs(Object.fromEntries(items.map((item) => {
       const existing = existingMap.get(item.id);
+      const photoProjection = existing
+        ? normalizeFileIdProjection(existing.photoFileIds)
+        : { available: true, value: "" };
       return [item.id, {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
         valueText: existing?.valueText ?? "",
         valueNumber: existing?.valueNumber ?? "",
-        photoFileIds: existing?.photoFileIds?.join(",") ?? "",
+        photoFileIds: photoProjection.value,
+        photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
     })));
@@ -455,7 +453,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         qr_code: checkInForm.qrCode.trim() || undefined,
         gps_lng: checkInForm.gpsLng.trim() ? Number(checkInForm.gpsLng) : undefined,
         gps_lat: checkInForm.gpsLat.trim() ? Number(checkInForm.gpsLat) : undefined,
-        photo_file_ids: parseFileIds(checkInForm.photoFileIds)
+        ...(checkInPhotoIdsAvailable ? { photo_file_ids: parseFileIds(checkInForm.photoFileIds) } : {})
       }
     });
     setExecuting(response.data);
@@ -479,7 +477,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
             result: input.result,
             value_text: input.valueText.trim() || undefined,
             value_number: input.valueNumber.trim() ? Number(input.valueNumber) : undefined,
-            photo_file_ids: parseFileIds(input.photoFileIds),
+            ...buildFileIdReplacement(input.photoFileIds, input.photoFileIdsAvailable),
             create_hazard: input.createHazard
           };
         })
@@ -772,7 +770,11 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                   <input type="number" value={checkInForm.gpsLat} onFocus={(event) => event.target.select()} onChange={(event) => setCheckInForm((current) => ({ ...current, gpsLat: event.target.value }))} />
                 </Field>
                 <Field label="照片 file_id">
-                  <input value={checkInForm.photoFileIds} onChange={(event) => setCheckInForm((current) => ({ ...current, photoFileIds: event.target.value }))} placeholder="多个 file_id 用英文逗号分隔" />
+                  {checkInPhotoIdsAvailable ? (
+                    <input value={checkInForm.photoFileIds} onChange={(event) => setCheckInForm((current) => ({ ...current, photoFileIds: event.target.value }))} placeholder="多个 file_id 用英文逗号分隔" />
+                  ) : (
+                    <span className="status-pill">附件字段不可用，本次提交将保留已有附件</span>
+                  )}
                 </Field>
               </DrawerFormGrid>
               <DrawerFooter>
@@ -814,7 +816,11 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                           <input type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
                         </td>
                         <td>
-                          <input value={input.photoFileIds} onChange={(event) => setResultInput(item.id, { photoFileIds: event.target.value })} placeholder="多个 file_id 逗号分隔" />
+                          {input.photoFileIdsAvailable ? (
+                            <input value={input.photoFileIds} onChange={(event) => setResultInput(item.id, { photoFileIds: event.target.value })} placeholder="多个 file_id 逗号分隔" />
+                          ) : (
+                            <span className="status-pill">字段不可用，保留已有附件</span>
+                          )}
                         </td>
                         <td>
                           <input checked={input.createHazard} type="checkbox" onChange={(event) => setResultInput(item.id, { createHazard: event.target.checked })} />
@@ -954,6 +960,7 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
     valueText: "",
     valueNumber: "",
     photoFileIds: "",
+    photoFileIdsAvailable: true,
     createHazard: false
   };
 }

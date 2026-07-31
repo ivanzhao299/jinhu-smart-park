@@ -27,6 +27,7 @@ import { getAccessToken } from "../../lib/authz";
 import { canViewField, maskField } from "../../lib/field-policy";
 import { hasPermission } from "../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../lib/reference-data";
+import { canCreateHazardFromPage } from "./hazards-create.logic";
 
 const SAFETY_MODULE = "safety";
 const HAZARD_ENTITY = "safety_hazard";
@@ -138,7 +139,6 @@ interface HazardForm {
   afterPhotoFileIds: string[];
   rectifyUserId: string;
   rectifyDeadline: string;
-  overdueFlag: boolean;
   upgradeFlag: boolean;
   status: string;
   remark: string;
@@ -331,7 +331,6 @@ const emptyForm: HazardForm = {
   afterPhotoFileIds: [],
   rectifyUserId: "",
   rectifyDeadline: "",
-  overdueFlag: false,
   upgradeFlag: false,
   status: "10",
   remark: ""
@@ -426,6 +425,7 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
   const pagePermission = effectiveOverdueOnly ? SYSTEM_PERMISSIONS.SAFETY_HAZARD_OVERDUE : SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ;
   const canReadHazards = hasPermission(authUser, SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ);
   const canLoadStatusLogs = !effectiveOverdueOnly || canReadHazards;
+  const canCreateHazard = canCreateHazardFromPage({ forcedOverdueOnly });
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-update_time" });
@@ -539,7 +539,6 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
       afterPhotoFileIds: row.afterPhotoFileIds ?? [],
       rectifyUserId: row.rectifyUserId ?? "",
       rectifyDeadline: row.rectifyDeadline ? row.rectifyDeadline.slice(0, 10) : "",
-      overdueFlag: row.overdueFlag,
       upgradeFlag: row.upgradeFlag,
       status: row.status,
       remark: row.remark ?? ""
@@ -821,10 +820,12 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
               <RefreshCw size={16} />
               刷新
             </button>
-            <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.SAFETY_HAZARD_CREATE} type="button" onClick={openCreate}>
-              <Plus size={16} />
-              新增隐患
-            </PermissionButton>
+            {canCreateHazard ? (
+              <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.SAFETY_HAZARD_CREATE} type="button" onClick={openCreate}>
+                <Plus size={16} />
+                新增隐患
+              </PermissionButton>
+            ) : null}
           </div>
         </header>
 
@@ -970,10 +971,6 @@ export function HazardsPageClient({ initialOverdueOnly: forcedOverdueOnly }: Haz
                 </Field>
                 <Field label="标记">
                   <div className="checkbox-list">
-                    <label className="checkbox-row">
-                      <input type="checkbox" checked={form.overdueFlag} onChange={(event) => setFormValue("overdueFlag", event.target.checked)} />
-                      <span>已超期</span>
-                    </label>
                     <label className="checkbox-row">
                       <input type="checkbox" checked={form.upgradeFlag} onChange={(event) => setFormValue("upgradeFlag", event.target.checked)} />
                       <span>已升级</span>
@@ -1337,7 +1334,6 @@ function buildPayload(form: HazardForm) {
     after_photo_file_ids: form.afterPhotoFileIds,
     rectify_user_id: form.rectifyUserId || undefined,
     rectify_deadline: form.rectifyDeadline || undefined,
-    overdue_flag: form.overdueFlag,
     upgrade_flag: form.upgradeFlag,
     status: form.status || "10",
     remark: form.remark.trim() || undefined

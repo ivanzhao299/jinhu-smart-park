@@ -71,6 +71,11 @@
   `pessimistic_write` lock and retain it in the transaction that writes the owning
   reference. Locking only the deletion path, validating outside the write transaction,
   or counting files through a different repository connection leaves a dangling-reference race.
+- Optional file-ID replacement fields use omission as preservation and an explicit
+  array as replacement. For repeated child updates, resolve each omitted field
+  against the matching persisted child; do not normalize omission to `[]` before
+  identifying whether that child already exists. A new child with an omitted field
+  may initialize the association to empty.
 
 ### 4. Validation & Error Matrix
 - Missing file -> `BadRequestException`.
@@ -86,6 +91,9 @@
 - Restricted property scope on a unitless project purchase -> `ForbiddenException`.
 - Referenced protected evidence deletion -> `ConflictException`.
 - Pending purchase receipt list -> only current actor's active, unassociated files.
+- Existing child + omitted file-ID replacement -> preserve that child's association.
+- New child + omitted file-ID replacement -> initialize an empty association.
+- Existing child + explicit empty array -> intentionally clear after normal validation.
 
 ### 5. Good/Base/Bad Cases
 - Good: Floorplan endpoint delegates to `FilesService.upload` with `biz_type: "floorplan"`.
