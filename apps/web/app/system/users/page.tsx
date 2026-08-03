@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { resolveUserParkSelection } from "../user-park-options.logic";
+import { resolveUserParkLabel, resolveUserParkSelection } from "../user-park-options.logic";
 
 interface UserParkContext {
   tenant_id: string;
@@ -324,7 +324,11 @@ export default function UsersPage() {
                 <label>默认园区</label>
                 <select name="parkId" value={formParkId} onChange={(event) => setFormParkId(event.target.value)} disabled={loginSettingsLoading || !loginSettings?.parks.length} required>
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
-                  {(loginSettings?.parks ?? []).map((park) => <option key={park.parkId} value={park.parkId}>{park.parkName} / {park.parkId}</option>)}
+                  {(loginSettings?.parks ?? []).map((park) => (
+                    <option key={park.parkId} value={park.parkId}>
+                      {resolveUserParkLabel({ parkName: park.parkName, tenantName: loginSettings?.tenant.tenantName })}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="field"><label>账号</label><input name="username" defaultValue={editingUser?.username ?? ""} readOnly={Boolean(editingUser)} required /></div>
@@ -350,7 +354,7 @@ export default function UsersPage() {
                             ? [...new Set([...current, park.parkId])]
                             : current.filter((id) => id !== park.parkId))}
                         />
-                        <span>{park.parkName} / {park.parkId}</span>
+                        <span>{resolveUserParkLabel({ parkName: park.parkName, tenantName: loginSettings?.tenant.tenantName })}</span>
                       </label>
                     );
                   })}

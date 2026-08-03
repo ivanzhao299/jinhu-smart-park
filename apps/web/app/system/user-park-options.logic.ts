@@ -15,6 +15,23 @@ export interface UserParkSelection {
   accessibleParkIds: string[];
 }
 
+export interface UserParkLabelSource {
+  parkName?: string | null;
+  tenantName?: string | null;
+}
+
+function isReadableParkName(value: string): boolean {
+  return value.length > 0 && !/^\d+$/u.test(value);
+}
+
+export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSource): string {
+  const normalizedParkName = parkName?.trim() ?? "";
+  if (isReadableParkName(normalizedParkName)) return normalizedParkName;
+
+  const normalizedTenantName = tenantName?.trim() ?? "";
+  return isReadableParkName(normalizedTenantName) ? `${normalizedTenantName}默认园区` : "默认园区";
+}
+
 export function resolveUserParkSelection(
   options: UserParkOptionSource,
   existing?: UserParkSelectionSource | null

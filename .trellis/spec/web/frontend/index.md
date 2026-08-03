@@ -112,6 +112,14 @@ fields from update requests. Compare set-like fields after normalization so orde
 duplicates do not cause an unchanged historical binding to be revalidated against the active
 catalog. Submit the coupled fields together only when the operator actually changes them.
 
+## User-Facing Catalog Labels
+
+Catalog selectors must show stable business labels rather than database IDs. Keep the ID in the
+control value/key, but do not append it to the visible option text merely to make the label unique.
+When historical catalog data has an empty or numeric-only display name, resolve a domain-specific
+fallback (for example, the tenant's default-park label) in one shared helper used by every view of
+that option. A display fallback must not broaden the API candidate scope or bypass tenant ownership.
+
 ## Verification
 
 For frontend changes, choose the smallest reliable checks:

@@ -2,7 +2,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { resolveUserParkSelection } from "./user-park-options.logic";
+import { resolveUserParkLabel, resolveUserParkSelection } from "./user-park-options.logic";
+
+test("user park labels show the business name without exposing the internal park id", () => {
+  const label = resolveUserParkLabel({ parkName: " 金湖科创产业园 ", tenantName: "默认租户" });
+
+  assert.equal(label, "金湖科创产业园");
+  assert.doesNotMatch(label, /20000001/);
+});
+
+test("user park labels replace numeric-only historical names with the tenant default label", () => {
+  assert.equal(resolveUserParkLabel({ parkName: "11", tenantName: "测试租户01" }), "测试租户01默认园区");
+  assert.equal(resolveUserParkLabel({ parkName: "   ", tenantName: "测试租户01" }), "测试租户01默认园区");
+  assert.equal(resolveUserParkLabel({ parkName: null, tenantName: "10000" }), "默认园区");
+});
 
 test("user form waits when the selected tenant has no park options", () => {
   assert.equal(resolveUserParkSelection({ tenantId: "tenant-a", defaultParkId: null, parkIds: [] }), null);
@@ -39,4 +52,12 @@ test("returning to an edited user's tenant restores the persisted park assignmen
   const source = readFileSync(resolve(__dirname, "users/page.tsx"), "utf8");
 
   assert.match(source, /editingUser\?\.tenantId === nextTenantId \? editingUser : null/);
+});
+
+test("default and accessible park controls share the safe user-facing label resolver", () => {
+  const source = readFileSync(resolve(__dirname, "users/page.tsx"), "utf8");
+  const labelUses = source.match(/resolveUserParkLabel\(\{ parkName: park\.parkName/g) ?? [];
+
+  assert.equal(labelUses.length, 2);
+  assert.doesNotMatch(source, /park\.parkName\} \/ \{park\.parkId/);
 });
