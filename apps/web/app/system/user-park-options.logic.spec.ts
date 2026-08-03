@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { resolveUserParkLabel, resolveUserParkLabels, resolveUserParkSelection } from "./user-park-options.logic";
+import {
+  deduplicateUserParkOptions,
+  resolveUserParkLabel,
+  resolveUserParkLabels,
+  resolveUserParkSelection
+} from "./user-park-options.logic";
 
 test("user park labels show the business name without exposing the internal park id", () => {
   const label = resolveUserParkLabel({ parkName: " 金湖科创产业园 ", tenantName: "默认租户" });
@@ -88,15 +93,30 @@ test("user park labels normalize canonically equivalent names without merging pa
   assert.equal(new Set(labels.values()).size, labels.size);
 });
 
-test("user park labels remove invisible format characters before collision counting", () => {
+test("user park labels remove default-ignorable characters before collision counting", () => {
   const labels = resolveUserParkLabels([
     { parkId: "park-a", parkCode: "PARK-A", parkName: "金湖园区" },
-    { parkId: "park-b", parkCode: "PARK-B", parkName: "金\u200B湖园区" }
+    { parkId: "park-b", parkCode: "PARK-B", parkName: "金\u200B湖园区" },
+    { parkId: "park-c", parkCode: "PARK-C", parkName: "金\u034F湖园区" }
   ], "测试租户01");
 
   assert.equal(labels.get("park-a"), "金湖园区（PARK-A）");
   assert.equal(labels.get("park-b"), "金湖园区（PARK-B）");
+  assert.equal(labels.get("park-c"), "金湖园区（PARK-C）");
   assert.equal(new Set(labels.values()).size, labels.size);
+});
+
+test("user park options keep only the first candidate for each park id", () => {
+  const options = [
+    { parkId: "park-a", parkCode: "PARK-A", parkName: "首个园区" },
+    { parkId: "park-a", parkCode: "PARK-B", parkName: "重复园区" },
+    { parkId: "park-b", parkCode: "PARK-C", parkName: "独立园区" }
+  ];
+  const uniqueOptions = deduplicateUserParkOptions(options);
+  const labels = resolveUserParkLabels(options, "测试租户01");
+
+  assert.deepEqual(uniqueOptions.map((option) => option.parkCode), ["PARK-A", "PARK-C"]);
+  assert.deepEqual([...labels.entries()], [["park-a", "首个园区"], ["park-b", "独立园区"]]);
 });
 
 test("user form waits when the selected tenant has no park options", () => {
@@ -141,6 +161,7 @@ test("default and accessible park controls share the safe user-facing label reso
   const labelUses = source.match(/parkLabels\.get\(park\.parkId\)/g) ?? [];
 
   assert.equal(labelUses.length, 2);
-  assert.match(source, /resolveUserParkLabels\(loginSettings\?\.parks \?\? \[\]/);
+  assert.match(source, /deduplicateUserParkOptions\(loginSettings\?\.parks \?\? \[\]/);
+  assert.equal((source.match(/parkOptions\.map\(\(park\)/g) ?? []).length, 2);
   assert.doesNotMatch(source, /park\.parkName\} \/ \{park\.parkId/);
 });

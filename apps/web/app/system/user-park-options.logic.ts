@@ -30,7 +30,7 @@ function isReadableParkName(value: string): boolean {
 }
 
 function normalizeRenderedLabel(value: string): string {
-  return value.replace(/\p{Cf}/gu, "").normalize("NFC").trim().replace(/\s+/gu, " ");
+  return value.replace(/\p{Default_Ignorable_Code_Point}/gu, "").normalize("NFC").trim().replace(/\s+/gu, " ");
 }
 
 function formatParkCodeForLabel(value: string): string {
@@ -50,13 +50,23 @@ export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSour
   return isReadableParkName(normalizedTenantName) ? `${normalizedTenantName}默认园区` : "默认园区";
 }
 
+export function deduplicateUserParkOptions<T extends { parkId: string }>(options: T[]): T[] {
+  const seenParkIds = new Set<string>();
+  return options.filter((option) => {
+    if (seenParkIds.has(option.parkId)) return false;
+    seenParkIds.add(option.parkId);
+    return true;
+  });
+}
+
 export function resolveUserParkLabels(
   options: UserParkLabelOption[],
   tenantName?: string | null
 ): Map<string, string> {
-  let displayLabels = options.map((option) => resolveUserParkLabel({ parkName: option.parkName, tenantName }));
+  const uniqueOptions = deduplicateUserParkOptions(options);
+  let displayLabels = uniqueOptions.map((option) => resolveUserParkLabel({ parkName: option.parkName, tenantName }));
 
-  for (let pass = 0; pass <= options.length; pass += 1) {
+  for (let pass = 0; pass <= uniqueOptions.length; pass += 1) {
     displayLabels = displayLabels.map(normalizeRenderedLabel);
     const labelCounts = new Map<string, number>();
     displayLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1));
@@ -65,11 +75,11 @@ export function resolveUserParkLabels(
     );
 
     if (collidingLabels.size === 0) {
-      return new Map(options.map((option, index) => [option.parkId, displayLabels[index]!]));
+      return new Map(uniqueOptions.map((option, index) => [option.parkId, displayLabels[index]!]));
     }
 
     displayLabels = displayLabels.map((label, index) => (
-      collidingLabels.has(label) ? `${label}（${formatParkCodeForLabel(options[index]!.parkCode)}）` : label
+      collidingLabels.has(label) ? `${label}（${formatParkCodeForLabel(uniqueOptions[index]!.parkCode)}）` : label
     ));
   }
 
