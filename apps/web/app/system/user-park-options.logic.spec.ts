@@ -64,6 +64,19 @@ test("user park labels normalize collapsible whitespace before collision countin
   assert.equal(labels.get("park-c"), "独立 园区");
 });
 
+test("user park labels preserve visible distinctions between whitespace-bearing park codes", () => {
+  const labels = resolveUserParkLabels([
+    { parkId: "park-a", parkCode: "PARK A", parkName: "同名园区" },
+    { parkId: "park-b", parkCode: "PARK  A", parkName: "同名园区" },
+    { parkId: "park-c", parkCode: "PARK\\A", parkName: "同名园区" }
+  ], "测试租户01");
+
+  assert.equal(labels.get("park-a"), "同名园区（PARK\\u{20}A）");
+  assert.equal(labels.get("park-b"), "同名园区（PARK\\u{20}\\u{20}A）");
+  assert.equal(labels.get("park-c"), "同名园区（PARK\\\\A）");
+  assert.equal(new Set(labels.values()).size, labels.size);
+});
+
 test("user form waits when the selected tenant has no park options", () => {
   assert.equal(resolveUserParkSelection({ tenantId: "tenant-a", defaultParkId: null, parkIds: [] }), null);
 });

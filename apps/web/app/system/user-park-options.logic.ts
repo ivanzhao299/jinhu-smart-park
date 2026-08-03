@@ -33,6 +33,14 @@ function normalizeRenderedLabel(value: string): string {
   return value.trim().replace(/\s+/gu, " ");
 }
 
+function formatParkCodeForLabel(value: string): string {
+  return [...value.trim()].map((character) => {
+    if (character === "\\") return "\\\\";
+    if (!/\s/u.test(character)) return character;
+    return `\\u{${character.codePointAt(0)!.toString(16).toUpperCase()}}`;
+  }).join("");
+}
+
 export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSource): string {
   const normalizedParkName = normalizeRenderedLabel(parkName ?? "");
   if (isReadableParkName(normalizedParkName)) return normalizedParkName;
@@ -48,6 +56,7 @@ export function resolveUserParkLabels(
   let displayLabels = options.map((option) => resolveUserParkLabel({ parkName: option.parkName, tenantName }));
 
   for (let pass = 0; pass <= options.length; pass += 1) {
+    displayLabels = displayLabels.map(normalizeRenderedLabel);
     const labelCounts = new Map<string, number>();
     displayLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1));
     const collidingLabels = new Set(
@@ -59,7 +68,7 @@ export function resolveUserParkLabels(
     }
 
     displayLabels = displayLabels.map((label, index) => (
-      collidingLabels.has(label) ? `${label}（${options[index]!.parkCode.trim()}）` : label
+      collidingLabels.has(label) ? `${label}（${formatParkCodeForLabel(options[index]!.parkCode)}）` : label
     ));
   }
 
