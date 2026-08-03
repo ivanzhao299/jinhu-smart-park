@@ -186,6 +186,10 @@
 - Browser `required`, `min`, `max`, and `step` attributes mirror the DTO/service
   contract. Backend-required housing cycle, rent, deposit, billing-day, and first-due
   fields must not be optional in native validation.
+- Optional update relations distinguish omission from clearing: omit/`undefined`
+  means preserve the stored relation, while explicit `null` means clear it. Cascading
+  selectors must send `null` for descendants cleared by a parent change, and the DTO
+  transform must preserve that `null` through service resolution.
 
 ### 4. Validation & Error Matrix
 - Negative where not allowed -> backend rejects.
@@ -193,6 +197,8 @@
 - Invalid enum/status -> backend rejects.
 - End date equal to or before start date -> native form validation blocks submission;
   backend independently returns HTTP 400.
+- Optional relation omitted -> service preserves the current value.
+- Optional relation sent as `null` -> service clears it and reconciles descendants.
 
 ### 5. Good/Base/Bad Cases
 - Good: area field has numeric step and backend decimal/numeric DTO validation.
@@ -204,6 +210,7 @@
 - Browser check for important forms.
 - API validation test or targeted smoke for business-critical forms.
 - Unit test the nearest boundary: equal dates rejected and the next business date accepted.
+- Unit-test both omitted and explicit-null update relation payloads.
 
 ### 7. Wrong vs Correct
 
@@ -216,6 +223,7 @@
 ```tsx
 <input type="number" min="0" step="0.01" onFocus={(event) => event.target.select()} />
 <input type="date" min={addBusinessDateDays(startDate, 1)} />
+const locationPatch = { building_id: buildingId || null, floor_id: floorId || null };
 ```
 
 ## Scenario: Permission-Aware Projections Entering Editable Controls
@@ -302,4 +310,84 @@ const projection = normalizeFileIdProjection(row.photoFileIds);
 const payload = {
   ...(projection.available ? { photo_file_ids: parseFileIds(projection.value) } : {})
 };
+```
+
+## Scenario: Async Candidate Options In Drawer Forms
+
+### 1. Scope / Trigger
+- Trigger: A create/edit drawer depends on asynchronously loaded tenant, park, plan,
+  building, floor, unit, or other reference options.
+
+### 2. Signatures
+- Option loader accepts the exact parent ID and returns options for that parent.
+- Form state owns controlled parent ID, selected option ID, loading state, and any
+  checked option IDs that are submitted.
+
+### 3. Contracts
+- Opening a drawer must not make an empty uncontrolled `<select>` authoritative while
+  its options are still loading.
+- The selected value is reconciled after options arrive: preserve a valid edit value,
+  otherwise use the configured default, otherwise the first valid option.
+- A parent change immediately clears dependent values and stale options. Only the
+  latest request may populate state; slower earlier requests are ignored.
+- Async detail drawers use a monotonically increasing request generation (or an
+  abort signal). Closing the drawer or selecting another record invalidates older
+  responses before they can update any dependent state.
+- Edit forms must not reconcile persisted IDs against candidate arrays until those
+  candidates are confirmed loaded. Failed or pending reference reads keep editing
+  disabled instead of converting valid stored relations into explicit clears.
+- Switching away from and back to an edited parent restores the entity's persisted
+  child selection; create defaults must not overwrite edit assignments.
+- Candidate selectors retain the entity's current value when it is no longer in the
+  enabled catalog, so unrelated saves cannot silently clear historical bindings.
+- Bounded reference catalogs must merge the edited entity's current referenced rows
+  before reconciliation; a successful but truncated response is not proof that a
+  stored relation is invalid.
+- Create forms whose defaults derive from async catalogs remain closed/disabled until
+  those catalogs are ready, because uncontrolled `defaultValue` is applied only when
+  the control mounts.
+- A retained historical `<option>` must remain form-successful; do not mark the
+  selected option disabled when `FormData` must preserve its value.
+- Save remains disabled until options for the currently selected parent are ready.
+- A required selector with no options shows an explicit empty/error message and cannot
+  submit an empty ID.
+
+### 4. Validation & Error Matrix
+- Loading -> show loading option/state; disable dependent selector and save.
+- Empty option list -> explain the missing prerequisite; disable save.
+- Request failure -> retain the drawer, show the error, and do not expose stale options.
+- Edit value absent from returned options -> reconcile to a valid fallback before save.
+- Out-of-order response -> ignore unless its request generation is still current.
+- Paginated candidate endpoint -> follow `total` through every bounded page and
+  deduplicate by the stable business key before treating the selector as ready.
+- Successful write followed by failed refresh -> publish the validated mutation
+  response and success state first, then report the refresh failure separately.
+
+### 5. Good/Base/Bad Cases
+- Good: a controlled default-park selector populates when tenant settings resolve.
+- Base: editing preserves a valid existing default park and accessible parks.
+- Bad: render `defaultValue=""`, append options later, and assume the browser selects
+  the correct value.
+- Bad: keep a fixed component `key` in edit mode and rely on remounting after fetch.
+
+### 6. Tests Required
+- Unit-test empty options, create defaulting, edit preservation, invalid-value repair,
+  parent switching without cross-parent leakage, multi-page catalogs, and stale
+  request generations.
+- Run Web typecheck and production build.
+- Inspect create and edit drawers at desktop and phone widths when browser tooling is
+  available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```tsx
+<select defaultValue={row.parkId}>{parks.map(renderOption)}</select>
+```
+
+#### Correct
+```tsx
+<select value={parkId} disabled={loading || parks.length === 0} onChange={onParkChange}>
+  {parks.map(renderOption)}
+</select>
 ```

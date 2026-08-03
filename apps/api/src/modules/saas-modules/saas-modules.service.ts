@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { Repository } from "typeorm";
+import { In, type Repository } from "typeorm";
 import type { EnabledModuleContext, PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { AssignTenantModuleDto } from "./dto/assign-tenant-module.dto";
@@ -12,6 +12,7 @@ import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
 import { TenantModuleEntity } from "./entities/tenant-module.entity";
+import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
 
 @Injectable()
 export class SaaSModulesService {
@@ -39,6 +40,8 @@ export class SaaSModulesService {
     const [items, total] = await builder
       .orderBy("module.moduleGroup", "ASC")
       .addOrderBy("module.sortNo", "ASC")
+      .addOrderBy("module.moduleCode", "ASC")
+      .addOrderBy("module.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -59,6 +62,8 @@ export class SaaSModulesService {
     const [items, total] = await builder
       .orderBy("module.moduleGroup", "ASC")
       .addOrderBy("module.sortNo", "ASC")
+      .addOrderBy("module.moduleCode", "ASC")
+      .addOrderBy("module.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -125,6 +130,23 @@ export class SaaSModulesService {
       .take(query.page_size)
       .getManyAndCount();
     return { items, total, page: query.page, page_size: query.page_size };
+  }
+
+  async listAvailablePlans(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<PlanEntity>> {
+    const catalogQuery = buildAvailablePlanCatalogQuery(scope, query);
+    const rows = await this.planRepository.query(catalogQuery.sql, catalogQuery.parameters) as Array<{
+      id: string | null;
+      total: number | string;
+    }>;
+    const ids = rows.map((row) => row.id).filter((id): id is string => Boolean(id));
+    const entities = ids.length > 0 ? await this.planRepository.findBy({ id: In(ids) }) : [];
+    const byId = new Map(entities.map((entity) => [entity.id, entity]));
+    return {
+      items: ids.map((id) => byId.get(id)).filter((entity): entity is PlanEntity => Boolean(entity)),
+      total: Number(rows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
   async createPlan(scope: TenantParkScope, actorId: string, dto: CreatePlanDto): Promise<PlanEntity> {

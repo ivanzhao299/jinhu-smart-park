@@ -4,10 +4,51 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   buildFileIdReplacement,
+  isCurrentRequestGeneration,
   normalizeFileIdInput,
   normalizeFileIdProjection,
-  normalizeNumericInput
+  normalizeNumericInput,
+  normalizeRecordArrayProjection
 } from "./inspect-task-form.logic";
+
+test("inspection execution ignores responses from an older request generation", () => {
+  assert.equal(isCurrentRequestGeneration(2, 2), true);
+  assert.equal(isCurrentRequestGeneration(1, 2), false);
+
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+  assert.match(source, /const requestGeneration = \+\+executionRequestGeneration\.current/);
+  assert.match(source, /isCurrentRequestGeneration\(requestGeneration, executionRequestGeneration\.current\)/);
+  assert.ok(
+    source.indexOf("applyTemplateItems(detail.data.items, detail.data.results)")
+      < source.indexOf("setViewing(detail.data)")
+  );
+});
+
+test("successful inspection submission is published before optional refresh reads", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+  const submit = source.indexOf("async function submitResults");
+  const publish = source.indexOf("setMessage(\"巡检结果已提交\")", submit);
+  const refresh = source.indexOf("await load()", publish);
+
+  assert.ok(publish > submit);
+  assert.ok(refresh > publish);
+  assert.match(source, /巡检结果已提交，但最新数据刷新失败/);
+});
+
+test("inspection execution rejects malformed collection projections before mapping form state", () => {
+  const valid = { id: "item-a", itemName: "检查项 A" };
+
+  assert.deepEqual(normalizeRecordArrayProjection(undefined, ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection(null, ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection("***", ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([null, 42, [], {}, { id: "" }, valid], ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([], ["id"]), { available: true, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([valid], ["id"]), { available: true, value: [valid] });
+  assert.deepEqual(
+    normalizeRecordArrayProjection([{ itemId: "result-a" }, { itemId: null }, { id: "wrong-key" }], ["itemId"]),
+    { available: false, value: [] }
+  );
+});
 
 test("inspection execution normalizes attachment projections before opening the form", () => {
   assert.equal(normalizeFileIdInput([" file-a ", "", "file-b"]), "file-a,file-b");

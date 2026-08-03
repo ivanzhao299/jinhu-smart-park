@@ -9,6 +9,11 @@ function trimOptional(value: unknown): string | undefined {
   return text.length > 0 ? text : undefined;
 }
 
+function trimNullableOptional(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return trimOptional(value);
+}
+
 function optionalInteger(value: unknown): number | undefined {
   if (value === null || value === undefined || value === "") {
     return undefined;
@@ -57,18 +62,18 @@ export class CreateSafetyInspectPointDto {
 
   @IsOptional()
   @IsUUID()
-  @Transform(({ value }) => trimOptional(value))
-  building_id?: string;
+  @Transform(({ value }) => trimNullableOptional(value))
+  building_id?: string | null;
 
   @IsOptional()
   @IsUUID()
-  @Transform(({ value }) => trimOptional(value))
-  floor_id?: string;
+  @Transform(({ value }) => trimNullableOptional(value))
+  floor_id?: string | null;
 
   @IsOptional()
   @IsUUID()
-  @Transform(({ value }) => trimOptional(value))
-  unit_id?: string;
+  @Transform(({ value }) => trimNullableOptional(value))
+  unit_id?: string | null;
 
   @IsOptional()
   @IsUUID()
