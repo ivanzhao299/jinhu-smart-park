@@ -6,8 +6,24 @@ import {
   buildFileIdReplacement,
   normalizeFileIdInput,
   normalizeFileIdProjection,
-  normalizeNumericInput
+  normalizeNumericInput,
+  normalizeRecordArrayProjection
 } from "./inspect-task-form.logic";
+
+test("inspection execution rejects malformed collection projections before mapping form state", () => {
+  const valid = { id: "item-a", itemName: "检查项 A" };
+
+  assert.deepEqual(normalizeRecordArrayProjection(undefined, ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection(null, ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection("***", ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([null, 42, [], {}, { id: "" }, valid], ["id"]), { available: false, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([], ["id"]), { available: true, value: [] });
+  assert.deepEqual(normalizeRecordArrayProjection([valid], ["id"]), { available: true, value: [valid] });
+  assert.deepEqual(
+    normalizeRecordArrayProjection([{ itemId: "result-a" }, { itemId: null }, { id: "wrong-key" }], ["itemId"]),
+    { available: false, value: [] }
+  );
+});
 
 test("inspection execution normalizes attachment projections before opening the form", () => {
   assert.equal(normalizeFileIdInput([" file-a ", "", "file-b"]), "file-a,file-b");

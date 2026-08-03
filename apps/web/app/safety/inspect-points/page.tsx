@@ -24,6 +24,12 @@ import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import {
+  changeLocationParent,
+  floorCandidates,
+  reconcileLocationSelection,
+  unitCandidates
+} from "./inspect-point-cascade.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_POINT_ENTITY = "inspect_point";
@@ -188,6 +194,10 @@ export default function SafetyInspectPointsPage() {
   const riskItems = dicts.safety_risk_level ?? [];
   const checkMethodItems = dicts.safety_check_method ?? [];
   const statusItems = dicts.safety_inspect_point_status ?? [];
+  const filterFloorCandidates = floorCandidates(floors, filters.buildingId);
+  const filterUnitCandidates = unitCandidates(units, filters.floorId);
+  const formFloorCandidates = floorCandidates(floors, form.buildingId);
+  const formUnitCandidates = unitCandidates(units, form.floorId);
   const canViewLocation = canViewField(authUser, SAFETY_MODULE, INSPECT_POINT_ENTITY, "location");
   const canViewQrCode = canViewField(authUser, SAFETY_MODULE, INSPECT_POINT_ENTITY, "qrCode");
 
@@ -235,15 +245,20 @@ export default function SafetyInspectPointsPage() {
   }
 
   function openEdit(row: InspectPointRow) {
+    const location = reconcileLocationSelection({
+      buildingId: row.buildingId ?? "",
+      floorId: row.floorId ?? "",
+      unitId: row.unitId ?? ""
+    }, floors, units);
     setEditing(row);
     setForm({
       pointCode: row.pointCode,
       pointName: row.pointName,
       pointType: row.pointType,
       riskLevel: row.riskLevel,
-      buildingId: row.buildingId ?? "",
-      floorId: row.floorId ?? "",
-      unitId: row.unitId ?? "",
+      buildingId: location.buildingId,
+      floorId: location.floorId,
+      unitId: location.unitId,
       parkTenantId: row.parkTenantId ?? "",
       location: row.location ?? "",
       gpsLng: row.gpsLng ?? "",
@@ -328,9 +343,9 @@ export default function SafetyInspectPointsPage() {
               </Field>
               <SelectField label="点位类型" value={filters.pointType} items={pointTypeItems} allLabel="全部类型" onChange={(value) => setFilters((current) => ({ ...current, pointType: value }))} />
               <SelectField label="风险等级" value={filters.riskLevel} items={riskItems} allLabel="全部风险" onChange={(value) => setFilters((current) => ({ ...current, riskLevel: value }))} />
-              <SelectRefField label="楼栋" value={filters.buildingId} allLabel="全部楼栋" items={buildings.map((item) => ({ id: item.id, label: `${item.buildingCode} ${item.buildingName}` }))} onChange={(value) => setFilters((current) => ({ ...current, buildingId: value }))} />
-              <SelectRefField label="楼层" value={filters.floorId} allLabel="全部楼层" items={floors.map((item) => ({ id: item.id, label: `${item.floorCode} ${item.floorName}` }))} onChange={(value) => setFilters((current) => ({ ...current, floorId: value }))} />
-              <SelectRefField label="房源" value={filters.unitId} allLabel="全部房源" items={units.map((item) => ({ id: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => setFilters((current) => ({ ...current, unitId: value }))} />
+              <SelectRefField label="楼栋" value={filters.buildingId} allLabel="全部楼栋" items={buildings.map((item) => ({ id: item.id, label: `${item.buildingCode} ${item.buildingName}` }))} onChange={(value) => setFilters((current) => ({ ...current, ...changeLocationParent(current, "buildingId", value, floors, units) }))} />
+              <SelectRefField label="楼层" value={filters.floorId} allLabel={filters.buildingId ? "全部楼层" : "请先选择楼栋"} disabled={!filters.buildingId} items={filterFloorCandidates.map((item) => ({ id: item.id, label: `${item.floorCode} ${item.floorName}` }))} onChange={(value) => setFilters((current) => ({ ...current, ...changeLocationParent(current, "floorId", value, floors, units) }))} />
+              <SelectRefField label="房源" value={filters.unitId} allLabel={filters.floorId ? "全部房源" : "请先选择楼层"} disabled={!filters.floorId} items={filterUnitCandidates.map((item) => ({ id: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => setFilters((current) => ({ ...current, ...changeLocationParent(current, "unitId", value, floors, units) }))} />
               <SelectRefField label="租户企业" value={filters.parkTenantId} allLabel="全部企业" items={parkTenants.map((item) => ({ id: item.id, label: item.companyName }))} onChange={(value) => setFilters((current) => ({ ...current, parkTenantId: value }))} />
               <SelectField label="状态" value={filters.status} items={statusItems} allLabel="全部状态" onChange={(value) => setFilters((current) => ({ ...current, status: value }))} />
             </div>
@@ -426,9 +441,9 @@ export default function SafetyInspectPointsPage() {
                 </Field>
                 <SelectField label="点位类型" value={form.pointType} items={pointTypeItems} allLabel="请选择类型" required onChange={(value) => setFormValue("pointType", value)} />
                 <SelectField label="风险等级" value={form.riskLevel} items={riskItems} allLabel="请选择风险" required onChange={(value) => setFormValue("riskLevel", value)} />
-                <SelectRefField label="楼栋" value={form.buildingId} allLabel="不关联楼栋" items={buildings.map((item) => ({ id: item.id, label: `${item.buildingCode} ${item.buildingName}` }))} onChange={(value) => setFormValue("buildingId", value)} />
-                <SelectRefField label="楼层" value={form.floorId} allLabel="不关联楼层" items={floors.map((item) => ({ id: item.id, label: `${item.floorCode} ${item.floorName}` }))} onChange={(value) => setFormValue("floorId", value)} />
-                <SelectRefField label="房源" value={form.unitId} allLabel="不关联房源" items={units.map((item) => ({ id: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => setFormValue("unitId", value)} />
+                <SelectRefField label="楼栋" value={form.buildingId} allLabel="不关联楼栋" items={buildings.map((item) => ({ id: item.id, label: `${item.buildingCode} ${item.buildingName}` }))} onChange={(value) => setForm((current) => ({ ...current, ...changeLocationParent(current, "buildingId", value, floors, units) }))} />
+                <SelectRefField label="楼层" value={form.floorId} allLabel={form.buildingId ? "不关联楼层" : "请先选择楼栋"} disabled={!form.buildingId} items={formFloorCandidates.map((item) => ({ id: item.id, label: `${item.floorCode} ${item.floorName}` }))} onChange={(value) => setForm((current) => ({ ...current, ...changeLocationParent(current, "floorId", value, floors, units) }))} />
+                <SelectRefField label="房源" value={form.unitId} allLabel={form.floorId ? "不关联房源" : "请先选择楼层"} disabled={!form.floorId} items={formUnitCandidates.map((item) => ({ id: item.id, label: `${item.unitCode} ${item.unitName}` }))} onChange={(value) => setForm((current) => ({ ...current, ...changeLocationParent(current, "unitId", value, floors, units) }))} />
                 <SelectRefField label="租户企业" value={form.parkTenantId} allLabel="不关联企业" items={parkTenants.map((item) => ({ id: item.id, label: item.companyName }))} onChange={(value) => setFormValue("parkTenantId", value)} />
                 <Field label="位置描述">
                   <input value={form.location} onChange={(event) => setFormValue("location", event.target.value)} />
@@ -582,17 +597,19 @@ function SelectRefField({
   value,
   items,
   allLabel,
+  disabled,
   onChange
 }: {
   label: string;
   value: string;
   items: Array<{ id: string; label: string }>;
   allLabel: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
     <Field label={label}>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{allLabel}</option>
         {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
       </select>

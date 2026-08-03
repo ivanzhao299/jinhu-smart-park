@@ -93,6 +93,58 @@ Reference files:
 
 Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictException`, `NotFoundException`, etc.) from services. Do not return ad hoc error objects from controllers or services.
 
+## Scenario: Candidate Catalog Matches Write-Side Resolution
+
+### 1. Scope / Trigger
+- Trigger: A form selects a scoped reference that the write service can resolve from
+  a shared/default catalog, such as the tenant SaaS plan selector.
+
+### 2. Signatures
+- Candidate API: `GET /plans/available?page=<int>&page_size=<1..100>&keyword=<optional string>`.
+- Write contract: `POST /tenants` and tenant configuration updates accept
+  `planCode: string | null`.
+
+### 3. Contracts
+- The candidate API and write-side resolver use the same precedence: an enabled,
+  non-deleted current-scope record overrides the enabled, non-deleted default catalog
+  record with the same business code.
+- The default SaaS plan catalog scope is `tenantId=10000001`, `parkId=20000001`.
+- Candidate pagination occurs after precedence/deduplication and remains bounded by
+  `PaginationQueryDto.page_size`.
+- The scoped `GET /plans` management list remains scoped; do not broaden edit/manage
+  surfaces merely to populate a cross-scope candidate selector.
+
+### 4. Validation & Error Matrix
+- Invalid page/page size -> global DTO validation returns HTTP 400.
+- Disabled or deleted plan -> absent from candidates and rejected by resolution.
+- Unknown `planCode` -> tenant service returns HTTP 404.
+- Same code in current and default scopes -> return/resolve current scope exactly once.
+
+### 5. Good/Base/Bad Cases
+- Good: tenant creation uses `/plans/available` and can submit every returned code.
+- Base: a current-scope plan shadows the default plan with the same code.
+- Bad: selector calls scoped `/plans` while the write path silently searches another
+  scope.
+
+### 6. Tests Required
+- Unit-test scope precedence, default fallback, keyword parameters, and page bounds.
+- Run API typecheck/build and Web typecheck/build after changing this contract.
+- When a database is available, verify tenant creation with a default-catalog plan.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```ts
+const candidates = await listPlans(currentScope);
+const selected = await resolveFromAnyScope(planCode);
+```
+
+#### Correct
+```ts
+const candidates = await listAvailablePlans(currentScope);
+const selected = await resolveCurrentThenDefaultCatalog(currentScope, planCode);
+```
+
 ## Idempotent Writes
 
 For retryable write endpoints, attach `new IdempotencyInterceptor()` and require the frontend to send `X-Idempotency-Key`. The interceptor persists successful responses and detects processing/conflicting retries.

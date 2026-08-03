@@ -85,7 +85,7 @@ export default function TenantsPage() {
     if (status) params.set("status", status);
     const [tenantResponse, planResponse, moduleResponse] = await Promise.all([
       apiRequest<PaginatedResult<TenantRow>>(`/tenants?${params.toString()}`, { token }),
-      apiRequest<PaginatedResult<PlanRow>>("/plans?page=1&page_size=50", { token }),
+      apiRequest<PaginatedResult<PlanRow>>("/plans/available?page=1&page_size=50", { token }),
       apiRequest<PaginatedResult<ModuleRow>>("/modules?page=1&page_size=200", { token })
     ]);
     setTenants(tenantResponse.data);
@@ -284,7 +284,7 @@ export default function TenantsPage() {
               <div className="field"><label>租户编码</label><input name="tenantCode" required /></div>
               <div className="field"><label>租户名称</label><input name="tenantName" required /></div>
               <div className="field"><label>租户类型</label><input name="tenantType" defaultValue="park_operator" /></div>
-              <div className="field"><label>套餐</label><select name="planCode" defaultValue={plans.items[0]?.planCode ?? ""}>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
+              <div className="field"><label>套餐</label><select name="planCode" defaultValue={plans.items[0]?.planCode ?? ""}><option value="">未绑定套餐</option>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
               <div className="field"><label>联系人</label><input name="contactName" /></div>
               <div className="field"><label>联系电话</label><input name="contactMobile" /></div>
               <div className="field"><label>站点</label><input name="websites" placeholder="多个用英文逗号分隔" /></div>

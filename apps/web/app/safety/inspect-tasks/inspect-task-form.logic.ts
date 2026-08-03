@@ -3,6 +3,25 @@ export interface FileIdInputProjection {
   value: string;
 }
 
+export interface RecordArrayProjection<T> {
+  available: boolean;
+  value: T[];
+}
+
+export function normalizeRecordArrayProjection<T extends object>(
+  value: unknown,
+  requiredStringKeys: string[]
+): RecordArrayProjection<T> {
+  if (!Array.isArray(value)) return { available: false, value: [] };
+
+  const valid = value.every((item): item is T => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+    const record = item as Record<string, unknown>;
+    return requiredStringKeys.every((key) => typeof record[key] === "string" && record[key].trim().length > 0);
+  });
+  return valid ? { available: true, value } : { available: false, value: [] };
+}
+
 export function normalizeFileIdProjection(value: unknown): FileIdInputProjection {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     return { available: false, value: "" };

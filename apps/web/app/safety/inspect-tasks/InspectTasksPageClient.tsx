@@ -25,7 +25,12 @@ import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
-import { buildFileIdReplacement, normalizeFileIdProjection, normalizeNumericInput } from "./inspect-task-form.logic";
+import {
+  buildFileIdReplacement,
+  normalizeFileIdProjection,
+  normalizeNumericInput,
+  normalizeRecordArrayProjection
+} from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
@@ -326,22 +331,14 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openExecute(row: InspectTaskRow) {
-    const rowPhotoProjection = normalizeFileIdProjection(row.photoFileIds);
-    setExecuting(row);
-    setCheckInPhotoIdsAvailable(canViewTaskPhotos && rowPhotoProjection.available);
-    setCheckInForm({
-      qrCode: row.point?.pointCode ?? "",
-      gpsLng: normalizeNumericInput(row.gpsLng),
-      gpsLat: normalizeNumericInput(row.gpsLat),
-      photoFileIds: rowPhotoProjection.value
-    });
+    setExecuting(null);
     setTemplateItems([]);
     setResultInputs({});
+    setMessage("");
     try {
       const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
       const task = response.data;
       const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
-      setExecuting((current) => (current?.id === row.id ? task : current));
       setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
       setCheckInForm({
         qrCode: task.point?.pointCode ?? "",
@@ -350,23 +347,35 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         photoFileIds: taskPhotoProjection.value
       });
       if (mode === "mine") {
-        applyTemplateItems(task.items ?? [], task.results ?? []);
+        applyTemplateItems(task.items, task.results);
+        setExecuting(task);
         return;
       }
-      await loadTemplateItems(task.templateId, task.results ?? []);
+      await loadTemplateItems(task.templateId, task.results);
+      setExecuting(task);
     } catch (error) {
+      setExecuting(null);
+      setTemplateItems([]);
+      setResultInputs({});
       setMessage(error instanceof Error ? error.message : "加载巡检执行详情失败");
     }
   }
 
-  async function loadTemplateItems(templateId: string, existingResults: InspectTaskResultRow[]) {
+  async function loadTemplateItems(templateId: string, existingResults: unknown) {
     const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=100`, {
       token: getAccessToken()
     });
     applyTemplateItems(response.data.items, existingResults);
   }
 
-  function applyTemplateItems(items: InspectItemRow[], existingResults: InspectTaskResultRow[]) {
+  function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
+    const itemsProjectionResult = normalizeRecordArrayProjection<InspectItemRow>(itemsProjection, ["id"]);
+    const resultsProjectionResult = normalizeRecordArrayProjection<InspectTaskResultRow>(existingResultsProjection, ["itemId"]);
+    if (!itemsProjectionResult.available || !resultsProjectionResult.available) {
+      throw new Error("巡检执行数据格式异常，请刷新后重试或联系管理员");
+    }
+    const items = itemsProjectionResult.value;
+    const existingResults = resultsProjectionResult.value;
     setTemplateItems(items);
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
     setResultInputs(Object.fromEntries(items.map((item) => {
@@ -491,10 +500,10 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
       setExecuting(detail.data);
       setViewing(detail.data);
-      applyTemplateItems(detail.data.items ?? [], detail.data.results ?? []);
+      applyTemplateItems(detail.data.items, detail.data.results);
       return;
     }
-    await loadTemplateItems(response.data.templateId, response.data.results ?? []);
+    await loadTemplateItems(response.data.templateId, response.data.results);
   }
 
   function setResultInput(itemId: string, patch: Partial<ResultInput>) {

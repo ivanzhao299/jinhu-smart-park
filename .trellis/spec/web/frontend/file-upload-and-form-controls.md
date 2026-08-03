@@ -303,3 +303,60 @@ const payload = {
   ...(projection.available ? { photo_file_ids: parseFileIds(projection.value) } : {})
 };
 ```
+
+## Scenario: Async Candidate Options In Drawer Forms
+
+### 1. Scope / Trigger
+- Trigger: A create/edit drawer depends on asynchronously loaded tenant, park, plan,
+  building, floor, unit, or other reference options.
+
+### 2. Signatures
+- Option loader accepts the exact parent ID and returns options for that parent.
+- Form state owns controlled parent ID, selected option ID, loading state, and any
+  checked option IDs that are submitted.
+
+### 3. Contracts
+- Opening a drawer must not make an empty uncontrolled `<select>` authoritative while
+  its options are still loading.
+- The selected value is reconciled after options arrive: preserve a valid edit value,
+  otherwise use the configured default, otherwise the first valid option.
+- A parent change immediately clears dependent values and stale options. Only the
+  latest request may populate state; slower earlier requests are ignored.
+- Save remains disabled until options for the currently selected parent are ready.
+- A required selector with no options shows an explicit empty/error message and cannot
+  submit an empty ID.
+
+### 4. Validation & Error Matrix
+- Loading -> show loading option/state; disable dependent selector and save.
+- Empty option list -> explain the missing prerequisite; disable save.
+- Request failure -> retain the drawer, show the error, and do not expose stale options.
+- Edit value absent from returned options -> reconcile to a valid fallback before save.
+- Out-of-order response -> ignore unless its request generation is still current.
+
+### 5. Good/Base/Bad Cases
+- Good: a controlled default-park selector populates when tenant settings resolve.
+- Base: editing preserves a valid existing default park and accessible parks.
+- Bad: render `defaultValue=""`, append options later, and assume the browser selects
+  the correct value.
+- Bad: keep a fixed component `key` in edit mode and rely on remounting after fetch.
+
+### 6. Tests Required
+- Unit-test empty options, create defaulting, edit preservation, invalid-value repair,
+  and parent switching without cross-parent leakage.
+- Run Web typecheck and production build.
+- Inspect create and edit drawers at desktop and phone widths when browser tooling is
+  available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```tsx
+<select defaultValue={row.parkId}>{parks.map(renderOption)}</select>
+```
+
+#### Correct
+```tsx
+<select value={parkId} disabled={loading || parks.length === 0} onChange={onParkChange}>
+  {parks.map(renderOption)}
+</select>
+```

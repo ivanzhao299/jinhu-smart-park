@@ -10,6 +10,7 @@
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm test:unit
 ```
 
 说明：
@@ -17,6 +18,7 @@ pnpm build
 - `lint` 用于静态质量检查
 - `typecheck` 用于类型校验
 - `build` 用于 API 和 Web 构建验证
+- `test:unit` 递归运行 API 单测，并运行楼层布局、安全管理和系统管理前端逻辑单测
 
 ## 2. 首发核心回归包
 

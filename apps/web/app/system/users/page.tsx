@@ -2,10 +2,11 @@
 import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 import { CheckCircle2, Edit3, Plus, Search, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { resolveUserParkSelection } from "../user-park-options.logic";
 
 interface UserParkContext {
   tenant_id: string;
@@ -68,6 +69,11 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loginSettings, setLoginSettings] = useState<TenantLoginSettings | null>(null);
+  const [loginSettingsLoading, setLoginSettingsLoading] = useState(false);
+  const [formTenantId, setFormTenantId] = useState("");
+  const [formParkId, setFormParkId] = useState("");
+  const [accessibleParkIds, setAccessibleParkIds] = useState<string[]>([]);
+  const loginSettingsRequest = useRef(0);
 
   const selectedTenant = useMemo(
     () => tenants.items.find((item) => item.tenantId === tenantId) ?? tenants.items[0] ?? null,
@@ -89,29 +95,62 @@ export default function UsersPage() {
     setTenants(tenantResponse.data);
   }
 
-  async function loadLoginSettings(targetTenantId: string) {
+  async function loadLoginSettings(targetTenantId: string, existingUser?: UserRow | null) {
+    const requestId = ++loginSettingsRequest.current;
+    setLoginSettingsLoading(true);
+    setLoginSettings(null);
+    setFormParkId("");
+    setAccessibleParkIds([]);
     const token = localStorage.getItem("jinhu_access_token") ?? "";
-    const tenant = tenants.items.find((item) => item.tenantId === targetTenantId) ?? selectedTenant;
+    const tenant = tenants.items.find((item) => item.tenantId === targetTenantId);
     if (!tenant) {
-      setLoginSettings(null);
+      if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
+      setMessage("未找到所选租户，请刷新后重试");
       return;
     }
-    const response = await apiRequest<TenantLoginSettings>(`/tenants/${tenant.id}/login-settings`, { token });
-    setLoginSettings(response.data);
+    try {
+      const response = await apiRequest<TenantLoginSettings>(`/tenants/${tenant.id}/login-settings`, { token });
+      if (requestId !== loginSettingsRequest.current) return;
+      const selection = resolveUserParkSelection(
+        {
+          tenantId: response.data.tenant.tenantId,
+          defaultParkId: response.data.tenant.defaultParkId,
+          parkIds: response.data.parks.map((park) => park.parkId)
+        },
+        existingUser
+          ? {
+              tenantId: existingUser.tenantId,
+              parkId: existingUser.parkId,
+              accessibleParkIds: existingUser.accessibleParks.map((park) => park.park_id)
+            }
+          : null
+      );
+      setLoginSettings(response.data);
+      setFormParkId(selection?.parkId ?? "");
+      setAccessibleParkIds(selection?.accessibleParkIds ?? []);
+      if (!selection) setMessage("所选租户尚未配置可用园区，暂不能保存用户");
+    } finally {
+      if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
+    }
   }
 
   async function openCreate() {
     setEditingUser(null);
-    setShowCreate(true);
     if (selectedTenant) {
+      setShowCreate(true);
+      setFormTenantId(selectedTenant.tenantId);
       await loadLoginSettings(selectedTenant.tenantId);
+    } else {
+      setShowCreate(false);
+      setMessage("暂无可选租户，请先创建租户");
     }
   }
 
   async function openEdit(row: UserRow) {
     setEditingUser(row);
     setShowCreate(false);
-    await loadLoginSettings(row.tenantId);
+    setFormTenantId(row.tenantId);
+    await loadLoginSettings(row.tenantId, row);
   }
 
   async function saveUser(event: FormEvent<HTMLFormElement>) {
@@ -120,13 +159,13 @@ export default function UsersPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const targetTenantId = String(form.get("tenantId") ?? "").trim();
     const defaultParkId = String(form.get("parkId") ?? "").trim();
-    const accessibleParkIds = (loginSettings?.parks ?? [])
-      .map((park) => park.parkId)
-      .filter((parkId) => form.get(`park.${parkId}`) === "on");
+    if (loginSettingsLoading || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
+      throw new Error("园区选项尚未加载完成，请稍后重试");
+    }
     const body = {
       tenantId: targetTenantId,
       parkId: defaultParkId,
-      accessibleParkIds,
+      accessibleParkIds: [...new Set([defaultParkId, ...accessibleParkIds])],
       username: String(form.get("username") ?? "").trim(),
       displayName: String(form.get("displayName") ?? "").trim(),
       password: String(form.get("password") ?? ""),
@@ -160,6 +199,9 @@ export default function UsersPage() {
     setEditingUser(null);
     setShowCreate(false);
     setLoginSettings(null);
+    setFormTenantId("");
+    setFormParkId("");
+    setAccessibleParkIds([]);
     await load(data.page);
   }
 
@@ -251,29 +293,33 @@ export default function UsersPage() {
       </Card>
 
       {(showCreate || editingUser) ? (
-        <Drawer size="lg" onClose={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}>
+        <Drawer size="lg" onClose={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}>
           <DrawerHeader
             eyebrow="系统管理"
             title={editingUser ? "编辑用户登录上下文" : "新增用户"}
             description="维护用户账号、登录上下文与可访问园区。"
-            onClose={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}
+            onClose={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm key={editingUser?.id ?? loginSettings?.tenant.tenantId ?? "new"} onSubmit={(event) => void saveUser(event).catch((error: Error) => setMessage(error.message))}>
+          <DrawerForm onSubmit={(event) => void saveUser(event).catch((error: Error) => setMessage(error.message))}>
             <DrawerFormGrid>
               <div className="field">
                 <label>所属租户</label>
                 <select
                   name="tenantId"
-                  defaultValue={editingUser?.tenantId ?? selectedTenant?.tenantId ?? ""}
-                  onChange={(event) => void loadLoginSettings(event.target.value).catch((error: Error) => setMessage(error.message))}
+                  value={formTenantId}
+                  onChange={(event) => {
+                    setFormTenantId(event.target.value);
+                    void loadLoginSettings(event.target.value).catch((error: Error) => setMessage(error.message));
+                  }}
                 >
                   {tenants.items.map((item) => <option key={item.id} value={item.tenantId}>{item.tenantName} / {item.tenantId}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label>默认园区</label>
-                <select name="parkId" defaultValue={editingUser?.parkId ?? loginSettings?.tenant.defaultParkId ?? loginSettings?.parks[0]?.parkId ?? ""} required>
+                <select name="parkId" value={formParkId} onChange={(event) => setFormParkId(event.target.value)} disabled={loginSettingsLoading || !loginSettings?.parks.length} required>
+                  <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
                   {(loginSettings?.parks ?? []).map((park) => <option key={park.parkId} value={park.parkId}>{park.parkName} / {park.parkId}</option>)}
                 </select>
               </div>
@@ -289,10 +335,17 @@ export default function UsersPage() {
                 <label>可访问园区</label>
                 <div className="checkbox-list">
                   {(loginSettings?.parks ?? []).map((park) => {
-                    const checked = editingUser ? editingUser.accessibleParks.some((item) => item.park_id === park.parkId) || editingUser.parkId === park.parkId : true;
                     return (
                       <label key={park.parkId} className="checkbox-row">
-                        <input name={`park.${park.parkId}`} type="checkbox" defaultChecked={checked} />
+                        <input
+                          name={`park.${park.parkId}`}
+                          type="checkbox"
+                          checked={accessibleParkIds.includes(park.parkId)}
+                          disabled={park.parkId === formParkId}
+                          onChange={(event) => setAccessibleParkIds((current) => event.target.checked
+                            ? [...new Set([...current, park.parkId])]
+                            : current.filter((id) => id !== park.parkId))}
+                        />
                         <span>{park.parkName} / {park.parkId}</span>
                       </label>
                     );
@@ -301,8 +354,8 @@ export default function UsersPage() {
               </div>
             </DrawerFormGrid>
             <DrawerFooter>
-              <button className="secondary-button" type="button" onClick={() => { setShowCreate(false); setEditingUser(null); setLoginSettings(null); }}><XCircle size={16} />取消</button>
-              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+              <button className="secondary-button" type="button" onClick={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}><XCircle size={16} />取消</button>
+              <button className="primary-button" type="submit" disabled={loginSettingsLoading || !formParkId}><CheckCircle2 size={16} />保存</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>
