@@ -41,15 +41,25 @@ export function resolveUserParkLabels(
   options: UserParkLabelOption[],
   tenantName?: string | null
 ): Map<string, string> {
-  const baseLabels = options.map((option) => resolveUserParkLabel({ parkName: option.parkName, tenantName }));
-  const labelCounts = new Map<string, number>();
-  baseLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1));
+  let displayLabels = options.map((option) => resolveUserParkLabel({ parkName: option.parkName, tenantName }));
 
-  return new Map(options.map((option, index) => {
-    const label = baseLabels[index]!;
-    const displayLabel = labelCounts.get(label)! > 1 ? `${label}（${option.parkCode.trim()}）` : label;
-    return [option.parkId, displayLabel];
-  }));
+  for (let pass = 0; pass <= options.length; pass += 1) {
+    const labelCounts = new Map<string, number>();
+    displayLabels.forEach((label) => labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1));
+    const collidingLabels = new Set(
+      [...labelCounts.entries()].filter(([, count]) => count > 1).map(([label]) => label)
+    );
+
+    if (collidingLabels.size === 0) {
+      return new Map(options.map((option, index) => [option.parkId, displayLabels[index]!]));
+    }
+
+    displayLabels = displayLabels.map((label, index) => (
+      collidingLabels.has(label) ? `${label}（${options[index]!.parkCode.trim()}）` : label
+    ));
+  }
+
+  throw new Error("Unable to resolve unique park labels: park codes must be unique");
 }
 
 export function resolveUserParkSelection(

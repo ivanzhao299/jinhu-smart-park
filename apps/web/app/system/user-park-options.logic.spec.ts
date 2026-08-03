@@ -36,6 +36,19 @@ test("user park labels add park codes only when visible labels collide", () => {
   assert.equal(labels.get("park-e"), "测试租户01默认园区（PARK-E）");
 });
 
+test("user park labels recheck collisions introduced by appended park codes", () => {
+  const labels = resolveUserParkLabels([
+    { parkId: "park-a", parkCode: "PARK-A", parkName: "同名园区" },
+    { parkId: "park-b", parkCode: "PARK-B", parkName: "同名园区" },
+    { parkId: "park-c", parkCode: "PARK-C", parkName: "同名园区（PARK-A）" }
+  ], "测试租户01");
+
+  assert.equal(labels.get("park-a"), "同名园区（PARK-A）（PARK-A）");
+  assert.equal(labels.get("park-b"), "同名园区（PARK-B）");
+  assert.equal(labels.get("park-c"), "同名园区（PARK-A）（PARK-C）");
+  assert.equal(new Set(labels.values()).size, labels.size);
+});
+
 test("user form waits when the selected tenant has no park options", () => {
   assert.equal(resolveUserParkSelection({ tenantId: "tenant-a", defaultParkId: null, parkIds: [] }), null);
 });
