@@ -25,12 +25,16 @@ export interface UserParkLabelOption extends UserParkLabelSource {
   parkCode: string;
 }
 
-function isReadableParkName(value: string): boolean {
-  return /\p{L}/u.test(value);
+export function normalizeUserParkNameInput(value: string): string {
+  return value.replace(/\p{Default_Ignorable_Code_Point}/gu, "").normalize("NFC").trim();
+}
+
+export function isReadableUserParkName(value: string): boolean {
+  return /\p{L}/u.test(normalizeUserParkNameInput(value));
 }
 
 function normalizeRenderedLabel(value: string): string {
-  return value.replace(/\p{Default_Ignorable_Code_Point}/gu, "").normalize("NFC").trim().replace(/\s+/gu, " ");
+  return normalizeUserParkNameInput(value).replace(/\s+/gu, " ");
 }
 
 function formatParkCodeForLabel(value: string): string {
@@ -44,10 +48,10 @@ function formatParkCodeForLabel(value: string): string {
 
 export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSource): string {
   const normalizedParkName = normalizeRenderedLabel(parkName ?? "");
-  if (isReadableParkName(normalizedParkName)) return normalizedParkName;
+  if (isReadableUserParkName(normalizedParkName)) return normalizedParkName;
 
   const normalizedTenantName = normalizeRenderedLabel(tenantName ?? "");
-  return isReadableParkName(normalizedTenantName) ? `${normalizedTenantName}默认园区` : "默认园区";
+  return isReadableUserParkName(normalizedTenantName) ? `${normalizedTenantName}默认园区` : "默认园区";
 }
 
 export function deduplicateUserParkOptions<T extends { parkId: string }>(options: T[]): T[] {

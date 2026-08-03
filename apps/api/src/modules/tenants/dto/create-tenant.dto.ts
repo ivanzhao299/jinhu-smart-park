@@ -13,6 +13,12 @@ import {
   MinLength
 } from "class-validator";
 
+function normalizeReadableBusinessName(value: unknown): unknown {
+  return typeof value === "string"
+    ? value.replace(/\p{Default_Ignorable_Code_Point}/gu, "").normalize("NFC").trim()
+    : value;
+}
+
 export class CreateTenantDto {
   @IsOptional()
   @IsString()
@@ -101,7 +107,7 @@ export class CreateTenantDto {
   @MaxLength(64)
   parkCode?: string;
 
-  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @Transform(({ value }) => normalizeReadableBusinessName(value))
   @IsString()
   @MinLength(1)
   @MaxLength(100)

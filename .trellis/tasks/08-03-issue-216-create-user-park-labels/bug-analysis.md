@@ -35,6 +35,8 @@ Codex 复审进一步暴露两种同一契约的边界绕过：DTO 的 optional 
 
 第八轮复审暴露了“Format 等于全部不可见字符”及“parkId 天然唯一”两个假设。U+034F 属于默认不可见码点但分类为 Mn；同时正常园区创建路径会复用当前 scope parkId。当前展示归一化移除完整 Unicode Default_Ignorable_Code_Point 集合，候选列表则在标签计算和控件渲染前按实际提交的 parkId 保留首项并稳定去重。
 
+第九轮复审暴露了分类交集与校验顺序：U+3164、U+115F 同时属于 Letter 和 Default_Ignorable_Code_Point，单纯匹配 `\p{L}` 会把视觉空白当成可读名称。当前 API 转换、Web 自定义约束与提交值都统一先移除默认不可见码点并执行 NFC/trim，再判断是否含 Unicode Letter。
+
 ### 4. Systematic Expansion
 
 - **Similar Issues**: 其他目录选择器若直接显示 `name / id`，也可能暴露内部 ID 或放大历史脏名称，应在后续修改时遵循同一规范。

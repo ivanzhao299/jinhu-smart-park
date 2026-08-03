@@ -15,3 +15,4 @@
 - [x] 处理 Codex P2：以 NFC 比较业务标签，并以 ASCII-safe 形式可逆表示园区编码。
 - [x] 处理 Codex P2：移除标签中的 Unicode Format 字符，消除零宽视觉碰撞。
 - [x] 处理 Codex P2：扩展至 Unicode 默认不可见字符，并按提交用 `parkId` 去重候选。
+- [x] 处理 Codex P2：在 API/Web 可读字母判断前移除默认不可见 Letter。

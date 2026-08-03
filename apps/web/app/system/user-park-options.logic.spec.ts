@@ -4,10 +4,19 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   deduplicateUserParkOptions,
+  isReadableUserParkName,
+  normalizeUserParkNameInput,
   resolveUserParkLabel,
   resolveUserParkLabels,
   resolveUserParkSelection
 } from "./user-park-options.logic";
+
+test("user park name input removes default-ignorable letters before readability checks", () => {
+  assert.equal(isReadableUserParkName("\u3164"), false);
+  assert.equal(isReadableUserParkName("\u115F"), false);
+  assert.equal(normalizeUserParkNameInput(" \u3164金\u034F湖园区 "), "金湖园区");
+  assert.equal(isReadableUserParkName("11号园区"), true);
+});
 
 test("user park labels show the business name without exposing the internal park id", () => {
   const label = resolveUserParkLabel({ parkName: " 金湖科创产业园 ", tenantName: "默认租户" });
@@ -164,4 +173,12 @@ test("default and accessible park controls share the safe user-facing label reso
   assert.match(source, /deduplicateUserParkOptions\(loginSettings\?\.parks \?\? \[\]/);
   assert.equal((source.match(/parkOptions\.map\(\(park\)/g) ?? []).length, 2);
   assert.doesNotMatch(source, /park\.parkName\} \/ \{park\.parkId/);
+});
+
+test("tenant park-name form applies the same default-ignorable normalization", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /normalizeUserParkNameInput\(String\(form\.get\("parkName"\)/);
+  assert.match(source, /setCustomValidity\(isReadableUserParkName\(event\.currentTarget\.value\)/);
+  assert.doesNotMatch(source, /name="parkName" pattern=/);
 });

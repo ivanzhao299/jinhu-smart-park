@@ -121,7 +121,9 @@ the tenant's default-park label) in one shared helper used by every view of that
 decimal separators, and default-ignorable Unicode characters are not readable business-name text.
 Normalize by removing `\p{Default_Ignorable_Code_Point}`, normalizing to NFC, and collapsing whitespace
 before display and collision counting so invisible-, canonically-, or whitespace-equivalent labels share
-the same comparison value. Deduplicate catalog candidates by the submitted business identifier before
+the same comparison value. Apply the removal before any readable-letter check as some default-ignorable
+characters are also Unicode letters; mirror this order in browser constraints and submitted values.
+Deduplicate catalog candidates by the submitted business identifier before
 rendering; repeated values must not create duplicate controls or overwrite labels in a keyed projection.
 If multiple candidates resolve to the same visible label, append a stable
 user-facing business code only to those colliding labels. The code
