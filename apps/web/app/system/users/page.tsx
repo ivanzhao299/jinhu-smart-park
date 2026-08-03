@@ -6,7 +6,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { resolveUserParkSelection } from "../user-park-options.logic";
+import {
+  deduplicateUserParkOptions,
+  resolveUserParkLabels,
+  resolveUserParkSelection
+} from "../user-park-options.logic";
 
 interface UserParkContext {
   tenant_id: string;
@@ -80,6 +84,14 @@ export default function UsersPage() {
     [tenantId, tenants.items]
   );
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  const parkOptions = useMemo(
+    () => deduplicateUserParkOptions(loginSettings?.parks ?? []),
+    [loginSettings]
+  );
+  const parkLabels = useMemo(
+    () => resolveUserParkLabels(parkOptions, loginSettings?.tenant.tenantName),
+    [loginSettings, parkOptions]
+  );
 
   async function load(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -322,9 +334,13 @@ export default function UsersPage() {
               </div>
               <div className="field">
                 <label>默认园区</label>
-                <select name="parkId" value={formParkId} onChange={(event) => setFormParkId(event.target.value)} disabled={loginSettingsLoading || !loginSettings?.parks.length} required>
+                <select name="parkId" value={formParkId} onChange={(event) => setFormParkId(event.target.value)} disabled={loginSettingsLoading || !parkOptions.length} required>
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
-                  {(loginSettings?.parks ?? []).map((park) => <option key={park.parkId} value={park.parkId}>{park.parkName} / {park.parkId}</option>)}
+                  {parkOptions.map((park) => (
+                    <option key={park.parkId} value={park.parkId}>
+                      {parkLabels.get(park.parkId)}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="field"><label>账号</label><input name="username" defaultValue={editingUser?.username ?? ""} readOnly={Boolean(editingUser)} required /></div>
@@ -338,7 +354,7 @@ export default function UsersPage() {
               <div className="field">
                 <label>可访问园区</label>
                 <div className="checkbox-list">
-                  {(loginSettings?.parks ?? []).map((park) => {
+                  {parkOptions.map((park) => {
                     return (
                       <label key={park.parkId} className="checkbox-row">
                         <input
@@ -350,7 +366,7 @@ export default function UsersPage() {
                             ? [...new Set([...current, park.parkId])]
                             : current.filter((id) => id !== park.parkId))}
                         />
-                        <span>{park.parkName} / {park.parkId}</span>
+                        <span>{parkLabels.get(park.parkId)}</span>
                       </label>
                     );
                   })}

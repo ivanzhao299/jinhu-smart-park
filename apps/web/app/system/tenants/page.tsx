@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
 import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
 
 interface TenantRow {
@@ -134,7 +135,7 @@ export default function TenantsPage() {
         websites: splitCsv(form.get("websites")),
         domains: splitCsv(form.get("domains")),
         parkCode: String(form.get("parkCode") ?? "").trim(),
-        parkName: String(form.get("parkName") ?? "").trim(),
+        parkName: normalizeUserParkNameInput(String(form.get("parkName") ?? "")),
         adminUsername: String(form.get("adminUsername") ?? "").trim(),
         adminPassword: String(form.get("adminPassword") ?? ""),
         adminDisplayName: String(form.get("adminDisplayName") ?? "").trim(),
@@ -316,7 +317,7 @@ export default function TenantsPage() {
               <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={plans.items[0]?.maxUsers ?? 0} /></div>
               <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={plans.items[0]?.maxParks ?? 0} /></div>
               <div className="field"><label>园区编码</label><input name="parkCode" required /></div>
-              <div className="field"><label>园区名称</label><input name="parkName" required /></div>
+              <div className="field"><label>园区名称</label><input name="parkName" title="请输入包含可见文字的园区名称，例如“11号园区”" onInput={(event) => event.currentTarget.setCustomValidity(isReadableUserParkName(event.currentTarget.value) ? "" : "请输入包含可见文字的园区名称")} required /></div>
               <div className="field"><label>管理员账号</label><input name="adminUsername" required /></div>
               <div className="field"><label>管理员姓名</label><input name="adminDisplayName" required /></div>
               <div className="field"><label>初始密码</label><input name="adminPassword" type="password" minLength={8} required /></div>

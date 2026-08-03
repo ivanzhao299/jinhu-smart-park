@@ -112,6 +112,29 @@ fields from update requests. Compare set-like fields after normalization so orde
 duplicates do not cause an unchanged historical binding to be revalidated against the active
 catalog. Submit the coupled fields together only when the operator actually changes them.
 
+## User-Facing Catalog Labels
+
+Catalog selectors must show stable business labels rather than database IDs. Keep the ID in the
+control value/key, but do not append it to the visible option text merely to make the label unique.
+When historical catalog data has no Unicode letter, resolve a domain-specific fallback (for example,
+the tenant's default-park label) in one shared helper used by every view of that option. Punctuation,
+decimal separators, and default-ignorable Unicode characters are not readable business-name text.
+Normalize by removing `\p{Default_Ignorable_Code_Point}`, normalizing to NFC, and collapsing whitespace
+before display and collision counting so invisible-, canonically-, or whitespace-equivalent labels share
+the same comparison value. Apply the removal before any readable-letter check as some default-ignorable
+characters are also Unicode letters; mirror this order in browser constraints and submitted values.
+Deduplicate catalog candidates by the submitted business identifier before
+rendering; repeated values must not create duplicate controls or overwrite labels in a keyed projection.
+If multiple candidates resolve to the same visible label, append a stable
+user-facing business code only to those colliding labels. The code
+suffix must use an injective ASCII-safe representation: escape non-ASCII code points, whitespace, and
+the escape marker itself rather than allowing Unicode normalization or HTML collapsing to merge distinct
+codes. Normalize the complete generated label before every collision-counting pass, then repeat
+disambiguation for any new collision with a genuine business name; uniqueness of the base-label groups
+alone is insufficient.
+Never expose an internal database ID. A display fallback must not broaden the API candidate scope or
+bypass tenant ownership.
+
 ## Verification
 
 For frontend changes, choose the smallest reliable checks:

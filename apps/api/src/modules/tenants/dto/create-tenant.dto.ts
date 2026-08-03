@@ -7,10 +7,17 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   MinLength
 } from "class-validator";
+
+function normalizeReadableBusinessName(value: unknown): unknown {
+  return typeof value === "string"
+    ? value.replace(/\p{Default_Ignorable_Code_Point}/gu, "").normalize("NFC").trim()
+    : value;
+}
 
 export class CreateTenantDto {
   @IsOptional()
@@ -100,10 +107,12 @@ export class CreateTenantDto {
   @MaxLength(64)
   parkCode?: string;
 
-  @IsOptional()
+  @Transform(({ value }) => normalizeReadableBusinessName(value))
   @IsString()
+  @MinLength(1)
   @MaxLength(100)
-  parkName?: string;
+  @Matches(/\p{L}/u, { message: "parkName must contain a readable letter" })
+  parkName!: string;
 
   @IsString()
   @MaxLength(64)

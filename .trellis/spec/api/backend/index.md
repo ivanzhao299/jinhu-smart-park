@@ -65,6 +65,14 @@ Global validation is configured in `apps/api/src/main.ts` with:
 
 DTOs should use `class-validator` decorators and `class-transformer` transforms for trimming and numeric coercion. Reuse existing helpers when a domain already exposes them, such as `trimOptional` and `optionalNumber` in leasing receivable DTOs.
 
+Business display names used as catalog labels must be required and normalized before validation.
+Remove Unicode `\\p{Default_Ignorable_Code_Point}` characters before checking that the result contains
+at least one Unicode letter (`\\p{L}`), including alphabetic or ideographic text; some default-ignorable
+fillers are themselves classified as letters. A negated number/whitespace class is insufficient because
+punctuation, decimal separators, and invisible characters would pass. Reject omission, blank, number-only,
+punctuation-only, and invisible-only names at the API boundary even when the Web form also validates them.
+Identifiers and codes belong in their dedicated fields.
+
 Pagination DTOs must validate `page` and `page_size` as integers and cap
 `page_size` at the endpoint's documented maximum before values reach
 `skip`/`take`. Candidate endpoints are not exempt from the bound.

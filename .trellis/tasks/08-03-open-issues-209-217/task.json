@@ -23,7 +23,8 @@
     "08-03-issue-215-inspect-point-cascades",
     "08-03-issue-216-user-default-park-options",
     "08-03-issue-217-tenant-package-options",
-    "08-03-issue-217-super-admin-login"
+    "08-03-issue-217-super-admin-login",
+    "08-03-issue-216-create-user-park-labels"
   ],
   "parent": null,
   "relatedFiles": [],
