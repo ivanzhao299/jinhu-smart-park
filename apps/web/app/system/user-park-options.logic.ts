@@ -30,7 +30,7 @@ function isReadableParkName(value: string): boolean {
 }
 
 function normalizeRenderedLabel(value: string): string {
-  return value.normalize("NFC").trim().replace(/\s+/gu, " ");
+  return value.replace(/\p{Cf}/gu, "").normalize("NFC").trim().replace(/\s+/gu, " ");
 }
 
 function formatParkCodeForLabel(value: string): string {

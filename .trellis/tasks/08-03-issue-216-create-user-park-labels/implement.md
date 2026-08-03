@@ -13,3 +13,4 @@
 - [x] 处理 Codex P2：要求 Unicode 可读文字并在碰撞检测前规范化可折叠空白。
 - [x] 处理 Codex P2：可逆转义园区编码空白，并在每轮碰撞检测前规范化完整标签。
 - [x] 处理 Codex P2：以 NFC 比较业务标签，并以 ASCII-safe 形式可逆表示园区编码。
+- [x] 处理 Codex P2：移除标签中的 Unicode Format 字符，消除零宽视觉碰撞。

@@ -88,6 +88,17 @@ test("user park labels normalize canonically equivalent names without merging pa
   assert.equal(new Set(labels.values()).size, labels.size);
 });
 
+test("user park labels remove invisible format characters before collision counting", () => {
+  const labels = resolveUserParkLabels([
+    { parkId: "park-a", parkCode: "PARK-A", parkName: "金湖园区" },
+    { parkId: "park-b", parkCode: "PARK-B", parkName: "金\u200B湖园区" }
+  ], "测试租户01");
+
+  assert.equal(labels.get("park-a"), "金湖园区（PARK-A）");
+  assert.equal(labels.get("park-b"), "金湖园区（PARK-B）");
+  assert.equal(new Set(labels.values()).size, labels.size);
+});
+
 test("user form waits when the selected tenant has no park options", () => {
   assert.equal(resolveUserParkSelection({ tenantId: "tenant-a", defaultParkId: null, parkIds: [] }), null);
 });

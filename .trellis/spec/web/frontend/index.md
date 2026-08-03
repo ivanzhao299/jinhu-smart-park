@@ -119,9 +119,10 @@ control value/key, but do not append it to the visible option text merely to mak
 When historical catalog data has no Unicode letter, resolve a domain-specific fallback (for example,
 the tenant's default-park label) in one shared helper used by every view of that option. Punctuation,
 decimal separators, and invisible format characters are not readable business-name text. Normalize
-to NFC and collapse whitespace before display and collision counting so canonically equivalent or
-whitespace-equivalent labels share the same comparison value. If multiple candidates resolve to the
-same visible label, append a stable user-facing business code only to those colliding labels. The code
+by removing Unicode format characters (`\p{Cf}`), normalizing to NFC, and collapsing whitespace before
+display and collision counting so invisible-, canonically-, or whitespace-equivalent labels share the
+same comparison value. If multiple candidates resolve to the same visible label, append a stable
+user-facing business code only to those colliding labels. The code
 suffix must use an injective ASCII-safe representation: escape non-ASCII code points, whitespace, and
 the escape marker itself rather than allowing Unicode normalization or HTML collapsing to merge distinct
 codes. Normalize the complete generated label before every collision-counting pass, then repeat
