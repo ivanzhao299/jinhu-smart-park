@@ -40,6 +40,8 @@ export class SaaSModulesService {
     const [items, total] = await builder
       .orderBy("module.moduleGroup", "ASC")
       .addOrderBy("module.sortNo", "ASC")
+      .addOrderBy("module.moduleCode", "ASC")
+      .addOrderBy("module.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -60,6 +62,8 @@ export class SaaSModulesService {
     const [items, total] = await builder
       .orderBy("module.moduleGroup", "ASC")
       .addOrderBy("module.sortNo", "ASC")
+      .addOrderBy("module.moduleCode", "ASC")
+      .addOrderBy("module.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();

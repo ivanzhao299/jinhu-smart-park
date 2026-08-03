@@ -18,6 +18,7 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
         SELECT
           plan.id,
           plan.plan_code,
+          plan.plan_name,
           plan.sort_no,
           ROW_NUMBER() OVER (
             PARTITION BY plan.plan_code
@@ -33,12 +34,12 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
             (plan.tenant_id = $1 AND plan.park_id = $2)
             OR (plan.tenant_id = $3 AND plan.park_id = $4)
           )
-          AND ($5::text IS NULL OR plan.plan_code ILIKE $5 OR plan.plan_name ILIKE $5)
       ),
       selected AS (
         SELECT id, plan_code, sort_no
         FROM ranked
         WHERE precedence = 1
+          AND ($5::text IS NULL OR plan_code ILIKE $5 OR plan_name ILIKE $5)
       ),
       paged AS (
         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_no ASC, plan_code ASC, id ASC) AS position

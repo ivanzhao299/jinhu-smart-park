@@ -41,3 +41,15 @@ test("available plan catalog orders the selected rows before applying offset and
 
   assert.match(paged, /FROM selected\s+ORDER BY sort_no ASC, plan_code ASC, id ASC\s+OFFSET \$6\s+LIMIT \$7/);
 });
+
+test("available plan catalog applies keyword filtering after scope precedence", () => {
+  const result = buildAvailablePlanCatalogQuery(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { page: 1, page_size: 20, keyword: "starter" }
+  );
+  const ranked = result.sql.slice(result.sql.indexOf("ranked AS"), result.sql.indexOf("selected AS"));
+  const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
+
+  assert.doesNotMatch(ranked, /\$5/);
+  assert.match(selected, /WHERE precedence = 1\s+AND \(\$5::text IS NULL OR plan_code ILIKE \$5 OR plan_name ILIKE \$5\)/);
+});

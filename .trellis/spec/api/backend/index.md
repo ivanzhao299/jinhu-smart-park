@@ -113,6 +113,10 @@ Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictExcep
   `PaginationQueryDto.page_size`.
 - SQL pagination must apply a stable top-level `ORDER BY` before `OFFSET`/`LIMIT`;
   window-function ordering alone does not define the rows consumed by pagination.
+- Every paginated candidate query ends its ordering with stable unique tie-breakers
+  such as business code and row ID; non-unique group/sort columns are insufficient.
+- For precedence catalogs, rank and select the effective scoped row before applying
+  keyword filters, so a shadowed default row cannot reappear with different behavior.
 - Selector clients must either expose server pagination/search or consume all pages
   reported by `total`; loading only page 1 does not satisfy the candidate/write
   parity contract.
