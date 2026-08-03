@@ -119,13 +119,14 @@ control value/key, but do not append it to the visible option text merely to mak
 When historical catalog data has no Unicode letter, resolve a domain-specific fallback (for example,
 the tenant's default-park label) in one shared helper used by every view of that option. Punctuation,
 decimal separators, and invisible format characters are not readable business-name text. Normalize
-collapsible whitespace before display and collision counting so labels that render identically share
-the same comparison value. If multiple candidates resolve to the same visible label, append a stable
-user-facing business code only to those colliding labels. Business-code whitespace must remain visibly
-distinguishable: use an injective visible escape for whitespace (and escape the escape marker itself)
-rather than letting HTML collapse distinct codes or collapsing them into the same suffix. Normalize the
-complete generated label before every collision-counting pass, then repeat disambiguation for any new
-collision with a genuine business name; uniqueness of the base-label groups alone is insufficient.
+to NFC and collapse whitespace before display and collision counting so canonically equivalent or
+whitespace-equivalent labels share the same comparison value. If multiple candidates resolve to the
+same visible label, append a stable user-facing business code only to those colliding labels. The code
+suffix must use an injective ASCII-safe representation: escape non-ASCII code points, whitespace, and
+the escape marker itself rather than allowing Unicode normalization or HTML collapsing to merge distinct
+codes. Normalize the complete generated label before every collision-counting pass, then repeat
+disambiguation for any new collision with a genuine business name; uniqueness of the base-label groups
+alone is insufficient.
 Never expose an internal database ID. A display fallback must not broaden the API candidate scope or
 bypass tenant ownership.
 

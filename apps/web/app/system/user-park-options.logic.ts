@@ -30,14 +30,15 @@ function isReadableParkName(value: string): boolean {
 }
 
 function normalizeRenderedLabel(value: string): string {
-  return value.trim().replace(/\s+/gu, " ");
+  return value.normalize("NFC").trim().replace(/\s+/gu, " ");
 }
 
 function formatParkCodeForLabel(value: string): string {
   return [...value.trim()].map((character) => {
     if (character === "\\") return "\\\\";
-    if (!/\s/u.test(character)) return character;
-    return `\\u{${character.codePointAt(0)!.toString(16).toUpperCase()}}`;
+    const codePoint = character.codePointAt(0)!;
+    if (codePoint >= 0x21 && codePoint <= 0x7E) return character;
+    return `\\u{${codePoint.toString(16).toUpperCase()}}`;
   }).join("");
 }
 

@@ -77,6 +77,17 @@ test("user park labels preserve visible distinctions between whitespace-bearing 
   assert.equal(new Set(labels.values()).size, labels.size);
 });
 
+test("user park labels normalize canonically equivalent names without merging park codes", () => {
+  const labels = resolveUserParkLabels([
+    { parkId: "park-a", parkCode: "PARK-É", parkName: "Café园区" },
+    { parkId: "park-b", parkCode: "PARK-E\u0301", parkName: "Cafe\u0301园区" }
+  ], "测试租户01");
+
+  assert.equal(labels.get("park-a"), "Café园区（PARK-\\u{C9}）");
+  assert.equal(labels.get("park-b"), "Café园区（PARK-E\\u{301}）");
+  assert.equal(new Set(labels.values()).size, labels.size);
+});
+
 test("user form waits when the selected tenant has no park options", () => {
   assert.equal(resolveUserParkSelection({ tenantId: "tenant-a", defaultParkId: null, parkIds: [] }), null);
 });
