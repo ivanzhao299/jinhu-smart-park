@@ -116,13 +116,15 @@ catalog. Submit the coupled fields together only when the operator actually chan
 
 Catalog selectors must show stable business labels rather than database IDs. Keep the ID in the
 control value/key, but do not append it to the visible option text merely to make the label unique.
-When historical catalog data has an empty display name or a name made only from Unicode numbers and
-whitespace, resolve a domain-specific fallback (for example, the tenant's default-park label) in one
-shared helper used by every view of that option. If multiple candidates resolve to the same visible
-label, append a stable user-facing business code only to those colliding labels. Recheck the resulting
-labels and repeat disambiguation for any new collision with a genuine business name; uniqueness of the
-base-label groups alone is insufficient. Never expose an internal database ID. A display fallback must
-not broaden the API candidate scope or bypass tenant ownership.
+When historical catalog data has no Unicode letter, resolve a domain-specific fallback (for example,
+the tenant's default-park label) in one shared helper used by every view of that option. Punctuation,
+decimal separators, and invisible format characters are not readable business-name text. Normalize
+collapsible whitespace before display and collision counting so labels that render identically share
+the same comparison value. If multiple candidates resolve to the same visible label, append a stable
+user-facing business code only to those colliding labels. Recheck the resulting labels and repeat
+disambiguation for any new collision with a genuine business name; uniqueness of the base-label groups
+alone is insufficient. Never expose an internal database ID. A display fallback must not broaden the
+API candidate scope or bypass tenant ownership.
 
 ## Verification
 

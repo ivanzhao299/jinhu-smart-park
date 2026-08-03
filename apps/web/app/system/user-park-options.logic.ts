@@ -26,14 +26,18 @@ export interface UserParkLabelOption extends UserParkLabelSource {
 }
 
 function isReadableParkName(value: string): boolean {
-  return /[^\p{N}\s]/u.test(value);
+  return /\p{L}/u.test(value);
+}
+
+function normalizeRenderedLabel(value: string): string {
+  return value.trim().replace(/\s+/gu, " ");
 }
 
 export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSource): string {
-  const normalizedParkName = parkName?.trim() ?? "";
+  const normalizedParkName = normalizeRenderedLabel(parkName ?? "");
   if (isReadableParkName(normalizedParkName)) return normalizedParkName;
 
-  const normalizedTenantName = tenantName?.trim() ?? "";
+  const normalizedTenantName = normalizeRenderedLabel(tenantName ?? "");
   return isReadableParkName(normalizedTenantName) ? `${normalizedTenantName}默认园区` : "默认园区";
 }
 

@@ -11,11 +11,14 @@ test("user park labels show the business name without exposing the internal park
   assert.doesNotMatch(label, /20000001/);
 });
 
-test("user park labels replace numeric-only historical names with the tenant default label", () => {
+test("user park labels replace names without readable text with the tenant default label", () => {
   assert.equal(resolveUserParkLabel({ parkName: "11", tenantName: "测试租户01" }), "测试租户01默认园区");
   assert.equal(resolveUserParkLabel({ parkName: "11 12", tenantName: "测试租户01" }), "测试租户01默认园区");
   assert.equal(resolveUserParkLabel({ parkName: "１１", tenantName: "测试租户01" }), "测试租户01默认园区");
   assert.equal(resolveUserParkLabel({ parkName: "١١", tenantName: "测试租户01" }), "测试租户01默认园区");
+  assert.equal(resolveUserParkLabel({ parkName: "11.0", tenantName: "测试租户01" }), "测试租户01默认园区");
+  assert.equal(resolveUserParkLabel({ parkName: "---", tenantName: "测试租户01" }), "测试租户01默认园区");
+  assert.equal(resolveUserParkLabel({ parkName: "11\u200B", tenantName: "测试租户01" }), "测试租户01默认园区");
   assert.equal(resolveUserParkLabel({ parkName: "   ", tenantName: "测试租户01" }), "测试租户01默认园区");
   assert.equal(resolveUserParkLabel({ parkName: null, tenantName: "１０ ０００" }), "默认园区");
 });
@@ -47,6 +50,18 @@ test("user park labels recheck collisions introduced by appended park codes", ()
   assert.equal(labels.get("park-b"), "同名园区（PARK-B）");
   assert.equal(labels.get("park-c"), "同名园区（PARK-A）（PARK-C）");
   assert.equal(new Set(labels.values()).size, labels.size);
+});
+
+test("user park labels normalize collapsible whitespace before collision counting", () => {
+  const labels = resolveUserParkLabels([
+    { parkId: "park-a", parkCode: "PARK-A", parkName: " 同名\t园区 " },
+    { parkId: "park-b", parkCode: "PARK-B", parkName: "同名  园区" },
+    { parkId: "park-c", parkCode: "PARK-C", parkName: "独立   园区" }
+  ], "测试租户01");
+
+  assert.equal(labels.get("park-a"), "同名 园区（PARK-A）");
+  assert.equal(labels.get("park-b"), "同名 园区（PARK-B）");
+  assert.equal(labels.get("park-c"), "独立 园区");
 });
 
 test("user form waits when the selected tenant has no park options", () => {
