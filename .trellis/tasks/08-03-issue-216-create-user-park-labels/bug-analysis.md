@@ -19,6 +19,8 @@
 | P0 | Test Coverage | 覆盖历史异常兜底、内部 ID 隐藏、DTO 正反例及两个控件使用点 | DONE |
 | P1 | Documentation | 在 Web/API Trellis 规范记录目录标签与业务名称输入约束 | DONE |
 
+Codex 复审进一步暴露两种同一契约的边界绕过：DTO 的 optional 允许完全省略名称，Web 的纯数字判断允许数字间空白。当前契约统一为“必填且至少包含一个非数字、非空白字符”，测试同时锁定省略与 `11 12`。
+
 ### 4. Systematic Expansion
 
 - **Similar Issues**: 其他目录选择器若直接显示 `name / id`，也可能暴露内部 ID 或放大历史脏名称，应在后续修改时遵循同一规范。

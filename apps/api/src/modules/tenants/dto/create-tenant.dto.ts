@@ -101,13 +101,12 @@ export class CreateTenantDto {
   @MaxLength(64)
   parkCode?: string;
 
-  @IsOptional()
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   @Matches(/[^\d\s]/u, { message: "parkName must contain a readable non-numeric character" })
-  parkName?: string;
+  parkName!: string;
 
   @IsString()
   @MaxLength(64)

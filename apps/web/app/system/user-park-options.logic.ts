@@ -21,7 +21,7 @@ export interface UserParkLabelSource {
 }
 
 function isReadableParkName(value: string): boolean {
-  return value.length > 0 && !/^\d+$/u.test(value);
+  return /[^\d\s]/u.test(value);
 }
 
 export function resolveUserParkLabel({ parkName, tenantName }: UserParkLabelSource): string {

@@ -4,13 +4,15 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { CreateTenantDto } from "./create-tenant.dto";
 
-async function validateParkName(parkName: string) {
+async function validateParkName(parkName?: string) {
   const dto = plainToInstance(CreateTenantDto, { parkName });
-  return (await validate(dto, { skipMissingProperties: true })).filter((error) => error.property === "parkName");
+  return (await validate(dto)).filter((error) => error.property === "parkName");
 }
 
-test("tenant creation rejects numeric-only or blank initial park names after trimming", async () => {
+test("tenant creation requires a readable initial park name after trimming", async () => {
+  assert.equal((await validateParkName()).length, 1);
   assert.equal((await validateParkName(" 11 ")).length, 1);
+  assert.equal((await validateParkName("11 12")).length, 1);
   assert.equal((await validateParkName("   ")).length, 1);
 });
 
