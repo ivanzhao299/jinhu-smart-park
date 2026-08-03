@@ -104,6 +104,14 @@ Reference files:
 - `apps/web/app/workorders/list/types.ts`
 - `apps/web/components/assets/AssetCrudPage.tsx`
 
+## Historical Catalog Bindings
+
+When an edit form retains a currently bound catalog value that is no longer selectable (for
+example, a disabled tenant plan), omit the unchanged binding and its coupled authorization
+fields from update requests. Compare set-like fields after normalization so ordering and
+duplicates do not cause an unchanged historical binding to be revalidated against the active
+catalog. Submit the coupled fields together only when the operator actually changes them.
+
 ## Verification
 
 For frontend changes, choose the smallest reliable checks:

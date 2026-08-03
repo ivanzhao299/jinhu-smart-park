@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
+import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -182,15 +182,20 @@ export default function TenantsPage() {
     const moduleCodes = modules.items
       .map((item) => item.moduleCode)
       .filter((code) => form.get(`module.${code}`) === "on");
+    const planAuthorization = changedPlanAuthorization(
+      settings.tenant.planCode,
+      settings.enabledModuleCodes,
+      emptyToNull(form.get("planCode")),
+      moduleCodes
+    );
     const response = await apiRequest<TenantLoginSettings>(`/tenants/${settings.tenant.id}/login-settings`, {
       method: "PATCH",
       token,
       body: {
         defaultParkId: emptyToNull(form.get("defaultParkId")),
         status: String(form.get("status") ?? "enabled"),
-        planCode: emptyToNull(form.get("planCode")),
         expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
-        moduleCodes
+        ...planAuthorization
       }
     });
     setSettings(response.data);

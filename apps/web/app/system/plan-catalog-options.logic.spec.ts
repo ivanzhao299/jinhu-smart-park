@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { collectAllCandidatePages, isRetainedCatalogValue } from "./plan-catalog-options.logic";
+import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "./plan-catalog-options.logic";
 
 test("tenant plan selector loads every catalog page", async () => {
   const requestedPages: number[] = [];
@@ -36,6 +36,22 @@ test("tenant settings retain a current plan that is absent from the enabled cata
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
   assert.match(source, /当前绑定，已停用/);
   assert.doesNotMatch(source, /value=\{settings\.tenant\.planCode\} disabled/);
+});
+
+test("unchanged tenant authorization is omitted instead of re-resolving a historical plan", () => {
+  assert.deepEqual(changedPlanAuthorization(
+    "DISABLED_PLAN",
+    ["WORKORDER", "ASSET"],
+    "DISABLED_PLAN",
+    ["ASSET", "WORKORDER", "ASSET"]
+  ), {});
+
+  assert.deepEqual(changedPlanAuthorization(
+    "DISABLED_PLAN",
+    ["ASSET"],
+    "PRO",
+    ["ASSET", "WORKORDER"]
+  ), { planCode: "PRO", moduleCodes: ["ASSET", "WORKORDER"] });
 });
 
 test("tenant creation waits until plan and module catalogs are ready", () => {

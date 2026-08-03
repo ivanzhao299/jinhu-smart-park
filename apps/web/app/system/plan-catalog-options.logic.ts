@@ -31,3 +31,22 @@ export async function collectAllCandidatePages<T>(
 export function isRetainedCatalogValue(candidateValues: string[], currentValue: string | null | undefined): currentValue is string {
   return Boolean(currentValue) && !candidateValues.includes(currentValue!);
 }
+
+function normalizedCodes(codes: string[]): string[] {
+  return [...new Set(codes.map((code) => code.trim()).filter(Boolean))].sort();
+}
+
+export function changedPlanAuthorization(
+  currentPlanCode: string | null,
+  currentModuleCodes: string[],
+  nextPlanCode: string | null,
+  nextModuleCodes: string[]
+): { planCode?: string | null; moduleCodes?: string[] } {
+  const currentCodes = normalizedCodes(currentModuleCodes);
+  const nextCodes = normalizedCodes(nextModuleCodes);
+  const isUnchanged = currentPlanCode === nextPlanCode
+    && currentCodes.length === nextCodes.length
+    && currentCodes.every((code, index) => code === nextCodes[index]);
+
+  return isUnchanged ? {} : { planCode: nextPlanCode, moduleCodes: nextCodes };
+}
