@@ -111,6 +111,9 @@ Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictExcep
 - The default SaaS plan catalog scope is `tenantId=10000001`, `parkId=20000001`.
 - Candidate pagination occurs after precedence/deduplication and remains bounded by
   `PaginationQueryDto.page_size`.
+- Selector clients must either expose server pagination/search or consume all pages
+  reported by `total`; loading only page 1 does not satisfy the candidate/write
+  parity contract.
 - The scoped `GET /plans` management list remains scoped; do not broaden edit/manage
   surfaces merely to populate a cross-scope candidate selector.
 
@@ -143,6 +146,53 @@ const selected = await resolveFromAnyScope(planCode);
 ```ts
 const candidates = await listAvailablePlans(currentScope);
 const selected = await resolveCurrentThenDefaultCatalog(currentScope, planCode);
+```
+
+## Scenario: Optional Update Relation Clear Semantics
+
+### 1. Scope / Trigger
+- Trigger: A partial update DTO includes an optional nullable relation such as
+  `building_id`, `floor_id`, or `unit_id`.
+
+### 2. Signatures
+- Update request field: `relation_id?: UUID | null`.
+- Service resolution input: `string | null | undefined`.
+
+### 3. Contracts
+- Omitted/`undefined` means preserve the stored relation.
+- Explicit `null` means clear the stored relation.
+- DTO transforms for nullable update relations must preserve `null`; do not reuse a
+  trim helper that converts both `null` and omission to `undefined`.
+- Parent relation clears must reconcile and clear dependent child relations in the
+  same update.
+
+### 4. Validation & Error Matrix
+- Omitted relation -> retain current value.
+- `null` relation -> clear value; nullable validation succeeds.
+- Valid UUID -> resolve inside tenant/park scope.
+- Invalid UUID or cross-scope UUID -> HTTP 400.
+
+### 5. Good/Base/Bad Cases
+- Good: `{ building_id: null, floor_id: null, unit_id: null }` clears the cascade.
+- Base: `{}` leaves all three relations unchanged.
+- Bad: a transform converts explicit `null` into `undefined`, silently restoring the
+  old relations.
+
+### 6. Tests Required
+- DTO transformation test asserts both explicit-null preservation and omission.
+- Service or payload logic test asserts clearing a parent clears descendants.
+- Run API/Web typecheck and affected unit tests.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```ts
+const trimOptional = (value: unknown) => value == null ? undefined : String(value).trim();
+```
+
+#### Correct
+```ts
+const trimNullable = (value: unknown) => value === null ? null : trimOptional(value);
 ```
 
 ## Idempotent Writes

@@ -14,7 +14,7 @@ import {
   StatusPill
 } from "@jinhu/ui";
 import { ClipboardCheck, Eye, MapPin, PlayCircle, Plus, RefreshCw, Search, Send, Sparkles, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -27,6 +27,7 @@ import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
   buildFileIdReplacement,
+  isCurrentRequestGeneration,
   normalizeFileIdProjection,
   normalizeNumericInput,
   normalizeRecordArrayProjection
@@ -227,6 +228,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const [formOpen, setFormOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [viewing, setViewing] = useState<InspectTaskRow | null>(null);
+  const executionRequestGeneration = useRef(0);
   const [executing, setExecuting] = useState<InspectTaskRow | null>(null);
   const [templateItems, setTemplateItems] = useState<InspectItemRow[]>([]);
   const [checkInForm, setCheckInForm] = useState<CheckInForm>(emptyCheckInForm);
@@ -321,22 +323,27 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openDetail(row: InspectTaskRow) {
-    setViewing(row);
+    const rowResults = normalizeRecordArrayProjection<InspectTaskResultRow>(row.results, ["itemId"]);
+    setViewing({ ...row, results: rowResults.available ? rowResults.value : [] });
     try {
       const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
-      setViewing((current) => (current?.id === row.id ? response.data : current));
+      const detailResults = normalizeRecordArrayProjection<InspectTaskResultRow>(response.data.results, ["itemId"]);
+      if (!detailResults.available) throw new Error("巡检详情数据格式异常，请刷新后重试或联系管理员");
+      setViewing((current) => (current?.id === row.id ? { ...response.data, results: detailResults.value } : current));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载巡检任务详情失败");
     }
   }
 
   async function openExecute(row: InspectTaskRow) {
+    const requestGeneration = ++executionRequestGeneration.current;
     setExecuting(null);
     setTemplateItems([]);
     setResultInputs({});
     setMessage("");
     try {
       const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
       const task = response.data;
       const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
@@ -351,9 +358,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         setExecuting(task);
         return;
       }
-      await loadTemplateItems(task.templateId, task.results);
+      const items = await fetchTemplateItems(task.templateId);
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+      applyTemplateItems(items, task.results);
       setExecuting(task);
     } catch (error) {
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
       setExecuting(null);
       setTemplateItems([]);
       setResultInputs({});
@@ -361,11 +371,11 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     }
   }
 
-  async function loadTemplateItems(templateId: string, existingResults: unknown) {
+  async function fetchTemplateItems(templateId: string): Promise<unknown> {
     const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=100`, {
       token: getAccessToken()
     });
-    applyTemplateItems(response.data.items, existingResults);
+    return response.data.items;
   }
 
   function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
@@ -441,11 +451,13 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   async function startTask() {
     if (!executing) return;
+    const requestGeneration = executionRequestGeneration.current;
     const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/start`, {
       method: "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("safety-inspect-task-start")
     });
+    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
     setExecuting(response.data);
     setMessage("巡检任务已开始");
     await load();
@@ -454,6 +466,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   async function checkIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!executing) return;
+    const requestGeneration = executionRequestGeneration.current;
     const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/check-in`, {
       method: "POST",
       token: getAccessToken(),
@@ -465,6 +478,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         ...(checkInPhotoIdsAvailable ? { photo_file_ids: parseFileIds(checkInForm.photoFileIds) } : {})
       }
     });
+    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
     setExecuting(response.data);
     setMessage("打卡成功");
     await load();
@@ -473,6 +487,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   async function submitResults(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!executing) return;
+    const requestGeneration = executionRequestGeneration.current;
     const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/submit-results`, {
       method: "POST",
       token: getAccessToken(),
@@ -492,18 +507,29 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         })
       }
     });
+    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+    await load();
+    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+    if (mode === "mine") {
+      const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+      applyTemplateItems(detail.data.items, detail.data.results);
+      setExecuting(detail.data);
+      setViewing(detail.data);
+      setMessage("巡检结果已提交");
+      return;
+    }
+    const items = await fetchTemplateItems(response.data.templateId);
+    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+    applyTemplateItems(items, response.data.results);
     setExecuting(response.data);
     setViewing(response.data);
     setMessage("巡检结果已提交");
-    await load();
-    if (mode === "mine") {
-      const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
-      setExecuting(detail.data);
-      setViewing(detail.data);
-      applyTemplateItems(detail.data.items, detail.data.results);
-      return;
-    }
-    await loadTemplateItems(response.data.templateId, response.data.results);
+  }
+
+  function closeExecution() {
+    executionRequestGeneration.current += 1;
+    setExecuting(null);
   }
 
   function setResultInput(itemId: string, patch: Partial<ResultInput>) {
@@ -752,8 +778,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         ) : null}
 
         {executing ? (
-          <Drawer size="lg" onClose={() => setExecuting(null)}>
-            <DrawerHeader eyebrow="巡检执行" title={executing.taskCode} description={`${executing.point?.pointName ?? "-"} · ${executing.handlerName}`} onClose={() => setExecuting(null)} />
+          <Drawer size="lg" onClose={closeExecution}>
+            <DrawerHeader eyebrow="巡检执行" title={executing.taskCode} description={`${executing.point?.pointName ?? "-"} · ${executing.handlerName}`} onClose={closeExecution} />
             <DrawerDetailGrid>
               <DrawerDetailItem label="状态" value={<StatusPill dictCode="safety_inspect_task_status" value={executing.status} dicts={dicts} />} />
               <DrawerDetailItem label="结果" value={executing.result ? <StatusPill dictCode="safety_inspect_result" value={executing.result} dicts={dicts} /> : "-"} />
@@ -847,7 +873,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 提交后完成任务
               </label>
               <DrawerFooter>
-                <button className="secondary-button" type="button" onClick={() => setExecuting(null)}>关闭</button>
+                <button className="secondary-button" type="button" onClick={closeExecution}>关闭</button>
                 <button className="primary-button" type="submit">
                   <Send size={16} />
                   提交结果

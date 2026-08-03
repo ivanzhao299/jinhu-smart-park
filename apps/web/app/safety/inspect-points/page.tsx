@@ -25,6 +25,7 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
+  buildLocationReferencePayload,
   changeLocationParent,
   floorCandidates,
   reconcileLocationSelection,
@@ -540,9 +541,7 @@ function buildPayload(form: InspectPointForm) {
     point_name: form.pointName.trim(),
     point_type: form.pointType,
     risk_level: form.riskLevel,
-    building_id: form.buildingId || undefined,
-    floor_id: form.floorId || undefined,
-    unit_id: form.unitId || undefined,
+    ...buildLocationReferencePayload(form),
     park_tenant_id: form.parkTenantId || undefined,
     location: form.location.trim() || undefined,
     gps_lng: form.gpsLng === "" ? undefined : Number(form.gpsLng),

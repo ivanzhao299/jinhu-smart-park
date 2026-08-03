@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { collectAllCandidatePages } from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -63,8 +64,8 @@ interface PlanRow {
 }
 
 const emptyTenants: PaginatedResult<TenantRow> = { items: [], page: 1, page_size: 20, total: 0 };
-const emptyPlans: PaginatedResult<PlanRow> = { items: [], page: 1, page_size: 50, total: 0 };
-const emptyModules: PaginatedResult<ModuleRow> = { items: [], page: 1, page_size: 200, total: 0 };
+const emptyPlans: PaginatedResult<PlanRow> = { items: [], page: 1, page_size: 100, total: 0 };
+const emptyModules: PaginatedResult<ModuleRow> = { items: [], page: 1, page_size: 100, total: 0 };
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState(emptyTenants);
@@ -83,14 +84,20 @@ export default function TenantsPage() {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword) params.set("keyword", keyword);
     if (status) params.set("status", status);
-    const [tenantResponse, planResponse, moduleResponse] = await Promise.all([
+    const [tenantResponse, planItems, moduleItems] = await Promise.all([
       apiRequest<PaginatedResult<TenantRow>>(`/tenants?${params.toString()}`, { token }),
-      apiRequest<PaginatedResult<PlanRow>>("/plans/available?page=1&page_size=50", { token }),
-      apiRequest<PaginatedResult<ModuleRow>>("/modules?page=1&page_size=200", { token })
+      collectAllCandidatePages(async (planPage, pageSize) => {
+        const response = await apiRequest<PaginatedResult<PlanRow>>(`/plans/available?page=${planPage}&page_size=${pageSize}`, { token });
+        return response.data;
+      }, (plan) => plan.planCode),
+      collectAllCandidatePages(async (modulePage, pageSize) => {
+        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}`, { token });
+        return response.data;
+      }, (module) => module.moduleCode)
     ]);
     setTenants(tenantResponse.data);
-    setPlans(planResponse.data);
-    setModules(moduleResponse.data);
+    setPlans({ items: planItems, page: 1, page_size: 100, total: planItems.length });
+    setModules({ items: moduleItems, page: 1, page_size: 100, total: moduleItems.length });
     setMessage("");
   }
 

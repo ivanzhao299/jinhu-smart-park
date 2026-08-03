@@ -8,6 +8,10 @@ export interface RecordArrayProjection<T> {
   value: T[];
 }
 
+export function isCurrentRequestGeneration(requestGeneration: number, activeGeneration: number): boolean {
+  return requestGeneration === activeGeneration;
+}
+
 export function normalizeRecordArrayProjection<T extends object>(
   value: unknown,
   requiredStringKeys: string[]

@@ -4,6 +4,20 @@ export interface LocationSelection {
   unitId: string;
 }
 
+export interface LocationReferencePayload {
+  building_id: string | null;
+  floor_id: string | null;
+  unit_id: string | null;
+}
+
+export function buildLocationReferencePayload(selection: LocationSelection): LocationReferencePayload {
+  return {
+    building_id: selection.buildingId || null,
+    floor_id: selection.floorId || null,
+    unit_id: selection.unitId || null
+  };
+}
+
 export interface FloorLocationOption {
   id: string;
   buildingId: string;

@@ -1,11 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildLocationReferencePayload,
   changeLocationParent,
   floorCandidates,
   reconcileLocationSelection,
   unitCandidates
 } from "./inspect-point-cascade.logic";
+
+test("inspection point payload sends explicit nulls when a location relation is cleared", () => {
+  assert.deepEqual(
+    buildLocationReferencePayload({ buildingId: "", floorId: "", unitId: "" }),
+    { building_id: null, floor_id: null, unit_id: null }
+  );
+  assert.deepEqual(
+    buildLocationReferencePayload({ buildingId: "building-a", floorId: "", unitId: "" }),
+    { building_id: "building-a", floor_id: null, unit_id: null }
+  );
+});
 
 const floors = [
   { id: "floor-a1", buildingId: "building-a" },

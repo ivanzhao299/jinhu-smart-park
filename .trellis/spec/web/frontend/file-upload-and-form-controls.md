@@ -186,6 +186,10 @@
 - Browser `required`, `min`, `max`, and `step` attributes mirror the DTO/service
   contract. Backend-required housing cycle, rent, deposit, billing-day, and first-due
   fields must not be optional in native validation.
+- Optional update relations distinguish omission from clearing: omit/`undefined`
+  means preserve the stored relation, while explicit `null` means clear it. Cascading
+  selectors must send `null` for descendants cleared by a parent change, and the DTO
+  transform must preserve that `null` through service resolution.
 
 ### 4. Validation & Error Matrix
 - Negative where not allowed -> backend rejects.
@@ -193,6 +197,8 @@
 - Invalid enum/status -> backend rejects.
 - End date equal to or before start date -> native form validation blocks submission;
   backend independently returns HTTP 400.
+- Optional relation omitted -> service preserves the current value.
+- Optional relation sent as `null` -> service clears it and reconciles descendants.
 
 ### 5. Good/Base/Bad Cases
 - Good: area field has numeric step and backend decimal/numeric DTO validation.
@@ -204,6 +210,7 @@
 - Browser check for important forms.
 - API validation test or targeted smoke for business-critical forms.
 - Unit test the nearest boundary: equal dates rejected and the next business date accepted.
+- Unit-test both omitted and explicit-null update relation payloads.
 
 ### 7. Wrong vs Correct
 
@@ -216,6 +223,7 @@
 ```tsx
 <input type="number" min="0" step="0.01" onFocus={(event) => event.target.select()} />
 <input type="date" min={addBusinessDateDays(startDate, 1)} />
+const locationPatch = { building_id: buildingId || null, floor_id: floorId || null };
 ```
 
 ## Scenario: Permission-Aware Projections Entering Editable Controls
@@ -322,6 +330,9 @@ const payload = {
   otherwise use the configured default, otherwise the first valid option.
 - A parent change immediately clears dependent values and stale options. Only the
   latest request may populate state; slower earlier requests are ignored.
+- Async detail drawers use a monotonically increasing request generation (or an
+  abort signal). Closing the drawer or selecting another record invalidates older
+  responses before they can update any dependent state.
 - Save remains disabled until options for the currently selected parent are ready.
 - A required selector with no options shows an explicit empty/error message and cannot
   submit an empty ID.
@@ -332,6 +343,8 @@ const payload = {
 - Request failure -> retain the drawer, show the error, and do not expose stale options.
 - Edit value absent from returned options -> reconcile to a valid fallback before save.
 - Out-of-order response -> ignore unless its request generation is still current.
+- Paginated candidate endpoint -> follow `total` through every bounded page and
+  deduplicate by the stable business key before treating the selector as ready.
 
 ### 5. Good/Base/Bad Cases
 - Good: a controlled default-park selector populates when tenant settings resolve.
@@ -342,7 +355,8 @@ const payload = {
 
 ### 6. Tests Required
 - Unit-test empty options, create defaulting, edit preservation, invalid-value repair,
-  and parent switching without cross-parent leakage.
+  parent switching without cross-parent leakage, multi-page catalogs, and stale
+  request generations.
 - Run Web typecheck and production build.
 - Inspect create and edit drawers at desktop and phone widths when browser tooling is
   available.
