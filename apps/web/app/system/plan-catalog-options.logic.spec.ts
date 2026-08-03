@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { collectAllCandidatePages, isRetainedCatalogValue } from "./plan-catalog-options.logic";
 
@@ -30,4 +32,15 @@ test("tenant settings retain a current plan that is absent from the enabled cata
   assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], "DISABLED_PLAN"), true);
   assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], "PRO"), false);
   assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], null), false);
+
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /当前绑定，已停用/);
+  assert.doesNotMatch(source, /value=\{settings\.tenant\.planCode\} disabled/);
+});
+
+test("tenant creation waits until plan and module catalogs are ready", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /if \(!catalogReady\)/);
+  assert.match(source, /disabled=\{!catalogReady\} onClick=\{openCreate\}/);
 });

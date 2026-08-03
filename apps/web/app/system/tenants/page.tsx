@@ -78,8 +78,10 @@ export default function TenantsPage() {
   const [settingsTarget, setSettingsTarget] = useState<TenantRow | null>(null);
   const [settings, setSettings] = useState<TenantLoginSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [catalogReady, setCatalogReady] = useState(false);
 
   async function load(page = 1) {
+    setCatalogReady(false);
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword) params.set("keyword", keyword);
@@ -98,7 +100,16 @@ export default function TenantsPage() {
     setTenants(tenantResponse.data);
     setPlans({ items: planItems, page: 1, page_size: 100, total: planItems.length });
     setModules({ items: moduleItems, page: 1, page_size: 100, total: moduleItems.length });
+    setCatalogReady(true);
     setMessage("");
+  }
+
+  function openCreate() {
+    if (!catalogReady) {
+      setMessage("套餐与模块候选尚未加载完成，请稍后重试");
+      return;
+    }
+    setShowCreate(true);
   }
 
   async function createTenant(event: FormEvent<HTMLFormElement>) {
@@ -204,7 +215,7 @@ export default function TenantsPage() {
           <strong>租户管理</strong>
           <span>开通租户、绑定套餐、控制账号和园区配额</span>
         </div>
-        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.TENANT_MANAGE} type="button" onClick={() => setShowCreate(true)}>
+        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.TENANT_MANAGE} type="button" disabled={!catalogReady} onClick={openCreate}>
           <Plus size={16} />开通租户
         </PermissionButton>
       </header>
@@ -351,7 +362,7 @@ export default function TenantsPage() {
                   <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
                     <option value="">未绑定套餐</option>
                     {isRetainedCatalogValue(plans.items.map((plan) => plan.planCode), settings.tenant.planCode)
-                      ? <option value={settings.tenant.planCode} disabled>{settings.tenant.planCode}（当前绑定，已不可选）</option>
+                      ? <option value={settings.tenant.planCode}>{settings.tenant.planCode}（当前绑定，已停用）</option>
                       : null}
                     {plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}
                   </select>

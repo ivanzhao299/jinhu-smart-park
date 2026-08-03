@@ -340,6 +340,14 @@ const payload = {
   child selection; create defaults must not overwrite edit assignments.
 - Candidate selectors retain the entity's current value when it is no longer in the
   enabled catalog, so unrelated saves cannot silently clear historical bindings.
+- Bounded reference catalogs must merge the edited entity's current referenced rows
+  before reconciliation; a successful but truncated response is not proof that a
+  stored relation is invalid.
+- Create forms whose defaults derive from async catalogs remain closed/disabled until
+  those catalogs are ready, because uncontrolled `defaultValue` is applied only when
+  the control mounts.
+- A retained historical `<option>` must remain form-successful; do not mark the
+  selected option disabled when `FormData` must preserve its value.
 - Save remains disabled until options for the currently selected parent are ready.
 - A required selector with no options shows an explicit empty/error message and cannot
   submit an empty ID.

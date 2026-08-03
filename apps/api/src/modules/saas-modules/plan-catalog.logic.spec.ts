@@ -31,3 +31,13 @@ test("available plan catalog remains bounded by the validated page size", () => 
   assert.equal(result.parameters[4], null);
   assert.equal(result.parameters[6], 100);
 });
+
+test("available plan catalog orders the selected rows before applying offset and limit", () => {
+  const result = buildAvailablePlanCatalogQuery(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { page: 2, page_size: 100 }
+  );
+  const paged = result.sql.slice(result.sql.indexOf("paged AS"), result.sql.indexOf("totals AS"));
+
+  assert.match(paged, /FROM selected\s+ORDER BY sort_no ASC, plan_code ASC, id ASC\s+OFFSET \$6\s+LIMIT \$7/);
+});

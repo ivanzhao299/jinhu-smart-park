@@ -7,7 +7,8 @@ import {
   changeLocationParent,
   floorCandidates,
   reconcileLocationSelection,
-  unitCandidates
+  unitCandidates,
+  withRetainedCandidate
 } from "./inspect-point-cascade.logic";
 
 test("inspection point payload sends explicit nulls when a location relation is cleared", () => {
@@ -82,4 +83,19 @@ test("inspection point editing waits for location references before reconciliati
   assert.match(source, /if \(!referenceDataReady\)/);
   assert.match(source, /disabled=\{!referenceDataReady\}/);
   assert.ok(source.indexOf("if (!referenceDataReady)") < source.indexOf("reconcileLocationSelection({"));
+});
+
+test("editing retains current location records omitted by a bounded candidate catalog", () => {
+  assert.deepEqual(withRetainedCandidate(floors, { id: "floor-late", buildingId: "building-a" }).map((item) => item.id), [
+    "floor-a1",
+    "floor-a2",
+    "floor-b1",
+    "floor-late"
+  ]);
+  assert.equal(withRetainedCandidate(floors, floors[0]), floors);
+
+  const source = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+  assert.match(source, /const currentFloor = row\.floor \?\? \(row\.floorId && row\.buildingId/);
+  assert.match(source, /const editFloors = withRetainedCandidate\(floors, currentFloor\)/);
+  assert.match(source, /}, editFloors, editUnits\)/);
 });

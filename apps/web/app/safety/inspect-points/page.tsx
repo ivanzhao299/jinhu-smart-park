@@ -29,7 +29,8 @@ import {
   changeLocationParent,
   floorCandidates,
   reconcileLocationSelection,
-  unitCandidates
+  unitCandidates,
+  withRetainedCandidate
 } from "./inspect-point-cascade.logic";
 
 const SAFETY_MODULE = "safety";
@@ -253,11 +254,26 @@ export default function SafetyInspectPointsPage() {
       setMessage("位置候选尚未加载完成，请稍后重试");
       return;
     }
+    const currentBuilding = row.building ?? (row.buildingId
+      ? { id: row.buildingId, buildingCode: row.buildingId, buildingName: "当前楼栋" }
+      : null);
+    const currentFloor = row.floor ?? (row.floorId && row.buildingId
+      ? { id: row.floorId, buildingId: row.buildingId, floorCode: row.floorId, floorName: "当前楼层" }
+      : null);
+    const currentUnit = row.unit ?? (row.unitId
+      ? { id: row.unitId, buildingId: row.buildingId, floorId: row.floorId, unitCode: row.unitId, unitName: "当前房源" }
+      : null);
+    const editBuildings = withRetainedCandidate(buildings, currentBuilding);
+    const editFloors = withRetainedCandidate(floors, currentFloor);
+    const editUnits = withRetainedCandidate(units, currentUnit);
+    setBuildings(editBuildings);
+    setFloors(editFloors);
+    setUnits(editUnits);
     const location = reconcileLocationSelection({
       buildingId: row.buildingId ?? "",
       floorId: row.floorId ?? "",
       unitId: row.unitId ?? ""
-    }, floors, units);
+    }, editFloors, editUnits);
     setEditing(row);
     setForm({
       pointCode: row.pointCode,

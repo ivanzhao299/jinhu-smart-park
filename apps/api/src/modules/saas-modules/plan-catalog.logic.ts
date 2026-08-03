@@ -43,6 +43,7 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
       paged AS (
         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_no ASC, plan_code ASC, id ASC) AS position
         FROM selected
+        ORDER BY sort_no ASC, plan_code ASC, id ASC
         OFFSET $6
         LIMIT $7
       ),

@@ -29,6 +29,11 @@ export interface UnitLocationOption {
   floorId?: string | null;
 }
 
+export function withRetainedCandidate<T extends { id: string }>(candidates: T[], current?: T | null): T[] {
+  if (!current || candidates.some((candidate) => candidate.id === current.id)) return candidates;
+  return [...candidates, current];
+}
+
 export function floorCandidates<T extends FloorLocationOption>(floors: T[], buildingId: string): T[] {
   if (!buildingId) return [];
   return floors.filter((floor) => floor.buildingId === buildingId);
