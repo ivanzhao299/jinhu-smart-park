@@ -17,6 +17,7 @@ interface AuthServiceLockoutFixture {
     latestUsers: Map<string, UserEntity>;
     refreshPasswordLockoutStateCalls: string[];
     recordSuccessfulLoginCalls: string[];
+    assertTenantActiveCalls: string[];
     finalizePasswordLoginSuccessCalls: string[];
     concurrentLockOnSuccessIds: Set<string>;
     finalizerChangedStateIds: Set<string>;
@@ -56,6 +57,25 @@ async function makeUser(overrides: Partial<UserEntity> = {}): Promise<UserEntity
   } as UserEntity;
 }
 
+function withSuperRole(user: UserEntity): UserEntity {
+  return {
+    ...user,
+    roleLinks: [
+      {
+        isDeleted: false,
+        role: {
+          code: "SUPER_ADMIN",
+          isSuper: true,
+          isEnabled: true,
+          isDeleted: false,
+          dataScope: "all",
+          permissionLinks: []
+        }
+      }
+    ]
+  } as unknown as UserEntity;
+}
+
 function createFixture(candidates: UserEntity[], config: Record<string, string> = {}): AuthServiceLockoutFixture {
   const usersService = {
     candidates,
@@ -66,6 +86,7 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
     latestUsers: new Map<string, UserEntity>(),
     refreshPasswordLockoutStateCalls: [] as string[],
     recordSuccessfulLoginCalls: [] as string[],
+    assertTenantActiveCalls: [] as string[],
     finalizePasswordLoginSuccessCalls: [] as string[],
     concurrentLockOnSuccessIds: new Set<string>(),
     finalizerChangedStateIds: new Set<string>(),
@@ -148,7 +169,11 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
         });
       }
     } as never,
-    { assertTenantActive: async () => undefined } as never,
+    {
+      assertTenantActive: async (tenantId: string) => {
+        usersService.assertTenantActiveCalls.push(tenantId);
+      }
+    } as never,
     { exists: async () => true, update: async () => undefined, save: async () => undefined, create: (value: unknown) => value } as never,
     { save: async () => undefined, create: (value: unknown) => value } as never,
     {} as never,
@@ -345,6 +370,84 @@ test("auth service preserves cross-tenant ambiguity before finalizer filtering",
   );
 
   assert.deepEqual(new Set(usersService.finalizePasswordLoginSuccessCalls), new Set<string>());
+  assert.equal(auditMessages.at(-1), "Multiple tenant contexts require administrator cleanup");
+});
+
+test("auth service selects the unique super administrator over matching tenant accounts", async () => {
+  const tenantAdmin = await makeUser({
+    id: "00000000-0000-0000-0000-000000000001",
+    tenantId: "10000002",
+    parkId: "20000002"
+  });
+  const platformAdmin = withSuperRole(await makeUser({
+    id: "00000000-0000-0000-0000-000000000002",
+    tenantId: "10000001",
+    parkId: "20000001"
+  }));
+  const { service, usersService, signedPayloads } = createFixture([tenantAdmin, platformAdmin]);
+
+  const result = await service.login(
+    loginDto("Correct#2026", { tenantId: undefined, parkId: undefined }),
+    { ipAddress: "127.0.0.1", userAgent: null }
+  );
+
+  assert.equal(result.accessToken, "access-token");
+  assert.equal(result.user?.id, platformAdmin.id);
+  assert.equal(result.user?.is_super, true);
+  assert.deepEqual(usersService.finalizePasswordLoginSuccessCalls, [platformAdmin.id]);
+  assert.deepEqual(usersService.assertTenantActiveCalls, [platformAdmin.tenantId]);
+  assert.equal(signedPayloads.at(-1)?.sub, platformAdmin.id);
+});
+
+test("auth service rejects multiple matching super administrator identities", async () => {
+  const first = withSuperRole(await makeUser({
+    id: "00000000-0000-0000-0000-000000000001",
+    tenantId: "10000001",
+    parkId: "20000001"
+  }));
+  const second = withSuperRole(await makeUser({
+    id: "00000000-0000-0000-0000-000000000002",
+    tenantId: "10000001",
+    parkId: "20000002"
+  }));
+  const { service, usersService, auditMessages } = createFixture([first, second]);
+
+  await assert.rejects(
+    () => service.login(
+      loginDto("Correct#2026", { tenantId: undefined, parkId: undefined }),
+      { ipAddress: "127.0.0.1", userAgent: null }
+    ),
+    ConflictException
+  );
+
+  assert.deepEqual(usersService.finalizePasswordLoginSuccessCalls, []);
+  assert.deepEqual(usersService.assertTenantActiveCalls, []);
+  assert.equal(auditMessages.at(-1), "Multiple super administrator identities require administrator cleanup");
+});
+
+test("auth service does not prioritize an inactive super administrator role", async () => {
+  const first = withSuperRole(await makeUser({
+    id: "00000000-0000-0000-0000-000000000001",
+    tenantId: "10000001",
+    parkId: "20000001"
+  }));
+  first.roleLinks[0]!.role.isEnabled = false;
+  const second = await makeUser({
+    id: "00000000-0000-0000-0000-000000000002",
+    tenantId: "10000002",
+    parkId: "20000002"
+  });
+  const { service, usersService, auditMessages } = createFixture([first, second]);
+
+  await assert.rejects(
+    () => service.login(
+      loginDto("Correct#2026", { tenantId: undefined, parkId: undefined }),
+      { ipAddress: "127.0.0.1", userAgent: null }
+    ),
+    ConflictException
+  );
+
+  assert.deepEqual(usersService.finalizePasswordLoginSuccessCalls, []);
   assert.equal(auditMessages.at(-1), "Multiple tenant contexts require administrator cleanup");
 });
 

@@ -41,6 +41,13 @@ Routes that belong to a product module should also use `@RequireModule("<module>
 
 Use shared permission constants from `@jinhu/shared` instead of string literals in controllers.
 
+For unscoped password login, resolve duplicate usernames only after password, lockout,
+deletion, and enabled-state checks. A unique candidate with an active super role (or active
+`*` permission) may be selected ahead of matching tenant accounts; never infer this from the
+username. Zero super candidates retain normal tenant ambiguity/context selection, while
+multiple super candidates must fail as duplicate privileged identities. Token issuance and
+candidate selection must share the same active-role and active-permission definition.
+
 Reference files:
 - `apps/api/src/shared/guards/permission.guard.ts`
 - `apps/api/src/shared/decorators/permissions.decorator.ts`
