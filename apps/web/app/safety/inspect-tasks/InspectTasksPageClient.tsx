@@ -508,23 +508,29 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       }
     });
     if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-    await load();
-    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-    if (mode === "mine") {
-      const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
-      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      applyTemplateItems(detail.data.items, detail.data.results);
-      setExecuting(detail.data);
-      setViewing(detail.data);
-      setMessage("巡检结果已提交");
-      return;
-    }
-    const items = await fetchTemplateItems(response.data.templateId);
-    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-    applyTemplateItems(items, response.data.results);
+    applyTemplateItems(templateItems, response.data.results);
     setExecuting(response.data);
     setViewing(response.data);
     setMessage("巡检结果已提交");
+    try {
+      await load();
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+      if (mode === "mine") {
+        const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
+        if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+        applyTemplateItems(detail.data.items, detail.data.results);
+        setExecuting(detail.data);
+        setViewing(detail.data);
+        return;
+      }
+      const items = await fetchTemplateItems(response.data.templateId);
+      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+      applyTemplateItems(items, response.data.results);
+    } catch {
+      if (isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) {
+        setMessage("巡检结果已提交，但最新数据刷新失败，请稍后刷新列表");
+      }
+    }
   }
 
   function closeExecution() {

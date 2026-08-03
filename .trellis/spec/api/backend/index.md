@@ -165,10 +165,14 @@ const selected = await resolveCurrentThenDefaultCatalog(currentScope, planCode);
   trim helper that converts both `null` and omission to `undefined`.
 - Parent relation clears must reconcile and clear dependent child relations in the
   same update.
+- A partial update that explicitly clears only a parent must cascade that clear to
+  omitted descendants before location resolution; stored child IDs must not infer
+  the cleared parent back into existence.
 
 ### 4. Validation & Error Matrix
 - Omitted relation -> retain current value.
 - `null` relation -> clear value; nullable validation succeeds.
+- Parent `null` with omitted descendants -> clear the complete descendant cascade.
 - Valid UUID -> resolve inside tenant/park scope.
 - Invalid UUID or cross-scope UUID -> HTTP 400.
 

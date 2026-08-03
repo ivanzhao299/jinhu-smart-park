@@ -184,6 +184,7 @@ export default function SafetyInspectPointsPage() {
   const [floors, setFloors] = useState<FloorRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [parkTenants, setParkTenants] = useState<ParkTenantRow[]>([]);
+  const [referenceDataReady, setReferenceDataReady] = useState(false);
   const [form, setForm] = useState<InspectPointForm>(emptyForm);
   const [editing, setEditing] = useState<InspectPointRow | null>(null);
   const [viewing, setViewing] = useState<InspectPointRow | null>(null);
@@ -224,11 +225,13 @@ export default function SafetyInspectPointsPage() {
   }, []);
 
   const loadReferenceData = useCallback(async () => {
+    setReferenceDataReady(false);
     const references = await fetchReferenceFormOptions();
     setBuildings(references.buildings);
     setFloors(references.floors);
     setUnits(references.units);
     setParkTenants(references.parkTenants);
+    setReferenceDataReady(true);
   }, []);
 
   useEffect(() => {
@@ -246,6 +249,10 @@ export default function SafetyInspectPointsPage() {
   }
 
   function openEdit(row: InspectPointRow) {
+    if (!referenceDataReady) {
+      setMessage("位置候选尚未加载完成，请稍后重试");
+      return;
+    }
     const location = reconcileLocationSelection({
       buildingId: row.buildingId ?? "",
       floorId: row.floorId ?? "",
@@ -397,7 +404,7 @@ export default function SafetyInspectPointsPage() {
                         <Eye size={16} />
                         查看
                       </button>
-                      <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_POINT_UPDATE} type="button" onClick={() => openEdit(row)} title="编辑">
+                      <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_POINT_UPDATE} type="button" disabled={!referenceDataReady} onClick={() => openEdit(row)} title="编辑">
                         <Edit3 size={16} />
                         编辑
                       </PermissionButton>

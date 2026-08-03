@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectAllCandidatePages } from "./plan-catalog-options.logic";
+import { collectAllCandidatePages, isRetainedCatalogValue } from "./plan-catalog-options.logic";
 
 test("tenant plan selector loads every catalog page", async () => {
   const requestedPages: number[] = [];
@@ -24,4 +24,10 @@ test("tenant plan selector deduplicates unstable page overlap and stops on an em
       : { items: [], total: 4 }, (item) => item.planCode, 2);
 
   assert.deepEqual(items.map((item) => item.planCode), ["BASIC", "PRO"]);
+});
+
+test("tenant settings retain a current plan that is absent from the enabled catalog", () => {
+  assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], "DISABLED_PLAN"), true);
+  assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], "PRO"), false);
+  assert.equal(isRetainedCatalogValue(["BASIC", "PRO"], null), false);
 });

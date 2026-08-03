@@ -333,6 +333,13 @@ const payload = {
 - Async detail drawers use a monotonically increasing request generation (or an
   abort signal). Closing the drawer or selecting another record invalidates older
   responses before they can update any dependent state.
+- Edit forms must not reconcile persisted IDs against candidate arrays until those
+  candidates are confirmed loaded. Failed or pending reference reads keep editing
+  disabled instead of converting valid stored relations into explicit clears.
+- Switching away from and back to an edited parent restores the entity's persisted
+  child selection; create defaults must not overwrite edit assignments.
+- Candidate selectors retain the entity's current value when it is no longer in the
+  enabled catalog, so unrelated saves cannot silently clear historical bindings.
 - Save remains disabled until options for the currently selected parent are ready.
 - A required selector with no options shows an explicit empty/error message and cannot
   submit an empty ID.
@@ -345,6 +352,8 @@ const payload = {
 - Out-of-order response -> ignore unless its request generation is still current.
 - Paginated candidate endpoint -> follow `total` through every bounded page and
   deduplicate by the stable business key before treating the selector as ready.
+- Successful write followed by failed refresh -> publish the validated mutation
+  response and success state first, then report the refresh failure separately.
 
 ### 5. Good/Base/Bad Cases
 - Good: a controlled default-park selector populates when tenant settings resolve.

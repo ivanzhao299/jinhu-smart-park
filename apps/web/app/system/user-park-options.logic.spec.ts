@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { resolveUserParkSelection } from "./user-park-options.logic";
 
@@ -31,4 +33,10 @@ test("switching tenants does not leak the previous tenant park assignments", () 
     ),
     { parkId: "park-b", accessibleParkIds: ["park-b"] }
   );
+});
+
+test("returning to an edited user's tenant restores the persisted park assignments", () => {
+  const source = readFileSync(resolve(__dirname, "users/page.tsx"), "utf8");
+
+  assert.match(source, /editingUser\?\.tenantId === nextTenantId \? editingUser : null/);
 });

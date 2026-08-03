@@ -27,3 +27,7 @@ export async function collectAllCandidatePages<T>(
 
   return [...byKey.values()];
 }
+
+export function isRetainedCatalogValue(candidateValues: string[], currentValue: string | null | undefined): currentValue is string {
+  return Boolean(currentValue) && !candidateValues.includes(currentValue!);
+}

@@ -24,6 +24,17 @@ test("inspection execution ignores responses from an older request generation", 
   );
 });
 
+test("successful inspection submission is published before optional refresh reads", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+  const submit = source.indexOf("async function submitResults");
+  const publish = source.indexOf("setMessage(\"巡检结果已提交\")", submit);
+  const refresh = source.indexOf("await load()", publish);
+
+  assert.ok(publish > submit);
+  assert.ok(refresh > publish);
+  assert.match(source, /巡检结果已提交，但最新数据刷新失败/);
+});
+
 test("inspection execution rejects malformed collection projections before mapping form state", () => {
   const valid = { id: "item-a", itemName: "检查项 A" };
 

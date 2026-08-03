@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { collectAllCandidatePages } from "../plan-catalog-options.logic";
+import { collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -350,6 +350,9 @@ export default function TenantsPage() {
                   <label>套餐</label>
                   <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
                     <option value="">未绑定套餐</option>
+                    {isRetainedCatalogValue(plans.items.map((plan) => plan.planCode), settings.tenant.planCode)
+                      ? <option value={settings.tenant.planCode} disabled>{settings.tenant.planCode}（当前绑定，已不可选）</option>
+                      : null}
                     {plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}
                   </select>
                 </div>

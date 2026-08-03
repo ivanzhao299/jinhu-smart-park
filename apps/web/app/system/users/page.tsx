@@ -309,8 +309,12 @@ export default function UsersPage() {
                   name="tenantId"
                   value={formTenantId}
                   onChange={(event) => {
-                    setFormTenantId(event.target.value);
-                    void loadLoginSettings(event.target.value).catch((error: Error) => setMessage(error.message));
+                    const nextTenantId = event.target.value;
+                    setFormTenantId(nextTenantId);
+                    void loadLoginSettings(
+                      nextTenantId,
+                      editingUser?.tenantId === nextTenantId ? editingUser : null
+                    ).catch((error: Error) => setMessage(error.message));
                   }}
                 >
                   {tenants.items.map((item) => <option key={item.id} value={item.tenantId}>{item.tenantName} / {item.tenantId}</option>)}
