@@ -316,7 +316,7 @@ export default function TenantsPage() {
               <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={plans.items[0]?.maxUsers ?? 0} /></div>
               <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={plans.items[0]?.maxParks ?? 0} /></div>
               <div className="field"><label>园区编码</label><input name="parkCode" required /></div>
-              <div className="field"><label>园区名称</label><input name="parkName" pattern=".*[^0-9\s].*" title="请输入包含文字的园区名称，例如“11号园区”" required /></div>
+              <div className="field"><label>园区名称</label><input name="parkName" pattern=".*[^\p{N}\s].*" title="请输入包含文字的园区名称，例如“11号园区”" required /></div>
               <div className="field"><label>管理员账号</label><input name="adminUsername" required /></div>
               <div className="field"><label>管理员姓名</label><input name="adminDisplayName" required /></div>
               <div className="field"><label>初始密码</label><input name="adminPassword" type="password" minLength={8} required /></div>

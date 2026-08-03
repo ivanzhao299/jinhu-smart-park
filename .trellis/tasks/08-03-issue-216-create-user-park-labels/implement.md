@@ -8,3 +8,4 @@
 - [x] 运行相关单测、Web/API lint、typecheck、build 和 `git diff --check`。
 - [x] 提交、推送、创建 PR，关联 Issue #216 并请求 Codex review。
 - [x] 处理 Codex P1/P2：API 禁止省略园区名称，Web 兜底覆盖数字加空白历史名称。
+- [x] 处理 Codex P2：统一识别 Unicode 数字，并为碰撞标签追加园区编码。

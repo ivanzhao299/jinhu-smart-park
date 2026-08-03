@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { resolveUserParkLabel, resolveUserParkSelection } from "../user-park-options.logic";
+import { resolveUserParkLabels, resolveUserParkSelection } from "../user-park-options.logic";
 
 interface UserParkContext {
   tenant_id: string;
@@ -80,6 +80,10 @@ export default function UsersPage() {
     [tenantId, tenants.items]
   );
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  const parkLabels = useMemo(
+    () => resolveUserParkLabels(loginSettings?.parks ?? [], loginSettings?.tenant.tenantName),
+    [loginSettings]
+  );
 
   async function load(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -326,7 +330,7 @@ export default function UsersPage() {
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
                   {(loginSettings?.parks ?? []).map((park) => (
                     <option key={park.parkId} value={park.parkId}>
-                      {resolveUserParkLabel({ parkName: park.parkName, tenantName: loginSettings?.tenant.tenantName })}
+                      {parkLabels.get(park.parkId)}
                     </option>
                   ))}
                 </select>
@@ -354,7 +358,7 @@ export default function UsersPage() {
                             ? [...new Set([...current, park.parkId])]
                             : current.filter((id) => id !== park.parkId))}
                         />
-                        <span>{resolveUserParkLabel({ parkName: park.parkName, tenantName: loginSettings?.tenant.tenantName })}</span>
+                        <span>{parkLabels.get(park.parkId)}</span>
                       </label>
                     );
                   })}

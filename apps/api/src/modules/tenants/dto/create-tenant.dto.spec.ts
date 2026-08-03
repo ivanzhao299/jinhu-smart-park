@@ -13,6 +13,8 @@ test("tenant creation requires a readable initial park name after trimming", asy
   assert.equal((await validateParkName()).length, 1);
   assert.equal((await validateParkName(" 11 ")).length, 1);
   assert.equal((await validateParkName("11 12")).length, 1);
+  assert.equal((await validateParkName("１１")).length, 1);
+  assert.equal((await validateParkName("١١")).length, 1);
   assert.equal((await validateParkName("   ")).length, 1);
 });
 

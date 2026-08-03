@@ -105,7 +105,7 @@ export class CreateTenantDto {
   @IsString()
   @MinLength(1)
   @MaxLength(100)
-  @Matches(/[^\d\s]/u, { message: "parkName must contain a readable non-numeric character" })
+  @Matches(/[^\p{N}\s]/u, { message: "parkName must contain a readable non-numeric character" })
   parkName!: string;
 
   @IsString()
