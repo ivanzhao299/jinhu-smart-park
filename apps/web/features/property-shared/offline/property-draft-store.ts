@@ -4,6 +4,7 @@ import {
   propertyDraftKey,
   type PropertyDraftContext,
   type PropertyDraftEnvelope,
+  type PropertyDraftSchema,
   type PropertyOfflineScope,
   propertyOfflineScopeKey
 } from "./property-draft-contract";
@@ -13,11 +14,15 @@ import {
   type PropertyUploadContext,
   type PropertyUploadQueueItem
 } from "./property-upload-queue";
+import { completeIndexedDbTransaction, sweepIndexedDbKeys } from "./indexeddb-transaction";
 
 const DATABASE = "jinhu-property-offline-v1";
 const STORE = "drafts";
 const UPLOAD_STORE = "uploads";
 const SCOPE_KEY = "jinhu-property-offline-scope-v1";
+let offlineStateGeneration = 0;
+let offlineCleanupBarrier: Promise<void> = Promise.resolve();
+let offlineScopeBarrier: Promise<void> = Promise.resolve();
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -40,38 +45,55 @@ function openDatabase(): Promise<IDBDatabase> {
 
 async function transaction<T>(
   mode: IDBTransactionMode,
-  operation: (store: IDBObjectStore, resolve: (value: T) => void, reject: (reason?: unknown) => void) => void,
+  operation: (store: IDBObjectStore, setResult: (value: T) => void) => void,
   storeName = STORE
 ): Promise<T> {
   const database = await openDatabase();
   try {
-    return await new Promise<T>((resolve, reject) => operation(database.transaction(storeName, mode).objectStore(storeName), resolve, reject));
+    return await completeIndexedDbTransaction(database, storeName, mode, operation);
   } finally {
     database.close();
+  }
+}
+
+export function capturePropertyOfflineGeneration(): number {
+  return offlineStateGeneration;
+}
+
+export function isPropertyOfflineGenerationCurrent(expectedGeneration: number): boolean {
+  return expectedGeneration === offlineStateGeneration;
+}
+
+async function awaitWritableGeneration(expectedGeneration: number): Promise<void> {
+  await offlineCleanupBarrier;
+  if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) {
+    throw new Error("offline scope changed; stale operation discarded");
   }
 }
 
 export async function savePropertyDraft<T extends Record<string, unknown>>(
   context: PropertyDraftContext,
   value: T,
-  entityVersion: number | null = null
+  schema: PropertyDraftSchema,
+  entityVersion: number | null = null,
+  expectedGeneration = capturePropertyOfflineGeneration()
 ): Promise<PropertyDraftEnvelope<T>> {
-  const envelope = createPropertyDraftEnvelope(context, value, { entityVersion });
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+  await awaitWritableGeneration(expectedGeneration);
+  const envelope = createPropertyDraftEnvelope(context, value, schema, { entityVersion });
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.put(envelope);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   });
+  if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) throw new Error("offline scope changed during draft save");
   return envelope;
 }
 
 export async function loadPropertyDraft<T extends Record<string, unknown>>(
   context: PropertyDraftContext
 ): Promise<PropertyDraftEnvelope<T> | null> {
-  const envelope = await transaction<PropertyDraftEnvelope<T> | null>("readonly", (store, resolve, reject) => {
+  const envelope = await transaction<PropertyDraftEnvelope<T> | null>("readonly", (store, setResult) => {
     const request = store.get(propertyDraftKey(context));
-    request.onsuccess = () => resolve((request.result as PropertyDraftEnvelope<T> | undefined) ?? null);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult((request.result as PropertyDraftEnvelope<T> | undefined) ?? null);
   });
   if (!envelope) return null;
   if (isPropertyDraftUsable(envelope, context)) return envelope;
@@ -80,55 +102,74 @@ export async function loadPropertyDraft<T extends Record<string, unknown>>(
 }
 
 export async function deletePropertyDraft(context: PropertyDraftContext): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.delete(propertyDraftKey(context));
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   });
 }
 
 export async function purgePropertyDrafts(): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   });
 }
 
-export async function ensurePropertyOfflineScope(scope: PropertyOfflineScope): Promise<void> {
-  if (typeof window === "undefined") return;
-  const nextScope = propertyOfflineScopeKey(scope);
-  const previousScope = localStorage.getItem(SCOPE_KEY);
-  if (previousScope && previousScope !== nextScope) {
-    await Promise.all([purgePropertyDrafts(), clearPropertyUploadQueue()]);
-  }
-  await purgeExpiredPropertyUploadQueue();
-  localStorage.setItem(SCOPE_KEY, nextScope);
+export async function purgeExpiredPropertyDrafts(now = Date.now()): Promise<void> {
+  await transaction<void>("readwrite", (store, setResult) => {
+    sweepIndexedDbKeys(store, "expiresAt", IDBKeyRange.upperBound(now), () => setResult(undefined));
+  });
+}
+
+export async function ensurePropertyOfflineScope(scope: PropertyOfflineScope): Promise<number> {
+  if (typeof window === "undefined") return capturePropertyOfflineGeneration();
+  const operation = offlineScopeBarrier.catch(() => undefined).then(async () => {
+    await offlineCleanupBarrier;
+    const nextScope = propertyOfflineScopeKey(scope);
+    const previousScope = localStorage.getItem(SCOPE_KEY);
+    if (previousScope && previousScope !== nextScope) await purgePropertyOfflineState();
+    if ("indexedDB" in window) {
+      await Promise.all([purgeExpiredPropertyDrafts(), purgeExpiredPropertyUploadQueue()]);
+    }
+    localStorage.setItem(SCOPE_KEY, nextScope);
+    return capturePropertyOfflineGeneration();
+  });
+  offlineScopeBarrier = operation.then(() => undefined, () => undefined);
+  return operation;
 }
 
 export async function purgePropertyOfflineState(): Promise<void> {
-  if (typeof window === "undefined" || !("indexedDB" in window)) return;
-  try {
-    await Promise.all([purgePropertyDrafts(), clearPropertyUploadQueue()]);
-  } finally {
-    localStorage.removeItem(SCOPE_KEY);
-  }
+  if (typeof window === "undefined") return;
+  offlineStateGeneration += 1;
+  offlineCleanupBarrier = offlineCleanupBarrier.catch(() => undefined).then(async () => {
+    try {
+      if ("indexedDB" in window) {
+        await Promise.all([purgePropertyDrafts(), clearPropertyUploadQueue()]);
+      }
+    } finally {
+      localStorage.removeItem(SCOPE_KEY);
+    }
+  });
+  await offlineCleanupBarrier;
 }
 
-export async function putPropertyUploadQueueItem(item: PropertyUploadQueueItem): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+export async function putPropertyUploadQueueItem(
+  item: PropertyUploadQueueItem,
+  expectedGeneration = capturePropertyOfflineGeneration()
+): Promise<void> {
+  await awaitWritableGeneration(expectedGeneration);
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.put(item);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   }, UPLOAD_STORE);
+  if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) throw new Error("offline scope changed during upload queue save");
 }
 
 export async function listPropertyUploadQueue(context: PropertyUploadContext): Promise<PropertyUploadQueueItem[]> {
   const contextKey = propertyUploadContextKey(context);
-  const items = await transaction<PropertyUploadQueueItem[]>("readonly", (store, resolve, reject) => {
+  const items = await transaction<PropertyUploadQueueItem[]>("readonly", (store, setResult) => {
     const request = store.index("contextKey").getAll(contextKey);
-    request.onsuccess = () => resolve(request.result as PropertyUploadQueueItem[]);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(request.result as PropertyUploadQueueItem[]);
   }, UPLOAD_STORE);
   const now = Date.now();
   const usable = items.filter((item) => isPropertyUploadQueueItemUsable(item, context, now));
@@ -137,34 +178,21 @@ export async function listPropertyUploadQueue(context: PropertyUploadContext): P
 }
 
 export async function deletePropertyUploadQueueItem(id: string): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   }, UPLOAD_STORE);
 }
 
 export async function clearPropertyUploadQueue(): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
+  await transaction<void>("readwrite", (store, setResult) => {
     const request = store.clear();
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => setResult(undefined);
   }, UPLOAD_STORE);
 }
 
 export async function purgeExpiredPropertyUploadQueue(now = Date.now()): Promise<void> {
-  await transaction<void>("readwrite", (store, resolve, reject) => {
-    const request = store.index("expiresAt").openKeyCursor(IDBKeyRange.upperBound(now));
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor) {
-        resolve();
-        return;
-      }
-      const deletion = store.delete(cursor.primaryKey);
-      deletion.onerror = () => reject(deletion.error);
-      deletion.onsuccess = () => cursor.continue();
-    };
-    request.onerror = () => reject(request.error);
+  await transaction<void>("readwrite", (store, setResult) => {
+    sweepIndexedDbKeys(store, "expiresAt", IDBKeyRange.upperBound(now), () => setResult(undefined));
   }, UPLOAD_STORE);
 }

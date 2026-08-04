@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PropertyDraftContext, PropertyOfflineScope } from "./property-draft-contract";
+import type { PropertyDraftContext, PropertyDraftSchema, PropertyOfflineScope } from "./property-draft-contract";
 import {
   deletePropertyDraft,
   ensurePropertyOfflineScope,
@@ -15,12 +15,14 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
   context,
   enabled = process.env.NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1 !== "false",
   onRestore,
+  schema,
   scope,
   value
 }: {
   context: PropertyDraftContext | null;
   enabled?: boolean;
   onRestore(value: T): void;
+  schema: PropertyDraftSchema;
   scope: PropertyOfflineScope | null;
   value: T;
 }) {
@@ -29,6 +31,7 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
     enabled ? "loading" : "disabled"
   );
   const restore = useRef(onRestore);
+  const generation = useRef<number | null>(null);
   restore.current = onRestore;
   const contextKey = context ? JSON.stringify(context) : "";
   const scopeKey = scope ? JSON.stringify(scope) : "";
@@ -42,7 +45,10 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
     }
     setStatus("loading");
     void ensurePropertyOfflineScope(scope)
-      .then(() => loadPropertyDraft<T>(context))
+      .then((currentGeneration) => {
+        generation.current = currentGeneration;
+        return loadPropertyDraft<T>(context);
+      })
       .then((draft) => {
         if (!active) return;
         if (draft) restore.current(draft.value);
@@ -59,12 +65,14 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
   useEffect(() => {
     if (!enabled || !context || !ready) return;
     const timer = window.setTimeout(() => {
-      void savePropertyDraft(context, value)
+      const expectedGeneration = generation.current;
+      if (expectedGeneration === null) return;
+      void savePropertyDraft(context, value, schema, null, expectedGeneration)
         .then(() => setStatus("saved"))
         .catch(() => setStatus("error"));
     }, SAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [contextKey, enabled, ready, value]);
+  }, [contextKey, enabled, ready, schema, value]);
 
   return {
     clear: async () => {

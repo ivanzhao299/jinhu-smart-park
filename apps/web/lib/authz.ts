@@ -31,8 +31,8 @@ export function getAuthUser(): AuthUser | null {
   };
 }
 
-export function setAuthSession(token: string, user: AuthUser): void {
-  setSession(token, {
+export async function setAuthSession(token: string, user: AuthUser): Promise<void> {
+  await setSession(token, {
     id: user.id,
     username: user.username,
     real_name: user.realName ?? user.real_name ?? user.username,

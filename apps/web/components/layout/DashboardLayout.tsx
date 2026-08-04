@@ -55,8 +55,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     media.addEventListener("change", applyNavigationMode);
     const token = getToken();
     if (!token) {
-      clearSession();
-      router.replace("/login");
+      void clearSession().finally(() => router.replace("/login"));
       return;
     }
     const storedUser = getStoredUser();
@@ -81,11 +80,11 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
         setUser(currentUser);
         setReady(true);
       })
-      .catch(() => {
+      .catch(async () => {
         if (reloadIfTokenChanged(requestToken)) {
           return;
         }
-        clearSession();
+        await clearSession();
         router.replace("/login");
       });
     void loadCurrentUser(token);

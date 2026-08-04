@@ -6,11 +6,15 @@ import {
   createPropertyUploadQueueItem,
   isPropertyUploadQueueItemUsable,
   preparePropertyUploadRecovery,
+  propertyUploadContextKey,
+  propertyUploadQueueBusy,
   type PropertyUploadContext
 } from "./property-upload-queue";
+import { propertyOfflinePermissionFingerprint } from "./property-draft-contract";
 
 const context: PropertyUploadContext = {
   tenantId: "tenant-a", parkId: "park-a", userId: "user-a",
+  module: "housing", permissionFingerprint: "repair+file-upload",
   bizType: "housing_repair", bizId: "lease-a", entityVersion: "sha256:version-3"
 };
 
@@ -26,6 +30,7 @@ test("queued blob expires after two hours and is bound to entity version", () =>
   const now = 1_000;
   const file = Object.assign(new Blob(["image"], { type: "image/png" }), { name: "site.png" });
   const item = createPropertyUploadQueueItem({ id: "three", context, file, explicitConsent: true, now });
+  assert.equal(item.idempotencyKey, "file-upload-three");
   assert.equal(item.expiresAt, now + PROPERTY_UPLOAD_BLOB_TTL_MS);
   assert.equal(isPropertyUploadQueueItemUsable(item, context, item.expiresAt - 1), true);
   assert.equal(isPropertyUploadQueueItemUsable(item, context, item.expiresAt), false);
@@ -33,4 +38,35 @@ test("queued blob expires after two hours and is bound to entity version", () =>
   assert.throws(() => preparePropertyUploadRecovery(item, context, false, now));
   assert.equal(preparePropertyUploadRecovery(item, context, true, now), item);
   assert.throws(() => preparePropertyUploadRecovery(item, { ...context, parkId: "park-b" }, true, now));
+  assert.throws(() => preparePropertyUploadRecovery(item, { ...context, permissionFingerprint: "repair-only" }, true, now));
+});
+
+test("queue keeps bounded non-sensitive remark and remains busy until exact context list succeeds", () => {
+  const file = Object.assign(new Blob(["image"], { type: "image/jpeg" }), { name: "site.jpg" });
+  const item = createPropertyUploadQueueItem({
+    id: "remarked", context, file, explicitConsent: true, remark: "  现场入口  "
+  });
+  assert.equal(item.remark, "现场入口");
+  assert.throws(() => createPropertyUploadQueueItem({
+    id: "too-long", context, file, explicitConsent: true, remark: "x".repeat(501)
+  }), /exceeds 500/u);
+  const contextKey = propertyUploadContextKey(context);
+  assert.equal(propertyUploadQueueBusy(contextKey, null, false), true);
+  assert.equal(propertyUploadQueueBusy(contextKey, "another-context", false), true);
+  assert.equal(propertyUploadQueueBusy(contextKey, contextKey, false), false);
+});
+
+test("upload context key changes when enabled module assignment changes", () => {
+  const baseFingerprint = propertyOfflinePermissionFingerprint({
+    dataScope: "park", permissions: ["file:upload"],
+    enabledModules: [{ module_code: "housing_rental", enabled: true, expire_time: null }]
+  });
+  const changedFingerprint = propertyOfflinePermissionFingerprint({
+    dataScope: "park", permissions: ["file:upload"],
+    enabledModules: [{ module_code: "housing_rental", enabled: true, expire_time: "2026-12-31T00:00:00.000Z" }]
+  });
+  assert.notEqual(
+    propertyUploadContextKey({ ...context, permissionFingerprint: baseFingerprint }),
+    propertyUploadContextKey({ ...context, permissionFingerprint: changedFingerprint })
+  );
 });

@@ -18,3 +18,17 @@ export async function housingLeaseProjectionVersion(lease: HousingLeaseResponse)
   const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
   return `sha256:${hex}`;
 }
+
+export function housingRepairSubmissionBlocked(state: {
+  hasLease: boolean;
+  queuedUploadCount: number;
+  removing: boolean;
+  submitting: boolean;
+  uploading: boolean;
+}): boolean {
+  return !state.hasLease || state.queuedUploadCount > 0 || state.removing || state.submitting || state.uploading;
+}
+
+export function beginHousingRepairQueueGate(hasLease: boolean, canUpload: boolean): boolean {
+  return hasLease && canUpload;
+}

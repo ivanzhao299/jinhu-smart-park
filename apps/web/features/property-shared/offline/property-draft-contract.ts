@@ -16,6 +16,12 @@ export interface PropertyOfflineScope {
   permissionFingerprint: string;
 }
 
+interface PropertyModuleAssignmentSubject {
+  module_code: string;
+  enabled: boolean;
+  expire_time?: string | null;
+}
+
 export interface PropertyDraftEnvelope<T extends Record<string, unknown>> {
   key: string;
   context: PropertyDraftContext;
@@ -25,7 +31,8 @@ export interface PropertyDraftEnvelope<T extends Record<string, unknown>> {
   expiresAt: number;
 }
 
-const sensitiveKey = /(?:identity|idcard|id_card|passport|credential|password|payment|bank|card_number|cvv|secret|token|file|blob)/iu;
+export type PropertyDraftLeafType = "string" | "number" | "boolean" | "null";
+export type PropertyDraftSchema = { readonly [key: string]: PropertyDraftLeafType | PropertyDraftSchema };
 
 function normalizedPart(value: string, label: string): string {
   const normalized = value.trim();
@@ -45,27 +52,61 @@ export function propertyOfflineScopeKey(scope: PropertyOfflineScope): string {
     .join("|");
 }
 
-export function assertSafePropertyDraft(value: unknown, path = "draft"): void {
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return;
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertSafePropertyDraft(item, `${path}[${index}]`));
-    return;
+export function propertyModuleAssignmentFingerprint(
+  modules: readonly PropertyModuleAssignmentSubject[] | undefined
+): string {
+  return JSON.stringify((modules ?? [])
+    .map((module) => [module.module_code, module.enabled, module.expire_time ?? null] as const)
+    .sort((left, right) => {
+      const leftKey = JSON.stringify(left);
+      const rightKey = JSON.stringify(right);
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    }));
+}
+
+export function propertyOfflinePermissionFingerprint(input: {
+  dataScope: string;
+  enabledModules: readonly PropertyModuleAssignmentSubject[] | undefined;
+  permissions: readonly string[];
+}): string {
+  return JSON.stringify({
+    dataScope: input.dataScope,
+    enabledModules: propertyModuleAssignmentFingerprint(input.enabledModules),
+    permissions: [...input.permissions].sort()
+  });
+}
+
+export function assertPropertyDraftMatchesSchema(
+  value: unknown,
+  schema: PropertyDraftSchema,
+  path = "draft"
+): asserts value is Record<string, unknown> {
+  if (!isPlainRecord(value)) throw new Error(`offline draft object required at ${path}`);
+  for (const [key, child] of Object.entries(value)) {
+    const expected = schema[key];
+    if (expected === undefined) throw new Error(`offline draft field is not allowlisted: ${path}.${key}`);
+    if (typeof expected === "string") {
+      const actual = child === null ? "null" : typeof child;
+      if (actual !== expected) throw new Error(`invalid offline draft value at ${path}.${key}`);
+      continue;
+    }
+    assertPropertyDraftMatchesSchema(child, expected, `${path}.${key}`);
   }
-  if (typeof value !== "object" || (typeof Blob !== "undefined" && value instanceof Blob) || value instanceof Date) {
-    throw new Error(`unsupported offline draft value at ${path}`);
-  }
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (sensitiveKey.test(key)) throw new Error(`sensitive offline draft field at ${path}.${key}`);
-    assertSafePropertyDraft(child, `${path}.${key}`);
-  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || value instanceof Date) return false;
+  if (typeof Blob !== "undefined" && value instanceof Blob) return false;
+  return Object.getPrototypeOf(value) === Object.prototype;
 }
 
 export function createPropertyDraftEnvelope<T extends Record<string, unknown>>(
   context: PropertyDraftContext,
   value: T,
+  schema: PropertyDraftSchema,
   options: { now?: number; entityVersion?: number | null } = {}
 ): PropertyDraftEnvelope<T> {
-  assertSafePropertyDraft(value);
+  assertPropertyDraftMatchesSchema(value, schema);
   const savedAt = options.now ?? Date.now();
   return {
     key: propertyDraftKey(context),

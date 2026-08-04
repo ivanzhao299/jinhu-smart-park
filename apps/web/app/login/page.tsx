@@ -48,7 +48,7 @@ export default function LoginPage() {
       }
       setToken(result.accessToken);
       const currentUser = await fetchCurrentUser();
-      setSession(result.accessToken, currentUser, result.refreshToken);
+      await setSession(result.accessToken, currentUser, result.refreshToken);
       setMessage(`登录成功，欢迎 ${result.user?.username ?? currentUser.username}`);
       router.replace(resolvePostLoginPath(currentUser) as Route);
     },

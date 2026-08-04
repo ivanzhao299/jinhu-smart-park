@@ -47,7 +47,7 @@ export async function handleUnauthorizedSessionReset({
     return false;
   }
 
-  clearLocalSessionStorage();
+  await clearLocalSessionStorage();
   try {
     await postLogoutCookie();
   } catch {
@@ -60,14 +60,14 @@ export async function handleUnauthorizedSessionReset({
   return true;
 }
 
-export function clearLocalSessionStorage(): void {
+export async function clearLocalSessionStorage(): Promise<void> {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  void purgePropertyOfflineState();
+  await purgePropertyOfflineState();
 }
 
 function isCurrentAccessToken(requestToken: string): boolean {

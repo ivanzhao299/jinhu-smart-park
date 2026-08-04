@@ -27,6 +27,7 @@ import { FileQueryDto } from "./dto/file-query.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
 import { FilesService } from "./files.service";
 import { type UploadedFilePayload } from "./files.service";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("files")
 export class FilesController {
@@ -38,7 +39,10 @@ export class FilesController {
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_UPLOAD)
   @AuditLog({ module: "附件中心", resource: "system.file", action: "附件上传", captureBody: true })
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 100 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 100 * 1024 * 1024 } }),
+    new IdempotencyInterceptor()
+  )
   upload(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,

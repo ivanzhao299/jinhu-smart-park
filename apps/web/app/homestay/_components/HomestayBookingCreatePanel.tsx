@@ -15,6 +15,14 @@ import { getAccessToken } from "../../../lib/authz";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
 
+const BOOKING_DRAFT_SCHEMA = {
+  unitId: "string",
+  unitLabel: "string",
+  arrivalDate: "string",
+  departureDate: "string",
+  guestCount: "string"
+} as const;
+
 async function loadUnits(input: { page: number; pageSize: number; signal: AbortSignal }) {
   const response = await apiRequest<HomestayUnitCandidateListResponse>(
     `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}`,
@@ -42,7 +50,8 @@ function useBookingCreate(onCreated: () => void) {
   const lock = useRef(false);
   const retryKey = useRef<{ signature: string; key: string } | null>(null);
   const draftValue = useMemo(() => ({
-    unit,
+    unitId: unit?.id ?? "",
+    unitLabel: unit?.label ?? "",
     arrivalDate,
     departureDate,
     guestCount
@@ -55,6 +64,7 @@ function useBookingCreate(onCreated: () => void) {
       route: "/homestay/bookings",
       entityId: "new-booking"
     } : null,
+    schema: BOOKING_DRAFT_SCHEMA,
     scope: user ? {
       tenantId: user.tenant_id,
       parkId: user.park_id,
@@ -64,7 +74,9 @@ function useBookingCreate(onCreated: () => void) {
     } : null,
     value: draftValue,
     onRestore: (draft) => {
-      setUnit(draft.unit as RemoteEntityOption | null);
+      const unitId = String(draft.unitId);
+      const unitLabel = String(draft.unitLabel);
+      setUnit(unitId && unitLabel ? { id: unitId, label: unitLabel } : null);
       setArrivalDate(String(draft.arrivalDate));
       setDepartureDate(String(draft.departureDate));
       setGuestCount(String(draft.guestCount));
