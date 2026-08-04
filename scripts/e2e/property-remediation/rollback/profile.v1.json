@@ -10,6 +10,7 @@
     "biz_property_occupancy"
   ],
   "requiredGateIds": [
+    "shared-build",
     "api-build",
     "web-typecheck",
     "web-clean-production-build",

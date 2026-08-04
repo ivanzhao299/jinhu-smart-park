@@ -13,9 +13,18 @@ const TOKENS = Object.freeze({
   HARNESS: "$ROLLBACK_HARNESS"
 });
 export const COMMAND_IDS = Object.freeze([
-  "api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port",
+  "shared-build", "api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port",
   "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"
 ]);
+export const TS_NODE_CJS_COMPILER_OPTIONS = JSON.stringify({ module: "CommonJS", moduleResolution: "Node" });
+
+export function typescriptTestEnvironment(worktree, typescriptTestProject) {
+  const projectPath = typeof worktree === "string" ? resolve(worktree, typescriptTestProject) : "";
+  if (!projectPath || !isPathInside(worktree, projectPath)) throw new Error("TypeScript test project escapes its worktree");
+  const projectInfo = lstatSync(projectPath);
+  if (!projectInfo.isFile() || projectInfo.isSymbolicLink()) throw new Error("TypeScript test project must be a regular in-worktree file");
+  return { TS_NODE_PROJECT: projectPath, TS_NODE_COMPILER_OPTIONS: TS_NODE_CJS_COMPILER_OPTIONS };
+}
 
 function checkedFile(path) {
   const absolute = resolve(repoRoot, path);
@@ -42,14 +51,18 @@ function wt(path) { return `${TOKENS.WORKTREE}/${checkedFile(path)}`; }
 
 export function buildCommandSpecs(profile, rehearsalCase) {
   const nodeTestArgs = profile.commandSpec.nodeTestArgs.map((arg) => arg === "ts-node/register" ? TOKENS.TS_REGISTER : arg);
+  const apiTestProject = "apps/api/tsconfig.json";
+  const webTestProject = "apps/web/tsconfig.json";
+  const targetedTestProject = rehearsalCase.kind === "frontend-group" ? webTestProject : apiTestProject;
   const specs = [
+    { id: "shared-build", executable: TOKENS.NODE, args: [TOKENS.TSC, "-p", `${TOKENS.WORKTREE}/packages/shared/tsconfig.json`], needsDatabaseCredential: false, nodeEnvironment: "production", cleanPath: "packages/shared/dist" },
     { id: "api-build", executable: TOKENS.NODE, args: [TOKENS.TSC, "-p", `${TOKENS.WORKTREE}/apps/api/tsconfig.build.json`], needsDatabaseCredential: false, nodeEnvironment: "production", cleanPath: "apps/api/dist" },
     { id: "web-typecheck", executable: TOKENS.NODE, args: [TOKENS.TSC, "--noEmit", "-p", `${TOKENS.WORKTREE}/apps/web/tsconfig.json`], needsDatabaseCredential: false },
     { id: "web-clean-production-build", executable: TOKENS.NODE, args: [TOKENS.NEXT, "build", `${TOKENS.WORKTREE}/apps/web`], needsDatabaseCredential: false, cleanPath: "apps/web/.next", nodeEnvironment: "production" },
     { id: "contract", executable: TOKENS.NODE, args: [wt(profile.commandSpec.contractFile)], needsDatabaseCredential: false },
-    { id: "canonical-port", executable: TOKENS.NODE, args: [...nodeTestArgs, wt(profile.commandSpec.canonicalPortFile)], needsDatabaseCredential: false },
-    { id: "targeted-regression", executable: TOKENS.NODE, args: [...nodeTestArgs, ...rehearsalCase.targetedTestFiles.map(wt)], needsDatabaseCredential: false },
-    { id: "postgresql-regression", executable: TOKENS.NODE, args: [...nodeTestArgs, ...profile.commandSpec.postgresqlFiles.map(wt)], needsDatabaseCredential: true },
+    { id: "canonical-port", executable: TOKENS.NODE, args: [...nodeTestArgs, wt(profile.commandSpec.canonicalPortFile)], needsDatabaseCredential: false, typescriptTestProject: apiTestProject },
+    { id: "targeted-regression", executable: TOKENS.NODE, args: [...nodeTestArgs, ...rehearsalCase.targetedTestFiles.map(wt)], needsDatabaseCredential: false, typescriptTestProject: targetedTestProject },
+    { id: "postgresql-regression", executable: TOKENS.NODE, args: [...nodeTestArgs, ...profile.commandSpec.postgresqlFiles.map(wt)], needsDatabaseCredential: true, typescriptTestProject: apiTestProject },
     { id: "flags-artifact-runtime-proof", executable: TOKENS.NODE, args: [`${TOKENS.HARNESS}/flags-proof.mjs`, "--worktree", TOKENS.WORKTREE, "--expected", "false"], needsDatabaseCredential: false },
     { id: "rollback-service-smoke", executable: TOKENS.NODE, args: [`${TOKENS.HARNESS}/service-smoke.mjs`, "--worktree", TOKENS.WORKTREE, "--stage", "rollback"], needsDatabaseCredential: true }
   ];
@@ -80,9 +93,10 @@ export async function probeCommandRuntime({ signal } = {}) {
   return { status: "PASS", probes: probes.length };
 }
 
-export function safeChildEnvironment({ databaseUrl, needsDatabaseCredential, credential, authority, flags = "false", nodeEnvironment = "test" }) {
+export function safeChildEnvironment({ databaseUrl, needsDatabaseCredential, credential, authority, flags = "false", nodeEnvironment = "test", typescriptTestProject, worktree }) {
   const nodeDir = dirname(runtimePaths()[TOKENS.NODE]);
   const env = { PATH: `${nodeDir}:/usr/bin:/bin`, LANG: "C.UTF-8", TZ: "UTC", NODE_ENV: nodeEnvironment, PROPERTY_OFFLINE_DRAFTS_V1: flags, PROPERTY_UPLOAD_QUEUE_V1: flags, NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: flags, NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: flags };
+  if (typescriptTestProject) Object.assign(env, typescriptTestEnvironment(worktree, typescriptTestProject));
   if (authority) {
     env.ROLLBACK_API_PORT = String(authority.apiPort); env.ROLLBACK_WEB_PORT = String(authority.webPort); env.ROLLBACK_RUNTIME_MANIFEST = authority.runtimeManifest;
     env.NEXT_PUBLIC_API_TARGET = `http://127.0.0.1:${authority.apiPort}`;

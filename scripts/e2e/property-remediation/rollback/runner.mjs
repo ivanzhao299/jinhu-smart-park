@@ -158,7 +158,7 @@ function validatePlan({ plan, planPath, run, rehearsalCase, profileSha256, expec
 async function defaultRunCommand(spec, cwd, databaseUrl, signal, credential, authority, flags = "false") {
   const argv = materializeCommand(spec, cwd);
   assertNoSensitiveData(argv, `runner-owned argv ${spec.id}`);
-  const env = safeChildEnvironment({ databaseUrl, needsDatabaseCredential: spec.needsDatabaseCredential, credential, authority, flags, nodeEnvironment: spec.nodeEnvironment });
+  const env = safeChildEnvironment({ databaseUrl, needsDatabaseCredential: spec.needsDatabaseCredential, credential, authority, flags, nodeEnvironment: spec.nodeEnvironment, typescriptTestProject: spec.typescriptTestProject, worktree: cwd });
   const startedAt = new Date().toISOString();
   try {
     const { stdout, stderr } = await execFileBounded(argv[0], argv.slice(1), { cwd, env, maxBuffer: 64 * 1024 * 1024 }, { timeout: TIMEOUTS.command, label: `rollback gate ${spec.id}`, signal });
@@ -287,6 +287,7 @@ async function executeValidatedCase({ run, runRoot, finalSha, profile, profileSh
   const baselineCommands = [];
   let baselineFlagsProof = null; let baselineSmoke = null;
   const baselineSpecs = [
+    { ...specs.find(({ id }) => id === "shared-build"), id: "baseline-shared-build" },
     { ...specs.find(({ id }) => id === "api-build"), id: "baseline-api-build" },
     { ...specs.find(({ id }) => id === "web-clean-production-build"), id: "baseline-web-clean-production-build" },
     { ...specs.find(({ id }) => id === "flags-artifact-runtime-proof"), id: "baseline-flags-proof", args: specs.find(({ id }) => id === "flags-artifact-runtime-proof").args.map((value) => value === "false" ? "true" : value) },

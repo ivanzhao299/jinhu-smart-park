@@ -4,6 +4,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { execFileBounded, TIMEOUTS } from "./timeout.mjs";
 import { repoRoot } from "./lib.mjs";
+import { typescriptTestEnvironment } from "./command-spec.mjs";
 
 const INSTALL_TIMEOUT = 10 * 60_000;
 
@@ -78,11 +79,14 @@ export async function probeDependencyWorktree({ finalSha, signal }) {
     await execFileBounded(node, [dependency.entries.tsc, "--showConfig", "-p", resolve(worktree, "apps/api/tsconfig.build.json")], { cwd: worktree, env }, { timeout: TIMEOUTS.command, label: "API tsc showConfig", signal });
     await execFileBounded(node, [dependency.entries.tsc, "--showConfig", "-p", resolve(worktree, "apps/web/tsconfig.json")], { cwd: worktree, env }, { timeout: TIMEOUTS.command, label: "Web tsc showConfig", signal });
     await execFileBounded(node, ["--require", dependency.entries.tsNodeRegister, "--eval", "process.stdout.write('ts-node-load-ok')"], { cwd: worktree, env }, { timeout: TIMEOUTS.probe, label: "ts-node load", signal });
+    await execFileBounded(node, [dependency.entries.tsc, "-p", resolve(worktree, "packages/shared/tsconfig.json")], { cwd: worktree, env }, { timeout: TIMEOUTS.command, label: "shared build", signal });
+    await execFileBounded(node, ["--test", "--require", dependency.entries.tsNodeRegister, resolve(worktree, "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts")], { cwd: worktree, env: { ...env, NODE_ENV: "test", ...typescriptTestEnvironment(worktree, "apps/api/tsconfig.json") } }, { timeout: TIMEOUTS.command, label: "API ts-node test", signal });
+    await execFileBounded(node, ["--test", "--require", dependency.entries.tsNodeRegister, resolve(worktree, "apps/web/features/property-shared/offline/property-reliability-flags.spec.ts"), resolve(worktree, "apps/web/features/property-shared/offline/property-draft-store.spec.ts"), resolve(worktree, "apps/web/features/property-shared/offline/property-upload-queue.spec.ts")], { cwd: worktree, env: { ...env, NODE_ENV: "test", ...typescriptTestEnvironment(worktree, "apps/web/tsconfig.json"), PROPERTY_OFFLINE_DRAFTS_V1: "false", PROPERTY_UPLOAD_QUEUE_V1: "false", NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: "false", NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: "false" } }, { timeout: TIMEOUTS.command, label: "Web ts-node tests", signal });
     const configLoader = pathToFileURL(resolve(dirname(dependency.entries.next), "../server/config.js")).href;
     const phaseModule = pathToFileURL(resolve(dirname(dependency.entries.next), "../shared/lib/constants.js")).href;
     const script = `import * as configModule from ${JSON.stringify(configLoader)}; import { PHASE_PRODUCTION_BUILD } from ${JSON.stringify(phaseModule)}; const loadConfig=configModule.default?.default??configModule.default; const c=await loadConfig(PHASE_PRODUCTION_BUILD,${JSON.stringify(resolve(worktree, "apps/web"))}); if(!Array.isArray(await c.rewrites())) throw new Error('next rewrites missing');`;
     await execFileBounded(node, ["--input-type=module", "--eval", script], { cwd: resolve(worktree, "apps/web"), env: { ...env, NEXT_PUBLIC_API_TARGET: "http://127.0.0.1:39999", PROPERTY_OFFLINE_DRAFTS_V1: "false", PROPERTY_UPLOAD_QUEUE_V1: "false" } }, { timeout: TIMEOUTS.command, label: "Next production config load", signal });
-    return { status: "PASS", probes: ["pnpm-offline-frozen", "api-tsc-showConfig", "web-tsc-showConfig", "ts-node-load", "next-production-config"], pnpmCliSha256: dependency.pnpmCliSha256 };
+    return { status: "PASS", probes: ["pnpm-offline-frozen", "api-tsc-showConfig", "web-tsc-showConfig", "ts-node-load", "shared-build", "api-ts-node-test", "web-ts-node-tests", "next-production-config"], pnpmCliSha256: dependency.pnpmCliSha256 };
   } finally {
     if (added) await git(["worktree", "remove", "--force", worktree], repoRoot, signal).catch(() => {});
     if (existsSync(temp)) rmSync(temp, { recursive: true, force: true });

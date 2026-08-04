@@ -38,12 +38,22 @@ test("formal config check advances past the now-frozen 19 semantic contracts", a
 test("all runner-owned commands materialize to executable absolute paths", async () => {
   const { profile } = loadProfile();
   const worktree = repoRoot;
-  for (const spec of buildCommandSpecs(profile, profile.cases[0])) {
+  const backendSpecs = buildCommandSpecs(profile, profile.cases[0]);
+  for (const spec of backendSpecs) {
     const argv = materializeCommand(spec, worktree);
     assert(isAbsolute(argv[0]));
     assert(!argv.includes("/bin/true"));
     assert(!argv.includes("echo"));
   }
+  const backendTarget = backendSpecs.find(({ id }) => id === "targeted-regression");
+  const backendEnv = safeChildEnvironment({ needsDatabaseCredential: false, typescriptTestProject: backendTarget.typescriptTestProject, worktree });
+  assert.equal(backendEnv.TS_NODE_PROJECT, resolve(worktree, "apps/api/tsconfig.json"));
+  assert.equal(backendEnv.TS_NODE_COMPILER_OPTIONS, '{"module":"CommonJS","moduleResolution":"Node"}');
+  const frontendCase = profile.cases.find(({ kind }) => kind === "frontend-group");
+  const frontendTarget = buildCommandSpecs(profile, frontendCase).find(({ id }) => id === "targeted-regression");
+  const frontendEnv = safeChildEnvironment({ needsDatabaseCredential: false, typescriptTestProject: frontendTarget.typescriptTestProject, worktree });
+  assert.equal(frontendEnv.TS_NODE_PROJECT, resolve(worktree, "apps/web/tsconfig.json"));
+  assert.throws(() => safeChildEnvironment({ needsDatabaseCredential: false, typescriptTestProject: "../escape.json", worktree }), /escapes/u);
   assert.equal((await probeCommandRuntime()).status, "PASS");
 });
 
@@ -201,12 +211,13 @@ test("dynamic process env cannot make a fabricated .next tree pass authoritative
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });
 
-test("baseline and rollback API build specs delete stale dist JavaScript before compilation", () => {
+test("baseline and rollback shared/API build specs delete stale dist JavaScript before compilation", () => {
   const temp = mkdtempSync(resolve(tmpdir(), "rollback-api-dist-"));
   try {
-    const stale = resolve(temp, "apps/api/dist/deleted-controller.js"); mkdirSync(resolve(stale, ".."), { recursive: true }); writeFileSync(stale, "stale");
-    const { profile } = loadProfile(); const apiBuild = buildCommandSpecs(profile, profile.cases[0]).find(({ id }) => id === "api-build");
-    assert.equal(apiBuild.cleanPath, "apps/api/dist"); cleanDeclaredBuildOutput(temp, apiBuild); assert.equal(existsSync(stale), false);
+    const staleApi = resolve(temp, "apps/api/dist/deleted-controller.js"); const staleShared = resolve(temp, "packages/shared/dist/deleted-contract.js");
+    for (const stale of [staleApi, staleShared]) { mkdirSync(resolve(stale, ".."), { recursive: true }); writeFileSync(stale, "stale"); }
+    const { profile } = loadProfile(); const specs = buildCommandSpecs(profile, profile.cases[0]); const apiBuild = specs.find(({ id }) => id === "api-build"); const sharedBuild = specs.find(({ id }) => id === "shared-build");
+    assert.equal(apiBuild.cleanPath, "apps/api/dist"); assert.equal(sharedBuild.cleanPath, "packages/shared/dist"); cleanDeclaredBuildOutput(temp, sharedBuild); cleanDeclaredBuildOutput(temp, apiBuild); assert.equal(existsSync(staleApi), false); assert.equal(existsSync(staleShared), false);
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });
 

@@ -111,6 +111,7 @@ function validateFlags(flagsProof, profile, commands, caseRoot) {
 
 function expectedBaselineSpecs(specs) {
   return [
+    { ...specs.find(({ id }) => id === "shared-build"), id: "baseline-shared-build" },
     { ...specs.find(({ id }) => id === "api-build"), id: "baseline-api-build" },
     { ...specs.find(({ id }) => id === "web-clean-production-build"), id: "baseline-web-clean-production-build" },
     { ...specs.find(({ id }) => id === "flags-artifact-runtime-proof"), id: "baseline-flags-proof", args: specs.find(({ id }) => id === "flags-artifact-runtime-proof").args.map((value) => value === "false" ? "true" : value) },
@@ -245,10 +246,11 @@ function validateCase({ evidence, rehearsalCase, profile, profileSha256, run, ru
   const observedTreeFiles = validateObservedTreeSemanticInputs({ treeCwd, observedTreeSha: evidence.observedTreeSha, paths: expectedSemanticPaths, readSemanticInput });
   validateSemanticResult({ result: evidence.semanticResult, root: caseRoot, rehearsalCase, patch, readFile: (path) => observedTreeFiles[path] });
   exactKeys(evidence.baseline, ["commands", "flagsProof", "smoke"], "flags-on baseline evidence");
-  if (!Array.isArray(evidence.baseline.commands) || evidence.baseline.commands.length !== 4 || evidence.baseline.flagsProof?.expectedValue !== "true" || evidence.baseline.smoke?.stage !== "baseline" || evidence.baseline.flagsProof.buildIdSha256 !== evidence.baseline.smoke.webBuildIdSha256) throw new Error("flags-on baseline evidence is incomplete");
+  const baselineSpecs = expectedBaselineSpecs(specs);
+  if (!Array.isArray(evidence.baseline.commands) || evidence.baseline.commands.length !== baselineSpecs.length || evidence.baseline.flagsProof?.expectedValue !== "true" || evidence.baseline.smoke?.stage !== "baseline" || evidence.baseline.flagsProof.buildIdSha256 !== evidence.baseline.smoke.webBuildIdSha256) throw new Error("flags-on baseline evidence is incomplete");
   const rtoStart = validateTimestamp(evidence.rtoRpo.startedAt, "RTO start", bounds); const rtoStop = validateTimestamp(evidence.rtoRpo.finishedAt, "RTO stop", bounds);
   const snapshotBeforeAt = validateTimestamp(evidence.durableBefore.capturedAt, "before snapshot", bounds); const snapshotAfterAt = validateTimestamp(evidence.durableAfter.capturedAt, "after snapshot", bounds);
-  validateCommands({ commands: evidence.baseline.commands, specs: expectedBaselineSpecs(specs), caseRoot, artifactByPath, bounds: { notBefore: Math.max(started, snapshotBeforeAt), notAfter: rtoStart } });
+  validateCommands({ commands: evidence.baseline.commands, specs: baselineSpecs, caseRoot, artifactByPath, bounds: { notBefore: Math.max(started, snapshotBeforeAt), notAfter: rtoStart } });
   const baselineFlagCommand = evidence.baseline.commands.find(({ id }) => id === "baseline-flags-proof"); const baselineSmokeCommand = evidence.baseline.commands.find(({ id }) => id === "baseline-service-smoke");
   if (canonicalSha256(JSON.parse(readFileSync(resolveInside(caseRoot, baselineFlagCommand.stdoutPath), "utf8").trim())) !== canonicalSha256(evidence.baseline.flagsProof) || canonicalSha256(JSON.parse(readFileSync(resolveInside(caseRoot, baselineSmokeCommand.stdoutPath), "utf8").trim())) !== canonicalSha256(evidence.baseline.smoke)) throw new Error("baseline proofs are not derived from runner logs");
   const cutoverFinished = validateCutoverCommands(evidence.cutoverCommands, caseRoot, artifactByPath, { notBefore: rtoStart, notAfter: rtoStop });
