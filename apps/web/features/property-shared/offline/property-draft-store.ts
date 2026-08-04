@@ -99,7 +99,10 @@ export async function ensurePropertyOfflineScope(scope: PropertyOfflineScope): P
   if (typeof window === "undefined") return;
   const nextScope = propertyOfflineScopeKey(scope);
   const previousScope = localStorage.getItem(SCOPE_KEY);
-  if (previousScope && previousScope !== nextScope) await purgePropertyDrafts();
+  if (previousScope && previousScope !== nextScope) {
+    await Promise.all([purgePropertyDrafts(), clearPropertyUploadQueue()]);
+  }
+  await purgeExpiredPropertyUploadQueue();
   localStorage.setItem(SCOPE_KEY, nextScope);
 }
 
@@ -145,6 +148,23 @@ export async function clearPropertyUploadQueue(): Promise<void> {
   await transaction<void>("readwrite", (store, resolve, reject) => {
     const request = store.clear();
     request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  }, UPLOAD_STORE);
+}
+
+export async function purgeExpiredPropertyUploadQueue(now = Date.now()): Promise<void> {
+  await transaction<void>("readwrite", (store, resolve, reject) => {
+    const request = store.index("expiresAt").openKeyCursor(IDBKeyRange.upperBound(now));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve();
+        return;
+      }
+      const deletion = store.delete(cursor.primaryKey);
+      deletion.onerror = () => reject(deletion.error);
+      deletion.onsuccess = () => cursor.continue();
+    };
     request.onerror = () => reject(request.error);
   }, UPLOAD_STORE);
 }

@@ -82,3 +82,16 @@ export function assertPropertyUploadSubmissionContext(
     throw new Error("offline upload context changed or blob expired; manual review required");
   }
 }
+
+export function preparePropertyUploadRecovery(
+  item: PropertyUploadQueueItem,
+  context: PropertyUploadContext,
+  explicitManualRequest: boolean,
+  now = Date.now()
+): PropertyUploadQueueItem {
+  if (!explicitManualRequest) {
+    throw new Error("offline upload recovery requires an explicit manual request");
+  }
+  assertPropertyUploadSubmissionContext(item, context, now);
+  return item;
+}
