@@ -79,10 +79,8 @@ test("homestay availability and check-in use current cross-domain truth", () => 
 });
 
 test("homestay rescheduling preserves the exact live occupancy lifecycle", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
-  const reschedule = service.slice(
-    service.indexOf("async rescheduleBooking"),
-    service.indexOf("async addGuest")
+  const reschedule = readFileSync(
+    resolve(__dirname, "homestay-booking-command.service.ts"), "utf8"
   );
   assert.match(reschedule, /sourceDomain: "homestay"/);
   assert.match(reschedule, /sourceType: "homestay_booking"/);
@@ -108,10 +106,9 @@ test("guest registration locks the booking inside its write transaction", () => 
 });
 
 test("booking cancellation freezes credentials and occupancy before atomic approved execution", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
-  const cancelStart = service.indexOf("async cancelBooking");
-  const issueStart = service.indexOf("async issueCredential");
-  const cancellation = service.slice(cancelStart, issueStart);
+  const commands = readFileSync(resolve(__dirname, "homestay-booking-command.service.ts"), "utf8");
+  const executor = readFileSync(resolve(__dirname, "homestay-cancellation-executor.service.ts"), "utf8");
+  const cancellation = `${commands}\n${executor}`;
   assert.match(cancellation, /createPendingRequest\(/);
   assert.match(cancellation, /transaction_timestamp/);
   assert.match(cancellation, /cancellationEvaluationAt/);
@@ -120,20 +117,21 @@ test("booking cancellation freezes credentials and occupancy before atomic appro
   assert.match(cancellation, /ledgerContributors/);
   assert.match(cancellation, /roomWaiverAmount/);
   assert.match(cancellation, /cancellationFeeAmount/);
-  assert.match(cancellation, /executeApprovedCancellation/);
+  assert.match(cancellation, /class HomestayCancellationExecutorService/);
   assert.match(cancellation, /UPDATE biz_homestay_stay_credential/);
   assert.match(cancellation, /UPDATE biz_property_occupancy/);
   assert.match(cancellation, /UPDATE biz_homestay_booking/);
   assert.match(cancellation, /approval_execution_key/);
 
-  const issueEnd = service.indexOf("async returnCredential");
-  const issuance = service.slice(issueStart, issueEnd);
+  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const issueStart = service.indexOf("async issueCredential");
+  const issuance = service.slice(issueStart, service.indexOf("async returnCredential"));
   assert.match(issuance, /this\.dataSource\.transaction/);
   assert.match(issuance, /this\.transactionSupport\.lockBooking\(manager, scope, bookingId\)/);
 });
 
 test("no-show revokes issued credentials before releasing occupancy", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-booking-command.service.ts"), "utf8");
   const noShow = service.slice(service.indexOf("async markNoShow"), service.indexOf("async cancelBooking"));
   assert.match(noShow, /transactionSupport\.voidIssuedCredentials\([\s\S]*manager, scope, actor, id/);
   assert.match(noShow, /assertHomestayNoShowWindow\([\s\S]*this\.transactionSupport\.businessDateStart\(booking\.arrivalDate\)/);
@@ -192,10 +190,10 @@ test("homestay operational lists use authoritative candidates and bounded turnov
 });
 
 test("booking pricing fits its persistence precision contract", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-booking-command.service.ts"), "utf8");
   const pricing = service.slice(
     service.indexOf("private async calculatePricing"),
-    service.indexOf("private async resolveTurnoverPhotoFileIds")
+    service.indexOf("private cancellationSnapshot")
   );
   assert.match(pricing, /assertHomestayMoneyFitsNumeric/);
 });

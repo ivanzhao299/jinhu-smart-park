@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { DataSource } from "typeorm";
 import { HomestayService } from "./homestay.service";
+import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -44,9 +46,12 @@ test("DEC-01 cancellation is atomic and DEC-02 counts direct plus mapped legacy 
   };
   const query = async (sql: string, parameters?: unknown[]) =>
     runner.query(sql, parameters);
+  const support = new HomestayTransactionSupportService();
+  const executor = new HomestayCancellationExecutorService(support);
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never, {} as never
+    {} as never, {} as never, {} as never, undefined, undefined, undefined, undefined, undefined,
+    support, undefined, executor
   );
 
   try {

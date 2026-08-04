@@ -19,6 +19,8 @@ import { HomestayService } from "./homestay.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayBookingCommandService } from "./homestay-booking-command.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -32,20 +34,12 @@ const actor: JwtPrincipal = {
 
 test("direct homestay cancellation stops before a transaction for every principal class", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {
+  const commands = new HomestayBookingCommandService(
+    {} as never, {} as never, {
       transaction: async () => {
         transactionCalls += 1;
       }
-    } as never
+    } as never, new HomestayTransactionSupportService()
   );
   const principals = [
     actor,
@@ -55,7 +49,7 @@ test("direct homestay cancellation stops before a transaction for every principa
 
   for (const principal of principals) {
     await assert.rejects(
-      service.cancelBooking(scope, principal, "booking-1", "reason"),
+      commands.cancelBooking(scope, principal, "booking-1", "reason"),
       (error: unknown) => {
         assert.ok(error instanceof ConflictException);
         assert.equal(error.message, PROPERTY_APPROVAL_REQUIRED_MESSAGE);

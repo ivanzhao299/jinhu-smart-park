@@ -13,7 +13,12 @@ import {
   HomestayStayCredentialEntity,
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
-import { assertBusinessDate, formatHomestayMoney, toMoneyCents } from "./homestay-booking.policy";
+import {
+  assertBusinessDate,
+  formatHomestayMoney,
+  formatMoneyCents,
+  toMoneyCents
+} from "./homestay-booking.policy";
 
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 
@@ -37,6 +42,25 @@ interface HomestayLegacyFinanceMappingRow {
 
 @Injectable()
 export class HomestayTransactionSupportService {
+  calculateCancellationFee(
+    booking: Pick<HomestayBookingEntity,
+      "arrivalDate" | "roomAmount" | "cancellationPolicySnapshot">,
+    cancellationEvaluationAt: string
+  ): string {
+    const policy = booking.cancellationPolicySnapshot;
+    const hours = Number(policy.free_cancel_before_hours ?? 0);
+    const cutoff = this.businessDateStart(booking.arrivalDate).getTime() - hours * 60 * 60_000;
+    const evaluationTime = new Date(cancellationEvaluationAt).getTime();
+    if (!Number.isFinite(evaluationTime)) {
+      throw new ConflictException("Cancellation evaluation time is invalid");
+    }
+    if (evaluationTime <= cutoff) return "0.00";
+    const value = formatHomestayMoney(String(policy.late_cancel_fee_value ?? "0"));
+    if (policy.late_cancel_fee_type !== "percentage") return value;
+    const numerator = toMoneyCents(booking.roomAmount) * toMoneyCents(value);
+    return formatMoneyCents((numerator + 5_000n) / 10_000n);
+  }
+
   businessDates(startValue: string, endValue: string): string[] {
     assertBusinessDate(startValue, "arrival_date");
     assertBusinessDate(endValue, "departure_date");

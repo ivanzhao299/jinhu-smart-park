@@ -23,6 +23,8 @@ import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.servic
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayBookingCommandService } from "./homestay-booking-command.service";
+import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
@@ -57,6 +59,8 @@ import {
     HomestayDashboardAvailabilityQueryService,
     HomestayRatesService,
     HomestayBookingQueryService,
+    HomestayBookingCommandService,
+    HomestayCancellationExecutorService,
     HomestayTransactionSupportService,
     HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,

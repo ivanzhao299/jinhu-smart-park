@@ -31,7 +31,6 @@ import {
   type PropertyApprovalJsonValue,
   type TenantParkScope
 } from "@jinhu/shared";
-import { randomUUID } from "node:crypto";
 import {
   DataSource,
   type EntityManager,
@@ -42,7 +41,6 @@ import {
   assertPropertyHighRiskActionApprovalRequired,
   assertPropertyHighRiskActionPermissions
 } from "../../shared/property-workbench/property-high-risk-stopship";
-import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
@@ -69,10 +67,8 @@ import type {
 import {
   HomestayBookingEntity,
   HomestayBookingGuestEntity,
-  HomestayBookingNightEntity,
   HomestayLedgerEntryEntity,
   HomestayRateConfigEntity,
-  HomestayRateOverrideEntity,
   HomestayStayCredentialEntity,
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
@@ -81,23 +77,24 @@ import {
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
   assertHomestayGuestRosterComplete,
-  assertHomestayMoneyFitsNumeric,
-  assertHomestayNoShowWindow,
   formatHomestayMoney,
   formatMoneyCents,
-  homestayMoneyDifference,
   toMoneyCents,
   turnoverLockEnd
 } from "./homestay-booking.policy";
 import {
   assertHomestayManualLedgerMutation,
-  calculateCancellableRoomCharge,
   summarizeHomestayLedger
 } from "./homestay-finance.policy";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import {
+  HomestayBookingCommandService,
+  type HomestayApprovedCancellationInput
+} from "./homestay-booking-command.service";
+import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import {
   projectHomestayBooking,
@@ -105,8 +102,6 @@ import {
   projectHomestayTurnover
 } from "./homestay-projections";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
-
-const HOLD_MINUTES = 30;
 
 @Injectable()
 export class HomestayService {
@@ -135,7 +130,11 @@ export class HomestayService {
     @Optional()
     private readonly bookingQuery?: HomestayBookingQueryService,
     private readonly transactionSupport: HomestayTransactionSupportService
-      = new HomestayTransactionSupportService()
+      = new HomestayTransactionSupportService(),
+    @Optional()
+    private readonly bookingCommands?: HomestayBookingCommandService,
+    @Optional()
+    private readonly cancellationExecutor?: HomestayCancellationExecutorService
   ) {}
 
   async listUnitCandidates(
@@ -365,150 +364,15 @@ export class HomestayService {
     dto: CreateHomestayBookingDto,
     idempotencyKey?: string
   ) {
-    await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        await this.transactionSupport.assertUnitBookable(manager, scope, dto.unit_id);
-        if (dto.booker_party_id) {
-          const booker = await manager.getRepository(PartyEntity).findOne({
-            where: {
-              id: dto.booker_party_id,
-              tenantId: scope.tenantId,
-              parkId: scope.parkId,
-              partyType: "person",
-              isDeleted: false
-            }
-          });
-          if (!booker) throw new NotFoundException("Individual booker party not found");
-        }
-        const pricing = await this.calculatePricing(manager, scope, dto.unit_id, dto.arrival_date, dto.departure_date);
-        const bookingRepository = manager.getRepository(HomestayBookingEntity);
-        const booking = await bookingRepository.save(bookingRepository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bookingCode: dto.booking_code?.trim() || this.generateBookingCode(),
-          unitId: dto.unit_id,
-          bookerPartyId: dto.booker_party_id ?? null,
-          occupancyId: null,
-          status: "draft",
-          arrivalDate: pricing.arrivalDate,
-          departureDate: pricing.departureDate,
-          expectedArrivalTime: dto.expected_arrival_time ? new Date(dto.expected_arrival_time) : null,
-          sourceType: dto.source_type,
-          channelName: dto.channel_name?.trim() ?? null,
-          externalOrderNo: dto.external_order_no?.trim() ?? null,
-          channelSyncStatus: dto.source_type === "ota_reserved" ? "reserved_not_connected" : "not_applicable",
-          guestCount: dto.guest_count,
-          currency: pricing.config.currency,
-          roomAmount: pricing.total,
-          adjustmentAmount: "0.00",
-          totalAmount: pricing.total,
-          cancellationPolicySnapshot: this.cancellationSnapshot(pricing.config),
-          createBy: actor.sub,
-          updateBy: actor.sub,
-          remark: dto.remark?.trim() ?? null
-        }));
-        await manager.getRepository(HomestayBookingNightEntity).save(
-          pricing.nights.map((night) => manager.getRepository(HomestayBookingNightEntity).create({
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            bookingId: booking.id,
-            ...night,
-            createBy: actor.sub,
-            updateBy: actor.sub
-          }))
-        );
-        const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000);
-        const occupancy = await this.propertyOccupanciesService.createInTransaction(manager, scope, actor, {
-          unit_id: booking.unitId,
-          source_domain: "homestay",
-          source_type: "homestay_booking",
-          source_id: booking.id,
-          start_at: this.transactionSupport.businessDateStart(booking.arrivalDate).toISOString(),
-          end_at: this.transactionSupport.businessDateStart(booking.departureDate).toISOString(),
-          status: "held",
-          hold_expires_at: holdExpiresAt.toISOString(),
-          remark: `Homestay draft ${booking.bookingCode}`
-        }, idempotencyKey);
-        booking.occupancyId = occupancy.id;
-        await bookingRepository.save(booking);
-        await this.transactionSupport.log(
-          manager, scope, actor, booking, "create", null, "draft", "人工创建民宿订单", {
-          hold_expires_at: holdExpiresAt.toISOString(),
-          room_amount: booking.roomAmount
-        });
-        return booking;
-      });
-    } catch (error) {
-      if (this.isUniqueViolation(error)) {
-        throw new ConflictException("Booking code or external channel order already exists");
-      }
-      throw error;
-    }
+    return this.mustBookingCommands().createBooking(scope, actor, dto, idempotencyKey);
   }
 
   async confirmBooking(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      if (booking.status === "confirmed") return booking;
-      this.transactionSupport.assertStatus(booking, ["draft"], "Only draft bookings can be confirmed");
-      await this.transactionSupport.assertUnitBookable(manager, scope, booking.unitId);
-      if (!booking.occupancyId) throw new ConflictException("Booking occupancy hold is missing");
-      await this.propertyOccupanciesService.activateInTransaction(manager, scope, actor, booking.occupancyId);
-      const before = booking.status;
-      booking.status = "confirmed";
-      booking.updateBy = actor.sub;
-      const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      if (toMoneyCents(saved.roomAmount) > 0n) {
-        await this.transactionSupport.createLedgerEntry(manager, scope, actor, saved.id, {
-          entry_type: "charge",
-          charge_type: "room",
-          amount: saved.roomAmount,
-          reason: "订单确认自动生成房费应收"
-        });
-      }
-      await this.transactionSupport.log(
-        manager, scope, actor, saved, "confirm", before, saved.status, "确认订单并锁房"
-      );
-      return saved;
-    });
+    return this.mustBookingCommands().confirmBooking(scope, actor, id);
   }
 
   async markNoShow(scope: TenantParkScope, actor: JwtPrincipal, id: string, reason: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      if (booking.status === "no_show") return booking;
-      this.transactionSupport.assertStatus(booking, ["confirmed"], "Only confirmed bookings can be marked as no-show");
-      assertHomestayNoShowWindow(
-        new Date(),
-        this.transactionSupport.businessDateStart(booking.arrivalDate)
-      );
-      const revokedCredentials = await this.transactionSupport.voidIssuedCredentials(
-        manager, scope, actor, id
-      );
-      if (booking.occupancyId) {
-        await this.propertyOccupanciesService.releaseInTransaction(
-          manager,
-          scope,
-          actor,
-          booking.occupancyId,
-          reason,
-          "cancelled"
-        );
-      }
-      const before = booking.status;
-      booking.status = "no_show";
-      booking.noShowAt = new Date();
-      booking.updateBy = actor.sub;
-      const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.transactionSupport.log(
-        manager, scope, actor, saved, "no_show", before, saved.status, reason, {
-        revoked_credentials: revokedCredentials
-      });
-      return saved;
-    });
+    return this.mustBookingCommands().markNoShow(scope, actor, id, reason);
   }
 
   async cancelBooking(
@@ -518,273 +382,11 @@ export class HomestayService {
     reason: string,
     clientKey = ""
   ) {
-    if (!this.approvalCommands) {
-      assertPropertyHighRiskActionApprovalRequired("homestay.bookings.cancel");
-      throw new ConflictException("Property approval runtime is unavailable");
-    }
-    const approvalCommands = this.approvalCommands;
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      if (booking.status === "cancelled") return booking;
-      this.transactionSupport.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
-      const before = booking.status;
-      const evaluationRows = await manager.query(
-        `SELECT transaction_timestamp()::text AS "cancellationEvaluationAt"`
-      ) as Array<{ cancellationEvaluationAt: string }>;
-      const cancellationEvaluationAt = evaluationRows[0]?.cancellationEvaluationAt;
-      if (!cancellationEvaluationAt) throw new ConflictException("Cancellation evaluation time is unavailable");
-      const occupancyRows = booking.occupancyId ? await manager.query(
-        `SELECT id::text AS id, version, status FROM biz_property_occupancy
-          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
-        [scope.tenantId, scope.parkId, booking.occupancyId]
-      ) as Array<{ id: string; version: number; status: string }> : [];
-      if (booking.occupancyId && occupancyRows.length !== 1) {
-        throw new ConflictException("Booking occupancy changed");
-      }
-      const occupancy = occupancyRows[0] ?? null;
-      const credentials = await manager.query(
-        `SELECT id::text AS id, version, status FROM biz_homestay_stay_credential
-          WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
-            AND status='issued' AND is_deleted=false ORDER BY id FOR UPDATE`,
-        [scope.tenantId, scope.parkId, id]
-      ) as Array<{ id: string; version: number; status: string }>;
-      const ledgerContributors = await this.transactionSupport.lockConfirmedHomestayLedger(
-        manager, scope, booking.id
-      );
-      await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
-        manager, scope, booking.id
-      );
-      const cancellationFee = before === "confirmed"
-        ? this.calculateCancellationFee(booking, cancellationEvaluationAt)
-        : "0.00";
-      const cancellableRoomCharge = before === "confirmed"
-        ? calculateCancellableRoomCharge(ledgerContributors)
-        : "0.00";
-      const financialTotal = formatMoneyCents(
-        toMoneyCents(cancellableRoomCharge) + toMoneyCents(cancellationFee)
-      );
-      return approvalCommands.createPendingRequest(
-        { transactionContext: manager },
-        {
-          contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
-          scope,
-          actionId: "homestay.bookings.cancel.request",
-          sourceType: "homestay-booking",
-          sourceId: booking.id,
-          sourceExpectedVersion: booking.version,
-          requesterId: actor.sub,
-          submitterId: actor.sub,
-          actorId: actor.sub,
-          clientKey,
-          businessIntentKey: `homestay-cancel:${booking.id}:${booking.version}`,
-          canonicalPayload: {
-            bookingId: booking.id,
-            unitId: booking.unitId,
-            fromStatus: before,
-            reason: reason.trim(),
-            actorName: actor.realName?.trim() || actor.username,
-            cancellationEvaluationAt,
-            occupancy: occupancy ? { id: occupancy.id, expectedVersion: occupancy.version,
-              beforeStatus: occupancy.status, afterStatus: "cancelled" } : null,
-            credentials: credentials.map((row) => ({ id: row.id, expectedVersion: row.version,
-              beforeStatus: row.status, afterStatus: "void" })),
-            ledgerContributors: ledgerContributors.map((row) => ({ id: row.id,
-              expectedVersion: row.version, status: row.status, entryType: row.entryType,
-              chargeType: row.chargeType, amount: row.amount, currency: row.currency,
-              sourceLedgerEntryId: row.sourceLedgerEntryId })),
-            roomWaiverAmount: cancellableRoomCharge,
-            cancellationFeeAmount: cancellationFee,
-            currency: financialTotal === "0.00" ? null : booking.currency
-          },
-          payloadSchemaVersion: 1,
-          amount: financialTotal === "0.00" ? null : financialTotal,
-          currency: financialTotal === "0.00" ? null : booking.currency
-        }
-      );
-    });
+    return this.mustBookingCommands().cancelBooking(scope, actor, id, reason, clientKey);
   }
 
-  async executeApprovedCancellation(input: {
-    manager: EntityManager;
-    requestId: string;
-    executionIdempotencyKey: string;
-    canonicalPayload: Readonly<Record<string, unknown>>;
-    sourceExpectedVersion: number;
-    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string };
-  }): Promise<void> {
-    const payload = input.canonicalPayload;
-    const bookingId = this.requiredApprovalUuid(payload.bookingId);
-    if (bookingId !== input.request.sourceId) throw new ConflictException("Approval source changed");
-    const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
-    const bookings = await input.manager.query(
-      `SELECT id::text AS id, unit_id::text AS "unitId", occupancy_id::text AS "occupancyId",
-              status, currency, version, arrival_date::text AS "arrivalDate",
-              room_amount::text AS "roomAmount", cancellation_policy_snapshot AS "cancellationPolicySnapshot"
-         FROM biz_homestay_booking
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
-      [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ id: string; unitId: string; occupancyId: string | null; status: string;
-      currency: string; version: number; arrivalDate: string; roomAmount: string;
-      cancellationPolicySnapshot: Record<string, unknown> }>;
-    const booking = bookings[0];
-    if (!booking || booking.version !== input.sourceExpectedVersion
-      || booking.status !== payload.fromStatus || booking.unitId !== payload.unitId
-      || (booking.occupancyId === null) !== (payload.occupancy === null)) {
-      throw new ConflictException("Approval source changed");
-    }
-    const frozenOccupancy = payload.occupancy as Record<string, unknown> | null;
-    const occupancyRows = booking.occupancyId ? await input.manager.query(
-      `SELECT id::text AS id, version, status FROM biz_property_occupancy
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
-      [scope.tenantId, scope.parkId, booking.occupancyId]
-    ) as Array<{ id: string; version: number; status: string }> : [];
-    const occupancy = occupancyRows[0] ?? null;
-    const currentOccupancy = occupancy ? { id: occupancy.id, expectedVersion: occupancy.version,
-      beforeStatus: occupancy.status, afterStatus: "cancelled" } : null;
-    if (propertyApprovalCanonicalHash(currentOccupancy as PropertyApprovalJsonValue)
-      !== propertyApprovalCanonicalHash(frozenOccupancy as PropertyApprovalJsonValue)) {
-      throw new ConflictException("Approval source changed");
-    }
-    const currentCredentials = await input.manager.query(
-      `SELECT id::text AS id, version, status FROM biz_homestay_stay_credential
-        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
-          AND status='issued' AND is_deleted=false ORDER BY id FOR UPDATE`,
-      [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ id: string; version: number; status: string }>;
-    const credentialSnapshot = currentCredentials.map((row) => ({ id: row.id,
-      expectedVersion: row.version, beforeStatus: row.status, afterStatus: "void" }));
-    if (propertyApprovalCanonicalHash(credentialSnapshot as unknown as PropertyApprovalJsonValue)
-      !== propertyApprovalCanonicalHash(payload.credentials as PropertyApprovalJsonValue)) {
-      throw new ConflictException("Approval source changed");
-    }
-    const currentLedger = await this.transactionSupport.lockConfirmedHomestayLedger(
-      input.manager, scope, bookingId
-    );
-    await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
-      input.manager, scope, bookingId
-    );
-    const ledgerSnapshot = currentLedger.map((row) => ({ id: row.id,
-      expectedVersion: row.version, status: row.status, entryType: row.entryType,
-      chargeType: row.chargeType, amount: row.amount, currency: row.currency,
-      sourceLedgerEntryId: row.sourceLedgerEntryId }));
-    if (propertyApprovalCanonicalHash(ledgerSnapshot as unknown as PropertyApprovalJsonValue)
-      !== propertyApprovalCanonicalHash(payload.ledgerContributors as PropertyApprovalJsonValue)) {
-      throw new ConflictException("Approval source changed");
-    }
-    const cancellationEvaluationAt = String(payload.cancellationEvaluationAt ?? "");
-    const roomWaiverAmount = calculateCancellableRoomCharge(currentLedger);
-    const cancellationFeeAmount = this.calculateCancellationFee(booking, cancellationEvaluationAt);
-    const financialTotal = formatMoneyCents(
-      toMoneyCents(roomWaiverAmount) + toMoneyCents(cancellationFeeAmount)
-    );
-    const currency = financialTotal === "0.00" ? null : booking.currency;
-    if (roomWaiverAmount !== payload.roomWaiverAmount
-      || cancellationFeeAmount !== payload.cancellationFeeAmount
-      || currency !== payload.currency) {
-      throw new ConflictException("Approval source changed");
-    }
-    const manifests = await input.manager.query(
-      `SELECT effect_kind AS "effectKind", effect_line_key AS "effectLineKey",
-              invariant_hash AS "effectHash", line_amount AS "lineAmount", currency
-         FROM biz_property_execution_effect_manifest
-        WHERE tenant_id=$1 AND park_id=$2 AND request_id=$3 ORDER BY effect_ordinal`,
-      [scope.tenantId, scope.parkId, input.requestId]
-    ) as Array<{ effectKind: string; effectLineKey: string; effectHash: string; lineAmount: string | null; currency: string | null }>;
-    const byKind = new Map(manifests.map((row) => [row.effectKind, row]));
-    const bookingEffect = byKind.get("homestay.booking.cancel");
-    if (!bookingEffect) throw new ConflictException("Approval effect manifest missing");
-    if ((toMoneyCents(roomWaiverAmount) > 0n) !== byKind.has("homestay.ledger.waiver")
-      || (toMoneyCents(cancellationFeeAmount) > 0n) !== byKind.has("homestay.ledger.charge")) {
-      throw new ConflictException("Approval effect manifest missing");
-    }
-    for (const credential of currentCredentials) {
-      const rows = typeormQueryRows<{ id: string }>(await input.manager.query(
-        `UPDATE biz_homestay_stay_credential
-            SET status='void', update_by=$5, update_time=clock_timestamp(), version=version+1
-          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
-            AND status=$6 AND is_deleted=false RETURNING id::text AS id`,
-        [scope.tenantId, scope.parkId, credential.id, credential.version,
-          input.request.requesterId, credential.status]
-      ));
-      if (rows.length !== 1) throw new ConflictException("Approval source changed");
-    }
-    if (occupancy && frozenOccupancy) {
-      const released = typeormQueryRows<{ id: string }>(await input.manager.query(
-        `UPDATE biz_property_occupancy
-            SET status=$8, release_reason=$5, released_at=clock_timestamp(),
-                update_by=$6, update_time=clock_timestamp(), version=version+1
-          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
-            AND status=$7 AND is_deleted=false RETURNING id::text AS id`,
-        [scope.tenantId, scope.parkId, occupancy.id, occupancy.version,
-          String(payload.reason ?? ""), input.request.requesterId, occupancy.status,
-          String(frozenOccupancy.afterStatus)]
-      ));
-      if (released.length !== 1) throw new ConflictException("Approval source changed");
-    }
-    const cancelled = typeormQueryRows<{ version: number }>(await input.manager.query(
-      `UPDATE biz_homestay_booking
-          SET status='cancelled', cancel_reason=$5, cancelled_at=clock_timestamp(),
-              update_by=$6, update_time=clock_timestamp(), version=version+1
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
-          AND status=$7 AND is_deleted=false RETURNING version`,
-      [scope.tenantId, scope.parkId, bookingId, input.sourceExpectedVersion,
-        String(payload.reason ?? ""), input.request.requesterId, booking.status]
-    ));
-    if (cancelled.length !== 1 || cancelled[0]!.version !== input.sourceExpectedVersion + 1) {
-      throw new ConflictException("Approval source changed");
-    }
-    for (const effectKind of ["homestay.ledger.waiver", "homestay.ledger.charge"] as const) {
-      const effect = byKind.get(effectKind);
-      if (!effect) continue;
-      const entryType = effectKind.endsWith("waiver") ? "waiver" : "charge";
-      const chargeType = entryType === "waiver" ? "room_cancellation" : "cancellation_fee";
-      const expectedAmount = entryType === "waiver" ? roomWaiverAmount : cancellationFeeAmount;
-      if (effect.lineAmount !== expectedAmount || effect.currency !== currency) {
-        throw new ConflictException("Approval effect manifest missing");
-      }
-      const ledger = await input.manager.query(
-        `INSERT INTO biz_homestay_ledger_entry(
-           tenant_id,park_id,booking_id,entry_type,charge_type,amount,currency,status,reason,
-           occurred_at,create_by,update_by,approval_execution_key,approval_effect_kind,
-           approval_effect_line_key,approval_effect_hash)
-         VALUES($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,clock_timestamp(),$9,$9,$10,$11,$12,$13)
-         RETURNING id::text AS id`,
-        [scope.tenantId, scope.parkId, bookingId, entryType, chargeType, effect.lineAmount,
-          effect.currency, entryType === "waiver"
-            ? "Cancellation reverses the confirmed room charge" : "按审批提交时冻结的取消规则计算",
-          input.request.requesterId, input.executionIdempotencyKey, effect.effectKind,
-          effect.effectLineKey, effect.effectHash]
-      ) as Array<{ id: string }>;
-      if (ledger.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
-    }
-    const actionRows = await input.manager.query(
-      `INSERT INTO biz_homestay_booking_action_log(
-         tenant_id,park_id,booking_id,action,before_status,after_status,reason,snapshot,
-         operator_id,operator_name,action_time,create_time,approval_execution_key,
-         approval_effect_kind,approval_effect_line_key,approval_effect_hash)
-       VALUES($1,$2,$3,'cancel',$4,'cancelled',$5,$6::jsonb,$7,$8,clock_timestamp(),
-              clock_timestamp(),$9,$10,$11,$12) RETURNING id::text AS id`,
-      [scope.tenantId, scope.parkId, bookingId, booking.status, String(payload.reason ?? ""),
-        JSON.stringify({ cancellation_evaluation_at: cancellationEvaluationAt,
-          cancellation_fee: cancellationFeeAmount, room_waiver_amount: roomWaiverAmount,
-          compound_contributors: { occupancy: currentOccupancy, credentials: credentialSnapshot,
-            ledger: ledgerSnapshot },
-          compound_contributor_hash: propertyApprovalCanonicalHash({ occupancy: currentOccupancy,
-            credentials: credentialSnapshot, ledger: ledgerSnapshot }) }),
-        input.request.requesterId, String(payload.actorName ?? "审批申请人"),
-        input.executionIdempotencyKey, bookingEffect.effectKind, bookingEffect.effectLineKey,
-        bookingEffect.effectHash]
-    ) as Array<{ id: string }>;
-    if (actionRows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
-  }
-
-  private requiredApprovalUuid(value: unknown): string {
-    if (typeof value !== "string"
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-      throw new ConflictException("Approval payload is invalid");
-    }
-    return value;
+  async executeApprovedCancellation(input: HomestayApprovedCancellationInput): Promise<void> {
+    return this.mustCancellationExecutor().execute(input);
   }
 
   async rescheduleBooking(
@@ -793,81 +395,7 @@ export class HomestayService {
     id: string,
     dto: RescheduleHomestayBookingDto
   ) {
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      this.transactionSupport.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be rescheduled");
-      const beforeSnapshot = {
-        arrival_date: booking.arrivalDate,
-        departure_date: booking.departureDate,
-        room_amount: booking.roomAmount,
-        occupancy_id: booking.occupancyId
-      };
-      const pricing = await this.calculatePricing(manager, scope, booking.unitId, dto.arrival_date, dto.departure_date);
-      if (!booking.occupancyId) throw new ConflictException("Booking occupancy is missing");
-      const occupancy = await this.propertyOccupanciesService.replacePeriodInTransaction(
-        manager,
-        scope,
-        actor,
-        booking.occupancyId,
-        {
-          sourceDomain: "homestay",
-          sourceType: "homestay_booking",
-          sourceId: booking.id,
-          startAt: this.transactionSupport.businessDateStart(booking.arrivalDate).toISOString(),
-          endAt: this.transactionSupport.businessDateStart(booking.departureDate).toISOString(),
-          status: booking.status === "confirmed" ? "active" : "held"
-        },
-        this.transactionSupport.businessDateStart(pricing.arrivalDate).toISOString(),
-        this.transactionSupport.businessDateStart(pricing.departureDate).toISOString(),
-        booking.status === "draft" ? new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString() : undefined
-      );
-      await manager.getRepository(HomestayBookingNightEntity).update(
-        { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: booking.id, isDeleted: false },
-        { isDeleted: true, updateBy: actor.sub }
-      );
-      await manager.getRepository(HomestayBookingNightEntity).save(
-        pricing.nights.map((night) => manager.getRepository(HomestayBookingNightEntity).create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bookingId: booking.id,
-          ...night,
-          createBy: actor.sub,
-          updateBy: actor.sub
-        }))
-      );
-      const previousAmount = booking.roomAmount;
-      const difference = homestayMoneyDifference(pricing.total, previousAmount);
-      const differenceCents = toMoneyCents(difference);
-      booking.arrivalDate = pricing.arrivalDate;
-      booking.departureDate = pricing.departureDate;
-      booking.occupancyId = occupancy.id;
-      booking.roomAmount = pricing.total;
-      booking.adjustmentAmount = difference;
-      booking.totalAmount = pricing.total;
-      booking.updateBy = actor.sub;
-      const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      if (booking.status === "confirmed" && differenceCents !== 0n) {
-        await this.transactionSupport.createLedgerEntry(manager, scope, actor, saved.id, {
-          entry_type: differenceCents > 0n ? "charge" : "waiver",
-          charge_type: differenceCents > 0n ? "reschedule_increase" : "reschedule_decrease",
-          amount: formatMoneyCents(differenceCents < 0n ? -differenceCents : differenceCents),
-          reason: `订单改期差价：${dto.reason}`
-        });
-      }
-      await this.transactionSupport.log(
-        manager, scope, actor, saved, "reschedule", saved.status, saved.status, dto.reason, {
-        before: beforeSnapshot,
-        after: {
-          arrival_date: saved.arrivalDate,
-          departure_date: saved.departureDate,
-          room_amount: saved.roomAmount,
-          occupancy_id: saved.occupancyId
-        },
-        difference: saved.adjustmentAmount
-      });
-      return saved;
-    });
+    return this.mustBookingCommands().rescheduleBooking(scope, actor, id, dto);
   }
 
   async addGuest(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, dto: AddHomestayGuestDto) {
@@ -1106,21 +634,17 @@ export class HomestayService {
     clientKey = ""
   ) {
     if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
-      assertPropertyHighRiskActionPermissions(actor, [
-        SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
-        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
-      ]);
-      if (!this.approvalCommands) {
-        assertPropertyHighRiskActionApprovalRequired("homestay.finance.refund-or-waive");
+      assertPropertyHighRiskActionPermissions(actor, [SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE]);
+      if (!this.approvalCommands) { assertPropertyHighRiskActionApprovalRequired("homestay.finance.refund-or-waive");
         throw new ConflictException("Property approval runtime is unavailable");
       }
     }
     const requiredPermission = dto.entry_type === "waiver"
       ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
       : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER;
-    if (!this.hasPermission(actor, requiredPermission)) {
+    if (!this.hasPermission(actor, requiredPermission))
       throw new ForbiddenException(`${requiredPermission} permission is required`);
-    }
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
@@ -1186,15 +710,12 @@ export class HomestayService {
     });
   }
 
-  async executeApprovedFinance(input: {
-    manager: EntityManager; requestId: string; executionIdempotencyKey: string;
-    canonicalPayload: Readonly<Record<string, unknown>>; sourceExpectedVersion: number;
-    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string };
-  }): Promise<void> {
-    const payload = input.canonicalPayload;
-    if (!Array.isArray(payload.lines) || payload.lines.length !== 1) {
+  async executeApprovedFinance(input: { manager: EntityManager; requestId: string;
+    executionIdempotencyKey: string; canonicalPayload: Readonly<Record<string, unknown>>;
+    sourceExpectedVersion: number;
+    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string } }): Promise<void> {
+    const payload = input.canonicalPayload; if (!Array.isArray(payload.lines) || payload.lines.length !== 1)
       throw new ConflictException("Approval source changed");
-    }
     const line = payload.lines[0] as Record<string, unknown>;
     const bookingId = this.requiredApprovalUuid(payload.bookingId);
     const sourceId = this.requiredApprovalUuid(line.sourceLedgerEntryId);
@@ -1489,81 +1010,6 @@ export class HomestayService {
     return this.dashboardAvailabilityQuery.availability(scope, actor, query);
   }
 
-  private async calculatePricing(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    unitId: string,
-    arrivalValue: string,
-    departureValue: string
-  ) {
-    const arrivalDate = arrivalValue.slice(0, 10);
-    const departureDate = departureValue.slice(0, 10);
-    const dates = this.transactionSupport.businessDates(arrivalDate, departureDate);
-    const config = await manager.getRepository(HomestayRateConfigEntity).findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
-    if (!config) throw new ConflictException("Homestay rate configuration is required");
-    const overrides = await manager.getRepository(HomestayRateOverrideEntity).createQueryBuilder("rate")
-      .where("rate.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("rate.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("rate.unit_id = :unitId", { unitId })
-      .andWhere("rate.is_deleted = false")
-      .andWhere("rate.business_date >= :arrivalDate", { arrivalDate })
-      .andWhere("rate.business_date < :departureDate", { departureDate })
-      .getMany();
-    const byDate = new Map(overrides.map((item) => [item.businessDate, item.dailyRate]));
-    const nights = dates.map((businessDate) => {
-      const overrideRate = byDate.get(businessDate) ?? null;
-      return {
-        businessDate,
-        baseRate: config.baseDailyRate,
-        overrideRate,
-        finalRate: overrideRate ?? config.baseDailyRate,
-        priceSource: overrideRate ? "date_override" as const : "base" as const
-      };
-    });
-    const totalCents = assertHomestayMoneyFitsNumeric(
-      nights.reduce((sum, night) => sum + toMoneyCents(night.finalRate), 0n),
-      "Homestay room total"
-    );
-    return {
-      arrivalDate,
-      departureDate,
-      config,
-      nights,
-      total: formatMoneyCents(totalCents)
-    };
-  }
-
-  private cancellationSnapshot(config: HomestayRateConfigEntity) {
-    return {
-      free_cancel_before_hours: config.freeCancelBeforeHours,
-      late_cancel_fee_type: config.lateCancelFeeType,
-      late_cancel_fee_value: config.lateCancelFeeValue,
-      captured_at: new Date().toISOString()
-    };
-  }
-
-  private calculateCancellationFee(
-    booking: Pick<HomestayBookingEntity,
-      "arrivalDate" | "roomAmount" | "cancellationPolicySnapshot">,
-    cancellationEvaluationAt: string
-  ): string {
-    const policy = booking.cancellationPolicySnapshot;
-    const hours = Number(policy.free_cancel_before_hours ?? 0);
-    const cutoff = this.transactionSupport.businessDateStart(booking.arrivalDate).getTime()
-      - hours * 60 * 60_000;
-    const evaluationTime = new Date(cancellationEvaluationAt).getTime();
-    if (!Number.isFinite(evaluationTime)) {
-      throw new ConflictException("Cancellation evaluation time is invalid");
-    }
-    if (evaluationTime <= cutoff) return "0.00";
-    const value = formatHomestayMoney(String(policy.late_cancel_fee_value ?? "0"));
-    if (policy.late_cancel_fee_type !== "percentage") return value;
-    const numerator = toMoneyCents(booking.roomAmount) * toMoneyCents(value);
-    return formatMoneyCents((numerator + 5_000n) / 10_000n);
-  }
-
   private async resolveTurnoverPhotoFileIds(
     manager: EntityManager,
     scope: TenantParkScope,
@@ -1590,16 +1036,28 @@ export class HomestayService {
     return associatedIds;
   }
 
-  private generateBookingCode(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    return `HS-${date}-${randomUUID().slice(0, 8).toUpperCase()}`;
-  }
-
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
   }
 
-  private isUniqueViolation(error: unknown): boolean {
-    return Boolean(error && typeof error === "object" && (error as { code?: unknown }).code === "23505");
+  private mustBookingCommands(): HomestayBookingCommandService {
+    if (!this.bookingCommands) throw new Error("Homestay booking command service is unavailable");
+    return this.bookingCommands;
   }
+
+  private mustCancellationExecutor(): HomestayCancellationExecutorService {
+    if (!this.cancellationExecutor) {
+      throw new Error("Homestay cancellation executor service is unavailable");
+    }
+    return this.cancellationExecutor;
+  }
+
+  private requiredApprovalUuid(value: unknown): string {
+    if (typeof value !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      throw new ConflictException("Approval payload is invalid");
+    }
+    return value;
+  }
+
 }
