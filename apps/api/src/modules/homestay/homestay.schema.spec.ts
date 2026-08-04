@@ -154,9 +154,9 @@ test("credential return locks the row and preserves the original return timestam
 });
 
 test("turnover evidence is locked in the same transaction that binds it", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-turnover.service.ts"), "utf8");
   const resolver = service.slice(
-    service.indexOf("private async resolveTurnoverPhotoFileIds")
+    service.indexOf("private async resolvePhotoFileIds")
   );
   assert.match(resolver, /manager\.getRepository\(FileEntity\)/);
   assert.match(resolver, /\.setLock\("pessimistic_write"\)/);
@@ -177,9 +177,10 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   assert.match(candidates, /unit\.id = ANY\(\$5::uuid\[\]\)/);
   assert.match(candidates, /unit\.id = ANY\(\$3::uuid\[\]\)/);
 
-  const turnovers = service.slice(
-    service.indexOf("async listTurnovers"),
-    service.indexOf("async executeTurnover")
+  const turnoverService = readFileSync(resolve(__dirname, "homestay-turnover.service.ts"), "utf8");
+  const turnovers = turnoverService.slice(
+    turnoverService.indexOf("async listTurnovers"),
+    turnoverService.indexOf("async executeTurnover")
   );
   assert.match(turnovers, /statuses: \["pending", "cleaning", "inspection", "exception"\]/);
   assert.match(turnovers, /\.getManyAndCount\(\)/);

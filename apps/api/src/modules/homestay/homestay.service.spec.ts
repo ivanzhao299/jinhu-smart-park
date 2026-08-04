@@ -22,6 +22,7 @@ import { HomestayBookingQueryService } from "./homestay-booking-query.service";
 import { HomestayBookingCommandService } from "./homestay-booking-command.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayStayCommandService } from "./homestay-stay-command.service";
+import { HomestayTurnoverService } from "./homestay-turnover.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -752,6 +753,10 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     forbiddenUnitAccess as never,
     {} as never
   );
+  const forbiddenTurnovers = new HomestayTurnoverService(
+    {} as never, {} as never, {} as never, {} as never,
+    forbiddenUnitAccess as never, {} as never
+  );
   const forbiddenService = new HomestayService(
     {} as never,
     {} as never,
@@ -768,7 +773,7 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
   for (const operation of [
     () => forbiddenService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => forbiddenService.getStay(scope, actor, "11111111-1111-4111-8111-111111111111"),
-    () => forbiddenService.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111")
+    () => forbiddenTurnovers.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111")
   ]) {
     await assert.rejects(
       operation(),
@@ -795,6 +800,10 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     crossUnitAccess as never,
     {} as never
   );
+  const crossUnitTurnovers = new HomestayTurnoverService(
+    { createQueryBuilder: () => emptyBuilder } as never, {} as never, {} as never,
+    {} as never, crossUnitAccess as never, {} as never
+  );
   const crossUnitService = new HomestayService(
     {
       getRateCalendar: async () => {
@@ -815,7 +824,7 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
   for (const operation of [
     () => crossUnitService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => crossUnitService.getStay(scope, actor, "11111111-1111-4111-8111-111111111111"),
-    () => crossUnitService.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111"),
+    () => crossUnitTurnovers.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => crossUnitService.getRateCalendar(
       scope,
       actor,
@@ -861,10 +870,7 @@ test("turnover list hides protected file IDs without file:read while preserving 
       return builder;
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     turnoversRepository as never,
     {} as never,
     {} as never,
@@ -938,10 +944,7 @@ test("turnover detail adds only attachment metadata with domain read plus file:r
       return [file];
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     { createQueryBuilder: () => turnoverBuilder } as never,
     { createQueryBuilder: () => fileBuilder } as never,
     {} as never,
@@ -1011,17 +1014,13 @@ test("turnover detail exposes only the authorized scoped work-order reference", 
     getOne: async () => task
   };
   let referenceCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     { createQueryBuilder: () => builder } as never,
     {} as never,
     {} as never,
     {} as never,
     { allowedUnitIds: async () => null } as never,
     { query: async () => [{ unitCode: "A-101", unitName: "101" }] } as never,
-    undefined,
     {
       getAuthorizedWorkOrderReference: async () => {
         referenceCalls += 1;
