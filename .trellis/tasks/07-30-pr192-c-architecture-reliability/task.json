@@ -21,13 +21,13 @@
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "2026-08-04: C1/C2/C3 active. Homestay closures through turnover and Housing closures through finance/deposit are committed; final facade targets are not yet met. Independent reliability re-review reopened P1=2 for queue initialization fail-open and upload remark fingerprint drift. Formal 30-cell performance matrix is NOT RUN; Track C Chrome slice is blocked by WSL sandboxCwd URI before extension execution.",
+  "notes": "2026-08-04: C1/C2 technical implementation complete. HomestayService=498 and HousingService=488; all domain closures are atomic commits. Reliability final SHA dddf8565 passed three-round independent review with open_P0_P1=[]. Formal 30-cell performance matrix is NOT RUN; Track C Chrome slice remains blocked by WSL sandboxCwd URI before extension execution, so Track C is not yet complete.",
   "meta": {
-    "executionPhase": "C1_C2_rework_C3_parallel",
+    "executionPhase": "C3_formal_validation",
     "technicalStatus": "in_progress",
     "formalPerformanceStatus": "not_run",
     "chromeTrackCSliceStatus": "environment_blocked",
     "openP0": 0,
-    "openP1": 2
+    "openP1": 0
   }
 }

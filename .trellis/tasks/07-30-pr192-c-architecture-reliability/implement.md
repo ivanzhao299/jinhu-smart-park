@@ -22,16 +22,18 @@ Human UAT 未完成不是 Entry blocker。
 
 - B technical base：`f4797adf`，Entry Gate 已满足。
 - C1 Homestay 已按单 closure 提交 dashboard/availability、rates、booking read、
-  transaction support、booking command、stay/credential/guest 与 turnover；当前最新 SHA
-  为 `b19e00c3`，`HomestayService` 已由 2564 行降至 667 行。最后 finance closure 正在
-  执行；达到 domain service `<=650` 前不能标记 C1 PASS。
+  transaction support、booking command、stay/credential/guest、turnover 与 finance；最终
+  SHA 为 `56b79013`，`HomestayService` 已由 2564 行降至 498 行，domain service `<=650`
+  目标达成。完整 Homestay 最近一次 96 PASS / 3 PostgreSQL conditional skip。
 - C1 Housing 已按单 closure 提交 dashboard、tenant/party、lease read、lease command、
-  billing 与 finance/deposit；当前最新 SHA 为 `32fb5d2e`，`HousingService` 为 2145 行。
-  handover/repair 与 purchase 仍在执行；达到 domain service `<=650` 前不能标记 C1 PASS。
-- C2 frontend/offline 已提交基础 SHA `38c433d3`、`c0678d18`、`92d062fa`、
-  `c7c0eb51`。独立可靠性复审重新打开 2 个 P1：住房队列初始化窗口 fail-open，以及
-  上传队列未持久化 `remark` 导致同幂等 key 恢复 fingerprint 漂移。返修正在执行，
-  当前 `open_P0=0`、`open_P1=2`，因此 C2 **NOT PASS**。
+  billing、finance/deposit、handover/repair、purchase 与 lease approval/checkout；最终 SHA
+  为 `e9d8ffa8`，`HousingService` 已由 3554 行降至 488 行，domain service `<=650` 目标
+  达成。完整 Housing 最近一次 124 PASS / 2 PostgreSQL conditional skip。
+- C2 frontend/offline 基础 SHA 为 `38c433d3`、`c0678d18`、`92d062fa`、`c7c0eb51`；
+  最终可靠性返修 SHA 为 `dddf8565`。三轮独立复审依次发现并关闭 queue 初始化窗口、
+  `remark` fingerprint 漂移、module assignment/enable/expiry scope 三类 P1；最终 reviewer
+  结论 `P0/P1/P2=0`、`open_P0_P1=[]`。真实 Nest multipart HTTP 已覆盖同 key replay、
+  异 file/remark 409；C2 technical PASS。
 - C3 machine gates：`17641fde`、`cd8ee7d8`、`b414aee0` 已提交；contract 与 complexity
   当前 PASS，正式性能执行器和隔离固定资源环境的自测通过。现有 UAT 容器因无资源限制、
   共享数据库/挂载且无 browser worker，已被正式审计拒绝用于性能验收。
