@@ -37,13 +37,20 @@ Human UAT 未完成不是 Entry blocker。
 - C3 machine gates：`17641fde`、`cd8ee7d8`、`b414aee0` 已提交；contract 与 complexity
   当前 PASS，正式性能执行器和隔离固定资源环境的自测通过。现有 UAT 容器因无资源限制、
   共享数据库/挂载且无 browser worker，已被正式审计拒绝用于性能验收。
-- C3 formal performance：**NOT RUN / NOT PASS**。仍缺 30 个矩阵单元（2 scenarios x
+- C3 database/full regression：全 API 966 PASS / 13 conditional skip / 0 FAIL；另以
+  `jinhu_uat_20260804` 只读 dump 创建隔离 PostgreSQL clone，并同时设置 `DATABASE_URL` 与
+  `PROPERTY_IDENTITY_PG_URL`，5 个 PostgreSQL 条件套件 5/5 PASS / 0 skip，随后删除 clone
+  并验证残留为 0。旧开发库历史迁移失败未被修改，也不作为 Track C UAT 失败依据。
+- C3 formal performance：**RUNNING / NOT YET PASS**。独立子代理已完成非变更预检，固定
+  资源、镜像 digest、PGDMP 输入 SHA 与 `--check/--plan` 均通过，正在隔离 Docker project
+  `jinhu-track-c-perf-20260804a` provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
-- Track C Chrome 新切片：当前 WSL task 在任何 Chrome 扩展代码执行前被
-  `sandboxCwd is not a local file URI: file:///home/jinhuit/...` 拦截。不得以应用内浏览器、
-  Playwright 或 Computer Use 代替。既有 2026-08-04 Track B 全矩阵 UAT 仍保留且不重复，
-  但不能冒充 Track C 新增离线/上传界面复验。
+- Track C Chrome 新切片：独立任务已按 15 项矩阵重试，但在任何 Chrome 扩展代码执行前被
+  `sandboxCwd is not a local file URI: file:///mnt/d/...` 拦截，15 项全部 `BLOCKED`、截图 0。
+  证据位于 `2026-08-04/12-track-c-reliability-delta`；开放环境项
+  `C-P1-CHROME-HOST-ENVIRONMENT`。不得以应用内浏览器、Playwright 或 Computer Use 代替。
+  既有 Track B 108 项证据仍保留且未重复，但不能冒充 Track C 新增离线/上传界面复验。
 - 当前 Track C：`in_progress`；不得归档，不得将 machine-gate self-test、既有 Track B
   Chrome UAT 或环境健康检查等同于 Track C technical PASS。
 
