@@ -46,11 +46,9 @@ import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
-import { PropertyOperationConfigEntity } from "../property-operations/entities/property-operation-config.entity";
 import { PropertyOccupancyEntity } from "../property-operations/entities/property-occupancy.entity";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
-import { UnitEntity } from "../units/entities/unit.entity";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import { PropertyIdentityVerificationService } from "../property-identity/property-identity-verification.service";
 import type {
@@ -69,7 +67,6 @@ import type {
   UpsertHomestayRateOverrideDto
 } from "./dto/homestay.dto";
 import {
-  HomestayBookingActionLogEntity,
   HomestayBookingEntity,
   HomestayBookingGuestEntity,
   HomestayBookingNightEntity,
@@ -80,7 +77,6 @@ import {
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
 import {
-  assertBusinessDate,
   assertHomestayCheckInWindow,
   assertHomestayGuestIdentityVerified,
   assertHomestayGuestRegistrationOpen,
@@ -102,6 +98,7 @@ import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.servic
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import {
   projectHomestayBooking,
   projectHomestayCredential,
@@ -109,26 +106,7 @@ import {
 } from "./homestay-projections";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 
-const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
-
-interface HomestayLedgerSnapshotRow {
-  id: string;
-  version: number;
-  entryType: "charge" | "payment" | "refund" | "waiver";
-  chargeType: string;
-  amount: string;
-  currency: string;
-  status: "confirmed";
-  sourceLedgerEntryId: string | null;
-  recordedBy: string | null;
-}
-
-interface HomestayLegacyFinanceMappingRow {
-  resultId: string;
-  sourceExpectedVersion: number;
-  currency: string;
-}
 
 @Injectable()
 export class HomestayService {
@@ -155,7 +133,9 @@ export class HomestayService {
     @Optional()
     private readonly identityVerifier?: PropertyIdentityVerificationService,
     @Optional()
-    private readonly bookingQuery?: HomestayBookingQueryService
+    private readonly bookingQuery?: HomestayBookingQueryService,
+    private readonly transactionSupport: HomestayTransactionSupportService
+      = new HomestayTransactionSupportService()
   ) {}
 
   async listUnitCandidates(
@@ -388,7 +368,7 @@ export class HomestayService {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
     try {
       return await this.dataSource.transaction(async (manager) => {
-        await this.assertUnitBookable(manager, scope, dto.unit_id);
+        await this.transactionSupport.assertUnitBookable(manager, scope, dto.unit_id);
         if (dto.booker_party_id) {
           const booker = await manager.getRepository(PartyEntity).findOne({
             where: {
@@ -444,15 +424,16 @@ export class HomestayService {
           source_domain: "homestay",
           source_type: "homestay_booking",
           source_id: booking.id,
-          start_at: this.businessDateStart(booking.arrivalDate).toISOString(),
-          end_at: this.businessDateStart(booking.departureDate).toISOString(),
+          start_at: this.transactionSupport.businessDateStart(booking.arrivalDate).toISOString(),
+          end_at: this.transactionSupport.businessDateStart(booking.departureDate).toISOString(),
           status: "held",
           hold_expires_at: holdExpiresAt.toISOString(),
           remark: `Homestay draft ${booking.bookingCode}`
         }, idempotencyKey);
         booking.occupancyId = occupancy.id;
         await bookingRepository.save(booking);
-        await this.log(manager, scope, actor, booking, "create", null, "draft", "人工创建民宿订单", {
+        await this.transactionSupport.log(
+          manager, scope, actor, booking, "create", null, "draft", "人工创建民宿订单", {
           hold_expires_at: holdExpiresAt.toISOString(),
           room_amount: booking.roomAmount
         });
@@ -468,11 +449,11 @@ export class HomestayService {
 
   async confirmBooking(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "confirmed") return booking;
-      this.assertStatus(booking, ["draft"], "Only draft bookings can be confirmed");
-      await this.assertUnitBookable(manager, scope, booking.unitId);
+      this.transactionSupport.assertStatus(booking, ["draft"], "Only draft bookings can be confirmed");
+      await this.transactionSupport.assertUnitBookable(manager, scope, booking.unitId);
       if (!booking.occupancyId) throw new ConflictException("Booking occupancy hold is missing");
       await this.propertyOccupanciesService.activateInTransaction(manager, scope, actor, booking.occupancyId);
       const before = booking.status;
@@ -480,26 +461,33 @@ export class HomestayService {
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
       if (toMoneyCents(saved.roomAmount) > 0n) {
-        await this.createLedgerEntry(manager, scope, actor, saved.id, {
+        await this.transactionSupport.createLedgerEntry(manager, scope, actor, saved.id, {
           entry_type: "charge",
           charge_type: "room",
           amount: saved.roomAmount,
           reason: "订单确认自动生成房费应收"
         });
       }
-      await this.log(manager, scope, actor, saved, "confirm", before, saved.status, "确认订单并锁房");
+      await this.transactionSupport.log(
+        manager, scope, actor, saved, "confirm", before, saved.status, "确认订单并锁房"
+      );
       return saved;
     });
   }
 
   async markNoShow(scope: TenantParkScope, actor: JwtPrincipal, id: string, reason: string) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "no_show") return booking;
-      this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can be marked as no-show");
-      assertHomestayNoShowWindow(new Date(), this.businessDateStart(booking.arrivalDate));
-      const revokedCredentials = await this.voidIssuedCredentials(manager, scope, actor, id);
+      this.transactionSupport.assertStatus(booking, ["confirmed"], "Only confirmed bookings can be marked as no-show");
+      assertHomestayNoShowWindow(
+        new Date(),
+        this.transactionSupport.businessDateStart(booking.arrivalDate)
+      );
+      const revokedCredentials = await this.transactionSupport.voidIssuedCredentials(
+        manager, scope, actor, id
+      );
       if (booking.occupancyId) {
         await this.propertyOccupanciesService.releaseInTransaction(
           manager,
@@ -515,7 +503,8 @@ export class HomestayService {
       booking.noShowAt = new Date();
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.log(manager, scope, actor, saved, "no_show", before, saved.status, reason, {
+      await this.transactionSupport.log(
+        manager, scope, actor, saved, "no_show", before, saved.status, reason, {
         revoked_credentials: revokedCredentials
       });
       return saved;
@@ -535,10 +524,10 @@ export class HomestayService {
     }
     const approvalCommands = this.approvalCommands;
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "cancelled") return booking;
-      this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
+      this.transactionSupport.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
       const before = booking.status;
       const evaluationRows = await manager.query(
         `SELECT transaction_timestamp()::text AS "cancellationEvaluationAt"`
@@ -560,10 +549,12 @@ export class HomestayService {
             AND status='issued' AND is_deleted=false ORDER BY id FOR UPDATE`,
         [scope.tenantId, scope.parkId, id]
       ) as Array<{ id: string; version: number; status: string }>;
-      const ledgerContributors = await this.lockConfirmedHomestayLedger(
+      const ledgerContributors = await this.transactionSupport.lockConfirmedHomestayLedger(
         manager, scope, booking.id
       );
-      await this.assertNoUnresolvedLegacyHomestayFinance(manager, scope, booking.id);
+      await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
+        manager, scope, booking.id
+      );
       const cancellationFee = before === "confirmed"
         ? this.calculateCancellationFee(booking, cancellationEvaluationAt)
         : "0.00";
@@ -667,8 +658,12 @@ export class HomestayService {
       !== propertyApprovalCanonicalHash(payload.credentials as PropertyApprovalJsonValue)) {
       throw new ConflictException("Approval source changed");
     }
-    const currentLedger = await this.lockConfirmedHomestayLedger(input.manager, scope, bookingId);
-    await this.assertNoUnresolvedLegacyHomestayFinance(input.manager, scope, bookingId);
+    const currentLedger = await this.transactionSupport.lockConfirmedHomestayLedger(
+      input.manager, scope, bookingId
+    );
+    await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
+      input.manager, scope, bookingId
+    );
     const ledgerSnapshot = currentLedger.map((row) => ({ id: row.id,
       expectedVersion: row.version, status: row.status, entryType: row.entryType,
       chargeType: row.chargeType, amount: row.amount, currency: row.currency,
@@ -784,122 +779,6 @@ export class HomestayService {
     if (actionRows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }
 
-  private async lockConfirmedHomestayLedger(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    bookingId: string
-  ): Promise<HomestayLedgerSnapshotRow[]> {
-    return manager.query(
-      `SELECT id::text AS id, version, entry_type AS "entryType", charge_type AS "chargeType",
-              amount::text AS amount, currency, status,
-              source_ledger_entry_id::text AS "sourceLedgerEntryId",
-              create_by::text AS "recordedBy"
-         FROM biz_homestay_ledger_entry
-        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
-          AND status='confirmed' AND is_deleted=false
-        ORDER BY id FOR UPDATE`,
-      [scope.tenantId, scope.parkId, bookingId]
-    ) as Promise<HomestayLedgerSnapshotRow[]>;
-  }
-
-  private async assertNoUnresolvedLegacyHomestayFinance(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    bookingId: string
-  ): Promise<void> {
-    const unresolved = await manager.query(
-      `SELECT result.id::text AS id FROM biz_homestay_ledger_entry result
-        WHERE result.tenant_id=$1 AND result.park_id=$2 AND result.booking_id=$3
-          AND result.entry_type IN ('refund','waiver')
-          AND result.source_ledger_entry_id IS NULL AND result.is_deleted=false
-          AND NOT EXISTS (
-            SELECT 1 FROM biz_homestay_legacy_finance_source_map legacy
-             WHERE legacy.tenant_id=result.tenant_id AND legacy.park_id=result.park_id
-               AND legacy.result_ledger_entry_id=result.id)
-        ORDER BY result.id FOR UPDATE`,
-      [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ id: string }>;
-    if (unresolved.length > 0) {
-      throw new ConflictException("Legacy refund or waiver source must be reconciled before approval");
-    }
-  }
-
-  private async lockHomestayFinanceSourceKey(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    bookingId: string,
-    sourceLedgerEntryId: string
-  ): Promise<void> {
-    const canonicalKey = ["homestay-finance-source", scope.tenantId, scope.parkId,
-      bookingId, sourceLedgerEntryId].join("|");
-    await manager.query(
-      `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
-      [canonicalKey]
-    );
-  }
-
-  private async lockHomestayFinanceSource(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    bookingId: string,
-    sourceLedgerEntryId: string
-  ): Promise<HomestayLedgerSnapshotRow> {
-    const rows = await manager.query(
-      `SELECT id::text AS id,version,entry_type AS "entryType",charge_type AS "chargeType",
-              amount::text AS amount,currency,status,
-              source_ledger_entry_id::text AS "sourceLedgerEntryId",
-              create_by::text AS "recordedBy"
-         FROM biz_homestay_ledger_entry
-        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3 AND id=$4
-          AND status='confirmed' AND is_deleted=false
-        FOR UPDATE`,
-      [scope.tenantId, scope.parkId, bookingId, sourceLedgerEntryId]
-    ) as HomestayLedgerSnapshotRow[];
-    if (rows.length !== 1) throw new ConflictException("Finance allocation source changed");
-    return rows[0]!;
-  }
-
-  private async homestayFinanceAllocationSnapshot(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    source: HomestayLedgerSnapshotRow,
-    lockedLedger: HomestayLedgerSnapshotRow[],
-    entryType: "refund" | "waiver"
-  ): Promise<{ allocatedCents: bigint;
-    contributors: Array<Record<string, PropertyApprovalJsonValue>> }> {
-    const mapped = await manager.query(
-      `SELECT result_ledger_entry_id::text AS "resultId",
-              source_expected_version AS "sourceExpectedVersion",currency
-         FROM biz_homestay_legacy_finance_source_map
-        WHERE tenant_id=$1 AND park_id=$2 AND source_ledger_entry_id=$3
-        ORDER BY result_ledger_entry_id FOR SHARE`,
-      [scope.tenantId, scope.parkId, source.id]
-    ) as HomestayLegacyFinanceMappingRow[];
-    if (mapped.some((row) => row.sourceExpectedVersion !== source.version
-      || row.currency !== source.currency)) {
-      throw new ConflictException("Finance allocation source changed");
-    }
-    const mappedIds = new Set(mapped.map((row) => row.resultId));
-    const contributors = lockedLedger.flatMap((row) => {
-      const direct = row.sourceLedgerEntryId === source.id;
-      const legacyMapped = mappedIds.has(row.id);
-      if (!direct && !legacyMapped) return [];
-      if (direct && legacyMapped) throw new ConflictException("Finance allocation is ambiguous");
-      if (row.entryType !== entryType || row.currency !== source.currency) {
-        throw new ConflictException("Finance allocation source changed");
-      }
-      return [{ id: row.id, expectedVersion: row.version, status: row.status,
-        entryType: row.entryType, amount: row.amount, currency: row.currency,
-        allocationKind: direct ? "direct" : "legacy-mapped" }];
-    }).sort((left, right) => String(left.id).localeCompare(String(right.id)));
-    return {
-      allocatedCents: contributors.reduce(
-        (sum, row) => sum + toMoneyCents(String(row.amount)), 0n
-      ),
-      contributors
-    };
-  }
-
   private requiredApprovalUuid(value: unknown): string {
     if (typeof value !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
@@ -915,9 +794,9 @@ export class HomestayService {
     dto: RescheduleHomestayBookingDto
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be rescheduled");
+      this.transactionSupport.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be rescheduled");
       const beforeSnapshot = {
         arrival_date: booking.arrivalDate,
         departure_date: booking.departureDate,
@@ -935,12 +814,12 @@ export class HomestayService {
           sourceDomain: "homestay",
           sourceType: "homestay_booking",
           sourceId: booking.id,
-          startAt: this.businessDateStart(booking.arrivalDate).toISOString(),
-          endAt: this.businessDateStart(booking.departureDate).toISOString(),
+          startAt: this.transactionSupport.businessDateStart(booking.arrivalDate).toISOString(),
+          endAt: this.transactionSupport.businessDateStart(booking.departureDate).toISOString(),
           status: booking.status === "confirmed" ? "active" : "held"
         },
-        this.businessDateStart(pricing.arrivalDate).toISOString(),
-        this.businessDateStart(pricing.departureDate).toISOString(),
+        this.transactionSupport.businessDateStart(pricing.arrivalDate).toISOString(),
+        this.transactionSupport.businessDateStart(pricing.departureDate).toISOString(),
         booking.status === "draft" ? new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString() : undefined
       );
       await manager.getRepository(HomestayBookingNightEntity).update(
@@ -969,14 +848,15 @@ export class HomestayService {
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
       if (booking.status === "confirmed" && differenceCents !== 0n) {
-        await this.createLedgerEntry(manager, scope, actor, saved.id, {
+        await this.transactionSupport.createLedgerEntry(manager, scope, actor, saved.id, {
           entry_type: differenceCents > 0n ? "charge" : "waiver",
           charge_type: differenceCents > 0n ? "reschedule_increase" : "reschedule_decrease",
           amount: formatMoneyCents(differenceCents < 0n ? -differenceCents : differenceCents),
           reason: `订单改期差价：${dto.reason}`
         });
       }
-      await this.log(manager, scope, actor, saved, "reschedule", saved.status, saved.status, dto.reason, {
+      await this.transactionSupport.log(
+        manager, scope, actor, saved, "reschedule", saved.status, saved.status, dto.reason, {
         before: beforeSnapshot,
         after: {
           arrival_date: saved.arrivalDate,
@@ -992,7 +872,7 @@ export class HomestayService {
 
   async addGuest(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, dto: AddHomestayGuestDto) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, bookingId);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       assertHomestayGuestRegistrationOpen(booking.status);
       const party = await manager.getRepository(PartyEntity)
@@ -1044,8 +924,8 @@ export class HomestayService {
     dto: IssueHomestayCredentialDto
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, bookingId);
-      this.assertStatus(booking, ["confirmed", "checked_in"], "Credentials require a confirmed or checked-in booking");
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
+      this.transactionSupport.assertStatus(booking, ["confirmed", "checked_in"], "Credentials require a confirmed or checked-in booking");
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       const repository = manager.getRepository(HomestayStayCredentialEntity);
       const saved = await repository.save(repository.create({
@@ -1069,7 +949,7 @@ export class HomestayService {
 
   async returnCredential(scope: TenantParkScope, actor: JwtPrincipal, bookingId: string, credentialId: string) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, bookingId);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       const repository = manager.getRepository(HomestayStayCredentialEntity);
       const credential = await repository.findOne({
@@ -1090,17 +970,17 @@ export class HomestayService {
 
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "checked_in") return booking;
-      this.assertStatus(booking, ["confirmed"], "Only confirmed bookings can check in");
-      await this.assertUnitBookable(manager, scope, booking.unitId);
-      await this.assertActiveBookingOccupancy(manager, scope, booking);
+      this.transactionSupport.assertStatus(booking, ["confirmed"], "Only confirmed bookings can check in");
+      await this.transactionSupport.assertUnitBookable(manager, scope, booking.unitId);
+      await this.transactionSupport.assertActiveBookingOccupancy(manager, scope, booking);
       const now = new Date();
       assertHomestayCheckInWindow(
         now,
-        this.businessDateStart(booking.arrivalDate),
-        this.businessDateStart(booking.departureDate)
+        this.transactionSupport.businessDateStart(booking.arrivalDate),
+        this.transactionSupport.businessDateStart(booking.departureDate)
       );
       const guestRows = await manager.query(
         `SELECT guest.party_id::text AS "partyId" FROM rel_homestay_booking_guest guest
@@ -1136,7 +1016,8 @@ export class HomestayService {
       booking.actualCheckInTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.log(manager, scope, actor, saved, "check_in", before, saved.status, "办理入住", {
+      await this.transactionSupport.log(
+        manager, scope, actor, saved, "check_in", before, saved.status, "办理入住", {
         identity_evidence: identityEvidence
       });
       return saved;
@@ -1145,10 +1026,10 @@ export class HomestayService {
 
   async checkOut(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, id);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (booking.status === "checked_out") return booking;
-      this.assertStatus(booking, ["checked_in"], "Only checked-in bookings can check out");
+      this.transactionSupport.assertStatus(booking, ["checked_in"], "Only checked-in bookings can check out");
       const issuedCredentials = await manager.getRepository(HomestayStayCredentialEntity).count({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId: id, status: "issued", isDeleted: false }
       });
@@ -1209,7 +1090,8 @@ export class HomestayService {
       booking.actualCheckOutTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.log(manager, scope, actor, saved, "check_out", before, saved.status, "退房并生成保洁任务", {
+      await this.transactionSupport.log(
+        manager, scope, actor, saved, "check_out", before, saved.status, "退房并生成保洁任务", {
         turnover_task_id: task.id
       });
       return { booking: saved, turnover: task };
@@ -1240,20 +1122,24 @@ export class HomestayService {
       throw new ForbiddenException(`${requiredPermission} permission is required`);
     }
     return this.dataSource.transaction(async (manager) => {
-      const booking = await this.lockBooking(manager, scope, bookingId);
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
       if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
         if (!dto.source_ledger_entry_id) {
           throw new BadRequestException("source_ledger_entry_id is required for refund or waiver");
         }
-        await this.lockHomestayFinanceSourceKey(
+        await this.transactionSupport.lockHomestayFinanceSourceKey(
           manager, scope, bookingId, dto.source_ledger_entry_id
         );
-        const lockedSource = await this.lockHomestayFinanceSource(
+        const lockedSource = await this.transactionSupport.lockHomestayFinanceSource(
           manager, scope, bookingId, dto.source_ledger_entry_id
         );
-        const ledger = await this.lockConfirmedHomestayLedger(manager, scope, bookingId);
-        await this.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
+        const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(
+          manager, scope, bookingId
+        );
+        await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
+          manager, scope, bookingId
+        );
         assertHomestayManualLedgerMutation(
           dto.entry_type, dto.amount, summarizeHomestayLedger(ledger)
         );
@@ -1263,7 +1149,7 @@ export class HomestayService {
           || source.currency !== lockedSource.currency || source.entryType !== expectedSourceType) {
           throw new ConflictException(`${dto.entry_type} must reference a confirmed ${expectedSourceType} entry`);
         }
-        const allocation = await this.homestayFinanceAllocationSnapshot(
+        const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
           manager, scope, source, ledger, dto.entry_type
         );
         const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
@@ -1296,7 +1182,7 @@ export class HomestayService {
           status: "confirmed", isDeleted: false }
       });
       assertHomestayManualLedgerMutation(dto.entry_type, dto.amount, summarizeHomestayLedger(ledger));
-      return this.createLedgerEntry(manager, scope, actor, bookingId, dto);
+      return this.transactionSupport.createLedgerEntry(manager, scope, actor, bookingId, dto);
     });
   }
 
@@ -1318,11 +1204,15 @@ export class HomestayService {
       `SELECT version,currency FROM biz_homestay_booking WHERE tenant_id=$1 AND park_id=$2
         AND id=$3 AND is_deleted=false FOR UPDATE`, [scope.tenantId, scope.parkId, bookingId]
     ) as Array<{ version: number; currency: string }>;
-    await this.lockHomestayFinanceSourceKey(input.manager, scope, bookingId, sourceId);
-    const lockedSource = await this.lockHomestayFinanceSource(
+    await this.transactionSupport.lockHomestayFinanceSourceKey(
       input.manager, scope, bookingId, sourceId
     );
-    const currentLedger = await this.lockConfirmedHomestayLedger(input.manager, scope, bookingId);
+    const lockedSource = await this.transactionSupport.lockHomestayFinanceSource(
+      input.manager, scope, bookingId, sourceId
+    );
+    const currentLedger = await this.transactionSupport.lockConfirmedHomestayLedger(
+      input.manager, scope, bookingId
+    );
     const booking = bookings[0];
     const source = currentLedger.find((row) => row.id === sourceId);
     if (!booking || booking.version !== input.sourceExpectedVersion || !source
@@ -1333,13 +1223,15 @@ export class HomestayService {
       || source.currency !== line.currency || booking.currency !== line.currency) {
       throw new ConflictException("Approval source changed");
     }
-    await this.assertNoUnresolvedLegacyHomestayFinance(input.manager, scope, bookingId);
+    await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
+      input.manager, scope, bookingId
+    );
     assertHomestayManualLedgerMutation(
       String(line.entryType) as "refund" | "waiver",
       String(line.amount),
       summarizeHomestayLedger(currentLedger)
     );
-    const allocation = await this.homestayFinanceAllocationSnapshot(
+    const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
       input.manager, scope, source, currentLedger, String(line.entryType) as "refund" | "waiver"
     );
     const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
@@ -1606,7 +1498,7 @@ export class HomestayService {
   ) {
     const arrivalDate = arrivalValue.slice(0, 10);
     const departureDate = departureValue.slice(0, 10);
-    const dates = this.businessDates(arrivalDate, departureDate);
+    const dates = this.transactionSupport.businessDates(arrivalDate, departureDate);
     const config = await manager.getRepository(HomestayRateConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
     });
@@ -1643,26 +1535,6 @@ export class HomestayService {
     };
   }
 
-  private businessDates(startValue: string, endValue: string): string[] {
-    assertBusinessDate(startValue, "arrival_date");
-    assertBusinessDate(endValue, "departure_date");
-    const start = this.businessDateStart(startValue);
-    const end = this.businessDateStart(endValue);
-    if (start >= end) {
-      throw new BadRequestException("arrival_date must be before departure_date");
-    }
-    const result: string[] = [];
-    for (let cursor = start.getTime(); cursor < end.getTime(); cursor += 24 * 60 * 60_000) {
-      if (result.length >= 366) throw new BadRequestException("A booking cannot exceed 366 nights");
-      result.push(new Date(cursor).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" }));
-    }
-    return result;
-  }
-
-  private businessDateStart(value: string): Date {
-    return new Date(`${value.slice(0, 10)}T00:00:00${HOMESTAY_TIME_ZONE_OFFSET}`);
-  }
-
   private cancellationSnapshot(config: HomestayRateConfigEntity) {
     return {
       free_cancel_before_hours: config.freeCancelBeforeHours,
@@ -1679,7 +1551,8 @@ export class HomestayService {
   ): string {
     const policy = booking.cancellationPolicySnapshot;
     const hours = Number(policy.free_cancel_before_hours ?? 0);
-    const cutoff = this.businessDateStart(booking.arrivalDate).getTime() - hours * 60 * 60_000;
+    const cutoff = this.transactionSupport.businessDateStart(booking.arrivalDate).getTime()
+      - hours * 60 * 60_000;
     const evaluationTime = new Date(cancellationEvaluationAt).getTime();
     if (!Number.isFinite(evaluationTime)) {
       throw new ConflictException("Cancellation evaluation time is invalid");
@@ -1689,44 +1562,6 @@ export class HomestayService {
     if (policy.late_cancel_fee_type !== "percentage") return value;
     const numerator = toMoneyCents(booking.roomAmount) * toMoneyCents(value);
     return formatMoneyCents((numerator + 5_000n) / 10_000n);
-  }
-
-  private async createLedgerEntry(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    bookingId: string,
-    dto: RegisterHomestayLedgerEntryDto
-  ) {
-    const repository = manager.getRepository(HomestayLedgerEntryEntity);
-    const owners = await manager.query(
-      `SELECT currency FROM biz_homestay_booking
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR KEY SHARE`,
-      [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ currency: string }>;
-    if (owners.length !== 1) throw new NotFoundException("Homestay booking not found");
-    return repository.save(repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      bookingId,
-      entryType: dto.entry_type,
-      chargeType: dto.charge_type.trim(),
-      amount: formatHomestayMoney(dto.amount),
-      currency: owners[0]!.currency,
-      sourceLedgerEntryId: null,
-      approvalExecutionKey: null,
-      approvalEffectKind: null,
-      approvalEffectLineKey: null,
-      approvalEffectHash: null,
-      paymentMethod: dto.payment_method?.trim() ?? null,
-      paymentChannel: dto.payment_channel?.trim() ?? null,
-      transactionReference: dto.transaction_reference?.trim() ?? null,
-      status: "confirmed",
-      reason: dto.reason.trim(),
-      occurredAt: new Date(),
-      createBy: actor.sub,
-      updateBy: actor.sub
-    }));
   }
 
   private async resolveTurnoverPhotoFileIds(
@@ -1753,131 +1588,6 @@ export class HomestayService {
       );
     }
     return associatedIds;
-  }
-
-  private async voidIssuedCredentials(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    bookingId: string
-  ): Promise<number> {
-    const result = await manager.getRepository(HomestayStayCredentialEntity).update(
-      {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        bookingId,
-        status: "issued",
-        isDeleted: false
-      },
-      {
-        status: "void",
-        updateBy: actor.sub
-      }
-    );
-    return result.affected ?? 0;
-  }
-
-  private async lockBooking(manager: EntityManager, scope: TenantParkScope, id: string) {
-    const booking = await manager.getRepository(HomestayBookingEntity).findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      lock: { mode: "pessimistic_write" }
-    });
-    if (!booking) throw new NotFoundException("Homestay booking not found");
-    return booking;
-  }
-
-  private async mustFindBooking(scope: TenantParkScope, id: string) {
-    const booking = await this.bookingsRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
-    if (!booking) throw new NotFoundException("Homestay booking not found");
-    return booking;
-  }
-
-  private async assertUnitBookable(manager: EntityManager, scope: TenantParkScope, unitId: string) {
-    const unit = await manager.getRepository(UnitEntity).findOne({
-      where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      lock: { mode: "pessimistic_write" }
-    });
-    if (!unit) throw new NotFoundException("Unit not found");
-    if (unit.status !== 1) throw new ConflictException("Unit must be active before booking");
-    const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
-    if (!config || config.operatingMode !== "short_stay" || config.operatingStatus !== "enabled") {
-      throw new ConflictException("Unit must be enabled for short-stay operation before booking");
-    }
-    const openTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
-      .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("task.unit_id = :unitId", { unitId })
-      .andWhere("task.status <> 'completed'")
-      .andWhere("task.is_deleted = false")
-      .getCount();
-    if (openTurnovers > 0) throw new ConflictException("Unit turnover must be completed before booking");
-  }
-
-  private async assertActiveBookingOccupancy(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    booking: HomestayBookingEntity
-  ): Promise<void> {
-    if (!booking.occupancyId) throw new ConflictException("Booking occupancy is missing");
-    const occupancy = await manager.getRepository(PropertyOccupancyEntity).findOne({
-      where: {
-        id: booking.occupancyId,
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        unitId: booking.unitId,
-        sourceDomain: "homestay",
-        sourceType: "homestay_booking",
-        sourceId: booking.id,
-        status: "active",
-        isDeleted: false
-      },
-      lock: { mode: "pessimistic_write" }
-    });
-    const expectedStart = this.businessDateStart(booking.arrivalDate).getTime();
-    const expectedEnd = this.businessDateStart(booking.departureDate).getTime();
-    if (
-      !occupancy
-      || occupancy.startAt.getTime() !== expectedStart
-      || occupancy.endAt.getTime() !== expectedEnd
-    ) {
-      throw new ConflictException("Booking must retain its matching active occupancy before check-in");
-    }
-  }
-
-  private assertStatus(booking: HomestayBookingEntity, allowed: string[], message: string): void {
-    if (!allowed.includes(booking.status)) throw new ConflictException(message);
-  }
-
-  private async log(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    booking: HomestayBookingEntity,
-    action: string,
-    beforeStatus: string | null,
-    afterStatus: string | null,
-    reason?: string,
-    snapshot: Record<string, unknown> = {}
-  ) {
-    const repository = manager.getRepository(HomestayBookingActionLogEntity);
-    await repository.save(repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      bookingId: booking.id,
-      action,
-      beforeStatus,
-      afterStatus,
-      reason: reason?.trim() ?? null,
-      snapshot,
-      operatorId: actor.sub,
-      operatorName: actor.realName?.trim() || actor.username,
-      actionTime: new Date(),
-      createTime: new Date()
-    }));
   }
 
   private generateBookingCode(): string {

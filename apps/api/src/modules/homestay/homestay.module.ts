@@ -23,6 +23,7 @@ import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.servic
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
   HOMESTAY_TURNOVER_TASK_RESOLVER,
@@ -56,6 +57,7 @@ import {
     HomestayDashboardAvailabilityQueryService,
     HomestayRatesService,
     HomestayBookingQueryService,
+    HomestayTransactionSupportService,
     HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,
     { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }
