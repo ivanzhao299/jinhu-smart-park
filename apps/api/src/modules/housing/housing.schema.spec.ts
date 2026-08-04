@@ -67,14 +67,15 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
 });
 
 test("housing billing and repair files preserve exact domain boundaries", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
   const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  const repairCommands = readFileSync(resolve(__dirname, "housing-repair-command.service.ts"), "utf8");
+  const handoverCommands = readFileSync(resolve(__dirname, "housing-handover-command.service.ts"), "utf8");
   assert.doesNotMatch(billingCommands, /Number\(plan\.amount/);
   assert.match(billingCommands, /multiplyHousingMoneyByRatio\(/);
-  assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
-  assert.match(service, /bizType: "housing_repair"/);
-  assert.match(service, /One or more repair attachments are already bound to a work order/);
-  assert.match(service, /One or more handover attachments are already bound to another handover/);
+  assert.match(repairCommands, /resolveFileUploadPolicy\("housing_repair"\)/);
+  assert.match(repairCommands, /bizType: "housing_repair"/);
+  assert.match(repairCommands, /One or more repair attachments are already bound to a work order/);
+  assert.match(handoverCommands, /One or more handover attachments are already bound to another handover/);
 });
 
 test("housing lease creation requires every selector permission at the API boundary", () => {

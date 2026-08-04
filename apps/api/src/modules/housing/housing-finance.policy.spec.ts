@@ -166,22 +166,25 @@ test("housing service revalidates meter state and makes completed handover retri
     resolve(__dirname, "housing-billing-command.service.ts"),
     "utf8"
   );
+  const handover = readFileSync(
+    resolve(__dirname, "housing-handover-command.service.ts"),
+    "utf8"
+  );
 
   assert.match(billing, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
-  assert.match(service, /if \(handover\?\.status === "completed"\) \{/);
+  assert.match(handover, /if \(handover\?\.status === "completed"\) \{/);
   assert.ok(
-    service.indexOf('if (handover?.status === "completed") {')
-      < service.indexOf("Deposit deduction cannot exceed agreed deposit")
+    handover.indexOf('if (handover?.status === "completed") {')
+      < handover.indexOf("Deposit deduction cannot exceed agreed deposit")
   );
-  assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
+  assert.match(handover, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
   assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
 });
 
 test("housing repair binds evidence under the same file-row lock transaction", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  const repair = service.slice(service.indexOf("async createRepair"), service.indexOf("async checkoutLease"));
+  const repair = readFileSync(resolve(__dirname, "housing-repair-command.service.ts"), "utf8");
   assert.match(repair, /this\.dataSource\.transaction\(async \(manager\)/);
-  assert.match(repair, /this\.mustTxSupport\(\)\.assertFiles\(manager/);
+  assert.match(repair, /this\.support\.assertFiles\(manager/);
   assert.doesNotMatch(repair, /lock:\s*false/);
   assert.match(repair, /this\.workOrdersService\.create\([\s\S]*manager\)/);
 });

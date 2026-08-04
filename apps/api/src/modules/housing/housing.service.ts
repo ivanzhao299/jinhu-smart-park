@@ -11,7 +11,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
-  resolveFileUploadPolicy,
   SYSTEM_PERMISSIONS,
   type HousingEnergyMeterCandidateListResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
@@ -29,10 +28,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { DataSource, In, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import {
-  assertPropertyHighRiskActionApprovalRequired,
-  assertPropertyHighRiskActionPermissions
-} from "../../shared/property-workbench/property-high-risk-stopship";
+import { assertPropertyHighRiskActionApprovalRequired } from "../../shared/property-workbench/property-high-risk-stopship";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { FileEntity } from "../files/entities/file.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
@@ -59,7 +55,6 @@ import type {
   UpsertHousingChargePlanDto
 } from "./dto/housing.dto";
 import {
-  HousingHandoverEntity,
   HousingLeaseEntity,
   HousingLedgerEntryEntity,
   HousingPurchaseEntity,
@@ -85,6 +80,9 @@ import { HousingReceivableWriterService } from "./housing-receivable-writer.serv
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingBillingCommandService } from "./housing-billing-command.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
+import { HousingHandoverCommandService } from "./housing-handover-command.service";
+import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
+import { HousingRepairCommandService } from "./housing-repair-command.service";
 
 type HousingCheckoutSnapshot = {
   lease: {
@@ -131,7 +129,13 @@ export class HousingService {
     @Optional()
     private readonly billingCommands?: HousingBillingCommandService,
     @Optional()
-    private readonly financeCommands?: HousingFinanceCommandService
+    private readonly financeCommands?: HousingFinanceCommandService,
+    @Optional()
+    private readonly handoverCommands?: HousingHandoverCommandService,
+    @Optional()
+    private readonly handoverApprovalExecutor?: HousingHandoverApprovalExecutorService,
+    @Optional()
+    private readonly repairCommands?: HousingRepairCommandService
   ) {}
 
   async listTenants(
@@ -360,378 +364,7 @@ export class HousingService {
     dto: CompleteHousingHandoverDto,
     clientKey = ""
   ) {
-    const requiresFinancialApproval =
-      dto.handover_type === "move_out"
-      && (
-        compareHousingMoney(dto.damage_amount, "0.00") !== 0
-        || compareHousingMoney(dto.unsettled_amount, "0.00") !== 0
-        || compareHousingMoney(dto.deposit_deduction_amount, "0.00") !== 0
-      );
-    if (requiresFinancialApproval) {
-      assertPropertyHighRiskActionPermissions(actor, [
-        SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
-        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
-      ]);
-      if (!this.approvalCommands) {
-        assertPropertyHighRiskActionApprovalRequired(
-          "housing.handovers.complete-move-out-financial"
-        );
-        throw new ConflictException("Property approval runtime is unavailable");
-      }
-    }
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      const repository = manager.getRepository(HousingHandoverEntity);
-      if (requiresFinancialApproval) {
-        await this.mustTxSupport().lockBusinessKey(
-          manager,
-          this.housingHandoverAdvisoryKey(scope, leaseId)
-        );
-        const history = typeormQueryRows<{ id: string; status: string; isDeleted: boolean }>(
-          await manager.query(
-            `SELECT id::text AS id,status,is_deleted AS "isDeleted"
-               FROM biz_housing_handover
-              WHERE tenant_id=$1 AND park_id=$2 AND lease_id=$3 AND handover_type='move_out'
-              ORDER BY id FOR UPDATE`,
-            [scope.tenantId, scope.parkId, leaseId]
-          )
-        );
-        if (history.length > 1 || history.some((row) => row.isDeleted)
-          || history.some((row) => !["draft", "completed"].includes(row.status))) {
-          throw new ConflictException("Housing handover history conflicts with approval submission");
-        }
-        if (history[0]?.status === "completed") {
-          throw new ConflictException("Housing handover is already completed");
-        }
-      }
-      let handover = await repository.findOne({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId,
-          handoverType: dto.handover_type,
-          isDeleted: false
-        },
-        lock: { mode: "pessimistic_write" }
-      });
-      if (handover?.status === "completed") {
-        if (requiresFinancialApproval) {
-          throw new ConflictException("Housing handover is already completed");
-        }
-        return handover;
-      }
-      if (dto.handover_type === "move_in") this.mustTxSupport().assertStatus(lease, ["active"]);
-      else this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-      if (
-        dto.handover_type === "move_in"
-        && (
-          compareHousingMoney(dto.damage_amount, "0.00") > 0
-          || compareHousingMoney(dto.unsettled_amount, "0.00") > 0
-          || compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0
-        )
-      ) {
-        throw new BadRequestException("Move-in handover cannot include damage, unsettled, or deposit deduction amounts");
-      }
-      const handoverPhotoIds = dto.photo_file_ids ?? [];
-      await this.mustTxSupport().assertFiles(manager, scope, handoverPhotoIds, {
-        mimePrefix: "image/",
-        allowedBizTypes: [
-          "housing_handover",
-          `housing_handover_${dto.handover_type}`
-        ],
-        bizId: lease.id
-      });
-      if (handoverPhotoIds.length) {
-        const previouslyBound = await manager.query(
-          `SELECT 1
-           FROM biz_housing_handover bound_handover
-           WHERE bound_handover.tenant_id = $1
-             AND bound_handover.park_id = $2
-             AND bound_handover.lease_id = $3
-             AND bound_handover.handover_type <> $4
-             AND bound_handover.is_deleted = false
-             AND EXISTS (
-               SELECT 1
-               FROM jsonb_array_elements_text(bound_handover.photo_file_ids) bound_file_id
-               WHERE bound_file_id = ANY($5::text[])
-             )
-           LIMIT 1`,
-          [scope.tenantId, scope.parkId, lease.id, dto.handover_type, handoverPhotoIds]
-        ) as Array<{ "?column?": number }>;
-        if (previouslyBound.length) {
-          throw new ConflictException("One or more handover attachments are already bound to another handover");
-        }
-      }
-      if (dto.signature_file_id) {
-        await this.mustTxSupport().assertFiles(manager, scope, [dto.signature_file_id], {
-          bizType: "housing_handover",
-          bizId: lease.id
-        });
-      }
-      if (compareHousingMoney(dto.deposit_deduction_amount, lease.depositAmount) > 0) {
-        throw new BadRequestException("Deposit deduction cannot exceed agreed deposit");
-      }
-      handover ??= repository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseId,
-        handoverType: dto.handover_type,
-        createBy: actor.sub
-      });
-      const checkoutCharge = addHousingMoneyAmounts([dto.damage_amount, dto.unsettled_amount]);
-      if (compareHousingMoney(dto.deposit_deduction_amount, checkoutCharge) > 0) {
-        throw new BadRequestException("Deposit deduction cannot exceed move-out damage and unsettled charges");
-      }
-      if (requiresFinancialApproval) {
-        const unresolved = await manager.query(
-          `SELECT count(*)::integer AS count FROM biz_housing_ledger_entry result
-            WHERE result.tenant_id=$1 AND result.park_id=$2 AND result.lease_id=$3
-              AND result.entry_type IN ('refund','waiver','deposit_refund')
-              AND result.approval_execution_key IS NULL AND result.is_deleted=false`,
-          [scope.tenantId, scope.parkId, leaseId]
-        ) as Array<{ count: number }>;
-        if (Number(unresolved[0]?.count ?? 0) > 0) {
-          throw new ConflictException("Legacy refund or waiver source must be reconciled before approval");
-        }
-        handover.status = "draft";
-        handover.handoverAt = null;
-        handover.itemSnapshot = dto.item_snapshot ?? [];
-        handover.meterReadings = dto.meter_readings ?? [];
-        handover.credentials = dto.credentials ?? [];
-        handover.photoFileIds = handoverPhotoIds;
-        handover.signatureFileId = dto.signature_file_id ?? null;
-        handover.damageAmount = formatHousingMoney(dto.damage_amount);
-        handover.unsettledAmount = formatHousingMoney(dto.unsettled_amount);
-        handover.depositDeductionAmount = formatHousingMoney(dto.deposit_deduction_amount);
-        handover.currency = lease.currency;
-        handover.updateBy = actor.sub;
-        handover.remark = dto.remark ?? null;
-        handover.approvalExecutionKey = null;
-        handover.approvalEffectKind = null;
-        handover.approvalEffectLineKey = null;
-        handover.approvalEffectHash = null;
-        const draft = await repository.save(handover);
-        const [clock] = typeormQueryRows<{ businessDate: string }>(await manager.query(
-          `SELECT (transaction_timestamp() AT TIME ZONE 'Asia/Shanghai')::date::text AS "businessDate"`
-        ));
-        if (!clock?.businessDate) throw new ConflictException("Housing business date is unavailable");
-        const checkoutReceivablePeriodEnd = this.mustTxSupport().addDays(clock.businessDate, 1);
-        const checkoutReceivableId = compareHousingMoney(checkoutCharge, "0.00") > 0
-          ? randomUUID() : null;
-        let checkoutReceivable: {
-          mode: "new" | "existing";
-          id: string;
-          expectedVersion: number | null;
-          originalAmount: string;
-          originalPaidAmount: string;
-          originalWaivedAmount: string;
-          originalStatus: string;
-          periodStart: string;
-          periodEnd: string;
-          dueDate: string;
-        } | null = null;
-        if (checkoutReceivableId) {
-          await this.mustTxSupport().lockBusinessKey(
-            manager,
-            this.mustTxSupport().receivableBusinessKey(scope, lease.id, {
-              sourceType: "housing_handover",
-              sourceId: draft.id,
-              chargeType: "checkout_charges",
-              periodStart: clock.businessDate,
-              periodEnd: checkoutReceivablePeriodEnd
-            })
-          );
-          const existingRows = typeormQueryRows<{
-            id: string; version: number; amount: string; paidAmount: string;
-            waivedAmount: string; status: string; currency: string; isDeleted: boolean;
-            periodStart: string; periodEnd: string; dueDate: string;
-          }>(await manager.query(
-            `SELECT id::text AS id,version,amount::text AS amount,paid_amount::text AS "paidAmount",
-                    waived_amount::text AS "waivedAmount",status,currency,is_deleted AS "isDeleted",
-                    period_start::text AS "periodStart",period_end::text AS "periodEnd",
-                    due_date::text AS "dueDate"
-               FROM biz_housing_receivable
-              WHERE tenant_id=$1 AND park_id=$2 AND lease_id=$3
-                AND source_type='housing_handover' AND source_id=$4
-                AND charge_type='checkout_charges' ORDER BY id FOR UPDATE`,
-            [scope.tenantId, scope.parkId, leaseId, draft.id]
-          ));
-          if (existingRows.length > 1 || existingRows.some((row) => row.isDeleted || row.status === "void")) {
-            throw new ConflictException("Housing checkout receivable history conflicts with approval submission");
-          }
-          const existing = existingRows[0];
-          if (existing && existing.currency !== lease.currency) {
-            throw new ConflictException("Housing checkout receivable currency changed");
-          }
-          checkoutReceivable = existing ? {
-            mode: "existing", id: existing.id, expectedVersion: existing.version,
-            originalAmount: formatHousingMoney(existing.amount),
-            originalPaidAmount: formatHousingMoney(existing.paidAmount),
-            originalWaivedAmount: formatHousingMoney(existing.waivedAmount),
-            originalStatus: existing.status, periodStart: existing.periodStart,
-            periodEnd: existing.periodEnd, dueDate: existing.dueDate
-          } : {
-            mode: "new", id: checkoutReceivableId, expectedVersion: null,
-            originalAmount: "0.00", originalPaidAmount: "0.00",
-            originalWaivedAmount: "0.00", originalStatus: "absent",
-            periodStart: clock.businessDate, periodEnd: checkoutReceivablePeriodEnd,
-            dueDate: clock.businessDate
-          };
-          const resultingSettlement = addHousingMoneyAmounts([
-            checkoutReceivable.originalPaidAmount,
-            checkoutReceivable.originalWaivedAmount,
-            dto.deposit_deduction_amount
-          ]);
-          if (compareHousingMoney(resultingSettlement, checkoutCharge) > 0) {
-            throw new ConflictException("Housing checkout settlement exceeds its receivable amount");
-          }
-        }
-        const depositContributors = typeormQueryRows<{
-          id: string; version: number; entryType: string; amount: string; currency: string;
-          status: string; receivableId: string | null; sourceType: string; sourceId: string | null;
-        }>(await manager.query(
-          `SELECT id::text AS id,version,entry_type AS "entryType",amount::text AS amount,currency,
-                  status,receivable_id::text AS "receivableId",source_type AS "sourceType",
-                  source_id::text AS "sourceId"
-             FROM biz_housing_ledger_entry
-            WHERE tenant_id=$1 AND park_id=$2 AND lease_id=$3
-              AND status='confirmed' AND is_deleted=false ORDER BY id FOR UPDATE`,
-          [scope.tenantId, scope.parkId, leaseId]
-        ));
-        const depositBalance = calculateHousingDepositBalance(
-          depositContributors.map((row) => ({ ...row, isDeleted: false })) as HousingLedgerEntryEntity[]
-        );
-        if (compareHousingMoney(dto.deposit_deduction_amount, depositBalance) > 0) {
-          throw new ConflictException("Deposit deduction exceeds current deposit balance");
-        }
-        const financialTotal = addHousingMoneyAmounts([
-          checkoutCharge, dto.deposit_deduction_amount
-        ]);
-        return this.approvalCommands!.createPendingRequest(
-          { transactionContext: manager },
-          {
-            contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
-            scope,
-            actionId: "housing.handovers.complete-move-out-financial.request",
-            sourceType: "housing-handover",
-            sourceId: draft.id,
-            sourceExpectedVersion: draft.version,
-            requesterId: actor.sub,
-            submitterId: actor.sub,
-            actorId: actor.sub,
-            clientKey,
-            businessIntentKey: `housing-handover:${draft.id}:${draft.version}`,
-            canonicalPayload: {
-              handoverId: draft.id,
-              leaseId: lease.id,
-              leaseExpectedVersion: lease.version,
-              fromLeaseStatus: lease.status,
-              reason: dto.remark?.trim() || "完成退租财务交接",
-              actorName: actor.realName?.trim() || actor.username,
-              itemSnapshotHash: this.approvalSnapshotHash(draft.itemSnapshot),
-              meterReadingsHash: this.approvalSnapshotHash(draft.meterReadings),
-              credentialsHash: this.approvalSnapshotHash(draft.credentials),
-              photoFileIdsHash: this.approvalSnapshotHash(draft.photoFileIds),
-              signatureFileId: draft.signatureFileId,
-              checkoutBusinessDate: clock.businessDate,
-              checkoutReceivablePeriodStart: checkoutReceivable?.periodStart ?? clock.businessDate,
-              checkoutReceivablePeriodEnd: checkoutReceivable?.periodEnd ?? checkoutReceivablePeriodEnd,
-              checkoutReceivableDueDate: checkoutReceivable?.dueDate ?? clock.businessDate,
-              checkoutReceivableMode: checkoutReceivable?.mode ?? "none",
-              checkoutReceivableId: checkoutReceivable?.id ?? null,
-              checkoutReceivableExpectedVersion: checkoutReceivable?.expectedVersion ?? null,
-              checkoutReceivableOriginalAmount: checkoutReceivable?.originalAmount ?? null,
-              checkoutReceivableOriginalPaidAmount: checkoutReceivable?.originalPaidAmount ?? null,
-              checkoutReceivableOriginalWaivedAmount: checkoutReceivable?.originalWaivedAmount ?? null,
-              checkoutReceivableOriginalStatus: checkoutReceivable?.originalStatus ?? null,
-              checkoutReceivableAmount: checkoutCharge,
-              checkoutReceivablePaidAmount: addHousingMoneyAmounts([
-                checkoutReceivable?.originalPaidAmount ?? "0.00",
-                dto.deposit_deduction_amount
-              ]),
-              checkoutReceivableWaivedAmount: checkoutReceivable?.originalWaivedAmount ?? "0.00",
-              depositBalance,
-              depositContributors,
-              depositContributorsHash: this.approvalSnapshotHash(depositContributors),
-              currency: lease.currency,
-              ...(compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0 ? {
-                deductions: [{ itemId: draft.id,
-                  amount: formatHousingMoney(dto.deposit_deduction_amount), currency: lease.currency }]
-              } : {})
-            },
-            payloadSchemaVersion: 1,
-            amount: financialTotal,
-            currency: lease.currency
-          }
-        );
-      }
-      handover.status = "completed";
-      handover.handoverAt = new Date();
-      handover.itemSnapshot = dto.item_snapshot ?? [];
-      handover.meterReadings = dto.meter_readings ?? [];
-      handover.credentials = dto.credentials ?? [];
-      handover.photoFileIds = handoverPhotoIds;
-      handover.signatureFileId = dto.signature_file_id ?? null;
-      handover.damageAmount = formatHousingMoney(dto.damage_amount);
-      handover.unsettledAmount = formatHousingMoney(dto.unsettled_amount);
-      handover.depositDeductionAmount = formatHousingMoney(dto.deposit_deduction_amount);
-      handover.updateBy = actor.sub;
-      handover.remark = dto.remark ?? null;
-      const saved = await repository.save(handover);
-      if (dto.handover_type === "move_out") {
-        let checkoutReceivable: HousingReceivableEntity | null = null;
-        if (compareHousingMoney(checkoutCharge, "0.00") > 0) {
-          const businessDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-          checkoutReceivable = await this.mustReceivableWriter().create(manager, scope, actor, lease, {
-            chargePlanId: null,
-            sourceType: "housing_handover",
-            sourceId: saved.id,
-            chargeType: "checkout_charges",
-            periodStart: businessDate,
-            periodEnd: this.mustTxSupport().addDays(businessDate, 1),
-            dueDate: businessDate,
-            amount: checkoutCharge,
-            remark: dto.remark ?? "Move-out damage and unsettled charges"
-          });
-          if (compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0) {
-            this.applyReceivableEntry(checkoutReceivable, {
-              entry_type: "payment",
-              charge_type: "checkout_deduction",
-              amount: dto.deposit_deduction_amount,
-              reason: dto.remark ?? "Move-out deposit deduction"
-            });
-            checkoutReceivable.updateBy = actor.sub;
-            await manager.getRepository(HousingReceivableEntity).save(checkoutReceivable);
-          }
-        }
-        lease.status = "checkout_pending";
-        lease.updateBy = actor.sub;
-        await manager.getRepository(HousingLeaseEntity).save(lease);
-        if (compareHousingMoney(dto.deposit_deduction_amount, "0.00") > 0) {
-          const ledger = manager.getRepository(HousingLedgerEntryEntity);
-          await ledger.save(ledger.create({
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            leaseId,
-            receivableId: checkoutReceivable?.id ?? null,
-            entryType: "deposit_deduction",
-            chargeType: "checkout_deduction",
-            amount: formatHousingMoney(dto.deposit_deduction_amount),
-            paymentMethod: null,
-            transactionReference: null,
-            sourceType: "housing_handover",
-            sourceId: saved.id,
-            status: "confirmed",
-            reason: dto.remark ?? "退租交割押金抵扣",
-            occurredAt: new Date(),
-            createBy: actor.sub,
-            updateBy: actor.sub
-          }));
-        }
-      }
-      return saved;
-    });
+    return this.mustHandoverCommands().complete(scope, actor, leaseId, dto, clientKey);
   }
 
   async createRepair(
@@ -740,50 +373,7 @@ export class HousingService {
     leaseId: string,
     dto: CreateHousingRepairDto
   ) {
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-      const repairFiles = await this.mustTxSupport().assertFiles(manager, scope, dto.image_file_ids ?? [], {
-        allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
-        bizType: "housing_repair",
-        bizId: lease.id
-      });
-      if (repairFiles.length) {
-        const [referencedFile] = await manager.query(
-          `SELECT file_id
-           FROM unnest($3::uuid[]) AS file_id
-           WHERE EXISTS (
-             SELECT 1
-             FROM biz_work_order work_order
-             WHERE work_order.tenant_id = $1
-               AND work_order.park_id = $2
-               AND work_order.is_deleted = false
-               AND file_id = ANY(work_order.image_file_ids)
-           )
-           LIMIT 1`,
-          [scope.tenantId, scope.parkId, repairFiles.map((file) => file.id)]
-        ) as Array<{ file_id: string }>;
-        if (referencedFile) {
-          throw new ConflictException("One or more repair attachments are already bound to a work order");
-        }
-      }
-      const tenant = await this.mustTxSupport().mustParty(manager, scope, lease.tenantPartyId);
-      return this.workOrdersService.create(scope, actor, {
-        title: dto.title,
-        wo_type: "repair",
-        priority: dto.priority,
-        urgency: dto.urgency,
-        source_type: "tenant_request",
-        source_id: lease.id,
-        unit_id: lease.unitId,
-        reporter_name: tenant.displayName,
-        reporter_mobile: tenant.mobile ?? undefined,
-        description: dto.description,
-        image_file_ids: dto.image_file_ids,
-        remark: dto.remark ?? `住房租约 ${lease.leaseCode} 代录报修`
-      }, manager);
-    });
+    return this.mustRepairCommands().create(scope, actor, leaseId, dto);
   }
 
   async checkoutLease(scope: TenantParkScope, actor: JwtPrincipal, leaseId: string,
@@ -1406,254 +996,7 @@ export class HousingService {
     canonicalPayload: Readonly<Record<string, unknown>>; sourceExpectedVersion: number;
     request: { tenantId: string; parkId: string; sourceId: string; requesterId: string };
   }): Promise<void> {
-    const payload = input.canonicalPayload;
-    const deductions = Array.isArray(payload.deductions)
-      ? payload.deductions as Array<Record<string, unknown>> : [];
-    const frozenDeductionAmount = deductions.length > 0
-      ? String(deductions[0]!.amount ?? "") : "0.00";
-    const handoverId = this.approvalUuid(payload.handoverId);
-    const leaseId = this.approvalUuid(payload.leaseId);
-    if (handoverId !== input.request.sourceId) throw new ConflictException("Approval source changed");
-    const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
-    const leases = typeormQueryRows<{ id: string; status: string; version: number; currency: string }>(
-      await input.manager.query(
-      `SELECT id::text AS id, status, version, currency FROM biz_housing_lease
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
-      [scope.tenantId, scope.parkId, leaseId]
-      )
-    );
-    const lease = leases[0];
-    await this.mustTxSupport().lockBusinessKey(
-      input.manager,
-      this.housingHandoverAdvisoryKey(scope, leaseId)
-    );
-    const handovers = typeormQueryRows<{
-      id: string; leaseId: string; status: string; version: number; currency: string;
-      damageAmount: string; unsettledAmount: string; deductionAmount: string;
-      itemSnapshot: unknown; meterReadings: unknown; credentials: unknown;
-      photoFileIds: unknown; signatureFileId: string | null;
-    }>(await input.manager.query(
-      `SELECT id::text AS id, lease_id::text AS "leaseId", status, version, currency,
-              damage_amount::text AS "damageAmount", unsettled_amount::text AS "unsettledAmount",
-              deposit_deduction_amount::text AS "deductionAmount",item_snapshot AS "itemSnapshot",
-              meter_readings AS "meterReadings",credentials,photo_file_ids AS "photoFileIds",
-              signature_file_id::text AS "signatureFileId"
-         FROM biz_housing_handover WHERE tenant_id=$1 AND park_id=$2 AND id=$3
-          AND handover_type='move_out' AND is_deleted=false FOR UPDATE`,
-      [scope.tenantId, scope.parkId, handoverId]
-    ));
-    const handover = handovers[0];
-    if (!handover || !lease || handover.leaseId !== leaseId || handover.status !== "draft"
-      || handover.version !== input.sourceExpectedVersion
-      || lease.version !== Number(payload.leaseExpectedVersion)
-      || lease.status !== payload.fromLeaseStatus || lease.currency !== payload.currency
-      || handover.currency !== lease.currency
-      || addHousingMoneyAmounts([handover.damageAmount, handover.unsettledAmount]) !== payload.checkoutReceivableAmount
-      || handover.deductionAmount !== frozenDeductionAmount
-      || this.approvalSnapshotHash(handover.itemSnapshot) !== payload.itemSnapshotHash
-      || this.approvalSnapshotHash(handover.meterReadings) !== payload.meterReadingsHash
-      || this.approvalSnapshotHash(handover.credentials) !== payload.credentialsHash
-      || this.approvalSnapshotHash(handover.photoFileIds) !== payload.photoFileIdsHash
-      || handover.signatureFileId !== payload.signatureFileId) {
-      throw new ConflictException("Approval source changed");
-    }
-    const receivableMode = String(payload.checkoutReceivableMode ?? "");
-    if (!["none", "new", "existing"].includes(receivableMode)) {
-      throw new ConflictException("Approval source changed");
-    }
-    let checkoutReceivable: {
-      id: string; version: number; amount: string; paidAmount: string;
-      waivedAmount: string; status: string; currency: string;
-      leaseId: string; sourceType: string; sourceId: string | null; chargeType: string;
-      periodStart: string; periodEnd: string; dueDate: string;
-    } | null = null;
-    if (receivableMode !== "none") {
-      await this.mustTxSupport().lockBusinessKey(
-        input.manager,
-        this.mustTxSupport().receivableBusinessKey(scope, leaseId, {
-          sourceType: "housing_handover",
-          sourceId: handoverId,
-          chargeType: "checkout_charges",
-          periodStart: String(payload.checkoutReceivablePeriodStart),
-          periodEnd: String(payload.checkoutReceivablePeriodEnd)
-        })
-      );
-      const receivableId = this.approvalUuid(payload.checkoutReceivableId);
-      const rows = typeormQueryRows<{
-        id: string; version: number; amount: string; paidAmount: string;
-        waivedAmount: string; status: string; currency: string; isDeleted: boolean;
-        leaseId: string; sourceType: string; sourceId: string | null; chargeType: string;
-        periodStart: string; periodEnd: string; dueDate: string;
-      }>(await input.manager.query(
-        `SELECT id::text AS id,version,amount::text AS amount,paid_amount::text AS "paidAmount",
-                waived_amount::text AS "waivedAmount",status,currency,is_deleted AS "isDeleted",
-                lease_id::text AS "leaseId",source_type AS "sourceType",source_id::text AS "sourceId",
-                charge_type AS "chargeType",period_start::text AS "periodStart",
-                period_end::text AS "periodEnd",due_date::text AS "dueDate"
-           FROM biz_housing_receivable
-          WHERE tenant_id=$1 AND park_id=$2
-            AND (id=$3 OR (lease_id=$4 AND source_type='housing_handover' AND source_id=$5
-              AND charge_type='checkout_charges')) ORDER BY id FOR UPDATE`,
-        [scope.tenantId, scope.parkId, receivableId, leaseId, handoverId]
-      ));
-      if (receivableMode === "new") {
-        if (rows.length !== 0 || payload.checkoutReceivableExpectedVersion !== null) {
-          throw new ConflictException("Housing checkout receivable mode changed");
-        }
-      } else {
-        const row = rows[0];
-        if (rows.length !== 1 || !row || row.isDeleted || row.status === "void"
-          || row.id !== receivableId || row.version !== Number(payload.checkoutReceivableExpectedVersion)
-          || row.amount !== payload.checkoutReceivableOriginalAmount
-          || row.paidAmount !== payload.checkoutReceivableOriginalPaidAmount
-          || row.waivedAmount !== payload.checkoutReceivableOriginalWaivedAmount
-          || row.status !== payload.checkoutReceivableOriginalStatus
-          || row.currency !== payload.currency || row.leaseId !== leaseId
-          || row.sourceType !== "housing_handover" || row.sourceId !== handoverId
-          || row.chargeType !== "checkout_charges"
-          || row.periodStart !== payload.checkoutReceivablePeriodStart
-          || row.periodEnd !== payload.checkoutReceivablePeriodEnd
-          || row.dueDate !== payload.checkoutReceivableDueDate) {
-          throw new ConflictException("Housing checkout receivable mode changed");
-        }
-        checkoutReceivable = row;
-      }
-    }
-    const depositContributors = typeormQueryRows<{
-      id: string; version: number; entryType: string; amount: string; currency: string;
-      status: string; receivableId: string | null; sourceType: string; sourceId: string | null;
-    }>(await input.manager.query(
-      `SELECT id::text AS id,version,entry_type AS "entryType",amount::text AS amount,currency,
-              status,receivable_id::text AS "receivableId",source_type AS "sourceType",
-              source_id::text AS "sourceId"
-         FROM biz_housing_ledger_entry
-        WHERE tenant_id=$1 AND park_id=$2 AND lease_id=$3
-          AND status='confirmed' AND is_deleted=false ORDER BY id FOR UPDATE`,
-      [scope.tenantId, scope.parkId, leaseId]
-    ));
-    const depositBalance = calculateHousingDepositBalance(
-      depositContributors as Array<{ entryType: HousingLedgerEntryEntity["entryType"]; amount: string }>
-    );
-    if (this.approvalSnapshotHash(depositContributors) !== payload.depositContributorsHash
-      || depositBalance !== payload.depositBalance) {
-      throw new ConflictException("Housing deposit contributors changed after approval submission");
-    }
-    const unresolved = await input.manager.query(
-      `SELECT count(*)::integer AS count FROM biz_housing_ledger_entry result
-        WHERE result.tenant_id=$1 AND result.park_id=$2 AND result.lease_id=$3
-          AND result.entry_type IN ('refund','waiver','deposit_refund')
-          AND result.approval_execution_key IS NULL AND result.is_deleted=false`,
-      [scope.tenantId, scope.parkId, leaseId]
-    ) as Array<{ count: number }>;
-    if (Number(unresolved[0]?.count ?? 0) > 0) {
-      throw new ConflictException("Legacy refund or waiver source must be reconciled before approval");
-    }
-    const manifests = await input.manager.query(
-      `SELECT effect_kind AS "effectKind", effect_line_key AS "effectLineKey",
-              invariant_hash AS "effectHash", line_amount::text AS "lineAmount", currency
-         FROM biz_property_execution_effect_manifest
-        WHERE tenant_id=$1 AND park_id=$2 AND request_id=$3 ORDER BY effect_ordinal`,
-      [scope.tenantId, scope.parkId, input.requestId]
-    ) as Array<{ effectKind: string; effectLineKey: string; effectHash: string;
-      lineAmount: string | null; currency: string | null }>;
-    const byKind = new Map(manifests.map((row) => [row.effectKind, row]));
-    const handoverEffect = byKind.get("housing.handover.complete.financial");
-    if (!handoverEffect) throw new ConflictException("Approval effect manifest missing");
-    const completed = typeormQueryRows<{ version: number }>(await input.manager.query(
-      `UPDATE biz_housing_handover SET status='completed', handover_at=clock_timestamp(),
-              update_by=$5, update_time=clock_timestamp(), version=version+1,
-              approval_execution_key=$6, approval_effect_kind=$7,
-              approval_effect_line_key=$8, approval_effect_hash=$9
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4 AND status='draft'
-        RETURNING version`,
-      [scope.tenantId, scope.parkId, handoverId, input.sourceExpectedVersion,
-        input.request.requesterId, input.executionIdempotencyKey, handoverEffect.effectKind,
-        handoverEffect.effectLineKey, handoverEffect.effectHash]
-    ));
-    if (completed.length !== 1) throw new ConflictException("Approval source changed");
-    const receivableEffect = byKind.get("housing.receivable.checkout");
-    if (receivableEffect) {
-      const receivableId = this.approvalUuid(payload.checkoutReceivableId);
-      if (receivableEffect.lineAmount !== payload.checkoutReceivableAmount
-        || receivableEffect.currency !== payload.currency) {
-        throw new ConflictException("Approval effect manifest missing");
-      }
-      const receivableRows = receivableMode === "new"
-        ? typeormQueryRows<{ id: string }>(await input.manager.query(
-          `INSERT INTO biz_housing_receivable(
-             id,tenant_id,park_id,lease_id,charge_plan_id,source_type,source_id,charge_type,
-             period_start,period_end,due_date,amount,paid_amount,waived_amount,status,currency,
-             create_by,update_by,remark)
-           VALUES($1,$2,$3,$4,NULL,'housing_handover',$5,'checkout_charges',$6,$7,$8,$9,$10,$11,
-                  CASE WHEN $9::numeric=$10::numeric+$11::numeric THEN
-                    CASE WHEN $10::numeric>0 THEN 'paid' ELSE 'waived' END
-                    WHEN $10::numeric+$11::numeric>0 THEN 'partial' ELSE 'unpaid' END,
-                  $12,$13,$13,$14) RETURNING id::text AS id`,
-          [receivableId, scope.tenantId, scope.parkId, leaseId, handoverId,
-            payload.checkoutReceivablePeriodStart, payload.checkoutReceivablePeriodEnd,
-            payload.checkoutReceivableDueDate, receivableEffect.lineAmount,
-            payload.checkoutReceivablePaidAmount, payload.checkoutReceivableWaivedAmount,
-            lease.currency, input.request.requesterId, String(payload.reason ?? "")]
-        ))
-        : typeormQueryRows<{ id: string }>(await input.manager.query(
-          `UPDATE biz_housing_receivable
-              SET amount=$6,paid_amount=$7,waived_amount=$8,
-                  status=CASE WHEN $6::numeric=$7::numeric+$8::numeric THEN
-                    CASE WHEN $7::numeric>0 THEN 'paid' ELSE 'waived' END
-                    WHEN $7::numeric+$8::numeric>0 THEN 'partial' ELSE 'unpaid' END,
-                  update_by=$9,update_time=clock_timestamp(),version=version+1
-            WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
-              AND amount=$5::numeric AND is_deleted=false RETURNING id::text AS id`,
-          [scope.tenantId, scope.parkId, receivableId, checkoutReceivable!.version,
-            checkoutReceivable!.amount, receivableEffect.lineAmount,
-            payload.checkoutReceivablePaidAmount, payload.checkoutReceivableWaivedAmount,
-            input.request.requesterId]
-        ));
-      if (receivableRows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
-    } else if (receivableMode !== "none") {
-      throw new ConflictException("Approval effect manifest missing");
-    }
-    const deductionEffect = byKind.get("housing.ledger.deduction");
-    if (deductionEffect) {
-      const ledgerRows = typeormQueryRows<{ id: string }>(await input.manager.query(
-        `INSERT INTO biz_housing_ledger_entry(
-           tenant_id,park_id,lease_id,receivable_id,entry_type,charge_type,amount,currency,
-           source_type,source_id,status,reason,occurred_at,create_by,update_by,
-           approval_execution_key,approval_effect_kind,approval_effect_line_key,approval_effect_hash)
-         VALUES($1,$2,$3,$4,'deposit_deduction','checkout_deduction',$5,$6,
-                'housing_handover',$7,'confirmed',$8,clock_timestamp(),$9,$9,$10,$11,$12,$13)
-         RETURNING id::text AS id`,
-        [scope.tenantId, scope.parkId, leaseId, payload.checkoutReceivableId,
-          deductionEffect.lineAmount, lease.currency, handoverId, String(payload.reason ?? ""),
-          input.request.requesterId, input.executionIdempotencyKey, deductionEffect.effectKind,
-          deductionEffect.effectLineKey, deductionEffect.effectHash]
-      ));
-      if (ledgerRows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
-    }
-    const leaseUpdated = typeormQueryRows<{ version: number }>(await input.manager.query(
-      `UPDATE biz_housing_lease SET status='checkout_pending', update_by=$5,
-              update_time=clock_timestamp(), version=version+1
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
-        RETURNING version`,
-      [scope.tenantId, scope.parkId, leaseId, lease.version, input.request.requesterId]
-    ));
-    if (leaseUpdated.length !== 1 || leaseUpdated[0]!.version !== lease.version + 1) {
-      throw new ConflictException("Approval source changed");
-    }
-    const audit = typeormQueryRows<{ id: string }>(await input.manager.query(
-      `INSERT INTO biz_housing_lease_effect_audit(
-         tenant_id,park_id,approval_request_id,action_id,effect_kind,approval_execution_key,
-         effect_line_key,actor_id,occurred_at,effect_hash,lease_id,handover_id,
-         from_status,to_status,reason,source_expected_version,resulting_version)
-       VALUES($1,$2,$3,'housing.handovers.complete-move-out-financial.request',$4,$5,$6,$7,
-              clock_timestamp(),$8,$9,$10,$11,'checkout_pending',$12,$13,$14)
-       RETURNING id::text AS id`,
-      [scope.tenantId, scope.parkId, input.requestId, handoverEffect.effectKind,
-        input.executionIdempotencyKey, handoverEffect.effectLineKey, input.request.requesterId,
-        handoverEffect.effectHash, leaseId, handoverId, lease.status, String(payload.reason ?? ""),
-        lease.version, lease.version + 1]
-    ));
-    if (audit.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
+    return this.mustHandoverApprovalExecutor().execute(input);
   }
 
   async executeApprovedPurchaseTransfer(input: {
@@ -1956,10 +1299,6 @@ export class HousingService {
     }
   }
 
-  private housingHandoverAdvisoryKey(scope: TenantParkScope, leaseId: string): string {
-    return ["housing-handover", scope.tenantId, scope.parkId, leaseId, "move_out"].join("|");
-  }
-
   private async lockHousingCheckoutSnapshot(
     manager: EntityManager,
     scope: TenantParkScope,
@@ -2129,6 +1468,23 @@ export class HousingService {
   private mustFinanceCommands() {
     if (!this.financeCommands) throw new Error("HousingFinanceCommandService is not configured");
     return this.financeCommands;
+  }
+
+  private mustHandoverCommands() {
+    if (!this.handoverCommands) throw new Error("HousingHandoverCommandService is not configured");
+    return this.handoverCommands;
+  }
+
+  private mustHandoverApprovalExecutor() {
+    if (!this.handoverApprovalExecutor) {
+      throw new Error("HousingHandoverApprovalExecutorService is not configured");
+    }
+    return this.handoverApprovalExecutor;
+  }
+
+  private mustRepairCommands() {
+    if (!this.repairCommands) throw new Error("HousingRepairCommandService is not configured");
+    return this.repairCommands;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string) {

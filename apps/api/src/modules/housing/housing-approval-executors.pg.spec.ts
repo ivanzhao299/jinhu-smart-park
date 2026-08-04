@@ -6,6 +6,8 @@ import { DataSource } from "typeorm";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 import { HousingPurchaseItemEntity } from "./entities/housing.entities";
 import { HousingService } from "./housing.service";
+import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 const hash = (value: unknown) => propertyApprovalCanonicalHash(value as never);
@@ -23,9 +25,12 @@ test("DEC-04/05/06 housing approval executors are atomic on PostgreSQL", {
   const tenantId = randomUUID();
   const parkId = randomUUID();
   const actorId = randomUUID();
+  const support = new HousingTransactionSupportService();
   const service = new HousingService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never
+    {} as never, {} as never,
+    undefined, undefined, undefined, support, undefined, undefined, undefined, undefined,
+    new HousingHandoverApprovalExecutorService(support)
   );
   const query = (sql: string, parameters?: unknown[]) => runner.query(sql, parameters);
 

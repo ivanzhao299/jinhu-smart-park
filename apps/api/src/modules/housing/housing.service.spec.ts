@@ -15,6 +15,7 @@ import { HousingLeaseCommandService } from "./housing-lease-command.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
+import { HousingHandoverCommandService } from "./housing-handover-command.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -145,6 +146,42 @@ test("HousingService finance commands are facade-only delegations", async () => 
   ]);
 });
 
+test("HousingService handover and repair commands are facade-only delegations", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const handover = { complete: async (...args: unknown[]) => {
+    calls.push({ action: "complete", args });
+    return "handover";
+  } };
+  const executor = { execute: async (...args: unknown[]) => {
+    calls.push({ action: "execute", args });
+  } };
+  const repair = { create: async (...args: unknown[]) => {
+    calls.push({ action: "repair", args });
+    return "repair";
+  } };
+  const service = new HousingService(
+    {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, undefined,
+    handover as never, executor as never, repair as never
+  );
+  const handoverDto = { handover_type: "move_in" } as never;
+  const repairDto = { title: "repair" } as never;
+  const execution = { requestId: "request-1" } as never;
+
+  assert.equal(
+    await service.completeHandover(scope, actor, "lease-1", handoverDto, "key"),
+    "handover"
+  );
+  assert.equal(await service.createRepair(scope, actor, "lease-1", repairDto), "repair");
+  await service.executeApprovedMoveOutHandover(execution);
+  assert.deepEqual(calls, [
+    { action: "complete", args: [scope, actor, "lease-1", handoverDto, "key"] },
+    { action: "repair", args: [scope, actor, "lease-1", repairDto] },
+    { action: "execute", args: [execution] }
+  ]);
+});
+
 test("direct housing pure high-risk actions stop before a transaction for every principal class", async () => {
   let transactionCalls = 0;
   const dataSource = {
@@ -214,6 +251,12 @@ test("housing mixed high-risk variants enforce exact permission intersections be
     {} as never,
     new HousingTransactionSupportService()
   );
+  const handover = new HousingHandoverCommandService(
+    dataSource as never,
+    {} as never,
+    new HousingTransactionSupportService(),
+    {} as never
+  );
   const service = new HousingService(
     {} as never,
     {} as never,
@@ -224,7 +267,7 @@ test("housing mixed high-risk variants enforce exact permission intersections be
     dataSource as never,
     {} as never,
     undefined, undefined, undefined, undefined, undefined, undefined,
-    finance
+    finance, handover
   );
   const financeDenied = [
     actor,
@@ -333,6 +376,12 @@ test("direct housing service keeps low-risk ledger and handover variants reachab
     {} as never,
     new HousingTransactionSupportService()
   );
+  const handover = new HousingHandoverCommandService(
+    dataSource as never,
+    {} as never,
+    new HousingTransactionSupportService(),
+    {} as never
+  );
   const service = new HousingService(
     {} as never,
     {} as never,
@@ -343,7 +392,7 @@ test("direct housing service keeps low-risk ledger and handover variants reachab
     dataSource as never,
     {} as never,
     undefined, undefined, undefined, undefined, undefined, undefined,
-    finance
+    finance, handover
   );
   const principal = {
     ...actor,

@@ -6,6 +6,8 @@ import { HousingService } from "./housing.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
+import { HousingHandoverCommandService } from "./housing-handover-command.service";
+import { HousingHandoverEntity, HousingLeaseEntity } from "./entities/housing.entities";
 
 function supportTail() {
   const support = new HousingTransactionSupportService();
@@ -171,7 +173,6 @@ test("DEC-04 precreates and freezes the draft handover identity, version, amount
     currency: "CNY",
     depositAmount: "1000.00"
   };
-  let repositoryCall = 0;
   const handoverRepository = {
     findOne: async () => null,
     create: (value: Record<string, unknown>) => ({
@@ -181,10 +182,9 @@ test("DEC-04 precreates and freezes the draft handover identity, version, amount
   };
   const advisoryKeys: string[] = [];
   const manager = {
-    getRepository: () => {
-      repositoryCall += 1;
-      if (repositoryCall === 1) return { findOne: async () => lease };
-      if (repositoryCall === 2) return handoverRepository;
+    getRepository: (entity: unknown) => {
+      if (entity === HousingLeaseEntity) return { findOne: async () => lease };
+      if (entity === HousingHandoverEntity) return handoverRepository;
       return { find: async () => [{ entryType: "deposit_receipt", amount: "1000.00", status: "confirmed" }] };
     },
     query: async (sql: string, parameters: unknown[] = []) => {
@@ -207,20 +207,23 @@ test("DEC-04 precreates and freezes the draft handover identity, version, amount
     }
   };
   let request: Record<string, unknown> | undefined;
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never, {} as never,
+  const support = new HousingTransactionSupportService();
+  const service = new HousingHandoverCommandService(
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    {} as never,
-    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never,
-    ...supportTail()
+    { assertAccess: async () => undefined } as never,
+    support,
+    new HousingReceivableWriterService(support),
+    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
+      request = input;
+      return input;
+    } } as never
   );
   const permittedActor = { ...actor, permissions: [
     SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   ] };
 
-  await service.completeHandover(scope, permittedActor, lease.id, {
+  await service.complete(scope, permittedActor, lease.id, {
     handover_type: "move_out",
     damage_amount: "80.00",
     unsettled_amount: "20.00",

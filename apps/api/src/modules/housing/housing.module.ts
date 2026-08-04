@@ -25,6 +25,9 @@ import { HousingReceivableWriterService } from "./housing-receivable-writer.serv
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingBillingCommandService } from "./housing-billing-command.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
+import { HousingHandoverCommandService } from "./housing-handover-command.service";
+import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
+import { HousingRepairCommandService } from "./housing-repair-command.service";
 import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 import { HousingApprovalAdapter } from "./housing-approval.adapter";
 import {
@@ -64,6 +67,9 @@ import {
     HousingLeaseCommandService,
     HousingBillingCommandService,
     HousingFinanceCommandService,
+    HousingHandoverCommandService,
+    HousingHandoverApprovalExecutorService,
+    HousingRepairCommandService,
     HousingWorkbenchQueryService,
     HousingApprovalAdapter,
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },
