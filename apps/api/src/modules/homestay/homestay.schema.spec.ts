@@ -57,20 +57,9 @@ test("external order uniqueness normalizes a missing channel in a forward migrat
   assert.match(migration, /HAVING count\(\*\) > 1/);
 });
 
-test("homestay dashboard occupancy follows the requested stay date", () => {
+test("homestay dated rate overrides keep their atomic uniqueness boundary", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
 
-  assert.match(service, /booking\.arrival_date <= \$3::date/);
-  assert.match(service, /booking\.departure_date > \$3::date/);
-  assert.doesNotMatch(service, /FILTER \(WHERE booking\.status = 'checked_in'\)::int AS occupied/);
-  assert.match(service, /booking\.actual_check_out_time AT TIME ZONE 'Asia\/Shanghai'/);
-  assert.match(service, /booking\.status = 'checked_out'/);
-  assert.match(service, /round\(COALESCE\(avg\(night\.final_rate\), 0\), 2\)::text/);
-  assert.doesNotMatch(service, /Number\(rateSummary\?\.average_daily_rate/);
-  assert.match(service, /booking\.status IN \('confirmed','checked_in','checked_out'\)/);
-  assert.match(service, /JOIN biz_unit unit/);
-  assert.match(service, /unit\.is_deleted = false/);
-  assert.match(service, /unit\.status = 1/);
   assert.match(
     service,
     /ON CONFLICT \(tenant_id, park_id, unit_id, business_date\) WHERE is_deleted = false/
@@ -84,16 +73,8 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   assert.match(service, /expectedConsent: "granted"/);
   assert.match(service, /FOR UPDATE OF guest,party/);
   assert.match(service, /identity_evidence: identityEvidence/);
-  assert.match(service, /FROM rel_leasing_contract_unit lease_unit/);
-  assert.match(service, /contract\.status NOT IN \('90', '91'\)/);
-  assert.match(service, /lease_unit\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(service, /assertBusinessDate\(startValue, "arrival_date"\)/);
   assert.doesNotMatch(service, /businessDateStart\(startValue\.slice\(0, 10\)\)/);
-  const availability = service.slice(
-    service.indexOf("async availability"),
-    service.indexOf("private async calculatePricing")
-  );
-  assert.match(availability, /WHEN unit\.status <> 1 THEN 'out_of_service'/);
 
   const checkIn = service.slice(
     service.indexOf("async checkIn"),

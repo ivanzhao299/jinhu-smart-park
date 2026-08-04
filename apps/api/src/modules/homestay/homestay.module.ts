@@ -20,6 +20,7 @@ import {
 import { HomestayController } from "./homestay.controller";
 import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
+import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
   HOMESTAY_TURNOVER_TASK_RESOLVER,
@@ -47,9 +48,14 @@ import {
     PropertyIdentityModule
   ],
   controllers: [HomestayController],
-  providers: [HomestayService, HomestayWorkbenchQueryService, HomestayApprovalAdapter,
+  providers: [
+    HomestayService,
+    HomestayWorkbenchQueryService,
+    HomestayDashboardAvailabilityQueryService,
+    HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,
-    { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }],
+    { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }
+  ],
   exports: [HomestayService, HOMESTAY_TURNOVER_TASK_RESOLVER]
 })
 export class HomestayModule {}

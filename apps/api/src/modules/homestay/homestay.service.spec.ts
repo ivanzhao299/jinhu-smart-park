@@ -16,6 +16,7 @@ import {
   HomestayStayCredentialEntity
 } from "./entities/homestay.entities";
 import { HomestayService } from "./homestay.service";
+import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -486,14 +487,8 @@ test("dashboard omits rate and finance fields and skips their queries without ex
       return builder;
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayDashboardAvailabilityQueryService(
     turnoversRepository as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { allowedUnitIds: async () => null } as never,
     {
       query: async (sql: string) => {
@@ -501,7 +496,8 @@ test("dashboard omits rate and finance fields and skips their queries without ex
         if (sql.includes("rentable_units")) return [{ rentable_units: 2 }];
         return [{ arrivals: 1, departures: 0, occupied: 1 }];
       }
-    } as never
+    } as never,
+    { get: () => undefined } as never
   );
 
   const result = await service.dashboard(scope, actor, "2026-07-31");
@@ -523,13 +519,7 @@ test("availability preserves unset/false legacy arrays and enables wrapper only 
   };
   for (const [flag, expectedQueries] of [[undefined, 1], ["false", 1], ["true", 2]] as const) {
     let queryCount = 0;
-    const service = new HomestayService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+    const service = new HomestayDashboardAvailabilityQueryService(
       {} as never,
       { allowedUnitIds: async () => null } as never,
       {
@@ -564,13 +554,7 @@ test("V2 availability keeps true total on empty pages with constant statement co
   const counts: number[] = [];
   for (const pageSize of [1, 20, 100]) {
     let statementCount = 0;
-    const service = new HomestayService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+    const service = new HomestayDashboardAvailabilityQueryService(
       {} as never,
       { allowedUnitIds: async () => null } as never,
       {
