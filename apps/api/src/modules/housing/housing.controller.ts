@@ -256,15 +256,19 @@ export class HousingController {
   @Post("leases/:id/approve")
   @PropertyHighRiskAction("housing.leases.approve")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "审批住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
   approveLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: ApproveHousingLeaseDto
+    @Body() dto: ApproveHousingLeaseDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.approveLease(scope, actor, id, dto);
+    return this.service.approveLease(scope, actor, id, dto, clientKey);
   }
 
   @Post("leases/:id/sign")
@@ -296,15 +300,19 @@ export class HousingController {
   @Post("leases/:id/void")
   @PropertyHighRiskAction("housing.leases.void")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "作废住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
   voidLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: HousingReasonDto
+    @Body() dto: HousingReasonDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.voidLease(scope, actor, id, dto.reason);
+    return this.service.voidLease(scope, actor, id, dto.reason, clientKey);
   }
 
   @Post("leases/:id/occupants")
@@ -358,9 +366,10 @@ export class HousingController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: RegisterHousingLedgerEntryDto
+    @Body() dto: RegisterHousingLedgerEntryDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.registerLedger(scope, actor, id, dto);
+    return this.service.registerLedger(scope, actor, id, dto, clientKey);
   }
 
   @Post("leases/:id/handovers")
@@ -371,15 +380,18 @@ export class HousingController {
     }
   })
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_handover", action: "完成住房交割", bizType: "biz_housing_handover", bizIdParam: "id" })
   completeHandover(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: CompleteHousingHandoverDto
+    @Body() dto: CompleteHousingHandoverDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.completeHandover(scope, actor, id, dto);
+    return this.service.completeHandover(scope, actor, id, dto, clientKey);
   }
 
   @Post("leases/:id/repairs")
@@ -398,15 +410,19 @@ export class HousingController {
   @Post("leases/:id/checkout")
   @PropertyHighRiskAction("housing.leases.checkout")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "完成退租结算", bizType: "biz_housing_lease", bizIdParam: "id" })
   checkoutLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: HousingReasonDto
+    @Body() dto: HousingReasonDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.checkoutLease(scope, actor, id, dto.reason);
+    return this.service.checkoutLease(scope, actor, id, dto.reason, clientKey);
   }
 
   @Get("purchases")
@@ -455,28 +471,36 @@ export class HousingController {
   @Post("purchases/:id/actions")
   @PropertyHighRiskAction("housing.purchases.lifecycle")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "更新采购状态", bizType: "biz_housing_purchase", bizIdParam: "id" })
   purchaseAction(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: HousingPurchaseActionDto
+    @Body() dto: HousingPurchaseActionDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.purchaseAction(scope, actor, id, dto);
+    return this.service.purchaseAction(scope, actor, id, dto, clientKey);
   }
 
   @Post("purchases/:id/transfer")
   @PropertyHighRiskAction("housing.purchases.transfer")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "采购成本转租客收费", bizType: "biz_housing_purchase", bizIdParam: "id" })
   transferPurchase(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: TransferHousingPurchaseDto
+    @Body() dto: TransferHousingPurchaseDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.transferPurchase(scope, actor, id, dto);
+    return this.service.transferPurchase(scope, actor, id, dto, clientKey);
   }
 }

@@ -41,4 +41,13 @@ export class PartyEntity extends AuditableEntity {
 
   @Column({ name: "consent_status", type: "varchar", length: 32, default: "pending" })
   consentStatus!: string;
+
+  @Column({ name: "identity_version", type: "bigint", default: 0 })
+  identityVersion!: string;
+
+  @Column({ name: "current_identity_submission_id", type: "uuid", nullable: true })
+  currentIdentitySubmissionId!: string | null;
+
+  @Column({ name: "current_verified_submission_id", type: "uuid", nullable: true })
+  currentVerifiedSubmissionId!: string | null;
 }

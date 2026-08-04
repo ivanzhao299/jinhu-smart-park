@@ -35,6 +35,9 @@ function partyFixture(overrides: Partial<PartyEntity> = {}): PartyEntity {
     sourceDomain: null,
     verificationStatus: "verified",
     consentStatus: "pending",
+    identityVersion: "1",
+    currentIdentitySubmissionId: null,
+    currentVerifiedSubmissionId: null,
     createBy: actor.sub,
     createTime: new Date("2026-01-01T00:00:00Z"),
     updateBy: actor.sub,
@@ -43,45 +46,6 @@ function partyFixture(overrides: Partial<PartyEntity> = {}): PartyEntity {
     version: 1,
     remark: null,
     ...overrides
-  };
-}
-
-function lockedPartyHarness(entity: PartyEntity) {
-  const lockModes: string[] = [];
-  const saved: PartyEntity[] = [];
-  const builder = {
-    where: () => builder,
-    andWhere: () => builder,
-    addSelect: () => builder,
-    setLock: (mode: string) => {
-      lockModes.push(mode);
-      return builder;
-    },
-    getOne: async () => entity
-  };
-  const transactionRepository = {
-    createQueryBuilder: () => builder,
-    findOne: async () => null,
-    save: async (value: PartyEntity) => {
-      saved.push(value);
-      return value;
-    }
-  };
-  const partiesRepository = {
-    manager: {
-      transaction: async <T>(work: (manager: { getRepository: () => typeof transactionRepository }) => Promise<T>) =>
-        work({ getRepository: () => transactionRepository })
-    }
-  };
-  const sensitiveDataService = {
-    encrypt: (value: string) => `enc:${value}`,
-    hash: (value: string) => `hash:${value}`,
-    mask: (value: string) => `mask:${value}`
-  };
-  return {
-    lockModes,
-    saved,
-    service: new PartiesService(partiesRepository as never, {} as never, sensitiveDataService as never)
   };
 }
 
@@ -119,6 +83,7 @@ test("party list uses shared projection and hides every sensitive field without 
     "createTime",
     "displayName",
     "id",
+    "identitySummary",
     "parkId",
     "partyType",
     "remark",
@@ -417,95 +382,71 @@ test("party-role creation rejects a blank normalized role before persistence", a
   );
 });
 
-test("identity-only updates use the persisted document type and canonical storage value", async () => {
-  const harness = lockedPartyHarness(partyFixture());
-
-  const result = await harness.service.update(scope, actor, "party-1", {
-    identity_number: "11010519491231002x"
-  });
-
-  assert.deepEqual(harness.lockModes, ["pessimistic_write"]);
-  assert.equal(harness.saved[0]?.identityNumberEncrypted, "enc:11010519491231002X");
-  assert.equal(harness.saved[0]?.identityNumberHash, "hash:11010519491231002X");
-  assert.equal(harness.saved[0]?.identityNumberMasked, "mask:11010519491231002X");
-  assert.equal(result.identityNumberMasked, "mask:11010519491231002X");
-  assert.equal(result.verificationStatus, "unverified");
-});
-
-test("identity updates reject a number that does not match the persisted document type", async () => {
-  const harness = lockedPartyHarness(partyFixture());
-
-  await assert.rejects(
-    harness.service.update(scope, actor, "party-1", {
-      identity_number: "not-an-id-card"
-    }),
-    /identity_number does not match identity_document_type/
-  );
-  assert.equal(harness.saved.length, 0);
-});
-
-test("identity updates and verification share the same pessimistic row lock", async () => {
-  const entity = partyFixture({ verificationStatus: "unverified" });
-  const harness = lockedPartyHarness(entity);
-
-  await harness.service.update(scope, actor, "party-1", { display_name: "Updated tenant" });
-  await harness.service.verify(scope, actor, "party-1", { verification_status: "verified" });
-
-  assert.deepEqual(harness.lockModes, ["pessimistic_write", "pessimistic_write"]);
-  assert.equal(entity.verificationStatus, "verified");
-});
-
-test("party creation canonicalizes an ID-card value before every protected representation", async () => {
-  const encryptedValues: string[] = [];
-  const hashedValues: string[] = [];
-  const maskedValues: string[] = [];
+test("legacy party identity create calls the canonical adapter and never writes protected columns", async () => {
+  const writes: unknown[][] = [];
+  const saved: PartyEntity[] = [];
+  const transactionManager = {
+    getRepository: () => ({
+      save: async (value: PartyEntity) => {
+        saved.push(value);
+        return value;
+      }
+    })
+  };
   const partiesRepository = {
-    findOne: async () => null,
+    manager: {
+      transaction: async <T>(work: (manager: typeof transactionManager) => Promise<T>) =>
+        work(transactionManager)
+    },
     create: (value: Record<string, unknown>) => ({
       ...partyFixture(),
       ...value
-    }),
-    save: async (value: PartyEntity) => value
+    })
   };
-  const sensitiveDataService = {
-    encrypt: (value: string) => {
-      encryptedValues.push(value);
-      return `enc:${value}`;
+  const identityAdapter = {
+    writeDraft: async (...args: unknown[]) => {
+      writes.push(args);
+      return { id: "submission-1" };
     },
-    hash: (value: string) => {
-      hashedValues.push(value);
-      return `hash:${value}`;
-    },
-    mask: (value: string) => {
-      maskedValues.push(value);
-      return `mask:${value}`;
-    }
+    identitySummaries: async () => new Map()
   };
-  const service = new PartiesService(partiesRepository as never, {} as never, sensitiveDataService as never);
+  const service = new PartiesService(
+    partiesRepository as never,
+    {} as never,
+    {} as never,
+    identityAdapter as never
+  );
+  const identityActor = {
+    ...actor,
+    permissions: ["party:identity_update"]
+  };
 
-  await service.create(scope, actor, {
+  await service.create(scope, identityActor, {
     party_type: "person",
     display_name: "Tenant",
     identity_document_type: "id_card",
     identity_number: "11010519491231002x"
-  });
+  }, "legacy-key");
 
-  assert.deepEqual(encryptedValues, ["11010519491231002X"]);
-  assert.deepEqual(hashedValues, ["11010519491231002x", "11010519491231002X"]);
-  assert.deepEqual(maskedValues, ["11010519491231002X"]);
+  assert.equal(saved[0]?.identityDocumentType, null);
+  assert.equal(saved[0]?.identityNumberEncrypted, null);
+  assert.equal(saved[0]?.identityNumberHash, null);
+  assert.equal(saved[0]?.identityNumberMasked, null);
+  assert.deepEqual(writes[0]?.slice(2, 6), [
+    "party-1",
+    "legacy-key",
+    "id_card",
+    "11010519491231002X"
+  ]);
+  assert.equal(writes[0]?.[6], transactionManager);
 });
 
-test("party creation rejects a legacy lowercase-check-digit identity duplicate", async () => {
-  const partiesRepository = {
-    findOne: async () => partyFixture(),
+test("legacy identity mutation requires the new exact permission before persistence", async () => {
+  const service = new PartiesService({
     create: () => {
-      throw new Error("duplicate detection must run before entity creation");
+      throw new Error("persistence must not run");
     }
-  };
-  const sensitiveDataService = {
-    hash: (value: string) => `hash:${value}`
-  };
-  const service = new PartiesService(partiesRepository as never, {} as never, sensitiveDataService as never);
+  } as never, {} as never, {} as never);
 
   await assert.rejects(
     service.create(scope, actor, {
@@ -514,6 +455,98 @@ test("party creation rejects a legacy lowercase-check-digit identity duplicate",
       identity_document_type: "id_card",
       identity_number: "11010519491231002X"
     }),
-    /Party identity already exists/
+    /party:identity_update/
   );
+});
+
+test("legacy verification uses only the canonical decision adapter", async () => {
+  const decisions: unknown[][] = [];
+  const identityAdapter = {
+    decide: async (...args: unknown[]) => {
+      decisions.push(args);
+      return { id: "submission-1" };
+    }
+  };
+  const service = new PartiesService(
+    {
+      manager: {
+        transaction: async <T>(work: (manager: Record<string, never>) => Promise<T>) =>
+          work({})
+      }
+    } as never,
+    {} as never,
+    {} as never,
+    identityAdapter as never
+  );
+  Object.defineProperty(service, "detail", {
+    value: async () => ({ id: "party-1" })
+  });
+  await service.verify(
+    scope,
+    { ...actor, permissions: ["party:identity_verify"] },
+    "party-1",
+    { verification_status: "verified" },
+    "legacy-verify-key"
+  );
+  assert.deepEqual(decisions[0]?.slice(2, 6), [
+    "party-1",
+    "legacy-verify-key",
+    "verified",
+    undefined
+  ]);
+});
+
+test("legacy profile and identity failure roll back through the same manager transaction", async () => {
+  const committed: PartyEntity[] = [];
+  const pending: PartyEntity[] = [];
+  const transactionManager = {
+    getRepository: () => ({
+      save: async (value: PartyEntity) => {
+        pending.push(value);
+        return value;
+      }
+    })
+  };
+  const partiesRepository = {
+    manager: {
+      transaction: async <T>(work: (manager: typeof transactionManager) => Promise<T>) => {
+        try {
+          const result = await work(transactionManager);
+          committed.push(...pending);
+          return result;
+        } finally {
+          pending.length = 0;
+        }
+      }
+    },
+    create: (value: Record<string, unknown>) => ({ ...partyFixture(), ...value })
+  };
+  const identityAdapter = {
+    writeDraft: async (...args: unknown[]) => {
+      assert.equal(args.at(-1), transactionManager);
+      throw new Error("identity command failed");
+    }
+  };
+  const service = new PartiesService(
+    partiesRepository as never,
+    {} as never,
+    {} as never,
+    identityAdapter as never
+  );
+
+  await assert.rejects(
+    service.create(
+      scope,
+      { ...actor, permissions: ["party:identity_update"] },
+      {
+        party_type: "person",
+        display_name: "Atomic",
+        identity_document_type: "id_card",
+        identity_number: "11010519491231002X"
+      },
+      "atomic-key"
+    ),
+    /identity command failed/
+  );
+  assert.equal(committed.length, 0);
 });

@@ -8,9 +8,11 @@ import {
   PROPERTY_HIGH_RISK_ACTION_KEY
 } from "../decorators/property-high-risk-action.decorator";
 import {
-  PROPERTY_APPROVAL_REQUIRED_MESSAGE,
   PropertyHighRiskActionGuard
 } from "./property-high-risk-action.guard";
+import {
+  PROPERTY_APPROVAL_REQUIRED_MESSAGE
+} from "../property-workbench/property-high-risk-stopship";
 
 function createGuard(
   flag: unknown,
@@ -144,18 +146,16 @@ test("guard is a complete no-op unless the trimmed case-insensitive flag is true
   }
 });
 
-test("guard blocks a known high-risk action with the stable 409 contract", () => {
+test("guard delegates an integrated high-risk action for every enabled flag spelling", () => {
   for (const flag of ["true", " TRUE ", "TrUe"]) {
     const guard = createGuard(flag, {
       actionId: "housing.leases.approve"
     });
-    assertStableApprovalConflict(
-      () => guard.canActivate(createContext() as never)
-    );
+    assert.equal(guard.canActivate(createContext() as never), true);
   }
 });
 
-test("all high-risk actions block normal, superuser, and wildcard principals", () => {
+test("only actions without a strict Track-B adapter retain the stop-ship conflict", () => {
   assert.deepEqual(
     highRiskCases.map((item) => item.metadata.actionId).sort(),
     [...TRACK_A_HIGH_RISK_ACTION_IDS].sort()
@@ -168,9 +168,7 @@ test("all high-risk actions block normal, superuser, and wildcard principals", (
   for (const item of highRiskCases) {
     for (const principal of principals) {
       const guard = createGuard("true", item.metadata);
-      assertStableApprovalConflict(
-        () => guard.canActivate(createContext(item.body, principal) as never)
-      );
+      assert.equal(guard.canActivate(createContext(item.body, principal) as never), true);
     }
   }
 });
@@ -258,7 +256,7 @@ test("guard fails closed with the stable contract for unknown or drifted metadat
   }
 });
 
-test("guard blocks only high-risk homestay ledger entry types", () => {
+test("guard delegates only high-risk homestay ledger entry types to the adapter", () => {
   const guard = createGuard("true", {
     actionId: "homestay.finance.refund-or-waive",
     discriminator: {
@@ -270,13 +268,11 @@ test("guard blocks only high-risk homestay ledger entry types", () => {
     assert.equal(guard.canActivate(createContext({ entry_type }) as never), true);
   }
   for (const entry_type of ["refund", "waiver"]) {
-    assertStableApprovalConflict(
-      () => guard.canActivate(createContext({ entry_type }) as never)
-    );
+    assert.equal(guard.canActivate(createContext({ entry_type }) as never), true);
   }
 });
 
-test("guard blocks housing refund, waiver, and deposit refund ledger entries", () => {
+test("guard delegates housing refund, waiver, and deposit refund ledger entries", () => {
   const guard = createGuard("true", {
     actionId: "housing.finance.refund-waive-or-deposit-refund",
     discriminator: {
@@ -293,9 +289,7 @@ test("guard blocks housing refund, waiver, and deposit refund ledger entries", (
     assert.equal(guard.canActivate(createContext({ entry_type }) as never), true);
   }
   for (const entry_type of ["refund", "waiver", "deposit_refund"]) {
-    assertStableApprovalConflict(
-      () => guard.canActivate(createContext({ entry_type }) as never)
-    );
+    assert.equal(guard.canActivate(createContext({ entry_type }) as never), true);
   }
 });
 
@@ -311,16 +305,11 @@ const moveOutFinancialGuardMetadata = {
   }
 } as const;
 
-test("move-out financial predicate blocks each non-zero field independently", () => {
+test("move-out financial predicate delegates each non-zero field to the strict Track-B adapter", () => {
   for (const field of moveOutFinancialGuardMetadata.variantPredicate.anyNonZero) {
     for (const value of ["0.01", "12.30", "-0.01", "-12.30"]) {
-      assertStableApprovalConflict(
-        () => createGuard("true", moveOutFinancialGuardMetadata)
-          .canActivate(createContext({
-            handover_type: "move_out",
-            [field]: value
-          }) as never)
-      );
+      assert.equal(createGuard("true", moveOutFinancialGuardMetadata)
+        .canActivate(createContext({ handover_type: "move_out", [field]: value }) as never), true);
     }
   }
 });
@@ -348,7 +337,7 @@ test("move-in and zero-valued move-out handovers pass through to DTO validation"
   }
 });
 
-test("move-out predicate fails closed for malformed or ambiguous raw amounts", () => {
+test("integrated move-out route delegates malformed amounts to DTO validation", () => {
   const invalidValues = [
     null,
     "",
@@ -361,19 +350,12 @@ test("move-out predicate fails closed for malformed or ambiguous raw amounts", (
     Number.POSITIVE_INFINITY
   ];
   for (const value of invalidValues) {
-    assertStableApprovalConflict(
-      () => createGuard("true", moveOutFinancialGuardMetadata)
-        .canActivate(createContext({
-          handover_type: "move_out",
-          damage_amount: value
-        }) as never)
-    );
+    assert.equal(createGuard("true", moveOutFinancialGuardMetadata)
+      .canActivate(createContext({ handover_type: "move_out", damage_amount: value }) as never), true);
   }
   for (const body of [undefined, null, {}, { handover_type: 1 }]) {
-    assertStableApprovalConflict(
-      () => createGuard("true", moveOutFinancialGuardMetadata)
-        .canActivate(createContext(body) as never)
-    );
+    assert.equal(createGuard("true", moveOutFinancialGuardMetadata)
+      .canActivate(createContext(body) as never), true);
   }
 });
 

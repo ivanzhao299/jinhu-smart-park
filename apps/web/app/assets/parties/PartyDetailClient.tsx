@@ -34,6 +34,12 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
   const canRead = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_READ);
   const canUpdate = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_UPDATE);
   const canReadSensitive = hasPermission(user, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
+  const canReadIdentity = hasAccess(
+    user,
+    SYSTEM_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+    "asset"
+  );
+  const identityRequested = searchParams.get("tab") === "identity";
   const [party, setParty] = useState<PartyDetailResponse | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [state, setState] = useState<CanonicalDetailState>({ kind: "loading" });
@@ -65,6 +71,14 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
     void load();
   }, [canRead, partyId]);
 
+  useEffect(() => {
+    if (!party || !identityRequested) return;
+    const target = document.getElementById("identity");
+    if (!target) return;
+    target.scrollIntoView({ block: "start" });
+    target.focus({ preventScroll: true });
+  }, [identityRequested, party]);
+
   return (
     <CanonicalDetailShell
       entityKey={partyId}
@@ -80,7 +94,8 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
       state={state}
       title={party?.displayName ?? "业务相对方详情"}
     >
-      {party ? <PartyDetailContent canReadSensitive={canReadSensitive} canUpdate={canUpdate} onUpdated={load} party={party} /> : null}
+      {party ? <PartyDetailContent canReadIdentity={canReadIdentity} canReadSensitive={canReadSensitive}
+        canUpdate={canUpdate} onUpdated={load} party={party} /> : null}
     </CanonicalDetailShell>
   );
 }
@@ -90,8 +105,9 @@ function returnUrl(href: string): UrlObject {
   return { pathname: url.pathname, query: Object.fromEntries(url.searchParams), hash: url.hash };
 }
 
-function PartyDetailContent({ canReadSensitive, canUpdate, onUpdated, party }: {
-  canReadSensitive: boolean; canUpdate: boolean; onUpdated(): Promise<void>; party: PartyDetailResponse;
+function PartyDetailContent({ canReadIdentity, canReadSensitive, canUpdate, onUpdated, party }: {
+  canReadIdentity: boolean; canReadSensitive: boolean; canUpdate: boolean;
+  onUpdated(): Promise<void>; party: PartyDetailResponse;
 }) {
   return (
     <div className={styles.stack}>
@@ -107,6 +123,12 @@ function PartyDetailContent({ canReadSensitive, canUpdate, onUpdated, party }: {
         {party.roles.map((role) => <p key={role.id}>{role.roleType} · {role.sourceType ?? "通用"} · {role.status}</p>)}
         {!party.roles.length ? <p>暂无业务角色。</p> : null}
       </PropertyPanelSurface>
+      {canReadIdentity ? <PropertyPanelSurface aria-label="身份核验" id="identity" tabIndex={-1} title="身份核验">
+        <p>查看此 Party 的核验提交、证据快照和当前处理状态。</p>
+        <Link href={`/assets/identity-submissions?partyId=${encodeURIComponent(party.id)}`}>
+          打开身份核验目录
+        </Link>
+      </PropertyPanelSurface> : null}
       {canUpdate ? <PartyUpdateForm canReadSensitive={canReadSensitive} onUpdated={onUpdated} party={party} /> : null}
     </div>
   );

@@ -34,6 +34,15 @@ import { OrgsModule } from "./modules/orgs/orgs.module";
 import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
+import { PropertyApprovalModule } from "./modules/property-approvals/property-approval.module";
+import { PropertyTaskModule } from "./modules/property-tasks/property-task.module";
+import { HOMESTAY_TURNOVER_TASK_RESOLVER } from "./modules/homestay/homestay-task.adapter";
+import {
+  HOUSING_BILLING_TASK_RESOLVER,
+  HOUSING_HANDOVER_TASK_RESOLVER,
+  HOUSING_LEASE_TASK_RESOLVER,
+  HOUSING_PURCHASE_TASK_RESOLVER
+} from "./modules/housing/housing-task.adapter";
 import { PropertyOperationsModule } from "./modules/property-operations/property-operations.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { RobotsModule } from "./modules/robots/robots.module";
@@ -166,6 +175,17 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     ReferenceDataModule,
     SaaSModulesModule,
     PermissionsModule,
+    PropertyApprovalModule,
+    PropertyTaskModule.composeSources({
+      imports: [HomestayModule, HousingModule],
+      resolverTokens: [
+        HOMESTAY_TURNOVER_TASK_RESOLVER,
+        HOUSING_LEASE_TASK_RESOLVER,
+        HOUSING_HANDOVER_TASK_RESOLVER,
+        HOUSING_BILLING_TASK_RESOLVER,
+        HOUSING_PURCHASE_TASK_RESOLVER
+      ]
+    }),
     PropertyOperationsModule,
     DictsModule,
     AttachmentsModule,

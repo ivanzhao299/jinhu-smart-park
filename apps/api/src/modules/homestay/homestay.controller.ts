@@ -243,16 +243,18 @@ export class HomestayController {
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
-    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "取消订单", bizType: "biz_homestay_booking", bizIdParam: "id" })
   cancelBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: HomestayReasonDto
+    @Body() dto: HomestayReasonDto,
+    @Headers("x-idempotency-key") clientKey: string
   ) {
-    return this.service.cancelBooking(scope, actor, id, dto.reason);
+    return this.service.cancelBooking(scope, actor, id, dto.reason, clientKey);
   }
 
   @Post("bookings/:id/no-show")
@@ -381,9 +383,10 @@ export class HomestayController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: RegisterHomestayLedgerEntryDto
+    @Body() dto: RegisterHomestayLedgerEntryDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.registerLedgerEntry(scope, actor, id, dto);
+    return this.service.registerLedgerEntry(scope, actor, id, dto, clientKey);
   }
 
   @Get("turnovers")

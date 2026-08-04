@@ -9,7 +9,10 @@ import {
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_PERMISSION_BUNDLES,
-  SYSTEM_PERMISSIONS
+  SYSTEM_PERMISSIONS,
+  TRACK_B_ACTION_PERMISSION_CODES,
+  TRACK_B_PAGE_PERMISSION_CODES,
+  TRACK_B_PERMISSION_BUNDLES
 } from "@jinhu/shared";
 
 const baseMigrationPath = resolve(
@@ -24,6 +27,17 @@ const migrationsDir = resolve(__dirname, "../../../../../database/migrations");
 const baseSql = readFileSync(baseMigrationPath, "utf8");
 const extensionSql = readFileSync(extensionMigrationPath, "utf8");
 const sql = `${baseSql}\n${extensionSql}`;
+const trackBPermissionCodes = new Set<string>([
+  ...TRACK_B_ACTION_PERMISSION_CODES,
+  ...TRACK_B_PAGE_PERMISSION_CODES
+]);
+const historicalPermissionCodes = Object.values(PROPERTY_BUSINESS_PERMISSIONS)
+  .filter((code) => !trackBPermissionCodes.has(code));
+const trackBBundleCodes = new Set<string>(
+  Object.values(TRACK_B_PERMISSION_BUNDLES).map((bundle) => bundle.code)
+);
+const historicalPermissionBundles = Object.values(PROPERTY_PERMISSION_BUNDLES)
+  .filter((bundle) => !trackBBundleCodes.has(bundle.code));
 
 function markedRows(source: string, start: string, end: string): string[][] {
   const block = source.match(new RegExp(`${start}([\\s\\S]*?)${end}`))?.[1];
@@ -46,7 +60,7 @@ function sorted(values: readonly string[]): string[] {
   return [...values].sort();
 }
 
-test("000184 is the next reservation and only historical 000136 is duplicated", () => {
+test("000183/000184 remain the historical RBAC pair and only 000136 is duplicated", () => {
   const filenames = readdirSync(migrationsDir).filter((name) => /^\d{6}_.+\.sql$/.test(name));
   const byNumber = new Map<string, string[]>();
   for (const filename of filenames) {
@@ -62,10 +76,11 @@ test("000184 is the next reservation and only historical 000136 is duplicated", 
     basename(extensionMigrationPath),
     "000184_property_workbench_read_permissions.sql"
   );
-  assert.equal(sorted([...byNumber.keys()]).at(-1), "000184");
+  assert.deepEqual(byNumber.get("000183"), [basename(baseMigrationPath)]);
+  assert.deepEqual(byNumber.get("000184"), [basename(extensionMigrationPath)]);
 });
 
-test("historical 65 plus the exact 7 read permissions equal the 72 shared values", () => {
+test("historical 65 plus seven read permissions equal the pre-Track-B shared subset", () => {
   const baseDefinitionRows = markedRows(
     baseSql,
     "PROPERTY_PERMISSION_DEFINITIONS_START",
@@ -94,9 +109,11 @@ test("historical 65 plus the exact 7 read permissions equal the 72 shared values
   assert.equal(new Set(extensionCodes).size, 7);
   assert.deepEqual(sorted(extensionCodes), sorted(expectedExtensionCodes));
   assert.equal(baseCodes.some((code) => extensionCodes.includes(code)), false);
+  assert.equal(trackBPermissionCodes.size, 25);
+  assert.equal(historicalPermissionCodes.length, 72);
   assert.deepEqual(
     sorted([...baseCodes, ...extensionCodes]),
-    sorted(Object.values(PROPERTY_BUSINESS_PERMISSIONS))
+    sorted(historicalPermissionCodes)
   );
 });
 
@@ -107,7 +124,9 @@ test("17 canonical page definitions preserve parent, route and landing sort orde
     "PROPERTY_PERMISSION_DEFINITIONS_END"
   );
   const byCode = new Map(definitionRows.map((row) => [cell(row, 1), row] as const));
-  const expectedCodes = PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS.map((seed) => seed.code);
+  const expectedCodes = PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS
+    .map((seed) => seed.code)
+    .filter((code) => !trackBPermissionCodes.has(code));
   const pages = definitionRows.filter((row) => cell(row, 7) === "20" && cell(row, 12) === "true");
 
   assert.equal(pages.length, 17);
@@ -159,7 +178,7 @@ test("legacy operations remain hidden compatibility pages and grant no bundle ca
   }
 });
 
-test("14 literal SQL bundles exactly equal the shared bundle contract", () => {
+test("14 literal SQL bundles exactly equal the pre-Track-B shared bundle subset", () => {
   const migrationPairs = [
     ...markedRows(
       baseSql,
@@ -172,11 +191,12 @@ test("14 literal SQL bundles exactly equal the shared bundle contract", () => {
       "PROPERTY_WORKBENCH_READ_BUNDLE_PERMISSIONS_END"
     )
   ].map((row) => `${cell(row, 0)}\u0000${cell(row, 1)}`);
-  const sharedPairs = Object.values(PROPERTY_PERMISSION_BUNDLES).flatMap((bundle) =>
+  const sharedPairs = historicalPermissionBundles.flatMap((bundle) =>
     bundle.permissions.map((permission) => `${bundle.code}\u0000${permission}`)
   );
 
-  assert.equal(new Set(Object.values(PROPERTY_PERMISSION_BUNDLES).map((bundle) => bundle.code)).size, 14);
+  assert.equal(trackBBundleCodes.size, 16);
+  assert.equal(new Set(historicalPermissionBundles.map((bundle) => bundle.code)).size, 14);
   assert.equal(new Set(migrationPairs).size, migrationPairs.length);
   assert.deepEqual(sorted(migrationPairs), sorted(sharedPairs));
 });
@@ -209,7 +229,7 @@ test("A-2.5 read definitions preserve exact module, method, API and frontend rou
   }
 });
 
-test("asset Party target is parent-guarded, hidden and outside property bundles and grants", () => {
+test("asset Party target is parent-guarded, hidden and outside historical bundles and grants", () => {
   const rows = markedRows(
     extensionSql,
     "ASSET_PARTY_PAGE_DEFINITION_START",
@@ -236,7 +256,7 @@ test("asset Party target is parent-guarded, hidden and outside property bundles 
     false
   );
   assert.equal(
-    Object.values(PROPERTY_PERMISSION_BUNDLES).some((bundle) =>
+    historicalPermissionBundles.some((bundle) =>
       bundle.permissions.includes(SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE as never)
     ),
     false

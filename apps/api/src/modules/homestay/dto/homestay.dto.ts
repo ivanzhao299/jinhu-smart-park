@@ -325,6 +325,10 @@ export class RegisterHomestayLedgerEntryDto {
   amount!: string;
 
   @IsOptional()
+  @IsUUID()
+  source_ledger_entry_id?: string;
+
+  @IsOptional()
   @Transform(({ value }) => trimOptional(value))
   @IsString()
   @MaxLength(32)

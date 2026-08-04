@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   Optional
@@ -9,6 +10,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  PROPERTY_APPROVAL_COMMAND_PORT,
+  PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
   type HomestayAvailabilityItem,
   type HomestayAvailabilityListResponse,
@@ -26,8 +29,11 @@ import {
   type HomestayTurnoverListItem,
   type HomestayTurnoverListResponse,
   type HomestayTurnoverResponse,
+  type IdentityVerificationPort,
   type HomestayUnitCandidateListResponse,
   type PropertyWorkbenchFileRef,
+  type PropertyApprovalCommandPort,
+  type PropertyApprovalJsonValue,
   type TenantParkScope
 } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
@@ -38,6 +44,11 @@ import {
   type SelectQueryBuilder
 } from "typeorm";
 import { isPropertyWorkbenchV2Enabled } from "../../shared/property-workbench/property-workbench-v2";
+import {
+  assertPropertyHighRiskActionApprovalRequired,
+  assertPropertyHighRiskActionPermissions
+} from "../../shared/property-workbench/property-high-risk-stopship";
+import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PartyEntity } from "../property-operations/entities/party.entity";
@@ -47,6 +58,7 @@ import { PropertyOccupanciesService } from "../property-operations/property-occu
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
+import { PropertyIdentityVerificationService } from "../property-identity/property-identity-verification.service";
 import type {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
@@ -94,6 +106,7 @@ import {
   summarizeHomestayLedger
 } from "./homestay-finance.policy";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
+import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
@@ -112,6 +125,24 @@ interface BookingDetailRelations {
   actions: HomestayBookingActionLogEntity[];
   turnover: HomestayTurnoverTaskEntity | null;
   guestDisplayNames: ReadonlyMap<string, string>;
+}
+
+interface HomestayLedgerSnapshotRow {
+  id: string;
+  version: number;
+  entryType: "charge" | "payment" | "refund" | "waiver";
+  chargeType: string;
+  amount: string;
+  currency: string;
+  status: "confirmed";
+  sourceLedgerEntryId: string | null;
+  recordedBy: string | null;
+}
+
+interface HomestayLegacyFinanceMappingRow {
+  resultId: string;
+  sourceExpectedVersion: number;
+  currency: string;
 }
 
 @Injectable()
@@ -134,7 +165,12 @@ export class HomestayService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService = new ConfigService(),
     @Optional()
-    private readonly workbenchQuery?: HomestayWorkbenchQueryService
+    private readonly workbenchQuery?: HomestayWorkbenchQueryService,
+    @Optional()
+    @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
+    private readonly approvalCommands?: PropertyApprovalCommandPort,
+    @Optional()
+    private readonly identityVerifier?: PropertyIdentityVerificationService
   ) {}
 
   async listUnitCandidates(
@@ -797,64 +833,390 @@ export class HomestayService {
     });
   }
 
-  async cancelBooking(scope: TenantParkScope, actor: JwtPrincipal, id: string, reason: string) {
+  async cancelBooking(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    reason: string,
+    clientKey = ""
+  ) {
+    if (!this.approvalCommands) {
+      assertPropertyHighRiskActionApprovalRequired("homestay.bookings.cancel");
+      throw new ConflictException("Property approval runtime is unavailable");
+    }
+    const approvalCommands = this.approvalCommands;
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.lockBooking(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      const revokedCredentials = await this.voidIssuedCredentials(manager, scope, actor, id);
       if (booking.status === "cancelled") return booking;
       this.assertStatus(booking, ["draft", "confirmed"], "Only draft or confirmed bookings can be cancelled");
       const before = booking.status;
-      const cancellationFee = before === "confirmed" ? this.calculateCancellationFee(booking) : "0.00";
-      if (booking.occupancyId) {
-        await this.propertyOccupanciesService.releaseInTransaction(
-          manager,
+      const evaluationRows = await manager.query(
+        `SELECT transaction_timestamp()::text AS "cancellationEvaluationAt"`
+      ) as Array<{ cancellationEvaluationAt: string }>;
+      const cancellationEvaluationAt = evaluationRows[0]?.cancellationEvaluationAt;
+      if (!cancellationEvaluationAt) throw new ConflictException("Cancellation evaluation time is unavailable");
+      const occupancyRows = booking.occupancyId ? await manager.query(
+        `SELECT id::text AS id, version, status FROM biz_property_occupancy
+          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
+        [scope.tenantId, scope.parkId, booking.occupancyId]
+      ) as Array<{ id: string; version: number; status: string }> : [];
+      if (booking.occupancyId && occupancyRows.length !== 1) {
+        throw new ConflictException("Booking occupancy changed");
+      }
+      const occupancy = occupancyRows[0] ?? null;
+      const credentials = await manager.query(
+        `SELECT id::text AS id, version, status FROM biz_homestay_stay_credential
+          WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
+            AND status='issued' AND is_deleted=false ORDER BY id FOR UPDATE`,
+        [scope.tenantId, scope.parkId, id]
+      ) as Array<{ id: string; version: number; status: string }>;
+      const ledgerContributors = await this.lockConfirmedHomestayLedger(
+        manager, scope, booking.id
+      );
+      await this.assertNoUnresolvedLegacyHomestayFinance(manager, scope, booking.id);
+      const cancellationFee = before === "confirmed"
+        ? this.calculateCancellationFee(booking, cancellationEvaluationAt)
+        : "0.00";
+      const cancellableRoomCharge = before === "confirmed"
+        ? calculateCancellableRoomCharge(ledgerContributors)
+        : "0.00";
+      const financialTotal = formatMoneyCents(
+        toMoneyCents(cancellableRoomCharge) + toMoneyCents(cancellationFee)
+      );
+      return approvalCommands.createPendingRequest(
+        { transactionContext: manager },
+        {
+          contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
           scope,
-          actor,
-          booking.occupancyId,
-          reason,
-          "cancelled"
-        );
-      }
-      booking.status = "cancelled";
-      booking.cancelReason = reason.trim();
-      booking.cancelledAt = new Date();
-      booking.updateBy = actor.sub;
-      const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      if (before === "confirmed") {
-        const ledger = await manager.getRepository(HomestayLedgerEntryEntity).find({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            bookingId: saved.id,
-            status: "confirmed",
-            isDeleted: false
-          }
-        });
-        const cancellableRoomCharge = calculateCancellableRoomCharge(ledger);
-        if (toMoneyCents(cancellableRoomCharge) > 0n) {
-          await this.createLedgerEntry(manager, scope, actor, saved.id, {
-            entry_type: "waiver",
-            charge_type: "room_cancellation",
-            amount: cancellableRoomCharge,
-            reason: "Cancellation reverses the confirmed room charge"
-          });
+          actionId: "homestay.bookings.cancel.request",
+          sourceType: "homestay-booking",
+          sourceId: booking.id,
+          sourceExpectedVersion: booking.version,
+          requesterId: actor.sub,
+          submitterId: actor.sub,
+          actorId: actor.sub,
+          clientKey,
+          businessIntentKey: `homestay-cancel:${booking.id}:${booking.version}`,
+          canonicalPayload: {
+            bookingId: booking.id,
+            unitId: booking.unitId,
+            fromStatus: before,
+            reason: reason.trim(),
+            actorName: actor.realName?.trim() || actor.username,
+            cancellationEvaluationAt,
+            occupancy: occupancy ? { id: occupancy.id, expectedVersion: occupancy.version,
+              beforeStatus: occupancy.status, afterStatus: "cancelled" } : null,
+            credentials: credentials.map((row) => ({ id: row.id, expectedVersion: row.version,
+              beforeStatus: row.status, afterStatus: "void" })),
+            ledgerContributors: ledgerContributors.map((row) => ({ id: row.id,
+              expectedVersion: row.version, status: row.status, entryType: row.entryType,
+              chargeType: row.chargeType, amount: row.amount, currency: row.currency,
+              sourceLedgerEntryId: row.sourceLedgerEntryId })),
+            roomWaiverAmount: cancellableRoomCharge,
+            cancellationFeeAmount: cancellationFee,
+            currency: financialTotal === "0.00" ? null : booking.currency
+          },
+          payloadSchemaVersion: 1,
+          amount: financialTotal === "0.00" ? null : financialTotal,
+          currency: financialTotal === "0.00" ? null : booking.currency
         }
-      }
-      if (toMoneyCents(cancellationFee) > 0n) {
-        await this.createLedgerEntry(manager, scope, actor, saved.id, {
-          entry_type: "charge",
-          charge_type: "cancellation_fee",
-          amount: cancellationFee,
-          reason: "按订单取消规则快照计算"
-        });
-      }
-      await this.log(manager, scope, actor, saved, "cancel", before, saved.status, reason, {
-        cancellation_fee: cancellationFee,
-        revoked_credentials: revokedCredentials
-      });
-      return saved;
+      );
     });
+  }
+
+  async executeApprovedCancellation(input: {
+    manager: EntityManager;
+    requestId: string;
+    executionIdempotencyKey: string;
+    canonicalPayload: Readonly<Record<string, unknown>>;
+    sourceExpectedVersion: number;
+    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string };
+  }): Promise<void> {
+    const payload = input.canonicalPayload;
+    const bookingId = this.requiredApprovalUuid(payload.bookingId);
+    if (bookingId !== input.request.sourceId) throw new ConflictException("Approval source changed");
+    const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
+    const bookings = await input.manager.query(
+      `SELECT id::text AS id, unit_id::text AS "unitId", occupancy_id::text AS "occupancyId",
+              status, currency, version, arrival_date::text AS "arrivalDate",
+              room_amount::text AS "roomAmount", cancellation_policy_snapshot AS "cancellationPolicySnapshot"
+         FROM biz_homestay_booking
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
+      [scope.tenantId, scope.parkId, bookingId]
+    ) as Array<{ id: string; unitId: string; occupancyId: string | null; status: string;
+      currency: string; version: number; arrivalDate: string; roomAmount: string;
+      cancellationPolicySnapshot: Record<string, unknown> }>;
+    const booking = bookings[0];
+    if (!booking || booking.version !== input.sourceExpectedVersion
+      || booking.status !== payload.fromStatus || booking.unitId !== payload.unitId
+      || (booking.occupancyId === null) !== (payload.occupancy === null)) {
+      throw new ConflictException("Approval source changed");
+    }
+    const frozenOccupancy = payload.occupancy as Record<string, unknown> | null;
+    const occupancyRows = booking.occupancyId ? await input.manager.query(
+      `SELECT id::text AS id, version, status FROM biz_property_occupancy
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
+      [scope.tenantId, scope.parkId, booking.occupancyId]
+    ) as Array<{ id: string; version: number; status: string }> : [];
+    const occupancy = occupancyRows[0] ?? null;
+    const currentOccupancy = occupancy ? { id: occupancy.id, expectedVersion: occupancy.version,
+      beforeStatus: occupancy.status, afterStatus: "cancelled" } : null;
+    if (propertyApprovalCanonicalHash(currentOccupancy as PropertyApprovalJsonValue)
+      !== propertyApprovalCanonicalHash(frozenOccupancy as PropertyApprovalJsonValue)) {
+      throw new ConflictException("Approval source changed");
+    }
+    const currentCredentials = await input.manager.query(
+      `SELECT id::text AS id, version, status FROM biz_homestay_stay_credential
+        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
+          AND status='issued' AND is_deleted=false ORDER BY id FOR UPDATE`,
+      [scope.tenantId, scope.parkId, bookingId]
+    ) as Array<{ id: string; version: number; status: string }>;
+    const credentialSnapshot = currentCredentials.map((row) => ({ id: row.id,
+      expectedVersion: row.version, beforeStatus: row.status, afterStatus: "void" }));
+    if (propertyApprovalCanonicalHash(credentialSnapshot as unknown as PropertyApprovalJsonValue)
+      !== propertyApprovalCanonicalHash(payload.credentials as PropertyApprovalJsonValue)) {
+      throw new ConflictException("Approval source changed");
+    }
+    const currentLedger = await this.lockConfirmedHomestayLedger(input.manager, scope, bookingId);
+    await this.assertNoUnresolvedLegacyHomestayFinance(input.manager, scope, bookingId);
+    const ledgerSnapshot = currentLedger.map((row) => ({ id: row.id,
+      expectedVersion: row.version, status: row.status, entryType: row.entryType,
+      chargeType: row.chargeType, amount: row.amount, currency: row.currency,
+      sourceLedgerEntryId: row.sourceLedgerEntryId }));
+    if (propertyApprovalCanonicalHash(ledgerSnapshot as unknown as PropertyApprovalJsonValue)
+      !== propertyApprovalCanonicalHash(payload.ledgerContributors as PropertyApprovalJsonValue)) {
+      throw new ConflictException("Approval source changed");
+    }
+    const cancellationEvaluationAt = String(payload.cancellationEvaluationAt ?? "");
+    const roomWaiverAmount = calculateCancellableRoomCharge(currentLedger);
+    const cancellationFeeAmount = this.calculateCancellationFee(booking, cancellationEvaluationAt);
+    const financialTotal = formatMoneyCents(
+      toMoneyCents(roomWaiverAmount) + toMoneyCents(cancellationFeeAmount)
+    );
+    const currency = financialTotal === "0.00" ? null : booking.currency;
+    if (roomWaiverAmount !== payload.roomWaiverAmount
+      || cancellationFeeAmount !== payload.cancellationFeeAmount
+      || currency !== payload.currency) {
+      throw new ConflictException("Approval source changed");
+    }
+    const manifests = await input.manager.query(
+      `SELECT effect_kind AS "effectKind", effect_line_key AS "effectLineKey",
+              invariant_hash AS "effectHash", line_amount AS "lineAmount", currency
+         FROM biz_property_execution_effect_manifest
+        WHERE tenant_id=$1 AND park_id=$2 AND request_id=$3 ORDER BY effect_ordinal`,
+      [scope.tenantId, scope.parkId, input.requestId]
+    ) as Array<{ effectKind: string; effectLineKey: string; effectHash: string; lineAmount: string | null; currency: string | null }>;
+    const byKind = new Map(manifests.map((row) => [row.effectKind, row]));
+    const bookingEffect = byKind.get("homestay.booking.cancel");
+    if (!bookingEffect) throw new ConflictException("Approval effect manifest missing");
+    if ((toMoneyCents(roomWaiverAmount) > 0n) !== byKind.has("homestay.ledger.waiver")
+      || (toMoneyCents(cancellationFeeAmount) > 0n) !== byKind.has("homestay.ledger.charge")) {
+      throw new ConflictException("Approval effect manifest missing");
+    }
+    for (const credential of currentCredentials) {
+      const rows = typeormQueryRows<{ id: string }>(await input.manager.query(
+        `UPDATE biz_homestay_stay_credential
+            SET status='void', update_by=$5, update_time=clock_timestamp(), version=version+1
+          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
+            AND status=$6 AND is_deleted=false RETURNING id::text AS id`,
+        [scope.tenantId, scope.parkId, credential.id, credential.version,
+          input.request.requesterId, credential.status]
+      ));
+      if (rows.length !== 1) throw new ConflictException("Approval source changed");
+    }
+    if (occupancy && frozenOccupancy) {
+      const released = typeormQueryRows<{ id: string }>(await input.manager.query(
+        `UPDATE biz_property_occupancy
+            SET status=$8, release_reason=$5, released_at=clock_timestamp(),
+                update_by=$6, update_time=clock_timestamp(), version=version+1
+          WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
+            AND status=$7 AND is_deleted=false RETURNING id::text AS id`,
+        [scope.tenantId, scope.parkId, occupancy.id, occupancy.version,
+          String(payload.reason ?? ""), input.request.requesterId, occupancy.status,
+          String(frozenOccupancy.afterStatus)]
+      ));
+      if (released.length !== 1) throw new ConflictException("Approval source changed");
+    }
+    const cancelled = typeormQueryRows<{ version: number }>(await input.manager.query(
+      `UPDATE biz_homestay_booking
+          SET status='cancelled', cancel_reason=$5, cancelled_at=clock_timestamp(),
+              update_by=$6, update_time=clock_timestamp(), version=version+1
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
+          AND status=$7 AND is_deleted=false RETURNING version`,
+      [scope.tenantId, scope.parkId, bookingId, input.sourceExpectedVersion,
+        String(payload.reason ?? ""), input.request.requesterId, booking.status]
+    ));
+    if (cancelled.length !== 1 || cancelled[0]!.version !== input.sourceExpectedVersion + 1) {
+      throw new ConflictException("Approval source changed");
+    }
+    for (const effectKind of ["homestay.ledger.waiver", "homestay.ledger.charge"] as const) {
+      const effect = byKind.get(effectKind);
+      if (!effect) continue;
+      const entryType = effectKind.endsWith("waiver") ? "waiver" : "charge";
+      const chargeType = entryType === "waiver" ? "room_cancellation" : "cancellation_fee";
+      const expectedAmount = entryType === "waiver" ? roomWaiverAmount : cancellationFeeAmount;
+      if (effect.lineAmount !== expectedAmount || effect.currency !== currency) {
+        throw new ConflictException("Approval effect manifest missing");
+      }
+      const ledger = await input.manager.query(
+        `INSERT INTO biz_homestay_ledger_entry(
+           tenant_id,park_id,booking_id,entry_type,charge_type,amount,currency,status,reason,
+           occurred_at,create_by,update_by,approval_execution_key,approval_effect_kind,
+           approval_effect_line_key,approval_effect_hash)
+         VALUES($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,clock_timestamp(),$9,$9,$10,$11,$12,$13)
+         RETURNING id::text AS id`,
+        [scope.tenantId, scope.parkId, bookingId, entryType, chargeType, effect.lineAmount,
+          effect.currency, entryType === "waiver"
+            ? "Cancellation reverses the confirmed room charge" : "按审批提交时冻结的取消规则计算",
+          input.request.requesterId, input.executionIdempotencyKey, effect.effectKind,
+          effect.effectLineKey, effect.effectHash]
+      ) as Array<{ id: string }>;
+      if (ledger.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
+    }
+    const actionRows = await input.manager.query(
+      `INSERT INTO biz_homestay_booking_action_log(
+         tenant_id,park_id,booking_id,action,before_status,after_status,reason,snapshot,
+         operator_id,operator_name,action_time,create_time,approval_execution_key,
+         approval_effect_kind,approval_effect_line_key,approval_effect_hash)
+       VALUES($1,$2,$3,'cancel',$4,'cancelled',$5,$6::jsonb,$7,$8,clock_timestamp(),
+              clock_timestamp(),$9,$10,$11,$12) RETURNING id::text AS id`,
+      [scope.tenantId, scope.parkId, bookingId, booking.status, String(payload.reason ?? ""),
+        JSON.stringify({ cancellation_evaluation_at: cancellationEvaluationAt,
+          cancellation_fee: cancellationFeeAmount, room_waiver_amount: roomWaiverAmount,
+          compound_contributors: { occupancy: currentOccupancy, credentials: credentialSnapshot,
+            ledger: ledgerSnapshot },
+          compound_contributor_hash: propertyApprovalCanonicalHash({ occupancy: currentOccupancy,
+            credentials: credentialSnapshot, ledger: ledgerSnapshot }) }),
+        input.request.requesterId, String(payload.actorName ?? "审批申请人"),
+        input.executionIdempotencyKey, bookingEffect.effectKind, bookingEffect.effectLineKey,
+        bookingEffect.effectHash]
+    ) as Array<{ id: string }>;
+    if (actionRows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
+  }
+
+  private async lockConfirmedHomestayLedger(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    bookingId: string
+  ): Promise<HomestayLedgerSnapshotRow[]> {
+    return manager.query(
+      `SELECT id::text AS id, version, entry_type AS "entryType", charge_type AS "chargeType",
+              amount::text AS amount, currency, status,
+              source_ledger_entry_id::text AS "sourceLedgerEntryId",
+              create_by::text AS "recordedBy"
+         FROM biz_homestay_ledger_entry
+        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
+          AND status='confirmed' AND is_deleted=false
+        ORDER BY id FOR UPDATE`,
+      [scope.tenantId, scope.parkId, bookingId]
+    ) as Promise<HomestayLedgerSnapshotRow[]>;
+  }
+
+  private async assertNoUnresolvedLegacyHomestayFinance(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    bookingId: string
+  ): Promise<void> {
+    const unresolved = await manager.query(
+      `SELECT result.id::text AS id FROM biz_homestay_ledger_entry result
+        WHERE result.tenant_id=$1 AND result.park_id=$2 AND result.booking_id=$3
+          AND result.entry_type IN ('refund','waiver')
+          AND result.source_ledger_entry_id IS NULL AND result.is_deleted=false
+          AND NOT EXISTS (
+            SELECT 1 FROM biz_homestay_legacy_finance_source_map legacy
+             WHERE legacy.tenant_id=result.tenant_id AND legacy.park_id=result.park_id
+               AND legacy.result_ledger_entry_id=result.id)
+        ORDER BY result.id FOR UPDATE`,
+      [scope.tenantId, scope.parkId, bookingId]
+    ) as Array<{ id: string }>;
+    if (unresolved.length > 0) {
+      throw new ConflictException("Legacy refund or waiver source must be reconciled before approval");
+    }
+  }
+
+  private async lockHomestayFinanceSourceKey(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    bookingId: string,
+    sourceLedgerEntryId: string
+  ): Promise<void> {
+    const canonicalKey = ["homestay-finance-source", scope.tenantId, scope.parkId,
+      bookingId, sourceLedgerEntryId].join("|");
+    await manager.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
+      [canonicalKey]
+    );
+  }
+
+  private async lockHomestayFinanceSource(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    bookingId: string,
+    sourceLedgerEntryId: string
+  ): Promise<HomestayLedgerSnapshotRow> {
+    const rows = await manager.query(
+      `SELECT id::text AS id,version,entry_type AS "entryType",charge_type AS "chargeType",
+              amount::text AS amount,currency,status,
+              source_ledger_entry_id::text AS "sourceLedgerEntryId",
+              create_by::text AS "recordedBy"
+         FROM biz_homestay_ledger_entry
+        WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3 AND id=$4
+          AND status='confirmed' AND is_deleted=false
+        FOR UPDATE`,
+      [scope.tenantId, scope.parkId, bookingId, sourceLedgerEntryId]
+    ) as HomestayLedgerSnapshotRow[];
+    if (rows.length !== 1) throw new ConflictException("Finance allocation source changed");
+    return rows[0]!;
+  }
+
+  private async homestayFinanceAllocationSnapshot(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    source: HomestayLedgerSnapshotRow,
+    lockedLedger: HomestayLedgerSnapshotRow[],
+    entryType: "refund" | "waiver"
+  ): Promise<{ allocatedCents: bigint;
+    contributors: Array<Record<string, PropertyApprovalJsonValue>> }> {
+    const mapped = await manager.query(
+      `SELECT result_ledger_entry_id::text AS "resultId",
+              source_expected_version AS "sourceExpectedVersion",currency
+         FROM biz_homestay_legacy_finance_source_map
+        WHERE tenant_id=$1 AND park_id=$2 AND source_ledger_entry_id=$3
+        ORDER BY result_ledger_entry_id FOR SHARE`,
+      [scope.tenantId, scope.parkId, source.id]
+    ) as HomestayLegacyFinanceMappingRow[];
+    if (mapped.some((row) => row.sourceExpectedVersion !== source.version
+      || row.currency !== source.currency)) {
+      throw new ConflictException("Finance allocation source changed");
+    }
+    const mappedIds = new Set(mapped.map((row) => row.resultId));
+    const contributors = lockedLedger.flatMap((row) => {
+      const direct = row.sourceLedgerEntryId === source.id;
+      const legacyMapped = mappedIds.has(row.id);
+      if (!direct && !legacyMapped) return [];
+      if (direct && legacyMapped) throw new ConflictException("Finance allocation is ambiguous");
+      if (row.entryType !== entryType || row.currency !== source.currency) {
+        throw new ConflictException("Finance allocation source changed");
+      }
+      return [{ id: row.id, expectedVersion: row.version, status: row.status,
+        entryType: row.entryType, amount: row.amount, currency: row.currency,
+        allocationKind: direct ? "direct" : "legacy-mapped" }];
+    }).sort((left, right) => String(left.id).localeCompare(String(right.id)));
+    return {
+      allocatedCents: contributors.reduce(
+        (sum, row) => sum + toMoneyCents(String(row.amount)), 0n
+      ),
+      contributors
+    };
+  }
+
+  private requiredApprovalUuid(value: unknown): string {
+    if (typeof value !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      throw new ConflictException("Approval payload is invalid");
+    }
+    return value;
   }
 
   async rescheduleBooking(
@@ -1051,26 +1413,23 @@ export class HomestayService {
         this.businessDateStart(booking.arrivalDate),
         this.businessDateStart(booking.departureDate)
       );
-      const verifiedGuestParties = await manager.getRepository(PartyEntity)
-        .createQueryBuilder("party")
-        .innerJoin(HomestayBookingGuestEntity, "guest", `
-          guest.party_id = party.id
-          AND guest.tenant_id = party.tenant_id
-          AND guest.park_id = party.park_id
-          AND guest.is_deleted = false
-        `)
-        .where("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("guest.booking_id = :bookingId", { bookingId: id })
-        .andWhere("guest.verification_status = 'verified'")
-        .andWhere("party.is_deleted = false")
-        .andWhere("party.party_type = 'person'")
-        .andWhere("party.verification_status = 'verified'")
-        .andWhere("party.identity_document_type IS NOT NULL")
-        .andWhere("party.identity_number_hash IS NOT NULL")
-        .setLock("pessimistic_read")
-        .getMany();
-      assertHomestayGuestRosterComplete(booking.guestCount, verifiedGuestParties.length);
+      const guestRows = await manager.query(
+        `SELECT guest.party_id::text AS "partyId" FROM rel_homestay_booking_guest guest
+          JOIN biz_party party ON party.tenant_id=guest.tenant_id AND party.park_id=guest.park_id
+            AND party.id=guest.party_id AND party.party_type='person' AND party.is_deleted=false
+         WHERE guest.tenant_id=$1 AND guest.park_id=$2 AND guest.booking_id=$3
+          AND guest.is_deleted=false ORDER BY guest.party_id FOR UPDATE OF guest,party`,
+        [scope.tenantId, scope.parkId, id]
+      ) as Array<{ partyId: string }>;
+      assertHomestayGuestRosterComplete(booking.guestCount, guestRows.length);
+      if (!this.identityVerifier) {
+        throw new ConflictException("Property identity runtime is unavailable");
+      }
+      const identityEvidence = await (this.identityVerifier as IdentityVerificationPort).verifyForCheckIn({
+        manager: { transactionContext: manager }, scope, bookingId: booking.id,
+        partyIds: guestRows.map((row) => row.partyId), expectedConsent: "granted"
+      });
+      assertHomestayGuestRosterComplete(booking.guestCount, identityEvidence.length);
       const pendingTurnovers = await manager.getRepository(HomestayTurnoverTaskEntity).createQueryBuilder("task")
         .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
         .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
@@ -1088,7 +1447,9 @@ export class HomestayService {
       booking.actualCheckInTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
-      await this.log(manager, scope, actor, saved, "check_in", before, saved.status, "办理入住");
+      await this.log(manager, scope, actor, saved, "check_in", before, saved.status, "办理入住", {
+        identity_evidence: identityEvidence
+      });
       return saved;
     });
   }
@@ -1170,8 +1531,19 @@ export class HomestayService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     bookingId: string,
-    dto: RegisterHomestayLedgerEntryDto
+    dto: RegisterHomestayLedgerEntryDto,
+    clientKey = ""
   ) {
+    if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
+      assertPropertyHighRiskActionPermissions(actor, [
+        SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]);
+      if (!this.approvalCommands) {
+        assertPropertyHighRiskActionApprovalRequired("homestay.finance.refund-or-waive");
+        throw new ConflictException("Property approval runtime is unavailable");
+      }
+    }
     const requiredPermission = dto.entry_type === "waiver"
       ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
       : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER;
@@ -1181,18 +1553,140 @@ export class HomestayService {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      const ledger = await manager.getRepository(HomestayLedgerEntryEntity).find({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bookingId,
-          status: "confirmed",
-          isDeleted: false
+      if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
+        if (!dto.source_ledger_entry_id) {
+          throw new BadRequestException("source_ledger_entry_id is required for refund or waiver");
         }
+        await this.lockHomestayFinanceSourceKey(
+          manager, scope, bookingId, dto.source_ledger_entry_id
+        );
+        const lockedSource = await this.lockHomestayFinanceSource(
+          manager, scope, bookingId, dto.source_ledger_entry_id
+        );
+        const ledger = await this.lockConfirmedHomestayLedger(manager, scope, bookingId);
+        await this.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
+        assertHomestayManualLedgerMutation(
+          dto.entry_type, dto.amount, summarizeHomestayLedger(ledger)
+        );
+        const source = ledger.find((row) => row.id === dto.source_ledger_entry_id);
+        const expectedSourceType = dto.entry_type === "refund" ? "payment" : "charge";
+        if (!source || source.id !== lockedSource.id || source.version !== lockedSource.version
+          || source.currency !== lockedSource.currency || source.entryType !== expectedSourceType) {
+          throw new ConflictException(`${dto.entry_type} must reference a confirmed ${expectedSourceType} entry`);
+        }
+        const allocation = await this.homestayFinanceAllocationSnapshot(
+          manager, scope, source, ledger, dto.entry_type
+        );
+        const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
+        if (remaining < 0n || toMoneyCents(dto.amount) > remaining) {
+          throw new ConflictException("Refund or waiver amount exceeds its source entry");
+        }
+        const amount = formatHomestayMoney(dto.amount);
+        return this.approvalCommands!.createPendingRequest(
+          { transactionContext: manager },
+          { contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION, scope,
+            actionId: "homestay.finance.refund-or-waive.request",
+            sourceType: "homestay-booking", sourceId: booking.id,
+            sourceExpectedVersion: booking.version, requesterId: actor.sub,
+            submitterId: actor.sub, actorId: actor.sub, clientKey,
+            businessIntentKey: `homestay-finance:${booking.id}:${booking.version}:${dto.entry_type}:${source.id}:${source.version}`,
+            canonicalPayload: { bookingId: booking.id, bookingExpectedVersion: booking.version,
+              reason: dto.reason.trim(), actorName: actor.realName?.trim() || actor.username,
+              lines: [{ entryType: dto.entry_type, sourceLedgerEntryId: source.id,
+                sourceExpectedVersion: source.version, sourceEntryType: source.entryType,
+                sourceAmount: source.amount, chargeType: dto.charge_type.trim(), amount,
+                currency: source.currency, paymentRecorderId: source.recordedBy,
+                allocatedAmount: formatMoneyCents(allocation.allocatedCents),
+                remainingAvailableBalance: formatMoneyCents(remaining),
+                allocationContributors: allocation.contributors }] },
+            payloadSchemaVersion: 1, amount, currency: source.currency }
+        );
+      }
+      const ledger = await manager.getRepository(HomestayLedgerEntryEntity).find({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId,
+          status: "confirmed", isDeleted: false }
       });
       assertHomestayManualLedgerMutation(dto.entry_type, dto.amount, summarizeHomestayLedger(ledger));
       return this.createLedgerEntry(manager, scope, actor, bookingId, dto);
     });
+  }
+
+  async executeApprovedFinance(input: {
+    manager: EntityManager; requestId: string; executionIdempotencyKey: string;
+    canonicalPayload: Readonly<Record<string, unknown>>; sourceExpectedVersion: number;
+    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string };
+  }): Promise<void> {
+    const payload = input.canonicalPayload;
+    if (!Array.isArray(payload.lines) || payload.lines.length !== 1) {
+      throw new ConflictException("Approval source changed");
+    }
+    const line = payload.lines[0] as Record<string, unknown>;
+    const bookingId = this.requiredApprovalUuid(payload.bookingId);
+    const sourceId = this.requiredApprovalUuid(line.sourceLedgerEntryId);
+    if (bookingId !== input.request.sourceId) throw new ConflictException("Approval source changed");
+    const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
+    const bookings = await input.manager.query(
+      `SELECT version,currency FROM biz_homestay_booking WHERE tenant_id=$1 AND park_id=$2
+        AND id=$3 AND is_deleted=false FOR UPDATE`, [scope.tenantId, scope.parkId, bookingId]
+    ) as Array<{ version: number; currency: string }>;
+    await this.lockHomestayFinanceSourceKey(input.manager, scope, bookingId, sourceId);
+    const lockedSource = await this.lockHomestayFinanceSource(
+      input.manager, scope, bookingId, sourceId
+    );
+    const currentLedger = await this.lockConfirmedHomestayLedger(input.manager, scope, bookingId);
+    const booking = bookings[0];
+    const source = currentLedger.find((row) => row.id === sourceId);
+    if (!booking || booking.version !== input.sourceExpectedVersion || !source
+      || source.id !== lockedSource.id || source.version !== lockedSource.version
+      || source.currency !== lockedSource.currency
+      || source.version !== Number(line.sourceExpectedVersion)
+      || source.entryType !== line.sourceEntryType || source.amount !== line.sourceAmount
+      || source.currency !== line.currency || booking.currency !== line.currency) {
+      throw new ConflictException("Approval source changed");
+    }
+    await this.assertNoUnresolvedLegacyHomestayFinance(input.manager, scope, bookingId);
+    assertHomestayManualLedgerMutation(
+      String(line.entryType) as "refund" | "waiver",
+      String(line.amount),
+      summarizeHomestayLedger(currentLedger)
+    );
+    const allocation = await this.homestayFinanceAllocationSnapshot(
+      input.manager, scope, source, currentLedger, String(line.entryType) as "refund" | "waiver"
+    );
+    const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
+    if (remaining < 0n
+      || formatMoneyCents(allocation.allocatedCents) !== line.allocatedAmount
+      || formatMoneyCents(remaining) !== line.remainingAvailableBalance
+      || propertyApprovalCanonicalHash(allocation.contributors as unknown as PropertyApprovalJsonValue)
+        !== propertyApprovalCanonicalHash(line.allocationContributors as PropertyApprovalJsonValue)
+      || toMoneyCents(String(line.amount)) > remaining) {
+      throw new ConflictException("Refund or waiver amount exceeds its source entry");
+    }
+    const manifests = await input.manager.query(
+      `SELECT effect_kind AS "effectKind",effect_line_key AS "effectLineKey",
+              invariant_hash AS "effectHash",line_amount::text AS "lineAmount",currency
+         FROM biz_property_execution_effect_manifest WHERE tenant_id=$1 AND park_id=$2
+          AND request_id=$3`, [scope.tenantId, scope.parkId, input.requestId]
+    ) as Array<{ effectKind: string; effectLineKey: string; effectHash: string;
+      lineAmount: string; currency: string }>;
+    const effect = manifests[0];
+    const entryType = String(line.entryType);
+    if (!effect || effect.effectKind !== `homestay.ledger.${entryType}`
+      || effect.lineAmount !== line.amount || effect.currency !== line.currency) {
+      throw new ConflictException("Approval effect manifest missing");
+    }
+    const inserted = await input.manager.query(
+      `INSERT INTO biz_homestay_ledger_entry(
+         tenant_id,park_id,booking_id,entry_type,charge_type,amount,currency,source_ledger_entry_id,
+         status,reason,occurred_at,create_by,update_by,approval_execution_key,
+         approval_effect_kind,approval_effect_line_key,approval_effect_hash)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,clock_timestamp(),$10,$10,$11,$12,$13,$14)
+       RETURNING id::text AS id`, [scope.tenantId, scope.parkId, bookingId, entryType,
+        String(line.chargeType), effect.lineAmount, effect.currency, sourceId,
+        String(payload.reason ?? ""), input.request.requesterId, input.executionIdempotencyKey,
+        effect.effectKind, effect.effectLineKey, effect.effectHash]
+    ) as Array<{ id: string }>;
+    if (inserted.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }
 
   async listTurnovers(
@@ -1746,11 +2240,19 @@ export class HomestayService {
     };
   }
 
-  private calculateCancellationFee(booking: HomestayBookingEntity): string {
+  private calculateCancellationFee(
+    booking: Pick<HomestayBookingEntity,
+      "arrivalDate" | "roomAmount" | "cancellationPolicySnapshot">,
+    cancellationEvaluationAt: string
+  ): string {
     const policy = booking.cancellationPolicySnapshot;
     const hours = Number(policy.free_cancel_before_hours ?? 0);
     const cutoff = this.businessDateStart(booking.arrivalDate).getTime() - hours * 60 * 60_000;
-    if (Date.now() <= cutoff) return "0.00";
+    const evaluationTime = new Date(cancellationEvaluationAt).getTime();
+    if (!Number.isFinite(evaluationTime)) {
+      throw new ConflictException("Cancellation evaluation time is invalid");
+    }
+    if (evaluationTime <= cutoff) return "0.00";
     const value = formatHomestayMoney(String(policy.late_cancel_fee_value ?? "0"));
     if (policy.late_cancel_fee_type !== "percentage") return value;
     const numerator = toMoneyCents(booking.roomAmount) * toMoneyCents(value);
@@ -1765,6 +2267,12 @@ export class HomestayService {
     dto: RegisterHomestayLedgerEntryDto
   ) {
     const repository = manager.getRepository(HomestayLedgerEntryEntity);
+    const owners = await manager.query(
+      `SELECT currency FROM biz_homestay_booking
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR KEY SHARE`,
+      [scope.tenantId, scope.parkId, bookingId]
+    ) as Array<{ currency: string }>;
+    if (owners.length !== 1) throw new NotFoundException("Homestay booking not found");
     return repository.save(repository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -1772,6 +2280,12 @@ export class HomestayService {
       entryType: dto.entry_type,
       chargeType: dto.charge_type.trim(),
       amount: formatHomestayMoney(dto.amount),
+      currency: owners[0]!.currency,
+      sourceLedgerEntryId: null,
+      approvalExecutionKey: null,
+      approvalEffectKind: null,
+      approvalEffectLineKey: null,
+      approvalEffectHash: null,
       paymentMethod: dto.payment_method?.trim() ?? null,
       paymentChannel: dto.payment_channel?.trim() ?? null,
       transactionReference: dto.transaction_reference?.trim() ?? null,

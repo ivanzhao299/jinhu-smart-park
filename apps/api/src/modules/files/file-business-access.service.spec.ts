@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ConflictException, ForbiddenException } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import {
+  PROPERTY_BUSINESS_PERMISSIONS,
+  SYSTEM_PERMISSIONS,
+  type TenantParkScope
+} from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileBusinessAccessService } from "./file-business-access.service";
 
@@ -219,4 +223,261 @@ test("referenced business evidence cannot be deleted through the generic file en
       bizId: "22222222-2222-4222-8222-222222222222"
     } as never)
   );
+});
+
+test("identity evidence is a protected business file type and generic list reads fail closed", async () => {
+  const service = new FileBusinessAccessService({} as never, {} as never);
+  assert.equal(service.isProtectedBizType("party_identity_evidence"), true);
+  await assert.rejects(
+    service.assertReferenceAccess(
+      scope,
+      actor([
+        PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+        PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+        PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+        SYSTEM_PERMISSIONS.FILE_READ
+      ]),
+      "party_identity_evidence",
+      "11111111-1111-4111-8111-111111111111",
+      "read"
+    ),
+    ForbiddenException
+  );
+});
+
+test("identity evidence read requires exact page, party-read, verifier, and file permissions before querying", async () => {
+  let queries = 0;
+  const service = new FileBusinessAccessService(
+    { query: async () => {
+      queries += 1;
+      return [{ "?column?": 1 }];
+    } } as never,
+    {} as never
+  );
+  const submissionId = "11111111-1111-4111-8111-111111111111";
+  const fileId = "22222222-2222-4222-8222-222222222222";
+  const required = [
+    PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+    SYSTEM_PERMISSIONS.FILE_READ
+  ];
+  for (const missing of required) {
+    await assert.rejects(
+      service.assertReferenceAccess(
+        scope,
+        actor(required.filter((permission) => permission !== missing)),
+        "party_identity_evidence",
+        submissionId,
+        "read",
+        undefined,
+        fileId
+      ),
+      ForbiddenException
+    );
+  }
+  assert.equal(queries, 0);
+});
+
+test("identity evidence metadata does not require file-download permission", async () => {
+  let queries = 0;
+  const service = new FileBusinessAccessService(
+    { query: async () => {
+      queries += 1;
+      return [{ "?column?": 1 }];
+    } } as never,
+    {} as never
+  );
+  await assert.doesNotReject(
+    service.assertReferenceAccess(
+      scope,
+      actor([
+        PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+        PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+        PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+        SYSTEM_PERMISSIONS.FILE_READ
+      ]),
+      "party_identity_evidence",
+      "11111111-1111-4111-8111-111111111111",
+      "read",
+      undefined,
+      "22222222-2222-4222-8222-222222222222"
+    )
+  );
+  assert.equal(queries, 1);
+});
+
+test("identity evidence denies metadata and blob before lookup when party-read or file-download is missing", async () => {
+  let queries = 0;
+  const service = new FileBusinessAccessService(
+    { query: async () => {
+      queries += 1;
+      return [{ "?column?": 1 }];
+    } } as never,
+    {} as never
+  );
+  const base = [
+    PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+    SYSTEM_PERMISSIONS.FILE_READ
+  ];
+  await assert.rejects(
+    service.assertReferenceAccess(
+      scope,
+      actor([...base, SYSTEM_PERMISSIONS.FILE_DOWNLOAD]),
+      "party_identity_evidence",
+      "11111111-1111-4111-8111-111111111111",
+      "read",
+      undefined,
+      "22222222-2222-4222-8222-222222222222"
+    ),
+    ForbiddenException
+  );
+  await assert.rejects(
+    service.assertReferenceAccess(
+      scope,
+      actor([...base, PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ]),
+      "party_identity_evidence",
+      "11111111-1111-4111-8111-111111111111",
+      "download",
+      undefined,
+      "22222222-2222-4222-8222-222222222222"
+    ),
+    ForbiddenException
+  );
+  assert.equal(queries, 0);
+});
+
+test("identity evidence download revalidates current assignment, maker exclusion, policy scope, module and reference", async () => {
+  let sql = "";
+  let parameters: unknown[] = [];
+  const service = new FileBusinessAccessService(
+    {
+      query: async (statement: string, values: unknown[]) => {
+        sql = statement;
+        parameters = values;
+        return [{ "?column?": 1 }];
+      }
+    } as never,
+    {} as never
+  );
+  const submissionId = "11111111-1111-4111-8111-111111111111";
+  const fileId = "22222222-2222-4222-8222-222222222222";
+  await service.assertReferenceAccess(
+    scope,
+    actor([
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+    ]),
+    "party_identity_evidence",
+    submissionId,
+    "download",
+    undefined,
+    fileId
+  );
+  assert.deepEqual(parameters, [
+    scope.tenantId,
+    scope.parkId,
+    submissionId,
+    "user-1",
+    fileId,
+    false,
+    [
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+    ]
+  ]);
+  for (const predicate of [
+    "submission.assigned_verifier_id=$4::uuid",
+    "submission.drafted_by IS DISTINCT FROM $4::uuid",
+    "submission.recorded_by IS DISTINCT FROM $4::uuid",
+    "submission.submitted_by IS DISTINCT FROM $4::uuid",
+    "relationScope",
+    "tenant-park-current",
+    "dataScope",
+    "party-submission",
+    "asset_assignment.enabled=true",
+    "asset_assignment.status='enabled'",
+    "asset_assignment.is_deleted=false",
+    "asset_assignment.expire_time",
+    "unnest($7::varchar[])",
+    "permission.code=required_permission.code",
+    "draft_file.file_id=$5::uuid",
+    "snapshot_file.file_id=$5::uuid"
+  ]) {
+    assert.ok(sql.includes(predicate), `missing identity evidence predicate: ${predicate}`);
+  }
+});
+
+test("identity evidence wrong, unassigned, maker, cross-scope, and inactive-module cases return the same forbidden result", async () => {
+  const service = new FileBusinessAccessService(
+    { query: async () => [] } as never,
+    {} as never
+  );
+  const permissions = [
+    PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+    SYSTEM_PERMISSIONS.FILE_READ,
+    SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+  ];
+  for (const actorId of [
+    "wrong-verifier",
+    "unassigned-verifier",
+    "maker-verifier",
+    "cross-scope-verifier",
+    "module-missing",
+    "module-disabled",
+    "module-expired"
+  ]) {
+    await assert.rejects(
+      service.assertReferenceAccess(
+        scope,
+        actor(permissions, actorId),
+        "party_identity_evidence",
+        "11111111-1111-4111-8111-111111111111",
+        "download",
+        undefined,
+        "22222222-2222-4222-8222-222222222222"
+      ),
+      (error: unknown) => (
+        error instanceof ForbiddenException
+        && error.message === "Identity evidence access is forbidden"
+      )
+    );
+  }
+});
+
+test("snapshot and draft identity evidence references permanently block generic deletion", async () => {
+  for (const referenceKind of ["snapshot", "draft"]) {
+    let sql = "";
+    const service = new FileBusinessAccessService(
+      {
+        manager: {
+          query: async (statement: string) => {
+            sql = statement;
+            return [{ "?column?": 1 }];
+          }
+        }
+      } as never,
+      {} as never
+    );
+    await assert.rejects(
+      service.assertDeletionAllowed(scope, {
+        id: "22222222-2222-4222-8222-222222222222",
+        bizType: "party_identity_evidence",
+        bizId: "11111111-1111-4111-8111-111111111111"
+      } as never),
+      ConflictException,
+      referenceKind
+    );
+    assert.match(sql, /rel_party_identity_snapshot_file/);
+    assert.match(sql, /rel_party_identity_draft_file/);
+  }
 });

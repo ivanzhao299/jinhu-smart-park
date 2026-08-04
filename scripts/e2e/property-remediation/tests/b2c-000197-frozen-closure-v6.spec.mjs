@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import process from "node:process";
+import test from "node:test";
+const paths=["scripts/e2e/property-remediation/track-b2c-000197-preliminary-executor-v6.mjs","scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v6.mjs"];
+const source=paths.map((p)=>readFileSync(resolve(process.cwd(),p),"utf8")).join("\n");
+test("v6 ES import closure excludes returned v3-v5",()=>assert.doesNotMatch(source,/preliminary-(?:executor|orchestrator)-v[345]\.mjs/u));
+test("returned drain is absent from reads exists and input definitions",()=>{assert.doesNotMatch(source,/93fb2c36|old-writer-drain-v4-returned/u);
+ assert.doesNotMatch(source,/(?:readFileSync|existsSync)\([^\n]*drain/iu);});
+test("all real spec children use explicit TAP reporter",()=>{for(const match of source.matchAll(/args:\s*\[([^\]]*\.spec\.[^\]]*)\]/gsu))assert.match(match[1],/--test-reporter=tap/u);});

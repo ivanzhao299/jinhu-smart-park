@@ -1,0 +1,132 @@
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.toolbar label,
+.actionForm label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.toolbar select {
+  min-width: 10rem;
+}
+
+.tableLink {
+  font-weight: 600;
+}
+
+.recordMeta,
+.detailGrid {
+  display: grid;
+  gap: 0.5rem 1rem;
+}
+
+.detailGrid {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.detailGrid div {
+  min-width: 0;
+}
+
+.detailGrid dt {
+  color: var(--text-secondary, #667085);
+  font-size: 0.875rem;
+}
+
+.detailGrid dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.actionForm {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 42rem;
+}
+
+.actionForm textarea {
+  min-height: 6rem;
+}
+
+.safeDetails {
+  margin: 0.25rem 0 0;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.stack :where(button, a[href], input, select, textarea):focus-visible {
+  outline: 3px solid var(--focus-ring, currentColor);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack *,
+  .stack *::before,
+  .stack *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .stack,
+  .stack :global(.ds-panel),
+  .stack :global(.ds-table-shell),
+  .stack :global(.ds-mobile-record) {
+    forced-color-adjust: auto;
+    border-color: CanvasText;
+    background-image: none;
+    box-shadow: none;
+  }
+
+  .stack :where(button, a[href], input, select, textarea) {
+    border-color: ButtonText;
+    background-image: none;
+    box-shadow: none;
+  }
+
+  .stack :where(button, a[href], input, select, textarea):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 48rem) {
+  .desktopOnly {
+    display: none;
+  }
+
+  .pager {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (min-width: 48.001rem) {
+  .mobileOnly {
+    display: none;
+  }
+}

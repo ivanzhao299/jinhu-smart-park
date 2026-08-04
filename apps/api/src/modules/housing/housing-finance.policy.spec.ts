@@ -164,9 +164,9 @@ test("housing service revalidates meter state and makes completed handover retri
   const service = readFileSync(servicePath, "utf8");
 
   assert.match(service, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
-  assert.match(service, /if \(handover\?\.status === "completed"\) return handover;/);
+  assert.match(service, /if \(handover\?\.status === "completed"\) \{/);
   assert.ok(
-    service.indexOf('if (handover?.status === "completed") return handover;')
+    service.indexOf('if (handover?.status === "completed") {')
       < service.indexOf("Deposit deduction cannot exceed agreed deposit")
   );
   assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);

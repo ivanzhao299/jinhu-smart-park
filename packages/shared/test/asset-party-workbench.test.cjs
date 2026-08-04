@@ -5,6 +5,7 @@ const {
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_PERMISSION_BUNDLES,
+  TRACK_B_PERMISSION_BUNDLES,
   SYSTEM_PERMISSIONS,
   SYSTEM_PERMISSION_SEEDS
 } = require("../dist/index.js");
@@ -32,9 +33,9 @@ test("asset Party workbench owns one canonical page permission and surface", () 
   );
 });
 
-test("asset Party page remains outside property-business permissions and bundles", () => {
+test("asset Party page stays canonical while Track B bundles may grant access to it", () => {
   const propertyPermissionValues = Object.values(PROPERTY_BUSINESS_PERMISSIONS);
-  assert.equal(propertyPermissionValues.length, 72);
+  assert.equal(propertyPermissionValues.length, 97);
   assert.equal(
     propertyPermissionValues.includes(SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE),
     false
@@ -46,11 +47,17 @@ test("asset Party page remains outside property-business permissions and bundles
     ),
     false
   );
-  assert.equal(Object.keys(PROPERTY_PERMISSION_BUNDLES).length, 14);
+  assert.equal(Object.keys(PROPERTY_PERMISSION_BUNDLES).length, 30);
   assert.equal(
-    Object.values(PROPERTY_PERMISSION_BUNDLES).some((bundle) =>
-      bundle.permissions.includes(SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE)
+    TRACK_B_PERMISSION_BUNDLES.PARTY_PROFILE_CLERK.permissions.includes(
+      SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE
     ),
-    false
+    true
+  );
+  assert.equal(
+    TRACK_B_PERMISSION_BUNDLES.IDENTITY_OPERATOR.permissions.includes(
+      SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE
+    ),
+    true
   );
 });

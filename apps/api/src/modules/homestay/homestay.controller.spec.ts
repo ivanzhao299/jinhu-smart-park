@@ -10,8 +10,15 @@ import {
 } from "@nestjs/common/constants";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { MODULES_KEY } from "../../shared/decorators/modules.decorator";
-import { PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import {
+  ANY_PERMISSIONS_KEY,
+  PERMISSIONS_KEY
+} from "../../shared/decorators/permissions.decorator";
+import {
+  PROPERTY_HIGH_RISK_ACTION_KEY
+} from "../../shared/decorators/property-high-risk-action.decorator";
 import { ModuleGuard } from "../../shared/guards/module.guard";
+import { PermissionGuard } from "../../shared/guards/permission.guard";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HomestayController } from "./homestay.controller";
 
@@ -24,6 +31,66 @@ const exactReads = {
   finance: SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ,
   getTurnover: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ
 } as const;
+
+test("homestay pure high-risk route requires approval-create while mixed route preserves permissions", () => {
+  const expected = {
+    cancelBooking: {
+      actionId: "homestay.bookings.cancel",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+        SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    registerLedgerEntry: {
+      actionId: "homestay.finance.refund-or-waive",
+      permissions: [SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ]
+    }
+  } as const;
+
+  for (const [methodName, contract] of Object.entries(expected)) {
+    const handler = HomestayController.prototype[
+      methodName as keyof HomestayController
+    ];
+    const metadata = Reflect.getMetadata(PROPERTY_HIGH_RISK_ACTION_KEY, handler);
+    assert.equal(metadata.actionId, contract.actionId);
+    assert.deepEqual(
+      Reflect.getMetadata(PERMISSIONS_KEY, handler),
+      contract.permissions
+    );
+  }
+  assert.deepEqual(
+    Reflect.getMetadata(
+      ANY_PERMISSIONS_KEY,
+      HomestayController.prototype.registerLedgerEntry
+    ),
+    [
+      SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
+      SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
+    ]
+  );
+});
+
+test("homestay mixed ledger route keeps the original PermissionGuard lattice", () => {
+  const user = {
+    sub: "user-1",
+    username: "operator",
+    tenantId: "tenant-1",
+    parkId: "park-1",
+    roles: [],
+    permissions: [
+      SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+      SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER
+    ]
+  } satisfies JwtPrincipal;
+  const handler = HomestayController.prototype.registerLedgerEntry;
+  const context = {
+    getHandler: () => handler,
+    getClass: () => HomestayController,
+    switchToHttp: () => ({ getRequest: () => ({ user }) })
+  } as unknown as ExecutionContext;
+  assert.equal(new PermissionGuard(new Reflector()).canActivate(context), true);
+});
 
 test("A-2.5 homestay GET handlers declare exact permissions and required module dependencies", () => {
   for (const [methodName, permission] of Object.entries(exactReads)) {

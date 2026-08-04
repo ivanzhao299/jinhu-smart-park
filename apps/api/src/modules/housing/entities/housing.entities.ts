@@ -8,6 +8,9 @@ import { AuditableEntity } from "../../../shared/entities/auditable.entity";
   where: "is_deleted = false"
 })
 export class HousingLeaseEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
   @Column({ name: "lease_code", type: "varchar", length: 64 })
   leaseCode!: string;
 
@@ -97,6 +100,9 @@ export class HousingLeaseOccupantEntity extends AuditableEntity {
   where: "is_deleted = false"
 })
 export class HousingChargePlanEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
   @Column({ name: "lease_id", type: "uuid" })
   leaseId!: string;
 
@@ -124,6 +130,9 @@ export class HousingChargePlanEntity extends AuditableEntity {
 
 @Entity("biz_housing_receivable")
 export class HousingReceivableEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
   @Column({ name: "lease_id", type: "uuid" })
   leaseId!: string;
 
@@ -175,6 +184,21 @@ export class HousingReceivableEntity extends AuditableEntity {
 
 @Entity("biz_housing_ledger_entry")
 export class HousingLedgerEntryEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
+  @Column({ name: "approval_execution_key", type: "varchar", length: 128, nullable: true })
+  approvalExecutionKey!: string | null;
+
+  @Column({ name: "approval_effect_kind", type: "varchar", length: 128, nullable: true })
+  approvalEffectKind!: string | null;
+
+  @Column({ name: "approval_effect_line_key", type: "varchar", length: 160, nullable: true })
+  approvalEffectLineKey!: string | null;
+
+  @Column({ name: "approval_effect_hash", type: "char", length: 64, nullable: true })
+  approvalEffectHash!: string | null;
+
   @Column({ name: "lease_id", type: "uuid" })
   leaseId!: string;
 
@@ -218,6 +242,21 @@ export class HousingLedgerEntryEntity extends AuditableEntity {
   where: "is_deleted = false"
 })
 export class HousingHandoverEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
+  @Column({ name: "approval_execution_key", type: "varchar", length: 128, nullable: true })
+  approvalExecutionKey!: string | null;
+
+  @Column({ name: "approval_effect_kind", type: "varchar", length: 128, nullable: true })
+  approvalEffectKind!: string | null;
+
+  @Column({ name: "approval_effect_line_key", type: "varchar", length: 160, nullable: true })
+  approvalEffectLineKey!: string | null;
+
+  @Column({ name: "approval_effect_hash", type: "char", length: 64, nullable: true })
+  approvalEffectHash!: string | null;
+
   @Column({ name: "lease_id", type: "uuid" })
   leaseId!: string;
 
@@ -261,6 +300,9 @@ export class HousingHandoverEntity extends AuditableEntity {
   where: "is_deleted = false"
 })
 export class HousingPurchaseEntity extends AuditableEntity {
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
   @Column({ name: "purchase_code", type: "varchar", length: 64 })
   purchaseCode!: string;
 
