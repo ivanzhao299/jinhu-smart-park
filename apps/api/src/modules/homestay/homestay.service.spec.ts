@@ -23,6 +23,7 @@ import { HomestayBookingCommandService } from "./homestay-booking-command.servic
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayStayCommandService } from "./homestay-stay-command.service";
 import { HomestayTurnoverService } from "./homestay-turnover.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -64,16 +65,10 @@ test("direct homestay cancellation stops before a transaction for every principa
 
 test("homestay refund and waiver require waive plus approval-create before stop-ship", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
+  const service = new HomestayFinanceService(
     {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { transaction: async () => { transactionCalls += 1; } } as never
+    { transaction: async () => { transactionCalls += 1; } } as never,
+    new HomestayTransactionSupportService()
   );
   const deniedPrincipals = [
     actor,
@@ -133,21 +128,15 @@ test("homestay refund and waiver require waive plus approval-create before stop-
 
 test("direct homestay service keeps low-risk ledger entry types reachable", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayFinanceService(
     {} as never,
     {
       transaction: async () => {
         transactionCalls += 1;
         return "direct";
       }
-    } as never
+    } as never,
+    new HomestayTransactionSupportService()
   );
   const principal = {
     ...actor,

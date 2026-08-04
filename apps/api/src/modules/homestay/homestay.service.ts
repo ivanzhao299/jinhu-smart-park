@@ -1,7 +1,4 @@
 import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Optional
@@ -10,7 +7,6 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
-  PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
   type HomestayAvailabilityListResponse,
   type HomestayAvailabilityResponse,
@@ -24,19 +20,13 @@ import {
   type HomestayTurnoverListResponse,
   type HomestayUnitCandidateListResponse,
   type PropertyApprovalCommandPort,
-  type PropertyApprovalJsonValue,
   type TenantParkScope
 } from "@jinhu/shared";
 import {
   DataSource,
-  type EntityManager,
   type Repository,
   type SelectQueryBuilder
 } from "typeorm";
-import {
-  assertPropertyHighRiskActionApprovalRequired,
-  assertPropertyHighRiskActionPermissions
-} from "../../shared/property-workbench/property-high-risk-stopship";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
@@ -60,18 +50,8 @@ import type {
 } from "./dto/homestay.dto";
 import {
   HomestayBookingEntity,
-  HomestayLedgerEntryEntity,
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
-import {
-  formatHomestayMoney,
-  formatMoneyCents,
-  toMoneyCents
-} from "./homestay-booking.policy";
-import {
-  assertHomestayManualLedgerMutation,
-  summarizeHomestayLedger
-} from "./homestay-finance.policy";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
@@ -83,11 +63,14 @@ import {
 import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 import { HomestayStayCommandService } from "./homestay-stay-command.service";
 import { HomestayTurnoverService } from "./homestay-turnover.service";
+import {
+  HomestayFinanceService,
+  type HomestayApprovedFinanceInput
+} from "./homestay-finance.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import {
   projectHomestayBooking
 } from "./homestay-projections";
-import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 
 @Injectable()
 export class HomestayService {
@@ -110,12 +93,12 @@ export class HomestayService {
     private readonly workbenchQuery?: HomestayWorkbenchQueryService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
-    private readonly approvalCommands?: PropertyApprovalCommandPort,
+    _approvalCommands?: PropertyApprovalCommandPort,
     @Optional()
     private readonly identityVerifier?: PropertyIdentityVerificationService,
     @Optional()
     private readonly bookingQuery?: HomestayBookingQueryService,
-    private readonly transactionSupport: HomestayTransactionSupportService
+    _transactionSupport: HomestayTransactionSupportService
       = new HomestayTransactionSupportService(),
     @Optional()
     private readonly bookingCommands?: HomestayBookingCommandService,
@@ -124,7 +107,9 @@ export class HomestayService {
     @Optional()
     private readonly stayCommands?: HomestayStayCommandService,
     @Optional()
-    private readonly turnoverService?: HomestayTurnoverService
+    private readonly turnoverService?: HomestayTurnoverService,
+    @Optional()
+    private readonly financeService?: HomestayFinanceService
   ) {}
 
   async listUnitCandidates(
@@ -430,162 +415,11 @@ export class HomestayService {
     dto: RegisterHomestayLedgerEntryDto,
     clientKey = ""
   ) {
-    if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
-      assertPropertyHighRiskActionPermissions(actor, [SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
-        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE]);
-      if (!this.approvalCommands) { assertPropertyHighRiskActionApprovalRequired("homestay.finance.refund-or-waive");
-        throw new ConflictException("Property approval runtime is unavailable");
-      }
-    }
-    const requiredPermission = dto.entry_type === "waiver"
-      ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
-      : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER;
-    if (!this.hasPermission(actor, requiredPermission))
-      throw new ForbiddenException(`${requiredPermission} permission is required`);
-    return this.dataSource.transaction(async (manager) => {
-      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
-      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
-      if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
-        if (!dto.source_ledger_entry_id) {
-          throw new BadRequestException("source_ledger_entry_id is required for refund or waiver");
-        }
-        await this.transactionSupport.lockHomestayFinanceSourceKey(
-          manager, scope, bookingId, dto.source_ledger_entry_id
-        );
-        const lockedSource = await this.transactionSupport.lockHomestayFinanceSource(
-          manager, scope, bookingId, dto.source_ledger_entry_id
-        );
-        const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(
-          manager, scope, bookingId
-        );
-        await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
-          manager, scope, bookingId
-        );
-        assertHomestayManualLedgerMutation(
-          dto.entry_type, dto.amount, summarizeHomestayLedger(ledger)
-        );
-        const source = ledger.find((row) => row.id === dto.source_ledger_entry_id);
-        const expectedSourceType = dto.entry_type === "refund" ? "payment" : "charge";
-        if (!source || source.id !== lockedSource.id || source.version !== lockedSource.version
-          || source.currency !== lockedSource.currency || source.entryType !== expectedSourceType) {
-          throw new ConflictException(`${dto.entry_type} must reference a confirmed ${expectedSourceType} entry`);
-        }
-        const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
-          manager, scope, source, ledger, dto.entry_type
-        );
-        const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
-        if (remaining < 0n || toMoneyCents(dto.amount) > remaining) {
-          throw new ConflictException("Refund or waiver amount exceeds its source entry");
-        }
-        const amount = formatHomestayMoney(dto.amount);
-        return this.approvalCommands!.createPendingRequest(
-          { transactionContext: manager },
-          { contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION, scope,
-            actionId: "homestay.finance.refund-or-waive.request",
-            sourceType: "homestay-booking", sourceId: booking.id,
-            sourceExpectedVersion: booking.version, requesterId: actor.sub,
-            submitterId: actor.sub, actorId: actor.sub, clientKey,
-            businessIntentKey: `homestay-finance:${booking.id}:${booking.version}:${dto.entry_type}:${source.id}:${source.version}`,
-            canonicalPayload: { bookingId: booking.id, bookingExpectedVersion: booking.version,
-              reason: dto.reason.trim(), actorName: actor.realName?.trim() || actor.username,
-              lines: [{ entryType: dto.entry_type, sourceLedgerEntryId: source.id,
-                sourceExpectedVersion: source.version, sourceEntryType: source.entryType,
-                sourceAmount: source.amount, chargeType: dto.charge_type.trim(), amount,
-                currency: source.currency, paymentRecorderId: source.recordedBy,
-                allocatedAmount: formatMoneyCents(allocation.allocatedCents),
-                remainingAvailableBalance: formatMoneyCents(remaining),
-                allocationContributors: allocation.contributors }] },
-            payloadSchemaVersion: 1, amount, currency: source.currency }
-        );
-      }
-      const ledger = await manager.getRepository(HomestayLedgerEntryEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId,
-          status: "confirmed", isDeleted: false }
-      });
-      assertHomestayManualLedgerMutation(dto.entry_type, dto.amount, summarizeHomestayLedger(ledger));
-      return this.transactionSupport.createLedgerEntry(manager, scope, actor, bookingId, dto);
-    });
+    return this.mustFinance().registerLedgerEntry(scope, actor, bookingId, dto, clientKey);
   }
 
-  async executeApprovedFinance(input: { manager: EntityManager; requestId: string;
-    executionIdempotencyKey: string; canonicalPayload: Readonly<Record<string, unknown>>;
-    sourceExpectedVersion: number;
-    request: { tenantId: string; parkId: string; sourceId: string; requesterId: string } }): Promise<void> {
-    const payload = input.canonicalPayload; if (!Array.isArray(payload.lines) || payload.lines.length !== 1)
-      throw new ConflictException("Approval source changed");
-    const line = payload.lines[0] as Record<string, unknown>;
-    const bookingId = this.requiredApprovalUuid(payload.bookingId);
-    const sourceId = this.requiredApprovalUuid(line.sourceLedgerEntryId);
-    if (bookingId !== input.request.sourceId) throw new ConflictException("Approval source changed");
-    const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
-    const bookings = await input.manager.query(
-      `SELECT version,currency FROM biz_homestay_booking WHERE tenant_id=$1 AND park_id=$2
-        AND id=$3 AND is_deleted=false FOR UPDATE`, [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ version: number; currency: string }>;
-    await this.transactionSupport.lockHomestayFinanceSourceKey(
-      input.manager, scope, bookingId, sourceId
-    );
-    const lockedSource = await this.transactionSupport.lockHomestayFinanceSource(
-      input.manager, scope, bookingId, sourceId
-    );
-    const currentLedger = await this.transactionSupport.lockConfirmedHomestayLedger(
-      input.manager, scope, bookingId
-    );
-    const booking = bookings[0];
-    const source = currentLedger.find((row) => row.id === sourceId);
-    if (!booking || booking.version !== input.sourceExpectedVersion || !source
-      || source.id !== lockedSource.id || source.version !== lockedSource.version
-      || source.currency !== lockedSource.currency
-      || source.version !== Number(line.sourceExpectedVersion)
-      || source.entryType !== line.sourceEntryType || source.amount !== line.sourceAmount
-      || source.currency !== line.currency || booking.currency !== line.currency) {
-      throw new ConflictException("Approval source changed");
-    }
-    await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
-      input.manager, scope, bookingId
-    );
-    assertHomestayManualLedgerMutation(
-      String(line.entryType) as "refund" | "waiver",
-      String(line.amount),
-      summarizeHomestayLedger(currentLedger)
-    );
-    const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
-      input.manager, scope, source, currentLedger, String(line.entryType) as "refund" | "waiver"
-    );
-    const remaining = toMoneyCents(source.amount) - allocation.allocatedCents;
-    if (remaining < 0n
-      || formatMoneyCents(allocation.allocatedCents) !== line.allocatedAmount
-      || formatMoneyCents(remaining) !== line.remainingAvailableBalance
-      || propertyApprovalCanonicalHash(allocation.contributors as unknown as PropertyApprovalJsonValue)
-        !== propertyApprovalCanonicalHash(line.allocationContributors as PropertyApprovalJsonValue)
-      || toMoneyCents(String(line.amount)) > remaining) {
-      throw new ConflictException("Refund or waiver amount exceeds its source entry");
-    }
-    const manifests = await input.manager.query(
-      `SELECT effect_kind AS "effectKind",effect_line_key AS "effectLineKey",
-              invariant_hash AS "effectHash",line_amount::text AS "lineAmount",currency
-         FROM biz_property_execution_effect_manifest WHERE tenant_id=$1 AND park_id=$2
-          AND request_id=$3`, [scope.tenantId, scope.parkId, input.requestId]
-    ) as Array<{ effectKind: string; effectLineKey: string; effectHash: string;
-      lineAmount: string; currency: string }>;
-    const effect = manifests[0];
-    const entryType = String(line.entryType);
-    if (!effect || effect.effectKind !== `homestay.ledger.${entryType}`
-      || effect.lineAmount !== line.amount || effect.currency !== line.currency) {
-      throw new ConflictException("Approval effect manifest missing");
-    }
-    const inserted = await input.manager.query(
-      `INSERT INTO biz_homestay_ledger_entry(
-         tenant_id,park_id,booking_id,entry_type,charge_type,amount,currency,source_ledger_entry_id,
-         status,reason,occurred_at,create_by,update_by,approval_execution_key,
-         approval_effect_kind,approval_effect_line_key,approval_effect_hash)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,clock_timestamp(),$10,$10,$11,$12,$13,$14)
-       RETURNING id::text AS id`, [scope.tenantId, scope.parkId, bookingId, entryType,
-        String(line.chargeType), effect.lineAmount, effect.currency, sourceId,
-        String(payload.reason ?? ""), input.request.requesterId, input.executionIdempotencyKey,
-        effect.effectKind, effect.effectLineKey, effect.effectHash]
-    ) as Array<{ id: string }>;
-    if (inserted.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
+  async executeApprovedFinance(input: HomestayApprovedFinanceInput): Promise<void> {
+    return this.mustFinance().executeApprovedFinance(input);
   }
 
   async listTurnovers(
@@ -656,12 +490,9 @@ export class HomestayService {
     return this.turnoverService;
   }
 
-  private requiredApprovalUuid(value: unknown): string {
-    if (typeof value !== "string"
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-      throw new ConflictException("Approval payload is invalid");
-    }
-    return value;
+  private mustFinance(): HomestayFinanceService {
+    if (!this.financeService) throw new Error("Homestay finance service is unavailable");
+    return this.financeService;
   }
 
 }

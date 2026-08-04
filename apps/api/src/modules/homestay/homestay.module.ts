@@ -27,6 +27,7 @@ import { HomestayBookingCommandService } from "./homestay-booking-command.servic
 import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 import { HomestayStayCommandService } from "./homestay-stay-command.service";
 import { HomestayTurnoverService } from "./homestay-turnover.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
@@ -65,6 +66,7 @@ import {
     HomestayCancellationExecutorService,
     HomestayStayCommandService,
     HomestayTurnoverService,
+    HomestayFinanceService,
     HomestayTransactionSupportService,
     HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,

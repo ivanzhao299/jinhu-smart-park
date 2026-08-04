@@ -4,6 +4,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { HomestayService } from "./homestay.service";
 import { HomestayBookingCommandService } from "./homestay-booking-command.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 
 const scope: TenantParkScope = {
   tenantId: "10000000-0000-4000-8000-000000000001",
@@ -200,11 +201,10 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
     }
   };
   let request: Record<string, unknown> | undefined;
-  const service = new HomestayService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+  const service = new HomestayFinanceService(
     { assertAccess: async () => undefined } as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    undefined, undefined,
+    new HomestayTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       request = input;
       return input;

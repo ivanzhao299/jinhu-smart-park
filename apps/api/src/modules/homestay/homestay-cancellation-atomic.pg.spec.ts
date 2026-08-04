@@ -5,6 +5,7 @@ import { DataSource } from "typeorm";
 import { HomestayService } from "./homestay.service";
 import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -48,6 +49,11 @@ test("DEC-01 cancellation is atomic and DEC-02 counts direct plus mapped legacy 
     runner.query(sql, parameters);
   const support = new HomestayTransactionSupportService();
   const executor = new HomestayCancellationExecutorService(support);
+  const finance = new HomestayFinanceService(
+    {} as never,
+    {} as never,
+    support
+  );
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
     {} as never, {} as never, {} as never, undefined, undefined, undefined, undefined, undefined,
@@ -273,7 +279,7 @@ test("DEC-01 cancellation is atomic and DEC-02 counts direct plus mapped legacy 
           'uq_homestay_ledger_approval_line',1,60,'CNY',$5)`,
       [tenantId, parkId, ids.financeRequest, `ledger:refund:${ids.paymentSource}`, "e".repeat(64)]
     );
-    await assert.rejects(service.executeApprovedFinance({
+    await assert.rejects(finance.executeApprovedFinance({
       manager: { query } as never,
       requestId: ids.financeRequest,
       executionIdempotencyKey: financeExecutionKey,
