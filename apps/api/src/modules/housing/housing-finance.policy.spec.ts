@@ -171,7 +171,6 @@ test("housing service revalidates meter state and makes completed handover retri
   );
   assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
   assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
-  assert.match(service, /purchase\.payment_status <> 'refunded'/);
 });
 
 test("housing repair binds evidence under the same file-row lock transaction", () => {

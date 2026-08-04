@@ -17,6 +17,7 @@ import {
 } from "./entities/housing.entities";
 import { HousingController } from "./housing.controller";
 import { HousingService } from "./housing.service";
+import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
 import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 import { HousingApprovalAdapter } from "./housing-approval.adapter";
 import {
@@ -48,6 +49,7 @@ import {
   controllers: [HousingController],
   providers: [
     HousingService,
+    HousingDashboardQueryService,
     HousingWorkbenchQueryService,
     HousingApprovalAdapter,
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },

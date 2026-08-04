@@ -100,6 +100,7 @@ import {
   housingReceivableStatus
 } from "./housing-finance.policy";
 import { maskHousingCredential } from "./housing-projection.policy";
+import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
 
 type HousingLeaseDetailAccess = {
   tenant: boolean;
@@ -157,7 +158,9 @@ export class HousingService {
     private readonly dataScopeService: DataScopeService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
-    private readonly approvalCommands?: PropertyApprovalCommandPort
+    private readonly approvalCommands?: PropertyApprovalCommandPort,
+    @Optional()
+    private readonly dashboardQuery?: HousingDashboardQueryService
   ) {}
 
   async listTenants(
@@ -230,68 +233,11 @@ export class HousingService {
     return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
   }
 
-  async dashboard(scope: TenantParkScope, actor: JwtPrincipal) {
-    const unitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    const unitFilter = unitIds === null ? "" : unitIds.length ? " AND unit_id = ANY($3::uuid[])" : " AND false";
-    const leaseUnitFilter = unitIds === null ? "" : unitIds.length ? " AND lease.unit_id = ANY($3::uuid[])" : " AND false";
-    const purchaseUnitFilter = unitIds === null ? "" : unitIds.length ? " AND purchase.unit_id = ANY($3::uuid[])" : " AND false";
-    const params = unitIds === null ? [scope.tenantId, scope.parkId] : [scope.tenantId, scope.parkId, unitIds];
-    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
-    const canReadPurchases = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
-    const [leaseRows, financeRows, purchaseRows] = await Promise.all([
-      this.dataSource.query(
-        `SELECT status, count(*)::int AS count
-         FROM biz_housing_lease
-         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false${unitFilter}
-         GROUP BY status`,
-        params
-      ) as Promise<Array<{ status: string; count: number }>>,
-      canReadFinance ? this.dataSource.query(
-        `SELECT
-           coalesce(sum(amount),0)::text AS receivable,
-           coalesce(sum(paid_amount),0)::text AS paid,
-           coalesce(sum(waived_amount),0)::text AS waived
-         FROM biz_housing_receivable receivable
-         JOIN biz_housing_lease lease
-           ON lease.id=receivable.lease_id
-          AND lease.tenant_id=receivable.tenant_id
-          AND lease.park_id=receivable.park_id
-          AND lease.is_deleted=false
-         WHERE receivable.tenant_id=$1 AND receivable.park_id=$2
-           AND receivable.is_deleted=false AND receivable.status <> 'void'${leaseUnitFilter}`,
-        params
-      ) as Promise<Array<{ receivable: string; paid: string; waived: string }>> : Promise.resolve([]),
-      canReadPurchases ? this.dataSource.query(
-        `SELECT coalesce(sum(total_amount),0)::text AS cost
-         FROM biz_housing_purchase purchase
-         WHERE purchase.tenant_id=$1 AND purchase.park_id=$2
-           AND purchase.is_deleted=false AND purchase.approval_status='approved'
-           AND purchase.payment_status <> 'refunded'${purchaseUnitFilter}`,
-        params
-      ) as Promise<Array<{ cost: string }>> : Promise.resolve([])
-    ]);
-    const counts = Object.fromEntries(leaseRows.map((row) => [row.status, Number(row.count)]));
-    const finance = financeRows[0] ?? { receivable: "0", paid: "0", waived: "0" };
-    return {
-      draft_leases: counts.draft ?? 0,
-      pending_approval: counts.pending_approval ?? 0,
-      pending_signature: counts.pending_signature ?? 0,
-      active_leases: (counts.active ?? 0) + (counts.expiring ?? 0),
-      checkout_pending: counts.checkout_pending ?? 0,
-      ...(canReadFinance ? {
-        receivable_amount: formatHousingMoney(finance.receivable),
-        collected_amount: formatHousingMoney(finance.paid),
-        outstanding_amount: compareHousingMoney(
-          calculateHousingMoneyBalance([finance.receivable], [finance.paid, finance.waived]),
-          "0.00"
-        ) > 0
-          ? calculateHousingMoneyBalance([finance.receivable], [finance.paid, finance.waived])
-          : "0.00"
-      } : {}),
-      ...(canReadPurchases ? {
-        approved_purchase_cost: formatHousingMoney(purchaseRows[0]?.cost ?? "0")
-      } : {})
-    };
+  dashboard(scope: TenantParkScope, actor: JwtPrincipal) {
+    if (!this.dashboardQuery) {
+      throw new Error("HousingDashboardQueryService is not configured");
+    }
+    return this.dashboardQuery.dashboard(scope, actor);
   }
 
   async listLeases(
