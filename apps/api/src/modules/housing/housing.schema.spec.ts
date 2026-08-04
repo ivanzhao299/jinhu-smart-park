@@ -43,8 +43,8 @@ test("housing financial migration enforces one charge plan and non-overlapping p
 });
 
 test("housing billing locks its lease and rejects overlapping plan periods", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  assert.match(service, /const lease = await this\.mustTxSupport\(\)\.lockLease\(manager, scope, leaseId\)/);
+  const service = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  assert.match(service, /const lease = await this\.support\.lockLease\(manager, scope, leaseId\)/);
   assert.match(service, /receivable\.period_start < :periodEnd/);
   assert.match(service, /receivable\.period_end > :periodStart/);
   assert.doesNotMatch(service, /overlapping\.periodStart === dto\.period_start/);
@@ -53,12 +53,13 @@ test("housing billing locks its lease and rejects overlapping plan periods", () 
 test("housing final-state, attachment, meter, privacy, and purchase guards stay explicit", () => {
   const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
   const leaseCommands = readFileSync(resolve(__dirname, "housing-lease-command.service.ts"), "utf8");
-  assert.match(service, /this\.mustTxSupport\(\)\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
+  const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  assert.match(billingCommands, /this\.support\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
   assert.match(leaseCommands, /Final housing leases cannot accept new occupants/);
-  assert.match(service, /Final housing leases cannot change charge plans/);
+  assert.match(billingCommands, /Final housing leases cannot change charge plans/);
   assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
   assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
-  assert.match(service, /meter\.status !== "ONLINE"/);
+  assert.match(billingCommands, /meter\.status !== "ONLINE"/);
 
   assert.match(leaseCommands, /this\.support\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);
   assert.match(leaseCommands, /bizType: "housing_lease_signature"/);
@@ -66,8 +67,9 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
 
 test("housing billing and repair files preserve exact domain boundaries", () => {
   const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  assert.doesNotMatch(service, /Number\(plan\.amount/);
-  assert.match(service, /multiplyHousingMoneyByRatio\(/);
+  const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  assert.doesNotMatch(billingCommands, /Number\(plan\.amount/);
+  assert.match(billingCommands, /multiplyHousingMoneyByRatio\(/);
   assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
   assert.match(service, /bizType: "housing_repair"/);
   assert.match(service, /One or more repair attachments are already bound to a work order/);

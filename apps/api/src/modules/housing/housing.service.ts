@@ -35,7 +35,6 @@ import {
 } from "../../shared/property-workbench/property-high-risk-stopship";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { FileEntity } from "../files/entities/file.entity";
-import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
@@ -60,7 +59,6 @@ import type {
   UpsertHousingChargePlanDto
 } from "./dto/housing.dto";
 import {
-  HousingChargePlanEntity,
   HousingHandoverEntity,
   HousingLeaseEntity,
   HousingLedgerEntryEntity,
@@ -68,11 +66,7 @@ import {
   HousingPurchaseItemEntity,
   HousingReceivableEntity
 } from "./entities/housing.entities";
-import {
-  assertHousingBillingPeriodWithinLease,
-  calculateHousingMonthFractionRatio,
-  parseHousingCalendarDate
-} from "./housing-billing.policy";
+import { parseHousingCalendarDate } from "./housing-billing.policy";
 import {
   addHousingMoneyAmounts,
   applyHousingReceivableMutation,
@@ -80,11 +74,9 @@ import {
   assertHousingPurchaseTransferLeaseStatus,
   calculateHousingDepositBalance,
   calculateHousingMoneyBalance,
-  calculateHousingMeterCharge,
   calculateHousingPurchaseAmounts,
   compareHousingMoney,
   formatHousingMoney,
-  multiplyHousingMoneyByRatio,
 } from "./housing-finance.policy";
 import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
 import { HousingTenantService } from "./housing-tenant.service";
@@ -92,6 +84,7 @@ import { HousingLeaseQueryService } from "./housing-lease-query.service";
 import { HousingLeaseCommandService } from "./housing-lease-command.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingBillingCommandService } from "./housing-billing-command.service";
 
 type HousingCheckoutSnapshot = {
   lease: {
@@ -134,7 +127,9 @@ export class HousingService {
     @Optional()
     private readonly txSupport?: HousingTransactionSupportService,
     @Optional()
-    private readonly receivableWriter?: HousingReceivableWriterService
+    private readonly receivableWriter?: HousingReceivableWriterService,
+    @Optional()
+    private readonly billingCommands?: HousingBillingCommandService
   ) {}
 
   async listTenants(
@@ -334,67 +329,7 @@ export class HousingService {
     leaseId: string,
     dto: UpsertHousingChargePlanDto
   ) {
-    if (dto.billing_source === "fixed" && dto.amount === undefined) {
-      throw new BadRequestException("Fixed charge plan requires amount");
-    }
-    if (dto.billing_source === "energy_meter" && (!dto.meter_id || dto.unit_price === undefined)) {
-      throw new BadRequestException("Energy meter charge plan requires meter_id and unit_price");
-    }
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
-        await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-        if (["terminated", "void"].includes(lease.status)) {
-          throw new ConflictException("Final housing leases cannot change charge plans");
-        }
-        if (dto.billing_source === "energy_meter") {
-          const meter = await manager.getRepository(EnergyMeterEntity).findOne({
-            where: {
-              id: dto.meter_id!,
-              tenantId: scope.tenantId,
-              parkId: scope.parkId,
-              isDeleted: false
-            }
-          });
-          if (!meter) throw new NotFoundException("Energy meter not found");
-          this.assertHousingMeterOnline(meter);
-          if (meter.roomId !== lease.unitId) {
-            throw new BadRequestException("Energy meter must belong to the housing lease unit");
-          }
-        }
-        const repository = manager.getRepository(HousingChargePlanEntity);
-        const existing = await repository.findOne({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            leaseId,
-            chargeType: dto.charge_type,
-            isDeleted: false
-          }
-        });
-        const plan = existing ?? repository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId,
-          chargeType: dto.charge_type,
-          createBy: actor.sub
-        });
-        plan.billingSource = dto.billing_source;
-        plan.cycleMonths = dto.cycle_months;
-        plan.amount = dto.billing_source === "fixed" ? formatHousingMoney(dto.amount!) : null;
-        plan.unitPrice = dto.billing_source === "energy_meter" ? dto.unit_price! : null;
-        plan.meterId = dto.billing_source === "energy_meter" ? dto.meter_id! : null;
-        plan.enabled = dto.enabled;
-        plan.updateBy = actor.sub;
-        plan.remark = dto.remark ?? null;
-        return repository.save(plan);
-      });
-    } catch (error) {
-      if (this.mustTxSupport().isUniqueViolation(error)) {
-        throw new ConflictException("Charge plan already exists for this lease and charge type");
-      }
-      throw error;
-    }
+    return this.mustBillingCommands().saveChargePlan(scope, actor, leaseId, dto);
   }
 
   async generateBills(
@@ -403,85 +338,7 @@ export class HousingService {
     leaseId: string,
     dto: GenerateHousingBillsDto
   ) {
-    this.mustTxSupport().assertDatePeriod(dto.period_start, dto.period_end);
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-      assertHousingBillingPeriodWithinLease(dto.period_start, dto.period_end, lease.startDate, lease.endDate);
-      const plan = await manager.getRepository(HousingChargePlanEntity).findOne({
-        where: {
-          id: dto.charge_plan_id,
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId,
-          enabled: true,
-          isDeleted: false
-        }
-      });
-      if (!plan) throw new NotFoundException("Enabled charge plan not found");
-      const overlapping = await manager.getRepository(HousingReceivableEntity)
-        .createQueryBuilder("receivable")
-        .setLock("pessimistic_write")
-        .where("receivable.tenant_id = :tenantId", { tenantId: scope.tenantId })
-        .andWhere("receivable.park_id = :parkId", { parkId: scope.parkId })
-        .andWhere("receivable.lease_id = :leaseId", { leaseId })
-        .andWhere("receivable.charge_plan_id = :chargePlanId", { chargePlanId: plan.id })
-        .andWhere("receivable.is_deleted = false")
-        .andWhere("receivable.status <> 'void'")
-        .andWhere("receivable.period_start < :periodEnd", { periodEnd: dto.period_end })
-        .andWhere("receivable.period_end > :periodStart", { periodStart: dto.period_start })
-        .getOne();
-      if (overlapping) {
-        throw new ConflictException("Billing period overlaps an existing receivable for this charge plan");
-      }
-      const meter = plan.billingSource === "energy_meter"
-        ? await manager.getRepository(EnergyMeterEntity).findOne({
-            where: {
-              id: plan.meterId!,
-              tenantId: scope.tenantId,
-              parkId: scope.parkId,
-              isDeleted: false
-            }
-          })
-        : null;
-      if (plan.billingSource === "energy_meter") {
-        if (!meter) throw new NotFoundException("Energy meter not found");
-        this.assertHousingMeterOnline(meter);
-        if (meter.roomId !== lease.unitId) {
-          throw new BadRequestException("Energy meter must belong to the housing lease unit");
-        }
-      }
-      const calculation = this.calculateBillAmount(plan, dto, lease.startDate, meter);
-      const firstRentReceivable = plan.chargeType === "rent"
-        ? await manager.getRepository(HousingReceivableEntity).findOne({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            leaseId,
-            chargeType: "rent",
-            isDeleted: false
-          }
-        })
-        : null;
-      return [await this.mustReceivableWriter().create(manager, scope, actor, lease, {
-        chargePlanId: plan.id,
-        sourceType: plan.billingSource,
-        sourceId: plan.meterId,
-        chargeType: plan.chargeType,
-        periodStart: dto.period_start,
-        periodEnd: dto.period_end,
-        dueDate: plan.chargeType === "rent" && !firstRentReceivable
-          ? lease.firstDueDate
-          : this.dueDateForPeriod(dto.period_start, lease.billingDay),
-        amount: calculation.amount,
-        openingReading: dto.opening_reading,
-        closingReading: dto.closing_reading,
-        usageAmount: calculation.usageAmount,
-        unitPrice: plan.unitPrice ?? undefined,
-        remark: dto.reason
-      })];
-    });
+    return this.mustBillingCommands().generateBills(scope, actor, leaseId, dto);
   }
 
   async registerLedger(
@@ -2455,42 +2312,6 @@ export class HousingService {
     }
   }
 
-  private calculateBillAmount(
-    plan: HousingChargePlanEntity,
-    dto: GenerateHousingBillsDto,
-    leaseStartDate: string,
-    meter: EnergyMeterEntity | null
-  ) {
-    if (plan.billingSource === "manual") {
-      if (dto.manual_amount === undefined) throw new BadRequestException(`Manual amount is required for ${plan.chargeType}`);
-      return { amount: dto.manual_amount, usageAmount: undefined };
-    }
-    if (plan.billingSource === "energy_meter") {
-      if (dto.opening_reading === undefined || dto.closing_reading === undefined) {
-        throw new BadRequestException(`Meter readings are required for ${plan.chargeType}`);
-      }
-      const calculation = calculateHousingMeterCharge(
-        dto.opening_reading,
-        dto.closing_reading,
-        meter?.multiplier ?? "0",
-        plan.unitPrice ?? "0"
-      );
-      return calculation;
-    }
-    const monthFraction = calculateHousingMonthFractionRatio(dto.period_start, dto.period_end, leaseStartDate);
-    if (monthFraction.numerator > BigInt(plan.cycleMonths) * monthFraction.denominator) {
-      throw new BadRequestException(`Billing period exceeds configured ${plan.cycleMonths}-month cycle for ${plan.chargeType}`);
-    }
-    return {
-      amount: multiplyHousingMoneyByRatio(
-        plan.amount ?? "0",
-        monthFraction.numerator,
-        monthFraction.denominator
-      ),
-      usageAmount: undefined
-    };
-  }
-
   private applyReceivableEntry(receivable: HousingReceivableEntity, dto: RegisterHousingLedgerEntryDto) {
     const result = applyHousingReceivableMutation(
       receivable.amount,
@@ -2519,18 +2340,6 @@ export class HousingService {
       .getExists();
   }
 
-  private assertHousingMeterOnline(meter: EnergyMeterEntity): void {
-    if (!meter.isEnabled || meter.status !== "ONLINE") {
-      throw new ConflictException("Energy meter must be enabled and ONLINE");
-    }
-  }
-
-  private dueDateForPeriod(periodStart: string, billingDay: number) {
-    const date = parseHousingCalendarDate(periodStart);
-    date.setUTCDate(Math.min(billingDay, 28));
-    return date.toISOString().slice(0, 10);
-  }
-
   private mustLeaseCommands() {
     if (!this.leaseCommands) throw new Error("HousingLeaseCommandService is not configured");
     return this.leaseCommands;
@@ -2544,6 +2353,11 @@ export class HousingService {
   private mustReceivableWriter() {
     if (!this.receivableWriter) throw new Error("HousingReceivableWriterService is not configured");
     return this.receivableWriter;
+  }
+
+  private mustBillingCommands() {
+    if (!this.billingCommands) throw new Error("HousingBillingCommandService is not configured");
+    return this.billingCommands;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string) {

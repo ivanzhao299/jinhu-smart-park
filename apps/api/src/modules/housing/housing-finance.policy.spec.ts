@@ -162,8 +162,12 @@ test("receivable reuse includes the source identity used by the database uniquen
 test("housing service revalidates meter state and makes completed handover retries side-effect free", () => {
   const servicePath = resolve(__dirname, "housing.service.ts");
   const service = readFileSync(servicePath, "utf8");
+  const billing = readFileSync(
+    resolve(__dirname, "housing-billing-command.service.ts"),
+    "utf8"
+  );
 
-  assert.match(service, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
+  assert.match(billing, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
   assert.match(service, /if \(handover\?\.status === "completed"\) \{/);
   assert.ok(
     service.indexOf('if (handover?.status === "completed") {')

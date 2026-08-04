@@ -72,6 +72,45 @@ test("HousingService lease commands are facade-only delegations", async () => {
   ]);
 });
 
+test("HousingService billing commands are facade-only delegations", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const billingCommands = {
+    async saveChargePlan(...args: unknown[]) {
+      calls.push({ action: "saveChargePlan", args });
+      return "plan";
+    },
+    async generateBills(...args: unknown[]) {
+      calls.push({ action: "generateBills", args });
+      return ["bill"];
+    }
+  };
+  const service = new HousingService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    billingCommands as never
+  );
+  const planDto = { charge_type: "rent" } as never;
+  const billDto = { charge_plan_id: "plan-1" } as never;
+
+  assert.equal(await service.saveChargePlan(scope, actor, "lease-1", planDto), "plan");
+  assert.deepEqual(await service.generateBills(scope, actor, "lease-1", billDto), ["bill"]);
+  assert.deepEqual(calls, [
+    { action: "saveChargePlan", args: [scope, actor, "lease-1", planDto] },
+    { action: "generateBills", args: [scope, actor, "lease-1", billDto] }
+  ]);
+});
+
 test("direct housing pure high-risk actions stop before a transaction for every principal class", async () => {
   let transactionCalls = 0;
   const dataSource = {
