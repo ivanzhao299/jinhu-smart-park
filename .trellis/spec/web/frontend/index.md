@@ -48,6 +48,18 @@ Reference files:
 - `apps/web/lib/authz.ts`
 - `apps/web/lib/auth-context.tsx`
 
+## Stateful Business Action Entries
+
+An action-labelled list control must perform or resume that action; it must not merely preload
+detail and hide the real transition behind a second button. Model pending/overdue, in-progress,
+and terminal states explicitly: safety inspection “执行” starts pending/overdue tasks in one
+click, “继续执行” restores in-progress context, and completed tasks expose no execution action.
+
+Action context must come from an endpoint owned and authorized by that action. Do not load a
+template/item administration endpoint to assemble an inspection execution form. Protect rapid
+clicks with a synchronous ref lock in addition to rendered disabled state, and publish a
+successful transition before optional list refreshes so a refresh failure cannot erase success.
+
 ## Permissions And Modules
 
 Use `PermissionGuard` and `PermissionButton` for permission-gated UI instead of open-coding permission checks in JSX. Use shared constants from `@jinhu/shared` where available.

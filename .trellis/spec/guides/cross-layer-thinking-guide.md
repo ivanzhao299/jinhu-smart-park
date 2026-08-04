@@ -176,6 +176,12 @@ action against every state and sibling entry point before implementation:
       apply the same data scope as the mutation, and return the labels needed by the
       selector in one projection; the browser must not join several unrelated
       read-permission endpoints to make an authorized action reachable
+- [ ] An action-labelled control performs or resumes the named transition in one
+      interaction. If it only opens read-only context, label it as view/detail;
+      do not hide the real transition behind a second action with the same meaning
+- [ ] Action context responses include the owning aggregate's minimum child data
+      under the action capability. They do not borrow management-read permissions
+      from another route, and they revalidate target ownership/data scope server-side
 - [ ] Candidate pagination is an integer-only, server-bounded contract before SQL
       `skip`/`take`; defaults do not substitute for an explicit maximum
 - [ ] Historical financial candidates remain reachable when a current reference is

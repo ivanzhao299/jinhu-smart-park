@@ -108,6 +108,19 @@ Reference files:
 
 Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictException`, `NotFoundException`, etc.) from services. Do not return ad hoc error objects from controllers or services.
 
+## Business Action Context Endpoints
+
+An authorized business action must receive its minimum execution context from the owning
+aggregate. Do not require the browser to join an unrelated management endpoint whose read
+permission is not part of the action contract. For safety inspection execution,
+`GET /safety/inspect-tasks/:id/execution` is authorized by the task start/check-in/result
+permissions, revalidates that the actor can execute the target task, and returns the enabled
+template items together with the task. Ordinary task detail remains a read-only projection.
+
+Lifecycle action entry points must distinguish start, resume, and reject states. A repeated
+start request for an already in-progress inspection returns the current execution projection
+without writing a second transition or audit log; terminal states remain rejected.
+
 ## Scenario: Candidate Catalog Matches Write-Side Resolution
 
 ### 1. Scope / Trigger

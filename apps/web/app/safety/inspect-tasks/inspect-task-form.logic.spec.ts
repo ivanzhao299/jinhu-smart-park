@@ -8,8 +8,17 @@ import {
   normalizeFileIdInput,
   normalizeFileIdProjection,
   normalizeNumericInput,
-  normalizeRecordArrayProjection
+  normalizeRecordArrayProjection,
+  resolveInspectTaskExecutionEntry
 } from "./inspect-task-form.logic";
+
+test("inspection execution entry starts, resumes, or hides by lifecycle status", () => {
+  assert.equal(resolveInspectTaskExecutionEntry("10"), "start");
+  assert.equal(resolveInspectTaskExecutionEntry("40"), "start");
+  assert.equal(resolveInspectTaskExecutionEntry("20"), "resume");
+  assert.equal(resolveInspectTaskExecutionEntry("30"), "hidden");
+  assert.equal(resolveInspectTaskExecutionEntry("unexpected"), "hidden");
+});
 
 test("inspection execution ignores responses from an older request generation", () => {
   assert.equal(isCurrentRequestGeneration(2, 2), true);
@@ -22,6 +31,22 @@ test("inspection execution ignores responses from an older request generation", 
     source.indexOf("applyTemplateItems(detail.data.items, detail.data.results)")
       < source.indexOf("setViewing(detail.data)")
   );
+});
+
+test("inspection execution is a single guarded business action with task-owned items", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+  const openExecute = source.slice(
+    source.indexOf("async function openExecute"),
+    source.indexOf("function applyTemplateItems")
+  );
+
+  assert.match(openExecute, /executionActionLock\.current/);
+  assert.match(openExecute, /\/safety\/inspect-tasks\/\$\{task\.id\}\/start/);
+  assert.match(openExecute, /applyTemplateItems\(task\.items, task\.results\)/);
+  assert.doesNotMatch(openExecute, /inspect-templates/);
+  assert.doesNotMatch(source, />\s*开始任务\s*</);
+  assert.match(source, /taskDetailEndpoint\(mode, row\.id\)/);
+  assert.match(openExecute, /taskExecutionEndpoint\(mode, row\.id\)/);
 });
 
 test("successful inspection submission is published before optional refresh reads", () => {

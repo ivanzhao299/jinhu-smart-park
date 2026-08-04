@@ -26,6 +26,7 @@ import { SafetyHazardEntity } from "./entities/safety-hazard.entity";
 import { SafetyInspectTaskResultEntity } from "./entities/safety-inspect-task-result.entity";
 import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
 import { resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
+import { resolveSafetyInspectTaskStartDisposition } from "./safety-inspect-task-execution.logic";
 
 const TASK_STATUS_PENDING = "10";
 const TASK_STATUS_IN_PROGRESS = "20";
@@ -113,16 +114,21 @@ export class SafetyInspectTasksService {
       throw new ForbiddenException("Only task handler can view this inspect task");
     }
     const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
-    const items = await this.itemsRepository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, templateId: entity.templateId, isDeleted: false, status: "enabled" },
-      order: { sortNo: "ASC", createTime: "ASC" }
-    });
+    const items = await this.loadExecutionItems(scope, entity.templateId);
     return Object.assign(securedTask, { items });
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<SafetyInspectTaskEntity> {
     const entity = await this.findOne(scope, id, actor);
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+  }
+
+  async executionDetail(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<MySafetyInspectTaskDetail> {
+    const entity = await this.findOne(scope, id, actor);
+    this.assertCanExecute(entity, actor);
+    const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+    const items = await this.loadExecutionItems(scope, entity.templateId);
+    return Object.assign(securedTask, { items });
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateSafetyInspectTaskDto): Promise<SafetyInspectTaskEntity> {
@@ -297,10 +303,14 @@ export class SafetyInspectTasksService {
     };
   }
 
-  async start(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<SafetyInspectTaskEntity> {
+  async start(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<MySafetyInspectTaskDetail> {
     const task = await this.findOne(scope, id, actor);
     this.assertCanExecute(task, actor);
-    if (![TASK_STATUS_PENDING, TASK_STATUS_OVERDUE].includes(task.status)) {
+    const disposition = resolveSafetyInspectTaskStartDisposition(task.status);
+    if (disposition === "resume") {
+      return this.executionDetail(scope, task.id, actor);
+    }
+    if (disposition === "reject") {
       throw new BadRequestException("Only pending or overdue inspect tasks can be started");
     }
     const beforeStatus = task.status;
@@ -318,7 +328,7 @@ export class SafetyInspectTasksService {
         content: "开始巡检任务"
       });
     });
-    return this.detail(scope, task.id, actor);
+    return this.executionDetail(scope, task.id, actor);
   }
 
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: CheckInSafetyInspectTaskDto): Promise<SafetyInspectTaskEntity> {
@@ -554,6 +564,13 @@ export class SafetyInspectTasksService {
     if (task.handlerId !== actor.sub) {
       throw new ForbiddenException("Only task handler can execute this inspect task");
     }
+  }
+
+  private loadExecutionItems(scope: TenantParkScope, templateId: string): Promise<SafetyInspectItemEntity[]> {
+    return this.itemsRepository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, templateId, isDeleted: false, status: "enabled" },
+      order: { sortNo: "ASC", createTime: "ASC" }
+    });
   }
 
   private async findPlan(scope: TenantParkScope, id: string): Promise<SafetyInspectPlanEntity> {

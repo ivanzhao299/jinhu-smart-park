@@ -1,0 +1,5 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web route, permissions, business action entry, and verification rules"}
+{"file":".trellis/spec/web/frontend/file-upload-and-form-controls.md","reason":"Execution form projection normalization and constrained controls"}
+{"file":".trellis/spec/api/backend/index.md","reason":"API permission, response, state transition, and action context contracts"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Cross-layer lifecycle and permission capability analysis"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing task detail and projection normalizers"}

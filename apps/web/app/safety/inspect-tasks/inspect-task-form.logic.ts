@@ -8,6 +8,14 @@ export interface RecordArrayProjection<T> {
   value: T[];
 }
 
+export type InspectTaskExecutionEntry = "start" | "resume" | "hidden";
+
+export function resolveInspectTaskExecutionEntry(status: string): InspectTaskExecutionEntry {
+  if (status === "10" || status === "40") return "start";
+  if (status === "20") return "resume";
+  return "hidden";
+}
+
 export function isCurrentRequestGeneration(requestGeneration: number, activeGeneration: number): boolean {
   return requestGeneration === activeGeneration;
 }
