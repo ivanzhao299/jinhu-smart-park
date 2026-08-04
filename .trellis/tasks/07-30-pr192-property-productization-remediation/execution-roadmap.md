@@ -49,43 +49,25 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 | 业务页面整改 | 已完成 | 民宿 8 个、住房 9 个工作台及对应详情页已拆分并接入权限菜单 |
 | 自动化验收执行 | 已完成 | API 91/91、Web 类型检查/静态检查/154 页面构建、数据库证据和独立多轮 Gate 均通过，`open_P0_P1=[]` |
 | Track B B-0 合同与数据库扩展 | 已重新关闭 | 终局 3 fresh PG16 独立门禁通过；current B-contract-v2 `e27d5234…7944`、49-row endpoint authority、Identity 行为与 000185–000190 已签署，`B-schema-expand SHA=53e568…6874`、`open_P0_P1=[]`、cleanup PASS |
-| Track B B-1 审批运行时 | 已完成 | 三方 B-AR4 与 composition 独立门禁通过；冻结 50 文件 runtime，`open_P0_P1=[]`；下一阶段为 B-2a，Track B 整体仍进行中 |
-| Track B B-2a 任务运行时 | 已完成（PASS / CLOSED） | C1.5、C2、000195、C3、C4、runtime/callsite、AppModule 与 13-action legacy compatibility 均已签署；纠正版 combined signoff `e61f39d9…c633` 经双独立复审 `P0/P1/P2=0`，仅释放 B-2b |
-| Track B B-2b 扩展测试数据 | 已完成（PASS / CLOSED） | 唯一正式 run `c2v11_formal_20260802l` 通过双 fresh PostgreSQL、可重复 fixture、11 个负向场景、四阶段冻结与 exact cleanup；架构和 QA 独立复审 GO，`P0/P1/P2=0`，已释放 B-2c |
-| Track B B-2c 领域接入 | **IN_PROGRESS / 000197 前向恢复因真实旧索引合同漂移 RETURNED** | G/H attempt02 已成功将两个专属库写入 000195 并固化只读证据。独立 PG regression v4 已创建专属无端口 PG16 容器并首次运行；其 `pg_dump` 基线恢复后的旧索引目录摘要与 000197 权威哈希不一致，在预检失败且未运行故障注入或 000197。旧 run/resource/evidence 已封存、禁止重试；须以迁移字节直建的新基线和新 runId 重签 DB/QA/resource Gate |
-| 外部人工 UAT | 未开始 | 等待 Track B 技术通过和隔离验收环境 |
-| 生产就绪 | 未开始 | 必须等待 Track A、B、C 技术结果和人工签署 |
+| Track B B-1 审批运行时 | 已完成 | 三方 B-AR4 与 composition 独立门禁通过；冻结 50 文件 runtime，`open_P0_P1=[]`；结果已被 Track B 终门消费 |
+| Track B B-2a 任务运行时 | 已完成（PASS / CLOSED） | C1.5、C2、000195、C3、C4、runtime/callsite、AppModule 与 13-action legacy compatibility 均已签署；纠正版 combined signoff `e61f39d9…c633` 经双独立复审 `P0/P1/P2=0` |
+| Track B B-2b 扩展测试数据 | 已完成（PASS / CLOSED） | 唯一正式 run `c2v11_formal_20260802l` 通过双 fresh PostgreSQL、可重复 fixture、11 个负向场景、四阶段冻结与 exact cleanup；架构和 QA 独立复审 GO，`P0/P1/P2=0` |
+| Track B 技术交付与 Chrome UAT | 已完成（PASS / ARCHIVED） | 000197、000191/000192、领域集成、迁移恢复演练、共享控制面及完整 Chrome UAT 均已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务于 2026-08-04 归档 |
+| Track C 架构与可靠性 | 进行中 | C1/C2 技术实现、代码质量、统一隔离 PostgreSQL 与 clean-provision 已通过；正式 30-cell 性能矩阵仍在真实运行；Chrome 增量 15/15 因宿主 local-file-URI 环境在插件执行前 BLOCKED |
+| 外部人工 UAT 与签署 | 阻塞（`awaiting_human_gate`） | Track B 的机器 Chrome UAT 已完成，但真实岗位、业务、财务、安全/审计及发布负责人尚未验收或签署，Codex 不代签 |
+| 生产就绪 | 阻塞（`awaiting_human_gate`） | 必须等待 Track C 技术终门、真人 UAT 和外部签署；当前不得声明 `codex_complete` 或 `production_ready` |
 
-当前结论：**Track A 技术交付已完成。shared、民宿与住房 API、数据库权限迁移、
-共享 Web 基础、17 个 canonical 页面、7 个详情页、Party canonical target、菜单与
-自动化门禁均已闭合，`open_P0_P1=[]`。按用户决定，真实 desktop/390、键盘及
-zoom/reflow 验收暂不执行，作为外部 UAT 待办保留；该项不阻塞 Track B，但仍是
-生产就绪签署前必须完成的证据。Track B B-0 已经终局 3 fresh PG16 独立门禁
-重新关闭，合同、49-row endpoint authority、schema/catalog 与 Identity 行为证据
-均已签署，`open_P0_P1=[]`、cleanup PASS。B-0.5 已重新执行真实 S0 HTTP+PG16 和
-consumed-handoff Gate，`open_P0_P1=[]`。B-1 审批运行时已通过三方 B-AR4 和独立
-composition Gate；B-2c current approval sidecar 为 `30168511…f589`，历史 v1
-`79691e…2270d` 仅保留审计，`open_P0_P1=[]`。
-B-2a 已通过纠正版 combined final signoff 正式关闭：C4 正式 run
-`b2ac4_runtime_formal_v13_20260801l` 完成 `93/93`、跨操作矩阵 `73/73` 与十项独立证明；
-runtime/callsite 和 AppModule 单文件装配均已签署。C1.5 mandatory P2 由唯一正式 run
-`b2ac3_legacy_compat_formal_20260801c` 关闭，38 个本地规格 `240/240`、3 个 PostgreSQL
-规格 `23/23`、十三条 legacy action 的 `117/117` port 前后精确比较和专属资源清理全部
-PASS。superseding combined signoff SHA 为 `e61f39d9…c633`，双独立复审
-`P0/P1/P2=0`。B-2b 的 module-core 前置门禁已以真实 PostgreSQL 16.14、质量命令、
-四阶段输入冻结和 exact cleanup 通过，正式 `B-module-core SHA=988eb7e5…93df`。
-B-extension 正式 artifact SHA 为 `1156a307…7487`，双独立复审 `P0/P1/P2=0`，
-B-2b 已关闭并释放 B-2c 预检。B-2c 的审批命令/投影端口代码、任务 registry composition、
-service-level stop-ship 与权限声明均已通过双独立门禁；approval runtime v4 仍为
-`SCHEMA-BLOCKED / PG NOT RUN`。000197 v10 C/D formal 因 helper 失败保留，v11-v5 E/F
-formal 因 stale `source_domain` / `action` 失败并保留，且该 runId 不可复用；v11-v6 DDL
-修复仅完成静态候选。G/H run `b2c197_prelim_20260802g` 的两个专属空库已创建；attempt01
-因外层 EPERM 失败且 loader=0、不可复用，attempt02 的 Database/QA GO 已通过，但 outer
-escalation 在 `CreateProcess` 前被权限审查拒绝，root 仍 absent、数据库写入为 0，必须
-等待用户明确批准 G/H 写入。PG regression v4 双审已 GO，但资源 `create=false`、执行
-`execute=false`；仍须获批创建专属临时 PostgreSQL authority 并执行。两项真实 DB Gate
-成功后，才可重封 formal 候选、取得新 3-GO 并执行 old-writer drain；000191/000192、
-B-3、B-4、B-5 继续 blocked。因此 Track B 尚未完成，Track C 也尚未开始。**
+当前结论：**Track A 与 Track B 的技术交付均已完成。Track B 最终 Chrome UAT 覆盖
+民宿、住房、共享控制面、权限正负向、桌面与 768/390/360/320、键盘/读屏、
+200%/400% zoom/reflow、reduced-motion、forced-colors、通知已读、DLQ replay 与审批重试，
+全矩阵 PASS、产品 P0/P1=0、无跳过；其 Trellis 子任务已经归档，不得重复执行或重复
+归档。Track C 已完成 C1/C2 实现、复杂度/合同/全量 API、统一隔离 PostgreSQL 与
+clean-provision 门禁，产品 `open_P0_P1=[]`；C3 的真实 30-cell 正式性能矩阵仍在运行，
+尚未形成最终性能结论和清理复核。Track C Chrome 增量 15/15 在插件执行前因宿主
+`sandboxCwd` local-file-URI 错误 BLOCKED，登记环境 P1
+`C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS，也不得将其误报为产品 P1。
+外部真人岗位 UAT 与业务/财务/安全/发布签署仍为 `awaiting_human_gate`。因此父任务继续
+`in_progress`，当前既不声明 `codex_complete`，也不声明 `production_ready`。**
 
 ## 5. Track A：页面、菜单与权限整改
 
@@ -132,10 +114,10 @@ Track B 在 Track A 技术通过后进行，补齐共享房产控制面、身份
 | B-1 审批运行时核心 | 已完成（PASS / CLOSED） | 审批运行时负责人；财务、安全、架构和故障测试参与 | B-0 完成；共享房产接口稳定 | 50 文件 runtime 已冻结；三方 B-AR4 与 composition 独立门禁 PASS；`open_P0_P1=[]`；全量 `pnpm test` 因环境缺 `JWT_SECRET` 未登记为 PASS | [B-1 最终门禁与交接](../07-30-pr192-b-approval-runtime-tasks/research/b1-approval-runtime-final-gate.md) | 2026-07-31 | 2026-07-31 |
 | B-2a 任务运行时核心 | 已完成（PASS / CLOSED） | 房产任务负责人；审批、领域和并发测试参与 | B-1 审批运行时已交付 | C1.5/C2/000195/C3/C4、legacy `117/117` compatibility、runtime/callsite 与 AppModule 均签署；superseding combined signoff 双复审 `P0/P1/P2=0`，仅释放 B-2b | [B-2a 纠正版最终签署](../07-30-pr192-b-approval-runtime-tasks/research/b2a-combined-final-signoff-superseding-20260801c.md) | 2026-08-01 | 2026-08-01 |
 | B-2b B 扩展测试数据 | 已完成（PASS / CLOSED） | module-dependency-owner、自动化测试负责人、迁移核对负责人 | 三个 runtime 已交付；独立 `B-module-core SHA=988eb7e5…93df` 已 handoff | 双 fresh PostgreSQL 下首次写入、精确 no-op、零残留回滚、同 snapshot 重建、A 基础数据不变及 exact cleanup 全部通过；`P0/P1/P2=0` | [B-extension 最终签署](../07-30-pr192-b-domain-integrations/research/b-extension-core-v1-final-signoff.md) | 2026-08-01 | 2026-08-02 |
-| B-2c 民宿与住房领域接入 | **IN_PROGRESS / 000197 DB 门禁未执行完成** | approval/task runtime owners、schema-migration-owner、property-foundation-api-owner、民宿/住房 API owners、最终装配负责人 | B-2b 已完成；代码门禁已 GO；G/H attempt02 须先获用户写入批准，PG regression v4 须先获专属临时资源 authority；随后重封 formal/new 3-GO/drain，才可预约 000191/000192 | 共享 property mode/release adapter 先独立通过；随后民宿入住、住房租赁、财务和采购等高风险动作接入统一审批与任务能力；业务结果只发生一次；domain API migration 修改数为零 | [当前 authority 与进度索引](../07-30-pr192-b-domain-integrations/research/b2c-current-authority-locator-v1.md) | 2026-08-02 | — |
-| B-3 领域 Web 集成 | 未开始 | 共享房产、民宿、住房 Web 负责人；UI、交互、测试参与 | B-2c 完成 | identity 顶层 list/detail 与 Party deep-link、notification list/detail、event-delivery incident list/detail、approval incident list/detail 和双域 slot 完成；event replay 与 approval retry 权限隔离，并具备 320/360/390/768/desktop、keyboard、screen reader、200%/400% zoom/reflow、forced-colors 机器证据 | [待补：B Web 集成证据](../07-30-pr192-b-domain-integrations/) | 待排期 | — |
-| B-4 迁移、核对与恢复演练 | 未开始 | 迁移核对、自动化测试、兼容性测试负责人 | B-3 完成并形成领域交付 | 旧数据迁移前后零差异；崩溃、重复、乱序、回滚和重新启用均通过；输出最终核对证据 | [待补：迁移与核对证据](../07-30-pr192-b-integration-reconcile/) | 待排期 | — |
-| B-5 Track B 技术验收 | 未开始 | 独立安全、财务、架构审查者 | B-0 至 B-4 完成 | 身份、审批、任务、财务一次性、兼容和恢复全部通过；无未关闭 P0/P1；形成 Track B 技术交付 | 待补：Track B 技术验收报告 | 待排期 | — |
+| B-2c 民宿与住房领域接入 | 已完成（PASS / CLOSED） | approval/task runtime owners、schema-migration-owner、property-foundation-api-owner、民宿/住房 API owners、最终装配负责人 | B-2b 已完成 | 000197 与 000191/000192 change-control、领域 adapter、审批/任务 runtime、一次性业务结果及技术 Gate 均完成，历史失败仅保留审计 | [领域集成技术 Gate](../archive/2026-08/07-30-pr192-b-domain-integrations/research/b2c-domain-integration-technical-gate-handoff-v2-20260803.md) | 2026-08-02 | 2026-08-03 |
+| B-3 领域 Web 集成 | 已完成（PASS） | 共享房产、民宿、住房 Web 负责人；UI、交互、测试参与 | B-2c 完成 | identity、notification、event-delivery incident、approval incident 及双域页面完成；最终 Chrome 覆盖 320/360/390/768/desktop、keyboard、screen reader、200%/400% zoom/reflow、reduced-motion、forced-colors | [Chrome UAT handoff](../archive/2026-08/07-30-pr192-b-domain-integrations/research/d5-browser-uat-20260804-handoff.md) | 2026-08-04 | 2026-08-04 |
+| B-4 迁移、核对与恢复演练 | 已完成（PASS） | 迁移核对、自动化测试、兼容性测试负责人 | B-3 完成并形成领域交付 | PostgreSQL 身份基础、运行控制、回滚/重新启用及最终质量门均有可复查证据，技术产品 P0/P1=0 | [归档任务元数据](../archive/2026-08/07-30-pr192-b-domain-integrations/task.json) | 2026-08-04 | 2026-08-04 |
+| B-5 Track B 技术验收 | 已完成（PASS / ARCHIVED） | 独立安全、财务、架构审查者 | B-0 至 B-4 完成 | 代码、数据库、自动化与真实 Chrome 全矩阵通过；产品 P0/P1=0、无跳过；Trellis 子任务已归档 | [归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) | 2026-08-04 | 2026-08-04 |
 
 Track B 技术通过后，高风险生产开关仍保持关闭，直到外部人工 UAT 和生产就绪评审
 完成。
@@ -147,11 +129,11 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 
 | 阶段 | 状态 | 负责人 / 参与角色 | 前置条件 | 完成标准 | 证据链接 | 计划日期 | 实际日期 |
 |---|---|---|---|---|---|---|---|
-| C-0 接管确认与现状基线 | 未开始 | 架构负责人、民宿/住房原负责人、共享 Web 负责人、测试 | Track B 技术交付；相关路径完成明确交接 | 每个改动路径只有一个负责人；原负责人停止写入后才接管；现有行为和已知问题均有记录 | [待补：接管记录](../07-30-pr192-c-architecture-reliability/) | 待排期 | — |
-| C-1 后端职责拆分 | 未开始 | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | 对外接口和业务结果不变；重复依赖和双写被移除；每个小批次可独立回退 | 待补：后端拆分与回归证据 | 待排期 | — |
-| C-2 前端、弱网与上传可靠性 | 未开始 | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | 草稿按用户和园区隔离并按期清理；敏感资料不离线保存；上传状态明确；弱网不会自动重复提交业务动作 | 待补：弱网、草稿与上传证据 | 待排期 | — |
-| C-3 性能、复杂度与证据 | 未开始 | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | 固定环境下的性能结果可重复；页面与服务复杂度达标；证据带版本、时间、结果和清理记录 | 待补：性能与质量证据 | 待排期 | — |
-| C-4 独立技术复审 | 未开始 | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 外部合同无未批准变化；没有双实现；回退演练成功；无未关闭 P0/P1 | 待补：Track C 技术验收报告 | 待排期 | — |
+| C-0 接管确认与现状基线 | 已完成 | 架构负责人、民宿/住房原负责人、共享 Web 负责人、测试 | Track B 技术交付；相关路径完成明确交接 | ownership、合同与离线路径输入已冻结 | [Track C 任务](../07-30-pr192-c-architecture-reliability/) | 2026-08-04 | 2026-08-04 |
+| C-1 后端职责拆分 | 已完成（技术 PASS） | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | HomestayService 498 行、HousingService 488 行；职责拆分为原子提交，合同 SHA 不变，独立复审产品 `open_P0_P1=[]` | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
+| C-2 前端、弱网与上传可靠性 | 已完成（技术 PASS） | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | C1/C2 技术实现已完成；全量 API 966 PASS / 13 条件 skip / 0 fail，统一隔离 PostgreSQL 5/5 PASS / 0 skip | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
+| C-3 性能、复杂度与证据 | 进行中 | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | complexity 已 PASS；E 轮在 23 个完整 PASS cell 后被外部会话终止并以 residual=0 清理，不能计为正式 PASS；fresh project F 已按 `b994d163` clean provision 并完整重跑 30-cell，须等待 executor 终态、阈值/证据 Gate 与资源清理复核 | [Track C 实施计划](../07-30-pr192-c-architecture-reliability/implement.md) | 2026-08-04 | — |
+| C-4 独立技术复审 | 进行中 | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 代码/合同/PG 独立复审已通过；仍须独立复核 30-cell 最终证据及清理，并诚实保留 Chrome 环境 P1 | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | — |
 
 ## 8. 外部人工 UAT
 
@@ -233,6 +215,8 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | 2026-08-02 | 进行中 | B-2c approval port 合同重签为 `5ceaf6db…a4a55`；shared v3 `fa76110b…2eb6` 与 runtime v4 `4c8ea26d…d5ae` 的代码、单元和 PostgreSQL suite 设计均双独立 GO，`P0/P1/P2=0` | 保持 `SCHEMA-BLOCKED / PG NOT RUN`；先完成 000197 预约与独立迁移 Gate，再运行 approval PG Gate 并发布 current authority | [Approval runtime v4 handoff](../07-30-pr192-b-domain-integrations/research/b2c-approval-port-runtime-implementation-v4-handoff.md) | emvia / Codex |
 | 2026-08-02 | 已失败 / 已封存 | 000197 preliminary run `b2c197_prelim_20260802a` 在 A/B 完成迁移、索引/谓词、状态矩阵、故障注入与 exact history 后，于 target A approval-port PG child 非零退出；stdout/TAP 未持久化，root cause 保持 UNKNOWN；FAILED artifact `452507c7…244b`，A/B 无 residue 并永久退出 absent retry | 修复所有子进程 throw 前证据持久化及 run-scoped、try/finally、幂等清理 PG fixture；全新 exact chain 双审后申请新 runId、新容器/卷和新授权；A/B 只用于 later-apply | [FAILED disposition](../07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-failed-disposition-b2c197_prelim_20260802a.json) | emvia / Codex |
 | 2026-08-02 | 进行中 | 用户已授权后，G/H attempt02 在外层提权下唯一执行成功：两个专属库到 000195、全部证据 `0444`、无清理/无重试。独立 regression v4 已创建无端口 PG16+匿名卷并唯一执行，但 `pg_dump 16.14` 基线恢复的旧索引目录哈希为 `97c69e… / 8d3c44…`，不同于 000197 权威 `89d630… / d47740…`；预检 fail-closed，故障注入与 000197 均未运行，旧 run 不可复用 | 新候选必须以冻结迁移字节直接构建基线，增加恢复后目录证明，以新 runId/容器/卷重新取得 DB、QA、resource Gate；之后才可重封 formal candidate、取得新 3-GO、执行 drain。Track B/C 均未完成 | [v4 失败独立复审](../07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-pg-regression-v4-preflight-failure-independent-database-review-20260802.grammar) | emvia / Codex |
+| 2026-08-04 | 已完成 | Track B 后续前向迁移、领域集成、恢复控制、最终质量门及真实 Chrome UAT 已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务已归档 | 不重复执行或归档 Track B；按父任务顺序推进 Track C | [Track B 归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) | emvia / Codex |
+| 2026-08-04 | 进行中 | Track C C1/C2、复杂度、合同、全量 API、统一隔离 PostgreSQL 与 clean-provision 已通过；E 轮正式矩阵在 23/30 后外部中断、partial evidence 保留且 residual=0；F 轮已从同一受控 profile 完整重跑；Chrome 增量 15/15 因宿主 local-file-URI 环境 BLOCKED | 等待 F 轮自然完成，复核阈值、manifest、secret 与资源清理；不得拼接 E/F 证据；保留环境 P1，随后更新 Track C 技术结论 | [Track C 任务](../07-30-pr192-c-architecture-reliability/) | emvia / Codex |
 
 ## 11. 风险、决策与阻塞记录
 
@@ -262,11 +246,27 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 |---|---|---|---|---|---|---|---|---|
 | BLOCK-待编号 | YYYY-MM-DD | 待填写 | Track ? | 待填写 | 待填写 | YYYY-MM-DD | 开放/已解除 | 待补 |
 | BLOCK-B-2A-C2-001 | 2026-08-01 | full-b timeout P1 与 full-c cleanup 竞态曾阻断 C2 | B-2a C3/C4 | v12d 自动完成有界 cleanup 并证明 exact container/volume 全 absent；根代理复算与三方独立签署 `open_P0_P1=[]` | Codex | 2026-08-01 | 已解除（仅释放 C3） | [B-2a C2 最终签署](../07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-final-gate-signoff-v12d.md) |
-| BLOCK-B-2C-197-001 | 2026-08-02 | 已解除写入授权阻塞，但 regression v4 首次真实预检发现旧索引目录摘要与 000197 权威合同不一致；fail-closed 后 run/resource 均不可复用 | B-2c / 000197 | 不得放宽 000197 哈希或重试旧 run；以迁移字节直建新基线，冻结恢复后目录证明，并以新 runId/资源重做独立 DB、QA、resource Gate | Codex | 2026-08-02 | 开放 | [v4 失败独立复审](../07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-pg-regression-v4-preflight-failure-independent-database-review-20260802.grammar) |
+| BLOCK-B-2C-197-001 | 2026-08-02 | regression v4 曾因旧索引目录摘要漂移 fail-closed | B-2c / 000197 | 以新资源完成后续前向恢复、技术 Gate 和最终 Chrome UAT | Codex | 2026-08-04 | 已解除 | [Track B 归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) |
+| C-P1-CHROME-HOST-ENVIRONMENT | 2026-08-04 | Track C Chrome 增量在插件执行前被 `sandboxCwd is not a local file URI` 宿主错误阻断，15/15 BLOCKED、截图 0 | C-4 / Chrome 增量证据 | 修复或提供 Chrome 插件可接受的 Windows 本地工作目录后原样重跑；不得以应用内浏览器、Playwright、CDP 或注入证据替代 | Codex / Chrome 宿主环境 | 待环境变化 | 开放（环境 P1，产品 P1=0） | `D:/lishuai/JinhuWork/智慧园区UAT测试/2026-08-04/12-track-c-reliability-delta` |
 
 ## 12. 下一步
 
-下一立即动作：
+当前权威顺序（2026-08-04）：
+
+1. 不重复执行或重复归档 Track B；其技术 Gate、Chrome UAT 与 Trellis 归档均已完成。
+2. 让 Track C 的真实 30-cell 正式性能矩阵自然完成，不缩短、不合成；executor 退出后
+   复核 30 个 cell、阈值、manifest/hash、secret 检查及 container/network/volume/file
+   清理残留。
+3. 由非实施者独立复核 Track C 最终性能证据。只有性能与清理 Gate 通过时，才更新
+   C3/C4 结论；Chrome 增量继续如实保留
+   `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造浏览器 PASS。
+4. 根据 Track C PRD 的关闭条件决定保持 `in_progress` 或归档；父任务在此期间保持
+   `in_progress`，不得提前声明 `codex_complete`。
+5. 外部真人岗位 UAT、业务/财务/安全/发布签署继续由
+   `07-30-pr192-human-uat-production-readiness` 承载，状态为
+   `awaiting_human_gate`；这些签署不能由 Codex 代替，未完成前不得声明生产就绪。
+
+以下为 2026-08-02 及更早的历史执行链，已由上述权威顺序取代，仅保留审计：
 
 1. 保持 `pr192-a-contract-rbac-foundation` 为进行中。
 2. 使用 2026-07-30 冻结的 contract/server-safety baseline

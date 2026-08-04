@@ -677,3 +677,21 @@ superuser、wildcard 和旧客户端字符串 `force=true` 均无法绕过，`fo
 Response/Exception 链和隔离 PostgreSQL 16；六张 mode/occupancy/audit/idempotency/
 outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增量均为 0。临时容器
 和匿名卷已清理。S0 放行后进入 S1 shared/schema handoff，不直接跳过到 B-1。
+
+## 18. 2026-08-04 当前执行状态
+
+- [x] Track A 技术交付完成。
+- [x] Track B 技术交付、最终 Chrome 全矩阵 UAT 与 Trellis 归档完成；产品 P0/P1=0，
+  无跳过。不得重复执行或重复归档 Track B。
+- [x] Track C C1/C2 技术实现、合同/复杂度、全量 API、统一隔离 PostgreSQL 与
+  clean-provision Gate 通过；产品 `open_P0_P1=[]`。
+- [ ] Track C C3：E 轮在 23 个完整 PASS cell 后因外部 executor 终止而作废，partial
+  evidence 已保留且官方 cleanup residual=0；fresh project F 已按 `b994d163` 完整重跑
+  30-cell。须等待 executor 终态，复核每个 cell、阈值、证据 hash/manifest、secret 检查
+  及全部资源清理，不得拼接 E/F 证据。
+- [ ] Track C C4：性能证据须由非实施者独立复核；Chrome 增量 15/15 因宿主
+  `sandboxCwd` local-file-URI 错误在插件执行前 BLOCKED，保留环境 P1
+  `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS 或误报为产品缺陷。
+- [ ] 外部真人岗位 UAT 与业务、财务、安全/审计、发布签署仍为
+  `awaiting_human_gate`。父任务保持 `in_progress`；当前不得声明
+  `codex_complete` 或 `production_ready`。

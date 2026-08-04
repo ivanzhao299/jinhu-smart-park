@@ -59,7 +59,14 @@ Human UAT 未完成不是 Entry blocker。
   canonical park 修复 `11e96674` 与显式 page parent 修复 `c651c963`；两个 contract targeted
   gate 均 PASS。第五个隔离 project `jinhu-track-c-perf-20260804e` 的首次 provision/strict、
   第二次完整 seed 幂等（permission/grant count、ID 与 semantic hash 稳定）、25/25、bundle
-  16/125、52/52、越权 0 与 check-config 30 runs 均 PASS；正式 30-cell 已真实启动。
+  16/125、52/52、越权 0 与 check-config 30 runs 均 PASS。E 轮 executor 在第 23 个完整
+  PASS cell 落盘后被外部会话终止，未形成 `formal-evidence.json` 或 executor cleanup，故该轮
+  明确不具备 PASS 资格；23 个 raw cell 原样保留，并以 `aborted-run-cleanup.json`
+  （SHA `6a6a0326a84ad4384cea46ca8b111fd6886fb0f83c7e03afd9433d3e6efce331`）记录
+  external termination 与官方 cleanup residual=0。随后 fresh project
+  `jinhu-track-c-perf-20260804f` 按候选 `b994d163` 重新 clean provision，strict baseline 与
+  check-config 30 runs 均 PASS；完整 30-cell 已通过 `nohup` + `setsid` 脱离短会话重新启动，
+  权威 run 为 `2026-08-04T14-40-17-484Z-b994d1630791`，不得与 E 轮 23 个 cell 拼接。
   正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。

@@ -33,6 +33,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Track A technical delivery is complete: A-2.5 shared/Homestay/Housing/RBAC, 17 canonical pages, 7 detail routes, Party target and machine gates passed with open_P0_P1=[]. Real browser validation is deferred to external UAT by user decision and was not executed. Parent remains in progress for Track B, Track C and production readiness.",
+  "notes": "2026-08-04 execution sync: Track A and Track B technical delivery are complete. Track B final Chrome UAT passed the full matrix with product P0/P1=0 and no skips; its child task is archived under archive/2026-08. Track C C1/C2 implementation, code quality, PostgreSQL and clean-provision gates have passed with product open_P0_P1=[]. Performance project E was externally terminated after 23 complete passing cells, is ineligible for PASS, and was preserved/cleaned with residual=0; fresh commit-bound project F is running the full 30-cell matrix without evidence splicing. The Track C Chrome delta is 15/15 BLOCKED before extension execution by host sandboxCwd local-file-URI environment item C-P1-CHROME-HOST-ENVIRONMENT, not by a product defect. Parent remains in_progress: do not claim codex_complete or production_ready, and do not substitute for external human UAT/business/finance/security/release signatures; production_readiness_status remains awaiting_human_gate.",
   "meta": {}
 }
