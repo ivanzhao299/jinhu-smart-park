@@ -54,6 +54,13 @@ test("compose definition fixes all formal resources and isolates state", () => {
   const compose = readFileSync(resolve(import.meta.dirname, "compose.formal.yml"), "utf8");
   for (const marker of ["cpus: 1", "cpus: 2", "mem_limit: 1g", "mem_limit: 2g", "mem_limit: 4g", "${PROPERTY_PERF_PROJECT_NAME}-postgres-data", "PROPERTY_PERF_DATASET_DUMP", "track_io_timing=on"]) assert.match(compose, new RegExp(marker.replace(/[${}]/gu, "\\$&"), "u"));
   assert.doesNotMatch(compose, /jinhu_uat_20260804|jinhu-smart-park-postgres/u);
-  const control = readFileSync(resolve(import.meta.dirname, "environment-control.sh"), "utf8");
-  for (const command of ["db-migrate.sh", "db-seed-prod.sh", "bootstrap-admin.sh", "check-init-baseline.sh", "pg_restore"]) assert.match(control, new RegExp(command, "u"));
+  const control = compose.slice(compose.indexOf("  control:"));
+  for (const marker of [
+    "FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/performance-control-files",
+    'AUTH_SMS_FIXED_CODE: ""',
+    'AUTH_SMS_CODE_VISIBLE: "false"',
+    'AUTH_WECHAT_MOCK_ENABLED: "false"'
+  ]) assert.match(control, new RegExp(marker, "u"));
+  const environmentControl = readFileSync(resolve(import.meta.dirname, "environment-control.sh"), "utf8");
+  for (const command of ["db-migrate.sh", "db-seed-prod.sh", "bootstrap-admin.sh", "check-init-baseline.sh", "pg_restore"]) assert.match(environmentControl, new RegExp(command, "u"));
 });

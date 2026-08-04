@@ -144,6 +144,10 @@ services:
       PROPERTY_PERF_SECRET_DIR: ${PROPERTY_PERF_SECRET_DIR:?generated secret directory is required}
       POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB}
       POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
+      FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/performance-control-files
+      AUTH_SMS_FIXED_CODE: ""
+      AUTH_SMS_CODE_VISIBLE: "false"
+      AUTH_WECHAT_MOCK_ENABLED: "false"
       ADMIN_USERNAME: ${PROPERTY_PERF_USERNAME:?performance username is required}
       ADMIN_NAME: ${PROPERTY_PERF_ADMIN_NAME:?performance display name is required}
       TENANT_ID: "10000001"
