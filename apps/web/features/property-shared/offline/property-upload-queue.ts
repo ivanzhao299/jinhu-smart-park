@@ -6,7 +6,7 @@ export interface PropertyUploadContext {
   userId: string;
   bizType: string;
   bizId: string;
-  entityVersion: number;
+  entityVersion: string;
 }
 
 export interface PropertyUploadQueueItem {

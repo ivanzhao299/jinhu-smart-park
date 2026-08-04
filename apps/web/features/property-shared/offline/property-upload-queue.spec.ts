@@ -11,7 +11,7 @@ import {
 
 const context: PropertyUploadContext = {
   tenantId: "tenant-a", parkId: "park-a", userId: "user-a",
-  bizType: "housing_repair", bizId: "lease-a", entityVersion: 3
+  bizType: "housing_repair", bizId: "lease-a", entityVersion: "sha256:version-3"
 };
 
 test("offline image queue requires explicit consent and rejects sensitive business types", () => {
@@ -29,7 +29,7 @@ test("queued blob expires after two hours and is bound to entity version", () =>
   assert.equal(item.expiresAt, now + PROPERTY_UPLOAD_BLOB_TTL_MS);
   assert.equal(isPropertyUploadQueueItemUsable(item, context, item.expiresAt - 1), true);
   assert.equal(isPropertyUploadQueueItemUsable(item, context, item.expiresAt), false);
-  assert.throws(() => assertPropertyUploadSubmissionContext(item, { ...context, entityVersion: 4 }, now));
+  assert.throws(() => assertPropertyUploadSubmissionContext(item, { ...context, entityVersion: "sha256:version-4" }, now));
   assert.throws(() => preparePropertyUploadRecovery(item, context, false, now));
   assert.equal(preparePropertyUploadRecovery(item, context, true, now), item);
   assert.throws(() => preparePropertyUploadRecovery(item, { ...context, parkId: "park-b" }, true, now));

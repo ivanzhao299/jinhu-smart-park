@@ -16,6 +16,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { MutationFeedback } from "./HousingFormPrimitives";
 import styles from "./HousingWorkbench.module.css";
+import { housingLeaseProjectionVersion } from "./housing-offline-version";
 import { loadHousingLeases } from "./housing-picker-loaders";
 import {
   deletePendingFile,
@@ -92,7 +93,7 @@ function useHousingRepairLease(
   setMessage: (message: string) => void
 ) {
   const [lease, setLease] = useState<RemoteEntityOption | null>(null);
-  const [leaseVersion, setLeaseVersion] = useState<number | null>(null);
+  const [leaseVersion, setLeaseVersion] = useState<string | null>(null);
   const leaseSelection = useRef<string | null>(null);
   const user = useAuthUser();
   const offlineQueueContext: FileUploaderOfflineContext | undefined = user && leaseVersion !== null
@@ -117,11 +118,9 @@ function useHousingRepairLease(
     }
   }
 
-  async function resolveCurrentLeaseVersion(): Promise<number> {
+  async function resolveCurrentLeaseVersion(): Promise<string> {
     if (!lease) throw new Error("关联租约已变化");
-    const version = await loadLeaseVersion(lease.id);
-    if (version === null) throw new Error("当前租约缺少实体版本，不能恢复临时图片");
-    return version;
+    return loadLeaseVersion(lease.id);
   }
 
   function clearLease() {
@@ -131,13 +130,12 @@ function useHousingRepairLease(
   return { clearLease, lease, offlineQueueContext, resolveCurrentLeaseVersion, selectLease };
 }
 
-async function loadLeaseVersion(leaseId: string): Promise<number | null> {
+async function loadLeaseVersion(leaseId: string): Promise<string> {
   const detail = await apiRequest<HousingLeaseDetailResponse>(
     `/housing/leases/${encodeURIComponent(leaseId)}`,
     { token: getAccessToken() }
   );
-  const version = (detail.data.lease as HousingLeaseDetailResponse["lease"] & { version?: unknown }).version;
-  return typeof version === "number" && Number.isInteger(version) && version >= 0 ? version : null;
+  return housingLeaseProjectionVersion(detail.data.lease);
 }
 
 function RepairCreateView(props: {
@@ -145,7 +143,7 @@ function RepairCreateView(props: {
   fileCapability: ReturnType<PropertyCapabilityProjection["fileCapability"]>; files: FileRecord[];
   lease: RemoteEntityOption | null; message: string; onFiles(value: FileRecord[]): void;
   offlineQueueContext?: FileUploaderOfflineContext;
-  resolveCurrentEntityVersion(): Promise<number>;
+  resolveCurrentEntityVersion(): Promise<string>;
   onLease(value: RemoteEntityOption | null): Promise<void>; onRemove(id: string): Promise<void>;
   onSubmit(event: FormEvent<HTMLFormElement>): void; onUploading(value: boolean): void;
   removing: boolean; submitting: boolean; uploading: boolean;
@@ -162,7 +160,7 @@ function RepairCreateView(props: {
         {props.lease && props.fileCapability.canUpload ? <FileUploader bizId={props.lease.id}
           bizType="housing_repair" compact disabled={locked} label="上传现场图片"
           offlineQueueContext={props.offlineQueueContext}
-          offlineQueueUnavailableReason={props.offlineQueueContext ? undefined : "当前租约缺少实体版本，离线图片暂存已安全关闭"}
+          offlineQueueUnavailableReason={props.offlineQueueContext ? undefined : "正在建立租约版本校验，离线图片暂存暂不可用"}
           resolveCurrentEntityVersion={props.resolveCurrentEntityVersion}
           onUploaded={(file) => props.onFiles([...props.files, file])}
           onUploadingChange={props.onUploading} policyKey="image" /> : null}

@@ -28,7 +28,7 @@ export interface FileUploaderOfflineContext {
   tenantId: string;
   parkId: string;
   userId: string;
-  entityVersion: number;
+  entityVersion: string;
 }
 
 interface FileUploaderProps {
@@ -44,7 +44,7 @@ interface FileUploaderProps {
   onUploaded: (file: FileRecord) => void;
   offlineQueueContext?: FileUploaderOfflineContext;
   offlineQueueUnavailableReason?: string;
-  resolveCurrentEntityVersion?: () => Promise<number>;
+  resolveCurrentEntityVersion?: () => Promise<string>;
 }
 
 export function FileUploader({
