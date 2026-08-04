@@ -21,23 +21,29 @@ Human UAT 未完成不是 Entry blocker。
 ## 1.1 执行状态（2026-08-04）
 
 - B technical base：`f4797adf`，Entry Gate 已满足。
-- C2 scoped offline reliability：`38c433d3` 已提交；非敏感草稿 24h TTL、
-  tenant/park/user/module/permission scope、logout/401 cleanup、敏感字段 fail-closed，
-  以及现场图片队列的显式同意/2h TTL/context binding 契约已落地。首个真实消费者为
-  `/homestay/bookings` 创建草稿表单；上传恢复生产接入仍在执行，不能标记 PASS。
-- C2 frontend cleanup：`c0678d18` 已提交；`HomestayListClient` 从 451 行降到
-  233 行，请求/筛选状态已抽成独立 hook，相关契约 7/7 PASS。
-- C1 Housing dashboard closure：`88033a9a` 已提交；Dashboard 行为测试 6/6、
-  Housing suite 99 PASS / 2 PostgreSQL conditional skip。下一 tenant/party closure 执行中。
-- C1 Homestay dashboard/availability closure：`7ab44df4` 已提交；targeted 39/39、
-  Homestay suite 87 PASS / 3 PostgreSQL conditional skip。下一 rates closure 执行中。
-- C3 machine gates：`17641fde` 已提交；自测 10/10，contract snapshot PASS，
-  complexity Gate 在修复住房 dashboard complexity 21 后已 PASS。
-- C3 formal performance：**NOT RUN / NOT PASS**。正式执行器和固定资源环境仍需完成；
-  验收器会对缺失的 30 个矩阵单元、2m warmup、10m formal、10k samples、资源遥测
-  与 cleanup proof fail closed。
-- 当前 Track C：`in_progress`；不得归档，不得将 machine-gate self-test 等同于
-  formal performance evidence。
+- C1 Homestay 已按单 closure 提交 dashboard/availability、rates、booking read、
+  transaction support、booking command、stay/credential/guest 与 turnover；当前最新 SHA
+  为 `b19e00c3`，`HomestayService` 已由 2564 行降至 667 行。最后 finance closure 正在
+  执行；达到 domain service `<=650` 前不能标记 C1 PASS。
+- C1 Housing 已按单 closure 提交 dashboard、tenant/party、lease read、lease command、
+  billing 与 finance/deposit；当前最新 SHA 为 `32fb5d2e`，`HousingService` 为 2145 行。
+  handover/repair 与 purchase 仍在执行；达到 domain service `<=650` 前不能标记 C1 PASS。
+- C2 frontend/offline 已提交基础 SHA `38c433d3`、`c0678d18`、`92d062fa`、
+  `c7c0eb51`。独立可靠性复审重新打开 2 个 P1：住房队列初始化窗口 fail-open，以及
+  上传队列未持久化 `remark` 导致同幂等 key 恢复 fingerprint 漂移。返修正在执行，
+  当前 `open_P0=0`、`open_P1=2`，因此 C2 **NOT PASS**。
+- C3 machine gates：`17641fde`、`cd8ee7d8`、`b414aee0` 已提交；contract 与 complexity
+  当前 PASS，正式性能执行器和隔离固定资源环境的自测通过。现有 UAT 容器因无资源限制、
+  共享数据库/挂载且无 browser worker，已被正式审计拒绝用于性能验收。
+- C3 formal performance：**NOT RUN / NOT PASS**。仍缺 30 个矩阵单元（2 scenarios x
+  concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
+  完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
+- Track C Chrome 新切片：当前 WSL task 在任何 Chrome 扩展代码执行前被
+  `sandboxCwd is not a local file URI: file:///home/jinhuit/...` 拦截。不得以应用内浏览器、
+  Playwright 或 Computer Use 代替。既有 2026-08-04 Track B 全矩阵 UAT 仍保留且不重复，
+  但不能冒充 Track C 新增离线/上传界面复验。
+- 当前 Track C：`in_progress`；不得归档，不得将 machine-gate self-test、既有 Track B
+  Chrome UAT 或环境健康检查等同于 Track C technical PASS。
 
 ## 2. Subagent Batches
 
