@@ -28,6 +28,19 @@ test("inspection detail projections secure nested results with their own field p
   assert.match(projection, /results: securedResults/);
 });
 
+test("inspection result writes preserve omitted protected values", () => {
+  const submit = source.slice(
+    source.indexOf("async submitResults"),
+    source.indexOf("private scopedBuilder", source.indexOf("async submitResults"))
+  );
+
+  assert.match(submit, /resolveSubmittedOptionalValue\(/);
+  assert.match(submit, /existingResult\.valueText/);
+  assert.match(submit, /existingResult\.valueNumber/);
+  assert.match(submit, /resolvedValueText/);
+  assert.match(submit, /lock: \{ mode: "pessimistic_write" \}/);
+});
+
 test("inspection start decides the transition while holding the task row lock", () => {
   const start = source.slice(
     source.indexOf("async start("),

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  buildEditableResultValuePayload,
   buildFileIdReplacement,
   isCurrentRequestGeneration,
   normalizeFileIdInput,
@@ -138,6 +139,18 @@ test("inspection result payloads omit unavailable evidence and retain explicit r
   });
 });
 
+test("inspection result payloads omit protected values and preserve explicit clearing", () => {
+  assert.deepEqual(buildEditableResultValuePayload("masked", false, "123", false), {});
+  assert.deepEqual(buildEditableResultValuePayload("", true, "", true), {
+    value_text: null,
+    value_number: null
+  });
+  assert.deepEqual(buildEditableResultValuePayload(" replacement ", true, "12.5", true), {
+    value_text: "replacement",
+    value_number: 12.5
+  });
+});
+
 test("inspection result photos use their independent field-policy entity", () => {
   const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
 
@@ -148,6 +161,16 @@ test("inspection result photos use their independent field-policy entity", () =>
   );
   assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && photoProjection\.available/);
   assert.doesNotMatch(source, /photoFileIdsAvailable: canViewTaskPhotos && photoProjection\.available/);
+});
+
+test("inspection result values use edit field policies and omit protected payload fields", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+
+  assert.match(source, /canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText"\)/);
+  assert.match(source, /canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber"\)/);
+  assert.match(source, /buildEditableResultValuePayload\(/);
+  assert.match(source, /disabled=\{!input\.valueTextEditable\}/);
+  assert.match(source, /disabled=\{!input\.valueNumberEditable\}/);
 });
 
 test("inspection execution accepts only finite numeric GPS projections", () => {

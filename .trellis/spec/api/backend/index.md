@@ -129,6 +129,10 @@ it back through a context guard whose state predicate may now reject the already
 Nested result collections are independent field-policy entities: every task detail/action projection
 must apply `safety.inspect_task_result` policies to each result before attaching it to a parent whose
 own `inspect_task` policy is necessarily shallow.
+For partial result writes, an omitted protected optional field means preserve the stored value;
+explicit `null` means clear it. Finish-time validation must evaluate the resolved stored/submitted
+value under the result-row write lock so a hidden field neither corrupts concurrent edits nor
+falsely fails an abnormal-result requirement.
 
 ## Scenario: Candidate Catalog Matches Write-Side Resolution
 

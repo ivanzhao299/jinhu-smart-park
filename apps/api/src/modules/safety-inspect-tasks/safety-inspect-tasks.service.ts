@@ -25,7 +25,7 @@ import { SafetyActionLogEntity } from "./entities/safety-action-log.entity";
 import { SafetyHazardEntity } from "./entities/safety-hazard.entity";
 import { SafetyInspectTaskResultEntity } from "./entities/safety-inspect-task-result.entity";
 import { SafetyInspectTaskEntity } from "./entities/safety-inspect-task.entity";
-import { resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
+import { resolveSubmittedOptionalValue, resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
 import { resolveSafetyInspectTaskStartDisposition } from "./safety-inspect-task-execution.logic";
 
 const TASK_STATUS_PENDING = "10";
@@ -458,15 +458,10 @@ export class SafetyInspectTasksService {
         throw new BadRequestException("result item_id must belong to current inspect task template");
       }
       await this.assertDictValue(scope, "safety_inspect_item_result", result.result);
-      await this.assertFiles(scope, result.photo_file_ids ?? []);
-      if (finishTask && result.result === TASK_RESULT_ABNORMAL && !(result.value_text?.trim())) {
-        throw new BadRequestException("abnormal inspect item requires value_text");
+      if (result.photo_file_ids !== undefined) {
+        await this.assertFiles(scope, result.photo_file_ids);
       }
     }
-    const existingResults = await this.taskResultsRepository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, taskId: task.id, isDeleted: false }
-    });
-    const existingByItem = new Map(existingResults.map((result) => [result.itemId, result]));
     let hasAbnormal = false;
     const beforeStatus = task.status;
     await this.tasksRepository.manager.transaction(async (manager) => {
@@ -476,15 +471,36 @@ export class SafetyInspectTasksService {
         const isAbnormal = payload.result === TASK_RESULT_ABNORMAL;
         hasAbnormal = hasAbnormal || isAbnormal;
         const resultRepository = manager.getRepository(SafetyInspectTaskResultEntity);
-        const existingResult = existingByItem.get(item.id);
+        const existingResult = await resultRepository.findOne({
+          where: {
+            tenantId: scope.tenantId,
+            parkId: scope.parkId,
+            taskId: task.id,
+            itemId: item.id,
+            isDeleted: false
+          },
+          lock: { mode: "pessimistic_write" }
+        });
         const photoIds = resolveSubmittedPhotoFileIds(payload.photo_file_ids, existingResult?.photoFileIds);
+        const resolvedValueText = resolveSubmittedOptionalValue(
+          payload.value_text === undefined ? undefined : payload.value_text?.trim() || null,
+          existingResult?.valueText
+        );
+        if (finishTask && isAbnormal && !(resolvedValueText?.trim())) {
+          throw new BadRequestException("abnormal inspect item requires value_text");
+        }
         let savedResult: SafetyInspectTaskResultEntity;
         if (existingResult) {
           existingResult.taskId = task.id;
           existingResult.itemName = item.itemName;
           existingResult.result = payload.result;
-          existingResult.valueText = payload.value_text?.trim() || null;
-          existingResult.valueNumber = payload.value_number === undefined ? null : String(payload.value_number);
+          existingResult.valueText = resolvedValueText;
+          existingResult.valueNumber = resolveSubmittedOptionalValue(
+            payload.value_number === undefined || payload.value_number === null
+              ? payload.value_number
+              : String(payload.value_number),
+            existingResult.valueNumber
+          );
           existingResult.photoFileIds = photoIds;
           existingResult.isAbnormal = isAbnormal;
           existingResult.updateBy = actor.sub;
@@ -498,7 +514,9 @@ export class SafetyInspectTasksService {
             itemName: item.itemName,
             result: payload.result,
             valueText: payload.value_text?.trim() || null,
-            valueNumber: payload.value_number === undefined ? null : String(payload.value_number),
+            valueNumber: payload.value_number === undefined || payload.value_number === null
+              ? null
+              : String(payload.value_number),
             photoFileIds: photoIds,
             isAbnormal,
             hazardCreated: false,

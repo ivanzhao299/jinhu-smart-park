@@ -23,10 +23,11 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
-import { canViewField, maskField } from "../../../lib/field-policy";
+import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
+  buildEditableResultValuePayload,
   buildFileIdReplacement,
   isCurrentRequestGeneration,
   normalizeFileIdProjection,
@@ -177,7 +178,9 @@ interface CheckInForm {
 interface ResultInput {
   result: string;
   valueText: string;
+  valueTextEditable: boolean;
   valueNumber: string;
+  valueNumberEditable: boolean;
   photoFileIds: string;
   photoFileIdsAvailable: boolean;
   createHazard: boolean;
@@ -259,6 +262,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const canViewGpsLat = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLat");
   const canViewTaskPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "photoFileIds");
   const canViewResultPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
+  const canEditResultValueText = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText");
+  const canEditResultValueNumber = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber");
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-plan_time" });
@@ -439,7 +444,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       return [item.id, {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
         valueText: existing?.valueText ?? "",
+        valueTextEditable: canEditResultValueText && (!existing || Object.prototype.hasOwnProperty.call(existing, "valueText")),
         valueNumber: existing?.valueNumber ?? "",
+        valueNumberEditable: canEditResultValueNumber && (!existing || Object.prototype.hasOwnProperty.call(existing, "valueNumber")),
         photoFileIds: photoProjection.value,
         photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
@@ -538,8 +545,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
           return {
             item_id: item.id,
             result: input.result,
-            value_text: input.valueText.trim() || undefined,
-            value_number: input.valueNumber.trim() ? Number(input.valueNumber) : undefined,
+            ...buildEditableResultValuePayload(
+              input.valueText,
+              input.valueTextEditable,
+              input.valueNumber,
+              input.valueNumberEditable
+            ),
             ...buildFileIdReplacement(input.photoFileIds, input.photoFileIdsAvailable),
             create_hazard: input.createHazard
           };
@@ -899,10 +910,10 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                           </select>
                         </td>
                         <td>
-                          <input value={input.valueText} onChange={(event) => setResultInput(item.id, { valueText: event.target.value })} />
+                          <input disabled={!input.valueTextEditable} value={input.valueText} onChange={(event) => setResultInput(item.id, { valueText: event.target.value })} />
                         </td>
                         <td>
-                          <input type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
+                          <input disabled={!input.valueNumberEditable} type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
                         </td>
                         <td>
                           {input.photoFileIdsAvailable ? (
@@ -1048,7 +1059,9 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
   return {
     result: items.find((item) => item.itemValue === "normal")?.itemValue ?? "normal",
     valueText: "",
+    valueTextEditable: true,
     valueNumber: "",
+    valueNumberEditable: true,
     photoFileIds: "",
     photoFileIdsAvailable: true,
     createHazard: false

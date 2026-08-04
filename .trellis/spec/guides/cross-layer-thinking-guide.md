@@ -226,6 +226,9 @@ action against every state and sibling entry point before implementation:
       of clearing the workflow as though the mutation failed
 - [ ] Nested child collections pass through their own field-policy entity before attachment;
       a shallow parent projection does not secure child values
+- [ ] A masked/hidden/readonly value is never round-tripped as mutation input. Track editability,
+      omit protected fields, and make the write contract distinguish omission (preserve) from
+      explicit null (clear), including validation against the resolved stored value
 - [ ] After a mutation, prefer a valid authoritative response projection over preflight data;
       use a validated preflight snapshot only as an atomic fallback, never as an unconditional
       overwrite or a field-by-field mix of two versions

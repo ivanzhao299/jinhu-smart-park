@@ -15,6 +15,11 @@ export interface ExecutionChildrenProjection<TItem, TResult> {
   source: "primary" | "fallback" | "unavailable";
 }
 
+export interface EditableResultValuePayload {
+  value_text?: string | null;
+  value_number?: number | null;
+}
+
 export type InspectTaskExecutionEntry = "start" | "resume" | "hidden";
 
 export function resolveInspectTaskExecutionEntry(status: string): InspectTaskExecutionEntry {
@@ -101,6 +106,18 @@ export function buildFileIdReplacement(
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean)
+  };
+}
+
+export function buildEditableResultValuePayload(
+  valueText: string,
+  valueTextEditable: boolean,
+  valueNumber: string,
+  valueNumberEditable: boolean
+): EditableResultValuePayload {
+  return {
+    ...(valueTextEditable ? { value_text: valueText.trim() || null } : {}),
+    ...(valueNumberEditable ? { value_number: valueNumber.trim() ? Number(valueNumber) : null } : {})
   };
 }
 

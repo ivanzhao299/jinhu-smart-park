@@ -3,7 +3,7 @@
 ### 1. Root Cause Category
 
 - **Category**: B - Cross-Layer Contract；D - Test Coverage Gap
-- **Specific Cause**: Web 把“执行”实现成详情预加载，状态启动藏在第二个按钮；执行表单又跨域依赖检查项管理读取接口。API 的父任务字段策略是浅投影，未继续保护嵌套结果；Web 修复 preflight 后又隐含假设其子项始终比 start 响应更新。此前测试只覆盖投影不白屏和请求竞态，没有断言单击“执行”会真正触发状态转换、嵌套字段策略或并发更新后的投影新鲜度。
+- **Specific Cause**: Web 把“执行”实现成详情预加载，状态启动藏在第二个按钮；执行表单又跨域依赖检查项管理读取接口。API 的父任务字段策略是浅投影，未继续保护嵌套结果；Web 修复 preflight 后又隐含假设其子项始终比 start 响应更新，并把隐藏/脱敏值当成普通可编辑值回传。此前测试只覆盖投影不白屏和请求竞态，没有断言单击“执行”会真正触发状态转换、嵌套字段策略、并发更新后的投影新鲜度或受保护字段的写回语义。
 
 ### 2. Why Fixes Failed
 
@@ -12,6 +12,7 @@
 3. Codex review 补充了竞态代际保护，但测试关注旧响应覆盖，没有验证按钮文案与实际业务动作一致。
 4. 第一轮 preflight 修复无条件保留启动前子项，守住了失败语义却忽略 start 响应可能包含并发产生的更新。
 5. 第一轮 API 投影只调用父实体字段策略，误把浅拷贝当成了递归保护，嵌套结果仍保留原值。
+6. 第二轮只修复了读侧字段策略，没有继续追踪投影值进入写 payload 的路径，导致掩码/缺省值覆盖原值。
 
 ### 3. Prevention Mechanisms
 
@@ -26,6 +27,7 @@
 | P0 | Preflight | 状态转换前验证检查项/结果投影，成功后保留已验证子项 | DONE |
 | P0 | Field policy | 父任务与嵌套结果分别执行字段策略，禁止浅投影泄露子项原值 | DONE |
 | P0 | Freshness | start 后优先采用最新有效子项，响应不可用时才成对回退 preflight | DONE |
+| P0 | Protected writes | 跟踪结果值可编辑性，受保护字段不回传；API 缺省保留、显式 null 清空 | DONE |
 
 ### 4. Systematic Expansion
 

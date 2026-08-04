@@ -66,6 +66,9 @@ validated preflight children if the mutation response's optional projection cann
 When the transition response contains a valid child projection, prefer that newer authoritative
 snapshot; fall back atomically to the validated preflight item/result pair only when either returned
 collection is unusable, so mixed-version form state cannot overwrite concurrent drafts.
+Field visibility is not field editability. Hidden, masked, or readonly result values must be
+disabled and omitted from mutation payloads; editable empty values use explicit `null` so the API
+can distinguish user clearing from protected-field preservation.
 Once a mutation reaches a terminal state, do not refresh it through an active-action context
 endpoint; retain the committed response and use the ordinary list/detail projection instead.
 
