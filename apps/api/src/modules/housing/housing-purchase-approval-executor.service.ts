@@ -261,10 +261,10 @@ export class HousingPurchaseApprovalExecutorService {
     if (updated.length !== 1) throw new ConflictException("Approval source changed");
   }
 
-  private updateTransferReceivable(input: PurchaseTransferInput, scope: TenantParkScope,
+  private async updateTransferReceivable(input: PurchaseTransferInput, scope: TenantParkScope,
     receivableId: string, receivable: PurchaseTransferReceivable, nextAmount: string) {
     const payload = input.canonicalPayload;
-    return typeormQueryRows<{ version: number }>(input.manager.query(
+    return typeormQueryRows<{ version: number }>(await input.manager.query(
       `UPDATE biz_housing_receivable SET amount=$5,update_by=$6,update_time=clock_timestamp(),version=version+1
         WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
           AND amount=$7::numeric AND paid_amount=$8::numeric AND waived_amount=$9::numeric

@@ -315,7 +315,7 @@ export class HousingHandoverApprovalExecutorService {
     if (rows.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }
 
-  private insertReceivable(
+  private async insertReceivable(
     input: ExecuteApprovedHousingHandoverInput,
     scope: TenantParkScope,
     lease: LockedLease,
@@ -324,7 +324,7 @@ export class HousingHandoverApprovalExecutorService {
     effect: Effect
   ) {
     const payload = input.canonicalPayload;
-    return typeormQueryRows<{ id: string }>(input.manager.query(
+    return typeormQueryRows<{ id: string }>(await input.manager.query(
       `INSERT INTO biz_housing_receivable(
          id,tenant_id,park_id,lease_id,charge_plan_id,source_type,source_id,charge_type,
          period_start,period_end,due_date,amount,paid_amount,waived_amount,status,currency,
@@ -342,7 +342,7 @@ export class HousingHandoverApprovalExecutorService {
     ));
   }
 
-  private updateReceivable(
+  private async updateReceivable(
     input: ExecuteApprovedHousingHandoverInput,
     scope: TenantParkScope,
     current: LockedReceivable,
@@ -350,7 +350,7 @@ export class HousingHandoverApprovalExecutorService {
     effect: Effect
   ) {
     const payload = input.canonicalPayload;
-    return typeormQueryRows<{ id: string }>(input.manager.query(
+    return typeormQueryRows<{ id: string }>(await input.manager.query(
       `UPDATE biz_housing_receivable SET amount=$6,paid_amount=$7,waived_amount=$8,
               status=CASE WHEN $6::numeric=$7::numeric+$8::numeric THEN
                 CASE WHEN $7::numeric>0 THEN 'paid' ELSE 'waived' END
