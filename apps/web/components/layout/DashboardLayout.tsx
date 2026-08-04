@@ -35,9 +35,24 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   const [user, setUser] = useState<UserContext | null>(null);
   const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavigation, setMobileNavigation] = useState(false);
 
   useEffect(() => {
-    setSidebarCollapsed(readSidebarCollapsedPreference());
+    const media = window.matchMedia("(max-width: 720px)");
+    const applyNavigationMode = () => {
+      setMobileNavigation(media.matches);
+      if (media.matches) {
+        delete document.documentElement.dataset.sidebarCollapsed;
+        setSidebarCollapsed(true);
+        return;
+      }
+      const collapsed = readSidebarCollapsedPreference();
+      setSidebarCollapsed(collapsed);
+      if (collapsed) document.documentElement.dataset.sidebarCollapsed = "true";
+      else delete document.documentElement.dataset.sidebarCollapsed;
+    };
+    applyNavigationMode();
+    media.addEventListener("change", applyNavigationMode);
     const token = getToken();
     if (!token) {
       clearSession();
@@ -74,15 +89,20 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
         router.replace("/login");
       });
     void loadCurrentUser(token);
+    return () => media.removeEventListener("change", applyNavigationMode);
   }, [router]);
 
   const handleSidebarCollapsedChange = (collapsed: boolean) => {
     setSidebarCollapsed(collapsed);
-    writeSidebarCollapsedPreference(collapsed);
+    if (!mobileNavigation) writeSidebarCollapsedPreference(collapsed);
   };
 
   const authorizationMenus = useMemo(() => getDashboardAuthorizationMenus(user?.menus ?? user?.menu_tree), [user]);
   const requiredMenu = useMemo(() => findMenuByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
+
+  useEffect(() => {
+    if (mobileNavigation) setSidebarCollapsed(true);
+  }, [mobileNavigation, pathname]);
 
   useEffect(() => {
     if (!ready || !user) {
@@ -115,7 +135,9 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
               sidebarCollapsed={sidebarCollapsed}
               onSidebarCollapsedChange={handleSidebarCollapsedChange}
             />
-            <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={handleSidebarCollapsedChange} />
+            <AppSidebar collapsed={sidebarCollapsed}
+              onCollapsedChange={handleSidebarCollapsedChange}
+              onNavigate={() => { if (mobileNavigation) setSidebarCollapsed(true); }} />
           </>
         )}
         <div className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>

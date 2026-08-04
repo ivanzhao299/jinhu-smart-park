@@ -1,6 +1,11 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { Repository } from "typeorm";
+import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { EnabledModuleContext, PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { AssignTenantModuleDto } from "./dto/assign-tenant-module.dto";
@@ -23,7 +28,9 @@ export class SaaSModulesService {
     @InjectRepository(PlanEntity)
     private readonly planRepository: Repository<PlanEntity>,
     @InjectRepository(TenantModuleEntity)
-    private readonly tenantModuleRepository: Repository<TenantModuleEntity>
+    private readonly tenantModuleRepository: Repository<TenantModuleEntity>,
+    @Optional()
+    private readonly dataSource?: DataSource
   ) {}
 
   async listModules(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ModuleRegistryEntity>> {
@@ -197,65 +204,122 @@ export class SaaSModulesService {
   }
 
   async assignTenantModule(scope: TenantParkScope, actorId: string, dto: AssignTenantModuleDto): Promise<TenantModuleEntity> {
-    await this.getStandardModule(dto.moduleId);
-    if (dto.planId) await this.getPlan(scope, dto.planId);
-    const existing = await this.tenantModuleRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, moduleId: dto.moduleId, isDeleted: false }
-    });
-    const entity =
-      existing ??
-      this.tenantModuleRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        moduleId: dto.moduleId,
-        createBy: actorId
+    return this.writeDataSource().transaction(async (manager) => {
+      await this.lockModuleDependencyGraph(manager, scope);
+      const module = await this.getActiveStandardModule(manager, dto.moduleId);
+      if (dto.planId) await this.getPlanWithManager(manager, scope, dto.planId);
+      const repository = manager.getRepository(TenantModuleEntity);
+      const existing = await repository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          moduleId: dto.moduleId,
+          isDeleted: false
+        }
       });
-    Object.assign(entity, {
-      tenantCode: dto.tenantCode ?? entity.tenantCode ?? null,
-      planId: dto.planId === undefined ? entity.planId ?? null : dto.planId,
-      startTime: dto.startTime ? new Date(dto.startTime) : entity.startTime ?? null,
-      expireTime: dto.expireTime ? new Date(dto.expireTime) : entity.expireTime ?? null,
-      enabled: dto.status === "disabled" ? false : entity.enabled ?? true,
-      featureConfig: dto.featureConfig ?? entity.featureConfig ?? {},
-      status: dto.status ?? entity.status ?? "enabled",
-      remark: dto.remark === undefined ? entity.remark ?? null : dto.remark,
-      updateBy: actorId
+      const entity =
+        existing ??
+        repository.create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          moduleId: dto.moduleId,
+          createBy: actorId
+        });
+      const enabling = (dto.status ?? entity.status ?? "enabled") === "enabled";
+      if (enabling) {
+        await this.assertDependenciesActive(manager, scope, module.moduleCode);
+      }
+      Object.assign(entity, {
+        tenantCode: dto.tenantCode ?? entity.tenantCode ?? null,
+        planId: dto.planId === undefined ? entity.planId ?? null : dto.planId,
+        startTime: dto.startTime === undefined
+          ? entity.startTime ?? null
+          : dto.startTime === null ? null : new Date(dto.startTime),
+        expireTime: dto.expireTime === undefined
+          ? entity.expireTime ?? null
+          : dto.expireTime === null ? null : new Date(dto.expireTime),
+        enabled: enabling,
+        featureConfig: dto.featureConfig ?? entity.featureConfig ?? {},
+        status: enabling ? "enabled" : "disabled",
+        remark: dto.remark === undefined ? entity.remark ?? null : dto.remark,
+        updateBy: actorId
+      });
+      this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      await this.assertProspectiveAssignmentSupportsDependents(
+        manager,
+        scope,
+        module.moduleCode,
+        entity.enabled,
+        entity.startTime,
+        entity.expireTime
+      );
+      return repository.save(entity);
     });
-    return this.tenantModuleRepository.save(entity);
   }
 
   async enableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
-    await this.getStandardModule(moduleId);
-    const existing = await this.tenantModuleRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, moduleId, isDeleted: false }
-    });
-    const entity =
-      existing ??
-      this.tenantModuleRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        tenantCode: "JH_DEFAULT",
-        moduleId,
-        createBy: actorId
+    return this.writeDataSource().transaction(async (manager) => {
+      await this.lockModuleDependencyGraph(manager, scope);
+      const module = await this.getActiveStandardModule(manager, moduleId);
+      await this.assertDependenciesActive(manager, scope, module.moduleCode);
+      const repository = manager.getRepository(TenantModuleEntity);
+      const existing = await repository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          moduleId,
+          isDeleted: false
+        }
       });
-    Object.assign(entity, {
-      enabled: true,
-      status: "enabled",
-      updateBy: actorId
+      const entity =
+        existing ??
+        repository.create({
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          tenantCode: "JH_DEFAULT",
+          moduleId,
+          createBy: actorId
+        });
+      Object.assign(entity, {
+        enabled: true,
+        status: "enabled",
+        updateBy: actorId
+      });
+      this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      await this.assertProspectiveAssignmentSupportsDependents(
+        manager,
+        scope,
+        module.moduleCode,
+        entity.enabled,
+        entity.startTime,
+        entity.expireTime
+      );
+      return repository.save(entity);
     });
-    return this.tenantModuleRepository.save(entity);
   }
 
   async disableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
-    await this.getStandardModule(moduleId);
-    const entity = await this.tenantModuleRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, moduleId, isDeleted: false }
+    return this.writeDataSource().transaction(async (manager) => {
+      await this.lockModuleDependencyGraph(manager, scope);
+      const module = await this.getActiveStandardModule(manager, moduleId);
+      await this.assertNoActiveDependents(manager, scope, module.moduleCode);
+      const repository = manager.getRepository(TenantModuleEntity);
+      const entity = await repository.findOne({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          moduleId,
+          isDeleted: false
+        }
+      });
+      if (!entity) {
+        throw new NotFoundException("Tenant module authorization not found");
+      }
+      entity.enabled = false;
+      entity.status = "disabled";
+      entity.updateBy = actorId;
+      return repository.save(entity);
     });
-    if (!entity) throw new NotFoundException("Tenant module authorization not found");
-    entity.enabled = false;
-    entity.status = "disabled";
-    entity.updateBy = actorId;
-    return this.tenantModuleRepository.save(entity);
   }
 
   async listEnabledModulesForTenant(tenantId: string, parkId: string): Promise<EnabledModuleContext[]> {
@@ -267,9 +331,36 @@ export class SaaSModulesService {
       .andWhere("tenantModule.isDeleted = false")
       .andWhere("tenantModule.enabled = true")
       .andWhere("tenantModule.status = :status", { status: "enabled" })
+      .andWhere("(tenantModule.startTime IS NULL OR tenantModule.startTime <= now())")
       .andWhere("module.isDeleted = false")
       .andWhere("module.status = 1")
       .andWhere("(tenantModule.expireTime IS NULL OR tenantModule.expireTime > now())")
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1
+          FROM sys_module_dependency dependency
+          JOIN sys_module required_module
+            ON required_module.id = dependency.required_module_id
+          LEFT JOIN rel_tenant_module required_assignment
+            ON required_assignment.tenant_id = "tenantModule".tenant_id
+           AND required_assignment.park_id = "tenantModule".park_id
+           AND required_assignment.module_id = dependency.required_module_id
+           AND required_assignment.enabled = true
+           AND required_assignment.status = 'enabled'
+           AND required_assignment.is_deleted = false
+           AND (required_assignment.start_time IS NULL OR required_assignment.start_time <= now())
+           AND (required_assignment.expire_time IS NULL OR required_assignment.expire_time > now())
+          WHERE dependency.module_id = module.id
+            AND dependency.dependency_kind = 'hard'
+            AND dependency.is_enabled = true
+            AND dependency.is_deleted = false
+            AND (
+              required_module.status <> 1
+              OR required_module.is_deleted = true
+              OR required_assignment.id IS NULL
+            )
+        )`
+      )
       .orderBy("module.moduleGroup", "ASC")
       .addOrderBy("module.sortNo", "ASC")
       .getMany();
@@ -296,6 +387,187 @@ export class SaaSModulesService {
     const entity = await this.standardModuleRepository.findOne({ where: { id, isDeleted: false } });
     if (!entity) throw new NotFoundException("Module not found");
     return entity;
+  }
+
+  private async getActiveStandardModule(
+    manager: EntityManager,
+    id: string
+  ): Promise<SaaSModuleEntity> {
+    const entity = await manager.getRepository(SaaSModuleEntity).findOne({
+      where: { id, isDeleted: false, status: 1 }
+    });
+    if (!entity) throw new NotFoundException("Active module not found");
+    return entity;
+  }
+
+  private async getPlanWithManager(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    id: string
+  ): Promise<PlanEntity> {
+    const entity = await manager.getRepository(PlanEntity).findOne({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        isDeleted: false
+      }
+    });
+    if (!entity) throw new NotFoundException("Plan not found");
+    return entity;
+  }
+
+  private async lockModuleDependencyGraph(
+    manager: EntityManager,
+    scope: TenantParkScope
+  ): Promise<void> {
+    const lockKey = `tenant-module-dependency:${scope.tenantId}:${scope.parkId}`;
+    await manager.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [lockKey]
+    );
+    await manager.query(
+      `SELECT id
+       FROM sys_module
+       ORDER BY module_code COLLATE "C"
+       FOR UPDATE`
+    );
+    await manager.query(
+      `SELECT assignment.id
+       FROM rel_tenant_module assignment
+       JOIN sys_module module ON module.id = assignment.module_id
+       WHERE assignment.tenant_id = $1
+         AND assignment.park_id = $2
+         AND assignment.is_deleted = false
+       ORDER BY module.module_code COLLATE "C"
+       FOR UPDATE OF assignment`,
+      [scope.tenantId, scope.parkId]
+    );
+  }
+
+  private async assertDependenciesActive(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    moduleCode: string
+  ): Promise<void> {
+    const missing = await manager.query(
+      `SELECT required.module_code AS "requiredModuleCode"
+       FROM sys_module module
+       JOIN sys_module_dependency dependency
+         ON dependency.module_id = module.id
+        AND dependency.dependency_kind = 'hard'
+        AND dependency.is_enabled = true
+        AND dependency.is_deleted = false
+       JOIN sys_module required
+         ON required.id = dependency.required_module_id
+       LEFT JOIN rel_tenant_module assignment
+         ON assignment.tenant_id = $1
+        AND assignment.park_id = $2
+        AND assignment.module_id = required.id
+        AND assignment.enabled = true
+        AND assignment.status = 'enabled'
+        AND assignment.is_deleted = false
+        AND (assignment.start_time IS NULL OR assignment.start_time <= now())
+        AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+       WHERE module.module_code = $3
+         AND module.status = 1
+         AND module.is_deleted = false
+         AND (
+           required.status <> 1
+           OR required.is_deleted = true
+           OR assignment.id IS NULL
+         )
+       ORDER BY required.module_code COLLATE "C"`,
+      [scope.tenantId, scope.parkId, moduleCode]
+    ) as Array<{ requiredModuleCode: string }>;
+    if (missing.length > 0) {
+      throw new ConflictException({
+        message: "Required module is not active",
+        errorCode: "module-dependency-conflict",
+        requiredModules: missing.map((item) => item.requiredModuleCode)
+      });
+    }
+  }
+
+  private async assertNoActiveDependents(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    moduleCode: string
+  ): Promise<void> {
+    const dependents = await manager.query(
+      `SELECT dependent.module_code AS "moduleCode"
+       FROM sys_module required
+       JOIN sys_module_dependency dependency
+         ON dependency.required_module_id = required.id
+        AND dependency.dependency_kind = 'hard'
+        AND dependency.is_enabled = true
+        AND dependency.is_deleted = false
+       JOIN sys_module dependent
+         ON dependent.id = dependency.module_id
+        AND dependent.status = 1
+        AND dependent.is_deleted = false
+       JOIN rel_tenant_module assignment
+         ON assignment.tenant_id = $1
+        AND assignment.park_id = $2
+        AND assignment.module_id = dependent.id
+        AND assignment.enabled = true
+        AND assignment.status = 'enabled'
+        AND assignment.is_deleted = false
+        AND (assignment.start_time IS NULL OR assignment.start_time <= now())
+        AND (assignment.expire_time IS NULL OR assignment.expire_time > now())
+       WHERE required.module_code = $3
+         AND required.status = 1
+         AND required.is_deleted = false
+       ORDER BY dependent.module_code COLLATE "C"`,
+      [scope.tenantId, scope.parkId, moduleCode]
+    ) as Array<{ moduleCode: string }>;
+    if (dependents.length > 0) {
+      throw new ConflictException({
+        message: "Active dependent modules must be disabled first",
+        errorCode: "module-dependency-conflict",
+        dependentModules: dependents.map((item) => item.moduleCode)
+      });
+    }
+  }
+
+  private async assertProspectiveAssignmentSupportsDependents(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    moduleCode: string,
+    enabled: boolean,
+    startTime: Date | null | undefined,
+    expireTime: Date | null | undefined
+  ): Promise<void> {
+    const rows = await manager.query(
+      `SELECT (
+         $1::boolean
+         AND ($2::timestamptz IS NULL OR $2::timestamptz <= now())
+         AND ($3::timestamptz IS NULL OR $3::timestamptz > now())
+       ) AS active`,
+      [enabled, startTime ?? null, expireTime ?? null]
+    ) as Array<{ active: boolean }>;
+    if (rows[0]?.active !== true) {
+      await this.assertNoActiveDependents(manager, scope, moduleCode);
+    }
+  }
+
+  private assertAssignmentWindow(
+    startTime: Date | null | undefined,
+    expireTime: Date | null | undefined
+  ): void {
+    if (startTime && expireTime && startTime.getTime() >= expireTime.getTime()) {
+      throw new ConflictException({
+        message: "Module assignment expireTime must be later than startTime",
+        errorCode: "module-dependency-conflict"
+      });
+    }
+  }
+
+  private writeDataSource(): DataSource {
+    if (!this.dataSource) {
+      throw new Error("SaaSModulesService DataSource is required for module writes");
+    }
+    return this.dataSource;
   }
 
   private async getPlan(scope: TenantParkScope, id: string): Promise<PlanEntity> {

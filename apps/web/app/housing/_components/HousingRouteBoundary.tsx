@@ -19,9 +19,7 @@ export function HousingRouteBoundary({ children }: { children: ReactNode }) {
 
   if (resolution.kind === "compatibility-redirect") {
     return authorizedResolution.kind === "compatibility-redirect" ? <>{children}</> : (
-      <PropertyPageSurface>
-        <PageState state={{ kind: "forbidden-full" }} />
-      </PropertyPageSurface>
+      <HousingForbidden />
     );
   }
   if (resolution.kind === "unknown-property" || resolution.kind === "non-property") {
@@ -36,11 +34,17 @@ export function HousingRouteBoundary({ children }: { children: ReactNode }) {
 
   const capabilities = projectPropertyCapabilities(user, resolution.featureId);
   if (!capabilities.pageAllowed) {
-    return (
-      <PropertyPageSurface>
-        <PageState state={{ kind: "forbidden-full" }} />
-      </PropertyPageSurface>
-    );
+    return <HousingForbidden />;
   }
   return <>{children}</>;
+}
+
+function HousingForbidden() {
+  return <PropertyPageSurface>
+    <header className="ds-hero">
+      <p className="ds-eyebrow">住房出租</p>
+      <h1>无法访问住房工作台</h1>
+    </header>
+    <PageState state={{ kind: "forbidden-full" }} />
+  </PropertyPageSurface>;
 }

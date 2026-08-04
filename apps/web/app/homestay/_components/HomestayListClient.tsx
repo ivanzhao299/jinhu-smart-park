@@ -24,7 +24,7 @@ import {
 import { apiRequest } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { businessDate } from "../../../lib/business-date";
+import { addBusinessDateDays } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
 import { HomestayBookingCreatePanel } from "./HomestayBookingCreatePanel";
 import { HomestayFinanceEntryPanel } from "./HomestayFinanceEntryPanel";
@@ -35,6 +35,7 @@ import {
 } from "./HomestayListRecords";
 import {
   HOMESTAY_LIST_READ_ACTIONS,
+  availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   listPageState,
   pageCount,
@@ -126,9 +127,9 @@ function appendWorkDateQuery(
 }
 
 function appendAvailabilityQuery(params: URLSearchParams, input: QueryInput) {
-  const date = businessDate();
-  params.set("date_from", input.dateFrom || date);
-  params.set("date_to", input.dateTo || date);
+  const { dateFrom, dateTo } = availabilityQueryDates(input);
+  params.set("date_from", dateFrom);
+  params.set("date_to", dateTo);
 }
 
 function queryFor(surface: HomestayListSurface, input: QueryInput) {
@@ -404,9 +405,16 @@ function HomestayFilters({
           <>
             <label>开始日期<input type="date" value={filters.dateFrom} onChange={(event) => {
               const next = event.target.value;
-              resetPage({ dateFrom: next, dateTo: filters.dateTo >= next ? filters.dateTo : next });
+              if (!next) {
+                resetPage({ dateFrom: "", dateTo: "" });
+                return;
+              }
+              resetPage({
+                dateFrom: next,
+                dateTo: filters.dateTo > next ? filters.dateTo : addBusinessDateDays(next, 1)
+              });
             }} /></label>
-            <label>结束日期<input type="date" min={filters.dateFrom || undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
+            <label>结束日期<input type="date" min={filters.dateFrom ? addBusinessDateDays(filters.dateFrom, 1) : undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
           </>
         ) : (
           <>

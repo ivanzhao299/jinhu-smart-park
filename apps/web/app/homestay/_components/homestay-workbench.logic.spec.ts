@@ -4,6 +4,7 @@ import {
   HOMESTAY_LANDING_PRIORITY,
   HOMESTAY_DETAIL_READ_ACTIONS,
   HOMESTAY_LIST_READ_ACTIONS,
+  availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   homestayDetailHref,
   listPageState,
@@ -126,4 +127,23 @@ test("task links reach owning aggregate details and pagination is bounded", () =
   assert.equal(taskDetailHref("homestay_arrival", "booking-1"), "/homestay/bookings/booking-1");
   assert.equal(pageCount(0, 20), 1);
   assert.equal(pageCount(41, 20), 3);
+});
+
+test("availability always sends a strict non-empty date interval", () => {
+  assert.deepEqual(
+    availabilityQueryDates({}, "2026-08-04"),
+    { dateFrom: "2026-08-04", dateTo: "2026-08-05" }
+  );
+  assert.deepEqual(
+    availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-10" }),
+    { dateFrom: "2026-08-10", dateTo: "2026-08-11" }
+  );
+  assert.deepEqual(
+    availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-09" }),
+    { dateFrom: "2026-08-10", dateTo: "2026-08-11" }
+  );
+  assert.deepEqual(
+    availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-12" }),
+    { dateFrom: "2026-08-10", dateTo: "2026-08-12" }
+  );
 });
