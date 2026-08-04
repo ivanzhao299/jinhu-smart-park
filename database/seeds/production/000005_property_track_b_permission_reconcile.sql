@@ -32,10 +32,10 @@ BEGIN
 
   SELECT count(*) INTO park_count
   FROM property_track_b_seed_scope scope
-  JOIN asset_park park
+  JOIN biz_park park
     ON park.tenant_id = scope.tenant_id
    AND park.park_id = scope.park_id
-   AND park.status = 'enabled'
+   AND park.status = 1
    AND park.is_deleted = false;
 
   SELECT count(*) INTO asset_assignment_count

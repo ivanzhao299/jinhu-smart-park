@@ -126,6 +126,8 @@ for (const preflightToken of [
   "property-track-b-seed-scope-preflight-failed",
   "tenant_count <> 1",
   "park_count <> 1",
+  "JOIN biz_park park",
+  "park.status = 1",
   "asset_assignment_count <> 1",
   "asset_parent_count <> 1",
   "super_admin_count <> 1",
@@ -139,6 +141,11 @@ for (const preflightToken of [
 ]) {
   assert.ok(seed.includes(preflightToken), `missing fail-closed scope preflight: ${preflightToken}`);
 }
+assert.equal(
+  seed.includes("asset_park"),
+  false,
+  "post-seed scope must use the production-core canonical biz_park table"
+);
 
 assert.match(
   seed,
