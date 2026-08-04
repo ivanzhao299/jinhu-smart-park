@@ -10,6 +10,7 @@ import {
 import { HousingService } from "./housing.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingFinanceCommandService } from "./housing-finance-command.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -40,6 +41,14 @@ function serviceFor(receivable: Record<string, unknown>) {
       throw new Error("unexpected repository access");
     }
   };
+  const dataSource = {
+    transaction: async (run: (value: typeof manager) => unknown) => run(manager)
+  };
+  const finance = new HousingFinanceCommandService(
+    dataSource as never,
+    { assertAccess: async () => undefined } as never,
+    support
+  );
   return new HousingService(
     {} as never,
     {} as never,
@@ -47,13 +56,15 @@ function serviceFor(receivable: Record<string, unknown>) {
     {} as never,
     { assertAccess: async () => undefined } as never,
     {} as never,
-    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    dataSource as never,
     {} as never,
     undefined,
     undefined,
     undefined,
     support,
-    new HousingReceivableWriterService(support)
+    new HousingReceivableWriterService(support),
+    undefined,
+    finance
   );
 }
 

@@ -5,6 +5,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { HousingService } from "./housing.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingFinanceCommandService } from "./housing-finance-command.service";
 
 function supportTail() {
   const support = new HousingTransactionSupportService();
@@ -122,8 +123,10 @@ test("DEC-02 rejects housing finance execution while unresolved legacy history e
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never
+  const service = new HousingFinanceCommandService(
+    {} as never,
+    {} as never,
+    new HousingTransactionSupportService()
   );
 
   await assert.rejects(service.executeApprovedFinance({

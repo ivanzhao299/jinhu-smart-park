@@ -14,6 +14,7 @@ import { HousingService } from "./housing.service";
 import { HousingLeaseCommandService } from "./housing-lease-command.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingFinanceCommandService } from "./housing-finance-command.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -111,6 +112,39 @@ test("HousingService billing commands are facade-only delegations", async () => 
   ]);
 });
 
+test("HousingService finance commands are facade-only delegations", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const financeCommands = {
+    async registerLedger(...args: unknown[]) {
+      calls.push({ action: "registerLedger", args });
+      return "ledger";
+    },
+    async executeApprovedFinance(...args: unknown[]) {
+      calls.push({ action: "executeApprovedFinance", args });
+    }
+  };
+  const service = new HousingService(
+    {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, financeCommands as never
+  );
+  const ledgerDto = { entry_type: "payment" } as never;
+  const execution = { requestId: "request-1" } as never;
+
+  assert.equal(
+    await service.registerLedger(scope, actor, "lease-1", ledgerDto, "ledger-key"),
+    "ledger"
+  );
+  await service.executeApprovedFinance(execution);
+  assert.deepEqual(calls, [
+    {
+      action: "registerLedger",
+      args: [scope, actor, "lease-1", ledgerDto, "ledger-key"]
+    },
+    { action: "executeApprovedFinance", args: [execution] }
+  ]);
+});
+
 test("direct housing pure high-risk actions stop before a transaction for every principal class", async () => {
   let transactionCalls = 0;
   const dataSource = {
@@ -172,6 +206,14 @@ test("direct housing pure high-risk actions stop before a transaction for every 
 
 test("housing mixed high-risk variants enforce exact permission intersections before stop-ship", async () => {
   let transactionCalls = 0;
+  const dataSource = {
+    transaction: async () => { transactionCalls += 1; }
+  };
+  const finance = new HousingFinanceCommandService(
+    dataSource as never,
+    {} as never,
+    new HousingTransactionSupportService()
+  );
   const service = new HousingService(
     {} as never,
     {} as never,
@@ -179,8 +221,10 @@ test("housing mixed high-risk variants enforce exact permission intersections be
     {} as never,
     {} as never,
     {} as never,
-    { transaction: async () => { transactionCalls += 1; } } as never,
-    {} as never
+    dataSource as never,
+    {} as never,
+    undefined, undefined, undefined, undefined, undefined, undefined,
+    finance
   );
   const financeDenied = [
     actor,
@@ -278,6 +322,17 @@ test("housing mixed high-risk variants enforce exact permission intersections be
 
 test("direct housing service keeps low-risk ledger and handover variants reachable", async () => {
   let transactionCalls = 0;
+  const dataSource = {
+    transaction: async () => {
+      transactionCalls += 1;
+      return "direct";
+    }
+  };
+  const finance = new HousingFinanceCommandService(
+    dataSource as never,
+    {} as never,
+    new HousingTransactionSupportService()
+  );
   const service = new HousingService(
     {} as never,
     {} as never,
@@ -285,13 +340,10 @@ test("direct housing service keeps low-risk ledger and handover variants reachab
     {} as never,
     {} as never,
     {} as never,
-    {
-      transaction: async () => {
-        transactionCalls += 1;
-        return "direct";
-      }
-    } as never,
-    {} as never
+    dataSource as never,
+    {} as never,
+    undefined, undefined, undefined, undefined, undefined, undefined,
+    finance
   );
   const principal = {
     ...actor,
