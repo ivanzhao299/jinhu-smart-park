@@ -17,6 +17,7 @@ import { HousingTransactionSupportService } from "./housing-transaction-support.
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
 import { HousingHandoverCommandService } from "./housing-handover-command.service";
 import { HousingPurchaseService } from "./housing-purchase.service";
+import { HousingLeaseApprovalExecutorService } from "./housing-lease-approval-executor.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -27,6 +28,25 @@ const actor: JwtPrincipal = {
   roles: [],
   permissions: []
 };
+
+test("HousingService approved lease closure is facade-only delegation", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const executor = {
+    async checkout(...args: unknown[]) { calls.push({ action: "checkout", args }); },
+    async execute(...args: unknown[]) { calls.push({ action: "execute", args }); }
+  };
+  const service = new HousingService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, undefined, executor as never
+  );
+  const execution = { requestId: "request-1" } as never;
+  await service.checkoutLease(scope, actor, "lease-1", "reason", "checkout-key");
+  await service.executeApprovedLeaseAction(execution, "housing.leases.checkout.request");
+  assert.deepEqual(calls, [
+    { action: "checkout", args: [scope, actor, "lease-1", "reason", "checkout-key"] },
+    { action: "execute", args: [execution, "housing.leases.checkout.request"] }
+  ]);
+});
 
 test("HousingService purchase closure is facade-only delegation", async () => {
   const calls: Array<{ action: string; args: unknown[] }> = [];
@@ -250,6 +270,9 @@ test("direct housing pure high-risk actions stop before a transaction for every 
   const purchaseCommands = new HousingPurchaseService(
     {} as never, {} as never, dataSource as never, support
   );
+  const leaseApprovalExecutor = new HousingLeaseApprovalExecutorService(
+    dataSource as never, {} as never, support
+  );
   const service = new HousingService(
     {} as never,
     purchaseCommands,
@@ -259,7 +282,7 @@ test("direct housing pure high-risk actions stop before a transaction for every 
     {} as never,
     dataSource as never,
     {} as never,
-    undefined,
+    leaseApprovalExecutor,
     undefined,
     commands,
     support,

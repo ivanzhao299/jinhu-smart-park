@@ -10,6 +10,7 @@ import { HousingHandoverCommandService } from "./housing-handover-command.servic
 import { HousingHandoverEntity, HousingLeaseEntity } from "./entities/housing.entities";
 import { HousingPurchaseService } from "./housing-purchase.service";
 import { HousingPurchaseApprovalExecutorService } from "./housing-purchase-approval-executor.service";
+import { HousingLeaseApprovalExecutorService } from "./housing-lease-approval-executor.service";
 
 function supportTail() {
   const support = new HousingTransactionSupportService();
@@ -437,15 +438,24 @@ test("checkout submission and execution share the pointer-first ordered lock sna
   };
   let request: Record<string, unknown> | undefined;
   const submitManager = { query: checkoutRows };
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never, {} as never,
-    { transaction: async (run: (value: typeof submitManager) => unknown) => run(submitManager) } as never,
-    {} as never,
+  const checkoutDataSource = {
+    transaction: async (run: (value: typeof submitManager) => unknown) => run(submitManager)
+  };
+  const leaseApprovalExecutor = new HousingLeaseApprovalExecutorService(
+    checkoutDataSource as never,
+    { assertAccess: async () => undefined } as never,
+    new HousingTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       request = input;
       return input;
-    } } as never,
+    } } as never
+  );
+  const service = new HousingService(
+    {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => undefined } as never, {} as never,
+    checkoutDataSource as never,
+    {} as never,
+    leaseApprovalExecutor,
     ...supportTail()
   );
 
