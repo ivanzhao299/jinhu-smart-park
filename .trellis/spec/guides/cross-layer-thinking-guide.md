@@ -152,6 +152,10 @@ action against every state and sibling entry point before implementation:
 - [ ] Before permission-aware or legacy response fields enter editable controls,
       consumers normalize runtime `unknown` values; compile-time row interfaces do
       not authorize array methods or constrained-input assignment at the HTTP boundary
+- [ ] When multiple screens consume the same permission-aware projection, every
+      consumer retains per-child field availability through form state, local drafts,
+      and serialization. Cached browser drafts are untrusted after a permission change
+      and must not restore or submit currently protected values.
 - [ ] Optional replacement fields distinguish unavailable/omitted from explicitly
       empty; the UI omits unavailable projections and the service preserves the
       existing association instead of defaulting a missing field to `[]`

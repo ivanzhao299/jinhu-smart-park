@@ -157,9 +157,9 @@ test("inspection result photos use their independent field-policy entity", () =>
   assert.match(source, /INSPECT_TASK_RESULT_ENTITY = "inspect_task_result"/);
   assert.match(
     source,
-    /canViewResultPhotos = canViewField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/
+    /canEditResultPhotos = canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/
   );
-  assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && photoProjection\.available/);
+  assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && canEditResultPhotos && photoProjection\.available/);
   assert.doesNotMatch(source, /photoFileIdsAvailable: canViewTaskPhotos && photoProjection\.available/);
 });
 

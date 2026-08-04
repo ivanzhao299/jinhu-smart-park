@@ -13,6 +13,7 @@
 5. Codex review 补充：execution context 自身拒绝终态；start 在事务行锁内判定状态；Web 启动前验证完整投影，继续执行入口接受任一 execution 权限。
 6. Codex 二轮 review 补充：任务投影对子结果逐项应用独立字段策略；start 后优先使用最新有效子项，仅在响应不可用时原子回退到 preflight。
 7. Codex 三轮 review 补充：隐藏/脱敏/只读结果值禁止回传；缺省写字段保留原值，显式 null 才清空。
+8. Codex 四轮 review 补充：运营终端作为同一详情投影的第二消费端，也必须保留逐结果字段可编辑性；本地草稿不得绕过当前字段策略恢复受保护值。
 
 ## Same-Class Risk Prevention
 

@@ -262,6 +262,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const canViewGpsLat = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLat");
   const canViewTaskPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "photoFileIds");
   const canViewResultPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
+  const canEditResultPhotos = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
   const canEditResultValueText = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText");
   const canEditResultValueNumber = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber");
 
@@ -448,7 +449,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         valueNumber: existing?.valueNumber ?? "",
         valueNumberEditable: canEditResultValueNumber && (!existing || Object.prototype.hasOwnProperty.call(existing, "valueNumber")),
         photoFileIds: photoProjection.value,
-        photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
+        photoFileIdsAvailable: canViewResultPhotos && canEditResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
     }));

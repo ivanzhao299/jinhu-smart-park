@@ -69,6 +69,10 @@ collection is unusable, so mixed-version form state cannot overwrite concurrent 
 Field visibility is not field editability. Hidden, masked, or readonly result values must be
 disabled and omitted from mutation payloads; editable empty values use explicit `null` so the API
 can distinguish user clearing from protected-field preservation.
+Every consumer of an authorized inspection result projection—including the operations terminal—must
+retain per-result editability while copying API data into controls and local drafts. A saved browser
+draft must never restore a value or attachment that the actor's current field policy protects, and
+replacement-style attachments are omitted unless the child field is currently editable.
 Once a mutation reaches a terminal state, do not refresh it through an active-action context
 endpoint; retain the committed response and use the ordinary list/detail projection instead.
 
