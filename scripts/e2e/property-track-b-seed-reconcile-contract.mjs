@@ -12,9 +12,11 @@ const seedPath = resolve(
   root,
   "database/seeds/production/000005_property_track_b_permission_reconcile.sql"
 );
+const productionCoreSeedPath = resolve(root, "database/seeds/000001_s1_production_core.sql");
 const migrationBuffer = readFileSync(migrationPath);
 const migration = migrationBuffer.toString("utf8");
 const seed = readFileSync(seedPath, "utf8");
+const productionCoreSeed = readFileSync(productionCoreSeedPath, "utf8");
 
 assert.equal(
   createHash("sha256").update(migrationBuffer).digest("hex"),
@@ -120,6 +122,47 @@ assert.deepEqual(
   seedDefinitions,
   migrationDefinitions,
   "post-seed definitions must exactly match the frozen 000189 signed tuples"
+);
+
+const parentCaseStart = productionCoreSeed.indexOf("parent.code = CASE");
+const parentCaseEnd = productionCoreSeed.indexOf("\n      ELSE NULL\n    END", parentCaseStart);
+assert.notEqual(parentCaseStart, -1, "production core seed must retain permission_parent_map CASE");
+assert.notEqual(parentCaseEnd, -1, "production core permission_parent_map CASE must terminate");
+const parentCase = productionCoreSeed.slice(parentCaseStart, parentCaseEnd);
+const explicitAssetParentCodes = new Set();
+for (const match of parentCase.matchAll(/WHEN child\.code IN \(([\s\S]*?)\) THEN 'asset'/g)) {
+  for (const code of match[1].matchAll(/'([^']+)'/g)) {
+    explicitAssetParentCodes.add(code[1]);
+  }
+}
+for (const match of parentCase.matchAll(/WHEN child\.code = '([^']+)' THEN 'asset'/g)) {
+  explicitAssetParentCodes.add(match[1]);
+}
+
+const trackBPageCodes = [
+  "asset:identity-submissions:page",
+  "asset:property-operations:page",
+  "asset:property-occupancies:page",
+  "asset:property-mode-transitions:page",
+  "property:notifications:page",
+  "property:event-delivery-incidents:page",
+  "property:approval-incidents:page"
+];
+for (const pageCode of trackBPageCodes) {
+  assert.ok(
+    explicitAssetParentCodes.has(pageCode),
+    `production core permission_parent_map must explicitly map ${pageCode} to asset`
+  );
+}
+assert.equal(
+  /child\.code LIKE 'asset:%'/.test(parentCase),
+  false,
+  "Track B asset page parenting must not use a generic asset wildcard"
+);
+assert.equal(
+  /child\.code LIKE 'property:%'/.test(parentCase),
+  false,
+  "Track B property page parenting must not use a generic property wildcard"
 );
 
 for (const preflightToken of [
