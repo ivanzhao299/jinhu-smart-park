@@ -51,9 +51,16 @@ Human UAT 未完成不是 Entry blocker。
   000189、global bundles 与 module dependency 均已通过，但又 fail-closed 发现 migration 时
   tenant scope 为空，导致 seed 后 25 个 signed permissions 与 SUPER_ADMIN bindings 未回填；
   证据 SHA `df8dbbecd4c0c39256d99ac2596feea7ea6e509db7db0be6e43cbde985c5b335`，cleanup residual=0。
-  已提交 post-seed 精确 reconcile `0e995ce8` 与 strict control env `f7720802`；两个 contract
-  targeted gate 均 PASS。正式性能正在第三个全新隔离 project
-  `jinhu-track-c-perf-20260804c` 重新 provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
+  后续隔离 c/d 轮分别 fail-closed 发现 production canonical park 应为 `biz_park`，以及二次
+  production seed 会清空 7 个 Track B page parent；证据 SHA 分别为
+  `2ad6c96c7d9442d2ba58865b1091f7955ad398216d038ebb1498f4585de2b431` 与
+  `f69ea815fc28d10ac14f6251f8f09b8a1b4b7b17414fe10ae406f89b78901b82`，两轮 cleanup
+  residual=0。已提交 post-seed 精确 reconcile `0e995ce8`、strict control env `f7720802`、
+  canonical park 修复 `11e96674` 与显式 page parent 修复 `c651c963`；两个 contract targeted
+  gate 均 PASS。第五个隔离 project `jinhu-track-c-perf-20260804e` 的首次 provision/strict、
+  第二次完整 seed 幂等（permission/grant count、ID 与 semantic hash 稳定）、25/25、bundle
+  16/125、52/52、越权 0 与 check-config 30 runs 均 PASS；正式 30-cell 已真实启动。
+  正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
 - Track C Chrome 新切片：独立任务已按 15 项矩阵重试，但在任何 Chrome 扩展代码执行前被
