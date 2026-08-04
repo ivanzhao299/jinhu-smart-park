@@ -59,7 +59,8 @@ export function canonicalSha256(value) {
 }
 
 const SENSITIVE_URL_PATTERN = /\b(?!https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|\b))[a-z][a-z0-9+.-]*:\/\/[^\s"']+/iu;
-const SENSITIVE_ASSIGNMENT_PATTERN = /(?:password|passwd|token|secret|database[_-]?url|encryption[_-]?key|authorization)\s*[:=]\s*[^\s,"'}]{4,}/iu;
+const SENSITIVE_ASSIGNMENT_PATTERN = /["']?(?:password|passwd|token|secret|database[_-]?url|encryption[_-]?key|authorization)["']?\s*(?::|\*\*=|>>>=|<<=|>>=|&&=|\|\|=|\?\?=|[+*/%&^|-]=|=(?!=|>))\s*(?:(["'`])([^"'`\r\n]{4,})\1|([^,;}\r\n]+))/giu;
+const SAFE_DYNAMIC_ASSIGNMENT_PATTERN = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\(\)(?:\s*\?\?\s*undefined)?$/u;
 const CREDENTIAL_ARG_PATTERN = /--(?:password|passwd|token|secret|database-url|connection-string)(?:=|$)/iu;
 const BEARER_PATTERN = /\bbearer\s+[a-z0-9._~+/-]{8,}={0,2}\b/iu;
 const JWT_PATTERN = /\beyJ[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\.[a-z0-9_-]{5,}\b/iu;
@@ -67,7 +68,14 @@ const RAW_TOKEN_PATTERN = /\b(?:gh[opsu]_[a-z0-9]{20,}|sk-[a-z0-9_-]{16,})\b/iu;
 
 export function assertNoSensitiveData(value, label = "value") {
   const text = typeof value === "string" ? value : JSON.stringify(value);
-  if (SENSITIVE_URL_PATTERN.test(text) || SENSITIVE_ASSIGNMENT_PATTERN.test(text)
+  const sourcePayload = text.split(/\r?\n/u).map((line) => (/^[+-](?![+-]{2})/u.test(line) ? line.slice(1) : line)).join("\n");
+  const assignmentText = sourcePayload.replace(/\n\s*(?=(?:\|\||\?\?|&&|\*\*|>>>|<<|>>|[+*/%?:.&|^(-]|\[|`))/gu, " ");
+  const sensitiveAssignment = [...assignmentText.matchAll(SENSITIVE_ASSIGNMENT_PATTERN)].some((match) => {
+    if (match[2] !== undefined) return true;
+    const unquoted = match[3].trim();
+    return !["null", "true", "false", "undefined"].includes(unquoted) && !SAFE_DYNAMIC_ASSIGNMENT_PATTERN.test(unquoted);
+  });
+  if (SENSITIVE_URL_PATTERN.test(text) || sensitiveAssignment
     || CREDENTIAL_ARG_PATTERN.test(text) || BEARER_PATTERN.test(text)
     || JWT_PATTERN.test(text) || RAW_TOKEN_PATTERN.test(text)) {
     throw new Error(`${label} contains a URL, credential, or secret-bearing argument`);
