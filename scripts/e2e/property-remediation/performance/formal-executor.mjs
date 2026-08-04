@@ -41,6 +41,7 @@ export function loadConfig(env = process.env) {
   const password = required(env, "PROPERTY_PERF_PASSWORD");
   const config = {
     baseUrl: new URL(required(env, "PROPERTY_PERF_BASE_URL")).origin,
+    workerBaseUrl: new URL(env.PROPERTY_PERF_WORKER_BASE_URL?.trim() || required(env, "PROPERTY_PERF_BASE_URL")).origin,
     username: required(env, "PROPERTY_PERF_USERNAME"),
     password,
     authPath: env.PROPERTY_PERF_AUTH_PATH?.trim() || "/api/v1/auth/login",
@@ -207,7 +208,7 @@ async function executeCell(config, profile, scenario, concurrency, runIndex, run
   const startedAt = new Date().toISOString();
   let load;
   try {
-    load = await runWorker(config, { baseUrl: config.baseUrl, path: scenario.path, token, concurrency, warmupSeconds: profile.warmupSeconds, formalSeconds: profile.formalSeconds, minimumRequests: profile.minimumRequests, requestTimeoutMilliseconds: config.requestTimeoutMilliseconds });
+    load = await runWorker(config, { baseUrl: config.workerBaseUrl, path: scenario.path, token, concurrency, warmupSeconds: profile.warmupSeconds, formalSeconds: profile.formalSeconds, minimumRequests: profile.minimumRequests, requestTimeoutMilliseconds: config.requestTimeoutMilliseconds });
   } finally {
     clearInterval(interval);
   }

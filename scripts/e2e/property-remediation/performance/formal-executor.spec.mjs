@@ -15,6 +15,7 @@ function fixtureEnv() {
   writeFileSync(seed, "-- fixture\n");
   return {
     PROPERTY_PERF_BASE_URL: "http://api.example.test:3101",
+    PROPERTY_PERF_WORKER_BASE_URL: "http://api:3001",
     PROPERTY_PERF_USERNAME: "performance-user",
     PROPERTY_PERF_PASSWORD: "not-a-real-password",
     PROPERTY_PERF_CONTAINERS_JSON: JSON.stringify({ web: "perf-web", api: "perf-api", postgres: "perf-postgres", browserWorker: "perf-browser" }),
@@ -34,6 +35,7 @@ test("accepts a complete credential-safe formal configuration", async () => {
   const env = fixtureEnv();
   const config = loadConfig(env);
   assert.equal(config.baseUrl, "http://api.example.test:3101");
+  assert.equal(config.workerBaseUrl, "http://api:3001");
   assert.deepEqual(await checkConfig(env), {
     status: "PASS",
     schemaVersion: "property-track-c-performance-config-check-v1",

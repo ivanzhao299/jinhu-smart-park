@@ -79,6 +79,55 @@ The executor invokes `formal-evidence-gate.mjs` before reporting PASS. On a run
 failure it still attempts cleanup, writes a redacted hashed failure record and
 leaves partial evidence in the run directory for review.
 
+## Isolated formal environment
+
+The existing `jinhu-uat-*` containers are not a formal environment; see
+`current-uat-audit-20260804.md`. `compose.formal.yml` creates a separate project,
+network, `jinhu_perf_*` database and volumes with the exact checked limits. It
+never attaches to or modifies `jinhu_uat_20260804`.
+
+Before provisioning, supply a sanitized, custom-format PostgreSQL dump and local
+secrets through environment variables. External images must be immutable digest
+references (for example `postgres@sha256:...` and `node@sha256:...`). Required
+environment keys are validated by `formal-environment.mjs`:
+
+```bash
+export PROPERTY_PERF_PROJECT_NAME=jinhu-track-c-perf-<unique-run-id>
+export PROPERTY_PERF_POSTGRES_DB=jinhu_perf_<unique_run_id>
+export PROPERTY_PERF_POSTGRES_IMAGE='postgres@sha256:<digest>'
+export PROPERTY_PERF_BROWSER_IMAGE='node@sha256:<digest>'
+export PROPERTY_PERF_DATASET_DUMP=/absolute/path/to/sanitized-custom-format.dump
+export PROPERTY_PERF_USERNAME='<isolated performance admin>'
+export PROPERTY_PERF_ADMIN_NAME='Track C Performance Admin'
+export PROPERTY_PERF_PASSWORD='<strong local-only password>'
+export PROPERTY_PERF_POSTGRES_PASSWORD='<strong local-only password>'
+export PROPERTY_PERF_JWT_SECRET='<32+ character local-only secret>'
+export PROPERTY_PERF_PARTY_DATA_ENCRYPTION_KEY='<32+ character local-only key>'
+export PROPERTY_PERF_BUSINESS_CLOCK=2026-08-04T00:00:00Z
+export PROPERTY_PERF_REVIEWER='<named independent reviewer>'
+
+node scripts/e2e/property-remediation/performance/formal-environment.mjs --check
+node scripts/e2e/property-remediation/performance/formal-environment.mjs --plan
+```
+
+Those commands are non-mutating. After review, provisioning additionally requires
+`PROPERTY_PERF_PROVISION=yes`. It refuses dirty application/database/script source,
+restores only into an empty isolated volume, then runs the repository migration,
+production seed, bootstrap-admin, strict initialization baseline and health gates.
+It returns a non-secret runtime manifest and executor environment map. Keep the
+password in the caller environment; it is never written to that manifest.
+
+```bash
+PROPERTY_PERF_PROVISION=yes \
+  node scripts/e2e/property-remediation/performance/formal-environment.mjs --provision
+```
+
+The generated restart command restarts PostgreSQL/API/Web (clearing PostgreSQL and
+process caches) and waits for health. Telemetry commands read Node GC trace pauses,
+PostgreSQL I/O wait deltas and fixed server parameters. The cleanup command is
+project-name guarded, removes only the isolated Compose resources and generated
+secret files, and reports `residualCount` for the evidence gate.
+
 ## Self-tests
 
 These tests use local fixtures and zero-duration worker phases; they do not start
