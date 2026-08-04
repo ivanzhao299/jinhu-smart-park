@@ -15,18 +15,33 @@ export interface ResultMutationPayload {
   create_hazard: boolean;
 }
 
+export interface PreparedResultState {
+  items: InspectItemRow[];
+  results: InspectTaskResultRow[];
+  inputs: Record<string, ResultInput>;
+  source: "primary" | "fallback";
+}
+
 export function prepareResultInputs(
   itemsProjection: unknown,
   resultsProjection: unknown,
   access: ResultFieldAccess
 ): Record<string, ResultInput> {
+  return prepareResultState(itemsProjection, resultsProjection, access).inputs;
+}
+
+export function prepareResultState(
+  itemsProjection: unknown,
+  resultsProjection: unknown,
+  access: ResultFieldAccess
+): PreparedResultState {
   if (!isInspectItemArray(itemsProjection) || !isInspectResultArray(resultsProjection)) {
     throw new Error("巡检执行数据格式异常，请刷新后重试或联系管理员");
   }
   const items = itemsProjection;
   const results = resultsProjection;
   const existing = new Map(results.map((result) => [result.itemId, result]));
-  return Object.fromEntries(items.map((item) => {
+  const inputs = Object.fromEntries(items.map((item) => {
     const result = existing.get(item.id);
     const valueTextEditable = access.valueTextEditable
       && (!result || Object.prototype.hasOwnProperty.call(result, "valueText"));
@@ -45,6 +60,27 @@ export function prepareResultInputs(
       createHazard: !result?.hazardCreated
     } satisfies ResultInput];
   }));
+  return { items, results, inputs, source: "primary" };
+}
+
+export function resolveStartedResultState(
+  primaryItems: unknown,
+  primaryResults: unknown,
+  fallbackItems: unknown,
+  fallbackResults: unknown,
+  fallbackInputs: Record<string, ResultInput>,
+  access: ResultFieldAccess
+): PreparedResultState {
+  try {
+    return prepareResultState(primaryItems, primaryResults, access);
+  } catch {
+    const fallback = prepareResultState(fallbackItems, fallbackResults, access);
+    return {
+      ...fallback,
+      inputs: mergeLocalDraftResultInputs(fallback.inputs, fallbackInputs),
+      source: "fallback"
+    };
+  }
 }
 
 export function mergeLocalDraftResultInputs(

@@ -51,7 +51,12 @@ import { fetchReferenceFormOptions } from "../../lib/reference-data";
 import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, resolveWorkOrderAudience } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
-import { buildResultMutationPayload, mergeLocalDraftResultInputs, prepareResultInputs } from "./inspection-result.logic";
+import {
+  buildResultMutationPayload,
+  mergeLocalDraftResultInputs,
+  prepareResultState,
+  resolveStartedResultState
+} from "./inspection-result.logic";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
 import { OPERATION_SCENES, TERMINAL_DICT_CODES, TERMINAL_QUICK_ACTIONS, matchScene, type OperationSceneConfig } from "./terminal-config";
 import type {
@@ -369,40 +374,36 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
   async function openExecute(task: InspectTaskRow) {
     if (previewMode) {
-      setExecuting(task);
-      setCheckInForm({
+      const prepared = prepareResultState(task.items ?? [], task.results ?? [], resultFieldAccess);
+      const nextCheckInForm = {
         qrCode: task.point?.qrCode ?? task.point?.pointCode ?? "",
         gpsLng: task.gpsLng ?? "",
         gpsLat: task.gpsLat ?? "",
         photoFileIds: task.photoFileIds ?? []
-      });
-      const inputs = prepareResultInputs(task.items ?? [], task.results ?? [], resultFieldAccess);
+      };
       const localDraft = readLocalDraft(task.id);
-      if (localDraft) {
-        setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
-        setResultInputs(mergeLocalDraftResultInputs(inputs, localDraft.resultInputs));
-      } else {
-        setResultInputs(inputs);
-      }
+      setCheckInForm(localDraft ? { ...nextCheckInForm, ...localDraft.checkInForm } : nextCheckInForm);
+      setResultInputs(localDraft
+        ? mergeLocalDraftResultInputs(prepared.inputs, localDraft.resultInputs)
+        : prepared.inputs);
+      setExecuting({ ...task, items: prepared.items, results: prepared.results });
       return;
     }
     const response = await apiRequest<InspectTaskRow>(`/safety/my-inspect-tasks/${task.id}`, { token: getAccessToken() });
     const detail = response.data;
-    setExecuting(detail);
-    setCheckInForm({
+    const prepared = prepareResultState(detail.items, detail.results, resultFieldAccess);
+    const nextCheckInForm = {
       qrCode: detail.point?.qrCode ?? detail.point?.pointCode ?? "",
       gpsLng: detail.gpsLng ?? "",
       gpsLat: detail.gpsLat ?? "",
       photoFileIds: detail.photoFileIds ?? []
-    });
-    const inputs = prepareResultInputs(detail.items, detail.results, resultFieldAccess);
+    };
     const localDraft = readLocalDraft(detail.id);
-    if (localDraft) {
-      setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
-      setResultInputs(mergeLocalDraftResultInputs(inputs, localDraft.resultInputs));
-    } else {
-      setResultInputs(inputs);
-    }
+    setCheckInForm(localDraft ? { ...nextCheckInForm, ...localDraft.checkInForm } : nextCheckInForm);
+    setResultInputs(localDraft
+      ? mergeLocalDraftResultInputs(prepared.inputs, localDraft.resultInputs)
+      : prepared.inputs);
+    setExecuting({ ...detail, items: prepared.items, results: prepared.results });
   }
 
   async function startTask() {
@@ -417,7 +418,16 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("terminal-inspect-start")
     });
-    setExecuting(response.data);
+    const prepared = resolveStartedResultState(
+      response.data.items,
+      response.data.results,
+      executing.items,
+      executing.results,
+      resultInputs,
+      resultFieldAccess
+    );
+    setResultInputs(prepared.inputs);
+    setExecuting({ ...response.data, items: prepared.items, results: prepared.results });
     setMessage("已开始巡检");
     await loadAll();
   }

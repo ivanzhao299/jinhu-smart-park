@@ -236,6 +236,10 @@ action against every state and sibling entry point before implementation:
 - [ ] After a mutation, prefer a valid authoritative response projection over preflight data;
       use a validated preflight snapshot only as an atomic fallback, never as an unconditional
       overwrite or a field-by-field mix of two versions
+- [ ] Validate and derive the complete selected-target UI state before publishing the target.
+      A failed projection must not pair a new parent with a previous parent's child form state,
+      and every successful lifecycle response reconciles the parent, children, and derived inputs
+      in one state publication.
 - [ ] Same-target refresh failures preserve the last successful projection; clearing
       data is reserved for a real target change or a successful empty response
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { buildResultMutationPayload, mergeLocalDraftResultInputs, prepareResultInputs } from "./inspection-result.logic";
+import {
+  buildResultMutationPayload,
+  mergeLocalDraftResultInputs,
+  prepareResultInputs,
+  resolveStartedResultState
+} from "./inspection-result.logic";
 
 const items = [{ id: "item-1", itemName: "温度", required: true }];
 
@@ -55,6 +60,36 @@ test("operations terminal rejects missing child projections before creating edit
   assert.throws(() => prepareResultInputs(items, [{ valueText: "missing item id" }], access), /巡检执行数据格式异常/);
 });
 
+test("start reconciliation prefers the fresh authoritative result snapshot", () => {
+  const access = { valueTextEditable: true, valueNumberEditable: true, photoFileIdsEditable: true };
+  const fallbackInputs = prepareResultInputs(items, [], access);
+  fallbackInputs["item-1"]!.valueText = "stale draft";
+  const resolved = resolveStartedResultState(items, [{
+    id: "result-new",
+    itemId: "item-1",
+    itemName: "温度",
+    result: "normal",
+    valueText: "fresh server value",
+    isAbnormal: false,
+    hazardCreated: false
+  }], items, [], fallbackInputs, access);
+
+  assert.equal(resolved.source, "primary");
+  assert.equal(resolved.inputs["item-1"]?.valueText, "fresh server value");
+});
+
+test("start reconciliation falls back atomically when returned children are invalid", () => {
+  const access = { valueTextEditable: true, valueNumberEditable: true, photoFileIdsEditable: true };
+  const fallbackInputs = prepareResultInputs(items, [], access);
+  fallbackInputs["item-1"]!.valueText = "local draft";
+  const resolved = resolveStartedResultState(items, undefined, items, [], fallbackInputs, access);
+
+  assert.equal(resolved.source, "fallback");
+  assert.deepEqual(resolved.items, items);
+  assert.deepEqual(resolved.results, []);
+  assert.equal(resolved.inputs["item-1"]?.valueText, "local draft");
+});
+
 test("local drafts cannot restore values that current field policies protect", () => {
   const authoritative = prepareResultInputs(items, [{
     id: "result-1",
@@ -85,6 +120,8 @@ test("operations terminal disables protected controls and uses guarded payloads"
   assert.match(client, /canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/);
   assert.match(client, /buildResultMutationPayload\(/);
   assert.match(client, /mergeLocalDraftResultInputs\(/);
+  assert.match(client, /resolveStartedResultState\(/);
+  assert.ok(client.indexOf("const prepared = prepareResultState(detail.items, detail.results") < client.indexOf("setExecuting({ ...detail"));
   assert.match(drawer, /disabled=\{!input\.valueTextEditable\}/);
   assert.match(drawer, /disabled=\{!input\.valueNumberEditable\}/);
   assert.match(drawer, /input\.photoFileIdsEditable \? \(/);

@@ -73,6 +73,10 @@ Every consumer of an authorized inspection result projection—including the ope
 retain per-result editability while copying API data into controls and local drafts. A saved browser
 draft must never restore a value or attachment that the actor's current field policy protects, and
 replacement-style attachments are omitted unless the child field is currently editable.
+Prepare and validate the complete drawer state before publishing its selected aggregate; validation
+failure must not open a new target with a previous target's child inputs. A start/resume response must
+atomically reconcile both children and derived inputs, preferring its valid authoritative snapshot and
+falling back to the previously validated snapshot only when the returned child pair is unusable.
 Once a mutation reaches a terminal state, do not refresh it through an active-action context
 endpoint; retain the committed response and use the ordinary list/detail projection instead.
 
