@@ -25,7 +25,6 @@ import {
   type HousingRepairSummaryResponse,
   type HousingTenantResponse,
   type HousingUnitCandidateListResponse,
-  type PartyListItemResponse,
   type PropertyApprovalCommandPort,
   type PropertyApprovalJsonValue,
   type PaginatedResult,
@@ -45,7 +44,6 @@ import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PartyEntity } from "../property-operations/entities/party.entity";
-import { PartiesService } from "../property-operations/parties.service";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
@@ -101,6 +99,7 @@ import {
 } from "./housing-finance.policy";
 import { maskHousingCredential } from "./housing-projection.policy";
 import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
+import { HousingTenantService } from "./housing-tenant.service";
 
 type HousingLeaseDetailAccess = {
   tenant: boolean;
@@ -150,7 +149,7 @@ export class HousingService {
     private readonly leasesRepository: Repository<HousingLeaseEntity>,
     @InjectRepository(HousingPurchaseEntity)
     private readonly purchasesRepository: Repository<HousingPurchaseEntity>,
-    private readonly partiesService: PartiesService,
+    private readonly tenantService: HousingTenantService,
     private readonly occupancyService: PropertyOccupanciesService,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly workOrdersService: WorkOrdersService,
@@ -168,17 +167,7 @@ export class HousingService {
     actor: JwtPrincipal,
     query: PartyQueryDto
   ): Promise<PaginatedResult<HousingTenantResponse>> {
-    const housingUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    const result = await this.partiesService.listForDomainProjection(
-      scope,
-      { ...query, party_type: "person" },
-      actor,
-      housingUnitIds
-    );
-    return {
-      ...result,
-      items: result.items.map((tenant) => this.toTenantResponse(tenant, actor))
-    };
+    return this.tenantService.list(scope, actor, query);
   }
 
   async createTenant(
@@ -186,51 +175,7 @@ export class HousingService {
     actor: JwtPrincipal,
     dto: CreatePartyDto
   ): Promise<HousingTenantResponse> {
-    const tenant = await this.partiesService.create(scope, actor, {
-      ...dto,
-      party_type: "person",
-      source_domain: "housing_rental"
-    });
-    return this.toTenantResponse(tenant, actor);
-  }
-
-  private toTenantResponse(
-    tenant: PartyListItemResponse,
-    actor: JwtPrincipal
-  ): HousingTenantResponse {
-    const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
-    const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
-    return {
-      id: tenant.id,
-      displayName: tenant.displayName,
-      verificationStatus: tenant.verificationStatus,
-      ...(canReadSensitive ? {
-        identityNumberMasked: tenant.identityNumberMasked
-      } : {}),
-      ...(canManage ? {
-        mobile: this.maskTenantMobile(tenant.mobile ?? null),
-        email: this.maskTenantEmail(tenant.email ?? null)
-      } : {})
-    };
-  }
-
-  private maskTenantMobile(value: string | null): string | null {
-    if (value === null) return null;
-    if (/^\d{11}$/u.test(value)) return `${value.slice(0, 3)}****${value.slice(-4)}`;
-    if (value.length <= 4) return "****";
-    return `${value.slice(0, 2)}***${value.slice(-2)}`;
-  }
-
-  private maskTenantEmail(value: string | null): string | null {
-    if (value === null) return null;
-    const separatorIndex = value.indexOf("@");
-    if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
-      if (value.length <= 4) return "****";
-      return `${value.slice(0, 2)}***${value.slice(-2)}`;
-    }
-    const name = value.slice(0, separatorIndex);
-    const domain = value.slice(separatorIndex + 1);
-    return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
+    return this.tenantService.create(scope, actor, dto);
   }
 
   dashboard(scope: TenantParkScope, actor: JwtPrincipal) {
@@ -3109,20 +3054,7 @@ export class HousingService {
     tenant: PartyEntity,
     actor: JwtPrincipal
   ): HousingTenantResponse {
-    const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
-    const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
-    return {
-      id: tenant.id,
-      displayName: tenant.displayName,
-      verificationStatus: tenant.verificationStatus,
-      ...(canReadSensitive ? {
-        identityNumberMasked: tenant.identityNumberMasked
-      } : {}),
-      ...(canManage ? {
-        mobile: this.maskTenantMobile(tenant.mobile),
-        email: this.maskTenantEmail(tenant.email)
-      } : {})
-    };
+    return this.tenantService.project(tenant, actor);
   }
 
   private toChargePlanResponse(

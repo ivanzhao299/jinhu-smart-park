@@ -14,6 +14,7 @@ import {
   HousingReceivableEntity
 } from "./entities/housing.entities";
 import { HousingService } from "./housing.service";
+import { HousingTenantService } from "./housing-tenant.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -170,7 +171,7 @@ function leaseService() {
   const service = new HousingService(
     {} as never,
     {} as never,
-    {} as never,
+    new HousingTenantService({} as never, {} as never),
     {} as never,
     { assertAccess: async () => ({ id: lease.unitId }) } as never,
     {} as never,
