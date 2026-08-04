@@ -9,6 +9,14 @@ const prerequisitePath = resolve(
   root,
   "database/migration-prerequisites/000064_s3e_checkout_effective/001_core_role_templates.sql"
 );
+const propertyModuleMigrationPath = resolve(
+  root,
+  "database/migrations/000189_property_b_module_rbac_definitions.sql"
+);
+const assetModulePrerequisitePath = resolve(
+  root,
+  "database/migration-prerequisites/000189_property_b_module_rbac_definitions/001_asset_module.sql"
+);
 const permissionRepairSeedPath = resolve(
   root,
   "database/seeds/production/000004_core_role_permission_repair.sql"
@@ -17,6 +25,8 @@ const runnerPath = resolve(root, "scripts/db-migrate.sh");
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
+const propertyModuleMigration = readFileSync(propertyModuleMigrationPath);
+const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8");
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 
@@ -24,6 +34,63 @@ assert.equal(
   createHash("sha256").update(migration).digest("hex"),
   "5daaca3cb4a48b40c258446c36427c49ad657bd4d95de388ca9661c3cd52c89c",
   "historical migration 000175 must remain byte-for-byte unchanged"
+);
+
+assert.equal(
+  createHash("sha256").update(propertyModuleMigration).digest("hex"),
+  "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+  "historical migration 000189 must remain byte-for-byte unchanged"
+);
+
+assert.match(assetModulePrerequisite, /INSERT INTO sys_module\s*\(/);
+assert.match(assetModulePrerequisite, /'asset'/);
+assert.match(
+  assetModulePrerequisite,
+  /ON CONFLICT \(module_code\) WHERE is_deleted = false\s+DO UPDATE SET status = 1;/
+);
+assert.match(
+  assetModulePrerequisite,
+  /WHERE module_code = 'asset'\s+AND status = 1\s+AND is_deleted = false;/
+);
+assert.match(assetModulePrerequisite, /active_asset_count <> 1/);
+
+const assetWriteStatements = [
+  ...assetModulePrerequisite.matchAll(/^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([a-z_][a-z0-9_]*)/gim)
+].map((match) => `${match[1].toUpperCase()} ${match[2]}`);
+assert.deepEqual(
+  assetWriteStatements,
+  ["INSERT INTO sys_module"],
+  "000189 prerequisite must write only the sys_module catalog"
+);
+
+for (const forbiddenBoundary of [
+  "rel_tenant_module",
+  "rel_plan_module",
+  "sys_module_registry",
+  "sys_permission",
+  "sys_role",
+  "sys_user",
+  "sys_plan",
+  "rel_role_perm",
+  "rel_role_data_scope"
+]) {
+  assert.equal(
+    new RegExp(`(?:INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+${forbiddenBoundary}`, "i").test(
+      assetModulePrerequisite
+    ),
+    false,
+    `000189 prerequisite must not write ${forbiddenBoundary}`
+  );
+}
+
+const assetConflictUpdate = assetModulePrerequisite.match(
+  /DO UPDATE SET\s+([\s\S]*?);/
+);
+assert.ok(assetConflictUpdate, "000189 prerequisite must handle an existing active asset row");
+assert.equal(
+  assetConflictUpdate[1].trim(),
+  "status = 1",
+  "existing active asset metadata and identity must remain unchanged"
 );
 
 for (const roleCode of [
