@@ -27,6 +27,24 @@ export function assertSemanticContractsReady(profile) {
   return true;
 }
 
+export function assertBaselineSemanticAnchors(profile, root = repoRoot) {
+  const failures = [];
+  for (const rehearsalCase of profile.cases) {
+    const contract = contractFor(rehearsalCase);
+    const changedPaths = new Set(contract.mustChangeProductionPaths);
+    const anchors = [
+      ...contract.retainedShell.filter(({ path }) => !changedPaths.has(path)).map(validateRetainedShell),
+      ...contract.protectedExternalPaths.map(validateExternal)
+    ];
+    for (const anchor of anchors) {
+      const text = readContractFile(root, anchor.path);
+      if (!anchorPasses(anchor, text)) failures.push(`${rehearsalCase.id}:${anchor.id}`);
+    }
+  }
+  if (failures.length > 0) throw new Error(`final baseline semantic anchors are not satisfied: ${failures.join(",")}`);
+  return true;
+}
+
 export function protectedRollbackPaths(profile, rehearsalCase) {
   return new Set([
     ...profile.cases.flatMap(({ targetedTestFiles = [] }) => targetedTestFiles),

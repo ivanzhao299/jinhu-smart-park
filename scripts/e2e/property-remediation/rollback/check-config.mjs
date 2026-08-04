@@ -5,12 +5,13 @@ import { assertFinalSha, canonicalSha256, loadProfile, repoRoot, validateDurable
 import { buildCommandSpecs, commandSpecSha256, materializeCommand, probeCommandRuntime } from "./command-spec.mjs";
 import { validateSourceBinding } from "./source-validator.mjs";
 import { probeDependencyWorktree } from "./dependency-control.mjs";
-import { assertSemanticContractsReady } from "./semantic-contract.mjs";
+import { assertBaselineSemanticAnchors, assertSemanticContractsReady } from "./semantic-contract.mjs";
 
 export async function checkConfig({ finalSha, requireClean = true } = {}) {
   assertFinalSha(finalSha);
   const { profile, profileSha256 } = loadProfile();
   assertSemanticContractsReady(profile);
+  assertBaselineSemanticAnchors(profile);
   const durableTables = validateDurableTableSources(profile);
   for (const rehearsalCase of profile.cases) buildCommandSpecs(profile, rehearsalCase);
   const commandProbe = await probeCommandRuntime();

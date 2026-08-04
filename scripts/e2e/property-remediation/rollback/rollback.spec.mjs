@@ -18,7 +18,7 @@ import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
-import { captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId } from "./semantic-contract.mjs";
+import { assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
@@ -29,6 +29,25 @@ test("profile freezes 19 cases and complete formal matrix", () => {
   assert.equal(profile.cases.filter(({ kind }) => kind === "backend-closure").length, 17);
   assert.equal(profile.cases.filter(({ kind }) => kind === "frontend-group").length, 2);
   assert.deepEqual(profile.requiredGateIds, [...COMMAND_IDS]);
+  assert.equal(assertBaselineSemanticAnchors(profile), true);
+});
+
+test("baseline semantic gate rejects historical profile drift but permits must-change shells", () => {
+  const { profile } = loadProfile();
+  const mutateAnchor = (caseId, collection, anchorId, token) => {
+    const changed = JSON.parse(JSON.stringify(profile)); const rehearsalCase = changed.cases.find(({ id }) => id === caseId);
+    const anchor = rehearsalCase.rollbackSemanticContract[collection].find(({ id }) => id === anchorId);
+    anchor.mustContain.push(token); return changed;
+  };
+  for (const [caseId, anchorId, token] of [
+    ["homestay-dashboard", "hs-dashboard-shell", "nightly_rate"],
+    ["homestay-turnover", "hs-turnover-shell", "released_at"],
+    ["homestay-finance", "hs-finance-shell", "ON CONFLICT"]
+  ]) assert.throws(() => assertBaselineSemanticAnchors(mutateAnchor(caseId, "retainedShell", anchorId, token)), /baseline semantic anchors/u);
+  const externalCase = profile.cases.find(({ rollbackSemanticContract }) => rollbackSemanticContract.protectedExternalPaths.length > 0);
+  const external = externalCase.rollbackSemanticContract.protectedExternalPaths[0];
+  assert.throws(() => assertBaselineSemanticAnchors(mutateAnchor(externalCase.id, "protectedExternalPaths", external.id, "impossible-protected-token")), /baseline semantic anchors/u);
+  assert.equal(assertBaselineSemanticAnchors(mutateAnchor("housing-tenant", "retainedShell", "housing-tenant-projection-shell", "expected-post-rollback-only-token")), true);
 });
 
 test("formal config check advances past the now-frozen 19 semantic contracts", async () => {

@@ -43,7 +43,7 @@ import { execFileBounded, TIMEOUTS, withHardTimeout } from "./timeout.mjs";
 import { addSparseWorktree, materializeWorktreeDependencies, resolvePnpmJsCli } from "./dependency-control.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { initializeRuntimeLease } from "./runtime-lease.mjs";
-import { assertSemanticContractsReady, captureImmutableTestFiles, evaluateRollbackSemanticContract } from "./semantic-contract.mjs";
+import { assertBaselineSemanticAnchors, assertSemanticContractsReady, captureImmutableTestFiles, evaluateRollbackSemanticContract } from "./semantic-contract.mjs";
 
 const runnerPath = fileURLToPath(import.meta.url);
 const PLAN_KEYS = [
@@ -111,6 +111,7 @@ export async function prepareRun({ runId, finalSha, env = process.env, now = () 
   assertFinalSha(finalSha);
   const { profile, profileSha256 } = loadProfile();
   assertSemanticContractsReady(profile);
+  assertBaselineSemanticAnchors(profile);
   const source = await validateSourceBinding({ finalSha, profile });
   const runRoot = resolve(rollbackRoot, runId);
   ensureSafeArtifactRoot();
