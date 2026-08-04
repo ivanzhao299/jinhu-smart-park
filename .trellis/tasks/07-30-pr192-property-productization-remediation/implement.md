@@ -685,10 +685,10 @@ outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增�
   无跳过。不得重复执行或重复归档 Track B。
 - [x] Track C C1/C2 技术实现、合同/复杂度、全量 API、统一隔离 PostgreSQL 与
   clean-provision Gate 通过；产品 `open_P0_P1=[]`。
-- [ ] Track C C3：E 轮在 23 个完整 PASS cell 后因外部 executor 终止而作废，partial
-  evidence 已保留且官方 cleanup residual=0；fresh project F 已按 `b994d163` 完整重跑
-  30-cell。须等待 executor 终态，复核每个 cell、阈值、证据 hash/manifest、secret 检查
-  及全部资源清理，不得拼接 E/F 证据。
+- [ ] Track C C3：E 轮在 23 个完整 PASS cell 后因外部 executor 终止而作废并 residual=0；
+  F 轮通过 clean provision/check-config 和首格后，独立审计确认 `b994d163` 尚缺 canonical
+  occupancy port、upload rollback flag 与 rollback/output handoff，故主动停止并 residual=0。
+  先完成技术缺口与 rollback rehearsal，再在 final SHA 上重跑完整 30-cell；不得拼接 E/F。
 - [ ] Track C C4：性能证据须由非实施者独立复核；Chrome 增量 15/15 因宿主
   `sandboxCwd` local-file-URI 错误在插件执行前 BLOCKED，保留环境 P1
   `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS 或误报为产品缺陷。

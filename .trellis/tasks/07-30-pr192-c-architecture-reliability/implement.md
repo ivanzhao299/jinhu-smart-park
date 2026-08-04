@@ -65,8 +65,12 @@ Human UAT 未完成不是 Entry blocker。
   （SHA `6a6a0326a84ad4384cea46ca8b111fd6886fb0f83c7e03afd9433d3e6efce331`）记录
   external termination 与官方 cleanup residual=0。随后 fresh project
   `jinhu-track-c-perf-20260804f` 按候选 `b994d163` 重新 clean provision，strict baseline 与
-  check-config 30 runs 均 PASS；完整 30-cell 已通过 `nohup` + `setsid` 脱离短会话重新启动，
-  权威 run 为 `2026-08-04T14-40-17-484Z-b994d1630791`，不得与 E 轮 23 个 cell 拼接。
+  check-config 30 runs 均 PASS；完整 30-cell 曾通过 `nohup` + `setsid` 脱离短会话重新启动，
+  run 为 `2026-08-04T14-40-17-484Z-b994d1630791`。独立 rollback/handoff 审计随后确认
+  canonical occupancy port、upload queue rollback flag、rollback rehearsal/output handoff 仍缺失，
+  因而 `b994d163` 不能作为 final candidate。F 轮在首个完整 PASS cell 后主动停止，partial
+  evidence 不具备 PASS 资格，官方 cleanup residual=0；后续不得与 E/F 轮拼接，须在修复后的
+  final SHA 上重跑完整 30-cell。
   正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
