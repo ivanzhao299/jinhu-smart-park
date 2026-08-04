@@ -2,6 +2,7 @@
 
 import type { UserContext } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "./api-client";
+import { purgePropertyOfflineState } from "../features/property-shared/offline/property-draft-store";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -39,6 +40,10 @@ export function getRefreshToken(): string {
 }
 
 export function setSession(token: string, user: UserContext, _refreshToken?: string): void {
+  const previous = getStoredUser();
+  if (previous && sessionScope(previous) !== sessionScope(user)) {
+    void purgePropertyOfflineState();
+  }
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.setItem(TOKEN_KEY, token);
@@ -64,6 +69,17 @@ export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  void purgePropertyOfflineState();
+}
+
+function sessionScope(user: UserContext): string {
+  return JSON.stringify([
+    user.id,
+    user.tenant_id,
+    user.park_id,
+    user.data_scope,
+    [...user.permissions].sort()
+  ]);
 }
 
 export async function logoutSession(): Promise<void> {

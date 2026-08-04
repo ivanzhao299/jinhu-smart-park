@@ -1,5 +1,7 @@
 "use client";
 
+import { purgePropertyOfflineState } from "../features/property-shared/offline/property-draft-store";
+
 const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api/v1";
 
 const TOKEN_KEY = "jinhu_access_token";
@@ -65,6 +67,7 @@ export function clearLocalSessionStorage(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  void purgePropertyOfflineState();
 }
 
 function isCurrentAccessToken(requestToken: string): boolean {

@@ -3,7 +3,7 @@
   "name": "pr192-c-architecture-reliability",
   "title": "PR192 C 架构与可靠性",
   "description": "Track C 前后端架构拆分、弱网可靠性、性能与证据现代化",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "workspace",
   "package": null,

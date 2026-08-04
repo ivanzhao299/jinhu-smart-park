@@ -1,14 +1,16 @@
 "use client";
 
 import type { HomestayBookingResponse, HomestayUnitCandidateListResponse } from "@jinhu/shared";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   PropertyPanelSurface,
   RemoteEntityPicker,
   type PropertyCapabilityProjection,
   type RemoteEntityOption
 } from "../../../features/property-shared";
+import { usePropertyDraft } from "../../../features/property-shared/offline/use-property-draft";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
@@ -30,6 +32,7 @@ async function loadUnits(input: { page: number; pageSize: number; signal: AbortS
 }
 
 function useBookingCreate(onCreated: () => void) {
+  const user = useAuthUser();
   const [unit, setUnit] = useState<RemoteEntityOption | null>(null);
   const [arrivalDate, setArrivalDate] = useState(businessDate());
   const [departureDate, setDepartureDate] = useState(addBusinessDateDays(businessDate(), 1));
@@ -38,6 +41,35 @@ function useBookingCreate(onCreated: () => void) {
   const [submitting, setSubmitting] = useState(false);
   const lock = useRef(false);
   const retryKey = useRef<{ signature: string; key: string } | null>(null);
+  const draftValue = useMemo(() => ({
+    unit,
+    arrivalDate,
+    departureDate,
+    guestCount
+  }), [arrivalDate, departureDate, guestCount, unit]);
+  const offlineDraft = usePropertyDraft({
+    context: user ? {
+      tenantId: user.tenant_id,
+      parkId: user.park_id,
+      userId: user.id,
+      route: "/homestay/bookings",
+      entityId: "new-booking"
+    } : null,
+    scope: user ? {
+      tenantId: user.tenant_id,
+      parkId: user.park_id,
+      userId: user.id,
+      module: "homestay",
+      permissionFingerprint: JSON.stringify([user.data_scope, ...user.permissions].sort())
+    } : null,
+    value: draftValue,
+    onRestore: (draft) => {
+      setUnit(draft.unit as RemoteEntityOption | null);
+      setArrivalDate(String(draft.arrivalDate));
+      setDepartureDate(String(draft.departureDate));
+      setGuestCount(String(draft.guestCount));
+    }
+  });
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!unit || lock.current) return;
@@ -59,6 +91,7 @@ function useBookingCreate(onCreated: () => void) {
         }
       });
       retryKey.current = null;
+      await offlineDraft.clear();
       setMessage("订单草稿已创建。");
       onCreated();
     } catch (error) {
@@ -70,7 +103,7 @@ function useBookingCreate(onCreated: () => void) {
   }
   return {
     arrivalDate, departureDate, guestCount, message, setArrivalDate, setDepartureDate,
-    setGuestCount, setUnit, submit, submitting, unit
+    setGuestCount, setUnit, submit, submitting, unit, draftStatus: offlineDraft.status
   };
 }
 
@@ -102,6 +135,8 @@ export function HomestayBookingCreatePanel({
         </fieldset>
       </form>
       <p aria-live="polite">{form.submitting ? "正在创建订单草稿…" : form.message}</p>
+      {form.draftStatus === "saved" ? <p aria-live="polite">非敏感草稿已保存在本机，24 小时后自动失效。</p> : null}
+      {form.draftStatus === "error" ? <p aria-live="polite">本机草稿保存不可用，请勿刷新或关闭页面。</p> : null}
     </PropertyPanelSurface>
   );
 }

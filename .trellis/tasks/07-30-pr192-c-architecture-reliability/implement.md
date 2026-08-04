@@ -6,15 +6,15 @@
 
 开始前必须：
 
-- [ ] B technical handoff SHA 已记录。
-- [ ] B `open_P0_P1=[]`。
-- [ ] approval/identity/assignment/outbox contract snapshot 已冻结。
-- [ ] 各 domain owner 已显式 handoff 路径。
-- [ ] `shared-property-web-owner` 已对
+- [x] B technical handoff SHA 已记录：`f4797adf` 及其正式 signoff。
+- [x] B `open_P0_P1=[]`。
+- [x] approval/identity/assignment/outbox contract snapshot 已冻结。
+- [x] 各 domain owner 已由完成的 Track B handoff 释放路径。
+- [x] `shared-property-web-owner` 已对
   `apps/web/features/property-shared/offline/**` 提供 path-specific handoff SHA。
-- [ ] offline handoff 记录 `writer_stopped=true`、base SHA、validation、known
+- [x] offline handoff 记录 `writer_stopped=true`、base SHA、validation、known
   failures 和 `open_P0_P1=[]`，且 handoff SHA 是当前 branch ancestor。
-- [ ] 当前 branch 基于 B SHA。
+- [x] 当前 branch 基于 B SHA。
 
 Human UAT 未完成不是 Entry blocker。
 
