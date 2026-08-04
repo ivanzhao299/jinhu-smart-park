@@ -1,0 +1,7 @@
+{
+  "schema_version": "property-remediation-b2a-c3-runid-reservation-v1",
+  "run_id": "b2ac3_legacy_compat_formal_20260801b",
+  "artifact": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c3-legacy-compatibility-b2ac3_legacy_compat_formal_20260801b.json",
+  "manifest": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c3-legacy-compatibility-b2ac3_legacy_compat_formal_20260801b.manifest.txt",
+  "reserved_at": "2026-08-01T13:06:15.953Z"
+}

@@ -1,0 +1,86 @@
+{
+  "schema_version": "b2a-c2-worst-path-dominance-equivalence-v1",
+  "status": "candidate-unsigned-not-consumed",
+  "identity": {
+    "budget_candidate_raw_sha256": "127d8574978bf6719a4fe9a7865e5c99333fa3dfd93c8e3f0dcccc17d152c0b4",
+    "budget_canonical_digest": "d86fc62ec471ec85f7fcc1e7dbf74093b6c9cf5deeb5d93f8b08038a03c6cc45",
+    "budget_final_signoff_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "b_contract_raw_sha256": "81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3",
+    "mapping_raw_sha256": "detached-manifest-owned"
+  },
+  "exact_action_scope": [
+    "property.task.rebuild",
+    "property.task.claim",
+    "property.task.start",
+    "property.task.block",
+    "property.task.unblock",
+    "property.task.release",
+    "property.task.source-terminal.closed",
+    "property.task.source-terminal.cancelled"
+  ],
+  "scope": "C2-function-fixture-only",
+  "classes": [
+    {
+      "id": "manual",
+      "representative": "property.task.rebuild",
+      "mapped": ["property.task.rebuild"],
+      "dimensions": {
+        "sql_sequence": {"representative": "receipt-started,replace,receipt-complete,commit", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 runner budget child"},
+        "locks": {"representative": "receipt,projection-head,projection-delete-insert", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 forced-lock and function fixture"},
+        "payload": {"representative": "complete canonical 200-row source snapshot", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 fixture"},
+        "writes": {"representative": "receipt,head,projection,replacement-audit", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 snapshot"},
+        "transaction": {"representative": "one isolated PostgreSQL transaction", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 child"},
+        "deadline": {"representative": "five-second fixture deadline", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 monotonic attempts"},
+        "fault": {"representative": "oversize,lock,late rollback,commit ambiguity", "mapped": "self", "comparison": "exact", "dominates": true, "evidence": "C2 fault gates"}
+      }
+    },
+    {
+      "id": "ordinary-command",
+      "representative": "property.task.block",
+      "mapped": ["property.task.claim", "property.task.start", "property.task.block", "property.task.unblock", "property.task.release"],
+      "dimensions": {
+        "sql_sequence": {"representative": "C2 receipt-started,replace,receipt-complete,commit", "mapped": "same C2 function fixture sequence", "comparison": "exact only inside C2 fixture", "dominates": true, "evidence": "per-action C2 attempts"},
+        "locks": {"representative": "same C2 receipt/head/projection locks", "mapped": "same fixture locks", "comparison": "exact only inside C2 fixture", "dominates": true, "evidence": "C2 function path"},
+        "payload": {"representative": "200 rows including blockedReason", "mapped": "200 rows with action-specific lifecycle fields", "comparison": "representative field population is a superset; size equal", "dominates": true, "evidence": "per-action row fixtures"},
+        "writes": {"representative": "receipt,head,200 projections,replacement-audit", "mapped": "same fixture tables and cardinality", "comparison": "exact", "dominates": true, "evidence": "C2 snapshots"},
+        "transaction": {"representative": "one isolated fixture transaction", "mapped": "one isolated fixture transaction", "comparison": "exact in fixture only", "dominates": true, "evidence": "C2 budget child"},
+        "deadline": {"representative": "five-second fixture deadline", "mapped": "same fixture deadline", "comparison": "exact in fixture only", "dominates": true, "evidence": "C2 attempts"},
+        "fault": {"representative": "shared database fault points", "mapped": "action-specific branch residuals retained", "comparison": "shared faults dominated; semantic branches not mapped", "dominates": true, "evidence": "C2 faults plus per-action negatives"}
+      }
+    },
+    {
+      "id": "source-terminal",
+      "representative": "property.task.source-terminal.closed",
+      "mapped": ["property.task.source-terminal.closed", "property.task.source-terminal.cancelled"],
+      "dimensions": {
+        "sql_sequence": {"representative": "C2 terminal receipt-started,replace,receipt-complete,commit", "mapped": "same fixture sequence", "comparison": "exact in fixture only", "dominates": true, "evidence": "terminal attempts"},
+        "locks": {"representative": "same C2 source receipt/head/projection locks", "mapped": "same fixture locks", "comparison": "exact", "dominates": true, "evidence": "C2 function"},
+        "payload": {"representative": "200 closed rows with outcome fields", "mapped": "200 cancelled rows with outcome fields", "comparison": "equal shape and cardinality", "dominates": true, "evidence": "terminal fixtures"},
+        "writes": {"representative": "receipt,head,200 projections,replacement-audit", "mapped": "same fixture writes", "comparison": "exact", "dominates": true, "evidence": "C2 snapshots"},
+        "transaction": {"representative": "one isolated fixture transaction", "mapped": "one isolated fixture transaction", "comparison": "exact in fixture only", "dominates": true, "evidence": "C2 child"},
+        "deadline": {"representative": "five-second fixture deadline", "mapped": "same fixture deadline", "comparison": "exact in fixture only", "dominates": true, "evidence": "terminal attempts"},
+        "fault": {"representative": "shared database fault points", "mapped": "closed/cancelled result-version, result-ref, status and source-version residuals retained", "comparison": "shared faults dominated; semantic branches remain independent", "dominates": true, "evidence": "terminal negative matrix"}
+      }
+    }
+  ],
+  "per_action_residuals": {
+    "positive": "one function and one direct DB-row positive per exact action",
+    "negative": "mode/action, result-version, result-ref and action-specific row invariants per exact action",
+    "measurement": "current C2 candidate measures all eight actions independently as self; mapping is unused"
+  },
+  "exclusions": {
+    "production_controller_service_receipt_port": "pending_C4",
+    "rbac_scope": "pending_C4",
+    "authority_mutation_global_lock_order": "pending_C4",
+    "real_transaction_chain_remaining_budget_propagation": "pending_C4",
+    "eight_production_callsites_http_replay": "pending_C4",
+    "real_adapter_cardinality": "pending_B2c"
+  },
+  "dispositions": {
+    "architecture_database": "pending",
+    "product_rbac_interaction": "pending",
+    "test_security": "pending",
+    "open_p0_p1": "not_computed",
+    "signoff": "blocked"
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "schema_version": "property-remediation-b2a-c2-schema-gate-v1",
+  "status": "failed",
+  "run_id": "b2ac2_perf_2m_v4",
+  "chain": [
+    "000185_property_b_identity_schema_expand.sql",
+    "000186_property_b_approval_runtime_schema.sql",
+    "000187_property_b_event_notification_schema.sql",
+    "000188_property_b_task_runtime_schema.sql",
+    "000189_property_b_module_rbac_definitions.sql",
+    "000190_property_b_migration_compatibility_control.sql",
+    "000193_property_b_runtime_integrity_forward_fix.sql",
+    "000194_property_task_projection_contract_correction.sql"
+  ],
+  "migration_sha256": "b106a0baa0706ad0621132ee0ae3f8b02fa60b73038a32170ac6e8846f409201",
+  "catalog_sha256": "3ba1d549083d5c373245df9b825dbbe14ddcc21ffe4be7ffd524673553586d5a",
+  "old_b_schema_expand_sha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+  "function_definitions": null,
+  "security_controls": null,
+  "migration_000190": null,
+  "behavior_results": null,
+  "fake_lifecycle_results": [
+    {
+      "name": "create-fail",
+      "input": {
+        "createStatus": 17
+      },
+      "expected": {
+        "drop_calls": 0,
+        "final_status": 17
+      },
+      "actual": {
+        "model_created": false,
+        "drop_calls": 0,
+        "primary_status": 17,
+        "final_status": 17,
+        "signal": null
+      },
+      "status": "passed"
+    },
+    {
+      "name": "test-fail-drop-pass",
+      "input": {
+        "createStatus": 0,
+        "testStatus": 23
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 23
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 23,
+        "final_status": 23,
+        "signal": null
+      },
+      "status": "passed"
+    },
+    {
+      "name": "test-pass-drop-fail",
+      "input": {
+        "createStatus": 0,
+        "dropStatus": 29
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 29
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 0,
+        "final_status": 29,
+        "signal": null
+      },
+      "status": "passed"
+    },
+    {
+      "name": "temp-cleanup-fail",
+      "input": {
+        "createStatus": 0,
+        "tempCleanupStatus": 31
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 31
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 0,
+        "final_status": 31,
+        "signal": null
+      },
+      "status": "passed"
+    },
+    {
+      "name": "SIGINT",
+      "input": {
+        "createStatus": 0,
+        "signal": "SIGINT"
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 128
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 128,
+        "final_status": 128,
+        "signal": "SIGINT"
+      },
+      "status": "passed"
+    },
+    {
+      "name": "SIGTERM",
+      "input": {
+        "createStatus": 0,
+        "signal": "SIGTERM"
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 128
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 128,
+        "final_status": 128,
+        "signal": "SIGTERM"
+      },
+      "status": "passed"
+    },
+    {
+      "name": "SIGHUP",
+      "input": {
+        "createStatus": 0,
+        "signal": "SIGHUP"
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 128
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 128,
+        "final_status": 128,
+        "signal": "SIGHUP"
+      },
+      "status": "passed"
+    },
+    {
+      "name": "success",
+      "input": {
+        "createStatus": 0
+      },
+      "expected": {
+        "drop_calls": 1,
+        "final_status": 0
+      },
+      "actual": {
+        "model_created": true,
+        "drop_calls": 1,
+        "primary_status": 0,
+        "final_status": 0,
+        "signal": null
+      },
+      "status": "passed"
+    }
+  ],
+  "no_191_192_dependency": true,
+  "cleanup": {
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": []
+  },
+  "performance_2m_status": "failed",
+  "performance": null,
+  "independent_review_status": "pending",
+  "candidate_findings": [
+    "P1: docker exec failed: ERROR:  could not resize shared memory segment \"/PostgreSQL.410542620\" to 67145504 bytes: No space left on device"
+  ],
+  "error": "docker exec failed: ERROR:  could not resize shared memory segment \"/PostgreSQL.410542620\" to 67145504 bytes: No space left on device"
+}

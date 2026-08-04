@@ -1,0 +1,2483 @@
+{
+  "schema_version": "property-remediation-b2a-c4-runtime-gate-v1",
+  "run_id": "b2ac4_runtime_formal_20260801c",
+  "run_id_reservation": {
+    "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-runid-e06fb8af70a2b90f391e37da736f617755cabdaf0609c08ed9a3f31b8e614d3f.reservation.json",
+    "raw_sha256": "a59a0eadbd52b9756cd213866974b9c13cfb370c110a49e00ca6b49674f521f8",
+    "bytes": 416,
+    "immutable_and_preserved": true
+  },
+  "candidate_scope": "c4-runtime-candidate-only-production-enablement-remains-blocked",
+  "status": "failed",
+  "candidate_admissible": false,
+  "started_at": "2026-08-01T06:47:25.534Z",
+  "finished_at": "2026-08-01T06:48:27.184Z",
+  "error": {
+    "name": "Error",
+    "message": "C4 PostgreSQL spec failed:",
+    "stack_sha256": "9922d1dbd8fb5f3cf75c1ff5106f808fff3982757e5aab1392f9e346701ab73f"
+  },
+  "failed_stage": "pg-spec",
+  "failure_diagnostics": {
+    "status": "captured",
+    "current_stage": "pg-spec",
+    "captured_at": "2026-08-01T06:48:26.503Z",
+    "exact_container_expected": true,
+    "container": {
+      "present": true,
+      "exact_identity": true,
+      "id": "45278733d4dfe4ad7c55018cbd8e8b108c86068a2c294ce80f581f94a47cdafa",
+      "restart_count": 0,
+      "state": {
+        "status": "running",
+        "running": true,
+        "paused": false,
+        "restarting": false,
+        "oom_killed": false,
+        "dead": false,
+        "exit_code": 0,
+        "error": "",
+        "started_at": "2026-08-01T06:47:52.706651854Z",
+        "finished_at": "0001-01-01T00:00:00Z"
+      }
+    },
+    "logs": {
+      "command_status": 0,
+      "tail_lines": 120,
+      "stdout": {
+        "captured_bytes": 4051,
+        "stored_bytes": 4051,
+        "truncated": false,
+        "raw_sha256": "4e393fd0784a135e3b0d7974dd4ef7611dd69856f65b7c30592be6f1780c9d8a",
+        "tail": "2026-08-01T06:47:53.140488881Z The files belonging to this database system will be owned by user \"postgres\".\n2026-08-01T06:47:53.140517851Z This user must also own the server process.\n2026-08-01T06:47:53.140519454Z \n2026-08-01T06:47:53.140520385Z The database cluster will be initialized with locale \"en_US.utf8\".\n2026-08-01T06:47:53.140521303Z The default database encoding has accordingly been set to \"UTF8\".\n2026-08-01T06:47:53.140522171Z The default text search configuration will be set to \"english\".\n2026-08-01T06:47:53.140523021Z \n2026-08-01T06:47:53.140523764Z Data page checksums are disabled.\n2026-08-01T06:47:53.140524570Z \n2026-08-01T06:47:53.140534719Z fixing permissions on existing directory /var/lib/postgresql/data ... ok\n2026-08-01T06:47:53.142265523Z creating subdirectories ... ok\n2026-08-01T06:47:53.142286708Z selecting dynamic shared memory implementation ... posix\n2026-08-01T06:47:53.153472806Z selecting default max_connections ... 100\n2026-08-01T06:47:53.165846994Z selecting default shared_buffers ... 128MB\n2026-08-01T06:47:53.266281253Z selecting default time zone ... UTC\n2026-08-01T06:47:53.267608497Z creating configuration files ... ok\n2026-08-01T06:47:53.343164479Z running bootstrap script ... ok\n2026-08-01T06:47:53.754698852Z performing post-bootstrap initialization ... ok\n2026-08-01T06:47:53.981168084Z syncing data to disk ... ok\n2026-08-01T06:47:53.981182835Z \n2026-08-01T06:47:53.981184130Z \n2026-08-01T06:47:53.981185037Z Success. You can now start the database server using:\n2026-08-01T06:47:53.981185876Z \n2026-08-01T06:47:53.981186637Z     pg_ctl -D /var/lib/postgresql/data -l logfile start\n2026-08-01T06:47:53.981187466Z \n2026-08-01T06:47:54.009610986Z waiting for server to start....2026-08-01 06:47:54.009 UTC [59] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit\n2026-08-01T06:47:54.012456694Z 2026-08-01 06:47:54.012 UTC [59] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\n2026-08-01T06:47:54.019177639Z 2026-08-01 06:47:54.019 UTC [62] LOG:  database system was shut down at 2026-08-01 06:47:53 UTC\n2026-08-01T06:47:54.023635889Z 2026-08-01 06:47:54.023 UTC [59] LOG:  database system is ready to accept connections\n2026-08-01T06:47:54.034755510Z 2026-08-01 06:47:54.034 UTC [66] FATAL:  database \"pr192_b2a_c4_gate\" does not exist\n2026-08-01T06:47:54.095615592Z  done\n2026-08-01T06:47:54.095630371Z server started\n2026-08-01T06:47:54.122955174Z 2026-08-01 06:47:54.122 UTC [78] FATAL:  database \"pr192_b2a_c4_gate\" does not exist\n2026-08-01T06:47:54.137347170Z CREATE DATABASE\n2026-08-01T06:47:54.137617058Z \n2026-08-01T06:47:54.137707827Z \n2026-08-01T06:47:54.137722812Z /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*\n2026-08-01T06:47:54.137724463Z \n2026-08-01T06:47:54.138191607Z waiting for server to shut down....2026-08-01 06:47:54.138 UTC [59] LOG:  received fast shutdown request\n2026-08-01T06:47:54.140608324Z 2026-08-01 06:47:54.140 UTC [59] LOG:  aborting any active transactions\n2026-08-01T06:47:54.142041060Z 2026-08-01 06:47:54.141 UTC [59] LOG:  background worker \"logical replication launcher\" (PID 65) exited with exit code 1\n2026-08-01T06:47:54.142095433Z 2026-08-01 06:47:54.142 UTC [60] LOG:  shutting down\n2026-08-01T06:47:54.144660601Z 2026-08-01 06:47:54.144 UTC [60] LOG:  checkpoint starting: shutdown immediate\n2026-08-01T06:47:54.234280687Z 2026-08-01 06:47:54.234 UTC [60] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.018 s, sync=0.064 s, total=0.093 s; sync files=301, longest=0.004 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D70, redo lsn=0/1925D70\n2026-08-01T06:47:54.237699712Z 2026-08-01 06:47:54.237 UTC [59] LOG:  database system is shut down\n2026-08-01T06:47:54.238377880Z  done\n2026-08-01T06:47:54.238384219Z server stopped\n2026-08-01T06:47:54.238936087Z \n2026-08-01T06:47:54.238942041Z PostgreSQL init process complete; ready for start up.\n2026-08-01T06:47:54.238943140Z \n"
+      },
+      "stderr": {
+        "captured_bytes": 7111,
+        "stored_bytes": 7111,
+        "truncated": false,
+        "raw_sha256": "1f0c0f987c6551a9e9686a19bce56636914373f22a90dafc243f73fe74171b2a",
+        "tail": "2026-08-01T06:47:53.466510834Z sh: locale: not found\n2026-08-01T06:47:53.466524234Z 2026-08-01 06:47:53.466 UTC [41] WARNING:  no usable system locales were found\n2026-08-01T06:47:53.981193528Z initdb: warning: enabling \"trust\" authentication for local connections\n2026-08-01T06:47:53.981201123Z initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.\n2026-08-01T06:47:54.253429692Z 2026-08-01 06:47:54.253 UTC [1] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit\n2026-08-01T06:47:54.254437717Z 2026-08-01 06:47:54.254 UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432\n2026-08-01T06:47:54.257454611Z 2026-08-01 06:47:54.257 UTC [1] LOG:  listening on IPv6 address \"::\", port 5432\n2026-08-01T06:47:54.265459119Z 2026-08-01 06:47:54.265 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\n2026-08-01T06:47:54.271146193Z 2026-08-01 06:47:54.271 UTC [83] LOG:  database system was shut down at 2026-08-01 06:47:54 UTC\n2026-08-01T06:47:54.275860081Z 2026-08-01 06:47:54.275 UTC [1] LOG:  database system is ready to accept connections\n2026-08-01T06:48:26.469878663Z 2026-08-01 06:48:26.469 UTC [1618] ERROR:  new row for relation \"biz_property_task_projection\" violates check constraint \"ck_biz_property_task_projection_keys\"\n2026-08-01T06:48:26.469898637Z 2026-08-01 06:48:26.469 UTC [1618] DETAIL:  Failing row contains (589ff625-3893-4bfc-a4a7-6352586b7ad9, c4-14134757-5a18-44d5-9416-b38a2d29790e, c4-0568be74-5c23-4c8c-a2ce-0d362ee736f7, a46f50f0-f83c-4ad9-a424-8456fb39bfea, c12e9628-6209-4269-b3b1-9fdbe650fc81, 5d4b0f606b76499fa274918c20a862e5                                , derived, fdedbb5d-c1aa-4f55-b6fc-257feb771f50, test_fixture_source, ff4c5209-6d06-442a-8132-e4b4623abd73, 1, runtime-b5fc28da-6db8-4e78-af2e-63f58469abea, test_fixture_task, test_fixture_queue, Runtime task, Fixture, Fixture source, 10, null, open, 1, null, null, null, null, null, null, null, null, null, null, 1, 1111111111111111111111111111111111111111111111111111111111111111, 2026-08-01 00:00:00+00, 2026-08-01 00:00:00+00).\n2026-08-01T06:48:26.469909820Z 2026-08-01 06:48:26.469 UTC [1618] STATEMENT:  INSERT INTO biz_property_task_projection(\n2026-08-01T06:48:26.469910922Z \t         tenant_id,park_id,head_id,task_id,task_key,assignment_authority,\n2026-08-01T06:48:26.469911981Z \t         derived_assignment_id,source_type,source_id,source_version,\n2026-08-01T06:48:26.469912775Z \t         business_occurrence_key,task_kind,queue_code,title,kind_label,\n2026-08-01T06:48:26.469913554Z \t         source_label,priority,assignment_status,assignment_version,\n2026-08-01T06:48:26.469914344Z \t         assignee_id,assignee_display,projection_version,content_hash,\n2026-08-01T06:48:26.469915150Z \t         created_at,updated_at)\n2026-08-01T06:48:26.469915923Z \t       VALUES($1,$2,$3,$4,$5,'derived',$6,$7,$8,1,$9,'test_fixture_task',\n2026-08-01T06:48:26.469916697Z \t         'test_fixture_queue','Runtime task','Fixture','Fixture source',10,\n2026-08-01T06:48:26.469917485Z \t         'open',1,NULL,NULL,1,$10,$11,$11)\n2026-08-01T06:48:26.478090033Z 2026-08-01 06:48:26.477 UTC [1618] ERROR:  new row for relation \"biz_property_task_projection\" violates check constraint \"ck_biz_property_task_projection_keys\"\n2026-08-01T06:48:26.478106710Z 2026-08-01 06:48:26.477 UTC [1618] DETAIL:  Failing row contains (0a095df9-fc5b-4b43-8d38-2ab23895f9eb, c4-14134757-5a18-44d5-9416-b38a2d29790e, c4-0568be74-5c23-4c8c-a2ce-0d362ee736f7, be1b55a7-9150-44e0-81f1-9183ca020dfd, 13afc3da-86d4-4687-8a99-1d06233281dd, f09b35a33c6f4212b6f19e40323b0c84                                , derived, f93e0f0c-818d-4496-8615-9f1e3649a38a, test_fixture_source, eb684150-2161-47f0-91c4-51d9db578bf6, 1, runtime-df1f7d82-8a01-45c0-8506-c000daff9244, test_fixture_task, test_fixture_queue, Runtime task, Fixture, Fixture source, 10, null, open, 1, null, null, null, null, null, null, null, null, null, null, 1, 1111111111111111111111111111111111111111111111111111111111111111, 2026-08-01 00:00:00+00, 2026-08-01 00:00:00+00).\n2026-08-01T06:48:26.478108784Z 2026-08-01 06:48:26.477 UTC [1618] STATEMENT:  INSERT INTO biz_property_task_projection(\n2026-08-01T06:48:26.478109703Z \t         tenant_id,park_id,head_id,task_id,task_key,assignment_authority,\n2026-08-01T06:48:26.478113151Z \t         derived_assignment_id,source_type,source_id,source_version,\n2026-08-01T06:48:26.478114000Z \t         business_occurrence_key,task_kind,queue_code,title,kind_label,\n2026-08-01T06:48:26.478114830Z \t         source_label,priority,assignment_status,assignment_version,\n2026-08-01T06:48:26.478115630Z \t         assignee_id,assignee_display,projection_version,content_hash,\n2026-08-01T06:48:26.478116432Z \t         created_at,updated_at)\n2026-08-01T06:48:26.478117235Z \t       VALUES($1,$2,$3,$4,$5,'derived',$6,$7,$8,1,$9,'test_fixture_task',\n2026-08-01T06:48:26.478124800Z \t         'test_fixture_queue','Runtime task','Fixture','Fixture source',10,\n2026-08-01T06:48:26.478125705Z \t         'open',1,NULL,NULL,1,$10,$11,$11)\n2026-08-01T06:48:26.483139054Z 2026-08-01 06:48:26.482 UTC [1618] ERROR:  new row for relation \"biz_property_task_projection\" violates check constraint \"ck_biz_property_task_projection_keys\"\n2026-08-01T06:48:26.483151771Z 2026-08-01 06:48:26.482 UTC [1618] DETAIL:  Failing row contains (5daebd99-ffde-4e24-9af8-da4ddc28d603, c4-14134757-5a18-44d5-9416-b38a2d29790e, c4-0568be74-5c23-4c8c-a2ce-0d362ee736f7, 5bb4b0d9-1f31-4ac7-9700-14aad5c66766, 2576379a-dbbe-4f89-8651-4ff0d4213746, 588f4dcc106643e0af36f24a2fbeff40                                , derived, 5ad543ed-1cec-4b25-bcb4-217abc9732ea, test_fixture_source, da71a2c2-de02-454c-9353-22e47d1da008, 1, runtime-44268911-4eb4-4cc2-bccf-af0f10a50134, test_fixture_task, test_fixture_queue, Runtime task, Fixture, Fixture source, 10, null, open, 1, null, null, null, null, null, null, null, null, null, null, 1, 1111111111111111111111111111111111111111111111111111111111111111, 2026-08-01 00:00:00+00, 2026-08-01 00:00:00+00).\n2026-08-01T06:48:26.483154994Z 2026-08-01 06:48:26.482 UTC [1618] STATEMENT:  INSERT INTO biz_property_task_projection(\n2026-08-01T06:48:26.483155901Z \t         tenant_id,park_id,head_id,task_id,task_key,assignment_authority,\n2026-08-01T06:48:26.483156875Z \t         derived_assignment_id,source_type,source_id,source_version,\n2026-08-01T06:48:26.483157649Z \t         business_occurrence_key,task_kind,queue_code,title,kind_label,\n2026-08-01T06:48:26.483158695Z \t         source_label,priority,assignment_status,assignment_version,\n2026-08-01T06:48:26.483159497Z \t         assignee_id,assignee_display,projection_version,content_hash,\n2026-08-01T06:48:26.483160283Z \t         created_at,updated_at)\n2026-08-01T06:48:26.483161078Z \t       VALUES($1,$2,$3,$4,$5,'derived',$6,$7,$8,1,$9,'test_fixture_task',\n2026-08-01T06:48:26.483161866Z \t         'test_fixture_queue','Runtime task','Fixture','Fixture source',10,\n2026-08-01T06:48:26.483162667Z \t         'open',1,NULL,NULL,1,$10,$11,$11)\n"
+      }
+    },
+    "errors": []
+  },
+  "interruptions": [],
+  "input_freeze_before": {
+    "stage": "before-create",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-freeze-v1.txt",
+        "bytes": 2706,
+        "raw_sha256": "0bf8c671dd9e4ed1ae7faaf15b480c4196fbc25956011cdec482daa5f5891f8b"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-gate-evidence-v1.txt",
+        "bytes": 2123,
+        "raw_sha256": "e7b571e77896ae4383f9abec529ed49937a9cb3e14d668ae1e51fc09ceac5e4b"
+      },
+      {
+        "path": "apps/api/package.json",
+        "bytes": 1598,
+        "raw_sha256": "988911de33ebd572805718640afd679de308bccdd08484cbbb2695c51cc9684b"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/dto/property-task.dto.ts",
+        "bytes": 2488,
+        "raw_sha256": "0af5248774528b45e3c58d37b5e4dbecad06cf0aa97a31e1f6a113c9e0bdfcbf"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.access.spec.ts",
+        "bytes": 5598,
+        "raw_sha256": "56c8d1c35be4c494ee0b7ac832d3adcb368130bd53736dd3b85d138c27f78fe5"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.access.ts",
+        "bytes": 7718,
+        "raw_sha256": "cc0e816b0b727a8e53ccac5c49f4a09b013eb4b54ffb0164ac4a72b818d4ef16"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.assignment.repository.spec.ts",
+        "bytes": 6499,
+        "raw_sha256": "bebd2888ab241ee3a5506aec247d896157fd1e33c5cec5909aeca219ab48f330"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.assignment.repository.ts",
+        "bytes": 12177,
+        "raw_sha256": "3dbc152aebe903a59f9177c36a4c7e0e21190af6e07db36ade35f1dcece5d629"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.canonical.ts",
+        "bytes": 1770,
+        "raw_sha256": "f7ed3a8ae956ac5be3369458fbe482f87da4dd3d27c255a645e84dc9dde178bd"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.contract.spec.ts",
+        "bytes": 7177,
+        "raw_sha256": "16c0e79c6859b7900d717f88371e68f0cf400c6ed756b4e419ef192b617ca06a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.controller.ts",
+        "bytes": 3691,
+        "raw_sha256": "91d68c6548a1cbdd1429ff1ca3ca29654c39c3091a6a9587fb2aed9986ad44f1"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.dto.spec.ts",
+        "bytes": 4322,
+        "raw_sha256": "ec538b4e5c09c08d51be07f77ff30b5a14d753a1eaea711622b502708efa9b1a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.error.spec.ts",
+        "bytes": 2466,
+        "raw_sha256": "098eb02243f01847be83c86556736f8742ca5e4b54d3840bf5c1a2e8819ba9b2"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.error.ts",
+        "bytes": 2506,
+        "raw_sha256": "b7b1ff6e6e3cf095f1e828d20129a9d44aa96302ee32ad5b57b8fccee5d1b070"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.manager-port.spec.ts",
+        "bytes": 633,
+        "raw_sha256": "9be2c9fa8c2071d324c0be3e5a3ee7a25f2d2d5a424a349d0b730c69e0cbc671"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.manager-port.ts",
+        "bytes": 472,
+        "raw_sha256": "6748afb41446acb6974fa6cacac41bc94b7b177af17821e90a9183f98d15def2"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.mapper.spec.ts",
+        "bytes": 3179,
+        "raw_sha256": "f979d7e8f284e59a535f4bca532457a824c3286aa266c706908a19e2d9351443"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.mapper.ts",
+        "bytes": 2488,
+        "raw_sha256": "385bd02052fe041fef49a4ebb55c10b1403f8ef7efdab96a1b211295cbc92afa"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.orchestrator.spec.ts",
+        "bytes": 37508,
+        "raw_sha256": "ed1bacb65ee068b54e83e91ce0bd92da2057aa01c6d7a5fb313e369f1da863df"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.orchestrator.ts",
+        "bytes": 38826,
+        "raw_sha256": "06521220fdce413448e44924d5b7fa03f0d1858598cda69edaae0ce3d14a8678"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.ownership.spec.ts",
+        "bytes": 2843,
+        "raw_sha256": "fde875aa8016c7e44d97528b40284a3a10b4ce36a8da4669e5d2eac69e4466db"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.projection.repository.spec.ts",
+        "bytes": 3818,
+        "raw_sha256": "ef38180f7129eb7dd3ff293fe2d6259b845ba35bd5738e42b5c67670c8b4cb05"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.projection.repository.ts",
+        "bytes": 10597,
+        "raw_sha256": "d4906aeff1e27744e0d0e9ad1d33772832a5febd6a61e1b60ec042e3cd7ea0c8"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.registry.ts",
+        "bytes": 1310,
+        "raw_sha256": "10c6a87a0a8d0f32d0c702a975508e76983797621d40766b1cf6f42780768a1c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts",
+        "bytes": 57822,
+        "raw_sha256": "0aa5105b8ec16225ace6da4ca48f3f9d525f46f260fd1d120efac555659ca515"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.service.ts",
+        "bytes": 8120,
+        "raw_sha256": "15b6ea7eaa502f997711a7ba7b1307d24ee84a769d8b64cb0cac199589a38ea7"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.validation.ts",
+        "bytes": 1961,
+        "raw_sha256": "9ff7a98129429bda4e87412e9a69cc5418f2806edc4f8f60ee27c77f4eed20d1"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/testing/property-task-contract.fixture.ts",
+        "bytes": 1229,
+        "raw_sha256": "54153876e7b4300249c54e300e61a5dfdbac6e6593de43ba11838c4497638f0d"
+      },
+      {
+        "path": "apps/api/tsconfig.json",
+        "bytes": 368,
+        "raw_sha256": "5d08f7515d65084deaf4cbecf4ffabb7beeb8dafa518d051268e0fc2e4add281"
+      },
+      {
+        "path": "database/migrations/000001_init_auth.sql",
+        "bytes": 4961,
+        "raw_sha256": "34790818bb811a7b763ce34998b5f09c1f3878b41cdc2945dbad3531f66e8a18"
+      },
+      {
+        "path": "database/migrations/000002_s1_system_foundation.sql",
+        "bytes": 5367,
+        "raw_sha256": "4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9"
+      },
+      {
+        "path": "database/migrations/000003_s1_support_closure.sql",
+        "bytes": 1290,
+        "raw_sha256": "565083c7c0eb4a8d29a25ae0d263792762eea6bcecf94c679cb4592f2bd30852"
+      },
+      {
+        "path": "database/migrations/000004_files_center.sql",
+        "bytes": 1364,
+        "raw_sha256": "d18b79155f505a1f3d9e12b78a1490de1ffd5701c2900406cf0c7bf81abfba64"
+      },
+      {
+        "path": "database/migrations/000005_audit_log_enhancement.sql",
+        "bytes": 2649,
+        "raw_sha256": "3aa8fe70e95ec660ecce34cc867d74cba390e9cc46c3202e1423e45abf967e7c"
+      },
+      {
+        "path": "database/migrations/000006_sys_dict_compat.sql",
+        "bytes": 218,
+        "raw_sha256": "93009030f033be410329d06936806929e32b4c848c1f3e8c5b38fab843518802"
+      },
+      {
+        "path": "database/migrations/000007_s2_assets_foundation.sql",
+        "bytes": 4990,
+        "raw_sha256": "813902a48218003765234138216d8ae05aefbdb65d96b281caa98fe7d8d9530a"
+      },
+      {
+        "path": "database/migrations/000008_s2_biz_park.sql",
+        "bytes": 1050,
+        "raw_sha256": "1185575ab56b5bb7ee6f85844abf407e610356fc12d2c46ca4a43bfb9dee186d"
+      },
+      {
+        "path": "database/migrations/000009_s2_biz_building.sql",
+        "bytes": 1092,
+        "raw_sha256": "237da8f54eb41c434ce58308dcbc631e1a98807aeb741d1a407d10bfbcbdba40"
+      },
+      {
+        "path": "database/migrations/000010_s2_biz_floor.sql",
+        "bytes": 1290,
+        "raw_sha256": "5997787688b1f3de1d9ea8feff1b63a68480f223fbe51a381f80ad8894010ae0"
+      },
+      {
+        "path": "database/migrations/000011_s2_biz_unit.sql",
+        "bytes": 1718,
+        "raw_sha256": "4645d6d7cddf44b4aad8ceddb6a8048cc2a2b33de4a22f391d0fd641b3df7a32"
+      },
+      {
+        "path": "database/migrations/000012_s2b_unit_enhancement.sql",
+        "bytes": 2798,
+        "raw_sha256": "7ed24c539fce073a57d4b021c5a2d6c7b7e76182f0bff903048c64303fe62f96"
+      },
+      {
+        "path": "database/migrations/000013_rbac_saas_hardening.sql",
+        "bytes": 4206,
+        "raw_sha256": "ca2b48c3248133222a1d5886fdcaa44e5976daf427de16dc54d7a4d4f53fb061"
+      },
+      {
+        "path": "database/migrations/000014_sys_role_saas_contract.sql",
+        "bytes": 1465,
+        "raw_sha256": "72b4c31c5b831d38d07d785e6c81ec422b7e43132870d9d1d615cb0e3f2dc50d"
+      },
+      {
+        "path": "database/migrations/000015_sys_permission_tree_contract.sql",
+        "bytes": 2090,
+        "raw_sha256": "42193cf3f6540acf5108ced9b1ef5d55ebab040302d9fe1a85d49f77001357fb"
+      },
+      {
+        "path": "database/migrations/000016_data_scope_model.sql",
+        "bytes": 2462,
+        "raw_sha256": "91c5f6f52f05012f30b466424f52bad49754f4c6ed38cdde19fef01825c36f06"
+      },
+      {
+        "path": "database/migrations/000017_field_policy_model.sql",
+        "bytes": 2090,
+        "raw_sha256": "1346ae045f1970a6806053d72cb67c7239767dc33fd03ead0221ca3344d4e232"
+      },
+      {
+        "path": "database/migrations/000018_sys_tenant.sql",
+        "bytes": 1235,
+        "raw_sha256": "c8f158827adde65088d253a3609e0c5704a6d3df5b99f721f361315916a1a322"
+      },
+      {
+        "path": "database/migrations/000019_rel_user_park.sql",
+        "bytes": 1031,
+        "raw_sha256": "7017d485025161525e23e28d7cd344c046458096d6ddfac6783a6d7cce2cfa88"
+      },
+      {
+        "path": "database/migrations/000020_saas_rbac_std.sql",
+        "bytes": 4416,
+        "raw_sha256": "64b81702550ebd4635665401d9bc1304dfb37cb681c53b90e05ccd88a4e77e52"
+      },
+      {
+        "path": "database/migrations/000021_sys_tenant_api_contract.sql",
+        "bytes": 928,
+        "raw_sha256": "29a6f3cb81fb1a64ebd6b1489e5b6acf3a10d1a42710ee78518ab53a63a10bfa"
+      },
+      {
+        "path": "database/migrations/000022_rel_user_park_default_constraint.sql",
+        "bytes": 1188,
+        "raw_sha256": "4bec1c0ec5d2296c6847fd536381efdd622e2dd91628e62d3a6655fc85d2273e"
+      },
+      {
+        "path": "database/migrations/000023_sys_role_open_rbac_contract.sql",
+        "bytes": 2904,
+        "raw_sha256": "85cae73f31107c0cd7b13a56d95c64b99d1ba8a333bd7c88d72409680390496c"
+      },
+      {
+        "path": "database/migrations/000024_sys_permission_open_model_contract.sql",
+        "bytes": 2786,
+        "raw_sha256": "1e8085b9210971843a561590b1d408251d89638d396053d8458ceac93e1ccc7c"
+      },
+      {
+        "path": "database/migrations/000025_data_scope_open_contract.sql",
+        "bytes": 4968,
+        "raw_sha256": "0422dcbbdef7b418250965a1b853a7579609d3dbace0d12bf35681ae244bd815"
+      },
+      {
+        "path": "database/migrations/000026_field_policy_open_contract.sql",
+        "bytes": 4500,
+        "raw_sha256": "a6f0b9ba4b5747d7e06d031cd30d91aaf3a4c2757df52f6b67d9a5c999252489"
+      },
+      {
+        "path": "database/migrations/000027_code_rule_standard_contract.sql",
+        "bytes": 3700,
+        "raw_sha256": "ecb2affcbee2e5ab3c4fb61e9e3e97723fe52489fb0e873b583e4f15e5889d6b"
+      },
+      {
+        "path": "database/migrations/000028_saas_module_plan_authorization.sql",
+        "bytes": 1920,
+        "raw_sha256": "e6fa728de46cbb951bf964c67e15487fd8a9a9ca60f0097c0ca9e8c8f0b8be4a"
+      },
+      {
+        "path": "database/migrations/000029_saas_scope_id_unification.sql",
+        "bytes": 1979,
+        "raw_sha256": "e0553599796ac56ea82a53ee267a61642e653ca06a57f7ae5c23b1745a4d580d"
+      },
+      {
+        "path": "database/migrations/000030_s2b_unit_import_code_compat.sql",
+        "bytes": 280,
+        "raw_sha256": "70c24d45df66787a6b65a9ee80e37fa9dc5976f74692093b0d18fc98e3d89644"
+      },
+      {
+        "path": "database/migrations/000031_s3a_park_tenant_profile.sql",
+        "bytes": 1971,
+        "raw_sha256": "bb1bbf6cc56fe251fd8ea9622e9ea40cee5945240bed45be98ca89b27edd64c2"
+      },
+      {
+        "path": "database/migrations/000032_s3a_park_tenant_contacts.sql",
+        "bytes": 1301,
+        "raw_sha256": "d506dfc95687ed994370e210182cedac279b252b4eece145aba2ffe37ab7a8a7"
+      },
+      {
+        "path": "database/migrations/000033_s3a_park_tenant_qualifications.sql",
+        "bytes": 1377,
+        "raw_sha256": "12b45525d26555949c9ce4687c5a578b530b335986fa448bcd5e8cde8a696133"
+      },
+      {
+        "path": "database/migrations/000034_s3a_park_tenant_risk_logs.sql",
+        "bytes": 1369,
+        "raw_sha256": "d671263427aa37ac560000c6d4c4c62c375caf4470bca995be7c92d29a834383"
+      },
+      {
+        "path": "database/migrations/000035_s3a_field_policy_email_mask_rule.sql",
+        "bytes": 307,
+        "raw_sha256": "25536886c7742dc52a9ea71fbc3ed3367da58ad9380c191621c4ecafad44ca5b"
+      },
+      {
+        "path": "database/migrations/000036_s3a_park_tenant_dictionary_standardization.sql",
+        "bytes": 1814,
+        "raw_sha256": "130c3cf8168818c6a360858ffc837649718d0b90d9714ec1ceb6749a07b4bc6d"
+      },
+      {
+        "path": "database/migrations/000037_s3b_code_rule_leasing_lead.sql",
+        "bytes": 1137,
+        "raw_sha256": "54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27"
+      },
+      {
+        "path": "database/migrations/000038_s3b_leasing_lead_profile.sql",
+        "bytes": 2566,
+        "raw_sha256": "d47962d06d4b4f6fe0af33c0a34a44c97c486e743db982a23100e8cd79928b2a"
+      },
+      {
+        "path": "database/migrations/000039_s3b_leasing_follow_records.sql",
+        "bytes": 1398,
+        "raw_sha256": "a3b455f8a0390c3452d05b817c8cdcee8bb482e1e18761d39469bda8d763dfeb"
+      },
+      {
+        "path": "database/migrations/000040_s3b_leasing_visit_records.sql",
+        "bytes": 1254,
+        "raw_sha256": "5e5672796eae9dbcf91ee31fdbc8ff9340cc1edb488b3cbaf3e002e47ae1b41d"
+      },
+      {
+        "path": "database/migrations/000041_s3b_leasing_quote_records.sql",
+        "bytes": 1527,
+        "raw_sha256": "09adb0313d4b195c335ebe2534e0968d7e0cec4935e82095664d79a96634df87"
+      },
+      {
+        "path": "database/migrations/000042_s3b_leasing_lead_status_logs.sql",
+        "bytes": 1284,
+        "raw_sha256": "d3eda04b3cf320e58c5458959da704d28a0f7abd0c90c516b2a9d681024b4206"
+      },
+      {
+        "path": "database/migrations/000043_s3b_leasing_lead_pool_compat.sql",
+        "bytes": 699,
+        "raw_sha256": "8f164da0735aaa86e6f0971cbad3392ab64ec6b0ebde719583cd9f0e3db99b2b"
+      },
+      {
+        "path": "database/migrations/000044_s3c_leasing_contract_core.sql",
+        "bytes": 11046,
+        "raw_sha256": "60753160151c1af4542d02c1753258e97349f18a893385b69dbdd3bae46296ae"
+      },
+      {
+        "path": "database/migrations/000045_s3c_contract_unit_links.sql",
+        "bytes": 4323,
+        "raw_sha256": "f0ac3f8ad7322a2240e8b521d2d7a9f525a9b3ab46d3d77257a574f41bf05f4c"
+      },
+      {
+        "path": "database/migrations/000046_s3c_quote_create_contract_draft.sql",
+        "bytes": 1403,
+        "raw_sha256": "4e6b5157b0d77be15ef1c41fdadfca54e8f90cee381e5e99f72290074d8233da"
+      },
+      {
+        "path": "database/migrations/000047_s3c_contract_approval_flow.sql",
+        "bytes": 5076,
+        "raw_sha256": "dfa118c9152a8fb02e1f3dc307071964f3b807471fa7ac9009b1358a18363593"
+      },
+      {
+        "path": "database/migrations/000048_s3c_contract_archive_files.sql",
+        "bytes": 1495,
+        "raw_sha256": "52c9507a2db6312bee6240eff51e9cc2d47c3b67664af4df85302b41375dbd8f"
+      },
+      {
+        "path": "database/migrations/000049_s3c_contract_effective_flow.sql",
+        "bytes": 1327,
+        "raw_sha256": "4f69d85ab4bee9807b05479085c88cf7787e4f894341ae9c76e6979b339be455"
+      },
+      {
+        "path": "database/migrations/000050_s3c_contract_status_logs.sql",
+        "bytes": 1840,
+        "raw_sha256": "7584b0dae62789186b9e1dc7a6681cf74e2a210636239f3fab8579b8f2196f31"
+      },
+      {
+        "path": "database/migrations/000051_s3d_receivable_code_rule_entities.sql",
+        "bytes": 1137,
+        "raw_sha256": "54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27"
+      },
+      {
+        "path": "database/migrations/000052_s3d_leasing_receivable_core.sql",
+        "bytes": 2655,
+        "raw_sha256": "09fd0d143fede43beafde6ffcfd985f58c49e99bac90a623e64f7c0cad9be81c"
+      },
+      {
+        "path": "database/migrations/000053_s3d_generate_receivables.sql",
+        "bytes": 1081,
+        "raw_sha256": "56183a12da661e639ca01e8c7758cbbedb0447bf45d4495e8fb7ef47665a0aa4"
+      },
+      {
+        "path": "database/migrations/000054_s3d_leasing_payments.sql",
+        "bytes": 2759,
+        "raw_sha256": "f0e67b5f7cbc1c9c0ea7cc998004404db5e1830a955c122f6c03c1e93bcb8bd8"
+      },
+      {
+        "path": "database/migrations/000055_s3d_leasing_waivers.sql",
+        "bytes": 1753,
+        "raw_sha256": "26ae6fe9aae8949708233a5c3e09f921580e03fa9e19bdf3bc9b39614648408b"
+      },
+      {
+        "path": "database/migrations/000056_s3d_leasing_invoices.sql",
+        "bytes": 2727,
+        "raw_sha256": "8ceabe12ad553befabf8b518b5b69a985af034d4563529ab8148753c881cc836"
+      },
+      {
+        "path": "database/migrations/000057_s3d_finance_seed_standardization.sql",
+        "bytes": 1222,
+        "raw_sha256": "2de21bdda99181ed28cb033dbe71b611fa33074a9e36d8da983879e1bc8c98dc"
+      },
+      {
+        "path": "database/migrations/000058_s3e_code_rule_entities.sql",
+        "bytes": 3772,
+        "raw_sha256": "40df236bfc8bf374721c4c5e6f041483a6183d1409339585c91777212b8b53cd"
+      },
+      {
+        "path": "database/migrations/000059_s3e_contract_change_core.sql",
+        "bytes": 7649,
+        "raw_sha256": "aa48958266bcd41f92b5f716417f0995e46631d9c75e586122dd54786286f225"
+      },
+      {
+        "path": "database/migrations/000060_s3e_contract_change_flow.sql",
+        "bytes": 3631,
+        "raw_sha256": "dd200ccc0fddbcba2b3524eb89ecd2d0589a7333d9ae1de62677d9dc9f24368d"
+      },
+      {
+        "path": "database/migrations/000061_s3e_contract_renewal_draft.sql",
+        "bytes": 1940,
+        "raw_sha256": "438620511cb3ed94837c0986ddfca1bbea1de1cceffc89623f27b493df5fcd71"
+      },
+      {
+        "path": "database/migrations/000062_s3e_checkout_applications.sql",
+        "bytes": 8490,
+        "raw_sha256": "f90f0c40dfe77b34defe4d48c29bd4f762278e4d846284a743167242f582b84e"
+      },
+      {
+        "path": "database/migrations/000063_s3e_checkout_settlement_refund.sql",
+        "bytes": 6596,
+        "raw_sha256": "dee5187eaa3d078283f1f50bebc846c30335298f5d347bcab6e1f3f89cf94540"
+      },
+      {
+        "path": "database/migrations/000064_s3e_checkout_effective.sql",
+        "bytes": 3106,
+        "raw_sha256": "c04db8e48bb26620bb0027ea41233b2b7addc2e4801ae6c3da2a4a36a5904bd9"
+      },
+      {
+        "path": "database/migrations/000065_s3e_contract_action_log_unification.sql",
+        "bytes": 4158,
+        "raw_sha256": "51967ef54194e3951f059ff0390df5abde75c51013590c382794b7266b6da753"
+      },
+      {
+        "path": "database/migrations/000066_s3e_permission_open_field_policies.sql",
+        "bytes": 1834,
+        "raw_sha256": "786901c410f488eeb83af247a2978c3081d26abe9f4d1ea96fe2b0ee75d1db60"
+      },
+      {
+        "path": "database/migrations/000067_s3e_permissions_menu_dict_seed_patch.sql",
+        "bytes": 7472,
+        "raw_sha256": "b663a97f11d6b2f0de283700295b444b55a099cf8baa4fae584a4b6a106cba1c"
+      },
+      {
+        "path": "database/migrations/000068_yudao_system_rbac_baseline.sql",
+        "bytes": 8879,
+        "raw_sha256": "991cebec9f946949bc64378217c7c2389a17498a0dcc336227dd7953b80ad6a9"
+      },
+      {
+        "path": "database/migrations/000069_saas_tenant_onboarding.sql",
+        "bytes": 5716,
+        "raw_sha256": "9672e681ae0867e6269b2dba79086c314dad784e019bd68d91868dc2b16894bf"
+      },
+      {
+        "path": "database/migrations/000070_unit_sold_status.sql",
+        "bytes": 1746,
+        "raw_sha256": "c3cd29169953770f81fb69afe3ee0ef0f683a8e486d0c2d6456f5f55d0a63cf4"
+      },
+      {
+        "path": "database/migrations/000071_s4a_workorder_code_rule_entities.sql",
+        "bytes": 3124,
+        "raw_sha256": "239229b050dc2fd789ae2d5edd698ffee8fa1e29dea26873f4998db8dcc74531"
+      },
+      {
+        "path": "database/migrations/000072_s4a_work_order_core.sql",
+        "bytes": 12353,
+        "raw_sha256": "5ee7c21e464eb8d6f6e6ba2f108ed6789b6d62444e368186ab3d9ec97671dbbf"
+      },
+      {
+        "path": "database/migrations/000073_s4a_work_order_assign_permissions.sql",
+        "bytes": 2326,
+        "raw_sha256": "f334fbf7ba5627513a214f7e02a5126ba15c4f3ee76df06b443d6db30c9562e1"
+      },
+      {
+        "path": "database/migrations/000074_s4a_work_order_processing.sql",
+        "bytes": 5157,
+        "raw_sha256": "34ada440033532e6e31268e2d987ddf45a1aa4db66a81ae381cd6fa111d3ea63"
+      },
+      {
+        "path": "database/migrations/000075_s4a_work_order_confirm_evaluate_close.sql",
+        "bytes": 4723,
+        "raw_sha256": "fe8af8f6b30e52183eefd1b653d6a8385f6218f85b805d16e8ba90875f69aade"
+      },
+      {
+        "path": "database/migrations/000076_s4a_work_order_cancel_return_reject.sql",
+        "bytes": 2512,
+        "raw_sha256": "24e58e8b83675720e7dbb0aacc13fcfce635fd5228bcc8402323c57c09f74e94"
+      },
+      {
+        "path": "database/migrations/000077_s4a_work_order_sla_overdue.sql",
+        "bytes": 6100,
+        "raw_sha256": "af95cf483d256a4ea6e07f1ac0dc09f9bdc6f7ac19e6787482daaa0c0515cd91"
+      },
+      {
+        "path": "database/migrations/000078_s4a_work_order_logs_timeline.sql",
+        "bytes": 2535,
+        "raw_sha256": "1e4f01785e96535f11a7933d4b44118ffbd0ce1ff2f77b42802caf6eee078ff8"
+      },
+      {
+        "path": "database/migrations/000079_s4a_workorder_permission_open_field_patch.sql",
+        "bytes": 1006,
+        "raw_sha256": "5b6dc8aac613180da2334aed925ac12419a3660789d715554227b8eb177f39d3"
+      },
+      {
+        "path": "database/migrations/000080_s4a_permissions_menu_dict_seed_patch.sql",
+        "bytes": 28760,
+        "raw_sha256": "497bf2a550ddbcfbee2f5c888bf153e2759ad296d941425def8866cb7a932a40"
+      },
+      {
+        "path": "database/migrations/000081_s5a_safety_precheck_module_code_rules.sql",
+        "bytes": 8019,
+        "raw_sha256": "ea5d5a6fb66deacb7c14e905540f2cb07943d8ecd4442f12abf98dcda458bf37"
+      },
+      {
+        "path": "database/migrations/000082_s5a_safety_inspect_points.sql",
+        "bytes": 13961,
+        "raw_sha256": "40fc89cec7e9414847ea8de527af2ad9dc2d7831f8f560287c2a6333a3cfef77"
+      },
+      {
+        "path": "database/migrations/000083_s5a_safety_inspect_templates.sql",
+        "bytes": 14989,
+        "raw_sha256": "a6acc7ef978dfde94112c895528de680624dfd1b770b03de6246924bffaa8651"
+      },
+      {
+        "path": "database/migrations/000084_s5a_safety_inspect_plans.sql",
+        "bytes": 11912,
+        "raw_sha256": "9ba1be0b65c7d370ce55bb3ae093ffb98ae149566b964348dee2430b27f82085"
+      },
+      {
+        "path": "database/migrations/000085_s5a_safety_inspect_tasks.sql",
+        "bytes": 18286,
+        "raw_sha256": "463fd9d414012df0e0a0ec60aa2dc5cb043b5e93efb81fbb65a8feb6be7c0993"
+      },
+      {
+        "path": "database/migrations/000086_s5a_safety_hazards.sql",
+        "bytes": 13586,
+        "raw_sha256": "5fd7a18ece7bb29280fc674519b21fab9a9a86ed2fc4b36df1258dba9dd09269"
+      },
+      {
+        "path": "database/migrations/000087_s5a_safety_hazard_rectify.sql",
+        "bytes": 6682,
+        "raw_sha256": "cd2100176893399105a1c68dc944e18e6ceadb0ac0ed836f2c400337f23d21f6"
+      },
+      {
+        "path": "database/migrations/000088_s5a_safety_hazard_manage_all.sql",
+        "bytes": 4137,
+        "raw_sha256": "6521169d77e0136acba3ae4040c02c424f312a3f72743d0f967b180871fd738b"
+      },
+      {
+        "path": "database/migrations/000089_s5a_safety_hazard_recheck_close.sql",
+        "bytes": 7226,
+        "raw_sha256": "6b01e47e1d577c795b04c3fcb798a479dc25bb8826ab65e8e81292f5668c096b"
+      },
+      {
+        "path": "database/migrations/000090_s5a_safety_hazard_create_workorder.sql",
+        "bytes": 4226,
+        "raw_sha256": "ef8b685dde724499725d6c7a0360ea3b852a6971c257a40ffc4427286f58e68b"
+      },
+      {
+        "path": "database/migrations/000091_s5a_safety_statistics.sql",
+        "bytes": 5212,
+        "raw_sha256": "0432bb70f1ebc5e8823d7b4f7a751950d54c9c47673466451462069ba365c722"
+      },
+      {
+        "path": "database/migrations/000092_s5a_permissions_menu_dict_seed_patch.sql",
+        "bytes": 35502,
+        "raw_sha256": "1cc88c939d2510ae01c7f218bb309b3aacf37a5c381990594b4fe7ba9f9dfa85"
+      },
+      {
+        "path": "database/migrations/000093_s2b_asset_menu_role_permission_repair.sql",
+        "bytes": 2213,
+        "raw_sha256": "2e7aedf46cac062261324ad14537e44420d35fc71499f3a2b487da57c2be6805"
+      },
+      {
+        "path": "database/migrations/000094_s5b_precheck_module_code_rules.sql",
+        "bytes": 8106,
+        "raw_sha256": "998b677515e2a33d2d1f4e2a9e6dca882ecefff6c20fa327b47a440b2c4d12b3"
+      },
+      {
+        "path": "database/migrations/000095_s5b_emergency_contacts_plans.sql",
+        "bytes": 18390,
+        "raw_sha256": "040fe1ffa83dbdc47eb888528c6a0cb488da561b70a9b7fafc7842495ed9f516"
+      },
+      {
+        "path": "database/migrations/000096_s5b_emergency_events.sql",
+        "bytes": 17256,
+        "raw_sha256": "0e9997bbb1e8c79785e274b2bf545d63b7b476b382f0b88060b3be24c4e262cf"
+      },
+      {
+        "path": "database/migrations/000097_s5b_emergency_event_flow.sql",
+        "bytes": 8359,
+        "raw_sha256": "a07cad988adb7c1eb7a5e810df058594cfe58fee972e826baef5dd177cade600"
+      },
+      {
+        "path": "database/migrations/000098_s5b_emergency_timeline_logs.sql",
+        "bytes": 4789,
+        "raw_sha256": "615700666e744bfb9db008d33620fdc3992f548633d80bc1f0c258fca7af520c"
+      },
+      {
+        "path": "database/migrations/000099_s5b_hazard_to_emergency.sql",
+        "bytes": 7623,
+        "raw_sha256": "bdac2e73485aea30314f3f6f530594587d467986a79ee6ef1f7a05a64e246fd2"
+      },
+      {
+        "path": "database/migrations/000100_s1_auth_center_foundation.sql",
+        "bytes": 6843,
+        "raw_sha256": "83a8b856d16e1433e6945f877626ca6cfc53f4493e85dcb99ff59c091df1ac70"
+      },
+      {
+        "path": "database/migrations/000101_s5b_emergency_create_workorder.sql",
+        "bytes": 5992,
+        "raw_sha256": "825335027ed3f05589447f43f2fd915e55d94cf5e5ec3d22ce1bca5c155383c9"
+      },
+      {
+        "path": "database/migrations/000102_s5b_work_permits.sql",
+        "bytes": 20051,
+        "raw_sha256": "7abb55a44b186ba8e6cca66be70b0575d1c4098af7f9f24d2aa4e4c4e1a15451"
+      },
+      {
+        "path": "database/migrations/000103_s5b_work_permit_approval.sql",
+        "bytes": 8286,
+        "raw_sha256": "82f8eb777dd8956008e6f8ad8ba46196f3d40741b4d5a2fb2d4cbed1baa54740"
+      },
+      {
+        "path": "database/migrations/000104_s5b_work_permit_lifecycle.sql",
+        "bytes": 6518,
+        "raw_sha256": "184bb6737001f60a40fa9a55b10e45413844bd6d281937ee6ea9220e746e432e"
+      },
+      {
+        "path": "database/migrations/000105_s5b_work_permit_check_conversion.sql",
+        "bytes": 6590,
+        "raw_sha256": "ba9a7ed96b529260939fae530c594a1e48ce269030865e33f5e2b804a72bb245"
+      },
+      {
+        "path": "database/migrations/000106_s5b_emergency_work_permit_statistics.sql",
+        "bytes": 6132,
+        "raw_sha256": "b469b1eac856b9ea59be6754b0102d1602b69273ff8125782fd91d2ffcc29668"
+      },
+      {
+        "path": "database/migrations/000107_s5b_saas_open_permissions.sql",
+        "bytes": 4541,
+        "raw_sha256": "82bb9ffeff2268921fd6307dc177d2b4c097f139c13ce4548bbe2760f8b7cdd8"
+      },
+      {
+        "path": "database/migrations/000108_s5b_permissions_menu_dict_seed_patch.sql",
+        "bytes": 39441,
+        "raw_sha256": "ffc86d93bb10c8462976c6ae146d2375076d893967a2c049c0958e17b43237d8"
+      },
+      {
+        "path": "database/migrations/000109_s6a_iot_foundation.sql",
+        "bytes": 32025,
+        "raw_sha256": "3697b9373722ae241c832cd6d423c1f62cf3386187237b3a2ce28b364d6649e4"
+      },
+      {
+        "path": "database/migrations/000110_s6a_iot_base_dict_seed.sql",
+        "bytes": 6868,
+        "raw_sha256": "57f60f73dbeeea1962e2c5819110df7eff0899784c5b5606979adf1ad4875ca9"
+      },
+      {
+        "path": "database/migrations/000111_s6a_iot_device_master.sql",
+        "bytes": 7380,
+        "raw_sha256": "982c8736df3f0b05fb434acafb4226bf05abdb0fb559999c3b69a204cd26bf49"
+      },
+      {
+        "path": "database/migrations/000112_s6a_iot_metric_point.sql",
+        "bytes": 13476,
+        "raw_sha256": "f0c453b7b710bf715faf044d60f2bd92a754e00c8feeee708d4b3b30c99fe1c2"
+      },
+      {
+        "path": "database/migrations/000113_s6a_iot_http_ingest.sql",
+        "bytes": 1003,
+        "raw_sha256": "c712d9c318aaff02fda08caa2dcfcdaee365f0b597632451010cab870f697314"
+      },
+      {
+        "path": "database/migrations/000114_s6a_iot_mqtt_skeleton.sql",
+        "bytes": 4275,
+        "raw_sha256": "1beaafb9f61cb2c6992b8555c5c44fe7c59ff7a234d450ea535271de1d7ec5bd"
+      },
+      {
+        "path": "database/migrations/000115_s6a_iot_device_latest_status.sql",
+        "bytes": 5697,
+        "raw_sha256": "84fcbb1304a292accec8a4dd6191b1b92c123e040d987ecb6f38fdf2eef7d936"
+      },
+      {
+        "path": "database/migrations/000116_s6a_iot_device_history_data.sql",
+        "bytes": 6686,
+        "raw_sha256": "14b120fcd73dea0c01d5b187d8da3cbcb8531190c99fa570dcc1af12afb6d6b4"
+      },
+      {
+        "path": "database/migrations/000117_s6a_iot_alert_rules.sql",
+        "bytes": 7814,
+        "raw_sha256": "a2b2e7d5637b9dfe530aebb66cc727671ee7329ee065743bfdefdc015bd072f4"
+      },
+      {
+        "path": "database/migrations/000118_s6a_iot_alert_center.sql",
+        "bytes": 7349,
+        "raw_sha256": "1acd32d7d72493be2f4abedeef39f4948a446b7a98ba74bfb4654a6294d778a9"
+      },
+      {
+        "path": "database/migrations/000119_s6a_iot_alert_create_workorder.sql",
+        "bytes": 6086,
+        "raw_sha256": "bd4ba022b4541310120bae76cb018521cda61a5d5f421ec29e01e22d635e7c40"
+      },
+      {
+        "path": "database/migrations/000120_s6a_iot_dashboard_detail.sql",
+        "bytes": 4480,
+        "raw_sha256": "eeca8e1d2869efdd7d653a01fc0f4107120f6ce5fc81df0d24335e9651cde801"
+      },
+      {
+        "path": "database/migrations/000121_s6a_iot_saas_open_patch.sql",
+        "bytes": 2655,
+        "raw_sha256": "718750f67e162cbe510f86289990ddaa1ee038355b8517c969cbf7318dea3a70"
+      },
+      {
+        "path": "database/migrations/000122_s6a_permissions_menu_seed_patch.sql",
+        "bytes": 21553,
+        "raw_sha256": "be0517e596af85e26f03ae66fdc0bb708143dc34e50ab433249a373c8995a75c"
+      },
+      {
+        "path": "database/migrations/000123_menu_tenant360_cleanup.sql",
+        "bytes": 1959,
+        "raw_sha256": "79137dcf98e66f86b5908a42a5f0f304f5f219262d204c63d734d1614954fed3"
+      },
+      {
+        "path": "database/migrations/000124_s8c_video_cameras.sql",
+        "bytes": 20121,
+        "raw_sha256": "f88b5a956031831d9c095ad733350ea4b2f6ba5d0fb2d9f0ec9b51bc998b7824"
+      },
+      {
+        "path": "database/migrations/000125_s8d_video_preview_platform.sql",
+        "bytes": 15783,
+        "raw_sha256": "176407fd1c11a869a67e076ae49740acd56e8d09fafa339fc83e706905c0ed70"
+      },
+      {
+        "path": "database/migrations/000126_s8e_video_evidence.sql",
+        "bytes": 15729,
+        "raw_sha256": "9cf0caeaf15749f65c08e9a4b0abd5467733b721266f86335d9e50debf27963c"
+      },
+      {
+        "path": "database/migrations/000127_s8f_video_alert_dashboard.sql",
+        "bytes": 23947,
+        "raw_sha256": "964500d40270d1c2b1d127fd42cb2a1b8a5097ebdb0b8b7e50c7792c2e61c33a"
+      },
+      {
+        "path": "database/migrations/000128_s9a_iot_device_hub.sql",
+        "bytes": 21520,
+        "raw_sha256": "eaa0eecd306428d830d1707138150aa93179b5d3f413a75f15a6232ad45d46c1"
+      },
+      {
+        "path": "database/migrations/000129_s9b_iot_runtime_alert.sql",
+        "bytes": 15523,
+        "raw_sha256": "49596020cdbe4da9628d1c340d74da99018276912e345305fb8a76ce4ebd08eb"
+      },
+      {
+        "path": "database/migrations/000130_s9b_iot_alert_trigger_value_text.sql",
+        "bytes": 370,
+        "raw_sha256": "9504d7664e319d722845fa26a6a10dd1142bee8d858228816d6db7a04dea55d1"
+      },
+      {
+        "path": "database/migrations/000131_s9c_iot_rule_engine.sql",
+        "bytes": 14967,
+        "raw_sha256": "39bd43173f6061761799c4706d1522729468ef406fecd13b2523214f88664e93"
+      },
+      {
+        "path": "database/migrations/000132_robot_ezviz_cleaning_integration.sql",
+        "bytes": 14656,
+        "raw_sha256": "0ff91d706c7c64e7d1b6db055dddd906a7baf9f4ebd6f3fa2cba1f1bf50d5ef2"
+      },
+      {
+        "path": "database/migrations/000133_s9d_iot_scene_center.sql",
+        "bytes": 23818,
+        "raw_sha256": "034fe40dea1ab94cd902e76bddca7d1783d37e4c008cfacda1206bb3a99a89b7"
+      },
+      {
+        "path": "database/migrations/000134_robot_cleaning_visibility_seed.sql",
+        "bytes": 5785,
+        "raw_sha256": "50052e148d80be03df95fa8efb8f64d60ad9aaae0670dea6ec52958c5ffef567"
+      },
+      {
+        "path": "database/migrations/000135_s9e_energy_meter_monitor.sql",
+        "bytes": 24097,
+        "raw_sha256": "1235b9ffcf1fbadc793b12e3414f01424d0481e1976e6b9db1126cd049076654"
+      },
+      {
+        "path": "database/migrations/000136_idempotency_request.sql",
+        "bytes": 1104,
+        "raw_sha256": "a686093eedc90cbf0f30447d98da09eb683a89b17f1ddbe99166d01e62ce7d85"
+      },
+      {
+        "path": "database/migrations/000136_s9f_energy_billing_allocation.sql",
+        "bytes": 22705,
+        "raw_sha256": "91f9ec3f482a77dde263f7e97cda0c245a0bbdc5130e630ac0e1232aab32c5c3"
+      },
+      {
+        "path": "database/migrations/000137_s9f1_energy_billing_adjustment_reversal.sql",
+        "bytes": 14801,
+        "raw_sha256": "efa25d3a3322a0b95393a6ba64b7b65f3b16685df7c789d0e2453d32f0f40f30"
+      },
+      {
+        "path": "database/migrations/000138_robot_ezviz_device_sync_permission_patch.sql",
+        "bytes": 743,
+        "raw_sha256": "a821913338df88e1748a53079271e1b384c4b2c982c1809eb2fb1cb9b217403d"
+      },
+      {
+        "path": "database/migrations/000139_sys_schema_migration_history.sql",
+        "bytes": 673,
+        "raw_sha256": "1c0adfd71e8691f3346afe66199cc85e5cf82a11a99802a8e40df7f42695c6ad"
+      },
+      {
+        "path": "database/migrations/000140_expand_audit_request_id.sql",
+        "bytes": 140,
+        "raw_sha256": "9c94203164a4c8cf26f4d5f798209a0874a1017272e3f4fd73161d6c33fca834"
+      },
+      {
+        "path": "database/migrations/000141_operations_terminal_seed.sql",
+        "bytes": 16613,
+        "raw_sha256": "5f4ad93d70e170bb18c2670cbdd3846c75b59923391f3b547d34ac272e952418"
+      },
+      {
+        "path": "database/migrations/000142_operations_terminal_role_schedule_patch.sql",
+        "bytes": 19899,
+        "raw_sha256": "2224d4e2349dbc9f8aa560a646329c1ea15cd3c7902b082adc4d53e23732e025"
+      },
+      {
+        "path": "database/migrations/000143_operations_terminal_disable_obsolete_daily_electric.sql",
+        "bytes": 690,
+        "raw_sha256": "b6a93e6d8825bc7d343a269ffcaa82c9205a26e26ffbdd002506f00617577424"
+      },
+      {
+        "path": "database/migrations/000144_safety_full_open_permission_menu_patch.sql",
+        "bytes": 10935,
+        "raw_sha256": "da9ea32a3e4a422108edef6f41dd23825d8bf9ab8820a292c0e8e26434b5909b"
+      },
+      {
+        "path": "database/migrations/000145_safety_phase1_review_followup.sql",
+        "bytes": 770,
+        "raw_sha256": "20975792fc3ab6eb2b1bf5d7132c2bc8232f5e89f9fc75b14a1c7e5d30e2b6ac"
+      },
+      {
+        "path": "database/migrations/000146_auth_password_lockout.sql",
+        "bytes": 465,
+        "raw_sha256": "5e7bd2b931038d918752604d02880560b839e9c56e8b89edf146d27efd62ee04"
+      },
+      {
+        "path": "database/migrations/000147_role_pack_real_park_operations.sql",
+        "bytes": 11048,
+        "raw_sha256": "b2a8a406e47b7a5f106aef9c458a1ca69f4c46ed085f8069d6d6adf5663474f3"
+      },
+      {
+        "path": "database/migrations/000148_workorder_business_dictionary_defaults.sql",
+        "bytes": 6285,
+        "raw_sha256": "8aecac1b39d8fc49838c5a1076a4b35f450108646b0893af90030a77a865068f"
+      },
+      {
+        "path": "database/migrations/000149_workflow_user_messages.sql",
+        "bytes": 1592,
+        "raw_sha256": "54dc9de8d93875be6983617d420924d4b7f402e67c038876d813ced5553eeda6"
+      },
+      {
+        "path": "database/migrations/000150_epdr_engineering_project.sql",
+        "bytes": 3219,
+        "raw_sha256": "27207927a60f64fdf9376bfe03915ef2ba0d8a913e8326475c6a3ffd762f4fb4"
+      },
+      {
+        "path": "database/migrations/000151_epdr_engineering_project_status_log.sql",
+        "bytes": 888,
+        "raw_sha256": "33e6e4e7c13d69759cd48f81338d1743170acbbbd85eaafe6fd5b93a8229d36c"
+      },
+      {
+        "path": "database/migrations/000152_epdr_engineering_plan.sql",
+        "bytes": 3469,
+        "raw_sha256": "69c905eeed2f7fd7dc4627d676f10b043cd4f991081ecf11c24ba9d00782dcdb"
+      },
+      {
+        "path": "database/migrations/000153_epdr_engineering_daily_report.sql",
+        "bytes": 3526,
+        "raw_sha256": "32c7d03b6170e0cb0ba76b3eccc9469e7ee723222bf7a8ef4421e98117962dd1"
+      },
+      {
+        "path": "database/migrations/000154_epdr_engineering_inspection_issue.sql",
+        "bytes": 5760,
+        "raw_sha256": "964fbfa7bb9cae4fd6df964beed4f7ff1009ac1dd6716f6a4a4af9e7642bc392"
+      },
+      {
+        "path": "database/migrations/000155_epdr_engineering_rectification.sql",
+        "bytes": 2765,
+        "raw_sha256": "f745ce837604c479f3b4e2f48f5faa0c796893019c41627ee72bd127b0852a9c"
+      },
+      {
+        "path": "database/migrations/000156_epdr_engineering_acceptance.sql",
+        "bytes": 2840,
+        "raw_sha256": "001b51a00c249fc80b4baa6415802b6ca646f8ac8105398687bb2e586144004b"
+      },
+      {
+        "path": "database/migrations/000157_epdr_rbac_menu_permissions.sql",
+        "bytes": 30757,
+        "raw_sha256": "a46deeab7e32b1a959a7aab7768a4fc49bf99d59005882fd79a5656807cc9da8"
+      },
+      {
+        "path": "database/migrations/000158_epdr_engineering_event_log.sql",
+        "bytes": 1144,
+        "raw_sha256": "7c353ee3b0bd7fc659a73349a81098b50f9f96cfa8a293aef2ecdee2631d450c"
+      },
+      {
+        "path": "database/migrations/000159_epdr_engineering_attachment_ids.sql",
+        "bytes": 178,
+        "raw_sha256": "8899a97e315d7a930584a75152812b42124453d435fe4dc6e244373e007737d7"
+      },
+      {
+        "path": "database/migrations/000160_epdr_scope_backfill.sql",
+        "bytes": 21406,
+        "raw_sha256": "59a96d326730e06c2cb45d9c6799ac7423b6f2d8e4dd906bff640015a5d4ede1"
+      },
+      {
+        "path": "database/migrations/000161_safety_hazard_dictionary_defaults.sql",
+        "bytes": 5892,
+        "raw_sha256": "33216c42c27cdcd5ecd9b4f8aeaec2d715a143b0e7a2833dc593d20d56cab16d"
+      },
+      {
+        "path": "database/migrations/000162_uat_permission_and_leasing_source_repair.sql",
+        "bytes": 8807,
+        "raw_sha256": "063f33fded63df35cb874e2620980245fb137bfbe6acce39d4c991f98e46798e"
+      },
+      {
+        "path": "database/migrations/000163_epdr_uat_role_bridge_read_access.sql",
+        "bytes": 15244,
+        "raw_sha256": "128773cd4dfe8676cae27e01ca8bf0e0900c8a1a7401660f6ca78a8551b19d4e"
+      },
+      {
+        "path": "database/migrations/000164_epdr_admin_visibility_backfill.sql",
+        "bytes": 13728,
+        "raw_sha256": "f80cf8dea9be792facf38edb4842f149884e744d18ed7597e6a45d59a66b29d3"
+      },
+      {
+        "path": "database/migrations/000165_cockpit_module_visibility_backfill.sql",
+        "bytes": 3680,
+        "raw_sha256": "ef3d526aa798c02ee8e6bbb9ceac68fc77f83acefdd8a80cc384a98f4abfc5c8"
+      },
+      {
+        "path": "database/migrations/000166_go_live_decision_permission_hardening.sql",
+        "bytes": 14128,
+        "raw_sha256": "f460518d8fd9501953c400f6545d2ef3ac9e930422fd2fb9404793034b8bd16c"
+      },
+      {
+        "path": "database/migrations/000167_go_live_real_user_role_bridge.sql",
+        "bytes": 5602,
+        "raw_sha256": "00b83797458096f0c60a2c7b235d70ed0908a906055600eae1c46ad1aa44f8d1"
+      },
+      {
+        "path": "database/migrations/000168_go_live_admin_system_alias_permissions.sql",
+        "bytes": 3356,
+        "raw_sha256": "db09744ee4f8e671ae40500229e514e19ed8325d09912d3c64fc34ed1008f44c"
+      },
+      {
+        "path": "database/migrations/000169_go_live_uat_role_menu_visibility.sql",
+        "bytes": 10373,
+        "raw_sha256": "73383bd5e373ec8c47af0481fc50675a2a698ba61427c9c52fdfcca380030eb4"
+      },
+      {
+        "path": "database/migrations/000170_go_live_acceptance_field_execution_bridge.sql",
+        "bytes": 1833,
+        "raw_sha256": "316fad9d34d0a06f7f369e71bc26c25da90e2eea19d50cc2667f7232540b54bd"
+      },
+      {
+        "path": "database/migrations/000171_go_live_invest_workorder_create_repair.sql",
+        "bytes": 1295,
+        "raw_sha256": "0581d70274df7d948fa658e33b02949ea3ddac59d53083b295b3fba8dfe242d1"
+      },
+      {
+        "path": "database/migrations/000172_go_live_uat_user_baseline.sql",
+        "bytes": 5301,
+        "raw_sha256": "3aac7c39bc950b909a55ecee7ca71aa962577a0b4957e80a4b04514f8dca8e99"
+      },
+      {
+        "path": "database/migrations/000173_ai_work_orchestration_runtime.sql",
+        "bytes": 5103,
+        "raw_sha256": "f6c1386f3f587242ce3c4e9694598c1167c320f49ea1db8d35f49f449ee8f978"
+      },
+      {
+        "path": "database/migrations/000174_ai_work_plan_source_dictionary_repair.sql",
+        "bytes": 1227,
+        "raw_sha256": "0aa7dcf200ea961c84630253008ab0a66fd55f845ec71bbb3eb1bf64926185be"
+      },
+      {
+        "path": "database/migrations/000176_shared_property_foundation.sql",
+        "bytes": 18738,
+        "raw_sha256": "a32491d5f70839d7fddf7811292f5935a6f119d47c3dffa81b87d2c0ad6e92c6"
+      },
+      {
+        "path": "database/migrations/000177_homestay_mvp.sql",
+        "bytes": 18878,
+        "raw_sha256": "71f4f1ebd4d2238b92f11a1c876f819814668c61b5c25e524a281ec956f953e5"
+      },
+      {
+        "path": "database/migrations/000178_housing_rental_mvp.sql",
+        "bytes": 16280,
+        "raw_sha256": "245312a92244394ae72324e409c199b3e68aa3343927fb41b9fc799c8853c066"
+      },
+      {
+        "path": "database/migrations/000179_property_contract_business_timezone.sql",
+        "bytes": 2851,
+        "raw_sha256": "dd7dac333e5807f3a20891945d558f6004f678b30b680b14ccadd62da99ca26b"
+      },
+      {
+        "path": "database/migrations/000180_housing_finance_integrity.sql",
+        "bytes": 1937,
+        "raw_sha256": "c830c53b83c8508837cf40d2cf327471b51a4976511970728b77132581dc1f96"
+      },
+      {
+        "path": "database/migrations/000181_homestay_external_order_null_channel_uniqueness.sql",
+        "bytes": 709,
+        "raw_sha256": "34fe19c864124c48c6c40e6b7de87c950bd50a76b420fcb2f3a70a7726c81eb7"
+      },
+      {
+        "path": "database/migrations/000182_property_business_menu_access.sql",
+        "bytes": 12111,
+        "raw_sha256": "7759f6a3d8d71521a04c22a87c7e926b5ab7f0413f343c54433888e6b8ed0eb8"
+      },
+      {
+        "path": "database/migrations/000185_property_b_identity_schema_expand.sql",
+        "bytes": 153712,
+        "raw_sha256": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec"
+      },
+      {
+        "path": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+        "bytes": 74034,
+        "raw_sha256": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e"
+      },
+      {
+        "path": "database/migrations/000187_property_b_event_notification_schema.sql",
+        "bytes": 62502,
+        "raw_sha256": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"
+      },
+      {
+        "path": "database/migrations/000188_property_b_task_runtime_schema.sql",
+        "bytes": 23409,
+        "raw_sha256": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"
+      },
+      {
+        "path": "database/migrations/000189_property_b_module_rbac_definitions.sql",
+        "bytes": 51082,
+        "raw_sha256": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2"
+      },
+      {
+        "path": "database/migrations/000190_property_b_migration_compatibility_control.sql",
+        "bytes": 56388,
+        "raw_sha256": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"
+      },
+      {
+        "path": "database/migrations/000193_property_b_runtime_integrity_forward_fix.sql",
+        "bytes": 18944,
+        "raw_sha256": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07"
+      },
+      {
+        "path": "database/migrations/000194_property_task_projection_contract_correction.sql",
+        "bytes": 58439,
+        "raw_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0"
+      },
+      {
+        "path": "database/migrations/000195_property_mutation_receipt_contract_v2.sql",
+        "bytes": 50004,
+        "raw_sha256": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4"
+      },
+      {
+        "path": "database/seeds/000001_s1_production_core.sql",
+        "bytes": 185574,
+        "raw_sha256": "da60764c3cade9af6477c2bcf9ad3b26a618b36af588f5f55b380863acdd65e0"
+      },
+      {
+        "path": "packages/shared/package.json",
+        "bytes": 482,
+        "raw_sha256": "84997b6136f04274fca279fd0677823e9f9bb8457a83c554b780ba7259526246"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "bytes": 274734,
+        "raw_sha256": "35567fb7edb3d56fa4e375d56a61095396d7da224a69edca01228f732377db9a"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "bytes": 36,
+        "raw_sha256": "253208fa7c1b64372c219b9e19cef15ed70ca93b66a4d5c4c4d2297a5aff8880"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs",
+        "bytes": 17865,
+        "raw_sha256": "ab7879a6ab673eecf366a86a0bf3a7723fd5a7756648c8cf82862bcf031389e9"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs",
+        "bytes": 2175,
+        "raw_sha256": "4478932833af9ee10a532ca4251fa7e8989735f14eb7555924a991f623039674"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs",
+        "bytes": 37048,
+        "raw_sha256": "57c8301941139268056502407d5149a4cac614cf43236f1fb89d846de75fbff9"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs",
+        "bytes": 18378,
+        "raw_sha256": "3bafa6ec3dde2dee738fde3a830d1c5d6a60f778212ecafe146a878a849b5853"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs",
+        "bytes": 4759,
+        "raw_sha256": "8dc2800bbf8b9b95c26b5de8413699efa9b99744c19f76e6faece632f7fa730d"
+      }
+    ],
+    "grammar": "property-remediation-b2a-c4-runtime-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-freeze-v1.txt\t2706\t0bf8c671dd9e4ed1ae7faaf15b480c4196fbc25956011cdec482daa5f5891f8b\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-gate-evidence-v1.txt\t2123\te7b571e77896ae4383f9abec529ed49937a9cb3e14d668ae1e51fc09ceac5e4b\napps/api/package.json\t1598\t988911de33ebd572805718640afd679de308bccdd08484cbbb2695c51cc9684b\napps/api/src/modules/property-tasks/dto/property-task.dto.ts\t2488\t0af5248774528b45e3c58d37b5e4dbecad06cf0aa97a31e1f6a113c9e0bdfcbf\napps/api/src/modules/property-tasks/property-task.access.spec.ts\t5598\t56c8d1c35be4c494ee0b7ac832d3adcb368130bd53736dd3b85d138c27f78fe5\napps/api/src/modules/property-tasks/property-task.access.ts\t7718\tcc0e816b0b727a8e53ccac5c49f4a09b013eb4b54ffb0164ac4a72b818d4ef16\napps/api/src/modules/property-tasks/property-task.assignment.repository.spec.ts\t6499\tbebd2888ab241ee3a5506aec247d896157fd1e33c5cec5909aeca219ab48f330\napps/api/src/modules/property-tasks/property-task.assignment.repository.ts\t12177\t3dbc152aebe903a59f9177c36a4c7e0e21190af6e07db36ade35f1dcece5d629\napps/api/src/modules/property-tasks/property-task.canonical.ts\t1770\tf7ed3a8ae956ac5be3369458fbe482f87da4dd3d27c255a645e84dc9dde178bd\napps/api/src/modules/property-tasks/property-task.contract.spec.ts\t7177\t16c0e79c6859b7900d717f88371e68f0cf400c6ed756b4e419ef192b617ca06a\napps/api/src/modules/property-tasks/property-task.controller.ts\t3691\t91d68c6548a1cbdd1429ff1ca3ca29654c39c3091a6a9587fb2aed9986ad44f1\napps/api/src/modules/property-tasks/property-task.dto.spec.ts\t4322\tec538b4e5c09c08d51be07f77ff30b5a14d753a1eaea711622b502708efa9b1a\napps/api/src/modules/property-tasks/property-task.error.spec.ts\t2466\t098eb02243f01847be83c86556736f8742ca5e4b54d3840bf5c1a2e8819ba9b2\napps/api/src/modules/property-tasks/property-task.error.ts\t2506\tb7b1ff6e6e3cf095f1e828d20129a9d44aa96302ee32ad5b57b8fccee5d1b070\napps/api/src/modules/property-tasks/property-task.manager-port.spec.ts\t633\t9be2c9fa8c2071d324c0be3e5a3ee7a25f2d2d5a424a349d0b730c69e0cbc671\napps/api/src/modules/property-tasks/property-task.manager-port.ts\t472\t6748afb41446acb6974fa6cacac41bc94b7b177af17821e90a9183f98d15def2\napps/api/src/modules/property-tasks/property-task.mapper.spec.ts\t3179\tf979d7e8f284e59a535f4bca532457a824c3286aa266c706908a19e2d9351443\napps/api/src/modules/property-tasks/property-task.mapper.ts\t2488\t385bd02052fe041fef49a4ebb55c10b1403f8ef7efdab96a1b211295cbc92afa\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\napps/api/src/modules/property-tasks/property-task.orchestrator.spec.ts\t37508\ted1bacb65ee068b54e83e91ce0bd92da2057aa01c6d7a5fb313e369f1da863df\napps/api/src/modules/property-tasks/property-task.orchestrator.ts\t38826\t06521220fdce413448e44924d5b7fa03f0d1858598cda69edaae0ce3d14a8678\napps/api/src/modules/property-tasks/property-task.ownership.spec.ts\t2843\tfde875aa8016c7e44d97528b40284a3a10b4ce36a8da4669e5d2eac69e4466db\napps/api/src/modules/property-tasks/property-task.projection.repository.spec.ts\t3818\tef38180f7129eb7dd3ff293fe2d6259b845ba35bd5738e42b5c67670c8b4cb05\napps/api/src/modules/property-tasks/property-task.projection.repository.ts\t10597\td4906aeff1e27744e0d0e9ad1d33772832a5febd6a61e1b60ec042e3cd7ea0c8\napps/api/src/modules/property-tasks/property-task.registry.ts\t1310\t10c6a87a0a8d0f32d0c702a975508e76983797621d40766b1cf6f42780768a1c\napps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts\t57822\t0aa5105b8ec16225ace6da4ca48f3f9d525f46f260fd1d120efac555659ca515\napps/api/src/modules/property-tasks/property-task.service.ts\t8120\t15b6ea7eaa502f997711a7ba7b1307d24ee84a769d8b64cb0cac199589a38ea7\napps/api/src/modules/property-tasks/property-task.validation.ts\t1961\t9ff7a98129429bda4e87412e9a69cc5418f2806edc4f8f60ee27c77f4eed20d1\napps/api/src/modules/property-tasks/testing/property-task-contract.fixture.ts\t1229\t54153876e7b4300249c54e300e61a5dfdbac6e6593de43ba11838c4497638f0d\napps/api/tsconfig.json\t368\t5d08f7515d65084deaf4cbecf4ffabb7beeb8dafa518d051268e0fc2e4add281\ndatabase/migrations/000001_init_auth.sql\t4961\t34790818bb811a7b763ce34998b5f09c1f3878b41cdc2945dbad3531f66e8a18\ndatabase/migrations/000002_s1_system_foundation.sql\t5367\t4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9\ndatabase/migrations/000003_s1_support_closure.sql\t1290\t565083c7c0eb4a8d29a25ae0d263792762eea6bcecf94c679cb4592f2bd30852\ndatabase/migrations/000004_files_center.sql\t1364\td18b79155f505a1f3d9e12b78a1490de1ffd5701c2900406cf0c7bf81abfba64\ndatabase/migrations/000005_audit_log_enhancement.sql\t2649\t3aa8fe70e95ec660ecce34cc867d74cba390e9cc46c3202e1423e45abf967e7c\ndatabase/migrations/000006_sys_dict_compat.sql\t218\t93009030f033be410329d06936806929e32b4c848c1f3e8c5b38fab843518802\ndatabase/migrations/000007_s2_assets_foundation.sql\t4990\t813902a48218003765234138216d8ae05aefbdb65d96b281caa98fe7d8d9530a\ndatabase/migrations/000008_s2_biz_park.sql\t1050\t1185575ab56b5bb7ee6f85844abf407e610356fc12d2c46ca4a43bfb9dee186d\ndatabase/migrations/000009_s2_biz_building.sql\t1092\t237da8f54eb41c434ce58308dcbc631e1a98807aeb741d1a407d10bfbcbdba40\ndatabase/migrations/000010_s2_biz_floor.sql\t1290\t5997787688b1f3de1d9ea8feff1b63a68480f223fbe51a381f80ad8894010ae0\ndatabase/migrations/000011_s2_biz_unit.sql\t1718\t4645d6d7cddf44b4aad8ceddb6a8048cc2a2b33de4a22f391d0fd641b3df7a32\ndatabase/migrations/000012_s2b_unit_enhancement.sql\t2798\t7ed24c539fce073a57d4b021c5a2d6c7b7e76182f0bff903048c64303fe62f96\ndatabase/migrations/000013_rbac_saas_hardening.sql\t4206\tca2b48c3248133222a1d5886fdcaa44e5976daf427de16dc54d7a4d4f53fb061\ndatabase/migrations/000014_sys_role_saas_contract.sql\t1465\t72b4c31c5b831d38d07d785e6c81ec422b7e43132870d9d1d615cb0e3f2dc50d\ndatabase/migrations/000015_sys_permission_tree_contract.sql\t2090\t42193cf3f6540acf5108ced9b1ef5d55ebab040302d9fe1a85d49f77001357fb\ndatabase/migrations/000016_data_scope_model.sql\t2462\t91c5f6f52f05012f30b466424f52bad49754f4c6ed38cdde19fef01825c36f06\ndatabase/migrations/000017_field_policy_model.sql\t2090\t1346ae045f1970a6806053d72cb67c7239767dc33fd03ead0221ca3344d4e232\ndatabase/migrations/000018_sys_tenant.sql\t1235\tc8f158827adde65088d253a3609e0c5704a6d3df5b99f721f361315916a1a322\ndatabase/migrations/000019_rel_user_park.sql\t1031\t7017d485025161525e23e28d7cd344c046458096d6ddfac6783a6d7cce2cfa88\ndatabase/migrations/000020_saas_rbac_std.sql\t4416\t64b81702550ebd4635665401d9bc1304dfb37cb681c53b90e05ccd88a4e77e52\ndatabase/migrations/000021_sys_tenant_api_contract.sql\t928\t29a6f3cb81fb1a64ebd6b1489e5b6acf3a10d1a42710ee78518ab53a63a10bfa\ndatabase/migrations/000022_rel_user_park_default_constraint.sql\t1188\t4bec1c0ec5d2296c6847fd536381efdd622e2dd91628e62d3a6655fc85d2273e\ndatabase/migrations/000023_sys_role_open_rbac_contract.sql\t2904\t85cae73f31107c0cd7b13a56d95c64b99d1ba8a333bd7c88d72409680390496c\ndatabase/migrations/000024_sys_permission_open_model_contract.sql\t2786\t1e8085b9210971843a561590b1d408251d89638d396053d8458ceac93e1ccc7c\ndatabase/migrations/000025_data_scope_open_contract.sql\t4968\t0422dcbbdef7b418250965a1b853a7579609d3dbace0d12bf35681ae244bd815\ndatabase/migrations/000026_field_policy_open_contract.sql\t4500\ta6f0b9ba4b5747d7e06d031cd30d91aaf3a4c2757df52f6b67d9a5c999252489\ndatabase/migrations/000027_code_rule_standard_contract.sql\t3700\tecb2affcbee2e5ab3c4fb61e9e3e97723fe52489fb0e873b583e4f15e5889d6b\ndatabase/migrations/000028_saas_module_plan_authorization.sql\t1920\te6fa728de46cbb951bf964c67e15487fd8a9a9ca60f0097c0ca9e8c8f0b8be4a\ndatabase/migrations/000029_saas_scope_id_unification.sql\t1979\te0553599796ac56ea82a53ee267a61642e653ca06a57f7ae5c23b1745a4d580d\ndatabase/migrations/000030_s2b_unit_import_code_compat.sql\t280\t70c24d45df66787a6b65a9ee80e37fa9dc5976f74692093b0d18fc98e3d89644\ndatabase/migrations/000031_s3a_park_tenant_profile.sql\t1971\tbb1bbf6cc56fe251fd8ea9622e9ea40cee5945240bed45be98ca89b27edd64c2\ndatabase/migrations/000032_s3a_park_tenant_contacts.sql\t1301\td506dfc95687ed994370e210182cedac279b252b4eece145aba2ffe37ab7a8a7\ndatabase/migrations/000033_s3a_park_tenant_qualifications.sql\t1377\t12b45525d26555949c9ce4687c5a578b530b335986fa448bcd5e8cde8a696133\ndatabase/migrations/000034_s3a_park_tenant_risk_logs.sql\t1369\td671263427aa37ac560000c6d4c4c62c375caf4470bca995be7c92d29a834383\ndatabase/migrations/000035_s3a_field_policy_email_mask_rule.sql\t307\t25536886c7742dc52a9ea71fbc3ed3367da58ad9380c191621c4ecafad44ca5b\ndatabase/migrations/000036_s3a_park_tenant_dictionary_standardization.sql\t1814\t130c3cf8168818c6a360858ffc837649718d0b90d9714ec1ceb6749a07b4bc6d\ndatabase/migrations/000037_s3b_code_rule_leasing_lead.sql\t1137\t54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27\ndatabase/migrations/000038_s3b_leasing_lead_profile.sql\t2566\td47962d06d4b4f6fe0af33c0a34a44c97c486e743db982a23100e8cd79928b2a\ndatabase/migrations/000039_s3b_leasing_follow_records.sql\t1398\ta3b455f8a0390c3452d05b817c8cdcee8bb482e1e18761d39469bda8d763dfeb\ndatabase/migrations/000040_s3b_leasing_visit_records.sql\t1254\t5e5672796eae9dbcf91ee31fdbc8ff9340cc1edb488b3cbaf3e002e47ae1b41d\ndatabase/migrations/000041_s3b_leasing_quote_records.sql\t1527\t09adb0313d4b195c335ebe2534e0968d7e0cec4935e82095664d79a96634df87\ndatabase/migrations/000042_s3b_leasing_lead_status_logs.sql\t1284\td3eda04b3cf320e58c5458959da704d28a0f7abd0c90c516b2a9d681024b4206\ndatabase/migrations/000043_s3b_leasing_lead_pool_compat.sql\t699\t8f164da0735aaa86e6f0971cbad3392ab64ec6b0ebde719583cd9f0e3db99b2b\ndatabase/migrations/000044_s3c_leasing_contract_core.sql\t11046\t60753160151c1af4542d02c1753258e97349f18a893385b69dbdd3bae46296ae\ndatabase/migrations/000045_s3c_contract_unit_links.sql\t4323\tf0ac3f8ad7322a2240e8b521d2d7a9f525a9b3ab46d3d77257a574f41bf05f4c\ndatabase/migrations/000046_s3c_quote_create_contract_draft.sql\t1403\t4e6b5157b0d77be15ef1c41fdadfca54e8f90cee381e5e99f72290074d8233da\ndatabase/migrations/000047_s3c_contract_approval_flow.sql\t5076\tdfa118c9152a8fb02e1f3dc307071964f3b807471fa7ac9009b1358a18363593\ndatabase/migrations/000048_s3c_contract_archive_files.sql\t1495\t52c9507a2db6312bee6240eff51e9cc2d47c3b67664af4df85302b41375dbd8f\ndatabase/migrations/000049_s3c_contract_effective_flow.sql\t1327\t4f69d85ab4bee9807b05479085c88cf7787e4f894341ae9c76e6979b339be455\ndatabase/migrations/000050_s3c_contract_status_logs.sql\t1840\t7584b0dae62789186b9e1dc7a6681cf74e2a210636239f3fab8579b8f2196f31\ndatabase/migrations/000051_s3d_receivable_code_rule_entities.sql\t1137\t54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27\ndatabase/migrations/000052_s3d_leasing_receivable_core.sql\t2655\t09fd0d143fede43beafde6ffcfd985f58c49e99bac90a623e64f7c0cad9be81c\ndatabase/migrations/000053_s3d_generate_receivables.sql\t1081\t56183a12da661e639ca01e8c7758cbbedb0447bf45d4495e8fb7ef47665a0aa4\ndatabase/migrations/000054_s3d_leasing_payments.sql\t2759\tf0e67b5f7cbc1c9c0ea7cc998004404db5e1830a955c122f6c03c1e93bcb8bd8\ndatabase/migrations/000055_s3d_leasing_waivers.sql\t1753\t26ae6fe9aae8949708233a5c3e09f921580e03fa9e19bdf3bc9b39614648408b\ndatabase/migrations/000056_s3d_leasing_invoices.sql\t2727\t8ceabe12ad553befabf8b518b5b69a985af034d4563529ab8148753c881cc836\ndatabase/migrations/000057_s3d_finance_seed_standardization.sql\t1222\t2de21bdda99181ed28cb033dbe71b611fa33074a9e36d8da983879e1bc8c98dc\ndatabase/migrations/000058_s3e_code_rule_entities.sql\t3772\t40df236bfc8bf374721c4c5e6f041483a6183d1409339585c91777212b8b53cd\ndatabase/migrations/000059_s3e_contract_change_core.sql\t7649\taa48958266bcd41f92b5f716417f0995e46631d9c75e586122dd54786286f225\ndatabase/migrations/000060_s3e_contract_change_flow.sql\t3631\tdd200ccc0fddbcba2b3524eb89ecd2d0589a7333d9ae1de62677d9dc9f24368d\ndatabase/migrations/000061_s3e_contract_renewal_draft.sql\t1940\t438620511cb3ed94837c0986ddfca1bbea1de1cceffc89623f27b493df5fcd71\ndatabase/migrations/000062_s3e_checkout_applications.sql\t8490\tf90f0c40dfe77b34defe4d48c29bd4f762278e4d846284a743167242f582b84e\ndatabase/migrations/000063_s3e_checkout_settlement_refund.sql\t6596\tdee5187eaa3d078283f1f50bebc846c30335298f5d347bcab6e1f3f89cf94540\ndatabase/migrations/000064_s3e_checkout_effective.sql\t3106\tc04db8e48bb26620bb0027ea41233b2b7addc2e4801ae6c3da2a4a36a5904bd9\ndatabase/migrations/000065_s3e_contract_action_log_unification.sql\t4158\t51967ef54194e3951f059ff0390df5abde75c51013590c382794b7266b6da753\ndatabase/migrations/000066_s3e_permission_open_field_policies.sql\t1834\t786901c410f488eeb83af247a2978c3081d26abe9f4d1ea96fe2b0ee75d1db60\ndatabase/migrations/000067_s3e_permissions_menu_dict_seed_patch.sql\t7472\tb663a97f11d6b2f0de283700295b444b55a099cf8baa4fae584a4b6a106cba1c\ndatabase/migrations/000068_yudao_system_rbac_baseline.sql\t8879\t991cebec9f946949bc64378217c7c2389a17498a0dcc336227dd7953b80ad6a9\ndatabase/migrations/000069_saas_tenant_onboarding.sql\t5716\t9672e681ae0867e6269b2dba79086c314dad784e019bd68d91868dc2b16894bf\ndatabase/migrations/000070_unit_sold_status.sql\t1746\tc3cd29169953770f81fb69afe3ee0ef0f683a8e486d0c2d6456f5f55d0a63cf4\ndatabase/migrations/000071_s4a_workorder_code_rule_entities.sql\t3124\t239229b050dc2fd789ae2d5edd698ffee8fa1e29dea26873f4998db8dcc74531\ndatabase/migrations/000072_s4a_work_order_core.sql\t12353\t5ee7c21e464eb8d6f6e6ba2f108ed6789b6d62444e368186ab3d9ec97671dbbf\ndatabase/migrations/000073_s4a_work_order_assign_permissions.sql\t2326\tf334fbf7ba5627513a214f7e02a5126ba15c4f3ee76df06b443d6db30c9562e1\ndatabase/migrations/000074_s4a_work_order_processing.sql\t5157\t34ada440033532e6e31268e2d987ddf45a1aa4db66a81ae381cd6fa111d3ea63\ndatabase/migrations/000075_s4a_work_order_confirm_evaluate_close.sql\t4723\tfe8af8f6b30e52183eefd1b653d6a8385f6218f85b805d16e8ba90875f69aade\ndatabase/migrations/000076_s4a_work_order_cancel_return_reject.sql\t2512\t24e58e8b83675720e7dbb0aacc13fcfce635fd5228bcc8402323c57c09f74e94\ndatabase/migrations/000077_s4a_work_order_sla_overdue.sql\t6100\taf95cf483d256a4ea6e07f1ac0dc09f9bdc6f7ac19e6787482daaa0c0515cd91\ndatabase/migrations/000078_s4a_work_order_logs_timeline.sql\t2535\t1e4f01785e96535f11a7933d4b44118ffbd0ce1ff2f77b42802caf6eee078ff8\ndatabase/migrations/000079_s4a_workorder_permission_open_field_patch.sql\t1006\t5b6dc8aac613180da2334aed925ac12419a3660789d715554227b8eb177f39d3\ndatabase/migrations/000080_s4a_permissions_menu_dict_seed_patch.sql\t28760\t497bf2a550ddbcfbee2f5c888bf153e2759ad296d941425def8866cb7a932a40\ndatabase/migrations/000081_s5a_safety_precheck_module_code_rules.sql\t8019\tea5d5a6fb66deacb7c14e905540f2cb07943d8ecd4442f12abf98dcda458bf37\ndatabase/migrations/000082_s5a_safety_inspect_points.sql\t13961\t40fc89cec7e9414847ea8de527af2ad9dc2d7831f8f560287c2a6333a3cfef77\ndatabase/migrations/000083_s5a_safety_inspect_templates.sql\t14989\ta6acc7ef978dfde94112c895528de680624dfd1b770b03de6246924bffaa8651\ndatabase/migrations/000084_s5a_safety_inspect_plans.sql\t11912\t9ba1be0b65c7d370ce55bb3ae093ffb98ae149566b964348dee2430b27f82085\ndatabase/migrations/000085_s5a_safety_inspect_tasks.sql\t18286\t463fd9d414012df0e0a0ec60aa2dc5cb043b5e93efb81fbb65a8feb6be7c0993\ndatabase/migrations/000086_s5a_safety_hazards.sql\t13586\t5fd7a18ece7bb29280fc674519b21fab9a9a86ed2fc4b36df1258dba9dd09269\ndatabase/migrations/000087_s5a_safety_hazard_rectify.sql\t6682\tcd2100176893399105a1c68dc944e18e6ceadb0ac0ed836f2c400337f23d21f6\ndatabase/migrations/000088_s5a_safety_hazard_manage_all.sql\t4137\t6521169d77e0136acba3ae4040c02c424f312a3f72743d0f967b180871fd738b\ndatabase/migrations/000089_s5a_safety_hazard_recheck_close.sql\t7226\t6b01e47e1d577c795b04c3fcb798a479dc25bb8826ab65e8e81292f5668c096b\ndatabase/migrations/000090_s5a_safety_hazard_create_workorder.sql\t4226\tef8b685dde724499725d6c7a0360ea3b852a6971c257a40ffc4427286f58e68b\ndatabase/migrations/000091_s5a_safety_statistics.sql\t5212\t0432bb70f1ebc5e8823d7b4f7a751950d54c9c47673466451462069ba365c722\ndatabase/migrations/000092_s5a_permissions_menu_dict_seed_patch.sql\t35502\t1cc88c939d2510ae01c7f218bb309b3aacf37a5c381990594b4fe7ba9f9dfa85\ndatabase/migrations/000093_s2b_asset_menu_role_permission_repair.sql\t2213\t2e7aedf46cac062261324ad14537e44420d35fc71499f3a2b487da57c2be6805\ndatabase/migrations/000094_s5b_precheck_module_code_rules.sql\t8106\t998b677515e2a33d2d1f4e2a9e6dca882ecefff6c20fa327b47a440b2c4d12b3\ndatabase/migrations/000095_s5b_emergency_contacts_plans.sql\t18390\t040fe1ffa83dbdc47eb888528c6a0cb488da561b70a9b7fafc7842495ed9f516\ndatabase/migrations/000096_s5b_emergency_events.sql\t17256\t0e9997bbb1e8c79785e274b2bf545d63b7b476b382f0b88060b3be24c4e262cf\ndatabase/migrations/000097_s5b_emergency_event_flow.sql\t8359\ta07cad988adb7c1eb7a5e810df058594cfe58fee972e826baef5dd177cade600\ndatabase/migrations/000098_s5b_emergency_timeline_logs.sql\t4789\t615700666e744bfb9db008d33620fdc3992f548633d80bc1f0c258fca7af520c\ndatabase/migrations/000099_s5b_hazard_to_emergency.sql\t7623\tbdac2e73485aea30314f3f6f530594587d467986a79ee6ef1f7a05a64e246fd2\ndatabase/migrations/000100_s1_auth_center_foundation.sql\t6843\t83a8b856d16e1433e6945f877626ca6cfc53f4493e85dcb99ff59c091df1ac70\ndatabase/migrations/000101_s5b_emergency_create_workorder.sql\t5992\t825335027ed3f05589447f43f2fd915e55d94cf5e5ec3d22ce1bca5c155383c9\ndatabase/migrations/000102_s5b_work_permits.sql\t20051\t7abb55a44b186ba8e6cca66be70b0575d1c4098af7f9f24d2aa4e4c4e1a15451\ndatabase/migrations/000103_s5b_work_permit_approval.sql\t8286\t82f8eb777dd8956008e6f8ad8ba46196f3d40741b4d5a2fb2d4cbed1baa54740\ndatabase/migrations/000104_s5b_work_permit_lifecycle.sql\t6518\t184bb6737001f60a40fa9a55b10e45413844bd6d281937ee6ea9220e746e432e\ndatabase/migrations/000105_s5b_work_permit_check_conversion.sql\t6590\tba9a7ed96b529260939fae530c594a1e48ce269030865e33f5e2b804a72bb245\ndatabase/migrations/000106_s5b_emergency_work_permit_statistics.sql\t6132\tb469b1eac856b9ea59be6754b0102d1602b69273ff8125782fd91d2ffcc29668\ndatabase/migrations/000107_s5b_saas_open_permissions.sql\t4541\t82bb9ffeff2268921fd6307dc177d2b4c097f139c13ce4548bbe2760f8b7cdd8\ndatabase/migrations/000108_s5b_permissions_menu_dict_seed_patch.sql\t39441\tffc86d93bb10c8462976c6ae146d2375076d893967a2c049c0958e17b43237d8\ndatabase/migrations/000109_s6a_iot_foundation.sql\t32025\t3697b9373722ae241c832cd6d423c1f62cf3386187237b3a2ce28b364d6649e4\ndatabase/migrations/000110_s6a_iot_base_dict_seed.sql\t6868\t57f60f73dbeeea1962e2c5819110df7eff0899784c5b5606979adf1ad4875ca9\ndatabase/migrations/000111_s6a_iot_device_master.sql\t7380\t982c8736df3f0b05fb434acafb4226bf05abdb0fb559999c3b69a204cd26bf49\ndatabase/migrations/000112_s6a_iot_metric_point.sql\t13476\tf0c453b7b710bf715faf044d60f2bd92a754e00c8feeee708d4b3b30c99fe1c2\ndatabase/migrations/000113_s6a_iot_http_ingest.sql\t1003\tc712d9c318aaff02fda08caa2dcfcdaee365f0b597632451010cab870f697314\ndatabase/migrations/000114_s6a_iot_mqtt_skeleton.sql\t4275\t1beaafb9f61cb2c6992b8555c5c44fe7c59ff7a234d450ea535271de1d7ec5bd\ndatabase/migrations/000115_s6a_iot_device_latest_status.sql\t5697\t84fcbb1304a292accec8a4dd6191b1b92c123e040d987ecb6f38fdf2eef7d936\ndatabase/migrations/000116_s6a_iot_device_history_data.sql\t6686\t14b120fcd73dea0c01d5b187d8da3cbcb8531190c99fa570dcc1af12afb6d6b4\ndatabase/migrations/000117_s6a_iot_alert_rules.sql\t7814\ta2b2e7d5637b9dfe530aebb66cc727671ee7329ee065743bfdefdc015bd072f4\ndatabase/migrations/000118_s6a_iot_alert_center.sql\t7349\t1acd32d7d72493be2f4abedeef39f4948a446b7a98ba74bfb4654a6294d778a9\ndatabase/migrations/000119_s6a_iot_alert_create_workorder.sql\t6086\tbd4ba022b4541310120bae76cb018521cda61a5d5f421ec29e01e22d635e7c40\ndatabase/migrations/000120_s6a_iot_dashboard_detail.sql\t4480\teeca8e1d2869efdd7d653a01fc0f4107120f6ce5fc81df0d24335e9651cde801\ndatabase/migrations/000121_s6a_iot_saas_open_patch.sql\t2655\t718750f67e162cbe510f86289990ddaa1ee038355b8517c969cbf7318dea3a70\ndatabase/migrations/000122_s6a_permissions_menu_seed_patch.sql\t21553\tbe0517e596af85e26f03ae66fdc0bb708143dc34e50ab433249a373c8995a75c\ndatabase/migrations/000123_menu_tenant360_cleanup.sql\t1959\t79137dcf98e66f86b5908a42a5f0f304f5f219262d204c63d734d1614954fed3\ndatabase/migrations/000124_s8c_video_cameras.sql\t20121\tf88b5a956031831d9c095ad733350ea4b2f6ba5d0fb2d9f0ec9b51bc998b7824\ndatabase/migrations/000125_s8d_video_preview_platform.sql\t15783\t176407fd1c11a869a67e076ae49740acd56e8d09fafa339fc83e706905c0ed70\ndatabase/migrations/000126_s8e_video_evidence.sql\t15729\t9cf0caeaf15749f65c08e9a4b0abd5467733b721266f86335d9e50debf27963c\ndatabase/migrations/000127_s8f_video_alert_dashboard.sql\t23947\t964500d40270d1c2b1d127fd42cb2a1b8a5097ebdb0b8b7e50c7792c2e61c33a\ndatabase/migrations/000128_s9a_iot_device_hub.sql\t21520\teaa0eecd306428d830d1707138150aa93179b5d3f413a75f15a6232ad45d46c1\ndatabase/migrations/000129_s9b_iot_runtime_alert.sql\t15523\t49596020cdbe4da9628d1c340d74da99018276912e345305fb8a76ce4ebd08eb\ndatabase/migrations/000130_s9b_iot_alert_trigger_value_text.sql\t370\t9504d7664e319d722845fa26a6a10dd1142bee8d858228816d6db7a04dea55d1\ndatabase/migrations/000131_s9c_iot_rule_engine.sql\t14967\t39bd43173f6061761799c4706d1522729468ef406fecd13b2523214f88664e93\ndatabase/migrations/000132_robot_ezviz_cleaning_integration.sql\t14656\t0ff91d706c7c64e7d1b6db055dddd906a7baf9f4ebd6f3fa2cba1f1bf50d5ef2\ndatabase/migrations/000133_s9d_iot_scene_center.sql\t23818\t034fe40dea1ab94cd902e76bddca7d1783d37e4c008cfacda1206bb3a99a89b7\ndatabase/migrations/000134_robot_cleaning_visibility_seed.sql\t5785\t50052e148d80be03df95fa8efb8f64d60ad9aaae0670dea6ec52958c5ffef567\ndatabase/migrations/000135_s9e_energy_meter_monitor.sql\t24097\t1235b9ffcf1fbadc793b12e3414f01424d0481e1976e6b9db1126cd049076654\ndatabase/migrations/000136_idempotency_request.sql\t1104\ta686093eedc90cbf0f30447d98da09eb683a89b17f1ddbe99166d01e62ce7d85\ndatabase/migrations/000136_s9f_energy_billing_allocation.sql\t22705\t91f9ec3f482a77dde263f7e97cda0c245a0bbdc5130e630ac0e1232aab32c5c3\ndatabase/migrations/000137_s9f1_energy_billing_adjustment_reversal.sql\t14801\tefa25d3a3322a0b95393a6ba64b7b65f3b16685df7c789d0e2453d32f0f40f30\ndatabase/migrations/000138_robot_ezviz_device_sync_permission_patch.sql\t743\ta821913338df88e1748a53079271e1b384c4b2c982c1809eb2fb1cb9b217403d\ndatabase/migrations/000139_sys_schema_migration_history.sql\t673\t1c0adfd71e8691f3346afe66199cc85e5cf82a11a99802a8e40df7f42695c6ad\ndatabase/migrations/000140_expand_audit_request_id.sql\t140\t9c94203164a4c8cf26f4d5f798209a0874a1017272e3f4fd73161d6c33fca834\ndatabase/migrations/000141_operations_terminal_seed.sql\t16613\t5f4ad93d70e170bb18c2670cbdd3846c75b59923391f3b547d34ac272e952418\ndatabase/migrations/000142_operations_terminal_role_schedule_patch.sql\t19899\t2224d4e2349dbc9f8aa560a646329c1ea15cd3c7902b082adc4d53e23732e025\ndatabase/migrations/000143_operations_terminal_disable_obsolete_daily_electric.sql\t690\tb6a93e6d8825bc7d343a269ffcaa82c9205a26e26ffbdd002506f00617577424\ndatabase/migrations/000144_safety_full_open_permission_menu_patch.sql\t10935\tda9ea32a3e4a422108edef6f41dd23825d8bf9ab8820a292c0e8e26434b5909b\ndatabase/migrations/000145_safety_phase1_review_followup.sql\t770\t20975792fc3ab6eb2b1bf5d7132c2bc8232f5e89f9fc75b14a1c7e5d30e2b6ac\ndatabase/migrations/000146_auth_password_lockout.sql\t465\t5e7bd2b931038d918752604d02880560b839e9c56e8b89edf146d27efd62ee04\ndatabase/migrations/000147_role_pack_real_park_operations.sql\t11048\tb2a8a406e47b7a5f106aef9c458a1ca69f4c46ed085f8069d6d6adf5663474f3\ndatabase/migrations/000148_workorder_business_dictionary_defaults.sql\t6285\t8aecac1b39d8fc49838c5a1076a4b35f450108646b0893af90030a77a865068f\ndatabase/migrations/000149_workflow_user_messages.sql\t1592\t54dc9de8d93875be6983617d420924d4b7f402e67c038876d813ced5553eeda6\ndatabase/migrations/000150_epdr_engineering_project.sql\t3219\t27207927a60f64fdf9376bfe03915ef2ba0d8a913e8326475c6a3ffd762f4fb4\ndatabase/migrations/000151_epdr_engineering_project_status_log.sql\t888\t33e6e4e7c13d69759cd48f81338d1743170acbbbd85eaafe6fd5b93a8229d36c\ndatabase/migrations/000152_epdr_engineering_plan.sql\t3469\t69c905eeed2f7fd7dc4627d676f10b043cd4f991081ecf11c24ba9d00782dcdb\ndatabase/migrations/000153_epdr_engineering_daily_report.sql\t3526\t32c7d03b6170e0cb0ba76b3eccc9469e7ee723222bf7a8ef4421e98117962dd1\ndatabase/migrations/000154_epdr_engineering_inspection_issue.sql\t5760\t964fbfa7bb9cae4fd6df964beed4f7ff1009ac1dd6716f6a4a4af9e7642bc392\ndatabase/migrations/000155_epdr_engineering_rectification.sql\t2765\tf745ce837604c479f3b4e2f48f5faa0c796893019c41627ee72bd127b0852a9c\ndatabase/migrations/000156_epdr_engineering_acceptance.sql\t2840\t001b51a00c249fc80b4baa6415802b6ca646f8ac8105398687bb2e586144004b\ndatabase/migrations/000157_epdr_rbac_menu_permissions.sql\t30757\ta46deeab7e32b1a959a7aab7768a4fc49bf99d59005882fd79a5656807cc9da8\ndatabase/migrations/000158_epdr_engineering_event_log.sql\t1144\t7c353ee3b0bd7fc659a73349a81098b50f9f96cfa8a293aef2ecdee2631d450c\ndatabase/migrations/000159_epdr_engineering_attachment_ids.sql\t178\t8899a97e315d7a930584a75152812b42124453d435fe4dc6e244373e007737d7\ndatabase/migrations/000160_epdr_scope_backfill.sql\t21406\t59a96d326730e06c2cb45d9c6799ac7423b6f2d8e4dd906bff640015a5d4ede1\ndatabase/migrations/000161_safety_hazard_dictionary_defaults.sql\t5892\t33216c42c27cdcd5ecd9b4f8aeaec2d715a143b0e7a2833dc593d20d56cab16d\ndatabase/migrations/000162_uat_permission_and_leasing_source_repair.sql\t8807\t063f33fded63df35cb874e2620980245fb137bfbe6acce39d4c991f98e46798e\ndatabase/migrations/000163_epdr_uat_role_bridge_read_access.sql\t15244\t128773cd4dfe8676cae27e01ca8bf0e0900c8a1a7401660f6ca78a8551b19d4e\ndatabase/migrations/000164_epdr_admin_visibility_backfill.sql\t13728\tf80cf8dea9be792facf38edb4842f149884e744d18ed7597e6a45d59a66b29d3\ndatabase/migrations/000165_cockpit_module_visibility_backfill.sql\t3680\tef3d526aa798c02ee8e6bbb9ceac68fc77f83acefdd8a80cc384a98f4abfc5c8\ndatabase/migrations/000166_go_live_decision_permission_hardening.sql\t14128\tf460518d8fd9501953c400f6545d2ef3ac9e930422fd2fb9404793034b8bd16c\ndatabase/migrations/000167_go_live_real_user_role_bridge.sql\t5602\t00b83797458096f0c60a2c7b235d70ed0908a906055600eae1c46ad1aa44f8d1\ndatabase/migrations/000168_go_live_admin_system_alias_permissions.sql\t3356\tdb09744ee4f8e671ae40500229e514e19ed8325d09912d3c64fc34ed1008f44c\ndatabase/migrations/000169_go_live_uat_role_menu_visibility.sql\t10373\t73383bd5e373ec8c47af0481fc50675a2a698ba61427c9c52fdfcca380030eb4\ndatabase/migrations/000170_go_live_acceptance_field_execution_bridge.sql\t1833\t316fad9d34d0a06f7f369e71bc26c25da90e2eea19d50cc2667f7232540b54bd\ndatabase/migrations/000171_go_live_invest_workorder_create_repair.sql\t1295\t0581d70274df7d948fa658e33b02949ea3ddac59d53083b295b3fba8dfe242d1\ndatabase/migrations/000172_go_live_uat_user_baseline.sql\t5301\t3aac7c39bc950b909a55ecee7ca71aa962577a0b4957e80a4b04514f8dca8e99\ndatabase/migrations/000173_ai_work_orchestration_runtime.sql\t5103\tf6c1386f3f587242ce3c4e9694598c1167c320f49ea1db8d35f49f449ee8f978\ndatabase/migrations/000174_ai_work_plan_source_dictionary_repair.sql\t1227\t0aa7dcf200ea961c84630253008ab0a66fd55f845ec71bbb3eb1bf64926185be\ndatabase/migrations/000176_shared_property_foundation.sql\t18738\ta32491d5f70839d7fddf7811292f5935a6f119d47c3dffa81b87d2c0ad6e92c6\ndatabase/migrations/000177_homestay_mvp.sql\t18878\t71f4f1ebd4d2238b92f11a1c876f819814668c61b5c25e524a281ec956f953e5\ndatabase/migrations/000178_housing_rental_mvp.sql\t16280\t245312a92244394ae72324e409c199b3e68aa3343927fb41b9fc799c8853c066\ndatabase/migrations/000179_property_contract_business_timezone.sql\t2851\tdd7dac333e5807f3a20891945d558f6004f678b30b680b14ccadd62da99ca26b\ndatabase/migrations/000180_housing_finance_integrity.sql\t1937\tc830c53b83c8508837cf40d2cf327471b51a4976511970728b77132581dc1f96\ndatabase/migrations/000181_homestay_external_order_null_channel_uniqueness.sql\t709\t34fe19c864124c48c6c40e6b7de87c950bd50a76b420fcb2f3a70a7726c81eb7\ndatabase/migrations/000182_property_business_menu_access.sql\t12111\t7759f6a3d8d71521a04c22a87c7e926b5ab7f0413f343c54433888e6b8ed0eb8\ndatabase/migrations/000185_property_b_identity_schema_expand.sql\t153712\t3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec\ndatabase/migrations/000186_property_b_approval_runtime_schema.sql\t74034\t5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e\ndatabase/migrations/000187_property_b_event_notification_schema.sql\t62502\t85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20\ndatabase/migrations/000188_property_b_task_runtime_schema.sql\t23409\te0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08\ndatabase/migrations/000189_property_b_module_rbac_definitions.sql\t51082\tf4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2\ndatabase/migrations/000190_property_b_migration_compatibility_control.sql\t56388\tda633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a\ndatabase/migrations/000193_property_b_runtime_integrity_forward_fix.sql\t18944\tc769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07\ndatabase/migrations/000194_property_task_projection_contract_correction.sql\t58439\t93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0\ndatabase/migrations/000195_property_mutation_receipt_contract_v2.sql\t50004\t9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4\ndatabase/seeds/000001_s1_production_core.sql\t185574\tda60764c3cade9af6477c2bcf9ad3b26a618b36af588f5f55b380863acdd65e0\npackages/shared/package.json\t482\t84997b6136f04274fca279fd0677823e9f9bb8457a83c554b780ba7259526246\npnpm-lock.yaml\t274734\t35567fb7edb3d56fa4e375d56a61095396d7da224a69edca01228f732377db9a\npnpm-workspace.yaml\t36\t253208fa7c1b64372c219b9e19cef15ed70ca93b66a4d5c4c4d2297a5aff8880\nscripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs\t17865\tab7879a6ab673eecf366a86a0bf3a7723fd5a7756648c8cf82862bcf031389e9\nscripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs\t2175\t4478932833af9ee10a532ca4251fa7e8989735f14eb7555924a991f623039674\nscripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs\t37048\t57c8301941139268056502407d5149a4cac614cf43236f1fb89d846de75fbff9\nscripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs\t18378\t3bafa6ec3dde2dee738fde3a830d1c5d6a60f778212ecafe146a878a849b5853\nscripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs\t4759\t8dc2800bbf8b9b95c26b5de8413699efa9b99744c19f76e6faece632f7fa730d\n",
+    "raw_sha256": "1d20a9575aa881ee99905f8b867b7e82b96a9839cbd56c03265104050d36e560"
+  },
+  "input_freeze_after": {
+    "stage": "after-failure",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-freeze-v1.txt",
+        "bytes": 2706,
+        "raw_sha256": "0bf8c671dd9e4ed1ae7faaf15b480c4196fbc25956011cdec482daa5f5891f8b"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-gate-evidence-v1.txt",
+        "bytes": 2123,
+        "raw_sha256": "e7b571e77896ae4383f9abec529ed49937a9cb3e14d668ae1e51fc09ceac5e4b"
+      },
+      {
+        "path": "apps/api/package.json",
+        "bytes": 1598,
+        "raw_sha256": "988911de33ebd572805718640afd679de308bccdd08484cbbb2695c51cc9684b"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/dto/property-task.dto.ts",
+        "bytes": 2488,
+        "raw_sha256": "0af5248774528b45e3c58d37b5e4dbecad06cf0aa97a31e1f6a113c9e0bdfcbf"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.access.spec.ts",
+        "bytes": 5598,
+        "raw_sha256": "56c8d1c35be4c494ee0b7ac832d3adcb368130bd53736dd3b85d138c27f78fe5"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.access.ts",
+        "bytes": 7718,
+        "raw_sha256": "cc0e816b0b727a8e53ccac5c49f4a09b013eb4b54ffb0164ac4a72b818d4ef16"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.assignment.repository.spec.ts",
+        "bytes": 6499,
+        "raw_sha256": "bebd2888ab241ee3a5506aec247d896157fd1e33c5cec5909aeca219ab48f330"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.assignment.repository.ts",
+        "bytes": 12177,
+        "raw_sha256": "3dbc152aebe903a59f9177c36a4c7e0e21190af6e07db36ade35f1dcece5d629"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.canonical.ts",
+        "bytes": 1770,
+        "raw_sha256": "f7ed3a8ae956ac5be3369458fbe482f87da4dd3d27c255a645e84dc9dde178bd"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.contract.spec.ts",
+        "bytes": 7177,
+        "raw_sha256": "16c0e79c6859b7900d717f88371e68f0cf400c6ed756b4e419ef192b617ca06a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.controller.ts",
+        "bytes": 3691,
+        "raw_sha256": "91d68c6548a1cbdd1429ff1ca3ca29654c39c3091a6a9587fb2aed9986ad44f1"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.dto.spec.ts",
+        "bytes": 4322,
+        "raw_sha256": "ec538b4e5c09c08d51be07f77ff30b5a14d753a1eaea711622b502708efa9b1a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.error.spec.ts",
+        "bytes": 2466,
+        "raw_sha256": "098eb02243f01847be83c86556736f8742ca5e4b54d3840bf5c1a2e8819ba9b2"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.error.ts",
+        "bytes": 2506,
+        "raw_sha256": "b7b1ff6e6e3cf095f1e828d20129a9d44aa96302ee32ad5b57b8fccee5d1b070"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.manager-port.spec.ts",
+        "bytes": 633,
+        "raw_sha256": "9be2c9fa8c2071d324c0be3e5a3ee7a25f2d2d5a424a349d0b730c69e0cbc671"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.manager-port.ts",
+        "bytes": 472,
+        "raw_sha256": "6748afb41446acb6974fa6cacac41bc94b7b177af17821e90a9183f98d15def2"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.mapper.spec.ts",
+        "bytes": 3179,
+        "raw_sha256": "f979d7e8f284e59a535f4bca532457a824c3286aa266c706908a19e2d9351443"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.mapper.ts",
+        "bytes": 2488,
+        "raw_sha256": "385bd02052fe041fef49a4ebb55c10b1403f8ef7efdab96a1b211295cbc92afa"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.orchestrator.spec.ts",
+        "bytes": 37508,
+        "raw_sha256": "ed1bacb65ee068b54e83e91ce0bd92da2057aa01c6d7a5fb313e369f1da863df"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.orchestrator.ts",
+        "bytes": 38826,
+        "raw_sha256": "06521220fdce413448e44924d5b7fa03f0d1858598cda69edaae0ce3d14a8678"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.ownership.spec.ts",
+        "bytes": 2843,
+        "raw_sha256": "fde875aa8016c7e44d97528b40284a3a10b4ce36a8da4669e5d2eac69e4466db"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.projection.repository.spec.ts",
+        "bytes": 3818,
+        "raw_sha256": "ef38180f7129eb7dd3ff293fe2d6259b845ba35bd5738e42b5c67670c8b4cb05"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.projection.repository.ts",
+        "bytes": 10597,
+        "raw_sha256": "d4906aeff1e27744e0d0e9ad1d33772832a5febd6a61e1b60ec042e3cd7ea0c8"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.registry.ts",
+        "bytes": 1310,
+        "raw_sha256": "10c6a87a0a8d0f32d0c702a975508e76983797621d40766b1cf6f42780768a1c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts",
+        "bytes": 57822,
+        "raw_sha256": "0aa5105b8ec16225ace6da4ca48f3f9d525f46f260fd1d120efac555659ca515"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.service.ts",
+        "bytes": 8120,
+        "raw_sha256": "15b6ea7eaa502f997711a7ba7b1307d24ee84a769d8b64cb0cac199589a38ea7"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.validation.ts",
+        "bytes": 1961,
+        "raw_sha256": "9ff7a98129429bda4e87412e9a69cc5418f2806edc4f8f60ee27c77f4eed20d1"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/testing/property-task-contract.fixture.ts",
+        "bytes": 1229,
+        "raw_sha256": "54153876e7b4300249c54e300e61a5dfdbac6e6593de43ba11838c4497638f0d"
+      },
+      {
+        "path": "apps/api/tsconfig.json",
+        "bytes": 368,
+        "raw_sha256": "5d08f7515d65084deaf4cbecf4ffabb7beeb8dafa518d051268e0fc2e4add281"
+      },
+      {
+        "path": "database/migrations/000001_init_auth.sql",
+        "bytes": 4961,
+        "raw_sha256": "34790818bb811a7b763ce34998b5f09c1f3878b41cdc2945dbad3531f66e8a18"
+      },
+      {
+        "path": "database/migrations/000002_s1_system_foundation.sql",
+        "bytes": 5367,
+        "raw_sha256": "4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9"
+      },
+      {
+        "path": "database/migrations/000003_s1_support_closure.sql",
+        "bytes": 1290,
+        "raw_sha256": "565083c7c0eb4a8d29a25ae0d263792762eea6bcecf94c679cb4592f2bd30852"
+      },
+      {
+        "path": "database/migrations/000004_files_center.sql",
+        "bytes": 1364,
+        "raw_sha256": "d18b79155f505a1f3d9e12b78a1490de1ffd5701c2900406cf0c7bf81abfba64"
+      },
+      {
+        "path": "database/migrations/000005_audit_log_enhancement.sql",
+        "bytes": 2649,
+        "raw_sha256": "3aa8fe70e95ec660ecce34cc867d74cba390e9cc46c3202e1423e45abf967e7c"
+      },
+      {
+        "path": "database/migrations/000006_sys_dict_compat.sql",
+        "bytes": 218,
+        "raw_sha256": "93009030f033be410329d06936806929e32b4c848c1f3e8c5b38fab843518802"
+      },
+      {
+        "path": "database/migrations/000007_s2_assets_foundation.sql",
+        "bytes": 4990,
+        "raw_sha256": "813902a48218003765234138216d8ae05aefbdb65d96b281caa98fe7d8d9530a"
+      },
+      {
+        "path": "database/migrations/000008_s2_biz_park.sql",
+        "bytes": 1050,
+        "raw_sha256": "1185575ab56b5bb7ee6f85844abf407e610356fc12d2c46ca4a43bfb9dee186d"
+      },
+      {
+        "path": "database/migrations/000009_s2_biz_building.sql",
+        "bytes": 1092,
+        "raw_sha256": "237da8f54eb41c434ce58308dcbc631e1a98807aeb741d1a407d10bfbcbdba40"
+      },
+      {
+        "path": "database/migrations/000010_s2_biz_floor.sql",
+        "bytes": 1290,
+        "raw_sha256": "5997787688b1f3de1d9ea8feff1b63a68480f223fbe51a381f80ad8894010ae0"
+      },
+      {
+        "path": "database/migrations/000011_s2_biz_unit.sql",
+        "bytes": 1718,
+        "raw_sha256": "4645d6d7cddf44b4aad8ceddb6a8048cc2a2b33de4a22f391d0fd641b3df7a32"
+      },
+      {
+        "path": "database/migrations/000012_s2b_unit_enhancement.sql",
+        "bytes": 2798,
+        "raw_sha256": "7ed24c539fce073a57d4b021c5a2d6c7b7e76182f0bff903048c64303fe62f96"
+      },
+      {
+        "path": "database/migrations/000013_rbac_saas_hardening.sql",
+        "bytes": 4206,
+        "raw_sha256": "ca2b48c3248133222a1d5886fdcaa44e5976daf427de16dc54d7a4d4f53fb061"
+      },
+      {
+        "path": "database/migrations/000014_sys_role_saas_contract.sql",
+        "bytes": 1465,
+        "raw_sha256": "72b4c31c5b831d38d07d785e6c81ec422b7e43132870d9d1d615cb0e3f2dc50d"
+      },
+      {
+        "path": "database/migrations/000015_sys_permission_tree_contract.sql",
+        "bytes": 2090,
+        "raw_sha256": "42193cf3f6540acf5108ced9b1ef5d55ebab040302d9fe1a85d49f77001357fb"
+      },
+      {
+        "path": "database/migrations/000016_data_scope_model.sql",
+        "bytes": 2462,
+        "raw_sha256": "91c5f6f52f05012f30b466424f52bad49754f4c6ed38cdde19fef01825c36f06"
+      },
+      {
+        "path": "database/migrations/000017_field_policy_model.sql",
+        "bytes": 2090,
+        "raw_sha256": "1346ae045f1970a6806053d72cb67c7239767dc33fd03ead0221ca3344d4e232"
+      },
+      {
+        "path": "database/migrations/000018_sys_tenant.sql",
+        "bytes": 1235,
+        "raw_sha256": "c8f158827adde65088d253a3609e0c5704a6d3df5b99f721f361315916a1a322"
+      },
+      {
+        "path": "database/migrations/000019_rel_user_park.sql",
+        "bytes": 1031,
+        "raw_sha256": "7017d485025161525e23e28d7cd344c046458096d6ddfac6783a6d7cce2cfa88"
+      },
+      {
+        "path": "database/migrations/000020_saas_rbac_std.sql",
+        "bytes": 4416,
+        "raw_sha256": "64b81702550ebd4635665401d9bc1304dfb37cb681c53b90e05ccd88a4e77e52"
+      },
+      {
+        "path": "database/migrations/000021_sys_tenant_api_contract.sql",
+        "bytes": 928,
+        "raw_sha256": "29a6f3cb81fb1a64ebd6b1489e5b6acf3a10d1a42710ee78518ab53a63a10bfa"
+      },
+      {
+        "path": "database/migrations/000022_rel_user_park_default_constraint.sql",
+        "bytes": 1188,
+        "raw_sha256": "4bec1c0ec5d2296c6847fd536381efdd622e2dd91628e62d3a6655fc85d2273e"
+      },
+      {
+        "path": "database/migrations/000023_sys_role_open_rbac_contract.sql",
+        "bytes": 2904,
+        "raw_sha256": "85cae73f31107c0cd7b13a56d95c64b99d1ba8a333bd7c88d72409680390496c"
+      },
+      {
+        "path": "database/migrations/000024_sys_permission_open_model_contract.sql",
+        "bytes": 2786,
+        "raw_sha256": "1e8085b9210971843a561590b1d408251d89638d396053d8458ceac93e1ccc7c"
+      },
+      {
+        "path": "database/migrations/000025_data_scope_open_contract.sql",
+        "bytes": 4968,
+        "raw_sha256": "0422dcbbdef7b418250965a1b853a7579609d3dbace0d12bf35681ae244bd815"
+      },
+      {
+        "path": "database/migrations/000026_field_policy_open_contract.sql",
+        "bytes": 4500,
+        "raw_sha256": "a6f0b9ba4b5747d7e06d031cd30d91aaf3a4c2757df52f6b67d9a5c999252489"
+      },
+      {
+        "path": "database/migrations/000027_code_rule_standard_contract.sql",
+        "bytes": 3700,
+        "raw_sha256": "ecb2affcbee2e5ab3c4fb61e9e3e97723fe52489fb0e873b583e4f15e5889d6b"
+      },
+      {
+        "path": "database/migrations/000028_saas_module_plan_authorization.sql",
+        "bytes": 1920,
+        "raw_sha256": "e6fa728de46cbb951bf964c67e15487fd8a9a9ca60f0097c0ca9e8c8f0b8be4a"
+      },
+      {
+        "path": "database/migrations/000029_saas_scope_id_unification.sql",
+        "bytes": 1979,
+        "raw_sha256": "e0553599796ac56ea82a53ee267a61642e653ca06a57f7ae5c23b1745a4d580d"
+      },
+      {
+        "path": "database/migrations/000030_s2b_unit_import_code_compat.sql",
+        "bytes": 280,
+        "raw_sha256": "70c24d45df66787a6b65a9ee80e37fa9dc5976f74692093b0d18fc98e3d89644"
+      },
+      {
+        "path": "database/migrations/000031_s3a_park_tenant_profile.sql",
+        "bytes": 1971,
+        "raw_sha256": "bb1bbf6cc56fe251fd8ea9622e9ea40cee5945240bed45be98ca89b27edd64c2"
+      },
+      {
+        "path": "database/migrations/000032_s3a_park_tenant_contacts.sql",
+        "bytes": 1301,
+        "raw_sha256": "d506dfc95687ed994370e210182cedac279b252b4eece145aba2ffe37ab7a8a7"
+      },
+      {
+        "path": "database/migrations/000033_s3a_park_tenant_qualifications.sql",
+        "bytes": 1377,
+        "raw_sha256": "12b45525d26555949c9ce4687c5a578b530b335986fa448bcd5e8cde8a696133"
+      },
+      {
+        "path": "database/migrations/000034_s3a_park_tenant_risk_logs.sql",
+        "bytes": 1369,
+        "raw_sha256": "d671263427aa37ac560000c6d4c4c62c375caf4470bca995be7c92d29a834383"
+      },
+      {
+        "path": "database/migrations/000035_s3a_field_policy_email_mask_rule.sql",
+        "bytes": 307,
+        "raw_sha256": "25536886c7742dc52a9ea71fbc3ed3367da58ad9380c191621c4ecafad44ca5b"
+      },
+      {
+        "path": "database/migrations/000036_s3a_park_tenant_dictionary_standardization.sql",
+        "bytes": 1814,
+        "raw_sha256": "130c3cf8168818c6a360858ffc837649718d0b90d9714ec1ceb6749a07b4bc6d"
+      },
+      {
+        "path": "database/migrations/000037_s3b_code_rule_leasing_lead.sql",
+        "bytes": 1137,
+        "raw_sha256": "54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27"
+      },
+      {
+        "path": "database/migrations/000038_s3b_leasing_lead_profile.sql",
+        "bytes": 2566,
+        "raw_sha256": "d47962d06d4b4f6fe0af33c0a34a44c97c486e743db982a23100e8cd79928b2a"
+      },
+      {
+        "path": "database/migrations/000039_s3b_leasing_follow_records.sql",
+        "bytes": 1398,
+        "raw_sha256": "a3b455f8a0390c3452d05b817c8cdcee8bb482e1e18761d39469bda8d763dfeb"
+      },
+      {
+        "path": "database/migrations/000040_s3b_leasing_visit_records.sql",
+        "bytes": 1254,
+        "raw_sha256": "5e5672796eae9dbcf91ee31fdbc8ff9340cc1edb488b3cbaf3e002e47ae1b41d"
+      },
+      {
+        "path": "database/migrations/000041_s3b_leasing_quote_records.sql",
+        "bytes": 1527,
+        "raw_sha256": "09adb0313d4b195c335ebe2534e0968d7e0cec4935e82095664d79a96634df87"
+      },
+      {
+        "path": "database/migrations/000042_s3b_leasing_lead_status_logs.sql",
+        "bytes": 1284,
+        "raw_sha256": "d3eda04b3cf320e58c5458959da704d28a0f7abd0c90c516b2a9d681024b4206"
+      },
+      {
+        "path": "database/migrations/000043_s3b_leasing_lead_pool_compat.sql",
+        "bytes": 699,
+        "raw_sha256": "8f164da0735aaa86e6f0971cbad3392ab64ec6b0ebde719583cd9f0e3db99b2b"
+      },
+      {
+        "path": "database/migrations/000044_s3c_leasing_contract_core.sql",
+        "bytes": 11046,
+        "raw_sha256": "60753160151c1af4542d02c1753258e97349f18a893385b69dbdd3bae46296ae"
+      },
+      {
+        "path": "database/migrations/000045_s3c_contract_unit_links.sql",
+        "bytes": 4323,
+        "raw_sha256": "f0ac3f8ad7322a2240e8b521d2d7a9f525a9b3ab46d3d77257a574f41bf05f4c"
+      },
+      {
+        "path": "database/migrations/000046_s3c_quote_create_contract_draft.sql",
+        "bytes": 1403,
+        "raw_sha256": "4e6b5157b0d77be15ef1c41fdadfca54e8f90cee381e5e99f72290074d8233da"
+      },
+      {
+        "path": "database/migrations/000047_s3c_contract_approval_flow.sql",
+        "bytes": 5076,
+        "raw_sha256": "dfa118c9152a8fb02e1f3dc307071964f3b807471fa7ac9009b1358a18363593"
+      },
+      {
+        "path": "database/migrations/000048_s3c_contract_archive_files.sql",
+        "bytes": 1495,
+        "raw_sha256": "52c9507a2db6312bee6240eff51e9cc2d47c3b67664af4df85302b41375dbd8f"
+      },
+      {
+        "path": "database/migrations/000049_s3c_contract_effective_flow.sql",
+        "bytes": 1327,
+        "raw_sha256": "4f69d85ab4bee9807b05479085c88cf7787e4f894341ae9c76e6979b339be455"
+      },
+      {
+        "path": "database/migrations/000050_s3c_contract_status_logs.sql",
+        "bytes": 1840,
+        "raw_sha256": "7584b0dae62789186b9e1dc7a6681cf74e2a210636239f3fab8579b8f2196f31"
+      },
+      {
+        "path": "database/migrations/000051_s3d_receivable_code_rule_entities.sql",
+        "bytes": 1137,
+        "raw_sha256": "54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27"
+      },
+      {
+        "path": "database/migrations/000052_s3d_leasing_receivable_core.sql",
+        "bytes": 2655,
+        "raw_sha256": "09fd0d143fede43beafde6ffcfd985f58c49e99bac90a623e64f7c0cad9be81c"
+      },
+      {
+        "path": "database/migrations/000053_s3d_generate_receivables.sql",
+        "bytes": 1081,
+        "raw_sha256": "56183a12da661e639ca01e8c7758cbbedb0447bf45d4495e8fb7ef47665a0aa4"
+      },
+      {
+        "path": "database/migrations/000054_s3d_leasing_payments.sql",
+        "bytes": 2759,
+        "raw_sha256": "f0e67b5f7cbc1c9c0ea7cc998004404db5e1830a955c122f6c03c1e93bcb8bd8"
+      },
+      {
+        "path": "database/migrations/000055_s3d_leasing_waivers.sql",
+        "bytes": 1753,
+        "raw_sha256": "26ae6fe9aae8949708233a5c3e09f921580e03fa9e19bdf3bc9b39614648408b"
+      },
+      {
+        "path": "database/migrations/000056_s3d_leasing_invoices.sql",
+        "bytes": 2727,
+        "raw_sha256": "8ceabe12ad553befabf8b518b5b69a985af034d4563529ab8148753c881cc836"
+      },
+      {
+        "path": "database/migrations/000057_s3d_finance_seed_standardization.sql",
+        "bytes": 1222,
+        "raw_sha256": "2de21bdda99181ed28cb033dbe71b611fa33074a9e36d8da983879e1bc8c98dc"
+      },
+      {
+        "path": "database/migrations/000058_s3e_code_rule_entities.sql",
+        "bytes": 3772,
+        "raw_sha256": "40df236bfc8bf374721c4c5e6f041483a6183d1409339585c91777212b8b53cd"
+      },
+      {
+        "path": "database/migrations/000059_s3e_contract_change_core.sql",
+        "bytes": 7649,
+        "raw_sha256": "aa48958266bcd41f92b5f716417f0995e46631d9c75e586122dd54786286f225"
+      },
+      {
+        "path": "database/migrations/000060_s3e_contract_change_flow.sql",
+        "bytes": 3631,
+        "raw_sha256": "dd200ccc0fddbcba2b3524eb89ecd2d0589a7333d9ae1de62677d9dc9f24368d"
+      },
+      {
+        "path": "database/migrations/000061_s3e_contract_renewal_draft.sql",
+        "bytes": 1940,
+        "raw_sha256": "438620511cb3ed94837c0986ddfca1bbea1de1cceffc89623f27b493df5fcd71"
+      },
+      {
+        "path": "database/migrations/000062_s3e_checkout_applications.sql",
+        "bytes": 8490,
+        "raw_sha256": "f90f0c40dfe77b34defe4d48c29bd4f762278e4d846284a743167242f582b84e"
+      },
+      {
+        "path": "database/migrations/000063_s3e_checkout_settlement_refund.sql",
+        "bytes": 6596,
+        "raw_sha256": "dee5187eaa3d078283f1f50bebc846c30335298f5d347bcab6e1f3f89cf94540"
+      },
+      {
+        "path": "database/migrations/000064_s3e_checkout_effective.sql",
+        "bytes": 3106,
+        "raw_sha256": "c04db8e48bb26620bb0027ea41233b2b7addc2e4801ae6c3da2a4a36a5904bd9"
+      },
+      {
+        "path": "database/migrations/000065_s3e_contract_action_log_unification.sql",
+        "bytes": 4158,
+        "raw_sha256": "51967ef54194e3951f059ff0390df5abde75c51013590c382794b7266b6da753"
+      },
+      {
+        "path": "database/migrations/000066_s3e_permission_open_field_policies.sql",
+        "bytes": 1834,
+        "raw_sha256": "786901c410f488eeb83af247a2978c3081d26abe9f4d1ea96fe2b0ee75d1db60"
+      },
+      {
+        "path": "database/migrations/000067_s3e_permissions_menu_dict_seed_patch.sql",
+        "bytes": 7472,
+        "raw_sha256": "b663a97f11d6b2f0de283700295b444b55a099cf8baa4fae584a4b6a106cba1c"
+      },
+      {
+        "path": "database/migrations/000068_yudao_system_rbac_baseline.sql",
+        "bytes": 8879,
+        "raw_sha256": "991cebec9f946949bc64378217c7c2389a17498a0dcc336227dd7953b80ad6a9"
+      },
+      {
+        "path": "database/migrations/000069_saas_tenant_onboarding.sql",
+        "bytes": 5716,
+        "raw_sha256": "9672e681ae0867e6269b2dba79086c314dad784e019bd68d91868dc2b16894bf"
+      },
+      {
+        "path": "database/migrations/000070_unit_sold_status.sql",
+        "bytes": 1746,
+        "raw_sha256": "c3cd29169953770f81fb69afe3ee0ef0f683a8e486d0c2d6456f5f55d0a63cf4"
+      },
+      {
+        "path": "database/migrations/000071_s4a_workorder_code_rule_entities.sql",
+        "bytes": 3124,
+        "raw_sha256": "239229b050dc2fd789ae2d5edd698ffee8fa1e29dea26873f4998db8dcc74531"
+      },
+      {
+        "path": "database/migrations/000072_s4a_work_order_core.sql",
+        "bytes": 12353,
+        "raw_sha256": "5ee7c21e464eb8d6f6e6ba2f108ed6789b6d62444e368186ab3d9ec97671dbbf"
+      },
+      {
+        "path": "database/migrations/000073_s4a_work_order_assign_permissions.sql",
+        "bytes": 2326,
+        "raw_sha256": "f334fbf7ba5627513a214f7e02a5126ba15c4f3ee76df06b443d6db30c9562e1"
+      },
+      {
+        "path": "database/migrations/000074_s4a_work_order_processing.sql",
+        "bytes": 5157,
+        "raw_sha256": "34ada440033532e6e31268e2d987ddf45a1aa4db66a81ae381cd6fa111d3ea63"
+      },
+      {
+        "path": "database/migrations/000075_s4a_work_order_confirm_evaluate_close.sql",
+        "bytes": 4723,
+        "raw_sha256": "fe8af8f6b30e52183eefd1b653d6a8385f6218f85b805d16e8ba90875f69aade"
+      },
+      {
+        "path": "database/migrations/000076_s4a_work_order_cancel_return_reject.sql",
+        "bytes": 2512,
+        "raw_sha256": "24e58e8b83675720e7dbb0aacc13fcfce635fd5228bcc8402323c57c09f74e94"
+      },
+      {
+        "path": "database/migrations/000077_s4a_work_order_sla_overdue.sql",
+        "bytes": 6100,
+        "raw_sha256": "af95cf483d256a4ea6e07f1ac0dc09f9bdc6f7ac19e6787482daaa0c0515cd91"
+      },
+      {
+        "path": "database/migrations/000078_s4a_work_order_logs_timeline.sql",
+        "bytes": 2535,
+        "raw_sha256": "1e4f01785e96535f11a7933d4b44118ffbd0ce1ff2f77b42802caf6eee078ff8"
+      },
+      {
+        "path": "database/migrations/000079_s4a_workorder_permission_open_field_patch.sql",
+        "bytes": 1006,
+        "raw_sha256": "5b6dc8aac613180da2334aed925ac12419a3660789d715554227b8eb177f39d3"
+      },
+      {
+        "path": "database/migrations/000080_s4a_permissions_menu_dict_seed_patch.sql",
+        "bytes": 28760,
+        "raw_sha256": "497bf2a550ddbcfbee2f5c888bf153e2759ad296d941425def8866cb7a932a40"
+      },
+      {
+        "path": "database/migrations/000081_s5a_safety_precheck_module_code_rules.sql",
+        "bytes": 8019,
+        "raw_sha256": "ea5d5a6fb66deacb7c14e905540f2cb07943d8ecd4442f12abf98dcda458bf37"
+      },
+      {
+        "path": "database/migrations/000082_s5a_safety_inspect_points.sql",
+        "bytes": 13961,
+        "raw_sha256": "40fc89cec7e9414847ea8de527af2ad9dc2d7831f8f560287c2a6333a3cfef77"
+      },
+      {
+        "path": "database/migrations/000083_s5a_safety_inspect_templates.sql",
+        "bytes": 14989,
+        "raw_sha256": "a6acc7ef978dfde94112c895528de680624dfd1b770b03de6246924bffaa8651"
+      },
+      {
+        "path": "database/migrations/000084_s5a_safety_inspect_plans.sql",
+        "bytes": 11912,
+        "raw_sha256": "9ba1be0b65c7d370ce55bb3ae093ffb98ae149566b964348dee2430b27f82085"
+      },
+      {
+        "path": "database/migrations/000085_s5a_safety_inspect_tasks.sql",
+        "bytes": 18286,
+        "raw_sha256": "463fd9d414012df0e0a0ec60aa2dc5cb043b5e93efb81fbb65a8feb6be7c0993"
+      },
+      {
+        "path": "database/migrations/000086_s5a_safety_hazards.sql",
+        "bytes": 13586,
+        "raw_sha256": "5fd7a18ece7bb29280fc674519b21fab9a9a86ed2fc4b36df1258dba9dd09269"
+      },
+      {
+        "path": "database/migrations/000087_s5a_safety_hazard_rectify.sql",
+        "bytes": 6682,
+        "raw_sha256": "cd2100176893399105a1c68dc944e18e6ceadb0ac0ed836f2c400337f23d21f6"
+      },
+      {
+        "path": "database/migrations/000088_s5a_safety_hazard_manage_all.sql",
+        "bytes": 4137,
+        "raw_sha256": "6521169d77e0136acba3ae4040c02c424f312a3f72743d0f967b180871fd738b"
+      },
+      {
+        "path": "database/migrations/000089_s5a_safety_hazard_recheck_close.sql",
+        "bytes": 7226,
+        "raw_sha256": "6b01e47e1d577c795b04c3fcb798a479dc25bb8826ab65e8e81292f5668c096b"
+      },
+      {
+        "path": "database/migrations/000090_s5a_safety_hazard_create_workorder.sql",
+        "bytes": 4226,
+        "raw_sha256": "ef8b685dde724499725d6c7a0360ea3b852a6971c257a40ffc4427286f58e68b"
+      },
+      {
+        "path": "database/migrations/000091_s5a_safety_statistics.sql",
+        "bytes": 5212,
+        "raw_sha256": "0432bb70f1ebc5e8823d7b4f7a751950d54c9c47673466451462069ba365c722"
+      },
+      {
+        "path": "database/migrations/000092_s5a_permissions_menu_dict_seed_patch.sql",
+        "bytes": 35502,
+        "raw_sha256": "1cc88c939d2510ae01c7f218bb309b3aacf37a5c381990594b4fe7ba9f9dfa85"
+      },
+      {
+        "path": "database/migrations/000093_s2b_asset_menu_role_permission_repair.sql",
+        "bytes": 2213,
+        "raw_sha256": "2e7aedf46cac062261324ad14537e44420d35fc71499f3a2b487da57c2be6805"
+      },
+      {
+        "path": "database/migrations/000094_s5b_precheck_module_code_rules.sql",
+        "bytes": 8106,
+        "raw_sha256": "998b677515e2a33d2d1f4e2a9e6dca882ecefff6c20fa327b47a440b2c4d12b3"
+      },
+      {
+        "path": "database/migrations/000095_s5b_emergency_contacts_plans.sql",
+        "bytes": 18390,
+        "raw_sha256": "040fe1ffa83dbdc47eb888528c6a0cb488da561b70a9b7fafc7842495ed9f516"
+      },
+      {
+        "path": "database/migrations/000096_s5b_emergency_events.sql",
+        "bytes": 17256,
+        "raw_sha256": "0e9997bbb1e8c79785e274b2bf545d63b7b476b382f0b88060b3be24c4e262cf"
+      },
+      {
+        "path": "database/migrations/000097_s5b_emergency_event_flow.sql",
+        "bytes": 8359,
+        "raw_sha256": "a07cad988adb7c1eb7a5e810df058594cfe58fee972e826baef5dd177cade600"
+      },
+      {
+        "path": "database/migrations/000098_s5b_emergency_timeline_logs.sql",
+        "bytes": 4789,
+        "raw_sha256": "615700666e744bfb9db008d33620fdc3992f548633d80bc1f0c258fca7af520c"
+      },
+      {
+        "path": "database/migrations/000099_s5b_hazard_to_emergency.sql",
+        "bytes": 7623,
+        "raw_sha256": "bdac2e73485aea30314f3f6f530594587d467986a79ee6ef1f7a05a64e246fd2"
+      },
+      {
+        "path": "database/migrations/000100_s1_auth_center_foundation.sql",
+        "bytes": 6843,
+        "raw_sha256": "83a8b856d16e1433e6945f877626ca6cfc53f4493e85dcb99ff59c091df1ac70"
+      },
+      {
+        "path": "database/migrations/000101_s5b_emergency_create_workorder.sql",
+        "bytes": 5992,
+        "raw_sha256": "825335027ed3f05589447f43f2fd915e55d94cf5e5ec3d22ce1bca5c155383c9"
+      },
+      {
+        "path": "database/migrations/000102_s5b_work_permits.sql",
+        "bytes": 20051,
+        "raw_sha256": "7abb55a44b186ba8e6cca66be70b0575d1c4098af7f9f24d2aa4e4c4e1a15451"
+      },
+      {
+        "path": "database/migrations/000103_s5b_work_permit_approval.sql",
+        "bytes": 8286,
+        "raw_sha256": "82f8eb777dd8956008e6f8ad8ba46196f3d40741b4d5a2fb2d4cbed1baa54740"
+      },
+      {
+        "path": "database/migrations/000104_s5b_work_permit_lifecycle.sql",
+        "bytes": 6518,
+        "raw_sha256": "184bb6737001f60a40fa9a55b10e45413844bd6d281937ee6ea9220e746e432e"
+      },
+      {
+        "path": "database/migrations/000105_s5b_work_permit_check_conversion.sql",
+        "bytes": 6590,
+        "raw_sha256": "ba9a7ed96b529260939fae530c594a1e48ce269030865e33f5e2b804a72bb245"
+      },
+      {
+        "path": "database/migrations/000106_s5b_emergency_work_permit_statistics.sql",
+        "bytes": 6132,
+        "raw_sha256": "b469b1eac856b9ea59be6754b0102d1602b69273ff8125782fd91d2ffcc29668"
+      },
+      {
+        "path": "database/migrations/000107_s5b_saas_open_permissions.sql",
+        "bytes": 4541,
+        "raw_sha256": "82bb9ffeff2268921fd6307dc177d2b4c097f139c13ce4548bbe2760f8b7cdd8"
+      },
+      {
+        "path": "database/migrations/000108_s5b_permissions_menu_dict_seed_patch.sql",
+        "bytes": 39441,
+        "raw_sha256": "ffc86d93bb10c8462976c6ae146d2375076d893967a2c049c0958e17b43237d8"
+      },
+      {
+        "path": "database/migrations/000109_s6a_iot_foundation.sql",
+        "bytes": 32025,
+        "raw_sha256": "3697b9373722ae241c832cd6d423c1f62cf3386187237b3a2ce28b364d6649e4"
+      },
+      {
+        "path": "database/migrations/000110_s6a_iot_base_dict_seed.sql",
+        "bytes": 6868,
+        "raw_sha256": "57f60f73dbeeea1962e2c5819110df7eff0899784c5b5606979adf1ad4875ca9"
+      },
+      {
+        "path": "database/migrations/000111_s6a_iot_device_master.sql",
+        "bytes": 7380,
+        "raw_sha256": "982c8736df3f0b05fb434acafb4226bf05abdb0fb559999c3b69a204cd26bf49"
+      },
+      {
+        "path": "database/migrations/000112_s6a_iot_metric_point.sql",
+        "bytes": 13476,
+        "raw_sha256": "f0c453b7b710bf715faf044d60f2bd92a754e00c8feeee708d4b3b30c99fe1c2"
+      },
+      {
+        "path": "database/migrations/000113_s6a_iot_http_ingest.sql",
+        "bytes": 1003,
+        "raw_sha256": "c712d9c318aaff02fda08caa2dcfcdaee365f0b597632451010cab870f697314"
+      },
+      {
+        "path": "database/migrations/000114_s6a_iot_mqtt_skeleton.sql",
+        "bytes": 4275,
+        "raw_sha256": "1beaafb9f61cb2c6992b8555c5c44fe7c59ff7a234d450ea535271de1d7ec5bd"
+      },
+      {
+        "path": "database/migrations/000115_s6a_iot_device_latest_status.sql",
+        "bytes": 5697,
+        "raw_sha256": "84fcbb1304a292accec8a4dd6191b1b92c123e040d987ecb6f38fdf2eef7d936"
+      },
+      {
+        "path": "database/migrations/000116_s6a_iot_device_history_data.sql",
+        "bytes": 6686,
+        "raw_sha256": "14b120fcd73dea0c01d5b187d8da3cbcb8531190c99fa570dcc1af12afb6d6b4"
+      },
+      {
+        "path": "database/migrations/000117_s6a_iot_alert_rules.sql",
+        "bytes": 7814,
+        "raw_sha256": "a2b2e7d5637b9dfe530aebb66cc727671ee7329ee065743bfdefdc015bd072f4"
+      },
+      {
+        "path": "database/migrations/000118_s6a_iot_alert_center.sql",
+        "bytes": 7349,
+        "raw_sha256": "1acd32d7d72493be2f4abedeef39f4948a446b7a98ba74bfb4654a6294d778a9"
+      },
+      {
+        "path": "database/migrations/000119_s6a_iot_alert_create_workorder.sql",
+        "bytes": 6086,
+        "raw_sha256": "bd4ba022b4541310120bae76cb018521cda61a5d5f421ec29e01e22d635e7c40"
+      },
+      {
+        "path": "database/migrations/000120_s6a_iot_dashboard_detail.sql",
+        "bytes": 4480,
+        "raw_sha256": "eeca8e1d2869efdd7d653a01fc0f4107120f6ce5fc81df0d24335e9651cde801"
+      },
+      {
+        "path": "database/migrations/000121_s6a_iot_saas_open_patch.sql",
+        "bytes": 2655,
+        "raw_sha256": "718750f67e162cbe510f86289990ddaa1ee038355b8517c969cbf7318dea3a70"
+      },
+      {
+        "path": "database/migrations/000122_s6a_permissions_menu_seed_patch.sql",
+        "bytes": 21553,
+        "raw_sha256": "be0517e596af85e26f03ae66fdc0bb708143dc34e50ab433249a373c8995a75c"
+      },
+      {
+        "path": "database/migrations/000123_menu_tenant360_cleanup.sql",
+        "bytes": 1959,
+        "raw_sha256": "79137dcf98e66f86b5908a42a5f0f304f5f219262d204c63d734d1614954fed3"
+      },
+      {
+        "path": "database/migrations/000124_s8c_video_cameras.sql",
+        "bytes": 20121,
+        "raw_sha256": "f88b5a956031831d9c095ad733350ea4b2f6ba5d0fb2d9f0ec9b51bc998b7824"
+      },
+      {
+        "path": "database/migrations/000125_s8d_video_preview_platform.sql",
+        "bytes": 15783,
+        "raw_sha256": "176407fd1c11a869a67e076ae49740acd56e8d09fafa339fc83e706905c0ed70"
+      },
+      {
+        "path": "database/migrations/000126_s8e_video_evidence.sql",
+        "bytes": 15729,
+        "raw_sha256": "9cf0caeaf15749f65c08e9a4b0abd5467733b721266f86335d9e50debf27963c"
+      },
+      {
+        "path": "database/migrations/000127_s8f_video_alert_dashboard.sql",
+        "bytes": 23947,
+        "raw_sha256": "964500d40270d1c2b1d127fd42cb2a1b8a5097ebdb0b8b7e50c7792c2e61c33a"
+      },
+      {
+        "path": "database/migrations/000128_s9a_iot_device_hub.sql",
+        "bytes": 21520,
+        "raw_sha256": "eaa0eecd306428d830d1707138150aa93179b5d3f413a75f15a6232ad45d46c1"
+      },
+      {
+        "path": "database/migrations/000129_s9b_iot_runtime_alert.sql",
+        "bytes": 15523,
+        "raw_sha256": "49596020cdbe4da9628d1c340d74da99018276912e345305fb8a76ce4ebd08eb"
+      },
+      {
+        "path": "database/migrations/000130_s9b_iot_alert_trigger_value_text.sql",
+        "bytes": 370,
+        "raw_sha256": "9504d7664e319d722845fa26a6a10dd1142bee8d858228816d6db7a04dea55d1"
+      },
+      {
+        "path": "database/migrations/000131_s9c_iot_rule_engine.sql",
+        "bytes": 14967,
+        "raw_sha256": "39bd43173f6061761799c4706d1522729468ef406fecd13b2523214f88664e93"
+      },
+      {
+        "path": "database/migrations/000132_robot_ezviz_cleaning_integration.sql",
+        "bytes": 14656,
+        "raw_sha256": "0ff91d706c7c64e7d1b6db055dddd906a7baf9f4ebd6f3fa2cba1f1bf50d5ef2"
+      },
+      {
+        "path": "database/migrations/000133_s9d_iot_scene_center.sql",
+        "bytes": 23818,
+        "raw_sha256": "034fe40dea1ab94cd902e76bddca7d1783d37e4c008cfacda1206bb3a99a89b7"
+      },
+      {
+        "path": "database/migrations/000134_robot_cleaning_visibility_seed.sql",
+        "bytes": 5785,
+        "raw_sha256": "50052e148d80be03df95fa8efb8f64d60ad9aaae0670dea6ec52958c5ffef567"
+      },
+      {
+        "path": "database/migrations/000135_s9e_energy_meter_monitor.sql",
+        "bytes": 24097,
+        "raw_sha256": "1235b9ffcf1fbadc793b12e3414f01424d0481e1976e6b9db1126cd049076654"
+      },
+      {
+        "path": "database/migrations/000136_idempotency_request.sql",
+        "bytes": 1104,
+        "raw_sha256": "a686093eedc90cbf0f30447d98da09eb683a89b17f1ddbe99166d01e62ce7d85"
+      },
+      {
+        "path": "database/migrations/000136_s9f_energy_billing_allocation.sql",
+        "bytes": 22705,
+        "raw_sha256": "91f9ec3f482a77dde263f7e97cda0c245a0bbdc5130e630ac0e1232aab32c5c3"
+      },
+      {
+        "path": "database/migrations/000137_s9f1_energy_billing_adjustment_reversal.sql",
+        "bytes": 14801,
+        "raw_sha256": "efa25d3a3322a0b95393a6ba64b7b65f3b16685df7c789d0e2453d32f0f40f30"
+      },
+      {
+        "path": "database/migrations/000138_robot_ezviz_device_sync_permission_patch.sql",
+        "bytes": 743,
+        "raw_sha256": "a821913338df88e1748a53079271e1b384c4b2c982c1809eb2fb1cb9b217403d"
+      },
+      {
+        "path": "database/migrations/000139_sys_schema_migration_history.sql",
+        "bytes": 673,
+        "raw_sha256": "1c0adfd71e8691f3346afe66199cc85e5cf82a11a99802a8e40df7f42695c6ad"
+      },
+      {
+        "path": "database/migrations/000140_expand_audit_request_id.sql",
+        "bytes": 140,
+        "raw_sha256": "9c94203164a4c8cf26f4d5f798209a0874a1017272e3f4fd73161d6c33fca834"
+      },
+      {
+        "path": "database/migrations/000141_operations_terminal_seed.sql",
+        "bytes": 16613,
+        "raw_sha256": "5f4ad93d70e170bb18c2670cbdd3846c75b59923391f3b547d34ac272e952418"
+      },
+      {
+        "path": "database/migrations/000142_operations_terminal_role_schedule_patch.sql",
+        "bytes": 19899,
+        "raw_sha256": "2224d4e2349dbc9f8aa560a646329c1ea15cd3c7902b082adc4d53e23732e025"
+      },
+      {
+        "path": "database/migrations/000143_operations_terminal_disable_obsolete_daily_electric.sql",
+        "bytes": 690,
+        "raw_sha256": "b6a93e6d8825bc7d343a269ffcaa82c9205a26e26ffbdd002506f00617577424"
+      },
+      {
+        "path": "database/migrations/000144_safety_full_open_permission_menu_patch.sql",
+        "bytes": 10935,
+        "raw_sha256": "da9ea32a3e4a422108edef6f41dd23825d8bf9ab8820a292c0e8e26434b5909b"
+      },
+      {
+        "path": "database/migrations/000145_safety_phase1_review_followup.sql",
+        "bytes": 770,
+        "raw_sha256": "20975792fc3ab6eb2b1bf5d7132c2bc8232f5e89f9fc75b14a1c7e5d30e2b6ac"
+      },
+      {
+        "path": "database/migrations/000146_auth_password_lockout.sql",
+        "bytes": 465,
+        "raw_sha256": "5e7bd2b931038d918752604d02880560b839e9c56e8b89edf146d27efd62ee04"
+      },
+      {
+        "path": "database/migrations/000147_role_pack_real_park_operations.sql",
+        "bytes": 11048,
+        "raw_sha256": "b2a8a406e47b7a5f106aef9c458a1ca69f4c46ed085f8069d6d6adf5663474f3"
+      },
+      {
+        "path": "database/migrations/000148_workorder_business_dictionary_defaults.sql",
+        "bytes": 6285,
+        "raw_sha256": "8aecac1b39d8fc49838c5a1076a4b35f450108646b0893af90030a77a865068f"
+      },
+      {
+        "path": "database/migrations/000149_workflow_user_messages.sql",
+        "bytes": 1592,
+        "raw_sha256": "54dc9de8d93875be6983617d420924d4b7f402e67c038876d813ced5553eeda6"
+      },
+      {
+        "path": "database/migrations/000150_epdr_engineering_project.sql",
+        "bytes": 3219,
+        "raw_sha256": "27207927a60f64fdf9376bfe03915ef2ba0d8a913e8326475c6a3ffd762f4fb4"
+      },
+      {
+        "path": "database/migrations/000151_epdr_engineering_project_status_log.sql",
+        "bytes": 888,
+        "raw_sha256": "33e6e4e7c13d69759cd48f81338d1743170acbbbd85eaafe6fd5b93a8229d36c"
+      },
+      {
+        "path": "database/migrations/000152_epdr_engineering_plan.sql",
+        "bytes": 3469,
+        "raw_sha256": "69c905eeed2f7fd7dc4627d676f10b043cd4f991081ecf11c24ba9d00782dcdb"
+      },
+      {
+        "path": "database/migrations/000153_epdr_engineering_daily_report.sql",
+        "bytes": 3526,
+        "raw_sha256": "32c7d03b6170e0cb0ba76b3eccc9469e7ee723222bf7a8ef4421e98117962dd1"
+      },
+      {
+        "path": "database/migrations/000154_epdr_engineering_inspection_issue.sql",
+        "bytes": 5760,
+        "raw_sha256": "964fbfa7bb9cae4fd6df964beed4f7ff1009ac1dd6716f6a4a4af9e7642bc392"
+      },
+      {
+        "path": "database/migrations/000155_epdr_engineering_rectification.sql",
+        "bytes": 2765,
+        "raw_sha256": "f745ce837604c479f3b4e2f48f5faa0c796893019c41627ee72bd127b0852a9c"
+      },
+      {
+        "path": "database/migrations/000156_epdr_engineering_acceptance.sql",
+        "bytes": 2840,
+        "raw_sha256": "001b51a00c249fc80b4baa6415802b6ca646f8ac8105398687bb2e586144004b"
+      },
+      {
+        "path": "database/migrations/000157_epdr_rbac_menu_permissions.sql",
+        "bytes": 30757,
+        "raw_sha256": "a46deeab7e32b1a959a7aab7768a4fc49bf99d59005882fd79a5656807cc9da8"
+      },
+      {
+        "path": "database/migrations/000158_epdr_engineering_event_log.sql",
+        "bytes": 1144,
+        "raw_sha256": "7c353ee3b0bd7fc659a73349a81098b50f9f96cfa8a293aef2ecdee2631d450c"
+      },
+      {
+        "path": "database/migrations/000159_epdr_engineering_attachment_ids.sql",
+        "bytes": 178,
+        "raw_sha256": "8899a97e315d7a930584a75152812b42124453d435fe4dc6e244373e007737d7"
+      },
+      {
+        "path": "database/migrations/000160_epdr_scope_backfill.sql",
+        "bytes": 21406,
+        "raw_sha256": "59a96d326730e06c2cb45d9c6799ac7423b6f2d8e4dd906bff640015a5d4ede1"
+      },
+      {
+        "path": "database/migrations/000161_safety_hazard_dictionary_defaults.sql",
+        "bytes": 5892,
+        "raw_sha256": "33216c42c27cdcd5ecd9b4f8aeaec2d715a143b0e7a2833dc593d20d56cab16d"
+      },
+      {
+        "path": "database/migrations/000162_uat_permission_and_leasing_source_repair.sql",
+        "bytes": 8807,
+        "raw_sha256": "063f33fded63df35cb874e2620980245fb137bfbe6acce39d4c991f98e46798e"
+      },
+      {
+        "path": "database/migrations/000163_epdr_uat_role_bridge_read_access.sql",
+        "bytes": 15244,
+        "raw_sha256": "128773cd4dfe8676cae27e01ca8bf0e0900c8a1a7401660f6ca78a8551b19d4e"
+      },
+      {
+        "path": "database/migrations/000164_epdr_admin_visibility_backfill.sql",
+        "bytes": 13728,
+        "raw_sha256": "f80cf8dea9be792facf38edb4842f149884e744d18ed7597e6a45d59a66b29d3"
+      },
+      {
+        "path": "database/migrations/000165_cockpit_module_visibility_backfill.sql",
+        "bytes": 3680,
+        "raw_sha256": "ef3d526aa798c02ee8e6bbb9ceac68fc77f83acefdd8a80cc384a98f4abfc5c8"
+      },
+      {
+        "path": "database/migrations/000166_go_live_decision_permission_hardening.sql",
+        "bytes": 14128,
+        "raw_sha256": "f460518d8fd9501953c400f6545d2ef3ac9e930422fd2fb9404793034b8bd16c"
+      },
+      {
+        "path": "database/migrations/000167_go_live_real_user_role_bridge.sql",
+        "bytes": 5602,
+        "raw_sha256": "00b83797458096f0c60a2c7b235d70ed0908a906055600eae1c46ad1aa44f8d1"
+      },
+      {
+        "path": "database/migrations/000168_go_live_admin_system_alias_permissions.sql",
+        "bytes": 3356,
+        "raw_sha256": "db09744ee4f8e671ae40500229e514e19ed8325d09912d3c64fc34ed1008f44c"
+      },
+      {
+        "path": "database/migrations/000169_go_live_uat_role_menu_visibility.sql",
+        "bytes": 10373,
+        "raw_sha256": "73383bd5e373ec8c47af0481fc50675a2a698ba61427c9c52fdfcca380030eb4"
+      },
+      {
+        "path": "database/migrations/000170_go_live_acceptance_field_execution_bridge.sql",
+        "bytes": 1833,
+        "raw_sha256": "316fad9d34d0a06f7f369e71bc26c25da90e2eea19d50cc2667f7232540b54bd"
+      },
+      {
+        "path": "database/migrations/000171_go_live_invest_workorder_create_repair.sql",
+        "bytes": 1295,
+        "raw_sha256": "0581d70274df7d948fa658e33b02949ea3ddac59d53083b295b3fba8dfe242d1"
+      },
+      {
+        "path": "database/migrations/000172_go_live_uat_user_baseline.sql",
+        "bytes": 5301,
+        "raw_sha256": "3aac7c39bc950b909a55ecee7ca71aa962577a0b4957e80a4b04514f8dca8e99"
+      },
+      {
+        "path": "database/migrations/000173_ai_work_orchestration_runtime.sql",
+        "bytes": 5103,
+        "raw_sha256": "f6c1386f3f587242ce3c4e9694598c1167c320f49ea1db8d35f49f449ee8f978"
+      },
+      {
+        "path": "database/migrations/000174_ai_work_plan_source_dictionary_repair.sql",
+        "bytes": 1227,
+        "raw_sha256": "0aa7dcf200ea961c84630253008ab0a66fd55f845ec71bbb3eb1bf64926185be"
+      },
+      {
+        "path": "database/migrations/000176_shared_property_foundation.sql",
+        "bytes": 18738,
+        "raw_sha256": "a32491d5f70839d7fddf7811292f5935a6f119d47c3dffa81b87d2c0ad6e92c6"
+      },
+      {
+        "path": "database/migrations/000177_homestay_mvp.sql",
+        "bytes": 18878,
+        "raw_sha256": "71f4f1ebd4d2238b92f11a1c876f819814668c61b5c25e524a281ec956f953e5"
+      },
+      {
+        "path": "database/migrations/000178_housing_rental_mvp.sql",
+        "bytes": 16280,
+        "raw_sha256": "245312a92244394ae72324e409c199b3e68aa3343927fb41b9fc799c8853c066"
+      },
+      {
+        "path": "database/migrations/000179_property_contract_business_timezone.sql",
+        "bytes": 2851,
+        "raw_sha256": "dd7dac333e5807f3a20891945d558f6004f678b30b680b14ccadd62da99ca26b"
+      },
+      {
+        "path": "database/migrations/000180_housing_finance_integrity.sql",
+        "bytes": 1937,
+        "raw_sha256": "c830c53b83c8508837cf40d2cf327471b51a4976511970728b77132581dc1f96"
+      },
+      {
+        "path": "database/migrations/000181_homestay_external_order_null_channel_uniqueness.sql",
+        "bytes": 709,
+        "raw_sha256": "34fe19c864124c48c6c40e6b7de87c950bd50a76b420fcb2f3a70a7726c81eb7"
+      },
+      {
+        "path": "database/migrations/000182_property_business_menu_access.sql",
+        "bytes": 12111,
+        "raw_sha256": "7759f6a3d8d71521a04c22a87c7e926b5ab7f0413f343c54433888e6b8ed0eb8"
+      },
+      {
+        "path": "database/migrations/000185_property_b_identity_schema_expand.sql",
+        "bytes": 153712,
+        "raw_sha256": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec"
+      },
+      {
+        "path": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+        "bytes": 74034,
+        "raw_sha256": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e"
+      },
+      {
+        "path": "database/migrations/000187_property_b_event_notification_schema.sql",
+        "bytes": 62502,
+        "raw_sha256": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"
+      },
+      {
+        "path": "database/migrations/000188_property_b_task_runtime_schema.sql",
+        "bytes": 23409,
+        "raw_sha256": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"
+      },
+      {
+        "path": "database/migrations/000189_property_b_module_rbac_definitions.sql",
+        "bytes": 51082,
+        "raw_sha256": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2"
+      },
+      {
+        "path": "database/migrations/000190_property_b_migration_compatibility_control.sql",
+        "bytes": 56388,
+        "raw_sha256": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"
+      },
+      {
+        "path": "database/migrations/000193_property_b_runtime_integrity_forward_fix.sql",
+        "bytes": 18944,
+        "raw_sha256": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07"
+      },
+      {
+        "path": "database/migrations/000194_property_task_projection_contract_correction.sql",
+        "bytes": 58439,
+        "raw_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0"
+      },
+      {
+        "path": "database/migrations/000195_property_mutation_receipt_contract_v2.sql",
+        "bytes": 50004,
+        "raw_sha256": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4"
+      },
+      {
+        "path": "database/seeds/000001_s1_production_core.sql",
+        "bytes": 185574,
+        "raw_sha256": "da60764c3cade9af6477c2bcf9ad3b26a618b36af588f5f55b380863acdd65e0"
+      },
+      {
+        "path": "packages/shared/package.json",
+        "bytes": 482,
+        "raw_sha256": "84997b6136f04274fca279fd0677823e9f9bb8457a83c554b780ba7259526246"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "bytes": 274734,
+        "raw_sha256": "35567fb7edb3d56fa4e375d56a61095396d7da224a69edca01228f732377db9a"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "bytes": 36,
+        "raw_sha256": "253208fa7c1b64372c219b9e19cef15ed70ca93b66a4d5c4c4d2297a5aff8880"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs",
+        "bytes": 17865,
+        "raw_sha256": "ab7879a6ab673eecf366a86a0bf3a7723fd5a7756648c8cf82862bcf031389e9"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs",
+        "bytes": 2175,
+        "raw_sha256": "4478932833af9ee10a532ca4251fa7e8989735f14eb7555924a991f623039674"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs",
+        "bytes": 37048,
+        "raw_sha256": "57c8301941139268056502407d5149a4cac614cf43236f1fb89d846de75fbff9"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs",
+        "bytes": 18378,
+        "raw_sha256": "3bafa6ec3dde2dee738fde3a830d1c5d6a60f778212ecafe146a878a849b5853"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs",
+        "bytes": 4759,
+        "raw_sha256": "8dc2800bbf8b9b95c26b5de8413699efa9b99744c19f76e6faece632f7fa730d"
+      }
+    ],
+    "grammar": "property-remediation-b2a-c4-runtime-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-freeze-v1.txt\t2706\t0bf8c671dd9e4ed1ae7faaf15b480c4196fbc25956011cdec482daa5f5891f8b\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-gate-evidence-v1.txt\t2123\te7b571e77896ae4383f9abec529ed49937a9cb3e14d668ae1e51fc09ceac5e4b\napps/api/package.json\t1598\t988911de33ebd572805718640afd679de308bccdd08484cbbb2695c51cc9684b\napps/api/src/modules/property-tasks/dto/property-task.dto.ts\t2488\t0af5248774528b45e3c58d37b5e4dbecad06cf0aa97a31e1f6a113c9e0bdfcbf\napps/api/src/modules/property-tasks/property-task.access.spec.ts\t5598\t56c8d1c35be4c494ee0b7ac832d3adcb368130bd53736dd3b85d138c27f78fe5\napps/api/src/modules/property-tasks/property-task.access.ts\t7718\tcc0e816b0b727a8e53ccac5c49f4a09b013eb4b54ffb0164ac4a72b818d4ef16\napps/api/src/modules/property-tasks/property-task.assignment.repository.spec.ts\t6499\tbebd2888ab241ee3a5506aec247d896157fd1e33c5cec5909aeca219ab48f330\napps/api/src/modules/property-tasks/property-task.assignment.repository.ts\t12177\t3dbc152aebe903a59f9177c36a4c7e0e21190af6e07db36ade35f1dcece5d629\napps/api/src/modules/property-tasks/property-task.canonical.ts\t1770\tf7ed3a8ae956ac5be3369458fbe482f87da4dd3d27c255a645e84dc9dde178bd\napps/api/src/modules/property-tasks/property-task.contract.spec.ts\t7177\t16c0e79c6859b7900d717f88371e68f0cf400c6ed756b4e419ef192b617ca06a\napps/api/src/modules/property-tasks/property-task.controller.ts\t3691\t91d68c6548a1cbdd1429ff1ca3ca29654c39c3091a6a9587fb2aed9986ad44f1\napps/api/src/modules/property-tasks/property-task.dto.spec.ts\t4322\tec538b4e5c09c08d51be07f77ff30b5a14d753a1eaea711622b502708efa9b1a\napps/api/src/modules/property-tasks/property-task.error.spec.ts\t2466\t098eb02243f01847be83c86556736f8742ca5e4b54d3840bf5c1a2e8819ba9b2\napps/api/src/modules/property-tasks/property-task.error.ts\t2506\tb7b1ff6e6e3cf095f1e828d20129a9d44aa96302ee32ad5b57b8fccee5d1b070\napps/api/src/modules/property-tasks/property-task.manager-port.spec.ts\t633\t9be2c9fa8c2071d324c0be3e5a3ee7a25f2d2d5a424a349d0b730c69e0cbc671\napps/api/src/modules/property-tasks/property-task.manager-port.ts\t472\t6748afb41446acb6974fa6cacac41bc94b7b177af17821e90a9183f98d15def2\napps/api/src/modules/property-tasks/property-task.mapper.spec.ts\t3179\tf979d7e8f284e59a535f4bca532457a824c3286aa266c706908a19e2d9351443\napps/api/src/modules/property-tasks/property-task.mapper.ts\t2488\t385bd02052fe041fef49a4ebb55c10b1403f8ef7efdab96a1b211295cbc92afa\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\napps/api/src/modules/property-tasks/property-task.orchestrator.spec.ts\t37508\ted1bacb65ee068b54e83e91ce0bd92da2057aa01c6d7a5fb313e369f1da863df\napps/api/src/modules/property-tasks/property-task.orchestrator.ts\t38826\t06521220fdce413448e44924d5b7fa03f0d1858598cda69edaae0ce3d14a8678\napps/api/src/modules/property-tasks/property-task.ownership.spec.ts\t2843\tfde875aa8016c7e44d97528b40284a3a10b4ce36a8da4669e5d2eac69e4466db\napps/api/src/modules/property-tasks/property-task.projection.repository.spec.ts\t3818\tef38180f7129eb7dd3ff293fe2d6259b845ba35bd5738e42b5c67670c8b4cb05\napps/api/src/modules/property-tasks/property-task.projection.repository.ts\t10597\td4906aeff1e27744e0d0e9ad1d33772832a5febd6a61e1b60ec042e3cd7ea0c8\napps/api/src/modules/property-tasks/property-task.registry.ts\t1310\t10c6a87a0a8d0f32d0c702a975508e76983797621d40766b1cf6f42780768a1c\napps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts\t57822\t0aa5105b8ec16225ace6da4ca48f3f9d525f46f260fd1d120efac555659ca515\napps/api/src/modules/property-tasks/property-task.service.ts\t8120\t15b6ea7eaa502f997711a7ba7b1307d24ee84a769d8b64cb0cac199589a38ea7\napps/api/src/modules/property-tasks/property-task.validation.ts\t1961\t9ff7a98129429bda4e87412e9a69cc5418f2806edc4f8f60ee27c77f4eed20d1\napps/api/src/modules/property-tasks/testing/property-task-contract.fixture.ts\t1229\t54153876e7b4300249c54e300e61a5dfdbac6e6593de43ba11838c4497638f0d\napps/api/tsconfig.json\t368\t5d08f7515d65084deaf4cbecf4ffabb7beeb8dafa518d051268e0fc2e4add281\ndatabase/migrations/000001_init_auth.sql\t4961\t34790818bb811a7b763ce34998b5f09c1f3878b41cdc2945dbad3531f66e8a18\ndatabase/migrations/000002_s1_system_foundation.sql\t5367\t4afeae7a2bcae62e935aa6b6cb20127ca384bca4e62b50c3c9bd72e48e57b9b9\ndatabase/migrations/000003_s1_support_closure.sql\t1290\t565083c7c0eb4a8d29a25ae0d263792762eea6bcecf94c679cb4592f2bd30852\ndatabase/migrations/000004_files_center.sql\t1364\td18b79155f505a1f3d9e12b78a1490de1ffd5701c2900406cf0c7bf81abfba64\ndatabase/migrations/000005_audit_log_enhancement.sql\t2649\t3aa8fe70e95ec660ecce34cc867d74cba390e9cc46c3202e1423e45abf967e7c\ndatabase/migrations/000006_sys_dict_compat.sql\t218\t93009030f033be410329d06936806929e32b4c848c1f3e8c5b38fab843518802\ndatabase/migrations/000007_s2_assets_foundation.sql\t4990\t813902a48218003765234138216d8ae05aefbdb65d96b281caa98fe7d8d9530a\ndatabase/migrations/000008_s2_biz_park.sql\t1050\t1185575ab56b5bb7ee6f85844abf407e610356fc12d2c46ca4a43bfb9dee186d\ndatabase/migrations/000009_s2_biz_building.sql\t1092\t237da8f54eb41c434ce58308dcbc631e1a98807aeb741d1a407d10bfbcbdba40\ndatabase/migrations/000010_s2_biz_floor.sql\t1290\t5997787688b1f3de1d9ea8feff1b63a68480f223fbe51a381f80ad8894010ae0\ndatabase/migrations/000011_s2_biz_unit.sql\t1718\t4645d6d7cddf44b4aad8ceddb6a8048cc2a2b33de4a22f391d0fd641b3df7a32\ndatabase/migrations/000012_s2b_unit_enhancement.sql\t2798\t7ed24c539fce073a57d4b021c5a2d6c7b7e76182f0bff903048c64303fe62f96\ndatabase/migrations/000013_rbac_saas_hardening.sql\t4206\tca2b48c3248133222a1d5886fdcaa44e5976daf427de16dc54d7a4d4f53fb061\ndatabase/migrations/000014_sys_role_saas_contract.sql\t1465\t72b4c31c5b831d38d07d785e6c81ec422b7e43132870d9d1d615cb0e3f2dc50d\ndatabase/migrations/000015_sys_permission_tree_contract.sql\t2090\t42193cf3f6540acf5108ced9b1ef5d55ebab040302d9fe1a85d49f77001357fb\ndatabase/migrations/000016_data_scope_model.sql\t2462\t91c5f6f52f05012f30b466424f52bad49754f4c6ed38cdde19fef01825c36f06\ndatabase/migrations/000017_field_policy_model.sql\t2090\t1346ae045f1970a6806053d72cb67c7239767dc33fd03ead0221ca3344d4e232\ndatabase/migrations/000018_sys_tenant.sql\t1235\tc8f158827adde65088d253a3609e0c5704a6d3df5b99f721f361315916a1a322\ndatabase/migrations/000019_rel_user_park.sql\t1031\t7017d485025161525e23e28d7cd344c046458096d6ddfac6783a6d7cce2cfa88\ndatabase/migrations/000020_saas_rbac_std.sql\t4416\t64b81702550ebd4635665401d9bc1304dfb37cb681c53b90e05ccd88a4e77e52\ndatabase/migrations/000021_sys_tenant_api_contract.sql\t928\t29a6f3cb81fb1a64ebd6b1489e5b6acf3a10d1a42710ee78518ab53a63a10bfa\ndatabase/migrations/000022_rel_user_park_default_constraint.sql\t1188\t4bec1c0ec5d2296c6847fd536381efdd622e2dd91628e62d3a6655fc85d2273e\ndatabase/migrations/000023_sys_role_open_rbac_contract.sql\t2904\t85cae73f31107c0cd7b13a56d95c64b99d1ba8a333bd7c88d72409680390496c\ndatabase/migrations/000024_sys_permission_open_model_contract.sql\t2786\t1e8085b9210971843a561590b1d408251d89638d396053d8458ceac93e1ccc7c\ndatabase/migrations/000025_data_scope_open_contract.sql\t4968\t0422dcbbdef7b418250965a1b853a7579609d3dbace0d12bf35681ae244bd815\ndatabase/migrations/000026_field_policy_open_contract.sql\t4500\ta6f0b9ba4b5747d7e06d031cd30d91aaf3a4c2757df52f6b67d9a5c999252489\ndatabase/migrations/000027_code_rule_standard_contract.sql\t3700\tecb2affcbee2e5ab3c4fb61e9e3e97723fe52489fb0e873b583e4f15e5889d6b\ndatabase/migrations/000028_saas_module_plan_authorization.sql\t1920\te6fa728de46cbb951bf964c67e15487fd8a9a9ca60f0097c0ca9e8c8f0b8be4a\ndatabase/migrations/000029_saas_scope_id_unification.sql\t1979\te0553599796ac56ea82a53ee267a61642e653ca06a57f7ae5c23b1745a4d580d\ndatabase/migrations/000030_s2b_unit_import_code_compat.sql\t280\t70c24d45df66787a6b65a9ee80e37fa9dc5976f74692093b0d18fc98e3d89644\ndatabase/migrations/000031_s3a_park_tenant_profile.sql\t1971\tbb1bbf6cc56fe251fd8ea9622e9ea40cee5945240bed45be98ca89b27edd64c2\ndatabase/migrations/000032_s3a_park_tenant_contacts.sql\t1301\td506dfc95687ed994370e210182cedac279b252b4eece145aba2ffe37ab7a8a7\ndatabase/migrations/000033_s3a_park_tenant_qualifications.sql\t1377\t12b45525d26555949c9ce4687c5a578b530b335986fa448bcd5e8cde8a696133\ndatabase/migrations/000034_s3a_park_tenant_risk_logs.sql\t1369\td671263427aa37ac560000c6d4c4c62c375caf4470bca995be7c92d29a834383\ndatabase/migrations/000035_s3a_field_policy_email_mask_rule.sql\t307\t25536886c7742dc52a9ea71fbc3ed3367da58ad9380c191621c4ecafad44ca5b\ndatabase/migrations/000036_s3a_park_tenant_dictionary_standardization.sql\t1814\t130c3cf8168818c6a360858ffc837649718d0b90d9714ec1ceb6749a07b4bc6d\ndatabase/migrations/000037_s3b_code_rule_leasing_lead.sql\t1137\t54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27\ndatabase/migrations/000038_s3b_leasing_lead_profile.sql\t2566\td47962d06d4b4f6fe0af33c0a34a44c97c486e743db982a23100e8cd79928b2a\ndatabase/migrations/000039_s3b_leasing_follow_records.sql\t1398\ta3b455f8a0390c3452d05b817c8cdcee8bb482e1e18761d39469bda8d763dfeb\ndatabase/migrations/000040_s3b_leasing_visit_records.sql\t1254\t5e5672796eae9dbcf91ee31fdbc8ff9340cc1edb488b3cbaf3e002e47ae1b41d\ndatabase/migrations/000041_s3b_leasing_quote_records.sql\t1527\t09adb0313d4b195c335ebe2534e0968d7e0cec4935e82095664d79a96634df87\ndatabase/migrations/000042_s3b_leasing_lead_status_logs.sql\t1284\td3eda04b3cf320e58c5458959da704d28a0f7abd0c90c516b2a9d681024b4206\ndatabase/migrations/000043_s3b_leasing_lead_pool_compat.sql\t699\t8f164da0735aaa86e6f0971cbad3392ab64ec6b0ebde719583cd9f0e3db99b2b\ndatabase/migrations/000044_s3c_leasing_contract_core.sql\t11046\t60753160151c1af4542d02c1753258e97349f18a893385b69dbdd3bae46296ae\ndatabase/migrations/000045_s3c_contract_unit_links.sql\t4323\tf0ac3f8ad7322a2240e8b521d2d7a9f525a9b3ab46d3d77257a574f41bf05f4c\ndatabase/migrations/000046_s3c_quote_create_contract_draft.sql\t1403\t4e6b5157b0d77be15ef1c41fdadfca54e8f90cee381e5e99f72290074d8233da\ndatabase/migrations/000047_s3c_contract_approval_flow.sql\t5076\tdfa118c9152a8fb02e1f3dc307071964f3b807471fa7ac9009b1358a18363593\ndatabase/migrations/000048_s3c_contract_archive_files.sql\t1495\t52c9507a2db6312bee6240eff51e9cc2d47c3b67664af4df85302b41375dbd8f\ndatabase/migrations/000049_s3c_contract_effective_flow.sql\t1327\t4f69d85ab4bee9807b05479085c88cf7787e4f894341ae9c76e6979b339be455\ndatabase/migrations/000050_s3c_contract_status_logs.sql\t1840\t7584b0dae62789186b9e1dc7a6681cf74e2a210636239f3fab8579b8f2196f31\ndatabase/migrations/000051_s3d_receivable_code_rule_entities.sql\t1137\t54924704ce88b9ddac6b0839e7d4c56795e9584361d22d2b5be8f9f967302b27\ndatabase/migrations/000052_s3d_leasing_receivable_core.sql\t2655\t09fd0d143fede43beafde6ffcfd985f58c49e99bac90a623e64f7c0cad9be81c\ndatabase/migrations/000053_s3d_generate_receivables.sql\t1081\t56183a12da661e639ca01e8c7758cbbedb0447bf45d4495e8fb7ef47665a0aa4\ndatabase/migrations/000054_s3d_leasing_payments.sql\t2759\tf0e67b5f7cbc1c9c0ea7cc998004404db5e1830a955c122f6c03c1e93bcb8bd8\ndatabase/migrations/000055_s3d_leasing_waivers.sql\t1753\t26ae6fe9aae8949708233a5c3e09f921580e03fa9e19bdf3bc9b39614648408b\ndatabase/migrations/000056_s3d_leasing_invoices.sql\t2727\t8ceabe12ad553befabf8b518b5b69a985af034d4563529ab8148753c881cc836\ndatabase/migrations/000057_s3d_finance_seed_standardization.sql\t1222\t2de21bdda99181ed28cb033dbe71b611fa33074a9e36d8da983879e1bc8c98dc\ndatabase/migrations/000058_s3e_code_rule_entities.sql\t3772\t40df236bfc8bf374721c4c5e6f041483a6183d1409339585c91777212b8b53cd\ndatabase/migrations/000059_s3e_contract_change_core.sql\t7649\taa48958266bcd41f92b5f716417f0995e46631d9c75e586122dd54786286f225\ndatabase/migrations/000060_s3e_contract_change_flow.sql\t3631\tdd200ccc0fddbcba2b3524eb89ecd2d0589a7333d9ae1de62677d9dc9f24368d\ndatabase/migrations/000061_s3e_contract_renewal_draft.sql\t1940\t438620511cb3ed94837c0986ddfca1bbea1de1cceffc89623f27b493df5fcd71\ndatabase/migrations/000062_s3e_checkout_applications.sql\t8490\tf90f0c40dfe77b34defe4d48c29bd4f762278e4d846284a743167242f582b84e\ndatabase/migrations/000063_s3e_checkout_settlement_refund.sql\t6596\tdee5187eaa3d078283f1f50bebc846c30335298f5d347bcab6e1f3f89cf94540\ndatabase/migrations/000064_s3e_checkout_effective.sql\t3106\tc04db8e48bb26620bb0027ea41233b2b7addc2e4801ae6c3da2a4a36a5904bd9\ndatabase/migrations/000065_s3e_contract_action_log_unification.sql\t4158\t51967ef54194e3951f059ff0390df5abde75c51013590c382794b7266b6da753\ndatabase/migrations/000066_s3e_permission_open_field_policies.sql\t1834\t786901c410f488eeb83af247a2978c3081d26abe9f4d1ea96fe2b0ee75d1db60\ndatabase/migrations/000067_s3e_permissions_menu_dict_seed_patch.sql\t7472\tb663a97f11d6b2f0de283700295b444b55a099cf8baa4fae584a4b6a106cba1c\ndatabase/migrations/000068_yudao_system_rbac_baseline.sql\t8879\t991cebec9f946949bc64378217c7c2389a17498a0dcc336227dd7953b80ad6a9\ndatabase/migrations/000069_saas_tenant_onboarding.sql\t5716\t9672e681ae0867e6269b2dba79086c314dad784e019bd68d91868dc2b16894bf\ndatabase/migrations/000070_unit_sold_status.sql\t1746\tc3cd29169953770f81fb69afe3ee0ef0f683a8e486d0c2d6456f5f55d0a63cf4\ndatabase/migrations/000071_s4a_workorder_code_rule_entities.sql\t3124\t239229b050dc2fd789ae2d5edd698ffee8fa1e29dea26873f4998db8dcc74531\ndatabase/migrations/000072_s4a_work_order_core.sql\t12353\t5ee7c21e464eb8d6f6e6ba2f108ed6789b6d62444e368186ab3d9ec97671dbbf\ndatabase/migrations/000073_s4a_work_order_assign_permissions.sql\t2326\tf334fbf7ba5627513a214f7e02a5126ba15c4f3ee76df06b443d6db30c9562e1\ndatabase/migrations/000074_s4a_work_order_processing.sql\t5157\t34ada440033532e6e31268e2d987ddf45a1aa4db66a81ae381cd6fa111d3ea63\ndatabase/migrations/000075_s4a_work_order_confirm_evaluate_close.sql\t4723\tfe8af8f6b30e52183eefd1b653d6a8385f6218f85b805d16e8ba90875f69aade\ndatabase/migrations/000076_s4a_work_order_cancel_return_reject.sql\t2512\t24e58e8b83675720e7dbb0aacc13fcfce635fd5228bcc8402323c57c09f74e94\ndatabase/migrations/000077_s4a_work_order_sla_overdue.sql\t6100\taf95cf483d256a4ea6e07f1ac0dc09f9bdc6f7ac19e6787482daaa0c0515cd91\ndatabase/migrations/000078_s4a_work_order_logs_timeline.sql\t2535\t1e4f01785e96535f11a7933d4b44118ffbd0ce1ff2f77b42802caf6eee078ff8\ndatabase/migrations/000079_s4a_workorder_permission_open_field_patch.sql\t1006\t5b6dc8aac613180da2334aed925ac12419a3660789d715554227b8eb177f39d3\ndatabase/migrations/000080_s4a_permissions_menu_dict_seed_patch.sql\t28760\t497bf2a550ddbcfbee2f5c888bf153e2759ad296d941425def8866cb7a932a40\ndatabase/migrations/000081_s5a_safety_precheck_module_code_rules.sql\t8019\tea5d5a6fb66deacb7c14e905540f2cb07943d8ecd4442f12abf98dcda458bf37\ndatabase/migrations/000082_s5a_safety_inspect_points.sql\t13961\t40fc89cec7e9414847ea8de527af2ad9dc2d7831f8f560287c2a6333a3cfef77\ndatabase/migrations/000083_s5a_safety_inspect_templates.sql\t14989\ta6acc7ef978dfde94112c895528de680624dfd1b770b03de6246924bffaa8651\ndatabase/migrations/000084_s5a_safety_inspect_plans.sql\t11912\t9ba1be0b65c7d370ce55bb3ae093ffb98ae149566b964348dee2430b27f82085\ndatabase/migrations/000085_s5a_safety_inspect_tasks.sql\t18286\t463fd9d414012df0e0a0ec60aa2dc5cb043b5e93efb81fbb65a8feb6be7c0993\ndatabase/migrations/000086_s5a_safety_hazards.sql\t13586\t5fd7a18ece7bb29280fc674519b21fab9a9a86ed2fc4b36df1258dba9dd09269\ndatabase/migrations/000087_s5a_safety_hazard_rectify.sql\t6682\tcd2100176893399105a1c68dc944e18e6ceadb0ac0ed836f2c400337f23d21f6\ndatabase/migrations/000088_s5a_safety_hazard_manage_all.sql\t4137\t6521169d77e0136acba3ae4040c02c424f312a3f72743d0f967b180871fd738b\ndatabase/migrations/000089_s5a_safety_hazard_recheck_close.sql\t7226\t6b01e47e1d577c795b04c3fcb798a479dc25bb8826ab65e8e81292f5668c096b\ndatabase/migrations/000090_s5a_safety_hazard_create_workorder.sql\t4226\tef8b685dde724499725d6c7a0360ea3b852a6971c257a40ffc4427286f58e68b\ndatabase/migrations/000091_s5a_safety_statistics.sql\t5212\t0432bb70f1ebc5e8823d7b4f7a751950d54c9c47673466451462069ba365c722\ndatabase/migrations/000092_s5a_permissions_menu_dict_seed_patch.sql\t35502\t1cc88c939d2510ae01c7f218bb309b3aacf37a5c381990594b4fe7ba9f9dfa85\ndatabase/migrations/000093_s2b_asset_menu_role_permission_repair.sql\t2213\t2e7aedf46cac062261324ad14537e44420d35fc71499f3a2b487da57c2be6805\ndatabase/migrations/000094_s5b_precheck_module_code_rules.sql\t8106\t998b677515e2a33d2d1f4e2a9e6dca882ecefff6c20fa327b47a440b2c4d12b3\ndatabase/migrations/000095_s5b_emergency_contacts_plans.sql\t18390\t040fe1ffa83dbdc47eb888528c6a0cb488da561b70a9b7fafc7842495ed9f516\ndatabase/migrations/000096_s5b_emergency_events.sql\t17256\t0e9997bbb1e8c79785e274b2bf545d63b7b476b382f0b88060b3be24c4e262cf\ndatabase/migrations/000097_s5b_emergency_event_flow.sql\t8359\ta07cad988adb7c1eb7a5e810df058594cfe58fee972e826baef5dd177cade600\ndatabase/migrations/000098_s5b_emergency_timeline_logs.sql\t4789\t615700666e744bfb9db008d33620fdc3992f548633d80bc1f0c258fca7af520c\ndatabase/migrations/000099_s5b_hazard_to_emergency.sql\t7623\tbdac2e73485aea30314f3f6f530594587d467986a79ee6ef1f7a05a64e246fd2\ndatabase/migrations/000100_s1_auth_center_foundation.sql\t6843\t83a8b856d16e1433e6945f877626ca6cfc53f4493e85dcb99ff59c091df1ac70\ndatabase/migrations/000101_s5b_emergency_create_workorder.sql\t5992\t825335027ed3f05589447f43f2fd915e55d94cf5e5ec3d22ce1bca5c155383c9\ndatabase/migrations/000102_s5b_work_permits.sql\t20051\t7abb55a44b186ba8e6cca66be70b0575d1c4098af7f9f24d2aa4e4c4e1a15451\ndatabase/migrations/000103_s5b_work_permit_approval.sql\t8286\t82f8eb777dd8956008e6f8ad8ba46196f3d40741b4d5a2fb2d4cbed1baa54740\ndatabase/migrations/000104_s5b_work_permit_lifecycle.sql\t6518\t184bb6737001f60a40fa9a55b10e45413844bd6d281937ee6ea9220e746e432e\ndatabase/migrations/000105_s5b_work_permit_check_conversion.sql\t6590\tba9a7ed96b529260939fae530c594a1e48ce269030865e33f5e2b804a72bb245\ndatabase/migrations/000106_s5b_emergency_work_permit_statistics.sql\t6132\tb469b1eac856b9ea59be6754b0102d1602b69273ff8125782fd91d2ffcc29668\ndatabase/migrations/000107_s5b_saas_open_permissions.sql\t4541\t82bb9ffeff2268921fd6307dc177d2b4c097f139c13ce4548bbe2760f8b7cdd8\ndatabase/migrations/000108_s5b_permissions_menu_dict_seed_patch.sql\t39441\tffc86d93bb10c8462976c6ae146d2375076d893967a2c049c0958e17b43237d8\ndatabase/migrations/000109_s6a_iot_foundation.sql\t32025\t3697b9373722ae241c832cd6d423c1f62cf3386187237b3a2ce28b364d6649e4\ndatabase/migrations/000110_s6a_iot_base_dict_seed.sql\t6868\t57f60f73dbeeea1962e2c5819110df7eff0899784c5b5606979adf1ad4875ca9\ndatabase/migrations/000111_s6a_iot_device_master.sql\t7380\t982c8736df3f0b05fb434acafb4226bf05abdb0fb559999c3b69a204cd26bf49\ndatabase/migrations/000112_s6a_iot_metric_point.sql\t13476\tf0c453b7b710bf715faf044d60f2bd92a754e00c8feeee708d4b3b30c99fe1c2\ndatabase/migrations/000113_s6a_iot_http_ingest.sql\t1003\tc712d9c318aaff02fda08caa2dcfcdaee365f0b597632451010cab870f697314\ndatabase/migrations/000114_s6a_iot_mqtt_skeleton.sql\t4275\t1beaafb9f61cb2c6992b8555c5c44fe7c59ff7a234d450ea535271de1d7ec5bd\ndatabase/migrations/000115_s6a_iot_device_latest_status.sql\t5697\t84fcbb1304a292accec8a4dd6191b1b92c123e040d987ecb6f38fdf2eef7d936\ndatabase/migrations/000116_s6a_iot_device_history_data.sql\t6686\t14b120fcd73dea0c01d5b187d8da3cbcb8531190c99fa570dcc1af12afb6d6b4\ndatabase/migrations/000117_s6a_iot_alert_rules.sql\t7814\ta2b2e7d5637b9dfe530aebb66cc727671ee7329ee065743bfdefdc015bd072f4\ndatabase/migrations/000118_s6a_iot_alert_center.sql\t7349\t1acd32d7d72493be2f4abedeef39f4948a446b7a98ba74bfb4654a6294d778a9\ndatabase/migrations/000119_s6a_iot_alert_create_workorder.sql\t6086\tbd4ba022b4541310120bae76cb018521cda61a5d5f421ec29e01e22d635e7c40\ndatabase/migrations/000120_s6a_iot_dashboard_detail.sql\t4480\teeca8e1d2869efdd7d653a01fc0f4107120f6ce5fc81df0d24335e9651cde801\ndatabase/migrations/000121_s6a_iot_saas_open_patch.sql\t2655\t718750f67e162cbe510f86289990ddaa1ee038355b8517c969cbf7318dea3a70\ndatabase/migrations/000122_s6a_permissions_menu_seed_patch.sql\t21553\tbe0517e596af85e26f03ae66fdc0bb708143dc34e50ab433249a373c8995a75c\ndatabase/migrations/000123_menu_tenant360_cleanup.sql\t1959\t79137dcf98e66f86b5908a42a5f0f304f5f219262d204c63d734d1614954fed3\ndatabase/migrations/000124_s8c_video_cameras.sql\t20121\tf88b5a956031831d9c095ad733350ea4b2f6ba5d0fb2d9f0ec9b51bc998b7824\ndatabase/migrations/000125_s8d_video_preview_platform.sql\t15783\t176407fd1c11a869a67e076ae49740acd56e8d09fafa339fc83e706905c0ed70\ndatabase/migrations/000126_s8e_video_evidence.sql\t15729\t9cf0caeaf15749f65c08e9a4b0abd5467733b721266f86335d9e50debf27963c\ndatabase/migrations/000127_s8f_video_alert_dashboard.sql\t23947\t964500d40270d1c2b1d127fd42cb2a1b8a5097ebdb0b8b7e50c7792c2e61c33a\ndatabase/migrations/000128_s9a_iot_device_hub.sql\t21520\teaa0eecd306428d830d1707138150aa93179b5d3f413a75f15a6232ad45d46c1\ndatabase/migrations/000129_s9b_iot_runtime_alert.sql\t15523\t49596020cdbe4da9628d1c340d74da99018276912e345305fb8a76ce4ebd08eb\ndatabase/migrations/000130_s9b_iot_alert_trigger_value_text.sql\t370\t9504d7664e319d722845fa26a6a10dd1142bee8d858228816d6db7a04dea55d1\ndatabase/migrations/000131_s9c_iot_rule_engine.sql\t14967\t39bd43173f6061761799c4706d1522729468ef406fecd13b2523214f88664e93\ndatabase/migrations/000132_robot_ezviz_cleaning_integration.sql\t14656\t0ff91d706c7c64e7d1b6db055dddd906a7baf9f4ebd6f3fa2cba1f1bf50d5ef2\ndatabase/migrations/000133_s9d_iot_scene_center.sql\t23818\t034fe40dea1ab94cd902e76bddca7d1783d37e4c008cfacda1206bb3a99a89b7\ndatabase/migrations/000134_robot_cleaning_visibility_seed.sql\t5785\t50052e148d80be03df95fa8efb8f64d60ad9aaae0670dea6ec52958c5ffef567\ndatabase/migrations/000135_s9e_energy_meter_monitor.sql\t24097\t1235b9ffcf1fbadc793b12e3414f01424d0481e1976e6b9db1126cd049076654\ndatabase/migrations/000136_idempotency_request.sql\t1104\ta686093eedc90cbf0f30447d98da09eb683a89b17f1ddbe99166d01e62ce7d85\ndatabase/migrations/000136_s9f_energy_billing_allocation.sql\t22705\t91f9ec3f482a77dde263f7e97cda0c245a0bbdc5130e630ac0e1232aab32c5c3\ndatabase/migrations/000137_s9f1_energy_billing_adjustment_reversal.sql\t14801\tefa25d3a3322a0b95393a6ba64b7b65f3b16685df7c789d0e2453d32f0f40f30\ndatabase/migrations/000138_robot_ezviz_device_sync_permission_patch.sql\t743\ta821913338df88e1748a53079271e1b384c4b2c982c1809eb2fb1cb9b217403d\ndatabase/migrations/000139_sys_schema_migration_history.sql\t673\t1c0adfd71e8691f3346afe66199cc85e5cf82a11a99802a8e40df7f42695c6ad\ndatabase/migrations/000140_expand_audit_request_id.sql\t140\t9c94203164a4c8cf26f4d5f798209a0874a1017272e3f4fd73161d6c33fca834\ndatabase/migrations/000141_operations_terminal_seed.sql\t16613\t5f4ad93d70e170bb18c2670cbdd3846c75b59923391f3b547d34ac272e952418\ndatabase/migrations/000142_operations_terminal_role_schedule_patch.sql\t19899\t2224d4e2349dbc9f8aa560a646329c1ea15cd3c7902b082adc4d53e23732e025\ndatabase/migrations/000143_operations_terminal_disable_obsolete_daily_electric.sql\t690\tb6a93e6d8825bc7d343a269ffcaa82c9205a26e26ffbdd002506f00617577424\ndatabase/migrations/000144_safety_full_open_permission_menu_patch.sql\t10935\tda9ea32a3e4a422108edef6f41dd23825d8bf9ab8820a292c0e8e26434b5909b\ndatabase/migrations/000145_safety_phase1_review_followup.sql\t770\t20975792fc3ab6eb2b1bf5d7132c2bc8232f5e89f9fc75b14a1c7e5d30e2b6ac\ndatabase/migrations/000146_auth_password_lockout.sql\t465\t5e7bd2b931038d918752604d02880560b839e9c56e8b89edf146d27efd62ee04\ndatabase/migrations/000147_role_pack_real_park_operations.sql\t11048\tb2a8a406e47b7a5f106aef9c458a1ca69f4c46ed085f8069d6d6adf5663474f3\ndatabase/migrations/000148_workorder_business_dictionary_defaults.sql\t6285\t8aecac1b39d8fc49838c5a1076a4b35f450108646b0893af90030a77a865068f\ndatabase/migrations/000149_workflow_user_messages.sql\t1592\t54dc9de8d93875be6983617d420924d4b7f402e67c038876d813ced5553eeda6\ndatabase/migrations/000150_epdr_engineering_project.sql\t3219\t27207927a60f64fdf9376bfe03915ef2ba0d8a913e8326475c6a3ffd762f4fb4\ndatabase/migrations/000151_epdr_engineering_project_status_log.sql\t888\t33e6e4e7c13d69759cd48f81338d1743170acbbbd85eaafe6fd5b93a8229d36c\ndatabase/migrations/000152_epdr_engineering_plan.sql\t3469\t69c905eeed2f7fd7dc4627d676f10b043cd4f991081ecf11c24ba9d00782dcdb\ndatabase/migrations/000153_epdr_engineering_daily_report.sql\t3526\t32c7d03b6170e0cb0ba76b3eccc9469e7ee723222bf7a8ef4421e98117962dd1\ndatabase/migrations/000154_epdr_engineering_inspection_issue.sql\t5760\t964fbfa7bb9cae4fd6df964beed4f7ff1009ac1dd6716f6a4a4af9e7642bc392\ndatabase/migrations/000155_epdr_engineering_rectification.sql\t2765\tf745ce837604c479f3b4e2f48f5faa0c796893019c41627ee72bd127b0852a9c\ndatabase/migrations/000156_epdr_engineering_acceptance.sql\t2840\t001b51a00c249fc80b4baa6415802b6ca646f8ac8105398687bb2e586144004b\ndatabase/migrations/000157_epdr_rbac_menu_permissions.sql\t30757\ta46deeab7e32b1a959a7aab7768a4fc49bf99d59005882fd79a5656807cc9da8\ndatabase/migrations/000158_epdr_engineering_event_log.sql\t1144\t7c353ee3b0bd7fc659a73349a81098b50f9f96cfa8a293aef2ecdee2631d450c\ndatabase/migrations/000159_epdr_engineering_attachment_ids.sql\t178\t8899a97e315d7a930584a75152812b42124453d435fe4dc6e244373e007737d7\ndatabase/migrations/000160_epdr_scope_backfill.sql\t21406\t59a96d326730e06c2cb45d9c6799ac7423b6f2d8e4dd906bff640015a5d4ede1\ndatabase/migrations/000161_safety_hazard_dictionary_defaults.sql\t5892\t33216c42c27cdcd5ecd9b4f8aeaec2d715a143b0e7a2833dc593d20d56cab16d\ndatabase/migrations/000162_uat_permission_and_leasing_source_repair.sql\t8807\t063f33fded63df35cb874e2620980245fb137bfbe6acce39d4c991f98e46798e\ndatabase/migrations/000163_epdr_uat_role_bridge_read_access.sql\t15244\t128773cd4dfe8676cae27e01ca8bf0e0900c8a1a7401660f6ca78a8551b19d4e\ndatabase/migrations/000164_epdr_admin_visibility_backfill.sql\t13728\tf80cf8dea9be792facf38edb4842f149884e744d18ed7597e6a45d59a66b29d3\ndatabase/migrations/000165_cockpit_module_visibility_backfill.sql\t3680\tef3d526aa798c02ee8e6bbb9ceac68fc77f83acefdd8a80cc384a98f4abfc5c8\ndatabase/migrations/000166_go_live_decision_permission_hardening.sql\t14128\tf460518d8fd9501953c400f6545d2ef3ac9e930422fd2fb9404793034b8bd16c\ndatabase/migrations/000167_go_live_real_user_role_bridge.sql\t5602\t00b83797458096f0c60a2c7b235d70ed0908a906055600eae1c46ad1aa44f8d1\ndatabase/migrations/000168_go_live_admin_system_alias_permissions.sql\t3356\tdb09744ee4f8e671ae40500229e514e19ed8325d09912d3c64fc34ed1008f44c\ndatabase/migrations/000169_go_live_uat_role_menu_visibility.sql\t10373\t73383bd5e373ec8c47af0481fc50675a2a698ba61427c9c52fdfcca380030eb4\ndatabase/migrations/000170_go_live_acceptance_field_execution_bridge.sql\t1833\t316fad9d34d0a06f7f369e71bc26c25da90e2eea19d50cc2667f7232540b54bd\ndatabase/migrations/000171_go_live_invest_workorder_create_repair.sql\t1295\t0581d70274df7d948fa658e33b02949ea3ddac59d53083b295b3fba8dfe242d1\ndatabase/migrations/000172_go_live_uat_user_baseline.sql\t5301\t3aac7c39bc950b909a55ecee7ca71aa962577a0b4957e80a4b04514f8dca8e99\ndatabase/migrations/000173_ai_work_orchestration_runtime.sql\t5103\tf6c1386f3f587242ce3c4e9694598c1167c320f49ea1db8d35f49f449ee8f978\ndatabase/migrations/000174_ai_work_plan_source_dictionary_repair.sql\t1227\t0aa7dcf200ea961c84630253008ab0a66fd55f845ec71bbb3eb1bf64926185be\ndatabase/migrations/000176_shared_property_foundation.sql\t18738\ta32491d5f70839d7fddf7811292f5935a6f119d47c3dffa81b87d2c0ad6e92c6\ndatabase/migrations/000177_homestay_mvp.sql\t18878\t71f4f1ebd4d2238b92f11a1c876f819814668c61b5c25e524a281ec956f953e5\ndatabase/migrations/000178_housing_rental_mvp.sql\t16280\t245312a92244394ae72324e409c199b3e68aa3343927fb41b9fc799c8853c066\ndatabase/migrations/000179_property_contract_business_timezone.sql\t2851\tdd7dac333e5807f3a20891945d558f6004f678b30b680b14ccadd62da99ca26b\ndatabase/migrations/000180_housing_finance_integrity.sql\t1937\tc830c53b83c8508837cf40d2cf327471b51a4976511970728b77132581dc1f96\ndatabase/migrations/000181_homestay_external_order_null_channel_uniqueness.sql\t709\t34fe19c864124c48c6c40e6b7de87c950bd50a76b420fcb2f3a70a7726c81eb7\ndatabase/migrations/000182_property_business_menu_access.sql\t12111\t7759f6a3d8d71521a04c22a87c7e926b5ab7f0413f343c54433888e6b8ed0eb8\ndatabase/migrations/000185_property_b_identity_schema_expand.sql\t153712\t3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec\ndatabase/migrations/000186_property_b_approval_runtime_schema.sql\t74034\t5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e\ndatabase/migrations/000187_property_b_event_notification_schema.sql\t62502\t85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20\ndatabase/migrations/000188_property_b_task_runtime_schema.sql\t23409\te0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08\ndatabase/migrations/000189_property_b_module_rbac_definitions.sql\t51082\tf4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2\ndatabase/migrations/000190_property_b_migration_compatibility_control.sql\t56388\tda633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a\ndatabase/migrations/000193_property_b_runtime_integrity_forward_fix.sql\t18944\tc769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07\ndatabase/migrations/000194_property_task_projection_contract_correction.sql\t58439\t93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0\ndatabase/migrations/000195_property_mutation_receipt_contract_v2.sql\t50004\t9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4\ndatabase/seeds/000001_s1_production_core.sql\t185574\tda60764c3cade9af6477c2bcf9ad3b26a618b36af588f5f55b380863acdd65e0\npackages/shared/package.json\t482\t84997b6136f04274fca279fd0677823e9f9bb8457a83c554b780ba7259526246\npnpm-lock.yaml\t274734\t35567fb7edb3d56fa4e375d56a61095396d7da224a69edca01228f732377db9a\npnpm-workspace.yaml\t36\t253208fa7c1b64372c219b9e19cef15ed70ca93b66a4d5c4c4d2297a5aff8880\nscripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs\t17865\tab7879a6ab673eecf366a86a0bf3a7723fd5a7756648c8cf82862bcf031389e9\nscripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs\t2175\t4478932833af9ee10a532ca4251fa7e8989735f14eb7555924a991f623039674\nscripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs\t37048\t57c8301941139268056502407d5149a4cac614cf43236f1fb89d846de75fbff9\nscripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs\t18378\t3bafa6ec3dde2dee738fde3a830d1c5d6a60f778212ecafe146a878a849b5853\nscripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs\t4759\t8dc2800bbf8b9b95c26b5de8413699efa9b99744c19f76e6faece632f7fa730d\n",
+    "raw_sha256": "1d20a9575aa881ee99905f8b867b7e82b96a9839cbd56c03265104050d36e560"
+  },
+  "environment": {
+    "image_reference": "postgres:16-alpine",
+    "image_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "container_id": "45278733d4dfe4ad7c55018cbd8e8b108c86068a2c294ce80f581f94a47cdafa",
+    "container_name": "pr192_b2a_c4_b2ac4_runtime_formal_20260801c_db",
+    "anonymous_volume_name": "5ab107e204fb2f512ed9f30a1cc2ec23759c56f263b35b66ff9f94279d473a74",
+    "host_port": "46649",
+    "exact_fixture_labels": {
+      "com.jinhu.fixture": "pr192-b2a-c4-runtime-gate",
+      "com.jinhu.fixture.run-id": "b2ac4_runtime_formal_20260801c"
+    }
+  },
+  "local_gates": {
+    "status": "passed",
+    "c4_input_gate": "passed",
+    "runner_static_lifecycle": {
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pg_contract": {
+      "path": "apps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts",
+      "raw_sha256": "0aa5105b8ec16225ace6da4ca48f3f9d525f46f260fd1d120efac555659ca515",
+      "concurrent_claim_single_winner_test": "serializes concurrent claims to one winner and one zero-mutation loser",
+      "representative_cross_operation_schedules": [
+        {
+          "schedule": "command-first",
+          "isolation": "read-committed-holder-and-waiter",
+          "test_title": "coordinates command-first against a terminal waiter with observable PG locks"
+        },
+        {
+          "schedule": "terminal-first",
+          "isolation": "read-committed-holder-and-waiter",
+          "test_title": "coordinates terminal-first against a command waiter with exact rollback"
+        },
+        {
+          "schedule": "rebuild-first",
+          "isolation": "default-serializable",
+          "test_title": "coordinates rebuild-first against an authority-sync command waiter"
+        }
+      ],
+      "observer_statement_timeout": "2s",
+      "observer_absolute_deadline_ms": 3000,
+      "waiter_lock_timeout": "5s",
+      "observer_query_js_deadline_race": false,
+      "cross_operation_matrix_complete": false
+    },
+    "commands": [
+      {
+        "name": "shared-build",
+        "status": 0
+      },
+      {
+        "name": "api-typecheck",
+        "status": 0
+      },
+      {
+        "name": "api-build",
+        "status": 0
+      },
+      {
+        "name": "target-eslint",
+        "status": 0
+      },
+      {
+        "name": "runner-eslint",
+        "status": 0
+      }
+    ]
+  },
+  "run_id_preflight": {
+    "status": "passed",
+    "inspected_file_count": 4,
+    "bounded_regular_files_only": true,
+    "max_file_bytes": 8388608,
+    "reservation": {
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-runid-e06fb8af70a2b90f391e37da736f617755cabdaf0609c08ed9a3f31b8e614d3f.reservation.json",
+      "raw_sha256": "a59a0eadbd52b9756cd213866974b9c13cfb370c110a49e00ca6b49674f521f8",
+      "bytes": 416,
+      "immutable_and_preserved": true
+    }
+  },
+  "cleanup": {
+    "status": "passed",
+    "attempted": true,
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": [],
+    "exact_targets": [
+      {
+        "type": "container",
+        "id": "45278733d4dfe4ad7c55018cbd8e8b108c86068a2c294ce80f581f94a47cdafa",
+        "name": "pr192_b2a_c4_b2ac4_runtime_formal_20260801c_db",
+        "absent": true
+      },
+      {
+        "type": "anonymous-volume",
+        "id": "5ab107e204fb2f512ed9f30a1cc2ec23759c56f263b35b66ff9f94279d473a74",
+        "name": "5ab107e204fb2f512ed9f30a1cc2ec23759c56f263b35b66ff9f94279d473a74",
+        "absent": true
+      }
+    ]
+  }
+}

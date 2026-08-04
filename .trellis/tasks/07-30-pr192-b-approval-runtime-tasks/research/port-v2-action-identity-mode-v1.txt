@@ -1,0 +1,9 @@
+port-v2-action-identity-mode-v1
+row	property.task.rebuild	property-task-source-rebuild	execute-or-replay
+row	property.task.claim	property-task	execute-or-replay
+row	property.task.start	property-task	execute-or-replay
+row	property.task.block	property-task	execute-or-replay
+row	property.task.unblock	property-task	execute-or-replay
+row	property.task.release	property-task	execute-or-replay
+row	property.task.source-terminal.closed	property-task	execute-or-replay,existing-only
+row	property.task.source-terminal.cancelled	property-task	execute-or-replay,existing-only

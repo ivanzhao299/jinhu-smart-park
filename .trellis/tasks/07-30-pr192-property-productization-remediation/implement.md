@@ -24,11 +24,11 @@
 | schema-migration-owner | 本计划全部 `database/migrations/<reserved>_*.sql` |
 | menu-projection-owner | 分阶段独占 `apps/api/src/modules/users/users.service.ts` 的 property projection 与 `apps/web/lib/menu.ts`；先交付 API-only SHA，收到两份 domain route SHA 后才写 Web menu |
 | property-workbench-safety-owner | `apps/api/src/shared/property-workbench/**` 和 Track A feature-flag/fail-closed policy tests；不得写领域 service |
-| shared-property-web-owner | `apps/web/features/property-shared/**`、`apps/web/app/assets/property-operations/**`、`apps/web/app/assets/property-occupancies/**`、`apps/web/app/assets/property-mode-transitions/**` |
+| shared-property-web-owner | `apps/web/features/property-shared/**`、`apps/web/app/assets/identity-submissions/**`、`apps/web/app/property/notifications/**`、`apps/web/app/property/event-delivery-incidents/**`、`apps/web/app/property/approval-incidents/**`、`apps/web/app/assets/property-operations/**`、`apps/web/app/assets/property-occupancies/**`、`apps/web/app/assets/property-mode-transitions/**` |
 | asset-party-decision-owner | 决定并独占 `apps/web/app/assets/parties/**` target handoff；未交付时要求 housing Party link/redirect=0，或提交正式 acceptance removal |
 | homestay-web-owner | `apps/web/app/homestay/**`（含 canonical routes/route guards）、`apps/web/features/homestay/**`、本领域 Web tests |
 | housing-web-owner | `apps/web/app/housing/**`（含 canonical routes/route guards；tenant alias 仅在 Party target handoff 后 redirect）、`apps/web/features/housing/**`、本领域 Web tests |
-| property-foundation-api-owner | `apps/api/src/modules/property-operations/**` |
+| property-foundation-api-owner | `apps/api/src/modules/property-operations/**`；post-B1 adapter slice 中唯一拥有 mode transition/force release approval adapter |
 | approval-runtime-owner | `apps/api/src/modules/property-approvals/**` |
 | property-task-owner | `apps/api/src/modules/property-tasks/**` |
 | module-dependency-owner | `apps/api/src/modules/saas-modules/**` |
@@ -265,24 +265,40 @@ Track A PASS 后，高风险生产 mutation 仍关闭。
 
 ### Batch B0：B schema 和合同
 
-- shared-contract-owner：approval/identity/task/outbox contracts，输出
-  `B-contract SHA`。
-- schema-migration-owner：消费 contract SHA 完成 B expand migrations，输出
-  `B-schema-expand SHA`。
-- architecture checker：状态、原子性、锁序和 compatibility 审查。
+- `research/b0-product-access-freeze.md`：产品、访问、岗位、交互与 projection 候选。
+- `research/b0-identity-control-freeze.md`：Party/identity/control 候选。
+- `research/b0-runtime-contract-freeze.md`：runtime exact schema/effect manifest 候选。
+- final-independent-gate reviewers：产品/RBAC、identity/control、安全/财务、架构/QA
+  分别复审后交叉核对，问题回派原 owner。
 
-本批最多三个 subagent；输出：B-contract SHA、B-schema-expand SHA 和
-architecture review evidence。
+本段记录 B-0 的执行约束；四输入 freeze 现已完成 final8 独立签署。当前 Batch B0
+状态为 `PASS / CLOSED`，`open_P0_P1=[]`。最终 `B-contract SHA`、endpoint authority
+SHA、`B-schema-expand SHA` 与 catalog SHA 见本文件第 16 节；B0.5 S1 仅解除阻塞并
+等待独立重新 Gate。
+B-0 合同 Gate 只登记 provisional window。`000185_*`–`000190_*` 仅在合同 PASS 后、
+schema-migration-owner 开始 core schema implementation 并重扫 history 时形成正式
+reservation；`000191_*`、`000192_*` 保持 provisional，必须在 B2c 前由同一 owner
+再次重扫并正式 reservation。全部编号只能由 schema-migration-owner 创建或修改；
+homestay/housing/domain API owner 对 `database/migrations/**` 的修改数必须为零。
+
+本批最多三个 subagent。最终 SHA 是下游唯一输入；领域任务不得复制候选 route、
+status、schema 或 effect 定义。
 
 ### Batch B0.5：Property Foundation 与 Module Core
 
+- **S0 首切片 / high-risk code stop-ship**：只允许 homestay/housing API owner 在最终
+  合同列出的正式高风险入口、进入 service/transaction 前实现 fail-closed；覆盖
+  normal、superuser、wildcard、旧客户端和 metadata 缺失/错误。不得创建 approval
+  request、接入 runtime、实现 identity/control 或修改 module dependency。独立
+  checker PASS 后输出 `B-high-risk-stopship SHA`。
 - property-foundation-api-owner：共享控制面、Party/identity，输出
   `B-property-foundation-runtime SHA`。
 - module-dependency-owner：asset dependency，输出 `B-module-core SHA`。
 
-本批严格依赖 B-contract SHA 和 B-schema-expand SHA，最多两个 subagent。每份
-handoff 都必须包含 owned paths、base/output SHA、targeted tests 和
-`open_P0_P1=[]`。
+本批严格依赖最终 `B-contract SHA`、`B-schema-expand SHA` 和 runtime effect manifest
+SHA。S0 必须先独立关闭，之后才调度 property foundation/module core；B-0 合同 Gate
+PASS 不等于 S0 代码 Gate PASS。每份 handoff 都必须包含 owned paths、base/output
+SHA、targeted tests 和 `open_P0_P1=[]`。
 
 ### Batch B1：Approval Runtime Core
 
@@ -330,8 +346,24 @@ B-property-task-runtime SHA
 
 ### Batch B2c：Homestay/Housing Domain Integrations
 
-严格依赖 `B-extension-core fixture SHA` 和 validation SHA，最多两个领域 subagent
-并行：
+先由唯一 schema-migration-owner 独立串行交付：
+
+- 000191 → `B-property-homestay-effect-schema SHA`。
+- 000192 → `B-housing-effect-schema SHA`。
+
+两份 handoff 必须分别包含正式 reservation、rerun、约束、checksum、base/output SHA
+和 `open_P0_P1=[]`，且不得冒充 000185–000190 `B-schema-expand SHA`。
+
+随后由 property-foundation-api-owner 独立消费 `B-approval-runtime SHA` 与
+`B-property-homestay-effect-schema SHA`（000191），仅实现 property mode/release
+approval adapter，完成独立 Gate 后输出 `B-property-foundation-adapter SHA` 并释放
+路径。除该唯一 slice 外，其余 owner 对 `property-operations/**` 修改数为零。
+
+领域 API 严格依赖 `B-extension-core fixture SHA`、validation SHA、上述两份
+effect-schema SHA 和 `B-property-foundation-adapter SHA`；缺任一时 homestay/housing
+领域 API lanes 不得启动，但 schema reservation/implementation 与 foundation adapter
+子阶段按 DAG 先行。
+随后最多两个领域 subagent 并行：
 
 - homestay-api-owner：approval、check-in snapshot adapter，输出
   `B-homestay-domain SHA`。
@@ -345,6 +377,8 @@ SHA，不得提前运行。
 ### Batch B3：B Web 与共享资产控制面
 
 - shared-property-web-owner：Party/identity/control plane，并独占
+  `/assets/identity-submissions/**`、`/property/notifications/**`、
+  `/property/event-delivery-incidents/**`、`/property/approval-incidents/**`，以及
   `/assets/property-operations/**`、`/assets/property-occupancies/**`、
   `/assets/property-mode-transitions/**` 对应 route 目录；不得另设 identity Web owner
   写入这些路径。
@@ -355,6 +389,16 @@ SHA，不得提前运行。
 分别输出 shared、homestay、housing Web SHA。D3、targeted Gate 与 wiring smoke 全部
 通过后汇总为 `B-domain-integration handoff SHA`，包含所有输入/输出 SHA、owned
 paths、验证结果和 `open_P0_P1=[]`。
+
+B3 Gate 必须提供 identity 顶层 list/detail 与 Party tab deep-link、notification
+list/detail、event-delivery incident list/detail/replay、approval incident
+list/detail/retry 的精确岗位机器证据，并覆盖
+320/360/390/768/desktop、keyboard、screen reader、200%/400% zoom/reflow、
+forced-colors；缺任一矩阵不得 handoff。
+Event replay 还必须逐维移除 active `asset` module、incident page、
+`property_event:read_incident`、assigned tenant+park incident scope 与
+`property_event:replay` 并全部断言 403；`asset` module assignment missing、
+disabled、expired 必须拆分为三个 403 case，generic event/read 不可替代任何一维。
 
 ### Batch B4：Domain Handoff 后最终 Reconcile
 
@@ -591,3 +635,45 @@ UAT。Track A 技术任务关闭并允许进入 Track B；在补齐人工证据�
 P2 mixed-scope 文案用例：同一检查批次同时包含 shared contract、SQL migration/seed
 和 Web evidence 时，报告必须按 owner 与证据拆分，不能把某一 scope 的 P2 文案或
 fixture 差异笼统归责为另一 scope 的实现失败；P2 不改变 `open_P0_P1=[]`。
+
+## 16. 2026-07-31 Track B B-0 执行结论
+
+B-0 已完成并通过独立门禁，`open_P0_P1=[]`。四输入合同、49-row shared endpoint
+authority、7 个页面权限、18 个动作权限、16 个权限包/125 个成员、28 个错误码以及
+000185–000190 数据库扩展均已冻结和实现。
+
+最终证据：
+
+- `B-contract SHA=5704ab723ebd4bcc69b4e4fcf6039992ac6752b195b97beba31be5260b55d87d`
+- `endpoint authority SHA=3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf`
+- `B-schema-expand SHA=db1a9a93c6a5933d3a59fe14e7e62e8469b90af1d726f2663bf140809eedfb9a`
+- `catalog SHA=e172de5cfa6ad61dfd610134c43a2618918858d4f7af4efd24bd758af046eec7`
+- PostgreSQL 16 evidence：
+  [持久化 final8 JSON](research/b0-schema-gate-final8.json)；
+  原始执行记录 `/tmp/pr192-b0-schema-gate-final8.json`
+
+数据库门禁覆盖首次应用、直接重跑、故障注入后的恢复、漂移拒绝、目录与授权核验、
+Identity 三类 successor、四向一致性回滚、双会话 CAS race 及临时环境清理；
+`open_P0_P1=[]`、cleanup PASS。Runtime effect manifest 未定义独立 byte grammar，继续以已签署的
+runtime freeze raw SHA 为唯一来源，不生成无合同依据的新摘要。
+
+B-0 限定重开已由 final8 重新 CLOSED/PASS。`B0.5-S0` 既有 PASS 保持有效；
+`B0.5-S1` 仅解除阻塞并等待独立重新 Gate，不得标记 S1 PASS，S2/S3 继续禁行。
+
+## 17. 2026-07-31 B0.5-S0 执行结论
+
+`B0.5-S0` 已通过最终独立门禁，`open_P0_P1=[]`。两个正式高风险 URL 在 Audit、
+Idempotency 和领域 Service 前返回 exact `409 approval-required`；normal、
+superuser、wildcard 和旧客户端字符串 `force=true` 均无法绕过，`force=false`
+低风险路径保持可达。
+
+- `B-high-risk-stopship SHA=d30c601729d83155fda96a0686043cd6fcc6f098368775d1ce73aa0983dfa9d8`
+- HTTP+DB evidence：
+  `/tmp/pr192-b05-s0-http-db-b05s0-1785467231-1449385.json`
+- Cleanup evidence：
+  `/tmp/pr192-b05-s0-cleanup-b05s0-1785467231-1449385.json`
+
+真实 HTTP Gate 使用正式 controllers、Guard、Permission/Module/Idempotency/Audit/
+Response/Exception 链和隔离 PostgreSQL 16；六张 mode/occupancy/audit/idempotency/
+outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增量均为 0。临时容器
+和匿名卷已清理。S0 放行后进入 S1 shared/schema handoff，不直接跳过到 B-1。

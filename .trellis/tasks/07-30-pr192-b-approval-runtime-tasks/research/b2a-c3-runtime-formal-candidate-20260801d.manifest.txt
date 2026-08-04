@@ -1,0 +1,11 @@
+property-remediation-b2a-c3-runtime-candidate-v1
+run_id	b2ac3_runtime_formal_20260801d
+status	passed
+candidate_admissible	true
+publication_contract	artifact-and-manifest-both-required
+artifact	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c3-runtime-formal-candidate-20260801d.json	823385	76ed0588c25a0e88eb365ccff1a51e1cec2d8db26c16e127b1479feff250363a
+input_freeze	30775a755c570a15938989a99d567b81c33eaf3ede1a53079dbeaf543a1cdcfa
+reservation	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/.b2a-c3-runtime-runid-9b7cd6fb062e5ab5c1e2b7a894cef9e1c1c4020964762f50d3ab99dee38dd0d1.reservation.json	6e76447d6a1281bc5553b44dd4dad977458346996f0d13ba1859677754d32535
+pg_spec	apps/api/src/modules/property-approvals/property-mutation-receipt.pg.spec.ts	55e3bc13f6d2485bceac875a54c28573be4ad5d4eda2b758648e479c7166bc82
+pg_spec	apps/api/src/modules/property-approvals/property-approval.runtime.pg.spec.ts	acb76ad3024b14637421946b58ca4433875dd7dbd2a7a0f879554579ca5d0394
+pg_spec	apps/api/src/modules/property-approvals/outbox/property-event-runtime.pg.spec.ts	19daa20d60011fac7deed7e1d7d03f6c94e0f0b64409d67c85eaf0506b5e5c63

@@ -1,181 +1,202 @@
-# PR192 B 身份与共享控制面
+# PR192 B-0.5 Property Foundation Core PRD
 
-## 1. 目标
+> 状态：`active / B-0 and B0.5-S0 PASS`。
 
-交付资产模块下唯一 Party canonical UI、实名身份 submission/snapshot 安全模型和
-共享房产控制面，使住房租客与民宿住客共享同一受控个人档案，同时允许园区管理员
-配置经营模式、查看共享占用与切换历史。
+## 1. 阶段与唯一输入
 
-本任务不实现通用 workflow，也不拥有 approval runtime、跨领域 maker-checker 集成
-或 migration/reconcile 脚本。B1 先提供 identity/property foundation API/runtime
-core 和 Web 输入合同；check-in/domain adapters、canonical Web、shadow/final
-reconcile 分别在后续 B2c、B3、B4 消费这些 handoff。
+本子任务阶段名固定为 **`B-0.5 property foundation core`**。不得再沿用旧阶段名
+指代本子任务；`B-1` 只保留给父计划后续 approval runtime。
 
-## 2. Canonical 产品表面
+实现唯一输入是父任务以下四份 freeze/addendum 在最终 B-0 Gate 通过后形成的 SHA：
 
-- `/assets/parties/[partyId]`：唯一 Party 详情、非敏感资料、身份维护、实名提交、
-  核验结果和授权审计表面。
-- `/assets/property-operations`：房源经营设置列表。
-- `/assets/property-operations/[unitId]`：经营详情、阻断原因和模式申请入口。
-- `/assets/property-occupancies` 与 `/assets/property-occupancies/[occupancyId]`：
-  跨业态占用只读日历/详情。
-- `/assets/property-mode-transitions`：模式切换历史。
+- `research/b0-identity-control-freeze.md`
+- `research/b0-runtime-contract-freeze.md`
+- `research/b0-product-access-freeze.md`
+- `research/b0-schema-physical-addendum.md`
 
-`/housing/tenants/[partyId]`、民宿住客入口和任务深链均指向 canonical Party detail，
-不得另建 housing/homestay identity CRUD。普通业务角色不得因此获得 generic
-occupancy 写权限。
+四份 SHA 按冻结 grammar 合成为父任务 `B-contract SHA`。本文件只规划消费与验收，
+不复制或派生第二套 schema、状态机、权限、错误、锁序或 API 合同。四输入不一致、
+SHA 未登记或
+`open_contract_P0_P1` 非空时，本子任务不得开始；实施中需要改变合同必须回父任务
+重新复审并产生新 SHA。
 
-## 3. Party 四权分离
+## 2. 目标与范围
 
-以下权限互不蕴含：
+交付共享 Party/Identity 与 property control 的 foundation runtime，使住房、民宿和
+资产控制面消费同一身份与房产底座，并为后续 B-1 approval runtime、B-2 领域接入和
+B-3 Web 集成提供稳定 handoff。
 
-- `party:create`：创建非敏感基础档案。
-- `party:update`：修改姓名、联系方式、同意状态、备注等非身份字段。
-- `party:identity_update`：写入、修改或清除证件身份。
-- `party:identity_verify`：核验 requested/pending submission。
-- `party:sensitive_read`：读取授权后的完整敏感字段。
+本阶段包含：
 
-`party:create` 不得单独写身份字段；旧 payload 兼容期同时要求 create 与
-identity_update。默认 built-in role 不同时授予 identity_update 和 identity_verify。
-Verifier 不得核验本人 requested、recorded 或 submitted 的身份。搜索结果默认脱敏，
-敏感读取不得隐含修改或核验。
+- `B0.5-S0` 高风险直执 fail-closed 修复。
+- Identity/Party canonical commands、projection、protected evidence 与 verifier port。
+- Property operations/occupancies/control API foundation 与 `asset` module dependency。
+- 已批准、仅覆盖 `000185–000190` 的 `B-schema-expand SHA` 与 shared contract 的
+  消费、API/DB/权限/并发合同测试；本子任务不产 schema/migration。
+- 后续 Web 所需 route、projection、`allowedActions` 和 deep-link input handoff。
 
-## 4. Identity Submission 与 Snapshot
+本阶段不包含：
 
-- 每个 Party 最多一个 active requested/pending-verification submission，数据库
-  partial unique 或等价约束为最终并发权威。
-- Submission 记录状态、actor、Party identity version、snapshot pointer 和 optimistic
-  version；状态转换使用 expected status/version CAS。
-- 进入待核验时同一 transaction freeze 不可变 snapshot。
-- Snapshot 保存 document type、normalized identity hash、algorithm/version、加密
-  payload reference/key/format、captured actor/time、protected file ID/version/SHA-256。
-- 修改身份必须 supersede 旧 submission、递增 identity version 并创建新 snapshot；
-  禁止就地覆盖已提交 snapshot。
-- 密钥轮换只允许重加密 payload，不改变业务 hash/version/file snapshot。
+- Approval、task、event/notification runtime 的实现。
+- 民宿 check-in、住房/民宿领域 adapter。
+- Party/control Web 页面实现。
+- backfill、shadow、final reconcile、生产 enforce。
+- B-2c adapter 开始前才需要的 `000191/000192` effect owning migrations；它们不是
+  B-0.5 prerequisite 或 deliverable。
 
-Create、supersede、verify 按 Party → current submission → snapshot/file 的统一锁序
-执行，并结合 CAS；并发失败返回可解释 409。
+## 3. 强制执行顺序
 
-## 5. Check-in 原子合同
+1. 取得四份最终 freeze/addendum SHA 与父任务 Gate 记录。
+2. 只实施 `B0.5-S0`：现有模式切换与 `force=true` 释放在 approval runtime 接入前
+   按 exact `approval-required` 合同返回，normal/super/wildcard 均为零业务 mutation。
+3. `B0.5-S0` 通过独立 Gate 后，才允许实施其余 property foundation core。
+4. foundation core 通过后形成 runtime/UI-input handoff；后续 B-1/B-2/B-3/B-4 各自
+   按父计划消费。
 
-民宿 check-in transaction 必须：
+`B0.5-S0` 未 PASS 时，身份控制面、module dependency 或其他 B-0.5 切片全部禁行。
 
-1. 锁 booking。
-2. 按稳定顺序锁所有 Party。
-3. 锁 current verified submission 和 snapshot。
-4. 重新验证 current pointer、identity version/hash/algorithm、document type、
-   protected file versions、consent 和 booking scope。
-5. 写入住状态与审计。
+## 4. Canonical 产品与 API 表面
 
-审计保存 submission ID/version、snapshot ID、identity version、algorithm 和 file
-digest。核验后身份被 supersede、撤销、跨 scope 或附件变化时入住 fail closed。
-不得在事务外预读后直接入住。
+Canonical 用户表面：
 
-## 6. 共享房产控制面
+- `/assets/parties`
+- `/assets/parties/[partyId]`
+- `/assets/identity-submissions`
+- `/assets/identity-submissions/[submissionId]`
+- `/property/notifications`
+- `/property/notifications/[notificationId]`
 
-- `asset` 是 homestay/housing_rental 的显式商业依赖，不自动启用。
-- 有依赖模块时关闭 asset 返回 409；缺 asset 时启用依赖模块返回 409。
-- 房源经营设置显示 live owning aggregates 与共享占用阻断，不只信任 projection。
-- generic occupancy API 不能声明 homestay/housing/commercial leasing source。
-- 普通订单/租约/保洁/维修通过 owning aggregate 管理占用。
-- 模式切换和强制释放只从资产详情申请，Track B approval enforce 前不可直执。
+Identity mutation/query 只使用顶层 `/property/identity-submissions/**` canonical API。
+Party API/Page 只提供授权后的 `identitySummary` projection 和 freeze 规定的 identity
+deep link；Party tab 是 profile/summary/deep-link，不承载 identity editor、核验决定或
+审计 mutation。Identity list/detail 是录入、assigned-verifier queue、核验与 audit
+工作台；notification list/detail 是本人通知与 canonical source deep-link 工作台。
 
-## 7. 迁移、Shadow、兼容与回滚
-
-Identity schema 与 migration 由 `schema-migration-owner` 独占；shared contract 由
-`shared-contract-owner` 独占；reconcile 脚本由 `migration-reconcile-owner` 独占。
-本任务只消费其 handoff 并实现 property foundation runtime；B1 不实现 Web。Web
-需求和合同进入 `B-identity-ui-input SHA`，由父计划 B3 的
-`shared-property-web-owner` 在 B2c 完成后实施。
-
-迁移顺序：
+Identity exact 六状态只引用 identity freeze：
 
 ```text
-expand
-→ compatibility adapter
-→ change capture
-→ deterministic backfill
-→ mutation replay
-→ shadow reconcile
-→ per-tenant final lock/reconcile
-→ enforce
+draft
+pending_verification
+verified
+rejected
+withdrawn
+superseded
 ```
 
-Legacy submission 使用固定 namespace UUIDv5。Backfill 必须保留 legacy
-actor/source/confidence，不伪造 verifier：
+Draft 可编辑但不可 withdraw；pending 且没有 decision fact 时才可 withdraw。
+Rejected/withdrawn 重提使用 canonical create-draft + `supersedesSubmissionId`，不存在
+identity retry endpoint。Snapshot、decision、actor、legacy、CAS、pointer 与复合 FK
+均以 identity freeze 为唯一权威，本 PRD 不重述 schema。
 
-- verified + 完整 identity → verified snapshot/submission + current pointer。
-- rejected + identity → rejected snapshot/submission。
-- unverified + identity → pending verification。
-- unverified + 无 identity → 不创建。
-- terminal status 但 identity 不完整 → anomaly，禁止 enforce。
+Assigned verifier authority 同样只引用 identity freeze：submit 冻结 queue/policy，
+claim/reassign/revoke 使用 submission+assignment version CAS 和 append-only audit；
+只有当前 assigned verifier 可 decide。List items/count 使用同一 eligibility predicate。
+Queue authority/FK、conditional queue/policy CHECK、decision composite trigger 与
+legacy queue/anomaly 均只消费 `B-schema-expand SHA`，本 PRD 不复制。Canonical
+claim/reassign/audit routes/actions 不在本 PRD 另起别名；product-access 最终 SHA
+补充这些 action 时必须逐字一致。
 
-旧 Party create/update/verification API 保留两个发布周期并调用 canonical command；
-旧宽权限不再授权身份修改或核验。Shadow 硬差异阈值为零。Rollback 只关闭 UI/enforce，
-不删除 submission、snapshot、approval 或 audit，也不恢复同人核验和旧宽权限。
+Property surface 固定为父 freeze 中的：
 
-## 8. UX、字段与文件安全
+- `/assets/property-operations/**`
+- `/assets/property-occupancies/**`
+- `/assets/property-mode-transitions`
 
-- Party detail 分为资料、身份、核验、审计区块，每个区块独立 permission/query。
-- 无 `party:sensitive_read` 时显示 masked/omitted projection；Web 不持有完整字段后
-  自行脱敏。
-- permission/module/tenant/park/scope 变化立即清除 picker cache、选中 Party、详情
-  snapshot 和相关草稿。
-- 身份文件使用 protected biz type；领域权限与 `file:read/upload/download` 和 Party/
-  unit scope 相交。绑定与删除使用同一 file-row lock，禁止 dangling reference。
-- 核验表单显示 immutable snapshot 版本，上传进行中不得提交；已提交证据只读。
-- 所有高风险确认展示 Party、版本、影响和 actor 分离规则；成功/冲突可读屏宣布。
-- 页面复用 `ds-*` 和共享上传/预览组件，支持 desktop/360/390、键盘和 WCAG 2.2 AA。
+高风险 action ID 固定为 `property.mode-transition.request` 与
+`property.occupancy.force-release.request`。B-1 接入后仍沿用同一领域 URL 创建
+approval request，不新增旁路 URL。Runtime `effect_kind` 是执行结果 identity，与
+`.request` action ID 分离并直接引用 runtime/product 统一字面量与
+`^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$` pattern；不得在 child 定义另一 regex。
 
-## 9. 分阶段交付
+## 5. 权限、深链与字段
 
-### 9.1 B1 Core Milestone
+权限 exact-set、built-in bundle/岗位 grant、stage eligibility、字段/文件投影和错误
+目录全部引用四输入 freeze/addendum。特别要求：
 
-输出 `B-property-foundation-runtime SHA`，只包含：
+- wildcard/super 不绕过 module、scope、actor separation、snapshot 或 fail-closed。
+- Identity/notification workbench page permissions 固定为
+  `asset:identity-submissions:page`、`property:notifications:page`；bundle code 使用
+  `property-bundle:*` namespace 并逐字消费 product-access exact grants。
+- Approval incident 与 event-delivery incident 分别使用
+  `property:approval-incidents:page`、`property:event-delivery-incidents:page` 及独立
+  minimal operator bundle，列表/action/scope 不得互相替代。Event incident read
+  必须同时通过 active `asset` module+page+`property_event:read_incident`+assigned
+  scope，replay 另验 replay permission。Approval incident read 必须同时通过 active
+  `asset` module+approval incident page+`property_approval:read_incident`+assigned
+  scope；retry 另验 `property_approval:retry`。
+- Event list/detail/replay 与 approval incident read/retry 遇到 `asset` module assignment
+  missing、disabled、expired 时分别返回 403；page/action/scope 任一缺失同样 403，
+  generic module/read/manage/audit 不可替代。
+- Operator 不自动 sensitive-read/download；assigned verifier 默认只读 masked evidence
+  metadata，按需 protected download 重新校验 assignment/scope/file permission 并审计。
+- Supervisor 以 `property_task:supervise` 调用既有 release/unblock，不存在 supervise
+  action；approval retry 与 task rebuild 使用各自独立权限。
+- Business data/query 和 error detail 使用 freeze 规定的 camelCase，包括
+  `allowedActions`、filter、`sort`、`order`、`errorCode`、`latestVersion`、
+  `recoveryAction`；envelope 仅 `request_id/server_time` 使用 snake_case，且
+  `server_time` 为 epoch-milliseconds number。
+- Identity/notification deep link 只由服务端 allowlist 生成，并在点击与目标 API
+  重新验证 current module/page/action/scope；失权不得泄露 source ID。
+- Party identity audit 不新增权限，按 freeze 组合
+  `party:sensitive_read + audit:read`。
 
-- 已冻结 schema/shared contract 的消费。
-- Party/identity canonical commands、projection 和 protected-file policy。
-- Submission/snapshot、partial unique、锁序、CAS 和 identity verifier port。
-- Property operations/control API runtime core 和 approval-required boundary。
-- API/HTTP/DB contract tests。
+## 6. Transaction 与领域边界
 
-同时输出只读的 `B-identity-ui-input SHA`，包含 Party/control canonical route、字段/
-文件 projection、状态矩阵、permission 和 UX contract。B1 不包含 check-in adapter、
-领域 maker-checker adapter、任何 Party/control Web 页面、shadow/backfill/final
-reconcile。`B-property-foundation-runtime SHA` 可在这些后续能力之前交给 B2b。
+所有实现使用父 freeze 的唯一全局锁序：
 
-### 9.2 后续 Milestones
+```text
+approval request/execution
+→ property advisory
+→ domain source/owning aggregate
+→ Party
+→ assignment/current submission
+→ snapshot
+→ protected file
+→ effect/audit/outbox
+```
 
-- B2c：domain integrations 消费 foundation/runtime SHA，实现 check-in 和领域 adapters。
-- B3：`shared-property-web-owner` 同时消费 UI input SHA 与 B2c handoff，实现全部
-  Party/identity/control Web。
-- B4：migration-reconcile 完成 backfill、shadow、final reconcile、rollback/re-enable。
-- 上述全部通过后，另行输出 `B-identity-control-technical SHA`；它不是 B1 core SHA。
+不存在的层级可跳过，但不得反向补锁。Identity-only command 从 Party 开始；check-in
+与领域 adapter 由后续 owner 在 source/booking 后进入同一顺序。Generic file delete
+先锁 owning reference，再 snapshot/file；不能安全改序时返回 freeze 规定的稳定冲突。
 
-## 10. 不在范围
+## 7. 产物与 Handoff
 
-- approval execution/outbox/inbox、task assignment 的实现。
-- 住房/民宿领域审批集成或账务迁移。
-- 通用 workflow、公安或第三方实名服务。
-- 破坏性 schema rollback。
+通过 B-0.5 Core Gate 后输出：
 
-## 11. 验收标准
+- `B-property-foundation-runtime SHA`：foundation API/runtime、verifier port、module
+  dependency、control fail-closed 与合同测试。
+- `B-identity-ui-input SHA`：只含父 freeze 的 canonical routes、camelCase projection、
+  `allowedActions`、permission、identity/notification deep-link 与 UX 验收输入，不含
+  Web 实现。
 
-- [ ] B1 可独立输出 `B-property-foundation-runtime SHA` 和
-  `B-identity-ui-input SHA`，不等待 B2c/B3/B4。
-- [ ] B1 core 不包含 Web、check-in/domain adapters 或 shadow/final reconcile。
+Handoff 必须记录三个 freeze SHA、base/handoff SHA、owned paths、验证结果和
+`open_P0_P1`。后续 B-1 approval runtime 只能消费该 handoff，不得改写本阶段合同。
+B-2c handoff 只附父 DAG 指针：post-B1 `property-foundation-api-owner` 在自身 Gate
+另行取得 `000191` 的 `B-property-homestay-effect-schema SHA`，并输出唯一
+`B-property-foundation-adapter SHA`；housing owner 另取 `000192` SHA。B-0.5
+不等待、不验证也不交付这些 SHA。
 
-- [ ] Party 只有一个 canonical detail；住房/民宿入口均深链或重定向到该页面。
-- [ ] 四权 API/UI/字段/文件 exact-set 和最近越权 403 全通过。
-- [ ] 每 Party 单 active submission DB 约束、锁序、CAS 和状态转换通过。
-- [ ] Snapshot 不可变，supersede 创建新 version，旧 snapshot 可审计。
-- [ ] Check-in 同 transaction 重验并记录 submission/snapshot/version/file digest。
-- [ ] create/supersede/verify/check-in 并发和 TOCTOU 测试通过。
-- [ ] Backfill 幂等可重跑，shadow zero-difference 后才允许 tenant enforce。
-- [ ] 旧 API/client 两周期兼容，回退/re-enable 不丢 submission 或审计。
-- [ ] 共享控制面、asset dependency、generic occupancy 禁写和 live blocker 通过。
-- [ ] 模式切换/强制释放未接 approval 时 fail closed。
-- [ ] 敏感字段与文件跨 tenant/park/scope 不泄露存在性。
-- [ ] canonical UI 状态、移动、WCAG/DS 和 protected upload recovery 通过。
-- [ ] Canonical Web 只在 B2c handoff 后由父计划 B3 owner 实施。
-- [ ] 所有跨 owner handoff SHA 明确且 open P0/P1 为零。
+## 8. 验收标准
+
+- [x] 四份最终 freeze/addendum SHA 已登记且是唯一合同输入。
+- [ ] 阶段与报告统一使用 `B-0.5 property foundation core`。
+- [ ] `B0.5-S0` 独立 PASS，normal/super/wildcard 高风险直执均零 mutation。
+- [ ] Identity 只使用顶层 submission API 与 exact 六状态，无旧状态别名、嵌套
+      mutation 或 retry endpoint。
+- [ ] Append-only decision、immutable snapshot、CAS、actor separation 和 composite
+      scope 约束按 freeze 的 API/DB tests 通过。
+- [ ] Assigned verifier queue/policy、claim/reassign/revoke CAS/audit、same-predicate
+      list/count 与 assigned-only decide 通过。
+- [ ] 全局锁序、file reference/delete 和并发测试无局部反向锁。
+- [ ] Asset dependency、live blocker、generic occupancy ownership 与 control API 通过。
+- [ ] Bundle/page permission、masked metadata/on-demand protected download、camelCase
+      error detail、numeric `server_time`、`allowedActions` 与 deep-link 负向测试通过。
+- [ ] Identity freeze §4.1 exact DTO/query/response/Party summary 与
+      `X-Idempotency-Key=clientKey` receipt contract 通过正负向测试。
+- [ ] 10 条 Identity route 全部通过 active `asset` + identity page + exact action +
+      scope；000185 双 CAS、唯一 audit/decision 入口和三向 deferred consistency 通过。
+- [ ] 本子任务只消费覆盖 `000185–000190` 的 `B-schema-expand SHA`，未创建或修改
+      schema/migration。
+- [ ] 本阶段没有 Web、领域 adapter、runtime approval/task/notification 或 reconcile
+      越界实现。
+- [ ] Runtime 与 UI-input handoff 可由 B-1/B-2/B-3 消费，open P0/P1 为零。

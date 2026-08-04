@@ -1,0 +1,45 @@
+c4-runtime-runner-static-evidence-v1
+stage	C4 RUNTIME RUNNER STATIC PASS
+owner	property-task-runtime-gate-owner
+executed-at	2026-08-01
+formal-pg-gate	BLOCKED_BY_ARCHITECTURE_P1
+docker-used	false
+run-id-reservation-created	false
+candidate-artifact-created	false
+candidate-manifest-created	false
+container-created	false
+anonymous-volume-created	false
+runner-path	scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs
+runner-raw-sha256	4ceec30105e397ccf3f030cb0ca8d698c73827194d765ca5693f19ec2af95a51
+runner-bytes	24553
+lifecycle-path	scripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs
+lifecycle-raw-sha256	8dc2800bbf8b9b95c26b5de8413699efa9b99744c19f76e6faece632f7fa730d
+lifecycle-bytes	4759
+static-test-path	scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs
+static-test-raw-sha256	11daa01ff7544756ce26f2eacd495038f6cb4fbf562fd8b4859de78963850a40
+static-test-bytes	9797
+command-1	/home/jinhuit/.nvm/versions/node/v20.20.2/bin/node --check scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs
+command-1-result	PASS
+command-2	/home/jinhuit/.nvm/versions/node/v20.20.2/bin/node scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs
+command-2-result	PASS; tests=9; passed=9; failed=0; skipped=0
+command-3	PATH=/home/jinhuit/.nvm/versions/node/v20.20.2/bin:$PATH pnpm exec eslint scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.mjs scripts/e2e/property-remediation/track-b2a-c4-runtime-lifecycle.mjs scripts/e2e/property-remediation/track-b2a-c4-runtime-gate.spec.mjs
+command-3-result	PASS; errors=0; warnings=0
+fake-runid-race	PASS; one-authority-one-non-admissible-attempt
+fake-cleanup-exact-target	PASS
+fake-cleanup-label-mismatch	PASS; deletion-refused
+fake-not-created-cleanup	PASS; no-target-action
+failure-signal-publication	PASS; cleanup-before-non-admissible-publication
+immutable-reservation-artifact-manifest	PASS; wx
+signed-input-freeze-before-after	STATIC_PASS
+postgres-image	postgres:16-alpine
+migration-chain	185,186,187,188,189,190,193,194,195
+deterministic-orders	A-first,B-first
+coordinator-latches	lock-before-ready,after-first-lock
+holder-waiter-observation	pg_locks,pg_stat_activity.wait_event_type=Lock
+timeouts	lock=5s,statement=60s,deadlock=1s
+sleep-based-coordination	false
+explain-budget-contract	STATIC_PASS
+production-enablement	false
+b3-web-consumer-status	pending
+validation	PASS_STATIC_ONLY
+open-p0-p1	blocked-by-upstream-architecture-review

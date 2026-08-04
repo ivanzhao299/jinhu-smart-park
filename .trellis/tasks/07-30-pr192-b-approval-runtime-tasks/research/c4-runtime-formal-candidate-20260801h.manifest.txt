@@ -1,0 +1,10 @@
+property-remediation-b2a-c4-runtime-candidate-v1
+run_id	b2ac4_runtime_formal_20260801h
+status	passed
+candidate_admissible	true
+publication_contract	artifact-and-manifest-both-required
+artifact	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-candidate-20260801h.json	164355	81b9811e001bd83d56482d106b9b8ccfaf657bfa8190418c98dbce976866ad28
+input_freeze_before	03a3bed4bb2f26d2730d3a6a24417b5cb9be10ae8b3b4ca547a7699c0d12b7c8
+input_freeze_after	03a3bed4bb2f26d2730d3a6a24417b5cb9be10ae8b3b4ca547a7699c0d12b7c8
+reservation	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-runid-b1fa120a99ce8cc881201b2cf465aa237cf4f4bba5e03f03f3e4e109b05bd8a0.reservation.json	e05db532ef920bfedc3967064e32c3a972cdff9a84d4733e0731148352e29407
+pg_spec	apps/api/src/modules/property-tasks/property-task.runtime.pg.spec.ts	d0928502a4e06a2c76bf71e7e69bc0b0a834239492992fc9d3d180c308373ece	11	11

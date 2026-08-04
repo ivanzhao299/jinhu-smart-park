@@ -1,0 +1,43 @@
+{
+  "schema_version": "property-remediation-track-b-ar1-schema-handoff-final-v1",
+  "status": "passed",
+  "consumption_status": "active",
+  "contract_sha256": "a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8",
+  "schema_expand_sha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+  "source_evidence": "/tmp/pr192-b0-readiness-formal-final.json",
+  "source_evidence_raw_sha256": "a10b0d1ab7d90f8c2f2913dfdb8929fc84a150588490001fa5388949b5b4300b",
+  "catalog_sha256": "a8af55efa8567e597f7706df6559de9761564bd5641f5584724486f772fc3b0f",
+  "security_sha256": "b3099bc2f5b4ed55abd284233ef2f41b0573f2fb9cf869de803af5f0ad9305da",
+  "requested_fresh_run_count": 3,
+  "completed_fresh_run_count": 3,
+  "deterministic": true,
+  "final_liveness_all_passed": true,
+  "cleanup_all_passed": true,
+  "migrations": [
+    {
+      "filename": "000185_property_b_identity_schema_expand.sql",
+      "sha256": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec"
+    },
+    {
+      "filename": "000186_property_b_approval_runtime_schema.sql",
+      "sha256": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e"
+    },
+    {
+      "filename": "000187_property_b_event_notification_schema.sql",
+      "sha256": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"
+    },
+    {
+      "filename": "000188_property_b_task_runtime_schema.sql",
+      "sha256": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"
+    },
+    {
+      "filename": "000189_property_b_module_rbac_definitions.sql",
+      "sha256": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2"
+    },
+    {
+      "filename": "000190_property_b_migration_compatibility_control.sql",
+      "sha256": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"
+    }
+  ],
+  "open_P0_P1": []
+}

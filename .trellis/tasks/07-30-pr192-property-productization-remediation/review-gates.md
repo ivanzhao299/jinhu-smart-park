@@ -251,6 +251,171 @@ P2 mixed-scope 文案用例保留为报告规范：同一批次含 shared、SQL 
 scope/owner/evidence 拆分描述，不能把某 scope 的 P2 文案或 fixture 差异升级成另一
 scope 的 P1；该 P2 不改变 `open_P0_P1=[]`。
 
+### 3.12 Track B B-0 合同 Gate：PASS / shared-schema implementation in progress
+
+以下三份 `research/` freeze 已登记为 B-0 共同冻结权威：
+
+1. `b0-product-access-freeze.md`
+2. `b0-identity-control-freeze.md`
+3. `b0-runtime-contract-freeze.md`
+
+2026-07-31 在此前关闭 page exact-set 与 000189/000190 物理 schema 漂移后，实现
+复审发现两个已冻结控制面 API 未进入 product action/route exact contract：
+`property.mode-transition.list` 与 `property.occupancy.availability.check`。该问题按
+P1 限定重开并完成修订，随后由独立产品/RBAC与架构 reviewer 复核通过；当前结论为
+**PASS**，`open_P0_P1=[]`，允许继续 shared/schema implementation，不允许提前进入
+B0.5 业务代码。
+
+本轮限定复审必须确认：
+
+- mode-transition list 的 method/path、page + action permission、tenant+park+unit
+  scope 逐字一致；
+- availability POST 是零 mutation 的只读查询，使用 occupancy page + read permission
+  与 tenant+park+unit/source candidate scope，不要求幂等，不创建任何业务事实；
+- 两条 API 的 module/page/action/scope、superuser/wildcard、跨 scope 和零副作用
+  负向测试完整，且没有新增 permission code。
+
+此前已关闭范围保留为本轮复审输入：
+
+- 新增 page permission exact-set 恰好为
+  `asset:identity-submissions:page`、`asset:property-operations:page`、
+  `asset:property-occupancies:page`、`asset:property-mode-transitions:page`、
+  `property:notifications:page`、`property:event-delivery-incidents:page`、
+  `property:approval-incidents:page` 七项；
+- `asset:party` 是既有权限，不计入新增集合，也不能替代任一新增 page permission；
+- canonical surface、bundle、module/page/scope 授权边界及逐页负向测试逐字一致。
+
+原三输入 manifest 与限定重开前的四输入 digest 均已 superseded；限定复审通过后按
+四输入非循环 grammar 重新生成 manifest。
+此前已完成且不受本次 P1 影响的交叉验证结论保留为复审输入：
+
+- 三份候选的 action、permission、canonical surface、状态、错误和 compatibility 无冲突。
+- runtime exact schema/effect manifest 是数据库约束、事务和 effect 行为的权威引用。
+- 产品/领域计划只消费最终 SHA，不保留旧 route/status/schema 的并列副本。
+- 原记录为 `open_P0_P1=[]`；本次 7-page P1 重新打开后，该记录仅作历史输入，必须
+  由 limited re-review 重新确认。
+
+Migration reservation 只读预检（2026-07-31）：
+
+- 工作树最高编号为 `000184`。
+- 本地隔离 PostgreSQL 16 的 `sys_schema_migration_history` 与
+  `schema_migrations` 最高均为 `000182`，状态仅有 `succeeded`。
+- 两张历史表 filename/checksum/status 差异为 0，`000185`–`000192` 占用数为 0。
+- 因迁移文件尚未创建，以上仅证明编号窗口可用；正式 reservation 必须由唯一
+  schema-migration-owner 创建文件并再次执行相同预检，不能把本次查询当作
+  `B-schema-expand SHA`。
+
+最终签署矩阵：
+
+| 签署视角 | 必审内容 | 当前状态 |
+|---|---|---|
+| 产品 | canonical surfaces、九岗位旅程、`.request` action、两条控制面查询与恢复动作 | PASS（控制面 action/route exact contract 独立复核通过） |
+| RBAC/安全 | page/action/data/field/file、`property-bundle:*` 最小授权、两条控制面查询 module/page/action/scope 与零副作用负向、incident 最近越权 | PASS（49-row endpoint authority 与负向矩阵冻结） |
+| 运营 | assigned verifier queue、通知投递、event-delivery replay、approval retry、task admin rebuild 与 SLA | PASS（产品/岗位旅程复审） |
+| QA | exact route/DTO/error、CAS/并发/负向、traceability 与清理；两条控制面查询逐维缺失、super/wildcard、跨 scope 和零 mutation；event replay 五维负向 | PASS（新增 exact route 与零 mutation 断言已冻结） |
+| UI/交互/无障碍 | identity/notification/event-delivery-incident/approval-incident routes、320/360/390/768、键盘/读屏/zoom/reflow/forced-colors | PASS（合同与机器验收标准冻结；真实浏览器/UAT 仍外置） |
+| DB/schema | exact schema、B-0 provisional window、合同 PASS 后 000185–000190 reservation、B2c 前 000191/000192 reservation、rerun、FK/CHECK/index/seed 与 effect manifest | PASS（限定终局 DB/schema 第三至四轮） |
+| 架构 | action/effect 分离、事务/锁序、runtime manifest 权威性、000189/000190 physical addendum、post-B1 property approval adapter 独立 Gate | PASS（限定终局架构第六轮） |
+
+七项必须分别留下 reviewer、时间、输入 hash、结论和 open findings；任何一项不得由
+修复者自签，也不得以其他视角的 PASS 代签。
+
+旧三输入 digest 与限定重开前的四输入 digest 均已 superseded。独立复审已重新确认
+`open_P0_P1=[]`，并按四输入非循环 grammar 重算 exact file hash 与
+`B-contract SHA`；schema owner 只能消费最新 manifest。
+
+2026-07-31 B-0 shared/schema 最终门禁：**PASS / CLOSED**，`open_P0_P1=[]`。
+
+- B-contract SHA：
+  `5704ab723ebd4bcc69b4e4fcf6039992ac6752b195b97beba31be5260b55d87d`
+- 49-row endpoint authority SHA：
+  `3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf`
+- B-schema-expand SHA：
+  `db1a9a93c6a5933d3a59fe14e7e62e8469b90af1d726f2663bf140809eedfb9a`
+- catalog SHA：
+  `e172de5cfa6ad61dfd610134c43a2618918858d4f7af4efd24bd758af046eec7`
+- PostgreSQL 16 evidence：
+  [持久化 final8 evidence](research/b0-schema-gate-final8.json)；
+  原始执行记录 `/tmp/pr192-b0-schema-gate-final8.json`，
+  run `bschema20260731b0final8`
+- Runtime effect manifest 尚未冻结独立 byte grammar；其权威来源是
+  `b0-runtime-contract-freeze.md` raw SHA
+  `a2e0c3d81bd8443cbe654f48776b73361a94b6b22d2abcb8931f53ddff62f5be`。
+  本 Gate 明确不虚构独立 runtime-effect digest。
+
+动态 Gate 覆盖 clean apply、故障注入后的事务回滚/停止/重试、双历史表、同 schema
+直接重跑、enabled-control 漂移拒绝、1101 个 marker、180 个定义行、ACL、
+10 个 Identity function、3 个 immediate trigger、4 个 deferred constraint trigger、
+六个 command function 受控执行、direct DML 拒绝、verified/rejected/withdrawn
+successor、四向一致性回滚和双会话 CAS race，以及容器和匿名卷清理。静态独立复审、
+shared build/noEmit/9 项测试、API schema spec、API typecheck、定向 lint 与 diff-check
+均通过。
+
+B-0 合同 Gate 对 migration 只要求登记 provisional 编号窗口和无冲突扫描证据，不要求
+提前创建 migration 文件。`000185`–`000190` 只有在合同 PASS 后、由
+schema-migration-owner 开始 schema implementation 时才成为 formal reservation；
+`000191`/`000192` 仍是 provisional，必须在 B2c 开始前由同一 owner 重扫 history、
+正式 reservation，并分别交付 `B-property-homestay-effect-schema SHA` 与
+`B-housing-effect-schema SHA`。缺任一时 D2/B2c 不得启动；两份 SHA 不得冒充
+000185–000190 `B-schema-expand SHA`。Domain API owner 不得用“B-0 已评审”作为提前
+占号或写 migration 的依据。
+
+两份 effect-schema SHA 交付后，post-B1 `property-foundation-api-owner` 必须独立消费
+`B-approval-runtime SHA` 与 `B-property-homestay-effect-schema SHA`（000191），只在
+`property-operations/**` 实现 mode transition/force release approval adapter。该
+slice 的独立 Gate 必须验证 request→approval→effect、最近越权、super/wildcard
+fail-closed、rollback 和禁止路径例外边界；通过后输出
+`B-property-foundation-adapter SHA` 并释放路径。两领域 owner 在该 SHA 与两份
+effect-schema SHA 全部存在前不得启动，其他 owner 对 `property-operations/**`
+修改数必须为零。
+
+B-0 合同 P0 关闭只证明合同冻结，不证明实际高风险路径已阻断。B0.5-S0 是独立代码
+stop-ship Gate：首切片只做 controller/service/transaction 前 fail-closed，必须覆盖
+normal、superuser、wildcard、旧客户端与 metadata 负向；不得创建 approval request
+或顺带实现 runtime、identity/control、module core。它只有独立代码证据通过后才可
+输出 `B-high-risk-stopship SHA`。
+
+### 3.13 B0.5-S0 高风险直执门禁：PASS / CLOSED
+
+2026-07-31 最终结论：**PASS**，`open_P0_P1=[]`。
+
+- `B-high-risk-stopship SHA`：
+  `d30c601729d83155fda96a0686043cd6fcc6f098368775d1ce73aa0983dfa9d8`
+- 三组定向 spec 共 10/10，通过 API noEmit typecheck、定向 ESLint 和 diff-check。
+- 真实 HTTP + PostgreSQL 16 evidence：
+  `/tmp/pr192-b05-s0-http-db-b05s0-1785467231-1449385.json`
+- cleanup evidence：
+  `/tmp/pr192-b05-s0-cleanup-b05s0-1785467231-1449385.json`
+
+独立 Gate 覆盖 normal/superuser/wildcard 的 mode transition 与 force release、
+旧客户端字符串 `force=true`、exact 409 envelope、六表零 mutation、Audit/
+Idempotency/领域 Service 零调用、`force=false` 低风险可达以及 metadata 合法 pair
+跨路由互换负向。临时数据库容器和匿名卷均已清理。该 Gate 只放行 B-0.5 S1–S4，
+不代表 identity/module core、B-1 approval runtime 或生产能力已完成。
+
+### 3.14 B-0.5 S1 handoff：UNBLOCKED / awaiting independent re-Gate
+
+2026-07-31 更新：B-0 限定重开项已全部关闭，S1 已解除阻塞但**尚未重新 Gate，
+不得标记 PASS**。S0 PASS 与
+`B-high-risk-stopship SHA=d30c601729d83155fda96a0686043cd6fcc6f098368775d1ce73aa0983dfa9d8`
+保持有效；S2/S3 在 S1 独立重新 Gate 通过前仍禁行。
+
+历史开放项（均已由 B-0 final8 关闭，等待 S1 消费复验）：
+
+- P0：`000185` 缺 assignment 双 CAS database function、assignment/latest-audit
+  deferred consistency、decision assigned-verifier binding 与 terminal consistency。
+- P1：Identity create/update/list/detail、filter/sort、masked evidence 与 Party
+  `identitySummary` 尚未形成 exact wire contract/shared type。
+- P1：10 条 identity endpoint 的 page permission 与 surface 权威冲突，需限定复审
+  明确 exact requiredPermissions。
+- P1：49-row manifest 已包含 availability，但 shared API route 常量缺项。
+
+Files runtime 接线、legacy Party adapter 与 module/control runtime 仍属于后续 S2/S3，
+不作为重开 B-0 的理由；`000190` 也不提前增加 `property_foundation` control。上述
+P0/P1 已由合同、shared、schema 原 owner 修复并重签
+`B-contract=5704ab…`、`endpoint=3cff469…`、`B-schema=db1a9a93…`；下一步必须重新
+执行 S1 handoff Gate。
+
 ## 4. 方案落盘结论
 
 本目录下的：

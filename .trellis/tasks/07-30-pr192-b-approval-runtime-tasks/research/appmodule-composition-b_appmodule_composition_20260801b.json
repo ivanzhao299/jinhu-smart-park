@@ -1,0 +1,339 @@
+{
+  "schema_version": "property-appmodule-composition-formal-v1",
+  "run_id": "b_appmodule_composition_20260801b",
+  "run_id_reservation": {
+    "schema_version": "property-appmodule-composition-runid-reservation-v1",
+    "run_id": "b_appmodule_composition_20260801b",
+    "run_id_sha256": "08472c379e45065b7170fc3a331a881bf2bf23f2033160704bb6a79aeb3e1f36",
+    "artifact": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/appmodule-composition-b_appmodule_composition_20260801b.json",
+    "detached_manifest": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/appmodule-composition-b_appmodule_composition_20260801b.manifest.txt",
+    "reserved_at": "2026-08-01T11:34:50.865Z",
+    "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/appmodule-composition-runid-08472c379e45065b7170fc3a331a881bf2bf23f2033160704bb6a79aeb3e1f36.reservation.json",
+    "bytes": 554,
+    "raw_sha256": "e9370e267c07a6f0aeecd5a1565e09ae62c196440b4c793a1d3d033eadbaaf15",
+    "immutable_and_preserved": true
+  },
+  "candidate_scope": "appmodule-single-file-property-task-composition",
+  "started_at": "2026-08-01T11:34:50.865Z",
+  "finished_at": "2026-08-01T11:35:04.001Z",
+  "duration_ms": 13136,
+  "child_timeout_ms": 20000,
+  "background_callback_fence": {
+    "hard_timeout_below_30_seconds": true,
+    "iot_realtime_earliest_callback_ms": 30000,
+    "iot_rule_status_earliest_callback_ms": 60000,
+    "environment_disabled": [
+      "IDEMPOTENCY_CLEANUP_ENABLED",
+      "SAFETY_INSPECT_SCHEDULER_ENABLED",
+      "VIDEO_ALERT_SCHEDULER_ENABLED",
+      "MQTT_BROKER_URL"
+    ]
+  },
+  "signed_inputs": [
+    "apps/api/src/app.module.ts",
+    "apps/api/src/app.module.composition.pg.spec.ts",
+    "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs",
+    "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs",
+    "apps/api/src/modules/property-tasks/property-task.module.ts",
+    "apps/api/src/modules/property-approvals/property-approval.module.ts",
+    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md",
+    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar",
+    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar",
+    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md",
+    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md"
+  ],
+  "input_freeze_before": {
+    "stage": "before-execution",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar",
+        "bytes": 1208,
+        "raw_sha256": "066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md",
+        "bytes": 1646,
+        "raw_sha256": "b3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md",
+        "bytes": 3011,
+        "raw_sha256": "5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar",
+        "bytes": 3583,
+        "raw_sha256": "f6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md",
+        "bytes": 2666,
+        "raw_sha256": "42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db"
+      },
+      {
+        "path": "apps/api/src/app.module.composition.pg.spec.ts",
+        "bytes": 5379,
+        "raw_sha256": "f07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56"
+      },
+      {
+        "path": "apps/api/src/app.module.ts",
+        "bytes": 9862,
+        "raw_sha256": "e7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7"
+      },
+      {
+        "path": "apps/api/src/modules/property-approvals/property-approval.module.ts",
+        "bytes": 7271,
+        "raw_sha256": "1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs",
+        "bytes": 18891,
+        "raw_sha256": "98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs",
+        "bytes": 8994,
+        "raw_sha256": "f329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244"
+      }
+    ],
+    "grammar": "property-appmodule-composition-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar\t1208\t066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md\t1646\tb3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md\t3011\t5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar\t3583\tf6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md\t2666\t42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db\napps/api/src/app.module.composition.pg.spec.ts\t5379\tf07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56\napps/api/src/app.module.ts\t9862\te7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7\napps/api/src/modules/property-approvals/property-approval.module.ts\t7271\t1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs\t18891\t98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs\t8994\tf329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244\n",
+    "raw_sha256": "f0c90c4b82d24c580d9a26c92582b7b5d8f7099775334aa5f958f2788656c7c9"
+  },
+  "input_freeze_after_local": {
+    "stage": "after-local",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar",
+        "bytes": 1208,
+        "raw_sha256": "066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md",
+        "bytes": 1646,
+        "raw_sha256": "b3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md",
+        "bytes": 3011,
+        "raw_sha256": "5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar",
+        "bytes": 3583,
+        "raw_sha256": "f6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md",
+        "bytes": 2666,
+        "raw_sha256": "42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db"
+      },
+      {
+        "path": "apps/api/src/app.module.composition.pg.spec.ts",
+        "bytes": 5379,
+        "raw_sha256": "f07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56"
+      },
+      {
+        "path": "apps/api/src/app.module.ts",
+        "bytes": 9862,
+        "raw_sha256": "e7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7"
+      },
+      {
+        "path": "apps/api/src/modules/property-approvals/property-approval.module.ts",
+        "bytes": 7271,
+        "raw_sha256": "1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs",
+        "bytes": 18891,
+        "raw_sha256": "98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs",
+        "bytes": 8994,
+        "raw_sha256": "f329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244"
+      }
+    ],
+    "grammar": "property-appmodule-composition-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar\t1208\t066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md\t1646\tb3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md\t3011\t5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar\t3583\tf6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md\t2666\t42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db\napps/api/src/app.module.composition.pg.spec.ts\t5379\tf07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56\napps/api/src/app.module.ts\t9862\te7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7\napps/api/src/modules/property-approvals/property-approval.module.ts\t7271\t1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs\t18891\t98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs\t8994\tf329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244\n",
+    "raw_sha256": "f0c90c4b82d24c580d9a26c92582b7b5d8f7099775334aa5f958f2788656c7c9"
+  },
+  "input_freeze_after_test": {
+    "stage": "after-test",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar",
+        "bytes": 1208,
+        "raw_sha256": "066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md",
+        "bytes": 1646,
+        "raw_sha256": "b3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md",
+        "bytes": 3011,
+        "raw_sha256": "5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar",
+        "bytes": 3583,
+        "raw_sha256": "f6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md",
+        "bytes": 2666,
+        "raw_sha256": "42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db"
+      },
+      {
+        "path": "apps/api/src/app.module.composition.pg.spec.ts",
+        "bytes": 5379,
+        "raw_sha256": "f07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56"
+      },
+      {
+        "path": "apps/api/src/app.module.ts",
+        "bytes": 9862,
+        "raw_sha256": "e7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7"
+      },
+      {
+        "path": "apps/api/src/modules/property-approvals/property-approval.module.ts",
+        "bytes": 7271,
+        "raw_sha256": "1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs",
+        "bytes": 18891,
+        "raw_sha256": "98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs",
+        "bytes": 8994,
+        "raw_sha256": "f329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244"
+      }
+    ],
+    "grammar": "property-appmodule-composition-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar\t1208\t066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md\t1646\tb3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md\t3011\t5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar\t3583\tf6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md\t2666\t42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db\napps/api/src/app.module.composition.pg.spec.ts\t5379\tf07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56\napps/api/src/app.module.ts\t9862\te7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7\napps/api/src/modules/property-approvals/property-approval.module.ts\t7271\t1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs\t18891\t98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs\t8994\tf329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244\n",
+    "raw_sha256": "f0c90c4b82d24c580d9a26c92582b7b5d8f7099775334aa5f958f2788656c7c9"
+  },
+  "input_freeze_after_cleanup": {
+    "stage": "after-cleanup",
+    "files": [
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar",
+        "bytes": 1208,
+        "raw_sha256": "066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md",
+        "bytes": 1646,
+        "raw_sha256": "b3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md",
+        "bytes": 3011,
+        "raw_sha256": "5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar",
+        "bytes": 3583,
+        "raw_sha256": "f6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645"
+      },
+      {
+        "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md",
+        "bytes": 2666,
+        "raw_sha256": "42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db"
+      },
+      {
+        "path": "apps/api/src/app.module.composition.pg.spec.ts",
+        "bytes": 5379,
+        "raw_sha256": "f07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56"
+      },
+      {
+        "path": "apps/api/src/app.module.ts",
+        "bytes": 9862,
+        "raw_sha256": "e7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7"
+      },
+      {
+        "path": "apps/api/src/modules/property-approvals/property-approval.module.ts",
+        "bytes": 7271,
+        "raw_sha256": "1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c"
+      },
+      {
+        "path": "apps/api/src/modules/property-tasks/property-task.module.ts",
+        "bytes": 1355,
+        "raw_sha256": "6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs",
+        "bytes": 18891,
+        "raw_sha256": "98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb"
+      },
+      {
+        "path": "scripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs",
+        "bytes": 8994,
+        "raw_sha256": "f329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244"
+      }
+    ],
+    "grammar": "property-appmodule-composition-input-freeze-v1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-projection-callsite-v1.grammar\t1208\t066dc38facdcf660d092ff85ec51557b81463081f52e4edc951a31f71f30cb15\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff-signoff.md\t1646\tb3b14ba493e4acc142daf1588b6d28bcb5de9ce9ac0dc71d3a084fd9e88740c1\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1-handoff.md\t3011\t5d0ab508824593b62d5071f0fbf14d673cea54bd8394407679bec9c7a0040aa3\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b-property-task-runtime-v1.grammar\t3583\tf6d6f302cf14078bff54eb241d62763155a279ce272de2461b2de84b9df17645\n.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-final-signoff-v13l.md\t2666\t42ceac995d29f87dc4fdbabaca188ef602136d55d937a37699b39eabf15814db\napps/api/src/app.module.composition.pg.spec.ts\t5379\tf07e6fed49d2a8ffeeac014aef308f953153790aaa627840308a4266269f9b56\napps/api/src/app.module.ts\t9862\te7a075192fcb17e6e9ab50639fdd75b3482eb0c09fdaab58101f7c78cbd970c7\napps/api/src/modules/property-approvals/property-approval.module.ts\t7271\t1baee1394190a9c57b92b1fb3e2a416513e3af21afbedac7ea6ad54dbc16ac9c\napps/api/src/modules/property-tasks/property-task.module.ts\t1355\t6736fed79b2af81ec3abaa2809a8c33debce1e7bbeb8b1bc7c401864ea9e1a5a\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.mjs\t18891\t98e7f25fd4ba58eac89bd574c6ff1a40a11c8a85114fd5eabe23d59eda3579bb\nscripts/e2e/property-remediation/track-b-appmodule-composition-gate.spec.mjs\t8994\tf329b2abe0f79d9ee0c0d5ae6b52a073eb054b11ced03fa3003760986a8b1244\n",
+    "raw_sha256": "f0c90c4b82d24c580d9a26c92582b7b5d8f7099775334aa5f958f2788656c7c9"
+  },
+  "local_gate": {
+    "command": "node track-b-appmodule-composition-gate.spec.mjs",
+    "duration_ms": 43,
+    "timeout_ms": 20000,
+    "tap": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "postgres_gate": {
+    "command": "node --require ts-node/register app.module.composition.pg.spec.ts",
+    "duration_ms": 10024,
+    "timeout_ms": 20000,
+    "tap": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "cleanup": {
+    "status": "passed",
+    "attempted": true,
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": [],
+    "exact_targets": [
+      {
+        "type": "container",
+        "id": "90b103e7c8790a15c70972993190a23b54541973b64a453a0e83a123e8369fbe",
+        "name": "pr192_b_appmodule_b_appmodule_composition_20260801b_db",
+        "absent": true
+      },
+      {
+        "type": "anonymous-volume",
+        "id": "208e21da721d1976afa309247f2c0c5b96af1c97ecd277d02b778d1496e921da",
+        "name": "208e21da721d1976afa309247f2c0c5b96af1c97ecd277d02b778d1496e921da",
+        "absent": true
+      }
+    ]
+  },
+  "status": "passed",
+  "candidate_admissible": true,
+  "open_p0_p1": []
+}

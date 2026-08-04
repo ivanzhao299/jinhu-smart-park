@@ -10,6 +10,24 @@
 - expand、shadow、enforce、contract 分阶段发布。
 - 每条高风险路径都必须能 fail closed。
 
+### 1.1 Track B B-0 权威候选与 Gate 边界
+
+B-0 当前登记以下三份 `research/` 文档为共同权威候选：
+
+- `b0-product-access-freeze.md`
+- `b0-identity-control-freeze.md`
+- `b0-runtime-contract-freeze.md`
+
+最终独立 Gate 必须同时复审三份候选的跨文档一致性，并在
+`open_P0_P1=[]` 后生成可追溯的 `B-contract SHA`、`B-schema-expand SHA` 和 runtime
+effect manifest SHA。候选文本本身不等于正式合同；下游领域计划不得复述 route、
+状态机、schema 或 effect 作为第二权威，只能消费最终 SHA。
+
+B-0 合同 P0 关闭与 B0.5-S0 代码 stop-ship 是两个 Gate：前者证明合同无开放 P0/P1，
+后者证明实际正式入口在 controller/service/transaction 前对 normal、superuser、
+wildcard 和旧客户端均 fail closed。B0.5 首切片只做该阻断，不创建 approval request，
+不接 runtime，也不顺带实现 identity/control 或 module core。
+
 ## 2. 六层权限 Manifest
 
 权威契约位于 `packages/shared/src/property-business/**`，至少包含：
@@ -88,6 +106,10 @@ interface PropertyAccessManifestEntry {
 
 该规则由独立 infrastructure policy 提供单一判定，homestay/housing controller
 负责在各自 DTO 判别后调用；不得在两个领域复制 feature-flag 解析或 409 语义。
+
+该 Track A 基线是 B0.5-S0 的输入证据，不自动关闭 B0.5-S0。后者必须按最终
+`B-contract SHA` 重新核对 exact 高风险入口并独立验证，且不得把 B-0 合同 Gate
+通过当作代码行为已通过。
 
 ## 3. Module 和共享控制面
 
@@ -234,7 +256,8 @@ Execution：
 
 ```text
 not_started -> executing -> retry_wait -> executing
-                         -> executed | execution_failed
+                         -> executed | execution_failed | infra_exhausted
+infra_exhausted -> retry_wait -> executing
 ```
 
 `not_required` 只用于 rejected、withdrawn、expired。
@@ -244,10 +267,12 @@ not_started -> executing -> retry_wait -> executing
 | decision | execution |
 |---|---|
 | draft/submitted/pending_approval | not_started |
-| approved | not_started/executing/retry_wait/executed/execution_failed |
+| approved | not_started/executing/retry_wait/executed/execution_failed/infra_exhausted |
 | rejected/withdrawn/expired | not_required |
 
 数据库 CHECK 拒绝其他组合。Decision 和 execution 分别使用 expected status + version CAS。旧 `status` 只作为两个发布周期的只读 projection，新代码不得写或据此决策。
+Withdraw 与 expire 只允许 `pending_approval` 且 decision count=0；`submitted` 不允许
+withdraw/expire，首条 checker decision 出现后也不允许。
 
 权威读取：
 
@@ -260,14 +285,20 @@ not_started -> executing -> retry_wait -> executing
 Claim：
 
 - `FOR UPDATE SKIP LOCKED`。
-- claim token、worker ID、60 秒 lease、15 秒 heartbeat。
+- claim token、worker ID、lease 与 heartbeat 语义只引用 runtime freeze；本父设计不
+  保存第二套数值。当前候选 runtime exact 值为 lease 30 秒、heartbeat 10 秒，最终以
+  runtime contract SHA 为准。
 - lease reclaim 后旧 token 的 heartbeat/完成写入失败。
 - 稳定 execution idempotency key 在 approved 时生成，重试不变。
 
 错误分类：
 
 - 业务状态、余额、scope、snapshot 冲突：`execution_failed`，不可自动重试，重新审批。
-- DB transient、deadlock、serialization、worker crash：commit 前进入 `retry_wait`，指数退避，最多 8 次。
+- DB transient、deadlock、serialization、worker crash：commit 前进入 `retry_wait`，
+  仅 worker 自动指数退避；预算耗尽进入 `infra_exhausted`。
+- 人工 incident retry 只允许 `infra_exhausted`，必须具备独立权限、reason、incident
+  reference 和 CAS；只允许先转 `retry_wait`，再由普通 executor 自动 claim 到
+  `executing`。`retry_wait` 不暴露人工 retry。
 - commit 结果不确定时先按 request/execution/domain unique key 只读 reconcile，禁止盲目重执。
 
 同一个 PostgreSQL transaction 原子提交：
@@ -295,6 +326,11 @@ Consumer inbox：
 - at-least-once delivery，数据库内 exactly-once effect。
 
 必须在 claim、domain transaction、outbox publish、consumer transaction 的每个 commit point 注入 crash，验证财务效果一次。
+
+Approval `actionId` 与执行 `effectKind` 分离：所有需审批 action ID 固定以 `.request`
+结尾；effect kind 使用 lower dot-separated 独立 allowlist，禁止由 action ID 字符串
+派生 handler。Effect receipt/manifest DDL、unique/FK/CHECK/cardinality/hash 不在父
+设计复述，exact 引用 runtime freeze 最终 effect manifest SHA。
 
 ## 8. Task Assignment
 
@@ -331,7 +367,9 @@ Party 权限分离：
 
 Canonical UI 为 `/assets/parties/[partyId]`。住房租客、民宿住客只链接此表面。
 
-每个 Party 最多一个 requested/pending-verification submission，数据库 partial unique 是最终并发权威。
+Identity submission 的唯一状态集为
+`draft/pending_verification/verified/rejected/withdrawn/superseded`。每个 Party
+最多一个 `draft/pending_verification` submission，数据库 partial unique 是最终并发权威。
 
 不可变 `biz_party_identity_snapshot` 保存：
 
@@ -473,7 +511,16 @@ B-extension 严格位于 runtime core 之后、domain integration 之前：
    `A-base-core` checksum 和 B schema SHA，生成 extension fixture SHA 与 combined
    checksum。任何 runtime handoff 缺失时 fail closed，且 fixture 必须在 homestay/
    housing domain integration 和 D3 跨域自动化前完成。
-4. `integration-reconcile-final`：只在 B domain integration handoff SHA 后运行，
+4. 唯一 schema-migration-owner 在 B2c 前独立交付
+   `B-property-homestay-effect-schema SHA`（000191）与
+   `B-housing-effect-schema SHA`（000192）；缺任一则 D2/B2c 不启动，两份 SHA 不得
+   冒充 000185–000190 core `B-schema-expand SHA`，domain API 不写 migration。
+5. post-B1 `property-foundation-api-owner` 独立消费 `B-approval-runtime SHA` 与
+   `B-property-homestay-effect-schema SHA`（000191），且只拥有 property mode/release
+   approval adapter；独立 Gate 通过后输出 `B-property-foundation-adapter SHA` 并释放
+   路径。homestay/housing domain owner 必须同时消费该 SHA 与两份 effect-schema
+   SHA，缺任一不得启动；其余 owner 对 `property-operations/**` 修改数为零。
+6. `integration-reconcile-final`：只在 B domain integration handoff SHA 后运行，
    对真实 adapters、Web wiring、backfill/shadow/replay/rollback 结果执行最终
    zero-difference reconcile，并发布 final evidence SHA。该阶段不得反向改写
    `B-extension-core`；发现 fixture 缺陷时回到 core owner 重新发布并重跑 D3。
