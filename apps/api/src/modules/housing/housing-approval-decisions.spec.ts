@@ -3,6 +3,13 @@ import test from "node:test";
 import { ConflictException } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { HousingService } from "./housing.service";
+import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+
+function supportTail() {
+  const support = new HousingTransactionSupportService();
+  return [undefined, undefined, support, new HousingReceivableWriterService(support)] as const;
+}
 
 const scope: TenantParkScope = {
   tenantId: "10000000-0000-4000-8000-000000000001",
@@ -202,7 +209,8 @@ test("DEC-04 precreates and freezes the draft handover identity, version, amount
     { assertAccess: async () => undefined } as never, {} as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
     {} as never,
-    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never
+    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never,
+    ...supportTail()
   );
   const permittedActor = { ...actor, permissions: [
     SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
@@ -312,7 +320,8 @@ test("DEC-05 freezes one aggregate target receivable and per-item expected-versi
     { assertAccess: async () => undefined } as never, {} as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
     {} as never,
-    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never
+    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never,
+    ...supportTail()
   );
 
   await service.transferPurchase(scope, actor, purchase.id, {
@@ -361,7 +370,8 @@ test("DEC-05 freezes one aggregate target receivable and per-item expected-versi
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       newRequest = input;
       return input;
-    } } as never
+    } } as never,
+    ...supportTail()
   );
   await newTargetService.transferPurchase(scope, actor, purchase.id, {
     lease_id: lease.id, item_ids: items.map((item) => item.id), due_date: "2026-08-31",
@@ -429,7 +439,8 @@ test("checkout submission and execution share the pointer-first ordered lock sna
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       request = input;
       return input;
-    } } as never
+    } } as never,
+    ...supportTail()
   );
 
   await service.checkoutLease(scope, actor, leaseId, "checkout", "checkout-key");
@@ -570,7 +581,7 @@ test("DEC-05 new target remains absent until execution and is inserted after ite
   };
   const service = new HousingService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never
+    {} as never, {} as never, undefined, ...supportTail()
   );
 
   await service.executeApprovedPurchaseTransfer({

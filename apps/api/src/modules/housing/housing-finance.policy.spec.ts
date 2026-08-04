@@ -153,7 +153,7 @@ test("energy meter charges apply the configured multiplier to usage and amount",
 });
 
 test("receivable reuse includes the source identity used by the database uniqueness key", () => {
-  const servicePath = resolve(__dirname, "housing.service.ts");
+  const servicePath = resolve(__dirname, "housing-receivable-writer.service.ts");
   const service = readFileSync(servicePath, "utf8");
 
   assert.match(service, /sourceId: input\.sourceId \?\? IsNull\(\)/);
@@ -177,7 +177,7 @@ test("housing repair binds evidence under the same file-row lock transaction", (
   const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
   const repair = service.slice(service.indexOf("async createRepair"), service.indexOf("async checkoutLease"));
   assert.match(repair, /this\.dataSource\.transaction\(async \(manager\)/);
-  assert.match(repair, /this\.assertFiles\(manager/);
+  assert.match(repair, /this\.mustTxSupport\(\)\.assertFiles\(manager/);
   assert.doesNotMatch(repair, /lock:\s*false/);
   assert.match(repair, /this\.workOrdersService\.create\([\s\S]*manager\)/);
 });

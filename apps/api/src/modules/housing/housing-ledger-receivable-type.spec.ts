@@ -8,6 +8,8 @@ import {
   HousingReceivableEntity
 } from "./entities/housing.entities";
 import { HousingService } from "./housing.service";
+import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -26,6 +28,7 @@ const lease = {
 };
 
 function serviceFor(receivable: Record<string, unknown>) {
+  const support = new HousingTransactionSupportService();
   const manager = {
     getRepository: (entity: unknown) => {
       if (entity === HousingLeaseEntity) {
@@ -45,7 +48,12 @@ function serviceFor(receivable: Record<string, unknown>) {
     { assertAccess: async () => undefined } as never,
     {} as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    {} as never
+    {} as never,
+    undefined,
+    undefined,
+    undefined,
+    support,
+    new HousingReceivableWriterService(support)
   );
 }
 

@@ -27,7 +27,7 @@ import {
   type TenantParkScope
 } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
-import { DataSource, In, IsNull, type EntityManager, type Repository } from "typeorm";
+import { DataSource, In, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   assertPropertyHighRiskActionApprovalRequired,
@@ -37,7 +37,6 @@ import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-
 import { FileEntity } from "../files/entities/file.entity";
 import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
-import { PartyEntity } from "../property-operations/entities/party.entity";
 import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
@@ -64,7 +63,6 @@ import {
   HousingChargePlanEntity,
   HousingHandoverEntity,
   HousingLeaseEntity,
-  HousingLeaseOccupantEntity,
   HousingLedgerEntryEntity,
   HousingPurchaseEntity,
   HousingPurchaseItemEntity,
@@ -83,16 +81,17 @@ import {
   calculateHousingDepositBalance,
   calculateHousingMoneyBalance,
   calculateHousingMeterCharge,
-  formatHousingDecimal,
   calculateHousingPurchaseAmounts,
   compareHousingMoney,
   formatHousingMoney,
   multiplyHousingMoneyByRatio,
-  housingReceivableStatus
 } from "./housing-finance.policy";
 import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
 import { HousingTenantService } from "./housing-tenant.service";
 import { HousingLeaseQueryService } from "./housing-lease-query.service";
+import { HousingLeaseCommandService } from "./housing-lease-command.service";
+import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
 type HousingCheckoutSnapshot = {
   lease: {
@@ -129,7 +128,13 @@ export class HousingService {
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort,
     @Optional()
-    private readonly dashboardQuery?: HousingDashboardQueryService
+    private readonly dashboardQuery?: HousingDashboardQueryService,
+    @Optional()
+    private readonly leaseCommands?: HousingLeaseCommandService,
+    @Optional()
+    private readonly txSupport?: HousingTransactionSupportService,
+    @Optional()
+    private readonly receivableWriter?: HousingReceivableWriterService
   ) {}
 
   async listTenants(
@@ -289,110 +294,20 @@ export class HousingService {
     actor: JwtPrincipal,
     dto: CreateHousingLeaseDto
   ) {
-    await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
-    this.assertDatePeriod(dto.start_date, dto.end_date);
-    parseHousingCalendarDate(dto.first_due_date);
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        await this.mustParty(manager, scope, dto.tenant_party_id);
-        const repository = manager.getRepository(HousingLeaseEntity);
-        const lease = await repository.save(repository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseCode: dto.lease_code ?? this.generateCode("HL"),
-          unitId: dto.unit_id,
-          tenantPartyId: dto.tenant_party_id,
-          occupancyId: null,
-          status: "draft",
-          startDate: dto.start_date.slice(0, 10),
-          endDate: dto.end_date.slice(0, 10),
-          paymentCycleMonths: dto.payment_cycle_months,
-          billingDay: dto.billing_day,
-          monthlyRent: formatHousingMoney(dto.monthly_rent),
-          depositAmount: formatHousingMoney(dto.deposit_amount),
-          firstDueDate: dto.first_due_date.slice(0, 10),
-          tailPeriodRule: dto.tail_period_rule,
-          approvalNote: null,
-          approvedBy: null,
-          approvedAt: null,
-          signatureFileId: null,
-          signedAt: null,
-          effectiveAt: null,
-          checkoutAt: null,
-          terminationReason: null,
-          createBy: actor.sub,
-          updateBy: actor.sub,
-          remark: dto.remark ?? null
-        }));
-        const plans = manager.getRepository(HousingChargePlanEntity);
-        await plans.save(plans.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          leaseId: lease.id,
-          chargeType: "rent",
-          billingSource: "fixed",
-          cycleMonths: dto.payment_cycle_months,
-          amount: formatHousingMoney(dto.monthly_rent),
-          unitPrice: null,
-          meterId: null,
-          enabled: true,
-          createBy: actor.sub,
-          updateBy: actor.sub,
-          remark: "租约创建时生成的租金计划"
-        }));
-        return lease;
-      });
-    } catch (error) {
-      if (this.isUniqueViolation(error)) {
-        throw new ConflictException("Housing lease code already exists in current tenant and park");
-      }
-      throw error;
-    }
+    return this.mustLeaseCommands().create(scope, actor, dto);
   }
 
   async submitLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
-    return this.transitionLease(scope, actor, id, ["draft"], "pending_approval");
+    return this.mustLeaseCommands().submit(scope, actor, id);
   }
 
   async approveLease(scope: TenantParkScope, actor: JwtPrincipal, id: string,
     dto: ApproveHousingLeaseDto, clientKey = "") {
-    if (!this.approvalCommands) {
-      assertPropertyHighRiskActionApprovalRequired("housing.leases.approve");
-      throw new ConflictException("Property approval runtime is unavailable");
-    }
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["pending_approval"]);
-      return this.approvalCommands!.createPendingRequest({ transactionContext: manager }, {
-        contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION, scope,
-        actionId: "housing.leases.approve.request", sourceType: "housing-lease",
-        sourceId: lease.id, sourceExpectedVersion: lease.version, requesterId: actor.sub,
-        submitterId: actor.sub, actorId: actor.sub, clientKey,
-        businessIntentKey: `housing-lease-approve:${lease.id}:${lease.version}`,
-        canonicalPayload: { leaseId: lease.id, fromStatus: lease.status,
-          approvalNote: dto.approval_note?.trim() ?? null,
-          actorName: actor.realName?.trim() || actor.username },
-        payloadSchemaVersion: 1, amount: null, currency: null
-      });
-    });
+    return this.mustLeaseCommands().approve(scope, actor, id, dto, clientKey);
   }
 
   async signLease(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: SignHousingLeaseDto) {
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["pending_signature"]);
-      await this.assertFiles(manager, scope, [dto.signature_file_id], {
-        mimePrefix: "application/pdf",
-        bizType: "housing_lease_signature",
-        bizId: lease.id
-      });
-      lease.signatureFileId = dto.signature_file_id;
-      lease.signedAt = dto.signed_at ? new Date(dto.signed_at) : new Date();
-      lease.updateBy = actor.sub;
-      return manager.getRepository(HousingLeaseEntity).save(lease);
-    });
+    return this.mustLeaseCommands().sign(scope, actor, id, dto);
   }
 
   async activateLease(
@@ -401,102 +316,16 @@ export class HousingService {
     id: string,
     idempotencyKey?: string
   ) {
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        const lease = await this.lockLease(manager, scope, id);
-        await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-        if (lease.status === "active") return lease;
-        this.assertStatus(lease, ["pending_signature"]);
-        if (!lease.signatureFileId || !lease.signedAt || !lease.approvedAt) {
-          throw new ConflictException("Approval and offline signature registration are required before activation");
-        }
-        await this.assertFiles(manager, scope, [lease.signatureFileId], {
-          mimePrefix: "application/pdf",
-          bizType: "housing_lease_signature",
-          bizId: lease.id
-        });
-        const occupancy = await this.occupancyService.createInTransaction(manager, scope, actor, {
-          unit_id: lease.unitId,
-          source_domain: "housing_rental",
-          source_type: "housing_lease",
-          source_id: lease.id,
-          start_at: this.businessDateStart(lease.startDate).toISOString(),
-          end_at: this.businessDateStart(this.addDays(lease.endDate, 1)).toISOString(),
-          status: "active",
-          remark: `住房租约 ${lease.leaseCode}`
-        }, idempotencyKey);
-        lease.occupancyId = occupancy.id;
-        lease.status = "active";
-        lease.effectiveAt = new Date();
-        lease.updateBy = actor.sub;
-        const saved = await manager.getRepository(HousingLeaseEntity).save(lease);
-        if (Number(saved.depositAmount) > 0) {
-          await this.createReceivable(manager, scope, actor, saved, {
-            chargePlanId: null,
-            sourceType: "lease_deposit",
-            sourceId: saved.id,
-            chargeType: "deposit",
-            periodStart: saved.startDate,
-            periodEnd: this.addDays(saved.startDate, 1),
-            dueDate: saved.firstDueDate,
-            amount: saved.depositAmount
-          });
-        }
-        return saved;
-      });
-    } catch (error) {
-      if (this.isDatabaseConflict(error)) throw new ConflictException("Lease period conflicts with another occupancy");
-      throw error;
-    }
+    return this.mustLeaseCommands().activate(scope, actor, id, idempotencyKey);
   }
 
   async voidLease(scope: TenantParkScope, actor: JwtPrincipal, id: string,
     reason: string, clientKey = "") {
-    if (!this.approvalCommands) {
-      assertPropertyHighRiskActionApprovalRequired("housing.leases.void");
-      throw new ConflictException("Property approval runtime is unavailable");
-    }
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["draft", "pending_approval", "pending_signature"]);
-      return this.approvalCommands!.createPendingRequest({ transactionContext: manager }, {
-        contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION, scope,
-        actionId: "housing.leases.void.request", sourceType: "housing-lease",
-        sourceId: lease.id, sourceExpectedVersion: lease.version, requesterId: actor.sub,
-        submitterId: actor.sub, actorId: actor.sub, clientKey,
-        businessIntentKey: `housing-lease-void:${lease.id}:${lease.version}`,
-        canonicalPayload: { leaseId: lease.id, fromStatus: lease.status, reason: reason.trim(),
-          actorName: actor.realName?.trim() || actor.username },
-        payloadSchemaVersion: 1, amount: null, currency: null
-      });
-    });
+    return this.mustLeaseCommands().void(scope, actor, id, reason, clientKey);
   }
 
   async addOccupant(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: AddHousingOccupantDto) {
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      if (["terminated", "void"].includes(lease.status)) {
-        throw new ConflictException("Final housing leases cannot accept new occupants");
-      }
-      await this.mustParty(manager, scope, dto.party_id);
-      const repository = manager.getRepository(HousingLeaseOccupantEntity);
-      const current = await repository.findOne({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, partyId: dto.party_id, isDeleted: false }
-      });
-      if (current) return current;
-      return repository.save(repository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseId: id,
-        partyId: dto.party_id,
-        occupantRole: dto.occupant_role,
-        emergencyContact: dto.emergency_contact,
-        createBy: actor.sub,
-        updateBy: actor.sub
-      }));
-    });
+    return this.mustLeaseCommands().addOccupant(scope, actor, id, dto);
   }
 
   async saveChargePlan(
@@ -513,7 +342,7 @@ export class HousingService {
     }
     try {
       return await this.dataSource.transaction(async (manager) => {
-        const lease = await this.lockLease(manager, scope, leaseId);
+        const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
         await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
         if (["terminated", "void"].includes(lease.status)) {
           throw new ConflictException("Final housing leases cannot change charge plans");
@@ -561,7 +390,7 @@ export class HousingService {
         return repository.save(plan);
       });
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
+      if (this.mustTxSupport().isUniqueViolation(error)) {
         throw new ConflictException("Charge plan already exists for this lease and charge type");
       }
       throw error;
@@ -574,11 +403,11 @@ export class HousingService {
     leaseId: string,
     dto: GenerateHousingBillsDto
   ) {
-    this.assertDatePeriod(dto.period_start, dto.period_end);
+    this.mustTxSupport().assertDatePeriod(dto.period_start, dto.period_end);
     return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, leaseId);
+      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       assertHousingBillingPeriodWithinLease(dto.period_start, dto.period_end, lease.startDate, lease.endDate);
       const plan = await manager.getRepository(HousingChargePlanEntity).findOne({
         where: {
@@ -635,7 +464,7 @@ export class HousingService {
           }
         })
         : null;
-      return [await this.createReceivable(manager, scope, actor, lease, {
+      return [await this.mustReceivableWriter().create(manager, scope, actor, lease, {
         chargePlanId: plan.id,
         sourceType: plan.billingSource,
         sourceId: plan.meterId,
@@ -679,9 +508,9 @@ export class HousingService {
       throw new ForbiddenException(`${requiredPermission} permission is required`);
     }
     return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, leaseId);
+      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       if (dto.entry_type === "charge") {
         throw new BadRequestException("Create tenant charges through a charge plan and receivable");
       }
@@ -848,11 +677,11 @@ export class HousingService {
       }
     }
     return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, leaseId);
+      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       const repository = manager.getRepository(HousingHandoverEntity);
       if (requiresFinancialApproval) {
-        await this.lockHousingBusinessKey(
+        await this.mustTxSupport().lockBusinessKey(
           manager,
           this.housingHandoverAdvisoryKey(scope, leaseId)
         );
@@ -889,8 +718,8 @@ export class HousingService {
         }
         return handover;
       }
-      if (dto.handover_type === "move_in") this.assertStatus(lease, ["active"]);
-      else this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      if (dto.handover_type === "move_in") this.mustTxSupport().assertStatus(lease, ["active"]);
+      else this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
       if (
         dto.handover_type === "move_in"
         && (
@@ -902,7 +731,7 @@ export class HousingService {
         throw new BadRequestException("Move-in handover cannot include damage, unsettled, or deposit deduction amounts");
       }
       const handoverPhotoIds = dto.photo_file_ids ?? [];
-      await this.assertFiles(manager, scope, handoverPhotoIds, {
+      await this.mustTxSupport().assertFiles(manager, scope, handoverPhotoIds, {
         mimePrefix: "image/",
         allowedBizTypes: [
           "housing_handover",
@@ -932,7 +761,7 @@ export class HousingService {
         }
       }
       if (dto.signature_file_id) {
-        await this.assertFiles(manager, scope, [dto.signature_file_id], {
+        await this.mustTxSupport().assertFiles(manager, scope, [dto.signature_file_id], {
           bizType: "housing_handover",
           bizId: lease.id
         });
@@ -984,7 +813,7 @@ export class HousingService {
           `SELECT (transaction_timestamp() AT TIME ZONE 'Asia/Shanghai')::date::text AS "businessDate"`
         ));
         if (!clock?.businessDate) throw new ConflictException("Housing business date is unavailable");
-        const checkoutReceivablePeriodEnd = this.addDays(clock.businessDate, 1);
+        const checkoutReceivablePeriodEnd = this.mustTxSupport().addDays(clock.businessDate, 1);
         const checkoutReceivableId = compareHousingMoney(checkoutCharge, "0.00") > 0
           ? randomUUID() : null;
         let checkoutReceivable: {
@@ -1000,9 +829,9 @@ export class HousingService {
           dueDate: string;
         } | null = null;
         if (checkoutReceivableId) {
-          await this.lockHousingBusinessKey(
+          await this.mustTxSupport().lockBusinessKey(
             manager,
-            this.housingReceivableAdvisoryKey(scope, lease.id, {
+            this.mustTxSupport().receivableBusinessKey(scope, lease.id, {
               sourceType: "housing_handover",
               sourceId: draft.id,
               chargeType: "checkout_charges",
@@ -1151,13 +980,13 @@ export class HousingService {
         let checkoutReceivable: HousingReceivableEntity | null = null;
         if (compareHousingMoney(checkoutCharge, "0.00") > 0) {
           const businessDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-          checkoutReceivable = await this.createReceivable(manager, scope, actor, lease, {
+          checkoutReceivable = await this.mustReceivableWriter().create(manager, scope, actor, lease, {
             chargePlanId: null,
             sourceType: "housing_handover",
             sourceId: saved.id,
             chargeType: "checkout_charges",
             periodStart: businessDate,
-            periodEnd: this.addDays(businessDate, 1),
+            periodEnd: this.mustTxSupport().addDays(businessDate, 1),
             dueDate: businessDate,
             amount: checkoutCharge,
             remark: dto.remark ?? "Move-out damage and unsettled charges"
@@ -1209,10 +1038,10 @@ export class HousingService {
     dto: CreateHousingRepairDto
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, leaseId);
+      const lease = await this.mustTxSupport().lockLease(manager, scope, leaseId);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["active", "expiring", "checkout_pending"]);
-      const repairFiles = await this.assertFiles(manager, scope, dto.image_file_ids ?? [], {
+      this.mustTxSupport().assertStatus(lease, ["active", "expiring", "checkout_pending"]);
+      const repairFiles = await this.mustTxSupport().assertFiles(manager, scope, dto.image_file_ids ?? [], {
         allowedMimeTypes: resolveFileUploadPolicy("housing_repair").mimeTypes,
         bizType: "housing_repair",
         bizId: lease.id
@@ -1236,7 +1065,7 @@ export class HousingService {
           throw new ConflictException("One or more repair attachments are already bound to a work order");
         }
       }
-      const tenant = await this.mustParty(manager, scope, lease.tenantPartyId);
+      const tenant = await this.mustTxSupport().mustParty(manager, scope, lease.tenantPartyId);
       return this.workOrdersService.create(scope, actor, {
         title: dto.title,
         wo_type: "repair",
@@ -1264,7 +1093,7 @@ export class HousingService {
       const snapshot = await this.lockHousingCheckoutSnapshot(manager, scope, leaseId);
       const { lease, occupancy, handover, receivables, ledgerContributors } = snapshot;
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      this.assertStatus(lease, ["checkout_pending"]);
+      this.mustTxSupport().assertStatus(lease, ["checkout_pending"]);
       const activeReceivables = receivables.filter((item) => item.status !== "void");
       const outstanding = calculateHousingMoneyBalance(
         activeReceivables.map((item) => item.amount),
@@ -1460,7 +1289,7 @@ export class HousingService {
     await this.assertPurchaseAccess(scope, actor, dto.unit_id ?? null);
     try {
       return await this.dataSource.transaction(async (manager) => {
-      const receiptFiles = await this.assertFiles(
+      const receiptFiles = await this.mustTxSupport().assertFiles(
         manager,
         scope,
         dto.receipt_file_ids ?? [],
@@ -1480,7 +1309,7 @@ export class HousingService {
       const purchase = await repository.save(repository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
-        purchaseCode: dto.purchase_code ?? this.generateCode("HP"),
+        purchaseCode: dto.purchase_code ?? this.mustTxSupport().generateCode("HP"),
         unitId: dto.unit_id ?? null,
         vendorName: dto.vendor_name,
         purchaseDate: dto.purchase_date.slice(0, 10),
@@ -1515,7 +1344,7 @@ export class HousingService {
         return purchase;
       });
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
+      if (this.mustTxSupport().isUniqueViolation(error)) {
         throw new ConflictException("Purchase code already exists in current tenant and park");
       }
       throw error;
@@ -1622,7 +1451,7 @@ export class HousingService {
       await this.assertPurchaseAccess(scope, actor, purchase.unitId);
       if (purchase.approvalStatus !== "approved") throw new ConflictException("Only approved purchase can be transferred");
       if (purchase.paymentStatus === "refunded") throw new ConflictException("Refunded purchase cannot be transferred");
-      const lease = await this.lockLease(manager, scope, dto.lease_id);
+      const lease = await this.mustTxSupport().lockLease(manager, scope, dto.lease_id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       assertHousingPurchaseTransferLeaseStatus(lease.status);
       if (purchase.unitId && purchase.unitId !== lease.unitId) {
@@ -1643,14 +1472,14 @@ export class HousingService {
         throw new ConflictException("One or more purchase items have already been transferred");
       }
       const amount = addHousingMoneyAmounts(items.map((item) => item.amount));
-      await this.lockHousingBusinessKey(
+      await this.mustTxSupport().lockBusinessKey(
         manager,
-        this.housingReceivableAdvisoryKey(scope, lease.id, {
+        this.mustTxSupport().receivableBusinessKey(scope, lease.id, {
           sourceType: "purchase_transfer",
           sourceId: purchase.id,
           chargeType: "purchase_recharge",
           periodStart: purchase.purchaseDate,
-          periodEnd: this.addDays(purchase.purchaseDate, 1)
+          periodEnd: this.mustTxSupport().addDays(purchase.purchaseDate, 1)
         })
       );
       const targetRows = typeormQueryRows<{
@@ -1677,7 +1506,7 @@ export class HousingService {
       const targetReceivable = existingTarget ?? {
         id: randomUUID(), version: 0, leaseId: lease.id,
         periodStart: purchase.purchaseDate,
-        periodEnd: this.addDays(purchase.purchaseDate, 1),
+        periodEnd: this.mustTxSupport().addDays(purchase.purchaseDate, 1),
         dueDate: dto.due_date.slice(0, 10), amount: "0.00", paidAmount: "0.00",
         waivedAmount: "0.00", status: "unpaid" as const, currency: purchase.currency,
         isDeleted: false
@@ -1971,7 +1800,7 @@ export class HousingService {
       )
     );
     const lease = leases[0];
-    await this.lockHousingBusinessKey(
+    await this.mustTxSupport().lockBusinessKey(
       input.manager,
       this.housingHandoverAdvisoryKey(scope, leaseId)
     );
@@ -2016,9 +1845,9 @@ export class HousingService {
       periodStart: string; periodEnd: string; dueDate: string;
     } | null = null;
     if (receivableMode !== "none") {
-      await this.lockHousingBusinessKey(
+      await this.mustTxSupport().lockBusinessKey(
         input.manager,
-        this.housingReceivableAdvisoryKey(scope, leaseId, {
+        this.mustTxSupport().receivableBusinessKey(scope, leaseId, {
           sourceType: "housing_handover",
           sourceId: handoverId,
           chargeType: "checkout_charges",
@@ -2257,9 +2086,9 @@ export class HousingService {
     })) throw new ConflictException("Approval source changed");
     const receivableMode = String(payload.targetReceivableMode ?? "");
     if (!["new", "existing"].includes(receivableMode)) throw new ConflictException("Approval source changed");
-    await this.lockHousingBusinessKey(
+    await this.mustTxSupport().lockBusinessKey(
       input.manager,
-      this.housingReceivableAdvisoryKey(scope, leaseId, {
+      this.mustTxSupport().receivableBusinessKey(scope, leaseId, {
         sourceType: String(payload.targetReceivableSourceType),
         sourceId: purchaseId,
         chargeType: String(payload.targetReceivableChargeType),
@@ -2504,29 +2333,8 @@ export class HousingService {
     }
   }
 
-  private async lockHousingBusinessKey(manager: EntityManager, key: string): Promise<void> {
-    await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [key]);
-  }
-
   private housingHandoverAdvisoryKey(scope: TenantParkScope, leaseId: string): string {
     return ["housing-handover", scope.tenantId, scope.parkId, leaseId, "move_out"].join("|");
-  }
-
-  private housingReceivableAdvisoryKey(
-    scope: TenantParkScope,
-    leaseId: string,
-    input: {
-      sourceType: string;
-      sourceId: string;
-      chargeType: string;
-      periodStart: string;
-      periodEnd: string;
-    }
-  ): string {
-    return [
-      "housing-receivable", scope.tenantId, scope.parkId, leaseId,
-      input.sourceType, input.sourceId, input.chargeType, input.periodStart, input.periodEnd
-    ].join("|");
   }
 
   private async lockHousingCheckoutSnapshot(
@@ -2600,88 +2408,12 @@ export class HousingService {
     return { lease, occupancy, handover: handovers[0], receivables, ledgerContributors };
   }
 
-  private async transitionLease(
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    id: string,
-    from: HousingLeaseEntity["status"][],
-    to: HousingLeaseEntity["status"]
-  ) {
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      if (lease.status === to) return lease;
-      this.assertStatus(lease, from);
-      lease.status = to;
-      lease.updateBy = actor.sub;
-      return manager.getRepository(HousingLeaseEntity).save(lease);
-    });
-  }
-
   private async mustLease(manager: EntityManager, scope: TenantParkScope, id: string) {
     const lease = await manager.getRepository(HousingLeaseEntity).findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
     });
     if (!lease) throw new NotFoundException("Housing lease not found");
     return lease;
-  }
-
-  private async lockLease(manager: EntityManager, scope: TenantParkScope, id: string) {
-    const lease = await manager.getRepository(HousingLeaseEntity).findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      lock: { mode: "pessimistic_write" }
-    });
-    if (!lease) throw new NotFoundException("Housing lease not found");
-    return lease;
-  }
-
-  private async mustParty(manager: EntityManager, scope: TenantParkScope, id: string) {
-    const party = await manager.getRepository(PartyEntity).findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, partyType: "person", isDeleted: false }
-    });
-    if (!party) throw new NotFoundException("Individual housing tenant party not found");
-    return party;
-  }
-
-  private async assertFiles(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    ids: string[],
-    options?: {
-      mimePrefix?: string;
-      allowedMimeTypes?: readonly string[];
-      bizType?: string;
-      allowedBizTypes?: readonly string[];
-      bizId?: string;
-      lock?: boolean;
-    }
-  ) {
-    if (!ids.length) return [] as FileEntity[];
-    const builder = manager.getRepository(FileEntity).createQueryBuilder("file")
-      .where("file.tenant_id=:tenantId", { tenantId: scope.tenantId })
-      .andWhere("file.park_id=:parkId", { parkId: scope.parkId })
-      .andWhere("file.id IN (:...ids)", { ids })
-      .andWhere("file.status=1")
-      .andWhere("file.is_deleted=false");
-    if (options?.lock !== false) builder.setLock("pessimistic_write");
-    const files = await builder.getMany();
-    if (files.length !== new Set(ids).size) throw new NotFoundException("One or more attachment files were not found");
-    if (options?.mimePrefix && files.some((file) => !file.mimeType.startsWith(options.mimePrefix!))) {
-      throw new BadRequestException(`Attachment MIME type must start with ${options.mimePrefix}`);
-    }
-    if (options?.allowedMimeTypes && files.some((file) => !options.allowedMimeTypes!.includes(file.mimeType))) {
-      throw new BadRequestException("Attachment MIME type is not allowed for this workflow");
-    }
-    if (options?.bizType && files.some((file) => file.bizType !== options.bizType)) {
-      throw new BadRequestException(`Attachment business type must be ${options.bizType}`);
-    }
-    if (options?.allowedBizTypes && files.some((file) => !options.allowedBizTypes!.includes(file.bizType))) {
-      throw new BadRequestException(`Attachment business type must be one of ${options.allowedBizTypes.join(", ")}`);
-    }
-    if (options?.bizId && files.some((file) => file.bizId !== options.bizId)) {
-      throw new BadRequestException("Attachment is not associated with the current housing record");
-    }
-    return files;
   }
 
   private toPurchaseResponse(
@@ -2759,88 +2491,6 @@ export class HousingService {
     };
   }
 
-  private async createReceivable(
-    manager: EntityManager,
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    lease: HousingLeaseEntity,
-    input: {
-      chargePlanId: string | null;
-      sourceType: string;
-      sourceId: string | null;
-      chargeType: string;
-      periodStart: string;
-      periodEnd: string;
-      dueDate: string;
-      amount: string | number;
-      openingReading?: string | number;
-      closingReading?: string | number;
-      usageAmount?: string | number;
-      unitPrice?: string | number;
-      remark?: string;
-      accumulateIfExisting?: boolean;
-    }
-  ) {
-    const repository = manager.getRepository(HousingReceivableEntity);
-    await this.lockHousingBusinessKey(
-      manager,
-      this.housingReceivableAdvisoryKey(scope, lease.id, {
-        sourceType: input.sourceType,
-        sourceId: input.sourceId ?? "null",
-        chargeType: input.chargeType,
-        periodStart: input.periodStart,
-        periodEnd: input.periodEnd
-      })
-    );
-    const existing = await repository.findOne({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        leaseId: lease.id,
-        chargeType: input.chargeType,
-        periodStart: input.periodStart,
-        periodEnd: input.periodEnd,
-        sourceType: input.sourceType,
-        sourceId: input.sourceId ?? IsNull(),
-        isDeleted: false
-      }
-    });
-    if (existing) {
-      if (!input.accumulateIfExisting) return existing;
-      const nextAmount = addHousingMoneyAmounts([existing.amount, input.amount]);
-      existing.amount = nextAmount;
-      existing.status = housingReceivableStatus(nextAmount, existing.paidAmount, existing.waivedAmount);
-      existing.dueDate = input.dueDate;
-      existing.updateBy = actor.sub;
-      existing.remark = input.remark ?? existing.remark;
-      return repository.save(existing);
-    }
-    const entity = repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      leaseId: lease.id,
-      chargePlanId: input.chargePlanId,
-      sourceType: input.sourceType,
-      sourceId: input.sourceId,
-      chargeType: input.chargeType,
-      periodStart: input.periodStart,
-      periodEnd: input.periodEnd,
-      dueDate: input.dueDate,
-      openingReading: input.openingReading === undefined ? null : formatHousingDecimal(input.openingReading),
-      closingReading: input.closingReading === undefined ? null : formatHousingDecimal(input.closingReading),
-      usageAmount: input.usageAmount === undefined ? null : formatHousingDecimal(input.usageAmount),
-      unitPrice: input.unitPrice === undefined ? null : formatHousingDecimal(input.unitPrice),
-      amount: formatHousingMoney(input.amount),
-      paidAmount: "0.00",
-      waivedAmount: "0.00",
-      status: "unpaid",
-      createBy: actor.sub,
-      updateBy: actor.sub,
-      remark: input.remark ?? null
-    });
-    return repository.save(entity);
-  }
-
   private applyReceivableEntry(receivable: HousingReceivableEntity, dto: RegisterHousingLedgerEntryDto) {
     const result = applyHousingReceivableMutation(
       receivable.amount,
@@ -2869,26 +2519,9 @@ export class HousingService {
       .getExists();
   }
 
-  private assertStatus(
-    lease: Pick<HousingLeaseEntity, "status">,
-    allowed: HousingLeaseEntity["status"][]
-  ) {
-    if (!allowed.includes(lease.status)) {
-      throw new ConflictException(`Lease status ${lease.status} does not allow this action`);
-    }
-  }
-
   private assertHousingMeterOnline(meter: EnergyMeterEntity): void {
     if (!meter.isEnabled || meter.status !== "ONLINE") {
       throw new ConflictException("Energy meter must be enabled and ONLINE");
-    }
-  }
-
-  private assertDatePeriod(start: string, end: string) {
-    const startDate = parseHousingCalendarDate(start);
-    const endDate = parseHousingCalendarDate(end);
-    if (startDate >= endDate) {
-      throw new BadRequestException("Start date must be before end date");
     }
   }
 
@@ -2898,18 +2531,19 @@ export class HousingService {
     return date.toISOString().slice(0, 10);
   }
 
-  private addDays(dateValue: string, days: number) {
-    const date = parseHousingCalendarDate(dateValue);
-    date.setUTCDate(date.getUTCDate() + days);
-    return date.toISOString().slice(0, 10);
+  private mustLeaseCommands() {
+    if (!this.leaseCommands) throw new Error("HousingLeaseCommandService is not configured");
+    return this.leaseCommands;
   }
 
-  private businessDateStart(dateValue: string) {
-    return new Date(`${dateValue.slice(0, 10)}T00:00:00+08:00`);
+  private mustTxSupport() {
+    if (!this.txSupport) throw new Error("HousingTransactionSupportService is not configured");
+    return this.txSupport;
   }
 
-  private generateCode(prefix: string) {
-    return `${prefix}${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}${randomUUID().slice(0, 6).toUpperCase()}`;
+  private mustReceivableWriter() {
+    if (!this.receivableWriter) throw new Error("HousingReceivableWriterService is not configured");
+    return this.receivableWriter;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string) {
@@ -2923,12 +2557,4 @@ export class HousingService {
     return order ? (order === "asc" ? "ASC" : "DESC") : fallback;
   }
 
-  private isDatabaseConflict(error: unknown) {
-    if (!error || typeof error !== "object") return false;
-    return ["23505", "23P01"].includes(String((error as { code?: unknown }).code ?? ""));
-  }
-
-  private isUniqueViolation(error: unknown) {
-    return Boolean(error && typeof error === "object" && (error as { code?: unknown }).code === "23505");
-  }
 }

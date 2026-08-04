@@ -11,6 +11,9 @@ import {
   PROPERTY_HIGH_RISK_PERMISSION_REQUIRED_MESSAGE
 } from "../../shared/property-workbench/property-high-risk-stopship";
 import { HousingService } from "./housing.service";
+import { HousingLeaseCommandService } from "./housing-lease-command.service";
+import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -22,8 +25,16 @@ const actor: JwtPrincipal = {
   permissions: []
 };
 
-test("direct housing pure high-risk actions stop before a transaction for every principal class", async () => {
-  let transactionCalls = 0;
+test("HousingService lease commands are facade-only delegations", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const commands = Object.fromEntries(
+    ["create", "submit", "approve", "sign", "activate", "void", "addOccupant"].map(
+      (action) => [action, async (...args: unknown[]) => {
+        calls.push({ action, args });
+        return action;
+      }]
+    )
+  );
   const service = new HousingService(
     {} as never,
     {} as never,
@@ -31,12 +42,66 @@ test("direct housing pure high-risk actions stop before a transaction for every 
     {} as never,
     {} as never,
     {} as never,
-    {
-      transaction: async () => {
-        transactionCalls += 1;
-      }
-    } as never,
-    {} as never
+    {} as never,
+    undefined,
+    undefined,
+    undefined,
+    commands as never
+  );
+  const createDto = { lease_code: "HL-1" } as never;
+  const approveDto = { approval_note: "ok" } as never;
+  const signDto = { signature_file_id: "file-1" } as never;
+  const occupantDto = { party_id: "party-1" } as never;
+
+  await service.createLease(scope, actor, createDto);
+  await service.submitLease(scope, actor, "lease-1");
+  await service.approveLease(scope, actor, "lease-1", approveDto, "approve-key");
+  await service.signLease(scope, actor, "lease-1", signDto);
+  await service.activateLease(scope, actor, "lease-1", "activate-key");
+  await service.voidLease(scope, actor, "lease-1", "reason", "void-key");
+  await service.addOccupant(scope, actor, "lease-1", occupantDto);
+
+  assert.deepEqual(calls, [
+    { action: "create", args: [scope, actor, createDto] },
+    { action: "submit", args: [scope, actor, "lease-1"] },
+    { action: "approve", args: [scope, actor, "lease-1", approveDto, "approve-key"] },
+    { action: "sign", args: [scope, actor, "lease-1", signDto] },
+    { action: "activate", args: [scope, actor, "lease-1", "activate-key"] },
+    { action: "void", args: [scope, actor, "lease-1", "reason", "void-key"] },
+    { action: "addOccupant", args: [scope, actor, "lease-1", occupantDto] }
+  ]);
+});
+
+test("direct housing pure high-risk actions stop before a transaction for every principal class", async () => {
+  let transactionCalls = 0;
+  const dataSource = {
+    transaction: async () => {
+      transactionCalls += 1;
+    }
+  };
+  const support = new HousingTransactionSupportService();
+  const writer = new HousingReceivableWriterService(support);
+  const commands = new HousingLeaseCommandService(
+    dataSource as never,
+    {} as never,
+    {} as never,
+    support,
+    writer
+  );
+  const service = new HousingService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    dataSource as never,
+    {} as never,
+    undefined,
+    undefined,
+    commands,
+    support,
+    writer
   );
   const principals = [
     actor,
