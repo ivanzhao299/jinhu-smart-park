@@ -47,8 +47,13 @@ Human UAT 未完成不是 Entry blocker。
   失败证据 SHA 为 `bbf2e237eee840cf5422c17a2dac93380a8fc60edab32faa708b7fa656832390`。
   已以仓库既有 forward-only prerequisite 机制新增最小 production-safe `asset` catalog
   前置项，修复 SHA `d25789a2`；历史 000189 SHA 保持 `f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2`，
-  targeted contract PASS。正式性能正在全新隔离 project `jinhu-track-c-perf-20260804b`
-  重新 provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
+  targeted contract PASS。第二个隔离 project `jinhu-track-c-perf-20260804b` 证明 prerequisite、
+  000189、global bundles 与 module dependency 均已通过，但又 fail-closed 发现 migration 时
+  tenant scope 为空，导致 seed 后 25 个 signed permissions 与 SUPER_ADMIN bindings 未回填；
+  证据 SHA `df8dbbecd4c0c39256d99ac2596feea7ea6e509db7db0be6e43cbde985c5b335`，cleanup residual=0。
+  已提交 post-seed 精确 reconcile `0e995ce8` 与 strict control env `f7720802`；两个 contract
+  targeted gate 均 PASS。正式性能正在第三个全新隔离 project
+  `jinhu-track-c-perf-20260804c` 重新 provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
 - Track C Chrome 新切片：独立任务已按 15 项矩阵重试，但在任何 Chrome 扩展代码执行前被
