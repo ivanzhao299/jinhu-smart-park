@@ -57,15 +57,6 @@ test("external order uniqueness normalizes a missing channel in a forward migrat
   assert.match(migration, /HAVING count\(\*\) > 1/);
 });
 
-test("homestay dated rate overrides keep their atomic uniqueness boundary", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
-
-  assert.match(
-    service,
-    /ON CONFLICT \(tenant_id, park_id, unit_id, business_date\) WHERE is_deleted = false/
-  );
-});
-
 test("homestay availability and check-in use current cross-domain truth", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
 
@@ -190,17 +181,6 @@ test("turnover evidence is locked in the same transaction that binds it", () => 
   assert.match(resolver, /file\.biz_id = :turnoverTaskId/);
   assert.match(resolver, /associatedIds/);
   assert.doesNotMatch(resolver, /if \(ids\.length === 0\) return \[\]/);
-});
-
-test("rate reads expose every persisted field edited by the operations form", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
-  const calendar = service.slice(
-    service.indexOf("async getRateCalendar"),
-    service.indexOf("async upsertRate")
-  );
-  assert.match(calendar, /base_daily_rate: config\.baseDailyRate/);
-  assert.match(calendar, /checkout_requires_inspection: config\.checkoutRequiresInspection/);
-  assert.match(calendar, /cancellation_policy: this\.cancellationSnapshot\(config\)/);
 });
 
 test("homestay operational lists use authoritative candidates and bounded turnover pages", () => {

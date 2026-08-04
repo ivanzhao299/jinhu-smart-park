@@ -21,6 +21,7 @@ import { HomestayController } from "./homestay.controller";
 import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
+import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
   HOMESTAY_TURNOVER_TASK_RESOLVER,
@@ -52,6 +53,7 @@ import {
     HomestayService,
     HomestayWorkbenchQueryService,
     HomestayDashboardAvailabilityQueryService,
+    HomestayRatesService,
     HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,
     { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }

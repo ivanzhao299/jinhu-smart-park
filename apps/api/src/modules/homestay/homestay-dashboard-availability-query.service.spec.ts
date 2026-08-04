@@ -42,11 +42,10 @@ test("homestay façade delegates dashboard and availability without querying sto
     }
   };
   const facade = new HomestayService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never,
+    {} as never, queryService as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, {} as never,
     { query: async () => { throw new Error("façade storage query must not run"); } } as never,
-    undefined, undefined, undefined, undefined,
-    queryService as never
+    undefined, undefined, undefined, undefined
   );
   const query = {
     date_from: "2026-08-04",

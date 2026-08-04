@@ -17,6 +17,7 @@ import {
 } from "./entities/homestay.entities";
 import { HomestayService } from "./homestay.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
+import { HomestayRatesService } from "./homestay-rates.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -171,18 +172,13 @@ test("initial homestay rate configuration uses one atomic database upsert", asyn
   const expected = { id: "rate-1", unitId: "unit-1", baseDailyRate: "688.00" };
   let statement = "";
   let parameters: unknown[] = [];
-  const service = new HomestayService(
+  const service = new HomestayRatesService(
     {
       findOne: async () => {
         events.push("read");
         return expected;
       }
     } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { assertAccess: async () => undefined } as never,
     {
@@ -223,7 +219,7 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
   const expected = { id: "override-1", unitId: "unit-1", businessDate: "2026-08-01", dailyRate: "788.00" };
   let statement = "";
   let parameters: unknown[] = [];
-  const service = new HomestayService(
+  const service = new HomestayRatesService(
     { findOne: async () => ({ id: "rate-1" }) } as never,
     {
       findOne: async () => {
@@ -231,11 +227,6 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
         return expected;
       }
     } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { assertAccess: async () => undefined } as never,
     {
       query: async (sql: string, values: unknown[]) => {
@@ -818,7 +809,11 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     getOne: async () => null
   };
   const crossUnitService = new HomestayService(
-    {} as never,
+    {
+      getRateCalendar: async () => {
+        throw new NotFoundException("Unit not found");
+      }
+    } as never,
     {} as never,
     { createQueryBuilder: () => emptyBuilder } as never,
     { createQueryBuilder: () => emptyBuilder } as never,

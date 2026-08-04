@@ -32,6 +32,22 @@ const exactReads = {
   getTurnover: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ
 } as const;
 
+test("homestay rate routes preserve read and manage permission boundaries", () => {
+  assert.deepEqual(
+    Reflect.getMetadata(PERMISSIONS_KEY, HomestayController.prototype.rateCalendar),
+    [SYSTEM_PERMISSIONS.HOMESTAY_RATE_READ]
+  );
+  for (const handler of [
+    HomestayController.prototype.upsertRate,
+    HomestayController.prototype.upsertRateOverride
+  ]) {
+    assert.deepEqual(
+      Reflect.getMetadata(PERMISSIONS_KEY, handler),
+      [SYSTEM_PERMISSIONS.HOMESTAY_RATE_MANAGE]
+    );
+  }
+});
+
 test("homestay pure high-risk route requires approval-create while mixed route preserves permissions", () => {
   const expected = {
     cancelBooking: {

@@ -105,6 +105,7 @@ import {
 } from "./homestay-finance.policy";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
+import { HomestayRatesService } from "./homestay-rates.service";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
@@ -147,10 +148,8 @@ interface HomestayLegacyFinanceMappingRow {
 @Injectable()
 export class HomestayService {
   constructor(
-    @InjectRepository(HomestayRateConfigEntity)
-    private readonly ratesRepository: Repository<HomestayRateConfigEntity>,
-    @InjectRepository(HomestayRateOverrideEntity)
-    private readonly overridesRepository: Repository<HomestayRateOverrideEntity>,
+    private readonly ratesService: HomestayRatesService,
+    private readonly dashboardAvailabilityQuery: HomestayDashboardAvailabilityQueryService,
     @InjectRepository(HomestayBookingEntity)
     private readonly bookingsRepository: Repository<HomestayBookingEntity>,
     @InjectRepository(HomestayTurnoverTaskEntity)
@@ -169,9 +168,7 @@ export class HomestayService {
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort,
     @Optional()
-    private readonly identityVerifier?: PropertyIdentityVerificationService,
-    @Optional()
-    private readonly dashboardAvailabilityQuery?: HomestayDashboardAvailabilityQueryService
+    private readonly identityVerifier?: PropertyIdentityVerificationService
   ) {}
 
   async listUnitCandidates(
@@ -227,77 +224,11 @@ export class HomestayService {
     dateFrom: string,
     dateTo: string
   ): Promise<HomestayRateCalendarResponse> {
-    if (!dateFrom || !dateTo) {
-      throw new BadRequestException("date_from and date_to are required");
-    }
-    assertBusinessDate(dateFrom, "date_from");
-    assertBusinessDate(dateTo, "date_to");
-    await this.assertUnitReadScope(scope, actor, unitId);
-    const dates = this.businessDates(dateFrom, dateTo);
-    const config = await this.mustFindRate(scope, unitId);
-    const overrides = await this.overridesRepository.createQueryBuilder("rate")
-      .where("rate.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("rate.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("rate.unit_id = :unitId", { unitId })
-      .andWhere("rate.is_deleted = false")
-      .andWhere("rate.business_date >= :dateFrom", { dateFrom })
-      .andWhere("rate.business_date < :dateTo", { dateTo })
-      .getMany();
-    const byDate = new Map(overrides.map((item) => [item.businessDate, item]));
-    return {
-      unit_id: unitId,
-      currency: config.currency,
-      base_daily_rate: config.baseDailyRate,
-      checkout_requires_inspection: config.checkoutRequiresInspection,
-      cancellation_policy: this.cancellationSnapshot(config),
-      days: dates.map((date) => {
-        const override = byDate.get(date);
-        return {
-          business_date: date,
-          base_rate: config.baseDailyRate,
-          override_rate: override?.dailyRate ?? null,
-          final_rate: override?.dailyRate ?? config.baseDailyRate,
-          price_source: override ? "date_override" : "base"
-        };
-      })
-    };
+    return this.ratesService.getRateCalendar(scope, actor, unitId, dateFrom, dateTo);
   }
 
   async upsertRate(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: UpsertHomestayRateDto) {
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
-    if (dto.late_cancel_fee_type === "percentage" && toMoneyCents(dto.late_cancel_fee_value) > 10_000n) {
-      throw new BadRequestException("Percentage cancellation fee cannot exceed 100");
-    }
-    await this.dataSource.query(
-      `INSERT INTO biz_homestay_rate_config (
-         tenant_id, park_id, unit_id, base_daily_rate, currency,
-         free_cancel_before_hours, late_cancel_fee_type, late_cancel_fee_value,
-         checkout_requires_inspection, create_by, update_by
-       ) VALUES ($1, $2, $3, $4, 'CNY', $5, $6, $7, $8, $9, $9)
-       ON CONFLICT (tenant_id, park_id, unit_id) WHERE is_deleted = false
-       DO UPDATE SET
-         base_daily_rate = EXCLUDED.base_daily_rate,
-         currency = EXCLUDED.currency,
-         free_cancel_before_hours = EXCLUDED.free_cancel_before_hours,
-         late_cancel_fee_type = EXCLUDED.late_cancel_fee_type,
-         late_cancel_fee_value = EXCLUDED.late_cancel_fee_value,
-         checkout_requires_inspection = EXCLUDED.checkout_requires_inspection,
-         update_by = EXCLUDED.update_by,
-         update_time = now(),
-         version = biz_homestay_rate_config.version + 1`,
-      [
-        scope.tenantId,
-        scope.parkId,
-        unitId,
-        formatHomestayMoney(dto.base_daily_rate),
-        dto.free_cancel_before_hours,
-        dto.late_cancel_fee_type,
-        formatHomestayMoney(dto.late_cancel_fee_value),
-        dto.checkout_requires_inspection,
-        actor.sub
-      ]
-    );
-    return this.mustFindRate(scope, unitId);
+    return this.ratesService.upsertRate(scope, actor, unitId, dto);
   }
 
   async upsertRateOverride(
@@ -306,36 +237,7 @@ export class HomestayService {
     unitId: string,
     dto: UpsertHomestayRateOverrideDto
   ) {
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
-    await this.mustFindRate(scope, unitId);
-    const businessDate = dto.business_date.slice(0, 10);
-    await this.dataSource.query(
-      `INSERT INTO biz_homestay_rate_override (
-         tenant_id, park_id, unit_id, business_date, daily_rate, reason,
-         create_by, update_by
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-       ON CONFLICT (tenant_id, park_id, unit_id, business_date) WHERE is_deleted = false
-       DO UPDATE SET
-         daily_rate = EXCLUDED.daily_rate,
-         reason = EXCLUDED.reason,
-         update_by = EXCLUDED.update_by,
-         update_time = now(),
-         version = biz_homestay_rate_override.version + 1`,
-      [
-        scope.tenantId,
-        scope.parkId,
-        unitId,
-        businessDate,
-        formatHomestayMoney(dto.daily_rate),
-        dto.reason.trim(),
-        actor.sub
-      ]
-    );
-    const entity = await this.overridesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, businessDate, isDeleted: false }
-    });
-    if (!entity) throw new NotFoundException("Homestay rate override not found after upsert");
-    return entity;
+    return this.ratesService.upsertRateOverride(scope, actor, unitId, dto);
   }
 
   async listBookings(
@@ -1898,7 +1800,7 @@ export class HomestayService {
     actor: JwtPrincipal,
     businessDate?: string
   ): Promise<HomestayDashboardResponse> {
-    return this.mustDashboardAvailabilityQuery().dashboard(scope, actor, businessDate);
+    return this.dashboardAvailabilityQuery.dashboard(scope, actor, businessDate);
   }
 
   async availability(
@@ -1906,14 +1808,7 @@ export class HomestayService {
     actor: JwtPrincipal,
     query: HomestayAvailabilityQueryDto
   ): Promise<HomestayAvailabilityResponse | HomestayAvailabilityListResponse> {
-    return this.mustDashboardAvailabilityQuery().availability(scope, actor, query);
-  }
-
-  private mustDashboardAvailabilityQuery(): HomestayDashboardAvailabilityQueryService {
-    if (!this.dashboardAvailabilityQuery) {
-      throw new Error("Homestay dashboard and availability query service is unavailable");
-    }
-    return this.dashboardAvailabilityQuery;
+    return this.dashboardAvailabilityQuery.availability(scope, actor, query);
   }
 
   private async calculatePricing(
@@ -2113,14 +2008,6 @@ export class HomestayService {
     return booking;
   }
 
-  private async mustFindRate(scope: TenantParkScope, unitId: string) {
-    const config = await this.ratesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
-    if (!config) throw new NotFoundException("Homestay rate configuration not found");
-    return config;
-  }
-
   private async assertUnitBookable(manager: EntityManager, scope: TenantParkScope, unitId: string) {
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
@@ -2259,17 +2146,6 @@ export class HomestayService {
     const booking = await builder.getOne();
     if (!booking) throw new NotFoundException("Homestay booking not found");
     return booking;
-  }
-
-  private async assertUnitReadScope(
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    unitId: string
-  ): Promise<void> {
-    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && !allowedUnitIds.includes(unitId)) {
-      throw new NotFoundException("Unit not found");
-    }
   }
 
   private async log(
