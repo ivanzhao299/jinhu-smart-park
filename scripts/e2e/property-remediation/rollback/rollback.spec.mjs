@@ -13,7 +13,7 @@ import { buildCommandSpecs, COMMAND_IDS, materializeCommand, probeCommandRuntime
 import { compareDurableSnapshots } from "./comparator.mjs";
 import { assertNoSensitiveData, canonicalSha256, durableTableNames, loadProfile, makeDurableSnapshot, repoRoot, sha256 } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
-import { deriveExpectedTree, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
+import { assertCommandOutputSafe, deriveExpectedTree, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
 import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
@@ -125,6 +125,31 @@ test("database target URL preserves authority and changes only encoded database 
 test("secret scanner catches bearer, JWT, raw provider token and credential argv", () => {
   for (const value of ["Bearer abcdefghijklmnop", "eyJabcde.abcdefgh.ijklmnop", "ghp_abcdefghijklmnopqrstuvwxyz", ["node", "--database-url=x"], "password=Correct#2026", '{"token":"plain-secret-value"}', 'token: getAccessToken() || "plain-secret-value"', "token: getAccessToken() ?? `plain-secret-value`", 'token: getAccessToken()\n || "plain-secret-value"', "token: session.getAccessToken()\n ?? `plain-secret-value`", 'token: getAccessToken()\n + "plain-secret-value"', 'token: getAccessToken()\n ? "plain-secret-value" : undefined', 'token: getTokenFactory()\n ("plain-secret-value")', 'token: getTokenContainer()\n ["plain-secret-value"]', 'token: getTokenTag()\n `plain-secret-value`', '+ token: getAccessToken()\n+  + "plain-secret-value"', '+ token: getAccessToken()\n+  ? "plain-secret-value" : undefined', '+ token: getTokenFactory()\n+  ("plain-secret-value")', '+ token: getTokenContainer()\n+  ["plain-secret-value"]', 'token ||= "plain-secret-value"', 'token ??= "plain-secret-value"', 'token &&= "plain-secret-value"', 'token += "plain-secret-value"', 'token -= "plain-secret-value"', 'token *= "plain-secret-value"', 'token /= "plain-secret-value"', 'token %= "plain-secret-value"', "token: decodeSecret(123456789)", "token: decodeSecret(process.env.SECRET)"]) assert.throws(() => assertNoSensitiveData(value), /credential|secret/u);
   for (const source of ["+ const headers = { token: getAccessToken() };", "- const headers = { token: session.getAccessToken() };", "+ const optional = { token: undefined };", "+ const fallback = { token: getAccessToken() ?? undefined };"]) assert.equal(assertNoSensitiveData(source), source);
+});
+
+test("Next build output permits only exact frozen public documentation URLs", () => {
+  const docs = "https://nextjs.org/docs/app/api-reference/config/eslint";
+  const telemetry = "https://nextjs.org/telemetry";
+  for (const id of ["baseline-web-clean-production-build", "web-clean-production-build"]) {
+    const result = { stdout: `docs ${docs}.\r\ntelemetry (${telemetry}),\ncolored \u001b[36m${docs}\u001b[0m\n`, stderr: "" };
+    assert.equal(assertCommandOutputSafe(result, id), result);
+  }
+  for (const value of [
+    `${docs}?token=value`, `${docs}#fragment`, `${docs}/`, "http://nextjs.org/docs/app/api-reference/config/eslint",
+    "https://user@nextjs.org/docs/app/api-reference/config/eslint", "https://nextjs.org:443/docs/app/api-reference/config/eslint",
+    "https://nextjs.org.evil/docs/app/api-reference/config/eslint", "https://docs.nextjs.org/app/api-reference/config/eslint",
+    "https://nextjs.org/docs/app/api-reference/config/unknown", "postgresql://user:password@example.invalid/database",
+    "postgresql:\\/\\/user:password@example.invalid/database", "https:\\/\\/evil.example/path",
+    "https:\\\\/\\\\/evil.example/path", "https:\\u002f\\u002fevil.example/path",
+    "https:/\\/evil.example/path", "https:\\//evil.example/path",
+    "https:/\\u002Fevil.example/path", "https:\\u002F/evil.example/path",
+    `https:\u001b[0m\\/\\/evil.example/path`, `https:\\/\u001b[0m\\/evil.example/path`,
+    `${telemetry}\\evil`, `${telemetry}\u001b[0m?x=value`, `${telemetry}\u001b[0m#fragment`,
+    `${telemetry}\u0085?x=value`, `${telemetry}\u009b?x=value`
+  ]) assert.throws(() => assertCommandOutputSafe({ stdout: value, stderr: "" }, "web-clean-production-build"), /URL|credential|secret|control/u);
+  assert.throws(() => assertCommandOutputSafe({ stdout: docs, stderr: "" }, "api-build"), /URL/u);
+  assert.throws(() => assertCommandOutputSafe({ stdout: "postgresql:\\/\\/user:password@example.invalid/database", stderr: "" }, "api-build"), /URL/u);
+  assert.throws(() => assertCommandOutputSafe({ stdout: `${docs}\nBearer abcdefghijklmnop`, stderr: "" }, "web-clean-production-build"), /credential|secret/u);
 });
 
 test("unapplicable original reverse intent can use a reviewed manual forward-port while undeclared deviations fail", () => {
