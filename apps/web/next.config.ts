@@ -1,11 +1,15 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { propertyReliabilityPublicEnv } from "./features/property-shared/offline/property-reliability-flags";
 
 const apiTarget = process.env.NEXT_PUBLIC_API_TARGET ?? "http://127.0.0.1:3101";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   compress: true,
+  // Only normalized booleans are embedded in the client bundle. The private
+  // deployment variable names remain the operator-facing rollback contract.
+  env: propertyReliabilityPublicEnv(process.env),
   poweredByHeader: false,
   reactStrictMode: true,
   typedRoutes: true,

@@ -56,6 +56,50 @@ export function propertyUploadQueueBusy(
   return uploading || (contextKey !== null && initializedContextKey !== contextKey);
 }
 
+export interface PropertyUploadQueueUiState {
+  busy: boolean;
+  count: number;
+  visible: boolean;
+}
+
+export function propertyUploadQueueUiState(input: {
+  enabled: boolean;
+  contextKey: string | null;
+  initializedContextKey: string | null;
+  uploading: boolean;
+  count: number;
+}): PropertyUploadQueueUiState {
+  if (!input.enabled || input.contextKey === null) {
+    return { busy: false, count: 0, visible: false };
+  }
+  return {
+    busy: propertyUploadQueueBusy(input.contextKey, input.initializedContextKey, input.uploading),
+    count: input.count,
+    visible: true
+  };
+}
+
+export function notifyPropertyUploadQueueState(
+  callback: ((state: { busy: boolean; count: number }) => void) | undefined,
+  state: PropertyUploadQueueUiState
+): void {
+  callback?.({ busy: state.busy, count: state.count });
+}
+
+export async function executePropertyUploadAttempt<T>(input: {
+  contextAvailable: boolean;
+  online: boolean;
+  queueEnabled: boolean;
+  queueOffline(): Promise<void>;
+  uploadOnline(): Promise<T>;
+}): Promise<{ kind: "queued" } | { kind: "uploaded"; value: T }> {
+  if (input.queueEnabled && input.contextAvailable && !input.online) {
+    await input.queueOffline();
+    return { kind: "queued" };
+  }
+  return { kind: "uploaded", value: await input.uploadOnline() };
+}
+
 export function createPropertyUploadQueueItem(input: {
   id: string;
   context: PropertyUploadContext;

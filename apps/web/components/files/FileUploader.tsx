@@ -2,7 +2,7 @@
 
 import { FileUp, Upload } from "lucide-react";
 import type { ChangeEvent } from "react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
   formatFileSize,
   getFileUploadLimitForMime,
@@ -13,21 +13,13 @@ import {
 import { apiFormRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
 import {
-  deletePropertyUploadQueueItem,
-  capturePropertyOfflineGeneration,
-  ensurePropertyOfflineScope,
-  isPropertyOfflineGenerationCurrent,
-  listPropertyUploadQueue,
-  putPropertyUploadQueueItem
-} from "../../features/property-shared/offline/property-draft-store";
-import {
   createPropertyUploadQueueItem,
+  executePropertyUploadAttempt,
   preparePropertyUploadRecovery,
-  propertyUploadContextKey,
-  propertyUploadQueueBusy,
   type PropertyUploadContext,
   type PropertyUploadQueueItem
 } from "../../features/property-shared/offline/property-upload-queue";
+import { usePropertyUploadQueue } from "../../features/property-shared/offline/use-property-upload-queue";
 
 export interface FileUploaderOfflineContext {
   tenantId: string;
@@ -80,18 +72,12 @@ export function FileUploader({
   const [selectedFileMeta, setSelectedFileMeta] = useState("");
   const [remark, setRemark] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [offlineConsent, setOfflineConsent] = useState(false);
-  const [queuedItems, setQueuedItems] = useState<PropertyUploadQueueItem[]>([]);
-  const [initializedQueueContextKey, setInitializedQueueContextKey] = useState<string | null>(null);
   const selectedIdempotencyKey = useRef<string | null>(null);
-  const offlineGeneration = useRef<number | null>(null);
-  const queueStateCallback = useRef(onQueueStateChange);
-  queueStateCallback.current = onQueueStateChange;
   const policy = useMemo(() => resolveFileUploadPolicy(policyKey ?? bizType), [bizType, policyKey]);
   const accept = policy.mimeTypes.join(",");
   const policyText = helperText ?? `${policy.mimeTypes.map((item) => item.split("/").pop()?.toUpperCase() ?? item).join(" / ")}，最大 ${formatFileSize(policy.maxSizeBytes)}`;
   const hasVersionResolver = resolveCurrentEntityVersion !== undefined;
-  const queueContext = useMemo<PropertyUploadContext | null>(() => {
+  const configuredQueueContext = useMemo<PropertyUploadContext | null>(() => {
     if (!offlineQueueContext || !bizId || !hasVersionResolver) return null;
     return { ...offlineQueueContext, bizType, bizId };
   }, [
@@ -105,42 +91,13 @@ export function FileUploader({
     offlineQueueContext?.userId,
     hasVersionResolver
   ]);
-  const queueContextKey = queueContext ? propertyUploadContextKey(queueContext) : null;
-
-  useEffect(() => {
-    let active = true;
-    setOfflineConsent(false);
-    setQueuedItems([]);
-    if (!queueContext || typeof indexedDB === "undefined") {
-      return () => { active = false; };
-    }
-    void ensurePropertyOfflineScope({
-      tenantId: queueContext.tenantId,
-      parkId: queueContext.parkId,
-      userId: queueContext.userId,
-      module: queueContext.module,
-      permissionFingerprint: queueContext.permissionFingerprint
-    })
-      .then((generation) => {
-        offlineGeneration.current = generation;
-        return listPropertyUploadQueue(queueContext);
-      })
-      .then((items) => {
-        if (active && offlineGeneration.current !== null && isPropertyOfflineGenerationCurrent(offlineGeneration.current)) {
-          setQueuedItems(items);
-          setInitializedQueueContextKey(propertyUploadContextKey(queueContext));
-        }
-      })
-      .catch(() => { if (active) setMessage("离线图片恢复区暂不可用，提交保持锁定"); });
-    return () => { active = false; };
-  }, [queueContext]);
-
-  useEffect(() => {
-    queueStateCallback.current?.({
-      busy: propertyUploadQueueBusy(queueContextKey, initializedQueueContextKey, uploading),
-      count: queuedItems.length
-    });
-  }, [initializedQueueContextKey, queueContextKey, queuedItems.length, uploading]);
+  const offlineQueue = usePropertyUploadQueue({
+    context: configuredQueueContext,
+    onMessage: setMessage,
+    onQueueStateChange,
+    uploading
+  });
+  const queueContext = offlineQueue.context;
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setMessage("");
@@ -193,13 +150,12 @@ export function FileUploader({
   }
 
   async function queueSelectedFile(file: File, expectedGeneration: number, uploadRemark: string): Promise<void> {
-    if (!queueContext) throw new Error("当前上传场景不支持离线暂存");
+    if (!offlineQueue.enabled || !queueContext) throw new Error("当前上传场景不支持离线暂存");
     const item = createPropertyUploadQueueItem({
-      id: crypto.randomUUID(), context: queueContext, file, explicitConsent: offlineConsent,
+      id: crypto.randomUUID(), context: queueContext, file, explicitConsent: offlineQueue.consent,
       idempotencyKey: selectedIdempotencyKey.current ?? createIdempotencyKey("file-upload"), remark: uploadRemark
     });
-    await putPropertyUploadQueueItem(item, expectedGeneration);
-    setQueuedItems((current) => [...current, item]);
+    await offlineQueue.enqueue(item, expectedGeneration);
     clearSelection();
     setMessage("图片已临时保存在此设备，需联网后手动恢复上传；最多保留 2 小时。");
   }
@@ -222,17 +178,21 @@ export function FileUploader({
     }
     setUploading(true);
     onUploadingChange?.(true);
-    const expectedGeneration = offlineGeneration.current ?? capturePropertyOfflineGeneration();
+    const expectedGeneration = offlineQueue.captureGeneration();
     const idempotencyKey = selectedIdempotencyKey.current ?? createIdempotencyKey("file-upload");
     const uploadRemark = remark.trim();
     selectedIdempotencyKey.current = idempotencyKey;
     try {
-      if (queueContext && typeof navigator !== "undefined" && !navigator.onLine) {
-        await queueSelectedFile(selectedFile, expectedGeneration, uploadRemark);
-        return;
-      }
-      const uploaded = await uploadBlob(selectedFile, selectedFile.name, uploadRemark, idempotencyKey);
-      if (queueContext && !isPropertyOfflineGenerationCurrent(expectedGeneration)) {
+      const result = await executePropertyUploadAttempt({
+        contextAvailable: queueContext !== null,
+        online: typeof navigator === "undefined" || navigator.onLine,
+        queueEnabled: offlineQueue.enabled,
+        queueOffline: () => queueSelectedFile(selectedFile, expectedGeneration, uploadRemark),
+        uploadOnline: () => uploadBlob(selectedFile, selectedFile.name, uploadRemark, idempotencyKey)
+      });
+      if (result.kind === "queued") return;
+      const uploaded = result.value;
+      if (queueContext && !offlineQueue.generationIsCurrent(expectedGeneration)) {
         setMessage("登录或权限上下文已变化，旧上传成功结果已丢弃");
         return;
       }
@@ -240,7 +200,7 @@ export function FileUploader({
       clearSelection();
       setMessage("上传成功");
     } catch (error) {
-      if (queueContext && offlineConsent && selectedFile) {
+      if (queueContext && offlineQueue.consent && selectedFile) {
         try {
           await queueSelectedFile(selectedFile, expectedGeneration, uploadRemark);
           return;
@@ -264,7 +224,7 @@ export function FileUploader({
     setUploading(true);
     onUploadingChange?.(true);
     setMessage("");
-    const expectedGeneration = offlineGeneration.current ?? capturePropertyOfflineGeneration();
+    const expectedGeneration = offlineQueue.captureGeneration();
     try {
       const currentVersion = await resolveCurrentEntityVersion?.();
       if (currentVersion !== queueContext.entityVersion) {
@@ -274,24 +234,22 @@ export function FileUploader({
       const uploaded = await uploadBlob(
         recoverable.blob, recoverable.fileName, recoverable.remark, recoverable.idempotencyKey
       );
-      if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) {
+      if (!offlineQueue.generationIsCurrent(expectedGeneration)) {
         setMessage("登录或权限上下文已变化，旧上传成功结果已丢弃");
         return;
       }
-      await deletePropertyUploadQueueItem(recoverable.id);
-      if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) return;
-      setQueuedItems((current) => current.filter((candidate) => candidate.id !== recoverable.id));
+      await offlineQueue.remove(recoverable);
+      if (!offlineQueue.generationIsCurrent(expectedGeneration)) return;
       onUploaded(uploaded);
       setMessage("临时图片已恢复上传并从本机清除");
     } catch (error) {
-      if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) {
+      if (!offlineQueue.generationIsCurrent(expectedGeneration)) {
         setMessage("登录或权限上下文已变化，旧上传恢复结果已丢弃");
         return;
       }
       const failed = { ...item, status: "failed" as const, failureMessage: error instanceof Error ? error.message : "恢复上传失败" };
-      await putPropertyUploadQueueItem(failed, expectedGeneration).catch(() => undefined);
-      if (!isPropertyOfflineGenerationCurrent(expectedGeneration)) return;
-      setQueuedItems((current) => current.map((candidate) => candidate.id === item.id ? failed : candidate));
+      await offlineQueue.recordFailure(failed, expectedGeneration);
+      if (!offlineQueue.generationIsCurrent(expectedGeneration)) return;
       setMessage(failed.failureMessage);
     } finally {
       setUploading(false);
@@ -301,8 +259,7 @@ export function FileUploader({
 
   async function cancelQueuedItem(item: PropertyUploadQueueItem) {
     if (uploading) return;
-    await deletePropertyUploadQueueItem(item.id);
-    setQueuedItems((current) => current.filter((candidate) => candidate.id !== item.id));
+    await offlineQueue.remove(item);
     setMessage("本机临时图片已清除");
   }
 
@@ -330,17 +287,17 @@ export function FileUploader({
         <Upload size={16} />
         {uploading ? "上传中" : "上传"}
       </button>
-      {queueContext ? <label>
-        <input checked={offlineConsent} disabled={disabled || uploading} type="checkbox"
-          onChange={(event) => setOfflineConsent(event.target.checked)} />
+      {offlineQueue.uiState.visible && queueContext ? <label>
+        <input checked={offlineQueue.consent} disabled={disabled || uploading} type="checkbox"
+          onChange={(event) => offlineQueue.setConsent(event.target.checked)} />
         我明确同意在上传失败或离线时，将现场图片临时保存在此设备（最多 2 小时）
       </label> : null}
-      {queuedItems.map((item) => <div className="status-pill" key={item.id}>
+      {offlineQueue.uiState.visible ? offlineQueue.items.map((item) => <div className="status-pill" key={item.id}>
         <span>{item.fileName} · 等待手动恢复</span>
         <button disabled={disabled || uploading || (typeof navigator !== "undefined" && !navigator.onLine)}
           type="button" onClick={() => void recoverQueuedItem(item)}>恢复上传</button>
         <button disabled={disabled || uploading} type="button" onClick={() => void cancelQueuedItem(item)}>清除</button>
-      </div>)}
+      </div>) : null}
       {message ? <span className="status-pill">{message}</span> : null}
     </div>
   );

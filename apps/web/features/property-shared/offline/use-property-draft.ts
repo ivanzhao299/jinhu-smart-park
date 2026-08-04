@@ -4,16 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import type { PropertyDraftContext, PropertyDraftSchema, PropertyOfflineScope } from "./property-draft-contract";
 import {
   deletePropertyDraft,
+  disablePropertyDraftPersistence,
   ensurePropertyOfflineScope,
   loadPropertyDraft,
   savePropertyDraft
 } from "./property-draft-store";
+import { propertyOfflineDraftsV1Enabled } from "./property-reliability-flags";
 
 const SAVE_DELAY_MS = 350;
 
 export function usePropertyDraft<T extends Record<string, unknown>>({
   context,
-  enabled = process.env.NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1 !== "false",
+  enabled = true,
   onRestore,
   schema,
   scope,
@@ -26,9 +28,11 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
   scope: PropertyOfflineScope | null;
   value: T;
 }) {
+  const featureEnabled = propertyOfflineDraftsV1Enabled();
+  const persistenceEnabled = enabled && featureEnabled;
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"disabled" | "loading" | "ready" | "saved" | "error">(
-    enabled ? "loading" : "disabled"
+    persistenceEnabled ? "loading" : "disabled"
   );
   const restore = useRef(onRestore);
   const generation = useRef<number | null>(null);
@@ -39,8 +43,11 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
   useEffect(() => {
     let active = true;
     setReady(false);
-    if (!enabled || !context || !scope) {
+    if (!persistenceEnabled || !context || !scope) {
       setStatus("disabled");
+      if (!featureEnabled) {
+        void disablePropertyDraftPersistence().catch(() => setStatus("error"));
+      }
       return () => { active = false; };
     }
     setStatus("loading");
@@ -60,10 +67,10 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
         setStatus("error");
       });
     return () => { active = false; };
-  }, [contextKey, enabled, scopeKey]);
+  }, [contextKey, featureEnabled, persistenceEnabled, scopeKey]);
 
   useEffect(() => {
-    if (!enabled || !context || !ready) return;
+    if (!persistenceEnabled || !context || !ready) return;
     const timer = window.setTimeout(() => {
       const expectedGeneration = generation.current;
       if (expectedGeneration === null) return;
@@ -72,12 +79,12 @@ export function usePropertyDraft<T extends Record<string, unknown>>({
         .catch(() => setStatus("error"));
     }, SAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [contextKey, enabled, ready, schema, value]);
+  }, [contextKey, persistenceEnabled, ready, schema, value]);
 
   return {
     clear: async () => {
       if (context) await deletePropertyDraft(context);
-      setStatus(enabled ? "ready" : "disabled");
+      setStatus(persistenceEnabled ? "ready" : "disabled");
     },
     status
   };

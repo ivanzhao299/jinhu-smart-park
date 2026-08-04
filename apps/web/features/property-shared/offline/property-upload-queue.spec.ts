@@ -4,10 +4,13 @@ import {
   PROPERTY_UPLOAD_BLOB_TTL_MS,
   assertPropertyUploadSubmissionContext,
   createPropertyUploadQueueItem,
+  executePropertyUploadAttempt,
   isPropertyUploadQueueItemUsable,
+  notifyPropertyUploadQueueState,
   preparePropertyUploadRecovery,
   propertyUploadContextKey,
   propertyUploadQueueBusy,
+  propertyUploadQueueUiState,
   type PropertyUploadContext
 } from "./property-upload-queue";
 import { propertyOfflinePermissionFingerprint } from "./property-draft-contract";
@@ -69,4 +72,43 @@ test("upload context key changes when enabled module assignment changes", () => 
     propertyUploadContextKey({ ...context, permissionFingerprint: baseFingerprint }),
     propertyUploadContextKey({ ...context, permissionFingerprint: changedFingerprint })
   );
+});
+
+test("disabled queue hides local UI and reports a non-busy zero-count callback state", () => {
+  const disabledState = propertyUploadQueueUiState({
+    enabled: false,
+    contextKey: propertyUploadContextKey(context),
+    initializedContextKey: null,
+    uploading: true,
+    count: 2
+  });
+  assert.deepEqual(disabledState, { busy: false, count: 0, visible: false });
+  let callbackState: { busy: boolean; count: number } | null = null;
+  notifyPropertyUploadQueueState((state) => { callbackState = state; }, disabledState);
+  assert.deepEqual(callbackState, { busy: false, count: 0 });
+  assert.deepEqual(propertyUploadQueueUiState({
+    enabled: true,
+    contextKey: propertyUploadContextKey(context),
+    initializedContextKey: null,
+    uploading: false,
+    count: 2
+  }), { busy: true, count: 2, visible: true });
+});
+
+test("disabled queue always executes the API upload path and never the local queue path", async () => {
+  let apiCalls = 0;
+  let queueCalls = 0;
+  const result = await executePropertyUploadAttempt({
+    contextAvailable: true,
+    online: false,
+    queueEnabled: false,
+    queueOffline: async () => { queueCalls += 1; },
+    uploadOnline: async () => {
+      apiCalls += 1;
+      return { id: "server-file" };
+    }
+  });
+  assert.deepEqual(result, { kind: "uploaded", value: { id: "server-file" } });
+  assert.equal(apiCalls, 1);
+  assert.equal(queueCalls, 0);
 });
