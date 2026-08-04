@@ -111,7 +111,7 @@ export async function prepareRun({ runId, finalSha, env = process.env, now = () 
   assertFinalSha(finalSha);
   const { profile, profileSha256 } = loadProfile();
   assertSemanticContractsReady(profile);
-  assertBaselineSemanticAnchors(profile);
+  assertBaselineSemanticAnchors(profile, { root: repoRoot, treeSha: finalSha });
   const source = await validateSourceBinding({ finalSha, profile });
   const runRoot = resolve(rollbackRoot, runId);
   ensureSafeArtifactRoot();

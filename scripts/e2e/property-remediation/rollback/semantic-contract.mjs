@@ -27,8 +27,9 @@ export function assertSemanticContractsReady(profile) {
   return true;
 }
 
-export function assertBaselineSemanticAnchors(profile, root = repoRoot) {
+export function assertBaselineSemanticAnchors(profile, { root = repoRoot, treeSha } = {}) {
   const failures = [];
+  const checks = [];
   for (const rehearsalCase of profile.cases) {
     const contract = contractFor(rehearsalCase);
     const changedPaths = new Set(contract.mustChangeProductionPaths);
@@ -36,10 +37,12 @@ export function assertBaselineSemanticAnchors(profile, root = repoRoot) {
       ...contract.retainedShell.filter(({ path }) => !changedPaths.has(path)).map(validateRetainedShell),
       ...contract.protectedExternalPaths.map(validateExternal)
     ];
-    for (const anchor of anchors) {
-      const text = readContractFile(root, anchor.path);
-      if (!anchorPasses(anchor, text)) failures.push(`${rehearsalCase.id}:${anchor.id}`);
-    }
+    checks.push(...anchors.map((anchor) => ({ rehearsalCase, anchor })));
+  }
+  const treeFiles = treeSha ? readSemanticFilesFromGitTree({ cwd: root, treeSha, paths: [...new Set(checks.map(({ anchor }) => anchor.path))] }) : null;
+  for (const { rehearsalCase, anchor } of checks) {
+    const text = treeFiles ? treeFiles[anchor.path] : readContractFile(root, anchor.path);
+    if (!anchorPasses(anchor, text)) failures.push(`${rehearsalCase.id}:${anchor.id}`);
   }
   if (failures.length > 0) throw new Error(`final baseline semantic anchors are not satisfied: ${failures.join(",")}`);
   return true;
@@ -297,15 +300,22 @@ export function readSemanticFilesFromGitTree({ cwd, treeSha, paths }) {
   const options = { cwd: resolve(cwd), env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", TZ: "UTC" }, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] };
   try { execFileSync("/usr/bin/git", ["cat-file", "-e", `${treeSha}^{tree}`], options); }
   catch { throw new Error("observed semantic tree object is unavailable"); }
-  return Object.fromEntries(paths.map((path) => {
-    try {
-      const bytes = execFileSync("/usr/bin/git", ["cat-file", "blob", `${treeSha}:${path}`], { ...options, encoding: "buffer" });
-      const text = bytes.toString("utf8");
-      if (!Buffer.from(text, "utf8").equals(bytes)) throw new Error(`observed semantic tree contains non-UTF-8 bytes: ${path}`);
-      return [path, text];
-    } catch (error) {
-      if (error.message?.startsWith("observed semantic tree contains")) throw error;
-      return [path, null];
-    }
+  return Object.fromEntries([...new Set(paths)].map((path) => {
+    resolveInside(cwd, path, "semantic tree path");
+    let listing;
+    try { listing = execFileSync("/usr/bin/git", ["ls-tree", "-z", treeSha, "--", path], { ...options, encoding: "buffer" }); }
+    catch { throw new Error(`observed semantic tree lookup failed: ${path}`); }
+    if (listing.length === 0) return [path, null];
+    const records = listing.toString("utf8").split("\0").filter(Boolean);
+    if (!Buffer.from(listing.toString("utf8"), "utf8").equals(listing) || records.length !== 1) throw new Error(`observed semantic tree lookup is ambiguous: ${path}`);
+    const match = /^([0-7]{6}) (blob|tree|commit) ([0-9a-f]{40})\t([\s\S]+)$/u.exec(records[0]);
+    if (!match || match[4] !== path) throw new Error(`observed semantic tree lookup is malformed: ${path}`);
+    if (!new Set(["100644", "100755"]).has(match[1]) || match[2] !== "blob") throw new Error(`observed semantic tree path is not a regular blob: ${path}`);
+    let bytes;
+    try { bytes = execFileSync("/usr/bin/git", ["cat-file", "blob", match[3]], { ...options, encoding: "buffer" }); }
+    catch { throw new Error(`observed semantic tree blob is unreadable: ${path}`); }
+    const text = bytes.toString("utf8");
+    if (!Buffer.from(text, "utf8").equals(bytes)) throw new Error(`observed semantic tree contains non-UTF-8 bytes: ${path}`);
+    return [path, text];
   }));
 }

@@ -18,7 +18,7 @@ import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
-import { assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId } from "./semantic-contract.mjs";
+import { assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
@@ -30,6 +30,8 @@ test("profile freezes 19 cases and complete formal matrix", () => {
   assert.equal(profile.cases.filter(({ kind }) => kind === "frontend-group").length, 2);
   assert.deepEqual(profile.requiredGateIds, [...COMMAND_IDS]);
   assert.equal(assertBaselineSemanticAnchors(profile), true);
+  const treeSha = execFileSync("/usr/bin/git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
+  assert.equal(assertBaselineSemanticAnchors(profile, { root: repoRoot, treeSha }), true);
 });
 
 test("baseline semantic gate rejects historical profile drift but permits must-change shells", () => {
@@ -50,8 +52,20 @@ test("baseline semantic gate rejects historical profile drift but permits must-c
   assert.equal(assertBaselineSemanticAnchors(mutateAnchor("housing-tenant", "retainedShell", "housing-tenant-projection-shell", "expected-post-rollback-only-token")), true);
 });
 
+test("semantic Git-tree reads distinguish committed blobs, missing paths, and directories", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-semantic-tree-"));
+  try {
+    const git = (args) => execFileSync("/usr/bin/git", args, { cwd: temp, encoding: "utf8", env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", TZ: "UTC", GIT_AUTHOR_NAME: "rollback-test", GIT_AUTHOR_EMAIL: "rollback@test.invalid", GIT_COMMITTER_NAME: "rollback-test", GIT_COMMITTER_EMAIL: "rollback@test.invalid" } }).trim();
+    git(["init", "-q"]); const tracked = resolve(temp, "tracked/file.ts"); mkdirSync(resolve(tracked, ".."), { recursive: true }); writeFileSync(tracked, "committed\n"); git(["add", "--", "tracked/file.ts"]); const treeSha = git(["write-tree"]);
+    writeFileSync(tracked, "dirty\n"); rmSync(tracked);
+    const files = readSemanticFilesFromGitTree({ cwd: temp, treeSha, paths: ["tracked/file.ts", "tracked/file.ts", "missing.ts"] });
+    assert.deepEqual(files, { "tracked/file.ts": "committed\n", "missing.ts": null });
+    assert.throws(() => readSemanticFilesFromGitTree({ cwd: temp, treeSha, paths: ["tracked"] }), /not a regular blob/u);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
 test("formal config check advances past the now-frozen 19 semantic contracts", async () => {
-  await assert.rejects(checkConfig({ finalSha: FINAL_SHA, requireClean: false }), /invalid reference/u);
+  await assert.rejects(checkConfig({ finalSha: FINAL_SHA, requireClean: false }), /invalid reference|semantic tree object/u);
 });
 
 test("all runner-owned commands materialize to executable absolute paths", async () => {

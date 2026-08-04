@@ -11,7 +11,7 @@ export async function checkConfig({ finalSha, requireClean = true } = {}) {
   assertFinalSha(finalSha);
   const { profile, profileSha256 } = loadProfile();
   assertSemanticContractsReady(profile);
-  assertBaselineSemanticAnchors(profile);
+  assertBaselineSemanticAnchors(profile, { root: repoRoot, treeSha: finalSha });
   const durableTables = validateDurableTableSources(profile);
   for (const rehearsalCase of profile.cases) buildCommandSpecs(profile, rehearsalCase);
   const commandProbe = await probeCommandRuntime();
