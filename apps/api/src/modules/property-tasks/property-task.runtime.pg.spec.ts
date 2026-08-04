@@ -65,7 +65,7 @@ const C4_MATRIX_FREEZE_SHA256 =
 const C4_MATRIX_SIGNOFF_SHA256 =
   "43b7d067c87eeabf909190cd0f73448518a4661e4e89eec8765c2051aaa967f5";
 const C4_MATRIX_RESEARCH_ROOT =
-  "../../../../../.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research";
+  "../../../../../.trellis/tasks/archive/2026-08/07-30-pr192-b-approval-runtime-tasks/research";
 const rawFileSha256 = (name: string) => createHash("sha256")
   .update(readFileSync(resolve(__dirname, C4_MATRIX_RESEARCH_ROOT, name))).digest("hex");
 const independentCanonicalJson = (value: unknown): string => {

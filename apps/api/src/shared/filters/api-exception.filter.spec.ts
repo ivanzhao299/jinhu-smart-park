@@ -847,7 +847,7 @@ test("ApiExceptionFilter passes the signed real HTTP no-existence-leak gate", as
   const repoRoot = resolve(__dirname, "../../../../../");
   const researchDir = resolve(
     repoRoot,
-    ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research"
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-approval-runtime-tasks/research"
   );
   const contractPath = resolve(researchDir, "b2a-c1-http-leak-gate-contract.md");
   const signoffPath = resolve(researchDir, "b2a-c1-http-leak-gate-signoff.md");
