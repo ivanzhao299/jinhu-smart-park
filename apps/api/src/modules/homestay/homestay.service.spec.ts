@@ -21,6 +21,7 @@ import { HomestayRatesService } from "./homestay-rates.service";
 import { HomestayBookingQueryService } from "./homestay-booking-query.service";
 import { HomestayBookingCommandService } from "./homestay-booking-command.service";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
+import { HomestayStayCommandService } from "./homestay-stay-command.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -388,16 +389,11 @@ test("credential issue persists the reference but masks it in the response", asy
       throw new Error("Unexpected repository");
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayStayCommandService(
     {} as never,
     { assertAccess: async () => undefined } as never,
-    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never
+    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
+    new HomestayTransactionSupportService()
   );
 
   const result = await service.issueCredential(scope, actor, "booking-1", {
@@ -435,16 +431,11 @@ test("credential return masks the stored reference in new and replayed responses
       throw new Error("Unexpected repository");
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayStayCommandService(
     {} as never,
     { assertAccess: async () => undefined } as never,
-    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never
+    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
+    new HomestayTransactionSupportService()
   );
 
   const first = await service.returnCredential(scope, actor, "booking-1", credential.id);

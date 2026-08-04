@@ -58,7 +58,7 @@ test("external order uniqueness normalizes a missing channel in a forward migrat
 });
 
 test("homestay availability and check-in use current cross-domain truth", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-stay-command.service.ts"), "utf8");
 
   assert.match(service, /identityVerifier.*verifyForCheckIn/s);
   assert.match(service, /expectedConsent: "granted"/);
@@ -91,9 +91,9 @@ test("homestay rescheduling preserves the exact live occupancy lifecycle", () =>
 });
 
 test("guest registration locks the booking inside its write transaction", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-stay-command.service.ts"), "utf8");
   const start = service.indexOf("async addGuest");
-  const end = service.indexOf("async registerStay", start);
+  const end = service.indexOf("async issueCredential", start);
   const addGuest = service.slice(start, end);
 
   assert.match(addGuest, /this\.dataSource\.transaction\(async \(manager\)/);
@@ -123,7 +123,7 @@ test("booking cancellation freezes credentials and occupancy before atomic appro
   assert.match(cancellation, /UPDATE biz_homestay_booking/);
   assert.match(cancellation, /approval_execution_key/);
 
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-stay-command.service.ts"), "utf8");
   const issueStart = service.indexOf("async issueCredential");
   const issuance = service.slice(issueStart, service.indexOf("async returnCredential"));
   assert.match(issuance, /this\.dataSource\.transaction/);
@@ -139,7 +139,7 @@ test("no-show revokes issued credentials before releasing occupancy", () => {
 });
 
 test("credential return locks the row and preserves the original return timestamp on replay", () => {
-  const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
+  const service = readFileSync(resolve(__dirname, "homestay-stay-command.service.ts"), "utf8");
   const credentialReturn = service.slice(
     service.indexOf("async returnCredential"),
     service.indexOf("async checkIn")

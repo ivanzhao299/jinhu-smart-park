@@ -21,6 +21,8 @@ import {
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
 import { HomestayService } from "./homestay.service";
+import { HomestayStayCommandService } from "./homestay-stay-command.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 
 const databaseUrl = process.env.PROPERTY_IDENTITY_PG_URL;
 const entities = [
@@ -182,15 +184,25 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
     const identity = new PropertyIdentityService(admin, {} as never);
     const verifier = new PropertyIdentityVerificationService(identity);
     const transactionDataSource = transactionFacade(checkInRunner);
+    const support = new HomestayTransactionSupportService();
+    const access = { assertAccess: async () => undefined };
+    const stayCommands = new HomestayStayCommandService(
+      {} as never, access as never, transactionDataSource as never, support, verifier
+    );
     const service = new HomestayService(
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
       {} as never,
-      { assertAccess: async () => undefined } as never,
+      access as never,
       transactionDataSource as never,
       new ConfigService(),
       undefined,
       undefined,
-      verifier
+      verifier,
+      undefined,
+      support,
+      undefined,
+      undefined,
+      stayCommands
     );
 
     const success = await service.checkIn(scope, actor, ids.booking);
