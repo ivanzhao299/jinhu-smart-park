@@ -8,6 +8,7 @@ import { HousingPurchaseItemEntity } from "./entities/housing.entities";
 import { HousingService } from "./housing.service";
 import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingPurchaseApprovalExecutorService } from "./housing-purchase-approval-executor.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 const hash = (value: unknown) => propertyApprovalCanonicalHash(value as never);
@@ -30,7 +31,8 @@ test("DEC-04/05/06 housing approval executors are atomic on PostgreSQL", {
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
     {} as never, {} as never,
     undefined, undefined, undefined, support, undefined, undefined, undefined, undefined,
-    new HousingHandoverApprovalExecutorService(support)
+    new HousingHandoverApprovalExecutorService(support), undefined,
+    new HousingPurchaseApprovalExecutorService(support)
   );
   const query = (sql: string, parameters?: unknown[]) => runner.query(sql, parameters);
 

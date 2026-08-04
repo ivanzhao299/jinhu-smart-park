@@ -51,7 +51,7 @@ test("housing billing locks its lease and rejects overlapping plan periods", () 
 });
 
 test("housing final-state, attachment, meter, privacy, and purchase guards stay explicit", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
+  const purchase = readFileSync(resolve(__dirname, "housing-purchase.service.ts"), "utf8");
   const leaseCommands = readFileSync(resolve(__dirname, "housing-lease-command.service.ts"), "utf8");
   const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
   const financeCommands = readFileSync(resolve(__dirname, "housing-finance-command.service.ts"), "utf8");
@@ -59,7 +59,7 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
   assert.match(leaseCommands, /Final housing leases cannot accept new occupants/);
   assert.match(billingCommands, /Final housing leases cannot change charge plans/);
   assert.match(financeCommands, /Deposit deductions can only be created by the move-out handover workflow/);
-  assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
+  assert.match(purchase, /Transferred purchase items must be reversed before voiding the purchase/);
   assert.match(billingCommands, /meter\.status !== "ONLINE"/);
 
   assert.match(leaseCommands, /this\.support\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);

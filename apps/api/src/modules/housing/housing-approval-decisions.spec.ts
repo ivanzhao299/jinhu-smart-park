@@ -8,6 +8,8 @@ import { HousingTransactionSupportService } from "./housing-transaction-support.
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
 import { HousingHandoverCommandService } from "./housing-handover-command.service";
 import { HousingHandoverEntity, HousingLeaseEntity } from "./entities/housing.entities";
+import { HousingPurchaseService } from "./housing-purchase.service";
+import { HousingPurchaseApprovalExecutorService } from "./housing-purchase-approval-executor.service";
 
 function supportTail() {
   const support = new HousingTransactionSupportService();
@@ -42,11 +44,11 @@ function serviceForPurchase(purchase: Record<string, unknown>, onRequest: (input
         : { createQueryBuilder: () => itemBuilder };
     }
   };
-  return new HousingService(
-    {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined, allowedUnitIds: async () => null } as never, {} as never,
-    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+  return new HousingPurchaseService(
     {} as never,
+    { assertAccess: async () => undefined, allowedUnitIds: async () => null } as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    new HousingTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => onRequest(input) } as never
   );
 }
@@ -321,13 +323,12 @@ test("DEC-05 freezes one aggregate target receivable and per-item expected-versi
     }
   };
   let request: Record<string, unknown> | undefined;
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never, {} as never,
-    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+  const service = new HousingPurchaseService(
     {} as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    new HousingTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never,
-    ...supportTail()
   );
 
   await service.transferPurchase(scope, actor, purchase.id, {
@@ -368,16 +369,15 @@ test("DEC-05 freezes one aggregate target receivable and per-item expected-versi
     }
   };
   let newRequest: Record<string, unknown> | undefined;
-  const newTargetService = new HousingService(
-    {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never, {} as never,
-    { transaction: async (run: (value: typeof newManager) => unknown) => run(newManager) } as never,
+  const newTargetService = new HousingPurchaseService(
     {} as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (run: (value: typeof newManager) => unknown) => run(newManager) } as never,
+    new HousingTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       newRequest = input;
       return input;
-    } } as never,
-    ...supportTail()
+    } } as never
   );
   await newTargetService.transferPurchase(scope, actor, purchase.id, {
     lease_id: lease.id, item_ids: items.map((item) => item.id), due_date: "2026-08-31",
@@ -511,10 +511,7 @@ test("purchase lifecycle records the approving decision actor as the payment exe
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never
-  );
+  const service = new HousingPurchaseApprovalExecutorService(new HousingTransactionSupportService());
 
   await service.executeApprovedPurchaseLifecycle({
     manager: manager as never,
@@ -585,10 +582,7 @@ test("DEC-05 new target remains absent until execution and is inserted after ite
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
-  const service = new HousingService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    {} as never, {} as never, undefined, ...supportTail()
-  );
+  const service = new HousingPurchaseApprovalExecutorService(new HousingTransactionSupportService());
 
   await service.executeApprovedPurchaseTransfer({
     manager: manager as never,

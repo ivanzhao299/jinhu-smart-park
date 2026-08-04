@@ -13,7 +13,8 @@ import {
   HousingPurchaseItemEntity,
   HousingReceivableEntity
 } from "./entities/housing.entities";
-import { HousingService } from "./housing.service";
+import { HousingPurchaseService } from "./housing-purchase.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingTenantService } from "./housing-tenant.service";
 import { HousingLeaseQueryService } from "./housing-lease-query.service";
 
@@ -75,18 +76,14 @@ function purchaseService(receiptFiles: unknown[] = []) {
       return { find: async () => [] };
     }
   };
-  return new HousingService(
-    {} as never,
+  return new HousingPurchaseService(
     purchasesRepository as never,
-    {} as never,
-    {} as never,
     {
       allowedUnitIds: async () => null,
       assertAccess: async () => ({ id: purchase.unitId })
     } as never,
-    {} as never,
     dataSource as never,
-    {} as never
+    new HousingTransactionSupportService()
   );
 }
 

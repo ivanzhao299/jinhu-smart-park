@@ -16,6 +16,7 @@ import { HousingReceivableWriterService } from "./housing-receivable-writer.serv
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
 import { HousingHandoverCommandService } from "./housing-handover-command.service";
+import { HousingPurchaseService } from "./housing-purchase.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -26,6 +27,54 @@ const actor: JwtPrincipal = {
   roles: [],
   permissions: []
 };
+
+test("HousingService purchase closure is facade-only delegation", async () => {
+  const calls: Array<{ action: string; args: unknown[] }> = [];
+  const purchase = Object.fromEntries(
+    ["listPurchases", "getPurchase", "createPurchase", "purchaseAction", "transferPurchase"].map(
+      (action) => [action, async (...args: unknown[]) => {
+        calls.push({ action, args });
+        return action;
+      }]
+    )
+  );
+  const executor = {
+    async executeApprovedPurchaseTransfer(...args: unknown[]) {
+      calls.push({ action: "executeApprovedPurchaseTransfer", args });
+    },
+    async executeApprovedPurchaseLifecycle(...args: unknown[]) {
+      calls.push({ action: "executeApprovedPurchaseLifecycle", args });
+    }
+  };
+  const service = new HousingService(
+    {} as never, purchase as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, undefined, executor as never
+  );
+  const query = { page: 1, page_size: 20 } as never;
+  const create = { items: [] } as never;
+  const action = { action: "approve" } as never;
+  const transfer = { item_ids: [] } as never;
+  const execution = { requestId: "request-1" } as never;
+
+  await service.listPurchases(scope, actor, query);
+  await service.getPurchase(scope, actor, "purchase-1");
+  await service.createPurchase(scope, actor, create);
+  await service.purchaseAction(scope, actor, "purchase-1", action, "action-key");
+  await service.transferPurchase(scope, actor, "purchase-1", transfer, "transfer-key");
+  await service.executeApprovedPurchaseTransfer(execution);
+  await service.executeApprovedPurchaseLifecycle(execution);
+
+  assert.deepEqual(calls, [
+    { action: "listPurchases", args: [scope, actor, query] },
+    { action: "getPurchase", args: [scope, actor, "purchase-1"] },
+    { action: "createPurchase", args: [scope, actor, create] },
+    { action: "purchaseAction", args: [scope, actor, "purchase-1", action, "action-key"] },
+    { action: "transferPurchase", args: [scope, actor, "purchase-1", transfer, "transfer-key"] },
+    { action: "executeApprovedPurchaseTransfer", args: [execution] },
+    { action: "executeApprovedPurchaseLifecycle", args: [execution] }
+  ]);
+});
 
 test("HousingService lease commands are facade-only delegations", async () => {
   const calls: Array<{ action: string; args: unknown[] }> = [];
@@ -198,9 +247,12 @@ test("direct housing pure high-risk actions stop before a transaction for every 
     support,
     writer
   );
+  const purchaseCommands = new HousingPurchaseService(
+    {} as never, {} as never, dataSource as never, support
+  );
   const service = new HousingService(
     {} as never,
-    {} as never,
+    purchaseCommands,
     {} as never,
     {} as never,
     {} as never,

@@ -160,8 +160,7 @@ test("receivable reuse includes the source identity used by the database uniquen
 });
 
 test("housing service revalidates meter state and makes completed handover retries side-effect free", () => {
-  const servicePath = resolve(__dirname, "housing.service.ts");
-  const service = readFileSync(servicePath, "utf8");
+  const purchase = readFileSync(resolve(__dirname, "housing-purchase.service.ts"), "utf8");
   const billing = readFileSync(
     resolve(__dirname, "housing-billing-command.service.ts"),
     "utf8"
@@ -178,7 +177,7 @@ test("housing service revalidates meter state and makes completed handover retri
       < handover.indexOf("Deposit deduction cannot exceed agreed deposit")
   );
   assert.match(handover, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
-  assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
+  assert.match(purchase, /Transferred purchase items must be reversed before refunding the purchase/);
 });
 
 test("housing repair binds evidence under the same file-row lock transaction", () => {

@@ -28,6 +28,8 @@ import { HousingFinanceCommandService } from "./housing-finance-command.service"
 import { HousingHandoverCommandService } from "./housing-handover-command.service";
 import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
 import { HousingRepairCommandService } from "./housing-repair-command.service";
+import { HousingPurchaseService } from "./housing-purchase.service";
+import { HousingPurchaseApprovalExecutorService } from "./housing-purchase-approval-executor.service";
 import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 import { HousingApprovalAdapter } from "./housing-approval.adapter";
 import {
@@ -70,6 +72,8 @@ import {
     HousingHandoverCommandService,
     HousingHandoverApprovalExecutorService,
     HousingRepairCommandService,
+    HousingPurchaseService,
+    HousingPurchaseApprovalExecutorService,
     HousingWorkbenchQueryService,
     HousingApprovalAdapter,
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },
