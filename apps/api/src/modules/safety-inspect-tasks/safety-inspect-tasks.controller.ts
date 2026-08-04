@@ -3,7 +3,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CheckInSafetyInspectTaskDto } from "./dto/check-in-safety-inspect-task.dto";
@@ -34,6 +34,16 @@ export class SafetyInspectTasksController {
   @RequirePermissions(SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: SafetyInspectTaskQueryDto) {
     return this.service.list(scope, query, user);
+  }
+
+  @Get("inspect-tasks/:id/execution")
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START,
+    SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_CHECK_IN,
+    SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS
+  )
+  executionDetail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.service.executionDetail(scope, id, user);
   }
 
   @Get("inspect-tasks/:id")

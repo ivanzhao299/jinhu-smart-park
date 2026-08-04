@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   StatusPill
 } from "@jinhu/ui";
-import { ClipboardCheck, Eye, MapPin, PlayCircle, Plus, RefreshCw, Search, Send, Sparkles, X } from "lucide-react";
+import { ClipboardCheck, Eye, MapPin, Plus, RefreshCw, Search, Send, Sparkles, X } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
@@ -23,19 +23,28 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
-import { canViewField, maskField } from "../../../lib/field-policy";
+import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import { hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
+  buildEditableResultValuePayload,
   buildFileIdReplacement,
   isCurrentRequestGeneration,
   normalizeFileIdProjection,
   normalizeNumericInput,
-  normalizeRecordArrayProjection
+  normalizeRecordArrayProjection,
+  resolveExecutionChildrenProjection,
+  resolveInspectTaskExecutionEntry
 } from "./inspect-task-form.logic";
 
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
 const INSPECT_TASK_RESULT_ENTITY = "inspect_task_result";
+const INSPECT_TASK_EXECUTION_PERMISSIONS = [
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START,
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_CHECK_IN,
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS
+] as const;
 
 type DictMap = Record<string, DictItemRow[]>;
 type PageMode = "all" | "mine";
@@ -169,7 +178,9 @@ interface CheckInForm {
 interface ResultInput {
   result: string;
   valueText: string;
+  valueTextEditable: boolean;
   valueNumber: string;
+  valueNumberEditable: boolean;
   photoFileIds: string;
   photoFileIdsAvailable: boolean;
   createHazard: boolean;
@@ -229,6 +240,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [viewing, setViewing] = useState<InspectTaskRow | null>(null);
   const executionRequestGeneration = useRef(0);
+  const executionActionLock = useRef<number | null>(null);
+  const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
   const [executing, setExecuting] = useState<InspectTaskRow | null>(null);
   const [templateItems, setTemplateItems] = useState<InspectItemRow[]>([]);
   const [checkInForm, setCheckInForm] = useState<CheckInForm>(emptyCheckInForm);
@@ -249,6 +262,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   const canViewGpsLat = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "gpsLat");
   const canViewTaskPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_ENTITY, "photoFileIds");
   const canViewResultPhotos = canViewField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
+  const canEditResultPhotos = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds");
+  const canEditResultValueText = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText");
+  const canEditResultValueNumber = canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber");
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-plan_time" });
@@ -336,15 +352,48 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
   }
 
   async function openExecute(row: InspectTaskRow) {
+    if (executionActionLock.current !== null) return;
     const requestGeneration = ++executionRequestGeneration.current;
+    executionActionLock.current = requestGeneration;
+    setExecutingTaskId(row.id);
     setExecuting(null);
     setTemplateItems([]);
     setResultInputs({});
     setMessage("");
     try {
-      const response = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, row.id), { token: getAccessToken() });
+      const response = await apiRequest<InspectTaskRow>(taskExecutionEndpoint(mode, row.id), { token: getAccessToken() });
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      const task = response.data;
+      const preflightTask = response.data;
+      const preflightChildren = resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>(
+        preflightTask.items,
+        preflightTask.results
+      );
+      if (!preflightChildren.available) {
+        throw new Error("巡检执行数据格式异常，请刷新后重试或联系管理员");
+      }
+      let preparedForm = prepareTemplateItems(preflightChildren.items, preflightChildren.results);
+      let task = preflightTask;
+      const entry = resolveInspectTaskExecutionEntry(task.status);
+      if (entry === "hidden") {
+        setMessage("该巡检任务已结束，不能继续执行");
+        return;
+      }
+      if (entry === "start") {
+        const startResponse = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${task.id}/start`, {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: createIdempotencyKey("safety-inspect-task-start")
+        });
+        if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+        const currentChildren = resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>(
+          startResponse.data.items,
+          startResponse.data.results,
+          preflightChildren.items,
+          preflightChildren.results
+        );
+        task = { ...startResponse.data, items: currentChildren.items, results: currentChildren.results };
+        preparedForm = prepareTemplateItems(currentChildren.items, currentChildren.results);
+      }
       const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
       setCheckInForm({
@@ -353,32 +402,33 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         gpsLat: normalizeNumericInput(task.gpsLat),
         photoFileIds: taskPhotoProjection.value
       });
-      if (mode === "mine") {
-        applyTemplateItems(task.items, task.results);
-        setExecuting(task);
-        return;
-      }
-      const items = await fetchTemplateItems(task.templateId);
-      if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      applyTemplateItems(items, task.results);
+      applyPreparedTemplateItems(preparedForm);
       setExecuting(task);
+      if (entry === "start") {
+        setMessage("巡检任务已开始");
+        try {
+          await load();
+        } catch {
+          if (isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) {
+            setMessage("巡检任务已开始，但列表刷新失败，请稍后刷新");
+          }
+        }
+      }
     } catch (error) {
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
       setExecuting(null);
       setTemplateItems([]);
       setResultInputs({});
       setMessage(error instanceof Error ? error.message : "加载巡检执行详情失败");
+    } finally {
+      if (executionActionLock.current === requestGeneration) {
+        executionActionLock.current = null;
+        setExecutingTaskId(null);
+      }
     }
   }
 
-  async function fetchTemplateItems(templateId: string): Promise<unknown> {
-    const response = await apiRequest<PaginatedResult<InspectItemRow>>(`/safety/inspect-templates/${templateId}/items?page=1&page_size=100`, {
-      token: getAccessToken()
-    });
-    return response.data.items;
-  }
-
-  function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
+  function prepareTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
     const itemsProjectionResult = normalizeRecordArrayProjection<InspectItemRow>(itemsProjection, ["id"]);
     const resultsProjectionResult = normalizeRecordArrayProjection<InspectTaskResultRow>(existingResultsProjection, ["itemId"]);
     if (!itemsProjectionResult.available || !resultsProjectionResult.available) {
@@ -386,9 +436,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     }
     const items = itemsProjectionResult.value;
     const existingResults = resultsProjectionResult.value;
-    setTemplateItems(items);
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
-    setResultInputs(Object.fromEntries(items.map((item) => {
+    const inputs = Object.fromEntries(items.map((item) => {
       const existing = existingMap.get(item.id);
       const photoProjection = existing
         ? normalizeFileIdProjection(existing.photoFileIds)
@@ -396,12 +445,24 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       return [item.id, {
         result: existing?.result ?? itemResultItems.find((dict) => dict.itemValue === "normal")?.itemValue ?? "normal",
         valueText: existing?.valueText ?? "",
+        valueTextEditable: canEditResultValueText && (!existing || Object.prototype.hasOwnProperty.call(existing, "valueText")),
         valueNumber: existing?.valueNumber ?? "",
+        valueNumberEditable: canEditResultValueNumber && (!existing || Object.prototype.hasOwnProperty.call(existing, "valueNumber")),
         photoFileIds: photoProjection.value,
-        photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
+        photoFileIdsAvailable: canViewResultPhotos && canEditResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
-    })));
+    }));
+    return { items, inputs };
+  }
+
+  function applyPreparedTemplateItems(prepared: ReturnType<typeof prepareTemplateItems>) {
+    setTemplateItems(prepared.items);
+    setResultInputs(prepared.inputs);
+  }
+
+  function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
+    applyPreparedTemplateItems(prepareTemplateItems(itemsProjection, existingResultsProjection));
   }
 
   async function saveTask(event: FormEvent<HTMLFormElement>) {
@@ -449,20 +510,6 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     await load();
   }
 
-  async function startTask() {
-    if (!executing) return;
-    const requestGeneration = executionRequestGeneration.current;
-    const response = await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/start`, {
-      method: "POST",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey("safety-inspect-task-start")
-    });
-    if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-    setExecuting(response.data);
-    setMessage("巡检任务已开始");
-    await load();
-  }
-
   async function checkIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!executing) return;
@@ -499,8 +546,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
           return {
             item_id: item.id,
             result: input.result,
-            value_text: input.valueText.trim() || undefined,
-            value_number: input.valueNumber.trim() ? Number(input.valueNumber) : undefined,
+            ...buildEditableResultValuePayload(
+              input.valueText,
+              input.valueTextEditable,
+              input.valueNumber,
+              input.valueNumberEditable
+            ),
             ...buildFileIdReplacement(input.photoFileIds, input.photoFileIdsAvailable),
             create_hazard: input.createHazard
           };
@@ -515,17 +566,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     try {
       await load();
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      if (mode === "mine") {
-        const detail = await apiRequest<InspectTaskRow>(taskDetailEndpoint(mode, response.data.id), { token: getAccessToken() });
-        if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-        applyTemplateItems(detail.data.items, detail.data.results);
-        setExecuting(detail.data);
-        setViewing(detail.data);
-        return;
-      }
-      const items = await fetchTemplateItems(response.data.templateId);
+      if (resolveInspectTaskExecutionEntry(response.data.status) === "hidden") return;
+      const detail = await apiRequest<InspectTaskRow>(taskExecutionEndpoint(mode, response.data.id), { token: getAccessToken() });
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      applyTemplateItems(items, response.data.results);
+      applyTemplateItems(detail.data.items, detail.data.results);
+      setExecuting(detail.data);
+      setViewing(detail.data);
     } catch {
       if (isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) {
         setMessage("巡检结果已提交，但最新数据刷新失败，请稍后刷新列表");
@@ -535,6 +581,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
 
   function closeExecution() {
     executionRequestGeneration.current += 1;
+    executionActionLock.current = null;
+    setExecutingTaskId(null);
     setExecuting(null);
   }
 
@@ -615,7 +663,12 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
               </tr>
             </thead>
             <tbody>
-              {pageData.items.map((row) => (
+              {pageData.items.map((row) => {
+                const executionEntry = resolveInspectTaskExecutionEntry(row.status);
+                const executionPermission = executionEntry === "start"
+                  ? SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START
+                  : INSPECT_TASK_EXECUTION_PERMISSIONS.find((permission) => hasPermission(authUser, permission));
+                return (
                 <tr key={row.id}>
                   <td>{row.taskCode}</td>
                   <td>{row.point?.pointName ?? pointMap.get(row.pointId)?.pointName ?? "-"}</td>
@@ -631,14 +684,24 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                         <Eye size={16} />
                         查看
                       </button>
-                      <PermissionButton className="row-action-button" permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS} type="button" onClick={() => void openExecute(row).catch((error: Error) => setMessage(error.message))} title="执行">
-                        <ClipboardCheck size={16} />
-                        执行
-                      </PermissionButton>
+                      {executionEntry !== "hidden" && executionPermission ? (
+                        <PermissionButton
+                          className="row-action-button"
+                          disabled={executingTaskId !== null}
+                          permission={executionPermission}
+                          type="button"
+                          onClick={() => void openExecute(row).catch((error: Error) => setMessage(error.message))}
+                          title={executionEntry === "start" ? "执行" : "继续执行"}
+                        >
+                          <ClipboardCheck size={16} />
+                          {executingTaskId === row.id ? "处理中..." : executionEntry === "start" ? "执行" : "继续执行"}
+                        </PermissionButton>
+                      ) : null}
                     </DataTableActions>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {pageData.items.length === 0 ? (
                 <tr>
                   <td colSpan={9}><EmptyState /></td>
@@ -792,13 +855,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
               <DrawerDetailItem label="计划时间" value={formatDateTime(executing.planTime)} />
               <DrawerDetailItem label="截止时间" value={formatDateTime(executing.dueTime)} />
             </DrawerDetailGrid>
-            <DrawerFooter>
-              <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START} type="button" onClick={() => void startTask().catch((error: Error) => setMessage(error.message))}>
-                <PlayCircle size={16} />
-                开始任务
-              </PermissionButton>
-            </DrawerFooter>
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void checkIn(event).catch((error: Error) => setMessage(error.message))}>
+            <PermissionGuard permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_CHECK_IN}>
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void checkIn(event).catch((error: Error) => setMessage(error.message))}>
               <h3>扫码 / 定位 / 拍照</h3>
               <DrawerFormGrid>
                 <Field label="二维码">
@@ -825,8 +883,10 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 </button>
                 <button className="primary-button" type="submit">提交打卡</button>
               </DrawerFooter>
-            </DrawerForm>
-            <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitResults(event).catch((error: Error) => setMessage(error.message))}>
+              </DrawerForm>
+            </PermissionGuard>
+            <PermissionGuard permission={SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS}>
+              <DrawerForm onSubmit={(event: FormEvent<HTMLFormElement>) => void submitResults(event).catch((error: Error) => setMessage(error.message))}>
               <h3>检查项结果</h3>
               <DataTable>
                 <thead>
@@ -851,10 +911,10 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                           </select>
                         </td>
                         <td>
-                          <input value={input.valueText} onChange={(event) => setResultInput(item.id, { valueText: event.target.value })} />
+                          <input disabled={!input.valueTextEditable} value={input.valueText} onChange={(event) => setResultInput(item.id, { valueText: event.target.value })} />
                         </td>
                         <td>
-                          <input type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
+                          <input disabled={!input.valueNumberEditable} type="number" value={input.valueNumber} onFocus={(event) => event.target.select()} onChange={(event) => setResultInput(item.id, { valueNumber: event.target.value })} />
                         </td>
                         <td>
                           {input.photoFileIdsAvailable ? (
@@ -885,7 +945,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                   提交结果
                 </button>
               </DrawerFooter>
-            </DrawerForm>
+              </DrawerForm>
+            </PermissionGuard>
           </Drawer>
         ) : null}
       </main>
@@ -999,7 +1060,9 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
   return {
     result: items.find((item) => item.itemValue === "normal")?.itemValue ?? "normal",
     valueText: "",
+    valueTextEditable: true,
     valueNumber: "",
+    valueNumberEditable: true,
     photoFileIds: "",
     photoFileIdsAvailable: true,
     createHazard: false
@@ -1008,6 +1071,10 @@ function defaultResultInput(items: DictItemRow[]): ResultInput {
 
 function taskDetailEndpoint(mode: PageMode, id: string): string {
   return mode === "mine" ? `/safety/my-inspect-tasks/${id}` : `/safety/inspect-tasks/${id}`;
+}
+
+function taskExecutionEndpoint(mode: PageMode, id: string): string {
+  return mode === "mine" ? `/safety/my-inspect-tasks/${id}` : `/safety/inspect-tasks/${id}/execution`;
 }
 
 function fillBrowserLocation(setCheckInForm: (updater: (current: CheckInForm) => CheckInForm) => void) {

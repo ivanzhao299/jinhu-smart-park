@@ -108,6 +108,32 @@ Reference files:
 
 Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictException`, `NotFoundException`, etc.) from services. Do not return ad hoc error objects from controllers or services.
 
+## Business Action Context Endpoints
+
+An authorized business action must receive its minimum execution context from the owning
+aggregate. Do not require the browser to join an unrelated management endpoint whose read
+permission is not part of the action contract. For safety inspection execution,
+`GET /safety/inspect-tasks/:id/execution` is authorized by the task start/check-in/result
+permissions, revalidates that the actor can execute the target task, and returns the enabled
+template items together with the task. Ordinary task detail remains a read-only projection.
+
+Lifecycle action entry points must distinguish start, resume, and reject states. A repeated
+start request for an already in-progress inspection returns the current execution projection
+without writing a second transition or audit log; terminal states remain rejected by both the
+mutation and action-context route. Determine the disposition while holding the aggregate row's
+`pessimistic_write` lock inside the mutation transaction; a browser lock or pre-transaction read
+cannot serialize separate clients.
+After a transition commits, its response must preserve that success even if another actor advances
+the aggregate before response enrichment. Build the authorized mutation response without routing
+it back through a context guard whose state predicate may now reject the already-committed action.
+Nested result collections are independent field-policy entities: every task detail/action projection
+must apply `safety.inspect_task_result` policies to each result before attaching it to a parent whose
+own `inspect_task` policy is necessarily shallow.
+For partial result writes, an omitted protected optional field means preserve the stored value;
+explicit `null` means clear it. Finish-time validation must evaluate the resolved stored/submitted
+value under the result-row write lock so a hidden field neither corrupts concurrent edits nor
+falsely fails an abnormal-result requirement.
+
 ## Scenario: Candidate Catalog Matches Write-Side Resolution
 
 ### 1. Scope / Trigger

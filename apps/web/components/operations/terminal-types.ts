@@ -53,7 +53,7 @@ export interface InspectTaskResultRow {
   itemId: string;
   itemName: string;
   result: string;
-  valueText: string | null;
+  valueText?: string | null;
   valueNumber?: string | null;
   photoFileIds?: string[];
   isAbnormal: boolean;
@@ -127,8 +127,11 @@ export interface WorkOrderRow {
 export interface ResultInput {
   result: string;
   valueText: string;
+  valueTextEditable: boolean;
   valueNumber: string;
+  valueNumberEditable: boolean;
   photoFileIds: string[];
+  photoFileIdsEditable: boolean;
   createHazard: boolean;
 }
 

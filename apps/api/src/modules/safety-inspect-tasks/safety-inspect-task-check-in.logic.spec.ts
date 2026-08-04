@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
+import { resolveSubmittedOptionalValue, resolveSubmittedPhotoFileIds } from "./safety-inspect-task-check-in.logic";
 
 test("omitted check-in photos preserve existing safety evidence", () => {
   assert.deepEqual(resolveSubmittedPhotoFileIds(undefined, ["existing-file"]), ["existing-file"]);
@@ -15,4 +15,11 @@ test("explicit check-in photo arrays retain replacement semantics", () => {
 test("omitted result photos preserve an existing result but default new results to empty", () => {
   assert.deepEqual(resolveSubmittedPhotoFileIds(undefined, ["existing-result-file"]), ["existing-result-file"]);
   assert.deepEqual(resolveSubmittedPhotoFileIds(undefined, null), []);
+});
+
+test("omitted protected result values are preserved while explicit null clears them", () => {
+  assert.equal(resolveSubmittedOptionalValue(undefined, "protected"), "protected");
+  assert.equal(resolveSubmittedOptionalValue(null, "protected"), null);
+  assert.equal(resolveSubmittedOptionalValue("replacement", "protected"), "replacement");
+  assert.equal(resolveSubmittedOptionalValue(undefined, undefined), null);
 });

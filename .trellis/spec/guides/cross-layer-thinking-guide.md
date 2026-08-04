@@ -152,6 +152,10 @@ action against every state and sibling entry point before implementation:
 - [ ] Before permission-aware or legacy response fields enter editable controls,
       consumers normalize runtime `unknown` values; compile-time row interfaces do
       not authorize array methods or constrained-input assignment at the HTTP boundary
+- [ ] When multiple screens consume the same permission-aware projection, every
+      consumer retains per-child field availability through form state, local drafts,
+      and serialization. Cached browser drafts are untrusted after a permission change
+      and must not restore or submit currently protected values.
 - [ ] Optional replacement fields distinguish unavailable/omitted from explicitly
       empty; the UI omits unavailable projections and the service preserves the
       existing association instead of defaulting a missing field to `[]`
@@ -176,6 +180,12 @@ action against every state and sibling entry point before implementation:
       apply the same data scope as the mutation, and return the labels needed by the
       selector in one projection; the browser must not join several unrelated
       read-permission endpoints to make an authorized action reachable
+- [ ] An action-labelled control performs or resumes the named transition in one
+      interaction. If it only opens read-only context, label it as view/detail;
+      do not hide the real transition behind a second action with the same meaning
+- [ ] Action context responses include the owning aggregate's minimum child data
+      under the action capability. They do not borrow management-read permissions
+      from another route, and they revalidate target ownership/data scope server-side
 - [ ] Candidate pagination is an integer-only, server-bounded contract before SQL
       `skip`/`take`; defaults do not substitute for an explicit maximum
 - [ ] Historical financial candidates remain reachable when a current reference is
@@ -212,6 +222,24 @@ action against every state and sibling entry point before implementation:
       percentage values capped at 100
 - [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
       React/render state alone is not a lock against two events in the same tick
+- [ ] Cross-client lifecycle transitions decide their disposition under a database row
+      lock or equivalent conditional write; a browser lock and pre-transaction status
+      read do not prevent duplicate transitions or audit records
+- [ ] Validate action context before committing a state transition. If post-transition
+      enrichment fails, preserve and report the committed success independently instead
+      of clearing the workflow as though the mutation failed
+- [ ] Nested child collections pass through their own field-policy entity before attachment;
+      a shallow parent projection does not secure child values
+- [ ] A masked/hidden/readonly value is never round-tripped as mutation input. Track editability,
+      omit protected fields, and make the write contract distinguish omission (preserve) from
+      explicit null (clear), including validation against the resolved stored value
+- [ ] After a mutation, prefer a valid authoritative response projection over preflight data;
+      use a validated preflight snapshot only as an atomic fallback, never as an unconditional
+      overwrite or a field-by-field mix of two versions
+- [ ] Validate and derive the complete selected-target UI state before publishing the target.
+      A failed projection must not pair a new parent with a previous parent's child form state,
+      and every successful lifecycle response reconciles the parent, children, and derived inputs
+      in one state publication.
 - [ ] Same-target refresh failures preserve the last successful projection; clearing
       data is reserved for a real target change or a successful empty response
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate

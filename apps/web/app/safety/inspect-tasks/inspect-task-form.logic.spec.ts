@@ -3,13 +3,24 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  buildEditableResultValuePayload,
   buildFileIdReplacement,
   isCurrentRequestGeneration,
   normalizeFileIdInput,
   normalizeFileIdProjection,
   normalizeNumericInput,
-  normalizeRecordArrayProjection
+  normalizeRecordArrayProjection,
+  resolveExecutionChildrenProjection,
+  resolveInspectTaskExecutionEntry
 } from "./inspect-task-form.logic";
+
+test("inspection execution entry starts, resumes, or hides by lifecycle status", () => {
+  assert.equal(resolveInspectTaskExecutionEntry("10"), "start");
+  assert.equal(resolveInspectTaskExecutionEntry("40"), "start");
+  assert.equal(resolveInspectTaskExecutionEntry("20"), "resume");
+  assert.equal(resolveInspectTaskExecutionEntry("30"), "hidden");
+  assert.equal(resolveInspectTaskExecutionEntry("unexpected"), "hidden");
+});
 
 test("inspection execution ignores responses from an older request generation", () => {
   assert.equal(isCurrentRequestGeneration(2, 2), true);
@@ -24,6 +35,55 @@ test("inspection execution ignores responses from an older request generation", 
   );
 });
 
+test("inspection execution is a single guarded business action with task-owned items", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+  const openExecute = source.slice(
+    source.indexOf("async function openExecute"),
+    source.indexOf("function applyTemplateItems")
+  );
+
+  assert.match(openExecute, /executionActionLock\.current/);
+  assert.match(openExecute, /\/safety\/inspect-tasks\/\$\{task\.id\}\/start/);
+  assert.match(openExecute, /resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>/);
+  assert.match(openExecute, /startResponse\.data\.items/);
+  assert.match(openExecute, /preflightChildren\.items/);
+  assert.doesNotMatch(openExecute, /inspect-templates/);
+  assert.doesNotMatch(source, />\s*开始任务\s*</);
+  assert.match(source, /taskDetailEndpoint\(mode, row\.id\)/);
+  assert.match(openExecute, /taskExecutionEndpoint\(mode, row\.id\)/);
+  assert.ok(openExecute.indexOf("preflightChildren.available") < openExecute.indexOf("/start"));
+});
+
+test("inspection start prefers fresh valid children and falls back atomically", () => {
+  const oldItems = [{ id: "item-old" }];
+  const oldResults = [{ itemId: "item-old", valueText: "old" }];
+  const freshItems = [{ id: "item-new" }];
+  const freshResults = [{ itemId: "item-new", valueText: "fresh" }];
+
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(freshItems, freshResults, oldItems, oldResults),
+    { available: true, items: freshItems, results: freshResults, source: "primary" }
+  );
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(undefined, freshResults, oldItems, oldResults),
+    { available: true, items: oldItems, results: oldResults, source: "fallback" }
+  );
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(undefined, freshResults),
+    { available: false, items: [], results: [], source: "unavailable" }
+  );
+});
+
+test("inspection resume entry accepts any execution permission", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+
+  assert.match(source, /INSPECT_TASK_EXECUTION_PERMISSIONS = \[/);
+  assert.match(
+    source,
+    /INSPECT_TASK_EXECUTION_PERMISSIONS\.find\(\(permission\) => hasPermission\(authUser, permission\)\)/
+  );
+});
+
 test("successful inspection submission is published before optional refresh reads", () => {
   const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
   const submit = source.indexOf("async function submitResults");
@@ -33,6 +93,10 @@ test("successful inspection submission is published before optional refresh read
   assert.ok(publish > submit);
   assert.ok(refresh > publish);
   assert.match(source, /巡检结果已提交，但最新数据刷新失败/);
+  assert.match(
+    source.slice(submit, source.indexOf("function closeExecution", submit)),
+    /resolveInspectTaskExecutionEntry\(response\.data\.status\) === "hidden"/
+  );
 });
 
 test("inspection execution rejects malformed collection projections before mapping form state", () => {
@@ -75,16 +139,38 @@ test("inspection result payloads omit unavailable evidence and retain explicit r
   });
 });
 
+test("inspection result payloads omit protected values and preserve explicit clearing", () => {
+  assert.deepEqual(buildEditableResultValuePayload("masked", false, "123", false), {});
+  assert.deepEqual(buildEditableResultValuePayload("", true, "", true), {
+    value_text: null,
+    value_number: null
+  });
+  assert.deepEqual(buildEditableResultValuePayload(" replacement ", true, "12.5", true), {
+    value_text: "replacement",
+    value_number: 12.5
+  });
+});
+
 test("inspection result photos use their independent field-policy entity", () => {
   const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
 
   assert.match(source, /INSPECT_TASK_RESULT_ENTITY = "inspect_task_result"/);
   assert.match(
     source,
-    /canViewResultPhotos = canViewField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/
+    /canEditResultPhotos = canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds"\)/
   );
-  assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && photoProjection\.available/);
+  assert.match(source, /photoFileIdsAvailable: canViewResultPhotos && canEditResultPhotos && photoProjection\.available/);
   assert.doesNotMatch(source, /photoFileIdsAvailable: canViewTaskPhotos && photoProjection\.available/);
+});
+
+test("inspection result values use edit field policies and omit protected payload fields", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+
+  assert.match(source, /canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText"\)/);
+  assert.match(source, /canEditField\(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber"\)/);
+  assert.match(source, /buildEditableResultValuePayload\(/);
+  assert.match(source, /disabled=\{!input\.valueTextEditable\}/);
+  assert.match(source, /disabled=\{!input\.valueNumberEditable\}/);
 });
 
 test("inspection execution accepts only finite numeric GPS projections", () => {
