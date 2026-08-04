@@ -8,6 +8,13 @@ export interface RecordArrayProjection<T> {
   value: T[];
 }
 
+export interface ExecutionChildrenProjection<TItem, TResult> {
+  available: boolean;
+  items: TItem[];
+  results: TResult[];
+  source: "primary" | "fallback" | "unavailable";
+}
+
 export type InspectTaskExecutionEntry = "start" | "resume" | "hidden";
 
 export function resolveInspectTaskExecutionEntry(status: string): InspectTaskExecutionEntry {
@@ -32,6 +39,37 @@ export function normalizeRecordArrayProjection<T extends object>(
     return requiredStringKeys.every((key) => typeof record[key] === "string" && record[key].trim().length > 0);
   });
   return valid ? { available: true, value } : { available: false, value: [] };
+}
+
+export function resolveExecutionChildrenProjection<TItem extends object, TResult extends object>(
+  primaryItems: unknown,
+  primaryResults: unknown,
+  fallbackItems?: unknown,
+  fallbackResults?: unknown
+): ExecutionChildrenProjection<TItem, TResult> {
+  const primaryItemProjection = normalizeRecordArrayProjection<TItem>(primaryItems, ["id"]);
+  const primaryResultProjection = normalizeRecordArrayProjection<TResult>(primaryResults, ["itemId"]);
+  if (primaryItemProjection.available && primaryResultProjection.available) {
+    return {
+      available: true,
+      items: primaryItemProjection.value,
+      results: primaryResultProjection.value,
+      source: "primary"
+    };
+  }
+
+  const fallbackItemProjection = normalizeRecordArrayProjection<TItem>(fallbackItems, ["id"]);
+  const fallbackResultProjection = normalizeRecordArrayProjection<TResult>(fallbackResults, ["itemId"]);
+  if (fallbackItemProjection.available && fallbackResultProjection.available) {
+    return {
+      available: true,
+      items: fallbackItemProjection.value,
+      results: fallbackResultProjection.value,
+      source: "fallback"
+    };
+  }
+
+  return { available: false, items: [], results: [], source: "unavailable" };
 }
 
 export function normalizeFileIdProjection(value: unknown): FileIdInputProjection {

@@ -113,14 +113,14 @@ export class SafetyInspectTasksService {
     if (entity.handlerId !== actor.sub) {
       throw new ForbiddenException("Only task handler can view this inspect task");
     }
-    const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+    const securedTask = await this.projectTaskDetail(scope, entity, actor);
     const items = await this.loadExecutionItems(scope, entity.templateId);
     return Object.assign(securedTask, { items });
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<SafetyInspectTaskEntity> {
     const entity = await this.findOne(scope, id, actor);
-    return this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+    return this.projectTaskDetail(scope, entity, actor);
   }
 
   async executionDetail(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<MySafetyInspectTaskDetail> {
@@ -137,9 +137,27 @@ export class SafetyInspectTasksService {
     entity: SafetyInspectTaskEntity,
     actor: JwtPrincipal
   ): Promise<MySafetyInspectTaskDetail> {
-    const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
+    const securedTask = await this.projectTaskDetail(scope, entity, actor);
     const items = await this.loadExecutionItems(scope, entity.templateId);
     return Object.assign(securedTask, { items });
+  }
+
+  private async projectTaskDetail(
+    scope: TenantParkScope,
+    entity: SafetyInspectTaskEntity,
+    actor?: JwtPrincipal
+  ): Promise<SafetyInspectTaskEntity> {
+    const [securedTask, securedResults] = await Promise.all([
+      this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity),
+      this.fieldPolicyService.applyFieldPoliciesToList(
+        scope,
+        actor,
+        "safety",
+        "inspect_task_result",
+        entity.results ?? []
+      )
+    ]);
+    return Object.assign(securedTask, { results: securedResults });
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateSafetyInspectTaskDto): Promise<SafetyInspectTaskEntity> {

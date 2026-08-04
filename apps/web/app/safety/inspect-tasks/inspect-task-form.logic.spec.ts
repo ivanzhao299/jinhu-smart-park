@@ -9,6 +9,7 @@ import {
   normalizeFileIdProjection,
   normalizeNumericInput,
   normalizeRecordArrayProjection,
+  resolveExecutionChildrenProjection,
   resolveInspectTaskExecutionEntry
 } from "./inspect-task-form.logic";
 
@@ -42,13 +43,34 @@ test("inspection execution is a single guarded business action with task-owned i
 
   assert.match(openExecute, /executionActionLock\.current/);
   assert.match(openExecute, /\/safety\/inspect-tasks\/\$\{task\.id\}\/start/);
-  assert.match(openExecute, /prepareTemplateItems\(preflightTask\.items, preflightTask\.results\)/);
-  assert.match(openExecute, /items: preflightTask\.items, results: preflightTask\.results/);
+  assert.match(openExecute, /resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>/);
+  assert.match(openExecute, /startResponse\.data\.items/);
+  assert.match(openExecute, /preflightChildren\.items/);
   assert.doesNotMatch(openExecute, /inspect-templates/);
   assert.doesNotMatch(source, />\s*开始任务\s*</);
   assert.match(source, /taskDetailEndpoint\(mode, row\.id\)/);
   assert.match(openExecute, /taskExecutionEndpoint\(mode, row\.id\)/);
-  assert.ok(openExecute.indexOf("prepareTemplateItems") < openExecute.indexOf("/start"));
+  assert.ok(openExecute.indexOf("preflightChildren.available") < openExecute.indexOf("/start"));
+});
+
+test("inspection start prefers fresh valid children and falls back atomically", () => {
+  const oldItems = [{ id: "item-old" }];
+  const oldResults = [{ itemId: "item-old", valueText: "old" }];
+  const freshItems = [{ id: "item-new" }];
+  const freshResults = [{ itemId: "item-new", valueText: "fresh" }];
+
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(freshItems, freshResults, oldItems, oldResults),
+    { available: true, items: freshItems, results: freshResults, source: "primary" }
+  );
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(undefined, freshResults, oldItems, oldResults),
+    { available: true, items: oldItems, results: oldResults, source: "fallback" }
+  );
+  assert.deepEqual(
+    resolveExecutionChildrenProjection(undefined, freshResults),
+    { available: false, items: [], results: [], source: "unavailable" }
+  );
 });
 
 test("inspection resume entry accepts any execution permission", () => {

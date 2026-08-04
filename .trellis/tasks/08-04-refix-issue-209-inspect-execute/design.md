@@ -11,6 +11,7 @@
 3. Web 使用同步 ref 锁阻止同一渲染周期内的重复点击，并用状态禁用当前按钮；现有 generation 继续阻止过期响应覆盖新目标。
 4. API start 对已经 in-progress 的任务返回当前详情，保证入口重试和跨会话状态漂移可恢复；completed 等终态继续拒绝。
 5. Codex review 补充：execution context 自身拒绝终态；start 在事务行锁内判定状态；Web 启动前验证完整投影，继续执行入口接受任一 execution 权限。
+6. Codex 二轮 review 补充：任务投影对子结果逐项应用独立字段策略；start 后优先使用最新有效子项，仅在响应不可用时原子回退到 preflight。
 
 ## Same-Class Risk Prevention
 

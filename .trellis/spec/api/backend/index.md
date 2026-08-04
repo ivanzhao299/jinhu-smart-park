@@ -126,6 +126,9 @@ cannot serialize separate clients.
 After a transition commits, its response must preserve that success even if another actor advances
 the aggregate before response enrichment. Build the authorized mutation response without routing
 it back through a context guard whose state predicate may now reject the already-committed action.
+Nested result collections are independent field-policy entities: every task detail/action projection
+must apply `safety.inspect_task_result` policies to each result before attaching it to a parent whose
+own `inspect_task` policy is necessarily shallow.
 
 ## Scenario: Candidate Catalog Matches Write-Side Resolution
 

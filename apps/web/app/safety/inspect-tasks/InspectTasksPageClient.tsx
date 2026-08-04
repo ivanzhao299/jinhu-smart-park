@@ -32,6 +32,7 @@ import {
   normalizeFileIdProjection,
   normalizeNumericInput,
   normalizeRecordArrayProjection,
+  resolveExecutionChildrenProjection,
   resolveInspectTaskExecutionEntry
 } from "./inspect-task-form.logic";
 
@@ -357,7 +358,14 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
       const response = await apiRequest<InspectTaskRow>(taskExecutionEndpoint(mode, row.id), { token: getAccessToken() });
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
       const preflightTask = response.data;
-      const preparedForm = prepareTemplateItems(preflightTask.items, preflightTask.results);
+      const preflightChildren = resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>(
+        preflightTask.items,
+        preflightTask.results
+      );
+      if (!preflightChildren.available) {
+        throw new Error("巡检执行数据格式异常，请刷新后重试或联系管理员");
+      }
+      let preparedForm = prepareTemplateItems(preflightChildren.items, preflightChildren.results);
       let task = preflightTask;
       const entry = resolveInspectTaskExecutionEntry(task.status);
       if (entry === "hidden") {
@@ -371,7 +379,14 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
           idempotencyKey: createIdempotencyKey("safety-inspect-task-start")
         });
         if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-        task = { ...startResponse.data, items: preflightTask.items, results: preflightTask.results };
+        const currentChildren = resolveExecutionChildrenProjection<InspectItemRow, InspectTaskResultRow>(
+          startResponse.data.items,
+          startResponse.data.results,
+          preflightChildren.items,
+          preflightChildren.results
+        );
+        task = { ...startResponse.data, items: currentChildren.items, results: currentChildren.results };
+        preparedForm = prepareTemplateItems(currentChildren.items, currentChildren.results);
       }
       const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);

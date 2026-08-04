@@ -224,6 +224,11 @@ action against every state and sibling entry point before implementation:
 - [ ] Validate action context before committing a state transition. If post-transition
       enrichment fails, preserve and report the committed success independently instead
       of clearing the workflow as though the mutation failed
+- [ ] Nested child collections pass through their own field-policy entity before attachment;
+      a shallow parent projection does not secure child values
+- [ ] After a mutation, prefer a valid authoritative response projection over preflight data;
+      use a validated preflight snapshot only as an atomic fallback, never as an unconditional
+      overwrite or a field-by-field mix of two versions
 - [ ] Same-target refresh failures preserve the last successful projection; clearing
       data is reserved for a real target change or a successful empty response
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate

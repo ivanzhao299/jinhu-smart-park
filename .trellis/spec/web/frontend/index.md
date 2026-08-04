@@ -63,6 +63,9 @@ Resume controls must accept any permission authorized for that execution context
 mutable sub-form remains independently gated by its exact mutation permission. Validate the
 complete preflight action projection before issuing a state transition; after success, retain the
 validated preflight children if the mutation response's optional projection cannot be trusted.
+When the transition response contains a valid child projection, prefer that newer authoritative
+snapshot; fall back atomically to the validated preflight item/result pair only when either returned
+collection is unusable, so mixed-version form state cannot overwrite concurrent drafts.
 Once a mutation reaches a terminal state, do not refresh it through an active-action context
 endpoint; retain the committed response and use the ordinary list/detail projection instead.
 

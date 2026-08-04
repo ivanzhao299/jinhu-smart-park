@@ -17,6 +17,17 @@ test("inspection execution context rejects terminal states before loading child 
   assert.ok(loadItems > reject);
 });
 
+test("inspection detail projections secure nested results with their own field policies", () => {
+  const projection = source.slice(
+    source.indexOf("private async projectTaskDetail"),
+    source.indexOf("async create(", source.indexOf("private async projectTaskDetail"))
+  );
+
+  assert.match(projection, /applyFieldPoliciesToList\(/);
+  assert.match(projection, /"inspect_task_result"/);
+  assert.match(projection, /results: securedResults/);
+});
+
 test("inspection start decides the transition while holding the task row lock", () => {
   const start = source.slice(
     source.indexOf("async start("),
