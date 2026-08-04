@@ -12,6 +12,7 @@ const TOKENS = Object.freeze({
   WORKTREE: "$WORKTREE",
   HARNESS: "$ROLLBACK_HARNESS"
 });
+const TOKEN_PATTERN = /\$(?:TS_NODE_REGISTER|ROLLBACK_HARNESS|WORKTREE|NODE|TSC|NEXT)(?![A-Za-z0-9_])/u;
 export const COMMAND_IDS = Object.freeze([
   "shared-build", "api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port",
   "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"
@@ -75,7 +76,19 @@ export function commandSpecSha256(profile, rehearsalCase) { return canonicalSha2
 export function materializeCommand(spec, worktree) {
   const paths = runtimePaths(worktree);
   const harness = resolve(repoRoot, "scripts/e2e/property-remediation/rollback");
-  const substitute = (value) => value.replaceAll(TOKENS.WORKTREE, worktree).replaceAll(TOKENS.TS_REGISTER, paths[TOKENS.TS_REGISTER]).replaceAll(TOKENS.HARNESS, harness);
+  const replacements = new Map(Object.entries({ ...paths, [TOKENS.WORKTREE]: worktree, [TOKENS.HARNESS]: harness }));
+  const substitute = (value) => {
+    if (replacements.has(value)) return replacements.get(value);
+    for (const token of [TOKENS.WORKTREE, TOKENS.HARNESS]) {
+      const prefix = `${token}/`;
+      if (!value.startsWith(prefix)) continue;
+      const suffix = value.slice(token.length);
+      if (TOKEN_PATTERN.test(suffix)) throw new Error("runner-owned argument contains a nested runtime token");
+      return `${replacements.get(token)}${suffix}`;
+    }
+    if (TOKEN_PATTERN.test(value)) throw new Error("runner-owned argument contains a runtime token in an unsupported position");
+    return value;
+  };
   const executable = paths[spec.executable];
   if (!executable) throw new Error("unsupported runner-owned executable token");
   return [executable, ...spec.args.map(substitute)];

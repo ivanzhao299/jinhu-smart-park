@@ -75,6 +75,7 @@ test("all runner-owned commands materialize to executable absolute paths", async
   for (const spec of backendSpecs) {
     const argv = materializeCommand(spec, worktree);
     assert(isAbsolute(argv[0]));
+    assert.equal(argv.some((value) => value.includes("$NODE") || value.includes("$TSC") || value.includes("$NEXT") || value.includes("$TS_NODE_REGISTER") || value.includes("$WORKTREE") || value.includes("$ROLLBACK_HARNESS")), false);
     assert(!argv.includes("/bin/true"));
     assert(!argv.includes("echo"));
   }
@@ -88,6 +89,25 @@ test("all runner-owned commands materialize to executable absolute paths", async
   assert.equal(frontendEnv.TS_NODE_PROJECT, resolve(worktree, "apps/web/tsconfig.json"));
   assert.throws(() => safeChildEnvironment({ needsDatabaseCredential: false, typescriptTestProject: "../escape.json", worktree }), /escapes/u);
   assert.equal((await probeCommandRuntime()).status, "PASS");
+});
+
+test("command token materialization never rescans replacement path text", () => {
+  const worktree = mkdtempSync(resolve(tmpdir(), "rollback-$TSC-$NEXT-"));
+  try {
+    mkdirSync(resolve(worktree, "apps/api"), { recursive: true });
+    mkdirSync(resolve(worktree, "apps/web"), { recursive: true });
+    symlinkSync(resolve(repoRoot, "node_modules"), resolve(worktree, "node_modules"));
+    symlinkSync(resolve(repoRoot, "apps/api/node_modules"), resolve(worktree, "apps/api/node_modules"));
+    symlinkSync(resolve(repoRoot, "apps/web/node_modules"), resolve(worktree, "apps/web/node_modules"));
+    const { profile } = loadProfile();
+    const sharedBuild = buildCommandSpecs(profile, profile.cases[0]).find(({ id }) => id === "shared-build");
+    const argv = materializeCommand(sharedBuild, worktree);
+    assert.equal(argv[3], resolve(worktree, "packages/shared/tsconfig.json"));
+    assert.equal(materializeCommand({ executable: "$NODE", args: ["$TSCish"] }, worktree)[1], "$TSCish");
+    for (const value of ["x$TSC", "$TSC/extra", "$WORKTREE/a/$NEXT"]) {
+      assert.throws(() => materializeCommand({ executable: "$NODE", args: [value] }, worktree), /runtime token/u);
+    }
+  } finally { rmSync(worktree, { recursive: true, force: true }); }
 });
 
 test("strict CLI rejects unknown and duplicate options and supports default check", () => {
