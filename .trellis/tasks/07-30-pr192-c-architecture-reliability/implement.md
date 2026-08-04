@@ -18,6 +18,27 @@
 
 Human UAT 未完成不是 Entry blocker。
 
+## 1.1 执行状态（2026-08-04）
+
+- B technical base：`f4797adf`，Entry Gate 已满足。
+- C2 scoped offline reliability：`38c433d3` 已提交；非敏感草稿 24h TTL、
+  tenant/park/user/module/permission scope、logout/401 cleanup、敏感字段 fail-closed，
+  以及现场图片队列的显式同意/2h TTL/context binding 契约已落地。首个真实消费者为
+  `/homestay/bookings` 创建草稿表单；上传恢复生产接入仍在执行，不能标记 PASS。
+- C2 frontend cleanup：`c0678d18` 已提交；`HomestayListClient` 从 451 行降到
+  233 行，请求/筛选状态已抽成独立 hook，相关契约 7/7 PASS。
+- C1 Housing dashboard closure：`88033a9a` 已提交；Dashboard 行为测试 6/6、
+  Housing suite 99 PASS / 2 PostgreSQL conditional skip。下一 tenant/party closure 执行中。
+- C1 Homestay dashboard/availability closure：`7ab44df4` 已提交；targeted 39/39、
+  Homestay suite 87 PASS / 3 PostgreSQL conditional skip。下一 rates closure 执行中。
+- C3 machine gates：`17641fde` 已提交；自测 10/10，contract snapshot PASS，
+  complexity Gate 在修复住房 dashboard complexity 21 后已 PASS。
+- C3 formal performance：**NOT RUN / NOT PASS**。正式执行器和固定资源环境仍需完成；
+  验收器会对缺失的 30 个矩阵单元、2m warmup、10m formal、10k samples、资源遥测
+  与 cleanup proof fail closed。
+- 当前 Track C：`in_progress`；不得归档，不得将 machine-gate self-test 等同于
+  formal performance evidence。
+
 ## 2. Subagent Batches
 
 ### C0：基线

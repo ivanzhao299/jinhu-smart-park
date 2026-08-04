@@ -21,6 +21,10 @@
   "children": [],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": "2026-08-04: C1/C2/C3 active; first dashboard closures, scoped offline reliability, frontend list split, and fail-closed machine gates committed. Formal performance and remaining backend/upload closures are not complete.",
+  "meta": {
+    "executionPhase": "C1_C2_C3_parallel",
+    "technicalStatus": "in_progress",
+    "formalPerformanceStatus": "not_run"
+  }
 }
