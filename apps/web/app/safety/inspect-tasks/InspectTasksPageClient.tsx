@@ -24,6 +24,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import {
   buildFileIdReplacement,
@@ -37,6 +38,11 @@ import {
 const SAFETY_MODULE = "safety";
 const INSPECT_TASK_ENTITY = "inspect_task";
 const INSPECT_TASK_RESULT_ENTITY = "inspect_task_result";
+const INSPECT_TASK_EXECUTION_PERMISSIONS = [
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START,
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_CHECK_IN,
+  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS
+] as const;
 
 type DictMap = Record<string, DictItemRow[]>;
 type PageMode = "all" | "mine";
@@ -350,7 +356,9 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     try {
       const response = await apiRequest<InspectTaskRow>(taskExecutionEndpoint(mode, row.id), { token: getAccessToken() });
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-      let task = response.data;
+      const preflightTask = response.data;
+      const preparedForm = prepareTemplateItems(preflightTask.items, preflightTask.results);
+      let task = preflightTask;
       const entry = resolveInspectTaskExecutionEntry(task.status);
       if (entry === "hidden") {
         setMessage("该巡检任务已结束，不能继续执行");
@@ -363,7 +371,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
           idempotencyKey: createIdempotencyKey("safety-inspect-task-start")
         });
         if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
-        task = startResponse.data;
+        task = { ...startResponse.data, items: preflightTask.items, results: preflightTask.results };
       }
       const taskPhotoProjection = normalizeFileIdProjection(task.photoFileIds);
       setCheckInPhotoIdsAvailable(canViewTaskPhotos && taskPhotoProjection.available);
@@ -373,7 +381,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         gpsLat: normalizeNumericInput(task.gpsLat),
         photoFileIds: taskPhotoProjection.value
       });
-      applyTemplateItems(task.items, task.results);
+      applyPreparedTemplateItems(preparedForm);
       setExecuting(task);
       if (entry === "start") {
         setMessage("巡检任务已开始");
@@ -399,7 +407,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     }
   }
 
-  function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
+  function prepareTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
     const itemsProjectionResult = normalizeRecordArrayProjection<InspectItemRow>(itemsProjection, ["id"]);
     const resultsProjectionResult = normalizeRecordArrayProjection<InspectTaskResultRow>(existingResultsProjection, ["itemId"]);
     if (!itemsProjectionResult.available || !resultsProjectionResult.available) {
@@ -407,9 +415,8 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     }
     const items = itemsProjectionResult.value;
     const existingResults = resultsProjectionResult.value;
-    setTemplateItems(items);
     const existingMap = new Map(existingResults.map((item) => [item.itemId, item]));
-    setResultInputs(Object.fromEntries(items.map((item) => {
+    const inputs = Object.fromEntries(items.map((item) => {
       const existing = existingMap.get(item.id);
       const photoProjection = existing
         ? normalizeFileIdProjection(existing.photoFileIds)
@@ -422,7 +429,17 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
         photoFileIdsAvailable: canViewResultPhotos && photoProjection.available,
         createHazard: existing?.hazardCreated ?? false
       }] as const;
-    })));
+    }));
+    return { items, inputs };
+  }
+
+  function applyPreparedTemplateItems(prepared: ReturnType<typeof prepareTemplateItems>) {
+    setTemplateItems(prepared.items);
+    setResultInputs(prepared.inputs);
+  }
+
+  function applyTemplateItems(itemsProjection: unknown, existingResultsProjection: unknown) {
+    applyPreparedTemplateItems(prepareTemplateItems(itemsProjection, existingResultsProjection));
   }
 
   async function saveTask(event: FormEvent<HTMLFormElement>) {
@@ -522,6 +539,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
     try {
       await load();
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
+      if (resolveInspectTaskExecutionEntry(response.data.status) === "hidden") return;
       const detail = await apiRequest<InspectTaskRow>(taskExecutionEndpoint(mode, response.data.id), { token: getAccessToken() });
       if (!isCurrentRequestGeneration(requestGeneration, executionRequestGeneration.current)) return;
       applyTemplateItems(detail.data.items, detail.data.results);
@@ -622,7 +640,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                 const executionEntry = resolveInspectTaskExecutionEntry(row.status);
                 const executionPermission = executionEntry === "start"
                   ? SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_START
-                  : SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_SUBMIT_RESULTS;
+                  : INSPECT_TASK_EXECUTION_PERMISSIONS.find((permission) => hasPermission(authUser, permission));
                 return (
                 <tr key={row.id}>
                   <td>{row.taskCode}</td>
@@ -639,7 +657,7 @@ export function InspectTasksPageClient({ mode }: { mode: PageMode }) {
                         <Eye size={16} />
                         查看
                       </button>
-                      {executionEntry !== "hidden" ? (
+                      {executionEntry !== "hidden" && executionPermission ? (
                         <PermissionButton
                           className="row-action-button"
                           disabled={executingTaskId !== null}

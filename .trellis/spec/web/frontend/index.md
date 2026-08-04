@@ -59,6 +59,12 @@ Action context must come from an endpoint owned and authorized by that action. D
 template/item administration endpoint to assemble an inspection execution form. Protect rapid
 clicks with a synchronous ref lock in addition to rendered disabled state, and publish a
 successful transition before optional list refreshes so a refresh failure cannot erase success.
+Resume controls must accept any permission authorized for that execution context, while each
+mutable sub-form remains independently gated by its exact mutation permission. Validate the
+complete preflight action projection before issuing a state transition; after success, retain the
+validated preflight children if the mutation response's optional projection cannot be trusted.
+Once a mutation reaches a terminal state, do not refresh it through an active-action context
+endpoint; retain the committed response and use the ordinary list/detail projection instead.
 
 ## Permissions And Modules
 

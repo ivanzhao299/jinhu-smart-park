@@ -42,11 +42,23 @@ test("inspection execution is a single guarded business action with task-owned i
 
   assert.match(openExecute, /executionActionLock\.current/);
   assert.match(openExecute, /\/safety\/inspect-tasks\/\$\{task\.id\}\/start/);
-  assert.match(openExecute, /applyTemplateItems\(task\.items, task\.results\)/);
+  assert.match(openExecute, /prepareTemplateItems\(preflightTask\.items, preflightTask\.results\)/);
+  assert.match(openExecute, /items: preflightTask\.items, results: preflightTask\.results/);
   assert.doesNotMatch(openExecute, /inspect-templates/);
   assert.doesNotMatch(source, />\s*开始任务\s*</);
   assert.match(source, /taskDetailEndpoint\(mode, row\.id\)/);
   assert.match(openExecute, /taskExecutionEndpoint\(mode, row\.id\)/);
+  assert.ok(openExecute.indexOf("prepareTemplateItems") < openExecute.indexOf("/start"));
+});
+
+test("inspection resume entry accepts any execution permission", () => {
+  const source = readFileSync(resolve(__dirname, "InspectTasksPageClient.tsx"), "utf8");
+
+  assert.match(source, /INSPECT_TASK_EXECUTION_PERMISSIONS = \[/);
+  assert.match(
+    source,
+    /INSPECT_TASK_EXECUTION_PERMISSIONS\.find\(\(permission\) => hasPermission\(authUser, permission\)\)/
+  );
 });
 
 test("successful inspection submission is published before optional refresh reads", () => {
@@ -58,6 +70,10 @@ test("successful inspection submission is published before optional refresh read
   assert.ok(publish > submit);
   assert.ok(refresh > publish);
   assert.match(source, /巡检结果已提交，但最新数据刷新失败/);
+  assert.match(
+    source.slice(submit, source.indexOf("function closeExecution", submit)),
+    /resolveInspectTaskExecutionEntry\(response\.data\.status\) === "hidden"/
+  );
 });
 
 test("inspection execution rejects malformed collection projections before mapping form state", () => {

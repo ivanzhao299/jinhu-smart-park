@@ -119,7 +119,13 @@ template items together with the task. Ordinary task detail remains a read-only 
 
 Lifecycle action entry points must distinguish start, resume, and reject states. A repeated
 start request for an already in-progress inspection returns the current execution projection
-without writing a second transition or audit log; terminal states remain rejected.
+without writing a second transition or audit log; terminal states remain rejected by both the
+mutation and action-context route. Determine the disposition while holding the aggregate row's
+`pessimistic_write` lock inside the mutation transaction; a browser lock or pre-transaction read
+cannot serialize separate clients.
+After a transition commits, its response must preserve that success even if another actor advances
+the aggregate before response enrichment. Build the authorized mutation response without routing
+it back through a context guard whose state predicate may now reject the already-committed action.
 
 ## Scenario: Candidate Catalog Matches Write-Side Resolution
 

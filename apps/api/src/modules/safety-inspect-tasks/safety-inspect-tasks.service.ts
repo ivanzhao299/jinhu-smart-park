@@ -126,6 +126,17 @@ export class SafetyInspectTasksService {
   async executionDetail(scope: TenantParkScope, id: string, actor: JwtPrincipal): Promise<MySafetyInspectTaskDetail> {
     const entity = await this.findOne(scope, id, actor);
     this.assertCanExecute(entity, actor);
+    if (resolveSafetyInspectTaskStartDisposition(entity.status) === "reject") {
+      throw new BadRequestException("Only active inspect tasks expose execution context");
+    }
+    return this.projectExecutionDetail(scope, entity, actor);
+  }
+
+  private async projectExecutionDetail(
+    scope: TenantParkScope,
+    entity: SafetyInspectTaskEntity,
+    actor: JwtPrincipal
+  ): Promise<MySafetyInspectTaskDetail> {
     const securedTask = await this.fieldPolicyService.applyFieldPolicies(scope, actor, "safety", "inspect_task", entity);
     const items = await this.loadExecutionItems(scope, entity.templateId);
     return Object.assign(securedTask, { items });
@@ -304,20 +315,31 @@ export class SafetyInspectTasksService {
   }
 
   async start(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<MySafetyInspectTaskDetail> {
-    const task = await this.findOne(scope, id, actor);
-    this.assertCanExecute(task, actor);
-    const disposition = resolveSafetyInspectTaskStartDisposition(task.status);
-    if (disposition === "resume") {
-      return this.executionDetail(scope, task.id, actor);
-    }
-    if (disposition === "reject") {
-      throw new BadRequestException("Only pending or overdue inspect tasks can be started");
-    }
-    const beforeStatus = task.status;
-    task.status = TASK_STATUS_IN_PROGRESS;
-    task.actualStartTime = new Date();
-    task.updateBy = actor.sub;
+    const scopedTask = await this.findOne(scope, id, actor);
+    this.assertCanExecute(scopedTask, actor);
     await this.tasksRepository.manager.transaction(async (manager) => {
+      const task = await manager.getRepository(SafetyInspectTaskEntity).findOne({
+        where: {
+          id: scopedTask.id,
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false
+        },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!task) {
+        throw new NotFoundException("Inspect task not found");
+      }
+      this.assertCanExecute(task, actor);
+      const disposition = resolveSafetyInspectTaskStartDisposition(task.status);
+      if (disposition === "resume") return;
+      if (disposition === "reject") {
+        throw new BadRequestException("Only pending or overdue inspect tasks can be started");
+      }
+      const beforeStatus = task.status;
+      task.status = TASK_STATUS_IN_PROGRESS;
+      task.actualStartTime = new Date();
+      task.updateBy = actor.sub;
       await manager.getRepository(SafetyInspectTaskEntity).save(task);
       await this.createActionLog(scope, actor, manager, {
         bizType: "safety_inspect_task",
@@ -328,7 +350,9 @@ export class SafetyInspectTasksService {
         content: "开始巡检任务"
       });
     });
-    return this.executionDetail(scope, task.id, actor);
+    const currentTask = await this.findOne(scope, scopedTask.id, actor);
+    this.assertCanExecute(currentTask, actor);
+    return this.projectExecutionDetail(scope, currentTask, actor);
   }
 
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: CheckInSafetyInspectTaskDto): Promise<SafetyInspectTaskEntity> {

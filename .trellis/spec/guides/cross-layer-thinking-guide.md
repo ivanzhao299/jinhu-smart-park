@@ -218,6 +218,12 @@ action against every state and sibling entry point before implementation:
       percentage values capped at 100
 - [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
       React/render state alone is not a lock against two events in the same tick
+- [ ] Cross-client lifecycle transitions decide their disposition under a database row
+      lock or equivalent conditional write; a browser lock and pre-transaction status
+      read do not prevent duplicate transitions or audit records
+- [ ] Validate action context before committing a state transition. If post-transition
+      enrichment fails, preserve and report the committed success independently instead
+      of clearing the workflow as though the mutation failed
 - [ ] Same-target refresh failures preserve the last successful projection; clearing
       data is reserved for a real target change or a successful empty response
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate

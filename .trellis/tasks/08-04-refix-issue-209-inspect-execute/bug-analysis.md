@@ -19,6 +19,9 @@
 | P0 | Test Coverage | 状态矩阵覆盖 start/resume/hidden，源码接线断言单击入口调用 start 且不访问模板管理接口 | DONE |
 | P1 | Runtime | 同步 ref 锁加禁用态阻止快速重复启动；generation 阻止陈旧响应覆盖 | DONE |
 | P1 | Documentation | API/Web spec 与 cross-layer guide 固化动作上下文和单击转换规则 | DONE |
+| P0 | Concurrency | start 在任务行锁内判定状态，跨客户端并发只写一次转换和审计 | DONE |
+| P0 | Permission | resume 入口接受任一 execution 权限，execution context 拒绝终态 | DONE |
+| P0 | Preflight | 状态转换前验证检查项/结果投影，成功后保留已验证子项 | DONE |
 
 ### 4. Systematic Expansion
 
