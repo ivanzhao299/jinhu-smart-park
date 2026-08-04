@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "pr192-track-b-final-reconcile-v1",
+  "status": "PASS",
+  "track_b_technical_passed": true,
+  "runId": "1599f421-0574-479a-97f0-33644afe49ac",
+  "dryRun": false,
+  "migrationSetHash": "31a671eda745ad09feafc6166a76d67d91ced149fcc6ad9d220e5261eefeb135",
+  "contractHash": "e87ecc576bc282db6b585bff31962d1fdf9c90d6e62975f18f3d7cba085a0710",
+  "inputHandoffs": {
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-identity-control-plane/research/b05-core-gate-final-pass.json": "bff37d8e101c4bbb7843056e2ec763fd0948e286a5278a0db11041ec0f8933d9",
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-approval-runtime-tasks/research/b2a-combined-final-signoff-superseding-20260801c.md": "e61f39d936ef4a9b968beec645a09f2459419072d2b7c70067b71d7c2cbcc633",
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-domain-integrations/research/b-extension-core-v1-final-signoff.md": "5c5d938e25470bdb18697bffa6abba3afd490e24505faa3140372380fc807e0f",
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-domain-integrations/research/b2c-domain-integration-technical-gate-handoff-v2-20260803.md": "22562ba7df26fd3571b30eb0271512072f2f3aae52df1bff7f084e6d85089fc5",
+    ".trellis/tasks/archive/2026-08/07-30-pr192-b-domain-integrations/research/d5-browser-uat-20260804-handoff.md": "319857ae830e30f160053e2066418ae6b6ae5cfddc31d43d26d1d91913fa9f2f"
+  },
+  "migrations": [
+    "000185_property_b_identity_schema_expand.sql",
+    "000186_property_b_approval_runtime_schema.sql",
+    "000187_property_b_event_notification_schema.sql",
+    "000188_property_b_task_runtime_schema.sql",
+    "000189_property_b_module_rbac_definitions.sql",
+    "000190_property_b_migration_compatibility_control.sql",
+    "000191_property_b_homestay_effect_schema.sql",
+    "000192_property_b_housing_effect_schema.sql",
+    "000193_property_b_runtime_integrity_forward_fix.sql",
+    "000194_property_task_projection_contract_correction.sql",
+    "000195_property_mutation_receipt_contract_v2.sql",
+    "000197_property_approval_active_source_index_forward_fix.sql",
+    "000198_property_finance_owner_integrity_forward_fix.sql"
+  ],
+  "scopes": [
+    {
+      "tenant_id": "10000001",
+      "park_id": "20000001"
+    }
+  ],
+  "hardDifferences": {
+    "activeIdentityDuplicates": 0,
+    "verifiedIdentityWithoutSnapshot": 0,
+    "illegalApprovalStatusPair": 0,
+    "staleExecutingApproval": 0,
+    "activeTaskDuplicates": 0,
+    "taskProjectionScopeDrift": 0,
+    "eventInboxScopeDrift": 0,
+    "openMigrationAnomalies": 0
+  },
+  "validatedConstraints": [
+    {
+      "table_name": "biz_property_execution_effect_receipt",
+      "constraint_name": "ck_biz_property_effect_receipt_cardinality_ff"
+    },
+    {
+      "table_name": "biz_property_execution_effect_receipt",
+      "constraint_name": "ck_biz_property_effect_receipt_unique_hash_ff"
+    },
+    {
+      "table_name": "biz_property_execution_effect_receipt",
+      "constraint_name": "ck_biz_property_effect_receipt_unique_name_ff"
+    }
+  ],
+  "checkpointKinds": [
+    "backfill",
+    "change_capture",
+    "mutation_replay",
+    "shadow_compare",
+    "reconcile",
+    "constraint_validate"
+  ],
+  "evidenceHashes": [
+    "aa6c6b175073f2c62ef994ca9400468381e3705426c6f924386c51e9eff784b9",
+    "ad4a646d2952ac014fb592fcdd867c309a5fe722f0acf8c32cb9a23c7faa61f1",
+    "8d916d6a759c03c405073c8b8a385c4dce93faeb6c6ee02d30597934589626b6",
+    "c333cd0945f72148d9db42f90b5044a4bacf6ebf696a896e815a9578f9006ffc",
+    "04b9df2cc410bc471b371a73ec064c2d0fc3cf99aa68cbf6d335b4084893b35e",
+    "fc6c107dff8505507729b9e9a0ab956f69a4c1732411b2065348dd827ac5ae15"
+  ],
+  "rollbackDrills": [
+    {
+      "tenantId": "10000001",
+      "parkId": "20000001",
+      "rpo": 0,
+      "rtoMs": 1.957334
+    }
+  ],
+  "openP0P1": []
+}
