@@ -41,9 +41,14 @@ Human UAT 未完成不是 Entry blocker。
   `jinhu_uat_20260804` 只读 dump 创建隔离 PostgreSQL clone，并同时设置 `DATABASE_URL` 与
   `PROPERTY_IDENTITY_PG_URL`，5 个 PostgreSQL 条件套件 5/5 PASS / 0 skip，随后删除 clone
   并验证残留为 0。旧开发库历史迁移失败未被修改，也不作为 Track C UAT 失败依据。
-- C3 formal performance：**RUNNING / NOT YET PASS**。独立子代理已完成非变更预检，固定
-  资源、镜像 digest、PGDMP 输入 SHA 与 `--check/--plan` 均通过，正在隔离 Docker project
-  `jinhu-track-c-perf-20260804a` provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
+- C3 formal performance：首次隔离 project `jinhu-track-c-perf-20260804a` 已 **FAIL-CLOSED**：
+  空 PGDMP 的 TOC 为 0，洁净迁移在 production seed 之前缺少 active `asset`，因此
+  `000189_property_b_module_rbac_definitions.sql` 阻断；30-cell 未启动，cleanup residual=0。
+  失败证据 SHA 为 `bbf2e237eee840cf5422c17a2dac93380a8fc60edab32faa708b7fa656832390`。
+  已以仓库既有 forward-only prerequisite 机制新增最小 production-safe `asset` catalog
+  前置项，修复 SHA `d25789a2`；历史 000189 SHA 保持 `f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2`，
+  targeted contract PASS。正式性能正在全新隔离 project `jinhu-track-c-perf-20260804b`
+  重新 provision；正式完成仍要求 30 个矩阵单元（2 scenarios x
   concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
   完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
 - Track C Chrome 新切片：独立任务已按 15 项矩阵重试，但在任何 Chrome 扩展代码执行前被
