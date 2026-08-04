@@ -15,6 +15,7 @@ import {
 } from "./entities/housing.entities";
 import { HousingService } from "./housing.service";
 import { HousingTenantService } from "./housing-tenant.service";
+import { HousingLeaseQueryService } from "./housing-lease-query.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -91,6 +92,8 @@ function purchaseService(receiptFiles: unknown[] = []) {
 
 function leaseService() {
   const calls = new Map<string, number>();
+  const pendingFilePredicates: string[] = [];
+  const pendingFileBindings: Array<Record<string, unknown> | undefined> = [];
   const record = (name: string) => calls.set(name, (calls.get(name) ?? 0) + 1);
   const lease = {
     id: "00000000-0000-4000-8000-000000000100",
@@ -154,6 +157,19 @@ function leaseService() {
     },
     getRepository: (entity: unknown) => {
       const fixture = fixtures.get(entity);
+      const pendingFilesBuilder = {
+        where: (sql: string) => {
+          pendingFilePredicates.push(sql);
+          return pendingFilesBuilder;
+        },
+        andWhere: (sql: string, parameters?: Record<string, unknown>) => {
+          pendingFilePredicates.push(sql);
+          pendingFileBindings.push(parameters);
+          return pendingFilesBuilder;
+        },
+        orderBy: () => pendingFilesBuilder,
+        getMany: async () => []
+      };
       return {
         findOne: async () => {
           if (!fixture) return null;
@@ -164,27 +180,25 @@ function leaseService() {
           if (!fixture) return [];
           record(fixture.name);
           return fixture.rows;
-        }
+        },
+        createQueryBuilder: () => pendingFilesBuilder
       };
     }
   };
-  const service = new HousingService(
-    {} as never,
-    {} as never,
-    new HousingTenantService({} as never, {} as never),
-    {} as never,
-    { assertAccess: async () => ({ id: lease.unitId }) } as never,
+  const service = new HousingLeaseQueryService(
     {} as never,
     dataSource as never,
+    { assertAccess: async () => ({ id: lease.unitId }) } as never,
     {
       buildScopeFilter: async () => ({
         unrestricted: true,
         allowed_ids: [],
         scope_types: []
       })
-    } as never
+    } as never,
+    new HousingTenantService({} as never, {} as never)
   );
-  return { service, calls, lease };
+  return { service, calls, lease, pendingFilePredicates, pendingFileBindings };
 }
 
 test("purchase manage/transfer-only list and detail omit every money field", async () => {
@@ -289,7 +303,7 @@ test("purchase receipt metadata requires purchase read intersected with file rea
 
 test("lease detail without block read permissions neither queries nor returns optional blocks", async () => {
   const { service, calls, lease } = leaseService();
-  const result = await service.getLease(scope, actor, lease.id);
+  const result = await service.get(scope, actor, lease.id);
 
   assert.deepEqual(Object.keys(result), ["lease"]);
   assert.deepEqual([...calls.entries()], [["lease", 1]]);
@@ -330,7 +344,7 @@ test("lease detail queries and projects only blocks backed by exact read permiss
 
   for (const matrixCase of cases) {
     const { service, calls, lease } = leaseService();
-    const result = await service.getLease(
+    const result = await service.get(
       scope,
       { ...actor, permissions: [matrixCase.permission] },
       lease.id
@@ -342,7 +356,7 @@ test("lease detail queries and projects only blocks backed by exact read permiss
 
 test("fully authorized lease detail keeps strict block and item projections", async () => {
   const { service, lease } = leaseService();
-  const result = await service.getLease(scope, {
+  const result = await service.get(scope, {
     ...actor,
     permissions: [
       SYSTEM_PERMISSIONS.HOUSING_TENANT_READ,
@@ -382,4 +396,44 @@ test("fully authorized lease detail keeps strict block and item projections", as
     "assigneeName", "createTime", "id", "overdueFlag", "priority",
     "status", "title", "urgency", "woCode"
   ]);
+});
+
+test("lease repair draft files exclude evidence already bound to a work order", async () => {
+  const { service, lease, pendingFilePredicates } = leaseService();
+
+  const result = await service.get(scope, {
+    ...actor,
+    permissions: [
+      SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ,
+      SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE,
+      SYSTEM_PERMISSIONS.FILE_READ
+    ]
+  }, lease.id);
+
+  assert.deepEqual(result.pending_repair_files, []);
+  assert.ok(pendingFilePredicates.some((sql) =>
+    /NOT EXISTS \([\s\S]*file\.id = ANY\(repair\.image_file_ids\)/u.test(sql)
+  ));
+});
+
+test("lease handover draft files query only canonical move-in, move-out, and legacy types", async () => {
+  const { service, lease, pendingFileBindings } = leaseService();
+
+  const result = await service.get(scope, {
+    ...actor,
+    permissions: [
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+      SYSTEM_PERMISSIONS.FILE_READ
+    ]
+  }, lease.id);
+
+  assert.deepEqual(result.pending_handover_files, { move_in: [], move_out: [] });
+  assert.ok(pendingFileBindings.some((parameters) =>
+    JSON.stringify(parameters?.bizTypes) === JSON.stringify([
+      "housing_handover",
+      "housing_handover_move_in",
+      "housing_handover_move_out"
+    ])
+  ));
 });

@@ -6,6 +6,7 @@ import { validate } from "class-validator";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HousingLeaseQueryDto } from "./dto/housing.dto";
+import { HousingLeaseQueryService } from "./housing-lease-query.service";
 import { HousingService } from "./housing.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
@@ -72,13 +73,8 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
         return [[lease], 37];
       }
     };
-    const service = new HousingService(
+    const service = new HousingLeaseQueryService(
       { createQueryBuilder: () => builder } as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      { allowedUnitIds: async () => ["unit-1"] } as never,
-      {} as never,
       {
         query: async (sql: string, parameters: unknown[]) => {
           enrichmentQueries += 1;
@@ -92,10 +88,12 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
           }];
         }
       } as never,
+      { allowedUnitIds: async () => ["unit-1"] } as never,
+      {} as never,
       {} as never
     );
 
-    const result = await service.listLeases(
+    const result = await service.list(
       scope,
       actor,
       { keyword: "张三", page: 7, page_size: pageSize }
@@ -152,24 +150,21 @@ test("housing lease empty page retains total and skips enrichment without leakin
     take: () => builder,
     getManyAndCount: async () => [[], 41]
   };
-  const service = new HousingService(
+  const service = new HousingLeaseQueryService(
     { createQueryBuilder: () => builder } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { allowedUnitIds: async () => ["allowed-unit"] } as never,
-    {} as never,
     {
       query: async () => {
         enrichmentQueries += 1;
         return [];
       }
     } as never,
+    { allowedUnitIds: async () => ["allowed-unit"] } as never,
+    {} as never,
     {} as never
   );
 
   assert.deepEqual(
-    await service.listLeases(
+    await service.list(
       scope,
       actor,
       { keyword: "outside-scope", page: 99, page_size: 20 }
@@ -177,4 +172,31 @@ test("housing lease empty page retains total and skips enrichment without leakin
     { items: [], total: 41, page: 99, page_size: 20 }
   );
   assert.equal(enrichmentQueries, 0);
+});
+
+test("HousingService lease reads are façade-only delegations", async () => {
+  const calls: Array<{ kind: string; args: unknown[] }> = [];
+  const queryService = {
+    list: async (...args: unknown[]) => {
+      calls.push({ kind: "list", args });
+      return { items: [], total: 0, page: 1, page_size: 20 };
+    },
+    get: async (...args: unknown[]) => {
+      calls.push({ kind: "get", args });
+      return { lease };
+    }
+  };
+  const service = new HousingService(
+    {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, queryService as never
+  );
+  const query = { page: 1, page_size: 20 };
+
+  await service.listLeases(scope, actor, query);
+  await service.getLease(scope, actor, lease.id);
+
+  assert.deepEqual(calls, [
+    { kind: "list", args: [scope, actor, query] },
+    { kind: "get", args: [scope, actor, lease.id] }
+  ]);
 });
