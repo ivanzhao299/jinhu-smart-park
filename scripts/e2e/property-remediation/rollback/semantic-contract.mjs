@@ -116,8 +116,13 @@ function validateAnchor(anchor, label) {
     || [...anchor.mustContain, ...anchor.mustNotContain, ...anchor.mustMatch, ...anchor.mustNotMatch].some((value) => typeof value !== "string" || value.length === 0)
     || anchor.astMatchers.some((entry) => {
       try { exactKeys(entry, ["kind", "name", "source", "owner", "enclosingOwner", "minCount", "maxCount"], "AST matcher contract"); } catch { return true; }
-      return !["identifier", "import", "class", "provider", "constructorParameter", "call", "awaitedCall", "export"].includes(entry.kind) || typeof entry.name !== "string" || entry.name.length === 0 || typeof entry.source !== "string" || typeof entry.owner !== "string" || typeof entry.enclosingOwner !== "string" || !Number.isSafeInteger(entry.minCount) || !Number.isSafeInteger(entry.maxCount) || entry.minCount < 0 || entry.maxCount < entry.minCount;
+      return !["identifier", "import", "class", "provider", "constructorParameter", "call", "awaitedCall", "export", "fileDigest"].includes(entry.kind)
+        || typeof entry.name !== "string" || entry.name.length === 0 || typeof entry.source !== "string"
+        || typeof entry.owner !== "string" || typeof entry.enclosingOwner !== "string"
+        || (entry.kind === "fileDigest" && (!/^[0-9a-f]{64}$/u.test(entry.source) || entry.owner.length > 0 || entry.enclosingOwner.length > 0 || entry.minCount !== 1 || entry.maxCount !== 1))
+        || !Number.isSafeInteger(entry.minCount) || !Number.isSafeInteger(entry.maxCount) || entry.minCount < 0 || entry.maxCount < entry.minCount;
     })
+    || new Set(anchor.astMatchers.map((entry) => JSON.stringify(entry))).size !== anchor.astMatchers.length
   ) throw new Error(`invalid ${label}`);
   return anchor;
 }
@@ -148,6 +153,7 @@ function astCounts(path, text, matchers) {
   const counts = new Map(matchers.map((matcher) => [matcher, 0]));
   if (!/\.[cm]?[jt]sx?$/u.test(path)) return counts;
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  if (source.parseDiagnostics.length > 0) return null;
   const identifierName = (node) => ts.isIdentifier(node) ? node.text : ts.isPropertyAccessExpression(node) ? node.name.text : "";
   const ownerName = (node) => ts.isPropertyAccessExpression(node) ? node.expression.getText(source) : "";
   const variableOwnerForFunction = (node) => {
@@ -196,34 +202,37 @@ function astCounts(path, text, matchers) {
     return false;
   };
   const moduleProviderNames = (node) => {
-    if (!ts.isPropertyAssignment(node) || node.name.getText(source).replace(/["']/gu, "") !== "providers" || !ts.isArrayLiteralExpression(node.initializer)) return new Set();
+    if (!ts.isPropertyAssignment(node) || node.name.getText(source).replace(/["']/gu, "") !== "providers" || !ts.isArrayLiteralExpression(node.initializer)) return [];
     const metadata = node.parent; const call = metadata.parent; const decorator = call?.parent;
-    if (!ts.isObjectLiteralExpression(metadata) || !ts.isCallExpression(call) || call.arguments[0] !== metadata || !ts.isIdentifier(call.expression) || call.expression.text !== "Module" || !ts.isDecorator(decorator)) return new Set();
-    return new Set(node.initializer.elements.filter(ts.isIdentifier).map(({ text: name }) => name));
+    if (!ts.isObjectLiteralExpression(metadata) || !ts.isCallExpression(call) || call.arguments[0] !== metadata || !ts.isIdentifier(call.expression) || call.expression.text !== "Module" || !ts.isDecorator(decorator)) return [];
+    return node.initializer.elements.filter(ts.isIdentifier).map(({ text: name }) => name);
   };
   const visit = (node) => {
     for (const matcher of matchers) {
       let matched = false;
+      let increment = 1;
       if (matcher.kind === "identifier") matched = ts.isIdentifier(node) && node.text === matcher.name;
       else if (matcher.kind === "class") matched = ts.isClassDeclaration(node) && node.name?.text === matcher.name;
       else if (matcher.kind === "import" && ts.isImportDeclaration(node)) matched = node.moduleSpecifier.text === matcher.source && importMatches(node, matcher);
-      else if (matcher.kind === "provider") matched = moduleProviderNames(node).has(matcher.name);
+      else if (matcher.kind === "provider") { increment = moduleProviderNames(node).filter((name) => name === matcher.name).length; matched = increment > 0; }
       else if (matcher.kind === "constructorParameter" && ts.isParameter(node) && ts.isConstructorDeclaration(node.parent)) matched = (identifierName(node.name) === matcher.name || node.type?.getText(source) === matcher.name) && (!matcher.owner || node.parent.parent.name?.text === matcher.owner);
       else if (["call", "awaitedCall"].includes(matcher.kind) && ts.isCallExpression(node)) matched = identifierName(node.expression) === matcher.name && (!matcher.owner || ownerName(node.expression) === matcher.owner) && (matcher.kind !== "awaitedCall" || ts.isAwaitExpression(node.parent));
       else if (matcher.kind === "export") matched = (ts.isExportSpecifier(node) && identifierName(node.name) === matcher.name) || ((ts.isClassDeclaration(node) || ts.isFunctionDeclaration(node)) && node.name?.text === matcher.name && node.modifiers?.some(({ kind }) => kind === ts.SyntaxKind.ExportKeyword));
+      else if (matcher.kind === "fileDigest") matched = ts.isSourceFile(node) && sha256(text) === matcher.source;
       if (matched && matcher.enclosingOwner && enclosingOwner(node) !== matcher.enclosingOwner) matched = false;
-      if (matched) counts.set(matcher, counts.get(matcher) + 1);
+      if (matched) counts.set(matcher, counts.get(matcher) + increment);
     }
     ts.forEachChild(node, visit);
   };
   visit(source); return counts;
 }
 
-function anchorPasses(anchor, text) {
+export function anchorPasses(anchor, text) {
   if (anchor.pathState === "absent") return text === null;
   if (text === null) return false;
   const counts = astCounts(anchor.path, text, anchor.astMatchers);
-  return anchor.mustContain.every((token) => text.includes(token))
+  return counts !== null
+    && anchor.mustContain.every((token) => text.includes(token))
     && anchor.mustNotContain.every((token) => !text.includes(token))
     && anchor.mustMatch.every((pattern) => new RegExp(pattern, "u").test(text))
     && anchor.mustNotMatch.every((pattern) => !new RegExp(pattern, "u").test(text))

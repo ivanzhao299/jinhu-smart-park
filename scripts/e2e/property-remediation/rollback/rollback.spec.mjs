@@ -18,7 +18,7 @@ import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
-import { assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
+import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
@@ -32,6 +32,47 @@ test("profile freezes 19 cases and complete formal matrix", () => {
   assert.equal(assertBaselineSemanticAnchors(profile), true);
   const treeSha = execFileSync("/usr/bin/git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
   assert.equal(assertBaselineSemanticAnchors(profile, { root: repoRoot, treeSha }), true);
+});
+
+test("Next config semantic anchor rejects comments and behavior drift", () => {
+  const { profile } = loadProfile();
+  const anchor = profile.cases
+    .flatMap(({ rollbackSemanticContract }) => rollbackSemanticContract.protectedExternalPaths)
+    .find(({ id }) => id === "offline-next-config");
+  const baseline = readFileSync(resolve(repoRoot, anchor.path), "utf8");
+  assert.equal(anchorPasses(anchor, baseline), true);
+  assert.equal(anchorPasses(anchor, `// review-only comment\n${baseline.replace("const apiTarget", "const   apiTarget")}`), false);
+  const alwaysEnabled = baseline.replace('value?.trim().toLowerCase() === "true" ? "true" : "false"', '"true"');
+  assert.equal(anchorPasses(anchor, alwaysEnabled), false);
+  const commentedMappings = baseline
+    .replace("NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: deploymentFlag(process.env.PROPERTY_OFFLINE_DRAFTS_V1)", 'NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: "false"')
+    .replace("NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1)", 'NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: "false"')
+    .replace("  env: {", `  // NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: deploymentFlag(process.env.PROPERTY_OFFLINE_DRAFTS_V1)\n  // NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1)\n  env: {`);
+  assert.equal(anchorPasses(anchor, commentedMappings), false);
+  const duplicateMapping = baseline.replace(
+    "NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1)",
+    'NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1),\n    NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: "true"'
+  );
+  assert.equal(anchorPasses(anchor, duplicateMapping), false);
+  const shadowedFlag = baseline
+    .replace("const nextConfig: NextConfig = {", "const nextConfig: NextConfig = (() => {\n  const deploymentFlag = () => \"true\" as const;\n  return ({")
+    .replace("\n};\n\nexport default nextConfig;", "\n  });\n})();\n\nexport default nextConfig;");
+  assert.equal(anchorPasses(anchor, shadowedFlag), false);
+  const cwdAlias = baseline
+    .replace('path.resolve(__dirname, "../../packages/shared/src/index.ts")', 'path.resolve( process.cwd(), "../../packages/shared/src/index.ts")')
+    .replace('  webpack(config) {', '  // "@jinhu/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts")\n  webpack(config) {');
+  assert.equal(anchorPasses(anchor, cwdAlias), false);
+  const indirectCwdAlias = baseline
+    .replace('path.resolve(__dirname, "../../packages/shared/src/index.ts")', 'path.resolve(globalThis.process.cwd(), "../../packages/shared/src/index.ts")');
+  assert.equal(anchorPasses(anchor, indirectCwdAlias), false);
+  assert.equal(anchorPasses(anchor, `const __dirname = "/wrong-root";\n${baseline}`), false);
+  const computedOverride = baseline.replace(
+    "NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1)",
+    'NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: deploymentFlag(process.env.PROPERTY_UPLOAD_QUEUE_V1),\n    ["NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_" + "V1"]: "true"'
+  );
+  assert.equal(anchorPasses(anchor, computedOverride), false);
+  assert.equal(anchorPasses(anchor, baseline.replace("../../packages/shared/src/index.ts", "../../packages/shared/src/index .ts")), false);
+  assert.equal(anchorPasses(anchor, `${baseline}\nconst broken = {;`), false);
 });
 
 test("baseline semantic gate rejects historical profile drift but permits must-change shells", () => {
@@ -49,6 +90,10 @@ test("baseline semantic gate rejects historical profile drift but permits must-c
   const externalCase = profile.cases.find(({ rollbackSemanticContract }) => rollbackSemanticContract.protectedExternalPaths.length > 0);
   const external = externalCase.rollbackSemanticContract.protectedExternalPaths[0];
   assert.throws(() => assertBaselineSemanticAnchors(mutateAnchor(externalCase.id, "protectedExternalPaths", external.id, "impossible-protected-token")), /baseline semantic anchors/u);
+  const duplicateMatcher = JSON.parse(JSON.stringify(profile));
+  const digestAnchor = duplicateMatcher.cases.flatMap(({ rollbackSemanticContract }) => rollbackSemanticContract.protectedExternalPaths).find(({ id }) => id === "offline-next-config");
+  digestAnchor.astMatchers.push({ ...digestAnchor.astMatchers[0] });
+  assert.throws(() => assertBaselineSemanticAnchors(duplicateMatcher), /invalid protected external anchor/u);
   assert.equal(assertBaselineSemanticAnchors(mutateAnchor("housing-tenant", "retainedShell", "housing-tenant-projection-shell", "expected-post-rollback-only-token")), true);
 });
 
@@ -251,6 +296,7 @@ test("semantic contract freezes immutable globs and enforces structured AST/exte
     writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
     writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious as Port } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
     writeFileSync(resolve(temp, productionPath), validProduction.replace("@Module({ providers: [Service] })", "const decoy = { providers: [Service] };\n@Module({ providers: [] })")); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
+    writeFileSync(resolve(temp, productionPath), validProduction.replace("providers: [Service]", "providers: [Service, Service]")); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
     writeFileSync(resolve(temp, productionPath), validProduction);
     writeFileSync(resolve(temp, immutablePath), "changed\n"); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /immutable/u);
     writeFileSync(resolve(temp, immutablePath), "test('frozen', () => {});\n"); const added = "apps/api/src/modules/homestay/test/replacement.spec.ts"; writeFileSync(resolve(temp, added), "replacement\n");

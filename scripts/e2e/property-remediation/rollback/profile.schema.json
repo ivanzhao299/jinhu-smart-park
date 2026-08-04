@@ -123,11 +123,12 @@
                     "mustNotMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
                     "astMatchers": {
                       "type": "array",
+                      "uniqueItems": true,
                       "items": {
                         "type": "object", "additionalProperties": false,
                         "required": ["kind", "name", "source", "owner", "enclosingOwner", "minCount", "maxCount"],
                         "properties": {
-                          "kind": { "enum": ["identifier", "import", "class", "provider", "constructorParameter", "call", "awaitedCall", "export"] },
+                          "kind": { "enum": ["identifier", "import", "class", "provider", "constructorParameter", "call", "awaitedCall", "export", "fileDigest"] },
                           "name": { "type": "string", "minLength": 1 },
                           "source": { "type": "string" },
                           "owner": { "type": "string" },

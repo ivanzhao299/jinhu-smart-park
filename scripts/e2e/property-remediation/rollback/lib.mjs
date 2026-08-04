@@ -21,7 +21,7 @@ export const rollbackRoot = resolve(
 export const profilePath = resolve(here, "profile.v1.json");
 export const profileSchemaPath = resolve(here, "profile.schema.json");
 export const FROZEN_PROFILE_SHA256 =
-  "df5ba8de5f981b511009854ca76bc57132ddf38a0f230287056b5c3b5d0c4f0d";
+  "8ddc05d2597ca380e94f94f7c7406afdbf97abe8fa9ba8cf0f20e2bc6dfc3056";
 export const RUN_ID_PATTERN =
   /^rollback-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/u;
 export const HASH_PATTERN = /^[0-9a-f]{64}$/u;
