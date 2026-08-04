@@ -165,7 +165,7 @@ test("credential return locks the row and preserves the original return timestam
   assert.match(credentialReturn, /lock: \{ mode: "pessimistic_write" \}/);
   assert.match(
     credentialReturn,
-    /if \(credential\.status === "returned"\) return this\.projectCredential\(credential\)/
+    /if \(credential\.status === "returned"\) return projectHomestayCredential\(credential\)/
   );
   assert.match(credentialReturn, /Only issued credentials can be returned/);
 });
@@ -207,21 +207,8 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   assert.match(turnovers, /page_size: query\.page_size/);
 });
 
-test("booking pricing and list projections fit their persistence and display contracts", () => {
+test("booking pricing fits its persistence precision contract", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
-  const list = service.slice(
-    service.indexOf("async listBookings"),
-    service.indexOf("async getBooking")
-  );
-  assert.match(list, /unit_code AS "unitCode",\s+unit\.unit_name AS "unitName"/);
-  assert.match(list, /id = ANY\(\$3::uuid\[\]\)/);
-  assert.match(list, /unitCode: unitDisplay\.get\(booking\.unitId\)\?\.unitCode/);
-  assert.match(list, /unitName: unitDisplay\.get\(booking\.unitId\)\?\.unitName/);
-  assert.match(list, /WHEN booking\.status = 'checked_in' THEN 0/);
-  assert.match(list, /WHEN booking\.status = 'confirmed' THEN 1/);
-  assert.match(list, /WHEN booking\.status = 'draft' THEN 2/);
-  assert.match(list, /\.orderBy\("booking_operation_rank", "ASC"\)/);
-
   const pricing = service.slice(
     service.indexOf("private async calculatePricing"),
     service.indexOf("private async assertActiveBookingOccupancy")

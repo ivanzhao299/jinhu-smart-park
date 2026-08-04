@@ -16,10 +16,7 @@ import {
   type HomestayAvailabilityListResponse,
   type HomestayAvailabilityResponse,
   type HomestayBookingDetailResponse,
-  type HomestayBookingListItem,
   type HomestayBookingListResponse,
-  type HomestayBookingResponse,
-  type HomestayCredentialResponse,
   type HomestayDashboardResponse,
   type HomestayRateCalendarResponse,
   type HomestayStayListItem,
@@ -27,7 +24,6 @@ import {
   type HomestayTurnoverDetailResponse,
   type HomestayTurnoverListItem,
   type HomestayTurnoverListResponse,
-  type HomestayTurnoverResponse,
   type IdentityVerificationPort,
   type HomestayUnitCandidateListResponse,
   type PropertyWorkbenchFileRef,
@@ -100,32 +96,21 @@ import {
 import {
   assertHomestayManualLedgerMutation,
   calculateCancellableRoomCharge,
-  formatHomestayLedgerSummary,
   summarizeHomestayLedger
 } from "./homestay-finance.policy";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import {
+  projectHomestayBooking,
+  projectHomestayCredential,
+  projectHomestayTurnover
+} from "./homestay-projections";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 
 const HOMESTAY_TIME_ZONE_OFFSET = "+08:00";
 const HOLD_MINUTES = 30;
-
-interface BookingDetailAccess {
-  canReadFinance: boolean;
-  canReadTurnover: boolean;
-  canReadTurnoverFiles: boolean;
-}
-
-interface BookingDetailRelations {
-  nights: HomestayBookingNightEntity[];
-  guests: HomestayBookingGuestEntity[];
-  credentials: HomestayStayCredentialEntity[];
-  ledger: HomestayLedgerEntryEntity[];
-  actions: HomestayBookingActionLogEntity[];
-  turnover: HomestayTurnoverTaskEntity | null;
-  guestDisplayNames: ReadonlyMap<string, string>;
-}
 
 interface HomestayLedgerSnapshotRow {
   id: string;
@@ -168,7 +153,9 @@ export class HomestayService {
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort,
     @Optional()
-    private readonly identityVerifier?: PropertyIdentityVerificationService
+    private readonly identityVerifier?: PropertyIdentityVerificationService,
+    @Optional()
+    private readonly bookingQuery?: HomestayBookingQueryService
   ) {}
 
   async listUnitCandidates(
@@ -245,60 +232,7 @@ export class HomestayService {
     actor: JwtPrincipal,
     query: HomestayBookingQueryDto
   ): Promise<HomestayBookingListResponse> {
-    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
-      return { items: [], total: 0, page: query.page, page_size: query.page_size };
-    }
-    const builder = this.bookingsRepository.createQueryBuilder("booking")
-      .where("booking.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("booking.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("booking.is_deleted = false");
-    if (allowedUnitIds !== null) builder.andWhere("booking.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
-    if (query.status) builder.andWhere("booking.status = :status", { status: query.status });
-    if (query.unit_id) builder.andWhere("booking.unit_id = :unitId", { unitId: query.unit_id });
-    if (query.keyword) {
-      builder.andWhere("booking.booking_code ILIKE :bookingKeyword", {
-        bookingKeyword: `%${query.keyword}%`
-      });
-    }
-    if (query.date_from) builder.andWhere("booking.departure_date > :dateFrom", { dateFrom: query.date_from.slice(0, 10) });
-    if (query.date_to) builder.andWhere("booking.arrival_date < :dateTo", { dateTo: query.date_to.slice(0, 10) });
-    const [bookings, total] = await builder
-      .addSelect(
-        `CASE
-          WHEN booking.status = 'checked_in' THEN 0
-          WHEN booking.status = 'confirmed' THEN 1
-          WHEN booking.status = 'draft' THEN 2
-          ELSE 3
-        END`,
-        "booking_operation_rank"
-      )
-      .orderBy("booking_operation_rank", "ASC")
-      .addOrderBy("booking.arrival_date", "DESC")
-      .addOrderBy("booking.create_time", "DESC")
-      .skip((query.page - 1) * query.page_size)
-      .take(query.page_size)
-      .getManyAndCount();
-    const unitRows = bookings.length
-      ? await this.dataSource.query(
-        `SELECT unit.id,
-                unit.unit_code AS "unitCode",
-                unit.unit_name AS "unitName"
-         FROM biz_unit unit
-         WHERE unit.tenant_id = $1
-           AND unit.park_id = $2
-           AND unit.id = ANY($3::uuid[])`,
-        [scope.tenantId, scope.parkId, [...new Set(bookings.map((booking) => booking.unitId))]]
-      ) as Array<{ id: string; unitCode: string | null; unitName: string | null }>
-      : [];
-    const unitDisplay = new Map(unitRows.map((row) => [row.id, row]));
-    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
-    const items = bookings.map((booking): HomestayBookingListItem => ({
-      ...this.projectBooking(booking, canReadFinance),
-      unitCode: unitDisplay.get(booking.unitId)?.unitCode ?? null,
-      unitName: unitDisplay.get(booking.unitId)?.unitName ?? null
-    }));
-    return { items, total, page: query.page, page_size: query.page_size };
+    return this.mustBookingQuery().listBookings(scope, actor, query);
   }
 
   async getBooking(
@@ -306,7 +240,12 @@ export class HomestayService {
     actor: JwtPrincipal,
     id: string
   ): Promise<HomestayBookingDetailResponse> {
-    return this.getBookingDetail(scope, actor, id);
+    return this.mustBookingQuery().getBooking(scope, actor, id);
+  }
+
+  private mustBookingQuery(): HomestayBookingQueryService {
+    if (!this.bookingQuery) throw new Error("Homestay booking query service is unavailable");
+    return this.bookingQuery;
   }
 
   async listStays(
@@ -423,7 +362,7 @@ export class HomestayService {
     canReadFinance: boolean
   ): HomestayStayListItem {
     return {
-      ...this.projectBooking(booking, canReadFinance),
+      ...projectHomestayBooking(booking, canReadFinance),
       unitCode: enrichment.unitDisplay.get(booking.unitId)?.unitCode ?? null,
       unitName: enrichment.unitDisplay.get(booking.unitId)?.unitName ?? null,
       checkedInAt: booking.actualCheckInTime?.toISOString() ?? null,
@@ -437,160 +376,7 @@ export class HomestayService {
     actor: JwtPrincipal,
     stayId: string
   ): Promise<HomestayBookingDetailResponse> {
-    return this.getBookingDetail(
-      scope,
-      actor,
-      stayId,
-      new Set(["confirmed", "checked_in", "checked_out"])
-    );
-  }
-
-  private async getBookingDetail(
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    id: string,
-    allowedStatuses?: ReadonlySet<string>
-  ): Promise<HomestayBookingDetailResponse> {
-    const booking = await this.mustFindAuthorizedBooking(scope, actor, id);
-    if (allowedStatuses && !allowedStatuses.has(booking.status)) {
-      throw new NotFoundException("Homestay stay not found");
-    }
-    const access = this.bookingDetailAccess(actor);
-    const relations = await this.loadBookingDetailRelations(scope, id, access);
-    return this.projectBookingDetail(booking, relations, access);
-  }
-
-  private bookingDetailAccess(actor: JwtPrincipal): BookingDetailAccess {
-    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ);
-    const canReadTurnover = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ);
-    return {
-      canReadFinance,
-      canReadTurnover,
-      canReadTurnoverFiles: canReadTurnover
-        && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
-    };
-  }
-
-  private async loadBookingDetailRelations(
-    scope: TenantParkScope,
-    bookingId: string,
-    access: BookingDetailAccess
-  ): Promise<BookingDetailRelations> {
-    const [nights, guests, credentials, ledger, actions, turnover] = await Promise.all([
-      this.dataSource.getRepository(HomestayBookingNightEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false },
-        order: { businessDate: "ASC" }
-      }),
-      this.dataSource.getRepository(HomestayBookingGuestEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
-      }),
-      this.dataSource.getRepository(HomestayStayCredentialEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
-      }),
-      access.canReadFinance
-        ? this.dataSource.getRepository(HomestayLedgerEntryEntity).find({
-            where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false },
-            order: { occurredAt: "ASC" }
-          })
-        : Promise.resolve([]),
-      this.dataSource.getRepository(HomestayBookingActionLogEntity).find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId },
-        order: { actionTime: "DESC" }
-      }),
-      access.canReadTurnover
-        ? this.turnoversRepository.findOne({
-            where: { tenantId: scope.tenantId, parkId: scope.parkId, bookingId, isDeleted: false }
-          })
-        : Promise.resolve(null)
-    ]);
-    const guestPartyIds = [...new Set(guests.map((guest) => guest.partyId))];
-    const guestPartyRows = guestPartyIds.length
-      ? await this.dataSource.query(
-        `SELECT party.id, party.display_name AS "displayName"
-         FROM biz_party party
-         WHERE party.tenant_id = $1
-           AND party.park_id = $2
-           AND party.id = ANY($3::uuid[])
-           AND party.is_deleted = false`,
-        [scope.tenantId, scope.parkId, guestPartyIds]
-      ) as Array<{ id: string; displayName: string }>
-      : [];
-    return {
-      nights,
-      guests,
-      credentials,
-      ledger,
-      actions,
-      turnover,
-      guestDisplayNames: new Map(guestPartyRows.map((party) => [party.id, party.displayName]))
-    };
-  }
-
-  private projectBookingDetail(
-    booking: HomestayBookingEntity,
-    relations: BookingDetailRelations,
-    access: BookingDetailAccess
-  ): HomestayBookingDetailResponse {
-    const {
-      nights,
-      guests,
-      credentials,
-      ledger,
-      actions,
-      turnover,
-      guestDisplayNames
-    } = relations;
-    return {
-      booking: this.projectBooking(booking, access.canReadFinance),
-      nights: nights.map((night) => ({
-        id: night.id,
-        businessDate: night.businessDate,
-        ...(access.canReadFinance
-          ? {
-              baseRate: night.baseRate,
-              overrideRate: night.overrideRate,
-              finalRate: night.finalRate,
-              priceSource: night.priceSource
-            }
-          : {})
-      })),
-      guests: guests.map((guest) => ({
-        id: guest.id,
-        partyId: guest.partyId,
-        partyDisplayName: guestDisplayNames.get(guest.partyId) ?? "未命名住客",
-        isPrimary: guest.isPrimary,
-        verificationStatus: guest.verificationStatus
-      })),
-      credentials: credentials.map((credential) => this.projectCredential(credential)),
-      ...(access.canReadFinance
-        ? {
-            ledger: ledger.map((entry) => ({
-              id: entry.id,
-              entryType: entry.entryType,
-              chargeType: entry.chargeType,
-              amount: entry.amount,
-              paymentMethod: entry.paymentMethod,
-              status: entry.status,
-              occurredAt: entry.occurredAt.toISOString(),
-              reason: entry.reason
-            })),
-            ledger_summary: formatHomestayLedgerSummary(ledger)
-          }
-        : {}),
-      finance_visible: access.canReadFinance,
-      actions: actions.map((action) => ({
-        id: action.id,
-        action: action.action,
-        beforeStatus: action.beforeStatus,
-        afterStatus: action.afterStatus,
-        reason: action.reason,
-        operatorName: action.operatorName,
-        actionTime: action.actionTime.toISOString()
-      })),
-      turnover: turnover
-        ? this.projectTurnover(turnover, access.canReadTurnoverFiles)
-        : null
-    };
+    return this.mustBookingQuery().getStay(scope, actor, stayId);
   }
 
   async createBooking(
@@ -1277,7 +1063,7 @@ export class HomestayService {
         createBy: actor.sub,
         updateBy: actor.sub
       }));
-      return this.projectCredential(saved);
+      return projectHomestayCredential(saved);
     });
   }
 
@@ -1291,14 +1077,14 @@ export class HomestayService {
         lock: { mode: "pessimistic_write" }
       });
       if (!credential) throw new NotFoundException("Stay credential not found");
-      if (credential.status === "returned") return this.projectCredential(credential);
+      if (credential.status === "returned") return projectHomestayCredential(credential);
       if (credential.status !== "issued") {
         throw new ConflictException("Only issued credentials can be returned");
       }
       credential.status = "returned";
       credential.returnedAt = new Date();
       credential.updateBy = actor.sub;
-      return this.projectCredential(await repository.save(credential));
+      return projectHomestayCredential(await repository.save(credential));
     });
   }
 
@@ -1630,7 +1416,7 @@ export class HomestayService {
     const unitDisplay = new Map(unitRows.map((unit) => [unit.id, unit]));
     const canReadFiles = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const items = tasks.map((task): HomestayTurnoverListItem => ({
-      ...this.projectTurnover(task, canReadFiles),
+      ...projectHomestayTurnover(task, canReadFiles),
       unitCode: unitDisplay.get(task.unitId)?.unitCode ?? null,
       unitName: unitDisplay.get(task.unitId)?.unitName ?? null,
       createTime: task.createTime.toISOString()
@@ -1697,7 +1483,7 @@ export class HomestayService {
     ]);
     const unit = unitRows[0];
     return {
-      ...this.projectTurnover(task, canReadFiles),
+      ...projectHomestayTurnover(task, canReadFiles),
       unitCode: unit?.unitCode ?? null,
       unitName: unit?.unitName ?? null,
       createTime: task.createTime.toISOString(),
@@ -2064,88 +1850,6 @@ export class HomestayService {
 
   private assertStatus(booking: HomestayBookingEntity, allowed: string[], message: string): void {
     if (!allowed.includes(booking.status)) throw new ConflictException(message);
-  }
-
-  private projectBooking(
-    booking: HomestayBookingEntity,
-    canReadFinance: boolean
-  ): HomestayBookingResponse {
-    return {
-      id: booking.id,
-      bookingCode: booking.bookingCode,
-      unitId: booking.unitId,
-      arrivalDate: booking.arrivalDate,
-      departureDate: booking.departureDate,
-      status: booking.status,
-      guestCount: booking.guestCount,
-      sourceType: booking.sourceType,
-      ...(canReadFinance
-        ? {
-            roomAmount: booking.roomAmount,
-            adjustmentAmount: booking.adjustmentAmount,
-            totalAmount: booking.totalAmount
-          }
-        : {})
-    };
-  }
-
-  private projectCredential(
-    credential: HomestayStayCredentialEntity
-  ): HomestayCredentialResponse {
-    return {
-      id: credential.id,
-      credentialType: credential.credentialType,
-      credentialLabel: credential.credentialLabel,
-      credentialReference: credential.credentialReference === null ? null : "***",
-      status: credential.status,
-      issuedAt: credential.issuedAt.toISOString(),
-      returnedAt: credential.returnedAt?.toISOString() ?? null
-    };
-  }
-
-  private projectTurnover(
-    task: HomestayTurnoverTaskEntity,
-    canReadFiles: boolean
-  ): HomestayTurnoverResponse {
-    return {
-      id: task.id,
-      bookingId: task.bookingId,
-      unitId: task.unitId,
-      status: task.status,
-      assigneeId: task.assigneeId,
-      assigneeName: task.assigneeName,
-      ...(canReadFiles ? { photoFileIds: [...task.photoFileIds] } : {}),
-      consumables: task.consumables.map((item) => ({ ...item })),
-      exceptionDescription: task.exceptionDescription,
-      linkedWorkOrderId: task.linkedWorkOrderId
-    };
-  }
-
-  private async mustFindAuthorizedBooking(
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    id: string
-  ): Promise<HomestayBookingEntity> {
-    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
-      throw new NotFoundException("Homestay booking not found");
-    }
-    if (allowedUnitIds === null) {
-      const booking = await this.bookingsRepository.findOne({
-        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      });
-      if (!booking) throw new NotFoundException("Homestay booking not found");
-      return booking;
-    }
-    const builder = this.bookingsRepository.createQueryBuilder("booking")
-      .where("booking.id = :id", { id })
-      .andWhere("booking.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("booking.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("booking.is_deleted = false");
-    builder.andWhere("booking.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
-    const booking = await builder.getOne();
-    if (!booking) throw new NotFoundException("Homestay booking not found");
-    return booking;
   }
 
   private async log(

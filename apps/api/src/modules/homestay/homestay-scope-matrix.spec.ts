@@ -5,6 +5,7 @@ import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-scope", parkId: "park-scope" };
 const actor: JwtPrincipal = {
@@ -46,16 +47,27 @@ function homestayService(options: {
   unitAccessService: unknown;
   dataSource?: unknown;
 }): HomestayService {
+  const bookingsRepository = options.bookingsRepository ?? {};
+  const turnoversRepository = options.turnoversRepository ?? {};
+  const dataSource = options.dataSource ?? {};
+  const bookingQuery = new HomestayBookingQueryService(
+    bookingsRepository as never,
+    turnoversRepository as never,
+    options.unitAccessService as never,
+    dataSource as never
+  );
   return new HomestayService(
     {} as never,
     {} as never,
-    (options.bookingsRepository ?? {}) as never,
-    (options.turnoversRepository ?? {}) as never,
+    bookingsRepository as never,
+    turnoversRepository as never,
     {} as never,
     {} as never,
     {} as never,
     options.unitAccessService as never,
-    (options.dataSource ?? {}) as never
+    dataSource as never,
+    undefined, undefined, undefined, undefined,
+    bookingQuery
   );
 }
 

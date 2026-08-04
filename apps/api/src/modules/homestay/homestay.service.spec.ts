@@ -18,6 +18,7 @@ import {
 import { HomestayService } from "./homestay.service";
 import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
 import { HomestayRatesService } from "./homestay-rates.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -317,14 +318,9 @@ test("booking detail masks every credential reference without changing null", as
       return [{ id: guest.partyId, displayName: "张三" }];
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { findOne: async () => booking } as never,
     { findOne: async () => null } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { allowedUnitIds: async () => null } as never,
     dataSource as never
   );
@@ -600,13 +596,8 @@ test("booking lists omit every finance field without homestay:finance:read", asy
     take: () => bookingBuilder,
     getManyAndCount: async () => [[booking], 1]
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { createQueryBuilder: () => bookingBuilder } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { allowedUnitIds: async () => null } as never,
     {
@@ -747,16 +738,11 @@ test("stay queues call getMany/getCount once and batch exactly two enrichments",
 
 test("stay detail returns the same 404 for empty scope before looking up the booking", async () => {
   let bookingReads = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { findOne: async () => {
       bookingReads += 1;
       return { id: "booking-outside-scope" };
     } } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { allowedUnitIds: async () => [] } as never,
     {} as never
@@ -770,6 +756,17 @@ test("stay detail returns the same 404 for empty scope before looking up the boo
 });
 
 test("tenant/park scope denial remains 403 while cross-unit GET detail remains 404", async () => {
+  const forbiddenUnitAccess = {
+    allowedUnitIds: async () => {
+      throw new ForbiddenException("Tenant/park scope denied");
+    }
+  };
+  const forbiddenBookingQuery = new HomestayBookingQueryService(
+    {} as never,
+    {} as never,
+    forbiddenUnitAccess as never,
+    {} as never
+  );
   const forbiddenService = new HomestayService(
     {} as never,
     {} as never,
@@ -778,12 +775,10 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     {} as never,
     {} as never,
     {} as never,
-    {
-      allowedUnitIds: async () => {
-        throw new ForbiddenException("Tenant/park scope denied");
-      }
-    } as never,
-    {} as never
+    forbiddenUnitAccess as never,
+    {} as never,
+    undefined, undefined, undefined, undefined,
+    forbiddenBookingQuery
   );
   for (const operation of [
     () => forbiddenService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
@@ -808,6 +803,13 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     },
     getOne: async () => null
   };
+  const crossUnitAccess = { allowedUnitIds: async () => ["unit-allowed"] };
+  const crossUnitBookingQuery = new HomestayBookingQueryService(
+    { createQueryBuilder: () => emptyBuilder } as never,
+    {} as never,
+    crossUnitAccess as never,
+    {} as never
+  );
   const crossUnitService = new HomestayService(
     {
       getRateCalendar: async () => {
@@ -820,8 +822,10 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     {} as never,
     {} as never,
     {} as never,
-    { allowedUnitIds: async () => ["unit-allowed"] } as never,
-    {} as never
+    crossUnitAccess as never,
+    {} as never,
+    undefined, undefined, undefined, undefined,
+    crossUnitBookingQuery
   );
   for (const operation of [
     () => crossUnitService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
