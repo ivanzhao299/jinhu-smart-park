@@ -1,0 +1,234 @@
+import assert from "node:assert/strict";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { symlinkSync, realpathSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, resolve } from "node:path";
+import { URL } from "node:url";
+import test from "node:test";
+import { buildCommandSpecs, COMMAND_IDS, materializeCommand, probeCommandRuntime, safeChildEnvironment } from "./command-spec.mjs";
+import { compareDurableSnapshots } from "./comparator.mjs";
+import { assertNoSensitiveData, canonicalSha256, durableTableNames, loadProfile, makeDurableSnapshot, repoRoot, sha256 } from "./lib.mjs";
+import { validatePatchMetadata } from "./patch-validator.mjs";
+import { deriveExpectedTree, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
+import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
+import { proveBuildFlags } from "./flags-proof.mjs";
+import { cleanDeclaredBuildOutput } from "./build-output.mjs";
+import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
+import { captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId } from "./semantic-contract.mjs";
+import { checkConfig } from "./check-config.mjs";
+
+const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
+const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
+
+test("profile freezes 19 cases and complete formal matrix", () => {
+  const { profile } = loadProfile();
+  assert.equal(profile.cases.filter(({ kind }) => kind === "backend-closure").length, 17);
+  assert.equal(profile.cases.filter(({ kind }) => kind === "frontend-group").length, 2);
+  assert.deepEqual(profile.requiredGateIds, [...COMMAND_IDS]);
+});
+
+test("formal config check advances past the now-frozen 19 semantic contracts", async () => {
+  await assert.rejects(checkConfig({ finalSha: FINAL_SHA, requireClean: false }), /invalid reference/u);
+});
+
+test("all runner-owned commands materialize to executable absolute paths", async () => {
+  const { profile } = loadProfile();
+  const worktree = repoRoot;
+  for (const spec of buildCommandSpecs(profile, profile.cases[0])) {
+    const argv = materializeCommand(spec, worktree);
+    assert(isAbsolute(argv[0]));
+    assert(!argv.includes("/bin/true"));
+    assert(!argv.includes("echo"));
+  }
+  assert.equal((await probeCommandRuntime()).status, "PASS");
+});
+
+test("strict CLI rejects unknown and duplicate options and supports default check", () => {
+  assert.deepEqual(parseOptions([]), { mode: "--check", options: {} });
+  assert.throws(() => parseOptions(["--check", "--wat", "x"]), /unknown option/u);
+  assert.throws(() => parseOptions(["--execute", "--case", "a", "--case", "b"]), /duplicate/u);
+});
+
+test("database target URL preserves authority and changes only encoded database path", () => {
+  const target = new URL(databaseUrlForName("postgresql://user:p%40ss@127.0.0.1:5432/postgres?sslmode=require", "jinhu_rollback_abc123"));
+  assert.equal(target.username, "user"); assert.equal(target.password, "p%40ss");
+  assert.equal(target.pathname, "/jinhu_rollback_abc123"); assert.equal(target.search, "");
+});
+
+test("secret scanner catches bearer, JWT, raw provider token and credential argv", () => {
+  for (const value of ["Bearer abcdefghijklmnop", "eyJabcde.abcdefgh.ijklmnop", "ghp_abcdefghijklmnopqrstuvwxyz", ["node", "--database-url=x"]]) assert.throws(() => assertNoSensitiveData(value), /credential|secret/u);
+});
+
+test("unapplicable original reverse intent can use a reviewed manual forward-port while undeclared deviations fail", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-patch-"));
+  try {
+    const runRoot = resolve(temp, "run"); const input = resolve(runRoot, "inputs/patches"); mkdirSync(input, { recursive: true });
+    const loaded = loadProfile(); const profileSha256 = loaded.profileSha256; const baseCase = loaded.profile.cases[0];
+    const contract = {
+      mustChangeProductionPaths: ["apps/api/src/modules/homestay/a.ts"],
+      postApply: [{ id: "production-anchor", intentGroupId: "production-intent", path: "apps/api/src/modules/homestay/a.ts", pathState: "present", mustContain: ["manual-compatible-shell"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [] }],
+      retainedShell: [], protectedExternalPaths: [], immutableTestPaths: ["apps/api/src/modules/homestay/**/*.spec.ts"],
+      allowedInvariantIds: ["INV-CANONICAL-PORT"], allowedGateIds: ["targeted-regression"]
+    };
+    const rehearsalCase = { ...baseCase, allowedPatchPrefixes: ["apps/api/src/modules/homestay/a.ts", "apps/api/src/modules/homestay/a.spec.ts"], rollbackSemanticContract: contract }; const profile = { ...loaded.profile, cases: loaded.profile.cases.map((entry) => entry.id === rehearsalCase.id ? rehearsalCase : entry) };
+    const originalReverse = "original reverse no longer applies to the final tree\n";
+    const patch = "diff --git a/apps/api/src/modules/homestay/a.ts b/apps/api/src/modules/homestay/a.ts\n--- a/apps/api/src/modules/homestay/a.ts\n+++ b/apps/api/src/modules/homestay/a.ts\n@@ -1 +1 @@\n-current-final\n+manual-compatible-shell\n";
+    const patchPath = resolve(input, "case.patch"); writeFileSync(patchPath, patch);
+    const immutablePath = "apps/api/src/modules/homestay/a.spec.ts"; const touchedPaths = ["apps/api/src/modules/homestay/a.ts", immutablePath];
+    const closure = { commits: [{ commitRef: rehearsalCase.commits[0], fullSha: rehearsalCase.commits[0], reverseDiffSha256: sha256(originalReverse) }], touchedPaths, touchedPathsSha256: canonicalSha256(touchedPaths), reversePatchSha256: sha256(originalReverse) };
+    const deviationManifest = [
+      { path: "apps/api/src/modules/homestay/a.ts", action: "modified", reason: "original reverse no longer applies", preservedInvariant: "INV-CANONICAL-PORT", test: "targeted-regression", contractAnchorId: "production-anchor" },
+      { path: immutablePath, action: "intentionally-omitted", reason: "immutable verification is preserved", preservedInvariant: "INV-CANONICAL-PORT", test: "apps/api/src/modules/homestay/**/*.spec.ts", contractAnchorId: immutableSyntheticAnchorId(immutablePath) }
+    ];
+    const metadata = { schemaVersion: "property-track-c-reviewed-rollback-patch-v2", runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, caseId: rehearsalCase.id, commits: rehearsalCase.commits, closureBindingSha256: canonicalSha256(closure), patchMode: "reviewed-manual-forward-port", originalReverseSha256: sha256(originalReverse), touchedPathsSha256: closure.touchedPathsSha256, patchPath: "case.patch", manualPatchSha256: sha256(readFileSync(patchPath)), deviationManifest, author: "patch-author", reviewer: "independent-reviewer", reviewedAt: new Date().toISOString(), approved: true };
+    assert.equal(validatePatchMetadata({ metadata, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }).sha256, sha256(patch));
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, deviationManifest: [] }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /deviation manifest/u);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, deviationManifest: [{ ...deviationManifest[0], path: "apps/api/src/modules/housing/undeclared.ts" }] }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /invalid|undeclared/u);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, deviationManifest: [deviationManifest[0], { ...deviationManifest[1], contractAnchorId: "immutable-test:free-text" }] }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /invalid/u);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, deviationManifest: [deviationManifest[0], { ...deviationManifest[1], action: "modified" }] }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /invalid/u);
+    const omissionAnchor = { ...contract.postApply[0], id: "omission-anchor", astMatchers: [{ kind: "identifier", name: "manual", source: "", owner: "", enclosingOwner: "", minCount: 0, maxCount: 1 }], allowsIntentionalOmission: true }; const omissionCase = { ...rehearsalCase, rollbackSemanticContract: { ...contract, retainedShell: [omissionAnchor] } }; const omissionProfile = { ...profile, cases: profile.cases.map((entry) => entry.id === omissionCase.id ? omissionCase : entry) };
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, deviationManifest: [{ ...deviationManifest[0], action: "intentionally-omitted", contractAnchorId: omissionAnchor.id }, deviationManifest[1]] }, rehearsalCase: omissionCase, profile: omissionProfile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /invalid/u);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, author: metadata.reviewer }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /independent/u);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, author: "Patch-Author", reviewer: "ＰＡＴＣＨ－ＡＵＴＨＯＲ" }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /independent/u);
+    const protectedPatch = patch.replaceAll("a.ts", "a.spec.ts"); writeFileSync(patchPath, protectedPatch);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, manualPatchSha256: sha256(protectedPatch) }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /protected/u);
+    const commentPatch = patch.replace("-current-final\n+manual-compatible-shell", "-// old comment\n+// new comment"); writeFileSync(patchPath, commentPatch);
+    assert.throws(() => validatePatchMetadata({ metadata: { ...metadata, manualPatchSha256: sha256(commentPatch) }, rehearsalCase, profile, runRoot, runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } }), /comments or whitespace/u);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("validated patch bytes stay frozen across a baseline-window input swap", async () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-patch-freeze-"));
+  try {
+    const worktree = resolve(temp, "worktree"); const caseRoot = resolve(temp, "case"); mkdirSync(resolve(worktree, "apps/api/src/modules/homestay"), { recursive: true }); mkdirSync(resolve(caseRoot, "logs"), { recursive: true });
+    const productionPath = "apps/api/src/modules/homestay/a.ts"; writeFileSync(resolve(worktree, productionPath), "current-final\n");
+    const git = (args) => execFileSync("/usr/bin/git", args, { cwd: worktree, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", TZ: "UTC" }, encoding: "utf8" }).trim();
+    git(["init", "-q"]); git(["add", "--", productionPath]); const finalTree = git(["write-tree"]);
+    const safePatch = `diff --git a/${productionPath} b/${productionPath}\n--- a/${productionPath}\n+++ b/${productionPath}\n@@ -1 +1 @@\n-current-final\n+manual-compatible-shell\n`;
+    const inputPath = resolve(temp, "run/inputs/patches/case.patch"); mkdirSync(resolve(inputPath, ".."), { recursive: true }); writeFileSync(inputPath, safePatch);
+    const profileSha256 = sha256("self-contained-profile"); const contract = { mustChangeProductionPaths: [productionPath], postApply: [{ id: "production-anchor", intentGroupId: "production-intent", path: productionPath, pathState: "present", mustContain: ["manual-compatible-shell"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [] }], retainedShell: [], protectedExternalPaths: [], immutableTestPaths: ["apps/api/src/modules/homestay/a.spec.ts"], allowedInvariantIds: ["INV"], allowedGateIds: ["gate"] };
+    const rehearsalCase = { id: "frozen-patch-case", commits: [], targetedTestFiles: [], allowedPatchPrefixes: ["apps/api/src/modules/homestay/"], rollbackSemanticContract: contract }; const profile = { forbiddenBlindRevertCommits: [], cases: [rehearsalCase], commandSpec: { postgresqlFiles: [], canonicalPortFile: "packages/shared/src/unused.ts", contractFile: "packages/shared/src/unused-contract.ts" } }; const closure = { commits: [], touchedPaths: [productionPath], touchedPathsSha256: canonicalSha256([productionPath]), reversePatchSha256: sha256("reverse") };
+    const metadata = { schemaVersion: "property-track-c-reviewed-rollback-patch-v2", runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, caseId: rehearsalCase.id, commits: [], closureBindingSha256: canonicalSha256(closure), patchMode: "reviewed-manual-forward-port", originalReverseSha256: closure.reversePatchSha256, touchedPathsSha256: closure.touchedPathsSha256, patchPath: "case.patch", manualPatchSha256: sha256(safePatch), deviationManifest: [{ path: productionPath, action: "modified", reason: "safe frozen forward port", preservedInvariant: "INV", test: "gate", contractAnchorId: "production-anchor" }], author: "patch-author", reviewer: "patch-reviewer", reviewedAt: new Date().toISOString(), approved: true };
+    const frozen = validatePatchMetadata({ metadata, rehearsalCase, profile, runRoot: resolve(temp, "run"), runId: RUN_ID, finalSha: FINAL_SHA, profileSha256, runCreatedAt: new Date(Date.now() - 1000).toISOString(), sourceBinding: { closures: { [rehearsalCase.id]: closure } } });
+    const evilPath = "apps/api/src/modules/homestay/unauthorized-command.mjs"; const marker = resolve(temp, "unauthorized-executed"); const evilPatch = `diff --git a/${evilPath} b/${evilPath}\nnew file mode 100644\n--- /dev/null\n+++ b/${evilPath}\n@@ -0,0 +1 @@\n+require('node:fs').writeFileSync('${marker}', 'executed')\n`;
+    writeFileSync(inputPath, evilPatch); // Simulates replacement while the flags-on baseline is running.
+    const artifacts = []; await deriveExpectedTree({ finalSha: finalTree, patchBytes: frozen.bytes, worktree, indexFile: resolve(temp, "derived.index"), caseRoot, artifacts });
+    writeFileSync(inputPath, safePatch); // Simulates restoration before the final evidence gate.
+    for (const args of [["apply", "--check", "--index", "-"], ["apply", "--index", "-"]]) { const result = await runGitWithFrozenPatch(args, worktree, { patchBytes: frozen.bytes }); assert.equal(result.exitCode, 0, result.stderr); }
+    assert.equal(readFileSync(resolve(worktree, productionPath), "utf8"), "manual-compatible-shell\n"); assert.equal(existsSync(resolve(worktree, evilPath)), false); assert.equal(existsSync(marker), false);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("durable snapshot comparison enforces RPO zero", () => {
+  const { profile } = loadProfile(); const tables = durableTableNames(profile).map((table) => ({ table, count: 1, contentSha256: sha256(table) }));
+  const before = makeDurableSnapshot(tables, "2026-08-05T00:00:00Z"); const after = makeDurableSnapshot(tables, "2026-08-05T00:01:00Z");
+  assert.equal(compareDurableSnapshots(before, after, profile).identical, true);
+});
+
+test("semantic contract freezes immutable globs and enforces structured AST/external/deletion anchors", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-semantic-"));
+  try {
+    const productionPath = "apps/api/src/modules/homestay/service.ts"; const immutablePath = "apps/api/src/modules/homestay/test/service.spec.ts"; const loginPath = "apps/web/app/login/page.tsx";
+    for (const path of [productionPath, immutablePath, loginPath]) mkdirSync(resolve(temp, path, ".."), { recursive: true });
+    const validProduction = 'import { Module } from "@nestjs/common";\nimport { Port } from "./port";\nexport class Service { constructor(private port: Port) {} async run() { await this.port.execute(); } }\n@Module({ providers: [Service] }) export class FeatureModule {}\n';
+    writeFileSync(resolve(temp, productionPath), validProduction);
+    writeFileSync(resolve(temp, immutablePath), "test('frozen', () => {});\n"); writeFileSync(resolve(temp, loginPath), "async function login() { await setSession(); }\n");
+    const astMatchers = [
+      { kind: "import", name: "Port", source: "./port", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }, { kind: "class", name: "Service", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 },
+      { kind: "provider", name: "Service", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }, { kind: "constructorParameter", name: "port", source: "", owner: "Service", enclosingOwner: "", minCount: 1, maxCount: 1 },
+      { kind: "awaitedCall", name: "execute", source: "", owner: "this.port", enclosingOwner: "run", minCount: 1, maxCount: 1 }, { kind: "export", name: "Service", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }
+    ];
+    const rollbackSemanticContract = {
+      mustChangeProductionPaths: [productionPath], postApply: [{ id: "service-anchor", intentGroupId: "service-intent", path: productionPath, pathState: "present", mustContain: ["await this.port.execute()"], mustNotContain: ["ConcreteService"], mustMatch: ["providers:\\s*\\[Service\\]"], mustNotMatch: ["new\\s+ConcreteService"], astMatchers }],
+      retainedShell: [], protectedExternalPaths: [{ id: "login-anchor", intentGroupId: "login-invariant", path: loginPath, pathState: "present", mustContain: ["await setSession()"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [{ kind: "awaitedCall", name: "setSession", source: "", owner: "", enclosingOwner: "login", minCount: 1, maxCount: 1 }], allowsIntentionalOmission: true }],
+      immutableTestPaths: ["apps/api/src/modules/homestay/**/*.spec.ts"], allowedInvariantIds: ["INV"], allowedGateIds: ["targeted-regression"]
+    };
+    const rehearsalCase = { id: "case", rollbackSemanticContract }; const immutableBefore = captureImmutableTestFiles(temp, rehearsalCase);
+    const patch = { paths: [productionPath], semanticChangedPaths: [productionPath], sha256: sha256("patch"), deviations: [{ path: productionPath, action: "modified", contractAnchorId: "service-anchor" }] };
+    assert.equal(evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }).result.status, "PASS");
+    writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
+    writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious as Port } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
+    writeFileSync(resolve(temp, productionPath), validProduction.replace("@Module({ providers: [Service] })", "const decoy = { providers: [Service] };\n@Module({ providers: [] })")); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
+    writeFileSync(resolve(temp, productionPath), validProduction);
+    writeFileSync(resolve(temp, immutablePath), "changed\n"); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /immutable/u);
+    writeFileSync(resolve(temp, immutablePath), "test('frozen', () => {});\n"); const added = "apps/api/src/modules/homestay/test/replacement.spec.ts"; writeFileSync(resolve(temp, added), "replacement\n");
+    assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /immutable/u);
+    rmSync(resolve(temp, productionPath));
+    const deletionCase = { ...rehearsalCase, rollbackSemanticContract: { ...rollbackSemanticContract, postApply: [{ id: "service-anchor", intentGroupId: "service-intent", path: productionPath, pathState: "absent", mustContain: [], mustNotContain: ["ConcreteService"], mustMatch: [], mustNotMatch: [], astMatchers: [] }] } };
+    rmSync(resolve(temp, added)); writeFileSync(resolve(temp, productionPath), ""); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase: deletionCase, patch, immutableBefore }), /post-apply/u);
+    rmSync(resolve(temp, productionPath)); assert.equal(evaluateRollbackSemanticContract({ root: temp, rehearsalCase: deletionCase, patch, immutableBefore }).result.status, "PASS");
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("retained-shell structural anchors reject required tokens hidden only in comments", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-retained-shell-"));
+  try {
+    const productionPath = "apps/api/src/modules/homestay/facade.ts"; const shellPath = "apps/api/src/modules/homestay/extracted.ts"; const immutablePath = "apps/api/src/modules/homestay/facade.spec.ts";
+    for (const path of [productionPath, shellPath, immutablePath]) mkdirSync(resolve(temp, path, ".."), { recursive: true });
+    writeFileSync(resolve(temp, productionPath), "export const facade = 'rolled-back';\n"); writeFileSync(resolve(temp, immutablePath), "test('immutable', () => {});\n");
+    const shell = { id: "shell-anchor", intentGroupId: "facade-intent", path: shellPath, pathState: "present", mustContain: ["ExtractedService"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [{ kind: "class", name: "ExtractedService", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }], allowsIntentionalOmission: true };
+    const rehearsalCase = { id: "retained-shell", rollbackSemanticContract: { mustChangeProductionPaths: [productionPath], postApply: [{ id: "facade-anchor", intentGroupId: "facade-intent", path: productionPath, pathState: "present", mustContain: ["rolled-back"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [] }], retainedShell: [shell], protectedExternalPaths: [], immutableTestPaths: [immutablePath], allowedInvariantIds: ["INV"], allowedGateIds: ["gate"] } };
+    const patch = { paths: [productionPath], semanticChangedPaths: [productionPath], sha256: sha256("patch"), deviations: [{ path: productionPath, action: "modified", contractAnchorId: "facade-anchor" }, { path: shellPath, action: "retained-shell", contractAnchorId: "shell-anchor" }] }; const immutableBefore = captureImmutableTestFiles(temp, rehearsalCase);
+    writeFileSync(resolve(temp, shellPath), "// export class ExtractedService {}\nexport const unrelated = true;\n"); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /retained-shell|intent group/u);
+    writeFileSync(resolve(temp, shellPath), "export class ExtractedService {}\n"); assert.equal(evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }).result.status, "PASS");
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("child environment is allowlisted and cleanup schema is consistent", () => {
+  const env = safeChildEnvironment({ needsDatabaseCredential: false }); assert.equal(env.HOME, undefined); assert.equal(env.DATABASE_URL, undefined);
+  const residual = { containers: 0, networks: 0, volumes: 0, databases: 0, processGroups: 0, ports: 0, worktrees: 0, tempFiles: 0, secretFiles: 0 }; const authoritySha256 = sha256("authority"); const projection = { attempted: true, authoritySha256, residual, errors: [] };
+  assert.equal(validateCleanupResult({ schemaVersion: "property-track-c-runner-cleanup-v1", status: "PASS", ...projection, manifestSha256: canonicalSha256(projection) }).status, "PASS");
+});
+
+test("dynamic process env cannot make a fabricated .next tree pass authoritative flag proof", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-fake-next-"));
+  try {
+    const next = resolve(temp, "apps/web/.next"); mkdirSync(next, { recursive: true }); writeFileSync(resolve(next, "BUILD_ID"), "fake");
+    assert.throws(() => proveBuildFlags({ worktree: temp, expectedValue: "false", env: { PROPERTY_OFFLINE_DRAFTS_V1: "false", PROPERTY_UPLOAD_QUEUE_V1: "false", NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1: "false", NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1: "false", ROLLBACK_API_PORT: "44444" } }), /incomplete|ENOENT/u);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("baseline and rollback API build specs delete stale dist JavaScript before compilation", () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-api-dist-"));
+  try {
+    const stale = resolve(temp, "apps/api/dist/deleted-controller.js"); mkdirSync(resolve(stale, ".."), { recursive: true }); writeFileSync(stale, "stale");
+    const { profile } = loadProfile(); const apiBuild = buildCommandSpecs(profile, profile.cases[0]).find(({ id }) => id === "api-build");
+    assert.equal(apiBuild.cleanPath, "apps/api/dist"); cleanDeclaredBuildOutput(temp, apiBuild); assert.equal(existsSync(stale), false);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("runtime authority cleanup reaches residual zero at API spawn, Web spawn, and manifest-update interruption points", async () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-runtime-lease-")); const children = [];
+  try {
+    const runId = "rollback-20260805T010000Z-abcdef123456"; const finalSha = FINAL_SHA; const caseId = "homestay-dashboard"; const executionNonce = "c".repeat(64); const commandSpecSha256 = sha256("spec");
+    const authority = resourceAuthority({ runId, finalSha, caseId, runRoot: temp, executionNonce, commandSpecSha256 });
+    mkdirSync(authority.worktree, { recursive: true }); mkdirSync(resolve(authority.runtimeManifest, ".."), { recursive: true });
+    const node = realpathSync(process.execPath); const marker = resolve(authority.worktree, "tagged-child.mjs"); writeFileSync(marker, "setInterval(() => {}, 1000);\n");
+    const baseEnv = { PATH: process.env.PATH, ROLLBACK_RUNTIME_NONCE: authority.runtimeNonce, ROLLBACK_RUN_ID: runId, ROLLBACK_FINAL_SHA: finalSha, ROLLBACK_CASE_ID: caseId, ROLLBACK_EXPECTED_EXECUTABLE: node, ROLLBACK_COMMAND_MARKER: marker };
+    for (const point of ["api-spawn", "web-spawn", "manifest-update"]) {
+      let lease = initializeRuntimeLease({ authority, commandSpecSha256, expectedExecutable: node }); const role = point === "web-spawn" ? "web" : "api";
+      const child = spawn(node, [marker], { cwd: authority.worktree, detached: true, stdio: "ignore", env: { ...baseEnv, ROLLBACK_PROCESS_ROLE: role } }); children.push(child); child.unref(); await delay(50);
+      if (point !== "api-spawn") { lease = { ...lease, status: "RUNNING", groups: { ...lease.groups, [role]: { role, pid: child.pid, pgid: child.pid, executable: node, cwd: authority.worktree, commandMarker: marker } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority); }
+      if (point === "manifest-update") writeFileSync(`${authority.runtimeManifest}.next-interrupted`, "{half");
+      assert.equal(await terminateAuthorityProcesses(authority, enumerateAuthorityProcesses(authority)), 0); assert.equal(enumerateAuthorityProcesses(authority).length, 0);
+    }
+  } finally { for (const child of children) { try { process.kill(-child.pid, "SIGKILL"); } catch { /* already cleaned */ } } rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("malicious PID lease and symlink output cannot kill or delete unrelated targets", async () => {
+  const temp = mkdtempSync(resolve(tmpdir(), "rollback-runtime-malicious-")); let unrelated;
+  try {
+    const commandSpecSha256 = sha256("spec");
+    const authority = resourceAuthority({ runId: "rollback-20260805T010001Z-abcdef123456", finalSha: FINAL_SHA, caseId: "homestay-dashboard", runRoot: temp, executionNonce: "d".repeat(64), commandSpecSha256 });
+    mkdirSync(authority.worktree, { recursive: true }); mkdirSync(resolve(authority.runtimeManifest, ".."), { recursive: true }); const node = realpathSync(process.execPath);
+    const marker = resolve(authority.worktree, "unrelated.mjs"); writeFileSync(marker, "setInterval(() => {}, 1000);\n"); unrelated = spawn(node, [marker], { cwd: authority.worktree, detached: true, stdio: "ignore", env: { PATH: process.env.PATH } }); unrelated.unref();
+    let lease = initializeRuntimeLease({ authority, commandSpecSha256, expectedExecutable: node }); lease = { ...lease, groups: { api: { role: "api", pid: unrelated.pid, pgid: unrelated.pid, executable: node, cwd: authority.worktree, commandMarker: marker }, web: null } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority); readBoundRuntimeLease(authority);
+    assert.equal(enumerateAuthorityProcesses(authority).length, 0); await terminateAuthorityProcesses(authority, []); assert.doesNotThrow(() => process.kill(unrelated.pid, 0));
+    const outside = resolve(temp, "outside"); mkdirSync(outside); writeFileSync(resolve(outside, "keep"), "safe"); const dist = resolve(authority.worktree, "apps/api/dist"); mkdirSync(resolve(dist, ".."), { recursive: true }); symlinkSync(outside, dist);
+    assert.throws(() => cleanDeclaredBuildOutput(authority.worktree, { cleanPath: "apps/api/dist" }), /symlink/u); assert.equal(readFileSync(resolve(outside, "keep"), "utf8"), "safe");
+  } finally { if (unrelated?.pid) { try { process.kill(-unrelated.pid, "SIGKILL"); } catch { /* already exited */ } } rmSync(temp, { recursive: true, force: true }); }
+});
