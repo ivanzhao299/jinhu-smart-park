@@ -136,7 +136,7 @@ test("semantic contract freezes immutable globs and enforces structured AST/exte
     for (const path of [productionPath, immutablePath, loginPath]) mkdirSync(resolve(temp, path, ".."), { recursive: true });
     const validProduction = 'import { Module } from "@nestjs/common";\nimport { Port } from "./port";\nexport class Service { constructor(private port: Port) {} async run() { await this.port.execute(); } }\n@Module({ providers: [Service] }) export class FeatureModule {}\n';
     writeFileSync(resolve(temp, productionPath), validProduction);
-    writeFileSync(resolve(temp, immutablePath), "test('frozen', () => {});\n"); writeFileSync(resolve(temp, loginPath), "async function login() { await setSession(); }\n");
+    writeFileSync(resolve(temp, immutablePath), "test('frozen', () => {});\n"); writeFileSync(resolve(temp, loginPath), "const completeLogin = useCallback(async () => { await setSession(); }, []);\n");
     const astMatchers = [
       { kind: "import", name: "Port", source: "./port", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }, { kind: "class", name: "Service", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 },
       { kind: "provider", name: "Service", source: "", owner: "", enclosingOwner: "", minCount: 1, maxCount: 1 }, { kind: "constructorParameter", name: "port", source: "", owner: "Service", enclosingOwner: "", minCount: 1, maxCount: 1 },
@@ -144,12 +144,21 @@ test("semantic contract freezes immutable globs and enforces structured AST/exte
     ];
     const rollbackSemanticContract = {
       mustChangeProductionPaths: [productionPath], postApply: [{ id: "service-anchor", intentGroupId: "service-intent", path: productionPath, pathState: "present", mustContain: ["await this.port.execute()"], mustNotContain: ["ConcreteService"], mustMatch: ["providers:\\s*\\[Service\\]"], mustNotMatch: ["new\\s+ConcreteService"], astMatchers }],
-      retainedShell: [], protectedExternalPaths: [{ id: "login-anchor", intentGroupId: "login-invariant", path: loginPath, pathState: "present", mustContain: ["await setSession()"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [{ kind: "awaitedCall", name: "setSession", source: "", owner: "", enclosingOwner: "login", minCount: 1, maxCount: 1 }], allowsIntentionalOmission: true }],
+      retainedShell: [], protectedExternalPaths: [{ id: "login-anchor", intentGroupId: "login-invariant", path: loginPath, pathState: "present", mustContain: ["await setSession()"], mustNotContain: [], mustMatch: [], mustNotMatch: [], astMatchers: [{ kind: "awaitedCall", name: "setSession", source: "", owner: "", enclosingOwner: "completeLogin", minCount: 1, maxCount: 1 }], allowsIntentionalOmission: true }],
       immutableTestPaths: ["apps/api/src/modules/homestay/**/*.spec.ts"], allowedInvariantIds: ["INV"], allowedGateIds: ["targeted-regression"]
     };
     const rehearsalCase = { id: "case", rollbackSemanticContract }; const immutableBefore = captureImmutableTestFiles(temp, rehearsalCase);
     const patch = { paths: [productionPath], semanticChangedPaths: [productionPath], sha256: sha256("patch"), deviations: [{ path: productionPath, action: "modified", contractAnchorId: "service-anchor" }] };
     assert.equal(evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }).result.status, "PASS");
+    writeFileSync(resolve(temp, loginPath), "const completeLogin = Promise.resolve().then(async () => { await setSession(); });\n");
+    assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /protected external/u);
+    writeFileSync(resolve(temp, loginPath), "const completeLogin = attacker.useCallback(async () => { await setSession(); }, []);\n");
+    assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /protected external/u);
+    writeFileSync(resolve(temp, loginPath), "const completeLogin = useCallback?.(async () => { await setSession(); }, []);\n");
+    assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /protected external/u);
+    writeFileSync(resolve(temp, loginPath), "const completeLogin = React?.useCallback(async () => { await setSession(); }, []);\n");
+    assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /protected external/u);
+    writeFileSync(resolve(temp, loginPath), "const completeLogin = useCallback(async () => { await setSession(); }, []);\n");
     writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
     writeFileSync(resolve(temp, productionPath), validProduction.replace('{ Port } from "./port"', '{ PortMalicious as Port } from "./port"')); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);
     writeFileSync(resolve(temp, productionPath), validProduction.replace("@Module({ providers: [Service] })", "const decoy = { providers: [Service] };\n@Module({ providers: [] })")); assert.throws(() => evaluateRollbackSemanticContract({ root: temp, rehearsalCase, patch, immutableBefore }), /anchor/u);

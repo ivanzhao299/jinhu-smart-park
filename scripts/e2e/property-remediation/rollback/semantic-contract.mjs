@@ -129,11 +129,36 @@ function astCounts(path, text, matchers) {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const identifierName = (node) => ts.isIdentifier(node) ? node.text : ts.isPropertyAccessExpression(node) ? node.name.text : "";
   const ownerName = (node) => ts.isPropertyAccessExpression(node) ? node.expression.getText(source) : "";
+  const variableOwnerForFunction = (node) => {
+    let expression = node;
+    let callbackWrapperSeen = false;
+    while (expression.parent) {
+      const parent = expression.parent;
+      if (ts.isVariableDeclaration(parent) && parent.initializer === expression && ts.isIdentifier(parent.name)) return parent.name.text;
+      if ((ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isSatisfiesExpression(parent) || ts.isNonNullExpression(parent)) && parent.expression === expression) { expression = parent; continue; }
+      const isAllowedUseCallback = ts.isCallExpression(parent)
+        && !parent.questionDotToken
+        && ((ts.isIdentifier(parent.expression) && parent.expression.text === "useCallback")
+          || (ts.isPropertyAccessExpression(parent.expression)
+            && !parent.expression.questionDotToken
+            && parent.expression.expression.getText(source) === "React"
+            && parent.expression.name.text === "useCallback"));
+      const isUseCallback = isAllowedUseCallback
+        && parent.arguments[0] === expression
+        && !callbackWrapperSeen;
+      if (isUseCallback) { expression = parent; callbackWrapperSeen = true; continue; }
+      break;
+    }
+    return "";
+  };
   const enclosingOwner = (node) => {
     let current = node.parent;
     while (current) {
       if ((ts.isMethodDeclaration(current) || ts.isFunctionDeclaration(current) || ts.isFunctionExpression(current)) && current.name) return current.name.getText(source);
-      if ((ts.isArrowFunction(current) || ts.isFunctionExpression(current)) && ts.isVariableDeclaration(current.parent) && ts.isIdentifier(current.parent.name)) return current.parent.name.text;
+      if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+        const variableOwner = variableOwnerForFunction(current);
+        if (variableOwner) return variableOwner;
+      }
       current = current.parent;
     }
     return "";
