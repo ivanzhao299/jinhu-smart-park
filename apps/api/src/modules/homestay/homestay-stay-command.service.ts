@@ -1,10 +1,13 @@
-import { ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { type IdentityVerificationPort, type TenantParkScope } from "@jinhu/shared";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartyEntity } from "../property-operations/entities/party.entity";
 import { PropertyOccupancyEntity } from "../property-operations/entities/property-occupancy.entity";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { PropertyIdentityVerificationService } from "../property-identity/property-identity-verification.service";
 import type { AddHomestayGuestDto, IssueHomestayCredentialDto } from "./dto/homestay.dto";
@@ -27,7 +30,8 @@ import { HomestayTransactionSupportService } from "./homestay-transaction-suppor
 @Injectable()
 export class HomestayStayCommandService {
   constructor(
-    private readonly propertyOccupanciesService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly propertyOccupanciesService: PropertyOccupancyPort,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource,
     private readonly transactionSupport: HomestayTransactionSupportService,

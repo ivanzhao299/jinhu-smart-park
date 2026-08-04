@@ -29,7 +29,10 @@ import {
 } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import { PropertyIdentityVerificationService } from "../property-identity/property-identity-verification.service";
@@ -85,7 +88,8 @@ export class HomestayService {
     private readonly filesRepository: Repository<FileEntity>,
     @InjectRepository(WorkOrderEntity)
     private readonly workOrdersRepository: Repository<WorkOrderEntity>,
-    private readonly propertyOccupanciesService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly propertyOccupanciesService: PropertyOccupancyPort,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource,
     _configService: ConfigService = new ConfigService(),

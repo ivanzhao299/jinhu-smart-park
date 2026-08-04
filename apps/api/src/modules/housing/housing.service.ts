@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   Optional
@@ -15,7 +16,10 @@ import {
 import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
 import type {
@@ -65,7 +69,8 @@ export class HousingService {
     private readonly leasesRepository: Repository<HousingLeaseEntity>,
     private readonly purchaseService: HousingPurchaseService,
     private readonly tenantService: HousingTenantService,
-    private readonly occupancyService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly occupancyService: PropertyOccupancyPort,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly workOrdersService: WorkOrdersService,
     private readonly dataSource: DataSource,

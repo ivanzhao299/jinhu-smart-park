@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -17,7 +18,10 @@ import {
 import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import type { ExecuteHomestayTurnoverDto, HomestayTurnoverQueryDto } from "./dto/homestay.dto";
@@ -37,7 +41,8 @@ export class HomestayTurnoverService {
     private readonly filesRepository: Repository<FileEntity>,
     @InjectRepository(WorkOrderEntity)
     private readonly workOrdersRepository: Repository<WorkOrderEntity>,
-    private readonly propertyOccupanciesService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly propertyOccupanciesService: PropertyOccupancyPort,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource,
     @Optional()

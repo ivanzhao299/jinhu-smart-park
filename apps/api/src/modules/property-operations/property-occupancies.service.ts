@@ -24,6 +24,7 @@ import {
   normalizePropertyPeriod,
   occupancyDomainMatchesMode
 } from "./property-period.policy";
+import type { OccupancyReplacementInput } from "./property-occupancy.port";
 import { PropertyUnitAccessService } from "./property-unit-access.service";
 
 export interface AvailabilityConflict {
@@ -34,15 +35,6 @@ export interface AvailabilityConflict {
   start_at: string;
   end_at: string;
   status: string;
-}
-
-interface OccupancyReplacementInput {
-  sourceDomain: string;
-  sourceType: string;
-  sourceId: string;
-  startAt: string;
-  endAt: string;
-  status: "held" | "active";
 }
 
 @Injectable()

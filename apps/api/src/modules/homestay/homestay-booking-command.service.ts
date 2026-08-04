@@ -18,7 +18,10 @@ import {
 } from "../../shared/property-workbench/property-high-risk-stopship";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PartyEntity } from "../property-operations/entities/party.entity";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import type {
   CreateHomestayBookingDto,
@@ -55,7 +58,8 @@ export interface HomestayApprovedCancellationInput {
 export class HomestayBookingCommandService {
   constructor(
     private readonly unitAccessService: PropertyUnitAccessService,
-    private readonly propertyOccupanciesService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly propertyOccupanciesService: PropertyOccupancyPort,
     private readonly dataSource: DataSource,
     private readonly transactionSupport: HomestayTransactionSupportService,
     @Optional()

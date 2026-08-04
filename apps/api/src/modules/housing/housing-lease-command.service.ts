@@ -8,7 +8,10 @@ import {
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { assertPropertyHighRiskActionApprovalRequired } from "../../shared/property-workbench/property-high-risk-stopship";
-import { PropertyOccupanciesService } from "../property-operations/property-occupancies.service";
+import {
+  PROPERTY_OCCUPANCY_PORT,
+  type PropertyOccupancyPort
+} from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import type {
   AddHousingOccupantDto,
@@ -31,7 +34,8 @@ export class HousingLeaseCommandService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly unitAccessService: PropertyUnitAccessService,
-    private readonly occupancyService: PropertyOccupanciesService,
+    @Inject(PROPERTY_OCCUPANCY_PORT)
+    private readonly occupancyService: PropertyOccupancyPort,
     private readonly support: HousingTransactionSupportService,
     private readonly receivableWriter: HousingReceivableWriterService,
     @Optional()
