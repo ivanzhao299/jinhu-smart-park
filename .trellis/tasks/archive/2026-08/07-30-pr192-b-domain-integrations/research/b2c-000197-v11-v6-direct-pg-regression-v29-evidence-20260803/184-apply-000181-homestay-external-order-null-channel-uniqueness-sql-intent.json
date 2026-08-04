@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v29-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v29_20260803a",
+  "stage": "apply-000181-homestay-external-order-null-channel-uniqueness-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v29-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v29_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 709,
+    "raw_sha256": "34fe19c864124c48c6c40e6b7de87c950bd50a76b420fcb2f3a70a7726c81eb7",
+    "persisted": false
+  }
+}

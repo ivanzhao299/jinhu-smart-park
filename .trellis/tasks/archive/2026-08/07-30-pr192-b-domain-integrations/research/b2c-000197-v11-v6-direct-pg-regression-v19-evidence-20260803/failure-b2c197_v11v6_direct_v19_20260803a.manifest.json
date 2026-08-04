@@ -1,0 +1,2381 @@
+{
+  "schema_version": "b2c-v19-evidence-manifest-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "status": "FAILURE",
+  "authority_provenance": {
+    "resource_observation_raw_sha256": "3ae7e618d4ac07002a1d2e04d6c0e9c1d6c8eccde3956c7577058ccfe5e4d1e7",
+    "execution_authority_raw_sha256": "9f8b5d71bd1f046ec076927e72f70165dcf29172d3485883d6beacf7487b9019"
+  },
+  "files": [
+    {
+      "filename": "001-inspect-intent.json",
+      "bytes": 515,
+      "mode": "0444",
+      "raw_sha256": "4656947a798f4a97030cecf43fc85b90cc9bed17ea34089b8f0a13cf995dbc2f"
+    },
+    {
+      "filename": "001-inspect-result.json",
+      "bytes": 494,
+      "mode": "0444",
+      "raw_sha256": "6c426c748e28397ca63c9d6c7e68e8307a8a201565617d5881404604b8ac6610"
+    },
+    {
+      "filename": "002-postgres-16-intent.json",
+      "bytes": 661,
+      "mode": "0444",
+      "raw_sha256": "9e9d7f998887a022793dbc7537e4d7327ea186d6cb21e21e4b125a87123d969b"
+    },
+    {
+      "filename": "002-postgres-16-result.json",
+      "bytes": 496,
+      "mode": "0444",
+      "raw_sha256": "da93c5ab7537b306b15492e958481382fc3c612ceb36a0b08ecb14a999f08906"
+    },
+    {
+      "filename": "003-apply-000001-init-auth-sql-intent.json",
+      "bytes": 678,
+      "mode": "0444",
+      "raw_sha256": "b3dd07f9f20b58db23e4699897844f31c189dffbaf1209d10f41fc76d2e86957"
+    },
+    {
+      "filename": "003-apply-000001-init-auth-sql-result.json",
+      "bytes": 513,
+      "mode": "0444",
+      "raw_sha256": "fcff96a14a79e48e80284770330958a494b7172f46aa8869fb46a365835b51c2"
+    },
+    {
+      "filename": "004-apply-000002-s1-system-foundation-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "25ec33ce3e20b5965409a85c8200fe76108bcf5b0b344f612f517506a7ce5a31"
+    },
+    {
+      "filename": "004-apply-000002-s1-system-foundation-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "beba74c09671cd8cd91075d1a174524acd6627a35d47da83121396795021cc79"
+    },
+    {
+      "filename": "005-apply-000003-s1-support-closure-sql-intent.json",
+      "bytes": 687,
+      "mode": "0444",
+      "raw_sha256": "90582378193f3f30e01b8395f445ab08f6a6b79957492ac649273a74e46c9346"
+    },
+    {
+      "filename": "005-apply-000003-s1-support-closure-sql-result.json",
+      "bytes": 521,
+      "mode": "0444",
+      "raw_sha256": "f07f6704ba68045eae4450a2af075e0c0358651969211df0781bfa831732af5d"
+    },
+    {
+      "filename": "006-apply-000004-files-center-sql-intent.json",
+      "bytes": 681,
+      "mode": "0444",
+      "raw_sha256": "336e50ae3f6b962dba7083bcfa825bfd299d68bf94701681292b6ed4d8ffc052"
+    },
+    {
+      "filename": "006-apply-000004-files-center-sql-result.json",
+      "bytes": 515,
+      "mode": "0444",
+      "raw_sha256": "4db2fdccbe920a7e7b607bcdb6ae46621b0ce9cca91d0e2d04417cff9bcf9a5c"
+    },
+    {
+      "filename": "007-apply-000005-audit-log-enhancement-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "710d786373dac40f9436ca7c7557c9e5eb893ec3c6a227a407296a7b616b263f"
+    },
+    {
+      "filename": "007-apply-000005-audit-log-enhancement-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "c3a6d427a68b797026b3d5b9af27c35615b2be21e63f754d0bb4f9410fb70598"
+    },
+    {
+      "filename": "008-apply-000006-sys-dict-compat-sql-intent.json",
+      "bytes": 683,
+      "mode": "0444",
+      "raw_sha256": "e8f4287ef3d3d1fc64faf0eb47265e244a6bccc04aa021d12fc361617e3d58c8"
+    },
+    {
+      "filename": "008-apply-000006-sys-dict-compat-sql-result.json",
+      "bytes": 518,
+      "mode": "0444",
+      "raw_sha256": "3d8ad75ede44b9c73b44c31580165674a1eb32faad8a4b7395a9600436b90f9e"
+    },
+    {
+      "filename": "009-apply-000007-s2-assets-foundation-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "9da67930cb66a2e7cd055520fc1e3ac1b46b6d59fb6ba4ab028dffca4ba1e1bd"
+    },
+    {
+      "filename": "009-apply-000007-s2-assets-foundation-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "f4c16127ee9806bf3c9a1f30056d780c28ce8091beede95fa68e39b90287d361"
+    },
+    {
+      "filename": "010-apply-000008-s2-biz-park-sql-intent.json",
+      "bytes": 680,
+      "mode": "0444",
+      "raw_sha256": "9016fc0872f0846192eed62aa521431b9d3e640b2ba8f863c40ef6aa7f17d295"
+    },
+    {
+      "filename": "010-apply-000008-s2-biz-park-sql-result.json",
+      "bytes": 514,
+      "mode": "0444",
+      "raw_sha256": "56b90f18f0a22f8c709b86f7c43f74aaa9aabe485e464a726e9c1cd97a6c3999"
+    },
+    {
+      "filename": "011-apply-000009-s2-biz-building-sql-intent.json",
+      "bytes": 684,
+      "mode": "0444",
+      "raw_sha256": "ae53d7e7abb36c3a5a6ef8b2ac2d80d267360599fbd9caaf7b20e3655086e893"
+    },
+    {
+      "filename": "011-apply-000009-s2-biz-building-sql-result.json",
+      "bytes": 518,
+      "mode": "0444",
+      "raw_sha256": "5697c4b45fec9644b5cc158a847466081412227c6a0dded6ed102f79d633706e"
+    },
+    {
+      "filename": "012-apply-000010-s2-biz-floor-sql-intent.json",
+      "bytes": 681,
+      "mode": "0444",
+      "raw_sha256": "6c711e43a35fd254196dc78df3521f3dffe846063f197177978e9fff45e3ba64"
+    },
+    {
+      "filename": "012-apply-000010-s2-biz-floor-sql-result.json",
+      "bytes": 515,
+      "mode": "0444",
+      "raw_sha256": "5e7ceb8d61cd503d24ece7bb8c508d697dd9488dee08c83d4c07109a5988d325"
+    },
+    {
+      "filename": "013-apply-000011-s2-biz-unit-sql-intent.json",
+      "bytes": 680,
+      "mode": "0444",
+      "raw_sha256": "cc00d0c73db38e59b292a5f40e8cbbd6656a025a02e920c492a8d111089cb587"
+    },
+    {
+      "filename": "013-apply-000011-s2-biz-unit-sql-result.json",
+      "bytes": 514,
+      "mode": "0444",
+      "raw_sha256": "8e8740e3bc36055304f789b66a8e5c584568a720201cc46411f4402bd1af8bc9"
+    },
+    {
+      "filename": "014-apply-000012-s2b-unit-enhancement-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "78d64bcb1346cb79781dc1a5e14943044dab17990d6b85c9ab16fe5865968abc"
+    },
+    {
+      "filename": "014-apply-000012-s2b-unit-enhancement-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "808b623e358727df96ac426a54629497eb19d23d7b7ec491a60f9a18bf8daae1"
+    },
+    {
+      "filename": "015-apply-000013-rbac-saas-hardening-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "997f81aaba972c71f05de616906b07ed7b1d5396f42e91a8c23d945e8850819b"
+    },
+    {
+      "filename": "015-apply-000013-rbac-saas-hardening-sql-result.json",
+      "bytes": 523,
+      "mode": "0444",
+      "raw_sha256": "fb982a66443b7937bf55bbdfee7cf22743d0a2c857b6d109a2c5075c76f48e11"
+    },
+    {
+      "filename": "016-apply-000014-sys-role-saas-contract-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "8b432c3686f9b6e9ab3d28edfc3fcd4f7e272e225dc8753ca43a10dbc57f16ec"
+    },
+    {
+      "filename": "016-apply-000014-sys-role-saas-contract-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "cbbbf02f11a46d3762518e634c5d97107becaa889046fc9f34d9275c7a05a0ab"
+    },
+    {
+      "filename": "017-apply-000015-sys-permission-tree-contract-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "9d729baef42be986094707713e35fffe96373ffd5ddf772872a6641796d404ca"
+    },
+    {
+      "filename": "017-apply-000015-sys-permission-tree-contract-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "4adf080c5deae9b16828bade9c9b082eb8318b2eb8343382f31772674eadad34"
+    },
+    {
+      "filename": "018-apply-000016-data-scope-model-sql-intent.json",
+      "bytes": 685,
+      "mode": "0444",
+      "raw_sha256": "4d27cf9c1bc6ecc8e0898b89b03d3a04d69bb69e2b3bcb3fa5e2418405b04463"
+    },
+    {
+      "filename": "018-apply-000016-data-scope-model-sql-result.json",
+      "bytes": 520,
+      "mode": "0444",
+      "raw_sha256": "cab4f9d89e293f4fec47b7a50e2ccbc17bbd6a95649e5bb220f8a1f651a43424"
+    },
+    {
+      "filename": "019-apply-000017-field-policy-model-sql-intent.json",
+      "bytes": 687,
+      "mode": "0444",
+      "raw_sha256": "b21ec3bf825faac8aa056fb2c9cfd681a377c5bdf49429ddb9ab3b51db2cf17c"
+    },
+    {
+      "filename": "019-apply-000017-field-policy-model-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "3d34fc7475ec0433c093478e01540572605399550c0cdd6db68c995379cd893f"
+    },
+    {
+      "filename": "020-apply-000018-sys-tenant-sql-intent.json",
+      "bytes": 679,
+      "mode": "0444",
+      "raw_sha256": "6946ec13564466fdf56c05593b11c0feddf631a0783ad600c3730ed26855149f"
+    },
+    {
+      "filename": "020-apply-000018-sys-tenant-sql-result.json",
+      "bytes": 513,
+      "mode": "0444",
+      "raw_sha256": "9eb28f038c7417a53111fe52d3e107e6f4a18eaf2dee102c286435d1b20e1cd8"
+    },
+    {
+      "filename": "021-apply-000019-rel-user-park-sql-intent.json",
+      "bytes": 682,
+      "mode": "0444",
+      "raw_sha256": "52948e521bc65ea9ca17bbe56dbd22cb7a47f1f5cd1e8f1d6b5187ea675e6d2a"
+    },
+    {
+      "filename": "021-apply-000019-rel-user-park-sql-result.json",
+      "bytes": 516,
+      "mode": "0444",
+      "raw_sha256": "203c867d645fad115b045fe20b4da5480c5b455cd8bb7180ec333553dc33c5a7"
+    },
+    {
+      "filename": "022-apply-000020-saas-rbac-std-sql-intent.json",
+      "bytes": 682,
+      "mode": "0444",
+      "raw_sha256": "ae8735b206dca1fc9639e6fd3f17596936aeb3cc3bf001eb473b944a5ffd795b"
+    },
+    {
+      "filename": "022-apply-000020-saas-rbac-std-sql-result.json",
+      "bytes": 517,
+      "mode": "0444",
+      "raw_sha256": "5230861aec6ecb1f6d4f873cd96c3841ba93081db51964a98eaaf2e93685e3e7"
+    },
+    {
+      "filename": "023-apply-000021-sys-tenant-api-contract-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "e2d538ab2eb4eb7444f2d834b0ddd7d776af7ad1d38d83129265b0eae5a2984e"
+    },
+    {
+      "filename": "023-apply-000021-sys-tenant-api-contract-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "fc9f2c026f6b2687a24dbdd47727d141da2276227229461c31982a61c83cf3d6"
+    },
+    {
+      "filename": "024-apply-000022-rel-user-park-default-constraint-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "7c12224e8094e0cb47bd42e18396f4cad8aa83927ede1f1e0d5a28e948b5fb2c"
+    },
+    {
+      "filename": "024-apply-000022-rel-user-park-default-constraint-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "87c15be9f7e06f022fa044020dbfd1994bc7d181db2a0a930ec31dd509f2f644"
+    },
+    {
+      "filename": "025-apply-000023-sys-role-open-rbac-contract-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "624fe3aedbfff19a367f3c1a631d18a19838552bf948946fa845e66bb34fbae9"
+    },
+    {
+      "filename": "025-apply-000023-sys-role-open-rbac-contract-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "374402cca65c04b7db32a4076c1d45538be7aad4c1046d4f8d3c0e9e7e4631d0"
+    },
+    {
+      "filename": "026-apply-000024-sys-permission-open-model-contract-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "6278f821160c202a6dd82f86545d9cdc10323ec5e6819204c8dc55dbf5d493e8"
+    },
+    {
+      "filename": "026-apply-000024-sys-permission-open-model-contract-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "5a611439e079c7086eab80a5b93516ac7f970045dc77ed141527fc79d3840fe6"
+    },
+    {
+      "filename": "027-apply-000025-data-scope-open-contract-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "19b7c820d6a450eb1637f71f0ac7f85bc9cc011c413262b1f5823f660f75cdcf"
+    },
+    {
+      "filename": "027-apply-000025-data-scope-open-contract-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "b30029cc7aa062655a5c17469ec824479e2df3c6cbb6d272b25520f0acfe3d65"
+    },
+    {
+      "filename": "028-apply-000026-field-policy-open-contract-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "12c3e5908d5ee76823c2a7591b9d19689b4e1ed21549051e8f65b6131a05f478"
+    },
+    {
+      "filename": "028-apply-000026-field-policy-open-contract-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "754222a73f7e2ae17825faf286675ef1484ffe5189fb5bf473d56a2c816f1049"
+    },
+    {
+      "filename": "029-apply-000027-code-rule-standard-contract-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "acd2b61ab7561f3910d2ebc13d10928b5db51f173b30dff694c7c4ae23708ef9"
+    },
+    {
+      "filename": "029-apply-000027-code-rule-standard-contract-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "8289dfe3f9ca1c92fb150e0bc33e11e7f48a7d7292a590211f681eb1ec7a3538"
+    },
+    {
+      "filename": "030-apply-000028-saas-module-plan-authorization-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "29c52d23efbe00eb208f068ebf6b61a5bb84e1d57c45bd22278bc2cc4147555a"
+    },
+    {
+      "filename": "030-apply-000028-saas-module-plan-authorization-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "31e42aaab5411c1ed807b7cb23457f0ad62ffaba29af9431699cab49d0d51601"
+    },
+    {
+      "filename": "031-apply-000029-saas-scope-id-unification-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "7a3ea9a960c73aa36d30e3e9e754022f09f7ef4ae5f27683eb30a8ab68d8ea90"
+    },
+    {
+      "filename": "031-apply-000029-saas-scope-id-unification-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "7c1fead529e02001f072863b45baa930df5a20d45c5b10c3bcdbc8c1bacd3bb6"
+    },
+    {
+      "filename": "032-apply-000030-s2b-unit-import-code-compat-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "d3adb6636ff042903f9ae7b5b2e745fa8e1a353c3de1e16abdaca585f2a6d87e"
+    },
+    {
+      "filename": "032-apply-000030-s2b-unit-import-code-compat-sql-result.json",
+      "bytes": 532,
+      "mode": "0444",
+      "raw_sha256": "6fcaad0da0256867a3ea89716d7674a55de268c0e78ac7e2b9a455368fa24c21"
+    },
+    {
+      "filename": "033-apply-000031-s3a-park-tenant-profile-sql-intent.json",
+      "bytes": 692,
+      "mode": "0444",
+      "raw_sha256": "0d420cdc07e5f9f3147a5c1b5463fc86a5e9c9a6370ae8f8aca50d86dc851b36"
+    },
+    {
+      "filename": "033-apply-000031-s3a-park-tenant-profile-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "d7d1a078944853bacf56c9bf0426ccbaa5fedd5c39d90b265d366a4be8880d28"
+    },
+    {
+      "filename": "034-apply-000032-s3a-park-tenant-contacts-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "64742accbff498eb4015fe44f0e4970a9ba0f68cdcf43516711499d91601d867"
+    },
+    {
+      "filename": "034-apply-000032-s3a-park-tenant-contacts-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "7b04c50fc293e2c21225bf019f24e9bd0abd2bc8940b2af661769e39bb45cf28"
+    },
+    {
+      "filename": "035-apply-000033-s3a-park-tenant-qualifications-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "137a7bc6de227254aa8cf164d6691335fdfbceac4a4a3cecd0e2cc2646c77173"
+    },
+    {
+      "filename": "035-apply-000033-s3a-park-tenant-qualifications-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "c85b3bd730f47e5054fe2491eb9127ae0c6ed12cae8a472413212d906d444cc0"
+    },
+    {
+      "filename": "036-apply-000034-s3a-park-tenant-risk-logs-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "3c20fd437d80f3f6f7662d63b695f71593130cb26d6ef5f5fb24958fce9e2cef"
+    },
+    {
+      "filename": "036-apply-000034-s3a-park-tenant-risk-logs-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "0d59eb2226a439d64d53cc4d436cbbd316d2c47b9594d7b21618b46f4bee9ad4"
+    },
+    {
+      "filename": "037-apply-000035-s3a-field-policy-email-mask-rule-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "4c064e472b991711cd72de36da3e91b3affd63c341b396c424629abbc1aa0c78"
+    },
+    {
+      "filename": "037-apply-000035-s3a-field-policy-email-mask-rule-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "20935c33a5fe41540fcb6f923f9ddd9c172f5bc116db018c0a6ed8164c3a807e"
+    },
+    {
+      "filename": "038-apply-000036-s3a-park-tenant-dictionary-standardization-sql-intent.json",
+      "bytes": 711,
+      "mode": "0444",
+      "raw_sha256": "76e4ba03236567af5710f865eccf8d751ab85dbb4fc44c2575ae5d3389365869"
+    },
+    {
+      "filename": "038-apply-000036-s3a-park-tenant-dictionary-standardization-sql-result.json",
+      "bytes": 545,
+      "mode": "0444",
+      "raw_sha256": "3de83439ff39400c2015dde0a2ae4f0fb42091848ee1e04327110f54464df58f"
+    },
+    {
+      "filename": "039-apply-000037-s3b-code-rule-leasing-lead-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "c8d2c8e25a4929e037fe64aee3829553d8b4f30e93488487148b47aeaa460239"
+    },
+    {
+      "filename": "039-apply-000037-s3b-code-rule-leasing-lead-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "c632206b0e850d9c8c7f97ee7bb955179756e2fa164e3a14180e56ef2a09fc21"
+    },
+    {
+      "filename": "040-apply-000038-s3b-leasing-lead-profile-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "034b4982fe101f845fb2c692bbf97bc427d163ea48aa76871f85bdaa8569a2ce"
+    },
+    {
+      "filename": "040-apply-000038-s3b-leasing-lead-profile-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "a123fc1d6cb2d96218fca9324e13750dfa77f8d952bce753de628ea2a12efd03"
+    },
+    {
+      "filename": "041-apply-000039-s3b-leasing-follow-records-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "10f39a82083486483921dc8a1af586fead157bc059f49383356633d884f5e702"
+    },
+    {
+      "filename": "041-apply-000039-s3b-leasing-follow-records-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "e643f20dae333550146fc628e56e170ad529ab63dca34091b5ca537a7123322a"
+    },
+    {
+      "filename": "042-apply-000040-s3b-leasing-visit-records-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "a6e6c9c599e0efe6c9422d80b00e0709a3bc7f1b78fe22b5d2fcd3d40d3083bb"
+    },
+    {
+      "filename": "042-apply-000040-s3b-leasing-visit-records-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "0b145b8caae11d3c5df7b83884ed26db8d17f23f75946b1be450d16a00ae4ef9"
+    },
+    {
+      "filename": "043-apply-000041-s3b-leasing-quote-records-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "6a0e549b058895d1b32c4429e558b7e5a06321c7e5eb4ad16d81736a5e2a9107"
+    },
+    {
+      "filename": "043-apply-000041-s3b-leasing-quote-records-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "eac0d779e9e31aade55164bd4b82745b94a702f2dd6880192413f07b63fa8044"
+    },
+    {
+      "filename": "044-apply-000042-s3b-leasing-lead-status-logs-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "78323e29de7a025822472acb58e9f4b7290225a6683776cfc17279982acd4bbc"
+    },
+    {
+      "filename": "044-apply-000042-s3b-leasing-lead-status-logs-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "c41fa5d1e6f1527e1b4dac9f9ba62796dc10536a4ea5118b2888580b3c3b12e6"
+    },
+    {
+      "filename": "045-apply-000043-s3b-leasing-lead-pool-compat-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "78f5d542524f46d3899b0eda0b8947f1d3b260dd9562fce6bbccb6ba9d2fbca4"
+    },
+    {
+      "filename": "045-apply-000043-s3b-leasing-lead-pool-compat-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "6d42aa40f2e0d8b29fb513e11ff34065eaeffc06cf2d1b5de4b4d26c5bd99b00"
+    },
+    {
+      "filename": "046-apply-000044-s3c-leasing-contract-core-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "16f89c7342f1e3b1b801a2268d02fdc91b6ffb2909bac35c63a33cb729c8ffd4"
+    },
+    {
+      "filename": "046-apply-000044-s3c-leasing-contract-core-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "f0563f191617db5534c2f6641c6047708587fb80f46bf634bc1ce19975c062d1"
+    },
+    {
+      "filename": "047-apply-000045-s3c-contract-unit-links-sql-intent.json",
+      "bytes": 692,
+      "mode": "0444",
+      "raw_sha256": "6b5ef5231797eb1a01f0d1b35da708f4e7adb5bda65714d5cc6525672f643da2"
+    },
+    {
+      "filename": "047-apply-000045-s3c-contract-unit-links-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "d0ef7de32345d58fc36077bf5c63d32788cd00a9b87b61c66e3cf77ebafb8ba5"
+    },
+    {
+      "filename": "048-apply-000046-s3c-quote-create-contract-draft-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "cdb5678fd85c6b79e2661e839239055314c7ffe62da9d1eaa9b99821cd68319d"
+    },
+    {
+      "filename": "048-apply-000046-s3c-quote-create-contract-draft-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "15c1b57a0d4b7450e14db63b2050026d42cda6ef355c3131923d0fe9ae28c9c0"
+    },
+    {
+      "filename": "049-apply-000047-s3c-contract-approval-flow-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "095199c729ba4f643d19564e9c6ffcf4b0d35571c5b461d4c15dc896ae52e589"
+    },
+    {
+      "filename": "049-apply-000047-s3c-contract-approval-flow-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "5087296e64f7a3043be6fcf9ae2aea0fef9ff384869491c72782d36c5fd96d72"
+    },
+    {
+      "filename": "050-apply-000048-s3c-contract-archive-files-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "8df0bcbf947828fe0814fa46014c9501a8c914991a24ee1d107a91475993761e"
+    },
+    {
+      "filename": "050-apply-000048-s3c-contract-archive-files-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "ee844d00323b216e6f506502a234af7d5c18fbfd11292f5b5df763f370120bfa"
+    },
+    {
+      "filename": "051-apply-000049-s3c-contract-effective-flow-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "7268a2db657fa47f1468e9aa021f693b0c9e00e865fca04b271810e20307310d"
+    },
+    {
+      "filename": "051-apply-000049-s3c-contract-effective-flow-sql-result.json",
+      "bytes": 530,
+      "mode": "0444",
+      "raw_sha256": "b7f65690e3c78008d80dbeab6a7c7080ce890f5e085e85b25694b1ccc4df74fb"
+    },
+    {
+      "filename": "052-apply-000050-s3c-contract-status-logs-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "cfcd96dba4e1b451dd061672b0f86f0d26a623973d8701764347c881798eef6d"
+    },
+    {
+      "filename": "052-apply-000050-s3c-contract-status-logs-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "ed4109181f9f2bb7a01a7a43a908bda5803e176629384955b45557b1f9413ebf"
+    },
+    {
+      "filename": "053-apply-000051-s3d-receivable-code-rule-entities-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "904c77dba37b5f0ae55670a93728bd0f277c19b386a88c1d2057b709a851ae3c"
+    },
+    {
+      "filename": "053-apply-000051-s3d-receivable-code-rule-entities-sql-result.json",
+      "bytes": 536,
+      "mode": "0444",
+      "raw_sha256": "da151f06413265e5a7285198533eb611c645a5a8d75fbf5de8e262576008e009"
+    },
+    {
+      "filename": "054-apply-000052-s3d-leasing-receivable-core-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "4ffc0deda1a12417ef2d4f5a6f99d052264e5ab5790485ce9e6a54240ff2e244"
+    },
+    {
+      "filename": "054-apply-000052-s3d-leasing-receivable-core-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "fdedd49713b4b231ff5824f2bf07d556fae0f9736f889eb782b7a983e169d10d"
+    },
+    {
+      "filename": "055-apply-000053-s3d-generate-receivables-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "367c48c46c4b1737b9bad32d81abaaac2f74af5b21cbe68b8c3fd8e19c11f3d1"
+    },
+    {
+      "filename": "055-apply-000053-s3d-generate-receivables-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "7f9c43b65ad0c5733b446b0099e39b002fe33679c410b2b431eb3bd1eedf3214"
+    },
+    {
+      "filename": "056-apply-000054-s3d-leasing-payments-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "e0e1be8174ccea831afb5b1f18f4b84d72bb95904d0da6ba0b16dcba4575a470"
+    },
+    {
+      "filename": "056-apply-000054-s3d-leasing-payments-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "2db450f79f5ad31d3b3d08693e9424b31f001627cc48f6cbafb88455d2573b9f"
+    },
+    {
+      "filename": "057-apply-000055-s3d-leasing-waivers-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "fe92c15b5534bc3aa39aa86006d2eb324e53f83e7fbefc20d7ca6efd41ff24c7"
+    },
+    {
+      "filename": "057-apply-000055-s3d-leasing-waivers-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "1e7514001509f32ef032e3f2491f5aa766f951614334edc49f4e353315f679a4"
+    },
+    {
+      "filename": "058-apply-000056-s3d-leasing-invoices-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "9c9be3d1d7c613c4ff4e3be5e0e8c48bce5af8a2625ec57d0c692023e685937f"
+    },
+    {
+      "filename": "058-apply-000056-s3d-leasing-invoices-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "dedeb925074c15116dcb6cdf216538376a78417b56fca7ce3618486b18a3054c"
+    },
+    {
+      "filename": "059-apply-000057-s3d-finance-seed-standardization-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "11a6a7070d71f6a15065e872f7d837a51e06e08ede1026549741890e447eeb98"
+    },
+    {
+      "filename": "059-apply-000057-s3d-finance-seed-standardization-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "c967a4c65a18dfaeb35cc0a3f6ce4bed109961fdf0247242376e3248fafd9235"
+    },
+    {
+      "filename": "060-apply-000058-s3e-code-rule-entities-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "e66147bf0a12ccf3cf43b3091f8c4f3c124f9ce89f4a27f1902193ddcc8df1b8"
+    },
+    {
+      "filename": "060-apply-000058-s3e-code-rule-entities-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "2dd06cd9cfe0a66eeff8badf57e08214e253e0bfe693df30aabe78a6cec21067"
+    },
+    {
+      "filename": "061-apply-000059-s3e-contract-change-core-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "e383a08a7f940b3da9899949fc52bd3c223560f91f3a9740e004ab44b204b30b"
+    },
+    {
+      "filename": "061-apply-000059-s3e-contract-change-core-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "250e3e1776fccd5df80c2e556918b5edc7c8a633c4751957f54f2075c0882546"
+    },
+    {
+      "filename": "062-apply-000060-s3e-contract-change-flow-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "a54d4f4117eac8e9f5c658580f7a9f36ade6ecda7372ea54f2ab716ffa6753e0"
+    },
+    {
+      "filename": "062-apply-000060-s3e-contract-change-flow-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "5cc710b713f9d6e423d642bf8bee595240e678d6ca923676ddbff2b4429bdeef"
+    },
+    {
+      "filename": "063-apply-000061-s3e-contract-renewal-draft-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "5f413122e30234d86d92744d4ba055434a701fb33f4caa5e8874d0e93acadce0"
+    },
+    {
+      "filename": "063-apply-000061-s3e-contract-renewal-draft-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "a733f40762ba585d8408bfe267d3a3a606189726b5b7fa8c7d148411344ef9d3"
+    },
+    {
+      "filename": "064-apply-000062-s3e-checkout-applications-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "2d6529e4698ccb435f0ff4aff4e0efa6530d309f29279fd2e6a1c2a5a257ed16"
+    },
+    {
+      "filename": "064-apply-000062-s3e-checkout-applications-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "3c3da9cb552bc57d5c6f19fffd6636c5c1f9fabbeaee8e56506559bab2f9eab6"
+    },
+    {
+      "filename": "065-apply-000063-s3e-checkout-settlement-refund-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "ed2f21c25f63b998cae160bbe609f802c039a5b073f0bf1dbe4ebb5d178a1924"
+    },
+    {
+      "filename": "065-apply-000063-s3e-checkout-settlement-refund-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "cb03c4572fa7c673b3378283c89add01f514b8efa093521a374dadd2567dfd67"
+    },
+    {
+      "filename": "066-apply-000064-s3e-checkout-effective-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "823d2a3957c755ae9a71c20f4fc2c8b053e2d2ed2a298ecad3b55249dfbfa40a"
+    },
+    {
+      "filename": "066-apply-000064-s3e-checkout-effective-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "a99298863a50f689b11b2d029dce1eb55838bba99d79ef10039e77a9a7bec911"
+    },
+    {
+      "filename": "067-apply-000065-s3e-contract-action-log-unification-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "1a34a28a2ee48a5bffc4967dfc79e03953586489878def0d426ab456a9305678"
+    },
+    {
+      "filename": "067-apply-000065-s3e-contract-action-log-unification-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "00c234e37cbfe8d3d30b1bad530634c138e2d931898b4c1d2b798fe3fb26d76e"
+    },
+    {
+      "filename": "068-apply-000066-s3e-permission-open-field-policies-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "7d4ebcb0b8b0e213a94ea770b2ee96f24fe54e8622bbd8bbd175249c418f7b8a"
+    },
+    {
+      "filename": "068-apply-000066-s3e-permission-open-field-policies-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "83eaa75812f0228a0990bf120596377322e9c71b9713e941d9bdd4277d8d1e52"
+    },
+    {
+      "filename": "069-apply-000067-s3e-permissions-menu-dict-seed-patch-sql-intent.json",
+      "bytes": 705,
+      "mode": "0444",
+      "raw_sha256": "c722ce3470968601548cf71b736fb59c7970d9915681b18411aede6720951200"
+    },
+    {
+      "filename": "069-apply-000067-s3e-permissions-menu-dict-seed-patch-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "b4d6e3876d0a6f64a2bde736e25b00450073aea2f9d19e2b28caa59ee0cddef5"
+    },
+    {
+      "filename": "070-apply-000068-yudao-system-rbac-baseline-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "66f78411ea662dda8422335329b178cd94da3af347ad9de19498b424a0523001"
+    },
+    {
+      "filename": "070-apply-000068-yudao-system-rbac-baseline-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "67fc82259ec2efedf7eb8fc0149a4b01e252190d9d19e1096f52401594a6d258"
+    },
+    {
+      "filename": "071-apply-000069-saas-tenant-onboarding-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "ac64bab40f4fde81c8ad59dfc40546a90f6cd8d2cd7a95d4af7f9cbceec2b4d8"
+    },
+    {
+      "filename": "071-apply-000069-saas-tenant-onboarding-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "c6cf7691337a97ce3f49e9569a7674473d28ba02b9018225dbfa43dc96fefbbe"
+    },
+    {
+      "filename": "072-apply-000070-unit-sold-status-sql-intent.json",
+      "bytes": 685,
+      "mode": "0444",
+      "raw_sha256": "3acf8daffcac73f21058eb0c1ddf12e0ff6cb80359add1a87862c2b9c98d549c"
+    },
+    {
+      "filename": "072-apply-000070-unit-sold-status-sql-result.json",
+      "bytes": 519,
+      "mode": "0444",
+      "raw_sha256": "fe5113e2449f0154cbd84f75be61e126414cbb747d33d29b412fe869306c5781"
+    },
+    {
+      "filename": "073-apply-000071-s4a-workorder-code-rule-entities-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "55acd3e0065de2f008481aaf080d2946701143456758b0bd97c21e3435dff24b"
+    },
+    {
+      "filename": "073-apply-000071-s4a-workorder-code-rule-entities-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "5a95130d7ad0c9f60cacb1bda6e2c34d4fee01400f782014ef2f46af35c5727f"
+    },
+    {
+      "filename": "074-apply-000072-s4a-work-order-core-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "c4a8346be2ce39e7c57dc9209648bfdd7dde483f9106aa9a35d089716456bf2d"
+    },
+    {
+      "filename": "074-apply-000072-s4a-work-order-core-sql-result.json",
+      "bytes": 523,
+      "mode": "0444",
+      "raw_sha256": "467c53c8d2f6b8fb2c72872c91429264b14f2c43b7a050bd1a35a7d0a7bee8fa"
+    },
+    {
+      "filename": "075-apply-000073-s4a-work-order-assign-permissions-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "439544662ad6e08db26995464a1846df6202eb53cb303b7a0e265db04c1abdc1"
+    },
+    {
+      "filename": "075-apply-000073-s4a-work-order-assign-permissions-sql-result.json",
+      "bytes": 536,
+      "mode": "0444",
+      "raw_sha256": "1315269487f499be24caa13819bb4a4f392bb8804a174bf121f2322971035ceb"
+    },
+    {
+      "filename": "076-apply-000074-s4a-work-order-processing-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "12588488bc9445b7f00fb9baf3a78df26268aad85984a34c8d2471862484b9c0"
+    },
+    {
+      "filename": "076-apply-000074-s4a-work-order-processing-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "4915c3ded4fda229831e2d33777166fccab36ad535d58541b6bf72ed4136caf2"
+    },
+    {
+      "filename": "077-apply-000075-s4a-work-order-confirm-evaluate-close-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "d6658eb1292fc3f105ea969cb4aae96d252d3670f0b5ecff5ac536e67f491194"
+    },
+    {
+      "filename": "077-apply-000075-s4a-work-order-confirm-evaluate-close-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "7317aef01043491043d1bb051b03bc393ad91f3b485d10a72197d3375e25c412"
+    },
+    {
+      "filename": "078-apply-000076-s4a-work-order-cancel-return-reject-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "0623d763880e438203a10a5364c1ef94462f9310ab7ddf431d1fcf86f154cec4"
+    },
+    {
+      "filename": "078-apply-000076-s4a-work-order-cancel-return-reject-sql-result.json",
+      "bytes": 538,
+      "mode": "0444",
+      "raw_sha256": "6f4f0ff713c6fc5ab61c846252d2c92488e7566d0c1458bf7e3a25b75afa4c1c"
+    },
+    {
+      "filename": "079-apply-000077-s4a-work-order-sla-overdue-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "e042a2d0669f300fd2d4ec07dcc523aa63ac66f9e1e5114a03292c73430e7edb"
+    },
+    {
+      "filename": "079-apply-000077-s4a-work-order-sla-overdue-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "d6218565c4e12a63c9662e8406bf269231f57f092558d951927be981b39d1a63"
+    },
+    {
+      "filename": "080-apply-000078-s4a-work-order-logs-timeline-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "7423beb58ec422a9ca19e8f903dd893b2ead761fa9070b9bd31eed042b6f0312"
+    },
+    {
+      "filename": "080-apply-000078-s4a-work-order-logs-timeline-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "b4c735ae3d5d5471428675d39f9e97c3737f3d9e812d097fdde1d4e977a95c58"
+    },
+    {
+      "filename": "081-apply-000079-s4a-workorder-permission-open-field-patch-sql-intent.json",
+      "bytes": 710,
+      "mode": "0444",
+      "raw_sha256": "567a4c2ed0a2d33315ba6b99882ccaac2145f5ced2ca509cbded221b8e888148"
+    },
+    {
+      "filename": "081-apply-000079-s4a-workorder-permission-open-field-patch-sql-result.json",
+      "bytes": 544,
+      "mode": "0444",
+      "raw_sha256": "345e30941ec53070e7ca1f6f928c7fc2d56c00fe943fef73d4ba454e1b37d5e8"
+    },
+    {
+      "filename": "082-apply-000080-s4a-permissions-menu-dict-seed-patch-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "bda3e3a4fa6fdae85be3f407a65739d8709f9541973a494e4f581e0ac193de82"
+    },
+    {
+      "filename": "082-apply-000080-s4a-permissions-menu-dict-seed-patch-sql-result.json",
+      "bytes": 539,
+      "mode": "0444",
+      "raw_sha256": "3bf656ec128e41daff8cba0be23142bfe4a761aee768034539ddaeaf0f498368"
+    },
+    {
+      "filename": "083-apply-000081-s5a-safety-precheck-module-code-rules-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "e134a6f657a113d2b7927c8898a7c45efa1ceb4a1f707f8e8097b579f06c866e"
+    },
+    {
+      "filename": "083-apply-000081-s5a-safety-precheck-module-code-rules-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "49ab96002d9c0bc1bcc1b38125609f76ce428a34d0557e47c310785ab6bf4c21"
+    },
+    {
+      "filename": "084-apply-000082-s5a-safety-inspect-points-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "8635ec4eeba05e52a6fd55a5e722533a0ba6b7f06f65280c5274dd8693bd2c47"
+    },
+    {
+      "filename": "084-apply-000082-s5a-safety-inspect-points-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "b404d419a8ae4a0ee268d67cf03bc4985c371ae85d50896c8a31fc6b1e5c3a11"
+    },
+    {
+      "filename": "085-apply-000083-s5a-safety-inspect-templates-sql-intent.json",
+      "bytes": 698,
+      "mode": "0444",
+      "raw_sha256": "41285f5f1fa704c4bdcc6f8148f4db8fad819bff74b3290328cb2bc0a3ee8de4"
+    },
+    {
+      "filename": "085-apply-000083-s5a-safety-inspect-templates-sql-result.json",
+      "bytes": 532,
+      "mode": "0444",
+      "raw_sha256": "ed70e3c9c6cb18fc6d41d8df4867ab50f85718c5204f8d1837cf7eff148d4553"
+    },
+    {
+      "filename": "086-apply-000084-s5a-safety-inspect-plans-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "64319059be68444805b6c3fadd1565ee8e7d012df04b8ac17eb2c7225f0976d0"
+    },
+    {
+      "filename": "086-apply-000084-s5a-safety-inspect-plans-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "9ff106165dd271dfa62b9147218d8c4ff0ec08a6ffd761b3c2efc5b986ef06b8"
+    },
+    {
+      "filename": "087-apply-000085-s5a-safety-inspect-tasks-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "4091212236d6a4380d2ab861be260dcd962f3061b5d5985bd2f38a8bf4182c45"
+    },
+    {
+      "filename": "087-apply-000085-s5a-safety-inspect-tasks-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "1669858a86b659f10c72231e05755eadf2ace3e5e21113de5de9adbcef7c08a0"
+    },
+    {
+      "filename": "088-apply-000086-s5a-safety-hazards-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "7985652477154d86ea568e98bb3d4ac7cf1e7d6791defc59199b273323db7959"
+    },
+    {
+      "filename": "088-apply-000086-s5a-safety-hazards-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "9d14fb863aa2280a759c0a596432b454fe3cdcf67978bbb02b2ef0279f3e16d0"
+    },
+    {
+      "filename": "089-apply-000087-s5a-safety-hazard-rectify-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "64e561fc20d742d58949b948bc9bd9bc243c0a0bfd2f2fdae83af64ec471f2d0"
+    },
+    {
+      "filename": "089-apply-000087-s5a-safety-hazard-rectify-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "85c1503c59d252d3badd06aff577408214ffd91d9ff21a87155d15f4d5ff8544"
+    },
+    {
+      "filename": "090-apply-000088-s5a-safety-hazard-manage-all-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "5e1d93c2087cdd81e930dab068c5d12c9281bf0cbe331298156992835173d526"
+    },
+    {
+      "filename": "090-apply-000088-s5a-safety-hazard-manage-all-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "b792d98a51c3c0fb30f1bf776682baf47a8a887c40e23883cca168f67b9fe33e"
+    },
+    {
+      "filename": "091-apply-000089-s5a-safety-hazard-recheck-close-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "e21ab17d8dd5d884bd7ca13d8d22947bc085a8f99b3e53ae6e43ce361545030e"
+    },
+    {
+      "filename": "091-apply-000089-s5a-safety-hazard-recheck-close-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "10112d583ce7f1275d3e189838cd7dfc8cf8337094a2cb819d612078f3924d37"
+    },
+    {
+      "filename": "092-apply-000090-s5a-safety-hazard-create-workorder-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "c222f7ba8b0d0f72b5101c8937c9e6572e5a2258fcde2aec6f3ce022040b9692"
+    },
+    {
+      "filename": "092-apply-000090-s5a-safety-hazard-create-workorder-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "97806d44360b9495408f2985f1a3f20df84bb14b4de5687540132030247d8922"
+    },
+    {
+      "filename": "093-apply-000091-s5a-safety-statistics-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "b447ec3fa6ed209f81300ba2b18f3b95dcaea5cfabed290a9f134ca29d0c45a1"
+    },
+    {
+      "filename": "093-apply-000091-s5a-safety-statistics-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "860dbedcfca56048df5693944becce35e704c054151e01aa4bb122c02a60935c"
+    },
+    {
+      "filename": "094-apply-000092-s5a-permissions-menu-dict-seed-patch-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "fc8e16069c677bd2d37bc03d7d5402d3b5f496b8e6b27b716d6785c2d67a8195"
+    },
+    {
+      "filename": "094-apply-000092-s5a-permissions-menu-dict-seed-patch-sql-result.json",
+      "bytes": 539,
+      "mode": "0444",
+      "raw_sha256": "6f3236316b7a6ea52b69052bf593ae448e4d900dd4d8236b7ee91137b365282d"
+    },
+    {
+      "filename": "095-apply-000093-s2b-asset-menu-role-permission-repair-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "0c53e4915e0441c091b4c7b83cd20be7c1f3a97e1b296877135d869ffe0b8c8f"
+    },
+    {
+      "filename": "095-apply-000093-s2b-asset-menu-role-permission-repair-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "9337366ce51ab0d86c7016bd14aacaace939f9bc6239e1933d40fe129f2ba251"
+    },
+    {
+      "filename": "096-apply-000094-s5b-precheck-module-code-rules-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "7e5d64fe4f2f797c836d5808ef3d7cc4d24b592075c1171a01f838c7ed9fc4ab"
+    },
+    {
+      "filename": "096-apply-000094-s5b-precheck-module-code-rules-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "1bd237e8f648d2b999debe2c513447721794a4fe4a3f4aa3024eb8e1872e7502"
+    },
+    {
+      "filename": "097-apply-000095-s5b-emergency-contacts-plans-sql-intent.json",
+      "bytes": 698,
+      "mode": "0444",
+      "raw_sha256": "a85499b5ecfe0a3705fdc6463f0b33fd7eb1df597331a60f774bdf6c76454cb8"
+    },
+    {
+      "filename": "097-apply-000095-s5b-emergency-contacts-plans-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "8246590756949cd3fa35a7a0d7658fe7be804bfc7e388328d7dc7918e12e4ef1"
+    },
+    {
+      "filename": "098-apply-000096-s5b-emergency-events-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "7d59879dab9b7673754e2e7a676c2519548e5c4f9bcc8d556b4527570e155b3e"
+    },
+    {
+      "filename": "098-apply-000096-s5b-emergency-events-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "dd7282db9d75c1fdd645163e9e4c8abbbbeeabe35ba2127dee30e20af55f4a85"
+    },
+    {
+      "filename": "099-apply-000097-s5b-emergency-event-flow-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "28f85e26c3fa0406c695d10d05df20176e747693c83cc6415342276048fdb7d0"
+    },
+    {
+      "filename": "099-apply-000097-s5b-emergency-event-flow-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "d6d4edb0c2942062e1d690bf4ca3438cf5e81779b4b979974c46f093215ca4cb"
+    },
+    {
+      "filename": "100-apply-000098-s5b-emergency-timeline-logs-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "e2f84391579d7de21717e3e9733ce8076b52756fe1edf323fa29daf922c15b37"
+    },
+    {
+      "filename": "100-apply-000098-s5b-emergency-timeline-logs-sql-result.json",
+      "bytes": 530,
+      "mode": "0444",
+      "raw_sha256": "3756e0a73c0d11a599b95fa931a0be1019b5129a8ae914b985ca445594d69e12"
+    },
+    {
+      "filename": "101-apply-000099-s5b-hazard-to-emergency-sql-intent.json",
+      "bytes": 692,
+      "mode": "0444",
+      "raw_sha256": "1cdb31e3c9c99062235f4f5d1832611e18f58914581eb89db2197eb8d2442ce0"
+    },
+    {
+      "filename": "101-apply-000099-s5b-hazard-to-emergency-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "75f1670b783c096bb449e041e0f1661a606189a6da96b49c55f467b345696246"
+    },
+    {
+      "filename": "102-apply-000100-s1-auth-center-foundation-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "11b6866df4bd44aac86e6693562765c8b1d0e67f373cb8e2751c78385e2a2e48"
+    },
+    {
+      "filename": "102-apply-000100-s1-auth-center-foundation-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "ee1ecf8643ffb1b67fd10a036a0c855f469d42b3b6ee79933b64cc970f4622a8"
+    },
+    {
+      "filename": "103-apply-000101-s5b-emergency-create-workorder-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "63584115c287b6f8ed8a0057d6c9e42b545107b9feb288cdd3523d5d60607405"
+    },
+    {
+      "filename": "103-apply-000101-s5b-emergency-create-workorder-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "918506187203eb799a73d48e5d8177abbff1b8e890f191e2654c74991abafb0d"
+    },
+    {
+      "filename": "104-apply-000102-s5b-work-permits-sql-intent.json",
+      "bytes": 686,
+      "mode": "0444",
+      "raw_sha256": "d4fc9648fe623b939d56e11094dd9e67284c79177e9a43dc4f144cb6cbfa6dc4"
+    },
+    {
+      "filename": "104-apply-000102-s5b-work-permits-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "6a435e5d91752987c72ae347db9c9f0bf07e8ec2b58a32ef05566671f3c487dc"
+    },
+    {
+      "filename": "105-apply-000103-s5b-work-permit-approval-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "62a0f5d2751cac15f9f4fb1070ecea443381904a61a28c8ba0e9575c3893d25a"
+    },
+    {
+      "filename": "105-apply-000103-s5b-work-permit-approval-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "d545756e16c5a949a160f867dd6fd76eaf0ea1c5805231faf01fdd8b6d332fc3"
+    },
+    {
+      "filename": "106-apply-000104-s5b-work-permit-lifecycle-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "7764a764cae5be8d968b430a184ac88cc0d8ce185e327d4060a6500f8663e43d"
+    },
+    {
+      "filename": "106-apply-000104-s5b-work-permit-lifecycle-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "bd0541bf625f4e2fd0b554457ac9c60993ef057cad45f434534137bba6dfcdc6"
+    },
+    {
+      "filename": "107-apply-000105-s5b-work-permit-check-conversion-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "1b20e5706000e1fa8bb5781137896f9698793e5eeeefc84751e6b73fc8bc672a"
+    },
+    {
+      "filename": "107-apply-000105-s5b-work-permit-check-conversion-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "ffe7f3b4bee5b10592f0644d63849450c654fd784186bc16a38af1f3dfb2266a"
+    },
+    {
+      "filename": "108-apply-000106-s5b-emergency-work-permit-statistics-sql-intent.json",
+      "bytes": 705,
+      "mode": "0444",
+      "raw_sha256": "901897ad2374afa7a85f50268a7e0ab338e241514f5a22c5a5aad23839dac068"
+    },
+    {
+      "filename": "108-apply-000106-s5b-emergency-work-permit-statistics-sql-result.json",
+      "bytes": 539,
+      "mode": "0444",
+      "raw_sha256": "534f5fbfa73dd69a1a6c735df2add9b5ac221d8e9499ab99f50547d639763eaf"
+    },
+    {
+      "filename": "109-apply-000107-s5b-saas-open-permissions-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "ad79e88e69f44f0d424224b0ffce7e0d5a6c2696221dadfd93685dd7f010d23d"
+    },
+    {
+      "filename": "109-apply-000107-s5b-saas-open-permissions-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "1fa5855a906ed118d068d66f33de8a8827d7e99f9f095382c3008c335cd2326b"
+    },
+    {
+      "filename": "110-apply-000108-s5b-permissions-menu-dict-seed-patch-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "4d81006f361c3dffe96a9c3774930dc08baf39000bb7c74867e43e1f7f26e262"
+    },
+    {
+      "filename": "110-apply-000108-s5b-permissions-menu-dict-seed-patch-sql-result.json",
+      "bytes": 539,
+      "mode": "0444",
+      "raw_sha256": "7cb2981397e268494108214356c92486caa2f9f285005fee765dfee6e77bb5cb"
+    },
+    {
+      "filename": "111-apply-000109-s6a-iot-foundation-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "91a56b385c0583c0d97af9700cbd8a9260ac59df3a3168064faaccfb88f2520f"
+    },
+    {
+      "filename": "111-apply-000109-s6a-iot-foundation-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "a7ad35486f4af4d366edeba847d290eb22573dc1f831b1aaeff7afd289e2b1f7"
+    },
+    {
+      "filename": "112-apply-000110-s6a-iot-base-dict-seed-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "8763c8462cab6ed951575ba2b37f14081311660890978c5339b0c9e5fbd0474a"
+    },
+    {
+      "filename": "112-apply-000110-s6a-iot-base-dict-seed-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "a97ad8989b02c115d2af35e0fcc3492ec911d8415da0aa7b3d646755286bae70"
+    },
+    {
+      "filename": "113-apply-000111-s6a-iot-device-master-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "f27a559bb366636a192a2ed5082039a4f1a5b41330d75019832ce34ac702dbfa"
+    },
+    {
+      "filename": "113-apply-000111-s6a-iot-device-master-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "dc02ef65ebc0ae111af02387a50710a7b8b2323fedbd03fe043cffbbbb23e8a6"
+    },
+    {
+      "filename": "114-apply-000112-s6a-iot-metric-point-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "8eba8195ae0cd4c68d02d3abdfcd22ed4811875b86aa5ec41f6f219c01532ebe"
+    },
+    {
+      "filename": "114-apply-000112-s6a-iot-metric-point-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "e6e7513325014a41fc11159b18293d4bfca0c4d842bf7497ba1033b0dca46839"
+    },
+    {
+      "filename": "115-apply-000113-s6a-iot-http-ingest-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "b7c5434a3c814de9979592e40eac0b5043b03f34bdeaa8c7e61996659757cb0b"
+    },
+    {
+      "filename": "115-apply-000113-s6a-iot-http-ingest-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "516b843f3d4c66c5dc4c120452810baaef98eefa050b62c198583889e0b5e721"
+    },
+    {
+      "filename": "116-apply-000114-s6a-iot-mqtt-skeleton-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "07a682f8bdf23770ec79a7aa45396a4702a0e02ac07743630a99d2dd95b67d52"
+    },
+    {
+      "filename": "116-apply-000114-s6a-iot-mqtt-skeleton-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "b43cc7943229e45ca53fd45e888f3ca041641f4b9e7ae67c524b7bd686d5f8a3"
+    },
+    {
+      "filename": "117-apply-000115-s6a-iot-device-latest-status-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "cab48bc82215490229b37ba1e6630ae88042fef0a935925e125c25f34e08db15"
+    },
+    {
+      "filename": "117-apply-000115-s6a-iot-device-latest-status-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "7c43e5d6d4ec28af3bf342f6d793683a9048fce7134ee24b65170b72a8d79611"
+    },
+    {
+      "filename": "118-apply-000116-s6a-iot-device-history-data-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "426ffe33fb45355847866be8512ebedcd2327c1472539e1324a1af03a3afae56"
+    },
+    {
+      "filename": "118-apply-000116-s6a-iot-device-history-data-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "091db247ceea36653bcb9f72f4490346a61f80e1d67b9c0390ffd0b55420e62e"
+    },
+    {
+      "filename": "119-apply-000117-s6a-iot-alert-rules-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "dbd39da045564db5824c33a626a2db9974a8cd5bb1d90977068d6e12ca02b348"
+    },
+    {
+      "filename": "119-apply-000117-s6a-iot-alert-rules-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "340f745dec4cf256af4af8d383182a576bfb40460ae8cffcd7d4c60483a171ba"
+    },
+    {
+      "filename": "120-apply-000118-s6a-iot-alert-center-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "cd1a252614a749db6c904933e592a86e9e0d62c3faa1dc1c7de20ae1f533e2eb"
+    },
+    {
+      "filename": "120-apply-000118-s6a-iot-alert-center-sql-result.json",
+      "bytes": 523,
+      "mode": "0444",
+      "raw_sha256": "2b1dc8fe810dafecc611082358fc05bdf76cf21a408f1ffe6dbb54e476b399bc"
+    },
+    {
+      "filename": "121-apply-000119-s6a-iot-alert-create-workorder-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "8bf0af7beb406f02fc53ef45c7eb34f5d0e746cd2e6e8dc10d3cd18ff9190be9"
+    },
+    {
+      "filename": "121-apply-000119-s6a-iot-alert-create-workorder-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "5416da49d89da64b6a996c1bf077430fcd03d69e79ef9409d657462955aa4020"
+    },
+    {
+      "filename": "122-apply-000120-s6a-iot-dashboard-detail-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "0b107d9a8c4b924929ee5a9164b1188fd12e08bde923bd7923f3ab2c4e670c95"
+    },
+    {
+      "filename": "122-apply-000120-s6a-iot-dashboard-detail-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "25b3822d9cc7434c4a41b041680511c23bfae30bdd2897b187c714a4f78557b6"
+    },
+    {
+      "filename": "123-apply-000121-s6a-iot-saas-open-patch-sql-intent.json",
+      "bytes": 692,
+      "mode": "0444",
+      "raw_sha256": "c46efe2e2f1a837fede607cc502791ac4488a5ab46d40828ce3f530eb580ed15"
+    },
+    {
+      "filename": "123-apply-000121-s6a-iot-saas-open-patch-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "4642ff3e859d652375809ce08f605a3b4434743ea2fafd18d5aef72e317fdc5b"
+    },
+    {
+      "filename": "124-apply-000122-s6a-permissions-menu-seed-patch-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "1c9e1a05a0f5e2dfea0d58c66a519888a64930c4c011b40ba068dbe4465714ad"
+    },
+    {
+      "filename": "124-apply-000122-s6a-permissions-menu-seed-patch-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "55946f03810fa1e29a5cdff7b4d65856c324e99692ef50e9e8653b8204f1989a"
+    },
+    {
+      "filename": "125-apply-000123-menu-tenant360-cleanup-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "0b15db1f8ecabdf6ef9f95475eef65b729aa78730a975f79570cbd20dc83861d"
+    },
+    {
+      "filename": "125-apply-000123-menu-tenant360-cleanup-sql-result.json",
+      "bytes": 525,
+      "mode": "0444",
+      "raw_sha256": "338202125c6d30ca2987197413342879ec8c2847f07c013e3b79067fc0d5f7d2"
+    },
+    {
+      "filename": "126-apply-000124-s8c-video-cameras-sql-intent.json",
+      "bytes": 687,
+      "mode": "0444",
+      "raw_sha256": "821daaa08b33825f373df458b262e72c45320a2728dfaa543e889e95a5086826"
+    },
+    {
+      "filename": "126-apply-000124-s8c-video-cameras-sql-result.json",
+      "bytes": 521,
+      "mode": "0444",
+      "raw_sha256": "26a9eab4f6a597d2e71b4e8a1fd7fa930695ab4910a591d54467546e24b67c93"
+    },
+    {
+      "filename": "127-apply-000125-s8d-video-preview-platform-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "289407da7ae2a0bcf24b6c76da7972bb43efc857a7926216e00c27602cb04fa6"
+    },
+    {
+      "filename": "127-apply-000125-s8d-video-preview-platform-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "ae2bbd53b861e57dd842ae0e29f73bde0b7f6806993e9a65fa35e612057d36a5"
+    },
+    {
+      "filename": "128-apply-000126-s8e-video-evidence-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "77ab4337af0c77cb4bbd0894362358e3b06790e1071097966f06f2f01096ea96"
+    },
+    {
+      "filename": "128-apply-000126-s8e-video-evidence-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "aedd5c5aabd9e201a96e3d4fd7b3f5f031a842fddcc19aac25fcc20d2af6aa6a"
+    },
+    {
+      "filename": "129-apply-000127-s8f-video-alert-dashboard-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "81a3551c8b134fb11e3151ce0581652997a9b16267fe25beffdc4b7d0f392f8b"
+    },
+    {
+      "filename": "129-apply-000127-s8f-video-alert-dashboard-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "efc4fc41dab365ab3860fcbd41e5698579b39c60329e3eb7bc5527bc5ee0e767"
+    },
+    {
+      "filename": "130-apply-000128-s9a-iot-device-hub-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "6275b76672326585e1c5af3a26fd96af84b8d38323d0deb9acc74c9c75fa46dc"
+    },
+    {
+      "filename": "130-apply-000128-s9a-iot-device-hub-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "55b6e3648daf34b991dc538695e8b41f33659f6f6aeefbc2a456d4ece48213ea"
+    },
+    {
+      "filename": "131-apply-000129-s9b-iot-runtime-alert-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "33578c1545009b5d6c6133526786c9da1f107d0ccbf9f2902a864f865948f301"
+    },
+    {
+      "filename": "131-apply-000129-s9b-iot-runtime-alert-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "5fb9285caf4a6896025d78f63febeebdd9b9d3b2602f8b45dceae1fe176cd651"
+    },
+    {
+      "filename": "132-apply-000130-s9b-iot-alert-trigger-value-text-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "f30b2b4a5762bc5542f71b09a047f22811fdafb25671ee9fe86b5f94da2e3e46"
+    },
+    {
+      "filename": "132-apply-000130-s9b-iot-alert-trigger-value-text-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "ae936b37f6a0e41e0a6786f42423477a7b8f39ec784824f8dfa3206fc9ff8e43"
+    },
+    {
+      "filename": "133-apply-000131-s9c-iot-rule-engine-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "cd57fbb10ea029c8b7319f2ea4a7a424ca3c0668c3c7601c31fbf9600ec10ec5"
+    },
+    {
+      "filename": "133-apply-000131-s9c-iot-rule-engine-sql-result.json",
+      "bytes": 523,
+      "mode": "0444",
+      "raw_sha256": "98b34336b208b161cf92dee675cc87de4124358358dfa5deb8bce0a46840be0e"
+    },
+    {
+      "filename": "134-apply-000132-robot-ezviz-cleaning-integration-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "bc696e971410790680589668c80127c78e4438fc114f570ebd6d15258fb1e3b7"
+    },
+    {
+      "filename": "134-apply-000132-robot-ezviz-cleaning-integration-sql-result.json",
+      "bytes": 536,
+      "mode": "0444",
+      "raw_sha256": "67251360f3da9ca4c75b941c0d4ba0dc75fce572b9ab86f2f71869171b4f64f9"
+    },
+    {
+      "filename": "135-apply-000133-s9d-iot-scene-center-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "b5ed6e131f7f318aae49654e833ba202104f1833a9ab1fcbe3bb7d9cdfe385a1"
+    },
+    {
+      "filename": "135-apply-000133-s9d-iot-scene-center-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "927f67b06ba841a01c348ceca9c8a8889357951138d4f73126e9de9f202626b9"
+    },
+    {
+      "filename": "136-apply-000134-robot-cleaning-visibility-seed-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "93fa6c829cb9276cbc0d2bd9b736bcd614bf400387cae871c76279241249a11b"
+    },
+    {
+      "filename": "136-apply-000134-robot-cleaning-visibility-seed-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "95614931303cea1c2fd204e0509078763622624618934bafd1f2ed4dfadf616b"
+    },
+    {
+      "filename": "137-apply-000135-s9e-energy-meter-monitor-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "8757e85caba9f26565c165ac669d2a7a0ca84d765535995f27f44ea2d9773455"
+    },
+    {
+      "filename": "137-apply-000135-s9e-energy-meter-monitor-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "60166d28de4b86ec50d88776ad540417acf80910b6a516644038c9056fc642c9"
+    },
+    {
+      "filename": "138-apply-000136-idempotency-request-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "ac5e3588a58a0886aff91645aa00691eb814c829f2b6efe9b13896983d854698"
+    },
+    {
+      "filename": "138-apply-000136-idempotency-request-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "948c6cfaae863935901fc12f7211394109375197896a6a3bb8fc83fb6e312dc4"
+    },
+    {
+      "filename": "139-apply-000136-s9f-energy-billing-allocation-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "486410ceb89c3914dd7e1a257dca6a6720be2696ccefff15e45dcd889f3670b6"
+    },
+    {
+      "filename": "139-apply-000136-s9f-energy-billing-allocation-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "e3a82289dcb0407dc6dd59d74c2764181abb2dcc2862528f9179e1ec68ba40b9"
+    },
+    {
+      "filename": "140-apply-000137-s9f1-energy-billing-adjustment-reversal-sql-intent.json",
+      "bytes": 709,
+      "mode": "0444",
+      "raw_sha256": "7857c0b918760aca575e760a04001c1a39a7c5da550084a1565a90b3b8de4380"
+    },
+    {
+      "filename": "140-apply-000137-s9f1-energy-billing-adjustment-reversal-sql-result.json",
+      "bytes": 543,
+      "mode": "0444",
+      "raw_sha256": "66e1014e879305612992593b35614fc3d2a241b47dfcd8e2a601933a2874e493"
+    },
+    {
+      "filename": "141-apply-000138-robot-ezviz-device-sync-permission-patch-sql-intent.json",
+      "bytes": 708,
+      "mode": "0444",
+      "raw_sha256": "51d48637ba4ee828ac9b735b884896eda42f28707d084f343bb896fe863bd45b"
+    },
+    {
+      "filename": "141-apply-000138-robot-ezviz-device-sync-permission-patch-sql-result.json",
+      "bytes": 543,
+      "mode": "0444",
+      "raw_sha256": "47fd8048ff6140ea86f5045065b981eddb2e63a0a3158a9f28c17e6fd619e527"
+    },
+    {
+      "filename": "142-apply-000139-sys-schema-migration-history-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "bea97f02cf59fb0bea4fb24a21de173c314709be52dca87f939479da6e3822cb"
+    },
+    {
+      "filename": "142-apply-000139-sys-schema-migration-history-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "a7800dc3c55d625d6367c1fd60be20e8de15a80f2b287085d1824e2c4b7c4ed0"
+    },
+    {
+      "filename": "143-apply-000140-expand-audit-request-id-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "ff134e6e5f6678e33fe98087bf519927b38b65669732caeb4f60c77cdee3d523"
+    },
+    {
+      "filename": "143-apply-000140-expand-audit-request-id-sql-result.json",
+      "bytes": 526,
+      "mode": "0444",
+      "raw_sha256": "b662f2cd0567f74ea035e2e840de2c1bc6f46a81ccf468dc14a0d3fd154ac7cb"
+    },
+    {
+      "filename": "144-apply-000141-operations-terminal-seed-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "9fddec360a536b4b0842d94a15ec15191eb727b8aeaf2dd306b5a890574519b7"
+    },
+    {
+      "filename": "144-apply-000141-operations-terminal-seed-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "01396e0a3da1cbe98b4802fdbb44286df9fb7f44b4cedb7ed242e51140d78d94"
+    },
+    {
+      "filename": "145-apply-000142-operations-terminal-role-schedule-patch-sql-intent.json",
+      "bytes": 709,
+      "mode": "0444",
+      "raw_sha256": "4764c0bc68432c015ddaedededcb064ee3b9c3525884cb64141f33b8e9bd340e"
+    },
+    {
+      "filename": "145-apply-000142-operations-terminal-role-schedule-patch-sql-result.json",
+      "bytes": 542,
+      "mode": "0444",
+      "raw_sha256": "c08e9934904f18690cb50a4c8d034f08ca92749c73a3157fc9fa0299e32dfc3b"
+    },
+    {
+      "filename": "146-apply-000143-operations-terminal-disable-obsolete-daily-electric-sql-intent.json",
+      "bytes": 719,
+      "mode": "0444",
+      "raw_sha256": "c667e149861724194309f999e9a20ba3b744334a043dea8b5824140be6c5c35b"
+    },
+    {
+      "filename": "146-apply-000143-operations-terminal-disable-obsolete-daily-electric-sql-result.json",
+      "bytes": 553,
+      "mode": "0444",
+      "raw_sha256": "fe408ba72a9d3845bfadefd8d7df4d4dc6b95e2a0aabc0a3c767353bfde4fb91"
+    },
+    {
+      "filename": "147-apply-000144-safety-full-open-permission-menu-patch-sql-intent.json",
+      "bytes": 708,
+      "mode": "0444",
+      "raw_sha256": "2acb613dd08aa0bcc68097773e35f6fda51e4af84f94296e7c8794e289f2ee52"
+    },
+    {
+      "filename": "147-apply-000144-safety-full-open-permission-menu-patch-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "26bdf0798f1fd55d11eec78d4d3334ae9425be0a4716ff968ed55f8c8dc6ed93"
+    },
+    {
+      "filename": "148-apply-000145-safety-phase1-review-followup-sql-intent.json",
+      "bytes": 697,
+      "mode": "0444",
+      "raw_sha256": "61bd388df79bef1597f309be4b8b02a9696a402f9a0124ef19cd377c5d0a1669"
+    },
+    {
+      "filename": "148-apply-000145-safety-phase1-review-followup-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "c0ffb26ba9e1c25df1a8f3b31f8dea45d57737adac9ff06eee378cb7d3ca62dc"
+    },
+    {
+      "filename": "149-apply-000146-auth-password-lockout-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "6e31a1b3091014834d2f6a35e1aeb1f5129aa45a5019f3221b1cde348e082aac"
+    },
+    {
+      "filename": "149-apply-000146-auth-password-lockout-sql-result.json",
+      "bytes": 524,
+      "mode": "0444",
+      "raw_sha256": "7f0286afc519e311b62f59fa7189b399665ca796118e401e3bed67ae58790dac"
+    },
+    {
+      "filename": "150-apply-000147-role-pack-real-park-operations-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "17e9dea9ae5632cb0992bb053a29324f73509be2a9862ad1b2fedccec9870c24"
+    },
+    {
+      "filename": "150-apply-000147-role-pack-real-park-operations-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "3c2ee9052948f59ad6ca00c15db29c92edaddfb3b5c3d9eee14fd54aaf507dea"
+    },
+    {
+      "filename": "151-apply-000148-workorder-business-dictionary-defaults-sql-intent.json",
+      "bytes": 707,
+      "mode": "0444",
+      "raw_sha256": "2aa34d69892ef5f2babe4b8065b7425b7166f8afca3a844eeaba91c7ae026b44"
+    },
+    {
+      "filename": "151-apply-000148-workorder-business-dictionary-defaults-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "a924eb68867d235365ef7b99f78327acb6648cedf9318f24baa5aa13a7c4704c"
+    },
+    {
+      "filename": "152-apply-000149-workflow-user-messages-sql-intent.json",
+      "bytes": 691,
+      "mode": "0444",
+      "raw_sha256": "4f942cf998420c8469b730ee913c62b9cfd1497fb24d58b4e977a3934a47265f"
+    },
+    {
+      "filename": "152-apply-000149-workflow-user-messages-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "e65727b545c84d7ad243147f479d4d4ae633cce5e78e4bde00d8bab1d93152ec"
+    },
+    {
+      "filename": "153-apply-000150-epdr-engineering-project-sql-intent.json",
+      "bytes": 693,
+      "mode": "0444",
+      "raw_sha256": "b66b9777c406394d0ba394fd1707546d1ee07678f6e6acd73bd80396634c47fd"
+    },
+    {
+      "filename": "153-apply-000150-epdr-engineering-project-sql-result.json",
+      "bytes": 530,
+      "mode": "0444",
+      "raw_sha256": "799fa320b785ccf04dfa9ef14be7d4494bb8060dc0ab3abcd9c6b8a65ce17fbc"
+    },
+    {
+      "filename": "154-apply-000151-epdr-engineering-project-status-log-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "0e80737e0e156d1a160eec91acacf80615b2a50461928ef6aefb5ef74314ac63"
+    },
+    {
+      "filename": "154-apply-000151-epdr-engineering-project-status-log-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "4c5b30b091e9293438ac78d00e2857babfeb2fed69c96982b406eabce5ac7555"
+    },
+    {
+      "filename": "155-apply-000152-epdr-engineering-plan-sql-intent.json",
+      "bytes": 690,
+      "mode": "0444",
+      "raw_sha256": "e1b0d1417d2cfeb90ddae6d900e68e13bbc6ab65c319e71626d50306f34ff87a"
+    },
+    {
+      "filename": "155-apply-000152-epdr-engineering-plan-sql-result.json",
+      "bytes": 527,
+      "mode": "0444",
+      "raw_sha256": "17b8d3b446f48e0fbabc980305cfd374acef9b175337bf6c886e7412e4a373ac"
+    },
+    {
+      "filename": "156-apply-000153-epdr-engineering-daily-report-sql-intent.json",
+      "bytes": 698,
+      "mode": "0444",
+      "raw_sha256": "56d24c541cac952e2db7eef8fa44385e619bdaeb30078baa076bb7f2e187fc6a"
+    },
+    {
+      "filename": "156-apply-000153-epdr-engineering-daily-report-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "1cb8f0ad1478a0bac57ac9289f5a15eb1ad274814d863ba3fbf54d92f7339618"
+    },
+    {
+      "filename": "157-apply-000154-epdr-engineering-inspection-issue-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "32e74c3e9ad3f3cfdbc4520c3fe324c082fec1f0ac93560b6dfed71ef642cf00"
+    },
+    {
+      "filename": "157-apply-000154-epdr-engineering-inspection-issue-sql-result.json",
+      "bytes": 539,
+      "mode": "0444",
+      "raw_sha256": "e81d26e9dc9f5b89a349a0c65604a52f172a8c427e1d82f3dc1f0dc8087143b3"
+    },
+    {
+      "filename": "158-apply-000155-epdr-engineering-rectification-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "9450d9f006942e2ec9cd5d45cf1b929fb38c173aa4e9fc825517f85aedd3f1b1"
+    },
+    {
+      "filename": "158-apply-000155-epdr-engineering-rectification-sql-result.json",
+      "bytes": 536,
+      "mode": "0444",
+      "raw_sha256": "8ff08a6422d63a735404a0a22e4728d41e19c520ffc351071632ed826d09f418"
+    },
+    {
+      "filename": "159-apply-000156-epdr-engineering-acceptance-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "99599679181f1ee68f81eb810a379827020de2e2cb9cde93789e735c38c3572f"
+    },
+    {
+      "filename": "159-apply-000156-epdr-engineering-acceptance-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "780e92f4100753e4de65cdadc95d616d8b0cb2292e7394c069c083cd06bf8564"
+    },
+    {
+      "filename": "160-apply-000157-epdr-rbac-menu-permissions-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "b1b967f540fd47659dbdea662aa113dc1f6cc1976f089259349a2ae2578ebebb"
+    },
+    {
+      "filename": "160-apply-000157-epdr-rbac-menu-permissions-sql-result.json",
+      "bytes": 529,
+      "mode": "0444",
+      "raw_sha256": "74708e5dfdf7667f69c37f0e24331fad737d280e4692da01e88cdc19a1b8c81e"
+    },
+    {
+      "filename": "161-apply-000158-epdr-engineering-event-log-sql-intent.json",
+      "bytes": 695,
+      "mode": "0444",
+      "raw_sha256": "86a3aa0174a7521cb0e3a9b343e123e83b3767475597ac25251b67eaca8c2326"
+    },
+    {
+      "filename": "161-apply-000158-epdr-engineering-event-log-sql-result.json",
+      "bytes": 531,
+      "mode": "0444",
+      "raw_sha256": "572e27ed0e75c548a93cd21ec51d77f725fa4d057bc341133eb863e34c587d55"
+    },
+    {
+      "filename": "162-apply-000159-epdr-engineering-attachment-ids-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "92f9891e557fee27f720e1d610c1c2fc26741445180731ed392d9ca0d06ec3b7"
+    },
+    {
+      "filename": "162-apply-000159-epdr-engineering-attachment-ids-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "efe2c1947bbafbbd83987e6c7992b5496f26deca36b568d3992d7c50449f1943"
+    },
+    {
+      "filename": "163-apply-000160-epdr-scope-backfill-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "edaba6a3d245862b23faea9cbacaba832203cb6b66241f69e077658040f84134"
+    },
+    {
+      "filename": "163-apply-000160-epdr-scope-backfill-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "80161fea072c5dcd9080f72733c67514bf93ec33b28da227bcc2c47ab924fe3e"
+    },
+    {
+      "filename": "164-apply-000161-safety-hazard-dictionary-defaults-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "1689ec759725272f9ceeb4ca63d0dc8b4d5d9987cb02bf5459fb908ef63c206a"
+    },
+    {
+      "filename": "164-apply-000161-safety-hazard-dictionary-defaults-sql-result.json",
+      "bytes": 536,
+      "mode": "0444",
+      "raw_sha256": "ced156ed1d71e5a0ea12148bf7039c9be123a1bcc7e786e5f8926c10b8887741"
+    },
+    {
+      "filename": "165-apply-000162-uat-permission-and-leasing-source-repair-sql-intent.json",
+      "bytes": 709,
+      "mode": "0444",
+      "raw_sha256": "2bc06f88720bd5dcc8b07602f35251b5a8bcc8f2a97eaf616343b91142860f79"
+    },
+    {
+      "filename": "165-apply-000162-uat-permission-and-leasing-source-repair-sql-result.json",
+      "bytes": 543,
+      "mode": "0444",
+      "raw_sha256": "68fd7453e8b201c9dc324fd2437c5a1889cf361672a650ebd742471dfa8d9ef9"
+    },
+    {
+      "filename": "166-apply-000163-epdr-uat-role-bridge-read-access-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "ad69994381da2485696abbdd2526a5d965b44f86461952e273a6a404c1dbfc7c"
+    },
+    {
+      "filename": "166-apply-000163-epdr-uat-role-bridge-read-access-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "92c1e7eb4b6a492fc5dae7be72c020341b14b94046ab661f6340e857117e4a3b"
+    },
+    {
+      "filename": "167-apply-000164-epdr-admin-visibility-backfill-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "be65dd64bcea51749a4ce2e199cfb760d0074304112fcb730c6a580d5e84ad8f"
+    },
+    {
+      "filename": "167-apply-000164-epdr-admin-visibility-backfill-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "acaf36af9ffef38baefabb178b35d632d70ca5bbbabbfe67119dd123fb9344ed"
+    },
+    {
+      "filename": "168-apply-000165-cockpit-module-visibility-backfill-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "2107433677ad8a23bd84c3e7fc8b3668480e29be5199ce62bed9e78fe274a179"
+    },
+    {
+      "filename": "168-apply-000165-cockpit-module-visibility-backfill-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "37def14ece1d5bab904d5a2e0e3109a520fd7e65f4cea00c577a6e391daee72b"
+    },
+    {
+      "filename": "169-apply-000166-go-live-decision-permission-hardening-sql-intent.json",
+      "bytes": 707,
+      "mode": "0444",
+      "raw_sha256": "8979dd35b03748186a149281c75c991f072c76ac85a76d974d86ef451ec038da"
+    },
+    {
+      "filename": "169-apply-000166-go-live-decision-permission-hardening-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "9a54ab917d99069342d09dec1ebb5ccba18b7998ecc67bec81f38d876caf257c"
+    },
+    {
+      "filename": "170-apply-000167-go-live-real-user-role-bridge-sql-intent.json",
+      "bytes": 698,
+      "mode": "0444",
+      "raw_sha256": "79e02e3e0215dabe16fd408920b453e7358ac8f9dbc6b28aaa12e85e398bdd0b"
+    },
+    {
+      "filename": "170-apply-000167-go-live-real-user-role-bridge-sql-result.json",
+      "bytes": 532,
+      "mode": "0444",
+      "raw_sha256": "45bead50afda1b8b4b2d26f71a180d1d3eaac7401fae658d5d32c6e98d5f31dd"
+    },
+    {
+      "filename": "171-apply-000168-go-live-admin-system-alias-permissions-sql-intent.json",
+      "bytes": 707,
+      "mode": "0444",
+      "raw_sha256": "532e9ace20ef01eebda16998c0efea7ed273b624f242c949050212a230eb6faf"
+    },
+    {
+      "filename": "171-apply-000168-go-live-admin-system-alias-permissions-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "b71e27f30aa596078a0e28b3a3ff4fd80c2061ed367e2d2b9b473d0d2c948896"
+    },
+    {
+      "filename": "172-apply-000169-go-live-uat-role-menu-visibility-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "75f76a88943e8f9e392e64c4f3e66b8d3d27f9ad17749140fd56088aa675aecd"
+    },
+    {
+      "filename": "172-apply-000169-go-live-uat-role-menu-visibility-sql-result.json",
+      "bytes": 535,
+      "mode": "0444",
+      "raw_sha256": "6051c767d55afef6111cec9716ebca0f904189557571e387c36eb13a7577dcf9"
+    },
+    {
+      "filename": "173-apply-000170-go-live-acceptance-field-execution-bridge-sql-intent.json",
+      "bytes": 710,
+      "mode": "0444",
+      "raw_sha256": "b1ffadccd9c5bf4165dcbdca16b479b3d2204abd4c4cec74869e0b6b9b65a874"
+    },
+    {
+      "filename": "173-apply-000170-go-live-acceptance-field-execution-bridge-sql-result.json",
+      "bytes": 544,
+      "mode": "0444",
+      "raw_sha256": "ac05183284b7657cca93c394388734f0239bc0727df1712cb7fbb4e7fbe70dfb"
+    },
+    {
+      "filename": "174-apply-000171-go-live-invest-workorder-create-repair-sql-intent.json",
+      "bytes": 707,
+      "mode": "0444",
+      "raw_sha256": "08c711d2d2fae09af068a91b4d122550e65ac33854179f84113e61c93bfea28b"
+    },
+    {
+      "filename": "174-apply-000171-go-live-invest-workorder-create-repair-sql-result.json",
+      "bytes": 541,
+      "mode": "0444",
+      "raw_sha256": "bd02f17f97b4f02c0c9f72c9675f5af447ec88c8bb4ffeacd43d3583ad402706"
+    },
+    {
+      "filename": "175-apply-000172-go-live-uat-user-baseline-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "76e6305298a658cf174b7cc2e323924cacd10531060b6dbe909f1cc8cc583a13"
+    },
+    {
+      "filename": "175-apply-000172-go-live-uat-user-baseline-sql-result.json",
+      "bytes": 528,
+      "mode": "0444",
+      "raw_sha256": "2bd7c0a28119ae9c5f9dcb25cb8716bbe406d595c023254632d51ba16d6ae88c"
+    },
+    {
+      "filename": "176-apply-000173-ai-work-orchestration-runtime-sql-intent.json",
+      "bytes": 698,
+      "mode": "0444",
+      "raw_sha256": "2bde18c715371d790427ce9f845cbe9cd810539afd0843d43fe9e17712e6a084"
+    },
+    {
+      "filename": "176-apply-000173-ai-work-orchestration-runtime-sql-result.json",
+      "bytes": 533,
+      "mode": "0444",
+      "raw_sha256": "d38d68541c9d244b7d26aac3bbb6b4cc59b5ee838bd5dc2ddf6429e6141fffb2"
+    },
+    {
+      "filename": "177-apply-000174-ai-work-plan-source-dictionary-repair-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "d6eee49efb92edb8fcf79aff35b2f57934f235cc9aa5fdf627a58919360e99ad"
+    },
+    {
+      "filename": "177-apply-000174-ai-work-plan-source-dictionary-repair-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "c534e49aa2663fa4ea7363ee56b0ddea9ae62aad689516fa8f4ff5d8e16e422e"
+    },
+    {
+      "filename": "178-apply-000176-shared-property-foundation-sql-intent.json",
+      "bytes": 696,
+      "mode": "0444",
+      "raw_sha256": "4f55b03eff38d9b50c5993d1ecc9794490914e554ea9cf7008fe39efa2309e19"
+    },
+    {
+      "filename": "178-apply-000176-shared-property-foundation-sql-result.json",
+      "bytes": 532,
+      "mode": "0444",
+      "raw_sha256": "522814e4700a5d437313a04ce957ce00e807a2701cfa1d52798726ec2590617f"
+    },
+    {
+      "filename": "179-apply-000177-homestay-mvp-sql-intent.json",
+      "bytes": 682,
+      "mode": "0444",
+      "raw_sha256": "a70dae6763f21c201975b9b935e78fa555d501a064068f115978e82ac79354d0"
+    },
+    {
+      "filename": "179-apply-000177-homestay-mvp-sql-result.json",
+      "bytes": 516,
+      "mode": "0444",
+      "raw_sha256": "6fb06704af7c6cb42b18550b61d9edc878d5a058797ffb5fbe17260b437d76c3"
+    },
+    {
+      "filename": "180-apply-000178-housing-rental-mvp-sql-intent.json",
+      "bytes": 688,
+      "mode": "0444",
+      "raw_sha256": "bd3c13a0281d3223f6faaa3ada60e21e3c7373f8c0e207580cb8b1a828f41f39"
+    },
+    {
+      "filename": "180-apply-000178-housing-rental-mvp-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "5a3021c9475d90fe0083f022eb76cf3d6096b875aad7521ec1a104b936c027f9"
+    },
+    {
+      "filename": "181-apply-000179-property-contract-business-timezone-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "4e130373da3a9a94280ab7830b8be541e391f6f08086715a2732ee42593a1dc8"
+    },
+    {
+      "filename": "181-apply-000179-property-contract-business-timezone-sql-result.json",
+      "bytes": 538,
+      "mode": "0444",
+      "raw_sha256": "9386b4acae3f5780fedd163c47a7ac41b14bbd45a6e7b98180e878fbc65608e9"
+    },
+    {
+      "filename": "182-apply-000180-housing-finance-integrity-sql-intent.json",
+      "bytes": 694,
+      "mode": "0444",
+      "raw_sha256": "05d3af48da394f0b6d1304eb617f9655b9b2fa592a65f662c937ca7ca5b116a6"
+    },
+    {
+      "filename": "182-apply-000180-housing-finance-integrity-sql-result.json",
+      "bytes": 530,
+      "mode": "0444",
+      "raw_sha256": "114abca6f3cfa58074d9752ebde8392c0747d7893460cd21f2378c794760fbe8"
+    },
+    {
+      "filename": "183-apply-000181-homestay-external-order-null-channel-uniqueness-sql-intent.json",
+      "bytes": 715,
+      "mode": "0444",
+      "raw_sha256": "dda54b01cb2d88947b1054d669b5d7a2883d66a45f82da0565ce6e23954b4289"
+    },
+    {
+      "filename": "183-apply-000181-homestay-external-order-null-channel-uniqueness-sql-result.json",
+      "bytes": 550,
+      "mode": "0444",
+      "raw_sha256": "d5b30ce40063b007d9284c6c64f4e97acebc0322a3232357a93ac79ad839c53d"
+    },
+    {
+      "filename": "184-apply-000182-property-business-menu-access-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "008531e50ec5afc0ada6fb5e36d95486ed9f25e8beb779e838f363a116c0bc53"
+    },
+    {
+      "filename": "184-apply-000182-property-business-menu-access-sql-result.json",
+      "bytes": 532,
+      "mode": "0444",
+      "raw_sha256": "a6b72472574dbd98f02fe60ac70c55857180d112af498f75c1337f6ff4cb5632"
+    },
+    {
+      "filename": "185-apply-000001-s1-production-core-sql-intent.json",
+      "bytes": 689,
+      "mode": "0444",
+      "raw_sha256": "2f6105e27f148319ae0f98815534610db9fb03474e8419d6cd571480e7dcd5f2"
+    },
+    {
+      "filename": "185-apply-000001-s1-production-core-sql-result.json",
+      "bytes": 522,
+      "mode": "0444",
+      "raw_sha256": "d7f723a0c858cb97e51c879b498d4907bc42cf5902e264c9f27d7198bacecd67"
+    },
+    {
+      "filename": "186-apply-000183-property-business-granular-rbac-sql-intent.json",
+      "bytes": 701,
+      "mode": "0444",
+      "raw_sha256": "ce0ec0b30e2ded6864b73f62acfe1ef28181aeec5bb48a90afe833609bc71474"
+    },
+    {
+      "filename": "186-apply-000183-property-business-granular-rbac-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "1ce09687db4de499b189c8cbf1b117ec61b717d4f057828e8efc30b178e5e39c"
+    },
+    {
+      "filename": "187-apply-000184-property-workbench-read-permissions-sql-intent.json",
+      "bytes": 705,
+      "mode": "0444",
+      "raw_sha256": "63b88aae7d8a16f86330657ce35ebb9b3571c98f92a5c6d4e4e120279256baff"
+    },
+    {
+      "filename": "187-apply-000184-property-workbench-read-permissions-sql-result.json",
+      "bytes": 538,
+      "mode": "0444",
+      "raw_sha256": "cc786a35ea4a6b45fdf5f7871dd12502390779a4afa3588217f9ba3797e44399"
+    },
+    {
+      "filename": "188-history-bootstrap-intent.json",
+      "bytes": 668,
+      "mode": "0444",
+      "raw_sha256": "c3123a1a7c911e82efd79f50633723f7e57942337e067fc0145574fe7c929570"
+    },
+    {
+      "filename": "188-history-bootstrap-result.json",
+      "bytes": 505,
+      "mode": "0444",
+      "raw_sha256": "c833bc3a33d954a3f1d40ee68c1dbc8f0c170ddfee386703cd207f05d0f7ef2f"
+    },
+    {
+      "filename": "189-apply-000185-property-b-identity-schema-expand-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "22ac3e02f7c9281c8e3017146ce51a3f5baa1f03df12265b771acfd08556f4b5"
+    },
+    {
+      "filename": "189-apply-000185-property-b-identity-schema-expand-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "954b5faf0196ad0f7cee74ebda86de978fa2c8f954025a2f01353f13d866eee6"
+    },
+    {
+      "filename": "190-record-000185-property-b-identity-schema-expand-sql-intent.json",
+      "bytes": 702,
+      "mode": "0444",
+      "raw_sha256": "4e0b5a2a26f611f1cb724cf1b43f96753b56a84d85ae0d035f1f33abe9b0a0f7"
+    },
+    {
+      "filename": "190-record-000185-property-b-identity-schema-expand-sql-result.json",
+      "bytes": 537,
+      "mode": "0444",
+      "raw_sha256": "d133658ed8dcc591db644d03e5527da86c62d9df3599765ba830a0010915a35d"
+    },
+    {
+      "filename": "191-apply-000186-property-b-approval-runtime-schema-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "6850763837136f150ab74963a12b298a3206d09290a048fcc35ac494a7d8a8eb"
+    },
+    {
+      "filename": "191-apply-000186-property-b-approval-runtime-schema-sql-result.json",
+      "bytes": 538,
+      "mode": "0444",
+      "raw_sha256": "8374c248c721232738d1ed87c2bfef5207567356074767c2274e8411d8b3d9ff"
+    },
+    {
+      "filename": "192-record-000186-property-b-approval-runtime-schema-sql-intent.json",
+      "bytes": 703,
+      "mode": "0444",
+      "raw_sha256": "4eec01a70af3b6a0636fd23d555dcdcf26def335de9834f21901292804e03ad6"
+    },
+    {
+      "filename": "192-record-000186-property-b-approval-runtime-schema-sql-result.json",
+      "bytes": 538,
+      "mode": "0444",
+      "raw_sha256": "c534acf996b4b67d7362eb2cbf65f5557c3e1ece45c11c5bce03ea18dcf9ed75"
+    },
+    {
+      "filename": "193-apply-000187-property-b-event-notification-schema-sql-intent.json",
+      "bytes": 706,
+      "mode": "0444",
+      "raw_sha256": "f4ea256b35d8edfb713ee9024deee6bcae853a6376cfade19fd4253c6e5f92b5"
+    },
+    {
+      "filename": "193-apply-000187-property-b-event-notification-schema-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "4b6a720980416cbe16bfe9aeac0cc539013032a043c9407967196b295af0cb1b"
+    },
+    {
+      "filename": "194-record-000187-property-b-event-notification-schema-sql-intent.json",
+      "bytes": 705,
+      "mode": "0444",
+      "raw_sha256": "8e3221652b734e33d9fa645ff741991be4e05b83e86847313c302c22d6631180"
+    },
+    {
+      "filename": "194-record-000187-property-b-event-notification-schema-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "521b1ab477edb55fc327ccdc5bc059c7a1eae741c61fc25a8bdc3c13697fd101"
+    },
+    {
+      "filename": "195-apply-000188-property-b-task-runtime-schema-sql-intent.json",
+      "bytes": 700,
+      "mode": "0444",
+      "raw_sha256": "831e005e5557f5b4da2045599ce5b850c7f69c176fae049c8fdba0124f998c5f"
+    },
+    {
+      "filename": "195-apply-000188-property-b-task-runtime-schema-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "0d17a55b577df96a23683b87a66f316799f0275ba567f31d4e9da2882aea924d"
+    },
+    {
+      "filename": "196-record-000188-property-b-task-runtime-schema-sql-intent.json",
+      "bytes": 699,
+      "mode": "0444",
+      "raw_sha256": "196f24c02041c82c9d8881b57236084ca67a00d2d6d15e9f491c681e3a1167e2"
+    },
+    {
+      "filename": "196-record-000188-property-b-task-runtime-schema-sql-result.json",
+      "bytes": 534,
+      "mode": "0444",
+      "raw_sha256": "1fbf6d26c69d1a2085f6817ab12719e84c367fd8aa3eb8885924010ac9ea2bc3"
+    },
+    {
+      "filename": "197-apply-000189-property-b-module-rbac-definitions-sql-intent.json",
+      "bytes": 704,
+      "mode": "0444",
+      "raw_sha256": "514232b03a3a43386c5767a74f32589c12df3523708494b70e40dace51b39662"
+    },
+    {
+      "filename": "197-apply-000189-property-b-module-rbac-definitions-sql-result.json",
+      "bytes": 540,
+      "mode": "0444",
+      "raw_sha256": "de8eff01acded704dbb6c0bc348ffbf2282f80f55f2c6293d539cb85c8dde4fd"
+    },
+    {
+      "filename": "failure-b2c197_v11v6_direct_v19_20260803a.json",
+      "bytes": 564,
+      "mode": "0444",
+      "raw_sha256": "d9756cbac88c8c3e3bd0403a6b3b7122e0a9e2af8d7709e135b8af3d848581f6"
+    }
+  ]
+}

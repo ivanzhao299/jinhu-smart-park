@@ -1,0 +1,24 @@
+✔ v26 exposes zero-argument formal APIs with no caller command injection and a /tmp-only harness (22.127134ms)
+✔ v26 uses one explicit code-point comparator for authorized and materialized path order (16.72569ms)
+✔ v26 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity (970.353651ms)
+✔ v26 positive fake-command path proves four ordered injection points across three explicit catalog states (404.38284ms)
+✔ v26 approval execution remains bound to the read-only snapshot after original source mutation (187.828328ms)
+✔ v26 approval children preload the snapshot resolver and reject live repository fallback (212.692416ms)
+✔ v26 rejects direct snapshot mutation before approval with zero approval children and a fixed failure terminal (133.330638ms)
+✔ v26 rejects live runtime dependency mutation before approval with zero approval children (120.225754ms)
+✔ v26 binds exact runtime executable bytes and rejects executable drift before approval (127.010091ms)
+✔ v26 preserves fixed failure evidence when a snapshot file is replaced by a symlink (127.00192ms)
+✔ v26 rejects every canonical intake path when missing, mutable, or symlinked before creation (449.591183ms)
+✔ v26 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation (224.489421ms)
+✔ v26 failure receipts use fixed fields, omit secret error text, and reject extra inspect labels (49.235166ms)
+✔ v26 rejects extra observed labels before execute and extra live labels into a fixed failure terminal (79.486586ms)
+✔ v26 execute rejects observation/execution authority schemas, bindings, modes, symlinks, migration drift, and fixture drift with zero child commands (290.553767ms)
+✔ v26 snapshot and full P0001 marker contracts accept the exact verbose psql prefix while rejecting whitespace drift, ambiguity, and substrings (46.90219ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3520.556806

@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v19-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "stage": "apply-000184-property-workbench-read-permissions-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v19-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v19_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 16625,
+    "raw_sha256": "fe6c5339d02985a411b19f99513766af616ff6a1b1119f7ad83a8fceef40b035",
+    "persisted": false
+  }
+}

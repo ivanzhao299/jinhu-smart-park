@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-000197-child-parse-v6",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "sequence": 2,
+  "stage": "preflight-c",
+  "result_raw_sha256": "ff1e33233e1cb8419e70e1890d080551fdf6b54759b3bd2a458121953a66d050",
+  "parse": {
+    "status": "passed",
+    "value": {
+      "history_primary": null,
+      "history_mirror": null,
+      "approval_rows": 0,
+      "indexdef": "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584",
+      "predicate": "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37",
+      "build_residue": false
+    }
+  }
+}

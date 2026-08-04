@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v29-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v29_20260803a",
+  "stage": "apply-000106-s5b-emergency-work-permit-statistics-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v29-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v29_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 6132,
+    "raw_sha256": "b469b1eac856b9ea59be6754b0102d1602b69273ff8125782fd91d2ffcc29668",
+    "persisted": false
+  }
+}

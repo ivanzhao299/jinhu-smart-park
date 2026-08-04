@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-v11-gh-loader-attempt02-child-result-v2",
+  "formal_run_id": "b2c197_prelim_20260802g",
+  "attempt_id": "b2c197_prelim_20260802g_gh_loader_attempt02",
+  "sequence": 5,
+  "stage": "preflight-database-h",
+  "recorded_at_utc": "2026-08-02T10:36:56.027Z",
+  "intent_raw_sha256": "35123e58ca615df5b2bfbf44b546d7c115a152f607660f7a5177fec52e73691d",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 250,
+    "raw_sha256": "1795be4d0d276f32c0c9e30a88603625b30091adc7ee4a5ee55e24e8c3f0242a",
+    "redacted_utf8": "{\"database\" : \"jinhu_b2c197_h\", \"server_version\" : \"16.14\", \"server_version_num\" : \"160014\", \"public_user_relations\" : 0, \"primary_history\" : null, \"mirror_history\" : null, \"approval_table\" : null, \"other_clients\" : 0, \"other_open_transactions\" : 0}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

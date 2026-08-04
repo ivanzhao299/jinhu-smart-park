@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v21-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v21_20260803a",
+  "stage": "apply-000139-sys-schema-migration-history-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v21-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v21_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 673,
+    "raw_sha256": "1c0adfd71e8691f3346afe66199cc85e5cf82a11a99802a8e40df7f42695c6ad",
+    "persisted": false
+  }
+}

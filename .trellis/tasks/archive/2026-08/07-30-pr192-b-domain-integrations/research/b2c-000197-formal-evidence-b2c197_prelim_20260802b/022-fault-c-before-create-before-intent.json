@@ -1,0 +1,33 @@
+{
+  "schema_version": "b2c-000197-child-intent-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 22,
+  "stage": "fault-c-before-create-before",
+  "recorded_at_utc": "2026-08-02T00:30:36.158Z",
+  "command": "docker",
+  "argv": [
+    "exec",
+    "-i",
+    "jinhu-b2c197-prelim-20260802b-c",
+    "psql",
+    "-X",
+    "-qAt",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-U",
+    "postgres",
+    "-d",
+    "jinhu_b2c197_c"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "environment_allowlist": {
+    "PATH": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
+  "redacted_fields": [],
+  "stdin_intent": {
+    "present": true,
+    "bytes": 961,
+    "raw_sha256": "7a314815815d3bd5eca8d52d77b7ded88e759c13f50adca6fd837de5dadc4fb0"
+  }
+}

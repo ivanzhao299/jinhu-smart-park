@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v9",
+  "evidence_policy_version": "b2c-000197-child-evidence-v9",
+  "formal_run_id": "b2c197_prelim_20260802d",
+  "sequence": 4,
+  "stage": "static-v9-recursive-closure",
+  "recorded_at_utc": "2026-08-02T00:02:35.823Z",
+  "intent_raw_sha256": "ac8dd32b146e91ca7445a16cdbb1c0a5e3acb7c4c2a500b744e6d78750faa883",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 840,
+    "raw_sha256": "9f87f2ba638ae3f533d4085590494eacf14d91c4f6e65962141117d116613409",
+    "redacted_utf8": "TAP version 13\n# Subtest: recursive formal closure includes critical PG, authorization, principal and shared dependencies\nok 1 - recursive formal closure includes critical PG, authorization, principal and shared dependencies\n  ---\n  duration_ms: 2517.604152\n  type: 'test'\n  ...\n# Subtest: builtin and external dependencies are explicit while repository misses fail closed\nok 2 - builtin and external dependencies are explicit while repository misses fail closed\n  ---\n  duration_ms: 2034.007736\n  type: 'test'\n  ...\n# Subtest: TypeScript Program repository files exactly match real tsc listFilesOnly\nok 3 - TypeScript Program repository files exactly match real tsc listFilesOnly\n  ---\n  duration_ms: 2090.113763\n  type: 'test'\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 6647.176753\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

@@ -1,0 +1,27 @@
+b2c-000197-v11-v6-direct-pg-regression-v11-independent-database-architecture-review-v1
+reviewed_at_utc	2026-08-02T23:02:14Z
+reviewer_authority	independent-database-architecture-reviewer
+decision	RETURNED
+review_approved	false
+candidate_authority_raw_sha256	21ecbcd30a3aa40a3a606dd38991e9a40ccdab4371c0892a5b622300960ee792
+candidate_manifest_raw_sha256	7047e47fbbcbdd40e49201884a8d5c34f6737a32bf8b953064e283b97682d63a
+review_handoff_raw_sha256	3f3892fbf12899887724a88f5365125172ea1cb3bc43b30cf2229080454f5d93
+resource_registry_raw_sha256	cc01dc2aff51e5e2f458a13108fd8a2b4f35f38b6c87f31fede3b052215e1c4c
+runner_raw_sha256	bf06b0544f5ec90a4eb1c5232323c72b1bdc69c7885069f8c1ca11f8622e9312
+runner_spec_raw_sha256	4fc5c9a80a239f20e8e611b520697b1be82312a4fd2e6a4eb2316033c36fd785
+migration_000197_raw_sha256	a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059
+direct_baseline_order_history_catalog	pass-static;direct-v6-plan-applies-through-000195-in-order;dual-history-exact-for-000185-through-000190-and-000193-through-000195;000197-absent;zero-approval-rows;six-key-old-index-and-predicate-hashes;v2-build-residue-absent;four-P0001-before-after-final-rollback-checks
+resource_identity_contract	pass-static;readonly-registry-has-exact-A-B-C-D-E-F-G-H-v4-run-container-full-id-database-volume-and-intake-rejects-any-identity-reuse
+acyclic_gate_design	pass-static;runtime-intake-requires-candidate-then-DB-then-QA-then-security-then-drain-then-resource-SHA-bindings-before-runV11-is-reached
+finding_p1_1	candidate-authority-states-decision-GO-review_approved-true-and-execution_authorized-true-before-any-DB-QA-security-drain-resource-review-artifacts-exist;candidate-manifest-simultaneously-states-static_candidate_requires_no_go_files-true-and-actual_execution_requires-the-later-chain
+impact_p1_1	candidate-level-execution-authorization-is-a-stop-ship-policy-contradiction-and-can-be-misread-or-reused-as-an-authorization-to-create-or-run-a-resource-before-independent-reviews;formal_go-false-does-not-neutralize-the-explicit-execution-authorized-true
+required_fix_1	refreeze-a-new-candidate-authority-with-decision-CANDIDATE-or-PENDING-review_approved-false-and-execution_authorized-false-container-create-false-container-execute-false-formal_go-false;only-a-later-resource-authority-after-the-acyclic-review-chain-may-enable-one-execution
+required_regression_1	add-negative-assertions-that-candidate-authorization-alone-cannot-reach-Docker-and-that-any-pre-review-execution_authorized-true-or-decision-GO-is-rejected-before-evidence-or-child-command
+container_create_authorized	false
+container_execute_authorized	false
+formal_go	false
+resource_authority_issuable	false
+open_p0	0
+open_p1	1
+open_p2	0
+next_gate	correct-pre-review-candidate-authorization-and-refreeze-before-new-independent-reviews

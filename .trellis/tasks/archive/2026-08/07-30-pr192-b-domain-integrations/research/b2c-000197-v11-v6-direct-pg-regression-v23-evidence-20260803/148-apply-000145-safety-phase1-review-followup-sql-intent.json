@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v23-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v23_20260803a",
+  "stage": "apply-000145-safety-phase1-review-followup-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v23-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v23_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 770,
+    "raw_sha256": "20975792fc3ab6eb2b1bf5d7132c2bc8232f5e89f9fc75b14a1c7e5d30e2b6ac",
+    "persisted": false
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v22-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v22_20260803a",
+  "stage": "apply-000170-go-live-acceptance-field-execution-bridge-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v22-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v22_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 1833,
+    "raw_sha256": "316fad9d34d0a06f7f369e71bc26c25da90e2eea19d50cc2667f7232540b54bd",
+    "persisted": false
+  }
+}

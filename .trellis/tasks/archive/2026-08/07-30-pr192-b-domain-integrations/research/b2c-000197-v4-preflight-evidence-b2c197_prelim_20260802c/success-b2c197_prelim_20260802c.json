@@ -1,0 +1,56 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-v4",
+  "evidence_policy_version": "b2c-000197-child-evidence-v4",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "status": "PASSED",
+  "recorded_at_utc": "2026-08-01T22:18:07.772Z",
+  "evidence_entries": [
+    {
+      "filename": "001-inspect-c-intent.json",
+      "bytes": 831,
+      "raw_sha256": "efc3fb96cc537e45fc180f86d1664dcfc54a4293f8570d7e8eca8a89f0ec6730"
+    },
+    {
+      "filename": "001-inspect-c-result.json",
+      "bytes": 984,
+      "raw_sha256": "1684ef0d8099fcf7cc1e4d033a50752389b277ebf448b07fc95462bbdb7b8906"
+    },
+    {
+      "filename": "002-preflight-c-intent.json",
+      "bytes": 836,
+      "raw_sha256": "e37129e518cc9832dc862bbec8a6fb5c914e204cc218eb8eec27da73e860374c"
+    },
+    {
+      "filename": "002-preflight-c-result.json",
+      "bytes": 972,
+      "raw_sha256": "7b988a89d2a3f5bf4cc18ed17fe218c5edc9d6cda9135755d7cbdd35915f1b36"
+    },
+    {
+      "filename": "003-inspect-d-intent.json",
+      "bytes": 831,
+      "raw_sha256": "d032331a636594e854e29708df1590a38a6700b5ad53d3b0b3ffdfa486abf811"
+    },
+    {
+      "filename": "003-inspect-d-result.json",
+      "bytes": 984,
+      "raw_sha256": "d28a2906eb56bc835f1e504c1c2670a7a21e2fccb1c1f649a2b43e2c4520fce0"
+    },
+    {
+      "filename": "004-preflight-d-intent.json",
+      "bytes": 836,
+      "raw_sha256": "47d03bf93c7c8572804bb06f88e0e495aae3e309981b149f7430b2747258f602"
+    },
+    {
+      "filename": "004-preflight-d-result.json",
+      "bytes": 972,
+      "raw_sha256": "1b4c18baa945e96244a70239315913ad3ba7674af25568ffe915ed7a5010362f"
+    }
+  ],
+  "scope": "c-and-d-v4-read-only-preflight",
+  "execution_authorized": false,
+  "final_current": false,
+  "resources_retained": [
+    "c",
+    "d"
+  ]
+}

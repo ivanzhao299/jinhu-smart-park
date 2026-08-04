@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v20-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v20_20260803a",
+  "stage": "apply-000096-s5b-emergency-events-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v20-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v20_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 17256,
+    "raw_sha256": "0e9997bbb1e8c79785e274b2bf545d63b7b476b382f0b88060b3be24c4e262cf",
+    "persisted": false
+  }
+}

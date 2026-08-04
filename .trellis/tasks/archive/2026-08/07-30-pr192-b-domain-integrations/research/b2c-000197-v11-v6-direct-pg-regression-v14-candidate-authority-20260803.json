@@ -1,0 +1,15 @@
+{
+  "schema_version":"b2c-v14-candidate-authority-v1",
+  "status":"PENDING_REVIEW",
+  "execution_authorized":false,
+  "container_create_authorized":false,
+  "container_execute_authorized":false,
+  "formal_go":false,
+  "docker_or_database_command_executed":false,
+  "runner_raw_sha256":"2cf4c11bf4b7890220c11b84a5a75123a6a7f95254fd8addf2fc2c8d1cd6a5d0",
+  "runner_spec_raw_sha256":"abcb2e498de5220fb92aa2534eb6b4d89528199718843a03b43dd6c08e46e16b",
+  "registry_raw_sha256":"4258d142e54d835117fd1e47691456309deedd4affb635bf7534757751b3dcac",
+  "static_test_record_raw_sha256":"9321d44739d5cb157fffc2a4e063e092ee2097f6ddb3479662341b29692b658e",
+  "node22_tap_raw_sha256":"e6046621daf3468e3f3b1271897817c112cb3b4a3df9d8f1704a7366dd01846c",
+  "node24_tap_raw_sha256":"e6046621daf3468e3f3b1271897817c112cb3b4a3df9d8f1704a7366dd01846c"
+}

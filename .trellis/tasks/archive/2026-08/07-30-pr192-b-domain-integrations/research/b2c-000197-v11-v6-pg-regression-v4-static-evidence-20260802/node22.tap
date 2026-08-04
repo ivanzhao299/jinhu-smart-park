@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: v4 candidate freezes review paths and schemas while execution remains false
+ok 1 - v4 candidate freezes review paths and schemas while execution remains false
+  ---
+  duration_ms: 0.96345
+  type: 'test'
+  ...
+# Subtest: v4 database GO and one-way QA GO accept only exact acyclic zero-finding fields
+ok 2 - v4 database GO and one-way QA GO accept only exact acyclic zero-finding fields
+  ---
+  duration_ms: 0.625921
+  type: 'test'
+  ...
+# Subtest: v4 resource authority accepts only exact dedicated anonymous PG16 target
+ok 3 - v4 resource authority accepts only exact dedicated anonymous PG16 target
+  ---
+  duration_ms: 0.73647
+  type: 'test'
+  ...
+# Subtest: v4 GO intake rejects missing, duplicate, unknown, role, decision, P-count and SHA drift
+ok 4 - v4 GO intake rejects missing, duplicate, unknown, role, decision, P-count and SHA drift
+  ---
+  duration_ms: 0.564394
+  type: 'test'
+  ...
+# Subtest: missing dynamic authority stops before claim and first child command
+ok 5 - missing dynamic authority stops before claim and first child command
+  ---
+  duration_ms: 0.286986
+  type: 'test'
+  ...
+# Subtest: authorized v4 fake run writes immutable all-child success evidence and keeps SQL off argv
+ok 6 - authorized v4 fake run writes immutable all-child success evidence and keeps SQL off argv
+  ---
+  duration_ms: 4.960854
+  type: 'test'
+  ...
+# Subtest: psql output is suppressed, immutable, non-reusable and never retries or cleans up
+ok 7 - psql output is suppressed, immutable, non-reusable and never retries or cleans up
+  ---
+  duration_ms: 1.086272
+  type: 'test'
+  ...
+# Subtest: structured redaction covers SQL, JSON, environment, URL and option secrets while benign argv survives
+ok 8 - structured redaction covers SQL, JSON, environment, URL and option secrets while benign argv survives
+  ---
+  duration_ms: 1.30954
+  type: 'test'
+  ...
+# Subtest: authorization redaction consumes complete schemes and credentials with zero sentinel residue
+ok 9 - authorization redaction consumes complete schemes and credentials with zero sentinel residue
+  ---
+  duration_ms: 0.491701
+  type: 'test'
+  ...
+# Subtest: strict identity, mount, no-port and PostgreSQL 16 checks fail closed
+ok 10 - strict identity, mount, no-port and PostgreSQL 16 checks fail closed
+  ---
+  duration_ms: 1.346597
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 22.602897

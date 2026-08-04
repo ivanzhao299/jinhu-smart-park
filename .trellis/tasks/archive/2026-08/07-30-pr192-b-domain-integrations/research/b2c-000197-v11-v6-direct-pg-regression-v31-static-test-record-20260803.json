@@ -1,0 +1,28 @@
+{
+  "schema_version": "b2c-v31-static-test-record-v1",
+  "runner_raw_sha256": "5efe5a38019b83043383d1f4239f6214123590706cdfc4413a0c8a3ec02d8d43",
+  "test_raw_sha256": "b016daf3b624dec2d5fc56436d57cc1e13eb97fdca7e91628b199954c7b66a7f",
+  "node22": {
+    "binary": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node",
+    "result": "pass",
+    "raw_tap_sha256": "f40711149f4dc4f4ab1974ffaaf43791bf90fb03cbc0db1965e956970033aa3a"
+  },
+  "node24": {
+    "binary": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node",
+    "result": "pass",
+    "raw_tap_sha256": "3cb1db388e0275e42a93f46d6b4c0d28f125a4568d20e78ee70610ff7a8f67a1"
+  },
+  "docker_or_database_command_executed": false,
+  "coverage": [
+    "v30-failure-root-cause",
+    "production-contract-valid-terminal-fixture",
+    "fail-closed-isolated-immutable-cleanup",
+    "independent-authority-drift-negatives",
+    "loopback-only-dynamic-host-port",
+    "pre-mutation-connectivity-probe",
+    "v30-complete-identity-nonreuse",
+    "four-fault-boundaries",
+    "000197-rerun-seven-test-cleanup"
+  ]
+}
+

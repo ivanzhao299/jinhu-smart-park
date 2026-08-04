@@ -1,0 +1,19 @@
+format=b2c-stopship-permission-source-grammar-v1
+encoding=UTF-8
+line_endings=LF
+ordering=path-bytewise-ascending
+columns=path<TAB>bytes<TAB>raw_sha256
+files=12
+---
+apps/api/src/modules/homestay/homestay.controller.spec.ts	8319	d29e6fe2b3b2bf2c78bd0f04076ae9d9f78f5b6052f86a32b6713010880b4894
+apps/api/src/modules/homestay/homestay.controller.ts	15124	811a9d653e37db7855f701b89140586476ec1d3b1b5e25b8236eff2adafeca08
+apps/api/src/modules/homestay/homestay.service.spec.ts	31220	3156bfc88a2532ffeb2d2360122eee7c2748ae3f24078a8bc1952f9d0c551b92
+apps/api/src/modules/homestay/homestay.service.ts	86518	4b24b429529c25825475a135ee6dd34dca906929639426bda7f7a99b530eca87
+apps/api/src/modules/housing/housing.controller.spec.ts	12848	341a06d58df9944e192f15e0e895d8d36427a708f8e985acacbd37c40c656149
+apps/api/src/modules/housing/housing.controller.ts	18653	cb6b5d611436f9d7afea31e971743a261e5fa3bab783f37d2f4b8b91f779dda0
+apps/api/src/modules/housing/housing.service.spec.ts	12777	da5c6071e750bfde3ff246b32e145f813e9efff0f16b9d963ddb779d19a4be12
+apps/api/src/modules/housing/housing.service.ts	93614	4b820f773167100dbfa909fb0ac1071f6bbc9c2673e253fe8a413668f53ded85
+apps/api/src/shared/guards/property-high-risk-action.guard.spec.ts	12173	a85827d92e51b83730a9ff2bc9800614f052c9b4dbdae13312593b191a23a9b6
+apps/api/src/shared/guards/property-high-risk-action.guard.ts	3690	81423935af6a75da91989e8a515fce5728c3137a6a7c401b5cf7c01d23dbe16c
+apps/api/src/shared/property-workbench/property-high-risk-stopship.spec.ts	2254	41e5b40dc1ad0dac2704bf09e6ae0c730b6e8cdfea9af38d3be1b8fdc3941857
+apps/api/src/shared/property-workbench/property-high-risk-stopship.ts	1619	2f7fc95c884beda5aa3baf34396027cd7a1583b3fa3e8e37c5f8d729d0516d74

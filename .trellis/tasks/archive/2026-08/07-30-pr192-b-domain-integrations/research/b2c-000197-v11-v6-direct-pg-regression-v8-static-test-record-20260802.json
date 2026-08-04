@@ -1,0 +1,10 @@
+{
+  "schema_version": "b2c-000197-v11-v6-direct-pg-regression-v8-static-test-record-v1",
+  "status": "passed",
+  "node_22_tap_raw_sha256": "8bad92c3e943c3aa64d08bb5154031034a501107863cf09dcac84dce50b2e854",
+  "node_24_tap_raw_sha256": "8bad92c3e943c3aa64d08bb5154031034a501107863cf09dcac84dce50b2e854",
+  "node_22_result": "2/2 passed",
+  "node_24_result": "2/2 passed",
+  "checks": ["no raw target execution export", "negative intake has no spawn/evidence", "duplicate/extra markers fail closed", "Buffer output normalizes"],
+  "docker_or_database_command_executed": false
+}

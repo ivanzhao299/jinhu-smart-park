@@ -1,0 +1,27 @@
+{
+  "schema_version": "b2c-000197-child-parse-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 1,
+  "stage": "static-v11-evidence",
+  "recorded_at_utc": "2026-08-02T02:43:32.744Z",
+  "result_raw_sha256": "e66676e81ed187ac3e26166d07edfb48d4bb6ccc90c413bc19f6fabbb11a7c13",
+  "output": {
+    "bytes": 2422,
+    "raw_sha256": "a1175eddd8a92e0fdeef7b692d4d9b6a34abf8e81030c6c393015ce470d7aff6",
+    "redacted_utf8": "TAP version 13\n# Subtest: success terminal recursively discovers terminal-only secrets before immutable write\nok 1 - success terminal recursively discovers terminal-only secrets before immutable write\n  ---\n  duration_ms: 3.239377\n  type: 'test'\n  ...\n# Subtest: failure terminal recursively discovers error and payload secrets before write\nok 2 - failure terminal recursively discovers error and payload secrets before write\n  ---\n  duration_ms: 0.992959\n  type: 'test'\n  ...\n# Subtest: failure terminal records exact safe child SQLSTATE and marker summary without raw stderr\nok 3 - failure terminal records exact safe child SQLSTATE and marker summary without raw stderr\n  ---\n  duration_ms: 1.261329\n  type: 'test'\n  ...\n# Subtest: benign terminal payload and argv remain readable while negative secret controls stay absent\nok 4 - benign terminal payload and argv remain readable while negative secret controls stay absent\n  ---\n  duration_ms: 0.647375\n  type: 'test'\n  ...\n# Subtest: inspect output and argv secrets are discovered before result and intent writes\nok 5 - inspect output and argv secrets are discovered before result and intent writes\n  ---\n  duration_ms: 2.168762\n  type: 'test'\n  ...\n# Subtest: phase failure keeps exact primary and records cleanup and after first\nok 6 - phase failure keeps exact primary and records cleanup and after first\n  ---\n  duration_ms: 1.810487\n  type: 'test'\n  ...\n# Subtest: direct fixture five intent uses explicit TAP reporter and parses exact child output\nok 7 - direct fixture five intent uses explicit TAP reporter and parses exact child output\n  ---\n  duration_ms: 1.248543\n  type: 'test'\n  ...\n# Subtest: direct exact-eight intent uses explicit TAP reporter\nok 8 - direct exact-eight intent uses explicit TAP reporter\n  ---\n  duration_ms: 0.917098\n  type: 'test'\n  ...\n# Subtest: suite count, skipped output and missing names fail closed after parse evidence\nok 9 - suite count, skipped output and missing names fail closed after parse evidence\n  ---\n  duration_ms: 3.647864\n  type: 'test'\n  ...\n# Subtest: integrated fault failures persist safe exact terminal context for child and after-snapshot faults\nok 10 - integrated fault failures persist safe exact terminal context for child and after-snapshot faults\n  ---\n  duration_ms: 3.0157\n  type: 'test'\n  ...\n1..10\n# tests 10\n# suites 0\n# pass 10\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 179.17802\n"
+  },
+  "parse": {
+    "status": "passed",
+    "value": {
+      "tests": 10,
+      "suites": 0,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "names": []
+    }
+  }
+}

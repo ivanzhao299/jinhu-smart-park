@@ -1,0 +1,14 @@
+{
+  "schema_version": "b2c-000197-v11-v6-pg-regression-v3-static-test-record-v1",
+  "status": "PASS-STATIC-ONLY",
+  "execution_authorized": false,
+  "formal_go": false,
+  "resource_authority_created": false,
+  "docker_or_database_command_executed": false,
+  "node22": {"tests":9,"pass":9,"fail":0,"raw_output_sha256":"fd0f9e2432f7c62d231eb953b2942499e2ff5637ebfbe41488ae65be076f7a5c","raw_output_bytes":2194,"exit_code":0},
+  "node24": {"tests":9,"pass":9,"fail":0,"raw_output_sha256":"23513302c19de8244bba3589836a1b326a3221a51559409bdfa6247227d96530","raw_output_bytes":992,"exit_code":0},
+  "eslint": {"errors":0,"warnings":0,"raw_output_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","raw_output_bytes":0,"exit_code":0},
+  "all_child_static_manifest_raw_sha256": "aa79c70b79deedb346bda44905770e3d61883fc2e061f1ce5c84141ec098f193",
+  "coverage": ["acyclic candidate-database-qa-resource-runtime authority order","candidate reviews cannot create or execute containers","resource binds candidate plus both GO hashes","runner spec SHA bytes and mode binding","psql output suppression with raw hashes","SQL JSON environment option header and URL secret redaction","benign argv preservation","strict resource and live identity preflight","atomic immutable non-reusable evidence"],
+  "source_no_go_raw_sha256": "c3de31a437a3ddb93291d2c03b9cb7e21f3ac1ead2981bd211c583514d75950f"
+}

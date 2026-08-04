@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 6,
+  "stage": "static-v11-contract",
+  "recorded_at_utc": "2026-08-02T03:03:43.443Z",
+  "intent_raw_sha256": "d0947dd58398b2923e1bce1d84c202231052fb11420e6f71f33bb6013d52e909",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 1777,
+    "raw_sha256": "146235af14be3c2b922e39293d0cd8b57b227740a8c63b0f38584d99fb4e9b13",
+    "redacted_utf8": "TAP version 13\n# Subtest: v2 immutable R0/R1/SQL chain is exact and old R1 is audit-only\nok 1 - v2 immutable R0/R1/SQL chain is exact and old R1 is audit-only\n  ---\n  duration_ms: 1.214119\n  type: 'test'\n  ...\n# Subtest: SQL checks the complete 000197 prefix and exact self history\nok 2 - SQL checks the complete 000197 prefix and exact self history\n  ---\n  duration_ms: 0.139144\n  type: 'test'\n  ...\n# Subtest: history classifier executes every required matrix branch\nok 3 - history classifier executes every required matrix branch\n  ---\n  duration_ms: 1.125163\n  type: 'test'\n  ...\n# Subtest: failed retry rejects arbitrary nonempty proof and requires lowercase raw SHA\nok 4 - failed retry rejects arbitrary nonempty proof and requires lowercase raw SHA\n  ---\n  duration_ms: 0.239652\n  type: 'test'\n  ...\n# Subtest: resource classifier rejects same-name replacement and every frozen identity drift\nok 5 - resource classifier rejects same-name replacement and every frozen identity drift\n  ---\n  duration_ms: 0.481387\n  type: 'test'\n  ...\n# Subtest: SQL retains exact lock, signed catalog and create-first swap\nok 6 - SQL retains exact lock, signed catalog and create-first swap\n  ---\n  duration_ms: 0.37622\n  type: 'test'\n  ...\n# Subtest: runner freezes worktree rescan, manifest, exact resources and review fields\nok 7 - runner freezes worktree rescan, manifest, exact resources and review fields\n  ---\n  duration_ms: 0.171149\n  type: 'test'\n  ...\n# Subtest: all section 10 scenarios remain registered and final-only cases stay deferred\nok 8 - all section 10 scenarios remain registered and final-only cases stay deferred\n  ---\n  duration_ms: 0.256131\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 25.2322\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

@@ -1,0 +1,1 @@
+{"schema":"b2c-000197-v11-v6-pg-regression-v3-static-child-result-v1","stage":"node22","exit_code":0,"output_path":"001-node22.tap","output_bytes":2194,"output_raw_sha256":"fd0f9e2432f7c62d231eb953b2942499e2ff5637ebfbe41488ae65be076f7a5c","tests":9,"pass":9,"fail":0,"skipped":0,"cancelled":0,"todo":0}

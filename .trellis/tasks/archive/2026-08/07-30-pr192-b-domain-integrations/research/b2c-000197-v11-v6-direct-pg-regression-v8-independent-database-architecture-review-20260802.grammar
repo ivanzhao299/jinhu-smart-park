@@ -1,0 +1,26 @@
+b2c-000197-v11-v6-direct-pg-regression-v8-independent-database-architecture-review-v1
+reviewed_at_utc	2026-08-02T14:50:15Z
+reviewer_authority	independent-database-architecture-reviewer
+decision	RETURNED
+review_approved	false
+candidate_authority_raw_sha256	ee96050a54cdc9e79d8f04be367f66910a877a300ee1327275b0558ab78a8223
+candidate_manifest_raw_sha256	5e63a59957ccd22b4d3b6b9c69380633166a272feab8ec87ae706b86956cd457
+static_test_record_raw_sha256	fd2f9cb2111cce820072cbc797149d5d3cb1fc23494c051e26843184dc9c837b
+review_handoff_raw_sha256	d7dc79edd7238418e309bfa04372e1507c0851d7e7a2e2536ef6b56843ecce89
+runner_raw_sha256	a4ca3bb55a0f21479856230cf0d6b6f25d926ea428954cfbc27f6168b0199e22
+runner_spec_raw_sha256	2fed6c03207114a47d6196ab302fe3991e61e5f16f1680010f6d515d1a8e1049
+resource_identity_registry_raw_sha256	019e958b34837b987514abaf2b4251c39c38f5c8bc4236986ef310b5b48589b1
+v7_authority_intake_bypass	closed-static;executeV8-accepts-no-raw-target-and-calls-intakeV8-before-evidence-root-or-child-command;sealed-delegate-is-not-exported
+buffer_and_catalog_contract	pass-static;utf8-normalization-retained;direct-baseline-and-dual-history-contract-retained;old-hashes-and-v2-build-residue-contract-retained
+finding_p1_1	identity-registry-claims-to-inventory-v4-but-known_volumes-omits-the-retained-v4-anonymous-volume-858adfc91337b506c9937bc1af93287ef7d2919d8070e6f789849fb4efa9e6aa
+evidence_p1_1	v4-resource-authority-and-immutable-inspect-evidence-bind-that-volume-to-failed-run-b2c197_v11v6_isolated_20260802a;v8-identityRegistry-only-tests-target-absence-from-known_volumes
+impact_p1_1	a-v8-resource-authority-can-reuse-the-failed-v4-volume-while-using-a-new-runId-container-and-database-and-still-pass-the-current-registry-check;this-violates-prior_target_reuse-false-and-the-no-prior-failure-resource-boundary
+required_fix_1	include-the-v4-volume-in-the-immutable-registry-and-add-negative-coverage-that-a-target-using-it-fails-before-any-child-command;regenerate-registry-manifest-authority-static-record-and-handoff-as-a-new-candidate
+container_create_authorized	false
+container_execute_authorized	false
+formal_go	false
+resource_authority_issuable	false
+open_p0	0
+open_p1	1
+open_p2	0
+next_gate	complete-identity-inventory-refreeze-and-repeat-independent-db-qa-drain-reviews

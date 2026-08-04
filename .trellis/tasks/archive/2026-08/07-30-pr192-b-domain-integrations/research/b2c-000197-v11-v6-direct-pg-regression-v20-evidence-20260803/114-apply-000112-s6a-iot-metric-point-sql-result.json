@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v20-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v20_20260803a",
+  "stage": "apply-000112-s6a-iot-metric-point-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 181,
+    "raw_sha256": "8ee9c8da21c062d9988965c0e93913dd716da659b33b63ac737dea605a9c0a13",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

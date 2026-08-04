@@ -1,0 +1,9 @@
+TAP version 13
+# Subtest: v8 exports only sealed execution and blocks before evidence or spawn when intake is absent
+ok 1 - v8 exports only sealed execution and blocks before evidence or spawn when intake is absent
+# Subtest: v8 safe summaries redact output shape and reject extra, duplicate or wrong markers
+ok 2 - v8 safe summaries redact output shape and reject extra, duplicate or wrong markers
+1..2
+# tests 2
+# pass 2
+# fail 0

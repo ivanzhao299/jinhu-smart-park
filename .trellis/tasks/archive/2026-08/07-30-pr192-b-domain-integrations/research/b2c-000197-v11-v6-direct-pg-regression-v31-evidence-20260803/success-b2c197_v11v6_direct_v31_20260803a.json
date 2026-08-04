@@ -1,0 +1,80 @@
+{
+  "schema_version": "b2c-v31-terminal-v1",
+  "run_id": "b2c197_v11v6_direct_v31_20260803a",
+  "status": "SUCCESS",
+  "run_id_reusable": false,
+  "retry_attempted": false,
+  "cleanup_attempted": false,
+  "authority_provenance": {
+    "resource_observation_raw_sha256": "0c6c7abb728bef0929467cd31ec61f26f4eb9665790a7bf58ee527f48582802a",
+    "execution_authority_raw_sha256": "5d72c08ff5b4324b7477b7e61dbe6b119557370fd2c0c3258b42404cf76648bf"
+  },
+  "direct_baseline": "fixed-fixture-plus-000185-000195-original-bytes",
+  "formal_source_snapshot_manifest_raw_sha256": "9ddfe267ff9d85ab3773de7c547b3005068ff40afb8c2e89b42b3664ce5be022",
+  "combined_snapshot_raw_sha256": "033dbac81f27eefb0ddb9b2ba1795e88eec07c3c7f1004ad24635a01605080f1",
+  "resolution_guard_raw_sha256": "ffe7adf8e6b0c1a8e78a5d6fa830d47a7a37e8f5d3c2ce999f90693837cda48c",
+  "runtime_dependency_manifest_raw_sha256": "584c6d7eeb42f966e185ab4b4377b5168a825c6a2d4c1d545cb615540315e743",
+  "faults": [
+    {
+      "boundary": "before-create",
+      "injection_point": "after-validation",
+      "catalog_state": "old-present-build-absent",
+      "marker": "v31-injected-before-create",
+      "sqlstate": "P0001",
+      "snapshot_exact": true
+    },
+    {
+      "boundary": "after-create",
+      "injection_point": "after-validation",
+      "catalog_state": "old-present-build-present",
+      "marker": "v31-injected-after-create",
+      "sqlstate": "P0001",
+      "snapshot_exact": true
+    },
+    {
+      "boundary": "after-drop",
+      "injection_point": "immediately-after-ddl",
+      "catalog_state": "old-absent-build-present",
+      "marker": "v31-injected-after-drop",
+      "sqlstate": "P0001",
+      "snapshot_exact": true
+    },
+    {
+      "boundary": "before-rename",
+      "injection_point": "after-validation",
+      "catalog_state": "old-absent-build-present",
+      "marker": "v31-injected-before-rename",
+      "sqlstate": "P0001",
+      "snapshot_exact": true
+    }
+  ],
+  "migration_000197": {
+    "filename": "000197_property_approval_active_source_index_forward_fix.sql",
+    "raw_sha256": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+    "status": "succeeded",
+    "dual_history_atomic": true,
+    "identical_byte_rerun": true,
+    "catalog_history_unchanged": true
+  },
+  "approval_port_pg": {
+    "plan": 7,
+    "tests": 7,
+    "suites": 0,
+    "pass": 7,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "names": [
+      "requires the forward-fixed active partial unique predicate",
+      "recovers every real dependent 23505 and proves caller commit or rollback",
+      "fails unknown 23505 and unknown DB errors closed with usable caller manager",
+      "keeps writes invisible before caller commit and removes them on caller rollback",
+      "enforces terminal monotonicity before INSERT under the caller-held source lock",
+      "serializes two post-terminal intents with the caller-held source lock",
+      "resolves client-key, business-intent and active-source races and preserves manager usability"
+    ],
+    "fixture_cleanup": true
+  },
+  "final_snapshot_exact": true
+}

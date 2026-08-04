@@ -1,0 +1,8 @@
+{
+  "schema_version": "b2c-000197-v11-v6-direct-pg-regression-v7-static-test-record-v1",
+  "status": "passed",
+  "node_22": { "command": "node scripts/e2e/property-remediation/tests/b2c-000197-v11-v6-direct-pg-regression-v7.spec.mjs", "result": "2/2 passed" },
+  "node_24": { "command": "node scripts/e2e/property-remediation/tests/b2c-000197-v11-v6-direct-pg-regression-v7.spec.mjs", "result": "2/2 passed" },
+  "checks": ["four-signature intake remains pre-evidence and pre-Docker", "Buffer child output normalizes to UTF-8", "P0001 requires verbose marker match", "structured before/after snapshots are exact", "direct baseline never consumes pg_dump"],
+  "docker_or_database_command_executed": false
+}

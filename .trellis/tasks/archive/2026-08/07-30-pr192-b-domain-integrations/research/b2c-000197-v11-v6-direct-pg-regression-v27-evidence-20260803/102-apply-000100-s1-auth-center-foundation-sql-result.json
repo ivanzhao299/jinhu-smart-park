@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v27-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v27_20260803a",
+  "stage": "apply-000100-s1-auth-center-foundation-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 234,
+    "raw_sha256": "34d98cab7b6eee6c97ca8fe9349a1fc22b23952878276ae0b867ffbf06e71bc0",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

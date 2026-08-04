@@ -1,0 +1,46 @@
+{
+  "schema_version": "b2c-000197-v11-v5-missing-six-go-env-pre-intake-invocation-audit-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "recorded_at_utc": "2026-08-02T03:26:40Z",
+  "classification": "AUDIT_ONLY_MISSING_SIX_GO_ENV_PRE_INTAKE_INVOCATION",
+  "safe_intent_filename": "b2c-000197-v11-v5-formal-execute-safe-intent-20260802f.json",
+  "safe_intent_raw_sha256": "bc60991bf5bdf7508f8b1da2e41db42b96bdb017570d0c881f7701e940559f7c",
+  "command": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node",
+  "argv": [
+    "scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs"
+  ],
+  "entry_environment_asserted": {
+    "B2C_000197_PRELIMINARY_V11_EXECUTE": "1",
+    "B2C_000197_PRELIMINARY_V11_RUN_ID": "b2c197_prelim_20260802f"
+  },
+  "required_go_environment_key_names_missing": [
+    "B2C_000197_V11_DATABASE_PATH",
+    "B2C_000197_V11_DATABASE_SHA",
+    "B2C_000197_V11_QA_PATH",
+    "B2C_000197_V11_QA_SHA",
+    "B2C_000197_V11_DRAIN_PATH",
+    "B2C_000197_V11_DRAIN_SHA"
+  ],
+  "exit_code": 1,
+  "signal": null,
+  "error": {
+    "name": "Error",
+    "message": "v11-database-path"
+  },
+  "failed_stage": "dynamic-intake-database-authority-path",
+  "formal_evidence_root": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-evidence-b2c197_prelim_20260802f",
+  "formal_evidence_root_state_after_invocation": "absent",
+  "database_authority_validated": false,
+  "qa_or_drain_intake_started": false,
+  "evidence_recorder_created": false,
+  "fresh_inspect_or_preflight_started": false,
+  "docker_command_executed": false,
+  "database_command_executed": false,
+  "database_writes": 0,
+  "fault_migration_matrix_or_approval_started": false,
+  "cleanup_attempted": false,
+  "retry_attempted": false,
+  "candidate_or_authority_file_modified": false,
+  "containers_or_volumes_modified": false,
+  "disposition": "STOP_NO_RETRY_PENDING_NEW_EXPLICIT_AUTHORIZATION"
+}

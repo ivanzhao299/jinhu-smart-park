@@ -1,0 +1,25 @@
+b2c-000197-formal-v10-independent-database-failure-review-v1
+formal_run_id	b2c197_prelim_20260802b
+failure_artifact_raw_sha256	6af2bd4f557ead120503cc39ffb6d9ec4380178ac863b47268d9671d68f4039f
+failure_manifest_raw_sha256	846e70b3fdb54298b44f9a5216113a3f4d09997ba728722a7e6d65f28bacd997
+evidence_file_count	57
+child_evidence_count	55
+evidence_integrity	PASS-exact-bytes-sha256-mode-0444
+decision	FAILED-NO-GO
+open_p0	0
+open_p1	2
+open_p2	0
+root_cause	failure-harness-called-undefined-before-create-helper-sqlstate-42883-before-required-p0001-marker
+marker_result	missing-v10-injected-before-create-formal-rejection-correct
+rollback_observation	before-and-after-snapshots-byte-identical-no-additional-fault-residue
+boundary_fidelity	P1-faults-ran-after-migration-not-from-old-absent-baseline
+target_c_last_evidenced_state	000197-primary-and-mirror-succeeded-exact-checksum-new-index-new-predicate-zero-approval-rows-no-build-residue-rerun-exact
+target_d_last_evidenced_state	000197-primary-and-mirror-absent-old-index-old-predicate-zero-approval-rows-no-build-residue
+run_id_reusable	false
+minimum_fix	replace-three-undefined-helper-calls-with-inline-do-catalog-assertions;run-four-faults-before-migrate;require-unique-p0001-marker-and-exact-before-after-snapshot
+required_negative_tests	no-external-helper;missing-marker-rejected;wrong-marker-rejected;four-boundary-state-and-order;faults-before-migrate
+next_formal_resources	new-dedicated-e-and-f-containers-and-anonymous-volumes
+next_authority	new-resource-authority-new-unique-run-id-new-frozen-candidate-and-independent-reviews
+existing_c_d_policy	retain-audit-only-no-cleanup-no-rerun-no-original-scenario-reuse
+recovery_scenario	optional-separate-mixed-c-succeeded-d-absent-authority-not-a-substitute-for-clean-e-f-formal
+reviewer_authority	independent-database-reviewer

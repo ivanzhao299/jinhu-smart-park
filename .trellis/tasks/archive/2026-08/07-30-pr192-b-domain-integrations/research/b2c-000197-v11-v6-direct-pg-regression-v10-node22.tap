@@ -1,0 +1,5 @@
+TAP version 13
+ok 1 - v10 exhaustive missing GO-chain inputs spawn nothing
+1..1
+# pass 1
+# fail 0

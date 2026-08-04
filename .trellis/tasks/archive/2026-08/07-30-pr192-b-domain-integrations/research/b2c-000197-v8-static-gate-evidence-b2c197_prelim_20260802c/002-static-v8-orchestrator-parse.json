@@ -1,0 +1,27 @@
+{
+  "schema_version": "b2c-000197-child-parse-v8",
+  "evidence_policy_version": "b2c-000197-child-evidence-v8",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "sequence": 2,
+  "stage": "static-v8-orchestrator",
+  "recorded_at_utc": "2026-08-01T23:42:19.476Z",
+  "result_raw_sha256": "468d62493e3a8cdd39267a4cc6f8cc05f2cf552b53e2eba8e0647bfe1ddacd46",
+  "output": {
+    "bytes": 977,
+    "raw_sha256": "35eca361b2b4a4a17b7e0165fd326842ab994ca38c81ee90f4f79af437a0c2af",
+    "redacted_utf8": "TAP version 13\n# Subtest: logical v8 run ID is 02c while physical resources remain exact approved 02b identities\nok 1 - logical v8 run ID is 02c while physical resources remain exact approved 02b identities\n  ---\n  duration_ms: 2.893877\n  type: 'test'\n  ...\n# Subtest: absent requires numeric zero rows and exact old catalog\nok 2 - absent requires numeric zero rows and exact old catalog\n  ---\n  duration_ms: 0.271326\n  type: 'test'\n  ...\n# Subtest: static mode explicitly distinguishes pre-freeze and post-freeze contracts\nok 3 - static mode explicitly distinguishes pre-freeze and post-freeze contracts\n  ---\n  duration_ms: 2758.806116\n  type: 'test'\n  ...\n# Subtest: formal static and lifecycle Node test children all declare TAP reporter\nok 4 - formal static and lifecycle Node test children all declare TAP reporter\n  ---\n  duration_ms: 0.556341\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2771.994703\n"
+  },
+  "parse": {
+    "status": "passed",
+    "value": {
+      "tests": 4,
+      "suites": 0,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "names": []
+    }
+  }
+}

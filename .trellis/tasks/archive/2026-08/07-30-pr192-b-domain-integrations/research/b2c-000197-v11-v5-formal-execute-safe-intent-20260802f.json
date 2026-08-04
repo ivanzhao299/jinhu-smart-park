@@ -1,0 +1,32 @@
+{
+  "schema_version": "b2c-000197-v11-v5-formal-execute-safe-intent-v1",
+  "recorded_at_utc": "2026-08-02T03:24:15Z",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "classification": "AUTHORIZED_FIRST_REAL_FORMAL_EXECUTE_INTENT",
+  "command": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node",
+  "argv": [
+    "scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs"
+  ],
+  "required_exact_environment": {
+    "B2C_000197_PRELIMINARY_V11_EXECUTE": "1",
+    "B2C_000197_PRELIMINARY_V11_RUN_ID": "b2c197_prelim_20260802f"
+  },
+  "forbidden_entry_environment_keys": [
+    "B2C_000197_V11_PREFLIGHT",
+    "B2C_000197_V11_FREEZE",
+    "B2C_000197_V11_STATIC_GATE",
+    "B2C_000197_V11_STATIC_MODE"
+  ],
+  "database_review_raw_sha256": "77f1d3dc8fb42aae2a48385caa22acb385671e6fe02ad941b7bdaf7c116790a7",
+  "qa_security_review_raw_sha256": "5ab20a43d84e32f6436686972af602b21abb5a4dc1f73d1fa81c670145de144f",
+  "old_writer_drain_raw_sha256": "03cd70e5690b1ecb7acef85b546f3dc5583b2b79fd3ec781cb26982748e206b2",
+  "manifest_raw_sha256": "e6d79fc1581ba580932b4689095117ffd2b482d33f5809c71964102f7b5af017",
+  "handoff_raw_sha256": "81c23cb59cd602e762d763da80beab699505a54c89c8175ef8d39c45e1460c60",
+  "static_terminal_raw_sha256": "7adea3bf85057340da866bc935893f4ceff95714ca0690bb258e2af17a121426",
+  "resource_authority_raw_sha256": "6c1c38fae1a91387af2e0f27cbac88d58d15f80e91f4ef7a9c1baf5b8cb6e424",
+  "formal_evidence_root_state_before_invocation": "absent",
+  "targets": ["e", "f"],
+  "credentials_recorded": false,
+  "retry_on_failure_authorized": false,
+  "cleanup_on_completion_authorized": false
+}

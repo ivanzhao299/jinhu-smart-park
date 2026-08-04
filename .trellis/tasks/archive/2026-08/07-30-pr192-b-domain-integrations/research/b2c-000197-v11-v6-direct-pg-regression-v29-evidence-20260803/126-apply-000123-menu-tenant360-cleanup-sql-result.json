@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v29-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v29_20260803a",
+  "stage": "apply-000123-menu-tenant360-cleanup-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 20,
+    "raw_sha256": "bdf6e9fb56929b393c9e15d98b19d9e2b01ad61f28ae3807143351820de0dfac",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

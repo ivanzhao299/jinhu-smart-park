@@ -1,0 +1,49 @@
+{
+  "schema_version": "b2c-v30-candidate-manifest-v1",
+  "status": "PENDING_REVIEW",
+  "candidate_flags": {
+    "container_create_authorized": false,
+    "container_execute_authorized": false,
+    "execution_authorized": false,
+    "formal_go": false
+  },
+  "candidate_authority_raw_sha256": "382d42dea2ce63f9e8630390399873f2abe0f01f73f16db74d14f6f8bb6cbac1",
+  "runner_raw_sha256": "2e6e35ade00cdfaa712e9fc5e5fc69aa945162876c0fc6da3655b673c0ba864b",
+  "runner_spec_raw_sha256": "bf71854d03023bc1e710144053855f53f236a3102326bacfe15574251d870fd6",
+  "registry_raw_sha256": "bfc0d533584877c7bed55efbec3d7d96b4e1710f0c9bc73fba5d5543b8bc9a41",
+  "static_test_record_raw_sha256": "cc7bf8376c3f279ddec896eceb90ea38c8fa18f1f43c8d4f3db7cf4c5b19e4b8",
+  "node22_tap_raw_sha256": "ba06518460a1daa99fac6fbbdb27ac3b4fc9a5e46a2f599f40e426ff3900b69a",
+  "node24_tap_raw_sha256": "637e2838e4a28dce23d89a13cf769b3850ea4792ab6f5c5c0b9bbec7f57c1eac",
+  "migration_000197_raw_sha256": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+  "formal_source_manifest_raw_sha256": "b536de67faf6d3559974ce60d21a073bd51bcf28e4d1484c966954b19461e0d7",
+  "runtime_dependency_manifest_raw_sha256": "584c6d7eeb42f966e185ab4b4377b5168a825c6a2d4c1d545cb615540315e743",
+  "combined_snapshot_raw_sha256": "4855acf724000d2c6199c4305c8591cca99565bd68c01cc75103d67c64f08ef4",
+  "resolution_guard_raw_sha256": "72da544533fc969cd2554361105ab219119ed6825b0cb341bfb36a15f4555564",
+  "review_chain": [
+    "candidate",
+    "database",
+    "qa",
+    "security",
+    "drain",
+    "provision_authority",
+    "resource_observation",
+    "execution_authority"
+  ],
+  "canonical_paths": {
+    "candidate": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-candidate-authority-20260803.json",
+    "manifest": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-candidate-manifest-20260803.json",
+    "registry": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-resource-registry-20260803.json",
+    "staticRecord": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-static-test-record-20260803.json",
+    "node22Tap": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-node22.tap",
+    "node24Tap": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-node24.tap",
+    "databaseReview": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-independent-database-review-20260803.json",
+    "qaReview": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-independent-qa-review-20260803.json",
+    "securityReview": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-independent-security-review-20260803.json",
+    "drainReview": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-independent-old-writer-drain-review-20260803.json",
+    "provisionAuthority": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-provision-authority-20260803.json",
+    "observation": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-resource-observation-20260803.json",
+    "executionAuthority": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-execution-authority-20260803.json"
+  },
+  "trust_root": "repository-fixed-path-procedural-root-v1"
+}
+

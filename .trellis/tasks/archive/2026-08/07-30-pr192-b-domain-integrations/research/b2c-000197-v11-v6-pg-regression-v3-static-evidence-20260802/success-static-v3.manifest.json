@@ -1,0 +1,18 @@
+{
+  "schema": "b2c-000197-v11-v6-pg-regression-v3-static-manifest-v1",
+  "status": "SUCCESS",
+  "all_files_mode": "0444",
+  "children": 3,
+  "files": {
+    "001-node22.intent.json": "8d846937e9b525260f823ad0437715f0b6516d41663be839155a3471109d973d",
+    "001-node22.result.json": "7446aff92268451930dbb7abbc927707de43bdd3c5926324d28048ee31c503c9",
+    "001-node22.tap": "fd0f9e2432f7c62d231eb953b2942499e2ff5637ebfbe41488ae65be076f7a5c",
+    "002-node24.intent.json": "cd2f131e5654a73f855aa54e67e183075dcbbe06de8e5d86219362f778646bef",
+    "002-node24.result.json": "12513b90d9f38c3cdcc699446246a30c5d41e4d9b90eb2c78ca8941afa5d32f2",
+    "002-node24.tap": "23513302c19de8244bba3589836a1b326a3221a51559409bdfa6247227d96530",
+    "003-eslint.intent.json": "3259aef2a238dc835e6f8a6a2051024528463dbea6bbdae9e09f29c63c4ccd8e",
+    "003-eslint.result.json": "276b1052144753aa33ce090123a6ed1f05bfc2cef5686edd1f141a136e62f15c",
+    "003-eslint.out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "success-static-v3.json": "fade590682a4ecb7590360e3c3ffdc0e44c5d641f9ca35f1a3712ded74bb947f"
+  }
+}

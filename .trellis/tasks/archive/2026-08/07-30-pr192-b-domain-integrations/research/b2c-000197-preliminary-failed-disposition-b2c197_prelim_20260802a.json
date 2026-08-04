@@ -1,0 +1,138 @@
+{
+  "schema_version": "b2c-000197-preliminary-failed-disposition-v1",
+  "status": "FAILED",
+  "formal_run_id": "b2c197_prelim_20260802a",
+  "recorded_at_utc": "2026-08-01T20:37:36Z",
+  "scope": "absent-path-A-and-B-preliminary-only",
+  "final_current": false,
+  "input_sha256": {
+    "migration_sql": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+    "r0": "705882718458b69bf76478ebd071316031782dfe1c9485674f211655715f1439",
+    "r1_v2": "244a9eca21442ecbec916c962956fa5f2e807bc53d9d70704102070e76ca3f6b",
+    "preflight_runner": "ffc2c21e91959848dacea5dd7eb873e966fc7304a69b78d2742c3a18e444379c",
+    "history_catalog_spec": "400bb607632724f128fe3e4016111eaffc8a8702b40d3a49e772052f6b918170",
+    "preflight_manifest": "973566353ad804ee653ebc2f129146d3191a6a9d34783d84721ea095f643a151",
+    "preliminary_executor": "e3c1c61be721ddfee07b4d441bc5b44778e62c376836b136f50f6cd3fc05cfcd",
+    "preliminary_executor_spec": "0707c14df57a094c5befb2310ebb16e66a4b96dabbfde0cb1a68e29976bf378e",
+    "preliminary_v2_manifest": "a7506a3886c56a43333ab4a879fef0382f9a33caeb6d97b0bd6afd20f7a34bda",
+    "preliminary_v2_review_handoff": "dfa775c4d3e86c4aab56103bea3cc8f6a303b66af21a26615c1c5135a1999b0b",
+    "approval_port_pg_spec": "3af6121741e019afc80b251b6bff1a03b11dfb09123fe6c6e43532ca585db488"
+  },
+  "live_lock_sha256": {
+    "database_v2_go": "9840d66359554ff129c68d3a7207f09d478797b28266d855f80fa5a73680e1ec",
+    "qa_security_v2_go": "370a35e2632464779b07b96c1dc7a4084bc4d90612de5fce22e023eb07706ce8",
+    "old_writer_drain_go": "541f3a8531d5f575ca687e3c4d0348297fa9189a3c861243b7eceb8bed53fe0a"
+  },
+  "passed_stages": [
+    {
+      "stage": "default-locked-and-exact-input-manifest",
+      "evidence": "execution_authorized=false and exact executor/spec/manifest/handoff hashes"
+    },
+    {
+      "stage": "resource-prefix-dual-absent-preflight",
+      "evidence": "A and B exact container/image/version/volume identities; unique 000197 repository prefix; both histories dual-absent/execute"
+    },
+    {
+      "stage": "three-live-lock-proof-validation",
+      "evidence": "executor control flow reached database stages after both independent v2 GO artifacts and old-writer drain GO validated"
+    },
+    {
+      "stage": "signed-static-gates",
+      "evidence": "executor control flow reached preflight after history/catalog 8/8 and executor 9/9 gates completed"
+    },
+    {
+      "stage": "target-a-and-b-database-stages",
+      "evidence": "executor control flow reached application gate only after apply, identical rerun, 12-status predicate matrix, active/terminal duplicate checks, four distinct failure injections, rollback/residue checks and dual-history evidence completed for both targets"
+    }
+  ],
+  "failure": {
+    "stage": "approval-port-pg",
+    "target": "a",
+    "command_result": "nonzero",
+    "exit_code": "nonzero-exact-value-not-persisted",
+    "stderr": "",
+    "stdout": "not-persisted",
+    "thrown_marker": "b2c-000197-approval-port-pg-gate-failed:a",
+    "tap_exact_7_validation_reached": false,
+    "tap_counts": null,
+    "success_artifact_written": false
+  },
+  "post_failure_read_only_evidence": {
+    "a": {
+      "container_id": "4f5aebe17beb468b9b376b0951e0693c7a8530aafa9329e7518d9a8795366212",
+      "container_name": "jinhu-b2c197-r0-20260802a-a",
+      "container_running": true,
+      "database": "jinhu_b2c197_a",
+      "volume": "8b96ecefbf8a1ee056379275728427fa41b1c1f6bef700671e512262f99a9d51",
+      "primary_history": {
+        "filename": "000197_property_approval_active_source_index_forward_fix.sql",
+        "checksum": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+        "status": "succeeded"
+      },
+      "mirror_history": {
+        "filename": "000197_property_approval_active_source_index_forward_fix.sql",
+        "checksum": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+        "status": "succeeded"
+      },
+      "indexdef_sha256": "dd004f0c2e5f40e86ec1953effa91b8604614e276c9fedabe7f2464f13d70d9c",
+      "predicate_sha256": "24ef911486d5274d6c439d63de6aa253b289241ac2b75317b1f98bc93a5a8fda",
+      "build_index_residue": false
+    },
+    "b": {
+      "container_id": "cfe5297c06cdb33dfe1b5e8e31c5c9443771dc9619608ea761bbfe1caffe7434",
+      "container_name": "jinhu-b2c197-r0-20260802a-b",
+      "container_running": true,
+      "database": "jinhu_b2c197_b",
+      "volume": "1ace75aa84c9d96a4795ad32fc3b700a851895ff1671dd759b001ef53e290967",
+      "primary_history": {
+        "filename": "000197_property_approval_active_source_index_forward_fix.sql",
+        "checksum": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+        "status": "succeeded"
+      },
+      "mirror_history": {
+        "filename": "000197_property_approval_active_source_index_forward_fix.sql",
+        "checksum": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+        "status": "succeeded"
+      },
+      "indexdef_sha256": "dd004f0c2e5f40e86ec1953effa91b8604614e276c9fedabe7f2464f13d70d9c",
+      "predicate_sha256": "24ef911486d5274d6c439d63de6aa253b289241ac2b75317b1f98bc93a5a8fda",
+      "build_index_residue": false
+    },
+    "success_artifact_path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-artifact-b2c197_prelim_20260802a.json",
+    "success_artifact_absent": true,
+    "success_manifest_path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-artifact-b2c197_prelim_20260802a.manifest",
+    "success_manifest_absent": true
+  },
+  "resource_disposition": {
+    "resources_retained": ["a", "b"],
+    "containers_or_volumes_cleaned": false,
+    "formal_run_id_reusable": false,
+    "a_or_b_eligible_for_absent_path_retry": false,
+    "reason": "both databases now contain succeeded 000197 history and the new catalog"
+  },
+  "executor_failure_retrospective": {
+    "root_cause": "runApprovalPortGate threw on a nonzero child exit using only stderr; the child emitted no stderr and its stdout was neither included in the thrown error nor persisted before the throw",
+    "lost_evidence": [
+      "exact child exit code",
+      "raw TAP stdout",
+      "TAP pass/fail/skip counts or compile/connection failure text carried on stdout"
+    ],
+    "current_executor_disposition": "frozen-failed-run-input-do-not-edit-without-independent-change-review",
+    "next_run_change_request": [
+      "create a new executor candidate and new runId; do not edit or reuse the current frozen executor chain",
+      "after the approval-port child returns and before any validation or throw, persist a wx/0444 diagnostic record containing redacted command argv, exact exit code, raw stdout, raw stderr and each raw SHA256",
+      "persist raw TAP output before parsing so parse failures and skipped or empty suites remain auditable",
+      "include exact TAP tests/suites/pass/fail/cancelled/skipped/todo counts in both success and failure dispositions",
+      "review secret redaction independently; do not persist the database password or connection URL",
+      "obtain new independent database and QA/security reviews before executing on new dedicated absent-path resources"
+    ]
+  },
+  "deferred": [
+    "approval-port-pg-exact-7-pass",
+    "01-final-fresh",
+    "03-present-exact",
+    "14-later-apply",
+    "remaining-final-dynamic",
+    "final-current"
+  ]
+}

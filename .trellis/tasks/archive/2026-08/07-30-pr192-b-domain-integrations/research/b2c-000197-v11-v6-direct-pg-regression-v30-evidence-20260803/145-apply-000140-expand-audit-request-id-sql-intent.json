@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v30-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v30_20260803a",
+  "stage": "apply-000140-expand-audit-request-id-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v30-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v30_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 140,
+    "raw_sha256": "9c94203164a4c8cf26f4d5f798209a0874a1017272e3f4fd73161d6c33fca834",
+    "persisted": false
+  }
+}

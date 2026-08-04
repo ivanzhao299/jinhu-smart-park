@@ -1,0 +1,11 @@
+{
+  "schema_version": "b2c-000197-v11-gh-loader-terminal-manifest-v1",
+  "formal_run_id": "b2c197_prelim_20260802g",
+  "attempt_id": "b2c197_prelim_20260802g_gh_loader_attempt01",
+  "status": "FAILED",
+  "artifact": {
+    "filename": "failure-b2c197_prelim_20260802g_gh_loader_attempt01.json",
+    "bytes": 787,
+    "raw_sha256": "2245eef92fd071e32f9df32bafd69b9087da0a59585b6f4d99aedbb0f9c3fe5a"
+  }
+}

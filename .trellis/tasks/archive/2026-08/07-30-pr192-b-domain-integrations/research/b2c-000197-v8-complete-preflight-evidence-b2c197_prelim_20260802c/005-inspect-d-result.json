@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v8",
+  "evidence_policy_version": "b2c-000197-child-evidence-v8",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "sequence": 5,
+  "stage": "inspect-d",
+  "recorded_at_utc": "2026-08-01T23:32:32.833Z",
+  "intent_raw_sha256": "302e92bf99b945f2877e8e5f3d48ab91e45c065f69a37e84aa24328459a90911",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 291,
+    "raw_sha256": "bd00611e4dcddf0c94f36540d8410267bc20bd9b4b0b3a0101e7428836cc5cd0",
+    "redacted_utf8": "f0d1f2d5e8508fd787e03c179596730c97371e0ebb19e1462774ebc67faae896|/jinhu-b2c197-prelim-20260802b-d|postgres:16-alpine|sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777|true|volume:7384e6ecc01752cff1fc8dd49074d4488e35e5369ceea404895a906cb4af98f5:/var/lib/postgresql/data\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

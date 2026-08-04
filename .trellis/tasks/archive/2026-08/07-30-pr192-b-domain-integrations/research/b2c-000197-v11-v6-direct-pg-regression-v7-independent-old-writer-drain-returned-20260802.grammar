@@ -1,0 +1,39 @@
+b2c-000197-v11-v6-direct-pg-regression-v7-independent-old-writer-drain-review-v1
+decision	RETURNED
+review_scope	read-only-static-runner-spec-authority-manifest-record-handoff
+runner_raw_sha256	52a6784c4f41dc8477c2103b98404e5661bc80485732e4a6178d8d3dcca2000d
+runner_spec_raw_sha256	e575a1fb8151b22287a4eca6ad0f6898bc5b8736a799774f174897971fe82ec0
+candidate_authority_raw_sha256	a136a0f77b2a13fbb7ce65069709c42ce2bd9d276e4b5838145c3b8bf11fbefe
+candidate_manifest_raw_sha256	bfe5c752861169e098b74d54c52e2f309c9a79281680cdf965c72989f07c83e4
+static_test_record_raw_sha256	a9923f293ada1c754ba0f8e1adcb1aadd0cb9944496e73c0075085fdbdc9e394
+handoff_raw_sha256	6fea1db175144d370f01d4a2a1a27bce103f59df4f084ff6476aa8c15b80bff1
+reviewer_authority	independent-old-writer-drain-operations
+docker_or_database_mutation_performed	false
+formal_000197_execution_observed	false
+approval_runtime_execution_observed	false
+
+positive_controls
+intake_requires_execute_opt_in	true
+intake_verifies_immutable_db_qa_drain_resource_inputs	true
+qa_binds_database_review_sha	true
+drain_binds_database_and_qa_review_shas	true
+resource_binds_three_review_shas_and_candidate_sha	true
+resource_requires_pg16_anonymous_rw_volume_no_host_port	true
+resource_namespace	b2c197_v11v6_direct_v7;jinhu-b2c197-v11v6-direct-v7;jinhu_b2c197_v11v6_direct_v7
+g_h_namespace_compatible	false
+a_f_namespace_compatible	false
+shared_production_preliminary_isolated_fragments_rejected	true
+runner_does_not_execute_000197_file	true
+runner_does_not_call_approval_runtime	true
+fault_boundaries	before-create,after-create,after-drop,before-rename
+
+returned_finding_id	P1-execution-intake-bypass
+returned_finding	intakeV7 implements the sealed outer authority check, but exported runV7({authority,evidenceRoot,runCommand}) directly accepts an arbitrary caller-supplied authority.target and invokes Docker/psql without calling intakeV7 or validating the four reviewed artifact SHAs. Consequently a Docker-capable caller can bypass the sealed outer authority by importing runV7 directly.
+impact	The v6 fail-closed finding remains open at the executable boundary. The four-signature chain is a correct intended path but is not mandatory for execution.
+required_correction	Make the only executable entry point invoke intakeV7 internally and keep the post-intake authority private/unforgeable; do not export or otherwise expose a target-accepting execution function. Add a regression test proving direct execution without the four immutable GO inputs causes zero child/Docker calls.
+
+returned_finding_id_2	P2-unique-resource-self-attestation-only
+returned_finding_2	The resource contract checks the new v7 naming pattern and prior_target_reuse=false field, but it has no immutable resource ledger or external inventory binding that proves the proposed runId, container full ID, database, and volume have never appeared in a prior candidate. A future authority can self-assert false while naming a previously used v7 resource.
+impact_2	G/H and A-F namespace reuse is rejected structurally, but prior v7 resource/runId reuse is not independently fail-closed.
+required_correction_2	Bind resource creation to an append-only immutable registry or a fresh inventory evidence artifact verified by the executor, covering runId, container ID/name, database, and volume ID; reject any previously recorded identity before Docker access.
+status_after_review	NO-GO-for-resource-create-or-execute-until-P1-and-P2-are-corrected-and-fresh-DB-QA-DRAIN-RESOURCE-reviews-issue-GO

@@ -1,0 +1,9 @@
+{
+  "schema_version": "b2c-v12-static-test-record-v1",
+  "runner_raw_sha256": "338dd676812a8197313b435a29324bc343c24f17061395d48fbfea0d46c371f3",
+  "test_raw_sha256": "77d5c3d7834030ab174ebc462d1627160d37276963b99564f756c7edad108eb8",
+  "node22": { "binary": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node", "result": "pass", "raw_tap_sha256": "192c0cefebbf9a74dfb7846f7762098121384c92dfe9ab202aba1a6faac94724" },
+  "node24": { "binary": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node", "result": "pass", "raw_tap_sha256": "5e8dc7ade3e9a3982cb2cb6240c309d28b048b27b7229d7df4726d3de2a27ca6" },
+  "docker_or_database_command_executed": false,
+  "coverage": ["pending-candidate-flags", "sealed-intake", "authority-review-resource-schema-sha-mode-negatives", "symlink-and-evidence-root-negatives", "A-H-v4-nonreuse", "000191-000192-000197-snapshot-absence", "exact-one-P0001-marker"]
+}

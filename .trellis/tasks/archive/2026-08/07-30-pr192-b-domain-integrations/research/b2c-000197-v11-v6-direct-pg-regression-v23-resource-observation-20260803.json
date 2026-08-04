@@ -1,0 +1,28 @@
+{
+  "schema_version": "b2c-v23-resource-observation-v1",
+  "status": "OBSERVED",
+  "execution_authorized": false,
+  "formal_go": false,
+  "provision_authority_raw_sha256": "b5ae9a48db48f2b416d38a1ad498a0bbf49d8be0f8bafdbed41ccad4d960a196",
+  "candidate_authority_raw_sha256": "03f007d9f1a0c5b2a5fdd8475f9a73b1b387c62290310c8491cb060d1ef1c8fc",
+  "candidate_manifest_raw_sha256": "de755233354079e49f3047b64f33db895dab2ff82ed6e3e75f6b7b1443adb8ba",
+  "run_id": "b2c197_v11v6_direct_v23_20260803a",
+  "container": "jinhu-b2c197-v11v6-direct-v23-20260803a",
+  "container_id": "ad31d846d0096d0b9d48246361ea1e1ad20c90ea53756b08e8078192c34d85f4",
+  "database": "jinhu_b2c197_v11v6_direct_v23_20260803a",
+  "volume_id": "81c065e3c685e08b15f54909b8ca4b31887816aefda16b5f7f885889e48d160e",
+  "image_id": "57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "image_reference": "postgres:16-alpine",
+  "host_port_bindings": 0,
+  "anonymous_volume": true,
+  "mount_type": "volume",
+  "mount_rw": true,
+  "mount_destination": "/var/lib/postgresql/data",
+  "labels": {
+    "run_id": "b2c197_v11v6_direct_v23_20260803a",
+    "provision_authority_sha256": "b5ae9a48db48f2b416d38a1ad498a0bbf49d8be0f8bafdbed41ccad4d960a196"
+  },
+  "inherited_labels": {
+    "desktop.docker.io/wsl-distro": "Ubuntu-26.04"
+  }
+}

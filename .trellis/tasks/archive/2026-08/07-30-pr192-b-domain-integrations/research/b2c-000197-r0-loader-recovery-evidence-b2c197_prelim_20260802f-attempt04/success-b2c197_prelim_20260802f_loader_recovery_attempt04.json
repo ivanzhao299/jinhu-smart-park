@@ -1,0 +1,333 @@
+{
+  "schema_version": "b2c-000197-v11-ef-loader-recovery-terminal-v4",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_loader_recovery_attempt04",
+  "status": "SUCCESS",
+  "resources_retained": true,
+  "cleanup_attempted": false,
+  "retry_attempted": false,
+  "attempt_reusable": false,
+  "evidence_entries": [
+    {
+      "filename": "001-docker-version-intent.json",
+      "bytes": 652,
+      "raw_sha256": "0ad436eea58767c0247f8192a0d1c66591f957c372d017f4ee8692ccef017557"
+    },
+    {
+      "filename": "001-docker-version-result.json",
+      "bytes": 765,
+      "raw_sha256": "2ba53d6695cbacd928302d5ad71a19e737026042e9ee22131f29958bfbae8120"
+    },
+    {
+      "filename": "002-preflight-inspect-e-intent.json",
+      "bytes": 995,
+      "raw_sha256": "f849fb515e2f906cddf2e1f26eaed13b04ded240046eef0412f0d2421f390f18"
+    },
+    {
+      "filename": "002-preflight-inspect-e-result.json",
+      "bytes": 1383,
+      "raw_sha256": "cf80a3a23620d6e4f03c916754ab3b0b22d9c57b26b5a376dd7a72e694c3dc4f"
+    },
+    {
+      "filename": "003-preflight-database-e-intent.json",
+      "bytes": 828,
+      "raw_sha256": "5928b2683c8e3140b923dc752e2e624d6989e2feaa6db57a5ce1fff507cea602"
+    },
+    {
+      "filename": "003-preflight-database-e-result.json",
+      "bytes": 1009,
+      "raw_sha256": "b63bcf578db01083733a11d23bd520aec0bfdfb174310c46b81e92eee1c7fdcc"
+    },
+    {
+      "filename": "004-preflight-inspect-f-intent.json",
+      "bytes": 995,
+      "raw_sha256": "7d555c23ee70f842e8f449eca2bae68a645849a3f4f2b1201c55f995d3a21204"
+    },
+    {
+      "filename": "004-preflight-inspect-f-result.json",
+      "bytes": 1383,
+      "raw_sha256": "cae4188be6018ce52ef965736f95b440b6b28cdeaea90b9fbc640e47a280a3c4"
+    },
+    {
+      "filename": "005-preflight-database-f-intent.json",
+      "bytes": 828,
+      "raw_sha256": "26dba4036a560e486823fdf9a62b176cda4aceba1bcf5f59be35532ea2e61965"
+    },
+    {
+      "filename": "005-preflight-database-f-result.json",
+      "bytes": 1009,
+      "raw_sha256": "3898c749d52ac48967917e17fc58444e521a02117a85e19084660ea3ef777a0d"
+    },
+    {
+      "filename": "006-loader-intent.json",
+      "bytes": 700,
+      "raw_sha256": "09813a12a6a420b87728c2d857ece52c8726e7f63d69191ccbeee49836ee6270"
+    },
+    {
+      "filename": "006-loader-result.json",
+      "bytes": 988,
+      "raw_sha256": "d4e2acd3d9e61d69335589a20345bf4c053e45c92c53f6f933326108e50968fb"
+    },
+    {
+      "filename": "007-postload-database-e-intent.json",
+      "bytes": 828,
+      "raw_sha256": "32b5ea8276f20942c7835ac9663d199873ed79c33dceec3ce42a4e4edf185757"
+    },
+    {
+      "filename": "007-postload-database-e-result.json",
+      "bytes": 4290,
+      "raw_sha256": "a97299f1336bac12d16221a33761b55021d699519ebe64d5849694edb7b588ce"
+    },
+    {
+      "filename": "008-postload-database-f-intent.json",
+      "bytes": 828,
+      "raw_sha256": "1259490e51413c9f3e04ac46a1c82fc3a7c3b12ef73b86f48349f90ba34aaf98"
+    },
+    {
+      "filename": "008-postload-database-f-result.json",
+      "bytes": 4290,
+      "raw_sha256": "32265c061c81d7438c8835a54c3effafdd263b1bff4a1e110e914743ef24f32b"
+    }
+  ],
+  "loader_process_attempts": 1,
+  "loader_result": {
+    "status": "SUCCESS",
+    "run_id": "b2c197_prelim_20260802f",
+    "attempt_id": "b2c197_prelim_20260802f_loader_recovery_attempt04",
+    "targets": {
+      "e": {
+        "key": "e",
+        "topology": "upgrade-to-195",
+        "container": "jinhu-b2c197-prelim-20260802f-e",
+        "containerId": "e8cdea7ae9692bc5fe7407026def4675722f6b7379bd4dd8a915625c73c8daaf",
+        "database": "jinhu_b2c197_e",
+        "volume": "3320230428e226dc57803bc265b2ab1b43a20fde830324181cd21c4ed5445779"
+      },
+      "f": {
+        "key": "f",
+        "topology": "fresh-to-195",
+        "container": "jinhu-b2c197-prelim-20260802f-f",
+        "containerId": "485454ceaa64e29fbf737c6b0c4e206c7bb15fb95e601124e754d5c4b5defcfe",
+        "database": "jinhu_b2c197_f",
+        "volume": "767ce9a66b29aa9c2230bdbf25479c88af8a1b0515d867deaf2c67bb57b6538e"
+      }
+    }
+  },
+  "postload_exact_history": "185-190-193-195",
+  "optional_191_192": "absent",
+  "prefix_197": "absent",
+  "failed_or_running": 0,
+  "approval_rows": 0,
+  "postchecks": [
+    {
+      "database": "jinhu_b2c197_e",
+      "server_version": "16.14",
+      "primary": [
+        {
+          "filename": "000185_property_b_identity_schema_expand.sql",
+          "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000186_property_b_approval_runtime_schema.sql",
+          "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000187_property_b_event_notification_schema.sql",
+          "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000188_property_b_task_runtime_schema.sql",
+          "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000189_property_b_module_rbac_definitions.sql",
+          "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000190_property_b_migration_compatibility_control.sql",
+          "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+          "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000194_property_task_projection_contract_correction.sql",
+          "checksum": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000195_property_mutation_receipt_contract_v2.sql",
+          "checksum": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4",
+          "status": "succeeded"
+        }
+      ],
+      "mirror": [
+        {
+          "filename": "000185_property_b_identity_schema_expand.sql",
+          "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000186_property_b_approval_runtime_schema.sql",
+          "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000187_property_b_event_notification_schema.sql",
+          "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000188_property_b_task_runtime_schema.sql",
+          "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000189_property_b_module_rbac_definitions.sql",
+          "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000190_property_b_migration_compatibility_control.sql",
+          "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+          "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000194_property_task_projection_contract_correction.sql",
+          "checksum": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000195_property_mutation_receipt_contract_v2.sql",
+          "checksum": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4",
+          "status": "succeeded"
+        }
+      ],
+      "failed_or_running": 0,
+      "optional_191_192": 0,
+      "prefix_197": 0,
+      "approval_rows": 0,
+      "indexdef": "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584",
+      "predicate": "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37",
+      "build_residue": false
+    },
+    {
+      "database": "jinhu_b2c197_f",
+      "server_version": "16.14",
+      "primary": [
+        {
+          "filename": "000185_property_b_identity_schema_expand.sql",
+          "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000186_property_b_approval_runtime_schema.sql",
+          "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000187_property_b_event_notification_schema.sql",
+          "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000188_property_b_task_runtime_schema.sql",
+          "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000189_property_b_module_rbac_definitions.sql",
+          "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000190_property_b_migration_compatibility_control.sql",
+          "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+          "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000194_property_task_projection_contract_correction.sql",
+          "checksum": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000195_property_mutation_receipt_contract_v2.sql",
+          "checksum": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4",
+          "status": "succeeded"
+        }
+      ],
+      "mirror": [
+        {
+          "filename": "000185_property_b_identity_schema_expand.sql",
+          "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000186_property_b_approval_runtime_schema.sql",
+          "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000187_property_b_event_notification_schema.sql",
+          "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000188_property_b_task_runtime_schema.sql",
+          "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000189_property_b_module_rbac_definitions.sql",
+          "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000190_property_b_migration_compatibility_control.sql",
+          "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+          "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000194_property_task_projection_contract_correction.sql",
+          "checksum": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+          "status": "succeeded"
+        },
+        {
+          "filename": "000195_property_mutation_receipt_contract_v2.sql",
+          "checksum": "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4",
+          "status": "succeeded"
+        }
+      ],
+      "failed_or_running": 0,
+      "optional_191_192": 0,
+      "prefix_197": 0,
+      "approval_rows": 0,
+      "indexdef": "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584",
+      "predicate": "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37",
+      "build_residue": false
+    }
+  ]
+}

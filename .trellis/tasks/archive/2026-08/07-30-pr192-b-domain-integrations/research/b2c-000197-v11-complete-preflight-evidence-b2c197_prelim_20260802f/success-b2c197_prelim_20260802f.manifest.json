@@ -1,0 +1,11 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-manifest-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "PASSED",
+  "artifact": {
+    "filename": "success-b2c197_prelim_20260802f.json",
+    "bytes": 3242,
+    "raw_sha256": "13de4c00f84e8ffe3bb1e0cae50159ae848ebd10e5abbf78311f788ac8cc873a"
+  }
+}

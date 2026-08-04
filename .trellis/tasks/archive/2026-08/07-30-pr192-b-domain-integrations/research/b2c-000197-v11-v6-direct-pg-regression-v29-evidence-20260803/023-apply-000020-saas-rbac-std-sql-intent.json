@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v29-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v29_20260803a",
+  "stage": "apply-000020-saas-rbac-std-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v29-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v29_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 4416,
+    "raw_sha256": "64b81702550ebd4635665401d9bc1304dfb37cb681c53b90e05ccd88a4e77e52",
+    "persisted": false
+  }
+}

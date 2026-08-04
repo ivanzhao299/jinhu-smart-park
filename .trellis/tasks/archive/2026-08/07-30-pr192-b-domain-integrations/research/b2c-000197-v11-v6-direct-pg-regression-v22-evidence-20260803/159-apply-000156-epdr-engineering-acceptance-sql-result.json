@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v22-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v22_20260803a",
+  "stage": "apply-000156-epdr-engineering-acceptance-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 160,
+    "raw_sha256": "a3a4908fac1362acb0e45218a1cec61720950bc073f009bbb0ef416b06fdd867",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 124,
+    "raw_sha256": "76259bd69454feb840fab31ab68ae2a612b59516eb3f81c848de7ba85837053d",
+    "safe_excerpt": "<suppressed>"
+  }
+}

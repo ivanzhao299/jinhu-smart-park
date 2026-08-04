@@ -1,0 +1,26 @@
+{
+  "schema_version": "b2c-v24-static-test-record-v1",
+  "runner_raw_sha256": "50d505829d7455e5e2b955944ec35da789b61a89ebffeb49a096bb66f0236345",
+  "test_raw_sha256": "667541c4324dc7f26b34b9270243f0faf46fc6fdc4281360327db48be1ee7299",
+  "node22": {
+    "binary": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node",
+    "result": "pass",
+    "raw_tap_sha256": "34e0007d13890e82d251b26beaf4913adef180b8b71925bd1e9fed9291cbb858"
+  },
+  "node24": {
+    "binary": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node",
+    "result": "pass",
+    "raw_tap_sha256": "8948a84ad344da5efd552b40f5ed332b01e18a5eb5e782517ae8466e1915cd3a"
+  },
+  "docker_or_database_command_executed": false,
+  "coverage": [
+    "fixed-path-sealed-intake",
+    "seventeen-resource-nonreuse-including-v23",
+    "fixture-and-baseline-sha-toctou",
+    "four-exact-p0001-fault-boundaries",
+    "000197-success-dual-history-final-catalog-rerun",
+    "approval-port-seven-named-postgresql-tests",
+    "cleanup-and-final-snapshot-contract",
+    "failure-receipt-redaction"
+  ]
+}

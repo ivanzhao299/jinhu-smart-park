@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v23-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v23_20260803a",
+  "stage": "apply-000022-rel-user-park-default-constraint-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v23-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v23_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 1188,
+    "raw_sha256": "4bec1c0ec5d2296c6847fd536381efdd622e2dd91628e62d3a6655fc85d2273e",
+    "persisted": false
+  }
+}

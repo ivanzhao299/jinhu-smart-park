@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v8",
+  "evidence_policy_version": "b2c-000197-child-evidence-v8",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "sequence": 1,
+  "stage": "static-v8-evidence",
+  "recorded_at_utc": "2026-08-01T23:42:16.418Z",
+  "intent_raw_sha256": "a1e8a12cd38de9250f752ce4dff6db1945afbb2979e175ad5515af4fdf2be783",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 1903,
+    "raw_sha256": "621ca89167b6ba0e179e2186a38432b8cbe4120186a5cde1d1a449590c283557",
+    "redacted_utf8": "TAP version 13\n# Subtest: success terminal recursively discovers terminal-only secrets before immutable write\nok 1 - success terminal recursively discovers terminal-only secrets before immutable write\n  ---\n  duration_ms: 3.679778\n  type: 'test'\n  ...\n# Subtest: failure terminal recursively discovers error and payload secrets before write\nok 2 - failure terminal recursively discovers error and payload secrets before write\n  ---\n  duration_ms: 0.985046\n  type: 'test'\n  ...\n# Subtest: benign terminal payload and argv remain readable while negative secret controls stay absent\nok 3 - benign terminal payload and argv remain readable while negative secret controls stay absent\n  ---\n  duration_ms: 0.672222\n  type: 'test'\n  ...\n# Subtest: inspect output and argv secrets are discovered before result and intent writes\nok 4 - inspect output and argv secrets are discovered before result and intent writes\n  ---\n  duration_ms: 1.348099\n  type: 'test'\n  ...\n# Subtest: phase failure keeps exact primary and records cleanup and after first\nok 5 - phase failure keeps exact primary and records cleanup and after first\n  ---\n  duration_ms: 2.685224\n  type: 'test'\n  ...\n# Subtest: direct fixture five uses explicit TAP reporter and parses real spawn output\nok 6 - direct fixture five uses explicit TAP reporter and parses real spawn output\n  ---\n  duration_ms: 736.17398\n  type: 'test'\n  ...\n# Subtest: direct exact-eight real spawn uses explicit TAP reporter\nok 7 - direct exact-eight real spawn uses explicit TAP reporter\n  ---\n  duration_ms: 30.458074\n  type: 'test'\n  ...\n# Subtest: suite count, skipped output and missing names fail closed after parse evidence\nok 8 - suite count, skipped output and missing names fail closed after parse evidence\n  ---\n  duration_ms: 1.689905\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 783.917485\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

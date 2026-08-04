@@ -1,0 +1,24 @@
+{
+  "schema_version": "b2c-000197-v11-ef-loader-recovery-child-intent-v4",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_loader_recovery_attempt04",
+  "sequence": 6,
+  "stage": "loader",
+  "recorded_at_utc": "2026-08-02T02:01:18.948Z",
+  "command": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node",
+  "argv": [
+    "--input-type=module",
+    "-"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "shell": false,
+  "environment_allowlist": {
+    "PATH": "/usr/bin:/bin",
+    "LANG": "C.UTF-8"
+  },
+  "stdin": {
+    "present": true,
+    "bytes": 7314,
+    "raw_sha256": "60057a2eff12a0be47fe9c37461d4447b7be4c2a1696765a6a905cc624a002a4"
+  }
+}

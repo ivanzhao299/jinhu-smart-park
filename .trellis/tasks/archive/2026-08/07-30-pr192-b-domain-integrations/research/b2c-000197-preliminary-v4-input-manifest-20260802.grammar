@@ -1,0 +1,43 @@
+b2c-000197-preliminary-input-manifest-v4
+formal_run_id	b2c197_prelim_20260802c
+fixture_run_id	1e8dc65d5145b78cf447ef661f517ad2
+review_chain	b2c-000197-preliminary-v4
+status	frozen-candidate-awaiting-two-independent-v4-reviews-and-old-writer-drain-v3
+file	database/migrations/000197_property_approval_active_source_index_forward_fix.sql	10515	a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-reservation-candidate-20260802.grammar	5227	705882718458b69bf76478ebd071316031782dfe1c9485674f211655715f1439
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r1-v2-checksum-seal-20260802.grammar	1172	244a9eca21442ecbec916c962956fa5f2e807bc53d9d70704102070e76ca3f6b
+file	scripts/e2e/property-remediation/track-b2c-approval-index-forward-fix-gate.mjs	14402	ffc2c21e91959848dacea5dd7eb873e966fc7304a69b78d2742c3a18e444379c
+file	scripts/e2e/property-remediation/tests/b2c-approval-index-forward-fix.spec.mjs	8962	400bb607632724f128fe3e4016111eaffc8a8702b40d3a49e772052f6b918170
+file	scripts/e2e/property-remediation/track-b2c-000197-preliminary-executor-v4.mjs	14612	ec6d1bd3200a1722ed4980b2043b6ef0f3336bc7d38f7f9cc4091dfcc4e6a8b8
+file	scripts/e2e/property-remediation/tests/b2c-000197-preliminary-executor-v4.spec.mjs	7567	63d8781e609b9271af3e5817784ba8415a42245c182d6a0f677ee31b1793974b
+file	scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v4.mjs	24825	078870c63def8faa83e15f6e0e13ee9b6ed1e622da5b4f05e640a5880e859989
+file	scripts/e2e/property-remediation/tests/b2c-000197-preliminary-orchestrator-v4.spec.mjs	3101	1b7b7d30efe29ce257308ecba7d2e2a6871178ab6541e97004a8c9c1f037f339
+file	apps/api/src/modules/property-approvals/property-approval.module.spec.ts	6259	fd3dc1a3daeb458d5b4fd770f88c7090cc43395a1ec29d24347161d3996bd252
+file	apps/api/src/modules/property-approvals/property-approval.module.ts	7628	495064a3df410cdb19c3f27cf7f54a40f866bd87e60ecd937862b3a22ff26646
+file	apps/api/src/modules/property-approvals/property-approval.port.pg-cli.spec.ts	9243	58b7e8c011cb2ebc4acca91d813fc86931000574b434ffdb15b8579d0f79e42b
+file	apps/api/src/modules/property-approvals/property-approval.port.pg-cli.ts	7825	e805a00506a2c98c460eb73d5c69f4abfa011091f7dccfab8912e42596ce3a8e
+file	apps/api/src/modules/property-approvals/property-approval.port.pg-fixture.spec.ts	6758	d3064610524fa871b8dd47c20260a99940d60f288ee8696128c212401e0f6612
+file	apps/api/src/modules/property-approvals/property-approval.port.pg-fixture.ts	11054	b629c3c811c72084ae7ea0e7f47799db7dafc8613baeb9d13f5f550e7d969cb4
+file	apps/api/src/modules/property-approvals/property-approval.port.pg.spec.ts	23185	2d35ee6245aa0b81db00815a905ab393b203f48ac9ba7454208e990f35e35613
+file	apps/api/src/modules/property-approvals/property-approval.port.spec.ts	38192	a4cb80cbdef351bc072e67e9eb973949aac89648ef841cc726ad18418c0b9b2f
+file	apps/api/src/modules/property-approvals/property-approval.repository.spec.ts	2450	e1967eed9e59865fa068e1964a48b9d1cbfb987cef2612b367fe73c4c1f1476f
+file	apps/api/src/modules/property-approvals/property-approval.repository.ts	20215	be882ce7eb7d1bfba78af3b6920c7473b4cf60fbf13cad6bbbf09adb4d2f5199
+file	apps/api/src/modules/property-approvals/property-approval.request.spec.ts	34966	d2b39f8192382c508542a8b52bef222edc507a481c00ade9a9220644eea7be4e
+file	apps/api/src/modules/property-approvals/property-approval.service.ts	126593	1d6dc2dc150745ca6168402a93592b310b3e85eb820cdd622b4167958ec4a93c
+file	scripts/e2e/property-remediation/track-b2c-approval-port-pg-gate-lib.cjs	2180	4f988c6879449df92c5d83ad1525447835a0e02d4fbc45db48fde56fb3dba639
+file	scripts/e2e/property-remediation/track-b2c-approval-port-pg-gate.mjs	3561	74423d888683cc433efd4a45b0d4dd944117651e2ab4797d484e4f0d6a6a07d4
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-approval-port-runtime-implementation-v8-handoff.md	3761	e79639b00cbb70085d5977c6ce77d0a3f2ae828e00dfa467dba9336b6acde0b7
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v3-resource-authority-20260802.grammar	1595	3c2c91ca18c6639c9d3306ececf06d2b43b3b74c06a870a5c786d08616ab8c73
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-loader-evidence-b2c197_prelim_20260802b/success-b2c197_prelim_20260802b.json	12341	ab3c631e30991bad95d9dbb50f6612103ebbc463d2ca97112686768ff85b97c4
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-loader-evidence-b2c197_prelim_20260802b/success-b2c197_prelim_20260802b.manifest.json	380	788cae3c1d8a27a54db7b7a0b503f25a2d1fc23d92ce50ccacb8a75d6ee8bd14
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v4-preflight-evidence-b2c197_prelim_20260802c/success-b2c197_prelim_20260802c.json	1762	4a1fac3e4a650de79999349b1080eadb25c61030f0a0bde624ee3aa89f798779
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v4-preflight-evidence-b2c197_prelim_20260802c/success-b2c197_prelim_20260802c.manifest.json	379	d90afa62bc40115ea48d38c42a52a2f6f3925932db87a7ff4de4615cd821e811
+runtime_implementation_v8	022d992f6f4a1c5326904dccd158e168573b0fd383186dc7db110488bfd2e118
+resource	c	jinhu-b2c197-prelim-20260802b-c	ee68f2ef6b1c2ac5e6d653f1a2388e121b268bf3e6517402484255c1845d25c6	jinhu_b2c197_c	60ab8a7c1dbf58421056bfd5a6f987144cfd8c7ee44c6500302478c9e0c1da12	upgrade-to-195
+resource	d	jinhu-b2c197-prelim-20260802b-d	f0d1f2d5e8508fd787e03c179596730c97371e0ebb19e1462774ebc67faae896	jinhu_b2c197_d	7384e6ecc01752cff1fc8dd49074d4488e35e5369ceea404895a906cb4af98f5	fresh-to-195
+preliminary_scope	absent-path-C-and-D-only
+retain_after_run	c,d
+deferred	final-fresh;present-exact;later-apply;remaining-final-dynamic;final-current
+audit_only_v3_manifest	de65c383cdd1774d2d60aa07b4789e08200d0d05dde457101ad8028749791133
+audit_only_v3_handoff	4f406ec30bdee22629b9264e90e48585288fd867c8f27d56061acaeca90f33f4
+live_execution	blocked-until-two-independent-v4-go-and-old-writer-drain-v3-go

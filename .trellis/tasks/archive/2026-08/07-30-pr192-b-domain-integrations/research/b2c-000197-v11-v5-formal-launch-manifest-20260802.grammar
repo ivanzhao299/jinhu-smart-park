@@ -1,0 +1,30 @@
+b2c-000197-v11-v5-formal-launch-manifest-v1
+formal_run_id	b2c197_prelim_20260802f
+attempt_id	b2c197_prelim_20260802f_formal_launch_attempt01
+status	FROZEN-BLOCKED-AWAITING-INDEPENDENT-LAUNCH-QA-GO
+execution_authorized	false
+file	scripts/e2e/property-remediation/track-b2c-000197-v11-v5-formal-launcher.mjs	16994	fbe9a18bf1652af82f345c1d10f4eb39f8f12186d00e38a63056ac3895dda261	launcher
+file	scripts/e2e/property-remediation/tests/b2c-000197-v11-v5-formal-launcher.spec.mjs	8644	a9a89df39ff2b9fad06bb7b5c874ef16176a7c7f29578dcf0a1ed1144dcd03f6	fake-spawn-spec
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-launch-authority-20260802.grammar	3310	1eaa5630acf13435dc115759f13193eefe29151028c9ba0b07f54e3d7ef66ca3	launch-authority
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-launch-handoff-20260802.grammar	2114	e59e2b47fc511039b49cf978371f4d3944797bf6e3105ceced5737432a3dcece	launch-handoff
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-launch-test-record-20260802.grammar	1711	ea3eff477e84d1f1f710e915cfd33dc6c7938d63b51f09902481e22011bd50ab	test-record
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-launch-test-erofs-audit-20260802.grammar	1040	c531d2eacea53479d8f59b4089cd8ef1f85a315394a98dfc1011c6889d3f785b	audit-only-test-harness-failure
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-launch-contract-handoff-20260802.md	2300	39b899a181e9d420220428733566b79a4200700a7a42e204ad89613fba5bd0ae	launch-contract-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-input-manifest-20260802.grammar	159794	e6d79fc1581ba580932b4689095117ffd2b482d33f5809c71964102f7b5af017	candidate-manifest-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-executor-v11-v5-review-handoff-20260802.md	2220	81c23cb59cd602e762d763da80beab699505a54c89c8175ef8d39c45e1460c60	candidate-handoff-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-independent-database-review-20260802.grammar	1301	77f1d3dc8fb42aae2a48385caa22acb385671e6fe02ad941b7bdaf7c116790a7	database-go-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-independent-qa-security-review-20260802.grammar	1122	5ab20a43d84e32f6436686972af602b21abb5a4dc1f73d1fa81c670145de144f	qa-go-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-old-writer-drain-20260802.grammar	1217	03cd70e5690b1ecb7acef85b546f3dc5583b2b79fd3ec781cb26982748e206b2	drain-go-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-missing-runid-pre-intake-invocation-audit-20260802.json	1617	964641668e9661dbae4ba67feacddba5f0f9d51c7869a3459349faf276047d9f	audit-only-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-missing-runid-pre-intake-invocation-audit-20260802.manifest.json	760	ee860c4292210d8a95e1be2a29ad006eadefab3e6c553e2f698bcbd8ab97b811	audit-only-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-missing-six-go-env-pre-intake-invocation-audit-20260802.json	1975	8b5345673f1b44237d343efe9e4134a0f606e2fd8c4ad90aeff791e590f0456c	audit-only-input
+file	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-missing-six-go-env-pre-intake-invocation-audit-20260802.manifest.json	818	aff41f7885d1f26ad80fc5b0a8c6682068a14d05da86b656acfe72a65648ed5e	audit-only-input
+file	scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs	53600	88e430267c061d77143aee5f4e6677d848e924ece677ff2820655c6f5f3b7e5d	frozen-orchestrator
+file	/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node	124836408	3517c2df0b2f8cd7f422b4b8450ef81c6889f08eb03e281d6de9079b15e6a327	frozen-node
+launch_qa_path	.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v5-formal-launch-independent-qa-go-20260802.grammar
+launch_qa_state	ABSENT
+launch_attempt_state	ABSENT-UNCLAIMED
+formal_evidence_state	ABSENT-UNCLAIMED
+orchestrator_executed	false
+docker_executed	false
+database_accessed	false

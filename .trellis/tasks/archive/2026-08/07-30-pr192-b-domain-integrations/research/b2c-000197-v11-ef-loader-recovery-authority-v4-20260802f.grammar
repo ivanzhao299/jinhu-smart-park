@@ -1,0 +1,14 @@
+b2c-000197-v11-ef-loader-recovery-authority-v4-machine
+formal_run_id	b2c197_prelim_20260802f
+attempt_id	b2c197_prelim_20260802f_loader_recovery_attempt04
+execution_authorized	false
+candidate_raw_sha256	60057a2eff12a0be47fe9c37461d4447b7be4c2a1696765a6a905cc624a002a4
+runner_raw_sha256	e845773d96514df1e7c404f021cc07fa1617a0909c76043e5802197377e1872d
+preflight_raw_sha256	31aa6244b6cb74f2703b170e61f879d39c5544a7aabf9105c994e7194dedfd27
+recovery_evidence_root	/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-loader-recovery-evidence-b2c197_prelim_20260802f-attempt04
+database_go_path	/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-independent-database-go-v4-20260802f.grammar
+qa_go_path	/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-independent-qa-go-v4-20260802f.grammar
+test_result_path	/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-test-result-v4-20260802f.grammar
+test_result_raw_sha256	57d91936ca20a8de4b0d9e14eee919c9b9584bd3792c9e2caa45e87a63e5287d
+v3_database_no_go_audit_raw_sha256	b2cc91297a88829d622142063ccb1b3420b245495dd02995a56311d7a3fcf6f5
+v3_qa_no_go_audit_raw_sha256	c1b97284fc326e22731717dbe5edace52e78eae5e8645a74d80686362597d864

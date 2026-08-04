@@ -1,0 +1,23 @@
+{
+  "schema_version": "b2c-000197-v11-v6-pg-regression-static-test-record-v1",
+  "recorded_at_utc": "2026-08-02T04:10:40Z",
+  "node22": { "ddl_contract": "5/5 PASS", "isolated_pg_runner": "5/5 PASS" },
+  "node24": { "ddl_contract": "5/5 PASS", "isolated_pg_runner": "5/5 PASS" },
+  "eslint": "PASS",
+  "real_failures_before_final_pass": [
+    "predicate parser initially crossed the approved branch into execution states; replaced by statement-bounded token grammar",
+    "runner test initially treated the read-only snapshot history filename as migration execution; assertion narrowed to formal ALTER INDEX RENAME"
+  ],
+  "verified_contracts": [
+    "exact six-column order and formal 000197 fixture equivalence",
+    "exact normalized active predicate, state sets, index names and catalog hashes",
+    "source_domain and legacy action column absent",
+    "four unique reachable inline P0001 markers without helper function",
+    "future dedicated PG16 authority and canonical baseline path/SHA required",
+    "one baseline load, four rollback faults, exact before/after/final snapshots and zero build residue",
+    "wrong SQLSTATE or snapshot drift stops before later faults",
+    "no fixed A-through-H physical authority"
+  ],
+  "docker_or_database_command_executed": false,
+  "execution_authorized": false
+}

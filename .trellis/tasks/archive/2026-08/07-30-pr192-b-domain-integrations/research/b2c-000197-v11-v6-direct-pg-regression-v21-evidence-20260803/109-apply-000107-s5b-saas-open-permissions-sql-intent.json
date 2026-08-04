@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v21-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v21_20260803a",
+  "stage": "apply-000107-s5b-saas-open-permissions-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v21-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v21_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 4541,
+    "raw_sha256": "82bb9ffeff2268921fd6307dc177d2b4c097f139c13ce4548bbe2760f8b7cdd8",
+    "persisted": false
+  }
+}

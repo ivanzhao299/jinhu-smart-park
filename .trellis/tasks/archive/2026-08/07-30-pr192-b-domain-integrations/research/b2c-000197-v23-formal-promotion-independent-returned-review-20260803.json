@@ -1,0 +1,52 @@
+{
+  "schema_version": "b2c-000197-v23-formal-promotion-independent-returned-review-v1",
+  "decision": "NO-GO",
+  "review_approved": false,
+  "formal_go": false,
+  "open_p0": 0,
+  "open_p1": 2,
+  "candidate_raw_sha256": "898ded084935da1f8d25c4b62fbd8756aef6aa3474b17e536e297b3a363b798e",
+  "candidate_scope": "000197-postgresql16-direct-fault-regression-only",
+  "binding_verification": {
+    "all_candidate_bindings_match_sealed_inputs": true,
+    "evidence_manifest_entries_rehashed": 443,
+    "evidence_files_total": 444,
+    "runner_raw_sha256": "b33f54065ea031e7bac623c27fd360274c18d3ce914b20645f623f7c5a8c4fcf",
+    "runner_spec_raw_sha256": "673f650d15584d882b64c6e9b8fa21986d99840f83320aafa5aa07b80dd33d24",
+    "fixture_raw_sha256": "d23be07fe89347fa9e46ce08b3ddb64e62ad2e5d95670ad9408fe5af11e94523",
+    "execution_authority_raw_sha256": "e7534a97f403a96248b4b868ee788218a92664c5cd819f855e15da8edbd56de3",
+    "terminal_raw_sha256": "fa68466ecbc1627e72e623dff693ee7bcb0bf365e75cbe6d38126eb194102f37",
+    "evidence_manifest_raw_sha256": "83ff1c64de5a1bd6f390c08f77f8c12c4c75c3c462578c03b53825f442dde1c4",
+    "post_execution_database_review_raw_sha256": "d033ade9a3a258b1f02e2f01e588e15f95043eb965e66806aca59136abdef6fe",
+    "post_execution_qa_review_raw_sha256": "a6b8f51db9ea4106b621aef05c32d23a1de7890e46fea3f921e93d6c6b86456f"
+  },
+  "findings": [
+    {
+      "severity": "P1",
+      "code": "FORMAL_PROMOTION_EVIDENCE_SCOPE_INSUFFICIENT",
+      "issue": "The bound v23 execution proves the direct four-boundary rollback regression only; it does not successfully apply and record 000197, verify the committed corrected catalog and immediate rerun, or execute the required approval-port PostgreSQL suite.",
+      "disposition": "Do not close B2C-P1-APPROVAL-POSTGRESQL-PROMOTION or B2C-P1-000197-PRELIMINARY-FAILURE-REPAIR."
+    },
+    {
+      "severity": "P1",
+      "code": "SCHEMA_OWNER_PHASE_RELEASE_PREMATURE",
+      "issue": "The frozen sequence releases the 000191/000192 schema-owner phase only after the approval PostgreSQL Gate passes and publishes current authority; the bound direct-fault evidence does not establish that prerequisite.",
+      "disposition": "Do not release the 000191/000192 schema-owner phase."
+    }
+  ],
+  "requested_release_approved": {
+    "close_b2c_p1_approval_postgresql_promotion": false,
+    "close_b2c_p1_000197_preliminary_failure_repair": false,
+    "release_000191_000192_schema_owner_phase": false
+  },
+  "not_released_boundary_review": {
+    "candidate_boundaries_are_correct": true,
+    "000191_000192_delivery_complete": false,
+    "property_foundation_adapter": false,
+    "homestay_housing_domain_adapters": false,
+    "track_b_technical_complete": false,
+    "track_c_start": false,
+    "production_enforcement": false,
+    "human_uat_signoff": false
+  }
+}

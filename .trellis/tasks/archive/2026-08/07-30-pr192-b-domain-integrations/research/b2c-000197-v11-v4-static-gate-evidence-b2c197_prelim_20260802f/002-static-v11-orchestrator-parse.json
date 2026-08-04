@@ -1,0 +1,27 @@
+{
+  "schema_version": "b2c-000197-child-parse-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 2,
+  "stage": "static-v11-orchestrator",
+  "recorded_at_utc": "2026-08-02T02:43:35.405Z",
+  "result_raw_sha256": "b3b906e6de862f5f192d47a78682594c4dbd0ca4022137377216bc528336273b",
+  "output": {
+    "bytes": 4276,
+    "raw_sha256": "0cb7d29e21846db8e4fcc2c22241f1209ea0be24a185d1ac708ab5210c7a1d51",
+    "redacted_utf8": "TAP version 13\n# Subtest: v11 static candidate binds only the exact SUCCESS E/F authority\nok 1 - v11 static candidate binds only the exact SUCCESS E/F authority\n  ---\n  duration_ms: 2391.725125\n  type: 'test'\n  ...\n# Subtest: v11 static candidate binds both exact v10 failure review hashes\nok 2 - v11 static candidate binds both exact v10 failure review hashes\n  ---\n  duration_ms: 13.148601\n  type: 'test'\n  ...\n# Subtest: formal fails closed before creating evidence without reviews and drain\nok 3 - formal fails closed before creating evidence without reviews and drain\n  ---\n  duration_ms: 0.92417\n  type: 'test'\n  ...\n# Subtest: frozen mode either requires both freeze files or verifies the complete manifest\nok 4 - frozen mode either requires both freeze files or verifies the complete manifest\n  ---\n  duration_ms: 15.606931\n  type: 'test'\n  ...\n# Subtest: absent requires numeric zero rows and exact old catalog\nok 5 - absent requires numeric zero rows and exact old catalog\n  ---\n  duration_ms: 0.271982\n  type: 'test'\n  ...\n# Subtest: failure cases are inline, ordered, uniquely marked, and contain no external assertion helper\nok 6 - failure cases are inline, ordered, uniquely marked, and contain no external assertion helper\n  ---\n  duration_ms: 0.233439\n  type: 'test'\n  ...\n# Subtest: failure boundary catalog contracts match the migration sequence\nok 7 - failure boundary catalog contracts match the migration sequence\n  ---\n  duration_ms: 0.139613\n  type: 'test'\n  ...\n# Subtest: fault parser accepts exact P0001, unique marker, and semantic snapshot\nok 8 - fault parser accepts exact P0001, unique marker, and semantic snapshot\n  ---\n  duration_ms: 0.394416\n  type: 'test'\n  ...\n# Subtest: fault parser rejects missing and wrong markers\nok 9 - fault parser rejects missing and wrong markers\n  ---\n  duration_ms: 0.295325\n  type: 'test'\n  ...\n# Subtest: fault parser rejects wrong SQLSTATE and snapshot drift\nok 10 - fault parser rejects wrong SQLSTATE and snapshot drift\n  ---\n  duration_ms: 0.33452\n  type: 'test'\n  ...\n# Subtest: source has no v10 C/D physical authority or old formal run ID\nok 11 - source has no v10 C/D physical authority or old formal run ID\n  ---\n  duration_ms: 0.16297\n  type: 'test'\n  ...\n# Subtest: child PATH prepends the absolute current runtime directory even when ambient PATH lacks node\nok 12 - child PATH prepends the absolute current runtime directory even when ambient PATH lacks node\n  ---\n  duration_ms: 0.156438\n  type: 'test'\n  ...\n# Subtest: v4 database and QA intake accept exact acyclic GO bindings\nok 13 - v4 database and QA intake accept exact acyclic GO bindings\n  ---\n  duration_ms: 0.373006\n  type: 'test'\n  ...\n# Subtest: v4 database intake strictly binds future QA path and schema without future QA SHA\nok 14 - v4 database intake strictly binds future QA path and schema without future QA SHA\n  ---\n  duration_ms: 0.318239\n  type: 'test'\n  ...\n# Subtest: v4 review intake rejects old header, formal false, nonzero priority and wrong binding\nok 15 - v4 review intake rejects old header, formal false, nonzero priority and wrong binding\n  ---\n  duration_ms: 0.184391\n  type: 'test'\n  ...\n# Subtest: v4 review intake rejects missing, unknown and duplicate fields\nok 16 - v4 review intake rejects missing, unknown and duplicate fields\n  ---\n  duration_ms: 0.131493\n  type: 'test'\n  ...\n# Subtest: v4 drain intake binds both review SHAs and rejects stale or incomplete GO\nok 17 - v4 drain intake binds both review SHAs and rejects stale or incomplete GO\n  ---\n  duration_ms: 0.259331\n  type: 'test'\n  ...\n# Subtest: missing v4 GO authority fails before the formal evidence root is created\nok 18 - missing v4 GO authority fails before the formal evidence root is created\n  ---\n  duration_ms: 15.843916\n  type: 'test'\n  ...\n# Subtest: v4 authority paths reject old GO files and noncanonical locations\nok 19 - v4 authority paths reject old GO files and noncanonical locations\n  ---\n  duration_ms: 0.12926\n  type: 'test'\n  ...\n# Subtest: v4 authority hashes reject malformed and wrong exact SHA\nok 20 - v4 authority hashes reject malformed and wrong exact SHA\n  ---\n  duration_ms: 0.142765\n  type: 'test'\n  ...\n1..20\n# tests 20\n# suites 0\n# pass 20\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2603.958925\n"
+  },
+  "parse": {
+    "status": "passed",
+    "value": {
+      "tests": 20,
+      "suites": 0,
+      "pass": 20,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "names": []
+    }
+  }
+}

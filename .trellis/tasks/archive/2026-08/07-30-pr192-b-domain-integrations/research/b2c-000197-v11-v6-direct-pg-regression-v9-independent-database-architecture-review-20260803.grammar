@@ -1,0 +1,25 @@
+b2c-000197-v11-v6-direct-pg-regression-v9-independent-database-architecture-review-v1
+reviewed_at_utc	2026-08-02T22:37:00Z
+reviewer_authority	independent-database-architecture-reviewer
+decision	RETURNED
+review_approved	false
+runner_raw_sha256	b54acc6f7dbdf7da29bee67c7fde2a760eb47139598caa79933f76786c1463b0
+runner_spec_raw_sha256	453de16f3c6fcab1448fc2feaf1e863165d28e30c141e4bb8564cd450b68e79c
+resource_identity_registry_raw_sha256	fc901bda764b0cadacaae80d9982e5f5100b6878dea4869a42b3c280ba3c4bed
+migration_000197_raw_sha256	a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059
+failure_cases_raw_sha256	ee92e8094d32bb7974b1e4ac1302963fadd2deb3049d414038a5fab4fb2ce763
+v8_identity_inventory_p1	closed-static;registry-includes-retained-v4-volume-858adfc91337b506c9937bc1af93287ef7d2919d8070e6f789849fb4efa9e6aa-plus-known-C-through-H-and-v4-resource-identities
+freshness_contract	pass-static;runId-container-database-or-volume-reuse-is-rejected-before-spawn
+static_side_effect_contract	pass-static;executeV9-is-fail-closed-and-tests-zero-child-calls-for-missing-intake
+finding_p1_1	claimed-v9-candidate-authority-manifest-static-test-record-and-handoff-are-absent-from-the-worktree;the-current-runner-binds-only-a-registry-and-three-env-keys-and-contains-no-review-SHA-or-resource-authority-contract
+finding_p1_2	current-executeV9-unconditionally-throws-awaiting-three-reviews-and-does-not-provide-a-future-sealed-execution-path-that-binds-database-QA-drain-and-resource-authority-artifacts
+impact	no-complete-candidate-chain-exists-to-review-or-authorize;inventory-improvement-cannot-by-itself-advance-to-resource-creation-or-real-regression
+required_fix	publish-new-0444-authority-manifest-static-record-and-handoff-with-exact-SHAs-and-a-sealed-future-execution-path-that-validates-DB-QA-drain-resource-before-any-child-command;then-repeat-independent-review
+container_create_authorized	false
+container_execute_authorized	false
+formal_go	false
+resource_authority_issuable	false
+open_p0	0
+open_p1	2
+open_p2	0
+next_gate	complete-v9-candidate-artifacts-and-authority-contract-before-re-review

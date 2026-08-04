@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v31-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v31_20260803a",
+  "stage": "apply-000049-s3c-contract-effective-flow-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v31-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v31_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 1327,
+    "raw_sha256": "4f69d85ab4bee9807b05479085c88cf7787e4f894341ae9c76e6979b339be455",
+    "persisted": false
+  }
+}

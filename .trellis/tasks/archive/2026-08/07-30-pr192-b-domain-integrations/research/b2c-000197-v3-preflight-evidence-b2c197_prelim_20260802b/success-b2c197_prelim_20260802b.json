@@ -1,0 +1,88 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-v3",
+  "evidence_policy_version": "b2c-000197-child-evidence-v3",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "status": "PASSED",
+  "recorded_at_utc": "2026-08-01T21:16:11.864Z",
+  "evidence_entries": [
+    {
+      "filename": "001-inspect-c-intent.json",
+      "bytes": 831,
+      "raw_sha256": "cc4917c08f42d5c6c81a3e740e417699311eabaa7bb89b27ccec680a603abb60"
+    },
+    {
+      "filename": "001-inspect-c-result.json",
+      "bytes": 984,
+      "raw_sha256": "35b4723feaca2e1edb0fc66a1d8fd8809022104c08e9f1d5e5d4db896c4443bd"
+    },
+    {
+      "filename": "002-preflight-c-intent.json",
+      "bytes": 836,
+      "raw_sha256": "ff3c535cd29aece6d37207f77a747c1541c90b8623b80e27aa19ff2ef550b392"
+    },
+    {
+      "filename": "002-preflight-c-result.json",
+      "bytes": 972,
+      "raw_sha256": "5435c3b69d7d48f5ffda3bfe9732c5eacdf72a9aaf1d1db6bd2bff27d11f9cdf"
+    },
+    {
+      "filename": "003-inspect-d-intent.json",
+      "bytes": 831,
+      "raw_sha256": "08b4d25c5216d4858174fd530f9be83157a920d073648787dd9fffeb595699f5"
+    },
+    {
+      "filename": "003-inspect-d-result.json",
+      "bytes": 984,
+      "raw_sha256": "16c726b617d44ff5d9c265ea46904738ebf7701bbffc299e0c7bc21b2107fd37"
+    },
+    {
+      "filename": "004-preflight-d-intent.json",
+      "bytes": 836,
+      "raw_sha256": "56d8e357bab86f563b0418e48fe602af9c33809a882f724cd5e574c4443b6166"
+    },
+    {
+      "filename": "004-preflight-d-result.json",
+      "bytes": 972,
+      "raw_sha256": "25aabe5b56082d1f6cd92702ec497e5cfe71f11b4bc9440af29f3e897353aa0b"
+    }
+  ],
+  "scope": "c-and-d-read-only-preflight",
+  "final_current": false,
+  "resources_retained": [
+    "c",
+    "d"
+  ],
+  "result": {
+    "execution_authorized": false,
+    "read_only": true,
+    "formal_run_id": "b2c197_prelim_20260802b",
+    "targets": [
+      {
+        "key": "c",
+        "topology": "upgrade-to-195",
+        "identity": "ee68f2ef6b1c2ac5e6d653f1a2388e121b268bf3e6517402484255c1845d25c6|/jinhu-b2c197-prelim-20260802b-c|postgres:16-alpine|sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777|true|volume:60ab8a7c1dbf58421056bfd5a6f987144cfd8c7ee44c6500302478c9e0c1da12:/var/lib/postgresql/data",
+        "state": {
+          "history_primary": null,
+          "history_mirror": null,
+          "approval_rows": 0,
+          "indexdef": "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584",
+          "predicate": "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37",
+          "build_residue": false
+        }
+      },
+      {
+        "key": "d",
+        "topology": "fresh-to-195",
+        "identity": "f0d1f2d5e8508fd787e03c179596730c97371e0ebb19e1462774ebc67faae896|/jinhu-b2c197-prelim-20260802b-d|postgres:16-alpine|sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777|true|volume:7384e6ecc01752cff1fc8dd49074d4488e35e5369ceea404895a906cb4af98f5:/var/lib/postgresql/data",
+        "state": {
+          "history_primary": null,
+          "history_mirror": null,
+          "approval_rows": 0,
+          "indexdef": "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584",
+          "predicate": "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37",
+          "build_residue": false
+        }
+      }
+    ]
+  }
+}

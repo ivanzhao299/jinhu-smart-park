@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-v11-gh-loader-attempt02-child-result-v2",
+  "formal_run_id": "b2c197_prelim_20260802g",
+  "attempt_id": "b2c197_prelim_20260802g_gh_loader_attempt02",
+  "sequence": 4,
+  "stage": "preflight-inspect-h",
+  "recorded_at_utc": "2026-08-02T10:36:55.932Z",
+  "intent_raw_sha256": "a7b47ade41a7fba4283af6538b22a1659b8c85c58b115dbb304480ff30045d10",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 592,
+    "raw_sha256": "466acdadc0adfc3f1d0a3e5b6415dc101e0d88501abd686839672e8a92faaeef",
+    "redacted_utf8": "{\"id\":\"ef912049ab6909a3f9814e5e05317e29485f0cf4f590cfe4cf9b2eb3e1df94e2\",\"image\":\"sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777\",\"name\":\"/jinhu-b2c197-prelim-20260802g-h\",\"status\":\"running\",\"port_bindings\":{},\"publish_all_ports\":false,\"ports\":{\"5432/tcp\":null},\"mounts\":[{\"Destination\":\"/var/lib/postgresql/data\",\"Driver\":\"local\",\"Mode\":\"\",\"Name\":\"02f5f55c318d6368f94347aefe7312ab4a7452f1af0e4f7b8b28708806f1bf9b\",\"Propagation\":\"\",\"RW\":true,\"Source\":\"/var/lib/docker/volumes/02f5f55c318d6368f94347aefe7312ab4a7452f1af0e4f7b8b28708806f1bf9b/_data\",\"Type\":\"volume\"}]}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "b2c-v22-terminal-v1",
+  "run_id": "b2c197_v11v6_direct_v22_20260803a",
+  "status": "FAILURE",
+  "run_id_reusable": false,
+  "retry_attempted": false,
+  "cleanup_attempted": false,
+  "authority_provenance": {
+    "resource_observation_raw_sha256": "e01e2baf636158f6ae588511644bdb528c87f23df786313cf2649ab831422c3d",
+    "execution_authority_raw_sha256": "7e3dd6ec487a4737e0ab3e16e1ed1d1081f4d7d2fe54a5a37738cc8960428ffa"
+  },
+  "failure": {
+    "code": "B2C_V22_EXECUTION_FAILED",
+    "stage": "execution",
+    "name": "ExecutionError"
+  }
+}

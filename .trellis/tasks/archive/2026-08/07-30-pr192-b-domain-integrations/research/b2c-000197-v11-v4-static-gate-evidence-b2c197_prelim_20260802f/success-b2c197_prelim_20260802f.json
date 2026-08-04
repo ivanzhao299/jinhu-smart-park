@@ -1,0 +1,137 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "PASSED",
+  "recorded_at_utc": "2026-08-02T02:43:53.128Z",
+  "evidence_entries": [
+    {
+      "filename": "001-static-v11-evidence-intent.json",
+      "bytes": 2083,
+      "raw_sha256": "e14e44b1506820c8eb21f14af6cb3f75d3abe67dad3c425e8d9132c3959c224c"
+    },
+    {
+      "filename": "001-static-v11-evidence-result.json",
+      "bytes": 3197,
+      "raw_sha256": "e66676e81ed187ac3e26166d07edfb48d4bb6ccc90c413bc19f6fabbb11a7c13"
+    },
+    {
+      "filename": "001-static-v11-evidence-parse.json",
+      "bytes": 3205,
+      "raw_sha256": "f5a6fa21291207d603c3a97c4b0f45b891bf52591b54ab94ccde52e145465b15"
+    },
+    {
+      "filename": "002-static-v11-orchestrator-intent.json",
+      "bytes": 2135,
+      "raw_sha256": "e577f795a75d691d838b1af95560518290be01c7fed09f31122a4baa623b1d72"
+    },
+    {
+      "filename": "002-static-v11-orchestrator-result.json",
+      "bytes": 5115,
+      "raw_sha256": "b3b906e6de862f5f192d47a78682594c4dbd0ca4022137377216bc528336273b"
+    },
+    {
+      "filename": "002-static-v11-orchestrator-parse.json",
+      "bytes": 5123,
+      "raw_sha256": "feca33a5aca3234cd9ee060f97bd98c84c728c106d135a9dd901e40b7a3231d6"
+    },
+    {
+      "filename": "003-static-v11-capability-intent.json",
+      "bytes": 2083,
+      "raw_sha256": "1bca7e5653411876da702de49d51d4b9db46262df4215da2439d85d7210b0256"
+    },
+    {
+      "filename": "003-static-v11-capability-result.json",
+      "bytes": 1534,
+      "raw_sha256": "5113ee47909ab01a3c1774e332831cad2871588aab383a462969c6f097983943"
+    },
+    {
+      "filename": "003-static-v11-capability-parse.json",
+      "bytes": 1816,
+      "raw_sha256": "06574d9c675b9f669fd70b2116a142a16108fa1dfb06b2b809fcf4ed9ec64461"
+    },
+    {
+      "filename": "004-static-v11-recursive-closure-intent.json",
+      "bytes": 2089,
+      "raw_sha256": "f586c0e5eb07ae66e70272f16ef2bbd12e956cf4e73cd8cda5ed3379db5261b4"
+    },
+    {
+      "filename": "004-static-v11-recursive-closure-result.json",
+      "bytes": 1581,
+      "raw_sha256": "7ac4532f662f3c522e5e2bc0c3cddb7da8ab53ea731ef69fadee811fc5edf4e1"
+    },
+    {
+      "filename": "004-static-v11-recursive-closure-parse.json",
+      "bytes": 1878,
+      "raw_sha256": "42c4b0b2443cf64462abbee91efc7ce5cab3c748066469e3880681bd63832d1e"
+    },
+    {
+      "filename": "005-static-v11-closure-intent.json",
+      "bytes": 2076,
+      "raw_sha256": "9443400d959d9b6f855564bb9e64bc631bde3966388604e825cc61bb82b4f944"
+    },
+    {
+      "filename": "005-static-v11-closure-result.json",
+      "bytes": 1587,
+      "raw_sha256": "8929c0dddc1296e744870251f306d0b63000db106088145d384da9c11d3c7d1d"
+    },
+    {
+      "filename": "005-static-v11-closure-parse.json",
+      "bytes": 1593,
+      "raw_sha256": "955c7f727e4dbadbcac3d187641bd1ba56fe5de073a6dc77872b054a72f698f0"
+    },
+    {
+      "filename": "006-static-v11-contract-intent.json",
+      "bytes": 2078,
+      "raw_sha256": "d36750eda791b50b6f56ae2251ada8786985a9189f3110dc1a169872dd7aee4e"
+    },
+    {
+      "filename": "006-static-v11-contract-result.json",
+      "bytes": 2540,
+      "raw_sha256": "80deb8d5e1fd6852118decfdf1204b42723c3fddda154359695110757705d79c"
+    },
+    {
+      "filename": "006-static-v11-contract-parse.json",
+      "bytes": 2546,
+      "raw_sha256": "4c73fd0d9d8258ed1d56175b2f32373cbc4db5f19ea042fbe1626dcdcbbb0c1c"
+    },
+    {
+      "filename": "007-static-v11-lifecycle-intent.json",
+      "bytes": 2129,
+      "raw_sha256": "079bf7ab06ba04cc66ab2224cc1c0b8be38e6191707d315112f4c803e476e8bc"
+    },
+    {
+      "filename": "007-static-v11-lifecycle-result.json",
+      "bytes": 1760,
+      "raw_sha256": "0d60f137fedb86cc85e65bc4e8da3063e0fdcaa8e432e196133b15bffda79f31"
+    },
+    {
+      "filename": "007-static-v11-lifecycle-parse.json",
+      "bytes": 1766,
+      "raw_sha256": "b71b5fa6712eea11eff0540c2895a30ae03e63ec53b38809eeb2778dde86655b"
+    }
+  ],
+  "scope": "v11-frozen-static-only",
+  "execution_authorized": false,
+  "live_execution": false,
+  "database_or_container_mutation_performed": false,
+  "resource_authority_raw_sha256": "6c1c38fae1a91387af2e0f27cbac88d58d15f80e91f4ef7a9c1baf5b8cb6e424",
+  "review_schema": {
+    "database": "b2c-000197-preliminary-v11-v4-independent-database-review-v1",
+    "qa": "b2c-000197-preliminary-v11-v4-independent-qa-security-review-v1",
+    "drain": "b2c-000197-old-writer-drain-v11-v4"
+  },
+  "review_required_fields": [
+    "formal_run_id",
+    "manifest_raw_sha256",
+    "handoff_raw_sha256",
+    "resource_authority_raw_sha256",
+    "executor_raw_sha256",
+    "orchestrator_raw_sha256",
+    "resolver_raw_sha256",
+    "reviewer_authority",
+    "decision"
+  ],
+  "drain_schema": "b2c-000197-old-writer-drain-v11-v4",
+  "new_writer_build": "approval-port-v8"
+}

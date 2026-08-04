@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 22,
+  "stage": "fault-c-before-create-before",
+  "recorded_at_utc": "2026-08-02T00:30:36.248Z",
+  "intent_raw_sha256": "75342b3da16bf5ef6acd8d7d69fbcdb888fbd53279bec4de93ff867c2f4fa17b",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 605,
+    "raw_sha256": "c3eb1a284e3ee23bb0e99b78f02486786694ed5f1deea43be4399feca67cff15",
+    "redacted_utf8": "{\"history_primary\" : [{\"filename\":\"000197_property_approval_active_source_index_forward_fix.sql\",\"checksum\":\"a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059\",\"status\":\"succeeded\"}], \"history_mirror\" : [{\"filename\":\"000197_property_approval_active_source_index_forward_fix.sql\",\"checksum\":\"a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059\",\"status\":\"succeeded\"}], \"approval_rows\" : 0, \"indexdef\" : \"dd004f0c2e5f40e86ec1953effa91b8604614e276c9fedabe7f2464f13d70d9c\", \"predicate\" : \"24ef911486d5274d6c439d63de6aa253b289241ac2b75317b1f98bc93a5a8fda\", \"build_residue\" : false}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}
