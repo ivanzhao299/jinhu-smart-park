@@ -21,17 +21,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtSessionClaims): Promise<JwtPrincipal> {
-    await this.tenantsService.assertTenantActive(payload.tenantId);
-    try {
-      return await this.usersService.resolveJwtPrincipal(
+    const [tenantResult, principalResult] = await Promise.allSettled([
+      this.tenantsService.assertTenantActive(payload.tenantId),
+      this.usersService.resolveJwtPrincipal(
         { tenantId: payload.tenantId, parkId: payload.parkId },
         payload.sub
-      );
-    } catch (error) {
-      if (error instanceof NotFoundException) {
+      )
+    ]);
+
+    if (tenantResult.status === "rejected") {
+      throw tenantResult.reason;
+    }
+    if (principalResult.status === "rejected") {
+      if (principalResult.reason instanceof NotFoundException) {
         throw new UnauthorizedException("Authentication context is no longer available");
       }
-      throw error;
+      throw principalResult.reason;
     }
+    return principalResult.value;
   }
 }

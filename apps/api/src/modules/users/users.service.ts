@@ -83,6 +83,21 @@ export interface PasswordLoginSuccessResult {
   lockoutActive: boolean;
 }
 
+interface JwtPrincipalRow {
+  user_id: string;
+  user_username: string;
+  user_display_name: string;
+  user_tenant_id: string;
+  user_park_id: string;
+  user_is_enabled: boolean;
+  user_status: string;
+  role_link_id: string | null;
+  role_code: string | null;
+  role_is_super: boolean | null;
+  role_data_scope: string | null;
+  permission_code: string | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -375,11 +390,103 @@ export class UsersService {
   }
 
   async resolveJwtPrincipal(scope: TenantParkScope, id: string): Promise<JwtPrincipal> {
-    const user = await this.getEntityInScope(scope, id);
-    if (!user.isEnabled || user.status !== "enabled") {
+    const rows = await this.usersRepository.query<JwtPrincipalRow[]>(
+      `SELECT
+         usr.id AS user_id,
+         usr.username AS user_username,
+         usr.display_name AS user_display_name,
+         usr.tenant_id AS user_tenant_id,
+         usr.park_id AS user_park_id,
+         usr.is_enabled AS user_is_enabled,
+         usr.status AS user_status,
+         user_role.id AS role_link_id,
+         role.code AS role_code,
+         role.is_super AS role_is_super,
+         role.data_scope AS role_data_scope,
+         permission.code AS permission_code
+       FROM sys_user usr
+       LEFT JOIN rel_user_role user_role
+         ON user_role.user_id = usr.id
+        AND user_role.is_deleted = false
+        AND user_role.tenant_id = usr.tenant_id
+        AND user_role.park_id = usr.park_id
+        AND EXISTS (
+          SELECT 1
+          FROM sys_role active_role
+          WHERE active_role.id = user_role.role_id
+            AND active_role.is_deleted = false
+            AND active_role.is_enabled = true
+            AND active_role.status = 'enabled'
+            AND active_role.tenant_id = usr.tenant_id
+            AND active_role.park_id = usr.park_id
+        )
+       LEFT JOIN sys_role role
+         ON role.id = user_role.role_id
+        AND role.is_deleted = false
+        AND role.is_enabled = true
+        AND role.status = 'enabled'
+        AND role.tenant_id = usr.tenant_id
+        AND role.park_id = usr.park_id
+       LEFT JOIN rel_role_perm role_permission
+         ON role_permission.role_id = role.id
+        AND role_permission.is_deleted = false
+        AND role_permission.tenant_id = usr.tenant_id
+        AND role_permission.park_id = usr.park_id
+        AND EXISTS (
+          SELECT 1
+          FROM sys_permission active_permission
+          WHERE active_permission.id = role_permission.permission_id
+            AND active_permission.is_deleted = false
+            AND active_permission.is_enabled = true
+            AND active_permission.status = 'enabled'
+            AND active_permission.tenant_id = usr.tenant_id
+        )
+       LEFT JOIN sys_permission permission
+         ON permission.id = role_permission.permission_id
+        AND permission.is_deleted = false
+        AND permission.is_enabled = true
+        AND permission.status = 'enabled'
+        AND permission.tenant_id = usr.tenant_id
+       WHERE usr.id = $1::uuid
+         AND usr.tenant_id = $2
+         AND usr.park_id = $3
+         AND usr.is_deleted = false
+       ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
+      [id, scope.tenantId, scope.parkId]
+    );
+    const first = rows[0];
+    if (!first || !first.user_is_enabled || first.user_status !== "enabled") {
       throw new NotFoundException("User not found");
     }
-    return this.buildJwtPrincipal(user);
+
+    const roles = new Map<string, { code: string; isSuper: boolean; dataScope: string }>();
+    const basePermissions: string[] = [];
+    for (const row of rows) {
+      if (row.role_link_id !== null && row.role_code !== null && row.role_data_scope !== null) {
+        roles.set(row.role_link_id, {
+          code: row.role_code,
+          isSuper: row.role_is_super === true,
+          dataScope: row.role_data_scope
+        });
+        if (row.permission_code !== null) {
+          basePermissions.push(row.permission_code);
+        }
+      }
+    }
+    const activeRoles = [...roles.values()];
+    const isSuper = activeRoles.some((role) => role.isSuper) || basePermissions.includes("*");
+
+    return {
+      sub: first.user_id,
+      username: first.user_username,
+      realName: first.user_display_name,
+      tenantId: first.user_tenant_id,
+      parkId: first.user_park_id,
+      roles: activeRoles.map((role) => role.code),
+      permissions: isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]),
+      dataScope: isSuper ? "all" : this.resolveDataScope(activeRoles.map((role) => role.dataScope)),
+      isSuper
+    };
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
