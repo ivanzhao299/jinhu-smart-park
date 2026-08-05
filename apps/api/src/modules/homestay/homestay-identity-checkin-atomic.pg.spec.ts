@@ -320,6 +320,7 @@ async function cleanupIdentityFixture(
   ] as const;
   await dataSource.transaction(async (manager) => {
     await manager.query("SET CONSTRAINTS ALL DEFERRED");
+    await manager.query("SELECT set_config('session_replication_role','replica',true)");
     await manager.query(
       `UPDATE biz_party
           SET current_identity_submission_id=NULL,
