@@ -201,6 +201,7 @@ function persistLog(result, caseRoot, id, artifacts) {
 const NEXT_BUILD_COMMAND_IDS = new Set(["baseline-web-clean-production-build", "web-clean-production-build"]);
 const ALLOWED_NEXT_BUILD_PUBLIC_URLS = new Map([
   ["https://nextjs.org/docs/app/api-reference/config/eslint", "<allowed-public-build-doc:next-eslint>"],
+  ["https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats", "<allowed-public-build-doc:next-output-caveats>"],
   ["https://nextjs.org/telemetry", "<allowed-public-build-doc:next-telemetry>"]
 ]);
 const OUTPUT_URL_TOKEN_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>\p{Cc}]+/giu;
