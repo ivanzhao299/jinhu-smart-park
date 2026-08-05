@@ -68,6 +68,41 @@ function writeJsonExclusive(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: "wx" });
 }
 
+export function makeRtoRpoDiagnostic({ runId, finalSha, profileSha256, caseId, durableComparison, rtoStartedAt, rtoFinishedAt, monotonicStarted, monotonicFinished, rtoMilliseconds, rtoTargetMilliseconds, timedOut = false }) {
+  const reasonCodes = [];
+  if (!durableComparison.identical) reasonCodes.push("DURABLE_MISMATCH");
+  if (timedOut) reasonCodes.push("RTO_TIMEOUT");
+  else if (rtoMilliseconds > rtoTargetMilliseconds) reasonCodes.push("RTO_EXCEEDED");
+  if (reasonCodes.length === 0) throw new Error("RTO/RPO diagnostic requires a failed target");
+  const projection = {
+    schemaVersion: "property-track-c-rollback-rto-rpo-diagnostic-v1",
+    runId,
+    finalSha,
+    profileSha256,
+    caseId,
+    phase: "post-rollback-durable-check",
+    durable: {
+      beforeSha256: durableComparison.beforeSha256,
+      afterSha256: durableComparison.afterSha256,
+      changedTables: durableComparison.changedTables,
+      rpoCommittedRows: durableComparison.rpoCommittedRows,
+      identical: durableComparison.identical
+    },
+    rto: {
+      startedAt: rtoStartedAt,
+      finishedAt: rtoFinishedAt,
+      monotonicStartedNanoseconds: monotonicStarted.toString(),
+      monotonicFinishedNanoseconds: monotonicFinished.toString(),
+      rtoMilliseconds,
+      targetMilliseconds: rtoTargetMilliseconds,
+      withinTarget: !timedOut && rtoMilliseconds <= rtoTargetMilliseconds
+    },
+    terminal: { status: "FAIL", reasonCodes, at: rtoFinishedAt }
+  };
+  assertNoSensitiveData(projection, "rollback RTO/RPO diagnostic");
+  return { ...projection, diagnosticSha256: canonicalSha256(projection) };
+}
+
 export function parseOptions(argv) {
   const mode = argv[0] ?? "--check";
   const allowedByMode = { "--check": new Set(["final-sha"]), "--prepare": new Set(["run-id", "final-sha"]), "--execute": new Set(["run-id", "final-sha", "case"]) };
@@ -339,7 +374,9 @@ async function executeValidatedCase({ run, runRoot, finalSha, profile, profileSh
   if (baselineFlagsProof?.expectedValue !== "true" || baselineSmoke?.stage !== "baseline" || baselineSmoke.webBuildIdSha256 !== baselineFlagsProof.buildIdSha256) throw new Error("flags-on baseline build/runtime binding failed");
   const rtoStartedAt = new Date().toISOString();
   const monotonicStarted = process.hrtime.bigint();
-  const phase = await withHardTimeout(async (rtoSignal) => {
+  let phase;
+  try {
+    phase = await withHardTimeout(async (rtoSignal) => {
     const derived = await deriveExpectedTree({ finalSha, patchBytes: patch.bytes, worktree: exactWorktree, indexFile: resolve(runRoot, "tmp", caseId, "derived.index"), signal: rtoSignal, caseRoot, artifacts });
     const cutoverCommands = [...derived.commands];
     for (const [id, args, consumesPatch] of [["patch-check", ["apply", "--check", "--index", "-"], true], ["patch-apply", ["apply", "--index", "-"], true], ["write-tree", ["write-tree"], false]]) {
@@ -366,7 +403,20 @@ async function executeValidatedCase({ run, runRoot, finalSha, profile, profileSh
     const rollbackSmoke = JSON.parse(readFileSync(resolve(caseRoot, commands.find(({ id }) => id === "rollback-service-smoke").stdoutPath), "utf8").trim());
     if (rollbackSmoke.stage !== "rollback" || rollbackSmoke.webBuildIdSha256 !== flagsProof?.buildIdSha256) throw new Error("flags-off rollback build/runtime binding failed");
     return { expectedTreeSha: derived.expectedTreeSha, observedTreeSha, cutoverCommands, commands, flagsProof, rollbackSmoke, semanticResult: semantic.result, semanticResultSha256: semantic.resultSha256, semanticInputsSha256: semanticInputsArtifact.sha256 };
-  }, profile.rtoTargetMilliseconds, "complete rollback RTO phase", signal);
+    }, profile.rtoTargetMilliseconds, "complete rollback RTO phase", signal);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("complete rollback RTO phase timed out")) {
+      const timeoutFinished = process.hrtime.bigint();
+      const timeoutFinishedAt = new Date().toISOString();
+      const timeoutAfter = await captureDurableSnapshot({ databaseUrl, expectedDatabase: authority.database, profile, signal });
+      validateDurableSnapshot(timeoutAfter, profile);
+      const timeoutComparison = compareDurableSnapshots(durableBefore, timeoutAfter, profile);
+      const timeoutMilliseconds = Number(timeoutFinished - monotonicStarted) / 1_000_000;
+      const diagnostic = makeRtoRpoDiagnostic({ runId: run.runId, finalSha, profileSha256, caseId, durableComparison: timeoutComparison, rtoStartedAt, rtoFinishedAt: timeoutFinishedAt, monotonicStarted, monotonicFinished: timeoutFinished, rtoMilliseconds: timeoutMilliseconds, rtoTargetMilliseconds: profile.rtoTargetMilliseconds, timedOut: true });
+      writeJsonExclusive(resolve(caseRoot, "rto-rpo-diagnostic.json"), diagnostic);
+    }
+    throw error;
+  }
   const { expectedTreeSha, observedTreeSha, cutoverCommands, commands, flagsProof, semanticResult, semanticResultSha256, semanticInputsSha256 } = phase;
   const monotonicFinished = process.hrtime.bigint();
   const rtoFinishedAt = new Date().toISOString();
@@ -375,7 +425,11 @@ async function executeValidatedCase({ run, runRoot, finalSha, profile, profileSh
   const finishedAt = new Date().toISOString();
   const durableComparison = compareDurableSnapshots(durableBefore, durableAfter, profile);
   const rtoMilliseconds = Number(monotonicFinished - monotonicStarted) / 1_000_000;
-  if (!durableComparison.identical || rtoMilliseconds > profile.rtoTargetMilliseconds) throw new Error("rollback RTO/RPO target failed");
+  if (!durableComparison.identical || rtoMilliseconds > profile.rtoTargetMilliseconds) {
+    const diagnostic = makeRtoRpoDiagnostic({ runId: run.runId, finalSha, profileSha256, caseId, durableComparison, rtoStartedAt, rtoFinishedAt, monotonicStarted, monotonicFinished, rtoMilliseconds, rtoTargetMilliseconds: profile.rtoTargetMilliseconds });
+    writeJsonExclusive(resolve(caseRoot, "rto-rpo-diagnostic.json"), diagnostic);
+    throw new Error(!durableComparison.identical ? "rollback durable RPO target failed" : "rollback RTO target failed");
+  }
   const transcript = buildTranscript([
     { type: "source-dataset", sha256: sourceDataset.identity.tablesSha256 },
     { type: "target-clone", sha256: provisioned.targetIdentity.tablesSha256 },

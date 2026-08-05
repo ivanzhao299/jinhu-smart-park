@@ -13,7 +13,7 @@ import { buildCommandSpecs, COMMAND_IDS, materializeCommand, probeCommandRuntime
 import { compareDurableSnapshots } from "./comparator.mjs";
 import { assertNoSensitiveData, canonicalSha256, durableTableNames, loadProfile, makeDurableSnapshot, repoRoot, sha256 } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
-import { assertCommandOutputSafe, deriveExpectedTree, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
+import { assertCommandOutputSafe, deriveExpectedTree, makeRtoRpoDiagnostic, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
 import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
@@ -245,6 +245,42 @@ test("service smoke authority reaches child services and cleanup diagnostics are
   const combined = combineServiceSmokeErrors(new Error("primary"), [new Error("web stop"), new Error("port busy"), new Error("lease write")]);
   assert.match(combined.message, /primary; service cleanup failed: web stop; port busy; lease write/u);
   assert.equal(combineServiceSmokeErrors(null, []), null);
+});
+
+test("RTO/RPO failures produce a hash-bound detail-free diagnostic", () => {
+  const diagnostic = makeRtoRpoDiagnostic({
+    runId: RUN_ID, finalSha: FINAL_SHA, profileSha256: sha256("profile"), caseId: "homestay-dashboard",
+    durableComparison: { identical: false, changedTables: ["biz_property_occupancy"], rpoCommittedRows: 1, beforeSha256: sha256("before"), afterSha256: sha256("after") },
+    rtoStartedAt: "2026-08-05T00:00:00.000Z", rtoFinishedAt: "2026-08-05T00:00:01.000Z",
+    monotonicStarted: 10n, monotonicFinished: 1_000_000_010n, rtoMilliseconds: 1000, rtoTargetMilliseconds: 1_800_000
+  });
+  assert.deepEqual(diagnostic.terminal.reasonCodes, ["DURABLE_MISMATCH"]);
+  assert.equal(diagnostic.rto.withinTarget, true);
+  assert.equal(diagnostic.durable.changedTables[0], "biz_property_occupancy");
+  assert.equal(diagnostic.diagnosticSha256, canonicalSha256(Object.fromEntries(Object.entries(diagnostic).filter(([key]) => key !== "diagnosticSha256"))));
+  assert.doesNotThrow(() => assertNoSensitiveData(diagnostic));
+  const combined = makeRtoRpoDiagnostic({
+    runId: RUN_ID, finalSha: FINAL_SHA, profileSha256: sha256("profile"), caseId: "homestay-dashboard",
+    durableComparison: { identical: false, changedTables: ["biz_property_occupancy"], rpoCommittedRows: 1, beforeSha256: sha256("before"), afterSha256: sha256("after") },
+    rtoStartedAt: "2026-08-05T00:00:00.000Z", rtoFinishedAt: "2026-08-05T00:30:00.001Z",
+    monotonicStarted: 0n, monotonicFinished: 1_800_001_000_000n, rtoMilliseconds: 1_800_001, rtoTargetMilliseconds: 1_800_000
+  });
+  assert.deepEqual(combined.terminal.reasonCodes, ["DURABLE_MISMATCH", "RTO_EXCEEDED"]);
+  assert.equal(combined.rto.withinTarget, false);
+  const timedOut = makeRtoRpoDiagnostic({
+    runId: RUN_ID, finalSha: FINAL_SHA, profileSha256: sha256("profile"), caseId: "homestay-dashboard",
+    durableComparison: { identical: true, changedTables: [], rpoCommittedRows: 0, beforeSha256: sha256("same"), afterSha256: sha256("same") },
+    rtoStartedAt: "2026-08-05T00:00:00.000Z", rtoFinishedAt: "2026-08-05T00:30:00.000Z",
+    monotonicStarted: 0n, monotonicFinished: 1_800_000_000_000n, rtoMilliseconds: 1_800_000, rtoTargetMilliseconds: 1_800_000, timedOut: true
+  });
+  assert.deepEqual(timedOut.terminal.reasonCodes, ["RTO_TIMEOUT"]);
+  assert.equal(timedOut.rto.withinTarget, false);
+  assert.throws(() => makeRtoRpoDiagnostic({
+    runId: RUN_ID, finalSha: FINAL_SHA, profileSha256: sha256("profile"), caseId: "homestay-dashboard",
+    durableComparison: { identical: true, changedTables: [], rpoCommittedRows: 0, beforeSha256: sha256("same"), afterSha256: sha256("same") },
+    rtoStartedAt: "2026-08-05T00:00:00.000Z", rtoFinishedAt: "2026-08-05T00:00:01.000Z",
+    monotonicStarted: 0n, monotonicFinished: 1_000_000_000n, rtoMilliseconds: 1000, rtoTargetMilliseconds: 1_800_000
+  }), /requires a failed target/u);
 });
 
 test("unapplicable original reverse intent can use a reviewed manual forward-port while undeclared deviations fail", () => {
