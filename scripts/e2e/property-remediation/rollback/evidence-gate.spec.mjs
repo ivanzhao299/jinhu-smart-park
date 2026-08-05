@@ -1,11 +1,41 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { validateCaseSemanticBindings, validateCrossCaseDatasetBindings, validateFormalProvenance, validateObservedTreeSemanticInputs, validateRollbackEvidence, validateTranscriptSemantic } from "./evidence-gate.mjs";
+import { validateArtifact, validateCaseSemanticBindings, validateCrossCaseDatasetBindings, validateFormalProvenance, validateObservedTreeSemanticInputs, validateRollbackEvidence, validateTranscriptSemantic } from "./evidence-gate.mjs";
 import { buildCompleteTestOnlyFixture, buildUnattestedFormalShapedFixture, buildUnattestedTopLevelFixture, testOnlyProvenance, validateCompleteTestOnlyFixture } from "./test-harness.mjs";
-import { loadProfile } from "./lib.mjs";
+import { hashFile, loadProfile } from "./lib.mjs";
+
+test("artifact gate applies the runner's exact public Next build URL policy", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "rollback-artifact-output-"));
+  try {
+    mkdirSync(resolve(root, "logs/nested"), { recursive: true });
+    const writeArtifact = (path, content) => {
+      const absolute = resolve(root, path); writeFileSync(absolute, content);
+      return { path, ...hashFile(absolute) };
+    };
+    const publicDocs = "https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats\n";
+    for (const command of ["baseline-web-clean-production-build", "web-clean-production-build"]) {
+      for (const stream of ["stdout", "stderr"]) {
+        const path = `logs/${command}.${stream}.log`;
+        assert.doesNotThrow(() => validateArtifact({ artifact: writeArtifact(path, publicDocs), caseRoot: root, usedPaths: new Set() }), path);
+      }
+    }
+    for (const [path, content] of [
+      ["logs/api-build.stderr.log", publicDocs],
+      ["logs/web-clean-production-build.stderr.log", "https://nextjs.org.evil/docs\n"],
+      ["logs/web-clean-production-build.stdout.log", "https:\\/\\/nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats\n"],
+      ["logs/web-clean-production-build.stdout.log", "https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats?token=value\n"],
+      ["logs/web-clean-production-build.stdout.log.bak", publicDocs],
+      ["logs/nested/web-clean-production-build.stdout.log", publicDocs],
+      ["logs/../logs/web-clean-production-build.stdout.log", publicDocs]
+    ]) {
+      assert.throws(() => validateArtifact({ artifact: writeArtifact(path, content), caseRoot: root, usedPaths: new Set() }), /URL/u, path);
+    }
+    assert.doesNotThrow(() => validateArtifact({ artifact: writeArtifact("logs/web-clean-production-build.stdout.log", publicDocs.trimEnd() + ".\n"), caseRoot: root, usedPaths: new Set() }));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 test("formal evidence gate rejects explicit test-only harness provenance", () => {
   const provenance = testOnlyProvenance({ runner: "0".repeat(64) });

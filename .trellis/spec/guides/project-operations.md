@@ -59,6 +59,10 @@ Reference files:
 - Runtime diagnostics must retain the failing smoke step while redacting
   credentials, bearer tokens, database URLs, and local paths before evidence
   persistence.
+- If command capture accepts an allowlisted public tool-documentation URL, the
+  evidence gate must apply the same command-aware allowlist when it re-reads
+  the command's exact persisted stdout/stderr log paths. All non-allowlisted
+  URLs, non-build logs, and path masquerades remain fail-closed.
 
 ## Documentation Sync
 

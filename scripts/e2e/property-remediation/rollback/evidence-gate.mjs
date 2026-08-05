@@ -8,6 +8,7 @@ import { validateRtoRpo } from "./comparator.mjs";
 import {
   assertFinalSha,
   assertHash,
+  assertCommandOutputSafe,
   assertNoSensitiveData,
   assertNoSymlinks,
   assertPathChainHasNoSymlink,
@@ -40,7 +41,7 @@ const CASE_KEYS = [
 ];
 const PLAN_KEYS = ["schemaVersion", "runId", "finalSha", "profileSha256", "caseId", "patchMetadataSha256", "commandSpecSha256", "approver", "reviewedAt", "approved"];
 
-function validateArtifact({ artifact, caseRoot, usedPaths }) {
+export function validateArtifact({ artifact, caseRoot, usedPaths }) {
   exactKeys(artifact, ["path", "sha256", "size"], "artifact catalog entry");
   if (typeof artifact.path !== "string" || artifact.path.length === 0 || usedPaths.has(artifact.path)) throw new Error("artifact paths must be non-empty and unique");
   usedPaths.add(artifact.path);
@@ -48,7 +49,13 @@ function validateArtifact({ artifact, caseRoot, usedPaths }) {
   const actual = hashFile(path);
   assertHash(artifact.sha256, "artifact SHA-256");
   if (artifact.sha256 !== actual.sha256 || artifact.size !== actual.size) throw new Error(`artifact checksum/size mismatch: ${artifact.path}`);
-  assertNoSensitiveData(readFileSync(path, "utf8"), `artifact ${artifact.path}`);
+  const content = readFileSync(path, "utf8");
+  const logMatch = /^logs\/(.+)\.(stdout|stderr)\.log$/u.exec(artifact.path);
+  if (logMatch) {
+    assertCommandOutputSafe({ stdout: logMatch[2] === "stdout" ? content : "", stderr: logMatch[2] === "stderr" ? content : "" }, logMatch[1]);
+  } else {
+    assertNoSensitiveData(content, `artifact ${artifact.path}`);
+  }
 }
 
 function validatePlan({ plan, planPath, evidence, run, commandSpecSha256, bounds, patchMetadata }) {

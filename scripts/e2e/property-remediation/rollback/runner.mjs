@@ -10,6 +10,7 @@ import { compareDurableSnapshots } from "./comparator.mjs";
 import {
   assertFinalSha,
   assertHash,
+  assertCommandOutputSafe,
   assertNoSensitiveData,
   assertNoSymlinks,
   assertPathChainHasNoSymlink,
@@ -27,6 +28,7 @@ import {
   validateDurableSnapshot,
   validateTimestamp
 } from "./lib.mjs";
+export { assertCommandOutputSafe } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
 import {
   captureDurableSnapshot,
@@ -231,39 +233,6 @@ function persistLog(result, caseRoot, id, artifacts) {
   const stderr = hashFile(resolve(caseRoot, stderrPath));
   artifacts.push({ path: stdoutPath, ...stdout }, { path: stderrPath, ...stderr });
   return { stdoutPath, stdoutSha256: stdout.sha256, stderrPath, stderrSha256: stderr.sha256 };
-}
-
-const NEXT_BUILD_COMMAND_IDS = new Set(["baseline-web-clean-production-build", "web-clean-production-build"]);
-const ALLOWED_NEXT_BUILD_PUBLIC_URLS = new Map([
-  ["https://nextjs.org/docs/app/api-reference/config/eslint", "<allowed-public-build-doc:next-eslint>"],
-  ["https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats", "<allowed-public-build-doc:next-output-caveats>"],
-  ["https://nextjs.org/telemetry", "<allowed-public-build-doc:next-telemetry>"]
-]);
-const OUTPUT_URL_TOKEN_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>\p{Cc}]+/giu;
-const ESCAPED_OUTPUT_URL_PATTERN = /\b[a-z][a-z0-9+.-]*:(?:(?:\\+\/|\\+u002f)(?:\/|\\+\/|\\+u002f)|\/(?:\\+\/|\\+u002f))[^\s"']*/iu;
-const ANSI_CSI_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, "gu");
-
-function outputScanText(text) {
-  const withoutAnsi = text.replace(ANSI_CSI_PATTERN, "");
-  if (ESCAPED_OUTPUT_URL_PATTERN.test(withoutAnsi)) throw new Error("command output contains an escaped URL");
-  for (const character of withoutAnsi) {
-    if (/\p{Cc}/u.test(character) && !["\t", "\n", "\r"].includes(character)) throw new Error("command output contains an unsupported control character");
-  }
-  return withoutAnsi;
-}
-
-export function assertCommandOutputSafe(result, id) {
-  const output = [result.stdout, result.stderr];
-  const normalizedOutput = output.map(outputScanText);
-  const scanCopy = NEXT_BUILD_COMMAND_IDS.has(id)
-    ? normalizedOutput.map((text) => text.replace(OUTPUT_URL_TOKEN_PATTERN, (url) => {
-      const core = url.replace(/[.,;!\])}]+$/u, "");
-      const marker = ALLOWED_NEXT_BUILD_PUBLIC_URLS.get(core);
-      return marker ? `${marker}${url.slice(core.length)}` : url;
-    }))
-    : normalizedOutput;
-  for (const text of scanCopy) assertNoSensitiveData(text, `command output ${id}`);
-  return result;
 }
 
 function buildTranscript(events, executionNonce) {
