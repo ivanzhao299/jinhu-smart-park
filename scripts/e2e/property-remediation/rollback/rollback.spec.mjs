@@ -20,7 +20,7 @@ import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
-import { combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment } from "./service-smoke.mjs";
+import { assertServiceProcessRunning, combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment, waitReady } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -268,6 +268,47 @@ test("service smoke diagnostics identify the failing bounded step", async () => 
   assert.match(sensitiveOutput, /service smoke api-ready failed with redacted sensitive details/u);
   assert.doesNotMatch(sensitiveOutput, /not-for-output|abcdefghijklmnop/u);
   assert.doesNotThrow(() => assertNoSensitiveData(sensitiveOutput));
+});
+
+test("service readiness retries transient Web startup failures within a fixed budget", async () => {
+  let requests = 0;
+  let delays = 0;
+  const response = { status: 200, json: async () => ({ data: { status: "ok" } }) };
+  const requestImplementation = async () => {
+    requests += 1;
+    if (requests < 3) throw new TypeError("fetch failed");
+    return response;
+  };
+  const delayImplementation = async () => { delays += 1; };
+  assert.equal(await waitReady("http://127.0.0.1:50000/login", null, undefined, {
+    attempts: 3, intervalMilliseconds: 0, requestImplementation, delayImplementation
+  }), response);
+  assert.equal(requests, 3);
+  assert.equal(delays, 2);
+
+  requests = 0;
+  await assert.rejects(waitReady("http://127.0.0.1:50000/login", null, undefined, {
+    attempts: 3,
+    intervalMilliseconds: 0,
+    requestImplementation: async () => { requests += 1; throw new TypeError("fetch failed"); },
+    delayImplementation
+  }), /service readiness failed: fetch failed/u);
+  assert.equal(requests, 3);
+});
+
+test("service readiness fails immediately when a child exits before listening", async () => {
+  const exited = { role: "web", spawnError: null, exited: true, exitCode: 1, signal: null };
+  assert.throws(() => assertServiceProcessRunning(exited), /web service process exited before readiness \(exit code 1\)/u);
+  let requests = 0;
+  await assert.rejects(waitReady("http://127.0.0.1:50000/login", null, undefined, {
+    attempts: 3,
+    intervalMilliseconds: 0,
+    processState: exited,
+    requestImplementation: async () => { requests += 1; return { status: 200 }; },
+    delayImplementation: async () => undefined
+  }), /web service process exited before readiness/u);
+  assert.equal(requests, 0);
+  assert.throws(() => assertServiceProcessRunning({ ...exited, exited: false, spawnError: true }), /web service process failed to start/u);
 });
 
 test("service smoke authority reaches child services and cleanup diagnostics are cumulative", () => {

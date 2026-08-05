@@ -42,6 +42,24 @@ Reference files:
 - `scripts/e2e/s5a-safety-smoke.mjs`
 - `scripts/e2e/s3d-payment-smoke.mjs`
 
+### Service Readiness In Smoke And Rehearsal Scripts
+
+- A spawned process, an allocated PID, or a free/bound TCP port is not an HTTP
+  readiness signal. Poll every origin that the smoke flow will use, including
+  Web origins in front of API rewrites, with a fixed attempt/deadline budget.
+- Readiness retries may cover idempotent health pages and login-page GETs. Do
+  not silently add retries around authenticated writes or business mutations.
+- Track child `error` and `exit` events while waiting. A service that exits
+  before readiness must fail immediately with its role and terminal state,
+  then enter the same process-group, port, lease, credential, and database
+  cleanup path as any other failure.
+- Tests must deterministically cover transient connection refusal followed by
+  success, exhaustion of the bounded retry budget, and child exit before
+  listening. Do not rely on timing sleeps as the only regression check.
+- Runtime diagnostics must retain the failing smoke step while redacting
+  credentials, bearer tokens, database URLs, and local paths before evidence
+  persistence.
+
 ## Documentation Sync
 
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.

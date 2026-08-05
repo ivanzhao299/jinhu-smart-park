@@ -35,11 +35,38 @@ async function request(url, options, expected, signal) {
   return response;
 }
 
-async function waitReady(url, validator, signal) {
+export function assertServiceProcessRunning(state) {
+  if (!state) return;
+  if (state.spawnError) throw new Error(`${state.role} service process failed to start`);
+  if (state.exited) {
+    const terminal = state.signal ? `signal ${state.signal}` : `exit code ${state.exitCode}`;
+    throw new Error(`${state.role} service process exited before readiness (${terminal})`);
+  }
+}
+
+export async function waitReady(url, validator, signal, {
+  attempts = 120,
+  intervalMilliseconds = 500,
+  requestImplementation = request,
+  delayImplementation = delay,
+  processState = null
+} = {}) {
   let last = "no response";
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    try { const response = await request(url, {}, [200], signal); const body = await response.json(); if (!validator(body)) throw new Error("health payload contract mismatch"); return body; } catch (error) { last = error.message; }
-    await delay(500, undefined, { signal });
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    assertServiceProcessRunning(processState);
+    try {
+      const response = await requestImplementation(url, {}, [200], signal);
+      if (!validator) return response;
+      const body = await response.json();
+      if (!validator(body)) throw new Error("health payload contract mismatch");
+      return body;
+    } catch (error) {
+      last = error instanceof Error ? error.message : String(error);
+    }
+    assertServiceProcessRunning(processState);
+    if (attempt + 1 < attempts) {
+      await delayImplementation(intervalMilliseconds, undefined, { signal });
+    }
   }
   throw new Error(`service readiness failed: ${last}`);
 }
@@ -47,12 +74,16 @@ async function waitReady(url, validator, signal) {
 function spawnGroup(executable, args, cwd, env) {
   const child = spawn(executable, args, { cwd, env, detached: true, stdio: ["ignore", "ignore", "ignore"] });
   if (!child.pid) throw new Error("service process group did not start");
-  return child;
+  const state = { child, role: env.ROLLBACK_PROCESS_ROLE, spawnError: null, exited: false, exitCode: null, signal: null };
+  child.once("error", () => { state.spawnError = true; });
+  child.once("exit", (code, signal) => { state.exited = true; state.exitCode = code; state.signal = signal; });
+  return state;
 }
 
 function groupExists(pid) { try { process.kill(-pid, 0); return true; } catch { return false; } }
 
-async function stopGroup(child) {
+async function stopGroup(state) {
+  const child = state?.child;
   if (!child?.pid || !groupExists(child.pid)) return;
   try { process.kill(-child.pid, "SIGTERM"); } catch { /* already exited */ }
   for (let count = 0; count < 50 && groupExists(child.pid); count += 1) await delay(100);
@@ -128,13 +159,13 @@ export async function runServiceSmoke({ worktree, stage, signal }) {
     };
     const webEnv = { ...common, ...authorityEnv, ROLLBACK_PROCESS_ROLE: "web", ROLLBACK_COMMAND_MARKER: next, WEB_PORT: String(webPort), NEXT_PUBLIC_API_TARGET: apiOrigin };
     api = spawnGroup(node, [apiCandidates[0]], resolve(worktree, "apps/api"), apiEnv);
-    lease = { ...lease, status: "RUNNING", groups: { ...lease.groups, api: { role: "api", pid: api.pid, pgid: api.pid, executable: node, cwd: resolve(worktree, "apps/api"), commandMarker: apiCandidates[0] } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
+    lease = { ...lease, status: "RUNNING", groups: { ...lease.groups, api: { role: "api", pid: api.child.pid, pgid: api.child.pid, executable: node, cwd: resolve(worktree, "apps/api"), commandMarker: apiCandidates[0] } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
     web = spawnGroup(node, [next, "start", "-p", String(webPort), "-H", "127.0.0.1"], resolve(worktree, "apps/web"), webEnv);
-    lease = { ...lease, groups: { ...lease.groups, web: { role: "web", pid: web.pid, pgid: web.pid, executable: node, cwd: resolve(worktree, "apps/web"), commandMarker: next } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
+    lease = { ...lease, groups: { ...lease.groups, web: { role: "web", pid: web.child.pid, pgid: web.child.pid, executable: node, cwd: resolve(worktree, "apps/web"), commandMarker: next } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
     smokeResult = await withHardTimeout(async (bounded) => {
-      await runServiceSmokeStep("api-health", () => waitReady(`${apiOrigin}/api/v1/health`, (body) => body?.data?.status === "ok", bounded));
-      await runServiceSmokeStep("api-ready", () => waitReady(`${apiOrigin}/api/v1/ready`, (body) => body?.status === "ready", bounded));
-      await runServiceSmokeStep("web-login-page", () => request(`${webOrigin}/login`, {}, [200], bounded));
+      await runServiceSmokeStep("api-health", () => waitReady(`${apiOrigin}/api/v1/health`, (body) => body?.data?.status === "ok", bounded, { processState: api }));
+      await runServiceSmokeStep("api-ready", () => waitReady(`${apiOrigin}/api/v1/ready`, (body) => body?.status === "ready", bounded, { processState: api }));
+      await runServiceSmokeStep("web-login-page", () => waitReady(`${webOrigin}/login`, null, bounded, { processState: web }));
       const token = await runServiceSmokeStep("web-rewrite-admin-login", async () => {
         const login = await request(`${webOrigin}/api/v1/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: required("ROLLBACK_ADMIN_USERNAME"), password: required("ROLLBACK_ADMIN_PASSWORD"), tenantId: required("ROLLBACK_TENANT_ID"), parkId: required("ROLLBACK_PARK_ID") }) }, [200], bounded);
         const payload = await login.json(); const accessToken = payload?.data?.accessToken ?? payload?.accessToken;
@@ -151,8 +182,8 @@ export async function runServiceSmoke({ worktree, stage, signal }) {
   } finally {
     const stopped = await Promise.allSettled([stopGroup(web), stopGroup(api)]);
     for (const result of stopped) if (result.status === "rejected") cleanupErrors.push(result.reason instanceof Error ? result.reason : new Error("service process group cleanup rejected"));
-    if (api?.pid && groupExists(api.pid)) cleanupErrors.push(new Error("API process group cleanup failed"));
-    if (web?.pid && groupExists(web.pid)) cleanupErrors.push(new Error("Web process group cleanup failed"));
+    if (api?.child.pid && groupExists(api.child.pid)) cleanupErrors.push(new Error("API process group cleanup failed"));
+    if (web?.child.pid && groupExists(web.child.pid)) cleanupErrors.push(new Error("Web process group cleanup failed"));
     try { await assertPortFree(apiPort); } catch (error) { cleanupErrors.push(error); }
     try { await assertPortFree(webPort); } catch (error) { cleanupErrors.push(error); }
     try { lease = { ...lease, status: "STOPPED" }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority); }
