@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { symlinkSync, realpathSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { execFileSync } from "node:child_process";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -20,6 +20,7 @@ import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
+import { formatServiceSmokeFailure } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -201,6 +202,34 @@ test("Next build output permits only exact frozen public documentation URLs", ()
   assert.throws(() => assertCommandOutputSafe({ stdout: docs, stderr: "" }, "api-build"), /URL/u);
   assert.throws(() => assertCommandOutputSafe({ stdout: "postgresql:\\/\\/user:password@example.invalid/database", stderr: "" }, "api-build"), /URL/u);
   assert.throws(() => assertCommandOutputSafe({ stdout: `${docs}\nBearer abcdefghijklmnop`, stderr: "" }, "web-clean-production-build"), /credential|secret/u);
+});
+
+test("service smoke failures preserve safe diagnostics without file URLs or secrets", () => {
+  const fileFailure = formatServiceSmokeFailure(new Error("service readiness failed at file:///tmp/private/service-smoke.mjs:12"));
+  assert.match(fileFailure, /service readiness failed at <redacted-url>/u);
+  assert.doesNotMatch(fileFailure, /file:\/\//u);
+  assert.doesNotThrow(() => assertNoSensitiveData(fileFailure));
+  const secretFailure = formatServiceSmokeFailure(new Error("password=not-for-output"));
+  assert.match(secretFailure, /redacted sensitive details/u);
+  assert.doesNotMatch(secretFailure, /not-for-output/u);
+  assert.doesNotThrow(() => assertNoSensitiveData(secretFailure));
+  for (const sensitive of [
+    "database_url=postgresql://user:password@example.invalid/database",
+    "Bearer abcdefghijklmnop",
+    "eyJabcde.abcdefgh.ijklmnop"
+  ]) {
+    const output = formatServiceSmokeFailure(sensitive);
+    assert.match(output, /redacted/u);
+    assert.doesNotThrow(() => assertNoSensitiveData(output));
+  }
+  const cliFailure = spawnSync(process.execPath, [resolve(repoRoot, "scripts/e2e/property-remediation/rollback/service-smoke.mjs")], { encoding: "utf8" });
+  assert.equal(cliFailure.status, 1);
+  assert.equal(cliFailure.stdout, "");
+  const payload = JSON.parse(cliFailure.stderr.trim());
+  assert.equal(payload.schemaVersion, "property-track-c-service-smoke-error-v1");
+  assert.equal(payload.status, "FAIL");
+  assert.match(payload.error, /usage: service-smoke/u);
+  assert.doesNotThrow(() => assertNoSensitiveData(cliFailure.stderr));
 });
 
 test("unapplicable original reverse intent can use a reviewed manual forward-port while undeclared deviations fail", () => {

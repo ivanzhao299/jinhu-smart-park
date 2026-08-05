@@ -8,6 +8,7 @@ import { URL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { withHardTimeout } from "./timeout.mjs";
 import { readBoundRuntimeLease, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
+import { assertNoSensitiveData, redactSensitiveData } from "./lib.mjs";
 
 function required(name, minimum = 1) {
   const value = process.env[name];
@@ -117,4 +118,19 @@ function parse(argv) {
   if (argv.length !== 4 || argv[0] !== "--worktree" || argv[2] !== "--stage") throw new Error("usage: service-smoke.mjs --worktree <path> --stage <baseline|rollback>");
   return { worktree: argv[1], stage: argv[3] };
 }
-if (import.meta.url === `file://${process.argv[1]}`) process.stdout.write(`${JSON.stringify(await runServiceSmoke(parse(process.argv.slice(2))))}\n`);
+
+export function formatServiceSmokeFailure(error) {
+  const rawMessage = error instanceof Error ? error.message : String(error ?? "unknown service smoke failure");
+  const redactedMessage = redactSensitiveData(rawMessage);
+  let safeMessage = redactedMessage;
+  try { assertNoSensitiveData(redactedMessage, "service smoke failure"); }
+  catch { safeMessage = "service smoke failed with redacted sensitive details"; }
+  const output = JSON.stringify({ schemaVersion: "property-track-c-service-smoke-error-v1", status: "FAIL", error: safeMessage });
+  assertNoSensitiveData(output, "serialized service smoke failure");
+  return `${output}\n`;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try { process.stdout.write(`${JSON.stringify(await runServiceSmoke(parse(process.argv.slice(2))))}\n`); }
+  catch (error) { process.stderr.write(formatServiceSmokeFailure(error)); process.exitCode = 1; }
+}
