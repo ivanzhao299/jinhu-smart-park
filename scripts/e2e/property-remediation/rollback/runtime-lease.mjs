@@ -49,7 +49,7 @@ export function enumerateAuthorityProcesses(authority) {
     const identity = procIdentity(Number(name)); if (!identity) continue;
     const env = identity.environment;
     if (env.ROLLBACK_RUNTIME_NONCE !== authority.runtimeNonce || env.ROLLBACK_RUN_ID !== authority.labels["jinhu.rollback.run_id"] || env.ROLLBACK_FINAL_SHA !== authority.labels["jinhu.rollback.final_sha"] || env.ROLLBACK_CASE_ID !== authority.labels["jinhu.rollback.case_id"]) continue;
-    if (identity.executable !== authority.expectedExecutable || env.ROLLBACK_EXPECTED_EXECUTABLE !== authority.expectedExecutable || !inside(authority.worktree, identity.cwd) || !["api", "web"].includes(env.ROLLBACK_PROCESS_ROLE) || !Number.isSafeInteger(identity.pgid) || identity.pgid < 2) throw new Error(`refusing to kill unverified authority-tagged process ${identity.pid}`);
+    if (identity.executable !== authority.expectedExecutable || env.ROLLBACK_EXPECTED_EXECUTABLE !== authority.expectedExecutable || env.ROLLBACK_COMMAND_SPEC_SHA256 !== authority.commandSpecSha256 || !inside(authority.worktree, identity.cwd) || !["api", "web"].includes(env.ROLLBACK_PROCESS_ROLE) || !Number.isSafeInteger(identity.pgid) || identity.pgid < 2) throw new Error(`refusing to kill unverified authority-tagged process ${identity.pid}`);
     if (identity.pid === identity.pgid && !identity.cmdline.includes(env.ROLLBACK_COMMAND_MARKER)) throw new Error(`refusing to kill authority leader with unexpected command ${identity.pid}`);
     matches.push({ ...identity, role: env.ROLLBACK_PROCESS_ROLE });
   }

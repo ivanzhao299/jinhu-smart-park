@@ -20,7 +20,7 @@ import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
-import { formatServiceSmokeFailure } from "./service-smoke.mjs";
+import { combineServiceSmokeErrors, formatServiceSmokeFailure, serviceAuthorityEnvironment } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -232,6 +232,21 @@ test("service smoke failures preserve safe diagnostics without file URLs or secr
   assert.doesNotThrow(() => assertNoSensitiveData(cliFailure.stderr));
 });
 
+test("service smoke authority reaches child services and cleanup diagnostics are cumulative", () => {
+  const commandSpecSha256 = sha256("service-smoke-command-spec");
+  const authority = {
+    runtimeNonce: "runtime-nonce", commandSpecSha256,
+    labels: { "jinhu.rollback.run_id": RUN_ID, "jinhu.rollback.final_sha": FINAL_SHA, "jinhu.rollback.case_id": "homestay-dashboard" }
+  };
+  assert.deepEqual(serviceAuthorityEnvironment(authority, process.execPath), {
+    ROLLBACK_RUNTIME_NONCE: "runtime-nonce", ROLLBACK_RUN_ID: RUN_ID, ROLLBACK_FINAL_SHA: FINAL_SHA,
+    ROLLBACK_CASE_ID: "homestay-dashboard", ROLLBACK_EXPECTED_EXECUTABLE: process.execPath, ROLLBACK_COMMAND_SPEC_SHA256: commandSpecSha256
+  });
+  const combined = combineServiceSmokeErrors(new Error("primary"), [new Error("web stop"), new Error("port busy"), new Error("lease write")]);
+  assert.match(combined.message, /primary; service cleanup failed: web stop; port busy; lease write/u);
+  assert.equal(combineServiceSmokeErrors(null, []), null);
+});
+
 test("unapplicable original reverse intent can use a reviewed manual forward-port while undeclared deviations fail", () => {
   const temp = mkdtempSync(resolve(tmpdir(), "rollback-patch-"));
   try {
@@ -359,6 +374,15 @@ test("retained-shell structural anchors reject required tokens hidden only in co
 
 test("child environment is allowlisted and cleanup schema is consistent", () => {
   const env = safeChildEnvironment({ needsDatabaseCredential: false }); assert.equal(env.HOME, undefined); assert.equal(env.DATABASE_URL, undefined);
+  const commandSpecSha256 = sha256("service-smoke-command-spec");
+  const bound = safeChildEnvironment({
+    needsDatabaseCredential: false,
+    authority: {
+      apiPort: 41001, webPort: 51001, runtimeNonce: "runtime-nonce", runtimeManifest: "/tmp/runtime-manifest.json", commandSpecSha256,
+      labels: { "jinhu.rollback.run_id": RUN_ID, "jinhu.rollback.final_sha": FINAL_SHA, "jinhu.rollback.case_id": "homestay-dashboard" }
+    }
+  });
+  assert.equal(bound.ROLLBACK_COMMAND_SPEC_SHA256, commandSpecSha256);
   const residual = { containers: 0, networks: 0, volumes: 0, databases: 0, processGroups: 0, ports: 0, worktrees: 0, tempFiles: 0, secretFiles: 0 }; const authoritySha256 = sha256("authority"); const projection = { attempted: true, authoritySha256, residual, errors: [] };
   assert.equal(validateCleanupResult({ schemaVersion: "property-track-c-runner-cleanup-v1", status: "PASS", ...projection, manifestSha256: canonicalSha256(projection) }).status, "PASS");
 });
@@ -388,7 +412,7 @@ test("runtime authority cleanup reaches residual zero at API spawn, Web spawn, a
     const authority = resourceAuthority({ runId, finalSha, caseId, runRoot: temp, executionNonce, commandSpecSha256 });
     mkdirSync(authority.worktree, { recursive: true }); mkdirSync(resolve(authority.runtimeManifest, ".."), { recursive: true });
     const node = realpathSync(process.execPath); const marker = resolve(authority.worktree, "tagged-child.mjs"); writeFileSync(marker, "setInterval(() => {}, 1000);\n");
-    const baseEnv = { PATH: process.env.PATH, ROLLBACK_RUNTIME_NONCE: authority.runtimeNonce, ROLLBACK_RUN_ID: runId, ROLLBACK_FINAL_SHA: finalSha, ROLLBACK_CASE_ID: caseId, ROLLBACK_EXPECTED_EXECUTABLE: node, ROLLBACK_COMMAND_MARKER: marker };
+    const baseEnv = { PATH: process.env.PATH, ROLLBACK_RUNTIME_NONCE: authority.runtimeNonce, ROLLBACK_RUN_ID: runId, ROLLBACK_FINAL_SHA: finalSha, ROLLBACK_CASE_ID: caseId, ROLLBACK_EXPECTED_EXECUTABLE: node, ROLLBACK_COMMAND_SPEC_SHA256: commandSpecSha256, ROLLBACK_COMMAND_MARKER: marker };
     for (const point of ["api-spawn", "web-spawn", "manifest-update"]) {
       let lease = initializeRuntimeLease({ authority, commandSpecSha256, expectedExecutable: node }); const role = point === "web-spawn" ? "web" : "api";
       const child = spawn(node, [marker], { cwd: authority.worktree, detached: true, stdio: "ignore", env: { ...baseEnv, ROLLBACK_PROCESS_ROLE: role } }); children.push(child); child.unref(); await delay(50);
@@ -396,6 +420,11 @@ test("runtime authority cleanup reaches residual zero at API spawn, Web spawn, a
       if (point === "manifest-update") writeFileSync(`${authority.runtimeManifest}.next-interrupted`, "{half");
       assert.equal(await terminateAuthorityProcesses(authority, enumerateAuthorityProcesses(authority)), 0); assert.equal(enumerateAuthorityProcesses(authority).length, 0);
     }
+    const impostor = spawn(node, [marker], { cwd: authority.worktree, detached: true, stdio: "ignore", env: { ...baseEnv, ROLLBACK_COMMAND_SPEC_SHA256: sha256("wrong-spec"), ROLLBACK_PROCESS_ROLE: "api" } });
+    children.push(impostor); impostor.unref(); await delay(50);
+    assert.throws(() => enumerateAuthorityProcesses(authority), /refusing to kill unverified authority-tagged process/u);
+    try { process.kill(-impostor.pid, "SIGKILL"); } catch { /* already exited */ }
+    await delay(50);
   } finally { for (const child of children) { try { process.kill(-child.pid, "SIGKILL"); } catch { /* already cleaned */ } } rmSync(temp, { recursive: true, force: true }); }
 });
 

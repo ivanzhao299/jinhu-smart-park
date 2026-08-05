@@ -119,6 +119,7 @@ export function safeChildEnvironment({ databaseUrl, needsDatabaseCredential, cre
     env.ROLLBACK_LEASE_FINAL_SHA = authority.labels["jinhu.rollback.final_sha"];
     env.ROLLBACK_LEASE_CASE_ID = authority.labels["jinhu.rollback.case_id"];
     env.ROLLBACK_LEASE_EXPECTED_EXECUTABLE = realpathSync(process.execPath);
+    env.ROLLBACK_COMMAND_SPEC_SHA256 = authority.commandSpecSha256;
   }
   if (needsDatabaseCredential) {
     if (typeof databaseUrl !== "string" || !/^postgres(?:ql)?:\/\//u.test(databaseUrl)) throw new Error("PostgreSQL target credential is missing");

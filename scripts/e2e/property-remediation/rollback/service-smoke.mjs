@@ -20,8 +20,12 @@ async function assertPortFree(port) {
   await new Promise((accept, reject) => {
     const socket = connect({ host: "127.0.0.1", port });
     socket.once("connect", () => { socket.destroy(); reject(new Error(`authority port already in use: ${port}`)); });
-    socket.once("error", () => accept());
-    socket.setTimeout(1000, () => { socket.destroy(); accept(); });
+    socket.once("error", (error) => {
+      socket.destroy();
+      if (error?.code === "ECONNREFUSED") accept();
+      else reject(new Error(`authority port probe failed: ${port}`));
+    });
+    socket.setTimeout(1000, () => { socket.destroy(); reject(new Error(`authority port probe timed out: ${port}`)); });
   });
 }
 
@@ -57,36 +61,57 @@ async function stopGroup(child) {
   if (groupExists(child.pid)) throw new Error(`service process group remains: ${child.pid}`);
 }
 
+export function serviceAuthorityEnvironment(authority, executable) {
+  return {
+    ROLLBACK_RUNTIME_NONCE: authority.runtimeNonce,
+    ROLLBACK_RUN_ID: authority.labels["jinhu.rollback.run_id"],
+    ROLLBACK_FINAL_SHA: authority.labels["jinhu.rollback.final_sha"],
+    ROLLBACK_CASE_ID: authority.labels["jinhu.rollback.case_id"],
+    ROLLBACK_EXPECTED_EXECUTABLE: executable,
+    ROLLBACK_COMMAND_SPEC_SHA256: authority.commandSpecSha256
+  };
+}
+
+export function combineServiceSmokeErrors(primaryError, cleanupErrors) {
+  const failures = cleanupErrors.filter(Boolean);
+  const message = (error) => error instanceof Error ? error.message : String(error);
+  if (primaryError && failures.length > 0) return new Error(`${message(primaryError)}; service cleanup failed: ${failures.map(message).join("; ")}`);
+  if (primaryError) return primaryError instanceof Error ? primaryError : new Error(message(primaryError));
+  if (failures.length > 0) return new Error(`service cleanup failed: ${failures.map(message).join("; ")}`);
+  return null;
+}
+
 export async function runServiceSmoke({ worktree, stage, signal }) {
   if (!new Set(["baseline", "rollback"]).has(stage)) throw new Error("service smoke stage must be baseline or rollback");
   const apiPort = Number(required("ROLLBACK_API_PORT")); const webPort = Number(required("ROLLBACK_WEB_PORT"));
   if (!Number.isInteger(apiPort) || !Number.isInteger(webPort) || apiPort === webPort) throw new Error("invalid authority ports");
-  await assertPortFree(apiPort); await assertPortFree(webPort);
   const node = realpathSync(process.execPath);
   const authority = {
     runtimeNonce: required("ROLLBACK_LEASE_NONCE"), worktree,
     labels: { "jinhu.rollback.run_id": required("ROLLBACK_LEASE_RUN_ID"), "jinhu.rollback.final_sha": required("ROLLBACK_LEASE_FINAL_SHA"), "jinhu.rollback.case_id": required("ROLLBACK_LEASE_CASE_ID") },
-    apiPort, webPort, runtimeManifest: required("ROLLBACK_RUNTIME_MANIFEST"), expectedExecutable: required("ROLLBACK_LEASE_EXPECTED_EXECUTABLE")
+    apiPort, webPort, runtimeManifest: required("ROLLBACK_RUNTIME_MANIFEST"), expectedExecutable: required("ROLLBACK_LEASE_EXPECTED_EXECUTABLE"),
+    commandSpecSha256: required("ROLLBACK_COMMAND_SPEC_SHA256")
   };
   let lease = readBoundRuntimeLease(authority); if (!lease || lease.expectedExecutable !== node) throw new Error("runner-owned runtime lease is missing or stale");
-  lease = { ...lease, status: "PENDING", stage, groups: { api: null, web: null } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
-  const next = realpathSync(resolve(worktree, "apps/web/node_modules/next/dist/bin/next"));
-  const apiCandidates = [resolve(worktree, "apps/api/dist/main.js"), resolve(worktree, "apps/api/dist/apps/api/src/main.js")].filter(existsSync);
-  if (apiCandidates.length !== 1) throw new Error("API production build entry is missing or ambiguous");
-  const apiOrigin = `http://127.0.0.1:${apiPort}`; const webOrigin = `http://127.0.0.1:${webPort}`;
-  const common = { PATH: `${dirname(node)}:/usr/bin:/bin`, LANG: "C.UTF-8", TZ: "UTC", NODE_ENV: "production" };
-  const authorityEnv = { ROLLBACK_RUNTIME_NONCE: authority.runtimeNonce, ROLLBACK_RUN_ID: authority.labels["jinhu.rollback.run_id"], ROLLBACK_FINAL_SHA: authority.labels["jinhu.rollback.final_sha"], ROLLBACK_CASE_ID: authority.labels["jinhu.rollback.case_id"], ROLLBACK_EXPECTED_EXECUTABLE: node };
-  const apiEnv = {
-    ...common, APP_PORT: String(apiPort), WEB_ORIGIN: webOrigin,
-    ...authorityEnv, ROLLBACK_PROCESS_ROLE: "api", ROLLBACK_COMMAND_MARKER: apiCandidates[0],
-    POSTGRES_HOST: required("POSTGRES_HOST"), POSTGRES_PORT: required("POSTGRES_PORT"), POSTGRES_DB: required("POSTGRES_DB"), POSTGRES_USER: required("POSTGRES_USER"), POSTGRES_PASSWORD: required("POSTGRES_PASSWORD"),
-    JWT_SECRET: required("JWT_SECRET", 32), PARTY_DATA_ENCRYPTION_KEY: required("PARTY_DATA_ENCRYPTION_KEY", 32),
-    DEFAULT_TENANT_ID: required("ROLLBACK_TENANT_ID"), DEFAULT_PARK_ID: required("ROLLBACK_PARK_ID"),
-    AUTH_SMS_FIXED_CODE: "", AUTH_SMS_CODE_VISIBLE: "false", AUTH_WECHAT_MOCK_ENABLED: "false"
-  };
-  const webEnv = { ...common, ...authorityEnv, ROLLBACK_PROCESS_ROLE: "web", ROLLBACK_COMMAND_MARKER: next, WEB_PORT: String(webPort), NEXT_PUBLIC_API_TARGET: apiOrigin };
-  let api; let web; let smokeResult; let cleanupError = null;
+  let api; let web; let smokeResult; let primaryError = null; const cleanupErrors = [];
   try {
+    await assertPortFree(apiPort); await assertPortFree(webPort);
+    lease = { ...lease, status: "PENDING", stage, groups: { api: null, web: null } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
+    const next = realpathSync(resolve(worktree, "apps/web/node_modules/next/dist/bin/next"));
+    const apiCandidates = [resolve(worktree, "apps/api/dist/main.js"), resolve(worktree, "apps/api/dist/apps/api/src/main.js")].filter(existsSync);
+    if (apiCandidates.length !== 1) throw new Error("API production build entry is missing or ambiguous");
+    const apiOrigin = `http://127.0.0.1:${apiPort}`; const webOrigin = `http://127.0.0.1:${webPort}`;
+    const common = { PATH: `${dirname(node)}:/usr/bin:/bin`, LANG: "C.UTF-8", TZ: "UTC", NODE_ENV: "production" };
+    const authorityEnv = serviceAuthorityEnvironment(authority, node);
+    const apiEnv = {
+      ...common, APP_PORT: String(apiPort), WEB_ORIGIN: webOrigin,
+      ...authorityEnv, ROLLBACK_PROCESS_ROLE: "api", ROLLBACK_COMMAND_MARKER: apiCandidates[0],
+      POSTGRES_HOST: required("POSTGRES_HOST"), POSTGRES_PORT: required("POSTGRES_PORT"), POSTGRES_DB: required("POSTGRES_DB"), POSTGRES_USER: required("POSTGRES_USER"), POSTGRES_PASSWORD: required("POSTGRES_PASSWORD"),
+      JWT_SECRET: required("JWT_SECRET", 32), PARTY_DATA_ENCRYPTION_KEY: required("PARTY_DATA_ENCRYPTION_KEY", 32),
+      DEFAULT_TENANT_ID: required("ROLLBACK_TENANT_ID"), DEFAULT_PARK_ID: required("ROLLBACK_PARK_ID"),
+      AUTH_SMS_FIXED_CODE: "", AUTH_SMS_CODE_VISIBLE: "false", AUTH_WECHAT_MOCK_ENABLED: "false"
+    };
+    const webEnv = { ...common, ...authorityEnv, ROLLBACK_PROCESS_ROLE: "web", ROLLBACK_COMMAND_MARKER: next, WEB_PORT: String(webPort), NEXT_PUBLIC_API_TARGET: apiOrigin };
     api = spawnGroup(node, [apiCandidates[0]], resolve(worktree, "apps/api"), apiEnv);
     lease = { ...lease, status: "RUNNING", groups: { ...lease.groups, api: { role: "api", pid: api.pid, pgid: api.pid, executable: node, cwd: resolve(worktree, "apps/api"), commandMarker: apiCandidates[0] } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
     web = spawnGroup(node, [next, "start", "-p", String(webPort), "-H", "127.0.0.1"], resolve(worktree, "apps/web"), webEnv);
@@ -103,14 +128,20 @@ export async function runServiceSmoke({ worktree, stage, signal }) {
       await request(`${webOrigin}/api/v1/housing/dashboard`, { headers }, [200], bounded);
       return { status: "PASS", stage, apiPort, webPort, webBuildIdSha256: createHash("sha256").update(readFileSync(resolve(worktree, "apps/web/.next/BUILD_ID"))).digest("hex"), checks: ["api-health", "api-ready", "web-login-page", "web-rewrite-admin-login", "web-rewrite-homestay-dashboard", "web-rewrite-housing-dashboard"] };
     }, 120_000, `${stage} authenticated service smoke`, signal);
+  } catch (error) {
+    primaryError = error;
   } finally {
-    await Promise.allSettled([stopGroup(web), stopGroup(api)]);
-    if (api?.pid && groupExists(api.pid)) cleanupError = new Error("API process group cleanup failed");
-    if (web?.pid && groupExists(web.pid)) cleanupError = new Error("Web process group cleanup failed");
-    try { await assertPortFree(apiPort); await assertPortFree(webPort); } catch (error) { cleanupError = error; }
+    const stopped = await Promise.allSettled([stopGroup(web), stopGroup(api)]);
+    for (const result of stopped) if (result.status === "rejected") cleanupErrors.push(result.reason instanceof Error ? result.reason : new Error("service process group cleanup rejected"));
+    if (api?.pid && groupExists(api.pid)) cleanupErrors.push(new Error("API process group cleanup failed"));
+    if (web?.pid && groupExists(web.pid)) cleanupErrors.push(new Error("Web process group cleanup failed"));
+    try { await assertPortFree(apiPort); } catch (error) { cleanupErrors.push(error); }
+    try { await assertPortFree(webPort); } catch (error) { cleanupErrors.push(error); }
+    try { lease = { ...lease, status: "STOPPED" }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority); }
+    catch (error) { cleanupErrors.push(error); }
   }
-  lease = { ...lease, status: "STOPPED" }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
-  if (cleanupError) throw cleanupError;
+  const terminalError = combineServiceSmokeErrors(primaryError, cleanupErrors);
+  if (terminalError) throw terminalError;
   return smokeResult;
 }
 
