@@ -81,6 +81,21 @@ export function combineServiceSmokeErrors(primaryError, cleanupErrors) {
   return null;
 }
 
+const SERVICE_SMOKE_STEPS = new Set([
+  "api-health", "api-ready", "web-login-page", "web-rewrite-admin-login",
+  "web-rewrite-homestay-dashboard", "web-rewrite-housing-dashboard"
+]);
+
+export async function runServiceSmokeStep(step, operation) {
+  if (!SERVICE_SMOKE_STEPS.has(step)) throw new Error("unsupported service smoke step");
+  try {
+    return await operation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`service smoke ${step} failed: ${message}`, { cause: error });
+  }
+}
+
 export async function runServiceSmoke({ worktree, stage, signal }) {
   if (!new Set(["baseline", "rollback"]).has(stage)) throw new Error("service smoke stage must be baseline or rollback");
   const apiPort = Number(required("ROLLBACK_API_PORT")); const webPort = Number(required("ROLLBACK_WEB_PORT"));
@@ -117,15 +132,18 @@ export async function runServiceSmoke({ worktree, stage, signal }) {
     web = spawnGroup(node, [next, "start", "-p", String(webPort), "-H", "127.0.0.1"], resolve(worktree, "apps/web"), webEnv);
     lease = { ...lease, groups: { ...lease.groups, web: { role: "web", pid: web.pid, pgid: web.pid, executable: node, cwd: resolve(worktree, "apps/web"), commandMarker: next } } }; writeRuntimeLeaseAtomic(authority.runtimeManifest, lease, authority);
     smokeResult = await withHardTimeout(async (bounded) => {
-      await waitReady(`${apiOrigin}/api/v1/health`, (body) => body?.data?.status === "ok", bounded);
-      await waitReady(`${apiOrigin}/api/v1/ready`, (body) => body?.status === "ready", bounded);
-      await request(`${webOrigin}/login`, {}, [200], bounded);
-      const login = await request(`${webOrigin}/api/v1/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: required("ROLLBACK_ADMIN_USERNAME"), password: required("ROLLBACK_ADMIN_PASSWORD"), tenantId: required("ROLLBACK_TENANT_ID"), parkId: required("ROLLBACK_PARK_ID") }) }, [200], bounded);
-      const payload = await login.json(); const token = payload?.data?.accessToken ?? payload?.accessToken;
-      if (typeof token !== "string" || token.length < 20) throw new Error("real admin login did not return an access token");
+      await runServiceSmokeStep("api-health", () => waitReady(`${apiOrigin}/api/v1/health`, (body) => body?.data?.status === "ok", bounded));
+      await runServiceSmokeStep("api-ready", () => waitReady(`${apiOrigin}/api/v1/ready`, (body) => body?.status === "ready", bounded));
+      await runServiceSmokeStep("web-login-page", () => request(`${webOrigin}/login`, {}, [200], bounded));
+      const token = await runServiceSmokeStep("web-rewrite-admin-login", async () => {
+        const login = await request(`${webOrigin}/api/v1/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: required("ROLLBACK_ADMIN_USERNAME"), password: required("ROLLBACK_ADMIN_PASSWORD"), tenantId: required("ROLLBACK_TENANT_ID"), parkId: required("ROLLBACK_PARK_ID") }) }, [200], bounded);
+        const payload = await login.json(); const accessToken = payload?.data?.accessToken ?? payload?.accessToken;
+        if (typeof accessToken !== "string" || accessToken.length < 20) throw new Error("real admin login did not return an access token");
+        return accessToken;
+      });
       const headers = { authorization: `Bearer ${token}` };
-      await request(`${webOrigin}/api/v1/homestay/dashboard`, { headers }, [200], bounded);
-      await request(`${webOrigin}/api/v1/housing/dashboard`, { headers }, [200], bounded);
+      await runServiceSmokeStep("web-rewrite-homestay-dashboard", () => request(`${webOrigin}/api/v1/homestay/dashboard`, { headers }, [200], bounded));
+      await runServiceSmokeStep("web-rewrite-housing-dashboard", () => request(`${webOrigin}/api/v1/housing/dashboard`, { headers }, [200], bounded));
       return { status: "PASS", stage, apiPort, webPort, webBuildIdSha256: createHash("sha256").update(readFileSync(resolve(worktree, "apps/web/.next/BUILD_ID"))).digest("hex"), checks: ["api-health", "api-ready", "web-login-page", "web-rewrite-admin-login", "web-rewrite-homestay-dashboard", "web-rewrite-housing-dashboard"] };
     }, 120_000, `${stage} authenticated service smoke`, signal);
   } catch (error) {
@@ -152,10 +170,17 @@ function parse(argv) {
 
 export function formatServiceSmokeFailure(error) {
   const rawMessage = error instanceof Error ? error.message : String(error ?? "unknown service smoke failure");
-  const redactedMessage = redactSensitiveData(rawMessage);
+  const failedStep = [...SERVICE_SMOKE_STEPS].find((step) => rawMessage.startsWith(`service smoke ${step} failed:`));
+  const redactedMessage = redactSensitiveData(rawMessage)
+    .replace(/\b[A-Za-z]:[\\/][^\s"'`),;]+/gu, "<redacted-path>")
+    .replace(/\/[^\s"'`),;]+/gu, "<redacted-path>");
   let safeMessage = redactedMessage;
   try { assertNoSensitiveData(redactedMessage, "service smoke failure"); }
-  catch { safeMessage = "service smoke failed with redacted sensitive details"; }
+  catch {
+    safeMessage = failedStep
+      ? `service smoke ${failedStep} failed with redacted sensitive details`
+      : "service smoke failed with redacted sensitive details";
+  }
   const output = JSON.stringify({ schemaVersion: "property-track-c-service-smoke-error-v1", status: "FAIL", error: safeMessage });
   assertNoSensitiveData(output, "serialized service smoke failure");
   return `${output}\n`;

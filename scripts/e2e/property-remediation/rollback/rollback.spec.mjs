@@ -20,7 +20,7 @@ import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
-import { combineServiceSmokeErrors, formatServiceSmokeFailure, serviceAuthorityEnvironment } from "./service-smoke.mjs";
+import { combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -230,6 +230,44 @@ test("service smoke failures preserve safe diagnostics without file URLs or secr
   assert.equal(payload.status, "FAIL");
   assert.match(payload.error, /usage: service-smoke/u);
   assert.doesNotThrow(() => assertNoSensitiveData(cliFailure.stderr));
+});
+
+test("service smoke diagnostics identify the failing bounded step", async () => {
+  await assert.rejects(
+    runServiceSmokeStep("web-rewrite-homestay-dashboard", async () => { throw new Error("fetch failed"); }),
+    /service smoke web-rewrite-homestay-dashboard failed: fetch failed/u
+  );
+  await assert.rejects(
+    runServiceSmokeStep("not-a-real-step", async () => undefined),
+    /unsupported service smoke step/u
+  );
+  let wrapped;
+  const original = new Error("startup failed at /etc/private/api.js and C:\\private\\api.js");
+  try {
+    await runServiceSmokeStep("api-health", async () => {
+      throw original;
+    });
+  } catch (error) {
+    wrapped = error;
+  }
+  assert.equal(wrapped.cause, original);
+  const output = formatServiceSmokeFailure(wrapped);
+  assert.match(output, /service smoke api-health failed/u);
+  assert.match(output, /<redacted-path>/u);
+  assert.doesNotMatch(output, /\/etc\/private|C:\\private/u);
+  assert.doesNotThrow(() => assertNoSensitiveData(output));
+  let sensitiveWrapped;
+  try {
+    await runServiceSmokeStep("api-ready", async () => {
+      throw new Error("password=not-for-output Bearer abcdefghijklmnop");
+    });
+  } catch (error) {
+    sensitiveWrapped = error;
+  }
+  const sensitiveOutput = formatServiceSmokeFailure(sensitiveWrapped);
+  assert.match(sensitiveOutput, /service smoke api-ready failed with redacted sensitive details/u);
+  assert.doesNotMatch(sensitiveOutput, /not-for-output|abcdefghijklmnop/u);
+  assert.doesNotThrow(() => assertNoSensitiveData(sensitiveOutput));
 });
 
 test("service smoke authority reaches child services and cleanup diagnostics are cumulative", () => {
