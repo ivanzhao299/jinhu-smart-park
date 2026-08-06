@@ -25,10 +25,10 @@ Stop point：权限、财务、Identity、Files、迁移或 seed 语义无法从
 
 ## Phase 2：主干差异与平行修复审计
 
-- [ ] 核验已合并 agent/refix 聚合分支不会重复进入。
-- [ ] 对单项 UAT 需求逐项检查最终 tree，而不是 merge 旧 tips。
-- [ ] 缺失修复只以基于 integration HEAD 的窄提交补齐。
-- [ ] 生成 `15b6e8f6..HEAD` closure diff 和风险分类。
+- [x] 核验已合并 agent/refix 聚合分支不会重复进入。
+- [x] 对单项 UAT 需求逐项检查最终 tree，而不是 merge 旧 tips。
+- [x] 缺失修复只以基于 integration HEAD 的窄提交补齐。
+- [x] 生成 `15b6e8f6..HEAD` closure diff 和风险分类。
 
 ## Phase 3：本地质量门
 

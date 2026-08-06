@@ -11,6 +11,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
+import { homestayRateWorkspaceKey } from "./homestay-workbench.logic";
 
 type FeeType = "fixed" | "percentage";
 type RateDraft = {
@@ -134,7 +135,29 @@ function RatesAuthorized({
   canManage: boolean;
 }) {
   const [unit, setUnit] = useState<RemoteEntityOption | null>(null);
-  const query = useRateCalendar(unit, true, capability.invalidationKey);
+  return (
+    <>
+      <PropertyPanelSurface title="房源选择">
+        <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
+          invalidationKey={capability.invalidationKey} label="民宿房源"
+          loadOptions={loadUnits} onChange={setUnit} value={unit} />
+      </PropertyPanelSurface>
+      <RateWorkspace canManage={canManage} invalidationKey={capability.invalidationKey}
+        key={homestayRateWorkspaceKey(unit?.id)} unit={unit} />
+    </>
+  );
+}
+
+function RateWorkspace({
+  canManage,
+  invalidationKey,
+  unit
+}: {
+  canManage: boolean;
+  invalidationKey: string;
+  unit: RemoteEntityOption | null;
+}) {
+  const query = useRateCalendar(unit, true, invalidationKey);
   const rate = useRateDraft(query.calendar);
   const saves = useRateSaves(unit, query.load);
   const [override, setOverride] = useState<OverrideDraft>({ date: businessDate(), rate: "", reason: "" });
@@ -157,11 +180,6 @@ function RatesAuthorized({
   };
   return (
     <>
-      <PropertyPanelSurface title="房源选择">
-        <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
-          invalidationKey={capability.invalidationKey} label="民宿房源"
-          loadOptions={loadUnits} onChange={setUnit} value={unit} />
-      </PropertyPanelSurface>
       <RateCalendar calendar={query.calendar} error={query.error} loading={query.loading} reload={query.load} unit={unit} />
       {query.calendar && canManage ? (
         <>

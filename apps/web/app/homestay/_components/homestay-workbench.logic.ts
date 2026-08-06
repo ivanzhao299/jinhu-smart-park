@@ -115,3 +115,7 @@ export function taskDetailHref(sourceType: string, sourceId: string): string {
 export function pageCount(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / pageSize));
 }
+
+export function homestayRateWorkspaceKey(unitId: string | null | undefined): string {
+  return unitId ? `homestay-rate:${unitId}` : "homestay-rate:no-unit";
+}

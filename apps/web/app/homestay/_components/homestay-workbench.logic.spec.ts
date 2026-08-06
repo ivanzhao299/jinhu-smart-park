@@ -6,6 +6,7 @@ import {
   HOMESTAY_LIST_READ_ACTIONS,
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
+  homestayRateWorkspaceKey,
   homestayDetailHref,
   listPageState,
   pageCount,
@@ -146,4 +147,10 @@ test("availability always sends a strict non-empty date interval", () => {
     availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-12" }),
     { dateFrom: "2026-08-10", dateTo: "2026-08-12" }
   );
+});
+
+test("rate workspaces remount whenever the selected unit changes", () => {
+  assert.equal(homestayRateWorkspaceKey(null), "homestay-rate:no-unit");
+  assert.notEqual(homestayRateWorkspaceKey("unit-a"), homestayRateWorkspaceKey("unit-b"));
+  assert.equal(homestayRateWorkspaceKey("unit-a"), "homestay-rate:unit-a");
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { ForbiddenException } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FilesService, normalizeMultipartFileName } from "./files.service";
@@ -206,4 +207,74 @@ test("successful identity download records a protected evidence access audit", a
   assert.equal(audit?.bizType, "party_identity_evidence");
   assert.equal(audit?.success, true);
   assert.equal(audit?.requestId, "request-1");
+});
+
+test("identity deletion authorizes before revealing whether evidence is referenced", async () => {
+  const calls: string[] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "party_identity_evidence",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: actor.sub,
+    isDeleted: false
+  };
+  const repository = {
+    findOne: async () => file,
+    save: async (value: unknown) => value
+  };
+  const manager = {
+    getRepository: () => repository,
+    transaction: async (run: (transactionManager: unknown) => Promise<unknown>) => run(manager)
+  };
+  const service = new FilesService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => calls.push("pending-owner"),
+      assertReferenceAccess: async () => { calls.push("authorize"); },
+      assertDeletionAllowed: async () => { calls.push("reference-check"); },
+      detachReferencesOnDelete: async () => { calls.push("detach"); }
+    } as never
+  );
+
+  await service.softDeleteForActor(scope, actor, file.id);
+  assert.deepEqual(calls, ["pending-owner", "authorize", "reference-check", "detach"]);
+});
+
+test("identity deletion never checks references after authorization is rejected", async () => {
+  const calls: string[] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "party_identity_evidence",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: actor.sub,
+    isDeleted: false
+  };
+  const repository = { findOne: async () => file };
+  const manager = {
+    getRepository: () => repository,
+    transaction: async (run: (transactionManager: unknown) => Promise<unknown>) => run(manager)
+  };
+  const service = new FilesService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => calls.push("pending-owner"),
+      assertReferenceAccess: async () => {
+        calls.push("authorize");
+        throw new ForbiddenException("forbidden");
+      },
+      assertDeletionAllowed: async () => { calls.push("reference-check"); },
+      detachReferencesOnDelete: async () => { calls.push("detach"); }
+    } as never
+  );
+
+  await assert.rejects(service.softDeleteForActor(scope, actor, file.id), ForbiddenException);
+  assert.deepEqual(calls, ["pending-owner", "authorize"]);
 });

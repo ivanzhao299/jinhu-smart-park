@@ -286,9 +286,6 @@ export class FilesService {
       });
       if (!file) throw new NotFoundException("File not found");
       this.businessAccessService.assertPendingFileOwner(actor, file);
-      if (file.bizType === "party_identity_evidence") {
-        await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
-      }
       await this.businessAccessService.assertReferenceAccess(
         scope,
         actor,
@@ -298,9 +295,7 @@ export class FilesService {
         file.createBy ?? undefined,
         file.id
       );
-      if (file.bizType !== "party_identity_evidence") {
-        await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
-      }
+      await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
       await this.businessAccessService.detachReferencesOnDelete(scope, file, actor, manager);
       file.isDeleted = true;
       file.updateBy = actor.sub;
