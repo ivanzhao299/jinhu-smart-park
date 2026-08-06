@@ -75,6 +75,7 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
   const tomorrow = businessDate(new Date(Date.now() + 86_400_000));
   let submissionId = "";
   let primaryError: unknown = null;
+  let cleanupError: unknown = null;
 
   try {
     await admin.transaction(async (manager) => {
@@ -276,7 +277,6 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
   } catch (error) {
     primaryError = error;
   } finally {
-    let cleanupError: unknown = null;
     try {
       if (driftRunner.isTransactionActive) await driftRunner.rollbackTransaction();
       await Promise.allSettled([checkInRunner.release(), driftRunner.release()]);
@@ -286,12 +286,13 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
     } finally {
       await Promise.allSettled([admin.destroy(), checkInSource.destroy(), driftSource.destroy()]);
     }
-    if (primaryError && cleanupError) {
-      throw new AggregateError([primaryError, cleanupError], "identity PostgreSQL test and fixture cleanup both failed");
-    }
-    if (primaryError) throw primaryError;
-    if (cleanupError) throw cleanupError;
   }
+
+  if (primaryError && cleanupError) {
+    throw new AggregateError([primaryError, cleanupError], "identity PostgreSQL test and fixture cleanup both failed");
+  }
+  if (primaryError) throw primaryError;
+  if (cleanupError) throw cleanupError;
 });
 
 async function cleanupIdentityFixture(

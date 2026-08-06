@@ -44,10 +44,10 @@ pnpm build
 git diff --check
 ```
 
-- [ ] Files/Identity/Property/offline/upload targeted tests PASS。
-- [ ] Migration/seed/production-init contract PASS。
-- [ ] 全量 verify 等价命令 PASS。
-- [ ] 失败必须修复或明确为与本任务无关的既有 baseline；P0/P1 不得跳过。
+- [x] Files/Identity/Property/offline/upload targeted tests PASS。
+- [x] Migration/seed/production-init contract PASS。
+- [x] 全量 verify 等价命令 PASS。
+- [x] 失败必须修复或明确为与本任务无关的既有 baseline；P0/P1 不得跳过。
 
 ## Phase 4：GitHub Draft PR 与 CI
 
