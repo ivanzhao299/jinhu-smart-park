@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { symlinkSync, realpathSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
@@ -20,7 +21,7 @@ import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
-import { assertServiceProcessRunning, combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment, waitReady } from "./service-smoke.mjs";
+import { appendServiceDiagnostic, assertServiceProcessRunning, combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment, waitReady } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -299,8 +300,15 @@ test("service readiness retries transient Web startup failures within a fixed bu
 });
 
 test("service readiness fails immediately when a child exits before listening", async () => {
-  const exited = { role: "web", spawnError: null, exited: true, exitCode: 1, signal: null };
-  assert.throws(() => assertServiceProcessRunning(exited), /web service process exited before readiness \(exit code 1\)/u);
+  const exited = { role: "web", spawnError: null, exited: true, exitCode: 1, signal: null, stderrTail: "" };
+  appendServiceDiagnostic(exited, "next startup failed safely\n");
+  assert.throws(() => assertServiceProcessRunning(exited), /web service process exited before readiness \(exit code 1\); web stderr tail: next startup failed safely/u);
+  appendServiceDiagnostic(exited, `prefix-${"x".repeat(9 * 1024)}-tail`);
+  assert.equal(Buffer.byteLength(exited.stderrTail, "utf8") <= 8 * 1024, true);
+  assert.match(exited.stderrTail, /-tail$/u);
+  assert.doesNotMatch(exited.stderrTail, /prefix-/u);
+  const safeDiagnostic = formatServiceSmokeFailure(new Error(`service smoke web-login-page failed: ${exited.stderrTail}`));
+  assert.doesNotThrow(() => assertNoSensitiveData(safeDiagnostic));
   let requests = 0;
   await assert.rejects(waitReady("http://127.0.0.1:50000/login", null, undefined, {
     attempts: 3,
