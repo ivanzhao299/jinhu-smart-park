@@ -73,6 +73,12 @@ git diff --check
 - [x] 修复 runner 激活工作流临时文件清理与密码 argv 暴露风险。
 - [x] 本地 lint、typecheck、unit、build、diff-check 全部 PASS；两项独立审查均 APPROVE，
   open P0/P1/P2=[]。
+- [x] final-SHA performance provisioning 发现 `000190_admin_issue_runner_repair.sql` 的
+  park-scope role conflict target 与当前 tenant-wide role arbiter 不可推断；保持已合入历史
+  migration 字节不变，通过 `database/migration-prerequisites/000190_admin_issue_runner_repair/`
+  增加只含兼容索引的 production-safe prerequisite，并以真实 PostgreSQL 重放验证。
+- [ ] prerequisite 修复提交后，重新取得 GitHub verify/release-smoke、rollback 19/19 与
+  formal performance 30/30；修复前 `72406a14` 的证据仅保留为失败发现/ancestor 记录。
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、
   rollback 19/19 与 formal performance 30/30 证据。
 

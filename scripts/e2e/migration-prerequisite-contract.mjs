@@ -17,6 +17,14 @@ const assetModulePrerequisitePath = resolve(
   root,
   "database/migration-prerequisites/000189_property_b_module_rbac_definitions/001_asset_module.sql"
 );
+const adminIssueRunnerMigrationPath = resolve(
+  root,
+  "database/migrations/000190_admin_issue_runner_repair.sql"
+);
+const adminIssueRunnerPrerequisitePath = resolve(
+  root,
+  "database/migration-prerequisites/000190_admin_issue_runner_repair/001_sys_role_scope_conflict_arbiter.sql"
+);
 const permissionRepairSeedPath = resolve(
   root,
   "database/seeds/production/000004_core_role_permission_repair.sql"
@@ -27,6 +35,8 @@ const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
 const propertyModuleMigration = readFileSync(propertyModuleMigrationPath);
 const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8");
+const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
+const adminIssueRunnerPrerequisite = readFileSync(adminIssueRunnerPrerequisitePath, "utf8");
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 
@@ -40,6 +50,32 @@ assert.equal(
   createHash("sha256").update(propertyModuleMigration).digest("hex"),
   "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
   "historical migration 000189 must remain byte-for-byte unchanged"
+);
+
+assert.equal(
+  createHash("sha256").update(adminIssueRunnerMigration).digest("hex"),
+  "75a6ed711fd8bfad608bb774e8e7704f6419c2ade660af7119f940cefbeaf8bd",
+  "historical migration 000190 must remain byte-for-byte unchanged"
+);
+
+assert.match(
+  adminIssueRunnerPrerequisite,
+  /CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_role_scope_code_active\s+ON sys_role \(tenant_id, park_id, code\)\s+WHERE is_deleted = false;/u
+);
+assert.equal(
+  [...adminIssueRunnerPrerequisite.matchAll(/^\s*CREATE\s+UNIQUE\s+INDEX\b/gim)].length,
+  1,
+  "000190 prerequisite must create exactly one compatibility index"
+);
+assert.equal(
+  /^\s*(?:INSERT|UPDATE|DELETE|MERGE|ALTER|DROP|TRUNCATE)\b/im.test(adminIssueRunnerPrerequisite),
+  false,
+  "000190 prerequisite must not contain data writes or destructive DDL"
+);
+assert.equal(
+  /^\s*CREATE\b(?!\s+UNIQUE\s+INDEX\b)/im.test(adminIssueRunnerPrerequisite),
+  false,
+  "000190 prerequisite must not create anything except its compatibility index"
 );
 
 assert.match(assetModulePrerequisite, /INSERT INTO sys_module\s*\(/);

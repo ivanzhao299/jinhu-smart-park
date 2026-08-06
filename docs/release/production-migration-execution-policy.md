@@ -30,6 +30,9 @@
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
   - `000189` 的 prerequisite 只确保全局 `asset` 模块目录存在且启用；不创建租户分配、
     plan 授权、permission/role/user 或业务数据，完整基线仍由 production seed 收敛。
+  - `000190` 的 prerequisite 只恢复历史 Runner migration 明确引用的 park-scope role
+    conflict arbiter；tenant-wide role 唯一约束仍是权威约束，前置项不创建角色、权限、用户、
+    凭据、授权关系或业务数据。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 

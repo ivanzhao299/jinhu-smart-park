@@ -307,6 +307,10 @@ post-login routing, or module-specific menu migrations.
 
 Migrations are forward-only SQL files in `database/migrations`. Do not edit migrations that may already have succeeded in production. `scripts/db-migrate.sh` records filename, checksum, running/succeeded/failed status, executor, and batch id in `public.sys_schema_migration_history`.
 
+Read [Historical Migration Prerequisites](./migration-prerequisites.md) before adding a
+`database/migration-prerequisites/<target>/` repair, or when an immutable migration's PostgreSQL
+`ON CONFLICT` target no longer has an exactly inferable unique/exclusion arbiter.
+
 Reference files:
 - `scripts/db-migrate.sh`
 - `database/migrations/000139_sys_schema_migration_history.sql`

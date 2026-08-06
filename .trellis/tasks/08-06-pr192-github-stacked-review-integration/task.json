@@ -36,6 +36,8 @@
     "latestIntegratedOriginMainSha": "5f62efd56cc5e078fd5ab120dce699b7383464be",
     "latestIntegratedMainSubject": "feat: add governed Smart Park issue repair automation (#224)",
     "migrationConflictResolution": "renumber_unmerged_property_compatibility_migration_to_000200",
-    "precommitQualityGate": "passed"
+    "precommitQualityGate": "passed",
+    "finalShaPerformanceDiscovery": "000190 sys_role park-scope ON CONFLICT lacked a matching arbiter after tenant-wide role index migration",
+    "finalShaPerformanceRepair": "production-safe migration prerequisite restores only the historical scope conflict arbiter; 000190 remains byte-for-byte unchanged"
   }
 }
