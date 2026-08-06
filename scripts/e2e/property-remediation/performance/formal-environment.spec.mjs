@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -85,4 +86,18 @@ test("compose definition fixes all formal resources and isolates state", () => {
   ]) assert.match(control, new RegExp(marker, "u"));
   const environmentControl = readFileSync(resolve(import.meta.dirname, "environment-control.sh"), "utf8");
   for (const command of ["db-migrate.sh", "db-seed-prod.sh", "bootstrap-admin.sh", "check-init-baseline.sh", "pg_restore"]) assert.match(environmentControl, new RegExp(command, "u"));
+});
+
+test("formal image builds bootstrap the pinned package manager through the configured registry with retries", () => {
+  const dockerfiles = [
+    resolve(import.meta.dirname, "../../../../infra/docker/Dockerfile.api"),
+    resolve(import.meta.dirname, "../../../../infra/docker/Dockerfile.web"),
+    resolve(import.meta.dirname, "Dockerfile.control")
+  ].map((path) => readFileSync(path, "utf8"));
+  for (const dockerfile of dockerfiles) {
+    assert.match(dockerfile, /ENV COREPACK_NPM_REGISTRY="\$NPM_REGISTRY"/u);
+    assert.match(dockerfile, /for attempt in 1 2 3/u);
+    assert.match(dockerfile, /corepack prepare pnpm@9\.12\.0 --activate/u);
+  }
+  assert.equal([...dockerfiles[1].matchAll(/corepack prepare pnpm@9\.12\.0 --activate/gu)].length, 2);
 });
