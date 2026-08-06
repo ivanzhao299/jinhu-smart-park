@@ -51,9 +51,9 @@ git diff --check
 
 ## Phase 4：GitHub Draft PR 与 CI
 
-- [ ] 推送 integration branch（无 force）。
-- [ ] 创建唯一 Draft PR 到 `main`。
-- [ ] PR body 含 Track 分层、冲突裁决、ancestor-only evidence 声明和 remaining gates。
+- [x] 推送 integration branch（无 force）。
+- [x] 创建唯一 Draft PR 到 `main`。
+- [x] PR body 含 Track 分层、冲突裁决、ancestor-only evidence 声明和 remaining gates。
 - [ ] GitHub verify PASS。
 - [ ] 添加 `run-release-smoke` label，release-smoke PASS。
 - [ ] 记录 PR head SHA；后续 Gate 全部绑定该 SHA。
