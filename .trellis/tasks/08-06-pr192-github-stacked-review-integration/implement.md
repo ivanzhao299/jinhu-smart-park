@@ -54,9 +54,9 @@ git diff --check
 - [x] 推送 integration branch（无 force）。
 - [x] 创建唯一 Draft PR 到 `main`。
 - [x] PR body 含 Track 分层、冲突裁决、ancestor-only evidence 声明和 remaining gates。
-- [ ] GitHub verify PASS。
-- [ ] 添加 `run-release-smoke` label，release-smoke PASS。
-- [ ] 记录 PR head SHA；后续 Gate 全部绑定该 SHA。
+- [x] GitHub verify PASS。
+- [x] 添加 `run-release-smoke` label，release-smoke PASS。
+- [x] 记录 PR head SHA；后续 Gate 全部绑定该 SHA。
 
 ## Phase 5：Final-SHA 正式验收
 
