@@ -38,3 +38,37 @@ Completed official Chrome UAT for homestay and housing across desktop, responsiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: PR192 Track C formal performance and technical closure
+
+**Date**: 2026-08-06
+**Task**: PR192 Track C formal performance and technical closure
+**Package**: api
+**Branch**: `codex/pr192-property-productization-remediation`
+
+### Summary
+
+Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance matrix 30/30 with independent evidence and cleanup approval, residual zero; archived Track C, retained Chrome host environment blocker, and marked the parent Codex technical lane complete while human and production gates remain awaiting.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `15b6e8f6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
