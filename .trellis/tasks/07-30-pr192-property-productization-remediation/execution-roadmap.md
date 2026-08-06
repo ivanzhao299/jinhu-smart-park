@@ -53,9 +53,9 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 | Track B B-2a 任务运行时 | 已完成（PASS / CLOSED） | C1.5、C2、000195、C3、C4、runtime/callsite、AppModule 与 13-action legacy compatibility 均已签署；纠正版 combined signoff `e61f39d9…c633` 经双独立复审 `P0/P1/P2=0` |
 | Track B B-2b 扩展测试数据 | 已完成（PASS / CLOSED） | 唯一正式 run `c2v11_formal_20260802l` 通过双 fresh PostgreSQL、可重复 fixture、11 个负向场景、四阶段冻结与 exact cleanup；架构和 QA 独立复审 GO，`P0/P1/P2=0` |
 | Track B 技术交付与 Chrome UAT | 已完成（PASS / ARCHIVED） | 000197、000191/000192、领域集成、迁移恢复演练、共享控制面及完整 Chrome UAT 均已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务于 2026-08-04 归档 |
-| Track C 架构与可靠性 | 进行中 | 早期 C1/C2、代码质量、隔离 PostgreSQL 与 clean-provision 已通过；独立审计发现 canonical occupancy port、upload rollback flag、rollback/output handoff 缺口，先修复后再以 final SHA 重跑完整性能矩阵；Chrome 增量 15/15 环境 BLOCKED |
+| Track C 架构与可靠性 | 已完成（TECHNICAL PASS / ARCHIVED） | final SHA `15b6e8f6...52c0c` 已闭合 canonical port、rollback flags 与 handoff；rollback 19/19、fresh performance 30/30、独立 evidence/cleanup review 与 residual=0 全部通过；Chrome 增量 15/15 环境 BLOCKED 如实保留 |
 | 外部人工 UAT 与签署 | 阻塞（`awaiting_human_gate`） | Track B 的机器 Chrome UAT 已完成，但真实岗位、业务、财务、安全/审计及发布负责人尚未验收或签署，Codex 不代签 |
-| 生产就绪 | 阻塞（`awaiting_human_gate`） | 必须等待 Track C 技术终门、真人 UAT 和外部签署；当前不得声明 `codex_complete` 或 `production_ready` |
+| 生产就绪 | 阻塞（`awaiting_human_gate`） | Track C 技术终门已通过，`codex_execution_status=codex_complete`；仍须等待真人 UAT 和外部签署，当前不得声明 `production_ready` |
 
 当前结论：**Track A 与 Track B 的技术交付均已完成。Track B 最终 Chrome UAT 覆盖
 民宿、住房、共享控制面、权限正负向、桌面与 768/390/360/320、键盘/读屏、
@@ -63,12 +63,14 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 全矩阵 PASS、产品 P0/P1=0、无跳过；其 Trellis 子任务已经归档，不得重复执行或重复
 归档。Track C 已完成 C1/C2 实现、复杂度/合同/全量 API、统一隔离 PostgreSQL 与
 clean-provision 门禁，产品 `open_P0_P1=[]`。E/F 两次 partial 性能轮均不具备 PASS 资格且
-已 residual=0 清理；当前先修复 architecture/rollback-readiness 缺口，再以 final SHA 重跑
-完整矩阵。Track C Chrome 增量 15/15 在插件执行前因宿主
+已 residual=0 清理；final SHA `15b6e8f6...52c0c` 随后完成 rollback 19/19 与全新未拼接
+performance 30/30，formal evidence、独立 evidence/cleanup review 与 residual=0 均通过，
+Track C 已 technical PASS 并归档。Track C Chrome 增量 15/15 在插件执行前因宿主
 `sandboxCwd` local-file-URI 错误 BLOCKED，登记环境 P1
 `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS，也不得将其误报为产品 P1。
 外部真人岗位 UAT 与业务/财务/安全/发布签署仍为 `awaiting_human_gate`。因此父任务继续
-`in_progress`，当前既不声明 `codex_complete`，也不声明 `production_ready`。**
+`in_progress`，但 `codex_execution_status=codex_complete`；当前不声明
+`production_ready`。**
 
 ## 5. Track A：页面、菜单与权限整改
 
@@ -130,11 +132,11 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 
 | 阶段 | 状态 | 负责人 / 参与角色 | 前置条件 | 完成标准 | 证据链接 | 计划日期 | 实际日期 |
 |---|---|---|---|---|---|---|---|
-| C-0 接管确认与现状基线 | 已完成 | 架构负责人、民宿/住房原负责人、共享 Web 负责人、测试 | Track B 技术交付；相关路径完成明确交接 | ownership、合同与离线路径输入已冻结 | [Track C 任务](../07-30-pr192-c-architecture-reliability/) | 2026-08-04 | 2026-08-04 |
-| C-1 后端职责拆分 | 已完成（技术 PASS） | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | HomestayService 498 行、HousingService 488 行；职责拆分为原子提交，合同 SHA 不变，独立复审产品 `open_P0_P1=[]` | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
-| C-2 前端、弱网与上传可靠性 | 已完成（技术 PASS） | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | C1/C2 技术实现已完成；全量 API 966 PASS / 13 条件 skip / 0 fail，统一隔离 PostgreSQL 5/5 PASS / 0 skip | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
-| C-3 性能、复杂度与证据 | 进行中 | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | complexity 已 PASS；E 外部中断、F 因候选缺少 hard AC 主动停止，两轮 partial 均不计 PASS 且 residual=0；须先闭合 canonical port/flags/rollback handoff，再在 final SHA 上重跑完整 30-cell | [Track C 实施计划](../07-30-pr192-c-architecture-reliability/implement.md) | 2026-08-04 | — |
-| C-4 独立技术复审 | 进行中 | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 代码/合同/PG 独立复审已通过；仍须独立复核 30-cell 最终证据及清理，并诚实保留 Chrome 环境 P1 | [Track C 任务状态](../07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | — |
+| C-0 接管确认与现状基线 | 已完成 | 架构负责人、民宿/住房原负责人、共享 Web 负责人、测试 | Track B 技术交付；相关路径完成明确交接 | ownership、合同与离线路径输入已冻结 | [Track C 归档任务](../archive/2026-08/07-30-pr192-c-architecture-reliability/) | 2026-08-04 | 2026-08-04 |
+| C-1 后端职责拆分 | 已完成（技术 PASS） | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | HomestayService 498 行、HousingService 488 行；职责拆分为原子提交，合同 SHA 不变，独立复审产品 `open_P0_P1=[]` | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
+| C-2 前端、弱网与上传可靠性 | 已完成（技术 PASS） | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | C1/C2 技术实现已完成；全量 API 966 PASS / 13 条件 skip / 0 fail，统一隔离 PostgreSQL 5/5 PASS / 0 skip | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
+| C-3 性能、复杂度与证据 | 已完成（PASS） | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | final SHA rollback 19/19；fresh 30-cell 30/30，p95 max 200.374ms、error 0、CV max 0.04935；formal evidence SHA `1a451ecf...4ff2`；residual=0 | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
+| C-4 独立技术复审 | 已完成（TECHNICAL PASS） | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 独立 performance evidence review APPROVE（P0/P1=0）且 cleanup review APPROVE（P0/P1/P2=0）；Chrome 环境 P1 如实保留，不冒充 PASS | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
 
 ## 8. 外部人工 UAT
 
@@ -217,7 +219,8 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | 2026-08-02 | 已失败 / 已封存 | 000197 preliminary run `b2c197_prelim_20260802a` 在 A/B 完成迁移、索引/谓词、状态矩阵、故障注入与 exact history 后，于 target A approval-port PG child 非零退出；stdout/TAP 未持久化，root cause 保持 UNKNOWN；FAILED artifact `452507c7…244b`，A/B 无 residue 并永久退出 absent retry | 修复所有子进程 throw 前证据持久化及 run-scoped、try/finally、幂等清理 PG fixture；全新 exact chain 双审后申请新 runId、新容器/卷和新授权；A/B 只用于 later-apply | [FAILED disposition](../07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-failed-disposition-b2c197_prelim_20260802a.json) | emvia / Codex |
 | 2026-08-02 | 进行中 | 用户已授权后，G/H attempt02 在外层提权下唯一执行成功：两个专属库到 000195、全部证据 `0444`、无清理/无重试。独立 regression v4 已创建无端口 PG16+匿名卷并唯一执行，但 `pg_dump 16.14` 基线恢复的旧索引目录哈希为 `97c69e… / 8d3c44…`，不同于 000197 权威 `89d630… / d47740…`；预检 fail-closed，故障注入与 000197 均未运行，旧 run 不可复用 | 新候选必须以冻结迁移字节直接构建基线，增加恢复后目录证明，以新 runId/容器/卷重新取得 DB、QA、resource Gate；之后才可重封 formal candidate、取得新 3-GO、执行 drain。Track B/C 均未完成 | [v4 失败独立复审](../07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-pg-regression-v4-preflight-failure-independent-database-review-20260802.grammar) | emvia / Codex |
 | 2026-08-04 | 已完成 | Track B 后续前向迁移、领域集成、恢复控制、最终质量门及真实 Chrome UAT 已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务已归档 | 不重复执行或归档 Track B；按父任务顺序推进 Track C | [Track B 归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) | emvia / Codex |
-| 2026-08-04 | 进行中 | Track C 早期代码/PG Gate 通过；E 在 23/30 后外部中断，F 在 1/30 后因 hard AC 缺口主动停止，两轮均保留 partial 且 residual=0；产品 P0/P1仍为0，Chrome 15/15环境 BLOCKED | 修复 canonical occupancy port 与双 rollback flags，完成 rollback/output handoff；冻结 final SHA 后重新完整跑 30-cell，不拼接 E/F | [Track C 任务](../07-30-pr192-c-architecture-reliability/) | emvia / Codex |
+| 2026-08-04 | 进行中 | Track C 早期代码/PG Gate 通过；E 在 23/30 后外部中断，F 在 1/30 后因 hard AC 缺口主动停止，两轮均保留 partial 且 residual=0；产品 P0/P1仍为0，Chrome 15/15环境 BLOCKED | 修复 canonical occupancy port 与双 rollback flags，完成 rollback/output handoff；冻结 final SHA 后重新完整跑 30-cell，不拼接 E/F | [Track C 归档任务](../archive/2026-08/07-30-pr192-c-architecture-reliability/) | emvia / Codex |
+| 2026-08-06 | 已完成（Codex technical） | Track C final SHA 完成 rollback 19/19、fresh performance 30/30、formal gate、独立 evidence/cleanup review 和 residual=0；Track C 已归档，产品 P0/P1=0；Chrome 15/15 环境 BLOCKED 保留 | 父任务 Codex 技术泳道结束；转入外部真人 UAT、业务/财务/安全/发布签署和 production readiness，不代签 | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | emvia / Codex |
 
 ## 11. 风险、决策与阻塞记录
 
@@ -252,19 +255,16 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 
 ## 12. 下一步
 
-当前权威顺序（2026-08-04）：
+当前权威顺序（2026-08-06）：
 
 1. 不重复执行或重复归档 Track B；其技术 Gate、Chrome UAT 与 Trellis 归档均已完成。
-2. 先闭合 Track C canonical occupancy port、offline/upload rollback flags、rollback
-   rehearsal 与 output handoff，冻结 final SHA。
-3. 在 final SHA 上让真实 30-cell 正式性能矩阵自然完成，不缩短、不合成、不拼接 E/F；
-   executor 退出后复核阈值、manifest/hash、secret 与全部资源清理。
-4. 由非实施者独立复核 Track C 最终性能证据。只有性能与清理 Gate 通过时，才更新
-   C3/C4 结论；Chrome 增量继续如实保留
-   `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造浏览器 PASS。
-5. 根据 Track C PRD 的关闭条件决定保持 `in_progress` 或归档；父任务在此期间保持
-   `in_progress`，不得提前声明 `codex_complete`。
-6. 外部真人岗位 UAT、业务/财务/安全/发布签署继续由
+2. Track C canonical port、双 rollback flags、rollback/output handoff、fresh 30-cell 与
+   独立复审均已闭合；Track C technical PASS 并归档，不重复执行。
+3. Chrome 增量继续如实保留 `C-P1-CHROME-HOST-ENVIRONMENT`；环境修复后可原样补跑，
+   但不得以替代工具伪造浏览器 PASS，也不把环境 P1 误报为产品 P1。
+4. 父任务 `codex_execution_status=codex_complete`，父任务本身继续 `in_progress`，因为
+   human/production 两条外部泳道尚未完成。
+5. 外部真人岗位 UAT、业务/财务/安全/发布签署继续由
    `07-30-pr192-human-uat-production-readiness` 承载，状态为
    `awaiting_human_gate`；这些签署不能由 Codex 代替，未完成前不得声明生产就绪。
 

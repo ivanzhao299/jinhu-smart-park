@@ -235,10 +235,15 @@ maker-checker 默认覆盖：
 
 ### 8.3 Track C Technical
 
-- [ ] 外部 URL、DTO、响应和领域状态兼容。
-- [ ] 无 dual DI、dual read owner 或 dual write。
-- [ ] response contract 只有一个真源。
-- [ ] complexity、弱网、上传、性能和 L0–L6 Gate 通过。
+- [x] 外部 URL、DTO、响应和领域状态兼容。
+- [x] 无 dual DI、dual read owner 或 dual write。
+- [x] response contract 只有一个真源。
+- [x] complexity、弱网、上传、性能和 L0–L6 Gate 通过。
+
+Track C 于 2026-08-06 在 final SHA
+`15b6e8f6edd12759dc35b1675f851c9a0bc52c0c` 达到 technical PASS 并归档；
+formal performance 30/30、rollback 19/19、独立 evidence/cleanup review 与 residual=0
+均通过。Chrome 增量仍为宿主环境 15/15 `BLOCKED`、截图 0，不冒充产品或浏览器 PASS。
 
 ### 8.4 Production Readiness
 
@@ -257,6 +262,12 @@ maker-checker 默认覆盖：
 - `production_readiness_status`：是否允许生产开放。
 
 允许 Codex 已完成而生产仍等待人工 Gate；不得把自动化 PASS 描述为真人业务验收完成。
+
+2026-08-06 当前三态：
+
+- `codex_execution_status=codex_complete`。
+- `human_readiness_status=awaiting_human_gate`。
+- `production_readiness_status=awaiting_human_gate`。
 
 ## 13. 2026-07-31 当前权威状态
 

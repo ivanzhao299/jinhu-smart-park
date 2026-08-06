@@ -685,13 +685,15 @@ outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增�
   无跳过。不得重复执行或重复归档 Track B。
 - [x] Track C C1/C2 技术实现、合同/复杂度、全量 API、统一隔离 PostgreSQL 与
   clean-provision Gate 通过；产品 `open_P0_P1=[]`。
-- [ ] Track C C3：E 轮在 23 个完整 PASS cell 后因外部 executor 终止而作废并 residual=0；
+- [x] Track C C3：E 轮在 23 个完整 PASS cell 后因外部 executor 终止而作废并 residual=0；
   F 轮通过 clean provision/check-config 和首格后，独立审计确认 `b994d163` 尚缺 canonical
   occupancy port、upload rollback flag 与 rollback/output handoff，故主动停止并 residual=0。
-  先完成技术缺口与 rollback rehearsal，再在 final SHA 上重跑完整 30-cell；不得拼接 E/F。
-- [ ] Track C C4：性能证据须由非实施者独立复核；Chrome 增量 15/15 因宿主
+  技术缺口已闭合；final SHA `15b6e8f6...52c0c` rollback 19/19、fresh 30-cell
+  30/30、formal gate、独立 evidence/cleanup review 与 residual=0 全部通过，未拼接 E/F。
+- [x] Track C C4：性能证据已由非实施者独立复核 APPROVE；Chrome 增量 15/15 因宿主
   `sandboxCwd` local-file-URI 错误在插件执行前 BLOCKED，保留环境 P1
-  `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS 或误报为产品缺陷。
+  `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS 或误报为产品缺陷；该环境 follow-up
+  不逆转 Track C technical PASS。
 - [ ] 外部真人岗位 UAT 与业务、财务、安全/审计、发布签署仍为
-  `awaiting_human_gate`。父任务保持 `in_progress`；当前不得声明
-  `codex_complete` 或 `production_ready`。
+  `awaiting_human_gate`。父任务保持 `in_progress`，但
+  `codex_execution_status=codex_complete`；不得声明 `production_ready`。
