@@ -91,7 +91,7 @@ const migrationChain = [
   "000187_property_b_event_notification_schema.sql",
   "000188_property_b_task_runtime_schema.sql",
   "000189_property_b_module_rbac_definitions.sql",
-  "000190_property_b_migration_compatibility_control.sql",
+  "000200_property_b_migration_compatibility_control.sql",
   "000193_property_b_runtime_integrity_forward_fix.sql",
   "000194_property_task_projection_contract_correction.sql",
   "000195_property_mutation_receipt_contract_v2.sql"

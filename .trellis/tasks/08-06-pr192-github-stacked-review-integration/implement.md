@@ -60,6 +60,22 @@ git diff --check
 
 ## Phase 5：Final-SHA 正式验收
 
+### 2026-08-07 main 前移后的重新封版
+
+- [x] 合并最新 `origin/main@5f62efd56cc5e078fd5ab120dce699b7383464be`，保留 PR192 与
+  `admin-issue-runner-repair` 双方 API、Web、shared 与 CI 行为。
+- [x] 修复 `000190` 迁移编号冲突：已合入 main 的 admin issue 迁移保持不变，尚未合入的
+  Property B compatibility migration 顺延到 `000200`，SQL 字节 SHA-256 保持
+  `da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a`。
+- [x] 重新签名 v13-v31 baseline/formal source manifests，并通过 v13-v31 全链规格。
+- [x] 将已归档 authority 定位到 archive 路径；module-core exact tree 以明确白名单更新为
+  17 total / 14 production / 3 specs，保持 fail-closed。
+- [x] 修复 runner 激活工作流临时文件清理与密码 argv 暴露风险。
+- [x] 本地 lint、typecheck、unit、build、diff-check 全部 PASS；两项独立审查均 APPROVE，
+  open P0/P1/P2=[]。
+- [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、
+  rollback 19/19 与 formal performance 30/30 证据。
+
 - [ ] 在 final PR head 上完成 rollback 19/19。
 - [ ] 在 final PR head 上完成 fresh 30-cell formal performance。
 - [ ] formal evidence gate PASS，expected/observed=30/30。

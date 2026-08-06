@@ -46,7 +46,7 @@ export const B_MIGRATIONS = [
   "000187_property_b_event_notification_schema.sql",
   "000188_property_b_task_runtime_schema.sql",
   "000189_property_b_module_rbac_definitions.sql",
-  "000190_property_b_migration_compatibility_control.sql"
+  "000200_property_b_migration_compatibility_control.sql"
 ];
 export const FROZEN_INPUTS = [
   ["b0-identity-control-freeze.md", "f0af4c2d1cc7979ebc8c5d15f662cc299a698e1c0749393f180509bd0507239b"],

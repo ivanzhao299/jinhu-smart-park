@@ -38,10 +38,10 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value
 const same = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
 const stage = (value) => String(value).toLowerCase().replace(/[^a-z0-9-]+/gu, "-").replace(/^-|-$/gu, "");
 const FIXTURE_SHA256 = "d23be07fe89347fa9e46ce08b3ddb64e62ad2e5d95670ad9408fe5af11e94523";
-const BASELINE_MANIFEST_SHA256 = "3b0aa8f9db3dd1a78edea9de2d65ed9f603c43da4f9881e20884d1d8ce6b4892";
+const BASELINE_MANIFEST_SHA256 = "0bf2e884ab0e7f21695f66e78a71459847cd6ed306f273a393ef45ef097fbc20";
 const OLD_INDEX_SHA = "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584";
 const OLD_PREDICATE_SHA = "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37";
-const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000190_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
+const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000200_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
 const reviewOrder = Object.freeze(["databaseReview", "qaReview", "securityReview", "drainReview"]);
 
 function exactObject(value, keys, code) {

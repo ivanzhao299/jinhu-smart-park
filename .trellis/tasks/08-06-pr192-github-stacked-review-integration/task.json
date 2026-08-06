@@ -14,9 +14,9 @@
   "completedAt": null,
   "branch": "codex/pr192-main-integration",
   "base_branch": "main",
-  "worktree_path": null,
+  "worktree_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park-pr192-integration",
   "commit": null,
-  "pr_url": null,
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/223",
   "subtasks": [],
   "children": [],
   "parent": null,
@@ -32,6 +32,10 @@
     "testedCodeSha": "15b6e8f6edd12759dc35b1675f851c9a0bc52c0c",
     "initialOriginMainSha": "3608608ad1cb9c1b53c1829f8cd0f9fb33b6f098",
     "evidencePolicy": "fresh_final_sha_required",
-    "githubMainProtectionObserved": false
+    "githubMainProtectionObserved": false,
+    "latestIntegratedOriginMainSha": "5f62efd56cc5e078fd5ab120dce699b7383464be",
+    "latestIntegratedMainSubject": "feat: add governed Smart Park issue repair automation (#224)",
+    "migrationConflictResolution": "renumber_unmerged_property_compatibility_migration_to_000200",
+    "precommitQualityGate": "passed"
   }
 }

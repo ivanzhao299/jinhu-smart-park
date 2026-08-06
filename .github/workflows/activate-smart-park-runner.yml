@@ -1,0 +1,53 @@
+name: Activate Smart Park Runner Account
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate protected password hash
+        env:
+          SMART_PARK_RUNNER_PASSWORD: ${{ secrets.SMART_PARK_RUNNER_PASSWORD }}
+        run: |
+          test -n "$SMART_PARK_RUNNER_PASSWORD"
+          node -e "import('bcrypt').then(async b => process.stdout.write(await b.hash(process.env.SMART_PARK_RUNNER_PASSWORD, 12)))" > /tmp/smart-park-runner.hash
+          chmod 600 /tmp/smart-park-runner.hash
+      - name: Activate dedicated production account
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          SMART_PARK_RUNNER_PASSWORD: ${{ secrets.SMART_PARK_RUNNER_PASSWORD }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o ConnectTimeout=30"
+          cleanup() {
+            rm -f /tmp/smart-park-runner.hash /tmp/smart-park-runner.hash.send
+            ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+              "rm -f '$PROD_DEPLOY_PATH/tmp/smart-park-runner.hash.send' '$PROD_DEPLOY_PATH/tmp/activate-smart-park-runner-account.sh'" || true
+          }
+          trap cleanup EXIT
+          install -m 600 /tmp/smart-park-runner.hash /tmp/smart-park-runner.hash.send
+          rsync -az -e "ssh $SSH_OPTS" scripts/activate-smart-park-runner-account.sh /tmp/smart-park-runner.hash.send \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/tmp/"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "set -eu; cd '$PROD_DEPLOY_PATH'; SMART_PARK_RUNNER_PASSWORD_HASH=\"\$(cat tmp/smart-park-runner.hash.send)\" bash tmp/activate-smart-park-runner-account.sh"
+          response="$(node -e 'process.stdout.write(JSON.stringify({tenantId:"10000001",parkId:"20000001",username:"studio_runner",password:process.env.SMART_PARK_RUNNER_PASSWORD}))' | \
+            curl -fsS -X POST 'https://park.cnjinhu.com/api/v1/auth/login' -H 'content-type: application/json' --data-binary @-)"
+          node -e 'const body=JSON.parse(process.argv[1]); if(!(body.data?.accessToken||body.accessToken)) process.exit(1)' "$response"

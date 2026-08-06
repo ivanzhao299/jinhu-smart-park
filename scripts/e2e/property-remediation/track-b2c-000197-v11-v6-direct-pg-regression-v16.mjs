@@ -36,10 +36,10 @@ const databasePattern = /^jinhu_b2c197_v11v6_direct_v16_[a-z0-9_]{4,30}$/u;
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
 const same = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
 const stage = (value) => String(value).toLowerCase().replace(/[^a-z0-9-]+/gu, "-").replace(/^-|-$/gu, "");
-const BASELINE_MANIFEST_SHA256 = "db61fdb7bb73addce319f680b2f38d2e0aa41fccd5b3a73cbd131a04bd81bcfc";
+const BASELINE_MANIFEST_SHA256 = "15a92d14cde439a474f9a1f9dbf691dcba9827a555509a1a1c02e747320007d0";
 const OLD_INDEX_SHA = "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584";
 const OLD_PREDICATE_SHA = "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37";
-const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000190_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
+const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000200_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
 const reviewOrder = Object.freeze(["databaseReview", "qaReview", "securityReview", "drainReview"]);
 
 function exactObject(value, keys, code) {

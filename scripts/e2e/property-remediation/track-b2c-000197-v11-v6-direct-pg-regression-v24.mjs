@@ -44,15 +44,15 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value
 const same = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
 const stage = (value) => String(value).toLowerCase().replace(/[^a-z0-9-]+/gu, "-").replace(/^-|-$/gu, "");
 const FIXTURE_SHA256 = "d23be07fe89347fa9e46ce08b3ddb64e62ad2e5d95670ad9408fe5af11e94523";
-const BASELINE_MANIFEST_SHA256 = "3b0aa8f9db3dd1a78edea9de2d65ed9f603c43da4f9881e20884d1d8ce6b4892";
+const BASELINE_MANIFEST_SHA256 = "0bf2e884ab0e7f21695f66e78a71459847cd6ed306f273a393ef45ef097fbc20";
 const MIGRATION_000197_SHA256 = "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059";
 const FORMAL_SOURCE_COUNT = 102;
-const FORMAL_SOURCE_MANIFEST_SHA256 = "c962ed8503e709e66b256c171ca069b7a54659c6726692e62d6f1655c7bf3915";
+const FORMAL_SOURCE_MANIFEST_SHA256 = "2039efb3df3cb0f475ddad81cba9ad46aee0a39c986674dd67727e640fba1a63";
 const OLD_INDEX_SHA = "89d630118eeeab3655fffe97cde034d82567c1e253c543f9a33a7a8420768584";
 const OLD_PREDICATE_SHA = "d47740fefda3dc305edc9f845c359dfae15d6d9fa1c28a096870870129563a37";
 const NEW_INDEX_SHA = "dd004f0c2e5f40e86ec1953effa91b8604614e276c9fedabe7f2464f13d70d9c";
 const NEW_PREDICATE_SHA = "24ef911486d5274d6c439d63de6aa253b289241ac2b75317b1f98bc93a5a8fda";
-const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000190_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
+const lateNames = Object.freeze(["000183_property_business_granular_rbac.sql", "000184_property_workbench_read_permissions.sql", "000185_property_b_identity_schema_expand.sql", "000186_property_b_approval_runtime_schema.sql", "000187_property_b_event_notification_schema.sql", "000188_property_b_task_runtime_schema.sql", "000189_property_b_module_rbac_definitions.sql", "000200_property_b_migration_compatibility_control.sql", "000193_property_b_runtime_integrity_forward_fix.sql", "000194_property_task_projection_contract_correction.sql", "000195_property_mutation_receipt_contract_v2.sql"]);
 const reviewOrder = Object.freeze(["databaseReview", "qaReview", "securityReview", "drainReview"]);
 
 function exactObject(value, keys, code) {

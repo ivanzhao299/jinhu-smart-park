@@ -63,7 +63,7 @@ export const EXPECTED_HISTORY = Object.freeze([
   ["000187_property_b_event_notification_schema.sql", "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"],
   ["000188_property_b_task_runtime_schema.sql", "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"],
   ["000189_property_b_module_rbac_definitions.sql", "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2"],
-  ["000190_property_b_migration_compatibility_control.sql", "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"],
+  ["000200_property_b_migration_compatibility_control.sql", "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"],
   ["000193_property_b_runtime_integrity_forward_fix.sql", "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07"],
   ["000194_property_task_projection_contract_correction.sql", "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0"],
   ["000195_property_mutation_receipt_contract_v2.sql", "9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4"],
