@@ -91,6 +91,9 @@ jobs:
       ADMIN_PHONE: 13800001234
       ROLE_CODE: SUPER_ADMIN
       JWT_SECRET: JinhuReleaseSmokeJwtSecret#2026_LongAndRandom
+      # Public, deterministic key for the disposable synthetic CI database only.
+      # Production must use an independent random secret that remains stable across deploys.
+      PARTY_DATA_ENCRYPTION_KEY: ${{ github.sha }}
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
       FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
