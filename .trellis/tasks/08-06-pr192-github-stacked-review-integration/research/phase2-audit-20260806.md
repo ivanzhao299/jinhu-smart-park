@@ -13,7 +13,7 @@
 ## Closure diff
 
 `15b6e8f6..fce2b814` 共 232 paths：153 A、72 M、1 D、6 R；包含 106 个 app
-路径和 forward migration `000183_floor_layout_deleted_file_backfill.sql`。未出现新增 env、
+路径和 forward migration `000199_floor_layout_deleted_file_backfill.sql`。未出现新增 env、
 deployment、seed 或 GitHub workflow diff。
 
 因此 `15b6e8f6` 的 rollback 19/19 与 performance 30/30 只能作为 ancestor-only
@@ -28,6 +28,10 @@ release-smoke、rollback 19/19、formal performance 30/30 和 cleanup residual=0
 2. P2：identity evidence generic delete 在域鉴权前查询引用状态。
    修复为 `assertReferenceAccess` 成功后才 `assertDeletionAllowed`；增加成功顺序与鉴权
    拒绝短路测试。
+3. P0：main 已有 `000183_property_business_granular_rbac.sql`，PR192 floor backfill
+   原编号造成第二个非历史允许的重复迁移号。UAT 与旧开发库 history 均未出现该 floor
+   filename，仓库也无成功应用证据；因此在发布前前移为新最大编号 `000199`，不改写
+   既有 RBAC migration。
 
 独立复审：APPROVE，open P0/P1=`[]`。前端目前无 React component remount test harness；
 已有 key contract unit test、11/11 Web 目标测试和 Web typecheck，正式浏览器/全量 gate

@@ -6,7 +6,7 @@ import test from "node:test";
 const migration = readFileSync(
   resolve(
     __dirname,
-    "../../../../../database/migrations/000183_floor_layout_deleted_file_backfill.sql"
+    "../../../../../database/migrations/000199_floor_layout_deleted_file_backfill.sql"
   ),
   "utf8"
 );
