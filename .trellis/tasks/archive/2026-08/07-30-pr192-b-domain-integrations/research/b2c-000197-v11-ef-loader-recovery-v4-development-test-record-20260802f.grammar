@@ -1,0 +1,12 @@
+b2c-000197-v11-ef-loader-recovery-v4-development-test-record-v1
+formal_run_id	b2c197_prelim_20260802f
+attempt_id	b2c197_prelim_20260802f_loader_recovery_attempt04
+classification	development-audit-only-not-success-test-result
+capture_attempt_1	nested-spawn-with-minimal-environment;child-exit-0;stdout-bytes-0;tap-counts-unavailable
+capture_attempt_1_effect	no-loader;no-runner-execute-mode;no-docker;no-database;no-attempt-root
+capture_attempt_2	nested-spawn-with-inherited-environment;child-exit-0;stdout-bytes-0;wrapper-rejected-v4-test-record-drift
+capture_attempt_2_effect	no-loader;no-runner-execute-mode;no-docker;no-database;no-attempt-root
+unsupported_diagnostic	node---test-isolation=none-rejected-as-bad-option;not-a-suite-result
+accepted_capture	direct-absolute-node-command-with-nonpersisting-stdout-tee-to-sha256-and-byte-counter
+accepted_test_result_raw_sha256	57d91936ca20a8de4b0d9e14eee919c9b9584bd3792c9e2caa45e87a63e5287d
+candidate_go_evidence	false

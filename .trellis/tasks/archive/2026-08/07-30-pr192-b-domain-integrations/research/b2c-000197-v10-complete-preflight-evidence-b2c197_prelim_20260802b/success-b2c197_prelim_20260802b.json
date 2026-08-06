@@ -1,0 +1,96 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "status": "PASSED",
+  "recorded_at_utc": "2026-08-02T00:13:59.822Z",
+  "evidence_entries": [
+    {
+      "filename": "001-inspect-c-intent.json",
+      "bytes": 880,
+      "raw_sha256": "dfb4625e5e52ea164f9e444751ea586216bd5baeece62fc0c2e0884e2e5a33a3"
+    },
+    {
+      "filename": "001-inspect-c-result.json",
+      "bytes": 986,
+      "raw_sha256": "65aff3efa8b263ac3bb5623f48a88dc51ffe59b401f6f1b2bd2abb18f36b10ac"
+    },
+    {
+      "filename": "002-preflight-c-intent.json",
+      "bytes": 865,
+      "raw_sha256": "5a20247db7a70fff3df84ed3abc40d838d58c113c88aea98513d0b94239c0eb9"
+    },
+    {
+      "filename": "002-preflight-c-result.json",
+      "bytes": 974,
+      "raw_sha256": "accb049c7e46f94fa412ce6c86d871a3f085925f5cd7a440378b01fc26616b76"
+    },
+    {
+      "filename": "003-inspect-noports-c-intent.json",
+      "bytes": 827,
+      "raw_sha256": "0bad90a55275d43e17af5fd4903ed201e304458dfaa27ea5c3b387ea49987229"
+    },
+    {
+      "filename": "003-inspect-noports-c-result.json",
+      "bytes": 725,
+      "raw_sha256": "96246a6dd773d085df6714b69c7456e4969bb7256862cbf824eb63fc487a4aa3"
+    },
+    {
+      "filename": "004-preflight-health-c-intent.json",
+      "bytes": 873,
+      "raw_sha256": "573c3f4719ee0b1cf8a00680e629900fe6a123c49a3ef2418e82d03bd38b8bf1"
+    },
+    {
+      "filename": "004-preflight-health-c-result.json",
+      "bytes": 1007,
+      "raw_sha256": "16c24159ca3abfd0e2574a3fa4d2c49f8bdb5d81d7cd2e71b8da1808203c61cb"
+    },
+    {
+      "filename": "005-inspect-d-intent.json",
+      "bytes": 880,
+      "raw_sha256": "39fdb3fc23c3ad708c15e2e961ba04994c637427fcac90d3fff2b25bf7a7af90"
+    },
+    {
+      "filename": "005-inspect-d-result.json",
+      "bytes": 986,
+      "raw_sha256": "298c4c78ab2fdbe420acbf41915d31bd7c847486c4567f75e256849021041297"
+    },
+    {
+      "filename": "006-preflight-d-intent.json",
+      "bytes": 865,
+      "raw_sha256": "3e0040d3bb4efec5b080ee8e8f0c1f8c78c582fb1b1591ffc3ec09c4d7d9a8fe"
+    },
+    {
+      "filename": "006-preflight-d-result.json",
+      "bytes": 974,
+      "raw_sha256": "6105abec3376b06adb7d5414279b42f6ccad5bbb05e398d4a278f7dc75bd5c72"
+    },
+    {
+      "filename": "007-inspect-noports-d-intent.json",
+      "bytes": 827,
+      "raw_sha256": "cf7c21ff9d5db2c1d11e581ddd2195a32b8b561c657485f6281f02c833132f75"
+    },
+    {
+      "filename": "007-inspect-noports-d-result.json",
+      "bytes": 725,
+      "raw_sha256": "6d1db1c03e1da6feab9ebb58d48dd7d9904f6b55394454cfdd6066d9506246e9"
+    },
+    {
+      "filename": "008-preflight-health-d-intent.json",
+      "bytes": 873,
+      "raw_sha256": "4ce6392e6f6a34760dd012365095a4e50e27c491950e6d11f364ae7fccd04a54"
+    },
+    {
+      "filename": "008-preflight-health-d-result.json",
+      "bytes": 1007,
+      "raw_sha256": "4607dc57900dec79a8c5a2c1de2f570aa3441819bf9aa666083b6d3144d91b3f"
+    }
+  ],
+  "scope": "c-and-d-v10-complete-read-only-preflight",
+  "execution_authorized": false,
+  "database_or_container_mutation_performed": false,
+  "resources_retained": [
+    "c",
+    "d"
+  ]
+}

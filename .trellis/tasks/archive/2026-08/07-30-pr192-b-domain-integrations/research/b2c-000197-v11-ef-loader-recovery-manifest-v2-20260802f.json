@@ -1,0 +1,61 @@
+{
+  "schema_version": "b2c-000197-v11-ef-loader-recovery-input-manifest-v2",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_loader_recovery_attempt02",
+  "status": "FROZEN_AWAITING_INDEPENDENT_QA_GO",
+  "execution_authorized": false,
+  "loader_executed": false,
+  "database_writes": 0,
+  "inputs": {
+    "qa_no_go_raw_sha256": "a4e85918095ba520de8e99a6eac6bbd5209daa1011b162ea90001db82266f735",
+    "database_review_raw_sha256": "b7a88bf28737bbe51a21aa78ee90c535decf8d27334a379c5d303da600732b4d",
+    "reviewed_loader_raw_sha256": "0d25972b92405c461cba9847839550bc931ae01ddb214712152edfabfa76d277"
+  },
+  "artifacts": [
+    {
+      "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-candidate-v2-20260802f.mjs",
+      "bytes": 7314,
+      "mode": "0444",
+      "raw_sha256": "60057a2eff12a0be47fe9c37461d4447b7be4c2a1696765a6a905cc624a002a4"
+    },
+    {
+      "path": "scripts/e2e/property-remediation/track-b2c-000197-v11-ef-loader-recovery-runner-v2.mjs",
+      "bytes": 11805,
+      "mode": "0444",
+      "raw_sha256": "c48b0f9e01462ceffece846bf614d10cf5653f251e7a79d6b056e9dd022243a9"
+    },
+    {
+      "path": "scripts/e2e/property-remediation/tests/b2c-000197-v11-ef-loader-recovery-runner-v2.spec.mjs",
+      "bytes": 7712,
+      "mode": "0444",
+      "raw_sha256": "da7c7a5110c3b8cf15be1b3943fc0fcea538155ca46e2203c8de2158fd56319e"
+    },
+    {
+      "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-preflight-v2-20260802f.grammar",
+      "bytes": 3565,
+      "mode": "0444",
+      "raw_sha256": "a1af8ed92b0a8a867f6f2e493088cc1f3828023565b69ed28181082cbd0e7a8e"
+    },
+    {
+      "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-v2-development-test-record-20260802f.grammar",
+      "bytes": 967,
+      "mode": "0444",
+      "raw_sha256": "79768d4956170bbdaf0863aca432666290e6f4c2d4631fb014f7f17c93d067d3"
+    },
+    {
+      "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-authority-v2-20260802f.grammar",
+      "bytes": 4368,
+      "mode": "0444",
+      "raw_sha256": "d9bb686f6efb24b74d006615eebdc46574f0e423875e3e13e860ba17b3691b6c"
+    },
+    {
+      "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-ef-loader-recovery-handoff-v2-20260802f.grammar",
+      "bytes": 2623,
+      "mode": "0444",
+      "raw_sha256": "1244574ca81409bb077fa7a2e6727a69fc6e0fa2968e7eff77f002eb1552c61e"
+    }
+  ],
+  "recovery_evidence_root_state": "absent-exclusive-unclaimed",
+  "qa_go_state": "absent",
+  "next_action": "STOP_AWAIT_INDEPENDENT_REREVIEWS"
+}

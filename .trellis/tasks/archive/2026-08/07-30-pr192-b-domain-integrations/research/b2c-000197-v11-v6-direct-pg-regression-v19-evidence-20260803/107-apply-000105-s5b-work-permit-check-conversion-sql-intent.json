@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v19-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "stage": "apply-000105-s5b-work-permit-check-conversion-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v19-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v19_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 6590,
+    "raw_sha256": "ba9a7ed96b529260939fae530c594a1e48ce269030865e33f5e2b804a72bb245",
+    "persisted": false
+  }
+}

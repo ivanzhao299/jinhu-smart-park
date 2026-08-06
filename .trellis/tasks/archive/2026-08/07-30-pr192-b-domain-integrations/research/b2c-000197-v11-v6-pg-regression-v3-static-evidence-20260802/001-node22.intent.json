@@ -1,0 +1,1 @@
+{"schema":"b2c-000197-v11-v6-pg-regression-v3-static-child-v1","stage":"node22","command":"/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node scripts/e2e/property-remediation/tests/b2c-000197-v11-v6-isolated-pg-regression-v3.spec.mjs","single_spawn":true}

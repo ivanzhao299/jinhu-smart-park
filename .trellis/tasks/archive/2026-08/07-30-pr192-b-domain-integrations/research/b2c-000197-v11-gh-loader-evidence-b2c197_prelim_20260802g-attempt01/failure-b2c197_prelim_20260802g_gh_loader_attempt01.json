@@ -1,0 +1,24 @@
+{
+  "schema_version": "b2c-000197-v11-gh-loader-terminal-v1",
+  "formal_run_id": "b2c197_prelim_20260802g",
+  "attempt_id": "b2c197_prelim_20260802g_gh_loader_attempt01",
+  "status": "FAILED",
+  "resources_retained": true,
+  "cleanup_attempted": false,
+  "retry_attempted": false,
+  "attempt_reusable": false,
+  "evidence_entries": [
+    {
+      "filename": "001-docker-version-intent.json",
+      "bytes": 609,
+      "raw_sha256": "70726afb1eb2af38a23d1bc719cabc186922c525deb899cd2881154658c8c6cc"
+    },
+    {
+      "filename": "001-docker-version-result.json",
+      "bytes": 779,
+      "raw_sha256": "fbc90f39ea1309a5ca7657fb4eb625c30f811ddd0c0e88c8ce23fc58d1eb38f5"
+    }
+  ],
+  "loader_process_attempts": 0,
+  "failure_reason": "b2c-000197-gh-loader-child-failed:docker-version"
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v20-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v20_20260803a",
+  "stage": "apply-000122-s6a-permissions-menu-seed-patch-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v20-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v20_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 21553,
+    "raw_sha256": "be0517e596af85e26f03ae66fdc0bb708143dc34e50ab433249a373c8995a75c",
+    "persisted": false
+  }
+}

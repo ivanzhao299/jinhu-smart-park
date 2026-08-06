@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v31-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v31_20260803a",
+  "stage": "record-000195-property-mutation-receipt-contract-v2-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v31-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v31_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 613,
+    "raw_sha256": "769081a0c59ccb45682b280008fa8af6d174e4efbf3c0a96fb19aa0594668975",
+    "persisted": false
+  }
+}

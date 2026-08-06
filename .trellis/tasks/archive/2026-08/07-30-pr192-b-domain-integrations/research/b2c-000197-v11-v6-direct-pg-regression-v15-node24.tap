@@ -1,0 +1,14 @@
+TAP version 13
+ok 1 - zero-argument formal APIs and tmp-only harness
+ok 2 - real shared-run registry and target nonreuse
+ok 3 - positive full fake provision and execute path
+ok 4 - canonical missing mutable symlink negatives
+ok 5 - exact schema field decision hash and live-byte negatives
+ok 6 - fixed failure fields secret omission and exact labels
+ok 7 - observed and live extra-label rejection
+ok 8 - execution authority and migration-drift negatives
+ok 9 - exact snapshot and full P0001 marker
+1..9
+# tests 9
+# pass 9
+# fail 0

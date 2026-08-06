@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v29-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v29_20260803a",
+  "stage": "apply-000075-s4a-work-order-confirm-evaluate-close-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 33,
+    "raw_sha256": "ac93e1cb5c72a6d79b3d05e40bbf4d1de22307d162142ff61fa7da7a6c9157ec",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

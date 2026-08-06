@@ -1,0 +1,21 @@
+b2c-000197-v11-v6-direct-pg-regression-v9-independent-qa-security-review-v1
+review_scope	static-runner-spec-registry-only;no-docker;no-database;no-runner-execution;no-resource-mutation
+decision	RETURNED
+review_approved	false
+execution_authorized	false
+formal_go	false
+runner_raw_sha256	b54acc6f7dbdf7da29bee67c7fde2a760eb47139598caa79933f76786c1463b0
+runner_spec_raw_sha256	453de16f3c6fcab1448fc2feaf1e863165d28e30c141e4bb8564cd450b68e79c
+registry_raw_sha256	fc901bda764b0cadacaae80d9982e5f5100b6878dea4869a42b3c280ba3c4bed
+static_integrity	pass;runner-spec-registry-regular-nonsymlink-mode-0444-and-exact-sha
+registry_coverage	pass;includes-retained-v4-volume-858adfc91337b506c9937bc1af93287ef7d2919d8070e6f789849fb4efa9e6aa-and-known-C-through-H-identities
+v8_p1_marker_helper	partial-pass;faultSummaryV9-requires-one-P0001-one-marker-and-exact-serialized-before-after
+p0_1	no-v9-authority-manifest-handoff-exist-at-review-time;there-is-no-complete-immutable-candidate-chain-to-bind-new-db-qa-drain-and-resource-GO
+p0_2	no-real-sealed-execution;executeV9-always-throws-awaiting-three-reviews-and-resource-authority-and-never-calls-a-complete-v9-owned-executor;it-cannot-be-promoted-as-a-test-runner
+p1_1	v9-imports-runV7-directly;therefore-raw-v7-target-execution-remains-an-imported-dependency-contrary-to-the-v8-sealed-boundary-goal;implement-complete-v9-owned-execution-or-remove-the-import-and-freeze-the-actual-dependency-chain
+p1_2	no-evidence-or-summary-manifest-terminal-chain;faultSummaryV9-is-never-integrated-into-execution-or-persisted-so-real-snapshot-proof-and-retry-cleanup-terminal-contract-are-absent
+p1_3	negative-test-suite-only-covers-missing-flag-or-missing-registry-sha;missing-wrong-db-qa-drain-resource-authority-schema-mode-symlink-runid-existing-evidence-and-no-spawn-side-effect-cases-remain-unimplemented
+p2_1	no-node22-node24-raw-tap-or-static-record-is-present-for-v9;the-review-environment-has-no-node-or-nodejs-to-rerun
+secrets	partial-pass;current-static-helper-persists-no-child-output-but-no-execution-evidence-contract-exists
+next_gate	complete-v9-owned-runner-authority-manifest-handoff-static-record-and-node22-node24-tap-then-new-independent-db-and-qa-security-review
+final_current	true

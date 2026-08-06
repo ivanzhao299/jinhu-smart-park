@@ -1,0 +1,261 @@
+{
+  "schemaVersion": "pr192-b05-core-gate-evidence-v4",
+  "runId": "b05-core-final-contract-regate-20260731",
+  "status": "PASS",
+  "finishedAt": "2026-07-31T09:15:01Z",
+  "stage": "B-0.5 property foundation core",
+  "branch": "codex/pr192-property-productization-remediation",
+  "baseSha": "0152616fb9a25effdff68fa9da24fea7db8a21a7",
+  "contracts": {
+    "parentBContractSha256": "a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8",
+    "identityFreezeSha256": "f0af4c2d1cc7979ebc8c5d15f662cc299a698e1c0749393f180509bd0507239b",
+    "runtimeFreezeSha256": "845e886fb1b3443431e5e18a6afac1c98b06080f4456829b7f2802819b2597f7",
+    "productAccessFreezeSha256": "6624bebb7b9dd9972c574d1cf262d7adbc9080287463f3aa23e3832982b2371a",
+    "schemaExpandSha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+    "schemaEvidenceRawSha256": "a10b0d1ab7d90f8c2f2913dfdb8929fc84a150588490001fa5388949b5b4300b",
+    "sharedTrackBContractsRawSha256": "d9bdf3db071a0b425a0d003c97cb4d407ed7c5d5098a34c168bb8e609722db66",
+    "sharedEndpointAuthoritySha256": "3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf",
+    "sharedEndpointAuthoritySourceRawSha256": "9fd05b0249b7e873bc250154f13f0b4a903ec998139189295f35c977f09387e1"
+  },
+  "candidateInputs": {
+    "s2Sha256": "c8fd87f7c47813b97e21c2093f9462eb2579c74c992c2cc971646f601005afa3",
+    "s3Sha256": "04092a8c7734b0ea99c692d7cd658d9339e726ea0544ecfc87164556c5c81c54",
+    "filesCanonicalSha256": "bd0b91aec02c728112f8a2304fd1b80f1d4e14fb45857c2815bb4e44198e78a9",
+    "integrationCanonicalSha256": "7239c884e2e59f1ecf50ea28a02a9c02edb0067c10b547d902f128017b813770"
+  },
+  "candidateManifests": {
+    "grammar": "literal manifest-name<LF> followed by sorted relative-path<TAB>raw-file-sha256<LF>",
+    "s2": {
+      "name": "b05-candidate-s2-v2",
+      "paths": [
+        "apps/api/src/modules/property-identity/dto/identity-submission.dto.spec.ts",
+        "apps/api/src/modules/property-identity/dto/identity-submission.dto.ts",
+        "apps/api/src/modules/property-identity/entities/property-identity.entities.ts",
+        "apps/api/src/modules/property-identity/legacy-party-identity.adapter.ts",
+        "apps/api/src/modules/property-identity/property-identity-verification.service.ts",
+        "apps/api/src/modules/property-identity/property-identity.controller.spec.ts",
+        "apps/api/src/modules/property-identity/property-identity.controller.ts",
+        "apps/api/src/modules/property-identity/property-identity.error.ts",
+        "apps/api/src/modules/property-identity/property-identity.module.ts",
+        "apps/api/src/modules/property-identity/property-identity.service.spec.ts",
+        "apps/api/src/modules/property-identity/property-identity.service.ts",
+        "apps/api/src/modules/property-operations/entities/party.entity.ts",
+        "apps/api/src/modules/property-operations/parties.controller.spec.ts",
+        "apps/api/src/modules/property-operations/parties.controller.ts",
+        "apps/api/src/modules/property-operations/parties.service.spec.ts",
+        "apps/api/src/modules/property-operations/parties.service.ts",
+        "apps/api/src/modules/property-operations/party-sensitive-data.service.spec.ts",
+        "apps/api/src/modules/property-operations/party-sensitive-data.service.ts"
+      ]
+    },
+    "s3": {
+      "name": "b05-candidate-s3-v2",
+      "paths": [
+        "apps/api/src/modules/property-operations/dto/property-control.dto.ts",
+        "apps/api/src/modules/property-operations/dto/property-occupancy.dto.spec.ts",
+        "apps/api/src/modules/property-operations/dto/property-occupancy.dto.ts",
+        "apps/api/src/modules/property-operations/entities/property-occupancy.entity.ts",
+        "apps/api/src/modules/property-operations/property-approval-required.guard.spec.ts",
+        "apps/api/src/modules/property-operations/property-approval-required.guard.ts",
+        "apps/api/src/modules/property-operations/property-approval-required.service.spec.ts",
+        "apps/api/src/modules/property-operations/property-control-runtime.spec.ts",
+        "apps/api/src/modules/property-operations/property-occupancies.controller.ts",
+        "apps/api/src/modules/property-operations/property-occupancies.service.ts",
+        "apps/api/src/modules/property-operations/property-operations.controller.ts",
+        "apps/api/src/modules/property-operations/property-operations.module.spec.ts",
+        "apps/api/src/modules/property-operations/property-operations.module.ts",
+        "apps/api/src/modules/property-operations/property-operations.service.ts",
+        "apps/api/src/modules/saas-modules/saas-modules.property-dependency.spec.ts",
+        "apps/api/src/modules/saas-modules/saas-modules.service.ts",
+        "apps/api/src/shared/filters/api-exception.filter.spec.ts",
+        "apps/api/src/shared/filters/api-exception.filter.ts"
+      ]
+    },
+    "integration": {
+      "name": "b05-integration-v2",
+      "definition": "sorted union of s2, s3, and filesCanonicalManifest paths"
+    }
+  },
+  "filesCanonicalManifest": {
+    "grammar": "literal b05-files-v1<LF> followed by sorted relative-path<TAB>raw-file-sha256<LF>",
+    "paths": {
+      "apps/api/src/modules/files/entities/file.entity.ts": "775119d41a0ffbbb29a5916e81664d9623fe5f2103d9be67cbeb57ef89ea7ee4",
+      "apps/api/src/modules/files/file-business-access.service.spec.ts": "a7820dbe1c5c81d0caab16707568b252cb1634ec246f877b6be08680f9e8f7db",
+      "apps/api/src/modules/files/file-business-access.service.ts": "479ea462dfc530035ea5cf004d12ecad1c5f354c433947d9960a847f802af12a",
+      "apps/api/src/modules/files/files.controller.spec.ts": "7e8f9854a29a15274a7ea5ff4d6973ed4cda15084d62cbc17ccaf5d3414b468a",
+      "apps/api/src/modules/files/files.service.spec.ts": "40f00e15f206206f9d614e796768330fb2bccdbd5e15f724aa9dc68c3fb071f1",
+      "apps/api/src/modules/files/files.service.ts": "dba453469e62319e57a4a0d67f04de1e4a03613052c7b3a4ab6ce8e3ecbfb9f9"
+    }
+  },
+  "validation": {
+    "apiNoEmit": "PASS",
+    "ownerAndCoreTargetedTestFiles": "11/11 PASS",
+    "s0AndSchemaContractTestFiles": "3/3 PASS",
+    "sharedSchemaAndStopshipContractTestFiles": "4/4 PASS",
+    "protectedEvidence": {
+      "status": "PASS",
+      "evidenceMode": "RERUN_TARGETED_TESTS",
+      "testFiles": [
+        "apps/api/src/modules/files/file-business-access.service.spec.ts",
+        "apps/api/src/modules/files/files.controller.spec.ts",
+        "apps/api/src/modules/files/files.service.spec.ts"
+      ],
+      "metadataPermissions": [
+        "asset:identity-submissions:page",
+        "party:read",
+        "party:identity_verify",
+        "file:read"
+      ],
+      "downloadAdditionalPermission": "file:download",
+      "missingPermissionRejectedBeforeReferenceQuery": true,
+      "deniedDownloadBlobReads": 0,
+      "deniedDownloadSuccessAudits": 0,
+      "successfulDownloadAudit": true,
+      "snapshotAndDraftGenericDelete": "409 conflict"
+    },
+    "s0": {
+      "status": "PASS",
+      "evidenceMode": "RERUN_REAL_NEST_HTTP_AND_DISPOSABLE_POSTGRES16",
+      "runId": "b05s0-1785489298-1770683",
+      "sourceSha256": "e201ada3c73e7be54e35946cb01821d38d90b8ec293a1f8ca5de017ded565862",
+      "runnerRawSha256": "d56578fc95a1a1160700c9c9fbfcd2689cd6f458486eb1bb583b2ec7aa56ac46",
+      "evidencePath": "/tmp/pr192-b05-s0-http-db-b05s0-1785489298-1770683.json",
+      "evidenceRawSha256": "a8f8e0ffeac792b4ff875000e6b558d0ab545891ea9ce6e4bbe63d03ab77348c",
+      "cleanupEvidencePath": "/tmp/pr192-b05-s0-cleanup-b05s0-1785489298-1770683.json",
+      "cleanupEvidenceRawSha256": "5b20ba62105a5f822cc50af8311ca9f327a53a0ff27a295e9275d8de9ffb764b",
+      "normalSuperWildcardExact409": true,
+      "legacyClientExact409": true,
+      "trackedDatabaseMutationCount": 0,
+      "auditInterceptorDelta": 0,
+      "idempotencyInterceptorDelta": 0,
+      "domainServiceDelta": 0,
+      "lowRiskControlReachable": true,
+      "containerAbsent": true,
+      "anonymousVolumeAbsent": true
+    },
+    "postgres16SchemaAndIdentity": {
+      "status": "PASS",
+      "evidenceMode": "REUSED_IMMUTABLE_FINAL_EVIDENCE_RAW_HASH_REVERIFIED",
+      "runId": "b0readinessformal20260731",
+      "evidencePath": "/tmp/pr192-b0-readiness-formal-final.json",
+      "evidenceRawSha256": "a10b0d1ab7d90f8c2f2913dfdb8929fc84a150588490001fa5388949b5b4300b",
+      "contractSha256": "a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8",
+      "migrationSetSha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+      "catalogSha256": "a8af55efa8567e597f7706df6559de9761564bd5641f5584724486f772fc3b0f",
+      "securitySha256": "b3099bc2f5b4ed55abd284233ef2f41b0573f2fb9cf869de803af5f0ad9305da",
+      "freshRunCount": 3,
+      "deterministic": true,
+      "openP0P1": []
+    },
+    "moduleDependency": {
+      "status": "PASS",
+      "hardDependenciesExact": true,
+      "defaultAutoEnableCount": 0,
+      "advisoryLockAndConflictTests": true
+    }
+  },
+  "validationCommands": [
+    {
+      "command": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node node_modules/typescript/bin/tsc -p apps/api/tsconfig.json --noEmit",
+      "result": "PASS"
+    },
+    {
+      "command": "TS_NODE_PROJECT=apps/api/tsconfig.json /home/jinhuit/.nvm/versions/node/v22.23.2/bin/node --test --test-reporter=spec --require ./apps/api/node_modules/ts-node/register <11 B-0.5 owner/core spec files>",
+      "result": "11/11 PASS"
+    },
+    {
+      "command": "TS_NODE_PROJECT=apps/api/tsconfig.json /home/jinhuit/.nvm/versions/node/v22.23.2/bin/node --test --test-reporter=spec --require ./apps/api/node_modules/ts-node/register <S0 service, S0 guard, schema contract specs>",
+      "result": "3/3 PASS"
+    },
+    {
+      "command": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node --test --test-reporter=spec packages/shared/test/track-b-contract.test.cjs packages/shared/test/track-b-permission-bundles.test.cjs scripts/e2e/property-remediation/tests/b-schema-expand-contract.spec.mjs scripts/e2e/property-remediation/tests/b-high-risk-stopship-contract.spec.mjs",
+      "result": "4/4 PASS"
+    },
+    {
+      "command": "sh scripts/e2e/property-remediation/track-b-high-risk-stopship.sh",
+      "result": "PASS; real HTTP plus disposable PostgreSQL 16; cleanup PASS"
+    }
+  ],
+  "handoffs": {
+    "B-property-foundation-runtime": {
+      "sha256": "19bf8971238947fb235b0cd32a455a5f744a76494ee185d3517ceb0ecd149d4a",
+      "supersedesSha256": "5403706a5aa0f1ea5e4c7e46f45ade83a5505c86ee68613f137200447d37fd7f",
+      "grammar": "SHA-256 of the exact UTF-8 manifest string stored in manifestLines, joined with LF and terminated by LF",
+      "manifestLines": [
+        "b-property-foundation-runtime-v1",
+        "stage\tB-0.5 property foundation core",
+        "base\t0152616fb9a25effdff68fa9da24fea7db8a21a7",
+        "parent-contract\ta16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8",
+        "identity-freeze\tf0af4c2d1cc7979ebc8c5d15f662cc299a698e1c0749393f180509bd0507239b",
+        "runtime-freeze\t845e886fb1b3443431e5e18a6afac1c98b06080f4456829b7f2802819b2597f7",
+        "product-access-freeze\t6624bebb7b9dd9972c574d1cf262d7adbc9080287463f3aa23e3832982b2371a",
+        "schema-expand\t53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+        "shared-contracts-source\td9bdf3db071a0b425a0d003c97cb4d407ed7c5d5098a34c168bb8e609722db66",
+        "shared-endpoint-authority\t3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf",
+        "candidate-s2\tc8fd87f7c47813b97e21c2093f9462eb2579c74c992c2cc971646f601005afa3",
+        "candidate-s3\t04092a8c7734b0ea99c692d7cd658d9339e726ea0544ecfc87164556c5c81c54",
+        "files-canonical\tbd0b91aec02c728112f8a2304fd1b80f1d4e14fb45857c2815bb4e44198e78a9",
+        "candidate-integration\t7239c884e2e59f1ecf50ea28a02a9c02edb0067c10b547d902f128017b813770",
+        "b05-s0-source\te201ada3c73e7be54e35946cb01821d38d90b8ec293a1f8ca5de017ded565862",
+        "b05-s0-evidence\ta8f8e0ffeac792b4ff875000e6b558d0ab545891ea9ce6e4bbe63d03ab77348c",
+        "pg-schema-evidence\ta10b0d1ab7d90f8c2f2913dfdb8929fc84a150588490001fa5388949b5b4300b",
+        "validation\tPASS",
+        "open-p0-p1\t[]"
+      ],
+      "fromOwners": [
+        "property-foundation-api-owner",
+        "module-dependency-owner",
+        "files-owner",
+        "independent-core-regate"
+      ],
+      "toOwners": [
+        "approval-runtime-owner",
+        "property-task-owner",
+        "property-foundation-api-owner post-B1",
+        "migration-reconcile-owner"
+      ]
+    },
+    "B-identity-ui-input": {
+      "sha256": "5aa7e796cef386e4148d6d95964fc95684f55d8334dce6b7aac73c69793873a5",
+      "supersedesSha256": "63c64329eb8e50d1372fd52a91ff563bccf0d7b0532b68fa1dfbc54328d0eca0",
+      "grammar": "SHA-256 of the exact UTF-8 manifest string stored in manifestLines, joined with LF and terminated by LF",
+      "manifestLines": [
+        "b-identity-ui-input-v1",
+        "stage\tB-0.5 property foundation core",
+        "base\t0152616fb9a25effdff68fa9da24fea7db8a21a7",
+        "parent-contract\ta16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8",
+        "identity-freeze\tf0af4c2d1cc7979ebc8c5d15f662cc299a698e1c0749393f180509bd0507239b",
+        "runtime-freeze\t845e886fb1b3443431e5e18a6afac1c98b06080f4456829b7f2802819b2597f7",
+        "product-access-freeze\t6624bebb7b9dd9972c574d1cf262d7adbc9080287463f3aa23e3832982b2371a",
+        "routes-source\t6f13f25e0d87822058259f027b9af967508564a202f37170667048b503617bfb",
+        "endpoint-permissions-source\t9fd05b0249b7e873bc250154f13f0b4a903ec998139189295f35c977f09387e1",
+        "endpoint-authority\t3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf",
+        "track-b-contracts-source\td9bdf3db071a0b425a0d003c97cb4d407ed7c5d5098a34c168bb8e609722db66",
+        "identity-controller-source\t1ecd894a4ad7265842eb7f77b15f689c9081f300b7d34a13520701028f897c0b",
+        "identity-dto-source\t56977e3a8434fd8c0b681a595a6c2f22800635ca533d22e8c067450d554382bc",
+        "candidate-s2\tc8fd87f7c47813b97e21c2093f9462eb2579c74c992c2cc971646f601005afa3",
+        "files-canonical\tbd0b91aec02c728112f8a2304fd1b80f1d4e14fb45857c2815bb4e44198e78a9",
+        "runtime-handoff\t19bf8971238947fb235b0cd32a455a5f744a76494ee185d3517ceb0ecd149d4a",
+        "validation\tPASS",
+        "open-p0-p1\t[]"
+      ],
+      "fromOwner": "B-0.5 independent consumed-handoff re-Gate",
+      "toOwner": "B-3 web integration owner",
+      "containsWebImplementation": false
+    }
+  },
+  "knownFailures": [],
+  "supersededHandoffs": [
+    "922c1570cfc2356da3d85dc686e46eeeedf16bd0f8bd23dab4ad5cfba30fff43",
+    "e0b7a392b52aebcf8fe99808c5e235897750f0e336f9da1f81729837fc219249",
+    "5403706a5aa0f1ea5e4c7e46f45ade83a5505c86ee68613f137200447d37fd7f",
+    "63c64329eb8e50d1372fd52a91ff563bccf0d7b0532b68fa1dfbc54328d0eca0"
+  ],
+  "openP0P1": [],
+  "downstreamB2cDagPointer": {
+    "after": "B-1",
+    "path": "property-foundation-api-owner -> 000191 B-property-homestay-effect-schema SHA -> B-property-foundation-adapter SHA",
+    "housingReference": "000192 housing SHA",
+    "isB05Prerequisite": false
+  }
+}

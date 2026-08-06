@@ -1,0 +1,66 @@
+{
+  "schema_version": "property-remediation-track-b-schema-expand-evidence-v1",
+  "run_id": "bschema20260731b0final8",
+  "status": "passed",
+  "contract_sha256": "5704ab723ebd4bcc69b4e4fcf6039992ac6752b195b97beba31be5260b55d87d",
+  "migrations": [
+    {"filename": "000185_property_b_identity_schema_expand.sql", "sha256": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec"},
+    {"filename": "000186_property_b_approval_runtime_schema.sql", "sha256": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e"},
+    {"filename": "000187_property_b_event_notification_schema.sql", "sha256": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"},
+    {"filename": "000188_property_b_task_runtime_schema.sql", "sha256": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"},
+    {"filename": "000189_property_b_module_rbac_definitions.sql", "sha256": "b7006b2828e2e5f16ecc305f4b50d9cb3ef962da09eb7901c3aca84f5412201a"},
+    {"filename": "000190_property_b_migration_compatibility_control.sql", "sha256": "2d3486db6200ac79d229ac5563afc4e4efa6423186d27bd54b56b477958cb9b0"}
+  ],
+  "schema": {
+    "catalog_sha256": "e172de5cfa6ad61dfd610134c43a2618918858d4f7af4efd24bd758af046eec7",
+    "migration_set_hash": "db1a9a93c6a5933d3a59fe14e7e62e8469b90af1d726f2663bf140809eedfb9a",
+    "marker_count": 1101,
+    "definition_row_count": 180,
+    "identity_security": {
+      "functions": [
+        {"name": "fn_guard_party_identity_assignment_audit_insert", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_guard_party_identity_decision_insert", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_guard_party_identity_draft_file_mutation", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_assignment_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_create_draft_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_decision_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_submit_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_update_draft_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_party_identity_withdraw_cas", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]},
+        {"name": "fn_validate_party_identity_consistency", "owner": "pr192_b_schema", "securityDefiner": true, "volatility": "v", "language": "plpgsql", "config": ["search_path=pg_catalog"]}
+      ],
+      "triggers": [
+        {"name": "trg_biz_party_identity_assignment_audit_insert_guard", "constraint": false, "deferrable": false, "initiallyDeferred": false, "enabled": "O"},
+        {"name": "trg_biz_party_identity_assignment_consistency", "constraint": true, "deferrable": true, "initiallyDeferred": true, "enabled": "O"},
+        {"name": "trg_biz_party_identity_decision_consistency", "constraint": true, "deferrable": true, "initiallyDeferred": true, "enabled": "O"},
+        {"name": "trg_biz_party_identity_decision_insert_guard", "constraint": false, "deferrable": false, "initiallyDeferred": false, "enabled": "O"},
+        {"name": "trg_biz_party_identity_party_consistency", "constraint": true, "deferrable": true, "initiallyDeferred": true, "enabled": "O"},
+        {"name": "trg_biz_party_identity_submission_consistency", "constraint": true, "deferrable": true, "initiallyDeferred": true, "enabled": "O"},
+        {"name": "trg_rel_party_identity_draft_file_mutation_guard", "constraint": false, "deferrable": false, "initiallyDeferred": false, "enabled": "O"}
+      ],
+      "public_schema_create_grants": 0,
+      "runtime_handoff": {
+        "approved_command_execute_count": 6,
+        "direct_party_identity_dml_denied": true,
+        "security_definer_command_succeeded": true,
+        "temporary_role_removed": true
+      },
+      "behavior": {
+        "supersedes_verified_version_increment": true,
+        "supersedes_rejected_same_version_attempt_increment": true,
+        "supersedes_withdrawn_same_version_attempt_increment": true,
+        "four_way_pointer_mismatch_sqlstate": "23514",
+        "rollback_residual_zero": true,
+        "cas_race_winners": 1,
+        "cas_race_losers_sqlstate_40001": 1
+      }
+    }
+  },
+  "cleanup": {
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": []
+  },
+  "open_P0_P1": [],
+  "error": null
+}

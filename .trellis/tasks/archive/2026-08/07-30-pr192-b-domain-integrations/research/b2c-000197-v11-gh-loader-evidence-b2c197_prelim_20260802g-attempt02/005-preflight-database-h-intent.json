@@ -1,0 +1,35 @@
+{
+  "schema_version": "b2c-000197-v11-gh-loader-attempt02-child-intent-v2",
+  "formal_run_id": "b2c197_prelim_20260802g",
+  "attempt_id": "b2c197_prelim_20260802g_gh_loader_attempt02",
+  "outer_execution_mode": "escalated-full-runner",
+  "sequence": 5,
+  "stage": "preflight-database-h",
+  "recorded_at_utc": "2026-08-02T10:36:55.932Z",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "-i",
+    "jinhu-b2c197-prelim-20260802g-h",
+    "psql",
+    "-X",
+    "-qAt",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-U",
+    "postgres",
+    "-d",
+    "jinhu_b2c197_h"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "shell": false,
+  "environment_allowlist": [
+    "PATH",
+    "LANG"
+  ],
+  "stdin": {
+    "present": true,
+    "bytes": 911,
+    "raw_sha256": "9e68d29232089c20e8f13933522364782f8f9a776c5d93037bb67f155a51b629"
+  }
+}

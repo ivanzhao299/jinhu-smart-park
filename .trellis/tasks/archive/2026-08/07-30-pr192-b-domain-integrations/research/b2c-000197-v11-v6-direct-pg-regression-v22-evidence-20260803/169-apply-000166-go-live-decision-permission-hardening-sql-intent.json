@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v22-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v22_20260803a",
+  "stage": "apply-000166-go-live-decision-permission-hardening-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v22-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v22_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 14128,
+    "raw_sha256": "f460518d8fd9501953c400f6545d2ef3ac9e930422fd2fb9404793034b8bd16c",
+    "persisted": false
+  }
+}

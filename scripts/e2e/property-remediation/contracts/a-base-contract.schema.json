@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-contract-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile",
+    "profile_version",
+    "generator_version",
+    "seed",
+    "business_clock",
+    "timezone",
+    "uuid_namespace",
+    "scope_marker",
+    "expected_counts",
+    "park_distribution",
+    "track_b_tables"
+  ],
+  "properties": {
+    "schema_version": { "const": "property-remediation-a-base-contract-v1" },
+    "profile": { "const": "property-remediation-a-base-v1" },
+    "profile_version": { "const": 1 },
+    "generator_version": { "const": "a-base-generator-v1" },
+    "seed": { "const": "jinhu-pr192-a-base-v1" },
+    "business_clock": { "const": "2026-07-30T09:00:00+08:00" },
+    "timezone": { "const": "Asia/Shanghai" },
+    "uuid_namespace": {
+      "const": "e2a9472f-28be-5a42-a894-a142803b88d7"
+    },
+    "scope_marker": { "const": "PR192_A_BASE_TEST_ONLY_V1" },
+    "expected_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "park", "building", "floor", "unit", "party", "booking",
+        "booking_night", "property_occupancy", "turnover", "lease",
+        "charge_plan", "housing_receivable", "purchase", "purchase_item",
+        "handover", "work_order", "sys_file"
+      ],
+      "properties": {
+        "park": { "const": 3 },
+        "building": { "const": 3 },
+        "floor": { "const": 3 },
+        "unit": { "const": 100 },
+        "party": { "const": 4000 },
+        "booking": { "const": 10000 },
+        "booking_night": { "const": 20000 },
+        "property_occupancy": { "const": 6500 },
+        "turnover": { "const": 2000 },
+        "lease": { "const": 2000 },
+        "charge_plan": { "const": 2000 },
+        "housing_receivable": { "const": 10000 },
+        "purchase": { "const": 1000 },
+        "purchase_item": { "const": 2000 },
+        "handover": { "const": 1000 },
+        "work_order": { "const": 1000 },
+        "sys_file": { "const": 2000 }
+      }
+    },
+    "park_distribution": {
+      "type": "array",
+      "prefixItems": [
+        { "const": 60 },
+        { "const": 30 },
+        { "const": 10 }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "track_b_tables": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}

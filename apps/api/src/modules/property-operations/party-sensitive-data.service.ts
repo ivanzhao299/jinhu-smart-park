@@ -34,6 +34,26 @@ export class PartySensitiveDataService {
     return `${trimmed.slice(0, 2)}${"*".repeat(Math.min(12, trimmed.length - 4))}${trimmed.slice(-2)}`;
   }
 
+  identityProfile(value: string): {
+    encrypted: string;
+    hash: string;
+    masked: string;
+    hashAlgorithm: "hmac-sha256";
+    hashVersion: 1;
+    encryptionKeyId: "party-data-v1";
+    payloadFormatVersion: 1;
+  } {
+    return {
+      encrypted: this.encrypt(value),
+      hash: this.hash(value),
+      masked: this.mask(value),
+      hashAlgorithm: "hmac-sha256",
+      hashVersion: 1,
+      encryptionKeyId: "party-data-v1",
+      payloadFormatVersion: 1
+    };
+  }
+
   private key(): Buffer {
     const seed =
       this.configService.get<string>("PARTY_DATA_ENCRYPTION_KEY") ??

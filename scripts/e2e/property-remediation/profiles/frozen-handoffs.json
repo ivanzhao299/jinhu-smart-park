@@ -1,0 +1,16 @@
+{
+  "schema_version": "property-remediation-a-base-prerequisites-v1",
+  "access_contract_commit": "e709459a034807b3575db604a76bc69bf1c5ff5b",
+  "schema_api_projection_commit": "b1a0625b59f7c2263a1909126e335b85c81d8c13",
+  "bootstrap_commit": "9a348111978363b1d0df07e86087a45becb9a64d",
+  "bootstrap_handoff_sha256": "b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268",
+  "foundation_commit": "d2a015f9ba931b2024e6360570697c77b74ea3fb",
+  "commit_constraint": "all-required-ancestors-of-current-head",
+  "environment_guard": {
+    "target": "exact-ephemeral-container-only",
+    "image": "postgres:16-alpine",
+    "database": "pr192_track_a_base_fixture",
+    "database_url_override": "forbidden",
+    "artifact_scope": "artifacts/property-remediation/runs/<run-id>"
+  }
+}

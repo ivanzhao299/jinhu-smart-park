@@ -1,0 +1,26 @@
+{
+  "schema_version": "b2c-000197-v11-ef-loader-recovery-child-intent-v4",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_loader_recovery_attempt04",
+  "sequence": 2,
+  "stage": "preflight-inspect-e",
+  "recorded_at_utc": "2026-08-02T02:01:18.700Z",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "inspect",
+    "jinhu-b2c197-prelim-20260802f-e",
+    "--format",
+    "{\"id\":\"{{.Id}}\",\"image\":\"{{.Image}}\",\"name\":\"{{.Name}}\",\"status\":\"{{.State.Status}}\",\"port_bindings\":{{json .HostConfig.PortBindings}},\"publish_all_ports\":{{.HostConfig.PublishAllPorts}},\"ports\":{{json .NetworkSettings.Ports}},\"mounts\":{{json .Mounts}}}"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "shell": false,
+  "environment_allowlist": {
+    "PATH": "/usr/bin:/bin",
+    "LANG": "C.UTF-8"
+  },
+  "stdin": {
+    "present": false,
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

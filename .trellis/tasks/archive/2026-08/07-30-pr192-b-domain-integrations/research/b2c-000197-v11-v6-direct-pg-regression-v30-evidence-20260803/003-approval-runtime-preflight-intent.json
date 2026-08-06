@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v30-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v30_20260803a",
+  "stage": "approval-runtime-preflight",
+  "command": "/home/jinhuit/.nvm/versions/node/v24.18.1/bin/node",
+  "argv": [
+    "--require",
+    "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-evidence-20260803/formal-source-snapshot/resolution-guard.cjs",
+    "--require",
+    "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-evidence-20260803/formal-source-snapshot/runtime-dependencies/721b4586612224dce81af382f1c5eaf3/register/index.js",
+    "--eval",
+    "require(\"/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-evidence-20260803/formal-source-snapshot/apps/api/src/modules/property-approvals/property-approval.port.pg-cli.ts\")"
+  ],
+  "execution": {
+    "cwd": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-v11-v6-direct-pg-regression-v30-evidence-20260803/formal-source-snapshot/apps/api",
+    "env_keys": [
+      "APP_ROOT_PATH",
+      "NODE_PATH",
+      "PATH",
+      "TS_NODE_PROJECT",
+      "TS_NODE_TRANSPILE_ONLY"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "persisted": false
+  }
+}

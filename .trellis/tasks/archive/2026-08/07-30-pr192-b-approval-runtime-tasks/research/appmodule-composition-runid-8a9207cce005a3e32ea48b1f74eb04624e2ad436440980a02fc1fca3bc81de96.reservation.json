@@ -1,0 +1,8 @@
+{
+  "schema_version": "property-appmodule-composition-runid-reservation-v1",
+  "run_id": "b_appmodule_composition_20260801c",
+  "run_id_sha256": "8a9207cce005a3e32ea48b1f74eb04624e2ad436440980a02fc1fca3bc81de96",
+  "artifact": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/appmodule-composition-b_appmodule_composition_20260801c.json",
+  "detached_manifest": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/appmodule-composition-b_appmodule_composition_20260801c.manifest.txt",
+  "reserved_at": "2026-08-01T11:50:14.070Z"
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": "superseded-property-remediation-track-b-ar1-schema-determinism-handoff-v2",
+  "consumption_status": "superseded-do-not-consume",
+  "source_evidence": "/tmp/pr192-b-ar1-schema-determinism-v2.json",
+  "run_id": "bar1v2det20260731",
+  "status": "passed",
+  "root_cause": {
+    "catalog_v1_defect": "definition-row names and values embedded the fresh production seed's randomly generated sys_tenant.id and physical park UUID",
+    "excluded_as_causes": [
+      "catalog OID",
+      "container or volume identity",
+      "generated timestamps",
+      "owner or role identity",
+      "temporary runtime role",
+      "JSON key order",
+      "SQL row order"
+    ],
+    "catalog_v2_fix": "normalize tenant scope to sys_tenant.tenant_id and park scope to asset_park.park_code before canonicalization"
+  },
+  "contract_sha256": "920ef7b92b1ea82b18717e107469685cd2ef463f931935ee0af259c327ec343f",
+  "endpoint_manifest_sha256": "3cff469fa092cdf6d254c86f275be194734a5eb4a1abe9591abaf4c1748f5adf",
+  "catalog_contract": {
+    "catalog_grammar": "b0-schema-catalog-v2",
+    "schema_grammar": "b0-schema-expand-v2",
+    "scope_normalization": {
+      "tenant": "sys_tenant.tenant_id",
+      "park": "asset_park.park_code"
+    },
+    "excluded_ephemeral_inputs": [
+      "catalog_oid",
+      "container_and_volume_identity",
+      "generated_timestamp",
+      "physical_tenant_and_park_uuid",
+      "role_and_owner_identity",
+      "temporary_runtime_role"
+    ],
+    "row_ordering": "utf8-byte(kind-tab-name)",
+    "json_canonicalization": "RFC8785"
+  },
+  "migrations": [
+    {
+      "filename": "000185_property_b_identity_schema_expand.sql",
+      "sha256": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec"
+    },
+    {
+      "filename": "000186_property_b_approval_runtime_schema.sql",
+      "sha256": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e"
+    },
+    {
+      "filename": "000187_property_b_event_notification_schema.sql",
+      "sha256": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"
+    },
+    {
+      "filename": "000188_property_b_task_runtime_schema.sql",
+      "sha256": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"
+    },
+    {
+      "filename": "000189_property_b_module_rbac_definitions.sql",
+      "sha256": "b7006b2828e2e5f16ecc305f4b50d9cb3ef962da09eb7901c3aca84f5412201a"
+    },
+    {
+      "filename": "000190_property_b_migration_compatibility_control.sql",
+      "sha256": "6d91299d3c13ea1f5cfaed2e457204abeb86c26b061bd1a242c37b20f204d1e2"
+    }
+  ],
+  "fresh_run_count": 3,
+  "deterministic": true,
+  "catalog_sha256": "e6a021df4e6dd14a2aa5c37df07741daa33281f8e95c56e46f77cfd0b977e32d",
+  "migration_set_hash": "6bcbfa97306983e867cc86900686f3404c9fe219d0279df34c4cc8bbb14c409b",
+  "runs": [
+    {
+      "run_id": "bar1v2det20260731r1",
+      "status": "passed",
+      "catalog_sha256": "e6a021df4e6dd14a2aa5c37df07741daa33281f8e95c56e46f77cfd0b977e32d",
+      "migration_set_hash": "6bcbfa97306983e867cc86900686f3404c9fe219d0279df34c4cc8bbb14c409b",
+      "marker_count": 1101,
+      "definition_row_count": 180,
+      "behavior": {
+        "supersedes_branches": "passed",
+        "four_way_consistency_rollback": "passed",
+        "cas_race": "one winner and one SQLSTATE 40001 loser"
+      },
+      "cleanup": {
+        "container_absent": true,
+        "anonymous_volume_absent": true,
+        "errors": []
+      }
+    },
+    {
+      "run_id": "bar1v2det20260731r2",
+      "status": "passed",
+      "catalog_sha256": "e6a021df4e6dd14a2aa5c37df07741daa33281f8e95c56e46f77cfd0b977e32d",
+      "migration_set_hash": "6bcbfa97306983e867cc86900686f3404c9fe219d0279df34c4cc8bbb14c409b",
+      "marker_count": 1101,
+      "definition_row_count": 180,
+      "behavior": {
+        "supersedes_branches": "passed",
+        "four_way_consistency_rollback": "passed",
+        "cas_race": "one winner and one SQLSTATE 40001 loser"
+      },
+      "cleanup": {
+        "container_absent": true,
+        "anonymous_volume_absent": true,
+        "errors": []
+      }
+    },
+    {
+      "run_id": "bar1v2det20260731r3",
+      "status": "passed",
+      "catalog_sha256": "e6a021df4e6dd14a2aa5c37df07741daa33281f8e95c56e46f77cfd0b977e32d",
+      "migration_set_hash": "6bcbfa97306983e867cc86900686f3404c9fe219d0279df34c4cc8bbb14c409b",
+      "marker_count": 1101,
+      "definition_row_count": 180,
+      "behavior": {
+        "supersedes_branches": "passed",
+        "four_way_consistency_rollback": "passed",
+        "cas_race": "one winner and one SQLSTATE 40001 loser"
+      },
+      "cleanup": {
+        "container_absent": true,
+        "anonymous_volume_absent": true,
+        "errors": []
+      }
+    }
+  ],
+  "cleanup": {
+    "all_containers_absent": true,
+    "all_anonymous_volumes_absent": true,
+    "errors": []
+  },
+  "open_P0_P1": [],
+  "error": null
+}

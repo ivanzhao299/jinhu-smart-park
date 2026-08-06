@@ -1,0 +1,91 @@
+{
+  "schema_version": "b2a-c2-final-gate-signoff-v1",
+  "signed_at": "2026-08-01T09:09:14+08:00",
+  "run_id": "b2ac2_v12_full_20260801d",
+  "gate": "C2",
+  "status": "passed",
+  "candidate": {
+    "main_path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12d.json",
+    "main_raw_sha256": "b5169a6e2668d3a2491814f34dd6745e386056f721236160aa5fe331aae41e50",
+    "main_byte_length": 1831705,
+    "manifest_path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12d.json.manifest.json",
+    "manifest_raw_sha256": "67bca562e4b80a12b7fb9cde03e14eb622f27154e649b402c9a8f5f8a8065844",
+    "manifest_byte_length": 3805,
+    "detached_evidence_count": 6,
+    "candidate_status": "passed",
+    "candidate_findings": []
+  },
+  "implementation": {
+    "migration_path": "database/migrations/000194_property_task_projection_contract_correction.sql",
+    "migration_raw_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+    "runner_path": "scripts/e2e/property-remediation/track-b2a-c2-schema-gate.mjs",
+    "runner_raw_sha256": "98e4c4719ab802e14f1e93c81af14e4f59c526981f1258334f1516b128079dcf",
+    "static_test_path": "scripts/e2e/property-remediation/tests/b2a-c2-schema-contract.spec.mjs",
+    "static_test_raw_sha256": "5f0be48e3aee41aaf5b71883b856137c20106a8f29958e90caab59433e273df2"
+  },
+  "signed_budget": {
+    "candidate_raw_sha256": "127d8574978bf6719a4fe9a7865e5c99333fa3dfd93c8e3f0dcccc17d152c0b4",
+    "candidate_evidence_raw_sha256": "38ebd4148083f3439a3456079ecc77a9aff1da41a19d113f61c90d30cd5499c0",
+    "final_signoff_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "canonical_digest": "d86fc62ec471ec85f7fcc1e7dbf74093b6c9cf5deeb5d93f8b08038a03c6cc45",
+    "canonical_byte_length": 1692
+  },
+  "independent_reviews": [
+    {
+      "perspective": "architecture_database",
+      "verdict": "accepted",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "scope_boundary": "C2 schema/projection candidate only; raw absent-head 23505 API normalization remains pending_C4"
+    },
+    {
+      "perspective": "test_security",
+      "verdict": "accepted",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "scope_boundary": "C2 database and evidence gate only; C4 callsite/RBAC remains downstream"
+    },
+    {
+      "perspective": "product_rbac_interaction",
+      "verdict": "accepted",
+      "p0": 0,
+      "p1": 0,
+      "p2": 1,
+      "conflict_disclosure": "Reviewer previously corrected runner cleanup/deadline logic and therefore limited the verdict to offline recomputation of frozen v12d evidence.",
+      "non_blocking_finding": "Synchronize the execution roadmap and add detached final signoff; retain the pre-run candidate template unchanged because the frozen static contract explicitly verifies its pending preparation state.",
+      "scope_boundary": "C3 receipt port and re-attestation allowed; C4 remains blocked"
+    }
+  ],
+  "root_recalculation": {
+    "main_and_detached_hashes_and_bytes": "passed",
+    "action_count": 8,
+    "warmup_count": 40,
+    "measured_count": 160,
+    "all_attempts_success_and_acknowledged": true,
+    "forced_lock_wait_ms": 4718.26,
+    "forced_lock_deadline_exceeded": false,
+    "performance_fixture_rows": 2000000,
+    "performance_seq_scan_count": 0,
+    "watchdog_status": "passed",
+    "exact_container_absent": true,
+    "exact_anonymous_volume_absent": true
+  },
+  "open_p0_p1": [],
+  "release": {
+    "c2": "passed",
+    "c3": "allowed_approval_runtime_owner_only",
+    "c4": "blocked_until_c3_independent_gate_passes",
+    "b2c_domain_adapters": "pending_B2c",
+    "track_b": "in_progress",
+    "track_c": "not_started"
+  },
+  "pending_downstream": [
+    "production caller deadline and prospective guard in C4",
+    "raw absent-head 23505 winner reread and API normalization in C4",
+    "real homestay and housing adapter admission in B-2c",
+    "B-4 full 191-194 chain equivalence",
+    "B-3 web consumer integration and later visual acceptance"
+  ]
+}

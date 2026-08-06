@@ -1,5 +1,5 @@
-import { HousingOperationsClient } from "./HousingOperationsClient";
+import { HousingLandingClient } from "./_components/HousingLandingClient";
 
 export default function HousingPage() {
-  return <HousingOperationsClient />;
+  return <HousingLandingClient />;
 }

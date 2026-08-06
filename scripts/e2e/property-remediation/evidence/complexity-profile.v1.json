@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "property-track-c-complexity-v1",
+  "baselineCommit": "f4797adf",
+  "roots": [
+    "apps/api/src/modules/homestay",
+    "apps/api/src/modules/housing",
+    "apps/web/app/homestay",
+    "apps/web/app/housing",
+    "apps/web/features/homestay",
+    "apps/web/features/housing",
+    "apps/web/features/property-shared/offline",
+    "apps/web/components/runtime/MobileTerminalReliability.tsx"
+  ],
+  "limits": {
+    "routeClientLines": 450,
+    "componentLines": 300,
+    "functionLines": 80,
+    "cyclomaticComplexity": 15
+  }
+}

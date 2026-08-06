@@ -33,3 +33,20 @@ test("domain upload routes omit association fields owned by the route adapter", 
   assert.equal(form.get("biz_id"), null);
   assert.equal(form.get("remark"), "楼层布局");
 });
+
+test("recovered blobs retain their filename without leaking generic association fields", () => {
+  const blob = new Blob(["offline floor plan"], { type: "image/png" });
+  const form = buildFileUploadFormData({
+    file: blob,
+    fileName: "离线恢复平面图.png",
+    bizType: "floorplan",
+    bizId: "dfbe7003-8c85-4f14-841e-76f7491ad700",
+    uploadPath: "/floors/dfbe7003-8c85-4f14-841e-76f7491ad700/layout"
+  });
+
+  const recoveredFile = form.get("file");
+  assert.ok(recoveredFile instanceof File);
+  assert.equal(recoveredFile.name, "离线恢复平面图.png");
+  assert.equal(form.get("biz_type"), null);
+  assert.equal(form.get("biz_id"), null);
+});

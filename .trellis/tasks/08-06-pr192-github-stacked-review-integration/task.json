@@ -1,0 +1,37 @@
+{
+  "id": "pr192-github-stacked-review-integration",
+  "name": "pr192-github-stacked-review-integration",
+  "title": "PR192 GitHub 分层审查与主干集成",
+  "description": "保留 PR192 已验收快照，以单一最终集成 PR 合入最新 main，并重新取得 final-SHA 技术证据",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "workspace",
+  "package": null,
+  "priority": "P0",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-06",
+  "completedAt": null,
+  "branch": "codex/pr192-main-integration",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    ".github/workflows/ci.yml",
+    ".trellis/tasks/07-30-pr192-property-productization-remediation",
+    ".trellis/tasks/archive/2026-08/07-30-pr192-c-architecture-reliability"
+  ],
+  "notes": "Planning authority: immutable reviewed snapshot f19ab4d509595579d40d2906628df409cdfd92aa; final technical code SHA 15b6e8f6edd12759dc35b1675f851c9a0bc52c0c; initial latest origin/main 3608608ad1cb9c1b53c1829f8cd0f9fb33b6f098; divergence 68 main-only / 88 snapshot-only. Do not rebase, squash or cherry-pick the snapshot. Review refs are optional immutable comparison aids, not mergeable PRs. Only codex/pr192-main-integration may open a PR to main. Existing performance evidence remains exact-SHA evidence for 15b6 only; final integration requires fresh final-SHA rollback and performance evidence before ready-for-review/merge.",
+  "meta": {
+    "reviewModel": "immutable_refs_single_integration_pr",
+    "snapshotSha": "f19ab4d509595579d40d2906628df409cdfd92aa",
+    "testedCodeSha": "15b6e8f6edd12759dc35b1675f851c9a0bc52c0c",
+    "initialOriginMainSha": "3608608ad1cb9c1b53c1829f8cd0f9fb33b6f098",
+    "evidencePolicy": "fresh_final_sha_required",
+    "githubMainProtectionObserved": false
+  }
+}

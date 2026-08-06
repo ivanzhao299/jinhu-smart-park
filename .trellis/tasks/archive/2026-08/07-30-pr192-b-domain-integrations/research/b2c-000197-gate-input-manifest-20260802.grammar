@@ -1,0 +1,16 @@
+b2c-000197-gate-input-manifest-v1
+run_id	b2c197_r0_20260802a
+status	static-gate-ready-live-pg-blocked-pending-two-independent-sql-r1-go
+database/migrations/000197_property_approval_active_source_index_forward_fix.sql	9076	39148494abd2734df999be4fbfb3190beff81455d8035ff6ac4904490d5a8120
+.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-reservation-candidate-20260802.grammar	5227	705882718458b69bf76478ebd071316031782dfe1c9485674f211655715f1439
+.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r1-checksum-seal-20260802.grammar	1021	65acbccf71c91795602e7408930bdce44721acaafa503fa81d6f2506b8da1f36
+.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-approval-active-source-index-forward-fix-plan-20260802.md	23346	2c4fefceca0b42307391793c173e2f9f90cdfec86da02be7517d1451898de141
+scripts/e2e/property-remediation/track-b2c-approval-index-forward-fix-gate.mjs	6073	99c0358e6ae46e9ed7fddf2ce5490f08ec209d9ac1730ce793d0f76ad302b55c
+scripts/e2e/property-remediation/tests/b2c-approval-index-forward-fix.spec.mjs	6894	8c89de3c0d48f633b1ca5104ce8a93b888166879f6bad9cfb9bd44bcc94914c0
+scripts/e2e/property-remediation/track-b2c-approval-port-pg-gate.mjs	568	8db393791a05f47537276113041fb714970377ae96c7980835c03256b550d982
+apps/api/src/modules/property-approvals/property-approval.port.pg.spec.ts	17886	3af6121741e019afc80b251b6bff1a03b11dfb09123fe6c6e43532ca585db488
+target_a	jinhu-b2c197-r0-20260802a-a	jinhu_b2c197_a	upgrade-191-192-absent
+target_b	jinhu-b2c197-r0-20260802a-b	jinhu_b2c197_b	fresh-current-chain
+scenario_count	15
+live_execution	blocked-until-two-independent-sql-r1-go
+real_191_192_full_chain	blocked-files-not-delivered

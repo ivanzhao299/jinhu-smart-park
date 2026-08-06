@@ -279,6 +279,10 @@ Reference files:
 - `apps/api/src/modules/leasing-receivables/leasing-receivables.service.ts`
 - `AGENTS.md`
 
+Read [TypeORM Raw Query Result Shapes](./typeorm-raw-query-results.md) before using
+`EntityManager.query()` or `QueryRunner.query()` results from PostgreSQL DML with
+`RETURNING`, especially for optimistic-version CAS and financial effect cardinality.
+
 ## Shared Property Occupancy
 
 Read [shared-property-occupancy.md](./shared-property-occupancy.md) before changing whole-unit operating modes, homestay/housing rental availability, shared occupancy, or commercial contract unit binding.
@@ -288,6 +292,10 @@ The cross-table concurrency contract is mandatory: service checks alone do not p
 ## Property Business Controls
 
 Read [property-business-controls.md](./property-business-controls.md) before changing homestay/housing business dates, guest identity verification, finance detail permissions, billing-period math, purchase rounding/recharge, or granular-role page loading.
+
+Read [Property Approval Domain Effects](./property-approval-domain-effects.md) before
+changing homestay cancellation/refund/waiver or housing checkout, handover, purchase
+payment/refund/void, and purchase-to-receivable transfer approval flows.
 
 ## Tenant Module Access Control
 

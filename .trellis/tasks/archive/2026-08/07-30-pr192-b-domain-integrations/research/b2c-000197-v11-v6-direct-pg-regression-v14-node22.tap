@@ -1,0 +1,13 @@
+TAP version 13
+ok 1 - v14 exposes only sealed two-phase resource APIs and permanently pending candidate flags
+ok 2 - v14 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity
+ok 3 - v14 positive fake-command path provisions exact intent then executes inspect, full baseline, four real DDL boundaries, and provenance terminal
+ok 4 - v14 rejects every canonical intake path when missing, mutable, or symlinked before creation
+ok 5 - v14 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+ok 6 - v14 seals an immutable non-reusable failure receipt when post-create inspection fails
+ok 7 - v14 execute rejects observation/execution authority schemas, bindings, modes, symlinks, and migration drift with zero child commands
+ok 8 - v14 snapshot and full P0001 marker contracts reject missing/extra/coerced values and substring matches
+1..8
+# tests 8
+# pass 8
+# fail 0

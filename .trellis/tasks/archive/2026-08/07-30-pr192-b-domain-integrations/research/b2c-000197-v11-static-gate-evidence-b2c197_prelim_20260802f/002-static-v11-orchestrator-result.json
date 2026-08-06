@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 2,
+  "stage": "static-v11-orchestrator",
+  "recorded_at_utc": "2026-08-02T02:17:00.390Z",
+  "intent_raw_sha256": "38b38c28cf4de61a30f0b1aa29fdcbac070075e3aaf2a5d274faa99b7844c2c3",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 2598,
+    "raw_sha256": "f18fa373a5cc3d836f286a6eea908126127d394c8b72c0a8104d17e4f5c02955",
+    "redacted_utf8": "TAP version 13\n# Subtest: v11 static candidate binds only the exact SUCCESS E/F authority\nok 1 - v11 static candidate binds only the exact SUCCESS E/F authority\n  ---\n  duration_ms: 2453.299787\n  type: 'test'\n  ...\n# Subtest: v11 static candidate binds both exact v10 failure review hashes\nok 2 - v11 static candidate binds both exact v10 failure review hashes\n  ---\n  duration_ms: 13.690015\n  type: 'test'\n  ...\n# Subtest: formal fails closed before creating evidence without reviews and drain\nok 3 - formal fails closed before creating evidence without reviews and drain\n  ---\n  duration_ms: 0.92501\n  type: 'test'\n  ...\n# Subtest: frozen mode either requires both freeze files or verifies the complete manifest\nok 4 - frozen mode either requires both freeze files or verifies the complete manifest\n  ---\n  duration_ms: 13.427074\n  type: 'test'\n  ...\n# Subtest: absent requires numeric zero rows and exact old catalog\nok 5 - absent requires numeric zero rows and exact old catalog\n  ---\n  duration_ms: 0.296371\n  type: 'test'\n  ...\n# Subtest: failure cases are inline, ordered, uniquely marked, and contain no external assertion helper\nok 6 - failure cases are inline, ordered, uniquely marked, and contain no external assertion helper\n  ---\n  duration_ms: 0.307879\n  type: 'test'\n  ...\n# Subtest: failure boundary catalog contracts match the migration sequence\nok 7 - failure boundary catalog contracts match the migration sequence\n  ---\n  duration_ms: 0.124579\n  type: 'test'\n  ...\n# Subtest: fault parser accepts exact P0001, unique marker, and semantic snapshot\nok 8 - fault parser accepts exact P0001, unique marker, and semantic snapshot\n  ---\n  duration_ms: 0.445329\n  type: 'test'\n  ...\n# Subtest: fault parser rejects missing and wrong markers\nok 9 - fault parser rejects missing and wrong markers\n  ---\n  duration_ms: 0.223206\n  type: 'test'\n  ...\n# Subtest: fault parser rejects wrong SQLSTATE and snapshot drift\nok 10 - fault parser rejects wrong SQLSTATE and snapshot drift\n  ---\n  duration_ms: 0.267733\n  type: 'test'\n  ...\n# Subtest: source has no v10 C/D physical authority or old formal run ID\nok 11 - source has no v10 C/D physical authority or old formal run ID\n  ---\n  duration_ms: 0.207102\n  type: 'test'\n  ...\n# Subtest: child PATH prepends the absolute current runtime directory even when ambient PATH lacks node\nok 12 - child PATH prepends the absolute current runtime directory even when ambient PATH lacks node\n  ---\n  duration_ms: 0.123239\n  type: 'test'\n  ...\n1..12\n# tests 12\n# suites 0\n# pass 12\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2646.733101\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-000197-v11-v5-missing-runid-pre-intake-invocation-audit-manifest-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "AUDIT_ONLY_PRE_INTAKE_FAILURE_NO_FORMAL_ATTEMPT",
+  "artifact": {
+    "filename": "b2c-000197-v11-v5-missing-runid-pre-intake-invocation-audit-20260802.json",
+    "bytes": 1617,
+    "mode": "0444",
+    "raw_sha256": "964641668e9661dbae4ba67feacddba5f0f9d51c7869a3459349faf276047d9f"
+  },
+  "formal_evidence_root_state": "ABSENT_UNCLAIMED",
+  "dynamic_intake_or_recorder_started": false,
+  "docker_or_database_command_executed": false,
+  "database_writes": 0,
+  "fault_migration_approval_or_cleanup_started": false,
+  "retry_attempted": false,
+  "next_action": "STOP_PENDING_NEW_EXPLICIT_AUTHORIZATION"
+}

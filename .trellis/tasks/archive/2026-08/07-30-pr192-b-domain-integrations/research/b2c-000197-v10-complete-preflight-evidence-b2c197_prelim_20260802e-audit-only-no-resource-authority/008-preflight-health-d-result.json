@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802e",
+  "sequence": 8,
+  "stage": "preflight-health-d",
+  "recorded_at_utc": "2026-08-02T00:10:42.098Z",
+  "intent_raw_sha256": "edb27b376952d829f19285708a46ccf58a93f81ec7fa5c37c29fd1cb6c7a277d",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 281,
+    "raw_sha256": "167e09df8dd16441d119aacb7202b8d85cd3280b7317237ab96caedeb9bd1798",
+    "redacted_utf8": "{\"prefix_191\" : 0, \"prefix_192\" : 0, \"prefix_197\" : 0, \"mirror_prefix_191\" : 0, \"mirror_prefix_192\" : 0, \"mirror_prefix_197\" : 0, \"failed_or_running\" : 0, \"mirror_failed_or_running\" : 0, \"other_client_connections\" : 0, \"other_open_transactions\" : 0, \"approval_create_writers\" : 0}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

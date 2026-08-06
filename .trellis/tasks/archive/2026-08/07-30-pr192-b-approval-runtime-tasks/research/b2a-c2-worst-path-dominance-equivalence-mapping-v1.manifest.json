@@ -1,0 +1,16 @@
+{
+  "schema_version": "b2a-c2-worst-path-dominance-equivalence-detached-manifest-v1",
+  "canonical_artifact": {
+    "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-worst-path-dominance-equivalence-mapping-v1.json",
+    "raw_sha256": "9533d059976416486b85996b66c2c8670b39ced7e0521b9c758b6e7cabe4ceeb",
+    "byte_length": 6880,
+    "media_type": "application/json"
+  },
+  "self_reference": false,
+  "architecture_database_signature": "pending",
+  "product_rbac_interaction_signature": "pending",
+  "test_security_signature": "pending",
+  "joint_signature_sha256": "pending",
+  "open_p0_p1": "not_computed",
+  "release": "blocked"
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "b2c-v15-provision-failure-v1",
+  "status": "PROVISION_FAILED",
+  "run_id": "b2c197_v11v6_direct_v15_20260803a",
+  "container": "jinhu-b2c197-v11v6-direct-v15-20260803a",
+  "database": "jinhu_b2c197_v11v6_direct_v15_20260803a",
+  "container_id": "366d42084ff57b7ddb16bdf0ca30e39cb9a06a16d4eb9d6f9b139f70b2cdae99",
+  "provision_authority_raw_sha256": "6b9d9d29057795b033e8c2c728f9397a2a3f1766c6b29126478058d89f1436cb",
+  "run_id_reusable": false,
+  "cleanup_attempted": false,
+  "failure": {
+    "code": "B2C_V15_PROVISION_OBSERVATION_FAILED",
+    "stage": "post-create-observation",
+    "name": "ProvisionObservationError"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": "property-remediation-b2a-c4-runid-reservation-v1",
+  "run_id": "b2ac4_runtime_formal_v12_20260801k",
+  "artifact": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-candidate-v12-20260801k.json",
+  "manifest": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-candidate-v12-20260801k.manifest.txt",
+  "reserved_at": "2026-08-01T10:21:54.127Z"
+}

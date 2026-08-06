@@ -1,0 +1,71 @@
+{
+  "schema_version": "b2a-c2-v12-detached-manifest-v1",
+  "run_id": "b2ac2_v12_full_20260801b",
+  "main": {
+    "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json",
+    "sha256": "5d1db7ae46e514edc99079568eb7026bf4c867d6f59fb5a7a68d95d629745499",
+    "byte_length": 1425121
+  },
+  "sidecars": [
+    {
+      "id": "catalog-sidecar",
+      "kind": "catalog",
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.catalog.json",
+      "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.catalog.json",
+      "sha256": "70f0e03ee5a669d234bae8d4eb462a9ba5f39a2045fb40a10ef1d8d42bdd4e28",
+      "byte_length": 51094,
+      "media_type": "application/json"
+    },
+    {
+      "id": "functions-sidecar",
+      "kind": "functions",
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.functions.json",
+      "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.functions.json",
+      "sha256": "efec512c186d64d025be6760aeeec730c11d8b176dd70ad9dc7a2c4146af043a",
+      "byte_length": 26715,
+      "media_type": "application/json"
+    },
+    {
+      "id": "security-sidecar",
+      "kind": "security-controls",
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.security-controls.json",
+      "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.security-controls.json",
+      "sha256": "c4c1743e57a8000d6da589814ff85e1e995dc2d4ffede7078ad31685e90b1750",
+      "byte_length": 36115,
+      "media_type": "application/json"
+    },
+    {
+      "id": "performance-sidecar",
+      "kind": "performance",
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.performance.json",
+      "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.performance.json",
+      "sha256": "3539591b0ff626a134313163f8834fffefb1b50552184366612e936bb69d6f37",
+      "byte_length": 248651,
+      "media_type": "application/json"
+    },
+    {
+      "id": "projection-grammar-sidecar",
+      "kind": "projection-schema-grammar",
+      "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.projection-schema.grammar",
+      "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.projection-schema.grammar",
+      "sha256": "8d36af019b125e5e6fac5fd99a632c00154d2126c228c7bb4ba50f5091ff7868",
+      "byte_length": 270,
+      "media_type": "text/plain"
+    }
+  ],
+  "watchdog": {
+    "path": ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.watchdog.json",
+    "resolved_path": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-candidate-gate-artifact-v12b.json.watchdog.json",
+    "sha256": "28c877430a452593f1b775be9f6524a6dc73b70b749fa14585390f62df84f68d",
+    "byte_length": 442
+  },
+  "self_reference": false,
+  "review_status": "pending",
+  "hash_chain_validation": {
+    "status": "passed",
+    "main": true,
+    "sidecar_count": 5,
+    "watchdog": true,
+    "manifest_detached": true
+  }
+}

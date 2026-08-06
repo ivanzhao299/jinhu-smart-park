@@ -1,0 +1,973 @@
+{
+  "schemaVersion": "property-remediation-b2a-c2-schema-gate-v10",
+  "schema_version": "property-remediation-b2a-c2-schema-gate-v10",
+  "runId": "b2ac2_v10_20260801b",
+  "startedAt": "2026-07-31T20:41:49.932Z",
+  "finishedAt": "2026-07-31T20:42:30.610Z",
+  "baseCommit": "0152616fb9a25effdff68fa9da24fea7db8a21a7",
+  "status": "failed",
+  "run_id": "b2ac2_v10_20260801b",
+  "chain": [
+    "000185_property_b_identity_schema_expand.sql",
+    "000186_property_b_approval_runtime_schema.sql",
+    "000187_property_b_event_notification_schema.sql",
+    "000188_property_b_task_runtime_schema.sql",
+    "000189_property_b_module_rbac_definitions.sql",
+    "000190_property_b_migration_compatibility_control.sql",
+    "000193_property_b_runtime_integrity_forward_fix.sql",
+    "000194_property_task_projection_contract_correction.sql"
+  ],
+  "contract": {
+    "addendum_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "canonical_budget_digest": "d86fc62ec471ec85f7fcc1e7dbf74093b6c9cf5deeb5d93f8b08038a03c6cc45",
+    "addendum_final_signoff_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "candidate_raw_sha256": "127d8574978bf6719a4fe9a7865e5c99333fa3dfd93c8e3f0dcccc17d152c0b4",
+    "candidate_evidence_raw_sha256": "38ebd4148083f3439a3456079ecc77a9aff1da41a19d113f61c90d30cd5499c0",
+    "canonical_budget_bytes": 1692,
+    "max_complete_source_rows": 200,
+    "transaction_hard_limit_ns": "5000000000",
+    "outer_watchdog_ms": 60000,
+    "input_raw_sha256": {
+      "c1_final_signoff": "1856d7a5903fc5022a6904e6e21c92be16056a84ef2250846b31fc7baa775056",
+      "correction_plan": "b89de6a675e9afdf7490861f8600898d2658dd5c26be6469ad93fcfdd95f93da",
+      "b_contract": "81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3",
+      "endpoint_manifest": "6b82b875f432d4e1d1efc01ce32b958b4a8b193e764862b7886b710bb0ded2fd",
+      "old_b_schema_expand": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874"
+    }
+  },
+  "migration_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+  "runner": {
+    "raw_sha256": "4ae7fc19a7cf7f2695d5c0d427195a607a744873398744aaa2b53356fd78d901"
+  },
+  "migration": {
+    "raw_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+    "filename": "000194_property_task_projection_contract_correction.sql"
+  },
+  "function": {
+    "definition_sha256": null,
+    "rows": []
+  },
+  "fixture": null,
+  "catalog_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+  "old_b_schema_expand_sha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+  "function_definitions": null,
+  "raw_catalog": null,
+  "security_controls": null,
+  "migration_000190": null,
+  "migration_history_before": {
+    "primary": [
+      {
+        "filename": "000185_property_b_identity_schema_expand.sql",
+        "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000186_property_b_approval_runtime_schema.sql",
+        "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000187_property_b_event_notification_schema.sql",
+        "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000188_property_b_task_runtime_schema.sql",
+        "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000189_property_b_module_rbac_definitions.sql",
+        "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000190_property_b_migration_compatibility_control.sql",
+        "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+        "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+        "status": "succeeded"
+      }
+    ],
+    "standard": [
+      {
+        "filename": "000185_property_b_identity_schema_expand.sql",
+        "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000186_property_b_approval_runtime_schema.sql",
+        "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000187_property_b_event_notification_schema.sql",
+        "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000188_property_b_task_runtime_schema.sql",
+        "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000189_property_b_module_rbac_definitions.sql",
+        "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000190_property_b_migration_compatibility_control.sql",
+        "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+        "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+        "status": "succeeded"
+      }
+    ],
+    "reserved191Primary": 0,
+    "reserved192Primary": 0,
+    "reserved191Standard": 0,
+    "reserved192Standard": 0
+  },
+  "migration_history_after": null,
+  "behavior_results": null,
+  "contract_matrix": null,
+  "actions": null,
+  "action_execution": null,
+  "fake_lifecycle_results": [
+    {
+      "name": "create-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801b_0_2a6669cb",
+      "input": {
+        "createStatus": 17
+      },
+      "expected_status": 17,
+      "observed_status": 17,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_0_2a6669cb"
+      ],
+      "drop_calls": 0,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_0_2a6669cb",
+        "created": false,
+        "primary_status": 17,
+        "drop_status": null,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_0_2a6669cb",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_0_2a6669cb.tmp",
+          "phase": "cleaned",
+          "created": false,
+          "primary_status": 17,
+          "drop_status": null,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": false,
+          "cleanup_result": {
+            "status": 17,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-failed",
+              "detail": {
+                "status": 17
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 17
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-fail-drop-pass",
+      "target": "b2a_c2_b2ac2_v10_20260801b_1_f3528c8e",
+      "input": {
+        "testStatus": 23
+      },
+      "expected_status": 23,
+      "observed_status": 23,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_1_f3528c8e",
+        "test:b2a_c2_b2ac2_v10_20260801b_1_f3528c8e",
+        "drop:b2a_c2_b2ac2_v10_20260801b_1_f3528c8e"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_1_f3528c8e",
+        "created": true,
+        "primary_status": 23,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_1_f3528c8e",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_1_f3528c8e.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 23,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 23,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-failed",
+              "detail": {
+                "status": 23
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 23
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-fail-drop-fail-primary-preserved",
+      "target": "b2a_c2_b2ac2_v10_20260801b_2_757cabc2",
+      "input": {
+        "testStatus": 23,
+        "dropStatus": 29
+      },
+      "expected_status": 23,
+      "observed_status": 23,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_2_757cabc2",
+        "test:b2a_c2_b2ac2_v10_20260801b_2_757cabc2",
+        "drop:b2a_c2_b2ac2_v10_20260801b_2_757cabc2"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_2_757cabc2",
+        "created": true,
+        "primary_status": 23,
+        "drop_status": 29,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_2_757cabc2",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_2_757cabc2.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 23,
+          "drop_status": 29,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 23,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-failed",
+              "detail": {
+                "status": 23
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 23
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-pass-drop-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801b_3_e609ca7d",
+      "input": {
+        "dropStatus": 29
+      },
+      "expected_status": 29,
+      "observed_status": 29,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_3_e609ca7d",
+        "test:b2a_c2_b2ac2_v10_20260801b_3_e609ca7d",
+        "drop:b2a_c2_b2ac2_v10_20260801b_3_e609ca7d"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_3_e609ca7d",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 29,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_3_e609ca7d",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_3_e609ca7d.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 29,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 29,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 29
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "temp-cleanup-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2",
+      "input": {
+        "tempFail": true
+      },
+      "expected_status": 31,
+      "observed_status": 31,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2",
+        "test:b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2",
+        "drop:b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 0,
+        "temp_status": 31,
+        "cleanup_calls": 1,
+        "temp_absent": false,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_4_75c8f7b2.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 0,
+          "temp_status": 31,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 31,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 31
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": false,
+      "parent_fixture_cleanup_required": true,
+      "status": "passed"
+    },
+    {
+      "name": "SIGINT",
+      "target": "b2a_c2_b2ac2_v10_20260801b_5_8c99c043",
+      "input": {
+        "signal": "SIGINT"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_5_8c99c043",
+        "drop:b2a_c2_b2ac2_v10_20260801b_5_8c99c043"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_5_8c99c043",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_5_8c99c043",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_5_8c99c043.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGINT",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "SIGTERM",
+      "target": "b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b",
+      "input": {
+        "signal": "SIGTERM"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b",
+        "drop:b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_6_2fe09a3b.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGTERM",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "SIGHUP",
+      "target": "b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac",
+      "input": {
+        "signal": "SIGHUP"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac",
+        "drop:b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_7_0dfba0ac.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGHUP",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "success",
+      "target": "b2a_c2_b2ac2_v10_20260801b_8_52d077af",
+      "input": {},
+      "expected_status": 0,
+      "observed_status": 0,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801b_8_52d077af",
+        "test:b2a_c2_b2ac2_v10_20260801b_8_52d077af",
+        "drop:b2a_c2_b2ac2_v10_20260801b_8_52d077af"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801b_8_52d077af",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801b_8_52d077af",
+          "temp_target": "/tmp/b2a-c2-lifecycle-EWVouq/b2a_c2_b2ac2_v10_20260801b_8_52d077af.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 0,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 0
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    }
+  ],
+  "drift_rejection_results": [
+    {
+      "name": "function-volatility",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "1928716db2ae9acbb49bc10a47daf2ddd218956d094ceb1f72f9aca095e50e70",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-function-definition-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "function-overload",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "b43d9d7049f2894921e87b016e3da447ff4c4063f8115faf07c3ceab182c2144",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "index-missing",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "a1366a3ea4d1e0454cd47ed1932c2d17231cd355298aada0419d365faecf7823",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "trigger-disabled",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "d4c338d554dd339b57eda2ee433aff97e1795702d7d9597a74221cfb2e4d987a",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "function-acl",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "8ad30d139b00f6530b6e0cb2bd17523dfd07594c146333012f2b801cb41da44a",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "column-default",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "7abe444c2879a8629c85f7cd34e211d3da26e16515d024221dfcc3f37a2dc510",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    }
+  ],
+  "control_state_results": null,
+  "fault_injection_results": null,
+  "commit_ambiguous_results": null,
+  "negative_cases": null,
+  "commit_ambiguous": {
+    "cases": null,
+    "acquire_mode_matrix": null
+  },
+  "no_191_192_dependency": true,
+  "reserved_191_192_dependency_evidence": {
+    "reserved_files_delivered_at_c2": [],
+    "migration_source_references": [],
+    "exact_chain_references": [],
+    "proven_zero_dependency": true
+  },
+  "cleanup": {
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": [],
+    "volume": {
+      "name": "63f7da642dc2c11a2efc46c7182f82653f8f5eef498ff331d6a76c83d9af04e4",
+      "absent": true
+    },
+    "temp": {
+      "exact_targets": [],
+      "absent": true
+    },
+    "exact_targets": {
+      "container_name": "pr192_b2a_c2_b2ac2_v10_20260801b_db",
+      "container_id": "035d0b2cd4db63d58014e1fe520c98ae6b6ae03cf3fafc63bcbe8b5e67df89cc",
+      "volume_name": "63f7da642dc2c11a2efc46c7182f82653f8f5eef498ff331d6a76c83d9af04e4"
+    },
+    "lifecycle_machine": {
+      "target": "pr192_b2a_c2_b2ac2_v10_20260801b_db",
+      "temp_target": null,
+      "phase": "cleaned",
+      "created": true,
+      "primary_status": 0,
+      "drop_status": 0,
+      "temp_status": 0,
+      "cleanup_calls": 1,
+      "drop_attempted": true,
+      "cleanup_result": {
+        "status": 0,
+        "drop_evidence": {
+          "container_absent": true,
+          "anonymous_volume_absent": true,
+          "errors": []
+        },
+        "temp_evidence": {
+          "owned_temp_targets": []
+        }
+      },
+      "timeline": [
+        {
+          "event": "create-succeeded",
+          "detail": {
+            "container_name": "pr192_b2a_c2_b2ac2_v10_20260801b_db"
+          }
+        },
+        {
+          "event": "cleanup-started",
+          "detail": {}
+        },
+        {
+          "event": "cleanup-finished",
+          "detail": {
+            "status": 0
+          }
+        }
+      ]
+    }
+  },
+  "performance_2m_status": "failed",
+  "performance": null,
+  "deadline": {
+    "limit_ns": "5000000000",
+    "clock": "process.hrtime.bigint.monotonic"
+  },
+  "environment": {
+    "image_reference": "postgres:16-alpine",
+    "image_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "container_id": "035d0b2cd4db63d58014e1fe520c98ae6b6ae03cf3fafc63bcbe8b5e67df89cc",
+    "container_name": "pr192_b2a_c2_b2ac2_v10_20260801b_db",
+    "volume_name": "63f7da642dc2c11a2efc46c7182f82653f8f5eef498ff331d6a76c83d9af04e4",
+    "host_port": "45195",
+    "cpu_model": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "cpu_count": 20,
+    "ram_bytes": 33569792000,
+    "ram_free_bytes_at_artifact": 13115506688,
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2",
+    "postgresql": null
+  },
+  "env": {
+    "image_reference": "postgres:16-alpine",
+    "image_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "container_id": "035d0b2cd4db63d58014e1fe520c98ae6b6ae03cf3fafc63bcbe8b5e67df89cc",
+    "container_name": "pr192_b2a_c2_b2ac2_v10_20260801b_db",
+    "volume_name": "63f7da642dc2c11a2efc46c7182f82653f8f5eef498ff331d6a76c83d9af04e4",
+    "host_port": "45195",
+    "database": null,
+    "pg_settings": null,
+    "cpu_model": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "cpu_count": 20,
+    "ram_bytes": 33569792000,
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2"
+  },
+  "worktree": {
+    "branch": "codex/pr192-property-productization-remediation",
+    "dirty": true,
+    "disclosure": "shared dirty worktree; unrelated user and agent changes preserved"
+  },
+  "pending": {
+    "production_caller_deadline_status": "pending_C4",
+    "real_adapter_admission_status": "pending_B2c"
+  },
+  "review": {
+    "architecture_database": "pending",
+    "test_security": "pending",
+    "product_rbac_interaction": "pending",
+    "open_p0_p1": "not_computed"
+  },
+  "evidence_dag": {
+    "nodes": [
+      "contract",
+      "runner",
+      "migration",
+      "function",
+      "fixture",
+      "actions",
+      "negative_cases",
+      "commit_ambiguous",
+      "cleanup",
+      "review"
+    ],
+    "edges": [
+      [
+        "contract",
+        "runner"
+      ],
+      [
+        "contract",
+        "migration"
+      ],
+      [
+        "migration",
+        "function"
+      ],
+      [
+        "fixture",
+        "actions"
+      ],
+      [
+        "runner",
+        "negative_cases"
+      ],
+      [
+        "runner",
+        "commit_ambiguous"
+      ],
+      [
+        "actions",
+        "review"
+      ],
+      [
+        "negative_cases",
+        "review"
+      ],
+      [
+        "commit_ambiguous",
+        "review"
+      ],
+      [
+        "cleanup",
+        "review"
+      ]
+    ],
+    "runner_raw_sha256": "4ae7fc19a7cf7f2695d5c0d427195a607a744873398744aaa2b53356fd78d901",
+    "static_test_raw_sha256": "5c58ca5fe0f8874b11cb1c2e5d8fb4ccc036de8963bcdfbbf31fe40793c375c5",
+    "migration_raw_sha256": {
+      "000185_property_b_identity_schema_expand.sql": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+      "000186_property_b_approval_runtime_schema.sql": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+      "000187_property_b_event_notification_schema.sql": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+      "000188_property_b_task_runtime_schema.sql": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+      "000189_property_b_module_rbac_definitions.sql": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+      "000190_property_b_migration_compatibility_control.sql": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+      "000193_property_b_runtime_integrity_forward_fix.sql": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+      "000194_property_task_projection_contract_correction.sql": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0"
+    }
+  },
+  "independent_review_status": "pending",
+  "candidate_findings": [
+    "P1: adapter-version-drift: control drift did not fail closed: ERROR:  22P02: invalid input syntax for type integer: \"v999\"\nLINE 1: ... sys_property_runtime_control SET adapter_version='v999' WHE...\n                                                             ^\nLOCATION:  pg_strtoint32_safe, numutils.c:617\n"
+  ],
+  "error": "adapter-version-drift: control drift did not fail closed: ERROR:  22P02: invalid input syntax for type integer: \"v999\"\nLINE 1: ... sys_property_runtime_control SET adapter_version='v999' WHE...\n                                                             ^\nLOCATION:  pg_strtoint32_safe, numutils.c:617\n"
+}

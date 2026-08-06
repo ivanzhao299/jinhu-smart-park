@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 2,
+  "stage": "static-v10-orchestrator",
+  "recorded_at_utc": "2026-08-02T00:30:16.762Z",
+  "intent_raw_sha256": "ecde7ab145066346a3314a7c09176f916ab3f5c503d7fa68ca4d345f5a75f42b",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 2338,
+    "raw_sha256": "8c1c679a61c7f694b2e2cc76a08fb8dee464b169399da4256dea62d9c331bac6",
+    "redacted_utf8": "TAP version 13\n# Subtest: v10 formal run ID and physical resources both derive from the approved 02b authority\nok 1 - v10 formal run ID and physical resources both derive from the approved 02b authority\n  ---\n  duration_ms: 3.198166\n  type: 'test'\n  ...\n# Subtest: absent requires numeric zero rows and exact old catalog\nok 2 - absent requires numeric zero rows and exact old catalog\n  ---\n  duration_ms: 0.277026\n  type: 'test'\n  ...\n# Subtest: static mode explicitly distinguishes pre-freeze and post-freeze contracts\nok 3 - static mode explicitly distinguishes pre-freeze and post-freeze contracts\n  ---\n  duration_ms: 2512.329617\n  type: 'test'\n  ...\n# Subtest: formal static and lifecycle Node test children all declare TAP reporter\nok 4 - formal static and lifecycle Node test children all declare TAP reporter\n  ---\n  duration_ms: 0.434339\n  type: 'test'\n  ...\n# Subtest: v10 review schema directly binds the exact resolver raw SHA\nok 5 - v10 review schema directly binds the exact resolver raw SHA\n  ---\n  duration_ms: 0.360103\n  type: 'test'\n  ...\n# Subtest: v10 review schema fails closed when resolver raw SHA is missing\nok 6 - v10 review schema fails closed when resolver raw SHA is missing\n  ---\n  duration_ms: 0.314208\n  type: 'test'\n  ...\n# Subtest: v10 review schema fails closed when resolver raw SHA is incorrect\nok 7 - v10 review schema fails closed when resolver raw SHA is incorrect\n  ---\n  duration_ms: 0.161452\n  type: 'test'\n  ...\n# Subtest: all identity labels map to their exact frozen authorities\nok 8 - all identity labels map to their exact frozen authorities\n  ---\n  duration_ms: 0.384324\n  type: 'test'\n  ...\n# Subtest: v10 drain accepts the only frozen approval-port-v8 writer\nok 9 - v10 drain accepts the only frozen approval-port-v8 writer\n  ---\n  duration_ms: 0.435124\n  type: 'test'\n  ...\n# Subtest: v10 drain fails closed when new writer build is missing\nok 10 - v10 drain fails closed when new writer build is missing\n  ---\n  duration_ms: 0.430087\n  type: 'test'\n  ...\n# Subtest: v10 drain rejects wrong writer builds including nonexistent approval-port-v9\nok 11 - v10 drain rejects wrong writer builds including nonexistent approval-port-v9\n  ---\n  duration_ms: 0.430301\n  type: 'test'\n  ...\n1..11\n# tests 11\n# suites 0\n# pass 11\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2526.60313\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

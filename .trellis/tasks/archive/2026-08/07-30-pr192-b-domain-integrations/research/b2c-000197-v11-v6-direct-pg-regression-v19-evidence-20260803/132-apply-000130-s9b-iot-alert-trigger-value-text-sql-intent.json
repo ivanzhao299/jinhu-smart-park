@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v19-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "stage": "apply-000130-s9b-iot-alert-trigger-value-text-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v19-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v19_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 370,
+    "raw_sha256": "9504d7664e319d722845fa26a6a10dd1142bee8d858228816d6db7a04dea55d1",
+    "persisted": false
+  }
+}

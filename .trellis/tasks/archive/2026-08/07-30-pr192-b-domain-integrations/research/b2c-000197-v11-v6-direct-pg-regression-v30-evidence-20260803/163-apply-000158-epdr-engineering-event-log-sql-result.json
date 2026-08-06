@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v30-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v30_20260803a",
+  "stage": "apply-000158-epdr-engineering-event-log-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 95,
+    "raw_sha256": "b03c619d1a4b6f83be6ad518315b103f803d6311c1de730f1a839fcf670c8200",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 124,
+    "raw_sha256": "76259bd69454feb840fab31ab68ae2a612b59516eb3f81c848de7ba85837053d",
+    "safe_excerpt": "<suppressed>"
+  }
+}

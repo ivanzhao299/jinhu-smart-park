@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: v20 exposes zero-argument formal APIs with no caller command injection and a /tmp-only harness
+ok 1 - v20 exposes zero-argument formal APIs with no caller command injection and a /tmp-only harness
+  ---
+  duration_ms: 6.677118
+  type: 'test'
+  ...
+# Subtest: v20 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity
+ok 2 - v20 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity
+  ---
+  duration_ms: 125.334786
+  type: 'test'
+  ...
+# Subtest: v20 positive fake-command path proves four ordered injection points across three explicit catalog states
+ok 3 - v20 positive fake-command path proves four ordered injection points across three explicit catalog states
+  ---
+  duration_ms: 175.121382
+  type: 'test'
+  ...
+# Subtest: v20 rejects every canonical intake path when missing, mutable, or symlinked before creation
+ok 4 - v20 rejects every canonical intake path when missing, mutable, or symlinked before creation
+  ---
+  duration_ms: 68.007973
+  type: 'test'
+  ...
+# Subtest: v20 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+ok 5 - v20 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+  ---
+  duration_ms: 37.640285
+  type: 'test'
+  ...
+# Subtest: v20 failure receipts use fixed fields, omit secret error text, and reject extra inspect labels
+ok 6 - v20 failure receipts use fixed fields, omit secret error text, and reject extra inspect labels
+  ---
+  duration_ms: 8.466782
+  type: 'test'
+  ...
+# Subtest: v20 rejects extra observed labels before execute and extra live labels into a fixed failure terminal
+ok 7 - v20 rejects extra observed labels before execute and extra live labels into a fixed failure terminal
+  ---
+  duration_ms: 27.736546
+  type: 'test'
+  ...
+# Subtest: v20 execute rejects observation/execution authority schemas, bindings, modes, symlinks, migration drift, and fixture drift with zero child commands
+ok 8 - v20 execute rejects observation/execution authority schemas, bindings, modes, symlinks, migration drift, and fixture drift with zero child commands
+  ---
+  duration_ms: 85.697136
+  type: 'test'
+  ...
+# Subtest: v20 snapshot and full P0001 marker contracts reject missing/extra/coerced values and substring matches
+ok 9 - v20 snapshot and full P0001 marker contracts reject missing/extra/coerced values and substring matches
+  ---
+  duration_ms: 22.558909
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 603.676597

@@ -1,0 +1,8 @@
+{
+  "schema_version": "property-b-module-core-runid-reservation-v1",
+  "run_id": "bmodulecore_formal_20260801a",
+  "run_id_sha256": "ea8e31c5f7b0c95c64392aa56c8b2d5f5c5128aaefc17cc80a16120aef948257",
+  "artifact": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b-module-core-gate-bmodulecore_formal_20260801a.json",
+  "detached_manifest": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b-module-core-gate-bmodulecore_formal_20260801a.manifest.txt",
+  "reserved_at": "2026-08-01T14:06:30.869Z"
+}

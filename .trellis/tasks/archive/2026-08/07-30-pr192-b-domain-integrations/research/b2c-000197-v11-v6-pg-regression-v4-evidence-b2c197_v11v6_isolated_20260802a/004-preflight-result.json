@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-000197-v11-v6-pg-v4-child-result-v1",
+  "run_id": "b2c197_v11v6_isolated_20260802a",
+  "stage": "preflight",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 261,
+    "raw_sha256": "cdd1b22f1e3eba7ca44e12d9f5714646a475e0b61a2ff9abbb0ab1d8cfdcf44f",
+    "safe_excerpt": "<suppressed:psql-output>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed:psql-output>"
+  }
+}

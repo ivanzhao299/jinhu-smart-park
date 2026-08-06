@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v31-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v31_20260803a",
+  "stage": "approval-setup",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 424,
+    "raw_sha256": "e1cdbc3ea8bfe6d9d67f9c11d5d707e39b2f09c32e5b8f16672780dd7a2c3e53",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

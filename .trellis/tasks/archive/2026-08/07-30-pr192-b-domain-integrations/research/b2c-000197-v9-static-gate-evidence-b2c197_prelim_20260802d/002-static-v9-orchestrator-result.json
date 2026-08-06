@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v9",
+  "evidence_policy_version": "b2c-000197-child-evidence-v9",
+  "formal_run_id": "b2c197_prelim_20260802d",
+  "sequence": 2,
+  "stage": "static-v9-orchestrator",
+  "recorded_at_utc": "2026-08-02T00:02:28.616Z",
+  "intent_raw_sha256": "40dd197a93421581c1339a5c113f1ddd7e793865f106b4d44d4b48db962feaba",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 1558,
+    "raw_sha256": "11256c3dd0ec30bbb24b489ffd9bd2022baf25206ebf600f7d4beaf753a8ab53",
+    "redacted_utf8": "TAP version 13\n# Subtest: logical v9 run ID is 02d while physical resources remain exact approved 02b identities\nok 1 - logical v9 run ID is 02d while physical resources remain exact approved 02b identities\n  ---\n  duration_ms: 2.751822\n  type: 'test'\n  ...\n# Subtest: absent requires numeric zero rows and exact old catalog\nok 2 - absent requires numeric zero rows and exact old catalog\n  ---\n  duration_ms: 0.222855\n  type: 'test'\n  ...\n# Subtest: static mode explicitly distinguishes pre-freeze and post-freeze contracts\nok 3 - static mode explicitly distinguishes pre-freeze and post-freeze contracts\n  ---\n  duration_ms: 2620.647728\n  type: 'test'\n  ...\n# Subtest: formal static and lifecycle Node test children all declare TAP reporter\nok 4 - formal static and lifecycle Node test children all declare TAP reporter\n  ---\n  duration_ms: 0.479091\n  type: 'test'\n  ...\n# Subtest: v9 review schema directly binds the exact resolver raw SHA\nok 5 - v9 review schema directly binds the exact resolver raw SHA\n  ---\n  duration_ms: 0.379141\n  type: 'test'\n  ...\n# Subtest: v9 review schema fails closed when resolver raw SHA is missing\nok 6 - v9 review schema fails closed when resolver raw SHA is missing\n  ---\n  duration_ms: 0.303155\n  type: 'test'\n  ...\n# Subtest: v9 review schema fails closed when resolver raw SHA is incorrect\nok 7 - v9 review schema fails closed when resolver raw SHA is incorrect\n  ---\n  duration_ms: 0.210956\n  type: 'test'\n  ...\n1..7\n# tests 7\n# suites 0\n# pass 7\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2631.284882\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v20-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v20_20260803a",
+  "stage": "apply-000116-s6a-iot-device-history-data-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 104,
+    "raw_sha256": "7ce80ba6c73cc08554933e3d4a8aa83b47064607fba2f33d8cd0911654e35539",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 215,
+    "raw_sha256": "f258dd3ee92cff56cd7f041958d376e02851e6e9a4e20c34107c0d1a96ed3cb0",
+    "safe_excerpt": "<suppressed>"
+  }
+}

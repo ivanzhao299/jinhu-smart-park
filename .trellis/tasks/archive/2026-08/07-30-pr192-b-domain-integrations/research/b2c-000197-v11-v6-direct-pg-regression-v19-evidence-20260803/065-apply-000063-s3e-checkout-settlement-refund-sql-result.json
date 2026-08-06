@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v19-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "stage": "apply-000063-s3e-checkout-settlement-refund-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 135,
+    "raw_sha256": "293fd420c4ccd5dbe7c467bb5b0d4de5a7c13e9bee66cf7e022448e39679e417",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

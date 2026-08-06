@@ -1,0 +1,27 @@
+{
+  "schema_version": "b2c-000197-child-parse-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 6,
+  "stage": "static-v10-contract",
+  "recorded_at_utc": "2026-08-02T00:30:28.919Z",
+  "result_raw_sha256": "348a10d5f0757223c40415dc6a0a6b9e3cb3762999386b92085c4329752b0027",
+  "output": {
+    "bytes": 1780,
+    "raw_sha256": "15b9c4521bbb57365ef280541713654077ade5fcdb8f07e90e984e0ad3d5d87d",
+    "redacted_utf8": "TAP version 13\n# Subtest: v2 immutable R0/R1/SQL chain is exact and old R1 is audit-only\nok 1 - v2 immutable R0/R1/SQL chain is exact and old R1 is audit-only\n  ---\n  duration_ms: 1.045453\n  type: 'test'\n  ...\n# Subtest: SQL checks the complete 000197 prefix and exact self history\nok 2 - SQL checks the complete 000197 prefix and exact self history\n  ---\n  duration_ms: 0.147034\n  type: 'test'\n  ...\n# Subtest: history classifier executes every required matrix branch\nok 3 - history classifier executes every required matrix branch\n  ---\n  duration_ms: 0.912644\n  type: 'test'\n  ...\n# Subtest: failed retry rejects arbitrary nonempty proof and requires lowercase raw SHA\nok 4 - failed retry rejects arbitrary nonempty proof and requires lowercase raw SHA\n  ---\n  duration_ms: 0.199702\n  type: 'test'\n  ...\n# Subtest: resource classifier rejects same-name replacement and every frozen identity drift\nok 5 - resource classifier rejects same-name replacement and every frozen identity drift\n  ---\n  duration_ms: 0.512127\n  type: 'test'\n  ...\n# Subtest: SQL retains exact lock, signed catalog and create-first swap\nok 6 - SQL retains exact lock, signed catalog and create-first swap\n  ---\n  duration_ms: 0.788385\n  type: 'test'\n  ...\n# Subtest: runner freezes worktree rescan, manifest, exact resources and review fields\nok 7 - runner freezes worktree rescan, manifest, exact resources and review fields\n  ---\n  duration_ms: 0.216037\n  type: 'test'\n  ...\n# Subtest: all section 10 scenarios remain registered and final-only cases stay deferred\nok 8 - all section 10 scenarios remain registered and final-only cases stay deferred\n  ---\n  duration_ms: 0.169086\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 10.156841\n"
+  },
+  "parse": {
+    "status": "passed",
+    "value": {
+      "tests": 8,
+      "suites": 0,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "names": []
+    }
+  }
+}

@@ -1,0 +1,1910 @@
+{
+  "schemaVersion": "property-remediation-b2a-c2-schema-gate-v10",
+  "schema_version": "property-remediation-b2a-c2-schema-gate-v10",
+  "runId": "b2ac2_v10_20260801d",
+  "startedAt": "2026-07-31T20:44:11.049Z",
+  "finishedAt": "2026-07-31T20:45:03.767Z",
+  "baseCommit": "0152616fb9a25effdff68fa9da24fea7db8a21a7",
+  "status": "failed",
+  "run_id": "b2ac2_v10_20260801d",
+  "chain": [
+    "000185_property_b_identity_schema_expand.sql",
+    "000186_property_b_approval_runtime_schema.sql",
+    "000187_property_b_event_notification_schema.sql",
+    "000188_property_b_task_runtime_schema.sql",
+    "000189_property_b_module_rbac_definitions.sql",
+    "000190_property_b_migration_compatibility_control.sql",
+    "000193_property_b_runtime_integrity_forward_fix.sql",
+    "000194_property_task_projection_contract_correction.sql"
+  ],
+  "contract": {
+    "addendum_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "canonical_budget_digest": "d86fc62ec471ec85f7fcc1e7dbf74093b6c9cf5deeb5d93f8b08038a03c6cc45",
+    "addendum_final_signoff_raw_sha256": "1744d43ec80c9faeb52abb8659c78655df6575ad75024392b1c770644a5a0ac4",
+    "candidate_raw_sha256": "127d8574978bf6719a4fe9a7865e5c99333fa3dfd93c8e3f0dcccc17d152c0b4",
+    "candidate_evidence_raw_sha256": "38ebd4148083f3439a3456079ecc77a9aff1da41a19d113f61c90d30cd5499c0",
+    "canonical_budget_bytes": 1692,
+    "max_complete_source_rows": 200,
+    "transaction_hard_limit_ns": "5000000000",
+    "outer_watchdog_ms": 60000,
+    "input_raw_sha256": {
+      "c1_final_signoff": "1856d7a5903fc5022a6904e6e21c92be16056a84ef2250846b31fc7baa775056",
+      "correction_plan": "b89de6a675e9afdf7490861f8600898d2658dd5c26be6469ad93fcfdd95f93da",
+      "b_contract": "81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3",
+      "endpoint_manifest": "6b82b875f432d4e1d1efc01ce32b958b4a8b193e764862b7886b710bb0ded2fd",
+      "old_b_schema_expand": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874"
+    }
+  },
+  "migration_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+  "runner": {
+    "raw_sha256": "1c37d40f8fa6900740ad3d8adf6490e519183901bb1599d430e88e56f940b23f"
+  },
+  "migration": {
+    "raw_sha256": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+    "filename": "000194_property_task_projection_contract_correction.sql"
+  },
+  "function": {
+    "definition_sha256": null,
+    "rows": []
+  },
+  "fixture": null,
+  "catalog_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+  "old_b_schema_expand_sha256": "53e568d409420dc6c38a8139a553735083502f05d6aeb2f3e14adcbb95276874",
+  "function_definitions": null,
+  "raw_catalog": null,
+  "security_controls": null,
+  "migration_000190": null,
+  "migration_history_before": {
+    "primary": [
+      {
+        "filename": "000185_property_b_identity_schema_expand.sql",
+        "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000186_property_b_approval_runtime_schema.sql",
+        "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000187_property_b_event_notification_schema.sql",
+        "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000188_property_b_task_runtime_schema.sql",
+        "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000189_property_b_module_rbac_definitions.sql",
+        "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000190_property_b_migration_compatibility_control.sql",
+        "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+        "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+        "status": "succeeded"
+      }
+    ],
+    "standard": [
+      {
+        "filename": "000185_property_b_identity_schema_expand.sql",
+        "checksum": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000186_property_b_approval_runtime_schema.sql",
+        "checksum": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000187_property_b_event_notification_schema.sql",
+        "checksum": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000188_property_b_task_runtime_schema.sql",
+        "checksum": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000189_property_b_module_rbac_definitions.sql",
+        "checksum": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000190_property_b_migration_compatibility_control.sql",
+        "checksum": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+        "status": "succeeded"
+      },
+      {
+        "filename": "000193_property_b_runtime_integrity_forward_fix.sql",
+        "checksum": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+        "status": "succeeded"
+      }
+    ],
+    "reserved191Primary": 0,
+    "reserved192Primary": 0,
+    "reserved191Standard": 0,
+    "reserved192Standard": 0
+  },
+  "migration_history_after": null,
+  "behavior_results": null,
+  "contract_matrix": null,
+  "actions": null,
+  "action_execution": null,
+  "fake_lifecycle_results": [
+    {
+      "name": "create-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801d_0_6c1599d1",
+      "input": {
+        "createStatus": 17
+      },
+      "expected_status": 17,
+      "observed_status": 17,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_0_6c1599d1"
+      ],
+      "drop_calls": 0,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_0_6c1599d1",
+        "created": false,
+        "primary_status": 17,
+        "drop_status": null,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_0_6c1599d1",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_0_6c1599d1.tmp",
+          "phase": "cleaned",
+          "created": false,
+          "primary_status": 17,
+          "drop_status": null,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": false,
+          "cleanup_result": {
+            "status": 17,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-failed",
+              "detail": {
+                "status": 17
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 17
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-fail-drop-pass",
+      "target": "b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2",
+      "input": {
+        "testStatus": 23
+      },
+      "expected_status": 23,
+      "observed_status": 23,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2",
+        "test:b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2",
+        "drop:b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2",
+        "created": true,
+        "primary_status": 23,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_1_cb1eeac2.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 23,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 23,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-failed",
+              "detail": {
+                "status": 23
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 23
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-fail-drop-fail-primary-preserved",
+      "target": "b2a_c2_b2ac2_v10_20260801d_2_eb906125",
+      "input": {
+        "testStatus": 23,
+        "dropStatus": 29
+      },
+      "expected_status": 23,
+      "observed_status": 23,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_2_eb906125",
+        "test:b2a_c2_b2ac2_v10_20260801d_2_eb906125",
+        "drop:b2a_c2_b2ac2_v10_20260801d_2_eb906125"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_2_eb906125",
+        "created": true,
+        "primary_status": 23,
+        "drop_status": 29,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_2_eb906125",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_2_eb906125.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 23,
+          "drop_status": 29,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 23,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-failed",
+              "detail": {
+                "status": 23
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 23
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "test-pass-drop-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801d_3_a76f2673",
+      "input": {
+        "dropStatus": 29
+      },
+      "expected_status": 29,
+      "observed_status": 29,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_3_a76f2673",
+        "test:b2a_c2_b2ac2_v10_20260801d_3_a76f2673",
+        "drop:b2a_c2_b2ac2_v10_20260801d_3_a76f2673"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_3_a76f2673",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 29,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_3_a76f2673",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_3_a76f2673.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 29,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 29,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 29
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "temp-cleanup-fail",
+      "target": "b2a_c2_b2ac2_v10_20260801d_4_e4fd8439",
+      "input": {
+        "tempFail": true
+      },
+      "expected_status": 31,
+      "observed_status": 31,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_4_e4fd8439",
+        "test:b2a_c2_b2ac2_v10_20260801d_4_e4fd8439",
+        "drop:b2a_c2_b2ac2_v10_20260801d_4_e4fd8439"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_4_e4fd8439",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 0,
+        "temp_status": 31,
+        "cleanup_calls": 1,
+        "temp_absent": false,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_4_e4fd8439",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_4_e4fd8439.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 0,
+          "temp_status": 31,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 31,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 31
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": false,
+      "parent_fixture_cleanup_required": true,
+      "status": "passed"
+    },
+    {
+      "name": "SIGINT",
+      "target": "b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd",
+      "input": {
+        "signal": "SIGINT"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd",
+        "drop:b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_5_c5ae17bd.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGINT",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "SIGTERM",
+      "target": "b2a_c2_b2ac2_v10_20260801d_6_a50aacfb",
+      "input": {
+        "signal": "SIGTERM"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_6_a50aacfb",
+        "drop:b2a_c2_b2ac2_v10_20260801d_6_a50aacfb"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_6_a50aacfb",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_6_a50aacfb",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_6_a50aacfb.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGTERM",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "SIGHUP",
+      "target": "b2a_c2_b2ac2_v10_20260801d_7_93f601c7",
+      "input": {
+        "signal": "SIGHUP"
+      },
+      "expected_status": 128,
+      "observed_status": 128,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_7_93f601c7",
+        "drop:b2a_c2_b2ac2_v10_20260801d_7_93f601c7"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_7_93f601c7",
+        "created": true,
+        "primary_status": 128,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_7_93f601c7",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_7_93f601c7.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 128,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 128,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "signal",
+              "detail": {
+                "signal": "SIGHUP",
+                "status": 128
+              }
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 128
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    },
+    {
+      "name": "success",
+      "target": "b2a_c2_b2ac2_v10_20260801d_8_a5be3c07",
+      "input": {},
+      "expected_status": 0,
+      "observed_status": 0,
+      "commands": [
+        "create:b2a_c2_b2ac2_v10_20260801d_8_a5be3c07",
+        "test:b2a_c2_b2ac2_v10_20260801d_8_a5be3c07",
+        "drop:b2a_c2_b2ac2_v10_20260801d_8_a5be3c07"
+      ],
+      "drop_calls": 1,
+      "child": {
+        "target": "b2a_c2_b2ac2_v10_20260801d_8_a5be3c07",
+        "created": true,
+        "primary_status": 0,
+        "drop_status": 0,
+        "temp_status": 0,
+        "cleanup_calls": 1,
+        "temp_absent": true,
+        "machine": {
+          "target": "b2a_c2_b2ac2_v10_20260801d_8_a5be3c07",
+          "temp_target": "/tmp/b2a-c2-lifecycle-8Z72z7/b2a_c2_b2ac2_v10_20260801d_8_a5be3c07.tmp",
+          "phase": "cleaned",
+          "created": true,
+          "primary_status": 0,
+          "drop_status": 0,
+          "temp_status": 0,
+          "cleanup_calls": 1,
+          "drop_attempted": true,
+          "cleanup_result": {
+            "status": 0,
+            "drop_evidence": null,
+            "temp_evidence": null
+          },
+          "timeline": [
+            {
+              "event": "create-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "test-succeeded",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-started",
+              "detail": {}
+            },
+            {
+              "event": "cleanup-finished",
+              "detail": {
+                "status": 0
+              }
+            }
+          ]
+        }
+      },
+      "temp_absent_after_child": true,
+      "parent_fixture_cleanup_required": false,
+      "status": "passed"
+    }
+  ],
+  "drift_rejection_results": [
+    {
+      "name": "function-volatility",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "1928716db2ae9acbb49bc10a47daf2ddd218956d094ceb1f72f9aca095e50e70",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-function-definition-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "function-overload",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "b43d9d7049f2894921e87b016e3da447ff4c4063f8115faf07c3ceab182c2144",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "index-missing",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "a1366a3ea4d1e0454cd47ed1932c2d17231cd355298aada0419d365faecf7823",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "trigger-disabled",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "d4c338d554dd339b57eda2ee433aff97e1795702d7d9597a74221cfb2e4d987a",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "function-acl",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "8ad30d139b00f6530b6e0cb2bd17523dfd07594c146333012f2b801cb41da44a",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    },
+    {
+      "name": "column-default",
+      "before_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "drifted_sha256": "7abe444c2879a8629c85f7cd34e211d3da26e16515d024221dfcc3f37a2dc510",
+      "migration_status": 3,
+      "expected_error": "property-task-projection-preexisting-catalog-drift",
+      "after_restore_sha256": "1a3bb4bc4907fb1a2e0e00c2bfd7a95ae52b96dab6c2d755d6de33e4f75c7da5",
+      "after_restore_function_grammar_sha256": "62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f",
+      "status": "passed"
+    }
+  ],
+  "control_state_results": [
+    {
+      "case": "all-old",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "1466bff1288e6ca8ecef1ad2ca256d472280644a478a2e2d777be7dc422c96f8",
+        "auditCount": 0,
+        "auditSha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "status": "converted-exact"
+    },
+    {
+      "case": "all-new",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "status": "no-op-exact"
+    },
+    {
+      "case": "mixed-old-new",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-mixed-contract-state",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "all-old-with-existing-audit",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-mixed-contract-state",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "missing-control",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-scope-exact-set-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "extra-unknown-control",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-scope-exact-set-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "nonqualifying-scope-unknown-control",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-scope-exact-set-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "enabled-control",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-contract-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "config-drift",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-contract-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "adapter-version-drift",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-contract-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "target-drift",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-contract-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "disabled-metadata-drift",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-contract-drift",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "audit-missing",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-mixed-contract-state",
+      "status": "rejected-rollback-exact"
+    },
+    {
+      "case": "audit-evidence-hash",
+      "before": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "after": {
+        "controlCount": 12,
+        "controlSha": "fece2e51134d94a24db4e58b784a9e6237fa32b4ea02f7663c4d5107d7e0c688",
+        "auditCount": 12,
+        "auditSha": "79b5afb337fc47ecc471aef8439aca9c8206abc600394c284c8ae43dbba1a551"
+      },
+      "sqlstate": "23514",
+      "stderr_marker": "property-runtime-control-audit-drift",
+      "status": "rejected-rollback-exact"
+    }
+  ],
+  "fault_injection_results": [
+    {
+      "injection_id": "oversize-preaccess",
+      "marker": "oversize-preaccess",
+      "injection_point": "after top-level/object validation and final array count; before receipt/head access",
+      "expected_sqlstate": "22023",
+      "observed_sqlstate": "22023",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "top-level-array-validated",
+        "object-cardinality-validated",
+        "final-count-201",
+        "rejected-before-receipt-head"
+      ],
+      "access_counts": {
+        "receipt": 0,
+        "head": 0
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "status": "passed"
+    },
+    {
+      "injection_id": "late-precommit-after-projection-head-audit",
+      "marker": "late-precommit-after-projection-head-audit",
+      "injection_point": "after projection/head/replacement audit writes; before receipt completion and COMMIT dispatch",
+      "expected_sqlstate": "P0001",
+      "observed_sqlstate": "P0001",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "receipt-started",
+        "projection-written",
+        "head-written",
+        "replacement-audit-written",
+        "fault-raised-before-receipt-completion",
+        "rollback-observed"
+      ],
+      "access_counts": {
+        "receipt": 1,
+        "head": 1
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "commit_dispatched": false,
+      "status": "passed"
+    },
+    {
+      "injection_id": "post-authority-oversize",
+      "marker": "post-authority-oversize",
+      "injection_point": "after owning authority mutation; final 201-row function guard",
+      "expected_sqlstate": "22023",
+      "observed_sqlstate": "22023",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "authority-mutated",
+        "prospective-count-201",
+        "function-rejected-before-receipt-head",
+        "rollback-observed"
+      ],
+      "access_counts": {
+        "receipt": 0,
+        "head": 0
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c",
+          "post_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c"
+        },
+        "assignment": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c",
+          "post_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "status": "passed"
+    },
+    {
+      "injection_id": "forced-lock-delete-replace-wait-b2ac2_v10_20260801d",
+      "marker": "forced-lock-delete-replace-wait",
+      "injection_point": "projection DELETE/replacement write",
+      "expected_sqlstate": "55P03",
+      "observed_sqlstate": "55P03",
+      "blocker_timeline": {
+        "holder_latch": [
+          {
+            "at": "2026-07-31T20:44:57.941Z",
+            "value": "2686"
+          }
+        ],
+        "waiter_blocked": [
+          {
+            "at": "2026-07-31T20:44:58.102Z",
+            "value": "{\"pid\" : 2700, \"wait_event_type\" : \"Lock\", \"wait_event\" : \"transactionid\", \"blocking_pids\" : [2686], \"projection_relation_lock\" : true}"
+          }
+        ],
+        "result": [
+          {
+            "at": "2026-07-31T20:44:58.208Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.330Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.445Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.550Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.693Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.801Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.928Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.047Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.194Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.324Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.429Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.558Z",
+            "value": "55P03|canceling statement due to lock timeout"
+          }
+        ],
+        "holder_pid": "2686",
+        "waiter_observation": {
+          "pid": 2700,
+          "wait_event_type": "Lock",
+          "wait_event": "transactionid",
+          "blocking_pids": [
+            2686
+          ],
+          "projection_relation_lock": true
+        }
+      },
+      "stage_markers": [
+        "fixture-seeded",
+        "holder-row-lock-latched",
+        "waiter-lock-observed",
+        "lock-timeout-observed",
+        "holder-released"
+      ],
+      "access_counts": {
+        "receipt": 1,
+        "head": 1
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "7c776f005be0990de8e4d7270c4022aaebd8680256ece7187f1627afd0c5450a",
+          "post_sha256": "7c776f005be0990de8e4d7270c4022aaebd8680256ece7187f1627afd0c5450a"
+        },
+        "projection": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ed53ce588b89e55ebb750bedaa90a9c1f1701542d0be9929dd9bd0cd9b9359f5",
+          "post_sha256": "ed53ce588b89e55ebb750bedaa90a9c1f1701542d0be9929dd9bd0cd9b9359f5"
+        },
+        "replacement_audit": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ed076bc6231b412cfb9f1cfb34fc532604e462b790a3d264d2315fdfa6d8a74c",
+          "post_sha256": "ed076bc6231b412cfb9f1cfb34fc532604e462b790a3d264d2315fdfa6d8a74c"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "blocked_relation": "biz_property_task_projection",
+      "blocked_operation": "DELETE replacement",
+      "status": "passed"
+    }
+  ],
+  "commit_ambiguous_results": null,
+  "negative_cases": [
+    {
+      "injection_id": "oversize-preaccess",
+      "marker": "oversize-preaccess",
+      "injection_point": "after top-level/object validation and final array count; before receipt/head access",
+      "expected_sqlstate": "22023",
+      "observed_sqlstate": "22023",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "top-level-array-validated",
+        "object-cardinality-validated",
+        "final-count-201",
+        "rejected-before-receipt-head"
+      ],
+      "access_counts": {
+        "receipt": 0,
+        "head": 0
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "status": "passed"
+    },
+    {
+      "injection_id": "late-precommit-after-projection-head-audit",
+      "marker": "late-precommit-after-projection-head-audit",
+      "injection_point": "after projection/head/replacement audit writes; before receipt completion and COMMIT dispatch",
+      "expected_sqlstate": "P0001",
+      "observed_sqlstate": "P0001",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "receipt-started",
+        "projection-written",
+        "head-written",
+        "replacement-audit-written",
+        "fault-raised-before-receipt-completion",
+        "rollback-observed"
+      ],
+      "access_counts": {
+        "receipt": 1,
+        "head": 1
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "commit_dispatched": false,
+      "status": "passed"
+    },
+    {
+      "injection_id": "post-authority-oversize",
+      "marker": "post-authority-oversize",
+      "injection_point": "after owning authority mutation; final 201-row function guard",
+      "expected_sqlstate": "22023",
+      "observed_sqlstate": "22023",
+      "blocker_timeline": [],
+      "stage_markers": [
+        "authority-mutated",
+        "prospective-count-201",
+        "function-rejected-before-receipt-head",
+        "rollback-observed"
+      ],
+      "access_counts": {
+        "receipt": 0,
+        "head": 0
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c",
+          "post_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c"
+        },
+        "assignment": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c",
+          "post_sha256": "ac9baf13253a102524863a20a4819799c8bce623cf99179ac947d3bb11c8a08c"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "projection": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "replacement_audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "status": "passed"
+    },
+    {
+      "injection_id": "forced-lock-delete-replace-wait-b2ac2_v10_20260801d",
+      "marker": "forced-lock-delete-replace-wait",
+      "injection_point": "projection DELETE/replacement write",
+      "expected_sqlstate": "55P03",
+      "observed_sqlstate": "55P03",
+      "blocker_timeline": {
+        "holder_latch": [
+          {
+            "at": "2026-07-31T20:44:57.941Z",
+            "value": "2686"
+          }
+        ],
+        "waiter_blocked": [
+          {
+            "at": "2026-07-31T20:44:58.102Z",
+            "value": "{\"pid\" : 2700, \"wait_event_type\" : \"Lock\", \"wait_event\" : \"transactionid\", \"blocking_pids\" : [2686], \"projection_relation_lock\" : true}"
+          }
+        ],
+        "result": [
+          {
+            "at": "2026-07-31T20:44:58.208Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.330Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.445Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.550Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.693Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.801Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:58.928Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.047Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.194Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.324Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.429Z",
+            "value": ""
+          },
+          {
+            "at": "2026-07-31T20:44:59.558Z",
+            "value": "55P03|canceling statement due to lock timeout"
+          }
+        ],
+        "holder_pid": "2686",
+        "waiter_observation": {
+          "pid": 2700,
+          "wait_event_type": "Lock",
+          "wait_event": "transactionid",
+          "blocking_pids": [
+            2686
+          ],
+          "projection_relation_lock": true
+        }
+      },
+      "stage_markers": [
+        "fixture-seeded",
+        "holder-row-lock-latched",
+        "waiter-lock-observed",
+        "lock-timeout-observed",
+        "holder-released"
+      ],
+      "access_counts": {
+        "receipt": 1,
+        "head": 1
+      },
+      "objects": {
+        "authority": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "assignment": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "audit": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "head": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "7c776f005be0990de8e4d7270c4022aaebd8680256ece7187f1627afd0c5450a",
+          "post_sha256": "7c776f005be0990de8e4d7270c4022aaebd8680256ece7187f1627afd0c5450a"
+        },
+        "projection": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ed53ce588b89e55ebb750bedaa90a9c1f1701542d0be9929dd9bd0cd9b9359f5",
+          "post_sha256": "ed53ce588b89e55ebb750bedaa90a9c1f1701542d0be9929dd9bd0cd9b9359f5"
+        },
+        "replacement_audit": {
+          "pre_count": 1,
+          "post_count": 1,
+          "pre_sha256": "ed076bc6231b412cfb9f1cfb34fc532604e462b790a3d264d2315fdfa6d8a74c",
+          "post_sha256": "ed076bc6231b412cfb9f1cfb34fc532604e462b790a3d264d2315fdfa6d8a74c"
+        },
+        "receipt": {
+          "pre_count": 0,
+          "post_count": 0,
+          "pre_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "post_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "snapshot_hash_grammar": "b2a-c2-object-snapshot-v2\nauthority_semantics\ttest-fixture-owning-authority-is-biz_property_task_assignment\nauthority\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nassignment\tpublic.biz_property_task_assignment\tcolumns=id,tenant_id,park_id,task_key,task_key_version,task_kind,source_type,source_id,source_version_at_generation,assignment_status,assignee_id,claim_epoch,claim_token,version,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,created_at,updated_at,is_deleted\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\naudit\tpublic.biz_property_task_assignment_audit\tcolumns=id,tenant_id,park_id,assignment_id,actor_id,action_id,from_status,to_status,from_version,to_version,reason,payload_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nhead\tpublic.biz_property_task_projection_head\tcolumns=id,tenant_id,park_id,source_type,source_id,projection_version,content_hash,last_rebuilt_at,last_rebuilt_by,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nprojection\tpublic.biz_property_task_projection\tcolumns=id,tenant_id,park_id,head_id,task_id,task_key,assignment_authority,derived_assignment_id,source_type,source_id,source_version,business_occurrence_key,task_kind,queue_code,title,kind_label,source_label,priority,due_at,assignment_status,assignment_version,assignee_id,assignee_display,claimed_at,started_at,blocked_reason,blocked_until,outcome_code,outcome_source_version,outcome_at,source_deep_link,projection_version,content_hash,created_at,updated_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreplacement_audit\tpublic.biz_property_task_projection_rebuild_audit\tcolumns=id,tenant_id,park_id,head_id,source_type,source_id,actor_id,mutation_receipt_id,replace_mode,command_action,from_projection_version,to_projection_version,business_result_version,projected_task_count,assignment_mutation_count,reason,request_hash,result_ref,result_hash,content_hash,occurred_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\nreceipt\tpublic.biz_property_mutation_receipt\tcolumns=id,tenant_id,park_id,actor_id,action_id,target_id,client_key,request_hash,receipt_status,result_ref,result_hash,created_at,completed_at\tencoding=postgresql16-to_jsonb-canonical-text\tsort=id::text\trow_lf=true\n",
+      "snapshot_hash_grammar_sha256": "d23a3d16b627e474b32c56606fdd24a00901db4f4a949ed48ac143029482a802",
+      "rollback_proved": true,
+      "blocked_relation": "biz_property_task_projection",
+      "blocked_operation": "DELETE replacement",
+      "status": "passed"
+    }
+  ],
+  "commit_ambiguous": {
+    "cases": null,
+    "acquire_mode_matrix": null
+  },
+  "no_191_192_dependency": true,
+  "reserved_191_192_dependency_evidence": {
+    "reserved_files_delivered_at_c2": [],
+    "migration_source_references": [],
+    "exact_chain_references": [],
+    "proven_zero_dependency": true
+  },
+  "cleanup": {
+    "container_absent": true,
+    "anonymous_volume_absent": true,
+    "errors": [],
+    "volume": {
+      "name": "d3baee9507863dec9f1cb220aecba37e48400653c0caf94c8234c35649dba505",
+      "absent": true
+    },
+    "temp": {
+      "exact_targets": [],
+      "absent": true
+    },
+    "exact_targets": {
+      "container_name": "pr192_b2a_c2_b2ac2_v10_20260801d_db",
+      "container_id": "435fa0dd9349c390df21726c8747939ca9da8451b6585d575b1eb8f0dce91f7f",
+      "volume_name": "d3baee9507863dec9f1cb220aecba37e48400653c0caf94c8234c35649dba505"
+    },
+    "lifecycle_machine": {
+      "target": "pr192_b2a_c2_b2ac2_v10_20260801d_db",
+      "temp_target": null,
+      "phase": "cleaned",
+      "created": true,
+      "primary_status": 0,
+      "drop_status": 0,
+      "temp_status": 0,
+      "cleanup_calls": 1,
+      "drop_attempted": true,
+      "cleanup_result": {
+        "status": 0,
+        "drop_evidence": {
+          "container_absent": true,
+          "anonymous_volume_absent": true,
+          "errors": []
+        },
+        "temp_evidence": {
+          "owned_temp_targets": []
+        }
+      },
+      "timeline": [
+        {
+          "event": "create-succeeded",
+          "detail": {
+            "container_name": "pr192_b2a_c2_b2ac2_v10_20260801d_db"
+          }
+        },
+        {
+          "event": "cleanup-started",
+          "detail": {}
+        },
+        {
+          "event": "cleanup-finished",
+          "detail": {
+            "status": 0
+          }
+        }
+      ]
+    }
+  },
+  "performance_2m_status": "failed",
+  "performance": null,
+  "deadline": {
+    "limit_ns": "5000000000",
+    "clock": "process.hrtime.bigint.monotonic"
+  },
+  "environment": {
+    "image_reference": "postgres:16-alpine",
+    "image_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "container_id": "435fa0dd9349c390df21726c8747939ca9da8451b6585d575b1eb8f0dce91f7f",
+    "container_name": "pr192_b2a_c2_b2ac2_v10_20260801d_db",
+    "volume_name": "d3baee9507863dec9f1cb220aecba37e48400653c0caf94c8234c35649dba505",
+    "host_port": "44799",
+    "cpu_model": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "cpu_count": 20,
+    "ram_bytes": 33569792000,
+    "ram_free_bytes_at_artifact": 13091545088,
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2",
+    "postgresql": null
+  },
+  "env": {
+    "image_reference": "postgres:16-alpine",
+    "image_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "container_id": "435fa0dd9349c390df21726c8747939ca9da8451b6585d575b1eb8f0dce91f7f",
+    "container_name": "pr192_b2a_c2_b2ac2_v10_20260801d_db",
+    "volume_name": "d3baee9507863dec9f1cb220aecba37e48400653c0caf94c8234c35649dba505",
+    "host_port": "44799",
+    "database": null,
+    "pg_settings": null,
+    "cpu_model": "12th Gen Intel(R) Core(TM) i7-12700KF",
+    "cpu_count": 20,
+    "ram_bytes": 33569792000,
+    "os": "linux 6.18.33.2-microsoft-standard-WSL2"
+  },
+  "worktree": {
+    "branch": "codex/pr192-property-productization-remediation",
+    "dirty": true,
+    "disclosure": "shared dirty worktree; unrelated user and agent changes preserved"
+  },
+  "pending": {
+    "production_caller_deadline_status": "pending_C4",
+    "real_adapter_admission_status": "pending_B2c"
+  },
+  "review": {
+    "architecture_database": "pending",
+    "test_security": "pending",
+    "product_rbac_interaction": "pending",
+    "open_p0_p1": "not_computed"
+  },
+  "evidence_dag": {
+    "nodes": [
+      "contract",
+      "runner",
+      "migration",
+      "function",
+      "fixture",
+      "actions",
+      "negative_cases",
+      "commit_ambiguous",
+      "cleanup",
+      "review"
+    ],
+    "edges": [
+      [
+        "contract",
+        "runner"
+      ],
+      [
+        "contract",
+        "migration"
+      ],
+      [
+        "migration",
+        "function"
+      ],
+      [
+        "fixture",
+        "actions"
+      ],
+      [
+        "runner",
+        "negative_cases"
+      ],
+      [
+        "runner",
+        "commit_ambiguous"
+      ],
+      [
+        "actions",
+        "review"
+      ],
+      [
+        "negative_cases",
+        "review"
+      ],
+      [
+        "commit_ambiguous",
+        "review"
+      ],
+      [
+        "cleanup",
+        "review"
+      ]
+    ],
+    "runner_raw_sha256": "1c37d40f8fa6900740ad3d8adf6490e519183901bb1599d430e88e56f940b23f",
+    "static_test_raw_sha256": "5c58ca5fe0f8874b11cb1c2e5d8fb4ccc036de8963bcdfbbf31fe40793c375c5",
+    "migration_raw_sha256": {
+      "000185_property_b_identity_schema_expand.sql": "3191ef37395a13ce513283e73994fc6949798dde8fc9666f586c9aeb4c3312ec",
+      "000186_property_b_approval_runtime_schema.sql": "5b7778888668842eac38bc4e3bc6bb56320aecedf5f02e0fbf3f13928a7a0b9e",
+      "000187_property_b_event_notification_schema.sql": "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20",
+      "000188_property_b_task_runtime_schema.sql": "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08",
+      "000189_property_b_module_rbac_definitions.sql": "f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2",
+      "000190_property_b_migration_compatibility_control.sql": "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
+      "000193_property_b_runtime_integrity_forward_fix.sql": "c769efe549385f74092114cdf5f68c8ea40d78885bfecd484ed5a379f9c67f07",
+      "000194_property_task_projection_contract_correction.sql": "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0"
+    }
+  },
+  "independent_review_status": "pending",
+  "candidate_findings": [
+    "P1: docker exec failed: ERROR:  42703: column \"receipt_id\" does not exist\nLINE 2: ...rce_id='a0000000-0000-4000-8000-000000000041' AND receipt_id...\n                                                             ^\nLOCATION:  errorMissingColumn, parse_relation.c:3722"
+  ],
+  "error": "docker exec failed: ERROR:  42703: column \"receipt_id\" does not exist\nLINE 2: ...rce_id='a0000000-0000-4000-8000-000000000041' AND receipt_id...\n                                                             ^\nLOCATION:  errorMissingColumn, parse_relation.c:3722"
+}

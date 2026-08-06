@@ -1,0 +1,35 @@
+{
+  "schema_version": "b2c-v31-resource-observation-v1",
+  "status": "OBSERVED",
+  "execution_authorized": false,
+  "formal_go": false,
+  "provision_authority_raw_sha256": "843f66a3d8e5f72647f73aa0af3bb1f8f412f3077a514565b3a018bb6212af3f",
+  "candidate_authority_raw_sha256": "4a8e15fb585b11aa492dbd843520889eb7db6f63365cfac2d8afd9336d88f3fe",
+  "candidate_manifest_raw_sha256": "32216d947236d77cf89faabb8fb7759e4560385bfcbb79ab583ce8a61e605ce9",
+  "runtime_dependency_manifest_raw_sha256": "584c6d7eeb42f966e185ab4b4377b5168a825c6a2d4c1d545cb615540315e743",
+  "combined_snapshot_raw_sha256": "033dbac81f27eefb0ddb9b2ba1795e88eec07c3c7f1004ad24635a01605080f1",
+  "resolution_guard_raw_sha256": "ffe7adf8e6b0c1a8e78a5d6fa830d47a7a37e8f5d3c2ce999f90693837cda48c",
+  "run_id": "b2c197_v11v6_direct_v31_20260803a",
+  "container": "jinhu-b2c197-v11v6-direct-v31-20260803a",
+  "container_id": "9aa97f64cb3d46a3749e7640a4eaf875f2ecb59848c03b00807f4785e2e539c7",
+  "database": "jinhu_b2c197_v11v6_direct_v31_20260803a",
+  "volume_id": "846f686c58bf242bd74abe9411954fe489dccff982f9e886d08338a82ea6de69",
+  "image_id": "57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "image_reference": "postgres:16-alpine",
+  "host_port_bindings": 1,
+  "host_ip": "127.0.0.1",
+  "host_port": 45813,
+  "container_port": 5432,
+  "dynamic_host_port": true,
+  "anonymous_volume": true,
+  "mount_type": "volume",
+  "mount_rw": true,
+  "mount_destination": "/var/lib/postgresql/data",
+  "labels": {
+    "run_id": "b2c197_v11v6_direct_v31_20260803a",
+    "provision_authority_sha256": "843f66a3d8e5f72647f73aa0af3bb1f8f412f3077a514565b3a018bb6212af3f"
+  },
+  "inherited_labels": {
+    "desktop.docker.io/wsl-distro": "Ubuntu-26.04"
+  }
+}

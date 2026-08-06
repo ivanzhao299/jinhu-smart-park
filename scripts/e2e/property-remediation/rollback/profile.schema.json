@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profileId",
+    "rtoTargetMilliseconds",
+    "rpoTargetCommittedRows",
+    "sourceDatasetProfileId",
+    "requiredDatasetSentinels",
+    "requiredGateIds",
+    "requiredDisabledFlags",
+    "commandSpec",
+    "durableTableSources",
+    "forbiddenSnapshotFields",
+    "forbiddenBlindRevertCommits",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "property-track-c-rollback-profile-v1" },
+    "profileId": { "const": "pr192-track-c-rollback-rehearsal-v1" },
+    "rtoTargetMilliseconds": { "const": 1800000 },
+    "rpoTargetCommittedRows": { "const": 0 },
+    "sourceDatasetProfileId": { "const": "pr192-property-uat-v1" },
+    "requiredDatasetSentinels": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" }
+    },
+    "requiredGateIds": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "requiredDisabledFlags": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+    },
+    "commandSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractFile", "canonicalPortFile", "nodeTestArgs", "postgresqlFiles"],
+      "properties": {
+        "contractFile": { "type": "string", "minLength": 1 },
+        "canonicalPortFile": { "type": "string", "minLength": 1 },
+        "nodeTestArgs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "postgresqlFiles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "durableTableSources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "pattern": "^database/migrations/[0-9]{6}_[a-z0-9_]+\\.sql$" }
+    },
+    "forbiddenSnapshotFields": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "forbiddenBlindRevertCommits": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 19,
+      "maxItems": 19,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "commits", "targetedTestFiles", "allowedPatchPrefixes", "reviewedPatchRequired"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" },
+          "kind": { "enum": ["backend-closure", "frontend-group"] },
+          "commits": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+          },
+          "targetedTestFiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allowedPatchPrefixes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "rollbackSemanticContract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mustChangeProductionPaths", "postApply", "retainedShell", "protectedExternalPaths", "immutableTestPaths", "allowedInvariantIds", "allowedGateIds"],
+            "properties": {
+              "mustChangeProductionPaths": {
+                "type": "array", "minItems": 1, "uniqueItems": true,
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "postApply": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "intentGroupId", "path", "pathState", "mustContain", "mustNotContain", "mustMatch", "mustNotMatch", "astMatchers"],
+                  "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "intentGroupId": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 },
+                    "pathState": { "enum": ["present", "absent"] },
+                    "mustContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "astMatchers": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "object", "additionalProperties": false,
+                        "required": ["kind", "name", "source", "owner", "enclosingOwner", "minCount", "maxCount"],
+                        "properties": {
+                          "kind": { "enum": ["identifier", "import", "class", "provider", "constructorParameter", "call", "awaitedCall", "export", "fileDigest"] },
+                          "name": { "type": "string", "minLength": 1 },
+                          "source": { "type": "string" },
+                          "owner": { "type": "string" },
+                          "enclosingOwner": { "type": "string" },
+                          "minCount": { "type": "integer", "minimum": 0 },
+                          "maxCount": { "type": "integer", "minimum": 0 }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "retainedShell": {
+                "type": "array",
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "intentGroupId", "path", "pathState", "mustContain", "mustNotContain", "mustMatch", "mustNotMatch", "astMatchers", "allowsIntentionalOmission"],
+                  "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "intentGroupId": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 },
+                    "pathState": { "const": "present" },
+                    "mustContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "astMatchers": {
+                      "allOf": [
+                        { "$ref": "#/properties/cases/items/properties/rollbackSemanticContract/properties/postApply/items/properties/astMatchers" },
+                        { "minItems": 1 }
+                      ]
+                    },
+                    "allowsIntentionalOmission": { "type": "boolean" }
+                  }
+                }
+              },
+              "protectedExternalPaths": {
+                "type": "array",
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "intentGroupId", "path", "pathState", "mustContain", "mustNotContain", "mustMatch", "mustNotMatch", "astMatchers", "allowsIntentionalOmission"],
+                  "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "intentGroupId": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 },
+                    "pathState": { "const": "present" },
+                    "mustContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotContain": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "mustNotMatch": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "astMatchers": { "$ref": "#/properties/cases/items/properties/rollbackSemanticContract/properties/postApply/items/properties/astMatchers" },
+                    "allowsIntentionalOmission": { "type": "boolean" }
+                  }
+                }
+              },
+              "immutableTestPaths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "allowedInvariantIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "allowedGateIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+            }
+          },
+          "reviewedPatchRequired": { "const": true }
+        }
+      }
+    }
+  }
+}

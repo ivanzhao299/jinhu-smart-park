@@ -1,0 +1,118 @@
+{
+  "schema_version": "b2c-000197-preliminary-success-v8",
+  "evidence_policy_version": "b2c-000197-child-evidence-v8",
+  "formal_run_id": "b2c197_prelim_20260802c",
+  "status": "PASSED",
+  "recorded_at_utc": "2026-08-01T23:42:38.480Z",
+  "evidence_entries": [
+    {
+      "filename": "001-static-v8-evidence-intent.json",
+      "bytes": 812,
+      "raw_sha256": "a1e8a12cd38de9250f752ce4dff6db1945afbb2979e175ad5515af4fdf2be783"
+    },
+    {
+      "filename": "001-static-v8-evidence-result.json",
+      "bytes": 2663,
+      "raw_sha256": "896df3f638f0198aeedc6a813040b70384878c35e8f5899e75c63da6880f326c"
+    },
+    {
+      "filename": "001-static-v8-evidence-parse.json",
+      "bytes": 2669,
+      "raw_sha256": "8b34ed29bccdc9807a7a4450c1e1122c0c28ee22460865863b4bfc455c56af21"
+    },
+    {
+      "filename": "002-static-v8-orchestrator-intent.json",
+      "bytes": 863,
+      "raw_sha256": "d8610d70f1bdccb588b6c98bac5b6f41ddaf9a77361e971f3f8a22732299b51e"
+    },
+    {
+      "filename": "002-static-v8-orchestrator-result.json",
+      "bytes": 1716,
+      "raw_sha256": "468d62493e3a8cdd39267a4cc6f8cc05f2cf552b53e2eba8e0647bfe1ddacd46"
+    },
+    {
+      "filename": "002-static-v8-orchestrator-parse.json",
+      "bytes": 1722,
+      "raw_sha256": "720bc320ac78130deb86bfab20c30888b313132665dedc8860d220313d166a6d"
+    },
+    {
+      "filename": "003-static-v8-capability-intent.json",
+      "bytes": 812,
+      "raw_sha256": "32349fb1066473c1360a914ec19707edc229001ef5fe8b5fc0600ad32051b83b"
+    },
+    {
+      "filename": "003-static-v8-capability-result.json",
+      "bytes": 1529,
+      "raw_sha256": "82ee7e11401ba05a09847fba8458a04f05f341d9ebce625fdfe6683ea795357d"
+    },
+    {
+      "filename": "003-static-v8-capability-parse.json",
+      "bytes": 1811,
+      "raw_sha256": "d00a844e5837c5f97fd980e0781bd2b1b9445acf4dba25c81003c471bbe57b7e"
+    },
+    {
+      "filename": "004-static-v8-recursive-closure-intent.json",
+      "bytes": 818,
+      "raw_sha256": "6554f629a36ce6ce255facedbb5abf488781072b48679dc12fcdc5179e2c91c5"
+    },
+    {
+      "filename": "004-static-v8-recursive-closure-result.json",
+      "bytes": 1576,
+      "raw_sha256": "aa990f1d40fa383d071fe35454c1fc22959f78a1783bd28e83bd70c2cf6925ef"
+    },
+    {
+      "filename": "004-static-v8-recursive-closure-parse.json",
+      "bytes": 1873,
+      "raw_sha256": "ec6967d4d927d89067ee27259fa3e7f0251a3a513cde53562ecad815a5e5ff6f"
+    },
+    {
+      "filename": "005-static-v8-closure-intent.json",
+      "bytes": 805,
+      "raw_sha256": "8e080e5c243d40510ffc1fdea4af448c5eaaa1601283ddd51145671c75d0a29b"
+    },
+    {
+      "filename": "005-static-v8-closure-result.json",
+      "bytes": 1583,
+      "raw_sha256": "13f99d9f730ecddad7031cb62012822eba2d7bfc69dcad4b443fabb43606e326"
+    },
+    {
+      "filename": "005-static-v8-closure-parse.json",
+      "bytes": 1589,
+      "raw_sha256": "f0b4a9960f3459cd83f49423e29c7285d498aa726d85ba2a896b135bf8d71133"
+    },
+    {
+      "filename": "006-static-v8-contract-intent.json",
+      "bytes": 808,
+      "raw_sha256": "642343e9783fbd30ea605c529e897545d495b3895c4012355199a607c5ee5241"
+    },
+    {
+      "filename": "006-static-v8-contract-result.json",
+      "bytes": 2540,
+      "raw_sha256": "ae6418fb0f76c3b7742d582544d70fc4b759fcf9562026ae5bc0600a7f67b3c2"
+    },
+    {
+      "filename": "006-static-v8-contract-parse.json",
+      "bytes": 2546,
+      "raw_sha256": "170b1a7f695d7a7d735ddb2fde8a33e3796f108a0da18fbfe3a2a244c968379a"
+    },
+    {
+      "filename": "007-static-v8-lifecycle-intent.json",
+      "bytes": 849,
+      "raw_sha256": "8c329d21438da80f58e7f90bf0b143ff9f788c23c161fa8d0394a0c982821bcc"
+    },
+    {
+      "filename": "007-static-v8-lifecycle-result.json",
+      "bytes": 1758,
+      "raw_sha256": "55eea797a168ffdb4a90ce1b7be2f49b2c77e0e5bc1db31322de64f2889e30b3"
+    },
+    {
+      "filename": "007-static-v8-lifecycle-parse.json",
+      "bytes": 1764,
+      "raw_sha256": "78fd1840df887aeea64d5f2a7c08db602740351927fb12eea4f9ec30ad1702e2"
+    }
+  ],
+  "scope": "v8-frozen-static-only",
+  "execution_authorized": false,
+  "live_execution": false,
+  "database_or_container_mutation_performed": false
+}

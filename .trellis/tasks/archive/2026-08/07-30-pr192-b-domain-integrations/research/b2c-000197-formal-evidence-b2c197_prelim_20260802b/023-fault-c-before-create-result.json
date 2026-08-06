@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 23,
+  "stage": "fault-c-before-create",
+  "recorded_at_utc": "2026-08-02T00:30:36.338Z",
+  "intent_raw_sha256": "d74c7ed899b58be71bc3d4c49ee531534569584814c6a5cac3522066cfb2949a",
+  "exit_code": 3,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  },
+  "stderr": {
+    "bytes": 312,
+    "raw_sha256": "3e5a2eb24a7291542e1762dd819c9c263a8074df168d63c100ec62f8f26dc6a6",
+    "redacted_utf8": "ERROR:  42883: function public.fn_assert_b2c_000197_before_create() does not exist\nLINE 1: SELECT public.fn_assert_b2c_000197_before_create();\n               ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\nLOCATION:  ParseFuncOrColumn, parse_func.c:629\n"
+  }
+}

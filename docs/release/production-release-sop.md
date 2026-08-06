@@ -60,6 +60,14 @@
 | `AUTH_SMS_FIXED_CODE` | 短信 mock 固定码 | 是 | 已确认 | 首发必须为空 |
 | `AUTH_SMS_CODE_VISIBLE` | 是否展示短信 mock 码 | 是 | 已确认 | 首发必须为 `false` |
 | `AUTH_WECHAT_MOCK_ENABLED` | 微信 mock 开关 | 是 | 已确认 | 首发必须为 `false` |
+| `PROPERTY_WORKBENCH_V2` | 房产业务新版工作台开关 | 是 | 已确认 | Track B 审批执行能力发布前必须为 `false`；启用后高风险动作 fail-closed，超级管理员不绕过 |
+| `PROPERTY_OFFLINE_DRAFTS_V1` | 房产非敏感本机草稿构建期开关 | 否 | 默认关闭 | 仅严格 `true` 启用；修改后重建 Web 镜像；关闭会清理本机临时草稿，不影响服务端数据 |
+| `PROPERTY_UPLOAD_QUEUE_V1` | 房产现场图片恢复队列构建期开关 | 否 | 默认关闭 | 仅严格 `true` 启用；修改后重建 Web 镜像；关闭仅清理未提交/失败的本机 blob，不删除成功上传文件 |
+
+关闭任一房产本机可靠性开关并发布新 Web 镜像时，必须通知在线操作人员刷新页面，
+并关闭仍加载旧 bundle 的其他标签页。仅替换服务器镜像不会停止已打开旧标签页中的
+JavaScript；保留旧标签页可能继续使用旧开关行为并阻塞本机数据库清理。刷新/关闭完成后，
+重新打开页面确认离线草稿或恢复队列入口已消失，再继续业务操作。
 
 ## 5. 发布前备份
 

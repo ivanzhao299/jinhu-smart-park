@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 14,
+  "stage": "inspect-noports-f",
+  "recorded_at_utc": "2026-08-02T03:47:31.891Z",
+  "intent_raw_sha256": "23fbb641fa1d3e88bde3b5fdf6a94616ddb7a1d376455b2a3181ee0fea5d8bc5",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 21,
+    "raw_sha256": "c751aab31b92ce61b9dceec8b4a9755fd44d3bb225feb60ceeb3ddbda0e535bf",
+    "redacted_utf8": "{}|{\"5432/tcp\":null}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

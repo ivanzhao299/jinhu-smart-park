@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-prerequisites-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "access_contract_commit", "schema_api_projection_commit",
+    "bootstrap_commit", "bootstrap_handoff_sha256", "foundation_commit",
+    "commit_constraint", "environment_guard"
+  ],
+  "properties": {
+    "schema_version": { "const": "property-remediation-a-base-prerequisites-v1" },
+    "access_contract_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "schema_api_projection_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "bootstrap_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "bootstrap_handoff_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "foundation_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "commit_constraint": { "const": "all-required-ancestors-of-current-head" },
+    "environment_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "image", "database", "database_url_override", "artifact_scope"],
+      "properties": {
+        "target": { "const": "exact-ephemeral-container-only" },
+        "image": { "const": "postgres:16-alpine" },
+        "database": { "const": "pr192_track_a_base_fixture" },
+        "database_url_override": { "const": "forbidden" },
+        "artifact_scope": { "const": "artifacts/property-remediation/runs/<run-id>" }
+      }
+    }
+  }
+}

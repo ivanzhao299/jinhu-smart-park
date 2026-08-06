@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v23-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v23_20260803a",
+  "stage": "inspect",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 650,
+    "raw_sha256": "2cb2750046042372bb63834ec7dc40cad0e8fbdb92942abb2f83d43fa074d496",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

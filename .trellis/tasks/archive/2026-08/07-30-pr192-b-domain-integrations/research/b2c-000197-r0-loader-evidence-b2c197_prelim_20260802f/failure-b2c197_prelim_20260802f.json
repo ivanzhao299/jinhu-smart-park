@@ -1,0 +1,43 @@
+{
+  "schema_version": "b2c-000197-r0-loader-failure-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "FAILED",
+  "recorded_at_utc": "2026-08-02T00:44:56Z",
+  "failure_stage": "reviewed-r0-derived-loader-process-launch",
+  "failure": {
+    "exit_code": 127,
+    "message": "/bin/bash: line 16: node: command not found",
+    "loader_not_invoked": true,
+    "database_migration_write_started": false,
+    "retry_attempted": false
+  },
+  "reviewed_loader": {
+    "path": ".trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-r0-fixture-loader-20260802.mjs",
+    "raw_sha256": "0d25972b92405c461cba9847839550bc931ae01ddb214712152edfabfa76d277"
+  },
+  "resources": {
+    "retained": true,
+    "cleanup_attempted": false,
+    "target_e": {
+      "topology": "upgrade-to-195",
+      "container": "jinhu-b2c197-prelim-20260802f-e",
+      "container_id": "e8cdea7ae9692bc5fe7407026def4675722f6b7379bd4dd8a915625c73c8daaf",
+      "database": "jinhu_b2c197_e",
+      "volume_id": "3320230428e226dc57803bc265b2ab1b43a20fde830324181cd21c4ed5445779"
+    },
+    "target_f": {
+      "topology": "fresh-to-195",
+      "container": "jinhu-b2c197-prelim-20260802f-f",
+      "container_id": "485454ceaa64e29fbf737c6b0c4e206c7bb15fb95e601124e754d5c4b5defcfe",
+      "database": "jinhu_b2c197_f",
+      "volume_id": "767ce9a66b29aa9c2230bdbf25479c88af8a1b0515d867deaf2c67bb57b6538e"
+    }
+  },
+  "scope_guards": {
+    "no_host_ports": true,
+    "anonymous_independent_volumes": true,
+    "other_containers_accessed_or_cleaned": false,
+    "password_value_persisted": false
+  },
+  "disposition": "STOP_RETAIN_E_F_NO_RETRY"
+}

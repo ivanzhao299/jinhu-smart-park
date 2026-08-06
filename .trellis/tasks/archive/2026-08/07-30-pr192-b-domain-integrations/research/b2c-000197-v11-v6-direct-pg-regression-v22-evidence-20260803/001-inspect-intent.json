@@ -1,0 +1,17 @@
+{
+  "schema_version": "b2c-v22-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v22_20260803a",
+  "stage": "inspect",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "inspect",
+    "--format",
+    "{{.Id}}\n{{.State.Running}}\n{{.Image}}\n{{json .HostConfig.PortBindings}}\n{{json .Mounts}}\n{{json .Config.Labels}}",
+    "jinhu-b2c197-v11v6-direct-v22-20260803a"
+  ],
+  "stdin": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "persisted": false
+  }
+}

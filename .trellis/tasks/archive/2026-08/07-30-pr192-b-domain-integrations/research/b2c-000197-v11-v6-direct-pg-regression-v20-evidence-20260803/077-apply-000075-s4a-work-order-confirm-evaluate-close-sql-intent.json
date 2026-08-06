@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v20-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v20_20260803a",
+  "stage": "apply-000075-s4a-work-order-confirm-evaluate-close-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v20-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v20_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 4723,
+    "raw_sha256": "fe8af8f6b30e52183eefd1b653d6a8385f6218f85b805d16e8ba90875f69aade",
+    "persisted": false
+  }
+}

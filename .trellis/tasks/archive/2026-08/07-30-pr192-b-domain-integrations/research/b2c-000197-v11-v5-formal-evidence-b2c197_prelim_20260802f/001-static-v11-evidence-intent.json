@@ -1,0 +1,23 @@
+{
+  "schema_version": "b2c-000197-child-intent-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 1,
+  "stage": "static-v11-evidence",
+  "recorded_at_utc": "2026-08-02T03:47:09.515Z",
+  "command": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node",
+  "argv": [
+    "--test-reporter=tap",
+    "scripts/e2e/property-remediation/tests/b2c-000197-preliminary-executor-v11.spec.mjs"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "environment_allowlist": {
+    "PATH": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin:/home/jinhuit/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin"
+  },
+  "redacted_fields": [],
+  "stdin_intent": {
+    "present": false,
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

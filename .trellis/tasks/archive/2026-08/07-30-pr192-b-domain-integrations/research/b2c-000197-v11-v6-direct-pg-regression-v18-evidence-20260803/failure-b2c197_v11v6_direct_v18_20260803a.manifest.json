@@ -1,0 +1,41 @@
+{
+  "schema_version": "b2c-v18-evidence-manifest-v1",
+  "run_id": "b2c197_v11v6_direct_v18_20260803a",
+  "status": "FAILURE",
+  "authority_provenance": {
+    "resource_observation_raw_sha256": "0a401cf839de5d81eed8920ca0abe7d446a796262e95cc38fe20d1a52d7a3dc8",
+    "execution_authority_raw_sha256": "8652a069d4ee1b09d5b58fde073b096bda84fc55961af88712bd5a3618e90a9f"
+  },
+  "files": [
+    {
+      "filename": "001-inspect-intent.json",
+      "bytes": 515,
+      "mode": "0444",
+      "raw_sha256": "2e062fc49b6865facb0e25367a166f73e770eba992b54e07296d976889bd1ca8"
+    },
+    {
+      "filename": "001-inspect-result.json",
+      "bytes": 494,
+      "mode": "0444",
+      "raw_sha256": "920a562ae642e2215d0d503eec33d1126505dbffea334d0b1c8cbe1c65eb182c"
+    },
+    {
+      "filename": "002-postgres-16-intent.json",
+      "bytes": 622,
+      "mode": "0444",
+      "raw_sha256": "b23434dacc3fa2bbfd134de80d5afe8d25404197244459d7f25388505a9b4fef"
+    },
+    {
+      "filename": "002-postgres-16-result.json",
+      "bytes": 497,
+      "mode": "0444",
+      "raw_sha256": "10f24796c648337e7079ecceedb3838afcdcc031dbb205ba0781164ba6770463"
+    },
+    {
+      "filename": "failure-b2c197_v11v6_direct_v18_20260803a.json",
+      "bytes": 564,
+      "mode": "0444",
+      "raw_sha256": "f72d19545904cbee0f38ac10fe146533ec8b040e2358851505739d81b50c059e"
+    }
+  ]
+}

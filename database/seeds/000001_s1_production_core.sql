@@ -364,6 +364,7 @@ permission_groups(code, name, parent_code, resource, action, permission_type, pe
     ('asset:unit', '房间/房源管理', 'asset', 'asset.unit', 'page', 'page', 20, 40),
     ('asset:unit-status-board', '房源状态看板', 'asset', 'asset.status-board', 'page', 'page', 20, 50),
     ('asset:statistics-page', '资产统计', 'asset', 'asset.statistics', 'page', 'page', 20, 60),
+    ('asset:party', '业务相对方页面', 'asset', 'asset.party', 'page', 'page', 20, 65),
     ('leasing', '招商租赁', NULL, 'leasing', 'menu', 'menu', 10, 30),
     ('leasing:tenant', '租户企业档案', 'leasing', 'leasing.tenant', 'page', 'page', 20, 10),
     ('leasing:lead', '招商线索', 'leasing', 'leasing.lead', 'page', 'page', 20, 20),
@@ -582,6 +583,7 @@ upsert_permissions AS (
       WHEN 'asset:unit' THEN '/assets/units'
       WHEN 'asset:unit-status-board' THEN '/assets/unit-status-board'
       WHEN 'asset:statistics-page' THEN '/assets/statistics'
+      WHEN 'asset:party' THEN '/assets/parties'
       WHEN 'leasing:tenant' THEN '/leasing/tenants'
       WHEN 'leasing:lead' THEN '/leasing/leads'
       WHEN 'leasing:lead-pool' THEN '/leasing/lead-pool'
@@ -657,14 +659,14 @@ upsert_permissions AS (
       WHEN 'cockpit' THEN 'layout-dashboard'
       ELSE NULL
     END,
-    true,
-    permission_tree.code <> 'system:dict-item',
+    permission_tree.code <> 'asset:party',
+    permission_tree.code NOT IN ('system:dict-item', 'asset:party'),
     NULL,
     NULL,
     true,
     true,
     false,
-    true,
+    permission_tree.code <> 'asset:party',
     true,
     'enabled',
     'System built-in permission seed'
@@ -693,7 +695,7 @@ upsert_permissions AS (
     is_system = true,
     is_builtin = true,
     is_tenant_custom = false,
-    visible = true,
+    visible = EXCLUDED.visible,
     is_enabled = true,
     status = 'enabled',
     remark = EXCLUDED.remark,
@@ -736,7 +738,22 @@ permission_parent_map AS (
       WHEN child.code IN ('system', 'asset', 'leasing', 'homestay', 'housing_rental', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:tenant', 'system:module', 'system:dict-type', 'system:file', 'system:audit', 'system:audit-login-log') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
-      WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page') THEN 'asset'
+      WHEN child.code IN (
+        'asset:park',
+        'asset:building',
+        'asset:floor',
+        'asset:unit',
+        'asset:unit-status-board',
+        'asset:statistics-page',
+        'asset:party',
+        'asset:identity-submissions:page',
+        'asset:property-operations:page',
+        'asset:property-occupancies:page',
+        'asset:property-mode-transitions:page',
+        'property:notifications:page',
+        'property:event-delivery-incidents:page',
+        'property:approval-incidents:page'
+      ) THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
       WHEN child.code = 'homestay:operations' THEN 'homestay'
       WHEN child.code = 'housing_rental:operations' THEN 'housing_rental'
@@ -2032,6 +2049,7 @@ role_permissions AS (
    AND seed_scope.park_id = role.park_id
   WHERE role.code = 'SUPER_ADMIN'
     AND role.is_deleted = false
+    AND permission.code <> 'asset:party'
   UNION ALL
   SELECT role.id AS role_id, permission.id AS permission_id, role.tenant_id, role.park_id
   FROM sys_role role
@@ -2045,6 +2063,7 @@ role_permissions AS (
   WHERE role.code = 'SYSTEM_ADMIN'
     AND role.is_deleted = false
     AND permission.code <> 'system:tenant'
+    AND permission.code <> 'asset:party'
     AND (
       permission.code = 'system'
       OR

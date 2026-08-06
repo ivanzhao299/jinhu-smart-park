@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-000197-v11-v5-missing-six-go-env-pre-intake-invocation-audit-manifest-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "AUDIT_ONLY_PRE_INTAKE_FAILURE_NO_DATABASE_OR_RECORDER",
+  "artifact": {
+    "filename": "b2c-000197-v11-v5-missing-six-go-env-pre-intake-invocation-audit-20260802.json",
+    "bytes": 1975,
+    "mode": "0444",
+    "raw_sha256": "8b5345673f1b44237d343efe9e4134a0f606e2fd8c4ad90aeff791e590f0456c"
+  },
+  "safe_intent_raw_sha256": "bc60991bf5bdf7508f8b1da2e41db42b96bdb017570d0c881f7701e940559f7c",
+  "formal_evidence_root_state": "ABSENT_UNCLAIMED",
+  "evidence_recorder_created": false,
+  "docker_or_database_command_executed": false,
+  "database_writes": 0,
+  "retry_or_cleanup_attempted": false,
+  "next_action": "STOP_PENDING_NEW_EXPLICIT_AUTHORIZATION"
+}

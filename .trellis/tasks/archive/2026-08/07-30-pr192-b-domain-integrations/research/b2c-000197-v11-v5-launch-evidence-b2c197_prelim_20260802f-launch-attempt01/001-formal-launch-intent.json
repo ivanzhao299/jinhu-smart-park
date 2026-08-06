@@ -1,0 +1,57 @@
+{
+  "schema_version": "b2c-000197-v11-v5-formal-launch-intent-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_formal_launch_attempt01",
+  "recorded_at_utc": "2026-08-02T03:47:05.395Z",
+  "command": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node",
+  "argv": [
+    "/home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "shell": false,
+  "authorization_environment": [
+    {
+      "key": "B2C_000197_PRELIMINARY_V11_EXECUTE",
+      "value": "1"
+    },
+    {
+      "key": "B2C_000197_PRELIMINARY_V11_RUN_ID",
+      "value": "b2c197_prelim_20260802f"
+    },
+    {
+      "key": "B2C_000197_V11_DATABASE_PATH",
+      "value": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-independent-database-review-20260802.grammar"
+    },
+    {
+      "key": "B2C_000197_V11_DATABASE_SHA",
+      "value": "77f1d3dc8fb42aae2a48385caa22acb385671e6fe02ad941b7bdaf7c116790a7"
+    },
+    {
+      "key": "B2C_000197_V11_QA_PATH",
+      "value": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-independent-qa-security-review-20260802.grammar"
+    },
+    {
+      "key": "B2C_000197_V11_QA_SHA",
+      "value": "5ab20a43d84e32f6436686972af602b21abb5a4dc1f73d1fa81c670145de144f"
+    },
+    {
+      "key": "B2C_000197_V11_DRAIN_PATH",
+      "value": "/home/jinhuit/JinHuCodebase/jinhu-smart-park/.trellis/tasks/07-30-pr192-b-domain-integrations/research/b2c-000197-preliminary-v11-v5-old-writer-drain-20260802.grammar"
+    },
+    {
+      "key": "B2C_000197_V11_DRAIN_SHA",
+      "value": "03cd70e5690b1ecb7acef85b546f3dc5583b2b79fd3ec781cb26982748e206b2"
+    }
+  ],
+  "conflicting_environment_keys_asserted_absent": [
+    "B2C_000197_V11_PREFLIGHT",
+    "B2C_000197_V11_FREEZE",
+    "B2C_000197_V11_STATIC_GATE",
+    "B2C_000197_V11_STATIC_MODE"
+  ],
+  "secret_environment_keys": [],
+  "stdin": {
+    "present": false,
+    "bytes": 0
+  }
+}

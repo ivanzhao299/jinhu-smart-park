@@ -1,0 +1,41 @@
+c4-input-gate-evidence-v1
+stage	C4 INPUT PASS
+owner	property-task-input-gate-owner
+executed-at	2026-08-01
+docker-used	false
+freeze-path	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-input-freeze-v1.txt
+freeze-raw-sha256	0bf8c671dd9e4ed1ae7faaf15b480c4196fbc25956011cdec482daa5f5891f8b
+freeze-bytes	2706
+gate-path	scripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs
+gate-raw-sha256	ab7879a6ab673eecf366a86a0bf3a7723fd5a7756648c8cf82862bcf031389e9
+gate-bytes	17865
+static-test-path	scripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs
+static-test-raw-sha256	4478932833af9ee10a532ca4251fa7e8989735f14eb7555924a991f623039674
+static-test-bytes	2175
+node-runtime	20.20.2
+command-1	/home/jinhuit/.nvm/versions/node/v20.20.2/bin/node --test scripts/e2e/property-remediation/track-b2a-c4-input-gate.spec.mjs
+command-1-result	PASS; tests=1; failed=0
+command-2	/home/jinhuit/.nvm/versions/node/v20.20.2/bin/node scripts/e2e/property-remediation/track-b2a-c4-input-gate.mjs
+command-2-result	PASS; status=passed
+b-contract	e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944
+shared-source	d444a85ec6be5dcaf0cc0315fdab7aafdbf1493322a6df104930aaad226b633a
+endpoint-manifest	6b82b875f432d4e1d1efc01ce32b958b4a8b193e764862b7886b710bb0ded2fd
+endpoint-row-count	49
+approval-runtime-canonical	49808f0e7e87908755bbf30384f4d338c92065e6a1f896856effaf1a1529f36c
+approval-file-count	53
+approval-grammar-bytes	8182
+error-filter	ff28353767c7f44acf7a57561be3f1750e4ff8d117377aa46a393d8845abfad0
+projection-function-grammar	62af6e29ce78590b1c90621eefb5319ef101f7375b347fc4f6dc5a0341704c1f
+projection-replace-definition	50655ce0ca2a74ff653066b77b9ff60cd969663e07f6828934fd21ef601f2b47
+projection-budget	d86fc62ec471ec85f7fcc1e7dbf74093b6c9cf5deeb5d93f8b08038a03c6cc45
+production-task-file-count	11
+direct-projection-head-dml-count	0
+direct-receipt-bypass-count	0
+production-test-fixture-count	0
+production-registry-count	0
+receipt-token	PROPERTY_MUTATION_RECEIPT_PORT
+malicious-direct-dml-tests	PASS
+malicious-receipt-bypass-tests	PASS
+malicious-test-fixture-tests	PASS
+validation	PASS
+open-p0-p1	[]

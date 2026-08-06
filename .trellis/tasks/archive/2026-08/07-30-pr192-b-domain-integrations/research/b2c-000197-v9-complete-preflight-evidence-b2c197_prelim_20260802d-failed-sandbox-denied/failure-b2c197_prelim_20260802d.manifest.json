@@ -1,0 +1,11 @@
+{
+  "schema_version": "b2c-000197-preliminary-failure-manifest-v9",
+  "evidence_policy_version": "b2c-000197-child-evidence-v9",
+  "formal_run_id": "b2c197_prelim_20260802d",
+  "status": "FAILED",
+  "artifact": {
+    "filename": "failure-b2c197_prelim_20260802d.json",
+    "bytes": 812,
+    "raw_sha256": "d1cde64c577cf0d5bc3dbfd6967813b8fbc744731a22e18ff7328e37ad030df1"
+  }
+}

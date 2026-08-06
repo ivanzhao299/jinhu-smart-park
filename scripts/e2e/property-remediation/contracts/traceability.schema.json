@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-traceability-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "requirements"],
+  "properties": {
+    "schema_version": { "const": "property-remediation-traceability-v1" },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requirement_id", "source", "journey", "layers",
+          "positive_test_ids", "negative_test_ids", "evidence_ids",
+          "owner", "status", "waiver"
+        ],
+        "properties": {
+          "requirement_id": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "journey": { "type": "string", "minLength": 1 },
+          "layers": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "positive_test_ids": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "negative_test_ids": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "evidence_ids": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "owner": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["implemented", "awaiting", "blocked"] },
+          "waiver": { "const": null }
+        }
+      }
+    }
+  }
+}

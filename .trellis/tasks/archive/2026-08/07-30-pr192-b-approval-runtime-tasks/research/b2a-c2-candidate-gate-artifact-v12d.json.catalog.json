@@ -1,0 +1,1461 @@
+{
+  "relations": [
+    {
+      "oid": "22662",
+      "relname": "biz_property_task_projection",
+      "relkind": "r",
+      "relpersistence": "p",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "oid": "22644",
+      "relname": "biz_property_task_projection_head",
+      "relkind": "r",
+      "relpersistence": "p",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "oid": "22703",
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "relkind": "r",
+      "relpersistence": "p",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "oid": "22735",
+      "relname": "sys_property_runtime_control_contract_audit",
+      "relkind": "r",
+      "relpersistence": "p",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    }
+  ],
+  "columns": [
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 1,
+      "attname": "id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "uuid_generate_v4()"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 2,
+      "attname": "tenant_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 3,
+      "attname": "park_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 4,
+      "attname": "head_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 5,
+      "attname": "task_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 6,
+      "attname": "task_key",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 7,
+      "attname": "assignment_authority",
+      "data_type": "character varying(8)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 8,
+      "attname": "derived_assignment_id",
+      "data_type": "uuid",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 9,
+      "attname": "source_type",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 10,
+      "attname": "source_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 11,
+      "attname": "source_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 12,
+      "attname": "business_occurrence_key",
+      "data_type": "character varying(256)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 13,
+      "attname": "task_kind",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 14,
+      "attname": "queue_code",
+      "data_type": "character varying(128)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 15,
+      "attname": "title",
+      "data_type": "character varying(500)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 16,
+      "attname": "kind_label",
+      "data_type": "character varying(128)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 17,
+      "attname": "source_label",
+      "data_type": "character varying(128)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 18,
+      "attname": "priority",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "0"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 19,
+      "attname": "due_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 20,
+      "attname": "assignment_status",
+      "data_type": "character varying(16)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 21,
+      "attname": "assignment_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 22,
+      "attname": "assignee_id",
+      "data_type": "uuid",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 23,
+      "attname": "assignee_display",
+      "data_type": "character varying(200)",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 24,
+      "attname": "claimed_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 25,
+      "attname": "started_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 26,
+      "attname": "blocked_reason",
+      "data_type": "character varying(1000)",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 27,
+      "attname": "blocked_until",
+      "data_type": "timestamp with time zone",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 28,
+      "attname": "outcome_code",
+      "data_type": "character varying(64)",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 29,
+      "attname": "outcome_source_version",
+      "data_type": "integer",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 30,
+      "attname": "outcome_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 31,
+      "attname": "source_deep_link",
+      "data_type": "character varying(512)",
+      "attnotnull": false,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 32,
+      "attname": "projection_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 33,
+      "attname": "content_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 34,
+      "attname": "created_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "attnum": 35,
+      "attname": "updated_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 1,
+      "attname": "id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "uuid_generate_v4()"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 2,
+      "attname": "tenant_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 3,
+      "attname": "park_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 4,
+      "attname": "source_type",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 5,
+      "attname": "source_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 6,
+      "attname": "projection_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 7,
+      "attname": "content_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 8,
+      "attname": "last_rebuilt_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 9,
+      "attname": "last_rebuilt_by",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 10,
+      "attname": "created_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "attnum": 11,
+      "attname": "updated_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 1,
+      "attname": "id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "uuid_generate_v4()"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 2,
+      "attname": "tenant_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 3,
+      "attname": "park_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 4,
+      "attname": "head_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 5,
+      "attname": "source_type",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 6,
+      "attname": "source_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 7,
+      "attname": "actor_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 8,
+      "attname": "mutation_receipt_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 9,
+      "attname": "replace_mode",
+      "data_type": "character varying(32)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 10,
+      "attname": "command_action",
+      "data_type": "character varying(128)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 11,
+      "attname": "from_projection_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 12,
+      "attname": "to_projection_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 13,
+      "attname": "business_result_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 14,
+      "attname": "projected_task_count",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 15,
+      "attname": "assignment_mutation_count",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "0"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 16,
+      "attname": "reason",
+      "data_type": "character varying(1000)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 17,
+      "attname": "request_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 18,
+      "attname": "result_ref",
+      "data_type": "character varying(512)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 19,
+      "attname": "result_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 20,
+      "attname": "content_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "attnum": 21,
+      "attname": "occurred_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "clock_timestamp()"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 1,
+      "attname": "id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "uuid_generate_v4()"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 2,
+      "attname": "tenant_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 3,
+      "attname": "park_id",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 4,
+      "attname": "control_id",
+      "data_type": "uuid",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 5,
+      "attname": "control_key",
+      "data_type": "character varying(128)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 6,
+      "attname": "correction_key",
+      "data_type": "character varying(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": "'b2a-contract-correction-000194'::character varying"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 7,
+      "attname": "old_contract_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 8,
+      "attname": "new_contract_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 9,
+      "attname": "old_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 10,
+      "attname": "new_version",
+      "data_type": "integer",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 11,
+      "attname": "old_disabled_reason",
+      "data_type": "character varying(500)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 12,
+      "attname": "new_disabled_reason",
+      "data_type": "character varying(500)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 13,
+      "attname": "old_update_time",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 14,
+      "attname": "new_update_time",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 15,
+      "attname": "evidence_hash",
+      "data_type": "character(64)",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "attnum": 16,
+      "attname": "occurred_at",
+      "data_type": "timestamp with time zone",
+      "attnotnull": true,
+      "attidentity": "",
+      "attgenerated": "",
+      "default_expr": null
+    }
+  ],
+  "constraints": [
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "biz_property_task_projection_pkey",
+      "contype": "p",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_active",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK ((assignment_status::text <> ALL (ARRAY['claimed'::character varying, 'in_progress'::character varying, 'blocked'::character varying]::text[])) OR assignee_id IS NOT NULL AND assignee_display IS NOT NULL AND claimed_at IS NOT NULL)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_authority",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (assignment_authority::text = 'derived'::text AND derived_assignment_id IS NOT NULL OR assignment_authority::text = 'owning'::text AND derived_assignment_id IS NULL)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_blocked",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK ((assignment_status::text = 'blocked'::text) = (blocked_reason IS NOT NULL))"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_keys",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (task_key ~ '^[0-9a-f]{64}$'::text AND content_hash ~ '^[0-9a-f]{64}$'::text AND length(btrim(business_occurrence_key::text)) > 0 AND business_occurrence_key::text !~ '[\\t\\n\\r]'::text AND queue_code::text ~ '^[a-z][a-z0-9._:-]{0,127}$'::text)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_lifecycle",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK ((assignment_status::text <> 'claimed'::text OR started_at IS NULL AND blocked_reason IS NULL AND blocked_until IS NULL) AND (assignment_status::text <> 'in_progress'::text OR started_at IS NOT NULL AND blocked_reason IS NULL AND blocked_until IS NULL) AND (assignment_status::text <> 'blocked'::text OR started_at IS NOT NULL) AND ((assignment_status::text <> ALL (ARRAY['closed'::character varying, 'cancelled'::character varying]::text[])) OR assignee_id IS NULL AND assignee_display IS NULL AND blocked_reason IS NULL AND blocked_until IS NULL))"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_logical_time",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (updated_at >= created_at)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_open",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (assignment_status::text <> 'open'::text OR assignee_id IS NULL AND assignee_display IS NULL AND claimed_at IS NULL AND started_at IS NULL AND blocked_until IS NULL)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_outcome",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK ((assignment_status::text = ANY (ARRAY['closed'::character varying, 'cancelled'::character varying]::text[])) = (outcome_code IS NOT NULL AND outcome_source_version IS NOT NULL AND outcome_at IS NOT NULL) AND (outcome_source_version IS NULL OR outcome_source_version > 0))"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_positive",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (source_version > 0 AND assignment_version > 0 AND projection_version > 0 AND priority >= 0 AND priority <= 100)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "ck_biz_property_task_projection_status",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (assignment_status::text = ANY (ARRAY['open'::character varying, 'claimed'::character varying, 'in_progress'::character varying, 'blocked'::character varying, 'closed'::character varying, 'cancelled'::character varying]::text[]))"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "fk_biz_property_task_projection_assignment",
+      "contype": "f",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "FOREIGN KEY (tenant_id, park_id, derived_assignment_id) REFERENCES biz_property_task_assignment(tenant_id, park_id, id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "fk_biz_property_task_projection_head",
+      "contype": "f",
+      "condeferrable": true,
+      "condeferred": true,
+      "convalidated": true,
+      "definition": "FOREIGN KEY (tenant_id, park_id, head_id, source_type, source_id) REFERENCES biz_property_task_projection_head(tenant_id, park_id, id, source_type, source_id) ON UPDATE RESTRICT ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "trg_biz_property_task_projection_generation_exact",
+      "contype": "t",
+      "condeferrable": true,
+      "condeferred": true,
+      "convalidated": true,
+      "definition": "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "uq_biz_property_task_projection_occurrence",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, source_type, source_id, task_kind, business_occurrence_key)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "uq_biz_property_task_projection_scope_id",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, id)"
+    },
+    {
+      "relname": "biz_property_task_projection",
+      "conname": "uq_biz_property_task_projection_task",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, task_id)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "biz_property_task_projection_head_pkey",
+      "contype": "p",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "ck_biz_property_task_projection_head_hash",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (content_hash ~ '^[0-9a-f]{64}$'::text)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "ck_biz_property_task_projection_head_version",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (projection_version > 0)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "trg_biz_property_task_projection_head_generation_exact",
+      "contype": "t",
+      "condeferrable": true,
+      "condeferred": true,
+      "convalidated": true,
+      "definition": "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "uq_biz_property_task_projection_head_scope_id",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, id)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "uq_biz_property_task_projection_head_source",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, source_type, source_id)"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "conname": "uq_biz_property_task_projection_head_stable",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, id, source_type, source_id)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "biz_property_task_projection_rebuild_audit_pkey",
+      "contype": "p",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_counts",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (projected_task_count >= 0 AND assignment_mutation_count = 0)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_hashes",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (request_hash ~ '^[0-9a-f]{64}$'::text AND result_hash ~ '^[0-9a-f]{64}$'::text AND content_hash ~ '^[0-9a-f]{64}$'::text)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_mode_action",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (replace_mode::text = 'manual-rebuild'::text AND command_action::text = 'property.task.rebuild'::text OR replace_mode::text = 'authority-sync'::text AND (command_action::text = ANY (ARRAY['property.task.claim'::character varying, 'property.task.start'::character varying, 'property.task.block'::character varying, 'property.task.unblock'::character varying, 'property.task.release'::character varying, 'property.task.source-terminal.closed'::character varying, 'property.task.source-terminal.cancelled'::character varying]::text[])))"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_reason",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (length(btrim(reason::text)) > 0 AND (replace_mode::text = 'manual-rebuild'::text OR reason::text = ('authority-sync:'::text || command_action::text)))"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_result_ref",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (replace_mode::text = 'manual-rebuild'::text AND command_action::text = 'property.task.rebuild'::text AND business_result_version = to_projection_version AND result_ref::text = ((((('property-task-rebuild/'::text || source_type::text) || '/'::text) || lower(source_id::text)) || '/v'::text) || business_result_version::text) OR replace_mode::text = 'authority-sync'::text AND (command_action::text = ANY (ARRAY['property.task.claim'::character varying, 'property.task.start'::character varying, 'property.task.block'::character varying, 'property.task.unblock'::character varying, 'property.task.release'::character varying]::text[])) AND result_ref::text ~ (('^property-task/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/v'::text || business_result_version::text) || '$'::text) OR replace_mode::text = 'authority-sync'::text AND command_action::text = 'property.task.source-terminal.closed'::text AND result_ref::text = ((((('property-task-source-terminal/'::text || source_type::text) || '/'::text) || lower(source_id::text)) || '/closed/v'::text) || business_result_version::text) OR replace_mode::text = 'authority-sync'::text AND command_action::text = 'property.task.source-terminal.cancelled'::text AND result_ref::text = ((((('property-task-source-terminal/'::text || source_type::text) || '/'::text) || lower(source_id::text)) || '/cancelled/v'::text) || business_result_version::text))"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "ck_biz_property_task_projection_rebuild_audit_version",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (from_projection_version >= 0 AND to_projection_version = (from_projection_version + 1) AND business_result_version > 0)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "fk_biz_property_task_projection_rebuild_audit_head",
+      "contype": "f",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "FOREIGN KEY (tenant_id, park_id, head_id, source_type, source_id) REFERENCES biz_property_task_projection_head(tenant_id, park_id, id, source_type, source_id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "fk_biz_property_task_projection_rebuild_audit_receipt",
+      "contype": "f",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "FOREIGN KEY (tenant_id, park_id, mutation_receipt_id) REFERENCES biz_property_mutation_receipt(tenant_id, park_id, id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "uq_biz_property_task_projection_rebuild_audit_scope_id",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, id)"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "conname": "uq_biz_property_task_projection_rebuild_audit_version",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, head_id, to_projection_version)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "ck_sys_property_runtime_control_contract_audit_hashes",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (old_contract_hash ~ '^[0-9a-f]{64}$'::text AND new_contract_hash ~ '^[0-9a-f]{64}$'::text AND evidence_hash ~ '^[0-9a-f]{64}$'::text)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "ck_sys_property_runtime_control_contract_audit_key",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (correction_key::text = 'b2a-contract-correction-000194'::text)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "ck_sys_property_runtime_control_contract_audit_times",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (new_update_time = occurred_at AND new_update_time >= old_update_time)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "ck_sys_property_runtime_control_contract_audit_versions",
+      "contype": "c",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "CHECK (old_version > 0 AND new_version = (old_version + 1))"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "fk_sys_property_runtime_control_contract_audit_control",
+      "contype": "f",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "FOREIGN KEY (tenant_id, park_id, control_id) REFERENCES sys_property_runtime_control(tenant_id, park_id, id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "sys_property_runtime_control_contract_audit_pkey",
+      "contype": "p",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "uq_sys_property_runtime_control_contract_audit_correction",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, control_id, correction_key)"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "conname": "uq_sys_property_runtime_control_contract_audit_scope_id",
+      "contype": "u",
+      "condeferrable": false,
+      "condeferred": false,
+      "convalidated": true,
+      "definition": "UNIQUE (tenant_id, park_id, id)"
+    }
+  ],
+  "indexes": [
+    {
+      "index_name": "biz_property_task_projection_head_pkey",
+      "indisunique": true,
+      "indisprimary": true,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX biz_property_task_projection_head_pkey ON public.biz_property_task_projection_head USING btree (id)"
+    },
+    {
+      "index_name": "biz_property_task_projection_pkey",
+      "indisunique": true,
+      "indisprimary": true,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX biz_property_task_projection_pkey ON public.biz_property_task_projection USING btree (id)"
+    },
+    {
+      "index_name": "biz_property_task_projection_rebuild_audit_pkey",
+      "indisunique": true,
+      "indisprimary": true,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX biz_property_task_projection_rebuild_audit_pkey ON public.biz_property_task_projection_rebuild_audit USING btree (id)"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_active_queue",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_active_queue ON public.biz_property_task_projection USING btree (tenant_id, park_id, queue_code, assignment_status, priority DESC, due_at, task_id) WHERE ((assignment_status)::text = ANY ((ARRAY['open'::character varying, 'claimed'::character varying, 'in_progress'::character varying, 'blocked'::character varying])::text[]))"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_assignee",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_assignee ON public.biz_property_task_projection USING btree (tenant_id, park_id, assignee_id, assignment_status, updated_at DESC, task_id) WHERE (assignee_id IS NOT NULL)"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_head",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_head ON public.biz_property_task_projection USING btree (tenant_id, park_id, head_id, task_id)"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_head_cas",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_head_cas ON public.biz_property_task_projection_head USING btree (tenant_id, park_id, source_type, source_id, projection_version)"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_rebuild_audit_source",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_rebuild_audit_source ON public.biz_property_task_projection_rebuild_audit USING btree (tenant_id, park_id, source_type, source_id, occurred_at DESC, id)"
+    },
+    {
+      "index_name": "idx_biz_property_task_projection_source",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_biz_property_task_projection_source ON public.biz_property_task_projection USING btree (tenant_id, park_id, source_type, source_id, task_kind, business_occurrence_key)"
+    },
+    {
+      "index_name": "idx_sys_property_runtime_control_contract_audit_control",
+      "indisunique": false,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE INDEX idx_sys_property_runtime_control_contract_audit_control ON public.sys_property_runtime_control_contract_audit USING btree (tenant_id, park_id, control_key, occurred_at, id)"
+    },
+    {
+      "index_name": "sys_property_runtime_control_contract_audit_pkey",
+      "indisunique": true,
+      "indisprimary": true,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX sys_property_runtime_control_contract_audit_pkey ON public.sys_property_runtime_control_contract_audit USING btree (id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_head_scope_id",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_head_scope_id ON public.biz_property_task_projection_head USING btree (tenant_id, park_id, id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_head_source",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_head_source ON public.biz_property_task_projection_head USING btree (tenant_id, park_id, source_type, source_id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_head_stable",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_head_stable ON public.biz_property_task_projection_head USING btree (tenant_id, park_id, id, source_type, source_id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_occurrence",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_occurrence ON public.biz_property_task_projection USING btree (tenant_id, park_id, source_type, source_id, task_kind, business_occurrence_key)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_rebuild_audit_scope_id",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_rebuild_audit_scope_id ON public.biz_property_task_projection_rebuild_audit USING btree (tenant_id, park_id, id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_rebuild_audit_version",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_rebuild_audit_version ON public.biz_property_task_projection_rebuild_audit USING btree (tenant_id, park_id, head_id, to_projection_version)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_scope_id",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_scope_id ON public.biz_property_task_projection USING btree (tenant_id, park_id, id)"
+    },
+    {
+      "index_name": "uq_biz_property_task_projection_task",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_biz_property_task_projection_task ON public.biz_property_task_projection USING btree (tenant_id, park_id, task_id)"
+    },
+    {
+      "index_name": "uq_sys_property_runtime_control_contract_audit_correction",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_sys_property_runtime_control_contract_audit_correction ON public.sys_property_runtime_control_contract_audit USING btree (tenant_id, park_id, control_id, correction_key)"
+    },
+    {
+      "index_name": "uq_sys_property_runtime_control_contract_audit_scope_id",
+      "indisunique": true,
+      "indisprimary": false,
+      "indisvalid": true,
+      "indisready": true,
+      "definition": "CREATE UNIQUE INDEX uq_sys_property_runtime_control_contract_audit_scope_id ON public.sys_property_runtime_control_contract_audit USING btree (tenant_id, park_id, id)"
+    }
+  ],
+  "triggers": [
+    {
+      "relname": "biz_property_task_projection",
+      "tgname": "trg_biz_property_task_projection_generation_exact",
+      "tgenabled": "O",
+      "tgdeferrable": true,
+      "tginitdeferred": true,
+      "definition": "CREATE CONSTRAINT TRIGGER trg_biz_property_task_projection_generation_exact AFTER INSERT OR DELETE OR UPDATE ON biz_property_task_projection DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fn_property_task_projection_generation_exact()"
+    },
+    {
+      "relname": "biz_property_task_projection_head",
+      "tgname": "trg_biz_property_task_projection_head_generation_exact",
+      "tgenabled": "O",
+      "tgdeferrable": true,
+      "tginitdeferred": true,
+      "definition": "CREATE CONSTRAINT TRIGGER trg_biz_property_task_projection_head_generation_exact AFTER INSERT OR DELETE OR UPDATE ON biz_property_task_projection_head DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fn_property_task_projection_generation_exact()"
+    },
+    {
+      "relname": "biz_property_task_projection_rebuild_audit",
+      "tgname": "trg_biz_property_task_projection_rebuild_audit_immutable",
+      "tgenabled": "O",
+      "tgdeferrable": false,
+      "tginitdeferred": false,
+      "definition": "CREATE TRIGGER trg_biz_property_task_projection_rebuild_audit_immutable BEFORE DELETE OR UPDATE ON biz_property_task_projection_rebuild_audit FOR EACH ROW EXECUTE FUNCTION fn_property_task_projection_audit_immutable()"
+    },
+    {
+      "relname": "sys_property_runtime_control_contract_audit",
+      "tgname": "trg_sys_property_runtime_control_contract_audit_immutable",
+      "tgenabled": "O",
+      "tgdeferrable": false,
+      "tginitdeferred": false,
+      "definition": "CREATE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable BEFORE DELETE OR UPDATE ON sys_property_runtime_control_contract_audit FOR EACH ROW EXECUTE FUNCTION fn_property_runtime_control_contract_audit_immutable()"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": "b2c-v24-independent-database-returned-review-v1",
+  "decision": "NO-GO",
+  "review_approved": false,
+  "open_p0": 0,
+  "open_p1": 2,
+  "candidate_authority_raw_sha256": "eab451206b106d747df1cb342aacbb94e02631be344b4eb70bd75f0cf74b4c51",
+  "candidate_manifest_raw_sha256": "2bfbdfc6bf914d03b641cb02e6a80b49a7d1c13ee29f9da5c192c711bd62b24b",
+  "registry_raw_sha256": "f54c6ee7918c74553e3c30e4a04d1a928a288ca0ece90cb17e3f5941a98984ed",
+  "static_test_record_raw_sha256": "55fa6216e46638d3e9588fa02d02dcd75ee02a0a352e2f12ba20b4259ba7f0a4",
+  "node22_tap_raw_sha256": "34e0007d13890e82d251b26beaf4913adef180b8b71925bd1e9fed9291cbb858",
+  "node24_tap_raw_sha256": "8948a84ad344da5efd552b40f5ed332b01e18a5eb5e782517ae8466e1915cd3a",
+  "runner_raw_sha256": "50d505829d7455e5e2b955944ec35da789b61a89ebffeb49a096bb66f0236345",
+  "runner_spec_raw_sha256": "667541c4324dc7f26b34b9270243f0faf46fc6fdc4281360327db48be1ee7299",
+  "migration_000197_raw_sha256": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+  "formal_source_manifest_raw_sha256": "c962ed8503e709e66b256c171ca069b7a54659c6726692e62d6f1655c7bf3915",
+  "verified": {
+    "all_supplied_raw_hashes_match": true,
+    "formal_source_count": 102,
+    "formal_source_manifest_recomputed": true,
+    "success_apply_and_exact_final_catalog_checked": true,
+    "dual_history_record_is_one_transaction": true,
+    "identical_migration_byte_rerun_and_snapshot_equality_checked": true,
+    "approval_port_named_tests": 7,
+    "approval_port_double_cleanup_and_zero_approval_residue_checked": true,
+    "four_p0001_boundaries_and_rollback_snapshots_checked": true,
+    "v23_resource_identities_prohibited": true,
+    "canonical_go_review_created": false,
+    "docker_or_database_command_executed": false
+  },
+  "findings": [
+    {
+      "severity": "P1",
+      "code": "FORMAL_SOURCE_EXECUTION_TOCTOU_OPEN",
+      "issue": "The 102-file formal-source manifest is recomputed and checked, but the approval gate sources are mutable mode-0644 files. verifyFormalSources reads them by pathname and returns; approvalPortGate then loads the CommonJS gate and launches ts-node/test processes that reopen the same paths. A concurrent replace or write after verification can therefore execute bytes not represented by c962ed8503e709e66b256c171ca069b7a54659c6726692e62d6f1655c7bf3915. formalSourcePlan and verifyFormalSources also use lstat/stat/readFile or readFile rather than a held O_NOFOLLOW descriptor.",
+      "evidence": [
+        "runner lines 92-108 build and verify the formal-source plan by pathname",
+        "runner lines 264-271 load/execute approval sources after the verification point",
+        "runner lines 291-296 verify and then invoke approvalPortGate without byte-pinned execution",
+        "the v24 static spec has no mutation-at-load or mutation-at-child-spawn formal-source test"
+      ],
+      "required_fix": "Execute the approval gate from byte-pinned immutable copies/descriptors derived from the frozen manifest, or add an equivalent mechanism that cryptographically binds the exact bytes consumed by require/ts-node/test. Add deterministic tests that mutate or replace a formal source between verification and each load/spawn boundary and prove zero unbound execution. Re-freeze runner, spec, TAP, candidate, manifest, and formal-source hashes afterward."
+    },
+    {
+      "severity": "P1",
+      "code": "FORMAL_SOURCE_DEPENDENCY_CLOSURE_INCOMPLETE",
+      "issue": "The 102-file formal-source plan includes apps/api package.json and tsconfig.json plus shared package/source/dist, but omits root package.json, pnpm-lock.yaml, pnpm-workspace.yaml, root tsconfig.base.json, and packages/config package/tsconfig authority. The approval child commands execute process.execPath with ts-node/register from apps/api and resolve workspace packages and compiler configuration through the installed workspace. Those omitted bytes can change dependency resolution, the loaded ts-node/TypeScript/TypeORM implementation, workspace linking, or inherited compiler behavior without changing the frozen formal-source manifest hash.",
+      "evidence": [
+        "formalSourcePlan enumerates only five explicit files before property-approvals and shared trees",
+        "apps/api/tsconfig.json extends ../../tsconfig.base.json, which is outside the manifest",
+        "apps/api/package.json depends on workspace @jinhu/shared and ts-node, whose resolved graph is governed by the omitted workspace and lock files",
+        "the manifest does not cover packages/config/package.json or packages/config/tsconfig/base.json"
+      ],
+      "required_fix": "Expand formal-source closure to every repository byte that governs module, workspace, dependency, and compiler resolution, including the omitted root and config files, and bind the actual runtime dependency installation or an immutable content-addressed execution environment. Add omission/drift tests, then re-freeze all v24-derived hashes."
+    }
+  ],
+  "disposition": {
+    "create_canonical_database_go_review": false,
+    "permit_provision_phase": false,
+    "permit_execution_phase": false,
+    "reuse_v23_resources_or_evidence": false
+  },
+  "local_replay": {
+    "attempted": true,
+    "result": "environment-blocked",
+    "reason": "/tmp inode exhaustion (1048576/1048576) caused ENOSPC before fixture construction; the supplied sealed Node 22 and Node 24 TAP records themselves rehash correctly and each report 9/9 pass"
+  }
+}

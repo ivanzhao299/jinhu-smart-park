@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v21-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v21_20260803a",
+  "stage": "record-000193-property-b-runtime-integrity-forward-fix-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v21-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v21_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 604,
+    "raw_sha256": "9f07e21b87da1409c62ae6ac1a9ce22974542a3bac19297f2b59a6cbd4673369",
+    "persisted": false
+  }
+}

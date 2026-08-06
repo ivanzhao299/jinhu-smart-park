@@ -2937,6 +2937,17 @@ textarea:disabled {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Design System Baseline v1: production work surfaces. */
 .ds-page {
   --ds-page-gap: 18px;
@@ -9364,6 +9375,22 @@ body.mobile-terminal-mode .field select {
   }
 
   .ds-data-table > tbody > tr > td[colspan]:first-child:last-child::before {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-shell .app-sidebar {
+    display: block;
+    position: fixed;
+    inset: calc(74px + env(safe-area-inset-top)) auto 0 0;
+    z-index: 120;
+    width: min(88vw, 320px);
+    max-width: 320px;
+    box-shadow: 18px 0 40px rgb(15 23 42 / 28%);
+  }
+
+  .dashboard-shell.sidebar-collapsed .app-sidebar {
     display: none;
   }
 }

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "property-track-c-performance-profile-v1",
+  "resourceProfile": {
+    "web": { "cpu": 1, "memoryMiB": 1024 },
+    "api": { "cpu": 2, "memoryMiB": 2048 },
+    "postgres": { "cpu": 2, "memoryMiB": 4096 },
+    "browserWorker": { "cpu": 2, "memoryMiB": 2048 }
+  },
+  "scenarios": [
+    { "id": "homestay-dashboard", "method": "GET", "path": "/api/v1/homestay/dashboard" },
+    { "id": "housing-dashboard", "method": "GET", "path": "/api/v1/housing/dashboard" }
+  ],
+  "concurrency": [1, 10, 30],
+  "runsPerConcurrency": 5,
+  "temperatureByRun": ["cold", "warm", "warm", "warm", "warm"],
+  "warmupSeconds": 120,
+  "formalSeconds": 600,
+  "minimumRequests": 10000,
+  "thresholds": {
+    "p95Milliseconds": 1000,
+    "errorRate": 0.01,
+    "minimumThroughputPerSecond": 16.6666666667,
+    "p95CoefficientOfVariation": 0.2
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v27-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v27_20260803a",
+  "stage": "apply-000088-s5a-safety-hazard-manage-all-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v27-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v27_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 4137,
+    "raw_sha256": "6521169d77e0136acba3ae4040c02c424f312a3f72743d0f967b180871fd738b",
+    "persisted": false
+  }
+}

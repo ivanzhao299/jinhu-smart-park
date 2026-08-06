@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v25-independent-database-review-v1",
+  "decision": "GO",
+  "review_approved": true,
+  "open_p0": 0,
+  "open_p1": 0,
+  "candidate_authority_raw_sha256": "a1a8e5613614a3514472bb55808e575b30fa4a9a3802f10c96cf34b97871cd8b",
+  "candidate_manifest_raw_sha256": "3a1feb25b223df06eb0e91864c3c506e8f3078f433cd98b5fa91087bd8e048b4",
+  "registry_raw_sha256": "f2acee43f618a312527219ab4e7d32fff48a9885a3c6294baef0113c3ff9bfed",
+  "static_test_record_raw_sha256": "b34c6c401fa8741ff4c56c71b90aa23f646b895811026bb4b4f3a7cac9b8ef91",
+  "node22_tap_raw_sha256": "02780b316899956c7abc02946c15ff09bb9ca2f05b3a43ecf7d323e8978ad1f6",
+  "node24_tap_raw_sha256": "2a779f0e1e21c9fb4f969b59f0d28727c4846406e147e82d497f81cd385be79a",
+  "migration_000197_raw_sha256": "a9b98ca82aa4dafc16535085184df838880ef27801f7cd4b225e1ca1a15af059",
+  "formal_source_manifest_raw_sha256": "b536de67faf6d3559974ce60d21a073bd51bcf28e4d1484c966954b19461e0d7",
+  "runtime_dependency_manifest_raw_sha256": "d803d2c76da417cd2ce3a06ced781f0bf09792182b995cb3f6c169da3abaedf6",
+  "combined_snapshot_raw_sha256": "9e0daf7de68991b1c86a8f75ef9b08e90bd82c2b7b614156532569e2bace9d2d",
+  "resolution_guard_raw_sha256": "2f551c6f42a52ef58b84d58332d4977103e80536def9662280c3e6a51f0e8938"
+}

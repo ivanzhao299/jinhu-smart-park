@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v19-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v19_20260803a",
+  "stage": "apply-000078-s4a-work-order-logs-timeline-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v19-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v19_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 2535,
+    "raw_sha256": "1e4f01785e96535f11a7933d4b44118ffbd0ce1ff2f77b42802caf6eee078ff8",
+    "persisted": false
+  }
+}

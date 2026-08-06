@@ -1,0 +1,18 @@
+{
+  "schema_version": "b2c-v27-child-result-v1",
+  "run_id": "b2c197_v11v6_direct_v27_20260803a",
+  "stage": "apply-000187-property-b-event-notification-schema-sql",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 366,
+    "raw_sha256": "b25fd77d0f5be3be10be515da11dc6d45276e3b1dd96108e33f39ff6f3b6bea3",
+    "safe_excerpt": "<suppressed>"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safe_excerpt": "<suppressed>"
+  }
+}

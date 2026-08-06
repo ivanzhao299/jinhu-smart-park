@@ -1,0 +1,23 @@
+TAP version 13
+# Subtest: v13 exposes only sealed two-phase resource APIs and permanently pending candidate flags
+ok 1 - v13 exposes only sealed two-phase resource APIs and permanently pending candidate flags
+# Subtest: v13 positive fake-command path provisions exact intent then executes inspect, full baseline, four real DDL boundaries, and provenance terminal
+ok 2 - v13 positive fake-command path provisions exact intent then executes inspect, full baseline, four real DDL boundaries, and provenance terminal
+# Subtest: v13 rejects every canonical intake path when missing, mutable, or symlinked before creation
+ok 3 - v13 rejects every canonical intake path when missing, mutable, or symlinked before creation
+# Subtest: v13 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+ok 4 - v13 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+# Subtest: v13 seals an immutable non-reusable failure receipt when post-create inspection fails
+ok 5 - v13 seals an immutable non-reusable failure receipt when post-create inspection fails
+# Subtest: v13 execute rejects observation/execution authority schemas, bindings, modes, symlinks, and migration drift with zero child commands
+ok 6 - v13 execute rejects observation/execution authority schemas, bindings, modes, symlinks, and migration drift with zero child commands
+# Subtest: v13 snapshot and full P0001 marker contracts reject missing/extra/coerced values and substring matches
+ok 7 - v13 snapshot and full P0001 marker contracts reject missing/extra/coerced values and substring matches
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0

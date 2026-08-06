@@ -1,0 +1,37 @@
+{
+  "schema_version": "b2c-v30-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v30_20260803a",
+  "stage": "apply-000126-s8e-video-evidence-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v30-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v30_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "execution": {
+    "cwd": ".",
+    "env_keys": [
+      "PATH"
+    ],
+    "env_values_persisted": false
+  },
+  "stdin": {
+    "bytes": 15729,
+    "raw_sha256": "9cf0caeaf15749f65c08e9a4b0abd5467733b721266f86335d9e50debf27963c",
+    "persisted": false
+  }
+}

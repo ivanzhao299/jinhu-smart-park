@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v3",
+  "evidence_policy_version": "b2c-000197-child-evidence-v3",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 1,
+  "stage": "reviewed-r0-derived-loader",
+  "recorded_at_utc": "2026-08-01T21:04:43.686Z",
+  "intent_raw_sha256": "9f1b962563501956417894da3401e2443f70872a667e557c56f1eb2a61d19421",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 237,
+    "raw_sha256": "828379f540e7925b00fdeb9d7d823da915d05c8ea29703d9817e980d6d0a7cf8",
+    "redacted_utf8": "{\"status\":\"passed\",\"run_id\":\"b2c197_prelim_20260802b\",\"targets\":{\"upgrade\":{\"container\":\"jinhu-b2c197-prelim-20260802b-c\",\"database\":\"jinhu_b2c197_c\"},\"fresh\":{\"container\":\"jinhu-b2c197-prelim-20260802b-d\",\"database\":\"jinhu_b2c197_d\"}}}\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

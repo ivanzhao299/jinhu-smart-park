@@ -44,6 +44,23 @@ Do not commit `.env.production`.
 
 `PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
 
+`PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
+`true` 时启用。Track B 审批执行能力完成发布门禁前，生产环境必须保持
+`false`；若提前启用，民宿订单取消、租约审批/作废/退租、退款减免、采购状态
+流转及转租客收费等高风险动作会以 HTTP 409 拒绝，且超级管理员也不会绕过。
+
+`PROPERTY_OFFLINE_DRAFTS_V1` 与 `PROPERTY_UPLOAD_QUEUE_V1` 是 Web 镜像构建期
+回滚开关。仅去除首尾空白并忽略大小写后严格等于 `true` 才启用；未设置、`false`
+或其他值均 fail-closed。`next.config.ts` 只把规范化后的 `true`/`false` 映射到浏览器
+可读的 `NEXT_PUBLIC_*` 常量，不会把其他服务端环境值暴露到客户端。修改开关后必须
+重新构建并发布 Web 镜像，单纯重启现有容器不会改变已编译行为。
+
+关闭草稿开关后，页面不会打开草稿 IndexedDB，也不会声称草稿已保存；关闭上传队列
+开关后，在线上传保持可用，但不会持久化 blob、显示恢复队列或向父表单报告虚假的队列
+忙碌状态。浏览器会删除相应的本机临时数据库和旧版合并数据库；这些数据库只包含未提交
+草稿及待恢复/失败的临时图片，不包含服务器已成功保存的文件，因此回滚清理不得也不会
+删除已成功上传的服务端证据。
+
 ## 1.1 Authentication Release Constraints
 
 The first release supports password login only.

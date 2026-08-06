@@ -1,0 +1,34 @@
+b2c-000197-v11-gh-loader-attempt02-test-record-v2
+formal_run_id	b2c197_prelim_20260802g
+attempt_id	b2c197_prelim_20260802g_gh_loader_attempt02
+status	PASS-FAKE-ONLY-BLOCKED-AWAITING-INDEPENDENT-DATABASE-AND-QA-GO
+execution_authorized	false
+formal_go	false
+outer_execution_mode	escalated-full-runner
+loader_executed	false
+loader_process_attempts	0
+docker_or_database_commands_executed	false
+attempt02_evidence_root_state	ABSENT-UNCLAIMED
+database_go_state	ABSENT
+qa_go_state	ABSENT
+runner_raw_sha256	2cb53526706267d6f6e2a831c9f6b4c03c0dca3a342b3484ca512aa9c79e6577
+spec_raw_sha256	fc2d8f045d25b84f587474648afb938679333c88ed4bde7d97a10ab744ea064f
+candidate_raw_sha256	a5233310bc939e192feb4477abd56aa926da9b813e43ac2fe7606c24bb150d27
+v1_runner_raw_sha256	cd2570881cff2c4c024e489c5b391259d45c9230751d3451224d71c5cb0da6a9
+database_recovery_review_raw_sha256	ed9bbab82060202afbf03208eeb8b880ab715d76aaf22548b3deeb370074e1cb
+qa_failure_review_raw_sha256	16f0aa5cd2c73abc3a7d2f4d950e0f0da1db9fabd75021f550ce9d0ce9a6d34a
+attempt01_failure_terminal_raw_sha256	2245eef92fd071e32f9df32bafd69b9087da0a59585b6f4d99aedbb0f9c3fe5a
+attempt01_failure_manifest_raw_sha256	fd07060d2bc6e77a6c25fec6bbb751322fd61d1d882de7c133e5304f39df4689
+fake_test_command	/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node scripts/e2e/property-remediation/tests/b2c-000197-v11-gh-loader-runner-v2.spec.mjs
+fake_test_result	PASS;tests=9;pass=9;fail=0;skipped=0
+lint_command	/home/jinhuit/.nvm/versions/node/v22.23.2/bin/node node_modules/eslint/bin/eslint.js scripts/e2e/property-remediation/track-b2c-000197-v11-gh-loader-runner-v2.mjs scripts/e2e/property-remediation/tests/b2c-000197-v11-gh-loader-runner-v2.spec.mjs
+lint_result	PASS;errors=0;warnings=0
+coverage	blocked-default;exact-attempt02-root-and-go-paths;outer-mode-missing-and-wrong-rejected;attempt01-go-and-root-rejected;review-and-prior-evidence-bindings;exact-g-h-immediate-preflight-fixtures;strict-loader-json;exact-195-postload;191-192-197-absent;single-loader;spawn-error;no-retry;no-cleanup;exclusive-claim;0444-intent-terminal
+real_preflight_state	NOT-RUN-IN-CANDIDATE-PREPARATION;runner-enforces-fresh-immediate-read-only-preflight-before-loader
+resources_retained	true
+cleanup_attempted	false
+retry_attempted	false
+open_p0	0
+open_p1	1
+open_p2	0
+next_gate	independent-database-and-architecture-review-plus-independent-qa-security-review-must-create-new-attempt02-canonical-go-files-with-all-open-counts-zero

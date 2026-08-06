@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: v22 exposes zero-argument formal APIs with no caller command injection and a /tmp-only harness
+ok 1 - v22 exposes zero-argument formal APIs with no caller command injection and a /tmp-only harness
+  ---
+  duration_ms: 8.131414
+  type: 'test'
+  ...
+# Subtest: v22 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity
+ok 2 - v22 accepts the real registry pattern with shared historical run IDs while rejecting reuse of every target identity
+  ---
+  duration_ms: 196.855494
+  type: 'test'
+  ...
+# Subtest: v22 positive fake-command path proves four ordered injection points across three explicit catalog states
+ok 3 - v22 positive fake-command path proves four ordered injection points across three explicit catalog states
+  ---
+  duration_ms: 237.762948
+  type: 'test'
+  ...
+# Subtest: v22 rejects every canonical intake path when missing, mutable, or symlinked before creation
+ok 4 - v22 rejects every canonical intake path when missing, mutable, or symlinked before creation
+  ---
+  duration_ms: 90.768577
+  type: 'test'
+  ...
+# Subtest: v22 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+ok 5 - v22 rejects exact schema, field, decision, numeric-zero, hash, registry, resource, and live-byte drift before creation
+  ---
+  duration_ms: 50.476408
+  type: 'test'
+  ...
+# Subtest: v22 failure receipts use fixed fields, omit secret error text, and reject extra inspect labels
+ok 6 - v22 failure receipts use fixed fields, omit secret error text, and reject extra inspect labels
+  ---
+  duration_ms: 12.711097
+  type: 'test'
+  ...
+# Subtest: v22 rejects extra observed labels before execute and extra live labels into a fixed failure terminal
+ok 7 - v22 rejects extra observed labels before execute and extra live labels into a fixed failure terminal
+  ---
+  duration_ms: 33.898697
+  type: 'test'
+  ...
+# Subtest: v22 execute rejects observation/execution authority schemas, bindings, modes, symlinks, migration drift, and fixture drift with zero child commands
+ok 8 - v22 execute rejects observation/execution authority schemas, bindings, modes, symlinks, migration drift, and fixture drift with zero child commands
+  ---
+  duration_ms: 149.32108
+  type: 'test'
+  ...
+# Subtest: v22 snapshot and full P0001 marker contracts accept the exact verbose psql prefix while rejecting whitespace drift, ambiguity, and substrings
+ok 9 - v22 snapshot and full P0001 marker contracts accept the exact verbose psql prefix while rejecting whitespace drift, ambiguity, and substrings
+  ---
+  duration_ms: 37.035408
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 872.146612

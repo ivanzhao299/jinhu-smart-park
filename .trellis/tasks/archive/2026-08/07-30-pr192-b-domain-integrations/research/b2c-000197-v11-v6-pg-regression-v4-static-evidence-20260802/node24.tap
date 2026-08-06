@@ -1,0 +1,18 @@
+✔ v4 candidate freezes review paths and schemas while execution remains false (0.980197ms)
+✔ v4 database GO and one-way QA GO accept only exact acyclic zero-finding fields (0.600539ms)
+✔ v4 resource authority accepts only exact dedicated anonymous PG16 target (0.824325ms)
+✔ v4 GO intake rejects missing, duplicate, unknown, role, decision, P-count and SHA drift (0.378189ms)
+✔ missing dynamic authority stops before claim and first child command (0.336246ms)
+✔ authorized v4 fake run writes immutable all-child success evidence and keeps SQL off argv (4.117001ms)
+✔ psql output is suppressed, immutable, non-reusable and never retries or cleans up (1.495649ms)
+✔ structured redaction covers SQL, JSON, environment, URL and option secrets while benign argv survives (2.372562ms)
+✔ authorization redaction consumes complete schemes and credentials with zero sentinel residue (0.391932ms)
+✔ strict identity, mount, no-port and PostgreSQL 16 checks fail closed (1.393977ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.431925

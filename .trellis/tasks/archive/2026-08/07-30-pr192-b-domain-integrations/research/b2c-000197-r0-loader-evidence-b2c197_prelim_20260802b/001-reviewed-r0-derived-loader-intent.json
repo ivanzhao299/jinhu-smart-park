@@ -1,0 +1,23 @@
+{
+  "schema_version": "b2c-000197-child-intent-v3",
+  "evidence_policy_version": "b2c-000197-child-evidence-v3",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 1,
+  "stage": "reviewed-r0-derived-loader",
+  "recorded_at_utc": "2026-08-01T21:03:46.214Z",
+  "command": "/tmp/pr192-node-runtime/bin/node",
+  "argv": [
+    "--input-type=module",
+    "-"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "environment_allowlist": {
+    "PATH": "/tmp/pr192-node-runtime/bin:/home/jinhuit/.cargo/bin:/mnt/c/Users/JinhuIT/.codex/tmp/arg0/codex-arg0gCDQrq:/mnt/c/Users/JinhuIT/.codex/bin/wsl/ef1b8b6edf52728b:/mnt/c/Users/JinhuIT/.codex/bin/wsl/1a4f6f66dd2f3710:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/Docker/host/bin:/mnt/c/Users/JinhuIT/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/JinhuIT/AppData/Local/Microsoft/WinGet/Links:/mnt/c/Users/JinhuIT/AppData/Local/PowerToys/DSCModules/:/mnt/c/Users/JinhuIT/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/JinhuIT/AppData/Local/Microsoft/WinGet/Packages/Syncthing.Syncthing_Microsoft.Winget.Source_8wekyb3d8bbwe/syncthing-windows-amd64-v2.1.2:/mnt/c/Users/JinhuIT/AppData/Local/Microsoft/WinGet/Packages/Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe/platform-tools:/mnt/c/Users/JinhuIT/AppData/Local/Microsoft/WinGet/Packages/zufuliu.notepad4_Microsoft.Winget.Source_8wekyb3d8bbwe:/snap/bin"
+  },
+  "redacted_fields": [],
+  "stdin_intent": {
+    "present": true,
+    "bytes": 7305,
+    "raw_sha256": "d3721a8ccc97125a2b5108ade1df312604f5318e310bb97f8f1e1d854daa8776"
+  }
+}

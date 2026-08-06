@@ -1,0 +1,16 @@
+{
+  "schema_version": "b2c-000197-r0-loader-failure-manifest-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "status": "FAILED",
+  "loader_process_started": false,
+  "database_writes": 0,
+  "formal_run_consumed": false,
+  "retry_attempted": false,
+  "resources_retained": true,
+  "cleanup_attempted": false,
+  "artifact": {
+    "filename": "failure-b2c197_prelim_20260802f.json",
+    "bytes": 1631,
+    "raw_sha256": "83d12e114d24147c4d2776d4b33a5dd9c342fd767fdccedac7eecdc8d8600042"
+  }
+}

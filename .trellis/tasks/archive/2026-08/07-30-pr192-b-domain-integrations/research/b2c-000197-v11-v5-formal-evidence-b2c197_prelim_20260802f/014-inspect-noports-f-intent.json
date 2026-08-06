@@ -1,0 +1,25 @@
+{
+  "schema_version": "b2c-000197-child-intent-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 14,
+  "stage": "inspect-noports-f",
+  "recorded_at_utc": "2026-08-02T03:47:31.872Z",
+  "command": "docker",
+  "argv": [
+    "inspect",
+    "--format",
+    "{{json .HostConfig.PortBindings}}|{{json .NetworkSettings.Ports}}",
+    "jinhu-b2c197-prelim-20260802f-f"
+  ],
+  "cwd": "/home/jinhuit/JinHuCodebase/jinhu-smart-park",
+  "environment_allowlist": {
+    "PATH": "/home/jinhuit/.nvm/versions/node/v22.23.2/bin:/home/jinhuit/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin"
+  },
+  "redacted_fields": [],
+  "stdin_intent": {
+    "present": false,
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

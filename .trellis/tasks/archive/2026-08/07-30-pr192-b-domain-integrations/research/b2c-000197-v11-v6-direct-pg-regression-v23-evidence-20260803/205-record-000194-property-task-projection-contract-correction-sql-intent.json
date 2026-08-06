@@ -1,0 +1,30 @@
+{
+  "schema_version": "b2c-v23-child-intent-v1",
+  "run_id": "b2c197_v11v6_direct_v23_20260803a",
+  "stage": "record-000194-property-task-projection-contract-correction-sql",
+  "command": "/usr/bin/docker",
+  "argv": [
+    "exec",
+    "--interactive",
+    "jinhu-b2c197-v11v6-direct-v23-20260803a",
+    "psql",
+    "--username",
+    "postgres",
+    "--dbname",
+    "jinhu_b2c197_v11v6_direct_v23_20260803a",
+    "--no-psqlrc",
+    "--tuples-only",
+    "--no-align",
+    "--set",
+    "ON_ERROR_STOP=1",
+    "--set",
+    "VERBOSITY=verbose",
+    "--file",
+    "-"
+  ],
+  "stdin": {
+    "bytes": 612,
+    "raw_sha256": "10e647e7c0926965f688379b2d8d133da82b436c94950e08a1955c96cb8a2bb2",
+    "persisted": false
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "b2c-000197-child-result-v11",
+  "evidence_policy_version": "b2c-000197-child-evidence-v11",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "sequence": 3,
+  "stage": "static-v11-capability",
+  "recorded_at_utc": "2026-08-02T02:17:00.585Z",
+  "intent_raw_sha256": "7e39bfa30fce2bdb832af0d2c0bef00edd553359214468747ef84a8e3ce50271",
+  "exit_code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 799,
+    "raw_sha256": "bc4d97fd4fbadd1db8f7b02e41f5eab98ea707fe87be926ac4e4354966b35df1",
+    "redacted_utf8": "TAP version 13\n# Subtest: formal executable callgraph invokes every hard capability on both targets\nok 1 - formal executable callgraph invokes every hard capability on both targets\n  ---\n  duration_ms: 1.194519\n  type: 'test'\n  ...\n# Subtest: formal static child receives frozen mode as recorded benign env\nok 2 - formal static child receives frozen mode as recorded benign env\n  ---\n  duration_ms: 0.395385\n  type: 'test'\n  ...\n# Subtest: authoritative manifest closure excludes returned artifacts and matches declared local dependencies\nok 3 - authoritative manifest closure excludes returned artifacts and matches declared local dependencies\n  ---\n  duration_ms: 0.423326\n  type: 'test'\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 167.63011\n"
+  },
+  "stderr": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  }
+}

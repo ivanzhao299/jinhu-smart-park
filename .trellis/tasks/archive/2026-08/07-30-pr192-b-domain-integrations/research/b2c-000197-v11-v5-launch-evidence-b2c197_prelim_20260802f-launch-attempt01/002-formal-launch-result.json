@@ -1,0 +1,19 @@
+{
+  "schema_version": "b2c-000197-v11-v5-formal-launch-result-v1",
+  "formal_run_id": "b2c197_prelim_20260802f",
+  "attempt_id": "b2c197_prelim_20260802f_formal_launch_attempt01",
+  "recorded_at_utc": "2026-08-02T03:47:32.608Z",
+  "exit_code": 1,
+  "signal": null,
+  "spawn_error": null,
+  "stdout": {
+    "bytes": 0,
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted_utf8": ""
+  },
+  "stderr": {
+    "bytes": 2159,
+    "raw_sha256": "e984042660267e7cedd2d046c454c0f772c35aace33dce6e2d804ee80960b110",
+    "redacted_utf8": "file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:348\n    const error = afterCause ? new Error(message, { cause: afterCause }) : new Error(message);\n                                                                           ^\n\nError: b2c-000197-v11-fault-validation:e:after-create\n    at validateFaultBoundaryV11 (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:348:76)\n    at file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:361:23\n    at Array.map (<anonymous>)\n    at Object.faults (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:355:37)\n    at file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:671:85\n    at Array.map (<anonymous>)\n    at formalOperationV11 (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:671:28)\n    at operation (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:651:30)\n    at executeWithEvidenceV11 (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-executor-v11.mjs:226:20)\n    at executeFormalV11 (file:///home/jinhuit/JinHuCodebase/jinhu-smart-park/scripts/e2e/property-remediation/track-b2c-000197-preliminary-orchestrator-v11.mjs:649:10) {\n  stage: 'fault-e-after-create',\n  childSummary: {\n    stage: 'fault-e-after-create',\n    target: 'e',\n    boundary: 'after-create',\n    sqlstate: '42703',\n    expected_marker: 'v11-injected-after-create',\n    observed_markers: [],\n    exit_code: 3,\n    signal: null,\n    sqlstate_valid: false,\n    marker_valid: false,\n    child_valid: false,\n    snapshot_checked: true,\n    snapshot_exact: true\n  }\n}\n\nNode.js v22.23.2\n"
+  }
+}

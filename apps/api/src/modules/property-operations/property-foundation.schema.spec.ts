@@ -107,10 +107,13 @@ test("open turnover tasks remain shared availability and mode-transition blocker
   assert.match(snapshot, /FROM biz_homestay_turnover_task task/);
   assert.match(snapshot, /task\.status <> 'completed'/);
 
-  const homestay = readFileSync(resolve(__dirname, "../homestay/homestay.service.ts"), "utf8");
+  const homestay = readFileSync(
+    resolve(__dirname, "../homestay/homestay-stay-command.service.ts"),
+    "utf8"
+  );
   const checkout = homestay.slice(
     homestay.indexOf("async checkOut"),
-    homestay.indexOf("async registerLedgerEntry")
+    homestay.indexOf("private mustUnitAccess")
   );
   assert.match(checkout, /sourceType: "homestay_turnover"/);
   assert.match(checkout, /sourceId: task\.id/);
@@ -144,11 +147,30 @@ test("party role creation normalizes keys and recovers a concurrent winner", () 
   assert.match(addRole, /if \(concurrent\) return concurrent/);
 });
 
-test("party document-type changes cannot retain an identity from the old document type", () => {
+test("party document-type changes clear the old number through the identity draft adapter", () => {
   const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
-  assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);
-  assert.match(service, /entity\.identityNumberEncrypted = null/);
-  assert.match(service, /entity\.identityNumberHash = null/);
+  const update = service.slice(service.indexOf("async update("), service.indexOf("async verify("));
+  assert.match(
+    update,
+    /identityDocumentType = dto\.identity_document_type !== undefined[\s\S]+?: entity\.identityDocumentType/
+  );
+  assert.match(
+    update,
+    /identity = dto\.identity_number !== undefined[\s\S]+?: null;/
+  );
+  assert.match(
+    update,
+    /this\.identityAdapter\.writeDraft\([\s\S]+?identityDocumentType as[\s\S]+?identity,[\s\S]+?manager/
+  );
+
+  const adapter = readFileSync(
+    resolve(__dirname, "../property-identity/legacy-party-identity.adapter.ts"),
+    "utf8"
+  );
+  assert.match(
+    adapter,
+    /this\.identityService\.update\([\s\S]+?documentType,[\s\S]+?identityNumber,[\s\S]+?pendingFileIds: \[\]/
+  );
 });
 
 test("generic occupancy creation rejects aggregates owned by business workflows", () => {

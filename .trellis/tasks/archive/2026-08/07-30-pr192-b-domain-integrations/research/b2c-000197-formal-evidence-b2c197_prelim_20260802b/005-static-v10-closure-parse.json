@@ -1,0 +1,27 @@
+{
+  "schema_version": "b2c-000197-child-parse-v10",
+  "evidence_policy_version": "b2c-000197-child-evidence-v10",
+  "formal_run_id": "b2c197_prelim_20260802b",
+  "sequence": 5,
+  "stage": "static-v10-closure",
+  "recorded_at_utc": "2026-08-02T00:30:28.879Z",
+  "result_raw_sha256": "d9f675825dc0617dbc85874b1ec472da026565c3ce4f090d516d14716ce244b1",
+  "output": {
+    "bytes": 855,
+    "raw_sha256": "51387fc016609d0229e5356a563110e60c4de1b40e220ec362d191baad32e83e",
+    "redacted_utf8": "TAP version 13\n# Subtest: v10 implementation owns complete fault capability and imports no v3-v7 implementation or authority\nok 1 - v10 implementation owns complete fault capability and imports no v3-v7 implementation or authority\n  ---\n  duration_ms: 1.17521\n  type: 'test'\n  ...\n# Subtest: manifest is exact omission/excess/size/SHA closure with no node_modules\nok 2 - manifest is exact omission/excess/size/SHA closure with no node_modules\n  ---\n  duration_ms: 2577.246663\n  type: 'test'\n  ...\n# Subtest: every recursive execution dependency is represented and governance outputs avoid self-hash\nok 3 - every recursive execution dependency is represented and governance outputs avoid self-hash\n  ---\n  duration_ms: 1938.692932\n  type: 'test'\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 4524.05742\n"
+  },
+  "parse": {
+    "status": "passed",
+    "value": {
+      "tests": 3,
+      "suites": 0,
+      "pass": 3,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "names": []
+    }
+  }
+}
