@@ -79,8 +79,34 @@ Human UAT 未完成不是 Entry blocker。
   证据位于 `2026-08-04/12-track-c-reliability-delta`；开放环境项
   `C-P1-CHROME-HOST-ENVIRONMENT`。不得以应用内浏览器、Playwright 或 Computer Use 代替。
   既有 Track B 108 项证据仍保留且未重复，但不能冒充 Track C 新增离线/上传界面复验。
-- 当前 Track C：`in_progress`；不得归档，不得将 machine-gate self-test、既有 Track B
-  Chrome UAT 或环境健康检查等同于 Track C technical PASS。
+- 2026-08-06 final：缺口已在 final SHA
+  `15b6e8f6edd12759dc35b1675f851c9a0bc52c0c` 闭合；正式 rollback 19/19 PASS，
+  fresh performance project `jinhu-track-c-perf-20260806g` 完成未拼接 30/30 PASS，
+  formal evidence SHA 为
+  `1a451ecf1241de7a95aa3726fe97da244971f31ecf2ed27cf4492446bdc64ff2`，
+  cleanup residual=0。主线程独立门禁与两个非实施者 reviewer 均 APPROVE，产品
+  `open_P0_P1=[]`。Track C technical PASS，可归档。
+- Track C Chrome 新切片仍为 15/15 `BLOCKED`、截图 0，开放环境项
+  `C-P1-CHROME-HOST-ENVIRONMENT`；不得以既有 Track B UAT 或替代浏览器工具冒充
+  Track C Chrome PASS。该外部宿主限制被明确转交，不逆转已闭合的 Codex technical
+  Gate。
+
+## 1.2 最终技术验收（2026-08-06）
+
+- [x] Canonical occupancy port 与 offline/upload rollback flags 已闭合。
+- [x] Final-SHA rollback rehearsal 19/19 PASS；独立 evidence/cleanup review APPROVE。
+- [x] 30-cell 性能矩阵按 2m warmup + 10m formal 自然完成，未缩短、合成或拼接。
+- [x] 30/30 error rate=0；p95 max=200.374ms；throughput min=98.780/s；
+  six-group p95 CV max=0.04935。
+- [x] Formal evidence gate PASS，expected/observed runs=30/30，errors=[]。
+- [x] Docker containers/networks/volumes/secret files residual=0；无 execution failure。
+- [x] 非实施者 performance evidence reviewer APPROVE（P0/P1=0，P2 为门禁自动覆盖
+  范围观察，已由手工 SHA/identity 核验补足）。
+- [x] 非实施者 cleanup reviewer APPROVE（P0/P1/P2=0）。
+- [x] 产品 `open_P0_P1=[]`；Chrome 环境 P1 单独保留，不误报为产品缺陷。
+
+完整交接见
+[final-technical-handoff-20260806.md](./research/final-technical-handoff-20260806.md)。
 
 ## 2. Subagent Batches
 

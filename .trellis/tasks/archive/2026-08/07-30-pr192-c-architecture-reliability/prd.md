@@ -55,17 +55,22 @@ Human lane 可以与本任务并行或长期 awaiting，不阻止本任务达到
 
 ## 6. Machine Acceptance
 
-- [ ] C 基线等于 B technical handoff SHA。
-- [ ] 外部 URL/DTO/response/状态机 contract snapshot 无差异。
-- [ ] Domain effect 和 approval/outbox tests 无回归。
-- [ ] 无旧 service + 新 port 双 DI。
-- [ ] 无新旧 UI 双实现。
-- [ ] route client、component、function 和 complexity Gate 通过。
-- [ ] 弱网、刷新、logout、tenant/park 切换、TTL 和 conflict tests 通过。
-- [ ] 上传恢复、上下文变化、权限组合和清理通过。
-- [ ] 固定资源性能 5 runs、样本、CI 和错误率通过。
-- [ ] L0–L6 evidence 具有 SHA、失败日志和 cleanup proof。
-- [ ] C technical PASS 不依赖 human readiness。
+- [x] C 基线等于 B technical handoff SHA。
+- [x] 外部 URL/DTO/response/状态机 contract snapshot 无差异。
+- [x] Domain effect 和 approval/outbox tests 无回归。
+- [x] 无旧 service + 新 port 双 DI。
+- [x] 无新旧 UI 双实现。
+- [x] route client、component、function 和 complexity Gate 通过。
+- [x] 弱网、刷新、logout、tenant/park 切换、TTL 和 conflict tests 通过。
+- [x] 上传恢复、上下文变化、权限组合和清理通过。
+- [x] 固定资源性能 5 runs、样本、CI 和错误率通过。
+- [x] L0–L6 evidence 具有 SHA、失败日志和 cleanup proof。
+- [x] C technical PASS 不依赖 human readiness。
+
+最终技术证据见
+[2026-08-06 final handoff](./research/final-technical-handoff-20260806.md)。Track C
+Chrome 增量仍因宿主 `sandboxCwd` local-file-URI 错误保持 15/15 `BLOCKED`、截图 0；
+该环境项不冒充浏览器 PASS，也不计为产品 P1。
 
 ## 7. 人工 Gate 边界
 
