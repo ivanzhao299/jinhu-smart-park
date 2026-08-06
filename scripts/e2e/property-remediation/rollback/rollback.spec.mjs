@@ -175,10 +175,11 @@ test("secret scanner catches bearer, JWT, raw provider token and credential argv
 
 test("Next build output permits only exact frozen public documentation URLs", () => {
   const docs = "https://nextjs.org/docs/app/api-reference/config/eslint";
+  const docsMigration = "https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config";
   const outputCaveats = "https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats";
   const telemetry = "https://nextjs.org/telemetry";
   for (const id of ["baseline-web-clean-production-build", "web-clean-production-build"]) {
-    const result = { stdout: `docs ${docs}.\r\noutput ${outputCaveats}\ntelemetry (${telemetry}),\ncolored \u001b[36m${docs}\u001b[0m\n`, stderr: "" };
+    const result = { stdout: `docs ${docs}.\r\nmigration ${docsMigration}\noutput ${outputCaveats}\ntelemetry (${telemetry}),\ncolored \u001b[36m${docs}\u001b[0m\n`, stderr: "" };
     assert.equal(assertCommandOutputSafe(result, id), result);
   }
   for (const value of [
@@ -186,6 +187,7 @@ test("Next build output permits only exact frozen public documentation URLs", ()
     "https://user@nextjs.org/docs/app/api-reference/config/eslint", "https://nextjs.org:443/docs/app/api-reference/config/eslint",
     "https://nextjs.org.evil/docs/app/api-reference/config/eslint", "https://docs.nextjs.org/app/api-reference/config/eslint",
     "https://nextjs.org/docs/app/api-reference/config/unknown", "postgresql://user:password@example.invalid/database",
+    `${docsMigration}?token=value`, `${docsMigration}/`, `${docsMigration}-suffix`,
     `${outputCaveats}?token=value`, `${outputCaveats}/`, "http://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats",
     "https://user@nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats",
     "https://nextjs.org:443/docs/app/api-reference/config/next-config-js/output#caveats",

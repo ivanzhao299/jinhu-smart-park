@@ -15,7 +15,7 @@ test("artifact gate applies the runner's exact public Next build URL policy", ()
       const absolute = resolve(root, path); writeFileSync(absolute, content);
       return { path, ...hashFile(absolute) };
     };
-    const publicDocs = "https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats\n";
+    const publicDocs = "https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config\n";
     for (const command of ["baseline-web-clean-production-build", "web-clean-production-build"]) {
       for (const stream of ["stdout", "stderr"]) {
         const path = `logs/${command}.${stream}.log`;
