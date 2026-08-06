@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { AdminIssuesService } from "./admin-issues.service";
 import type { AdminIssueReportEntity } from "./entities/admin-issue-report.entity";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 function fixture(): Partial<AdminIssueReportEntity> & Pick<AdminIssueReportEntity, "tenantId" | "parkId" | "issueNo" | "reporterId" | "status" | "runnerStatus"> {
   return {
@@ -26,6 +28,13 @@ const scope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor = { sub: "admin-1", username: "admin", realName: "Admin", permissions: [], isSuper: true };
 
 describe("AdminIssuesService", () => {
+  it("ships a disabled minimum-permission Runner identity baseline", () => {
+    const migration = readFileSync(resolve(process.cwd(), "../../database/migrations/000190_admin_issue_runner_repair.sql"), "utf8");
+    assert.match(migration, /SMART_PARK_RUNNER/);
+    assert.match(migration, /!SMART_PARK_RUNNER_CREDENTIAL_NOT_INITIALIZED!/);
+    assert.match(migration, /admin_issue:runner/);
+    assert.match(migration, /false, 'disabled'/);
+  });
   it("requires explicit acceptance criteria before Runner approval", async () => {
     const service = serviceFor(fixture());
     await assert.rejects(

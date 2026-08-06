@@ -70,4 +70,52 @@ JOIN sys_permission target ON target.tenant_id = seed_scope.tenant_id AND target
   AND target.code IN ('admin_issue:read','admin_issue:manage') AND target.is_deleted = false
 ON CONFLICT DO NOTHING;
 
+-- Dedicated machine identity: disabled and unusable until the protected credential workflow activates it.
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+INSERT INTO sys_role (tenant_id, park_id, code, name, is_enabled, status, is_system, is_builtin, remark)
+SELECT tenant_id, park_id, 'SMART_PARK_RUNNER', 'Smart Park 问题修复 Runner', true, 'enabled', true, true,
+       'Dedicated machine role; must not receive interactive administrator permissions'
+FROM seed_scope
+ON CONFLICT (tenant_id, park_id, code) WHERE is_deleted = false DO UPDATE SET
+  name = EXCLUDED.name, is_enabled = true, status = 'enabled', update_time = now();
+
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, remark)
+SELECT seed_scope.tenant_id, seed_scope.park_id, role.id, permission.id, 'Dedicated Runner minimum permission'
+FROM seed_scope
+JOIN sys_role role ON role.tenant_id = seed_scope.tenant_id AND role.park_id = seed_scope.park_id
+  AND role.code = 'SMART_PARK_RUNNER' AND role.is_deleted = false
+JOIN sys_permission permission ON permission.tenant_id = seed_scope.tenant_id AND permission.park_id = seed_scope.park_id
+  AND permission.code = 'admin_issue:runner' AND permission.is_deleted = false
+ON CONFLICT (tenant_id, park_id, role_id, permission_id) WHERE is_deleted = false DO UPDATE SET
+  is_deleted = false, update_time = now(), remark = EXCLUDED.remark;
+
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+INSERT INTO sys_user (tenant_id, park_id, username, display_name, password_hash, is_enabled, status, remark)
+SELECT tenant_id, park_id, 'studio_runner', 'Studio 问题修复 Runner',
+       '!SMART_PARK_RUNNER_CREDENTIAL_NOT_INITIALIZED!', false, 'disabled',
+       'Activation requires the protected Smart Park Runner credential workflow'
+FROM seed_scope
+ON CONFLICT (tenant_id, park_id, username) WHERE is_deleted = false DO NOTHING;
+
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+INSERT INTO rel_user_role (tenant_id, park_id, user_id, role_id, remark)
+SELECT seed_scope.tenant_id, seed_scope.park_id, app_user.id, role.id, 'Dedicated Runner role binding'
+FROM seed_scope
+JOIN sys_user app_user ON app_user.tenant_id = seed_scope.tenant_id AND app_user.park_id = seed_scope.park_id
+  AND app_user.username = 'studio_runner' AND app_user.is_deleted = false
+JOIN sys_role role ON role.tenant_id = seed_scope.tenant_id AND role.park_id = seed_scope.park_id
+  AND role.code = 'SMART_PARK_RUNNER' AND role.is_deleted = false
+ON CONFLICT (tenant_id, park_id, user_id, role_id) WHERE is_deleted = false DO UPDATE SET
+  is_deleted = false, update_time = now(), remark = EXCLUDED.remark;
+
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+INSERT INTO rel_user_park (tenant_id, user_id, park_id, is_default, status, remark)
+SELECT seed_scope.tenant_id, app_user.id, seed_scope.park_id, true, 'enabled', 'Dedicated Runner park binding'
+FROM seed_scope
+JOIN sys_user app_user ON app_user.tenant_id = seed_scope.tenant_id AND app_user.park_id = seed_scope.park_id
+  AND app_user.username = 'studio_runner' AND app_user.is_deleted = false
+ON CONFLICT (tenant_id, user_id, park_id) WHERE is_deleted = false DO UPDATE SET
+  is_deleted = false, is_default = true, status = 'enabled', update_time = now();
+
 COMMIT;
