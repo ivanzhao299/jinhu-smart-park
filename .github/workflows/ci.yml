@@ -90,6 +90,7 @@ jobs:
       ADMIN_PHONE: 13800001234
       ROLE_CODE: SUPER_ADMIN
       JWT_SECRET: JinhuReleaseSmokeJwtSecret#2026_LongAndRandom
+      PARTY_DATA_ENCRYPTION_KEY: JinhuReleaseSmokePartyDataKey#2026_LongAndRandom
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
       FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
