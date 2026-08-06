@@ -32,3 +32,15 @@ The sanitizer fix changes the frozen runner component hash, so it requires a new
 commit, PR head, CI run, rollback run ID, source binding, patch/plan approvals,
 supervisor approval, and formal execution. No artifact from the invalidated run
 may satisfy the final-SHA gate.
+
+## Performance preflight finding after the b632 rollback run
+
+The final-bound `b632af33` rollback run passed 19/19 with zero residuals, but the
+subsequent formal-performance environment review rejected provisioning before
+any environment mutation. `assertSourceReady()` used
+`--untracked-files=no`, allowing an untracked file below a formal source path to
+enter commit-bound image builds without failing the dirty-source gate.
+
+The fix changes the performance environment script and therefore the PR head.
+The `b632af33` rollback evidence remains valid only for that ancestor SHA; the
+final rollback and performance gates must both be regenerated on the new head.

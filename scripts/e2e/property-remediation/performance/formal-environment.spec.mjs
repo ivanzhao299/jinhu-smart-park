@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { loadEnvironmentConfig } from "./formal-environment.mjs";
+import { assertSourceReady, loadEnvironmentConfig } from "./formal-environment.mjs";
 
 const digest = "a".repeat(64);
 
@@ -48,6 +49,27 @@ test("rejects shared names, mutable images and weak credentials", async () => {
   const weak = fixtureEnv();
   weak.PROPERTY_PERF_PASSWORD = "alllowercasepassword";
   await assert.rejects(loadEnvironmentConfig(weak), /bootstrap strength rules/u);
+});
+
+test("source readiness includes untracked formal source paths and fails closed", async () => {
+  let observedArgs;
+  await assertSourceReady({ execute: async (_executable, args) => {
+    observedArgs = args;
+    return { stdout: "" };
+  } });
+  assert.ok(observedArgs.includes("--untracked-files=all"));
+  assert.ok(!observedArgs.includes("--untracked-files=no"));
+  await assert.rejects(assertSourceReady({ execute: async () => ({ stdout: "?? scripts/untracked-formal-input.mjs\n" }) }), /uncommitted changes/u);
+
+  const repository = mkdtempSync(resolve(tmpdir(), "property-perf-source-ready-"));
+  try {
+    execFileSync("git", ["init", "--quiet"], { cwd: repository });
+    mkdirSync(resolve(repository, "scripts"));
+    writeFileSync(resolve(repository, "scripts/untracked-formal-input.mjs"), "export default true;\n");
+    await assert.rejects(assertSourceReady({ cwd: repository }), /uncommitted changes/u);
+  } finally {
+    rmSync(repository, { recursive: true, force: true });
+  }
 });
 
 test("compose definition fixes all formal resources and isolates state", () => {

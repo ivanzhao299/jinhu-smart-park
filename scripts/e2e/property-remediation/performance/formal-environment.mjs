@@ -155,8 +155,8 @@ async function validateCompose(config) {
   await compose(runtime, ["config", "--quiet"]);
 }
 
-async function assertSourceReady() {
-  const { stdout } = await execFileAsync("git", ["status", "--porcelain", "--untracked-files=no", "--", "apps", "packages", "database", "infra", "scripts", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], { cwd: repoRoot });
+export async function assertSourceReady({ execute = execFileAsync, cwd = repoRoot } = {}) {
+  const { stdout } = await execute("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", "apps", "packages", "database", "infra", "scripts", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], { cwd });
   if (stdout.trim()) throw new Error("formal source paths contain uncommitted changes");
 }
 
