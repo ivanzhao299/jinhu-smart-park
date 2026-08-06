@@ -12,6 +12,7 @@ import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 import { MobileTerminalHeader } from "./MobileTerminalHeader";
 import { MobileTerminalReliability } from "../runtime/MobileTerminalReliability";
+import { AdminIssueFeedback } from "../admin-issues/AdminIssueFeedback";
 
 const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
 const TERMINAL_LAYOUT_PATHS = [
@@ -121,6 +122,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
         <div className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
           {children}
         </div>
+        <AdminIssueFeedback />
       </div>
     </AuthUserContext.Provider>
   );
