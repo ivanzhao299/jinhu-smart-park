@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "antd";
-import { ListTodo, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { Download, ListTodo, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -58,6 +58,9 @@ export function AppHeader({ breadcrumb, sidebarCollapsed, onSidebarCollapsedChan
       </div>
       <div className="header-actions">
         {sidebarToggleButton("actions")}
+        <Link aria-label="客户端下载" className="header-icon-link" href="/system/client-downloads" title="客户端下载">
+          <Download size={16} />
+        </Link>
         {!isTerminalRoute && canOpenWorkflowInbox ? (
           <Link aria-label="流程收件箱" className="header-icon-link header-workflow-link" href="/workflow/inbox" title="流程收件箱">
             <ListTodo size={16} />
