@@ -131,7 +131,7 @@ jobs:
             previous_commit_valid="yes"
             changed_files="$(git diff --name-only "$previous_commit" "$GITHUB_SHA" || true)"
           fi
-          if [ "$previous_commit_valid" = "no" ] || printf "%s\n" "$changed_files" | grep -Eq '^database/seeds/production/'; then
+          if [ "$previous_commit_valid" = "no" ] || printf "%s\n" "$changed_files" | grep -Eq '^database/seeds/(000001_s1_production_core\.sql|production/)'; then
             run_production_seed="yes"
           fi
           if [ "$requested" = "auto" ]; then
@@ -150,6 +150,14 @@ jobs:
             else
               resolved="fast-css"
             fi
+          fi
+          if [ "$run_production_seed" = "yes" ]; then
+            case "$resolved" in
+              web|fast-css)
+                echo "Production seed changes require an API-capable full deployment; overriding mode '$resolved' to 'full'."
+                resolved="full"
+                ;;
+            esac
           fi
           printf "requested=%s\nresolved=%s\nprevious_commit=%s\nrun_production_seed=%s\n" "$requested" "$resolved" "$previous_commit" "$run_production_seed"
           echo "mode=$resolved" >> "$GITHUB_OUTPUT"

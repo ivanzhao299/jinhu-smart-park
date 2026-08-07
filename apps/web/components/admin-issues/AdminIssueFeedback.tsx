@@ -44,6 +44,8 @@ export function AdminIssueFeedback() {
     const token = getToken();
     if (!token) return;
     let cancelled = false;
+    setIssues([]);
+    setPagination({ total: 0, page, pageSize: ADMIN_ISSUE_PAGE_SIZE });
     setLoadingIssues(true);
     apiRequest<IssuePage>(buildAdminIssueHistoryPath(view as AdminIssueHistoryView, page), { token })
       .then((response) => {

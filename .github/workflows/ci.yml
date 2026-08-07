@@ -63,7 +63,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/ci\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -224,7 +224,9 @@ jobs:
           test "$history_conflict_count" = "0"
 
       - name: Run production seed
-        run: ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+        run: |
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee -a /tmp/release-smoke-logs/db-seed-prod.log
 
       - name: Verify repaired core-role permissions
         run: |

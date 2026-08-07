@@ -11,12 +11,12 @@
 - 新增 `database/seeds/production/000005_admin_issue_runner_baseline.sql`，使用事务和幂等 upsert。
 - `sys_role` 身份遵循租户级唯一索引 `(tenant_id, code) WHERE is_deleted=false`；后续关系解析也按
   tenant + code 查找，避免园区字段与唯一契约分裂。
-- Release Smoke 在 migration 后运行 production seed，并断言 Runner 账号保持 disabled、只绑定 runner 最小权限。
+- Release Smoke 在 migration 后重复运行 production seed，并断言 Runner 账号保持 disabled、只绑定 runner 最小权限。
 - CI 增加变更范围探测：PR 触及 migrations、seeds、db/deploy 脚本或 release-smoke workflow 时自动执行数据库 smoke。
 
 ## API 状态机与并发
 
-- create/mine 使用 `ADMIN_ISSUE_CREATE`；detail 使用 create/read 任一权限，service 继续执行“本人或 read/super”资源校验。
+- create/mine/detail 使用显式 `RequireAuthenticated` 元数据，使反馈能力不依赖某次 seed 时已存在的角色；detail 的 service 继续执行“本人或 read/super”资源校验。
 - triage、renew、recordResult 都在 transaction + `pessimistic_write` 中读取目标行。
 - 活动 CLAIMED 租约禁止 triage；expired claim 可被审核动作撤销后转换。
 - renew 必须同时匹配 issue 状态、runnerStatus、runner_id、lease_token 和未过期时间，再延长 15 分钟。

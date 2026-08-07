@@ -46,8 +46,8 @@ Runner 领取后必须在租约过期前调用 `POST /api/v1/admin-issues/:issue
 - 不与 Phoenix 共用服务账号、Unix 用户、Deploy Key 或工作目录。
 - 不在迁移失败后继续部署；Release Smoke 和生产迁移均 fail-fast。
 - migration 只负责 schema；Runner 权限、角色、禁用机器身份与关系由 production-safe seed 幂等收敛。
-- 部署范围包含 `database/seeds/production/` 变更或目标主机尚无 release marker 时，生产工作流才设置 `RUN_PRODUCTION_SEED=yes`；其他部署保持 `no`，回滚旧源码时也不重复运行新 seed。seed 失败同样阻断服务切换。
-- 触及 migration、production seed 或数据库发布脚本的 PR 会自动执行 Release Smoke，不依赖人工标签。
+- 部署范围包含顶层 production core seed、`database/seeds/production/` 变更或无法识别上一 release 时，生产工作流才设置 `RUN_PRODUCTION_SEED=yes`；此时 `web/fast-css` 模式强制升级为 `full`。其他部署保持 `no`，回滚旧源码时也不重复运行新 seed。
+- 触及 migration、production seed、生产部署/健康/清理脚本或相关 workflow 的 PR 会自动执行 Release Smoke，不依赖人工标签。
 - 部署前保留应用源码快照；部署失败恢复旧源码并重新构建、健康检查。数据库迁移为 forward-only，涉及破坏性 schema 的变更仍必须人工 HOLD。
 - 部署或回滚成功后删除源码快照；回滚失败时保留快照并输出精确路径供人工恢复。
 
@@ -60,5 +60,5 @@ Runner 领取后必须在租约过期前调用 `POST /api/v1/admin-issues/:issue
 5. 运行一个无业务影响的受控问题修复探针。
 6. 确认提交、PR、CI、部署、健康检查和结果回写一致后启用自动发布。
 
-账号激活 workflow 会在本地和生产主机上清理临时 password hash 与激活脚本；不得把这些文件复制到
-`tmp/` 后依赖后续部署清理。
+账号激活 workflow 在上传前注册远端清理尝试，并在远端 shell 内再次注册清理 trap；不得把临时
+password hash 或激活脚本复制到 `tmp/` 后依赖后续部署清理。

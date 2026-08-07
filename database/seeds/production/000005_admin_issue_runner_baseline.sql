@@ -21,17 +21,6 @@ DO UPDATE SET park_id = EXCLUDED.park_id, name = EXCLUDED.name, action = EXCLUDE
               api_method = EXCLUDED.api_method, api_path = EXCLUDED.api_path,
               update_time = now(), is_deleted = false;
 
--- Every active role may submit feedback and use the same permission to read its own issues.
-WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
-INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, create_time, update_time, is_deleted)
-SELECT seed_scope.tenant_id, seed_scope.park_id, role.id, permission.id, now(), now(), false
-FROM seed_scope
-JOIN sys_role role ON role.tenant_id = seed_scope.tenant_id AND role.is_deleted = false
-JOIN sys_permission permission ON permission.tenant_id = seed_scope.tenant_id
-  AND permission.code = 'admin_issue:create' AND permission.is_deleted = false
-ON CONFLICT (tenant_id, park_id, role_id, permission_id) WHERE is_deleted = false DO UPDATE SET
-  is_deleted = false, update_time = now();
-
 -- Management is granted only to roles that already manage users.
 WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
 INSERT INTO rel_role_perm (tenant_id, park_id, role_id, permission_id, create_time, update_time, is_deleted)
@@ -66,6 +55,24 @@ JOIN sys_permission permission ON permission.tenant_id = seed_scope.tenant_id
   AND permission.code = 'admin_issue:runner' AND permission.is_deleted = false
 ON CONFLICT (tenant_id, park_id, role_id, permission_id) WHERE is_deleted = false DO UPDATE SET
   is_deleted = false, update_time = now(), remark = EXCLUDED.remark;
+
+-- Feedback submission is an authenticated-user capability, not a machine-role permission.
+-- Defensively remove an accidental grant from an earlier execution of this repair seed.
+WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
+UPDATE rel_role_perm relation
+SET is_deleted = true, update_time = now(), remark = 'Removed from dedicated Runner role'
+FROM seed_scope, sys_role role, sys_permission permission
+WHERE relation.tenant_id = seed_scope.tenant_id
+  AND relation.park_id = seed_scope.park_id
+  AND relation.role_id = role.id
+  AND relation.permission_id = permission.id
+  AND relation.is_deleted = false
+  AND role.tenant_id = seed_scope.tenant_id
+  AND role.code = 'SMART_PARK_RUNNER'
+  AND role.is_deleted = false
+  AND permission.tenant_id = seed_scope.tenant_id
+  AND permission.code = 'admin_issue:create'
+  AND permission.is_deleted = false;
 
 WITH seed_scope AS (SELECT '10000001' AS tenant_id, '20000001' AS park_id)
 INSERT INTO sys_user (tenant_id, park_id, username, display_name, password_hash, is_enabled, status, remark)

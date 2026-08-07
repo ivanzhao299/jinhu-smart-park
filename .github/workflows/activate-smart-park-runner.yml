@@ -50,6 +50,12 @@ jobs:
         run: |
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          cleanup_remote_runner_activation() {
+            ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+              "rm -f -- '$PROD_DEPLOY_PATH/tmp/smart-park-runner.hash.send' '$PROD_DEPLOY_PATH/tmp/activate-smart-park-runner-account.sh'" \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup_remote_runner_activation EXIT HUP INT TERM
           install -m 600 /tmp/smart-park-runner.hash /tmp/smart-park-runner.hash.send
           rsync -az -e "ssh $SSH_OPTS" scripts/activate-smart-park-runner-account.sh /tmp/smart-park-runner.hash.send \
             "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/tmp/"

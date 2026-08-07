@@ -50,16 +50,17 @@ describe("AdminIssuesService", () => {
     assert.doesNotMatch(migration, /INSERT INTO (sys_permission|sys_role|sys_user|rel_)/);
     assert.match(seed, /ON CONFLICT \(tenant_id, code\) WHERE is_deleted = false/);
     assert.doesNotMatch(seed, /ON CONFLICT \(tenant_id, park_id, code\)/);
-    assert.doesNotMatch(seed, /JOIN sys_role role ON role\.tenant_id = seed_scope\.tenant_id AND role\.park_id/);
+    assert.doesNotMatch(seed, /Every active role may submit feedback/);
+    assert.match(seed, /Removed from dedicated Runner role/);
     assert.match(seed, /!SMART_PARK_RUNNER_CREDENTIAL_NOT_INITIALIZED!/);
     assert.match(seed, /false, 'disabled'/);
   });
 
-  it("declares minimum permissions on create, mine, and detail handlers", () => {
+  it("declares authenticated-user access on create, mine, and detail handlers", () => {
     const controller = readFileSync(resolve(process.cwd(), "src/modules/admin-issues/admin-issues.controller.ts"), "utf8");
-    assert.match(controller, /@Post\(\)\s+@RequirePermissions\(SYSTEM_PERMISSIONS\.ADMIN_ISSUE_CREATE\)/);
-    assert.match(controller, /@Get\("mine"\)\s+@RequirePermissions\(SYSTEM_PERMISSIONS\.ADMIN_ISSUE_CREATE\)/);
-    assert.match(controller, /@Get\(":issueNo"\)\s+@RequireAnyPermissions\(SYSTEM_PERMISSIONS\.ADMIN_ISSUE_CREATE, SYSTEM_PERMISSIONS\.ADMIN_ISSUE_READ\)/);
+    assert.match(controller, /@Post\(\)\s+@RequireAuthenticated\(\)/);
+    assert.match(controller, /@Get\("mine"\)\s+@RequireAuthenticated\(\)/);
+    assert.match(controller, /@Get\(":issueNo"\)\s+@RequireAuthenticated\(\)/);
   });
 
   it("keeps Runner activation and deployment rollback artifacts bounded", () => {
@@ -68,10 +69,13 @@ describe("AdminIssuesService", () => {
     const ci = readFileSync(resolve(process.cwd(), "../../.github/workflows/ci.yml"), "utf8");
     assert.match(activation, /webfactory\/ssh-agent@v0\.9\.0/);
     assert.match(activation, /ssh-keyscan/);
+    assert.match(activation, /trap cleanup_remote_runner_activation EXIT HUP INT TERM/);
     assert.match(activation, /trap cleanup_runner_activation EXIT HUP INT TERM/);
     assert.match(activation, /Remove local credential artifacts/);
     assert.match(deployment, /cleanup_rollback_snapshot/);
     assert.match(deployment, /run_production_seed/);
+    assert.match(deployment, /000001_s1_production_core/);
+    assert.match(deployment, /Production seed changes require an API-capable full deployment/);
     assert.match(deployment, /RUN_PRODUCTION_SEED=no/);
     assert.doesNotMatch(deployment, /RUN_PRODUCTION_SEED=yes/);
     assert.match(deployment, /rollback_release\(\) \{\s+trap - ERR/);
@@ -79,6 +83,9 @@ describe("AdminIssuesService", () => {
     assert.ok(deployment.split("cleanup_rollback_snapshot").length >= 4);
     assert.match(ci, /Detect database and release changes/);
     assert.match(ci, /database\/\(migrations\|migration-prerequisites\|seeds\)/);
+    assert.match(ci, /prod-deploy\|prod-healthcheck\|prod-docker-cleanup/);
+    assert.match(ci, /ci\|deploy-production/);
+    assert.equal(ci.match(/ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod/g)?.length, 2);
     assert.match(ci, /git diff --name-only "\$BEFORE_SHA" "\$CURRENT_SHA"/);
   });
 

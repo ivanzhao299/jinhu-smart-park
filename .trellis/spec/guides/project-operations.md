@@ -45,6 +45,9 @@ Reference files:
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.
+- Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
+  If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
+  never publish a release marker from `web` or `fast-css` while deferring required seed work.
 
 Reference files:
 - `scripts/db-migrate.sh`
@@ -55,6 +58,8 @@ Reference files:
 
 - Temporary credential files are deleted on both the CI runner and production host on success,
   command failure, interruption, and termination.
+- Register the remote-cleanup attempt before uploading credentials. A trap installed only after the
+  activation SSH shell starts cannot clean files left by a successful transfer followed by SSH failure.
 - A production source snapshot is deleted after successful deployment or successful rollback.
   Preserve it only when rollback itself fails, and print the exact recovery path.
 - Recursive deletion targets must be derived from a validated run identifier and a fixed deployment

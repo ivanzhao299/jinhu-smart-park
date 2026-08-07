@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseInterceptors } fro
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAuthenticated, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
@@ -14,7 +14,7 @@ export class AdminIssuesController {
   constructor(private readonly service: AdminIssuesService) {}
 
   @Post()
-  @RequirePermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE)
+  @RequireAuthenticated()
   @UseInterceptors(new IdempotencyInterceptor())
   @AuditLog({ module: "问题修复", resource: "ops.admin_issue", action: "提交问题", bizType: "admin_issue_report" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreateAdminIssueDto) {
@@ -22,7 +22,7 @@ export class AdminIssuesController {
   }
 
   @Get("mine")
-  @RequirePermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE)
+  @RequireAuthenticated()
   mine(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: AdminIssueQueryDto) {
     return this.service.listMine(scope, actor, query);
   }
@@ -40,7 +40,7 @@ export class AdminIssuesController {
   }
 
   @Get(":issueNo")
-  @RequireAnyPermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE, SYSTEM_PERMISSIONS.ADMIN_ISSUE_READ)
+  @RequireAuthenticated()
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("issueNo") issueNo: string) {
     return this.service.detail(scope, issueNo, actor);
   }

@@ -326,8 +326,10 @@ Reference files:
 
 ## Admin Issue Runner Lease And Evidence Contract
 
-- Authenticated create/mine/detail routes declare explicit minimum permission metadata; resource
-  ownership checks in the service complement the guard and do not replace it.
+- Feedback create/mine/detail are universal authenticated-user capabilities and declare the explicit
+  `RequireAuthenticated` guard contract. Do not approximate universal access with a point-in-time
+  role-permission seed. Detail still enforces reporter ownership unless the actor has read permission
+  or super-admin authority.
 - Claim, lease renewal, triage, and result writeback serialize the target issue with a database
   write lock. An active claim cannot be triaged, renewed by another runner, or completed by an old token.
 - Lease renewal and result writeback match both `runner_id` and `lease_token`, require an unexpired
