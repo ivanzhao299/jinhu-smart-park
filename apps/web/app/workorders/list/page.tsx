@@ -12,7 +12,11 @@ import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, resolveWorkOrderAudience, tenantForUnit } from "../../../lib/workorder-prefill";
 import { WorkOrderAssignDialog } from "../../../components/workorders/WorkOrderAssignDialog";
-import { buildWorkOrderAssignmentRequest, getWorkOrderAssignmentError } from "../../../components/workorders/work-order-assignment.logic";
+import {
+  buildWorkOrderAssignmentRequest,
+  formatCommittedWorkOrderAssignmentRefreshError,
+  getWorkOrderAssignmentError
+} from "../../../components/workorders/work-order-assignment.logic";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
 import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
 import { WorkOrderExceptionActionDialog } from "./components/WorkOrderExceptionActionDialog";
@@ -526,11 +530,14 @@ export default function WorkOrdersListPage() {
   }
 
   function openAssignment(row: WorkOrderRow, mode: "assign" | "reassign") {
-    assignmentActionLock.current = false;
+    if (assignmentActionLock.current) {
+      setMessage("上一笔派单结果仍在同步，请稍候再试");
+      return;
+    }
     setAssignmentSubmitting(false);
     setAssignment({ row, mode });
     setAssignmentForm({
-      assigneeId: row.assigneeId ?? "",
+      assigneeId: "",
       reason: ""
     });
     setAssignmentError(null);
@@ -567,14 +574,33 @@ export default function WorkOrdersListPage() {
         idempotencyKey: request.idempotencyKey,
         body: request.body
       });
+      const successMessage = assignment.mode === "assign" ? "派单成功" : "改派成功";
       if (detail?.id === response.data.id) {
         setDetail(response.data);
-        void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
       }
       setAssignment(null);
       setAssignmentForm(emptyAssignmentForm);
-      setMessage(assignment.mode === "assign" ? "派单成功" : "改派成功");
-      await load(pageData.page);
+      setMessage(successMessage);
+      let logRefreshError: unknown = null;
+      if (detail?.id === response.data.id) {
+        try {
+          await loadWorkOrderLogs(response.data.id);
+        } catch (error) {
+          logRefreshError = error;
+        }
+      }
+      try {
+        await load(pageData.page);
+      } catch (error) {
+        const listRefreshMessage = formatCommittedWorkOrderAssignmentRefreshError(successMessage, error);
+        setMessage(logRefreshError
+          ? `${listRefreshMessage}；日志刷新失败：${logRefreshError instanceof Error ? logRefreshError.message : "未知错误"}`
+          : listRefreshMessage);
+        return;
+      }
+      if (logRefreshError) {
+        setMessage(`${successMessage}，但日志刷新失败：${logRefreshError instanceof Error ? logRefreshError.message : "未知错误"}`);
+      }
     } finally {
       assignmentActionLock.current = false;
       setAssignmentSubmitting(false);

@@ -29,6 +29,9 @@
 - [x] 修复 Codex review：同名处理人仅对冲突项追加用户名；无法消歧的异常账号数据禁用而不崩溃。
 - [x] 修复 Codex review：列表与详情的校验/提交错误均在派单抽屉内以 alert 展示，并在编辑时清除。
 - [x] 将固定抽屉的本地错误反馈约束写入 Web frontend spec，并将定向回归测试扩展到 9 项。
+- [x] 修复第二轮 Codex review：拒绝旧候选 ID、改派强制显式选择、不可读姓名回退用户名。
+- [x] 修复第二轮 Codex review：提交锁覆盖列表/日志刷新，成功后的刷新失败保留已提交事实并聚合提示。
+- [x] 将定向回归测试扩展到 12 项，覆盖候选成员校验、成功后刷新失败与锁复位契约。
 - [ ] CI、Codex review 与所有 review threads 均稳定通过后再通知可合并，不自动合并。
 
 ## Risky Files / Rollback Points

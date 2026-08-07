@@ -22,6 +22,16 @@ export interface WorkOrderAssigneeOption {
   disabled?: boolean;
 }
 
+export function isWorkOrderAssigneeSelectionUnavailable(
+  options: WorkOrderAssigneeOption[],
+  assigneeId: string
+): boolean {
+  const normalizedId = assigneeId.trim();
+  if (!normalizedId) return false;
+  const selectedOption = options.find((option) => option.id === normalizedId);
+  return !selectedOption || Boolean(selectedOption.disabled);
+}
+
 export function filterEnabledWorkOrderAssignees<T extends WorkOrderAssigneeCandidate>(users: T[]): T[] {
   return users.filter((user) => user.status === "enabled");
 }
@@ -90,6 +100,13 @@ export function getWorkOrderAssignmentError(
   return null;
 }
 
+export function formatCommittedWorkOrderAssignmentRefreshError(
+  successMessage: string,
+  error: unknown
+): string {
+  return `${successMessage}，但列表刷新失败：${error instanceof Error ? error.message : "未知错误"}`;
+}
+
 export function buildWorkOrderAssignmentBody(form: WorkOrderAssignmentFormState): {
   assignee_id: string;
   reason?: string;
@@ -119,9 +136,11 @@ export function buildWorkOrderAssignmentRequest(
 }
 
 function resolveWorkOrderAssigneeBaseLabel(user: WorkOrderAssigneeLabelCandidate): string {
-  return [user.displayName, user.realName, user.username]
+  const readableBusinessName = [user.displayName, user.realName]
     .map((value) => normalizeWorkOrderAssigneeLabel(value ?? ""))
-    .find(Boolean) ?? "未知用户";
+    .find((value) => /\p{L}/u.test(value));
+  if (readableBusinessName) return readableBusinessName;
+  return normalizeWorkOrderAssigneeLabel(user.username) || "未知用户";
 }
 
 function normalizeWorkOrderAssigneeLabel(value: string): string {

@@ -184,7 +184,7 @@ export default function WorkOrderDetailPage() {
     const requestGeneration = ++assignmentRequestGeneration.current;
     setAssignment({ row, mode });
     setAssignmentForm({
-      assigneeId: mode === "reassign" ? row.assigneeId ?? "" : "",
+      assigneeId: "",
       reason: ""
     });
     setUsers([]);

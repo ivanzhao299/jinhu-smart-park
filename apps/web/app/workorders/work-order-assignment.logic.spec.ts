@@ -6,7 +6,9 @@ import {
   buildWorkOrderAssignmentBody,
   buildWorkOrderAssignmentRequest,
   filterEnabledWorkOrderAssignees,
+  formatCommittedWorkOrderAssignmentRefreshError,
   getWorkOrderAssignmentError,
+  isWorkOrderAssigneeSelectionUnavailable,
   resolveWorkOrderAssigneeOptions
 } from "../../components/workorders/work-order-assignment.logic";
 
@@ -57,6 +59,29 @@ test("work-order assignment candidates keep only enabled users without mutating 
   assert.equal(candidates.length, 3);
 });
 
+test("work-order assignment rejects stale or disabled assignee selections", () => {
+  const options = [
+    { id: "enabled-user", label: "启用用户" },
+    { id: "invalid-user", label: "账号信息重复", disabled: true }
+  ];
+
+  assert.equal(isWorkOrderAssigneeSelectionUnavailable(options, ""), false);
+  assert.equal(isWorkOrderAssigneeSelectionUnavailable(options, "enabled-user"), false);
+  assert.equal(isWorkOrderAssigneeSelectionUnavailable(options, "missing-user"), true);
+  assert.equal(isWorkOrderAssigneeSelectionUnavailable(options, "invalid-user"), true);
+});
+
+test("work-order assignment preserves committed success when list refresh fails", () => {
+  assert.equal(
+    formatCommittedWorkOrderAssignmentRefreshError("改派成功", new Error("网络超时")),
+    "改派成功，但列表刷新失败：网络超时"
+  );
+  assert.equal(
+    formatCommittedWorkOrderAssignmentRefreshError("派单成功", null),
+    "派单成功，但列表刷新失败：未知错误"
+  );
+});
+
 test("work-order assignee options disambiguate only colliding business names with usernames", () => {
   const candidates = [
     { id: "user-1", username: "zhang.san", displayName: "张三" },
@@ -69,6 +94,19 @@ test("work-order assignee options disambiguate only colliding business names wit
     { id: "user-2", label: "张三（zhang.san.2）" },
     { id: "user-3", label: "李四" }
   ]);
+});
+
+test("work-order assignee options fall back from unreadable names to the username", () => {
+  assert.deepEqual(
+    resolveWorkOrderAssigneeOptions([
+      { id: "user-1", username: "operator.1", displayName: "12345", realName: "---" },
+      { id: "user-2", username: "operator.2", displayName: "\u200B", realName: "王五" }
+    ]),
+    [
+      { id: "user-1", label: "operator.1" },
+      { id: "user-2", label: "王五" }
+    ]
+  );
 });
 
 test("work-order assignee collision detection normalizes invisible and whitespace differences", () => {
@@ -117,6 +155,7 @@ test("work-order detail assignment uses the shared picker and no longer prompts 
   const detail = readFileSync(resolve(__dirname, "[id]/page.tsx"), "utf8");
   const list = readFileSync(resolve(__dirname, "list/page.tsx"), "utf8");
   const dialog = readFileSync(resolve(__dirname, "../../components/workorders/WorkOrderAssignDialog.tsx"), "utf8");
+  const listAssignmentFlow = list.match(/function openAssignment[\s\S]*?(?=\n {2}async function submitDirectProcessAction)/)?.[0] ?? "";
 
   assert.doesNotMatch(detail, /请输入处理人用户 ID/);
   assert.match(detail, /action === "assign" \|\| action === "reassign"/);
@@ -140,7 +179,15 @@ test("work-order detail assignment uses the shared picker and no longer prompts 
   assert.match(dialog, /暂无可选处理人/);
   assert.match(dialog, /role="alert"/);
   assert.match(dialog, /resolveWorkOrderAssigneeOptions\(users\)/);
+  assert.match(dialog, /isWorkOrderAssigneeSelectionUnavailable\(assigneeOptions, form\.assigneeId\)/);
   assert.match(dialog, /disabled=\{submitDisabled\}/);
   assert.match(detail, /error=\{assignmentError\}/);
+  assert.match(detail, /setAssignmentForm\(\{[\s\S]*assigneeId: ""/);
   assert.match(list, /error=\{assignmentError\}/);
+  assert.match(listAssignmentFlow, /if \(assignmentActionLock\.current\) \{[\s\S]*上一笔派单结果仍在同步/);
+  assert.doesNotMatch(listAssignmentFlow, /function openAssignment[\s\S]{0,500}assignmentActionLock\.current = false/);
+  assert.match(listAssignmentFlow, /formatCommittedWorkOrderAssignmentRefreshError\(successMessage, error\)/);
+  assert.match(listAssignmentFlow, /let logRefreshError: unknown = null/);
+  assert.match(listAssignmentFlow, /\$\{successMessage\}，但日志刷新失败/);
+  assert.doesNotMatch(listAssignmentFlow, /void loadWorkOrderLogs\(response\.data\.id\)\.catch/);
 });

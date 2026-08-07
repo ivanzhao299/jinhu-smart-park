@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import type { UserRow } from "./types";
 import {
+  isWorkOrderAssigneeSelectionUnavailable,
   resolveWorkOrderAssigneeOptions,
   type WorkOrderAssignmentFormState,
   type WorkOrderAssignmentMode
@@ -42,11 +43,10 @@ export function WorkOrderAssignDialog({
 }: WorkOrderAssignDialogProps) {
   const controlsDisabled = usersLoading || submitting;
   const assigneeOptions = resolveWorkOrderAssigneeOptions(users);
-  const selectedOption = assigneeOptions.find((option) => option.id === form.assigneeId);
   const submitDisabled = controlsDisabled
     || assigneeOptions.length === 0
     || assigneeOptions.every((option) => option.disabled)
-    || Boolean(selectedOption?.disabled);
+    || isWorkOrderAssigneeSelectionUnavailable(assigneeOptions, form.assigneeId);
   const emptyLabel = usersLoading
     ? "正在加载处理人..."
     : usersError
