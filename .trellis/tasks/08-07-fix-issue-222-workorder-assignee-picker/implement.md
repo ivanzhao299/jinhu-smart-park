@@ -23,8 +23,8 @@
 
 ## Review And Delivery
 
-- [ ] 仅提交 Issue #222 所需文件，确认隔离分支无无关改动。
-- [ ] 创建清晰 commit，推送 `codex/fix-issue-222` 并创建 draft PR。
+- [x] 仅提交 Issue #222 所需文件，确认隔离分支无无关改动。
+- [x] 创建清晰 commit，推送 `codex/fix-issue-222` 并创建 draft PR #225。
 - [ ] 请求 Codex review；验证反馈后修复同类风险并补测试/规范。
 - [ ] CI、Codex review 与所有 review threads 均稳定通过后再通知可合并，不自动合并。
 
