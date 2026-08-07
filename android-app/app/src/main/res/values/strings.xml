@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">金湖智慧园区</string>
+    <string name="network_error">页面加载失败，请检查网络后重试</string>
+    <string name="exit_confirm">再按一次返回键退出应用</string>
+    <string name="update_title">发现新版本 %1$s</string>
+    <string name="update_message">%1$s\n\n是否立即下载更新？</string>
+</resources>

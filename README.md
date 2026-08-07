@@ -12,6 +12,7 @@ JinHu Smart Park 是一个面向产业园区数字运营场景的 SaaS 平台，
 - 环境矩阵：[docs/deployment/environment-matrix.md](docs/deployment/environment-matrix.md)
 - 全量产品 UAT 矩阵：[docs/uat/full-product-acceptance-matrix.md](docs/uat/full-product-acceptance-matrix.md)
 - 本地开发与部署入口：[docs/deployment/production.md](docs/deployment/production.md)
+- Android 客户端构建与发布：[docs/deployment/android-client.md](docs/deployment/android-client.md)
 - 测试与回归入口：[docs/testing/how-to-run-tests.md](docs/testing/how-to-run-tests.md)
 - 首发回归设计：[docs/testing/first-release-regression-plan.md](docs/testing/first-release-regression-plan.md)
 - 发布与回滚：
@@ -25,6 +26,7 @@ JinHu Smart Park 是一个面向产业园区数字运营场景的 SaaS 平台，
 
 - `apps/api`：NestJS API 服务
 - `apps/web`：Next.js Web 管理端
+- `android-app`：金湖智慧园区 Android 原生壳与应用内升级能力
 - `packages`：共享包与通用配置
 - `database`：SQL migrations 与 seed
 - `scripts`：数据库、部署、验证、回归脚本

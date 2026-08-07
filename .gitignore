@@ -21,3 +21,10 @@ artifacts/
 replace*.mjs
 apps/web/.next.*
 database/import-reports/
+android-app/.gradle/
+android-app/local.properties
+android-app/signing.properties
+android-app/signing/*.keystore
+android-app/signing/*.jks
+android-app/signing/*.p12
+android-app/app/build/

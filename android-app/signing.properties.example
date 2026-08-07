@@ -1,0 +1,5 @@
+storeFile=signing/release.keystore
+storeType=JKS
+storePassword=replace-with-secret
+keyAlias=jinhu-smart-park
+keyPassword=replace-with-secret

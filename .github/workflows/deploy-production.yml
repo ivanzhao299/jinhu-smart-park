@@ -133,7 +133,7 @@ jobs:
             if [ -z "$changed_files" ]; then
               resolved="full"
             elif printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/public/runtime-design-system\.css|\.release\.json)$' >/dev/null; then
-              if printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/|packages/ui/|docs/|README\.md|AGENTS\.md|\.trellis/)' >/dev/null; then
+              if printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/|packages/ui/|android-app/|docs/|README\.md|AGENTS\.md|\.trellis/|\.github/workflows/android-build\.yml$|scripts/verify-android-release\.mjs$)' >/dev/null; then
                 if printf "%s\n" "$changed_files" | grep -Ev '^(apps/api/|docs/|README\.md|AGENTS\.md|\.trellis/)' >/dev/null; then
                   resolved="full"
                 else
