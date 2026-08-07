@@ -2,18 +2,19 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseInterceptors } fro
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAuthenticated, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { AdminIssuesService } from "./admin-issues.service";
-import { AdminIssueQueryDto, AdminIssueRunnerResultDto, ClaimAdminIssueDto, CreateAdminIssueDto, TriageAdminIssueDto } from "./dto/admin-issue.dto";
+import { AdminIssueQueryDto, AdminIssueRunnerResultDto, ClaimAdminIssueDto, CreateAdminIssueDto, RenewAdminIssueLeaseDto, TriageAdminIssueDto } from "./dto/admin-issue.dto";
 
 @Controller("admin-issues")
 export class AdminIssuesController {
   constructor(private readonly service: AdminIssuesService) {}
 
   @Post()
+  @RequireAuthenticated()
   @UseInterceptors(new IdempotencyInterceptor())
   @AuditLog({ module: "问题修复", resource: "ops.admin_issue", action: "提交问题", bizType: "admin_issue_report" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreateAdminIssueDto) {
@@ -21,6 +22,7 @@ export class AdminIssuesController {
   }
 
   @Get("mine")
+  @RequireAuthenticated()
   mine(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Query() query: AdminIssueQueryDto) {
     return this.service.listMine(scope, actor, query);
   }
@@ -38,6 +40,7 @@ export class AdminIssuesController {
   }
 
   @Get(":issueNo")
+  @RequireAuthenticated()
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("issueNo") issueNo: string) {
     return this.service.detail(scope, issueNo, actor);
   }
@@ -54,6 +57,13 @@ export class AdminIssuesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_RUNNER)
   claim(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("issueNo") issueNo: string, @Body() dto: ClaimAdminIssueDto) {
     return this.service.claim(scope, actor, issueNo, dto);
+  }
+
+  @Post(":issueNo/runner/renew")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_RUNNER)
+  renew(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("issueNo") issueNo: string, @Body() dto: RenewAdminIssueLeaseDto) {
+    return this.service.renew(scope, actor, issueNo, dto);
   }
 
   @Post(":issueNo/runner/result")
