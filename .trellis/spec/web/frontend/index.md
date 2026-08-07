@@ -117,6 +117,24 @@ Reference files:
 - `apps/web/components/operations/OperationsTerminalClient.tsx`
 - `apps/web/app/safety/my-inspect-tasks/page.tsx`
 
+### Drawer-Local Error Feedback
+
+Validation and submission errors produced while a fixed drawer is open must render inside that
+drawer with `role="alert"`. A page-level message behind the drawer backdrop is not visible feedback
+and makes a rejected submit appear unresponsive. Clear the drawer error when the operator edits the
+form, opens a new target, or closes the drawer; keep success messages on the owning page after close.
+
+```tsx
+// Wrong: the drawer remains open while the message renders behind its backdrop.
+if (validationError) setPageMessage(validationError);
+
+// Correct: pass drawer-owned error state into the visible form surface.
+if (validationError) setDrawerError(validationError);
+{drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
+```
+
+Regression tests must assert both the business validation text and the drawer-local alert binding.
+
 ## File Uploads And Constrained Inputs
 
 Read `file-upload-and-form-controls.md` before changing upload controls, attachment lists, image/PDF/video previews, numeric inputs, money inputs, GPS fields, enum selects, or other constrained form elements.
