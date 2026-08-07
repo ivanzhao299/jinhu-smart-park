@@ -44,3 +44,22 @@ enter commit-bound image builds without failing the dirty-source gate.
 The fix changes the performance environment script and therefore the PR head.
 The `b632af33` rollback evidence remains valid only for that ancestor SHA; the
 final rollback and performance gates must both be regenerated on the new head.
+
+## High-port listener collision after `6ea4063b`
+
+The formal run `rollback-20260807T025012Z-6ea4063b7972` passed its first seven
+cases, then failed closed during the flags-on baseline smoke for
+`homestay-finance`. The Web listener selected port 52423 from the runner's
+broad high-port band and another local listener acquired it after prepare,
+producing `EADDRINUSE`. The host's observed ephemeral range was 44620-48715;
+52423 was outside that exact range, so the evidence supports a high-port
+collision but does not identify the competing listener as an ephemeral socket.
+Per-case cleanup passed with every residual field at zero; the run remains
+failure evidence and is not retried in place.
+
+The runner now derives API ports in 20000-24999 and Web ports in 25000-29999,
+with a regression contract requiring both authority-only bands to stay below
+the default Linux ephemeral lower bound of 32768. This changes the frozen
+runtime-control component hash, so a new commit, CI run,
+run ID, source binding, patch reviews, plan approvals, and all 19 formal cases
+are required again.

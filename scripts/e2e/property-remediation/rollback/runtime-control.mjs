@@ -44,7 +44,7 @@ export function resourceAuthority({ runId, finalSha, caseId, runRoot, executionN
   if (!/^[0-9a-f]{64}$/u.test(executionNonce ?? "")) throw new Error("resource authority requires the run execution nonce");
   if (!/^[0-9a-f]{64}$/u.test(commandSpecSha256 ?? "")) throw new Error("resource authority requires the frozen command spec checksum");
   const suffix = sha256(`${runId}:${caseId}`).slice(0, 12);
-  const portSeed = Number.parseInt(suffix.slice(0, 6), 16) % 10_000;
+  const portSeed = Number.parseInt(suffix.slice(0, 6), 16) % 5_000;
   return {
     labels: {
       "jinhu.rollback.run_id": runId,
@@ -52,8 +52,10 @@ export function resourceAuthority({ runId, finalSha, caseId, runRoot, executionN
       "jinhu.rollback.case_id": caseId
     },
     database: `jinhu_rollback_${suffix}`,
-    apiPort: 40_000 + portSeed,
-    webPort: 50_000 + portSeed,
+    // Keep service listeners below Linux's default ephemeral client-port range
+    // (typically starting at 32768) and in separate authority-only bands.
+    apiPort: 20_000 + portSeed,
+    webPort: 25_000 + portSeed,
     worktree: resolve(runRoot, "worktrees", caseId),
     credentialFile: resolve(runRoot, "secrets", `${caseId}.database-url`),
     runtimeManifest: resolve(runRoot, "tmp", caseId, "service-runtime.json"),
@@ -61,6 +63,19 @@ export function resourceAuthority({ runId, finalSha, caseId, runRoot, executionN
     commandSpecSha256,
     expectedExecutable: realpathSync(process.execPath)
   };
+}
+
+export function assertUniqueAuthorityPorts(authorities) {
+  const seen = new Map();
+  for (const [caseId, authority] of Object.entries(authorities)) {
+    for (const [role, port] of [["api", authority.apiPort], ["web", authority.webPort]]) {
+      if (!Number.isInteger(port)) throw new Error(`invalid ${role} authority port for ${caseId}`);
+      const previous = seen.get(port);
+      if (previous) throw new Error(`rollback authority port collision: ${previous} and ${caseId}:${role}`);
+      seen.set(port, `${caseId}:${role}`);
+    }
+  }
+  return authorities;
 }
 
 export function readDatabaseCredential(authority, runRoot) {

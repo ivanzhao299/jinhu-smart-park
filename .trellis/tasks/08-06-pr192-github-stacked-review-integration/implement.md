@@ -98,6 +98,11 @@ git diff --check
   diff-check、lint、typecheck 与 production build（158 个静态页面）。
 - [x] 当前 prerequisite/runner 修复树通过最终独立审查；发现并修复 fully-migrated
   fast-skip、prerequisite 契约全集漏审和旧运维文档漂移后，open P0/P1/P2=[]。
+- [x] `6ea4063b` formal rollback 在 7/19 后因 Web authority high port 52423 被占用而
+  `EADDRINUSE` fail closed；cleanup residual=0。当前主机 ephemeral range 为 44620-48715，
+  故证据只支持高端口冲突，不推断占用者。将确定性 API/Web listener 分别移至
+  20000-24999 / 25000-29999，并增加低于默认 Linux ephemeral 下界的端口带契约；该旧
+  run 只保留失败证据，必须在新 SHA 重新执行 19/19。
 - [ ] prerequisite 修复提交后，重新取得 GitHub verify/release-smoke、rollback 19/19 与
   formal performance 30/30；修复前 `72406a14` 的证据仅保留为失败发现/ancestor 记录。
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、

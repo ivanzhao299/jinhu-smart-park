@@ -39,7 +39,11 @@ service or database:
    isolated services on authority ports, require API health and readiness 200,
    perform a real administrator login through the Web rewrite, and read the
    homestay and housing dashboards through that same Web origin. Stop the
-   complete service process groups and verify both ports are free.
+   complete service process groups and verify both ports are free. Authority
+   listeners use deterministic 20000-24999 (API) and 25000-29999 (Web) bands,
+   below the default Linux ephemeral client-port range, to prevent a later
+   outbound socket from stealing a prepared listener port. Prepare also rejects
+   any deterministic cross-case port collision before creating formal inputs.
 6. Start one shared 30-minute hard deadline, apply the independently reviewed
    manual forward-port rollback patch, and derive/verify its result tree from
    the frozen final tree. The original reverse diff is frozen only as closure

@@ -47,6 +47,8 @@
     "catalogSignatureRepair": "000200 prerequisite validates a fixed aggregate hash across 57 runtime catalog objects before applying B0 definition-hash comments",
     "migrationFastSkipDiscovery": "fully migrated and non-empty baseline paths exited from migration-only history before newly added prerequisites were inspected",
     "migrationFastSkipRepair": "remove global manifest fast-skip; always walk migration order and skip checksum-matched migrations/prerequisites individually",
-    "migrationReplayMatrix": "clean 200/200+6/6; fully migrated retroactive 200 skipped+2 prerequisites restored; non-empty baseline 200 skipped+6 prerequisites applied; dual history differences 0; disposable DB residual 0"
+    "migrationReplayMatrix": "clean 200/200+6/6; fully migrated retroactive 200 skipped+2 prerequisites restored; non-empty baseline 200 skipped+6 prerequisites applied; dual history differences 0; disposable DB residual 0",
+    "rollbackHighPortDiscovery": "formal rollback at 6ea4063b passed 7 cases then failed closed when Web authority port 52423 returned EADDRINUSE; cleanup residual 0",
+    "rollbackHighPortRepair": "allocate API/Web authority listeners in disjoint 20000-24999 and 25000-29999 bands and fail prepare on any cross-case collision"
   }
 }

@@ -15,7 +15,7 @@ import { compareDurableSnapshots } from "./comparator.mjs";
 import { assertNoSensitiveData, canonicalSha256, durableTableNames, loadProfile, makeDurableSnapshot, repoRoot, sha256 } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
 import { assertCommandOutputSafe, deriveExpectedTree, makeRtoRpoDiagnostic, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
-import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
+import { assertUniqueAuthorityPorts, databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
@@ -528,6 +528,26 @@ test("baseline and rollback shared/API build specs delete stale dist JavaScript 
     const { profile } = loadProfile(); const specs = buildCommandSpecs(profile, profile.cases[0]); const apiBuild = specs.find(({ id }) => id === "api-build"); const sharedBuild = specs.find(({ id }) => id === "shared-build");
     assert.equal(apiBuild.cleanPath, "apps/api/dist"); assert.equal(sharedBuild.cleanPath, "packages/shared/dist"); cleanDeclaredBuildOutput(temp, sharedBuild); cleanDeclaredBuildOutput(temp, apiBuild); assert.equal(existsSync(staleApi), false); assert.equal(existsSync(staleShared), false);
   } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("runtime authority allocates service listeners outside the default Linux ephemeral range", () => {
+  const authority = resourceAuthority({
+    runId: "rollback-20260805T010000Z-abcdef123456",
+    finalSha: FINAL_SHA,
+    caseId: "homestay-dashboard",
+    runRoot: "/tmp/rollback-authority-port-contract",
+    executionNonce: "c".repeat(64),
+    commandSpecSha256: sha256("spec")
+  });
+  assert.ok(authority.apiPort >= 20_000 && authority.apiPort < 25_000);
+  assert.ok(authority.webPort >= 25_000 && authority.webPort < 30_000);
+  assert.throws(
+    () => assertUniqueAuthorityPorts({
+      first: authority,
+      second: { ...authority, apiPort: authority.apiPort, webPort: authority.webPort + 1 }
+    }),
+    /rollback authority port collision/u
+  );
 });
 
 test("runtime authority cleanup reaches residual zero at API spawn, Web spawn, and manifest-update interruption points", async () => {
