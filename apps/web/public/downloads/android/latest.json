@@ -4,9 +4,9 @@
   "versionName": "1.0.0",
   "fileName": "smart-park-v1.0.0.apk",
   "downloadUrl": "/downloads/android/smart-park-v1.0.0.apk",
-  "sha256": "fcd2a18d925c2e25362ce64dbfefaf32ea48dbf9a04eac6ba9e248c5e599d237",
+  "sha256": "b4fddd61a15dcca47fcf9b0a923949902223ca344cf32d8e50c5d81b45fff5c6",
   "sizeBytes": 4850052,
-  "builtAt": "2026-08-07T07:40:36Z",
-  "commit": "19d8c2591dfb170641625709d367a8fad6501827",
+  "builtAt": "2026-08-07T07:45:18Z",
+  "commit": "b0a098a35ccfe413f7cb22aaccb97d503d8d16a6",
   "releaseNotes": "稳定性与移动作业体验优化"
 }
