@@ -20,6 +20,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-release:
@@ -150,3 +151,8 @@ jobs:
             git pull --rebase origin main
           done
           git push origin HEAD:main
+
+      - name: Dispatch Web-level production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-production.yml --ref main -f deploy_mode=web

@@ -11,7 +11,7 @@
 3. CI 使用 production environment 的固定签名 secrets 签名，并通过 `apksigner` 校验证书。
 4. CI 生成版本化 APK、latest APK 和 `latest.json`，再运行 `scripts/verify-android-release.mjs` 校验文件大小及 SHA-256。
 5. 机器人只提交 `apps/web/public/downloads/android/` 发布资产。
-6. 该提交进入现有生产部署分类器并解析为 `web`：只校验、构建和重启 Web，不执行数据库迁移。
+6. Android 工作流提交资产后显式触发 `Deploy Production` 的 `web` 模式（GitHub 内置令牌产生的 push 不会递归触发普通 push 工作流）。
 7. Web 健康检查通过后执行规定的 Docker 清理。
 
 Android 源码和 Android 专项工作流由生产分类器限制在 `web` 范围，不触发 API 或数据库迁移；生成后的下载资产同样只进入 Web 部署。这避免客户端发布误走完整数据库部署。
