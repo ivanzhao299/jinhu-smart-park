@@ -25,7 +25,9 @@ function validateResources(actual, expected) {
   if (!same(actual?.limits, expected)) throw new Error("fixed resource profile mismatch");
   for (const name of Object.keys(expected)) if (!/^sha256:[0-9a-f]{64}$/u.test(actual?.imageDigests?.[name] ?? "")) throw new Error(`missing image digest: ${name}`);
   if (!actual.postgresParameters || Object.keys(actual.postgresParameters).length === 0) throw new Error("missing PostgreSQL parameters");
-  if (!exactHash(actual.seedSha256) || !exactHash(actual.environmentDigest) || !actual.businessClock) throw new Error("incomplete environment provenance");
+  if (!exactHash(actual.seedSha256) || !exactHash(actual.environmentDigest) || !actual.businessClock || Number.isNaN(Date.parse(actual.businessClock))) throw new Error("incomplete environment provenance");
+  if (actual.seedBusinessClock !== actual.businessClock) throw new Error("seed manifest business clock mismatch");
+  for (const name of Object.keys(expected)) if (actual?.businessClockBindings?.[name] !== actual.businessClock) throw new Error(`business clock binding mismatch: ${name}`);
 }
 
 function expectedKeys(profile) {

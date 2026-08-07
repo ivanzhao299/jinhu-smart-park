@@ -19,7 +19,8 @@ function evidence() {
     coldStartProofSha256: temperature === "cold" ? h : null,
     metrics: { p50Milliseconds: 50, p90Milliseconds: 70, p95Milliseconds: 80, p99Milliseconds: 100, throughputPerSecond: 20, errorRate: 0, cpuPercentP95: 50, memoryMiBP95: 500, gcPauseMillisecondsP95: 3, dbWaitMillisecondsP95: 2 }
   }))));
-  return { schemaVersion: "property-track-c-performance-evidence-v1", profileSha256: hash(profileBytes), commitSha: h.slice(0, 40), datasetChecksum: h, environment: { limits: profile.resourceProfile, imageDigests: Object.fromEntries(Object.keys(profile.resourceProfile).map((key) => [key, `sha256:${h}`])), postgresParameters: { shared_buffers: "1GB" }, seedSha256: h, environmentDigest: h, businessClock: "2026-08-04T00:00:00Z" }, results, cleanup: { attempted: true, residualCount: 0, manifestSha256: h }, failureLogs: [] };
+  const businessClock = "2026-08-04T00:00:00Z";
+  return { schemaVersion: "property-track-c-performance-evidence-v1", profileSha256: hash(profileBytes), commitSha: h.slice(0, 40), datasetChecksum: h, environment: { limits: profile.resourceProfile, imageDigests: Object.fromEntries(Object.keys(profile.resourceProfile).map((key) => [key, `sha256:${h}`])), postgresParameters: { shared_buffers: "1GB" }, seedSha256: h, environmentDigest: h, businessClock, seedBusinessClock: businessClock, businessClockBindings: Object.fromEntries(Object.keys(profile.resourceProfile).map((key) => [key, businessClock])) }, results, cleanup: { attempted: true, residualCount: 0, manifestSha256: h }, failureLogs: [] };
 }
 
 test("accepts complete fixed-profile evidence", () => assert.equal(validateFormalEvidence(evidence()).status, "PASS"));
@@ -41,4 +42,21 @@ test("fails thresholds and missing telemetry dimensions", () => {
   const result = validateFormalEvidence(value);
   assert.equal(result.status, "FAIL");
   assert(result.errors.some((item) => item.includes("missing metric dbWaitMillisecondsP95")));
+});
+
+test("fails when a measured container is not bound to the declared business clock", () => {
+  const value = evidence();
+  delete value.environment.businessClockBindings.api;
+  const result = validateFormalEvidence(value);
+  assert.equal(result.status, "FAIL");
+  assert(result.errors.includes("business clock binding mismatch: api"));
+});
+
+test("fails when the seed manifest clock is stale or the declared clock is invalid", () => {
+  const stale = evidence();
+  stale.environment.seedBusinessClock = "2026-08-05T00:00:00Z";
+  assert(validateFormalEvidence(stale).errors.includes("seed manifest business clock mismatch"));
+  const invalid = evidence();
+  invalid.environment.businessClock = "not-a-date";
+  assert(validateFormalEvidence(invalid).errors.includes("incomplete environment provenance"));
 });

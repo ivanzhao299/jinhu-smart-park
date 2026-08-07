@@ -103,6 +103,17 @@ git diff --check
   故证据只支持高端口冲突，不推断占用者。将确定性 API/Web listener 分别移至
   20000-24999 / 25000-29999，并增加低于默认 Linux ephemeral 下界的端口带契约；该旧
   run 只保留失败证据，必须在新 SHA 重新执行 19/19。
+- [x] `5f46e7dc` 已取得 GitHub verify/release-smoke PASS 与 formal rollback 19/19 PASS；
+  但 performance provisioning 前的独立只读计划审查发现清理错误未纳入 residual 的 P1，
+  因此该 SHA 的 rollback/CI 依 evidence invalidation policy 降级为 ancestor-only。
+- [x] 修复 performance cleanup fail-open：即使 Compose teardown 报错后资源枚举恰为 0，
+  teardown error 仍贡献一个 residual 并使 gate 失败；README 与回归测试同步。
+- [x] 澄清并强化 business clock 合同：它是数据集 cutoff/reference clock，不冒充冻结系统
+  wall clock；值写入 seed manifest、注入全部四个实测容器，并在 load 前逐容器核验绑定。
+- [x] 上述 performance evidence 修复通过第三轮独立代码审查，`open P0/P1/P2=[]`；本地
+  performance tests 18/18、lint、typecheck、unit、production build 158 pages 与 diff-check PASS。
+- [ ] 提交并推送上述修复，在新的 final SHA 重新取得 GitHub CI、rollback 19/19 和
+  formal performance 30/30。
 - [ ] prerequisite 修复提交后，重新取得 GitHub verify/release-smoke、rollback 19/19 与
   formal performance 30/30；修复前 `72406a14` 的证据仅保留为失败发现/ancestor 记录。
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、

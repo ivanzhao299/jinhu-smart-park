@@ -24,6 +24,12 @@ const safeIdentifier = (value, label) => {
 };
 const fileHash = (path) => sha(readFileSync(path));
 
+export function seedBusinessClock(path, expected) {
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  if (manifest?.businessClock !== expected) throw new Error("seed manifest business clock mismatch");
+  return manifest.businessClock;
+}
+
 function safeCommand(value, password, label) {
   if (value.includes(password) || /(?:password|passwd|token|secret)\s*=/iu.test(value)) {
     throw new Error(`${label} must not embed credentials; use a credential-free wrapper`);
@@ -91,6 +97,17 @@ export function deriveResourceObservation(inspections, expected) {
     imageDigests[key] = value.Image;
   }
   return { limits, imageDigests };
+}
+
+export function deriveBusinessClockBindings(inspections, expected) {
+  const bindings = {};
+  for (const [key, inspection] of Object.entries(inspections)) {
+    const entry = inspection?.Config?.Env?.find((value) => value.startsWith("PROPERTY_PERF_BUSINESS_CLOCK="));
+    const value = entry?.slice("PROPERTY_PERF_BUSINESS_CLOCK=".length);
+    if (value !== expected) throw new Error(`business clock binding mismatch: ${key}`);
+    bindings[key] = value;
+  }
+  return bindings;
 }
 
 async function numericShell(command, label) {
@@ -237,13 +254,15 @@ async function executeCell(config, profile, scenario, concurrency, runIndex, run
 async function environmentEvidence(config, profile) {
   const inspections = Object.fromEntries(await Promise.all(Object.entries(config.containers).map(async ([key, name]) => [key, await inspectContainer(name)])));
   const resources = deriveResourceObservation(inspections, profile.resourceProfile);
+  const businessClockBindings = deriveBusinessClockBindings(inspections, config.businessClock);
   const pgObservation = await runShell(config.postgresParametersCommand);
   const postgresParameters = JSON.parse(pgObservation.stdout);
   if (!postgresParameters || Array.isArray(postgresParameters) || Object.keys(postgresParameters).length === 0) throw new Error("PostgreSQL parameter command must print a non-empty JSON object");
   const seedSha256 = fileHash(config.seedManifest);
+  const seedClock = seedBusinessClock(config.seedManifest, config.businessClock);
   const datasetChecksum = fileHash(config.datasetManifest);
-  const provenance = { ...resources, postgresParameters, seedSha256, datasetChecksum, businessClock: config.businessClock };
-  return { datasetChecksum, environment: { ...resources, postgresParameters, seedSha256, businessClock: config.businessClock, environmentDigest: sha(JSON.stringify(provenance)) } };
+  const provenance = { ...resources, postgresParameters, seedSha256, datasetChecksum, businessClock: config.businessClock, seedBusinessClock: seedClock, businessClockBindings };
+  return { datasetChecksum, environment: { ...resources, postgresParameters, seedSha256, businessClock: config.businessClock, seedBusinessClock: seedClock, businessClockBindings, environmentDigest: sha(JSON.stringify(provenance)) } };
 }
 
 async function cleanupEvidence(config, runDir) {
@@ -257,7 +276,8 @@ async function cleanupEvidence(config, runDir) {
 
 export async function checkConfig(env = process.env) {
   const config = loadConfig(env);
-  for (const path of [config.datasetManifest, config.seedManifest]) readFileSync(path);
+  readFileSync(config.datasetManifest);
+  seedBusinessClock(config.seedManifest, config.businessClock);
   return { status: "PASS", schemaVersion: "property-track-c-performance-config-check-v1", matrixRuns: 30, secretsLogged: false };
 }
 

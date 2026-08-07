@@ -37,7 +37,7 @@ export PROPERTY_PERF_USERNAME='<performance account with both dashboard read per
 export PROPERTY_PERF_PASSWORD='<read from a local secret source>'
 export PROPERTY_PERF_CONTAINERS_JSON='{"web":"perf-web","api":"perf-api","postgres":"perf-postgres","browserWorker":"perf-browser"}'
 export PROPERTY_PERF_DATASET_MANIFEST=/absolute/path/to/dataset-manifest.json
-export PROPERTY_PERF_SEED_MANIFEST=/absolute/path/to/seed-manifest.sql
+export PROPERTY_PERF_SEED_MANIFEST=/absolute/path/to/seed-manifest.json
 export PROPERTY_PERF_BUSINESS_CLOCK=2026-08-04T00:00:00Z
 export PROPERTY_PERF_RESTART_COMMAND=/absolute/path/to/cold-restart-and-readiness.sh
 export PROPERTY_PERF_CLEANUP_COMMAND=/absolute/path/to/cleanup-and-inventory.sh
@@ -52,7 +52,9 @@ Command contracts:
 - The restart command must reset caches/restart the cold services and wait until
   login is ready. It must not contain credentials in its command string.
 - The cleanup command must remove run-created state and print only JSON shaped as
-  `{"residualCount":0,"manifest":[]}`. A nonzero residual fails the gate.
+  `{"residualCount":0,"manifest":[...]}`. The manifest records the scoped inventory
+  and any teardown error; either a teardown error or a nonzero resource inventory
+  produces a nonzero residual and fails the gate.
 - The GC and DB-wait commands each print one non-negative millisecond observation.
   They are sampled throughout every cell; unavailable telemetry fails the run.
 - The PostgreSQL command prints one non-empty JSON object of fixed parameters.
@@ -116,6 +118,11 @@ restores only into an empty isolated volume, then runs the repository migration,
 production seed, bootstrap-admin, strict initialization baseline and health gates.
 It returns a non-secret runtime manifest and executor environment map. Keep the
 password in the caller environment; it is never written to that manifest.
+
+`PROPERTY_PERF_BUSINESS_CLOCK` is the declared dataset cutoff/reference clock, not
+an override of the host or container wall clock. Provisioning hashes it into the
+seed manifest and injects it into every measured container; the executor rejects
+any missing or mismatched container binding before load generation.
 
 ```bash
 PROPERTY_PERF_PROVISION=yes \

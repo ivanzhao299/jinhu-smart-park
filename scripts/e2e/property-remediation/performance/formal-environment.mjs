@@ -97,7 +97,8 @@ function nonSecretComposeEnv(config, secretDir) {
     PROPERTY_PERF_DATASET_DUMP: config.dataset.path,
     PROPERTY_PERF_SECRET_DIR: secretDir,
     PROPERTY_PERF_USERNAME: config.username,
-    PROPERTY_PERF_ADMIN_NAME: config.adminName
+    PROPERTY_PERF_ADMIN_NAME: config.adminName,
+    PROPERTY_PERF_BUSINESS_CLOCK: config.businessClock
   };
 }
 
@@ -128,7 +129,7 @@ function createRuntime(config) {
   const seedManifestPath = resolve(setupDir, "seed-manifest.json");
   const seedDir = resolve(repoRoot, "database/seeds");
   const seedManifest = readdirSync(seedDir).filter((name) => name.endsWith(".sql")).sort().map((name) => ({ name, sha256: sha(readFileSync(resolve(seedDir, name))) }));
-  writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+  writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, businessClock: config.businessClock, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
   const runtime = {
     schemaVersion: config.schemaVersion,
     commitSha: config.commitSha,
@@ -226,6 +227,12 @@ async function dockerProjectCount(projectName, kind) {
   return stdout.trim() ? stdout.trim().split("\n").length : 0;
 }
 
+export function cleanupInventory(projectName, remaining, downError = null) {
+  const resourceResidualCount = Object.values(remaining).reduce((sum, value) => sum + value, 0);
+  const residualCount = resourceResidualCount + (downError ? 1 : 0);
+  return { residualCount, manifest: [{ projectName, remaining, downError }] };
+}
+
 async function cleanup(runtime) {
   let downError = null;
   try { await compose(runtime, ["down", "--volumes", "--remove-orphans", "--rmi", "local"]); } catch (error) { downError = error.message; }
@@ -236,8 +243,7 @@ async function cleanup(runtime) {
     volumes: await dockerProjectCount(runtime.projectName, "volume"),
     secretFiles: 0
   };
-  const residualCount = Object.values(remaining).reduce((sum, value) => sum + value, 0);
-  return { residualCount, manifest: [{ projectName: runtime.projectName, remaining, downError }] };
+  return cleanupInventory(runtime.projectName, remaining, downError);
 }
 
 async function queryPostgres(runtime, sql) {

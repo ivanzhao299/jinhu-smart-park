@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { checkConfig, deriveResourceObservation, loadConfig } from "./formal-executor.mjs";
+import { checkConfig, deriveBusinessClockBindings, deriveResourceObservation, loadConfig, seedBusinessClock } from "./formal-executor.mjs";
 
 const hash = "a".repeat(64);
 
@@ -12,7 +12,7 @@ function fixtureEnv() {
   const dataset = resolve(directory, "dataset.json");
   const seed = resolve(directory, "seed.sql");
   writeFileSync(dataset, "{}\n");
-  writeFileSync(seed, "-- fixture\n");
+  writeFileSync(seed, `${JSON.stringify({ businessClock: "2026-08-04T00:00:00Z", files: [] })}\n`);
   return {
     PROPERTY_PERF_BASE_URL: "http://api.example.test:3101",
     PROPERTY_PERF_WORKER_BASE_URL: "http://api:3001",
@@ -68,4 +68,26 @@ test("requires the exact four-container resource profile and immutable image ids
   assert.deepEqual(deriveResourceObservation(inspections, profile).limits, profile);
   inspections.api.HostConfig.Memory = 1024 * 1024;
   assert.throws(() => deriveResourceObservation(inspections, profile), /fixed resource mismatch: api/u);
+});
+
+test("requires the declared dataset business clock on every measured container", () => {
+  const businessClock = "2026-08-04T00:00:00Z";
+  const inspections = Object.fromEntries(["web", "api", "postgres", "browserWorker"].map((key) => [key, {
+    Config: { Env: [`PROPERTY_PERF_BUSINESS_CLOCK=${businessClock}`] }
+  }]));
+  assert.deepEqual(deriveBusinessClockBindings(inspections, businessClock), {
+    web: businessClock,
+    api: businessClock,
+    postgres: businessClock,
+    browserWorker: businessClock
+  });
+  inspections.api.Config.Env = [];
+  assert.throws(() => deriveBusinessClockBindings(inspections, businessClock), /business clock binding mismatch: api/u);
+});
+
+test("requires the seed manifest to bind the declared dataset business clock", () => {
+  const env = fixtureEnv();
+  assert.equal(seedBusinessClock(env.PROPERTY_PERF_SEED_MANIFEST, env.PROPERTY_PERF_BUSINESS_CLOCK), env.PROPERTY_PERF_BUSINESS_CLOCK);
+  writeFileSync(env.PROPERTY_PERF_SEED_MANIFEST, `${JSON.stringify({ businessClock: "2026-08-05T00:00:00Z", files: [] })}\n`);
+  assert.throws(() => seedBusinessClock(env.PROPERTY_PERF_SEED_MANIFEST, env.PROPERTY_PERF_BUSINESS_CLOCK), /seed manifest business clock mismatch/u);
 });

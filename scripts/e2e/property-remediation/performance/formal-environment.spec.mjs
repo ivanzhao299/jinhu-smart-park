@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from "nod
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { assertSourceReady, loadEnvironmentConfig } from "./formal-environment.mjs";
+import { assertSourceReady, cleanupInventory, loadEnvironmentConfig } from "./formal-environment.mjs";
 
 const digest = "a".repeat(64);
 
@@ -73,9 +73,17 @@ test("source readiness includes untracked formal source paths and fails closed",
   }
 });
 
+test("cleanup inventory fails closed when compose down reports an error", () => {
+  const clean = { containers: 0, networks: 0, volumes: 0, secretFiles: 0 };
+  assert.equal(cleanupInventory("jinhu-track-c-perf-fixture", clean).residualCount, 0);
+  const failed = cleanupInventory("jinhu-track-c-perf-fixture", clean, "compose down failed");
+  assert.equal(failed.residualCount, 1);
+  assert.equal(failed.manifest[0].downError, "compose down failed");
+});
+
 test("compose definition fixes all formal resources and isolates state", () => {
   const compose = readFileSync(resolve(import.meta.dirname, "compose.formal.yml"), "utf8");
-  for (const marker of ["cpus: 1", "cpus: 2", "mem_limit: 1g", "mem_limit: 2g", "mem_limit: 4g", "${PROPERTY_PERF_PROJECT_NAME}-postgres-data", "PROPERTY_PERF_DATASET_DUMP", "track_io_timing=on"]) assert.match(compose, new RegExp(marker.replace(/[${}]/gu, "\\$&"), "u"));
+  for (const marker of ["cpus: 1", "cpus: 2", "mem_limit: 1g", "mem_limit: 2g", "mem_limit: 4g", "${PROPERTY_PERF_PROJECT_NAME}-postgres-data", "PROPERTY_PERF_DATASET_DUMP", "PROPERTY_PERF_BUSINESS_CLOCK", "track_io_timing=on"]) assert.match(compose, new RegExp(marker.replace(/[${}]/gu, "\\$&"), "u"));
   assert.doesNotMatch(compose, /jinhu_uat_20260804|jinhu-smart-park-postgres/u);
   const control = compose.slice(compose.indexOf("  control:"));
   for (const marker of [

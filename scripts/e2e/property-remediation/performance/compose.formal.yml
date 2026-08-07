@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB:?isolated database name is required}
       POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
     command:
       - postgres
       - -c
@@ -61,6 +62,7 @@ services:
       DEFAULT_TENANT_CODE: jinhu
       DEFAULT_TENANT_ID: "10000001"
       DEFAULT_PARK_ID: "20000001"
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
     secrets:
       - postgres_password
       - jwt_secret
@@ -103,6 +105,7 @@ services:
       WEB_PORT: 3000
       NEXT_PUBLIC_API_TARGET: http://api:3001
       NEXT_PUBLIC_API_PREFIX: /api/v1
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
     ports:
       - 127.0.0.1:${PROPERTY_PERF_WEB_PORT:-33100}:3000
     healthcheck:
@@ -117,6 +120,8 @@ services:
     container_name: ${PROPERTY_PERF_PROJECT_NAME}-browser
     cpus: 2
     mem_limit: 2g
+    environment:
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
     command: ["sleep", "infinity"]
     init: true
     networks: [formal]
@@ -141,6 +146,7 @@ services:
       PROPERTY_PERF_POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
       PROPERTY_PERF_API_PORT: ${PROPERTY_PERF_API_PORT:-33101}
       PROPERTY_PERF_WEB_PORT: ${PROPERTY_PERF_WEB_PORT:-33100}
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
       PROPERTY_PERF_SECRET_DIR: ${PROPERTY_PERF_SECRET_DIR:?generated secret directory is required}
       POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB}
       POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
