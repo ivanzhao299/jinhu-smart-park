@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@jinhu/ui";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
@@ -11,7 +11,8 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canViewField, maskField } from "../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 import { buildWorkOrderPrefill, formatUnitLocation, patchContactFromTenant, resolveWorkOrderAudience, tenantForUnit } from "../../../lib/workorder-prefill";
-import { WorkOrderAssignDialog } from "./components/WorkOrderAssignDialog";
+import { WorkOrderAssignDialog } from "../../../components/workorders/WorkOrderAssignDialog";
+import { buildWorkOrderAssignmentRequest, getWorkOrderAssignmentError } from "../../../components/workorders/work-order-assignment.logic";
 import { WorkOrderCloseDialog } from "./components/WorkOrderCloseDialog";
 import { WorkOrderDetailDrawer } from "./components/WorkOrderDetailDrawer";
 import { WorkOrderExceptionActionDialog } from "./components/WorkOrderExceptionActionDialog";
@@ -313,6 +314,7 @@ export default function WorkOrdersListPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [form, setForm] = useState<WorkOrderFormState>(emptyForm);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(emptyAssignmentForm);
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const [processForm, setProcessForm] = useState<ProcessFormState>(emptyProcessForm);
   const [closureForm, setClosureForm] = useState<ClosureFormState>(emptyClosureForm);
   const [exceptionForm, setExceptionForm] = useState<ExceptionFormState>(emptyExceptionForm);
@@ -327,6 +329,7 @@ export default function WorkOrdersListPage() {
   const [workOrderLogs, setWorkOrderLogs] = useState<WorkOrderLogRow[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const assignmentActionLock = useRef(false);
   const canViewReporterMobile = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_REPORTER_MOBILE);
   const canViewDescription = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_DESCRIPTION);
   const canViewEvaluation = canViewField(authUser, WORKORDER_MODULE, WORK_ORDER_ENTITY, FIELD_EVALUATION);
@@ -522,6 +525,8 @@ export default function WorkOrdersListPage() {
   }
 
   function openAssignment(row: WorkOrderRow, mode: "assign" | "reassign") {
+    assignmentActionLock.current = false;
+    setAssignmentSubmitting(false);
     setAssignment({ row, mode });
     setAssignmentForm({
       assigneeId: row.assigneeId ?? "",
@@ -530,34 +535,46 @@ export default function WorkOrdersListPage() {
     setMessage("");
   }
 
+  function closeAssignment() {
+    if (assignmentActionLock.current) return;
+    setAssignment(null);
+  }
+
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!assignment) return;
-    if (!assignmentForm.assigneeId) {
-      setMessage("请选择处理人");
+    if (!assignment || assignmentActionLock.current) return;
+    const validationError = getWorkOrderAssignmentError(assignment.mode, assignmentForm);
+    if (validationError) {
+      setMessage(validationError);
       return;
     }
-    if (assignment.mode === "reassign" && !assignmentForm.reason.trim()) {
-      setMessage("改派原因必填");
-      return;
-    }
-    const response = await apiRequest<WorkOrderRow>(`/work-orders/${assignment.row.id}/${assignment.mode}`, {
-      method: "POST",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey(`work-order-${assignment.mode}`),
-      body: {
-        assignee_id: assignmentForm.assigneeId,
-        reason: assignmentForm.reason.trim() || undefined
+    assignmentActionLock.current = true;
+    setAssignmentSubmitting(true);
+    try {
+      const request = buildWorkOrderAssignmentRequest(
+        assignment.row.id,
+        assignment.mode,
+        assignmentForm,
+        createIdempotencyKey(`work-order-${assignment.mode}`)
+      );
+      const response = await apiRequest<WorkOrderRow>(request.path, {
+        method: "POST",
+        token: getAccessToken(),
+        idempotencyKey: request.idempotencyKey,
+        body: request.body
+      });
+      if (detail?.id === response.data.id) {
+        setDetail(response.data);
+        void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
       }
-    });
-    if (detail?.id === response.data.id) {
-      setDetail(response.data);
-      void loadWorkOrderLogs(response.data.id).catch((error: Error) => setMessage(error.message));
+      setAssignment(null);
+      setAssignmentForm(emptyAssignmentForm);
+      setMessage(assignment.mode === "assign" ? "派单成功" : "改派成功");
+      await load(pageData.page);
+    } finally {
+      assignmentActionLock.current = false;
+      setAssignmentSubmitting(false);
     }
-    setAssignment(null);
-    setAssignmentForm(emptyAssignmentForm);
-    setMessage(assignment.mode === "assign" ? "派单成功" : "改派成功");
-    await load(pageData.page);
   }
 
   async function submitDirectProcessAction(row: WorkOrderRow, action: "accept" | "start") {
@@ -830,7 +847,8 @@ export default function WorkOrdersListPage() {
             assignment={assignment}
             form={assignmentForm}
             users={users}
-            onClose={() => setAssignment(null)}
+            submitting={assignmentSubmitting}
+            onClose={closeAssignment}
             onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}
             onFormChange={(patch) => setAssignmentForm((current) => ({ ...current, ...patch }))}
           />
