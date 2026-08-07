@@ -18,17 +18,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult, type UserContext } from "@jinhu/shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { WorkOrderAssignDialog } from "../../../components/workorders/WorkOrderAssignDialog";
 import { PriorityBadge, WorkOrderStatusBadge, labelFor } from "../../../components/workorders/WorkOrderBadges";
 import { WorkOrderTimeline } from "../../../components/workorders/WorkOrderTimeline";
-import type { DictItemRow, DictMap, DictTypeRow, WorkOrderLogRow, WorkOrderRow } from "../../../components/workorders/types";
+import {
+  buildWorkOrderAssignmentRequest,
+  filterEnabledWorkOrderAssignees,
+  getWorkOrderAssignmentError,
+  type WorkOrderAssignmentFormState,
+  type WorkOrderAssignmentMode
+} from "../../../components/workorders/work-order-assignment.logic";
+import type { DictItemRow, DictMap, DictTypeRow, UserRow, WorkOrderLogRow, WorkOrderRow } from "../../../components/workorders/types";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
 const WORKORDER_MODULE = "workorder";
 const WORK_ORDER_ENTITY = "work_order";
@@ -51,6 +60,17 @@ type ActionKey =
   | "cancel"
   | "return"
   | "reject";
+type DirectActionKey = Exclude<ActionKey, WorkOrderAssignmentMode>;
+
+interface AssignmentState {
+  mode: WorkOrderAssignmentMode;
+  row: WorkOrderRow;
+}
+
+const emptyAssignmentForm: WorkOrderAssignmentFormState = {
+  assigneeId: "",
+  reason: ""
+};
 
 export default function WorkOrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -59,9 +79,18 @@ export default function WorkOrderDetailPage() {
   const [detail, setDetail] = useState<WorkOrderRow | null>(null);
   const [logs, setLogs] = useState<WorkOrderLogRow[]>([]);
   const [dicts, setDicts] = useState<DictMap>({});
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentState | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState<WorkOrderAssignmentFormState>(emptyAssignmentForm);
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const assignmentRequestGeneration = useRef(0);
+  const assignmentActionLock = useRef(false);
 
   const statusItems = dicts.workorder_status ?? [];
   const typeItems = dicts.workorder_type ?? [];
@@ -134,6 +163,10 @@ export default function WorkOrderDetailPage() {
 
   async function runAction(action: ActionKey) {
     if (!detail) return;
+    if (action === "assign" || action === "reassign") {
+      openAssignment(detail, action);
+      return;
+    }
     const request = buildActionRequest(action);
     if (!request) return;
     const response = await apiRequest<WorkOrderRow>(`/work-orders/${detail.id}/${request.path}`, {
@@ -147,19 +180,93 @@ export default function WorkOrderDetailPage() {
     await loadLogs();
   }
 
-  function buildActionRequest(action: ActionKey): { path: string; body?: Record<string, unknown> } | null {
-    switch (action) {
-      case "assign":
-      case "reassign": {
-        const assigneeId = window.prompt("请输入处理人用户 ID");
-        if (!assigneeId?.trim()) return null;
-        const reason = action === "reassign" ? window.prompt("请输入改派原因") : window.prompt("派单说明，可选");
-        if (action === "reassign" && !reason?.trim()) {
-          setMessage("改派原因必填");
-          return null;
+  function openAssignment(row: WorkOrderRow, mode: WorkOrderAssignmentMode) {
+    const requestGeneration = ++assignmentRequestGeneration.current;
+    setAssignment({ row, mode });
+    setAssignmentForm({
+      assigneeId: "",
+      reason: ""
+    });
+    setUsers([]);
+    setUsersLoading(true);
+    setUsersError(null);
+    setAssignmentError(null);
+    setMessage("");
+    void fetchReferenceFormOptions()
+      .then((references) => {
+        if (requestGeneration !== assignmentRequestGeneration.current) return;
+        setUsers(filterEnabledWorkOrderAssignees(references.users));
+      })
+      .catch((error: Error) => {
+        if (requestGeneration !== assignmentRequestGeneration.current) return;
+        setUsers([]);
+        setUsersError(error.message);
+        setMessage(error.message);
+      })
+      .finally(() => {
+        if (requestGeneration === assignmentRequestGeneration.current) {
+          setUsersLoading(false);
         }
-        return { path: action, body: { assignee_id: assigneeId.trim(), reason: reason?.trim() || undefined } };
+      });
+  }
+
+  function resetAssignment() {
+    assignmentRequestGeneration.current += 1;
+    setAssignment(null);
+    setAssignmentForm(emptyAssignmentForm);
+    setUsers([]);
+    setUsersLoading(false);
+    setUsersError(null);
+    setAssignmentError(null);
+  }
+
+  function closeAssignment() {
+    if (assignmentActionLock.current) return;
+    resetAssignment();
+  }
+
+  async function submitAssignment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assignment || usersLoading || assignmentActionLock.current) return;
+    const validationError = getWorkOrderAssignmentError(assignment.mode, assignmentForm);
+    if (validationError) {
+      setAssignmentError(validationError);
+      return;
+    }
+
+    assignmentActionLock.current = true;
+    setAssignmentSubmitting(true);
+    setAssignmentError(null);
+    const successMessage = assignment.mode === "assign" ? "派单成功" : "改派成功";
+    try {
+      const request = buildWorkOrderAssignmentRequest(
+        assignment.row.id,
+        assignment.mode,
+        assignmentForm,
+        createIdempotencyKey(`work-order-${assignment.mode}`)
+      );
+      const response = await apiRequest<WorkOrderRow>(request.path, {
+        method: "POST",
+        token: getAccessToken(),
+        idempotencyKey: request.idempotencyKey,
+        body: request.body
+      });
+      setDetail(response.data);
+      resetAssignment();
+      setMessage(successMessage);
+      try {
+        await loadLogs();
+      } catch (error) {
+        setMessage(`${successMessage}，但日志刷新失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
+    } finally {
+      assignmentActionLock.current = false;
+      setAssignmentSubmitting(false);
+    }
+  }
+
+  function buildActionRequest(action: DirectActionKey): { path: string; body?: Record<string, unknown> } | null {
+    switch (action) {
       case "wait-material": {
         const reason = window.prompt("请输入待物料原因");
         if (!reason?.trim()) {
@@ -316,6 +423,24 @@ export default function WorkOrderDetailPage() {
               </Card>
             </div>
           </>
+        ) : null}
+
+        {assignment ? (
+          <WorkOrderAssignDialog
+            assignment={assignment}
+            form={assignmentForm}
+            users={users}
+            usersLoading={usersLoading}
+            usersError={usersError}
+            error={assignmentError}
+            submitting={assignmentSubmitting}
+            onClose={closeAssignment}
+            onSubmit={(event) => void submitAssignment(event).catch((error: Error) => setAssignmentError(error.message))}
+            onFormChange={(patch) => {
+              setAssignmentError(null);
+              setAssignmentForm((current) => ({ ...current, ...patch }));
+            }}
+          />
         ) : null}
 
         {message ? <p className="status-pill">{message}</p> : null}

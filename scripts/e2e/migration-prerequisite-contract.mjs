@@ -8,7 +8,6 @@ const migrationPrerequisitesRoot = resolve(root, "database/migration-prerequisit
 const reviewedPrerequisiteFiles = [
   "000064_s3e_checkout_effective/001_core_role_templates.sql",
   "000189_property_b_module_rbac_definitions/001_asset_module.sql",
-  "000190_admin_issue_runner_repair/001_sys_role_scope_conflict_arbiter.sql",
   "000193_property_b_runtime_integrity_forward_fix/001_property_runtime_checkpoint.sql",
   "000194_property_task_projection_contract_correction/001_property_runtime_control.sql",
   "000200_property_b_migration_compatibility_control/001_sign_forward_declared_runtime_catalog.sql"
@@ -45,10 +44,6 @@ const adminIssueRunnerMigrationPath = resolve(
   root,
   "database/migrations/000190_admin_issue_runner_repair.sql"
 );
-const adminIssueRunnerPrerequisitePath = resolve(
-  root,
-  "database/migration-prerequisites/000190_admin_issue_runner_repair/001_sys_role_scope_conflict_arbiter.sql"
-);
 const propertyRuntimeIntegrityMigrationPath = resolve(
   root,
   "database/migrations/000193_property_b_runtime_integrity_forward_fix.sql"
@@ -84,7 +79,6 @@ const prerequisite = readFileSync(prerequisitePath, "utf8");
 const propertyModuleMigration = readFileSync(propertyModuleMigrationPath);
 const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
-const adminIssueRunnerPrerequisite = readFileSync(adminIssueRunnerPrerequisitePath, "utf8");
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
   propertyRuntimeCheckpointPrerequisitePath,
@@ -119,8 +113,8 @@ assert.equal(
 
 assert.equal(
   createHash("sha256").update(adminIssueRunnerMigration).digest("hex"),
-  "75a6ed711fd8bfad608bb774e8e7704f6419c2ade660af7119f940cefbeaf8bd",
-  "historical migration 000190 must remain byte-for-byte unchanged"
+  "be32f4b806141df07cc4793ce87a1d2f7785c55b6ea848818700b0f2630f04a0",
+  "main-canonical migration 000190 must remain byte-for-byte unchanged"
 );
 
 assert.equal(
@@ -302,26 +296,6 @@ for (const requiredConstraint of [
     `000193 prerequisite is missing ${requiredConstraint}`
   );
 }
-
-assert.match(
-  adminIssueRunnerPrerequisite,
-  /CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_role_scope_code_active\s+ON sys_role \(tenant_id, park_id, code\)\s+WHERE is_deleted = false;/u
-);
-assert.equal(
-  [...adminIssueRunnerPrerequisite.matchAll(/^\s*CREATE\s+UNIQUE\s+INDEX\b/gim)].length,
-  1,
-  "000190 prerequisite must create exactly one compatibility index"
-);
-assert.equal(
-  /^\s*(?:INSERT|UPDATE|DELETE|MERGE|ALTER|DROP|TRUNCATE)\b/im.test(adminIssueRunnerPrerequisite),
-  false,
-  "000190 prerequisite must not contain data writes or destructive DDL"
-);
-assert.equal(
-  /^\s*CREATE\b(?!\s+UNIQUE\s+INDEX\b)/im.test(adminIssueRunnerPrerequisite),
-  false,
-  "000190 prerequisite must not create anything except its compatibility index"
-);
 
 assert.match(assetModulePrerequisite, /INSERT INTO sys_module\s*\(/);
 assert.match(assetModulePrerequisite, /'asset'/);

@@ -3,13 +3,8 @@
   display: grid;
   gap: 10px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
 }
 
 .triage p { margin: 0; white-space: pre-wrap; }
-.triage label { display: grid; gap: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; }
-.triage textarea { min-height: 78px; resize: vertical; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--bg); color: var(--text); font: inherit; }
+.triage textarea { min-height: 78px; resize: vertical; }
 .triage > div { display: flex; gap: 8px; flex-wrap: wrap; }
-.triage button { border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; background: var(--surface); color: var(--text); cursor: pointer; }
-.triage button:last-child { border-color: var(--primary); background: var(--primary); color: #fff; }
-.triage button:disabled { opacity: .45; cursor: not-allowed; }

@@ -22,6 +22,54 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  release-smoke-scope:
+    name: Detect Release Smoke Scope
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect database and release changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref }}
+          RELEASE_SMOKE_LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'run-release-smoke') }}
+        run: |
+          set -eu
+          required=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$RELEASE_SMOKE_LABELLED" = "true" ]; then
+            required=true
+          elif printf '%s' "$REF_NAME" | grep -q '^refs/heads/runner/'; then
+            required=true
+          else
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            else
+              case "$BEFORE_SHA" in
+                ""|0000000000000000000000000000000000000000)
+                  changed_files="$(git diff-tree --no-commit-id --name-only -r "$CURRENT_SHA")"
+                  ;;
+                *)
+                  changed_files="$(git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA")"
+                  ;;
+              esac
+            fi
+            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+              required=true
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          printf 'Release Smoke required: %s\n' "$required"
+
   verify:
     name: Lint, Typecheck, Build
     runs-on: ubuntu-latest
@@ -64,8 +112,10 @@ jobs:
 
   release-smoke:
     name: Release Smoke
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/runner/') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-release-smoke'))
-    needs: verify
+    if: needs.release-smoke-scope.outputs.required == 'true'
+    needs:
+      - verify
+      - release-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -178,7 +228,9 @@ jobs:
           test "$history_conflict_count" = "0"
 
       - name: Run production seed
-        run: ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+        run: |
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee -a /tmp/release-smoke-logs/db-seed-prod.log
 
       - name: Verify repaired core-role permissions
         run: |
@@ -210,6 +262,54 @@ jobs:
                    AND relation.is_deleted = false;"
           )"
           test "$repaired_grant_count" = "4"
+
+      - name: Verify Admin Issue Runner minimum-permission baseline
+        run: |
+          runner_baseline="$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT count(*)
+                FROM public.sys_user app_user
+                JOIN public.rel_user_role user_role
+                  ON user_role.tenant_id = app_user.tenant_id
+                 AND user_role.park_id = app_user.park_id
+                 AND user_role.user_id = app_user.id
+                 AND user_role.is_deleted = false
+                JOIN public.sys_role role
+                  ON role.id = user_role.role_id
+                 AND role.tenant_id = app_user.tenant_id
+                 AND role.code = 'SMART_PARK_RUNNER'
+                 AND role.is_deleted = false
+                JOIN public.rel_role_perm role_permission
+                  ON role_permission.tenant_id = app_user.tenant_id
+                 AND role_permission.park_id = app_user.park_id
+                 AND role_permission.role_id = role.id
+                 AND role_permission.is_deleted = false
+                JOIN public.sys_permission permission
+                  ON permission.id = role_permission.permission_id
+                 AND permission.code = 'admin_issue:runner'
+                 AND permission.is_deleted = false
+                WHERE app_user.tenant_id = '10000001'
+                  AND app_user.park_id = '20000001'
+                  AND app_user.username = 'studio_runner'
+                  AND app_user.is_enabled = false
+                  AND app_user.status = 'disabled'
+                  AND app_user.password_hash = '!SMART_PARK_RUNNER_CREDENTIAL_NOT_INITIALIZED!'
+                  AND app_user.is_deleted = false;")"
+          test "$runner_baseline" = "1"
+
+          excessive_permission_count="$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT count(*)
+                FROM public.sys_role role
+                JOIN public.rel_role_perm role_permission
+                  ON role_permission.role_id = role.id AND role_permission.is_deleted = false
+                JOIN public.sys_permission permission
+                  ON permission.id = role_permission.permission_id AND permission.is_deleted = false
+                WHERE role.tenant_id = '10000001'
+                  AND role.code = 'SMART_PARK_RUNNER'
+                  AND role.is_deleted = false
+                  AND permission.code <> 'admin_issue:runner';")"
+          test "$excessive_permission_count" = "0"
 
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log

@@ -126,6 +126,21 @@ git diff --check
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、
   rollback 19/19 与 formal performance 30/30 证据。
 
+### 2026-08-07 origin/main@1788541f 冲突重封版
+
+- [x] 合并 `origin/main@1788541f`，文本冲突仅涉及 Runner 激活工作流与 production seed README。
+- [x] Runner 工作流采用 main 的 SSH agent、host trust、并发锁、TCP keepalive 及本地/远端清理，
+  同时保留 stdin JSON 登录请求，避免生产密码进入 curl 参数列表。
+- [x] 保持已进入 main 的 `000005_admin_issue_runner_baseline.sql` 路径不变；将尚未合入的 Track B
+  reconciliation seed 顺延为 `000006_property_track_b_permission_reconcile.sql`，同步契约与 README，
+  由 production seed runner 按字典序确定性执行。
+- [x] 接受 main 将 Runner DML 从 `000190_admin_issue_runner_repair.sql` 移入 production seed 的
+  新权威字节（SHA-256 `be32f4b806141df07cc4793ce87a1d2f7785c55b6ea848818700b0f2630f04a0`）；
+  删除只服务旧 migration conflict target 的 `000190` prerequisite 及过时运维说明。
+- [ ] 新 merge commit 重新通过本地 targeted/verify 等价门禁、GitHub verify/release-smoke 与 Codex review。
+- [ ] `2302e0c0` 的 CI/rollback 证据降级为 ancestor-only；新 final SHA 重新确认 rollback。正式
+  performance 30/30 继续按用户批准的豁免处理，不得改写为 PASS。
+
 - [ ] 在 final PR head 上完成 rollback 19/19。
 - [ ] 在 final PR head 上完成 fresh 30-cell formal performance。
 - [ ] formal evidence gate PASS，expected/observed=30/30。

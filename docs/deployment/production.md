@@ -318,6 +318,8 @@ The workflow and `prod:*` command names are technical compatibility names. In th
 - `api`: builds and restarts the API container, then runs migrations and optional production seed.
 - `full`: builds API and Web, runs migrations and optional production seed, starts API/Web, and runs health checks.
 
+Android 客户端采用独立构建、轻量发布：`android-app/**` 由 Android CI 构建；CI 生成的 `apps/web/public/downloads/android/**` 下载资产按 `web` 模式部署，不执行数据库迁移。完整签名、版本、客户端下载入口、升级和回滚说明见 [Android 客户端构建与发布](android-client.md)。
+
 Use `fast-css` only for runtime design-system polish inside `apps/web/public/runtime-design-system.css`. Durable UI changes in React components, `globals.css`, or page CSS still require `web` or `full` because they are bundled by Next.js.
 
 Docker cleanup is a required post-deploy step. The deployment command should run with `PRUNE_DOCKER_AFTER_DEPLOY=yes` so the server keeps only images used by the current running containers plus active runtime state, and prunes stopped containers and unused images after health checks pass. Build cache is preserved by default so rebuilds stay warm. To reclaim build cache under disk pressure, run:

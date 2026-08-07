@@ -10,7 +10,7 @@ const migrationPath = resolve(
 );
 const seedPath = resolve(
   root,
-  "database/seeds/production/000005_property_track_b_permission_reconcile.sql"
+  "database/seeds/production/000006_property_track_b_permission_reconcile.sql"
 );
 const productionCoreSeedPath = resolve(root, "database/seeds/000001_s1_production_core.sql");
 const migrationBuffer = readFileSync(migrationPath);

@@ -31,9 +31,6 @@
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
   - `000189` 的 prerequisite 只确保全局 `asset` 模块目录存在且启用；不创建租户分配、
     plan 授权、permission/role/user 或业务数据，完整基线仍由 production seed 收敛。
-  - `000190` 的 prerequisite 只恢复历史 Runner migration 明确引用的 park-scope role
-    conflict arbiter；tenant-wide role 唯一约束仍是权威约束，前置项不创建角色、权限、用户、
-    凭据、授权关系或业务数据。
   - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
     `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
     兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
@@ -52,6 +49,9 @@
 - 成功执行的 migration 会逐项跳过；无新增 migration 时仍逐项核验独立 prerequisite 历史。
 - `checksum` 不一致会阻断继续执行。
 - `failed` 状态允许在人工确认后修正并重试。
+- 修正 failed migration 前必须确认该文件从未在长期环境记录为 `succeeded`、SQL 事务已回滚且目标库
+  没有半执行结构；runner 会记录更新后的 checksum 并重新执行。仅新增后续 migration 不能修复一个
+  会在它之前 fail-fast 的失败文件。
 - 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 
@@ -66,6 +66,8 @@
 - 重复执行是否安全依赖 SQL 自身幂等性。
 - 回滚主要依赖数据库备份恢复。
 - seed 和 migration 边界存在混淆风险。
+- `ON CONFLICT` 目标与当前 partial unique index 漂移会在运行时产生 PostgreSQL 42P10；数据库相关 PR
+  必须通过 fresh-schema Release Smoke，并同步检查后续 join 是否使用同一业务唯一键。
 
 当前仓库已观察到的重复编号现象：
 

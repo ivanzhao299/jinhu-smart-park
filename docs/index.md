@@ -24,6 +24,7 @@
 - 测试运行入口：[testing/how-to-run-tests.md](testing/how-to-run-tests.md)
 - 首发回归设计：[testing/first-release-regression-plan.md](testing/first-release-regression-plan.md)
 - 生产级部署入口（当前用于 UAT）：[deployment/production.md](deployment/production.md)
+- Android 客户端构建与发布：[deployment/android-client.md](deployment/android-client.md)
 - 未来生产就绪矩阵：[release/production-readiness-matrix.md](release/production-readiness-matrix.md)
 
 ## 2. 开发与本地运行
@@ -88,6 +89,7 @@ node scripts/e2e/first-release-regression.mjs
 
 - 环境矩阵：[deployment/environment-matrix.md](deployment/environment-matrix.md)
 - 生产级部署说明（当前用于 UAT）：[deployment/production.md](deployment/production.md)
+- Android 客户端发布与客户端下载：[deployment/android-client.md](deployment/android-client.md)
 - 部署版本追溯：见 [deployment/production.md](deployment/production.md) 的 Deployment Traceability 小节
 - 运维排障手册：[deployment/troubleshooting.md](deployment/troubleshooting.md)
 

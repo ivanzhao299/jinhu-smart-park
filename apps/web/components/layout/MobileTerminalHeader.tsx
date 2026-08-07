@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, LogOut, Moon, RefreshCw, Sun } from "lucide-react";
+import { Download, Home, LogOut, Moon, RefreshCw, Sun } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -39,6 +39,9 @@ export function MobileTerminalHeader() {
         </span>
       </div>
       <nav aria-label="终端快捷操作" className="mobile-terminal-actions">
+        <Link aria-label="客户端下载" href="/system/client-downloads" title="客户端下载">
+          <Download size={18} />
+        </Link>
         <Link aria-label="返回作业终端" href="/operations/terminal" title="返回作业终端">
           <Home size={18} />
         </Link>

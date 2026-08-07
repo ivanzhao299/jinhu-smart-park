@@ -112,10 +112,38 @@ Reference files:
 
 Operational and field-use pages must be mobile-aware. Prefer card/mobile record views over desktop-only tables for inspection, work order, hazard, terminal, device, and operations flows.
 
+Global overlays such as problem feedback may keep page-local positioning, backdrop, and
+domain-specific layout, but must compose shared `ds-panel`, `ds-button`, `form-field`, and
+`ds-mobile-record` surfaces instead of redefining panel, input, button, border, color, and shadow
+systems in a CSS module.
+
+Every retained server-side history must remain reachable. A list response with `total/page/page_size`
+must expose paging/load-more controls or consume all pages; a fixed `page=1&page_size=N` request is
+not a history view. Reset page state when switching independent tabs and ignore stale responses from
+the previous tab/page generation.
+
 Reference files:
 - `AGENTS.md`
 - `apps/web/components/operations/OperationsTerminalClient.tsx`
 - `apps/web/app/safety/my-inspect-tasks/page.tsx`
+
+### Drawer-Local Error Feedback
+
+Validation and submission errors produced while a fixed drawer is open must render inside that
+drawer with `role="alert"`. A page-level message behind the drawer backdrop is not visible feedback
+and makes a rejected submit appear unresponsive. Clear the drawer error when the operator edits the
+form, opens a new target, or closes the drawer; keep success messages on the owning page after close.
+
+```tsx
+// Wrong: the drawer remains open while the message renders behind its backdrop.
+if (validationError) setPageMessage(validationError);
+
+// Correct: pass drawer-owned error state into the visible form surface.
+if (validationError) setDrawerError(validationError);
+{drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
+```
+
+Regression tests must assert both the business validation text and the drawer-local alert binding.
 
 ## File Uploads And Constrained Inputs
 

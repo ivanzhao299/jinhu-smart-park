@@ -1,0 +1,34 @@
+.page { max-width: 920px; margin: 0 auto; }
+.hero { display: flex; align-items: center; justify-content: space-between; overflow: hidden; }
+.eyebrow { color: var(--color-primary, #0f4c81); font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+.heroIcon { flex: none; color: var(--color-primary, #0f4c81); opacity: .88; }
+.panel { display: grid; gap: 22px; }
+.state { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; color: var(--color-text-secondary); }
+.spin { animation: spin 1s linear infinite; }
+.releaseHeader { display: flex; align-items: center; gap: 18px; }
+.releaseHeader h2 { margin: 4px 0 6px; font-size: 24px; }
+.releaseHeader p { margin: 0; color: var(--color-text-secondary); }
+.appIcon { width: 68px; height: 68px; display: grid; place-items: center; flex: none; border-radius: 18px; color: #fff; background: linear-gradient(145deg, #0f4c81, #092f51); box-shadow: 0 12px 30px rgb(15 76 129 / 22%); }
+.platform { color: var(--color-text-secondary); font-size: 13px; }
+.metadata { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0; }
+.metadata div { padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-secondary); }
+.metadata dt { color: var(--color-text-secondary); font-size: 12px; }
+.metadata dd { margin: 5px 0 0; font-weight: 700; }
+.downloadButton { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; text-decoration: none; border-radius: 12px; }
+.securityNote { display: flex; align-items: flex-start; gap: 10px; color: var(--color-text-secondary); font-size: 13px; }
+.securityNote svg { flex: none; color: #168a55; }
+.hash summary { cursor: pointer; color: var(--color-text-secondary); font-size: 13px; }
+.hash code { display: block; margin-top: 10px; padding: 10px; overflow-wrap: anywhere; border-radius: 8px; background: var(--color-bg-secondary); font-size: 11px; }
+.instructions ol { display: grid; gap: 12px; padding: 0; list-style: none; }
+.instructions li { display: flex; align-items: center; gap: 10px; }
+.instructions li svg { color: #168a55; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .page { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .hero { align-items: flex-start; }
+  .heroIcon { width: 52px; height: 52px; }
+  .metadata { grid-template-columns: 1fr; }
+  .releaseHeader { align-items: flex-start; }
+  .appIcon { width: 56px; height: 56px; border-radius: 14px; }
+  .releaseHeader h2 { font-size: 20px; }
+}

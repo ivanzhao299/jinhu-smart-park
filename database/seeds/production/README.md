@@ -13,7 +13,8 @@ Current production-safe seed files:
 - `../000001_s1_production_core.sql`
 - `000003_s1_production_asset_bootstrap.sql`
 - `000004_core_role_permission_repair.sql`
-- `000005_property_track_b_permission_reconcile.sql`
+- `000005_admin_issue_runner_baseline.sql`
+- `000006_property_track_b_permission_reconcile.sql`
 
 This seed initializes:
 
@@ -27,6 +28,9 @@ This seed initializes:
 - Default organization metadata, dictionaries, and the S2-01 default `biz_park` record
 
 It does not create fixed-password users or S2 demo房源数据.
+The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,
+its tenant-wide role, minimum Runner permission, and park binding. Only the protected activation workflow may make
+that account login-capable.
 
 Compatibility note: S1-RBAC-STD-FIX unifies `tenant_id` and `park_id` scope columns as string SaaS isolation IDs. Production and development seeds use the default Jinhu scope `tenant_id=10000001` and `park_id=20000001`; UUID values remain only for primary keys such as `id`.
 

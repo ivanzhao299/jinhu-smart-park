@@ -1,5 +1,6 @@
 -- Production-safe post-seed reconciliation for the PR192 Track B permission
--- definitions. Migration 000189 deliberately runs before tenant/park seed data
+-- definitions. This runs after the 000005 Admin Issue Runner baseline seed.
+-- Migration 000189 deliberately runs before tenant/park seed data
 -- exists on a clean install, so this seed replays only its frozen permission
 -- definitions into the single production bootstrap scope and grants them only
 -- to that scope's built-in SUPER_ADMIN role.
