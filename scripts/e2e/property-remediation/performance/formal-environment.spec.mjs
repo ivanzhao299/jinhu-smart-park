@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,11 +14,17 @@ function fixtureEnv() {
   const directory = mkdtempSync(resolve(tmpdir(), "property-perf-env-"));
   const dump = resolve(directory, "isolated.dump");
   writeFileSync(dump, Buffer.from("PGDMPfixture-only"));
+  const expectedDatasetSha256 = createHash("sha256").update(readFileSync(dump)).digest("hex");
+  const approvedCommitSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   return {
     PROPERTY_PERF_PROJECT_NAME: "jinhu-track-c-perf-fixture",
     PROPERTY_PERF_POSTGRES_DB: "jinhu_perf_fixture",
     PROPERTY_PERF_POSTGRES_IMAGE: `postgres@sha256:${digest}`,
     PROPERTY_PERF_BROWSER_IMAGE: `node@sha256:${digest}`,
+    PROPERTY_PERF_APPROVED_POSTGRES_IMAGE: `postgres@sha256:${digest}`,
+    PROPERTY_PERF_APPROVED_BROWSER_IMAGE: `node@sha256:${digest}`,
+    PROPERTY_PERF_EXPECTED_DATASET_SHA256: expectedDatasetSha256,
+    PROPERTY_PERF_APPROVED_COMMIT_SHA: approvedCommitSha,
     PROPERTY_PERF_DATASET_DUMP: dump,
     PROPERTY_PERF_USERNAME: "perf_admin",
     PROPERTY_PERF_ADMIN_NAME: "Performance Admin",
@@ -26,7 +33,8 @@ function fixtureEnv() {
     PROPERTY_PERF_JWT_SECRET: "fixture-jwt-secret-12345678901234567890",
     PROPERTY_PERF_PARTY_DATA_ENCRYPTION_KEY: "fixture-party-key-12345678901234567890",
     PROPERTY_PERF_BUSINESS_CLOCK: "2026-08-04T00:00:00Z",
-    PROPERTY_PERF_REVIEWER: "release-reviewer"
+    PROPERTY_PERF_REVIEWER: "release-reviewer",
+    PROPERTY_PERF_EXECUTION_OWNER: "performance-runner"
   };
 }
 
@@ -36,6 +44,24 @@ test("accepts an isolated digest-pinned environment contract", async () => {
   assert.equal(config.postgresDb, "jinhu_perf_fixture");
   assert.equal(config.dataset.size, 17);
   assert.match(config.dataset.sha256, /^[0-9a-f]{64}$/u);
+});
+
+test("rejects drift from approved dataset and external image inputs", async () => {
+  const dataset = fixtureEnv();
+  dataset.PROPERTY_PERF_EXPECTED_DATASET_SHA256 = "b".repeat(64);
+  await assert.rejects(loadEnvironmentConfig(dataset), /dataset sha256 does not match approved input/u);
+  const image = fixtureEnv();
+  image.PROPERTY_PERF_APPROVED_POSTGRES_IMAGE = `postgres@sha256:${"b".repeat(64)}`;
+  await assert.rejects(loadEnvironmentConfig(image), /PostgreSQL image does not match approved input/u);
+  const commit = fixtureEnv();
+  commit.PROPERTY_PERF_APPROVED_COMMIT_SHA = "b".repeat(40);
+  await assert.rejects(loadEnvironmentConfig(commit), /current commit does not match approved input/u);
+});
+
+test("requires reviewer independence from the execution owner", async () => {
+  const env = fixtureEnv();
+  env.PROPERTY_PERF_EXECUTION_OWNER = `  ${env.PROPERTY_PERF_REVIEWER.toUpperCase()}  `;
+  await assert.rejects(loadEnvironmentConfig(env), /reviewer must be independent/u);
 });
 
 test("rejects shared names, mutable images and weak credentials", async () => {

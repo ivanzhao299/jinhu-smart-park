@@ -11,6 +11,8 @@ const repoRoot = resolve(here, "../../../../");
 const composeFile = resolve(here, "compose.formal.yml");
 const artifactsRoot = resolve(repoRoot, "artifacts/property-remediation/runs");
 const sha = (value) => createHash("sha256").update(value).digest("hex");
+const exactHash = (value) => /^[0-9a-f]{64}$/u.test(value ?? "");
+const identityKey = (value) => value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 const required = (env, key) => {
   const value = env[key]?.trim();
   if (!value) throw new Error(`missing required environment variable: ${key}`);
@@ -53,15 +55,31 @@ export async function loadEnvironmentConfig(env = process.env) {
   const projectName = safeName(required(env, "PROPERTY_PERF_PROJECT_NAME"), /^jinhu-track-c-perf-[a-z0-9][a-z0-9-]{2,40}$/u, "performance project name");
   const postgresDb = safeName(required(env, "PROPERTY_PERF_POSTGRES_DB"), /^jinhu_perf_[a-z0-9_]{3,40}$/u, "performance database name");
   const performancePassword = adminPassword(required(env, "PROPERTY_PERF_PASSWORD"));
+  const expectedDatasetSha256 = required(env, "PROPERTY_PERF_EXPECTED_DATASET_SHA256");
+  if (!exactHash(expectedDatasetSha256)) throw new Error("invalid approved dataset sha256");
+  const approvedCommitSha = required(env, "PROPERTY_PERF_APPROVED_COMMIT_SHA");
+  if (!/^[0-9a-f]{40}$/u.test(approvedCommitSha)) throw new Error("invalid approved commit sha");
+  const approvedPostgresImage = immutableImage(required(env, "PROPERTY_PERF_APPROVED_POSTGRES_IMAGE"), "approved PostgreSQL image");
+  const approvedBrowserImage = immutableImage(required(env, "PROPERTY_PERF_APPROVED_BROWSER_IMAGE"), "approved browser-worker image");
+  const reviewer = required(env, "PROPERTY_PERF_REVIEWER");
+  const executionOwner = required(env, "PROPERTY_PERF_EXECUTION_OWNER");
+  if (identityKey(reviewer) === identityKey(executionOwner)) throw new Error("performance reviewer must be independent from execution owner");
+  const dataset = datasetDump(required(env, "PROPERTY_PERF_DATASET_DUMP"));
+  const postgresImage = immutableImage(required(env, "PROPERTY_PERF_POSTGRES_IMAGE"), "PostgreSQL image");
+  const browserImage = immutableImage(required(env, "PROPERTY_PERF_BROWSER_IMAGE"), "browser-worker image");
+  if (dataset.sha256 !== expectedDatasetSha256) throw new Error("dataset sha256 does not match approved input");
+  if (commitSha !== approvedCommitSha) throw new Error("current commit does not match approved input");
+  if (postgresImage !== approvedPostgresImage) throw new Error("PostgreSQL image does not match approved input");
+  if (browserImage !== approvedBrowserImage) throw new Error("browser-worker image does not match approved input");
   const config = {
     schemaVersion: "property-track-c-formal-environment-v1",
     commitSha,
     projectName,
     postgresDb,
     postgresUser: safeName(env.PROPERTY_PERF_POSTGRES_USER?.trim() || "jinhu_perf", /^[a-z][a-z0-9_]{2,31}$/u, "PostgreSQL user"),
-    postgresImage: immutableImage(required(env, "PROPERTY_PERF_POSTGRES_IMAGE"), "PostgreSQL image"),
-    browserImage: immutableImage(required(env, "PROPERTY_PERF_BROWSER_IMAGE"), "browser-worker image"),
-    dataset: datasetDump(required(env, "PROPERTY_PERF_DATASET_DUMP")),
+    postgresImage,
+    browserImage,
+    dataset,
     username: safeName(required(env, "PROPERTY_PERF_USERNAME"), /^[A-Za-z0-9_.@-]{3,80}$/u, "performance username"),
     adminName: required(env, "PROPERTY_PERF_ADMIN_NAME"),
     secrets: {
@@ -73,7 +91,9 @@ export async function loadEnvironmentConfig(env = process.env) {
     apiPort: Number(env.PROPERTY_PERF_API_PORT ?? "33101"),
     webPort: Number(env.PROPERTY_PERF_WEB_PORT ?? "33100"),
     businessClock: required(env, "PROPERTY_PERF_BUSINESS_CLOCK"),
-    reviewer: required(env, "PROPERTY_PERF_REVIEWER")
+    reviewer,
+    executionOwner,
+    approvedInputs: { commitSha: approvedCommitSha, datasetSha256: expectedDatasetSha256, postgresImage: approvedPostgresImage, browserImage: approvedBrowserImage }
   };
   if (![config.apiPort, config.webPort].every((value) => Number.isInteger(value) && value >= 1024 && value <= 65535) || config.apiPort === config.webPort) throw new Error("invalid or colliding published ports");
   if (Number.isNaN(Date.parse(config.businessClock))) throw new Error("invalid business clock");
@@ -139,6 +159,8 @@ function createRuntime(config) {
     dataset: config.dataset,
     businessClock: config.businessClock,
     reviewer: config.reviewer,
+    executionOwner: config.executionOwner,
+    approvedInputs: config.approvedInputs,
     setupDir,
     secretDir,
     seedManifestPath,
@@ -184,6 +206,10 @@ function executorEnvironment(runtime, runtimePath) {
     PROPERTY_PERF_WORKER_BASE_URL: "http://api:3001",
     PROPERTY_PERF_CONTAINERS_JSON: JSON.stringify(runtime.containers),
     PROPERTY_PERF_DATASET_MANIFEST: runtime.dataset.path,
+    PROPERTY_PERF_EXPECTED_DATASET_SHA256: runtime.approvedInputs.datasetSha256,
+    PROPERTY_PERF_APPROVED_COMMIT_SHA: runtime.approvedInputs.commitSha,
+    PROPERTY_PERF_APPROVED_POSTGRES_IMAGE: runtime.approvedInputs.postgresImage,
+    PROPERTY_PERF_APPROVED_BROWSER_IMAGE: runtime.approvedInputs.browserImage,
     PROPERTY_PERF_SEED_MANIFEST: runtime.seedManifestPath,
     PROPERTY_PERF_BUSINESS_CLOCK: runtime.businessClock,
     PROPERTY_PERF_RESTART_COMMAND: `node ${script} --restart --runtime ${runtimePath}`,
@@ -191,7 +217,8 @@ function executorEnvironment(runtime, runtimePath) {
     PROPERTY_PERF_GC_COMMAND: `node ${script} --gc --runtime ${runtimePath}`,
     PROPERTY_PERF_DB_WAIT_COMMAND: `node ${script} --db-wait --runtime ${runtimePath}`,
     PROPERTY_PERF_POSTGRES_PARAMETERS_COMMAND: `node ${script} --pg-parameters --runtime ${runtimePath}`,
-    PROPERTY_PERF_REVIEWER: runtime.reviewer
+    PROPERTY_PERF_REVIEWER: runtime.reviewer,
+    PROPERTY_PERF_EXECUTION_OWNER: runtime.executionOwner
   };
 }
 

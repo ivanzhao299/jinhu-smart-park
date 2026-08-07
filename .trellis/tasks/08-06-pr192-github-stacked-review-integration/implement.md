@@ -112,8 +112,15 @@ git diff --check
   wall clock；值写入 seed manifest、注入全部四个实测容器，并在 load 前逐容器核验绑定。
 - [x] 上述 performance evidence 修复通过第三轮独立代码审查，`open P0/P1/P2=[]`；本地
   performance tests 18/18、lint、typecheck、unit、production build 158 pages 与 diff-check PASS。
-- [ ] 提交并推送上述修复，在新的 final SHA 重新取得 GitHub CI、rollback 19/19 和
-  formal performance 30/30。
+- [x] `ebdf77b5` 已取得 GitHub verify/release-smoke PASS 与 formal rollback 19/19 PASS；
+  rollback evidence/cleanup/RTO-RPO 均经独立复审 APPROVE，残留为 0。performance
+  provisioning 前的独立计划复核随后发现批准的数据集/外部镜像未与运行输入强绑定，
+  因此该 SHA 的 CI/rollback 按 evidence invalidation policy 降级为 ancestor-only。
+- [x] 修复 performance approval binding：显式绑定 approved commit、dataset SHA-256、
+  PostgreSQL/browser image digest；executor 在 load 前复核文件、当前 SHA 与实际容器
+  image reference；reviewer 与 execution owner 必须命名且不同，并将绑定写入正式证据。
+- [ ] 提交并推送 approval-binding 修复，在新的 final SHA 重新取得 GitHub CI、rollback
+  19/19 和 formal performance 30/30。
 - [ ] prerequisite 修复提交后，重新取得 GitHub verify/release-smoke、rollback 19/19 与
   formal performance 30/30；修复前 `72406a14` 的证据仅保留为失败发现/ancestor 记录。
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、

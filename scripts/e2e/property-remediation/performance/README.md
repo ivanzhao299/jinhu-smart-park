@@ -10,9 +10,12 @@ The gate deliberately does not synthesize results or shorten the 2-minute warmup
 
 ```bash
 pnpm exec node scripts/e2e/property-remediation/performance/formal-evidence-gate.mjs \
-  --evidence /absolute/path/to/formal-evidence.json
+  --evidence /absolute/path/to/formal-evidence.json \
+  --dataset /absolute/path/to/the-approved-dataset.dump
 ```
 
+The standalone gate hashes the supplied dataset and reads the current repository
+HEAD; both must match the independently approved values recorded in the evidence.
 Missing resource observations, image digests, PostgreSQL parameters, seed/business
 clock provenance, latency/throughput/error/CPU/memory/GC/DB-wait metrics, cold-start
 proof, any matrix cell, or cleanup proof with `residualCount=0` is a hard failure.
@@ -37,6 +40,10 @@ export PROPERTY_PERF_USERNAME='<performance account with both dashboard read per
 export PROPERTY_PERF_PASSWORD='<read from a local secret source>'
 export PROPERTY_PERF_CONTAINERS_JSON='{"web":"perf-web","api":"perf-api","postgres":"perf-postgres","browserWorker":"perf-browser"}'
 export PROPERTY_PERF_DATASET_MANIFEST=/absolute/path/to/dataset-manifest.json
+export PROPERTY_PERF_EXPECTED_DATASET_SHA256='<independently approved 64-character sha256>'
+export PROPERTY_PERF_APPROVED_COMMIT_SHA='<independently approved 40-character git sha>'
+export PROPERTY_PERF_APPROVED_POSTGRES_IMAGE='postgres@sha256:<approved digest>'
+export PROPERTY_PERF_APPROVED_BROWSER_IMAGE='node@sha256:<approved digest>'
 export PROPERTY_PERF_SEED_MANIFEST=/absolute/path/to/seed-manifest.json
 export PROPERTY_PERF_BUSINESS_CLOCK=2026-08-04T00:00:00Z
 export PROPERTY_PERF_RESTART_COMMAND=/absolute/path/to/cold-restart-and-readiness.sh
@@ -45,6 +52,7 @@ export PROPERTY_PERF_GC_COMMAND=/absolute/path/to/observe-gc-pause-ms.sh
 export PROPERTY_PERF_DB_WAIT_COMMAND=/absolute/path/to/observe-db-wait-ms.sh
 export PROPERTY_PERF_POSTGRES_PARAMETERS_COMMAND=/absolute/path/to/print-pg-parameters-json.sh
 export PROPERTY_PERF_REVIEWER='<named independent reviewer>'
+export PROPERTY_PERF_EXECUTION_OWNER='<named runner, distinct from reviewer>'
 ```
 
 Command contracts:
@@ -98,7 +106,11 @@ export PROPERTY_PERF_PROJECT_NAME=jinhu-track-c-perf-<unique-run-id>
 export PROPERTY_PERF_POSTGRES_DB=jinhu_perf_<unique_run_id>
 export PROPERTY_PERF_POSTGRES_IMAGE='postgres@sha256:<digest>'
 export PROPERTY_PERF_BROWSER_IMAGE='node@sha256:<digest>'
+export PROPERTY_PERF_APPROVED_POSTGRES_IMAGE="$PROPERTY_PERF_POSTGRES_IMAGE"
+export PROPERTY_PERF_APPROVED_BROWSER_IMAGE="$PROPERTY_PERF_BROWSER_IMAGE"
 export PROPERTY_PERF_DATASET_DUMP=/absolute/path/to/sanitized-custom-format.dump
+export PROPERTY_PERF_EXPECTED_DATASET_SHA256='<independently approved 64-character sha256>'
+export PROPERTY_PERF_APPROVED_COMMIT_SHA='<independently approved 40-character git sha>'
 export PROPERTY_PERF_USERNAME='<isolated performance admin>'
 export PROPERTY_PERF_ADMIN_NAME='Track C Performance Admin'
 export PROPERTY_PERF_PASSWORD='<strong local-only password>'
@@ -107,10 +119,16 @@ export PROPERTY_PERF_JWT_SECRET='<32+ character local-only secret>'
 export PROPERTY_PERF_PARTY_DATA_ENCRYPTION_KEY='<32+ character local-only key>'
 export PROPERTY_PERF_BUSINESS_CLOCK=2026-08-04T00:00:00Z
 export PROPERTY_PERF_REVIEWER='<named independent reviewer>'
+export PROPERTY_PERF_EXECUTION_OWNER='<named runner, distinct from reviewer>'
 
 node scripts/e2e/property-remediation/performance/formal-environment.mjs --check
 node scripts/e2e/property-remediation/performance/formal-environment.mjs --plan
 ```
+
+The approved image references and dataset checksum are deliberately separate
+inputs: a syntactically valid but unapproved digest or dump fails closed. The
+reviewer and execution owner must be named and different; this records separation
+of duties, while the actual independent review remains an external approval step.
 
 Those commands are non-mutating. After review, provisioning additionally requires
 `PROPERTY_PERF_PROVISION=yes`. It refuses dirty application/database/script source,
