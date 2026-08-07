@@ -6,7 +6,8 @@ import {
   buildWorkOrderAssignmentBody,
   buildWorkOrderAssignmentRequest,
   filterEnabledWorkOrderAssignees,
-  getWorkOrderAssignmentError
+  getWorkOrderAssignmentError,
+  resolveWorkOrderAssigneeOptions
 } from "../../components/workorders/work-order-assignment.logic";
 
 test("work-order assignment validation rejects the nearest invalid forms", () => {
@@ -56,6 +57,62 @@ test("work-order assignment candidates keep only enabled users without mutating 
   assert.equal(candidates.length, 3);
 });
 
+test("work-order assignee options disambiguate only colliding business names with usernames", () => {
+  const candidates = [
+    { id: "user-1", username: "zhang.san", displayName: "张三" },
+    { id: "user-2", username: "zhang.san.2", displayName: "张三" },
+    { id: "user-3", username: "li.si", displayName: "李四" }
+  ];
+
+  assert.deepEqual(resolveWorkOrderAssigneeOptions(candidates), [
+    { id: "user-1", label: "张三（zhang.san）" },
+    { id: "user-2", label: "张三（zhang.san.2）" },
+    { id: "user-3", label: "李四" }
+  ]);
+});
+
+test("work-order assignee collision detection normalizes invisible and whitespace differences", () => {
+  assert.deepEqual(
+    resolveWorkOrderAssigneeOptions([
+      { id: "user-1", username: "operator one", displayName: "王\u200B五" },
+      { id: "user-2", username: "operator\\two", displayName: " 王五 " }
+    ]),
+    [
+      { id: "user-1", label: "王五（operator\\u{20}one）" },
+      { id: "user-2", label: "王五（operator\\u{5C}two）" }
+    ]
+  );
+});
+
+test("work-order assignee options recheck collisions introduced by username suffixes", () => {
+  assert.deepEqual(
+    resolveWorkOrderAssigneeOptions([
+      { id: "user-1", username: "a", displayName: "张三" },
+      { id: "user-2", username: "b", displayName: "张三" },
+      { id: "user-3", username: "c", displayName: "张三（a）" }
+    ]),
+    [
+      { id: "user-1", label: "张三（a）（a）" },
+      { id: "user-2", label: "张三（b）" },
+      { id: "user-3", label: "张三（a）（c）" }
+    ]
+  );
+});
+
+test("work-order assignee options disable unresolved duplicate account data instead of throwing", () => {
+  const duplicateAccountLabel = "张三（账号信息重复，请联系管理员）";
+  assert.deepEqual(
+    resolveWorkOrderAssigneeOptions([
+      { id: "user-1", username: "duplicate", displayName: "张三" },
+      { id: "user-2", username: "duplicate", displayName: "张三" }
+    ]),
+    [
+      { id: "user-1", label: duplicateAccountLabel, disabled: true },
+      { id: "user-2", label: duplicateAccountLabel, disabled: true }
+    ]
+  );
+});
+
 test("work-order detail assignment uses the shared picker and no longer prompts for a user id", () => {
   const detail = readFileSync(resolve(__dirname, "[id]/page.tsx"), "utf8");
   const list = readFileSync(resolve(__dirname, "list/page.tsx"), "utf8");
@@ -81,5 +138,9 @@ test("work-order detail assignment uses the shared picker and no longer prompts 
   assert.match(dialog, /正在加载处理人/);
   assert.match(dialog, /处理人加载失败/);
   assert.match(dialog, /暂无可选处理人/);
+  assert.match(dialog, /role="alert"/);
+  assert.match(dialog, /resolveWorkOrderAssigneeOptions\(users\)/);
   assert.match(dialog, /disabled=\{submitDisabled\}/);
+  assert.match(detail, /error=\{assignmentError\}/);
+  assert.match(list, /error=\{assignmentError\}/);
 });

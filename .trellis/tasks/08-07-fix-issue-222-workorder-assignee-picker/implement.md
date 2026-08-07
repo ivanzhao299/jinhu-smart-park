@@ -26,6 +26,9 @@
 - [x] 仅提交 Issue #222 所需文件，确认隔离分支无无关改动。
 - [x] 创建清晰 commit，推送 `codex/fix-issue-222` 并创建 draft PR #225。
 - [x] 已在 draft PR #225 请求 Codex review；验证反馈后修复同类风险并补测试/规范。
+- [x] 修复 Codex review：同名处理人仅对冲突项追加用户名；无法消歧的异常账号数据禁用而不崩溃。
+- [x] 修复 Codex review：列表与详情的校验/提交错误均在派单抽屉内以 alert 展示，并在编辑时清除。
+- [x] 将固定抽屉的本地错误反馈约束写入 Web frontend spec，并将定向回归测试扩展到 9 项。
 - [ ] CI、Codex review 与所有 review threads 均稳定通过后再通知可合并，不自动合并。
 
 ## Risky Files / Rollback Points

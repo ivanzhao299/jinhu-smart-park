@@ -2,7 +2,11 @@ import { Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "
 import { X } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import type { UserRow } from "./types";
-import type { WorkOrderAssignmentFormState, WorkOrderAssignmentMode } from "./work-order-assignment.logic";
+import {
+  resolveWorkOrderAssigneeOptions,
+  type WorkOrderAssignmentFormState,
+  type WorkOrderAssignmentMode
+} from "./work-order-assignment.logic";
 
 interface WorkOrderAssignmentTarget {
   mode: WorkOrderAssignmentMode;
@@ -17,6 +21,7 @@ interface WorkOrderAssignDialogProps {
   users: UserRow[];
   usersLoading?: boolean;
   usersError?: string | null;
+  error?: string | null;
   submitting?: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -29,13 +34,19 @@ export function WorkOrderAssignDialog({
   users,
   usersLoading = false,
   usersError = null,
+  error = null,
   submitting = false,
   onClose,
   onSubmit,
   onFormChange
 }: WorkOrderAssignDialogProps) {
   const controlsDisabled = usersLoading || submitting;
-  const submitDisabled = controlsDisabled || users.length === 0;
+  const assigneeOptions = resolveWorkOrderAssigneeOptions(users);
+  const selectedOption = assigneeOptions.find((option) => option.id === form.assigneeId);
+  const submitDisabled = controlsDisabled
+    || assigneeOptions.length === 0
+    || assigneeOptions.every((option) => option.disabled)
+    || Boolean(selectedOption?.disabled);
   const emptyLabel = usersLoading
     ? "正在加载处理人..."
     : usersError
@@ -54,7 +65,8 @@ export function WorkOrderAssignDialog({
         closeIcon={<X size={16} />}
       />
       <DrawerForm noValidate onSubmit={onSubmit}>
-        {usersError ? <p className="status-pill status-danger">处理人加载失败：{usersError}，请关闭后重试。</p> : null}
+        {usersError ? <p className="status-pill status-danger" role="alert">处理人加载失败：{usersError}，请关闭后重试。</p> : null}
+        {error ? <p className="status-pill status-danger" role="alert">{error}</p> : null}
         <DrawerFormGrid single>
           <Field label="处理人">
             <select
@@ -64,7 +76,9 @@ export function WorkOrderAssignDialog({
               onChange={(event) => onFormChange({ assigneeId: event.target.value })}
             >
               <option value="">{emptyLabel}</option>
-              {users.map((user) => <option key={user.id} value={user.id}>{displayUserName(user)}</option>)}
+              {assigneeOptions.map((option) => (
+                <option key={option.id} value={option.id} disabled={option.disabled}>{option.label}</option>
+              ))}
             </select>
           </Field>
           <TextAreaField
@@ -119,8 +133,4 @@ function TextAreaField({
       />
     </Field>
   );
-}
-
-function displayUserName(user: UserRow): string {
-  return user.displayName ?? user.realName ?? user.username;
 }

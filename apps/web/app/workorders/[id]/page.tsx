@@ -85,6 +85,7 @@ export default function WorkOrderDetailPage() {
   const [assignment, setAssignment] = useState<AssignmentState | null>(null);
   const [assignmentForm, setAssignmentForm] = useState<WorkOrderAssignmentFormState>(emptyAssignmentForm);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -189,6 +190,7 @@ export default function WorkOrderDetailPage() {
     setUsers([]);
     setUsersLoading(true);
     setUsersError(null);
+    setAssignmentError(null);
     setMessage("");
     void fetchReferenceFormOptions()
       .then((references) => {
@@ -215,6 +217,7 @@ export default function WorkOrderDetailPage() {
     setUsers([]);
     setUsersLoading(false);
     setUsersError(null);
+    setAssignmentError(null);
   }
 
   function closeAssignment() {
@@ -227,12 +230,13 @@ export default function WorkOrderDetailPage() {
     if (!assignment || usersLoading || assignmentActionLock.current) return;
     const validationError = getWorkOrderAssignmentError(assignment.mode, assignmentForm);
     if (validationError) {
-      setMessage(validationError);
+      setAssignmentError(validationError);
       return;
     }
 
     assignmentActionLock.current = true;
     setAssignmentSubmitting(true);
+    setAssignmentError(null);
     const successMessage = assignment.mode === "assign" ? "派单成功" : "改派成功";
     try {
       const request = buildWorkOrderAssignmentRequest(
@@ -428,10 +432,14 @@ export default function WorkOrderDetailPage() {
             users={users}
             usersLoading={usersLoading}
             usersError={usersError}
+            error={assignmentError}
             submitting={assignmentSubmitting}
             onClose={closeAssignment}
-            onSubmit={(event) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}
-            onFormChange={(patch) => setAssignmentForm((current) => ({ ...current, ...patch }))}
+            onSubmit={(event) => void submitAssignment(event).catch((error: Error) => setAssignmentError(error.message))}
+            onFormChange={(patch) => {
+              setAssignmentError(null);
+              setAssignmentForm((current) => ({ ...current, ...patch }));
+            }}
           />
         ) : null}
 

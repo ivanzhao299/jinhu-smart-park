@@ -9,8 +9,76 @@ interface WorkOrderAssigneeCandidate {
   status?: string;
 }
 
+interface WorkOrderAssigneeLabelCandidate {
+  id: string;
+  username: string;
+  displayName?: string;
+  realName?: string;
+}
+
+export interface WorkOrderAssigneeOption {
+  id: string;
+  label: string;
+  disabled?: boolean;
+}
+
 export function filterEnabledWorkOrderAssignees<T extends WorkOrderAssigneeCandidate>(users: T[]): T[] {
   return users.filter((user) => user.status === "enabled");
+}
+
+export function resolveWorkOrderAssigneeOptions<T extends WorkOrderAssigneeLabelCandidate>(
+  users: T[]
+): WorkOrderAssigneeOption[] {
+  const uniqueUsers = [...new Map(users.map((user) => [user.id, user])).values()];
+  let displayLabels = uniqueUsers.map((user) => resolveWorkOrderAssigneeBaseLabel(user));
+
+  for (let pass = 0; pass <= uniqueUsers.length; pass += 1) {
+    displayLabels = displayLabels.map(normalizeWorkOrderAssigneeLabel);
+    const labelCounts = new Map<string, number>();
+    for (const label of displayLabels) {
+      labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+    }
+    const collidingLabels = new Set(
+      [...labelCounts.entries()].filter(([, count]) => count > 1).map(([label]) => label)
+    );
+
+    if (collidingLabels.size === 0) {
+      return uniqueUsers.map((user, index) => ({ id: user.id, label: displayLabels[index] ?? "未知用户" }));
+    }
+
+    const disambiguatableLabels = new Set(
+      [...collidingLabels].filter((label) => {
+        const codes = displayLabels.flatMap((candidateLabel, index) => (
+          candidateLabel === label
+            ? [formatWorkOrderAssigneeCode(uniqueUsers[index]?.username ?? "unknown")]
+            : []
+        ));
+        return new Set(codes).size === codes.length;
+      })
+    );
+    if (disambiguatableLabels.size === 0) break;
+
+    displayLabels = displayLabels.map((label, index) => (
+      disambiguatableLabels.has(label)
+        ? `${label}（${formatWorkOrderAssigneeCode(uniqueUsers[index]?.username ?? "unknown")}）`
+        : label
+    ));
+  }
+
+  displayLabels = displayLabels.map(normalizeWorkOrderAssigneeLabel);
+  const unresolvedCounts = new Map<string, number>();
+  for (const label of displayLabels) {
+    unresolvedCounts.set(label, (unresolvedCounts.get(label) ?? 0) + 1);
+  }
+  return uniqueUsers.map((user, index) => {
+    const label = displayLabels[index] ?? "未知用户";
+    const unresolved = (unresolvedCounts.get(label) ?? 0) > 1;
+    return {
+      id: user.id,
+      label: unresolved ? `${label}（账号信息重复，请联系管理员）` : label,
+      ...(unresolved ? { disabled: true } : {})
+    };
+  });
 }
 
 export function getWorkOrderAssignmentError(
@@ -48,4 +116,26 @@ export function buildWorkOrderAssignmentRequest(
     idempotencyKey,
     body: buildWorkOrderAssignmentBody(form)
   };
+}
+
+function resolveWorkOrderAssigneeBaseLabel(user: WorkOrderAssigneeLabelCandidate): string {
+  return [user.displayName, user.realName, user.username]
+    .map((value) => normalizeWorkOrderAssigneeLabel(value ?? ""))
+    .find(Boolean) ?? "未知用户";
+}
+
+function normalizeWorkOrderAssigneeLabel(value: string): string {
+  return value
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, "")
+    .normalize("NFC")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function formatWorkOrderAssigneeCode(value: string): string {
+  return [...value].map((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (codePoint >= 0x21 && codePoint <= 0x7e && character !== "\\") return character;
+    return `\\u{${codePoint.toString(16).toUpperCase()}}`;
+  }).join("");
 }

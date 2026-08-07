@@ -315,6 +315,7 @@ export default function WorkOrdersListPage() {
   const [form, setForm] = useState<WorkOrderFormState>(emptyForm);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(emptyAssignmentForm);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [processForm, setProcessForm] = useState<ProcessFormState>(emptyProcessForm);
   const [closureForm, setClosureForm] = useState<ClosureFormState>(emptyClosureForm);
   const [exceptionForm, setExceptionForm] = useState<ExceptionFormState>(emptyExceptionForm);
@@ -532,12 +533,14 @@ export default function WorkOrdersListPage() {
       assigneeId: row.assigneeId ?? "",
       reason: ""
     });
+    setAssignmentError(null);
     setMessage("");
   }
 
   function closeAssignment() {
     if (assignmentActionLock.current) return;
     setAssignment(null);
+    setAssignmentError(null);
   }
 
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {
@@ -545,11 +548,12 @@ export default function WorkOrdersListPage() {
     if (!assignment || assignmentActionLock.current) return;
     const validationError = getWorkOrderAssignmentError(assignment.mode, assignmentForm);
     if (validationError) {
-      setMessage(validationError);
+      setAssignmentError(validationError);
       return;
     }
     assignmentActionLock.current = true;
     setAssignmentSubmitting(true);
+    setAssignmentError(null);
     try {
       const request = buildWorkOrderAssignmentRequest(
         assignment.row.id,
@@ -847,10 +851,14 @@ export default function WorkOrdersListPage() {
             assignment={assignment}
             form={assignmentForm}
             users={users}
+            error={assignmentError}
             submitting={assignmentSubmitting}
             onClose={closeAssignment}
-            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setMessage(error.message))}
-            onFormChange={(patch) => setAssignmentForm((current) => ({ ...current, ...patch }))}
+            onSubmit={(event: FormEvent<HTMLFormElement>) => void submitAssignment(event).catch((error: Error) => setAssignmentError(error.message))}
+            onFormChange={(patch) => {
+              setAssignmentError(null);
+              setAssignmentForm((current) => ({ ...current, ...patch }));
+            }}
           />
         ) : null}
 
