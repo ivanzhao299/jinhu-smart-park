@@ -72,9 +72,13 @@ jobs:
         run: |
           set -eu
           apk="android-app/app/build/outputs/apk/release/app-release.apk"
-          apksigner verify --verbose --print-certs "$apk"
-          version_code="$(apkanalyzer manifest version-code "$apk")"
-          version_name="$(apkanalyzer manifest version-name "$apk")"
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$build_tools_dir/apksigner"
+          test -x "$build_tools_dir/aapt"
+          "$build_tools_dir/apksigner" verify --verbose --print-certs "$apk"
+          badging="$($build_tools_dir/aapt dump badging "$apk" | head -1)"
+          version_code="$(printf '%s' "$badging" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          version_name="$(printf '%s' "$badging" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
           expected_code="$(grep -oP 'versionCode\s*=\s*\K\d+' android-app/app/build.gradle.kts)"
           expected_name="$(grep -oP 'versionName\s*=\s*"\K[^"]+' android-app/app/build.gradle.kts)"
           test "$version_code" = "$expected_code"
