@@ -6,12 +6,25 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: activate-smart-park-runner-production
+  cancel-in-progress: false
+
 jobs:
   activate:
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v5
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+      - name: Trust production host
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
       - uses: pnpm/action-setup@v6
         with:
           version: 9.12.0
@@ -36,12 +49,16 @@ jobs:
           SMART_PARK_RUNNER_PASSWORD: ${{ secrets.SMART_PARK_RUNNER_PASSWORD }}
         run: |
           set -eu
-          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o ConnectTimeout=30"
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           install -m 600 /tmp/smart-park-runner.hash /tmp/smart-park-runner.hash.send
           rsync -az -e "ssh $SSH_OPTS" scripts/activate-smart-park-runner-account.sh /tmp/smart-park-runner.hash.send \
             "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/tmp/"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "set -eu; cd '$PROD_DEPLOY_PATH'; SMART_PARK_RUNNER_PASSWORD_HASH=\"\$(cat tmp/smart-park-runner.hash.send)\" bash tmp/activate-smart-park-runner-account.sh"
+            "set -eu; cd '$PROD_DEPLOY_PATH'; cleanup_runner_activation() { rm -f -- tmp/smart-park-runner.hash.send tmp/activate-smart-park-runner-account.sh; }; trap cleanup_runner_activation EXIT HUP INT TERM; SMART_PARK_RUNNER_PASSWORD_HASH=\"\$(cat tmp/smart-park-runner.hash.send)\" bash tmp/activate-smart-park-runner-account.sh"
           response="$(curl -fsS -X POST 'https://park.cnjinhu.com/api/v1/auth/login' -H 'content-type: application/json' \
             --data "{\"tenantId\":\"10000001\",\"parkId\":\"20000001\",\"username\":\"studio_runner\",\"password\":\"$SMART_PARK_RUNNER_PASSWORD\"}")"
           node -e 'const body=JSON.parse(process.argv[1]); if(!(body.data?.accessToken||body.accessToken)) process.exit(1)' "$response"
+
+      - name: Remove local credential artifacts
+        if: always()
+        run: rm -f -- /tmp/smart-park-runner.hash /tmp/smart-park-runner.hash.send

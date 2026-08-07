@@ -6,6 +6,8 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 
 - `000001_s1_production_core.sql`
 - `production/000003_s1_production_asset_bootstrap.sql`
+- `production/000004_core_role_permission_repair.sql`
+- `production/000005_admin_issue_runner_baseline.sql`
 
 Production execution:
 
@@ -37,6 +39,8 @@ Execution scope:
   - 仅在当前园区资产表为空时写入，已有真实资产数据的环境不会覆盖
 
 Production-safe seeds must not create fixed-password users, plaintext passwords, test phone numbers, or test emails.
+The Runner baseline creates only a disabled machine identity with a non-login sentinel hash; activation injects the
+protected credential through the dedicated production workflow.
 
 Compatibility note: `000029_saas_scope_id_unification.sql` aligns historical S1 auth/RBAC scope columns to the SaaS string ID contract. Production and development seeds now use the same default scope: `tenant_id=10000001`, `park_id=20000001`.
 

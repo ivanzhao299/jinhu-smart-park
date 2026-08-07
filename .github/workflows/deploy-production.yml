@@ -123,13 +123,18 @@ jobs:
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
           resolved="$requested"
+          run_production_seed="no"
           previous_commit="$(ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "node -e \"try{const r=require('$PROD_DEPLOY_PATH/.release.json'); process.stdout.write(r.commit||'')}catch(e){}\"" || true)"
+          previous_commit_valid="no"
+          changed_files=""
+          if [ -n "$previous_commit" ] && git cat-file -e "$previous_commit^{commit}" 2>/dev/null; then
+            previous_commit_valid="yes"
+            changed_files="$(git diff --name-only "$previous_commit" "$GITHUB_SHA" || true)"
+          fi
+          if [ "$previous_commit_valid" = "no" ] || printf "%s\n" "$changed_files" | grep -Eq '^database/seeds/production/'; then
+            run_production_seed="yes"
+          fi
           if [ "$requested" = "auto" ]; then
-            if [ -n "$previous_commit" ] && git cat-file -e "$previous_commit^{commit}" 2>/dev/null; then
-              changed_files="$(git diff --name-only "$previous_commit" "$GITHUB_SHA" || true)"
-            else
-              changed_files=""
-            fi
             if [ -z "$changed_files" ]; then
               resolved="full"
             elif printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/public/runtime-design-system\.css|\.release\.json)$' >/dev/null; then
@@ -146,8 +151,9 @@ jobs:
               resolved="fast-css"
             fi
           fi
-          printf "requested=%s\nresolved=%s\nprevious_commit=%s\n" "$requested" "$resolved" "$previous_commit"
+          printf "requested=%s\nresolved=%s\nprevious_commit=%s\nrun_production_seed=%s\n" "$requested" "$resolved" "$previous_commit" "$run_production_seed"
           echo "mode=$resolved" >> "$GITHUB_OUTPUT"
+          echo "run_production_seed=$run_production_seed" >> "$GITHUB_OUTPUT"
 
       - name: Deploy
         env:
@@ -156,23 +162,36 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
           PROD_DEPLOY_MODE: ${{ steps.deploy-mode.outputs.mode }}
+          RUN_PRODUCTION_SEED: ${{ steps.deploy-mode.outputs.run_production_seed }}
         run: |
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          case "$GITHUB_RUN_ID" in
+            ""|*[!0-9]*) echo "Invalid GitHub run id for rollback snapshot: $GITHUB_RUN_ID" >&2; exit 2 ;;
+          esac
           rollback_root="${PROD_DEPLOY_PATH}.runner-rollback/${GITHUB_RUN_ID}"
+          cleanup_rollback_snapshot() {
+            ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "rm -rf -- '$rollback_root'"
+          }
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "set -eu; mkdir -p '$rollback_root'; rsync -a --delete \
               --exclude='.env' --exclude='.env.*' --exclude='uploads/' --exclude='storage/' --exclude='data/' --exclude='tmp/' \
               '$PROD_DEPLOY_PATH/' '$rollback_root/'"
           rollback_release() {
+            trap - ERR
             echo "Deployment failed; restoring the previous application source snapshot." >&2
-            ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            if ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
               "set -eu; rsync -a --delete \
                 --exclude='.env' --exclude='.env.*' --exclude='uploads/' --exclude='storage/' --exclude='data/' --exclude='tmp/' \
                 '$rollback_root/' '$PROD_DEPLOY_PATH/'; \
                 cd '$PROD_DEPLOY_PATH'; \
-                PROD_DEPLOY_MODE=full PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy; \
-                pnpm prod:health"
+                PROD_DEPLOY_MODE=full RUN_PRODUCTION_SEED=no PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy; \
+                pnpm prod:health"; then
+              cleanup_rollback_snapshot
+            else
+              echo "Rollback failed; preserving source snapshot for manual recovery: $rollback_root" >&2
+              return 1
+            fi
           }
           trap rollback_release ERR
           if [ "$PROD_DEPLOY_MODE" = "fast-css" ]; then
@@ -202,8 +221,9 @@ jobs:
               --exclude='data/' \
               ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
           fi
-          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' RUN_PRODUCTION_SEED='$RUN_PRODUCTION_SEED' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health"
           trap - ERR
+          cleanup_rollback_snapshot
 
       - name: Verify protected UAT accounts through public production
         env:

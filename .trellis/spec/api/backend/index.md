@@ -309,11 +309,33 @@ Production seed and development seed are separate:
 - Production seed: `pnpm db:seed:prod`, requires `ALLOW_PRODUCTION_SEED=yes`.
 - Development seed: `pnpm db:seed:dev`, local only.
 
+For partial unique indexes, PostgreSQL conflict inference is an executable schema contract: an
+`ON CONFLICT` column list and predicate must match the active unique index exactly. All later joins
+that resolve the upserted record must use the same business identity; do not upsert a tenant-wide
+role by `(tenant_id, code)` and then require `(tenant_id, park_id, code)` to bind it.
+
+Failed migrations remain forward-only. Correct a failed file only after confirming it never
+succeeded in a long-lived environment and its transaction rolled back; successful history is
+immutable. Keep account, role, permission, and relationship provisioning in production-safe seeds.
+
 Reference files:
 - `database/seeds/README.md`
 - `database/seeds/production/README.md`
 - `database/seeds/dev/README.md`
 - `AGENTS.md`
+
+## Admin Issue Runner Lease And Evidence Contract
+
+- Authenticated create/mine/detail routes declare explicit minimum permission metadata; resource
+  ownership checks in the service complement the guard and do not replace it.
+- Claim, lease renewal, triage, and result writeback serialize the target issue with a database
+  write lock. An active claim cannot be triaged, renewed by another runner, or completed by an old token.
+- Lease renewal and result writeback match both `runner_id` and `lease_token`, require an unexpired
+  `IN_PROGRESS/CLAIMED` state, and clear the lease when the runner yields a result.
+- Validate approval against the final merged and trimmed acceptance criteria, not the old row before
+  applying the DTO.
+- `SUCCEEDED` requires structured passing gates for CI, deployment, and production health. A generic
+  root `status=PASS` or `conclusion=SUCCESS` is not release evidence.
 
 ## Verification
 
