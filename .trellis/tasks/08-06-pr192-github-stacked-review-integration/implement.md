@@ -140,6 +140,11 @@ git diff --check
 - [ ] 新 merge commit 重新通过本地 targeted/verify 等价门禁、GitHub verify/release-smoke 与 Codex review。
 - [ ] `2302e0c0` 的 CI/rollback 证据降级为 ancestor-only；新 final SHA 重新确认 rollback。正式
   performance 30/30 继续按用户批准的豁免处理，不得改写为 PASS。
+- [x] `03c7fddb` 的 GitHub verify PASS；Release Smoke 连续两次仅在 API Docker build 访问
+  `registry.npmmirror.com` 时因 503/504/socket timeout 失败，迁移、production seed、bootstrap
+  与 baseline 均已通过，判定为外部镜像故障而非产品回归。
+- [x] 将 `release-smoke` job 的 `NPM_REGISTRY` 局部固定为 `https://registry.npmjs.org`，保留部署
+  和 Compose 的既有默认值；YAML 解析、Compose build args 展开、diff-check 与独立审查通过。
 
 - [ ] 在 final PR head 上完成 rollback 19/19。
 - [ ] 在 final PR head 上完成 fresh 30-cell formal performance。

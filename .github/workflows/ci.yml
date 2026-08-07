@@ -120,6 +120,7 @@ jobs:
     timeout-minutes: 45
     env:
       COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
+      NPM_REGISTRY: https://registry.npmjs.org
       NODE_ENV: production
       APP_ENV: ci
       APP_PORT: 3001
