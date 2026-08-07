@@ -71,12 +71,33 @@ git diff --check
 - [x] 将已归档 authority 定位到 archive 路径；module-core exact tree 以明确白名单更新为
   17 total / 14 production / 3 specs，保持 fail-closed。
 - [x] 修复 runner 激活工作流临时文件清理与密码 argv 暴露风险。
-- [x] 本地 lint、typecheck、unit、build、diff-check 全部 PASS；两项独立审查均 APPROVE，
-  open P0/P1/P2=[]。
+- [x] prerequisite 修复前的集成基线已通过本地 lint、typecheck、unit、build、diff-check；
+  当时两项独立审查均 APPROVE，open P0/P1/P2=[]。后续 prerequisite 变更须重新跑当前树门禁。
 - [x] final-SHA performance provisioning 发现 `000190_admin_issue_runner_repair.sql` 的
   park-scope role conflict target 与当前 tenant-wide role arbiter 不可推断；保持已合入历史
   migration 字节不变，通过 `database/migration-prerequisites/000190_admin_issue_runner_repair/`
   增加只含兼容索引的 production-safe prerequisite，并以真实 PostgreSQL 重放验证。
+- [x] 后续 clean-db provisioning 发现 `000193_property_b_runtime_integrity_forward_fix.sql`
+  断言的 `biz_property_runtime_checkpoint` 直到 `000200` 才创建；保持两个历史 migration
+  字节不变，在 `000193` 前增加与 `000200` 完全兼容、无 DML 的 table prerequisite，
+  并扩展 migration prerequisite contract。
+- [x] 隔离库重放确认 `000193` 修复后继续暴露 `000194` 对 `sys_property_runtime_control`
+  的同类后向定义依赖；增加第二个与 `000200` 精确一致、默认禁用且无 DML 的 table
+  prerequisite，并将 `000194` 历史 SHA 纳入合同冻结。
+- [x] `000200` 的 pre-existing catalog guard 要求前置对象已有 B0 definition-hash 签名；
+  增加 `000200` prerequisite，先对两张表的 57 个 catalog 对象校验固定聚合 SHA-256，
+  再写入与 `000200` 相同的签名注释，结构漂移时 fail closed。
+- [x] 独立复核发现 fully-migrated 与 non-empty baseline 路径会按 migration-only manifest
+  提前 fast-skip，绕过后来新增的 prerequisite；移除该全局快速退出，改为始终逐 migration
+  核验 prerequisite、仅逐项跳过 checksum 匹配记录，并新增静态契约。
+- [x] 三类隔离 PostgreSQL 回放通过：clean DB 200/200 + 6/6；fully-migrated 库移除两条
+  prerequisite 历史和 runtime index 后，200 migration 全 skip、2 prerequisite 重建并重签；
+  non-empty baseline 克隆库 200 migration baseline+skip、6 prerequisite 全执行。双历史差异均为 0，
+  两个诊断库已删除且残留为 0。
+- [x] 当前 prerequisite/runner 修复树重新通过 contract、Shell syntax、Trellis JSON/JSONL、
+  diff-check、lint、typecheck 与 production build（158 个静态页面）。
+- [x] 当前 prerequisite/runner 修复树通过最终独立审查；发现并修复 fully-migrated
+  fast-skip、prerequisite 契约全集漏审和旧运维文档漂移后，open P0/P1/P2=[]。
 - [ ] prerequisite 修复提交后，重新取得 GitHub verify/release-smoke、rollback 19/19 与
   formal performance 30/30；修复前 `72406a14` 的证据仅保留为失败发现/ancestor 记录。
 - [ ] 推送新的 merge commit，并在新 PR head 上重新取得 GitHub verify/release-smoke、

@@ -38,6 +38,15 @@
     "migrationConflictResolution": "renumber_unmerged_property_compatibility_migration_to_000200",
     "precommitQualityGate": "passed",
     "finalShaPerformanceDiscovery": "000190 sys_role park-scope ON CONFLICT lacked a matching arbiter after tenant-wide role index migration",
-    "finalShaPerformanceRepair": "production-safe migration prerequisite restores only the historical scope conflict arbiter; 000190 remains byte-for-byte unchanged"
+    "finalShaPerformanceRepair": "production-safe migration prerequisites restore the historical 000190 scope conflict arbiter and forward-declare the runtime checkpoint table required by 000193; historical migrations remain byte-for-byte unchanged",
+    "secondFinalShaPerformanceDiscovery": "000193 asserted biz_property_runtime_checkpoint before its first definition in 000200",
+    "secondFinalShaPerformanceRepair": "forward-only 000193 prerequisite creates the exact 000200-compatible table and index without DML",
+    "thirdFinalShaPerformanceDiscovery": "000194 asserted sys_property_runtime_control before its first definition in 000200",
+    "thirdFinalShaPerformanceRepair": "forward-only 000194 prerequisite creates the exact disabled-by-default 000200-compatible control table and index without DML",
+    "catalogSignatureDiscovery": "000200 rejects unsigned pre-existing objects even when their DDL exactly matches its authoritative definitions",
+    "catalogSignatureRepair": "000200 prerequisite validates a fixed aggregate hash across 57 runtime catalog objects before applying B0 definition-hash comments",
+    "migrationFastSkipDiscovery": "fully migrated and non-empty baseline paths exited from migration-only history before newly added prerequisites were inspected",
+    "migrationFastSkipRepair": "remove global manifest fast-skip; always walk migration order and skip checksum-matched migrations/prerequisites individually",
+    "migrationReplayMatrix": "clean 200/200+6/6; fully migrated retroactive 200 skipped+2 prerequisites restored; non-empty baseline 200 skipped+6 prerequisites applied; dual history differences 0; disposable DB residual 0"
   }
 }

@@ -21,6 +21,9 @@
 - A PostgreSQL `ON CONFLICT (columns) WHERE predicate` target requires a unique/exclusion arbiter
   whose inferred columns and predicate match; a stronger index with a different column set is not a
   substitute.
+- A historical migration that asserts one or more tables created only by a later migration requires
+  forward-declared prerequisites whose tables, constraints, defaults, and indexes are byte-for-byte
+  compatible with the later authoritative definitions.
 - Keep the historical target migration unchanged. Add only the minimum idempotent prerequisite
   needed before that target executes.
 - A prerequisite must not create credentials, demo/business data, roles, permissions, or silently
@@ -34,14 +37,21 @@
 - Prerequisite already succeeded with the same checksum -> skip it.
 - Prerequisite succeeded with a different checksum -> fail closed before the target.
 - Prerequisite or target marked `running` -> stop for manual inspection.
-- Fully migrated manifest with no pending migration -> retain the runner fast-skip behavior.
+- Fully migrated manifest with no pending migration -> still walk targets and verify/apply prerequisite
+  history; skip only each checksum-matched migration and prerequisite individually.
 - Same-name object exists with an incompatible definition -> do not silently accept it; either prove
   the repository history makes that state impossible or add explicit catalog validation.
+- A later migration requires signed pre-existing catalog objects -> validate the exact aggregate
+  catalog hash before applying the same definition-hash comments that the later migration uses;
+  never sign an unvalidated catalog dynamically.
 
 ### 5. Good/Base/Bad Cases
 
 - Good: restore the exact partial unique arbiter required by an immutable historical conflict target,
   while retaining the newer authoritative unique index.
+- Good: forward-declare the exact runtime checkpoint table required by an immutable earlier target;
+  the later `CREATE TABLE IF NOT EXISTS` remains a no-op and its catalog-signature checks stay
+  authoritative.
 - Base: the exact arbiter already exists; `CREATE ... IF NOT EXISTS` is a no-op and the target runs.
 - Bad: edit the historical migration, change its recorded checksum, drop the authoritative index, or
   insert roles/users/permissions from a prerequisite.
@@ -50,6 +60,8 @@
 
 - Freeze the historical migration SHA-256 in the prerequisite contract test.
 - Assert the prerequisite contains the exact object name, columns, and predicate.
+- For a forward-declared table, assert the exact constraints and supporting index expected by the
+  later authoritative migration.
 - Assert it contains no DML, destructive DDL, or unrelated `CREATE` statement.
 - Run the prerequisite contract test and the affected module tests.
 - For a discovered runtime failure, replay the unchanged target against isolated PostgreSQL after

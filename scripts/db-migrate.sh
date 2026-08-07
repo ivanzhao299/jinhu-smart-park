@@ -16,8 +16,6 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB="${MIGRATION_BASELINE_ON_NONEMPTY_DB:-yes}"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/jinhu-db-migrate.XXXXXX")"
 FILES_LIST="$TMP_DIR/migrations.txt"
 MANIFEST_LIST="$TMP_DIR/migration-manifest.txt"
-HISTORY_SUCCEEDED_LIST="$TMP_DIR/history-succeeded.txt"
-MISSING_MANIFEST_LIST="$TMP_DIR/migration-missing.txt"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
 sql_escape() {
@@ -398,23 +396,6 @@ SQL
   echo "BASELINE: $baseline_count migration files recorded."
 }
 
-fast_skip_if_manifest_fully_succeeded() {
-  psql_query <<SQL | LC_ALL=C sort > "$HISTORY_SUCCEEDED_LIST"
-SELECT filename || '|' || checksum
-FROM ${HISTORY_TABLE}
-WHERE status = 'succeeded';
-SQL
-
-  comm -23 "$MANIFEST_LIST" "$HISTORY_SUCCEEDED_LIST" > "$MISSING_MANIFEST_LIST"
-  if [ ! -s "$MISSING_MANIFEST_LIST" ]; then
-    echo "Migration batch id: $BATCH_ID"
-    echo "Migration executed by: $MIGRATION_EXECUTED_BY"
-    echo "Migration file count: $total_count"
-    echo "No new migrations. All migration files are already recorded as succeeded; execution skipped."
-    exit 0
-  fi
-}
-
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "Migration directory not found: $MIGRATIONS_DIR" >&2
   exit 1
@@ -422,7 +403,6 @@ fi
 
 ensure_dependency sha256sum
 ensure_dependency awk
-ensure_dependency comm
 
 find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort > "$FILES_LIST"
 
@@ -468,7 +448,6 @@ prerequisite_failed_count=0
 last_success_file=""
 
 baseline_nonempty_database_if_needed
-fast_skip_if_manifest_fully_succeeded
 
 echo "Migration batch id: $BATCH_ID"
 echo "Migration executed by: $MIGRATION_EXECUTED_BY"
@@ -517,7 +496,9 @@ SQL
   # introduced prerequisite may belong to an already-succeeded target. Apply it
   # only after validating the target's existing history, and before skipping
   # that target, so later pending migrations and the repair seed can converge.
-  # Fully migrated databases still exit via fast-skip.
+  # This loop intentionally also runs for a fully migrated manifest. A
+  # prerequisite may be added later for an immutable, already-succeeded target,
+  # so migration-only history is not sufficient to skip prerequisite checks.
   run_prerequisites_for_migration "$filename"
 
   if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" = "$current_checksum" ]; then

@@ -11,11 +11,11 @@ database/migration-prerequisites/
     <ordered-prerequisite>.sql
 ```
 
-When a batch still has pending migrations, the runner evaluates prerequisites in
-migration order, including prerequisites newly attached to an already-succeeded
-earlier target. This lets a partially initialized database acquire a newly discovered
-dependency before later pending migrations run. A fully migrated database still exits
-through fast-skip and is not forced to acquire retroactive prerequisite history.
+The runner always evaluates prerequisites in migration order, including prerequisites
+newly attached to an already-succeeded earlier target. This lets partially initialized,
+fully migrated, and deliberately baselined databases acquire a newly discovered
+dependency. Checksum-matched migrations and prerequisites are skipped individually;
+migration-only history never bypasses prerequisite inspection.
 
 Each prerequisite receives its own checksum and running/succeeded/failed history
 record in both migration history tables. Any prerequisite failure stops before later
@@ -29,4 +29,4 @@ Do not use this mechanism to revise a successful migration or bypass its checksu
 
 The two history rows for one execution are written in one database transaction.
 After bootstrap, any status/checksum disagreement between the history tables fails
-before fast-skip or migration execution and requires manual inspection.
+before prerequisite or migration execution and requires manual inspection.
